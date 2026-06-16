@@ -40,6 +40,16 @@ export interface DecorConfig {
 	object?: GameObject
 }
 
+/** Per-node PNJ action config (owned by action-pnj). */
+export interface PnjConfig {
+	/** The PNJ's name (author/display). */
+	name: string
+	/** What the PNJ says — read by the player. */
+	dialogue: string
+	/** The object the PNJ gives, if any (shared ObjectEditor). */
+	gift?: GameObject
+}
+
 export interface BookNode {
 	id: string
 	kind: NodeKind
@@ -59,6 +69,8 @@ export interface BookNode {
 	actionType?: NodeActionType
 	/** Décor action config when `actionType === 'decor'` (owned by action-decor). */
 	decor?: DecorConfig
+	/** PNJ action config when `actionType === 'pnj'` (owned by action-pnj). */
+	pnj?: PnjConfig
 }
 
 export interface Edge {

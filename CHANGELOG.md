@@ -2,6 +2,12 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.1.5 — action-pnj walking skeleton (MVP slice)
+
+- New **`action-pnj`** feature — second `action-*`: self-registers a « PNJ » editor with the brain **ActionRegistry** (node-editor offers « Décor » + « PNJ » with zero changes, KR-050/051). `PnjEditor` is a VIEW over `BookService` (KR-020): a NAME + player-facing DIALOGUE, persisted on `node.pnj`.
+- The « Le PNJ donne un objet » switch reveals the **shared `brain/components/ObjectEditor`** — the very primitive action-decor introduced — imported from brain with **no cross-feature import** (validates KR-052/109). The gift carries a stable id (KR-003); toggling off drops it.
+- Domain model gained `node.pnj` (`PnjConfig`); `NodePatch` carries `pnj` so the text-only guard keeps it off structural screens (KR-055/090, now regression-tested for `pnj` too). 94 tests passing (3 new). Gift effects / « mène à » / reusable-PNJ catalog deferred to iterations.
+
 ## 0.1.4 — action-decor walking skeleton (MVP slice)
 
 - New **`action-decor`** feature — the first real `action-*` feature: it **self-registers** a « Décor » editor with the brain **ActionRegistry** (Open/Closed seam, KR-050/051), so node-editor offers and mounts it with zero changes. `DecorEditor` is a VIEW over `BookService` (KR-020): a Prendre / Écouter / Fouiller `SegmentedControl` persisted on the node.
