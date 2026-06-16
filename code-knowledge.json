@@ -152,6 +152,11 @@
 			"risk": "The outline DFS MUST guard cycles/convergence: a node already shown — or reached via a relink/flee edge — becomes a ↪ reference row and is never recursed into, so a cyclic book (allowed by design, KR-061) cannot infinite-loop. Nodes unreachable from the sommaire root (the isolated mort, free-floating nodes) are listed flat so none are hidden. A dangling edge target is flagged (⚠ cible supprimée), never crashed (KR-021). buildOutline is pure + view-agnostic so the rule is tested once."
 		},
 		{
+			"id": "KR-090",
+			"feature": "action-decor",
+			"risk": "An action-* feature self-registers its editor with the brain ActionRegistry at the composition root (registerActionDecor) and persists its config ON THE NODE document via BookService.updateNode — never feature-local state, never a node-editor import (KR-050/051/020). Décor config lives at node.decor (DecorConfig); NodePatch carries it so updateNode's text-only guard keeps it off structural screens (sommaire/mort, KR-055). The takeable object is captured via the shared brain ObjectEditor (name internal + player-facing description, KR-052) with a stable id minted once via createId (KR-003); embedding it on the node is the skeleton — promotion to a shared ObjectCatalogService (reuse by id across décor/PNJ/monster + hidden-prereqs, KR-062) is a later iteration."
+		},
+		{
 			"id": "KR-109",
 			"feature": "global-config",
 			"risk": "Any presentational component consumed by more than one feature belongs in brain/components/ and is re-exported from brain/components/index.ts. A component living in a feature but imported by another is a cross-feature violation — move it."

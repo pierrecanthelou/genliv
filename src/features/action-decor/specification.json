@@ -1,0 +1,66 @@
+{
+	"feature": "action-decor",
+	"created_at": "2026-06-16",
+	"status": "in-progress",
+	"design_reference": "Editeur Livre-Jeu - Wireframes.dc.html § 04 « Détail de chaque écran d'action » → 4B « DÉCOR · PRENDRE » (Prendre / Écouter / Fouiller switch + object rows) and the shared object editor anatomy (NOM — interne / DESCRIPTION — lue par le joueur) reused across § 04 (PNJ donne, décor prendre, monstre loot). Mounted via node-editor's « Action requise » seam. Low-fi wireframe, light theme.",
+	"plan": {
+		"goal": "Let an author configure a node's « Décor » action — choose the interaction (prendre / écouter / fouiller) and, for « prendre », author a takeable object with an internal name + a player-facing description — mounted into node-editor through the ActionRegistry without coupling the two features.",
+		"acceptance_criteria": [
+			"action-decor self-registers a « Décor » editor with the brain ActionRegistry; node-editor's « Action requise » control offers « Décor » with zero changes to node-editor (Open/Closed, KR-051).",
+			"Selecting « Décor » on a node mounts the décor editor body for that node; structural screens (sommaire/mort) never show it.",
+			"The décor editor offers a Prendre / Écouter / Fouiller interaction switch, persisted on the node via BookService (single source of truth).",
+			"« Prendre » shows the shared brain ObjectEditor capturing the object's internal NAME and player-facing DESCRIPTION (KR-052); the object carries a stable id minted once and preserved across edits (KR-003).",
+			"All décor config is persisted through BookService.updateNode (no private copy, KR-020) and reflects live; it lives on the node document, not in feature-local state.",
+			"node-editor never imports action-decor and vice versa; the wiring is the composition root calling registerActionDecor with the brain ActionRegistry.",
+			"The editor renders strictly from design-system primitives/tokens (SegmentedControl, ObjectEditor/Field), light theme; controls are keyboard-operable with ≥44px targets."
+		],
+		"brain_contracts": [
+			{ "type": "service", "name": "ActionRegistry", "direction": "consumes" },
+			{ "type": "service", "name": "BookService", "direction": "consumes" },
+			{ "type": "component", "name": "ObjectEditor", "direction": "consumes" }
+		],
+		"walking_skeleton": "registerActionDecor registers an ActionEditor { type:'decor', label:'Décor', render } with the brain ActionRegistry (wired at the App composition root). DecorEditor reads the node's decor config live via useOpenBook and writes it through BookService.updateNode: a Prendre/Écouter/Fouiller SegmentedControl, and for « prendre » the shared brain ObjectEditor (name + description) with a stable object id. Écouter/Fouiller are placeholder stubs for later iterations.",
+		"n": 3,
+		"iterations": [
+			{ "id": 1, "goal": "« Prendre » full (§ 4B): multiple takeable objects as rows (useful / leurre badges), add/remove/reorder, per-object « jet requis » (caractéristique + difficulté + échec text); object edit modal.", "status": "planned" },
+			{ "id": 2, "goal": "« Écouter » / « Fouiller »: the heard/found reveal text + optional skill roll gating; surface réussite/échec outcomes (the only semantic colors).", "status": "planned" },
+			{ "id": 3, "goal": "Promote objects to a shared ObjectCatalogService (reuse « prendre dans la liste », by stable id) so décor/PNJ/monster share one object catalog and hidden-prereqs (KR-062) can reference them.", "status": "planned" }
+		],
+		"known_risks": [
+			"KR-050/051 — node-editor is a host: action-decor self-registers via the ActionRegistry and is mounted by node-editor without being imported; adding the action needs zero node-editor changes.",
+			"KR-052 — objects carry a player-facing DESCRIPTION, not just a name; captured via the shared brain ObjectEditor, never a bare string.",
+			"KR-020 — décor config is read/written through BookService (the SSOT); the editor holds no private copy and reflects live via useOpenBook.",
+			"KR-003 — the takeable object is referenced by a stable id minted once (createId) and preserved across edits, never keyed by name.",
+			"KR-090 — décor config lives on the node document (node.decor); structural screens never carry it (updateNode's text-only guard for sommaire/mort, KR-055).",
+			"KR-013 — derive the editor's current values inline from the live node, not via a useEffect-synced mirror."
+		]
+	},
+	"implementation": {
+		"iterations_log": [
+			{
+				"id": 0,
+				"label": "walking-skeleton",
+				"completed_at": "2026-06-16",
+				"architecture_choices": [
+					"action-decor self-registers an ActionEditor with the brain ActionRegistry at the App composition root (registerActionDecor), proving the Open/Closed seam end-to-end with the first real action feature (KR-050/051) — node-editor mounts « Décor » without importing it.",
+					"The shared ObjectEditor lives in brain/components (KR-052/109): décor « prendre » is its first consumer; PNJ/monster will reuse it without a cross-feature import. It is controlled — the owner persists onChange through BookService.",
+					"DecorEditor is a VIEW over BookService (KR-020): reads node.decor via useOpenBook, writes via updateNode; the takeable object gets a stable id minted lazily with createId (KR-003).",
+					"The domain model gained node.decor (DecorConfig) + GameObject; NodePatch carries decor so updateNode's existing text-only guard keeps it off structural screens (KR-055)."
+				],
+				"deviations_from_plan": [
+					"« Écouter » / « Fouiller » are placeholder stubs (iteration 2); « prendre » ships a single object (the multi-object list + rolls are iteration 1).",
+					"Objects are embedded on the node for the skeleton; promotion to a shared ObjectCatalogService is iteration 3 (needed for hidden-prereqs, KR-062)."
+				],
+				"test_coverage": {
+					"unit": "ObjectEditor captures name + description (KR-052); registerActionDecor adds/removes the 'decor' editor (KR-051)",
+					"integration": "action-decor via App — « Décor » offered through the registry seam, « prendre » edits an object persisted via BookService with a stable id, interaction switch persists + toggles the object editor",
+					"e2e": "deferred (Playwright not set up)"
+				}
+			}
+		],
+		"open_questions": [
+			"Multi-object décor + per-object skill rolls (iteration 1) and the écouter/fouiller reveal (iteration 2).",
+			"Shared ObjectCatalogService (iteration 3) — define when objects must be reused by id across décor/PNJ/monster + referenced by hidden-prereqs."
+		]
+	}
+}

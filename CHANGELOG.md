@@ -2,6 +2,12 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.1.4 — action-decor walking skeleton (MVP slice)
+
+- New **`action-decor`** feature — the first real `action-*` feature: it **self-registers** a « Décor » editor with the brain **ActionRegistry** (Open/Closed seam, KR-050/051), so node-editor offers and mounts it with zero changes. `DecorEditor` is a VIEW over `BookService` (KR-020): a Prendre / Écouter / Fouiller `SegmentedControl` persisted on the node.
+- New shared **`brain/components/ObjectEditor`** (KR-052/109) — internal NAME + player-facing DESCRIPTION — owned/introduced by action-decor's « prendre » and reusable by future PNJ/monster editors without a cross-feature import. The takeable object gets a stable id minted via `createId` (KR-003, now exported from brain).
+- Domain model gained `node.decor` (`DecorConfig`) + `GameObject`; `NodePatch` carries `decor` so the text-only guard keeps it off structural screens (KR-055). New **KR-090**. 91 tests passing (4 new). Écouter/Fouiller + multi-object + skill rolls deferred to iterations 1–2; shared ObjectCatalogService to iteration 3.
+
 ## 0.1.3 — outline-view walking skeleton (MVP slice)
 
 - New **`outline-view`** feature: the open book as an indented « plan » (`OutlineView`), a DFS from the sommaire that nests `choice` edges and renders `relink`/`flee`/convergence/cycle back-edges as `↪` reference rows (cycle-safe, **KR-080**); unreachable nodes (isolated `mort`) listed flat; dangling targets flagged `⚠ cible supprimée`.

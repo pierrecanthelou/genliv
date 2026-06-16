@@ -4,6 +4,8 @@
  * Feature-agnostic: never imports from features/.
  */
 export type { Book, BookNode, Edge, NodeKind, EdgeKind, NodeActionType } from './types'
+export type { GameObject, DecorConfig, DecorInteraction } from './types'
+export { createId } from './utils/id'
 export type { EventBus, AppEvents, AppEventName } from './EventBus'
 export type { PersistenceService } from './PersistenceService'
 export type { Router, Route } from './Router'

@@ -19,6 +19,27 @@ export type { NodeKind, EdgeKind }
 /** Required-action slot on a node; concrete editors come from the ActionRegistry. */
 export type NodeActionType = 'aucune' | 'pnj' | 'decor' | 'piege' | 'monstre'
 
+/**
+ * A game object. The `name` is internal (author-facing); the `description` is
+ * read by the player (domain rule, KR-052). Referenced by stable `id`, never by
+ * name (KR-003). Shared shape edited through the brain ObjectEditor.
+ */
+export interface GameObject {
+	id: string
+	name: string
+	description: string
+}
+
+/** Décor interaction: take an object, listen, or search (KR — domain). */
+export type DecorInteraction = 'prendre' | 'ecouter' | 'fouiller'
+
+/** Per-node décor action config (owned by action-decor). */
+export interface DecorConfig {
+	interaction: DecorInteraction
+	/** For « prendre »: the object the player may take. */
+	object?: GameObject
+}
+
 export interface BookNode {
 	id: string
 	kind: NodeKind
@@ -36,6 +57,8 @@ export interface BookNode {
 	endFailure?: boolean
 	/** Required-action type to continue; defaults to 'aucune'. */
 	actionType?: NodeActionType
+	/** Décor action config when `actionType === 'decor'` (owned by action-decor). */
+	decor?: DecorConfig
 }
 
 export interface Edge {

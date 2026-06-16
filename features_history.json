@@ -135,6 +135,28 @@
 				"Hoisting the top bar kept every existing editor test green because EditorTopBar preserved the same roles/labels (heading title, « Ajouter un nœud », « N nœuds »); preserve accessible names when moving chrome."
 			],
 			"bugs_encountered": []
+		},
+		{
+			"feature": "action-decor",
+			"completed_at": "2026-06-16",
+			"goal": "Configure a node's « Décor » action (prendre / écouter / fouiller) with, for « prendre », a takeable object — mounted into node-editor through the ActionRegistry without coupling the features.",
+			"key_architecture_choices": [
+				"First real action-* feature: self-registers an ActionEditor with the brain ActionRegistry at the App composition root (registerActionDecor), proving the Open/Closed seam end-to-end — node-editor offers/mounts « Décor » with zero changes and no import (KR-050/051).",
+				"The shared ObjectEditor lives in brain/components (KR-052/109): décor « prendre » is its first consumer; PNJ/monster reuse it later without a cross-feature import. Controlled component — the owner persists onChange via BookService.",
+				"DecorEditor is a VIEW over BookService (KR-020): reads node.decor via useOpenBook, writes via updateNode; the takeable object carries a stable id minted lazily with createId (KR-003).",
+				"Domain model gained node.decor (DecorConfig) + GameObject; NodePatch carries decor so updateNode's text-only guard keeps it off structural screens (KR-055/090). createId is now exported from brain for feature id minting."
+			],
+			"brain_contracts_added": [
+				{ "type": "component", "name": "ObjectEditor (brain/components)" },
+				{ "type": "type", "name": "GameObject / DecorConfig / DecorInteraction" },
+				{ "type": "util", "name": "createId (exported from brain)" }
+			],
+			"lessons_learned": [
+				"The ActionRegistry seam built in node-editor's skeleton paid off: the first real action feature needed only a register call + an editor component, no node-editor change — validate a registry seam with its first real consumer.",
+				"A component shared by future siblings belongs in brain/components from its FIRST use (ObjectEditor), even when only one feature consumes it yet — putting it in the feature would force a cross-feature import later (KR-052/109).",
+				"Action config persists on the node document (node.decor) and rides the existing updateNode text-only guard for free — no new structural-screen handling needed (KR-055/090)."
+			],
+			"bugs_encountered": []
 		}
 	]
 }

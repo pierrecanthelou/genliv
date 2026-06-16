@@ -4,6 +4,7 @@ import { CreateBookEntry } from './features/book-creation'
 import { LibraryScreen } from './features/book-library'
 import { EditorScreen } from './EditorScreen'
 import { registerChoiceLinking } from './features/choice-linking'
+import { registerActionDecor } from './features/action-decor'
 
 /**
  * App shell — routes between the home (book-library) and the editor, and is
@@ -15,10 +16,17 @@ import { registerChoiceLinking } from './features/choice-linking'
  * communicate only through brain.
  */
 export function App(): JSX.Element {
-	const { slots } = useBrain()
+	const { slots, actions } = useBrain()
 	const route = useRoute()
-	// Register feature slot renderers once (external registry wiring, KR-013 ok).
-	useEffect(() => registerChoiceLinking(slots), [slots])
+	// Register pluggable feature renderers once (external registry wiring, KR-013 ok).
+	useEffect(() => {
+		const offChoices = registerChoiceLinking(slots)
+		const offDecor = registerActionDecor(actions)
+		return () => {
+			offChoices()
+			offDecor()
+		}
+	}, [slots, actions])
 	switch (route.name) {
 		case 'editor':
 			return <EditorScreen bookId={route.bookId} />
