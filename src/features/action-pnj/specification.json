@@ -1,0 +1,65 @@
+{
+	"feature": "action-pnj",
+	"created_at": "2026-06-16",
+	"status": "in-progress",
+	"design_reference": "Editeur Livre-Jeu - Wireframes.dc.html § 04 → 4A « ÉCRAN — PNJ »: identity (NOM + DIALOGUE, portrait deferred), « SOURCE DU PNJ » (créer / choisir dans le livre — reusable, deferred to a catalog), and « Le PNJ donne un objet » reusing the shared object editor (NOM — interne / DESCRIPTION — lue par le joueur). Mounted via node-editor's « Action requise » seam. Low-fi wireframe, light theme.",
+	"plan": {
+		"goal": "Let an author configure a node's « PNJ » action — the character's name + dialogue, and optionally an object the PNJ gives — mounted into node-editor through the ActionRegistry, reusing the shared ObjectEditor without coupling features.",
+		"acceptance_criteria": [
+			"action-pnj self-registers a « PNJ » editor with the brain ActionRegistry; node-editor's « Action requise » control offers « PNJ » alongside « Décor » with zero node-editor changes (Open/Closed, KR-051).",
+			"Selecting « PNJ » mounts the PNJ editor for that node; structural screens (sommaire/mort) never show it.",
+			"The editor captures the PNJ name + a player-facing dialogue, persisted on the node via BookService (single source of truth).",
+			"A « Le PNJ donne un objet » switch reveals the shared brain ObjectEditor (the same primitive action-decor uses, KR-052/109) capturing the gift's internal NAME + player-facing DESCRIPTION; turning it off removes the gift.",
+			"The gift object carries a stable id minted once and preserved across edits (KR-003).",
+			"All PNJ config is persisted through BookService.updateNode (no private copy, KR-020) and lives on the node document; action-pnj and node-editor never import each other (wired at the composition root).",
+			"The editor renders strictly from design-system primitives/tokens (Field, Toggle, ObjectEditor), light theme; controls are keyboard-operable with ≥44px targets."
+		],
+		"brain_contracts": [
+			{ "type": "service", "name": "ActionRegistry", "direction": "consumes" },
+			{ "type": "service", "name": "BookService", "direction": "consumes" },
+			{ "type": "component", "name": "ObjectEditor", "direction": "consumes" }
+		],
+		"walking_skeleton": "registerActionPnj registers an ActionEditor { type:'pnj', label:'PNJ', render } with the brain ActionRegistry (wired at the App composition root, alongside action-decor). PnjEditor reads node.pnj live via useOpenBook and writes via BookService.updateNode: a NAME Field, a DIALOGUE Field, and a « donne un objet » Toggle that reveals the shared brain ObjectEditor for the gift (stable id). Reusable PNJ catalog + portrait + dialogue tree are later iterations.",
+		"n": 3,
+		"iterations": [
+			{ "id": 1, "goal": "Gift effect (§ 4A): object effect (+N PV / +N Attaque / +N Défense / objet de scénario) + value stepper; « ensuite le PNJ mène à » target wiring.", "status": "planned" },
+			{ "id": 2, "goal": "Portrait upload + the dialogue affordance; richer identity.", "status": "planned" },
+			{ "id": 3, "goal": "Reusable PNJs via a shared catalog (« créer / choisir dans le livre »), referenced by stable id — paired with the ObjectCatalogService work (KR-062).", "status": "planned" }
+		],
+		"known_risks": [
+			"KR-050/051 — node-editor is a host: action-pnj self-registers via the ActionRegistry and is mounted without being imported; adding the action needs zero node-editor changes.",
+			"KR-052 — the gift object carries a player-facing DESCRIPTION, not just a name; captured via the SHARED brain ObjectEditor (now its second consumer), never a bare string and never a per-feature copy (KR-109).",
+			"KR-020 — PNJ config is read/written through BookService (the SSOT); the editor holds no private copy and reflects live via useOpenBook.",
+			"KR-003 — the gift object is referenced by a stable id minted once (createId) and preserved across edits.",
+			"KR-090 — PNJ config lives on the node document (node.pnj); structural screens never carry it (updateNode's text-only guard for sommaire/mort, KR-055).",
+			"KR-013 — derive the editor's current values inline from the live node, not via a useEffect-synced mirror."
+		]
+	},
+	"implementation": {
+		"iterations_log": [
+			{
+				"id": 0,
+				"label": "walking-skeleton",
+				"completed_at": "2026-06-16",
+				"architecture_choices": [
+					"Second action-* feature: self-registers with the brain ActionRegistry at the App composition root (registerActionPnj) — proves the seam scales (two registered editors, « Décor » + « PNJ ») with zero node-editor changes (KR-050/051).",
+					"Reuses the shared brain ObjectEditor for « donne un objet » (KR-052/109): the gift edits go through the same primitive as action-decor's « prendre », imported from brain — no cross-feature import. This validates the ObjectEditor was correctly placed in brain at its first use.",
+					"PnjEditor is a VIEW over BookService (KR-020): reads node.pnj via useOpenBook, normalises it once (DEFAULT_PNJ + destructure, mirroring the cleaned DecorEditor), writes via updateNode; the gift's stable id is minted lazily and preserved (KR-003).",
+					"Domain model gained node.pnj (PnjConfig); NodePatch carries pnj so updateNode's text-only guard keeps it off structural screens (KR-055/090). Toggling the gift off persists pnj without a gift (JSON drops the undefined)."
+				],
+				"deviations_from_plan": [
+					"Gift effect/value, the « mène à » target, portrait, and the reusable-PNJ catalog are deferred to iterations 1–3; the skeleton ships name + dialogue + a single optional gift object."
+				],
+				"test_coverage": {
+					"unit": "registerActionPnj adds/removes the 'pnj' editor (KR-051)",
+					"integration": "action-pnj via App — « PNJ » offered through the registry seam, name persisted, the gift reveals the SHARED ObjectEditor and persists with a stable id, removing the gift drops it; structural-screen guard now covers pnj (BookService)",
+					"e2e": "deferred (Playwright not set up)"
+				}
+			}
+		],
+		"open_questions": [
+			"Gift effects + « mène à » target (iteration 1), portrait/dialogue affordance (iteration 2).",
+			"Reusable PNJ + object catalogs (iteration 3) — share with the ObjectCatalogService work needed for hidden-prereqs (KR-062)."
+		]
+	}
+}

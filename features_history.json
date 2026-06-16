@@ -157,6 +157,24 @@
 				"Action config persists on the node document (node.decor) and rides the existing updateNode text-only guard for free — no new structural-screen handling needed (KR-055/090)."
 			],
 			"bugs_encountered": []
+		},
+		{
+			"feature": "action-pnj",
+			"completed_at": "2026-06-16",
+			"goal": "Configure a node's « PNJ » action — name + dialogue and an optional gift object — mounted into node-editor via the ActionRegistry, reusing the shared ObjectEditor.",
+			"key_architecture_choices": [
+				"Second action-* feature: self-registers with the brain ActionRegistry at the App composition root (registerActionPnj) — the seam now mounts two editors (« Décor » + « PNJ ») with zero node-editor changes (KR-050/051).",
+				"Reuses the shared brain ObjectEditor for « donne un objet » (KR-052/109) — its SECOND consumer, imported from brain with no cross-feature import; validates the decision to place ObjectEditor in brain at its first use.",
+				"PnjEditor is a VIEW over BookService (KR-020): reads node.pnj via useOpenBook, normalises it once (DEFAULT_PNJ + destructure, mirroring the cleaned DecorEditor), writes via updateNode; the gift's stable id is minted lazily and preserved (KR-003).",
+				"Domain model gained node.pnj (PnjConfig); NodePatch carries pnj so updateNode's text-only guard keeps it off structural screens (KR-055/090). The gift toggle-off persists pnj without a gift (JSON drops the undefined value)."
+			],
+			"brain_contracts_added": [{ "type": "type", "name": "PnjConfig" }],
+			"lessons_learned": [
+				"A shared brain primitive proves its worth at the SECOND consumer: action-pnj reused ObjectEditor with a single brain import — the cross-feature-violation trap (importing a sibling feature's component) never materialised because it was placed in brain from the start.",
+				"Patch semantics: updateNode skips top-level undefined keys, but a nested undefined (pnj.gift) is fine — it reads as absent in memory and is dropped by JSON on persist, so a toggle-off cleanly removes a sub-object without a dedicated unset API.",
+				"Normalising the config once (DEFAULT_PNJ + destructure) from the start avoided the scattered-default smell DecorEditor had to be refactored out of — apply the cleaned pattern to each new action editor."
+			],
+			"bugs_encountered": []
 		}
 	]
 }

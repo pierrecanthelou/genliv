@@ -5,6 +5,7 @@ import { LibraryScreen } from './features/book-library'
 import { EditorScreen } from './EditorScreen'
 import { registerChoiceLinking } from './features/choice-linking'
 import { registerActionDecor } from './features/action-decor'
+import { registerActionPnj } from './features/action-pnj'
 
 /**
  * App shell — routes between the home (book-library) and the editor, and is
@@ -22,9 +23,11 @@ export function App(): JSX.Element {
 	useEffect(() => {
 		const offChoices = registerChoiceLinking(slots)
 		const offDecor = registerActionDecor(actions)
+		const offPnj = registerActionPnj(actions)
 		return () => {
 			offChoices()
 			offDecor()
+			offPnj()
 		}
 	}, [slots, actions])
 	switch (route.name) {
