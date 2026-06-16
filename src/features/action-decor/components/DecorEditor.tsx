@@ -11,11 +11,21 @@ import {
 	type SegmentedOption,
 } from '../../../brain'
 
-const INTERACTIONS: SegmentedOption<DecorInteraction>[] = [
-	{ value: 'prendre', label: 'Prendre' },
-	{ value: 'ecouter', label: 'Écouter' },
-	{ value: 'fouiller', label: 'Fouiller' },
-]
+/**
+ * Single source for per-interaction data (same data-driven pattern as the kind
+ * registry, KR-068): the label is written once here, never duplicated in the
+ * switch options and the placeholder copy. New per-interaction facts (reveal
+ * text, roll config) get added as fields here in later iterations.
+ */
+const DECOR_INTERACTIONS: Record<DecorInteraction, { label: string }> = {
+	prendre: { label: 'Prendre' },
+	ecouter: { label: 'Écouter' },
+	fouiller: { label: 'Fouiller' },
+}
+
+const INTERACTION_OPTIONS: SegmentedOption<DecorInteraction>[] = (
+	Object.keys(DECOR_INTERACTIONS) as DecorInteraction[]
+).map((value) => ({ value, label: DECOR_INTERACTIONS[value].label }))
 
 /** The config a node falls back to before any décor is authored. */
 const DEFAULT_DECOR: DecorConfig = { interaction: 'prendre' }
@@ -52,7 +62,7 @@ export function DecorEditor({ bookId, nodeId }: ActionEditorContext): JSX.Elemen
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
 			<SegmentedControl
 				ariaLabel="Interaction du décor"
-				options={INTERACTIONS}
+				options={INTERACTION_OPTIONS}
 				value={interaction}
 				onChange={(value) => patchDecor({ interaction: value })}
 			/>
@@ -60,8 +70,7 @@ export function DecorEditor({ bookId, nodeId }: ActionEditorContext): JSX.Elemen
 				<ObjectEditor value={objectValue} onChange={handleObjectChange} />
 			) : (
 				<p style={{ margin: 0, fontSize: 'var(--fs-meta)', color: 'var(--text-faint)' }}>
-					{interaction === 'ecouter' ? '« Écouter »' : '« Fouiller »'} — détail à venir (jet de caractéristique, indices
-					cachés).
+					« {DECOR_INTERACTIONS[interaction].label} » — détail à venir (jet de caractéristique, indices cachés).
 				</p>
 			)}
 		</div>
