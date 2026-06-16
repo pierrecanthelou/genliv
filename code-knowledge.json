@@ -82,6 +82,11 @@
 			"risk": "Turning a node into a Fin (victoire/échec) changes its kind/badge everywhere; the end flags live on the node in BookService and the FIN badge is derived (effectiveKind/endLabel) so canvas/outline/panel reflect it from one source via node:updated."
 		},
 		{
+			"id": "KR-055",
+			"feature": "node-editor",
+			"risk": "Sommaire (root) and Mort (death leaf) are STRUCTURAL screens: no « libellé du choix », no « action requise pour poursuivre », no Fin victoire/échec toggles. Mort additionally has NO outgoing choices. Their only editable field is the text. Enforce both in the UI (hide those sections) AND in BookService.updateNode (text-only patch for sommaire/mort), so the invariant holds at the SSOT, not just the panel."
+		},
+		{
 			"id": "KR-109",
 			"feature": "global-config",
 			"risk": "Any presentational component consumed by more than one feature belongs in brain/components/ and is re-exported from brain/components/index.ts. A component living in a feature but imported by another is a cross-feature violation — move it."

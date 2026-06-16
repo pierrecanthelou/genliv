@@ -159,7 +159,7 @@ describe('BookService.updateNode', () => {
 		expect(service.getBook(book.id)?.nodes.find((n) => n.id === target.id)?.endVictory).toBe(true)
 	})
 
-	it('only accepts text edits on a locked node, ignoring end flags (KR-002)', () => {
+	it('only accepts text edits on the locked Mort node, ignoring end flags (KR-002)', () => {
 		const { service } = setup()
 		const book = service.createBook('Arbre')
 		const mort = book.nodes.find((n) => n.kind === 'mort')!
@@ -168,6 +168,22 @@ describe('BookService.updateNode', () => {
 
 		expect(updated?.text).toBe('Vous périssez.')
 		expect(updated?.endVictory).toBeUndefined()
+	})
+
+	it('only accepts text edits on the Sommaire root, ignoring action/end flags (KR-055)', () => {
+		const { service } = setup()
+		const book = service.createBook('Arbre')
+		const sommaire = book.nodes.find((n) => n.kind === 'sommaire')!
+
+		const updated = service.updateNode(book.id, sommaire.id, {
+			text: 'Au seuil.',
+			endFailure: true,
+			actionType: 'monstre',
+		})
+
+		expect(updated?.text).toBe('Au seuil.')
+		expect(updated?.endFailure).toBeUndefined()
+		expect(updated?.actionType).toBeUndefined()
 	})
 
 	it('returns null for an unknown book or node', () => {
