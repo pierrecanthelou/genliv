@@ -227,8 +227,8 @@ const deferredBox: React.CSSProperties = {
 }
 
 const closeButton: React.CSSProperties = {
-	width: 44,
-	height: 44,
+	width: 'var(--hit-target)',
+	height: 'var(--hit-target)',
 	border: 'none',
 	background: 'transparent',
 	color: 'var(--text-disabled)',

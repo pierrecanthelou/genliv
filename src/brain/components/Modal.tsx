@@ -176,7 +176,7 @@ export function Modal({
 								border: '1px solid var(--border-field)',
 								borderRadius: 'var(--r-lg)',
 								padding: '11px 16px',
-								minHeight: 44,
+								minHeight: 'var(--hit-target)',
 								background: 'none',
 								cursor: 'pointer',
 							}}
@@ -198,7 +198,7 @@ export function Modal({
 								border: 'none',
 								borderRadius: 'var(--r-lg)',
 								padding: '11px 18px',
-								minHeight: 44,
+								minHeight: 'var(--hit-target)',
 								fontWeight: 'var(--fw-semibold)',
 								cursor: confirmDisabled ? 'not-allowed' : 'pointer',
 							}}

@@ -1,4 +1,4 @@
-import { IconButton, type Book } from '../../../brain'
+import { IconButton, HIT_TARGET_MIN, type Book } from '../../../brain'
 
 export interface BookCardProps {
 	book: Book
@@ -35,8 +35,8 @@ export function BookCard({ book, onOpen, onRequestDelete }: BookCardProps): JSX.
 					textAlign: 'left',
 					minHeight: 96,
 					padding: 'var(--space-5)',
-					// Reserve the delete button's column (offset + 44px + gap) so the title never slips under it.
-					paddingRight: 'calc(var(--space-3) + 44px + var(--space-3))',
+					// Reserve the delete button's column (offset + hit-target + gap) so the title never slips under it.
+					paddingRight: 'calc(var(--space-3) + var(--hit-target) + var(--space-3))',
 					border: 'none',
 					background: 'none',
 					borderRadius: 'var(--r-2xl)',
@@ -63,7 +63,7 @@ export function BookCard({ book, onOpen, onRequestDelete }: BookCardProps): JSX.
 				<IconButton
 					tone="danger"
 					label={`Supprimer « ${book.title} »`}
-					size={44}
+					size={HIT_TARGET_MIN}
 					onClick={() => onRequestDelete(book)}
 				>
 					✕

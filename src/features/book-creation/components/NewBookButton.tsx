@@ -16,7 +16,7 @@ export function NewBookButton({ onClick }: NewBookButtonProps): JSX.Element {
 				display: 'inline-flex',
 				alignItems: 'center',
 				gap: 'var(--space-3)',
-				minHeight: 44,
+				minHeight: 'var(--hit-target)',
 				padding: '14px 20px',
 				border: '1.5px dashed var(--accent)',
 				borderRadius: 'var(--r-md)',

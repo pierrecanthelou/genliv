@@ -17,7 +17,7 @@ const monoControl: React.CSSProperties = {
 	fontSize: 'var(--fs-meta)',
 	borderRadius: 'var(--r-md)',
 	padding: '8px 12px',
-	minHeight: 44,
+	minHeight: 'var(--hit-target)',
 	display: 'inline-flex',
 	alignItems: 'center',
 	gap: 6,

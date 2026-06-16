@@ -18,6 +18,7 @@ export { nodeTitle, textLines } from './utils/nodeView'
 export { NODE_KINDS, EDGE_KINDS } from './kinds'
 export type { NodeKindDescriptor, EdgeKindDescriptor, BadgeMark } from './kinds'
 export { useOpenBook, useBooks } from './hooks'
+export { HIT_TARGET_MIN } from './ui'
 export {
 	createBrain,
 	BrainProvider,
