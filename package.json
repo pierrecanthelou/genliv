@@ -1,6 +1,6 @@
 {
 	"name": "genliv",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"private": true,
 	"type": "module",
 	"description": "Éditeur de « livre dont vous êtes le héros » — authoring tool",
@@ -11,7 +11,8 @@
 		"typecheck": "tsc --noEmit",
 		"lint": "eslint . --ext .ts,.tsx",
 		"format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
-		"test": "jest"
+		"test": "jest",
+		"code": "claude --dangerously-skip-permissions --effort high --continue --fork-session --system-prompt SKILL.md"
 	},
 	"dependencies": {
 		"react": "^18.3.1",

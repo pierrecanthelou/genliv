@@ -1,0 +1,89 @@
+{
+	"feature": "tree-canvas",
+	"created_at": "2026-06-15",
+	"status": "in-progress",
+	"design_reference": "Editeur Livre-Jeu - Wireframes.dc.html § 02 « Éditeur — vue d'ensemble de l'arbre » (BINDING): top bar with book title + node count + « + Nœud »; dot-grid canvas; node cards with NodeBadge + ref + title + 1-line snippet; SVG connectors with arrowheads + mono edge labels; dashed-curve « fuite » relink edge; bottom-right zoom controls. Node marks from foundations/badges-nodes.html; cards/badges/tokens from styles.css. Low-fi, light theme.",
+	"plan": {
+		"goal": "Render the book as a navigable graph of node cards and labelled edges on a dot-grid canvas, with selection, pan/zoom, and the entry point to add a node — the primary editor surface.",
+		"acceptance_criteria": [
+			"The canvas renders one card per node and one edge per relationship, read live from BookService; adding/removing/renaming a node or edge elsewhere updates the canvas without reload (driven by node:* / edge:* events).",
+			"Each node card shows its type via the correct NodeBadge mark, its ref, its title, and a 1-line snippet of its description.",
+			"Clicking a node selects it (accent border + ring) and emits node:selected{nodeId}; exactly one node is selected at a time; clicking empty canvas clears selection.",
+			"`choice` edges render solid and `relink`/`flee` edges render dashed; every edge shows its choice-label chip; the obligatory Mort node is reachable only via authored edges.",
+			"The canvas pans (drag) and zooms (controls + wheel); pan/zoom and the canvas↔outline view mode persist per book via UIPreferencesService and are NOT pushed to cloud sync.",
+			"« + Nœud » creates a new unattached node through BookService and selects it; the seeded empty book still shows Sommaire + Mort with an inviting affordance to author the first leaf.",
+			"Node positions are persisted (via BookService/PersistenceService) so the layout is stable across reloads; a position-less node gets a deterministic auto-layout slot rather than overlapping at 0,0.",
+			"Selecting a node here is what opens node-editor's side panel (via node:selected) — the canvas owns selection, not editing.",
+			"All chrome renders from design-system tokens/components, light theme; node cards stay legible at default zoom (title ≥ --fs-body)."
+		],
+		"brain_contracts": [
+			{ "type": "service", "name": "BookService", "direction": "consumes" },
+			{ "type": "service", "name": "UIPreferencesService", "direction": "consumes" },
+			{ "type": "service", "name": "Router", "direction": "consumes" },
+			{ "type": "event", "name": "node:selected", "direction": "emits", "payload": { "nodeId": "string|null" } },
+			{ "type": "event", "name": "node:created", "direction": "emits", "payload": { "nodeId": "string", "kind": "string" } },
+			{ "type": "event", "name": "node:updated", "direction": "consumes" },
+			{ "type": "event", "name": "node:deleted", "direction": "consumes" },
+			{ "type": "event", "name": "edge:created", "direction": "consumes" },
+			{ "type": "event", "name": "edge:deleted", "direction": "consumes" }
+		],
+		"walking_skeleton": "Read the open book from BookService, lay nodes out (stored position or auto-layout), draw cards + SVG edges on a dot-grid. Click a card → emit node:selected. Wire node:*/edge:* listeners to re-render. A faithful static graph with live selection.",
+		"n": 4,
+		"iterations": [
+			{ "id": 1, "goal": "Faithful static render of § 02: cards with correct NodeBadge marks, refs, titles, snippets; solid/dashed SVG edges with arrowheads and centered label chips; top bar; zoom controls. DS fidelity pass.", "status": "done" },
+			{ "id": 2, "goal": "Live data binding: render from BookService; subscribe to node:* / edge:* to update incrementally; « + Nœud » creates+selects a node; selection emits node:selected and is single-select with clear-on-empty-click.", "status": "done" },
+			{ "id": 3, "goal": "Pan/zoom + layout persistence: drag-pan, wheel/control zoom (local, shipped), deterministic auto-layout for position-less nodes (shipped); PERSIST positions on drag + per-book view state via UIPreferencesService (not cloud-synced, KR-022) — deferred until UIPreferencesService lands.", "status": "planned" },
+			{ "id": 4, "goal": "Robustness at scale: virtualize / cull off-screen nodes for large books, avoid edge-label overlap, keep 60fps pan; guard against orphaned edges referencing deleted nodes (KR-021, partially shipped: orphans are dropped).", "status": "planned" }
+		],
+		"known_risks": [
+			"KR-020 — The canvas is a VIEW, not the model: never mutate node/edge data locally; all changes go through BookService.",
+			"KR-021 — Orphaned edges must be dropped or visibly flagged, never rendered as a line to nowhere or a crash. Reconciled on every render via resolveEdges.",
+			"KR-022 — Pan/zoom and view-mode are UI preferences (UIPreferencesService), NOT part of the synced book document.",
+			"KR-023 — Node positions belong to the book document and must persist; position-less nodes use a deterministic layout (no random scatter, no 0,0 pileup).",
+			"KR-024 — Selection is owned here and broadcast via node:selected; node-editor must not own a competing selection source.",
+			"KR-011 — No raw window.localStorage; positions/view-state persist only through PersistenceService/UIPreferencesService.",
+			"KR-013 — Derive layout/selection state inline or via an external-store subscription, not via useEffect-synced mirrors of props.",
+			"Perf — large books must cull off-screen rendering and keep pan/zoom at 60fps; SVG edge count is the usual bottleneck.",
+			"A11y — node cards are keyboard-focusable and selectable; the canvas is not a keyboard trap."
+		]
+	},
+	"implementation": {
+		"iterations_log": [
+			{
+				"id": 0,
+				"label": "walking-skeleton + iterations 1-2",
+				"completed_at": "2026-06-16",
+				"architecture_choices": [
+					"TreeCanvas is a pure VIEW over BookService (KR-020): useOpenBook subscribes to the brain event bus (book:opened, node:*, edge:*) and re-reads the persisted book via useSyncExternalStore — an external-store subscription, not a useEffect-synced mirror (KR-013).",
+					"Node mutation lives in BookService (the SSOT): BookService.addNode creates a free-floating node with a deterministic auto-layout slot (autoSlot, KR-023), persists, then emits node:created carrying the kind. The canvas never writes node/edge data itself.",
+					"Selection is owned by the canvas (single source of truth, KR-024): local single-select state, broadcast via node:selected{nodeId|null}; node-editor will react to it. Clearing on empty-canvas click emits node:selected null.",
+					"Geometry is pure and testable (layout/geometry.ts): resolvePositions falls back to autoSlot for position-less nodes; resolveEdges drops orphaned edges whose endpoints were deleted (KR-021) rather than drawing a line to nowhere.",
+					"Pan/zoom is local per-session UI state (useViewport) and explicitly NOT persisted/synced here (KR-022); persistence via UIPreferencesService is deferred to iteration 3.",
+					"node:created payload extended with `kind` (typed NodeKind) on the brain EventBus — a core domain event emitted by BookService, kept in brain (emitter-owned), consistent with the event-ownership boundary."
+				],
+				"deviations_from_plan": [
+					"Iterations 1 and 2 shipped together as the walking skeleton (faithful § 02 render + live binding + selection + « + Nœud »).",
+					"Iteration 3 split: local drag-pan + wheel/control zoom + deterministic auto-layout SHIPPED now; PERSISTING pan/zoom + dragged positions via UIPreferencesService DEFERRED until that service exists (mirrors book-creation iter 3 deferring on CloudSyncService).",
+					"New « + Nœud » nodes are seeded as `choix` (a neutral authored screen); retyping happens later in node-editor.",
+					"The side panel shown in wireframe § 02 belongs to node-editor (next feature); tree-canvas only emits node:selected to drive it."
+				],
+				"test_coverage": {
+					"unit": "BookService.addNode (free-floating, deterministic position, persist-before-emit, unknown-book null); geometry (stored vs auto-layout positions, orphaned-edge drop, label midpoint)",
+					"integration": "TreeCanvas render (title/count/cards/empty-state placeholder), single-select + node:selected, clear-on-empty-click, « + Nœud » create+select+count via BookService",
+					"e2e": "deferred (Playwright not yet set up)"
+				}
+			}
+		],
+		"resolved_decisions": [
+			"Editor scope only: « Aperçu du jeu ▷ » is play/book-launch mode (out of scope) — rendered disabled.",
+			"Canvas owns node selection (single source of truth); node-editor reacts to node:selected.",
+			"Pan/zoom + canvas↔outline view mode are local UI preferences, not synced.",
+			"Auto-layout for position-less nodes is a deterministic diagonal cascade keyed by node index (no random scatter, no 0,0 pileup).",
+			"« + Nœud » creates a FREE-FLOATING unattached node (kind `choix`), then selects it; attaching to a parent choice is done in choice-linking."
+		],
+		"open_questions": [
+			"UIPreferencesService: persist per-book pan/zoom + view-mode + dragged node positions (iteration 3) when the service lands.",
+			"Outline view-mode switch is specced in the top bar but owned by outline-view; wire the toggle when that feature lands."
+		]
+	}
+}

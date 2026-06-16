@@ -59,7 +59,8 @@ Node kinds: `sommaire` (root) · `choix` · `pnj` · `decor` · `piege` · `mons
 | Feature | Status | Summary |
 |---------|--------|---------|
 | `book-creation` | walking skeleton ✅ | Home → « Nouveau livre » dialog → seed Sommaire + isolated Mort → editor. Iteration 3 (cloud-first offline queue) deferred until `cloud-sync`. |
+| `tree-canvas` | iter 1–2 ✅ | § 02 graph view: node cards (NodeBadge + ref + title + snippet) + SVG edges on a dot-grid; live binding to `BookService` via `node:*`/`edge:*`; single-select broadcast as `node:selected`; « + Nœud » adds a free-floating node. Local pan/zoom shipped; persisting view-state/positions (iter 3) deferred until `UIPreferencesService`. Retires `EditorStub`. |
 
-Next in the build order: `tree-canvas` → `node-editor` → `choice-linking` → `book-library` → `outline-view` → `action-*` → `cloud-sync`.
+Next in the build order: `node-editor` → `choice-linking` → `book-library` → `outline-view` → `action-*` → `cloud-sync`.
 
-> The current editor view (`src/EditorStub.tsx`) is a placeholder landing that renders the seeded tree; the real graph view is owned by the upcoming `tree-canvas` feature.
+> The editor surface is now the real `tree-canvas`. Its node side-panel (wireframe § 02 right) belongs to the next feature, `node-editor`, which reacts to the `node:selected` the canvas emits.

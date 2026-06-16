@@ -1,6 +1,6 @@
 import type { EventBus } from './EventBus'
 import type { PersistenceService } from './PersistenceService'
-import type { Book, BookNode } from './types'
+import type { Book, BookNode, NodeKind } from './types'
 import { bookKey, BOOK_KEY_PREFIX } from './persistenceKeys'
 import { createId } from './utils/id'
 
@@ -15,6 +15,31 @@ export interface BookService {
 	getBook(id: string): Book | null
 	listBooks(): Book[]
 	openBook(id: string): Book | null
+	/**
+	 * Add a free-floating, unattached node of `kind` to a book (KR-020).
+	 * It receives a deterministic auto-layout slot so it never piles at
+	 * 0,0 (KR-023); attaching it to a parent is done later in
+	 * choice-linking. Persists before emitting `node:created`. Returns the
+	 * new node, or null if the book does not exist.
+	 */
+	addNode(bookId: string, kind: NodeKind): BookNode | null
+}
+
+/**
+ * Deterministic slot for a position-less / newly added node (KR-023): a
+ * tidy diagonal cascade keyed by how many nodes already exist, so books
+ * reopen stably and new nodes never overlap at 0,0. The seeded sommaire
+ * (0,0) and mort (240,320) anchor the top; new authored nodes cascade
+ * down-right from there.
+ */
+const LAYOUT_STEP_X = 200
+const LAYOUT_STEP_Y = 150
+const LAYOUT_COLS = 3
+export function autoSlot(index: number): { x: number; y: number } {
+	return {
+		x: 40 + (index % LAYOUT_COLS) * LAYOUT_STEP_X,
+		y: 40 + Math.floor(index / LAYOUT_COLS) * LAYOUT_STEP_Y,
+	}
 }
 
 /**
@@ -79,6 +104,26 @@ export function createBookService(persistence: PersistenceService, events: Event
 			if (book === null) return null
 			events.emit('book:opened', { bookId: book.id })
 			return book
+		},
+
+		addNode(bookId, kind) {
+			const book = persistence.get<Book>(bookKey(bookId))
+			if (book === null) return null
+			const node: BookNode = {
+				id: createId('node'),
+				kind,
+				text: '',
+				position: autoSlot(book.nodes.length),
+			}
+			const next: Book = {
+				...book,
+				nodes: [...book.nodes, node],
+				updatedAt: new Date().toISOString(),
+			}
+			// Persist atomically before emitting, so listeners observe it (KR-004).
+			persist(next)
+			events.emit('node:created', { bookId: next.id, nodeId: node.id, kind })
+			return node
 		},
 	}
 }

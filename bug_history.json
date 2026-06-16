@@ -1,3 +1,16 @@
 {
-	"bugs": []
+	"bugs": [
+		{
+			"id": "BUG-001",
+			"date": "2026-06-16",
+			"feature": "tree-canvas",
+			"discovered_at": "walking-skeleton",
+			"symptom": "Canvas drag-pan attaches window pointermove/pointerup listeners; if the canvas unmounts mid-drag (e.g. navigation) before pointerup, the listeners are never removed.",
+			"root_cause": "Drag listeners self-removed only on pointerup, with no unmount cleanup path.",
+			"fix": "useViewport tracks the active detach fn in detachDragRef; a useEffect unmount cleanup calls it, and a new drag detaches any stale one first. (src/features/tree-canvas/hooks/useViewport.ts)",
+			"mitigation": "Single detach ref reused for both pointerup and unmount; impossible to leave a dangling listener.",
+			"regression_test": "covered indirectly by tree-canvas selection tests; pan/zoom e2e deferred with iteration 3",
+			"severity": "minor"
+		}
+	]
 }
