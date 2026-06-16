@@ -30,7 +30,7 @@ export interface GameObject {
 	description: string
 }
 
-/** Décor interaction: take an object, listen, or search (KR — domain). */
+/** Décor interaction: take an object, listen, or search (domain rule; KR-090). */
 export type DecorInteraction = 'prendre' | 'ecouter' | 'fouiller'
 
 /** Per-node décor action config (owned by action-decor). */

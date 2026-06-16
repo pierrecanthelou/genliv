@@ -296,11 +296,14 @@ describe('BookService.updateNode', () => {
 			text: 'Au seuil.',
 			endFailure: true,
 			actionType: 'monstre',
+			decor: { interaction: 'prendre' },
 		})
 
 		expect(updated?.text).toBe('Au seuil.')
 		expect(updated?.endFailure).toBeUndefined()
 		expect(updated?.actionType).toBeUndefined()
+		// Décor config never lands on a structural screen (KR-090).
+		expect(updated?.decor).toBeUndefined()
 	})
 
 	it('returns null for an unknown book or node', () => {
