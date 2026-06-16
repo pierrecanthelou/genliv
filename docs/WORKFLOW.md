@@ -1,6 +1,6 @@
 # Claude Code Config — genliv
 
-CRITICAL: Before every commit, run the full test suite and `tsc --noEmit`. Show a one-line summary (files + intent). Commit automatically if tests pass — do not wait for user approval.
+CRITICAL: the test + `tsc --noEmit` gate before every commit is **enforced deterministically** by a `PreToolUse` hook (`.claude/hooks/pre-commit-gate.sh`, wired in `.claude/settings.json`) — it blocks any `git commit` until `tsc --noEmit` and `jest` pass. Do not treat the gate as optional or try to work around it. Your remaining responsibilities: show a one-line summary (files + intent) and commit automatically once green — do not wait for user approval.
 
 ## Stack: React
 
