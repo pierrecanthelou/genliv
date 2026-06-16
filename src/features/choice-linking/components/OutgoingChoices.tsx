@@ -173,5 +173,5 @@ const candidate: React.CSSProperties = {
 	fontSize: 'var(--fs-body)',
 	color: 'var(--text-body)',
 	cursor: 'pointer',
-	minHeight: 40,
+	minHeight: 44,
 }
