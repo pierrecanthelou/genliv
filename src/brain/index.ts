@@ -15,7 +15,7 @@ export type { SlotRegistry, SlotRenderer, SlotContext } from './SlotRegistry'
 export { SLOT_NODE_EDITOR_CHOICES } from './SlotRegistry'
 export { effectiveKind, endLabel } from './utils/nodeKind'
 export { nodeTitle, textLines, DEFAULT_NODE_TITLES } from './utils/nodeView'
-export { useOpenBook } from './hooks'
+export { useOpenBook, useBooks } from './hooks'
 export {
 	createBrain,
 	BrainProvider,

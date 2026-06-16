@@ -92,6 +92,28 @@
 				"Pre-seed test fixtures BEFORE render() — a brain mutation after render (e.g. addChoiceBranch) updates subscribed views outside act() and triggers warnings."
 			],
 			"bugs_encountered": []
+		},
+		{
+			"feature": "book-library",
+			"completed_at": "2026-06-16",
+			"goal": "List every persisted book on the home screen and open or delete any of them — the entry point to existing books, not just freshly created ones.",
+			"key_architecture_choices": [
+				"New brain useBooks() view hook: a cached snapshot recomputed only on book:created/book:deleted via useSyncExternalStore (mirrors useOpenBook) — a live VIEW over BookService, never a useEffect mirror (KR-020/013/071).",
+				"BookService.deleteBook persists the removal before emitting book:deleted (KR-004/070), so the list re-reads a store without the book.",
+				"Composition-root seam (KR-072): LibraryScreen (book-library) owns the home chrome + list and receives the create affordance as a prop; App passes <CreateBookEntry/> (book-creation). Neither feature imports the other — same OCP pattern as ActionRegistry/SlotRegistry, applied to a sibling screen.",
+				"Deletion gated behind a confirmation dialog (dangerous action); shared Modal extended with confirmTone='error'. Pending-deletion target is local UI state, not derived from props (KR-013)."
+			],
+			"brain_contracts_added": [
+				{ "type": "service", "name": "BookService.deleteBook" },
+				{ "type": "hook", "name": "useBooks" },
+				{ "type": "event", "name": "book:deleted (now emitted)" }
+			],
+			"lessons_learned": [
+				"When two sibling features must share a screen (list + create), compose at the app root by passing one's affordance as a prop — same isolation seam as the panel registries, no slot registry needed for a single static injection.",
+				"A getByRole regex like /Title/ also matches a delete button whose accessible name contains the title (« Supprimer « Title » ») — anchor the open-button query (/^Title/) to disambiguate.",
+				"book:deleted already existed on the EventBus before any emitter; wiring the emitter (deleteBook) closed the loop without a contract change."
+			],
+			"bugs_encountered": []
 		}
 	]
 }

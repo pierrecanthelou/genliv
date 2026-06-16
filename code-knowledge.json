@@ -122,6 +122,21 @@
 			"risk": "Cross-feature panel composition uses the brain SlotRegistry: a host (node-editor) reserves a slot id (SLOT_NODE_EDITOR_CHOICES) and renders whatever is registered, falling back to a placeholder; a provider (choice-linking) registers a renderer at the composition root (App). Neither feature imports the other — same OCP seam as ActionRegistry, for arbitrary panel regions."
 		},
 		{
+			"id": "KR-070",
+			"feature": "book-library",
+			"risk": "Deleting a book is a dangerous, irreversible action: always gate behind a confirmation dialog (name the book, error-toned confirm, labelled Annuler) and route the delete through BookService.deleteBook (persist-remove then book:deleted, KR-004) — never a raw removal."
+		},
+		{
+			"id": "KR-071",
+			"feature": "book-library",
+			"risk": "The library list is a VIEW over BookService via useBooks (recomputed only on book:created/book:deleted, cached snapshot for useSyncExternalStore), never a private copy (re-asserts KR-020/013). Deleting the currently-open book could leave the editor on a dangling route — guard it (navigate home) when that path exists. [guard lands in iteration 2]"
+		},
+		{
+			"id": "KR-072",
+			"feature": "book-library",
+			"risk": "book-creation and book-library compose at the app root: LibraryScreen receives the create affordance as a prop (<CreateBookEntry/>); neither feature imports the other (feature isolation). Same composition-root seam as the ActionRegistry/SlotRegistry, for a sibling screen rather than a panel region."
+		},
+		{
 			"id": "KR-109",
 			"feature": "global-config",
 			"risk": "Any presentational component consumed by more than one feature belongs in brain/components/ and is re-exported from brain/components/index.ts. A component living in a feature but imported by another is a cross-feature violation — move it."

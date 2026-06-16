@@ -1,0 +1,80 @@
+{
+	"feature": "book-library",
+	"created_at": "2026-06-16",
+	"status": "in-progress",
+	"design_reference": "Editeur Livre-Jeu - Wireframes.dc.html § 01 step 1 « ACCUEIL DE L'APP » : « Mes livres » + a grid of book cards, the dashed accent card creating a book. Component anatomy + tokens from the design system (styles.css): card = surfaces/Card, delete = forms/IconButton (danger), confirmation = surfaces/Modal over a scrim with an error-toned confirm. Low-fi wireframe fidelity, light theme only.",
+	"plan": {
+		"goal": "Let an author see all their books on the home screen and open or delete any of them, so the library is the entry point to every existing book (not just freshly created ones).",
+		"acceptance_criteria": [
+			"The home screen lists every persisted book (BookService.listBooks) as a grid of cards, newest first; each card shows the book title and a screen count.",
+			"Clicking a book card opens it (BookService.openBook -> book:opened) and navigates to its editor, in that order, after the read resolves.",
+			"Each card exposes a delete affordance; deleting is a dangerous action gated behind a confirmation dialog that names the book, warns the deletion is permanent, and offers a labelled « Annuler ».",
+			"Confirming deletion removes the book via BookService.deleteBook (persist-remove then book:deleted, in that order) and the card disappears from the live list; cancelling leaves the book intact.",
+			"The book list is a live VIEW over BookService (useBooks), recomputed only on book:created / book:deleted, never a private mirror (KR-020/013).",
+			"The create affordance (« + Nouveau livre », owned by book-creation) is always present in the grid — including when there is no book — so the empty state still invites action.",
+			"book-creation and book-library never import each other: the app root composes LibraryScreen with the create affordance passed as a prop.",
+			"The screen renders strictly from design-system tokens/components (Card, IconButton, Modal), light theme; the confirm button is error-toned for the dangerous action; >=44px hit targets."
+		],
+		"brain_contracts": [
+			{ "type": "service", "name": "BookService", "direction": "consumes" },
+			{ "type": "service", "name": "Router", "direction": "consumes" },
+			{ "type": "service", "name": "BookService.deleteBook", "direction": "consumes" },
+			{ "type": "event", "name": "book:opened", "direction": "emits", "payload": { "bookId": "string" } },
+			{ "type": "event", "name": "book:deleted", "direction": "emits", "payload": { "bookId": "string" } }
+		],
+		"walking_skeleton": "LibraryScreen (the home route) lists books from useBooks() as a grid of BookCards. Clicking a card calls openBook + Router.navigate to the editor. A card's ✕ opens a DeleteBookDialog (confirmation); confirming calls BookService.deleteBook, which persists the removal then emits book:deleted, and the live list drops the card. The create affordance (CreateBookEntry from book-creation) is composed in by App as a prop. Wired entirely through brain.",
+		"n": 3,
+		"iterations": [
+			{
+				"id": 1,
+				"goal": "Card content & affordances: richer per-book meta (updatedAt, edge/end counts), hover-reveal delete, rename, duplicate; full DS card fidelity matching the wireframe grid.",
+				"status": "planned"
+			},
+			{
+				"id": 2,
+				"goal": "List ergonomics: search/filter, sort (recent/alpha), and an explicit empty state illustration; guard deleting the currently-open book (navigate home, avoid a dangling editor route).",
+				"status": "planned"
+			},
+			{
+				"id": 3,
+				"goal": "Cloud-first: reflect sync:status per book, reconcile the list with CloudSyncService, and queue deletes when offline. Deferred until the cloud-sync feature lands.",
+				"status": "planned"
+			}
+		],
+		"known_risks": [
+			"KR-070 — Deleting a book is a dangerous, irreversible action: always gate behind a confirmation dialog (name the book, error-toned confirm, labelled Annuler) and route the delete through BookService.deleteBook (persist-remove then book:deleted, KR-004) — never a raw removal.",
+			"KR-071 — The library list is a VIEW over BookService via useBooks (recomputed only on book:created/book:deleted), never a private copy (re-asserts KR-020/013); deleting the currently-open book could leave the editor on a dangling route — guarded in iteration 2.",
+			"KR-072 — book-creation and book-library compose at the app root (LibraryScreen receives the create affordance as a prop); neither imports the other (feature isolation).",
+			"KR-004 — book:opened/book:deleted fire only AFTER the persistence read/removal resolves, in order; listeners always observe a consistent store.",
+			"KR-011 — No raw window.localStorage; list and delete go through PersistenceService via BookService only."
+		]
+	},
+	"implementation": {
+		"iterations_log": [
+			{
+				"id": 0,
+				"label": "walking-skeleton",
+				"completed_at": "2026-06-16",
+				"architecture_choices": [
+					"New brain useBooks() view hook: a cached snapshot recomputed only on book:created/book:deleted via useSyncExternalStore, mirroring useOpenBook — a live VIEW over BookService, not a useEffect mirror (KR-020/013/071).",
+					"BookService.deleteBook persists the removal (PersistenceService.remove) before emitting book:deleted, so the list re-reads a store without the book (KR-004/070).",
+					"book-creation refactored: the create affordance extracted into CreateBookEntry (button + dialog), decoupled from page chrome; the home chrome + book list now belong to book-library's LibraryScreen.",
+					"App composes LibraryScreen with <CreateBookEntry/> as the createEntry prop, so the two features never import each other (KR-072).",
+					"Deletion gated behind DeleteBookDialog; the pending-deletion target is local UI state (not derived from props, KR-013). Reused the shared Modal, extended with confirmTone='error' for the dangerous-action confirm button."
+				],
+				"deviations_from_plan": [
+					"HomeScreen (book-creation) removed rather than kept: its heading/intro chrome moved to LibraryScreen (the natural owner of the list), and the create affordance became CreateBookEntry. No dead code left behind.",
+					"useBooks() landed in brain/hooks.ts (a generic book-list view) rather than inside the feature, since it is a pure read of the SSOT reusable by future consumers (e.g. cloud-sync)."
+				],
+				"test_coverage": {
+					"unit": "BookService.deleteBook (persist-before-emit, isolation, unknown-book no-op) + book-library integration (list/open/confirm-cancel/confirm-delete) via App",
+					"e2e": "deferred (Playwright not yet set up)"
+				}
+			}
+		],
+		"open_questions": [
+			"Guarding deletion of the currently-open book (navigate home) is iteration 2.",
+			"cloud-sync: per-book sync status + offline delete queue (iteration 3) when CloudSyncService lands."
+		]
+	}
+}

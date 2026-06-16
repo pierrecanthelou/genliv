@@ -79,6 +79,57 @@ describe('BookService.createBook', () => {
 	})
 })
 
+describe('BookService.deleteBook', () => {
+	beforeEach(() => {
+		window.localStorage.clear()
+	})
+
+	it('removes the book from storage and drops it from listBooks', () => {
+		const { service } = setup()
+		const book = service.createBook('À supprimer')
+		expect(service.listBooks().map((b) => b.id)).toContain(book.id)
+
+		expect(service.deleteBook(book.id)).toBe(true)
+
+		expect(service.getBook(book.id)).toBeNull()
+		expect(service.listBooks().map((b) => b.id)).not.toContain(book.id)
+	})
+
+	it('persists the removal before emitting book:deleted (KR-004)', () => {
+		const { service, events } = setup()
+		const book = service.createBook('Atomic')
+		let existedAtEmit = true
+		events.on('book:deleted', ({ bookId }) => {
+			existedAtEmit = service.getBook(bookId) !== null
+		})
+
+		service.deleteBook(book.id)
+
+		expect(existedAtEmit).toBe(false)
+	})
+
+	it('only deletes the targeted book, leaving the others intact', () => {
+		const { service } = setup()
+		const a = service.createBook('A')
+		const b = service.createBook('B')
+
+		service.deleteBook(a.id)
+
+		expect(service.getBook(a.id)).toBeNull()
+		expect(service.getBook(b.id)?.title).toBe('B')
+	})
+
+	it('returns false and emits nothing for an unknown book', () => {
+		const { service, events } = setup()
+		let fired = false
+		events.on('book:deleted', () => {
+			fired = true
+		})
+		expect(service.deleteBook('book_missing')).toBe(false)
+		expect(fired).toBe(false)
+	})
+})
+
 describe('BookService.addNode', () => {
 	beforeEach(() => {
 		window.localStorage.clear()
