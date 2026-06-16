@@ -2,6 +2,14 @@
 
 Persistent project context for Claude Code. Read `README.md` in this handoff for the full orientation; this file is the always-on rule set.
 
+## Engineering workflow (always-on — read first)
+
+The binding build process — walking-skeleton-first build steps, feature branch → quality-loop review gate → merge, versioning rules, testing patterns, and the `specification.json` / `bug_history.json` / `features_history.json` schemas — is imported below so it loads every session. Follow it for every change; do not wait to be reminded.
+
+@docs/WORKFLOW.md
+
+The on-demand **design system** (tokens, primitives, wireframe fidelity, asset generation) is the `livre-jeu-design` skill in `.claude/skills/` — invoke it for visual/design work.
+
 ## What we're building
 
 An **authoring tool** for « livres dont vous êtes le héros » (gamebooks). A **book = a tree of nodes + edges**, and *that tree is the thing that persists*. The editor lets an author build the tree visually, edit each leaf, and model encounters, skill rolls, combat, traps, and hidden item prerequisites. Scope = **editor/authoring mode only**; play mode is deferred.

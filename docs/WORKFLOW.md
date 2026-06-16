@@ -1,19 +1,3 @@
----
-name: livre-jeu-design
-description: Use this skill to generate well-branded interfaces and assets for the « Éditeur de livre dont vous êtes le héros » authoring tool, either for production or throwaway prototypes/mocks. Contains the low-fi wireframe design system — colors, type, fonts, node-badge language, and UI components for prototyping the gamebook editor.
-user-invocable: true
----
-
-Read the `readme.md` file within this skill, and explore the other available files (`styles.css` + `tokens/`, `foundations/`, `components/`).
-
-This is a **low-fidelity wireframe system** (grayscale + one blue accent), extracted from `Editeur Livre-Jeu - Wireframes.dc.html`. It is designed to be redesigned later without breaking feature specs — keep the token names and component anatomy stable; the visuals are a placeholder pass.
-
-If creating visual artifacts (mocks, throwaway prototypes, specimen screens), copy assets out and create static HTML files that link `styles.css` for the real tokens. If working on production code, copy the `components/` primitives and read the rules here to design fluently in this system — they map to the editor's `brain/components/` shared layer.
-
-Key domain anchors: the persisted data is a **tree of nodes** (Sommaire, choix, PNJ, décor, piège, monstre, fin, mort); object **names are internal but descriptions are player-facing**; skill rolls produce **réussite/échec** outcomes (the only semantic colors).
-
-If the user invokes this skill without other guidance, ask what they want to build, ask a few questions, and act as an expert designer who outputs HTML artifacts or production code as needed.
-
 # Claude Code Config — genliv
 
 CRITICAL: Before every commit, run the full test suite and `tsc --noEmit`. Show a one-line summary (files + intent). Commit automatically if tests pass — do not wait for user approval.
