@@ -28,7 +28,7 @@
 		"walking_skeleton": "Render the selected node's outgoing choices from BookService inside node-editor's choices slot (mounted via the brain SlotRegistry, no cross-feature import). « + branche » creates+links+selects a child (node:created/edge:created/node:selected). « Relier… » lists existing nodes and creates a relink edge. Remove deletes only the edge. Hidden-prereq/countdown deferred (need ObjectCatalogService).",
 		"n": 4,
 		"iterations": [
-			{ "id": 1, "goal": "Choice rows + new branch (§ 06 A): list outgoing choices as rows with rule badges; « + Nouvelle branche » creates+links+selects a child with placeholders; emit the three events. DS fidelity.", "status": "planned" },
+			{ "id": 1, "goal": "Choice rows + new branch (§ 06 A): list outgoing choices as rows with rule badges; each row exposes an editable « libellé du choix » persisted on the edge (Edge.label) via BookService, with an inviting placeholder when empty; « + Nouvelle branche » creates+links+selects a child with placeholders; emit the three events. DS fidelity.", "status": "planned" },
 			{ "id": 2, "goal": "Relink (§ 06 B): searchable node popover, create a `relink`/`fuite` edge enabling cycles/convergence; canvas dashed; guard self-link and duplicate edges (KR-061).", "status": "planned" },
 			{ "id": 3, "goal": "Hidden prerequisite (§ 05): toggle + required-object picker referencing ObjectCatalogService by id; choice hidden unless owned; ⊘ badge; clean removal (KR-062).", "status": "planned" },
 			{ "id": 4, "goal": "Countdown (§ 05): toggle + délai + fallback-node Select with validation; ⏱ badge; referential-integrity sweep for deleted targets/objects (KR-063).", "status": "planned" }
