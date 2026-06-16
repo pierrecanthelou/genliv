@@ -229,6 +229,12 @@ export function createBookService(persistence: PersistenceService, events: Event
 			if (fromNode === undefined || toNode === undefined) return null
 			// Mort is structural: no outgoing choices (KR-055/060).
 			if (fromNode.kind === 'mort') return null
+			// Structural screens are never authored choice targets (KR-067): the
+			// Sommaire is the root (no incoming choices) and the Mort leaf is
+			// reached only automatically at the end of a combat, never via an
+			// authored choice/relink. The future automatic combat→Mort link will
+			// use a dedicated path, not this manual edge API.
+			if (toNode.kind === 'sommaire' || toNode.kind === 'mort') return null
 			const edge: Edge = { id: createId('edge'), from, to, kind }
 			const next: Book = { ...book, edges: [...book.edges, edge], updatedAt: new Date().toISOString() }
 			persist(next)

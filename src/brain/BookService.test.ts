@@ -280,18 +280,19 @@ describe('BookService edges (choice-linking)', () => {
 		const { service, events } = setup()
 		const book = service.createBook('Arbre')
 		const sommaire = book.nodes.find((n) => n.kind === 'sommaire')!
-		const mort = book.nodes.find((n) => n.kind === 'mort')!
+		// Relink targets must be non-structural (KR-067), so seed a real screen.
+		const target = service.addNode(book.id, 'choix')!
 		let payload: { from: string; to: string; kind: string } | null = null
 		events.on('edge:created', (p) => {
 			payload = { from: p.from, to: p.to, kind: p.kind }
 		})
 
-		const edge = service.addEdge(book.id, sommaire.id, mort.id, 'relink')
+		const edge = service.addEdge(book.id, sommaire.id, target.id, 'relink')
 
 		expect(edge).not.toBeNull()
-		expect(payload).toEqual({ from: sommaire.id, to: mort.id, kind: 'relink' })
+		expect(payload).toEqual({ from: sommaire.id, to: target.id, kind: 'relink' })
 		const stored = service.getBook(book.id)!
-		expect(stored.nodes).toHaveLength(2) // no node created
+		expect(stored.nodes).toHaveLength(3) // the seeded target, none created by relink
 		expect(stored.edges).toHaveLength(1)
 	})
 
@@ -302,6 +303,20 @@ describe('BookService edges (choice-linking)', () => {
 		const mort = book.nodes.find((n) => n.kind === 'mort')!
 		expect(service.addEdge(book.id, sommaire.id, 'ghost', 'relink')).toBeNull()
 		expect(service.addEdge(book.id, mort.id, sommaire.id, 'relink')).toBeNull()
+	})
+
+	it('addEdge rejects edges INTO the structural Sommaire or Mort screens (KR-067)', () => {
+		const { service } = setup()
+		const book = service.createBook('Arbre')
+		const sommaire = book.nodes.find((n) => n.kind === 'sommaire')!
+		const mort = book.nodes.find((n) => n.kind === 'mort')!
+		const child = service.addChoiceBranch(book.id, sommaire.id)!.node
+
+		// Mort is reached only automatically in combat; Sommaire is the root.
+		expect(service.addEdge(book.id, child.id, mort.id, 'relink')).toBeNull()
+		expect(service.addEdge(book.id, child.id, sommaire.id, 'relink')).toBeNull()
+		// Only the original choice edge survives — no relink into a structural screen.
+		expect(service.getBook(book.id)!.edges).toHaveLength(1)
 	})
 
 	it('removeEdge deletes only the edge (never the target node) and emits edge:deleted', () => {
