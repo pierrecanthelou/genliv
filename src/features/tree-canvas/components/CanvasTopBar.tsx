@@ -1,4 +1,4 @@
-import { Badge } from '../../../brain'
+import { Badge, plural } from '../../../brain'
 
 /**
  * Editor top bar (wireframe § 02): « ← Mes livres », book title + node-count
@@ -62,7 +62,7 @@ export function CanvasTopBar({ title, nodeCount, onBack, onAddNode }: CanvasTopB
 					{title}
 				</h1>
 				<Badge tone="muted">
-					{nodeCount} {nodeCount > 1 ? 'nœuds' : 'nœud'}
+					{nodeCount} {plural(nodeCount, 'nœud')}
 				</Badge>
 			</div>
 

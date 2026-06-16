@@ -5,17 +5,16 @@
  */
 
 /**
- * Leaf kinds. `mort` is the locked, obligatory death leaf. Kinds are plain
- * string literals, not classes: the book is serialised to/from JSON by the
- * PersistenceService, so a class hierarchy would fight (de)serialisation. The
- * per-kind behaviour lives in the data-driven kind registry (`kinds.ts`,
- * KR-068) — the idiomatic alternative to "replace conditional with
- * polymorphism" for a serialised domain.
+ * Node + edge kinds are PLAIN string literal unions (not classes): the book is
+ * serialised to/from JSON by the PersistenceService, so a class hierarchy would
+ * fight (de)serialisation. Both unions are derived from the keys of the
+ * data-driven kind registry (`kinds.ts`, KR-068) — the single source for the
+ * kind set AND its per-kind behaviour, the idiomatic alternative to "replace
+ * conditional with polymorphism" for a serialised domain. Re-exported here so
+ * the domain model reads as one piece.
  */
-export type NodeKind = 'sommaire' | 'choix' | 'pnj' | 'decor' | 'piege' | 'monstre' | 'fin' | 'mort'
-
-/** Edges carry a kind: a `choice` is the labelled button in a parent screen. */
-export type EdgeKind = 'choice' | 'relink' | 'flee'
+import type { NodeKind, EdgeKind } from './kinds'
+export type { NodeKind, EdgeKind }
 
 /** Required-action slot on a node; concrete editors come from the ActionRegistry. */
 export type NodeActionType = 'aucune' | 'pnj' | 'decor' | 'piege' | 'monstre'
