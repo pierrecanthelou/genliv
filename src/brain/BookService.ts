@@ -68,13 +68,14 @@ export type NodePatch = Partial<Pick<BookNode, 'text' | 'endVictory' | 'endFailu
  * (0,0) and mort (240,320) anchor the top; new authored nodes cascade
  * down-right from there.
  */
+const LAYOUT_ORIGIN = 40
 const LAYOUT_STEP_X = 200
 const LAYOUT_STEP_Y = 150
 const LAYOUT_COLS = 3
 export function autoSlot(index: number): { x: number; y: number } {
 	return {
-		x: 40 + (index % LAYOUT_COLS) * LAYOUT_STEP_X,
-		y: 40 + Math.floor(index / LAYOUT_COLS) * LAYOUT_STEP_Y,
+		x: LAYOUT_ORIGIN + (index % LAYOUT_COLS) * LAYOUT_STEP_X,
+		y: LAYOUT_ORIGIN + Math.floor(index / LAYOUT_COLS) * LAYOUT_STEP_Y,
 	}
 }
 

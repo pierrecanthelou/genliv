@@ -29,6 +29,10 @@ export interface ModalProps {
 const FOCUSABLE =
 	'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
 
+/** Dialog max width, and the square close (✕) button size. */
+const MODAL_MAX_WIDTH = 420
+const CLOSE_BUTTON_SIZE = 28
+
 export function Modal({
 	title,
 	children,
@@ -104,7 +108,7 @@ export function Modal({
 					boxShadow: 'var(--shadow-modal)',
 					overflow: 'hidden',
 					width: '100%',
-					maxWidth: 420,
+					maxWidth: MODAL_MAX_WIDTH,
 				}}
 			>
 				<div
@@ -129,8 +133,8 @@ export function Modal({
 							color: 'var(--ink-5)',
 							fontSize: 16,
 							cursor: 'pointer',
-							width: 28,
-							height: 28,
+							width: CLOSE_BUTTON_SIZE,
+							height: CLOSE_BUTTON_SIZE,
 						}}
 					>
 						✕

@@ -13,9 +13,28 @@ import { autoSlot } from '../../../brain'
 export const NODE_W = 172
 export const NODE_H = 70
 
+/** Canvas sizing: a minimum surface, plus a margin past the furthest node. */
+export const CANVAS_MIN_W = 600
+export const CANVAS_MIN_H = 400
+export const CANVAS_MARGIN = 80
+
 export interface Point {
 	x: number
 	y: number
+}
+
+/**
+ * The drawable canvas size: at least CANVAS_MIN_*, expanded to enclose every
+ * node plus a margin so the furthest card is never flush against the edge.
+ */
+export function resolveBounds(positions: Map<string, Point>): { w: number; h: number } {
+	let w = CANVAS_MIN_W
+	let h = CANVAS_MIN_H
+	for (const p of positions.values()) {
+		w = Math.max(w, p.x + NODE_W + CANVAS_MARGIN)
+		h = Math.max(h, p.y + NODE_H + CANVAS_MARGIN)
+	}
+	return { w, h }
 }
 
 /** Top-left position for every node, stored or deterministically derived. */

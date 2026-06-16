@@ -1,10 +1,13 @@
-import { IconButton, HIT_TARGET_MIN, type Book } from '../../../brain'
+import { IconButton, HIT_TARGET_MIN, plural, type Book } from '../../../brain'
 
 export interface BookCardProps {
 	book: Book
 	onOpen: (id: string) => void
 	onRequestDelete: (book: Book) => void
 }
+
+/** Card surface height — tall enough for title + meta with breathing room. */
+const CARD_MIN_HEIGHT = 96
 
 /**
  * One book in the library grid: a clickable surface that opens the book in
@@ -17,49 +20,14 @@ export function BookCard({ book, onOpen, onRequestDelete }: BookCardProps): JSX.
 	const screenCount = book.nodes.length
 
 	return (
-		<article
-			style={{
-				position: 'relative',
-				background: 'var(--surface-card)',
-				border: '1px solid var(--border-card)',
-				borderRadius: 'var(--r-2xl)',
-				boxShadow: 'var(--shadow-card)',
-			}}
-		>
-			<button
-				type="button"
-				onClick={() => onOpen(book.id)}
-				style={{
-					display: 'block',
-					width: '100%',
-					textAlign: 'left',
-					minHeight: 96,
-					padding: 'var(--space-5)',
-					// Reserve the delete button's column (offset + hit-target + gap) so the title never slips under it.
-					paddingRight: 'calc(var(--space-3) + var(--hit-target) + var(--space-3))',
-					border: 'none',
-					background: 'none',
-					borderRadius: 'var(--r-2xl)',
-					cursor: 'pointer',
-					fontFamily: 'var(--font-ui)',
-				}}
-			>
-				<span
-					style={{
-						display: 'block',
-						fontSize: 'var(--fs-title)',
-						fontWeight: 'var(--fw-semibold)',
-						color: 'var(--text-strong)',
-						marginBottom: 'var(--space-2)',
-					}}
-				>
-					{book.title}
-				</span>
-				<span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}>
-					{screenCount} écran{screenCount > 1 ? 's' : ''}
+		<article style={cardSurface}>
+			<button type="button" onClick={() => onOpen(book.id)} style={openButton}>
+				<span style={cardTitle}>{book.title}</span>
+				<span style={cardMeta}>
+					{screenCount} {plural(screenCount, 'écran')}
 				</span>
 			</button>
-			<div style={{ position: 'absolute', top: 'var(--space-3)', right: 'var(--space-3)' }}>
+			<div style={deleteCorner}>
 				<IconButton
 					tone="danger"
 					label={`Supprimer « ${book.title} »`}
@@ -71,4 +39,47 @@ export function BookCard({ book, onOpen, onRequestDelete }: BookCardProps): JSX.
 			</div>
 		</article>
 	)
+}
+
+const cardSurface: React.CSSProperties = {
+	position: 'relative',
+	background: 'var(--surface-card)',
+	border: '1px solid var(--border-card)',
+	borderRadius: 'var(--r-2xl)',
+	boxShadow: 'var(--shadow-card)',
+}
+
+const openButton: React.CSSProperties = {
+	display: 'block',
+	width: '100%',
+	textAlign: 'left',
+	minHeight: CARD_MIN_HEIGHT,
+	padding: 'var(--space-5)',
+	// Reserve the delete button's column (offset + hit-target + gap) so the title never slips under it.
+	paddingRight: 'calc(var(--space-3) + var(--hit-target) + var(--space-3))',
+	border: 'none',
+	background: 'none',
+	borderRadius: 'var(--r-2xl)',
+	cursor: 'pointer',
+	fontFamily: 'var(--font-ui)',
+}
+
+const cardTitle: React.CSSProperties = {
+	display: 'block',
+	fontSize: 'var(--fs-title)',
+	fontWeight: 'var(--fw-semibold)',
+	color: 'var(--text-strong)',
+	marginBottom: 'var(--space-2)',
+}
+
+const cardMeta: React.CSSProperties = {
+	fontFamily: 'var(--font-mono)',
+	fontSize: 'var(--fs-meta)',
+	color: 'var(--text-muted)',
+}
+
+const deleteCorner: React.CSSProperties = {
+	position: 'absolute',
+	top: 'var(--space-3)',
+	right: 'var(--space-3)',
 }

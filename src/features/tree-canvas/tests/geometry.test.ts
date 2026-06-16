@@ -1,4 +1,14 @@
-import { resolvePositions, resolveEdges } from '../layout/geometry'
+import {
+	resolvePositions,
+	resolveEdges,
+	resolveBounds,
+	NODE_W,
+	NODE_H,
+	CANVAS_MIN_W,
+	CANVAS_MIN_H,
+	CANVAS_MARGIN,
+	type Point,
+} from '../layout/geometry'
 import type { BookNode, Edge } from '../../../brain'
 
 function node(id: string, position?: { x: number; y: number }): BookNode {
@@ -20,6 +30,20 @@ describe('resolvePositions', () => {
 		// No 0,0 pileup: distinct slots.
 		expect(first.get('a')).not.toEqual(first.get('b'))
 		expect(first.get('b')).not.toEqual(first.get('c'))
+	})
+})
+
+describe('resolveBounds', () => {
+	it('falls back to the minimum surface when there are no nodes', () => {
+		expect(resolveBounds(new Map())).toEqual({ w: CANVAS_MIN_W, h: CANVAS_MIN_H })
+	})
+
+	it('expands to enclose the furthest node plus a margin', () => {
+		const positions = new Map<string, Point>([['far', { x: 1000, y: 800 }]])
+		expect(resolveBounds(positions)).toEqual({
+			w: 1000 + NODE_W + CANVAS_MARGIN,
+			h: 800 + NODE_H + CANVAS_MARGIN,
+		})
 	})
 })
 

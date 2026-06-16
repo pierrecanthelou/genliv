@@ -94,6 +94,9 @@ export function OutgoingChoices({ bookId, nodeId }: SlotContext): JSX.Element {
 	)
 }
 
+/** Relink picker dropdown max height before it scrolls. */
+const PICKER_MAX_HEIGHT = 180
+
 const header: React.CSSProperties = {
 	display: 'flex',
 	alignItems: 'center',
@@ -164,7 +167,7 @@ const picker: React.CSSProperties = {
 	borderRadius: 'var(--r-md)',
 	background: 'var(--surface-card)',
 	boxShadow: 'var(--shadow-menu)',
-	maxHeight: 180,
+	maxHeight: PICKER_MAX_HEIGHT,
 	overflowY: 'auto',
 }
 const candidate: React.CSSProperties = {

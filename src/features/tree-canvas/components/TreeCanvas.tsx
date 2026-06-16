@@ -1,13 +1,18 @@
 import { useMemo } from 'react'
 import { useBrain, useRoute, useSelectedNode, useOpenBook } from '../../../brain'
 import { useViewport } from '../hooks/useViewport'
-import { resolvePositions, resolveEdges, NODE_W, NODE_H } from '../layout/geometry'
+import { resolvePositions, resolveEdges, resolveBounds, NODE_W, NODE_H } from '../layout/geometry'
 import { CanvasTopBar } from './CanvasTopBar'
 import { NodeCard } from './NodeCard'
 import { EdgeLayer } from './EdgeLayer'
 import { ZoomControls } from './ZoomControls'
 
 const DOT_GRID = 'radial-gradient(var(--ink-6) 1px, transparent 1px)'
+/** Dot-grid cell size (px). */
+const DOT_GRID_SIZE = 22
+/** Inset of the « first sheet » hint from the canvas origin, and its gap below the seeded node. */
+const HINT_INSET = 40
+const HINT_GAP = 28
 
 /**
  * tree-canvas — the primary editor surface. Renders the open book as a graph
@@ -26,15 +31,7 @@ export function TreeCanvas(): JSX.Element {
 
 	const positions = useMemo(() => resolvePositions(book?.nodes ?? []), [book])
 	const edges = useMemo(() => resolveEdges(book?.edges ?? [], positions), [book, positions])
-	const bounds = useMemo(() => {
-		let w = 600
-		let h = 400
-		for (const p of positions.values()) {
-			w = Math.max(w, p.x + NODE_W + 80)
-			h = Math.max(h, p.y + NODE_H + 80)
-		}
-		return { w, h }
-	}, [positions])
+	const bounds = useMemo(() => resolveBounds(positions), [positions])
 
 	if (book === null) {
 		return (
@@ -87,7 +84,7 @@ export function TreeCanvas(): JSX.Element {
 					overflow: 'hidden',
 					background: 'var(--surface-sunken)',
 					backgroundImage: DOT_GRID,
-					backgroundSize: '22px 22px',
+					backgroundSize: `${DOT_GRID_SIZE}px ${DOT_GRID_SIZE}px`,
 					cursor: 'grab',
 				}}
 			>
@@ -125,8 +122,8 @@ export function TreeCanvas(): JSX.Element {
 							}}
 							style={{
 								position: 'absolute',
-								left: 40,
-								top: 40 + NODE_H + 28,
+								left: HINT_INSET,
+								top: HINT_INSET + NODE_H + HINT_GAP,
 								width: NODE_W,
 								minHeight: NODE_H,
 								border: '1.5px dashed var(--border-field)',

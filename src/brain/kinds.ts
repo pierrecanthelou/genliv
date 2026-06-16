@@ -1,19 +1,26 @@
 import { type CSSProperties } from 'react'
-import type { NodeKind, EdgeKind } from './types'
 
 /**
  * Kind registries — the single source of per-kind knowledge (KR-068). Every
- * fact about a `NodeKind` (its badge label + CSS-drawn mark, its empty-state
- * title, and its structural/edge invariants) and every `EdgeKind` (its labels
+ * fact about a node kind (its badge label + CSS-drawn mark, its empty-state
+ * title, and its structural/edge invariants) and every edge kind (its labels
  * + row tone) lives here, so a kind self-describes and consumers never branch
  * on the kind value with scattered `if (kind === …)` tests or partial maps.
  *
- * Adding a kind = adding ONE entry: the `Record<NodeKind, …>` /
- * `Record<EdgeKind, …>` types make every entry mandatory, so the compiler
- * flags a missing one instead of failing silently at runtime (the trap of the
- * old `Partial<Record<NodeKind, …>>` badge map). Same Open/Closed seam as the
+ * The registries are the SINGLE source even for the `NodeKind` / `EdgeKind`
+ * union types: each is derived with `keyof typeof`, so the type and the table
+ * can never drift. The `defineKinds` factory infers the key union while
+ * pinning each entry to the descriptor shape — so adding a kind is ONE entry
+ * (a missing field fails to compile; there is no separate union to keep in
+ * sync, and no silent `Partial<Record>` gap). Same Open/Closed seam as the
  * ActionRegistry (KR-051), here for kind rendering + domain invariants.
  */
+
+/** Identity factory: pins each value to `V` while inferring the key union `K`. */
+const defineKinds =
+	<V>() =>
+	<K extends string>(map: Record<K, V>): Record<K, V> =>
+		map
 
 /** CSS-drawn badge mark: a styled box, or the special triangle for `piege`. */
 export type BadgeMark = { shape: 'box'; style: CSSProperties } | { shape: 'triangle' }
@@ -42,7 +49,7 @@ export interface NodeKindDescriptor {
 	mark: BadgeMark
 }
 
-export const NODE_KINDS: Record<NodeKind, NodeKindDescriptor> = {
+export const NODE_KINDS = defineKinds<NodeKindDescriptor>()({
 	sommaire: {
 		label: 'SOMMAIRE',
 		defaultTitle: 'Sommaire',
@@ -113,7 +120,10 @@ export const NODE_KINDS: Record<NodeKind, NodeKindDescriptor> = {
 			style: { background: 'repeating-linear-gradient(45deg,var(--ink-4) 0 1.5px,transparent 1.5px 3px)' },
 		},
 	},
-}
+})
+
+/** Node leaf kinds — derived from the registry keys (`mort` is the locked death leaf). */
+export type NodeKind = keyof typeof NODE_KINDS
 
 export interface EdgeKindDescriptor {
 	/** Mono label on the choice row in « Choix sortants ». */
@@ -124,8 +134,11 @@ export interface EdgeKindDescriptor {
 	canvasLabel: string
 }
 
-export const EDGE_KINDS: Record<EdgeKind, EdgeKindDescriptor> = {
+export const EDGE_KINDS = defineKinds<EdgeKindDescriptor>()({
 	choice: { rowLabel: 'choix', rowTone: 'neutral', canvasLabel: '→' },
 	relink: { rowLabel: 'reliaison', rowTone: 'muted', canvasLabel: 'Reliaison ↻' },
 	flee: { rowLabel: 'fuite', rowTone: 'muted', canvasLabel: 'Fuite ↻' },
-}
+})
+
+/** Edge kinds — derived from the registry keys. A `choice` is a labelled button. */
+export type EdgeKind = keyof typeof EDGE_KINDS
