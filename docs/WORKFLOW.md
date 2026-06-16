@@ -231,17 +231,21 @@ actions: Action[]
 - Lazy-load images below the fold with `loading="lazy"`.
 - Vite code-splits by route automatically — keep route chunks focused.
 
-## Versioning
+## Versioning — horizontal slices (MVP → V1 → V2 …)
 
-`package.json` version follows **0.MINOR.PATCH** semver:
+We build **breadth-first**: every MINOR is a *runnable slice across all features* at a given depth. See `docs/ROADMAP.md` for the live plan.
 
-- **Walking skeleton merged** → increment MINOR, reset PATCH to 0 (e.g. `0.1.0 → 0.2.0`)
-- **Each iteration merged** → increment PATCH (e.g. `0.2.3 → 0.2.4`)
-- Bug fixes do not bump the version on their own — they are part of the iteration or feature that introduced them.
+`package.json` follows **0.MINOR.PATCH**:
 
-Apply the bump to `package.json` immediately after each merge, before the doc update step.
+- **MINOR = capability tier.** `0.1.x` = MVP (every feature has a walking skeleton). `0.2.x` = V1 (iteration 1 of every feature). `0.3.x` = V2 (iteration 2). `0.4.x` = V3, etc. Iteration counts are ragged (per-feature `n` is 3–4), so later tiers include fewer features.
+- **PATCH = one feature advanced within the current tier.** Each feature's slice (skeleton in `0.1.x`, or iteration *K* in the `0.(K+1).x` tier) merged → PATCH +1.
+- Within a tier, advance features in the documented **build order** (dependencies first).
+- Bug fixes do not bump the version on their own — they fold into the feature/iteration that introduced them.
+- A feature whose iteration *K* was already banked in a prior (depth-first) pass is **skipped** in that tier (no-op, no bump).
 
-**Session-gate floor — every claude code session bumps at minimum PATCH +1**: at the start of the session, check whether `package.json` version changed since the last session (`git diff origin/master -- package.json`). If it has not, bump PATCH +1 in a dedicated `chore(release)` commit before asking for validation. One bump per session, not per commit — this covers design patches, bug fixes, and chores so every deployed build carries a distinct version.
+Apply the bump immediately after each merge, before the doc-update step.
+
+**Session-gate floor**: every session bumps at minimum PATCH +1. If `package.json` hasn't changed since last session, bump PATCH +1 in a `chore(release)` commit so every deployed build carries a distinct version.
 
 ## Code Knowledge
 
@@ -270,46 +274,22 @@ Do not form a hypothesis from the code alone before cross-referencing the spec. 
 
 **Visual bug fix checklist**: after writing the fix, verify it matches ALL visual properties of structurally similar rows in the same component — padding (`px`, `py`), `borderRadius`, hover state, font. A fix that restores the missing element but breaks alignment is not complete.
 
-## Build Steps
+## Build Steps — breadth-first slices, one feature at a time
 
-NOTE: if the feature already exist then only iteration with status="planned" should be done. And if the feature branch was deleted then recreate one postfix with the first iteration number planned. Always make 1 and 2 to be consistent accross sessions. Then execute plan at the iteration level without the skeleton because it was already made in a previous session, `features_history.json` and `bug_history.json`.
+We build the app as **horizontal slices** (see `docs/ROADMAP.md`): tier `0.1.x` gives every feature a walking skeleton (MVP); tier `0.(K+1).x` gives every feature its iteration `K` (V`K`). Within a tier, advance features in the documented build order. **Build exactly one feature's slice, then STOP** — never chain features in a single run.
 
-1. Read the feature specification. Ask for clarification on anything unclear. Check `features_history.json` and `bug_history.json` and existing `features/*/specification.json` for context and constraints. Start with the walking skeleton — nothing optional or decorative. Always consider the whole work already done and consult all specification.json accross features. Always consider side effects and risks.
-   IMPORTANT: if the specification.json is not consistent, for exemple there is iterations but no acceptance criteria, then help improve it and make a proposal so it is fully written and coherent
-   IMPORTANT: before coding a **planned** iteration, read the actual current code — the iteration may already be implemented (e.g. an earlier session fixed it as a side-effect). Confirm the gap exists before writing anything. If already done, mark the iteration done in the spec and move on.
-2. **Propose a plan**: walking skeleton + **n** named iterations. Define `n` explicitly at this step based on scope (e.g. n=2). Include test strategy informed by `bug_history.json`.
-3. Execute the plan:
-   - Create a feature branch.
-   - Create `features/[feature_name]/` folder.
-   - Write `features/[feature_name]/specification.json` (plan phase, including the value of `n`).
-   - Run tests → if passing: show one-line summary and commit automatically.
-   - **Walking skeleton**
-     - Code the minimal end-to-end slice + brain wiring. Always consider the whole picture of the architecture and app and not only this specific feature.
-     - Beautify (Prettier) → type-check (`tsc --noEmit`) → lint (ESLint) → run tests → if passing: show summary and commit automatically.
-     - Refactor → type-check → run tests → if passing: show summary and commit automatically.
-     - Update `specification.json` (implementation phase).
-     - **Quality loop** (repeat until clean):
-       - **Review gate**: auto-review as code expert. Produce a structured report with columns: `Severity | File:line | Principle violated | Finding | Fix`. Audit categories: Architecture (cross-feature imports, brain↔feature boundary, KR-109/110), Storage (raw `localStorage` in features, KR-111), Component SRP (files >400 lines, KR-112), `useEffect` derived state or missing deps (KR-113), Security (sensitive keys, XSS surfaces, KR-114), **Worker route parity** (see below), Test coverage gaps. Always consider side effects and risks.
-       - Fix ALL findings (critical, major, and minor). Append each to `bug_history.json` (severity critical/major/minor).
-       - Run full test suite (unit + E2E) **and** `tsc --noEmit`.
-       - If all findings fixed and tests pass: proceed to merge automatically.
-     - Merge to main.
-     - Bump `package.json` version: MINOR +1, PATCH = 0.
-   - **Iterations** (repeat n times — n defined in plan — then exit):
-     - Code the iteration goal + update brain wiring if needed.
-     - Beautify → type-check (`tsc --noEmit`) → lint (ESLint) → run tests → if passing: show summary and commit automatically.
-     - Refactor → type-check → run tests → if passing: show summary and commit automatically.
-     - **Quality loop** (same as above).
-     - Merge to main.
-     - Bump `package.json` version: PATCH +1.
-     - n-- ; exit loop when n reaches 0.
-   - Delete feature branch.
-   - Update project docs:
-     - `features_history.json` — what was built, how, lessons learned.
-     - `CHANGELOG.md` — one line per merge: output for features, cause + mitigation for bugs.
-     - `README.md` — feature summary and architecture choices (derived from `specification.json`).
-   - Run tests → if passing: show summary and commit to main automatically.
-   - **Stop and ask for user validation**
+### The per-feature unit (one PATCH bump, one stop)
+
+1. **Read first.** The feature's `specification.json` (`acceptance_criteria`, `known_risks`, `implementation` log, iteration statuses), `code-knowledge.json` (in full), `bug_history.json`, `features_history.json`, and the relevant sibling specs. If the spec is inconsistent (e.g. iterations without acceptance criteria), propose a fix first. Before coding a **planned** iteration, read the current code — it may already be done; if so mark it `done` and move on (no bump).
+2. **Build the slice** — skeleton in `0.1.x`, or iteration `K` in the `0.(K+1).x` tier. Minimal, no decoration. Brain contracts only; consider the whole architecture, side effects and risks.
+3. **Gate**: Prettier → `tsc --noEmit` → ESLint → `jest`. (The pre-commit hook enforces tsc+jest; never bypass it.) Refactor → re-gate.
+4. **Docs**: update `specification.json` (implementation log / iteration status), mirror new `known_risks` into `code-knowledge.json`, add a `CHANGELOG.md` line, update `features_history.json` and `README.md`.
+5. **Self review gate** (quick): `Severity | File:line | Principle/KR | Finding | Fix`. Fix ALL findings; log each to `bug_history.json`. Re-run `tsc` + `jest`.
+6. **Ship**: feature branch → `--no-ff` merge to `main` → delete branch → bump `package.json` PATCH +1.
+7. **Tech-lead review (PR-style, no PR)**: invoke the `tech-lead` subagent on this feature's diff. Present its verdict + acceptance-criteria table + findings. If `REQUEST CHANGES`, fix must-fixes (critical/major), re-review.
+8. **STOP and ask for user validation.** Do not start the next feature until the user has challenged this one and given the go.
+
+When a tier's last feature ships, the app is runnable at that depth across all features; the next tier begins only on user go.
 
 ## Design Patch Processing
 
