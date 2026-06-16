@@ -9,8 +9,9 @@ export interface BookCardProps {
 /**
  * One book in the library grid: a clickable surface that opens the book in
  * the editor, with its title + a screen count, and a delete affordance. The
- * delete button stops propagation so it never also opens the book; deletion
- * is a dangerous action, so it only requests confirmation (handled upstream).
+ * delete button is a sibling of the open button (not nested), so clicking it
+ * never also opens the book; deletion is a dangerous action, so it only
+ * requests confirmation (handled upstream).
  */
 export function BookCard({ book, onOpen, onRequestDelete }: BookCardProps): JSX.Element {
 	const screenCount = book.nodes.length
