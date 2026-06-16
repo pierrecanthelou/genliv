@@ -41,7 +41,9 @@ describe('action-pnj', () => {
 		await user.click(screen.getByRole('radio', { name: 'PNJ' }))
 
 		await user.type(screen.getByRole('textbox', { name: /nom du pnj/i }), 'Le vieil ermite')
+		await user.type(screen.getByRole('textbox', { name: /dialogue/i }), 'Approche.')
 		expect(pnjOf(brain, bookId, nodeId)?.name).toBe('Le vieil ermite')
+		expect(pnjOf(brain, bookId, nodeId)?.dialogue).toBe('Approche.')
 
 		// « Le PNJ donne un objet » reveals the SHARED ObjectEditor (reused from action-decor).
 		await user.click(screen.getByRole('switch', { name: /donne un objet/i }))
@@ -50,6 +52,11 @@ describe('action-pnj', () => {
 		const gift = pnjOf(brain, bookId, nodeId)?.gift
 		expect(gift?.name).toBe('Amulette')
 		expect(gift?.id).toBeTruthy() // stable id minted (KR-003)
+
+		// The id is preserved across a further edit, not regenerated (KR-003).
+		await user.type(screen.getByRole('textbox', { name: /nom de l/i }), ' ancienne')
+		expect(pnjOf(brain, bookId, nodeId)?.gift?.name).toBe('Amulette ancienne')
+		expect(pnjOf(brain, bookId, nodeId)?.gift?.id).toBe(gift!.id)
 	})
 
 	it('removing the gift drops it from the node and hides the object editor', async () => {
