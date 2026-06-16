@@ -79,6 +79,72 @@ describe('BookService.createBook', () => {
 	})
 })
 
+describe('BookService unknown-kind boundary (KR-116)', () => {
+	beforeEach(() => {
+		window.localStorage.clear()
+		jest.spyOn(console, 'warn').mockImplementation(() => {})
+	})
+	afterEach(() => {
+		jest.restoreAllMocks()
+	})
+
+	/** Persist a book straight to storage with a corrupted node kind. */
+	function seedCorruptBook(persistence: ReturnType<typeof createLocalStoragePersistence>, id: string): void {
+		const now = new Date().toISOString()
+		persistence.set(bookKey(id), {
+			id,
+			title: 'Corrompu',
+			createdAt: now,
+			updatedAt: now,
+			nodes: [{ id: 'n1', kind: 'dragon', text: '' }],
+			edges: [],
+		})
+	}
+
+	it('treats a book with an unknown node kind as unreadable (getBook/openBook return null, no throw)', () => {
+		const { service, persistence } = setup()
+		seedCorruptBook(persistence, 'book_corrupt')
+
+		expect(() => service.getBook('book_corrupt')).not.toThrow()
+		expect(service.getBook('book_corrupt')).toBeNull()
+		expect(service.openBook('book_corrupt')).toBeNull()
+	})
+
+	it('treats a book with an unknown EDGE kind as unreadable too', () => {
+		const { service, persistence } = setup()
+		const now = new Date().toISOString()
+		persistence.set(bookKey('book_edge'), {
+			id: 'book_edge',
+			title: 'Arête corrompue',
+			createdAt: now,
+			updatedAt: now,
+			nodes: [{ id: 'n1', kind: 'sommaire', text: '' }],
+			edges: [{ id: 'e1', from: 'n1', to: 'n1', kind: 'teleport' }],
+		})
+		expect(service.getBook('book_edge')).toBeNull()
+	})
+
+	it('omits a corrupt book from listBooks but keeps valid ones', () => {
+		const { service, persistence } = setup()
+		const ok = service.createBook('Valide')
+		seedCorruptBook(persistence, 'book_corrupt')
+
+		const ids = service.listBooks().map((b) => b.id)
+		expect(ids).toContain(ok.id)
+		expect(ids).not.toContain('book_corrupt')
+	})
+
+	it('refuses to mutate a corrupt book, but still allows deleting it', () => {
+		const { service, persistence } = setup()
+		seedCorruptBook(persistence, 'book_corrupt')
+
+		expect(service.addNode('book_corrupt', 'choix')).toBeNull()
+		// A corrupt book must remain deletable so the user can clean it up.
+		expect(service.deleteBook('book_corrupt')).toBe(true)
+		expect(persistence.get(bookKey('book_corrupt'))).toBeNull()
+	})
+})
+
 describe('BookService.deleteBook', () => {
 	beforeEach(() => {
 		window.localStorage.clear()

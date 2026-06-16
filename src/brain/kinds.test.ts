@@ -1,4 +1,4 @@
-import { NODE_KINDS, EDGE_KINDS } from './kinds'
+import { NODE_KINDS, EDGE_KINDS, isNodeKind, isEdgeKind } from './kinds'
 import type { NodeKind, EdgeKind } from './types'
 
 describe('NODE_KINDS registry', () => {
@@ -23,6 +23,18 @@ describe('NODE_KINDS registry', () => {
 			expect(d.label.length).toBeGreaterThan(0)
 			expect(d.defaultTitle.length).toBeGreaterThan(0)
 			expect(d.mark.shape === 'triangle' || d.mark.shape === 'box').toBe(true)
+		}
+	})
+})
+
+describe('kind guards (trust boundary, KR-116)', () => {
+	it('accepts every registry key and rejects unknown / non-string / prototype keys', () => {
+		for (const k of Object.keys(NODE_KINDS)) expect(isNodeKind(k)).toBe(true)
+		for (const k of Object.keys(EDGE_KINDS)) expect(isEdgeKind(k)).toBe(true)
+		// Unknown values, including Object.prototype members, are not kinds.
+		for (const bad of ['', 'bogus', 'toString', 'hasOwnProperty', undefined, null, 42, {}]) {
+			expect(isNodeKind(bad)).toBe(false)
+			expect(isEdgeKind(bad)).toBe(false)
 		}
 	})
 })
