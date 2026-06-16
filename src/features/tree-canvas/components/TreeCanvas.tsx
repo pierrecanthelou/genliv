@@ -44,18 +44,22 @@ export function TreeCanvas(): JSX.Element {
 		)
 	}
 
+	// Narrowed non-null local for the handler closures (book is non-null past
+	// the early return; capture it so we never reach for a `!` assertion).
+	const activeBookId: string = book.id
+
 	function select(nodeId: string): void {
-		selection.select(book!.id, nodeId)
+		selection.select(activeBookId, nodeId)
 	}
 
 	function clearSelection(): void {
 		// A drag-release is a pan, not a deselect click.
 		if (didDragRef.current) return
-		selection.select(book!.id, null)
+		selection.select(activeBookId, null)
 	}
 
 	function addNode(): void {
-		const node = books.addNode(book!.id, 'choix')
+		const node = books.addNode(activeBookId, 'choix')
 		if (node !== null) select(node.id)
 	}
 

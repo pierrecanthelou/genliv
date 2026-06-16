@@ -4,7 +4,8 @@
 
 ## Unreleased — unknown-kind boundary guard (KR-116)
 
-- Hardened the persistence trust boundary: `PersistenceService.get` casts JSON unchecked, so a corrupted store / schema drift could carry a kind outside the registry and crash a `NODE_KINDS[kind]` lookup. New `isNodeKind` / `isEdgeKind` guards (derived from the registry keys) + a single `BookService.loadBook` validation: a book with an unknown node/edge kind is surfaced (`console.warn`) and treated as **unreadable** (`getBook`/`openBook` → null, omitted from `listBooks`, mutations refused) rather than throwing — but stays **deletable** so it can be cleaned up. New **KR-116**. 77 tests passing (4 new).
+- Hardened the persistence trust boundary: `PersistenceService.get` casts JSON unchecked, so a corrupted store / schema drift could carry a kind outside the registry and crash a `NODE_KINDS[kind]` lookup. New `isNodeKind` / `isEdgeKind` guards (derived from the registry keys) + a single `BookService.loadBook` validation: a book with an unknown node/edge kind is surfaced (`console.warn`) and treated as **unreadable** (`getBook`/`openBook` → null, omitted from `listBooks`, mutations refused) rather than throwing — but stays **deletable** so it can be cleaned up. New **KR-116**. 78 tests passing (5 new).
+- Removed the three `book!` non-null assertions in `TreeCanvas` (captured a narrowed `activeBookId` after the guard, matching the `NodeEditorPanel` pattern) — no `!` assertions remain in source. Recorded the defensive-boundary + view-tolerance rules (KR-021/116) in the `livre-jeu-design` skill.
 
 ## Unreleased — magic numbers, plural & kind single-source (P3 of the code-health sweep)
 
