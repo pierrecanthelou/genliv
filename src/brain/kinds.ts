@@ -142,3 +142,19 @@ export const EDGE_KINDS = defineKinds<EdgeKindDescriptor>()({
 
 /** Edge kinds — derived from the registry keys. A `choice` is a labelled button. */
 export type EdgeKind = keyof typeof EDGE_KINDS
+
+/**
+ * Runtime guards for the trust boundary (KR-116). TypeScript erases the
+ * `NodeKind`/`EdgeKind` annotations, so a kind read from persisted JSON could
+ * be anything; a direct `NODE_KINDS[kind]` on an unknown value yields
+ * `undefined` and the next property access throws. These guards let the
+ * persistence boundary validate kinds (`hasOwnProperty`, not `in`, so the
+ * Object prototype's members like `toString` are never mistaken for kinds).
+ */
+export function isNodeKind(value: unknown): value is NodeKind {
+	return typeof value === 'string' && Object.prototype.hasOwnProperty.call(NODE_KINDS, value)
+}
+
+export function isEdgeKind(value: unknown): value is EdgeKind {
+	return typeof value === 'string' && Object.prototype.hasOwnProperty.call(EDGE_KINDS, value)
+}

@@ -3,7 +3,7 @@ import type { PersistenceService } from './PersistenceService'
 import type { Book, BookNode, NodeKind, Edge, EdgeKind } from './types'
 import { bookKey, BOOK_KEY_PREFIX } from './persistenceKeys'
 import { createId } from './utils/id'
-import { NODE_KINDS } from './kinds'
+import { NODE_KINDS, isNodeKind, isEdgeKind } from './kinds'
 
 /**
  * BookService — the API nœud. Single source of truth for the book tree
@@ -102,9 +102,33 @@ function seedNodes(): BookNode[] {
 	]
 }
 
+/**
+ * A persisted book is trusted only after its node/edge kinds are validated
+ * against the registry (KR-116): PersistenceService.get does an unchecked
+ * JSON.parse cast, so a corrupted store or a schema drift could carry a kind
+ * outside the registry, which would crash any NODE_KINDS[kind] lookup. A book
+ * with an unknown kind is treated as unreadable, not silently coerced.
+ */
+function hasOnlyKnownKinds(book: Book): boolean {
+	return book.nodes.every((n) => isNodeKind(n.kind)) && book.edges.every((e) => isEdgeKind(e.kind))
+}
+
 export function createBookService(persistence: PersistenceService, events: EventBus): BookService {
 	function persist(book: Book): void {
 		persistence.set(bookKey(book.id), book)
+	}
+
+	/** Read a persisted book, returning null (with a surfaced warning) if it is
+	 *  absent or carries an unknown node/edge kind (KR-116). All reads and
+	 *  mutations go through here so an unknown kind never reaches a lookup. */
+	function loadBook(id: string): Book | null {
+		const book = persistence.get<Book>(bookKey(id))
+		if (book === null) return null
+		if (!hasOnlyKnownKinds(book)) {
+			console.warn(`[BookService] book "${id}" has an unknown node/edge kind; treating it as unreadable.`)
+			return null
+		}
+		return book
 	}
 
 	return {
@@ -125,7 +149,7 @@ export function createBookService(persistence: PersistenceService, events: Event
 		},
 
 		getBook(id) {
-			return persistence.get<Book>(bookKey(id))
+			return loadBook(id)
 		},
 
 		listBooks() {
@@ -133,17 +157,24 @@ export function createBookService(persistence: PersistenceService, events: Event
 				.keys(BOOK_KEY_PREFIX)
 				.map((key) => persistence.get<Book>(key))
 				.filter((book): book is Book => book !== null)
+				.filter((book) => {
+					// Skip (and surface) any book with an unknown kind — never crash the list (KR-116).
+					if (hasOnlyKnownKinds(book)) return true
+					console.warn(`[BookService] book "${book.id}" has an unknown node/edge kind; omitted from the library.`)
+					return false
+				})
 				.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 		},
 
 		openBook(id) {
-			const book = persistence.get<Book>(bookKey(id))
+			const book = loadBook(id)
 			if (book === null) return null
 			events.emit('book:opened', { bookId: book.id })
 			return book
 		},
 
 		deleteBook(id) {
+			// Use the raw read (not loadBook): a corrupt book must still be deletable.
 			if (persistence.get<Book>(bookKey(id)) === null) return false
 			// Persist the removal atomically before emitting, so listeners
 			// (the library view) re-read a store without the book (KR-004).
@@ -153,7 +184,7 @@ export function createBookService(persistence: PersistenceService, events: Event
 		},
 
 		addNode(bookId, kind) {
-			const book = persistence.get<Book>(bookKey(bookId))
+			const book = loadBook(bookId)
 			if (book === null) return null
 			const node: BookNode = {
 				id: createId('node'),
@@ -173,7 +204,7 @@ export function createBookService(persistence: PersistenceService, events: Event
 		},
 
 		updateNode(bookId, nodeId, patch) {
-			const book = persistence.get<Book>(bookKey(bookId))
+			const book = loadBook(bookId)
 			if (book === null) return null
 			const current = book.nodes.find((n) => n.id === nodeId)
 			if (current === undefined) return null
@@ -200,7 +231,7 @@ export function createBookService(persistence: PersistenceService, events: Event
 		},
 
 		addChoiceBranch(bookId, fromNodeId) {
-			const book = persistence.get<Book>(bookKey(bookId))
+			const book = loadBook(bookId)
 			if (book === null) return null
 			const parent = book.nodes.find((n) => n.id === fromNodeId)
 			// Mort is structural: no outgoing choices (KR-055/060) — read from the
@@ -226,7 +257,7 @@ export function createBookService(persistence: PersistenceService, events: Event
 		},
 
 		addEdge(bookId, from, to, kind) {
-			const book = persistence.get<Book>(bookKey(bookId))
+			const book = loadBook(bookId)
 			if (book === null) return null
 			const fromNode = book.nodes.find((n) => n.id === from)
 			const toNode = book.nodes.find((n) => n.id === to)
@@ -249,7 +280,7 @@ export function createBookService(persistence: PersistenceService, events: Event
 		},
 
 		removeEdge(bookId, edgeId) {
-			const book = persistence.get<Book>(bookKey(bookId))
+			const book = loadBook(bookId)
 			if (book === null) return false
 			if (!book.edges.some((e) => e.id === edgeId)) return false
 			const next: Book = {
