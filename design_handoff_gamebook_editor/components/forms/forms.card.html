@@ -1,0 +1,51 @@
+<!-- @dsCard group="Components" viewport="700x300" subtitle="Field · Select · SegmentedControl · DifficultyPicker" name="Forms" -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-ui); background: var(--surface-card); padding: 18px; color: var(--text-strong); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  .lbl { display:block; font-family:var(--font-mono); font-size:var(--fs-eyebrow); color:var(--text-label); margin-bottom:5px; letter-spacing:.08em; }
+  .hint { color: var(--ink-6); }
+  .box { border:1px solid var(--border-field); border-radius:var(--r-md); padding:7px 10px; background:var(--surface-sunken); font-size:var(--fs-body); color:var(--text-body); }
+  .sel { display:flex; align-items:center; justify-content:space-between; }
+  .track { display:flex; gap:4px; background:var(--surface-track); border-radius:var(--r-xl); padding:3px; }
+  .seg { flex:1; text-align:center; font-size:var(--fs-sm); color:var(--text-faint); border-radius:var(--r-md); padding:6px 10px; }
+  .seg.on { color:var(--accent-fg); background:var(--ink-0); font-weight:600; }
+  .pips { display:flex; gap:3px; align-items:center; }
+  .pip { width:11px; height:11px; border-radius:2px; }
+  .row { display:flex; align-items:center; gap:10px; }
+  .cap { font-family:var(--font-mono); font-size:9px; color:var(--ink-4); }
+</style>
+</head>
+<body>
+  <div class="grid">
+    <div>
+      <span class="lbl">NOM DE L'OBJET <span class="hint">— interne</span></span>
+      <div class="box">Chandelier en argent</div>
+    </div>
+    <div>
+      <span class="lbl">MONSTRE</span>
+      <div class="box sel">Gobelin des cavernes <span style="color:var(--ink-5)">▾</span></div>
+    </div>
+    <div style="grid-column:1 / -1">
+      <span class="lbl">DESCRIPTION <span class="hint">— lue par le joueur</span></span>
+      <div class="box" style="line-height:var(--lh-body)">Lourd, terni, gravé d'initiales effacées par le temps.</div>
+    </div>
+    <div style="grid-column:1 / -1">
+      <span class="lbl">ACTION REQUISE — SegmentedControl</span>
+      <div class="track">
+        <div class="seg">Aucune</div><div class="seg on">PNJ</div><div class="seg">Décor</div><div class="seg">Piège</div><div class="seg">Monstre</div>
+      </div>
+    </div>
+    <div class="row">
+      <span class="cap">DifficultyPicker</span>
+      <div class="pips"><span class="pip" style="background:var(--accent)"></span><span class="pip" style="background:var(--accent)"></span><span class="pip" style="border:1px solid var(--accent-line)"></span></div>
+      <span class="cap">ink</span>
+      <div class="pips"><span class="pip" style="background:var(--ink-0)"></span><span class="pip" style="background:var(--ink-0)"></span><span class="pip" style="border:1px solid var(--ink-6)"></span></div>
+    </div>
+  </div>
+</body>
+</html>

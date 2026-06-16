@@ -1,0 +1,24 @@
+<!-- @dsCard group="Spacing" viewport="700x170" subtitle="Soft, sparse — popovers & modals only" name="Shadows" -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-mono); background: var(--surface-app); padding: 24px; }
+  .row { display: flex; gap: 22px; flex-wrap: wrap; }
+  .sw { text-align: center; }
+  .box { width: 120px; height: 60px; background: var(--paper-0); border: 1px solid var(--line-1); border-radius: var(--r-2xl); }
+  .n { font-size: 9px; color: var(--ink-3); margin-top: 10px; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="sw"><div class="box" style="box-shadow:var(--shadow-card)"></div><div class="n">--shadow-card</div></div>
+    <div class="sw"><div class="box" style="box-shadow:var(--shadow-pop)"></div><div class="n">--shadow-pop</div></div>
+    <div class="sw"><div class="box" style="box-shadow:var(--shadow-menu)"></div><div class="n">--shadow-menu</div></div>
+    <div class="sw"><div class="box" style="box-shadow:var(--shadow-modal)"></div><div class="n">--shadow-modal</div></div>
+    <div class="sw"><div class="box" style="border:1.5px solid var(--accent);box-shadow:var(--ring-selected)"></div><div class="n">--ring-selected</div></div>
+  </div>
+</body>
+</html>

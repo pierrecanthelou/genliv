@@ -1,0 +1,9 @@
+/* ============================================================
+   Éditeur de livre dont vous êtes le héros — Design System
+   Entry point. Consumers link THIS file only.
+   Keep this file a list of @import lines — no inline rules.
+   ============================================================ */
+@import "./tokens/fonts.css";
+@import "./tokens/colors.css";
+@import "./tokens/typography.css";
+@import "./tokens/spacing.css";

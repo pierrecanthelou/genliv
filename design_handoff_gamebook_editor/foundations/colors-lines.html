@@ -1,0 +1,26 @@
+<!-- @dsCard group="Colors" viewport="700x140" subtitle="Borders — card → subtle → field" name="Lines / borders" -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-mono); background: var(--surface-card); padding: 18px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .sw { width: 100px; }
+  .box { height: 48px; border-radius: var(--r-xl); background: var(--paper-2); }
+  .name { font-size: 9.5px; color: var(--ink-2); margin-top: 7px; }
+  .hex { font-size: 9px; color: var(--ink-4); margin-top: 2px; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="sw"><div class="box" style="border:1px solid var(--line-1)"></div><div class="name">--line-1</div><div class="hex">#D9D9D6 · card</div></div>
+    <div class="sw"><div class="box" style="border:1px solid var(--line-field)"></div><div class="name">--line-field</div><div class="hex">#D5D5D2 · input</div></div>
+    <div class="sw"><div class="box" style="border:1px solid var(--line-2)"></div><div class="name">--line-2</div><div class="hex">#E2E2DF</div></div>
+    <div class="sw"><div class="box" style="border:1px solid var(--line-3)"></div><div class="name">--line-3</div><div class="hex">#E6E6E3</div></div>
+    <div class="sw"><div class="box" style="border:1px solid var(--line-4)"></div><div class="name">--line-4</div><div class="hex">#EEEEEB</div></div>
+    <div class="sw"><div class="box" style="border:1px solid var(--line-strong)"></div><div class="name">--line-strong</div><div class="hex">#D2D2CE · rule</div></div>
+  </div>
+</body>
+</html>

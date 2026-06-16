@@ -1,0 +1,68 @@
+{
+  "feature": "node-editor",
+  "created_at": "2026-06-15",
+  "status": "planned",
+  "design_reference": "Editeur Livre-Jeu - Wireframes.dc.html § 02 side panel « NŒUD #4 » (the BINDING target: a right-hand side panel, sticky header with NodeBadge + node title + ✕; sections in order — Libellé du choix, Description, Illustration (deferred), Objets à prendre, Action requise [SegmentedControl + delegated body], Choix sortants, Fin victoire / Fin échec toggles, footer actions « + Ajouter une branche » / « ↪ Relier… »). Anatomy + tokens from styles.css: Field, NodeBadge, SegmentedControl, Chip, Toggle, OutcomeBlock, the panel layout. Low-fi, light theme.",
+  "plan": {
+    "goal": "Edit a single leaf's content in a side panel that stays open beside the tree — text, inventory, the required-action block (delegated to action-* via ActionRegistry), outgoing choices (delegated to choice-linking), and the victory/failure end toggles.",
+    "design_contract": {
+      "_binding": "Rebuild the § 02 side panel with design-system components; DS tokens win over prose. The panel is the host shell; the action body and the choices list are mounted from other features — node-editor owns the frame + text/inventory/toggles only.",
+      "shell": "Fixed-width side panel (~372px) with a left hairline, sticky header (NodeBadge + accent ref pill + title, ✕ to deselect). Body = vertical stack of token-spaced sections separated by var(--line-4) dividers.",
+      "text_fields": "« Libellé du choix » (with the muted hint « — bouton dans l'écran parent »), « Description » (multiline) — both `forms/Field`, both with inviting placeholders when empty (empty-state rule).",
+      "illustration": "Section present but DEFERRED: a dashed `forms`-style dropzone placeholder « Déposer une image » that is visually disabled/coming-soon for now (no image upload in scope).",
+      "inventory": "« Objets à prendre » = removable `Chip`s + a dashed « + objet » chip; opening an object uses the shared brain ObjectEditor (owned by action-decor's object model).",
+      "action_block": "« Action requise pour poursuivre » = a `SegmentedControl` (Aucune / PNJ / Décor / Piège / Monstre); selecting a type emits action:changed and mounts that type's editor from the ActionRegistry — node-editor does NOT know any action's internals.",
+      "choices": "« Choix sortants » list + « + branche » is rendered by choice-linking, mounted here; node-editor only reserves the slot.",
+      "end_toggles": "« Fin victoire » and « Fin échec » `Toggle`s; footer = accent « + Ajouter une branche » + ghost « ↪ Relier… » (delegated to choice-linking)."
+    },
+    "acceptance_criteria": [
+      "Selecting a node (node:selected from canvas/outline) opens the side panel populated with that node's libellé, description, inventory, action, choices, and end flags read from BookService; the panel header shows the node's NodeBadge + ref + title.",
+      "Editing the libellé or description updates the node via BookService and emits node:updated; edits are debounced/committed without losing focus and survive reload; empty fields show inviting placeholders.",
+      "The « Action requise » SegmentedControl reflects the node's current action type; changing it emits action:changed{actionType} and swaps in the matching editor resolved from ActionRegistry — node-editor contains no action-specific logic.",
+      "Adding/removing inventory objects updates the node's « objets à prendre » via BookService/ObjectCatalogService; objects carry a name AND a player-facing description (opened via the shared ObjectEditor).",
+      "Toggling « Fin victoire » / « Fin échec » sets the node's end flags via BookService (a node can be a normal leaf or an end); turning a node into an end is reflected by its NodeBadge updating to the FIN mark on canvas/outline.",
+      "The « Choix sortants » area and footer branch/relink actions are provided by choice-linking mounted in the reserved slot; node-editor does not duplicate edge logic.",
+      "The Illustration section renders as a deferred/disabled dropzone (no upload), clearly not-yet-available, without breaking layout.",
+      "Closing the panel (✕) deselects (clears node:selected) without losing committed edits; switching selection to another node swaps the panel content without leaking the previous node's unsaved field state.",
+      "The whole panel renders from design-system components/tokens, light theme; controls have ≥44px targets and the panel is keyboard-navigable."
+    ],
+    "brain_contracts": [
+      { "type": "service", "name": "BookService", "direction": "consumes" },
+      { "type": "service", "name": "ObjectCatalogService", "direction": "consumes" },
+      { "type": "service", "name": "ActionRegistry", "direction": "consumes" },
+      { "type": "event", "name": "node:selected", "direction": "consumes" },
+      { "type": "event", "name": "node:updated", "direction": "emits", "payload": { "nodeId": "string" } },
+      { "type": "event", "name": "action:changed", "direction": "emits", "payload": { "nodeId": "string", "actionType": "string" } }
+    ],
+    "walking_skeleton": "On node:selected, load the node from BookService and render the panel shell with libellé + description Fields and the end toggles, committing edits back to BookService (emit node:updated). Render the Action SegmentedControl and mount the editor resolved from ActionRegistry for the current type (even if only a stub registered). Reserve the choices slot. No debounce/illustration polish yet.",
+    "n": 4,
+    "iterations": [
+      { "id": 1, "goal": "Panel shell + text/toggles: faithful § 02 layout, sticky header with NodeBadge, Libellé + Description Fields with placeholders, Fin victoire/échec toggles wired to BookService (node:updated). Design-system fidelity.", "status": "planned" },
+      { "id": 2, "goal": "Action block via ActionRegistry: SegmentedControl reflects + sets action type, emits action:changed, mounts the registered editor for the type; zero action-specific code in node-editor (Open/Closed, KR-051).", "status": "planned" },
+      { "id": 3, "goal": "Inventory + shared ObjectEditor: add/remove « objets à prendre » as Chips, open the shared brain ObjectEditor (name + player-facing description + effect), persist via ObjectCatalogService/BookService (KR-052).", "status": "planned" },
+      { "id": 4, "goal": "Edit-safety + slots: debounced commits without focus loss, clean content swap on selection change (no stale field state, KR-053), mount choice-linking in the choices slot, deferred Illustration dropzone, full a11y/keyboard pass.", "status": "planned" }
+    ],
+    "known_risks": [
+      "KR-050 — node-editor is a HOST shell: the action body (PNJ/décor/piège/monstre) and the choices list are mounted from other features via ActionRegistry / feature slots. Importing an action feature directly would break feature isolation (re-asserts the ActionRegistry decision).",
+      "KR-051 — Adding a new action type must require ZERO changes here: the SegmentedControl options + mounted editor come from the ActionRegistry. Hard-coding a type couples node-editor to a specialty.",
+      "KR-052 — Objects carry a player-facing DESCRIPTION, not just a name (« Vieux chiffon » → « Un morceau d'étoffe rouge poussiéreux… ») — the inventory editor must capture both via the shared ObjectEditor, never a bare string (domain rule from context.md).",
+      "KR-053 — Selection swap must not leak the previous node's uncommitted field state into the next node; reset/keyed panel state on node:selected (a classic stale-form bug).",
+      "KR-054 — Turning a node into a Fin (victory/échec) changes its kind/badge everywhere; the end flags live on the node in BookService so canvas/outline reflect it via node:updated (single source of truth).",
+      "KR-011 — No raw localStorage; all node data via BookService/ObjectCatalogService (global config KR-111).",
+      "KR-013 — Field values bind to the store/handlers, not useEffect-mirrored local copies of props (global config KR-113); avoid exhaustive-deps disables.",
+      "A11y — the panel is keyboard-navigable, the ✕ restores focus to the selected node, and ≥44px targets throughout.",
+      "Illustration is deferred — render the slot disabled/coming-soon; do not wire image upload (no image in current scope)."
+    ]
+  },
+  "implementation": {
+    "iterations_log": [],
+    "resolved_decisions": [
+      "Editing happens in a persistent SIDE PANEL beside the tree (the user picked this pattern over modal/full-page).",
+      "Illustration is deferred: no image upload for now; the section shows a disabled placeholder.",
+      "node-editor owns text/inventory/toggles; action bodies and choices are mounted from other features."
+    ],
+    "open_questions": [
+      "« Libellé du choix » lives on the child node (the button text that leads TO it) per the wireframe — confirm it's edited here on the child, not on the parent's choice row (the two views must show the same value)."
+    ]
+  }
+}

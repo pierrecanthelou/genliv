@@ -1,0 +1,56 @@
+{
+  "feature": "action-trap",
+  "created_at": "2026-06-15",
+  "status": "planned",
+  "design_reference": "Editeur Livre-Jeu - Wireframes.dc.html § 04 « PIÈGE — variante » (the BINDING target: piège triangle mark; a roll whose failure « mène à 'Mort du personnage' sans nouveau choix »), and § 05 for the digital-only consequences. Anatomy + tokens from styles.css: SegmentedControl, DifficultyPicker, Select, OutcomeBlock. Low-fi, light theme.",
+  "plan": {
+    "goal": "Model a trap on a node: a skill roll whose failure inflicts a sanction — typically routing to « Mort du personnage » with no further choice — and whose success lets the story continue. Registered as the 'piege' action type.",
+    "design_contract": {
+      "_binding": "Rebuild § 04 piège variant with design-system components; DS tokens win over prose. Self-registers with ActionRegistry as 'piege'.",
+      "roll": "A roll config: caractéristique `Select` (from the book schema) + `DifficultyPicker`.",
+      "outcomes": "Two `OutcomeBlock`s. Réussite: player text + an effect + a destination (continue). Échec: player text + a consequence — the default and emphasized failure routes to the obligatory « Mort du personnage » node with NO new choice; alternatives are a non-lethal sanction (e.g. −PV) + a destination.",
+      "death_link": "The failure→Mort link reuses the seeded isolated Mort node (it is the canonical death leaf; never duplicate it). Routing here is the author's explicit configuration, the one sanctioned way to point at Mort.",
+      "empty_state": "Unconfigured outcomes show inviting placeholders prompting the author to write the consequence (project-wide empty-state rule)."
+    },
+    "acceptance_criteria": [
+      "action-trap self-registers with ActionRegistry as 'piege'; node-editor mounts it from the registry with no trap-specific code.",
+      "The trap persists a roll (caractéristique from the book schema + difficulté) and two outcomes on the node via BookService.",
+      "The échec outcome can route to « Mort du personnage » with no new choice; selecting that target reuses the seeded isolated Mort node (never creates a second death node) and creates the edge via choice-linking/BookService.",
+      "A non-lethal trap variant is supported: échec applies a sanction (e.g. −PV effect) and routes to a chosen existing node instead of Mort.",
+      "The réussite outcome persists player text + effect + a continue destination resolving to an existing node.",
+      "Caractéristiques come from the book-level schema (BookService), not a runtime hero (play mode out of scope).",
+      "Outcome destinations resolve to existing nodes; a destination pointing at a deleted node (including a mistakenly-deleted Mort) is surfaced, not silently broken.",
+      "Everything renders from design-system components/tokens, light theme; controls have ≥44px targets and are keyboard-operable."
+    ],
+    "brain_contracts": [
+      { "type": "service", "name": "ActionRegistry", "direction": "emits" },
+      { "type": "service", "name": "BookService", "direction": "consumes" },
+      { "type": "event", "name": "action:changed", "direction": "consumes" }
+    ],
+    "walking_skeleton": "Register 'piege' with ActionRegistry. Build the roll config + two OutcomeBlocks; wire échec→Mort (reuse the seeded Mort node, create edge via BookService) and a non-lethal sanction variant. Persist on the node. No effect-tuning polish yet.",
+    "n": 2,
+    "iterations": [
+      { "id": 1, "goal": "Register 'piege' + build the § 04 roll + two OutcomeBlocks; échec routes to the seeded Mort node with no new choice (edge via choice-linking/BookService). Design-system fidelity.", "status": "planned" },
+      { "id": 2, "goal": "Non-lethal variant + integrity: échec sanction (−PV effect) routing to a chosen node; réussite continue destination; referential-integrity surfacing for deleted targets (KR-091).", "status": "planned" }
+    ],
+    "known_risks": [
+      "KR-090 — Self-registration only via ActionRegistry; node-editor never imports trap logic (Open/Closed; re-asserts KR-051).",
+      "KR-091 — The death link must reuse the single seeded isolated « Mort du personnage » node (KR-002): never mint a duplicate death node. The Mort node is LOCKED (not deletable/duplicable, type fixed), so the target always resolves; only its text is editable.",
+      "KR-092 — Caractéristiques come from the book schema, not a runtime hero; play-mode stats are out of editor scope (re-asserts KR-082).",
+      "KR-093 — Outcome edges/effects go through choice-linking/BookService, not private state, so the reader and canvas see the trap's consequence (re-asserts KR-060/KR-083).",
+      "KR-011 — No raw localStorage; persist via BookService (global config KR-111).",
+      "KR-013 — Bind roll/outcome state to store + handlers, not useEffect mirrors (global config KR-113).",
+      "A11y — roll + outcome controls keyboard-operable with ≥44px targets."
+    ]
+  },
+  "implementation": {
+    "iterations_log": [],
+    "resolved_decisions": [
+      "Trap failure typically routes to the obligatory Mort node with no new choice, reusing the single seeded death leaf.",
+      "A non-lethal sanction variant (e.g. −PV + redirect) is also supported.",
+      "Caractéristiques come from the book schema, not a runtime hero.",
+      "The « Mort du personnage » node is LOCKED: not deletable, not duplicable, and its type cannot change; only its player text is editable. It is the single death leaf reached when the hero dies (trap OR lost combat)."
+    ],
+    "open_questions": []
+  }
+}

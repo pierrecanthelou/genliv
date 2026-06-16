@@ -1,0 +1,26 @@
+<!-- @dsCard group="Colors" viewport="700x170" subtitle="The single accent — blue, with tints & ink-on-accent" name="Accent" -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-mono); background: var(--surface-card); padding: 18px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-start; }
+  .sw { width: 104px; }
+  .chip { height: 52px; border-radius: var(--r-xl); display: flex; align-items: center; justify-content: center; font-size: 11px; }
+  .name { font-size: 9.5px; color: var(--ink-2); margin-top: 7px; }
+  .hex { font-size: 9px; color: var(--ink-4); margin-top: 2px; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="sw"><div class="chip" style="background:var(--accent);color:var(--accent-fg)">Aa</div><div class="name">--accent</div><div class="hex">#2F6BFF</div></div>
+    <div class="sw"><div class="chip" style="background:var(--accent-bg);color:var(--accent);border:1px solid var(--accent-line)">Aa</div><div class="name">--accent-bg</div><div class="hex">#F4F8FF</div></div>
+    <div class="sw"><div class="chip" style="background:var(--accent-bg-2);color:var(--accent);border:1px solid var(--accent-line-3)">Aa</div><div class="name">--accent-bg-2</div><div class="hex">#F8FAFF</div></div>
+    <div class="sw"><div class="chip" style="background:var(--paper-0);border:1.5px solid var(--accent-line)"></div><div class="name">--accent-line</div><div class="hex">#B9CDFB</div></div>
+    <div class="sw"><div class="chip" style="background:var(--paper-0);border:1.5px solid var(--accent-line-2)"></div><div class="name">--accent-line-2</div><div class="hex">#CFE0FF</div></div>
+    <div class="sw"><div class="chip" style="background:var(--paper-0);border:1.5px solid var(--accent-line-3)"></div><div class="name">--accent-line-3</div><div class="hex">#DCE7FB</div></div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,30 @@
+<!-- @dsCard group="Brand" viewport="700x230" subtitle="The node-type visual language — each leaf kind has a badge mark" name="Node badges" -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-mono); background: var(--surface-card); padding: 18px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+  .item { display: flex; align-items: center; gap: 9px; border: 1px solid var(--line-1); border-radius: var(--r-lg); padding: 8px 11px; }
+  .mark { width: 13px; height: 13px; flex: none; display: flex; align-items: center; justify-content: center; }
+  .lbl { font-size: var(--fs-eyebrow); letter-spacing: .04em; color: var(--ink-2); }
+  .desc { font-size: 8.5px; color: var(--ink-4); }
+  .col { display: flex; flex-direction: column; gap: 1px; }
+</style>
+</head>
+<body>
+  <div class="grid">
+    <div class="item"><span class="mark"><span style="width:11px;height:11px;border-radius:2px;background:var(--ink-0)"></span></span><div class="col"><span class="lbl">SOMMAIRE</span><span class="desc">page de garde, plein noir</span></div></div>
+    <div class="item"><span class="mark"><span style="width:11px;height:11px;border-radius:2px;border:1.5px solid var(--ink-0)"></span></span><div class="col"><span class="lbl">CHOIX</span><span class="desc">description / contour</span></div></div>
+    <div class="item"><span class="mark"><span style="width:11px;height:11px;border-radius:50%;border:1.5px solid var(--ink-0)"></span></span><div class="col"><span class="lbl">PNJ</span><span class="desc">cercle</span></div></div>
+    <div class="item"><span class="mark"><span style="width:11px;height:11px;border-radius:2px;border:1.5px dashed var(--ink-0)"></span></span><div class="col"><span class="lbl">DÉCOR</span><span class="desc">contour pointillé</span></div></div>
+    <div class="item"><span class="mark"><span style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:11px solid var(--ink-0)"></span></span><div class="col"><span class="lbl">PIÈGE</span><span class="desc">triangle</span></div></div>
+    <div class="item"><span class="mark"><span style="width:11px;height:11px;background:repeating-linear-gradient(45deg,var(--ink-0) 0 2px,transparent 2px 4px)"></span></span><div class="col"><span class="lbl">MONSTRE</span><span class="desc">hachures</span></div></div>
+    <div class="item" style="border-color:var(--accent)"><span class="mark"><span style="width:11px;height:11px;border-radius:2px;background:var(--accent)"></span></span><div class="col"><span class="lbl" style="color:var(--accent)">SÉLECTIONNÉ</span><span class="desc">accent plein</span></div></div>
+    <div class="item"><span class="mark"><span style="width:11px;height:11px;border:2px double var(--ink-0)"></span></span><div class="col"><span class="lbl">FIN</span><span class="desc">victoire / échec, double</span></div></div>
+    <div class="item"><span class="mark"><span style="width:11px;height:11px;background:repeating-linear-gradient(45deg,var(--ink-4) 0 1.5px,transparent 1.5px 3px)"></span></span><div class="col"><span class="lbl">MORT</span><span class="desc">hachures grises, isolée</span></div></div>
+  </div>
+</body>
+</html>

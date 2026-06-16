@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *{ box-sizing:border-box; }
+    body{ margin:0; }
+    ::selection{ background:#2F6BFF; color:#fff; }
+  </style>
+</helmet>
+
+<div style="min-height:100vh; background:#ECECEA; font-family:'Hanken Grotesk',system-ui,sans-serif; color:#2B2B29; padding:44px 40px 96px;">
+  <div style="max-width:1480px; margin:0 auto;">
+
+    <!-- ===== PAGE HEADER ===== -->
+    <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:24px; border-bottom:1.5px solid #2B2B29; padding-bottom:18px; margin-bottom:8px;">
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:#8A8A86; margin-bottom:10px;">Wireframes · Low-fi · v1</div>
+        <h1 style="margin:0; font-size:30px; font-weight:700; letter-spacing:-0.02em;">Éditeur de « livre dont vous êtes le héros »</h1>
+        <p style="margin:8px 0 0; font-size:14px; color:#6E6E6A; max-width:760px;">Walking skeleton — de l'accueil de l'application jusqu'à l'édition d'un nœud, la modélisation des interactions et des combats. La donnée centrale persistée est l'arbre des écrans.</p>
+      </div>
+      <div style="display:flex; gap:8px; flex-shrink:0;">
+        <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#8A8A86; border:1px solid #CFCFCB; border-radius:999px; padding:6px 12px;">Desktop large</div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#8A8A86; border:1px solid #CFCFCB; border-radius:999px; padding:6px 12px;">6 sections</div>
+      </div>
+    </div>
+
+    <!-- ===== LEGEND : node types ===== -->
+    <div style="display:flex; flex-wrap:wrap; gap:8px; margin:22px 0 40px;">
+      <div style="display:flex; align-items:center; gap:7px; background:#fff; border:1px solid #D9D9D6; border-radius:7px; padding:6px 11px; font-family:'JetBrains Mono',monospace; font-size:10px; color:#555;"><span style="width:9px;height:9px;border-radius:2px;background:#2B2B29;"></span>SOMMAIRE</div>
+      <div style="display:flex; align-items:center; gap:7px; background:#fff; border:1px solid #D9D9D6; border-radius:7px; padding:6px 11px; font-family:'JetBrains Mono',monospace; font-size:10px; color:#555;"><span style="width:9px;height:9px;border-radius:2px;border:1.5px solid #2B2B29;"></span>CHOIX / DESCRIPTION</div>
+      <div style="display:flex; align-items:center; gap:7px; background:#fff; border:1px solid #D9D9D6; border-radius:7px; padding:6px 11px; font-family:'JetBrains Mono',monospace; font-size:10px; color:#555;"><span style="width:9px;height:9px;border-radius:50%;border:1.5px solid #2B2B29;"></span>PNJ</div>
+      <div style="display:flex; align-items:center; gap:7px; background:#fff; border:1px solid #D9D9D6; border-radius:7px; padding:6px 11px; font-family:'JetBrains Mono',monospace; font-size:10px; color:#555;"><span style="width:9px;height:9px;border:1.5px solid #2B2B29;border-radius:2px;border-style:dashed;"></span>DÉCOR</div>
+      <div style="display:flex; align-items:center; gap:7px; background:#fff; border:1px solid #D9D9D6; border-radius:7px; padding:6px 11px; font-family:'JetBrains Mono',monospace; font-size:10px; color:#555;"><span style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid #2B2B29;"></span>PIÈGE</div>
+      <div style="display:flex; align-items:center; gap:7px; background:#fff; border:1px solid #D9D9D6; border-radius:7px; padding:6px 11px; font-family:'JetBrains Mono',monospace; font-size:10px; color:#555;"><span style="width:9px;height:9px;background:repeating-linear-gradient(45deg,#2B2B29 0 2px,transparent 2px 4px);"></span>MONSTRE</div>
+      <div style="display:flex; align-items:center; gap:7px; background:#fff; border:1px solid #2F6BFF; border-radius:7px; padding:6px 11px; font-family:'JetBrains Mono',monospace; font-size:10px; color:#2F6BFF;"><span style="width:9px;height:9px;border-radius:2px;background:#2F6BFF;"></span>SÉLECTIONNÉ</div>
+      <div style="display:flex; align-items:center; gap:7px; background:#fff; border:1px solid #D9D9D6; border-radius:7px; padding:6px 11px; font-family:'JetBrains Mono',monospace; font-size:10px; color:#555;"><span style="width:9px;height:9px;border:2px double #2B2B29;"></span>FIN VICTOIRE / ÉCHEC</div>
+      <div style="display:flex; align-items:center; gap:7px; background:#fff; border:1px solid #D9D9D6; border-radius:7px; padding:6px 11px; font-family:'JetBrains Mono',monospace; font-size:10px; color:#555;"><span style="width:9px;height:9px;background:repeating-linear-gradient(45deg,#9A9A96 0 1.5px,transparent 1.5px 3px);"></span>MORT (isolée)</div>
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- SECTION 1 — PARCOURS BOUT-EN-BOUT -->
+    <!-- ============================================================= -->
+    <div style="display:flex; align-items:center; gap:14px; margin-bottom:18px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:600; letter-spacing:.04em;">01 · Parcours bout-en-bout</div>
+      <div style="height:1px; flex:1; background:#D2D2CE;"></div>
+      <div style="font-size:12px; color:#8A8A86;">De l'accueil à la première feuille éditée</div>
+    </div>
+
+    <div style="display:flex; align-items:stretch; gap:0; overflow-x:auto; padding:6px 2px 16px;">
+
+      <!-- 1.1 Accueil -->
+      <div style="flex:0 0 250px;">
+        <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#8A8A86; margin-bottom:8px;">1 — ACCUEIL DE L'APP</div>
+        <div style="background:#fff; border:1px solid #D9D9D6; border-radius:10px; padding:12px; height:248px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;"><div style="font-weight:700; font-size:13px;">Mes livres</div><div style="width:20px;height:20px;border-radius:50%;background:#EDEDEA;"></div></div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <div style="height:78px; border:1px solid #E2E2DF; border-radius:6px; background:#F7F7F5;"></div>
+            <div style="height:78px; border:1px solid #E2E2DF; border-radius:6px; background:#F7F7F5;"></div>
+            <div style="height:78px; border:1.5px dashed #2F6BFF; border-radius:6px; display:flex; align-items:center; justify-content:center; color:#2F6BFF; font-size:22px; font-weight:300;">+</div>
+            <div style="height:78px; border:1px solid #E2E2DF; border-radius:6px; background:#F7F7F5;"></div>
+          </div>
+          <div style="margin-top:10px; font-size:10px; color:#9A9A96; text-align:center;">La carte pointillée crée un livre</div>
+        </div>
+      </div>
+
+      <div style="flex:0 0 36px; display:flex; align-items:center; justify-content:center; color:#B7B7B3; font-size:20px; padding-top:24px;">→</div>
+
+      <!-- 1.2 Création -->
+      <div style="flex:0 0 250px;">
+        <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#8A8A86; margin-bottom:8px;">2 — NOMMER LE LIVRE</div>
+        <div style="background:#fff; border:1px solid #D9D9D6; border-radius:10px; padding:12px; height:248px; position:relative; overflow:hidden;">
+          <div style="position:absolute; inset:0; background:#3a3a38; opacity:.18;"></div>
+          <div style="position:relative; margin:42px 10px; background:#fff; border:1px solid #D9D9D6; border-radius:8px; padding:16px; box-shadow:0 8px 24px rgba(0,0,0,.12);">
+            <div style="font-weight:700; font-size:13px; margin-bottom:14px;">Nouveau livre</div>
+            <div style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96; margin-bottom:5px;">TITRE</div>
+            <div style="height:30px; border:1px solid #CFCFCB; border-radius:6px; background:#FAFAF9; display:flex; align-items:center; padding:0 9px; font-size:11px; color:#2B2B29;">La Caverne d'Aldûr<span style="width:1px;height:14px;background:#2F6BFF;margin-left:1px;"></span></div>
+            <div style="display:flex; gap:8px; margin-top:16px;">
+              <div style="flex:1; height:30px; border:1px solid #D9D9D6; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:11px; color:#6E6E6A;">Annuler</div>
+              <div style="flex:1; height:30px; background:#2F6BFF; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:11px; color:#fff; font-weight:600;">Créer</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex:0 0 36px; display:flex; align-items:center; justify-content:center; color:#B7B7B3; font-size:20px; padding-top:24px;">→</div>
+
+      <!-- 1.3 Arbre initial -->
+      <div style="flex:0 0 250px;">
+        <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#8A8A86; margin-bottom:8px;">3 — ARBRE INITIAL</div>
+        <div style="background:#fff; border:1px solid #D9D9D6; border-radius:10px; padding:12px; height:248px;">
+          <div style="font-size:11px; font-weight:600; margin-bottom:6px; color:#6E6E6A;">La Caverne d'Aldûr</div>
+          <div style="position:relative; height:198px; background:#FBFBFA; border:1px dashed #E2E2DF; border-radius:6px;">
+            <div style="position:absolute; top:14px; left:50%; transform:translateX(-50%); width:108px; height:30px; background:#2B2B29; color:#fff; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:10px; font-family:'JetBrains Mono',monospace;">SOMMAIRE</div>
+            <div style="position:absolute; top:44px; left:50%; width:1px; height:24px; background:#C2C2BE;"></div>
+            <div style="position:absolute; top:70px; left:50%; transform:translateX(-50%); width:120px; height:30px; border:1.5px dashed #2F6BFF; color:#2F6BFF; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:10px;">+ Première feuille</div>
+            <div style="position:absolute; bottom:12px; right:10px; width:96px; height:30px; border:1px solid #C2C2BE; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:9px; color:#8A8A86; font-family:'JetBrains Mono',monospace; background:repeating-linear-gradient(45deg,#F2F2F0 0 3px,#fff 3px 6px);">MORT ✕</div>
+          </div>
+          <div style="margin-top:8px; font-size:10px; color:#9A9A96; text-align:center;">Sommaire + Mort déjà présents</div>
+        </div>
+      </div>
+
+      <div style="flex:0 0 36px; display:flex; align-items:center; justify-content:center; color:#B7B7B3; font-size:20px; padding-top:24px;">→</div>
+
+      <!-- 1.4 Édition -->
+      <div style="flex:0 0 250px;">
+        <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#8A8A86; margin-bottom:8px;">4 — ÉDITER UN NŒUD</div>
+        <div style="background:#fff; border:1px solid #D9D9D6; border-radius:10px; padding:12px; height:248px; display:flex; gap:8px;">
+          <div style="flex:1; position:relative; background:#FBFBFA; border:1px dashed #E2E2DF; border-radius:6px;">
+            <div style="position:absolute; top:12px; left:14px; width:74px; height:24px; background:#2B2B29; border-radius:4px;"></div>
+            <div style="position:absolute; top:54px; left:30px; width:74px; height:24px; border:1px solid #C2C2BE; border-radius:4px; background:#fff;"></div>
+            <div style="position:absolute; top:94px; left:14px; width:74px; height:26px; border:1.5px solid #2F6BFF; border-radius:4px; background:#fff;"></div>
+          </div>
+          <div style="flex:0 0 96px; background:#F7F7F5; border:1px solid #E2E2DF; border-radius:6px; padding:8px;">
+            <div style="height:6px; width:60%; background:#D6D6D2; border-radius:3px; margin-bottom:8px;"></div>
+            <div style="height:22px; background:#fff; border:1px solid #E2E2DF; border-radius:3px; margin-bottom:6px;"></div>
+            <div style="height:34px; background:#fff; border:1px solid #E2E2DF; border-radius:3px; margin-bottom:6px;"></div>
+            <div style="height:6px; width:80%; background:#D6D6D2; border-radius:3px; margin-bottom:6px;"></div>
+            <div style="height:18px; background:#fff; border:1px solid #E2E2DF; border-radius:3px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex:0 0 36px; display:flex; align-items:center; justify-content:center; color:#B7B7B3; font-size:20px; padding-top:24px;">→</div>
+
+      <!-- 1.5 Branche -->
+      <div style="flex:0 0 250px;">
+        <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#8A8A86; margin-bottom:8px;">5 — BRANCHER / RELIER</div>
+        <div style="background:#fff; border:1px solid #D9D9D6; border-radius:10px; padding:12px; height:248px;">
+          <div style="position:relative; height:222px; background:#FBFBFA; border:1px dashed #E2E2DF; border-radius:6px;">
+            <div style="position:absolute; top:18px; left:50%; transform:translateX(-50%); width:96px; height:28px; border:1.5px solid #2F6BFF; border-radius:5px; background:#fff; display:flex; align-items:center; justify-content:center; font-size:10px;">Nœud actif</div>
+            <div style="position:absolute; top:56px; left:50%; transform:translateX(-50%); width:140px; background:#fff; border:1px solid #D9D9D6; border-radius:6px; box-shadow:0 6px 18px rgba(0,0,0,.1); overflow:hidden;">
+              <div style="padding:8px 10px; font-size:10px; border-bottom:1px solid #EEE; display:flex; align-items:center; gap:6px;"><span style="color:#2F6BFF;">+</span> Nouvelle branche</div>
+              <div style="padding:8px 10px; font-size:10px; color:#6E6E6A; display:flex; align-items:center; gap:6px;"><span>↪</span> Relier à un nœud…</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- SECTION 2 — VUE D'ENSEMBLE DE L'ARBRE (HERO) -->
+    <!-- ============================================================= -->
+    <div style="display:flex; align-items:center; gap:14px; margin:48px 0 18px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:600; letter-spacing:.04em;">02 · Éditeur — vue d'ensemble de l'arbre</div>
+      <div style="height:1px; flex:1; background:#D2D2CE;"></div>
+      <div style="font-size:12px; color:#8A8A86;">Canvas hiérarchique + panneau latéral (le nœud Monstre est sélectionné)</div>
+    </div>
+
+    <div style="background:#fff; border:1px solid #D9D9D6; border-radius:12px; overflow:hidden;">
+      <!-- top bar -->
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid #E6E6E3;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="font-size:12px; color:#9A9A96; display:flex; align-items:center; gap:6px;"><span style="font-size:14px;">←</span> Mes livres</div>
+          <div style="width:1px; height:16px; background:#E2E2DF;"></div>
+          <div style="font-weight:700; font-size:15px;">La Caverne d'Aldûr</div>
+          <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#9A9A96; border:1px solid #E2E2DF; border-radius:5px; padding:3px 7px;">8 nœuds</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div style="display:flex; gap:3px; background:#F2F2F0; border-radius:7px; padding:3px;">
+            <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#fff; background:#2B2B29; border-radius:5px; padding:5px 11px;">⤧ Arbre</div>
+            <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#8A8A86; border-radius:5px; padding:5px 11px;">≣ Outline</div>
+          </div>
+          <div style="width:1px; height:18px; background:#E2E2DF;"></div>
+          <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#6E6E6A; border:1px solid #D9D9D6; border-radius:6px; padding:6px 10px;">Aperçu du jeu ▷</div>
+          <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#fff; background:#2F6BFF; border-radius:6px; padding:6px 12px;">+ Nœud</div>
+        </div>
+      </div>
+
+      <div style="display:flex;">
+        <!-- TREE CANVAS -->
+        <div style="flex:1; position:relative; height:600px; background:#FAFAF9; background-image:radial-gradient(#E3E3E0 1px, transparent 1px); background-size:22px 22px; overflow:hidden;">
+
+          <!-- connectors -->
+          <svg width="950" height="600" viewBox="0 0 950 600" style="position:absolute; top:0; left:0; pointer-events:none;">
+            <defs>
+              <marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto"><path d="M0,0 L7,3.2 L0,6.4 z" fill="#A9A9A4"></path></marker>
+            </defs>
+            <sc-for list="{{ conns }}" as="c" hint-placeholder-count="8">
+              <line x1="{{ c.x1 }}" y1="{{ c.y1 }}" x2="{{ c.x2 }}" y2="{{ c.y2 }}" style="{{ c.lineStyle }}" marker-end="url(#arrow)"></line>
+            </sc-for>
+            <!-- relink fuite (curved dashed, N4 -> N2) -->
+            <path d="M120,416 C 30,400 26,300 60,272" fill="none" stroke="#B0B0AB" stroke-width="1.5" stroke-dasharray="6 5" marker-end="url(#arrow)"></path>
+          </svg>
+
+          <!-- connector labels -->
+          <sc-for list="{{ conns }}" as="c" hint-placeholder-count="8">
+            <div style="{{ c.labelStyle }}">{{ c.label }}</div>
+          </sc-for>
+          <div style="position:absolute; left:8px; top:330px; font-family:'JetBrains Mono',monospace; font-size:9px; color:#8A8A86; background:#fff; border:1px solid #E2E2DF; border-radius:4px; padding:2px 6px;">Fuite ↻ (reliaison)</div>
+
+          <!-- nodes -->
+          <sc-for list="{{ nodes }}" as="n" hint-placeholder-count="8">
+            <div style="{{ n.wrapStyle }}">
+              <div style="{{ n.cardStyle }}">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:5px;">
+                  <span style="{{ n.badgeStyle }}">{{ n.badge }}</span>
+                  <span style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#B0B0AB;">{{ n.ref }}</span>
+                </div>
+                <div style="font-size:12.5px; font-weight:600; line-height:1.2; letter-spacing:-0.01em;">{{ n.title }}</div>
+                <div style="font-size:10.5px; color:#8A8A86; line-height:1.3; margin-top:3px; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical;">{{ n.snippet }}</div>
+              </div>
+            </div>
+          </sc-for>
+
+          <!-- mini map / zoom controls -->
+          <div style="position:absolute; bottom:14px; right:14px; display:flex; flex-direction:column; gap:4px;">
+            <div style="width:28px; height:28px; background:#fff; border:1px solid #D9D9D6; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:15px; color:#6E6E6A;">+</div>
+            <div style="width:28px; height:28px; background:#fff; border:1px solid #D9D9D6; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:15px; color:#6E6E6A;">−</div>
+          </div>
+        </div>
+
+        <!-- SIDE PANEL : edit selected node (Monstre) -->
+        <div style="flex:0 0 372px; border-left:1px solid #E6E6E3; height:600px; overflow-y:auto; background:#fff;">
+          <div style="padding:14px 16px; border-bottom:1px solid #EEEEEB; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; background:#fff; z-index:2;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#fff; background:#2F6BFF; border-radius:4px; padding:3px 7px;">NŒUD #4</span>
+              <span style="font-size:13px; font-weight:600;">Le gardien gobelin</span>
+            </div>
+            <span style="color:#B0B0AB; font-size:16px;">✕</span>
+          </div>
+
+          <div style="padding:16px; display:flex; flex-direction:column; gap:16px;">
+
+            <!-- libellé de choix -->
+            <div>
+              <div style="font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.08em; color:#9A9A96; text-transform:uppercase; margin-bottom:6px;">Libellé du choix <span style="color:#C2C2BE;">— bouton dans l'écran parent</span></div>
+              <div style="border:1px solid #D5D5D2; border-radius:7px; padding:8px 10px; background:#FAFAF9; font-size:12.5px;">Affronter le gardien</div>
+            </div>
+
+            <!-- description -->
+            <div>
+              <div style="font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.08em; color:#9A9A96; text-transform:uppercase; margin-bottom:6px;">Description</div>
+              <div style="border:1px solid #D5D5D2; border-radius:7px; padding:9px 10px; background:#FAFAF9; font-size:12.5px; color:#4E4E4B; line-height:1.45; height:64px;">Une créature trapue surgit de l'ombre, gourdin clouté levé. Ses yeux jaunes vous fixent sans ciller…</div>
+            </div>
+
+            <!-- illustration -->
+            <div>
+              <div style="font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.08em; color:#9A9A96; text-transform:uppercase; margin-bottom:6px;">Illustration <span style="color:#C2C2BE;">— optionnelle</span></div>
+              <div style="border:1.5px dashed #D5D5D2; border-radius:7px; height:62px; display:flex; align-items:center; justify-content:center; gap:8px; color:#A9A9A4; font-size:11px; background:#FCFCFB;"><span style="font-size:16px;">⬚</span> Déposer une image</div>
+            </div>
+
+            <!-- inventaire -->
+            <div>
+              <div style="font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.08em; color:#9A9A96; text-transform:uppercase; margin-bottom:6px; display:flex; justify-content:space-between;"><span>Objets à prendre</span><span style="color:#2F6BFF;">+ ajouter</span></div>
+              <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                <div style="font-size:11px; border:1px solid #DcDcD8; border-radius:999px; padding:4px 10px; background:#F4F4F2; display:flex; gap:6px; align-items:center;">Gourdin clouté <span style="color:#B0B0AB;">✕</span></div>
+                <div style="font-size:11px; border:1px dashed #D5D5D2; border-radius:999px; padding:4px 10px; color:#A9A9A4;">+ objet</div>
+              </div>
+            </div>
+
+            <!-- action requise -->
+            <div style="border-top:1px solid #EEEEEB; padding-top:14px;">
+              <div style="font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.08em; color:#6E6E6A; text-transform:uppercase; margin-bottom:8px; font-weight:600;">Action requise pour poursuivre</div>
+              <div style="display:flex; gap:4px; background:#F2F2F0; border-radius:8px; padding:3px; margin-bottom:12px;">
+                <div style="flex:1; text-align:center; font-size:10.5px; color:#8A8A86; padding:6px 2px; border-radius:6px;">Aucune</div>
+                <div style="flex:1; text-align:center; font-size:10.5px; color:#8A8A86; padding:6px 2px; border-radius:6px;">PNJ</div>
+                <div style="flex:1; text-align:center; font-size:10.5px; color:#8A8A86; padding:6px 2px; border-radius:6px;">Décor</div>
+                <div style="flex:1; text-align:center; font-size:10.5px; color:#8A8A86; padding:6px 2px; border-radius:6px;">Piège</div>
+                <div style="flex:1; text-align:center; font-size:10.5px; color:#fff; background:#2B2B29; padding:6px 2px; border-radius:6px; font-weight:600;">Monstre</div>
+              </div>
+
+              <!-- monster config -->
+              <div style="border:1px solid #E6E6E3; border-radius:8px; padding:12px; background:#FBFBFA; display:flex; flex-direction:column; gap:11px;">
+                <div>
+                  <div style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96; margin-bottom:5px;">MONSTRE</div>
+                  <div style="border:1px solid #D5D5D2; border-radius:6px; padding:7px 10px; background:#fff; font-size:12px; display:flex; justify-content:space-between; align-items:center;">Gobelin des cavernes <span style="color:#B0B0AB;">▾</span></div>
+                  <div style="font-size:9.5px; color:#B0B0AB; margin-top:4px; font-family:'JetBrains Mono',monospace;">v1 — un seul monstre disponible</div>
+                </div>
+                <div>
+                  <div style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96; margin-bottom:5px;">TEXTE SI VICTOIRE → poursuit</div>
+                  <div style="border:1px solid #D5D5D2; border-radius:6px; padding:7px 10px; background:#fff; font-size:11.5px; color:#4E4E4B; line-height:1.4;">Le gobelin s'effondre. La voie vers la sortie est libre.</div>
+                </div>
+                <div>
+                  <div style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96; margin-bottom:5px;">TEXTE SI FUITE → reliaison</div>
+                  <div style="border:1px solid #D5D5D2; border-radius:6px; padding:7px 10px; background:#fff; font-size:11.5px; color:#4E4E4B; line-height:1.4;">Vous détalez vers la fosse… <span style="color:#2F6BFF;">→ La fosse dissimulée</span></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- choix sortants -->
+            <div style="border-top:1px solid #EEEEEB; padding-top:14px;">
+              <div style="font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.08em; color:#6E6E6A; text-transform:uppercase; margin-bottom:8px; font-weight:600; display:flex; justify-content:space-between;"><span>Choix sortants</span><span style="color:#2F6BFF;">+ branche</span></div>
+              <div style="border:1px solid #E6E6E3; border-radius:8px; padding:10px; margin-bottom:8px;">
+                <div style="font-size:12px; font-weight:600; margin-bottom:6px;">→ La salle au trésor</div>
+                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                  <div style="font-size:9.5px; font-family:'JetBrains Mono',monospace; color:#6E6E6A; border:1px solid #E2E2DF; border-radius:999px; padding:3px 8px;">⊘ pré-requis caché</div>
+                  <div style="font-size:9.5px; font-family:'JetBrains Mono',monospace; color:#6E6E6A; border:1px solid #E2E2DF; border-radius:999px; padding:3px 8px;">⏱ compte à rebours</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- end toggles -->
+            <div style="border-top:1px solid #EEEEEB; padding-top:14px; display:flex; flex-direction:column; gap:10px;">
+              <div style="display:flex; align-items:center; justify-content:space-between;">
+                <span style="font-size:12.5px;">Fin victoire</span>
+                <div style="width:34px; height:19px; background:#E2E2DF; border-radius:999px; position:relative;"><span style="position:absolute; top:2px; left:2px; width:15px; height:15px; background:#fff; border-radius:50%; box-shadow:0 1px 2px rgba(0,0,0,.2);"></span></div>
+              </div>
+              <div style="display:flex; align-items:center; justify-content:space-between;">
+                <span style="font-size:12.5px;">Fin échec</span>
+                <div style="width:34px; height:19px; background:#E2E2DF; border-radius:999px; position:relative;"><span style="position:absolute; top:2px; left:2px; width:15px; height:15px; background:#fff; border-radius:50%; box-shadow:0 1px 2px rgba(0,0,0,.2);"></span></div>
+              </div>
+            </div>
+
+            <!-- footer actions -->
+            <div style="border-top:1px solid #EEEEEB; padding-top:14px; display:flex; gap:8px;">
+              <div style="flex:1; text-align:center; font-size:11.5px; color:#fff; background:#2F6BFF; border-radius:7px; padding:9px;">+ Ajouter une branche</div>
+              <div style="flex:1; text-align:center; font-size:11.5px; color:#2B2B29; border:1px solid #D5D5D2; border-radius:7px; padding:9px;">↪ Relier…</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- SECTION 3 — VARIANTE DE VISUALISATION -->
+    <!-- ============================================================= -->
+    <div style="display:flex; align-items:center; gap:14px; margin:48px 0 18px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:600; letter-spacing:.04em;">03 · Mode Outline — bascule depuis l'arbre</div>
+      <div style="height:1px; flex:1; background:#D2D2CE;"></div>
+      <div style="font-size:12px; color:#8A8A86;">Le bouton « ≣ Outline » de la barre montre le même livre en plan indenté</div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+      <!-- variant A : indented list -->
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#8A8A86; margin-bottom:8px;">A — OUTLINE / PLAN DU LIVRE</div>
+        <div style="background:#fff; border:1px solid #D9D9D6; border-radius:10px; padding:14px 16px; font-size:13px;">
+          <div style="display:flex; align-items:center; gap:8px; padding:7px 0;"><span style="font-family:'JetBrains Mono',monospace; font-size:9px; background:#2B2B29; color:#fff; border-radius:3px; padding:2px 5px;">SOM</span> Sommaire</div>
+          <div style="display:flex; align-items:center; gap:8px; padding:7px 0 7px 24px; border-left:1px solid #E6E6E3; margin-left:14px;"><span style="font-family:'JetBrains Mono',monospace; font-size:9px; border:1px solid #C2C2BE; border-radius:3px; padding:2px 5px; color:#6E6E6A;">CHX</span> L'entrée de la grotte</div>
+          <div style="display:flex; align-items:center; gap:8px; padding:7px 0 7px 48px; border-left:1px solid #E6E6E3; margin-left:14px;"><span style="font-family:'JetBrains Mono',monospace; font-size:9px; border:1px solid #C2C2BE; border-radius:3px; padding:2px 5px; color:#6E6E6A;">PIÈ</span> La fosse dissimulée</div>
+          <div style="display:flex; align-items:center; gap:8px; padding:7px 0 7px 72px; border-left:1px solid #E6E6E3; margin-left:14px;"><span style="font-family:'JetBrains Mono',monospace; font-size:9px; background:repeating-linear-gradient(45deg,#2B2B29 0 2px,transparent 2px 4px); border:1px solid #C2C2BE; border-radius:3px; padding:2px 5px; color:#2B2B29;">MON</span> Le gardien gobelin</div>
+          <div style="display:flex; align-items:center; gap:8px; padding:7px 0 7px 96px; border-left:1px solid #E6E6E3; margin-left:14px; color:#8A8A86;"><span style="font-size:11px;">↪</span> La salle au trésor <span style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#B0B0AB;">(reliaison)</span></div>
+          <div style="display:flex; align-items:center; gap:8px; padding:7px 0 7px 48px; border-left:1px solid #E6E6E3; margin-left:14px;"><span style="font-family:'JetBrains Mono',monospace; font-size:9px; border:1px dashed #C2C2BE; border-radius:3px; padding:2px 5px; color:#6E6E6A;">DÉC</span> La salle aux runes</div>
+          <div style="display:flex; align-items:center; gap:8px; padding:7px 0 7px 72px; border-left:1px solid #E6E6E3; margin-left:14px;"><span style="font-family:'JetBrains Mono',monospace; font-size:9px; border:1px dashed #C2C2BE; border-radius:3px; padding:2px 5px; color:#6E6E6A;">DÉC</span> Le coffre scellé</div>
+          <div style="display:flex; align-items:center; gap:8px; padding:7px 0;"><span style="font-family:'JetBrains Mono',monospace; font-size:9px; border:2px double #2B2B29; border-radius:3px; padding:1px 5px;">FIN</span> La salle au trésor — victoire</div>
+          <div style="display:flex; align-items:center; gap:8px; padding:7px 0; color:#9A9A96;"><span style="font-family:'JetBrains Mono',monospace; font-size:9px; background:repeating-linear-gradient(45deg,#9A9A96 0 1.5px,transparent 1.5px 3px); border:1px solid #D2D2CE; border-radius:3px; padding:2px 5px;">MORT</span> Personnage décédé <span style="font-size:10px; color:#B0B0AB;">— isolé</span></div>
+        </div>
+        <div style="font-size:11px; color:#9A9A96; margin-top:8px;">↳ Survol = aperçu, clic = ouvre le panneau d'édition. Les reliaisons sont marquées ↪.</div>
+      </div>
+
+      <!-- variant B : node inspector summary -->
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#8A8A86; margin-bottom:8px;">B — CARTE DE NŒUD (détail au survol)</div>
+        <div style="background:#fff; border:1px solid #D9D9D6; border-radius:10px; padding:16px;">
+          <div style="border:1.5px solid #2F6BFF; border-radius:9px; padding:13px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;"><span style="font-family:'JetBrains Mono',monospace; font-size:9px; background:repeating-linear-gradient(45deg,#2B2B29 0 2px,transparent 2px 4px); border:1px solid #C2C2BE; border-radius:4px; padding:3px 7px;">MONSTRE</span><span style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#B0B0AB;">#4</span></div>
+            <div style="font-size:15px; font-weight:700; margin-bottom:4px;">Le gardien gobelin</div>
+            <div style="font-size:12px; color:#8A8A86; line-height:1.4; margin-bottom:12px;">Une créature trapue surgit de l'ombre, gourdin clouté levé…</div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <div style="display:flex; justify-content:space-between; font-size:11px; padding:6px 9px; background:#F7F7F5; border-radius:6px;"><span style="color:#6E6E6A;">Entre depuis</span><span>← La fosse dissimulée</span></div>
+              <div style="display:flex; justify-content:space-between; font-size:11px; padding:6px 9px; background:#F7F7F5; border-radius:6px;"><span style="color:#6E6E6A;">Victoire →</span><span>La salle au trésor</span></div>
+              <div style="display:flex; justify-content:space-between; font-size:11px; padding:6px 9px; background:#F7F7F5; border-radius:6px;"><span style="color:#6E6E6A;">Fuite ↻</span><span>La fosse dissimulée</span></div>
+            </div>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:12px;">
+            <div style="flex:1; text-align:center; font-size:11px; color:#fff; background:#2F6BFF; border-radius:7px; padding:8px;">Éditer</div>
+            <div style="flex:1; text-align:center; font-size:11px; border:1px solid #D5D5D2; border-radius:7px; padding:8px; color:#6E6E6A;">Centrer dans l'arbre</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- SECTION 4 — PANNEAU SELON ACTION REQUISE -->
+    <!-- ============================================================= -->
+    <div style="display:flex; align-items:center; gap:14px; margin:48px 0 18px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:600; letter-spacing:.04em;">04 · Détail de chaque écran d'action</div>
+      <div style="height:1px; flex:1; background:#D2D2CE;"></div>
+      <div style="font-size:12px; color:#8A8A86;">PNJ · Décor (Prendre / Écouter / Fouiller) · Piège · Monstre</div>
+    </div>
+
+    <!-- action-type selector (shared) -->
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px;">
+      <span style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96; letter-spacing:.06em;">ACTION REQUISE →</span>
+      <div style="display:flex; gap:4px; background:#F2F2F0; border-radius:8px; padding:3px;">
+        <div style="font-size:11px; color:#6E6E6A; padding:6px 14px; border-radius:6px;">Aucune</div>
+        <div style="font-size:11px; color:#fff; background:#2B2B29; padding:6px 14px; border-radius:6px; font-weight:600;">PNJ</div>
+        <div style="font-size:11px; color:#6E6E6A; padding:6px 14px; border-radius:6px;">Décor</div>
+        <div style="font-size:11px; color:#6E6E6A; padding:6px 14px; border-radius:6px;">Piège</div>
+        <div style="font-size:11px; color:#6E6E6A; padding:6px 14px; border-radius:6px;">Monstre</div>
+      </div>
+      <span style="font-size:11px; color:#B0B0AB;">— le bloc ci-dessous change selon l'onglet</span>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:18px;">
+
+      <!-- ===== 4A · PNJ (full) ===== -->
+      <div style="grid-column:1 / -1;">
+        <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#8A8A86; margin-bottom:8px;">ÉCRAN — PNJ</div>
+        <div style="background:#fff; border:1px solid #D9D9D6; border-radius:12px; padding:18px; display:grid; grid-template-columns:1fr 1fr; gap:22px;">
+
+          <!-- left : identity / source -->
+          <div style="display:flex; flex-direction:column; gap:13px;">
+            <div>
+              <div style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96; margin-bottom:6px; letter-spacing:.06em;">SOURCE DU PNJ</div>
+              <div style="display:flex; gap:6px;">
+                <div style="flex:1; text-align:center; font-size:11px; color:#2F6BFF; border:1.5px solid #2F6BFF; background:#F4F8FF; border-radius:7px; padding:8px;">＋ Créer un nouveau PNJ</div>
+                <div style="flex:1; text-align:center; font-size:11px; color:#6E6E6A; border:1px solid #E2E2DF; border-radius:7px; padding:8px; display:flex; align-items:center; justify-content:center; gap:6px;">Choisir dans le livre <span style="color:#B0B0AB;">▾</span></div>
+              </div>
+              <div style="margin-top:7px; display:flex; flex-wrap:wrap; gap:6px;">
+                <span style="font-size:10px; color:#6E6E6A; border:1px solid #E2E2DF; border-radius:999px; padding:3px 9px; background:#F7F7F5;">Le vieil ermite</span>
+                <span style="font-size:10px; color:#6E6E6A; border:1px solid #E2E2DF; border-radius:999px; padding:3px 9px; background:#F7F7F5;">La marchande</span>
+                <span style="font-size:10px; color:#B0B0AB; border:1px dashed #D5D5D2; border-radius:999px; padding:3px 9px;">réutilisables dans le livre</span>
+              </div>
+            </div>
+            <div style="display:flex; gap:10px;">
+              <div style="flex:0 0 62px;"><div style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96; margin-bottom:5px;">PORTRAIT</div><div style="border:1.5px dashed #D5D5D2; border-radius:7px; height:62px; display:flex; align-items:center; justify-content:center; color:#A9A9A4; font-size:18px; background:#FCFCFB;">⬚</div></div>
+              <div style="flex:1;"><div style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96; margin-bottom:5px;">NOM</div><div style="border:1px solid #D5D5D2; border-radius:6px; padding:8px 10px; background:#FAFAF9; font-size:12px;">Le vieil ermite</div><div style="margin-top:8px; font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96; margin-bottom:5px;">DIALOGUE</div><div style="border:1px solid #D5D5D2; border-radius:6px; padding:8px 10px; background:#FAFAF9; font-size:11.5px; color:#4E4E4B; line-height:1.4; height:46px;">« Approche, voyageur. J'ai gardé ceci pour toi… »</div></div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; background:#FBFBFA; border:1px dashed #E2E2DF; border-radius:7px; padding:8px 10px;">
+              <span style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#fff; background:#B0B0AB; border-radius:4px; padding:2px 6px;">v2</span>
+              <span style="font-size:11px; color:#8A8A86;">Arbre de dialogue (réponses multiples) — prévu plus tard</span>
+            </div>
+          </div>
+
+          <!-- right : gives an object -->
+          <div style="display:flex; flex-direction:column; gap:11px; border-left:1px solid #EEEEEB; padding-left:22px;">
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+              <span style="font-size:12px; font-weight:600;">Le PNJ donne un objet</span>
+              <div style="width:32px; height:18px; background:#2F6BFF; border-radius:999px; position:relative;"><span style="position:absolute; top:2px; right:2px; width:14px; height:14px; background:#fff; border-radius:50%;"></span></div>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <div style="flex:1; text-align:center; font-size:10.5px; color:#2F6BFF; border:1.5px solid #2F6BFF; background:#F4F8FF; border-radius:6px; padding:7px;">＋ Créer l'objet</div>
+              <div style="flex:1; text-align:center; font-size:10.5px; color:#6E6E6A; border:1px solid #E2E2DF; border-radius:6px; padding:7px; display:flex; align-items:center; justify-content:center; gap:5px;">Prendre dans la liste <span style="color:#B0B0AB;">▾</span></div>
+            </div>
+            <div style="border:1px solid #E6E6E3; border-radius:8px; padding:12px; background:#FBFBFA; display:flex; flex-direction:column; gap:10px;">
+              <div><div style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96; margin-bottom:5px;">NOM DE L'OBJET <span style="color:#C2C2BE;">— interne</span></div><div style="border:1px solid #D5D5D2; border-radius:6px; padding:7px 9px; background:#fff; font-size:11.5px;">Potion de vigueur</div></div>
+              <div><div style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96; margin-bottom:5px;">DESCRIPTION <span style="color:#C2C2BE;">— lue par le joueur</span></div><div style="border:1px solid #D5D5D2; border-radius:6px; padding:7px 9px; background:#fff; font-size:11.5px; color:#4E4E4B; line-height:1.4;">Une fiole tiède où perle un liquide ambré, à l'odeur de miel et de fer.</div></div>
+              <div>
+                <div style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96; margin-bottom:6px;">EFFET DE L'OBJET</div>
+                <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                  <span style="font-size:10.5px; color:#2F6BFF; border:1.5px solid #2F6BFF; background:#F4F8FF; border-radius:999px; padding:4px 11px;">＋ N PV</span>
+                  <span style="font-size:10.5px; color:#6E6E6A; border:1px solid #E2E2DF; border-radius:999px; padding:4px 11px;">＋ N Attaque</span>
+                  <span style="font-size:10.5px; color:#6E6E6A; border:1px solid #E2E2DF; border-radius:999px; padding:4px 11px;">＋ N Défense</span>
+                  <span style="font-size:10.5px; color:#6E6E6A; border:1px solid #E2E2DF; border-radius:999px; padding:4px 11px;">Objet de scénario</span>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px;">
+                <span style="font-size:11px; color:#6E6E6A;">Valeur</span>
+                <div style="display:flex; align-items:center; border:1px solid #D5D5D2; border-radius:6px; background:#fff; overflow:hidden;"><span style="padding:5px 10px; color:#6E6E6A; border-right:1px solid #E2E2DF;">−</span><span style="padding:5px 14px; font-size:12px; font-weight:600;">+8</span><span style="padding:5px 10px; color:#6E6E6A; border-left:1px solid #E2E2DF;">＋</span></div>
+                <span style="font-size:11px; color:#8A8A86;">points de vie</span>
+              </div>
+              <div style="font-size:10px; color:#B0B0AB; font-family:'JetBrains Mono',monospace; line-height:1.4;">« Objet de scénario » = pas de stat, sert de clé / pré-requis caché (cf. §05)</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; font-size:11.5px;"><span style="color:#6E6E6A;">Ensuite, le PNJ mène à</span><div style="border:1px solid #D5D5D2; border-radius:6px; padding:6px 10px; background:#FAFAF9; font-size:11px; display:flex; align-items:center; gap:6px;">La salle aux runes <span style="color:#B0B0AB;">▾</span></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 4B · DÉCOR — PRENDRE (full) ===== -->
+      <div style="grid-column:1 / -1;">
+        <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#8A8A86; margin-bottom:8px;">ÉCRAN — DÉCOR · PRENDRE</div>
+        <div style="background:#fff; border:1px solid #D9D9D6; border-radius:12px; padding:18px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+            <div style="display:flex; gap:5px; background:#F2F2F0; border-radius:7px; padding:3px;">
+              <div style="font-size:10.5px; color:#fff; background:#2B2B29; padding:6px 14px; border-radius:5px;">Prendre</div>
+              <div style="font-size:10.5px; color:#9A9A96; padding:6px 14px;">Écouter</div>
+              <div style="font-size:10.5px; color:#9A9A96; padding:6px 14px;">Fouiller</div>
+            </div>
+            <span style="font-size:11px; color:#8A8A86;">Plusieurs objets — tous ne sont pas utiles, certains exigent un jet</span>
+          </div>
+
+          <!-- object rows -->
+          <div style="font-size:10px; color:#9A9A96; margin-bottom:8px;">Survol d'une ligne → <span style="color:#2F6BFF;">✎ éditer</span> · <span style="color:#C0654A;">✕ supprimer</span> · glisser ⤥ pour réordonner</div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <!-- row 1 : useful, no roll -->
+            <div style="display:flex; align-items:center; gap:12px; border:1px solid #E6E6E3; border-radius:8px; padding:10px 12px;">
+              <span style="color:#C2C2BE; font-size:13px;">⠿</span>
+              <div style="min-width:210px;"><div style="font-size:12.5px; font-weight:600;">Potion de soin</div><div style="font-size:10.5px; color:#8A8A86; margin-top:2px; line-height:1.35;">Une fiole tiède où perle un liquide ambré.</div></div>
+              <span style="font-size:10px; color:#3E9E5E; border:1px solid #BFE3CC; background:#F4FBF6; border-radius:999px; padding:3px 9px;">utile · ＋12 PV</span>
+              <span style="flex:1;"></span>
+              <span style="font-size:10.5px; color:#8A8A86;">Jet requis</span>
+              <div style="width:30px; height:17px; background:#E2E2DF; border-radius:999px; position:relative;"><span style="position:absolute; top:2px; left:2px; width:13px; height:13px; background:#fff; border-radius:50%;"></span></div>
+              <div style="display:flex; gap:5px; margin-left:6px; padding-left:10px; border-left:1px solid #E6E6E3;"><span style="width:24px; height:24px; border:1px solid #E2E2DF; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:11px; color:#6E6E6A; background:#fff;">✎</span><span style="width:24px; height:24px; border:1px solid #E2E2DF; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:11px; color:#C0654A; background:#fff;">✕</span></div>
+            </div>
+            <!-- row 2 : leurre -->
+            <div style="display:flex; align-items:center; gap:12px; border:1px solid #E6E6E3; border-radius:8px; padding:10px 12px; background:#FBFBFA;">
+              <span style="color:#C2C2BE; font-size:13px;">⠿</span>
+              <div style="min-width:210px;"><div style="font-size:12.5px; font-weight:600;">Vieux chiffon</div><div style="font-size:10.5px; color:#8A8A86; margin-top:2px; line-height:1.35;">Un morceau d'étoffe rouge poussiéreux, en lambeaux.</div></div>
+              <span style="font-size:10px; color:#9A9A96; border:1px solid #E2E2DF; border-radius:999px; padding:3px 9px;">leurre · sans effet</span>
+              <span style="flex:1;"></span>
+              <span style="font-size:10.5px; color:#8A8A86;">Jet requis</span>
+              <div style="width:30px; height:17px; background:#E2E2DF; border-radius:999px; position:relative;"><span style="position:absolute; top:2px; left:2px; width:13px; height:13px; background:#fff; border-radius:50%;"></span></div>
+              <div style="display:flex; gap:5px; margin-left:6px; padding-left:10px; border-left:1px solid #E6E6E3;"><span style="width:24px; height:24px; border:1px solid #E2E2DF; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:11px; color:#6E6E6A; background:#fff;">✎</span><span style="width:24px; height:24px; border:1px solid #E2E2DF; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:11px; color:#C0654A; background:#fff;">✕</span></div>
+            </div>
+            <!-- row 3 : useful + roll, expanded (open in editor) -->
+            <div style="border:1.5px solid #2F6BFF; border-radius:8px; padding:10px 12px; background:#F8FAFF;">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <span style="color:#9DBBF5; font-size:13px;">⠿</span>
+                <div style="min-width:210px;"><div style="font-size:12.5px; font-weight:600;">Chandelier en argent</div><div style="font-size:10.5px; color:#8A8A86; margin-top:2px; line-height:1.35;">Lourd, terni, gravé d'initiales effacées par le temps.</div></div>
+                <span style="font-size:10px; color:#2F6BFF; border:1px solid #B9CDFB; background:#fff; border-radius:999px; padding:3px 9px;">utile · scénario</span>
+                <span style="flex:1;"></span>
+                <span style="font-size:10.5px; color:#2F6BFF;">Jet requis</span>
+                <div style="width:30px; height:17px; background:#2F6BFF; border-radius:999px; position:relative;"><span style="position:absolute; top:2px; right:2px; width:13px; height:13px; background:#fff; border-radius:50%;"></span></div>
+                <div style="display:flex; gap:5px; margin-left:6px; padding-left:10px; border-left:1px solid #DCE7FB;"><span style="width:24px; height:24px; border:1px solid #2F6BFF; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:11px; color:#fff; background:#2F6BFF;">✎</span><span style="width:24px; height:24px; border:1px solid #E2E2DF; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:11px; color:#C0654A; background:#fff;">✕</span></div>
+              </div>
+              <div style="display:flex; gap:18px; align-items:flex-start; margin-top:11px; padding-top:11px; border-top:1px solid #DCE7FB;">
+                <div style="display:flex; align-items:center; gap:8px;"><span style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#6E6E6A;">CARACTÉRISTIQUE</span><div style="border:1px solid #CFE0FF; border-radius:6px; padding:5px 10px; background:#fff; font-size:11px;">Force ▾</div></div>
+                <div style="display:flex; align-items:center; gap:8px;"><span style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#6E6E6A;">DIFFICULTÉ</span><div style="display:flex; gap:3px;"><span style="width:11px;height:11px;background:#2F6BFF;border-radius:2px;"></span><span style="width:11px;height:11px;background:#2F6BFF;border-radius:2px;"></span><span style="width:11px;height:11px;border:1px solid #9DBBF5;border-radius:2px;"></span></div></div>
+                <div style="flex:1; font-size:10.5px; color:#C0654A; background:#FBF6F4; border:1px solid #EBD3CC; border-radius:6px; padding:6px 9px;">Échec → « Il est soudé à la table, impossible de l'arracher. »</div>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:12px; font-size:11px; color:#2F6BFF;">＋ Ajouter un objet au décor</div>
+        </div>
+      </div>
+
+      <!-- ===== 4C · DÉCOR — ÉCOUTER (test) ===== -->
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#8A8A86; margin-bottom:8px;">MODALE — ÉDITEUR D'OBJET  ·  ouverte par ✎ sur « Chandelier en argent »</div>
+        <div style="background:#fff; border:1px solid #D9D9D6; border-radius:12px; box-shadow:0 14px 44px rgba(0,0,0,.12); overflow:hidden; margin-bottom:18px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:13px 16px; border-bottom:1px solid #EEEEEB;">
+            <div style="font-size:13px; font-weight:600;">Éditer l'objet</div>
+            <span style="color:#B0B0AB; font-size:16px;">✕</span>
+          </div>
+          <div style="padding:16px; display:grid; grid-template-columns:1fr 1fr; gap:22px;">
+            <div style="display:flex; flex-direction:column; gap:12px;">
+              <div><div style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96; margin-bottom:5px;">NOM <span style="color:#C2C2BE;">— interne</span></div><div style="border:1px solid #D5D5D2; border-radius:6px; padding:7px 9px; background:#FAFAF9; font-size:11.5px;">Chandelier en argent</div></div>
+              <div><div style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96; margin-bottom:5px;">DESCRIPTION <span style="color:#C2C2BE;">— lue par le joueur</span></div><div style="border:1px solid #D5D5D2; border-radius:6px; padding:7px 9px; background:#FAFAF9; font-size:11.5px; color:#4E4E4B; line-height:1.4; height:46px;">Lourd, terni, gravé d'initiales effacées par le temps.</div></div>
+              <div><div style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96; margin-bottom:6px;">EFFET</div><div style="display:flex; flex-wrap:wrap; gap:6px;"><span style="font-size:10.5px; color:#6E6E6A; border:1px solid #E2E2DF; border-radius:999px; padding:4px 11px;">＋ N PV</span><span style="font-size:10.5px; color:#6E6E6A; border:1px solid #E2E2DF; border-radius:999px; padding:4px 11px;">＋ N Attaque</span><span style="font-size:10.5px; color:#6E6E6A; border:1px solid #E2E2DF; border-radius:999px; padding:4px 11px;">＋ N Défense</span><span style="font-size:10.5px; color:#2F6BFF; border:1.5px solid #2F6BFF; background:#F4F8FF; border-radius:999px; padding:4px 11px;">Objet de scénario</span></div></div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:12px; border-left:1px solid #EEEEEB; padding-left:22px;">
+              <div style="display:flex; align-items:center; justify-content:space-between;"><span style="font-size:12px; font-weight:600;">Nécessite un jet pour l'obtenir</span><div style="width:32px; height:18px; background:#2F6BFF; border-radius:999px; position:relative;"><span style="position:absolute; top:2px; right:2px; width:14px; height:14px; background:#fff; border-radius:50%;"></span></div></div>
+              <div style="display:flex; align-items:center; gap:14px;"><div style="display:flex; align-items:center; gap:8px;"><span style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96;">CARACT.</span><div style="border:1px solid #D5D5D2; border-radius:6px; padding:5px 10px; background:#FAFAF9; font-size:11px;">Force ▾</div></div><div style="display:flex; align-items:center; gap:8px;"><span style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96;">DIFFICULTÉ</span><div style="display:flex; gap:3px;"><span style="width:11px;height:11px;background:#2B2B29;border-radius:2px;"></span><span style="width:11px;height:11px;background:#2B2B29;border-radius:2px;"></span><span style="width:11px;height:11px;border:1px solid #C2C2BE;border-radius:2px;"></span></div></div></div>
+              <div><div style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96; margin-bottom:5px;">TEXTE SI ÉCHEC DU JET</div><div style="border:1px solid #EBD3CC; border-radius:6px; padding:7px 9px; background:#FBF8F8; font-size:11.5px; color:#4E4E4B; line-height:1.4;">Il est soudé à la table, impossible de l'arracher.</div></div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-top:1px solid #EEEEEB; background:#FCFCFB;">
+            <div style="font-size:11px; color:#C0654A; border:1px solid #EBD3CC; border-radius:7px; padding:8px 14px;">✕ Supprimer l'objet</div>
+            <div style="display:flex; gap:8px;"><div style="font-size:11px; color:#6E6E6A; border:1px solid #D5D5D2; border-radius:7px; padding:8px 16px;">Annuler</div><div style="font-size:11px; color:#fff; background:#2F6BFF; border-radius:7px; padding:8px 18px; font-weight:600;">Enregistrer</div></div>
+          </div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#8A8A86; margin-bottom:8px;">ÉCRAN — DÉCOR · ÉCOUTER (jet)</div>
+        <div style="background:#fff; border:1px solid #D9D9D6; border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:11px;">
+          <div style="display:flex; gap:5px; background:#F2F2F0; border-radius:7px; padding:3px;">
+            <div style="flex:1; text-align:center; font-size:10px; color:#9A9A96; padding:6px;">Prendre</div>
+            <div style="flex:1; text-align:center; font-size:10px; color:#fff; background:#2B2B29; padding:6px; border-radius:5px;">Écouter</div>
+            <div style="flex:1; text-align:center; font-size:10px; color:#9A9A96; padding:6px;">Fouiller</div>
+          </div>
+          <div style="display:flex; align-items:center; justify-content:space-between;"><span style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96;">CARACTÉRISTIQUE · DIFFICULTÉ</span><div style="display:flex; align-items:center; gap:8px;"><span style="font-size:10.5px; border:1px solid #E2E2DF; border-radius:6px; padding:4px 9px;">Perception ▾</span><div style="display:flex; gap:3px;"><span style="width:10px;height:10px;background:#2B2B29;border-radius:2px;"></span><span style="width:10px;height:10px;background:#2B2B29;border-radius:2px;"></span><span style="width:10px;height:10px;border:1px solid #C2C2BE;border-radius:2px;"></span></div></div></div>
+          <div style="font-size:10px; color:#9A9A96;">Chaque issue = un texte joueur éditable · un effet · un nœud de destination</div>
+          <div style="border:1px solid #E6E6E3; border-radius:7px; padding:10px; background:#F8FBF8;"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;"><span style="font-family:'JetBrains Mono',monospace; font-size:8.5px; color:#3E9E5E;">✓ RÉUSSITE — texte affiché au joueur</span><span style="width:20px; height:20px; border:1px solid #CFE3D6; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:10px; color:#3E9E5E; background:#fff;">✎</span></div><div style="border:1px solid #CFE3D6; border-radius:6px; padding:7px 9px; background:#fff; font-size:11px; color:#4E4E4B; line-height:1.4;">Un grattement régulier trahit un passage secret derrière le mur est.<span style="display:inline-block; width:1px; height:12px; background:#3E9E5E; margin-left:1px; vertical-align:middle;"></span></div><div style="display:flex; gap:8px; margin-top:8px;"><div style="font-size:10px; color:#6E6E6A; border:1px solid #E2E2DF; border-radius:6px; padding:5px 9px; background:#fff;">Effet : aucun ▾</div><div style="font-size:10px; color:#6E6E6A; border:1px solid #E2E2DF; border-radius:6px; padding:5px 9px; background:#fff;">Mène à : reste ici ▾</div></div></div>
+          <div style="border:1px solid #E6E6E3; border-radius:7px; padding:10px; background:#FBF8F8;"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;"><span style="font-family:'JetBrains Mono',monospace; font-size:8.5px; color:#C0654A;">✕ ÉCHEC — texte affiché au joueur</span><span style="width:20px; height:20px; border:1px solid #EBD3CC; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:10px; color:#C0654A; background:#fff;">✎</span></div><div style="border:1px solid #EBD3CC; border-radius:6px; padding:7px 9px; background:#fff; font-size:11px; color:#4E4E4B; line-height:1.4;">Le silence, seulement.</div><div style="display:flex; gap:8px; margin-top:8px;"><div style="font-size:10px; color:#6E6E6A; border:1px solid #E2E2DF; border-radius:6px; padding:5px 9px; background:#fff;">Effet : −1 tour ▾</div><div style="font-size:10px; color:#6E6E6A; border:1px solid #E2E2DF; border-radius:6px; padding:5px 9px; background:#fff;">Mène à : reste ici ▾</div></div></div>
+        </div>
+      </div>
+
+      <!-- ===== 4C bis · DÉCOR — FOUILLER + PIÈGE ===== -->
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#8A8A86; margin-bottom:8px;">ÉCRAN — DÉCOR · FOUILLER  /  PIÈGE</div>
+        <div style="background:#fff; border:1px solid #D9D9D6; border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:11px;">
+          <div style="display:flex; gap:5px; background:#F2F2F0; border-radius:7px; padding:3px;">
+            <div style="flex:1; text-align:center; font-size:10px; color:#9A9A96; padding:6px;">Prendre</div>
+            <div style="flex:1; text-align:center; font-size:10px; color:#9A9A96; padding:6px;">Écouter</div>
+            <div style="flex:1; text-align:center; font-size:10px; color:#fff; background:#2B2B29; padding:6px; border-radius:5px;">Fouiller</div>
+          </div>
+          <div style="border:1px solid #E6E6E3; border-radius:7px; padding:10px; background:#F8FBF8;"><div style="font-family:'JetBrains Mono',monospace; font-size:8.5px; color:#3E9E5E; margin-bottom:4px;">✓ RÉUSSITE — ajoute un choix</div><div style="font-size:11px; color:#4E4E4B; line-height:1.4; margin-bottom:6px;">Vous dénichez une trappe sous la paille.</div><div style="font-size:10px; color:#2F6BFF; border:1px dashed #B9CDFB; border-radius:5px; padding:5px 8px;">＋ choix « Descendre par la trappe »</div></div>
+          <div style="border-top:1px dashed #E2E2DF; padding-top:11px;"><div style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96; margin-bottom:6px; display:flex; align-items:center; gap:6px;"><span style="width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-bottom:7px solid #2B2B29;"></span>VARIANTE PIÈGE — échec sanctionné</div><div style="font-size:11px; color:#4E4E4B; line-height:1.4; background:#FBF8F8; border:1px solid #EBD3CC; border-radius:6px; padding:8px 10px;"><span style="color:#C0654A;">✕ Échec du jet</span> → mène directement à « Mort du personnage », sans nouveau choix.</div></div>
+        </div>
+      </div>
+
+      <!-- ===== 4D · MONSTRE — création à la volée (full) ===== -->
+      <div style="grid-column:1 / -1;">
+        <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#8A8A86; margin-bottom:8px;">ÉCRAN — MONSTRE · création à la volée</div>
+        <div style="background:#fff; border:1px solid #D9D9D6; border-radius:12px; padding:18px; display:grid; grid-template-columns:1fr 1fr; gap:22px;">
+
+          <!-- left : create -->
+          <div style="display:flex; flex-direction:column; gap:13px;">
+            <div style="display:flex; gap:6px;">
+              <div style="flex:1; text-align:center; font-size:11px; color:#2F6BFF; border:1.5px solid #2F6BFF; background:#F4F8FF; border-radius:7px; padding:8px;">＋ Créer un monstre</div>
+              <div style="flex:1; text-align:center; font-size:11px; color:#6E6E6A; border:1px solid #E2E2DF; border-radius:7px; padding:8px; display:flex; align-items:center; justify-content:center; gap:6px;">Librairie du générateur <span style="color:#B0B0AB;">▾</span></div>
+            </div>
+            <div style="display:flex; gap:10px;">
+              <div style="flex:0 0 64px;"><div style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96; margin-bottom:5px;">VISUEL</div><div style="border:1.5px dashed #D5D5D2; border-radius:7px; height:64px; display:flex; align-items:center; justify-content:center; color:#A9A9A4; font-size:18px; background:#FCFCFB;">⬚</div></div>
+              <div style="flex:1;"><div style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96; margin-bottom:5px;">NOM DU MONSTRE</div><div style="border:1px solid #D5D5D2; border-radius:6px; padding:8px 10px; background:#FAFAF9; font-size:12px;">Gobelin des cavernes</div></div>
+            </div>
+            <div>
+              <div style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96; margin-bottom:6px;">CARACTÉRISTIQUES</div>
+              <div style="display:flex; gap:8px;">
+                <div style="flex:1; border:1px solid #E2E2DF; border-radius:7px; padding:8px; text-align:center;"><div style="font-size:9px; color:#9A9A96; font-family:'JetBrains Mono',monospace;">PV</div><div style="font-size:17px; font-weight:700;">14</div></div>
+                <div style="flex:1; border:1px solid #E2E2DF; border-radius:7px; padding:8px; text-align:center;"><div style="font-size:9px; color:#9A9A96; font-family:'JetBrains Mono',monospace;">ATTAQUE</div><div style="font-size:17px; font-weight:700;">6</div></div>
+                <div style="flex:1; border:1px solid #E2E2DF; border-radius:7px; padding:8px; text-align:center;"><div style="font-size:9px; color:#9A9A96; font-family:'JetBrains Mono',monospace;">DÉFENSE</div><div style="font-size:17px; font-weight:700;">3</div></div>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:9px; background:#F4F8FF; border:1px solid #CFE0FF; border-radius:8px; padding:10px 12px;">
+              <span style="width:17px; height:17px; border-radius:4px; background:#2F6BFF; color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px;">✓</span>
+              <span style="font-size:11.5px; color:#2B2B29;">Ajouter à la librairie du générateur</span>
+              <span style="font-size:10px; color:#7C9BE0; margin-left:auto;">réutilisable dans d'autres livres</span>
+            </div>
+          </div>
+
+          <!-- right : outcomes -->
+          <div style="display:flex; flex-direction:column; gap:11px; border-left:1px solid #EEEEEB; padding-left:22px;">
+            <div><div style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96; margin-bottom:5px;">TEXTE SI VICTOIRE → poursuit</div><div style="border:1px solid #D5D5D2; border-radius:6px; padding:8px 10px; background:#FAFAF9; font-size:11.5px; color:#4E4E4B; line-height:1.4;">Le gobelin s'effondre. La voie vers la sortie est libre.</div><div style="margin-top:5px; font-size:10.5px; color:#6E6E6A;">→ mène à <span style="color:#2B2B29;">La salle au trésor</span></div></div>
+            <div style="border:1px solid #E6E6E3; border-radius:7px; padding:9px 11px; background:#FBFBFA;"><div style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;"><span>BUTIN LÂCHÉ <span style="color:#C2C2BE;">— optionnel</span></span><span style="width:20px; height:20px; border:1px solid #EBD3CC; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:10px; color:#C0654A; background:#fff;">✕</span></div><div style="border:1px solid #D5D5D2; border-radius:6px; padding:6px 9px; background:#fff; font-size:11.5px; margin-bottom:5px;">Dent de gobelin</div><div style="border:1px solid #D5D5D2; border-radius:6px; padding:6px 9px; background:#fff; font-size:11px; color:#4E4E4B; line-height:1.4;">Une longue canine jaunie, encore tiède — un trophée qui fait frémir les villageois.</div><div style="margin-top:6px; font-size:10px; color:#9A9A96;">✕ retire le butin · ✎ ouvre l'éditeur d'objet</div></div>
+            <div><div style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96; margin-bottom:5px;">TEXTE SI FUITE → reliaison</div><div style="border:1px solid #D5D5D2; border-radius:6px; padding:8px 10px; background:#FAFAF9; font-size:11.5px; color:#4E4E4B; line-height:1.4;">Vous détalez dans l'obscurité…</div><div style="margin-top:5px; font-size:10.5px; color:#6E6E6A;">↻ relié à <span style="color:#2B2B29;">La fosse dissimulée</span></div></div>
+            <div style="border:1px solid #E6E6E3; border-radius:7px; padding:11px; background:#FBFBFA; display:flex; flex-direction:column; gap:9px;"><div style="display:flex; align-items:center; justify-content:space-between;"><span style="font-size:11.5px; font-weight:600;">Combat renforcé par un objet</span><div style="width:30px; height:17px; background:#2F6BFF; border-radius:999px; position:relative;"><span style="position:absolute; top:2px; right:2px; width:13px; height:13px; background:#fff; border-radius:50%;"></span></div></div><div style="display:flex; align-items:center; gap:8px;"><span style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96; white-space:nowrap;">SI LE JOUEUR POSSÈDE</span><div style="flex:1; border:1px solid #D5D5D2; border-radius:6px; padding:6px 9px; background:#fff; font-size:11px; display:flex; justify-content:space-between;">⚔ Épée d'argent <span style="color:#B0B0AB;">▾</span></div></div><div style="display:flex; align-items:center; gap:8px;"><span style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96; white-space:nowrap;">ALORS</span><div style="flex:1; border:1px solid #D5D5D2; border-radius:6px; padding:6px 9px; background:#fff; font-size:11px; display:flex; justify-content:space-between;">Victoire automatique <span style="color:#B0B0AB;">▾</span></div></div><div style="font-size:9.5px; color:#B0B0AB; font-family:'JetBrains Mono',monospace; line-height:1.4;">Objet choisi dans l'inventaire du livre · autres options : ＋bonus d'attaque, empêche la fuite — sinon combat normal</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- SECTION 5 — INTERACTIONS & COMBATS EN DÉTAIL -->
+    <!-- ============================================================= -->
+    <div style="display:flex; align-items:center; gap:14px; margin:48px 0 18px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:600; letter-spacing:.04em;">05 · Mécaniques propres au format numérique</div>
+      <div style="height:1px; flex:1; background:#D2D2CE;"></div>
+      <div style="font-size:12px; color:#8A8A86;">Ce que le papier ne permet pas</div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:18px;">
+
+      <!-- pré-requis caché -->
+      <div style="background:#fff; border:1px solid #D9D9D6; border-radius:10px; padding:18px;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;"><span style="font-size:16px;">⊘</span><div style="font-size:14px; font-weight:700;">Choix à pré-requis caché</div></div>
+        <p style="font-size:12px; color:#6E6E6A; margin:0 0 14px; line-height:1.5;">Un objet de l'inventaire débloque une option — invisible au lecteur tant qu'il ne le possède pas.</p>
+        <div style="border:1px solid #E6E6E3; border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:10px;">
+          <div><div style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96; margin-bottom:5px;">LIBELLÉ DU CHOIX</div><div style="border:1px solid #D5D5D2; border-radius:6px; padding:7px 9px; background:#FAFAF9; font-size:11.5px;">Ouvrir le coffre scellé</div></div>
+          <div style="display:flex; align-items:center; justify-content:space-between;"><span style="font-size:11.5px; color:#2B2B29;">Conditionné à un objet</span><div style="width:30px; height:17px; background:#2F6BFF; border-radius:999px; position:relative;"><span style="position:absolute; top:2px; right:2px; width:13px; height:13px; background:#fff; border-radius:50%;"></span></div></div>
+          <div style="background:#F4F4F2; border-radius:7px; padding:9px 10px; display:flex; align-items:center; justify-content:space-between;"><span style="font-size:11px; color:#6E6E6A;">Requiert dans l'inventaire</span><span style="font-size:11px; border:1px solid #DcDcD8; border-radius:999px; padding:3px 9px; background:#fff;">🗝 Clé rouillée</span></div>
+          <div style="font-size:10px; color:#B0B0AB; font-family:'JetBrains Mono',monospace;">Masqué si l'objet est absent · visible sinon</div>
+        </div>
+      </div>
+
+      <!-- compte à rebours -->
+      <div style="background:#fff; border:1px solid #D9D9D6; border-radius:10px; padding:18px;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;"><span style="font-size:16px;">⏱</span><div style="font-size:14px; font-weight:700;">Choix sous compte à rebours</div></div>
+        <p style="font-size:12px; color:#6E6E6A; margin:0 0 14px; line-height:1.5;">Le choix expire après un délai ; à zéro, on bascule vers un nœud par défaut.</p>
+        <div style="border:1px solid #E6E6E3; border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:10px;">
+          <div style="display:flex; align-items:center; justify-content:space-between;"><span style="font-size:11.5px;">Activer le compte à rebours</span><div style="width:30px; height:17px; background:#2F6BFF; border-radius:999px; position:relative;"><span style="position:absolute; top:2px; right:2px; width:13px; height:13px; background:#fff; border-radius:50%;"></span></div></div>
+          <div style="display:flex; gap:10px;">
+            <div style="flex:1;"><div style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96; margin-bottom:5px;">DÉLAI</div><div style="border:1px solid #D5D5D2; border-radius:6px; padding:7px 9px; background:#FAFAF9; font-size:11.5px; display:flex; justify-content:space-between;">15 s <span style="color:#B0B0AB;">▾</span></div></div>
+            <div style="flex:2;"><div style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#9A9A96; margin-bottom:5px;">À EXPIRATION → NŒUD</div><div style="border:1px solid #D5D5D2; border-radius:6px; padding:7px 9px; background:#FAFAF9; font-size:11.5px; display:flex; justify-content:space-between;">La fosse dissimulée <span style="color:#B0B0AB;">▾</span></div></div>
+          </div>
+          <div style="height:7px; background:#F0F0EE; border-radius:999px; overflow:hidden;"><div style="width:62%; height:100%; background:#2F6BFF;"></div></div>
+        </div>
+      </div>
+
+      <!-- combat avec objet -->
+      <div style="background:#fff; border:1px solid #D9D9D6; border-radius:10px; padding:18px;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;"><span style="width:11px;height:11px;background:repeating-linear-gradient(45deg,#2B2B29 0 2.5px,transparent 2.5px 5px);"></span><div style="font-size:14px; font-weight:700;">Combat renforcé par un objet</div></div>
+        <p style="font-size:12px; color:#6E6E6A; margin:0 0 14px; line-height:1.5;">Un objet de l'inventaire modifie l'issue ou facilite le combat.</p>
+        <div style="border:1px solid #E6E6E3; border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:9px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; font-size:11.5px;"><span>Monstre</span><span style="color:#6E6E6A;">Gobelin des cavernes</span></div>
+          <div style="background:#F4F4F2; border-radius:7px; padding:9px 10px;"><div style="font-size:10px; color:#6E6E6A; margin-bottom:6px; font-family:'JetBrains Mono',monospace;">SI L'OBJET EST POSSÉDÉ</div><div style="display:flex; align-items:center; justify-content:space-between;"><span style="font-size:11px; border:1px solid #DcDcD8; border-radius:999px; padding:3px 9px; background:#fff;">⚔ Épée d'argent</span><span style="font-size:11px; color:#3E9E5E;">→ victoire automatique</span></div></div>
+          <div style="font-size:10px; color:#B0B0AB; font-family:'JetBrains Mono',monospace;">Sinon : combat normal (victoire / fuite)</div>
+        </div>
+      </div>
+
+      <!-- action sans choix -->
+      <div style="background:#fff; border:1px solid #D9D9D6; border-radius:10px; padding:18px;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;"><span style="font-size:16px;">⤳</span><div style="font-size:14px; font-weight:700;">Action sans nouveau choix</div></div>
+        <p style="font-size:12px; color:#6E6E6A; margin:0 0 14px; line-height:1.5;">Une action peut changer d'écran directement, sans présenter de bouton de choix au lecteur.</p>
+        <div style="border:1px solid #E6E6E3; border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:10px;">
+          <div style="display:flex; align-items:center; justify-content:space-between;"><span style="font-size:11.5px;">Transition automatique</span><div style="width:30px; height:17px; background:#2F6BFF; border-radius:999px; position:relative;"><span style="position:absolute; top:2px; right:2px; width:13px; height:13px; background:#fff; border-radius:50%;"></span></div></div>
+          <div style="display:flex; align-items:center; gap:8px; font-size:11.5px;"><div style="border:1px solid #D5D5D2; border-radius:6px; padding:7px 9px; background:#FAFAF9; flex:1;">À la fin de la description…</div><span style="color:#B0B0AB;">→</span><div style="border:1px solid #D5D5D2; border-radius:6px; padding:7px 9px; background:#FAFAF9; flex:1;">La salle aux runes</div></div>
+          <div style="font-size:10px; color:#B0B0AB; font-family:'JetBrains Mono',monospace;">Aucun bouton affiché — l'écran enchaîne seul</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- SECTION 6 — BRANCHER / RELIER -->
+    <!-- ============================================================= -->
+    <div style="display:flex; align-items:center; gap:14px; margin:48px 0 18px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:600; letter-spacing:.04em;">06 · Ajouter une branche · Relier à un nœud existant</div>
+      <div style="height:1px; flex:1; background:#D2D2CE;"></div>
+      <div style="font-size:12px; color:#8A8A86;">Les deux façons de connecter deux écrans</div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:18px;">
+
+      <!-- ajouter branche -->
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#8A8A86; margin-bottom:8px;">A — CRÉER UNE NOUVELLE BRANCHE</div>
+        <div style="background:#fff; border:1px solid #D9D9D6; border-radius:10px; padding:16px;">
+          <div style="position:relative; height:230px; background:#FBFBFA; border:1px dashed #E6E6E3; border-radius:8px; background-image:radial-gradient(#E8E8E5 1px, transparent 1px); background-size:18px 18px;">
+            <div style="position:absolute; top:24px; left:50%; transform:translateX(-50%); width:150px; border:1.5px solid #2F6BFF; border-radius:7px; background:#fff; padding:9px 11px;"><div style="font-family:'JetBrains Mono',monospace; font-size:8.5px; color:#6E6E6A; margin-bottom:3px;">CHOIX · #2</div><div style="font-size:12px; font-weight:600;">La salle aux runes</div></div>
+            <div style="position:absolute; top:88px; left:50%; width:1.5px; height:34px; background:#2F6BFF; transform:translateX(-50%);"></div>
+            <div style="position:absolute; top:122px; left:50%; transform:translateX(-50%); width:170px; border:1.5px dashed #2F6BFF; border-radius:7px; background:#F4F8FF; padding:11px;"><div style="font-size:11px; color:#2F6BFF; margin-bottom:8px; display:flex; align-items:center; gap:6px;">+ Nouvelle feuille enfant</div><div style="background:#fff; border:1px solid #CFE0FF; border-radius:5px; padding:6px 8px; font-size:10px; color:#6E6E6A;">Libellé du choix…</div></div>
+          </div>
+          <div style="font-size:11px; color:#9A9A96; margin-top:10px;">Crée un nœud vide, déjà relié, et ouvre son panneau d'édition.</div>
+        </div>
+      </div>
+
+      <!-- relier existant -->
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#8A8A86; margin-bottom:8px;">B — RELIER À UN NŒUD EXISTANT</div>
+        <div style="background:#fff; border:1px solid #D9D9D6; border-radius:10px; padding:16px;">
+          <div style="position:relative; height:230px; background:#FBFBFA; border:1px dashed #E6E6E3; border-radius:8px; background-image:radial-gradient(#E8E8E5 1px, transparent 1px); background-size:18px 18px;">
+            <div style="position:absolute; top:20px; left:24px; width:140px; border:1.5px solid #2F6BFF; border-radius:7px; background:#fff; padding:9px 11px;"><div style="font-family:'JetBrains Mono',monospace; font-size:8.5px; color:#6E6E6A; margin-bottom:3px;">MONSTRE · #4</div><div style="font-size:12px; font-weight:600;">Le gardien gobelin</div></div>
+            <!-- search popover -->
+            <div style="position:absolute; top:78px; left:24px; width:230px; background:#fff; border:1px solid #D9D9D6; border-radius:8px; box-shadow:0 10px 28px rgba(0,0,0,.12); overflow:hidden;">
+              <div style="padding:8px 10px; border-bottom:1px solid #EEE; font-size:11px; color:#9A9A96; display:flex; align-items:center; gap:6px;">⌕ Rechercher un nœud…</div>
+              <div style="padding:8px 10px; font-size:11.5px; display:flex; justify-content:space-between; align-items:center; background:#F4F8FF;">La fosse dissimulée <span style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#2F6BFF;">#1</span></div>
+              <div style="padding:8px 10px; font-size:11.5px; display:flex; justify-content:space-between; align-items:center; color:#4E4E4B;">La salle au trésor <span style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#B0B0AB;">#6</span></div>
+              <div style="padding:8px 10px; font-size:11.5px; display:flex; justify-content:space-between; align-items:center; color:#4E4E4B;">Le coffre scellé <span style="font-family:'JetBrains Mono',monospace; font-size:9px; color:#B0B0AB;">#5</span></div>
+            </div>
+            <div style="position:absolute; bottom:14px; right:16px; font-family:'JetBrains Mono',monospace; font-size:9px; color:#8A8A86; background:#fff; border:1px solid #E2E2DF; border-radius:5px; padding:4px 8px;">crée une arête « fuite » ↻</div>
+          </div>
+          <div style="font-size:11px; color:#9A9A96; margin-top:10px;">Pointe le choix vers une feuille déjà existante — permet boucles et convergences.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- footer note -->
+    <div style="margin-top:46px; border-top:1px solid #D2D2CE; padding-top:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#9A9A96;">L'arbre (nœuds + arêtes) est l'unique structure persistée pour « un livre ».</div>
+      <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#9A9A96;">API noeud · API personnage (stats / inventaire) — accès des « spécialités »</div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const card = (extra) => Object.assign({
+      position: 'absolute',
+      background: '#fff',
+      border: '1px solid #D9D9D6',
+      borderRadius: '9px',
+      padding: '10px 11px',
+      boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+      zIndex: 1
+    }, extra);
+
+    const badge = (extra) => Object.assign({
+      fontFamily: "'JetBrains Mono',monospace",
+      fontSize: '8.5px',
+      letterSpacing: '0.04em',
+      borderRadius: '4px',
+      padding: '2px 6px',
+      color: '#6E6E6A',
+      border: '1px solid #D2D2CE'
+    }, extra);
+
+    const raw = [
+      { id:'S', x:380, y:16,  w:190, h:64, ref:'#0', badge:'SOMMAIRE', title:'Sommaire', snippet:'Page de garde — mène au premier écran',
+        cardStyle: card({ background:'#2B2B29', border:'1px solid #2B2B29', color:'#fff' }),
+        badgeStyle: badge({ background:'#3D3D3A', color:'#fff', border:'1px solid #4A4A47' }) },
+      { id:'1', x:380, y:120, w:190, h:74, ref:'#1', badge:'CHOIX', title:"L'entrée de la grotte", snippet:'Un souffle froid monte des ténèbres…',
+        cardStyle: card({}), badgeStyle: badge({}) },
+      { id:'2', x:150, y:248, w:190, h:74, ref:'#2', badge:'PIÈGE', title:'La fosse dissimulée', snippet:'Le sol se dérobe sous vos pas.',
+        cardStyle: card({}), badgeStyle: badge({}) },
+      { id:'3', x:620, y:248, w:190, h:74, ref:'#3', badge:'DÉCOR · FOUILLER', title:'La salle aux runes', snippet:'Des symboles luisent sur les murs.',
+        cardStyle: card({ borderStyle:'dashed' }), badgeStyle: badge({ borderStyle:'dashed' }) },
+      { id:'4', x:115, y:376, w:190, h:80, ref:'#4', badge:'MONSTRE', title:'Le gardien gobelin', snippet:'Une créature surgit, gourdin levé.',
+        cardStyle: card({ border:'1.5px solid #2F6BFF', boxShadow:'0 0 0 4px rgba(47,107,255,0.12), 0 2px 8px rgba(47,107,255,0.15)' }),
+        badgeStyle: badge({ background:'repeating-linear-gradient(45deg,#2B2B29 0 2px,transparent 2px 4px)', color:'#2B2B29', border:'1px solid #C2C2BE' }) },
+      { id:'5', x:620, y:376, w:190, h:74, ref:'#5', badge:'DÉCOR · PRENDRE', title:'Le coffre scellé', snippet:'Un coffre de fer, lourdement verrouillé.',
+        cardStyle: card({ borderStyle:'dashed' }), badgeStyle: badge({ borderStyle:'dashed' }) },
+      { id:'6', x:380, y:500, w:190, h:64, ref:'#6', badge:'FIN · VICTOIRE', title:'La salle au trésor', snippet:'La lumière du jour, enfin.',
+        cardStyle: card({ border:'2px double #2B2B29' }), badgeStyle: badge({ border:'2px double #2B2B29', color:'#2B2B29' }) },
+      { id:'M', x:780, y:500, w:190, h:64, ref:'✕', badge:'FIN · MORT', title:'Personnage décédé', snippet:'Feuille obligatoire et isolée.',
+        cardStyle: card({ background:'repeating-linear-gradient(45deg,#F4F4F2 0 4px,#fff 4px 8px)', border:'1px solid #D2D2CE' }),
+        badgeStyle: badge({ background:'repeating-linear-gradient(45deg,#9A9A96 0 1.5px,transparent 1.5px 3px)', color:'#6E6E6A' }) },
+    ];
+
+    const nodes = raw.map(n => ({
+      ...n,
+      wrapStyle: { position:'absolute', left:n.x+'px', top:n.y+'px', width:n.w+'px', height:n.h+'px', zIndex:1 },
+      cardStyle: Object.assign({}, n.cardStyle, { position:'static', width:'100%', height:'100%', boxSizing:'border-box' })
+    }));
+
+    const lbl = (x,y) => ({
+      position:'absolute', left:x+'px', top:y+'px', transform:'translate(-50%,-50%)',
+      fontFamily:"'JetBrains Mono',monospace", fontSize:'9px', color:'#6E6E6A',
+      background:'#fff', border:'1px solid #E2E2DF', borderRadius:'4px',
+      padding:'2px 7px', zIndex:1, whiteSpace:'nowrap', maxWidth:'150px',
+      overflow:'hidden', textOverflow:'ellipsis'
+    });
+
+    const line = (dashed) => ({
+      stroke: dashed ? '#B0B0AB' : '#A9A9A4',
+      strokeWidth: 1.5,
+      strokeDasharray: dashed ? '6 5' : 'none'
+    });
+
+    const conns = [
+      { x1:475, y1:80,  x2:475, y2:120, label:'Commencer',            labelStyle:lbl(508,100), lineStyle:line(false) },
+      { x1:430, y1:194, x2:300, y2:248, label:'Avancer dans le noir', labelStyle:lbl(338,222), lineStyle:line(false) },
+      { x1:520, y1:194, x2:680, y2:248, label:'Allumer une torche',   labelStyle:lbl(628,222), lineStyle:line(false) },
+      { x1:215, y1:322, x2:205, y2:376, label:'réussite',             labelStyle:lbl(150,350), lineStyle:line(false) },
+      { x1:300, y1:322, x2:800, y2:500, label:'échec',                labelStyle:lbl(560,392), lineStyle:line(true) },
+      { x1:715, y1:322, x2:715, y2:376, label:'Examiner les runes',   labelStyle:lbl(770,350), lineStyle:line(false) },
+      { x1:210, y1:456, x2:430, y2:504, label:'Victoire',             labelStyle:lbl(300,492), lineStyle:line(false) },
+      { x1:715, y1:450, x2:520, y2:508, label:'Ouvrir 🗝',            labelStyle:lbl(640,492), lineStyle:line(false) },
+    ];
+
+    return { nodes, conns };
+  }
+}
+</script>
+</body>
+</html>

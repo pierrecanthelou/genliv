@@ -1,0 +1,68 @@
+{
+  "feature": "action-monster",
+  "created_at": "2026-06-15",
+  "status": "planned",
+  "design_reference": "Editeur Livre-Jeu - Wireframes.dc.html § 02 side-panel monster config (MONSTRE Select; « TEXTE SI VICTOIRE → poursuit »; « TEXTE SI FUITE → reliaison »), and § 05 « Combat renforcé par un objet » (SI LE JOUEUR POSSÈDE <objet ▾> ALORS <issue ▾>). The BINDING target also covers create-on-the-fly + « add to library » per the brief. Anatomy + tokens from styles.css: Select, Field, Toggle, OutcomeBlock, the shared ObjectEditor. Low-fi, light theme.",
+  "plan": {
+    "goal": "Model a monster encounter on a node: create a monster on the fly (optionally save it to a reusable library), configure combat (victory text → continue; flee → relink), drop loot, and support reinforced combat where a chosen inventory object changes the outcome. Registered as the 'monstre' action type.",
+    "design_contract": {
+      "_binding": "Rebuild § 02 monster config + § 05 reinforced combat with design-system components; DS tokens win over prose. Self-registers with ActionRegistry as 'monstre'.",
+      "monster_picker": "« MONSTRE » `forms/Select` to choose from the book's monsters OR create one inline (création à la volée) with stats (PV, Attaque, Défense — the monster's own, not the hero's). A `Toggle`/checkbox « Ajouter à la librairie » saves the created monster to MonsterLibraryService for reuse across books.",
+      "combat_outcomes": "« TEXTE SI VICTOIRE → poursuit » Field + continue destination; « TEXTE SI FUITE → reliaison » Field + a relink target (dashed `fuite` edge via choice-linking). Both player-facing text.",
+      "loot": "Optional dropped-loot block: an object (shared ObjectEditor — name + player-facing description + effect) with a ✕ to remove the loot.",
+      "reinforced_combat": "§ 05: a « Combat renforcé par un objet » Toggle → « SI LE JOUEUR POSSÈDE <objet ▾> » (object Select from the book inventory by id) « ALORS <issue ▾> » (victoire automatique / +bonus d'attaque / empêche la fuite); otherwise normal combat.",
+      "empty_state": "No monster chosen → inviting « Choisir ou créer un monstre » affordance (project-wide empty-state rule)."
+    },
+    "acceptance_criteria": [
+      "action-monster self-registers with ActionRegistry as 'monstre'; node-editor mounts it from the registry with no monster-specific code.",
+      "A monster can be created inline with its own stats (PV/Attaque/Défense) and player-facing description, or chosen from the book's monsters; the creation UI persists it via BookService.",
+      "A « Ajouter à la librairie » checkbox, when on, saves the monster to MonsterLibraryService (reusable across books) and emits monster:savedToLibrary{monsterId}; off keeps it book-local.",
+      "Combat persists a victory outcome (player text + continue destination) and a flee outcome (player text + a relink target rendered as a dashed `fuite` edge via choice-linking/BookService).",
+      "Optional dropped loot uses the shared ObjectEditor (name + player-facing description + effect) and can be removed with ✕; the loot references an ObjectCatalogService object by id.",
+      "Reinforced combat persists: a required object (by stable id) + an outcome modifier (victoire automatique / +attaque / empêche la fuite); with no object owned, normal combat applies.",
+      "Monster (library) and object references are by stable id; deleting a referenced object/monster/node is surfaced, not silently broken; the flee target resolves to an existing node.",
+      "Everything renders from design-system components/tokens, light theme; Selects/toggles/ObjectEditor are keyboard-operable with ≥44px targets and a focus-trapped modal."
+    ],
+    "brain_contracts": [
+      { "type": "service", "name": "ActionRegistry", "direction": "emits" },
+      { "type": "service", "name": "MonsterLibraryService", "direction": "consumes" },
+      { "type": "service", "name": "ObjectCatalogService", "direction": "consumes" },
+      { "type": "service", "name": "BookService", "direction": "consumes" },
+      { "type": "component", "name": "ObjectEditor", "direction": "consumes" },
+      { "type": "event", "name": "monster:savedToLibrary", "direction": "emits", "payload": { "monsterId": "string" } },
+      { "type": "event", "name": "action:changed", "direction": "consumes" }
+    ],
+    "walking_skeleton": "Register 'monstre' with ActionRegistry. Build the monster Select (pick/create with stats) + « ajouter à la librairie » (MonsterLibraryService, emit monster:savedToLibrary). Add victory text + continue destination and flee text + relink target (via choice-linking/BookService). Persist on the node. Defer loot + reinforced-combat polish.",
+    "n": 4,
+    "iterations": [
+      { "id": 1, "goal": "Register 'monstre' + monster create/pick with own stats (PV/Attaque/Défense) + player description; persist on the node via BookService. Design-system fidelity.", "status": "planned" },
+      { "id": 2, "goal": "Library reuse: « Ajouter à la librairie » saves to MonsterLibraryService (cross-book) + emits monster:savedToLibrary; pick existing library monsters into a book (KR-101).", "status": "planned" },
+      { "id": 3, "goal": "Combat outcomes: victory (text + continue) + flee (text + relink/fuite edge via choice-linking, dashed on canvas); optional dropped loot via shared ObjectEditor (KR-102).", "status": "planned" },
+      { "id": 4, "goal": "Reinforced combat (§ 05): required-object (by id) + outcome modifier (auto-win / +attaque / no-flee); integrity sweep for deleted objects/monsters/nodes; full a11y pass (KR-103).", "status": "planned" }
+    ],
+    "known_risks": [
+      "KR-100 — Self-registration only via ActionRegistry; node-editor never imports monster logic (Open/Closed; re-asserts KR-051).",
+      "KR-101 — Library monsters are COPY-ON-USE (resolved): inserting a library monster snapshots it into the book so per-book tuning (stronger/weaker) never mutates the library entry or other books. The library write itself is cross-book + sync-sensitive (cloud-first); the book copy is local to the book document.",
+      "KR-105 — A lost combat routes to the seeded « Mort du personnage » node (death = trap or lost fight); reuse the single Mort leaf, never mint a duplicate (re-asserts KR-091/KR-002).",
+      "KR-102 — Flee = a relink/fuite edge minted through choice-linking/BookService (dashed on canvas), not a private field; victory continue is a normal edge. Both must exist for the reader and the canvas (re-asserts KR-060).",
+      "KR-103 — Reinforced-combat object + loot are referenced by stable id (ObjectCatalogService); deleting them must be surfaced; reuse the shared ObjectEditor (KR-081), never a private one.",
+      "KR-104 — Monster stats (PV/Attaque/Défense) are the MONSTER's, distinct from the hero's play-mode stats; do not couple to character-sheet/play state (re-asserts KR-082).",
+      "KR-011 — No raw localStorage; persist via BookService/MonsterLibraryService/ObjectCatalogService (global config KR-111).",
+      "KR-013 — Bind combat/loot/reinforce state to store + handlers, not useEffect mirrors (global config KR-113).",
+      "A11y — pickers, toggles, and the shared ObjectEditor modal are keyboard-operable; ≥44px targets."
+    ]
+  },
+  "implementation": {
+    "iterations_log": [],
+    "resolved_decisions": [
+      "Monsters are created on the fly in the editor; a checkbox optionally adds them to the generator's reusable library (the user's explicit requirement).",
+      "Combat outcomes: victory → continue, flee → relink; optional dropped loot via the shared ObjectEditor.",
+      "Reinforced combat selects a specific inventory object (by id) that modifies the outcome (the user clarified it must be a selected object).",
+      "Monster stats are the monster's own, separate from the hero's play-mode stats.",
+      "Library monsters are COPY-ON-USE: inserting a library monster into a book takes an independent snapshot, so the author can tune it (stronger/weaker) per book without altering the library entry or other books. The library is a starting template, not a live reference.",
+      "Losing a combat (defeat) routes the reader to the obligatory « Mort du personnage » node — death comes from a trap OR a lost monster fight; this reuses the single seeded Mort leaf (never a duplicate).",
+      "Monster stats stay MINIMAL for now (basic, book-aligned); the author plans to introduce their own simple combat rules later — model the monster stat block to be small and extensible, not a fixed elaborate system."
+    ],
+    "open_questions": []
+  }
+}

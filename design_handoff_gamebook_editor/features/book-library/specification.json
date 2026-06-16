@@ -1,0 +1,61 @@
+{
+  "feature": "book-library",
+  "created_at": "2026-06-15",
+  "status": "planned",
+  "design_reference": "Editeur Livre-Jeu - Wireframes.dc.html § 01 step 1 « Accueil de l'app » (the BINDING target: header « Mes livres » + account dot; a grid of book tiles; a dashed accent « + » tile that creates a book). Tile/card anatomy + the dashed-accent create affordance + tokens from styles.css. Low-fi, light theme.",
+  "plan": {
+    "goal": "The app's home screen: list the author's books, create one (delegating to book-creation), open one into the editor, and delete one behind a confirmation — the entry point before any book is open.",
+    "design_contract": {
+      "_binding": "Rebuild § 01 step 1 with design-system components; DS tokens win over prose.",
+      "header": "« Mes livres » title (--fs-title/700) + a muted account/avatar dot, on var(--surface-card).",
+      "grid": "Responsive grid of book tiles (var(--r-md) tiles, 1px var(--border-subtle), var(--surface-inset)). Each tile shows the title (--fs-body/600) and a muted created/edited meta line; hover reveals an open affordance and a ✕/⋯ delete entry.",
+      "create_tile": "A dashed accent tile (1.5px dashed var(--accent), centered accent « + », « Nouveau livre ») that opens the book-creation dialog.",
+      "delete_guard": "Delete opens a `surfaces/Modal` confirmation (destructive slot, terracotta) — « Supprimer ce livre ? » — never a one-click destroy.",
+      "empty_state": "Zero books → a large centered dashed create tile + an inviting line « Créez votre premier livre » (project-wide empty-state rule)."
+    },
+    "acceptance_criteria": [
+      "The home screen lists every persisted book as a tile (title + meta), read from BookService.listBooks(), and updates live when a book is created or deleted (book:created / book:deleted).",
+      "A dashed accent « + Nouveau livre » tile opens the book-creation dialog; book-library does not itself implement seeding — it delegates to book-creation and reacts to book:created.",
+      "Clicking a tile opens that book: it routes to the editor (canvas view) for that bookId and emits book:opened.",
+      "Deleting a tile requires confirmation via a destructive Modal; on confirm, BookService removes the book and its tree, the tile disappears, and book:deleted{bookId} is emitted; cancel leaves everything untouched.",
+      "Deleting the currently-open book (if any) is handled gracefully — the user is returned to the library, never left in a dead editor.",
+      "Book ids are stable and used as keys; duplicate titles render fine and are distinguishable by meta; the list survives reload (PersistenceService) and reflects cloud-synced books when online.",
+      "Zero-books shows the empty-state create affordance, not a blank screen (empty-state rule).",
+      "All chrome renders from design-system tokens/components, light theme; tiles and the create affordance have ≥44px hit targets and are keyboard-accessible."
+    ],
+    "brain_contracts": [
+      { "type": "service", "name": "BookService", "direction": "consumes" },
+      { "type": "service", "name": "Router", "direction": "consumes" },
+      { "type": "feature", "name": "book-creation", "direction": "consumes" },
+      { "type": "event", "name": "book:opened", "direction": "emits", "payload": { "bookId": "string" } },
+      { "type": "event", "name": "book:deleted", "direction": "emits", "payload": { "bookId": "string" } },
+      { "type": "event", "name": "book:created", "direction": "consumes" }
+    ],
+    "walking_skeleton": "List books from BookService as tiles; a create tile opens the book-creation dialog (already built) and the list refreshes on book:created; clicking a tile routes to the editor + emits book:opened. Add delete with a confirm Modal emitting book:deleted. No sort/search/empty-polish yet.",
+    "n": 3,
+    "iterations": [
+      { "id": 1, "goal": "Faithful render of § 01 step 1: header, responsive tile grid from BookService.listBooks(), dashed accent create tile wired to book-creation, open-on-click routing + book:opened. Live refresh on book:created. Design-system fidelity.", "status": "planned" },
+      { "id": 2, "goal": "Delete flow: hover delete entry → destructive confirm Modal → BookService.removeBook → tile removal + book:deleted; safe handling when deleting the open book; ConfirmDialog reused from brain/components (KR-109).", "status": "planned" },
+      { "id": 3, "goal": "Library quality of life: sort (recent/edited), optional search, empty-state affordance, and online/offline + sync-status reflection from CloudSyncService (sync:status) without blocking the list.", "status": "planned" }
+    ],
+    "known_risks": [
+      "KR-040 — Delete is destructive and must be guarded by a confirm Modal (brain ConfirmDialog) and routed through BookService; a stray one-click delete loses an author's entire book. Deleting must also clean up the book's tree + persisted positions, leaving no orphaned keys.",
+      "KR-041 — book-library must NOT re-implement creation/seeding; it delegates to book-creation and only reacts to book:created (single seeding path, re-asserts KR-001).",
+      "KR-042 — Deleting the currently-open book must return the user to the library, not strand them in an editor pointed at a deleted bookId.",
+      "KR-043 — The list reflects both local and cloud-synced books; on first load it must render local immediately and reconcile cloud results without flicker/duplication (cloud-first).",
+      "KR-011 — No raw localStorage; read/write only via BookService/PersistenceService (global config KR-111).",
+      "KR-109 — Reuse the shared ConfirmDialog from brain/components rather than a local modal, to avoid cross-feature drift.",
+      "A11y — tiles, create affordance, and delete entries are keyboard-reachable; the confirm Modal traps focus and restores it on close."
+    ]
+  },
+  "implementation": {
+    "iterations_log": [],
+    "resolved_decisions": [
+      "book-library is the editor's home; opening a book routes into the editor. Launching a book to PLAY it (play mode) is a separate surface, out of scope here.",
+      "Creation is delegated to book-creation; the library never seeds directly."
+    ],
+    "open_questions": [
+      "Tile meta: show « modifié le … » (last edited) vs « créé le … » — leaning last-edited, which requires BookService to track an updated_at."
+    ]
+  }
+}

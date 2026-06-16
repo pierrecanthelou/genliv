@@ -1,0 +1,26 @@
+<!-- @dsCard group="Colors" viewport="700x150" subtitle="Surfaces — app bg → card → sunken fields" name="Paper / surfaces" -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-mono); background: var(--surface-card); padding: 18px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .sw { width: 96px; }
+  .chip { height: 52px; border-radius: var(--r-xl); border: 1px solid var(--line-2); }
+  .name { font-size: 9.5px; color: var(--ink-2); margin-top: 7px; }
+  .hex { font-size: 9px; color: var(--ink-4); margin-top: 2px; letter-spacing: .02em; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="sw"><div class="chip" style="background:var(--paper-6)"></div><div class="name">--paper-6</div><div class="hex">#ECECEA · app</div></div>
+    <div class="sw"><div class="chip" style="background:var(--paper-5)"></div><div class="name">--paper-5</div><div class="hex">#F2F2F0 · track</div></div>
+    <div class="sw"><div class="chip" style="background:var(--paper-4)"></div><div class="name">--paper-4</div><div class="hex">#F4F4F2 · chip</div></div>
+    <div class="sw"><div class="chip" style="background:var(--paper-3)"></div><div class="name">--paper-3</div><div class="hex">#F7F7F5 · tile</div></div>
+    <div class="sw"><div class="chip" style="background:var(--paper-2)"></div><div class="name">--paper-2</div><div class="hex">#FAFAF9 · field</div></div>
+    <div class="sw"><div class="chip" style="background:var(--paper-0)"></div><div class="name">--paper-0</div><div class="hex">#FFFFFF · card</div></div>
+  </div>
+</body>
+</html>

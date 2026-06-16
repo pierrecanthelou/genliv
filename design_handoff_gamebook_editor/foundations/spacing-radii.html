@@ -1,0 +1,27 @@
+<!-- @dsCard group="Spacing" viewport="700x150" subtitle="Radii 4 → 12 + pill" name="Radii" -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-mono); background: var(--surface-card); padding: 18px; }
+  .row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+  .sw { text-align: center; }
+  .box { width: 56px; height: 48px; background: var(--accent-bg); border: 1.5px solid var(--accent-line); }
+  .n { font-size: 9px; color: var(--ink-3); margin-top: 7px; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="sw"><div class="box" style="border-radius:var(--r-xs)"></div><div class="n">--r-xs 4</div></div>
+    <div class="sw"><div class="box" style="border-radius:var(--r-sm)"></div><div class="n">--r-sm 5</div></div>
+    <div class="sw"><div class="box" style="border-radius:var(--r-md)"></div><div class="n">--r-md 6</div></div>
+    <div class="sw"><div class="box" style="border-radius:var(--r-lg)"></div><div class="n">--r-lg 7</div></div>
+    <div class="sw"><div class="box" style="border-radius:var(--r-xl)"></div><div class="n">--r-xl 8</div></div>
+    <div class="sw"><div class="box" style="border-radius:var(--r-2xl)"></div><div class="n">--r-2xl 10</div></div>
+    <div class="sw"><div class="box" style="border-radius:var(--r-3xl)"></div><div class="n">--r-3xl 12</div></div>
+    <div class="sw"><div class="box" style="border-radius:var(--r-pill)"></div><div class="n">--r-pill</div></div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    *{ box-sizing:border-box; }
+    body{ margin:0; }
+    input, textarea, button{ font-family:inherit; }
+    textarea{ resize:none; }
+  </style>
+</helmet>
+
+<div style="min-height:100vh; background:var(--surface-app); font-family:var(--font-ui); color:var(--text-strong);">
+
+  <!-- ================= HOME ================= -->
+  <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+    <div style="max-width:1040px; margin:0 auto; padding:40px 32px 80px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:28px;">
+        <div style="font-size:var(--fs-title); font-weight:var(--fw-bold); letter-spacing:var(--track-tight);">Mes livres</div>
+        <div style="width:28px; height:28px; border-radius:50%; background:var(--paper-3); border:1px solid var(--line-2);"></div>
+      </div>
+
+      <sc-if value="{{ hasBooks }}" hint-placeholder-val="{{ true }}">
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:14px;">
+          <sc-for list="{{ books }}" as="b" hint-placeholder-count="3">
+            <div style="position:relative; border:1px solid var(--border-subtle); background:var(--surface-inset); border-radius:var(--r-2xl); padding:14px; cursor:pointer; min-height:118px; display:flex; flex-direction:column; justify-content:space-between;" onClick="{{ b.onOpen }}">
+              <div style="height:42px; border-radius:var(--r-md); background:var(--paper-0); border:1px solid var(--line-2); display:flex; align-items:center; justify-content:center;">
+                <span style="{{ b.markStyle }}"></span>
+              </div>
+              <div>
+                <div style="font-size:var(--fs-body); font-weight:var(--fw-semibold); margin-top:10px;">{{ b.title }}</div>
+                <div style="font-size:var(--fs-meta); color:var(--text-faint); margin-top:2px; font-family:var(--font-mono);">{{ b.meta }}</div>
+              </div>
+              <button style="position:absolute; top:8px; right:8px; width:22px; height:22px; border-radius:var(--r-sm); border:1px solid var(--line-2); background:var(--paper-0); color:var(--bad); font-size:11px; cursor:pointer; line-height:1;" onClick="{{ b.onDelete }}">✕</button>
+            </div>
+          </sc-for>
+          <div style="border:1.5px dashed var(--accent); border-radius:var(--r-2xl); padding:14px; min-height:118px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; cursor:pointer; color:var(--accent);" onClick="{{ openCreate }}">
+            <div style="font-size:26px; font-weight:300; line-height:1;">+</div>
+            <div style="font-size:var(--fs-sm); font-weight:var(--fw-semibold);">Nouveau livre</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ noBooks }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:80px 20px; text-align:center;">
+          <div style="width:280px; height:150px; border:1.5px dashed var(--accent); border-radius:var(--r-3xl); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; cursor:pointer; color:var(--accent); background:var(--accent-bg-2);" onClick="{{ openCreate }}">
+            <div style="font-size:38px; font-weight:300; line-height:1;">+</div>
+            <div style="font-size:var(--fs-body); font-weight:var(--fw-semibold);">Créez votre premier livre</div>
+          </div>
+          <div style="font-size:var(--fs-meta); color:var(--text-faint); margin-top:18px; max-width:340px; line-height:var(--lh-body);">Chaque livre démarre avec un Sommaire et un nœud « Mort du personnage » déjà en place.</div>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <!-- ================= EDITOR ================= -->
+  <sc-if value="{{ isEditor }}" hint-placeholder-val="{{ true }}">
+    <div style="padding:20px;">
+      <div style="background:var(--surface-card); border:1px solid var(--border-card); border-radius:var(--r-3xl); overflow:hidden;">
+
+        <!-- top bar -->
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid var(--line-3);">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div style="font-size:var(--fs-sm); color:var(--text-faint); display:flex; align-items:center; gap:6px; cursor:pointer;" onClick="{{ backHome }}"><span style="font-size:14px;">←</span> Mes livres</div>
+            <div style="width:1px; height:16px; background:var(--line-2);"></div>
+            <div style="font-weight:var(--fw-bold); font-size:var(--fs-title);">{{ bookTitle }}</div>
+            <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-faint); border:1px solid var(--line-2); border-radius:var(--r-sm); padding:3px 7px;">{{ nodeCount }}</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div style="display:flex; gap:3px; background:var(--surface-track); border-radius:var(--r-lg); padding:3px;">
+              <div style="{{ canvasTabStyle }}" onClick="{{ setCanvas }}">Arbre</div>
+              <div style="{{ outlineTabStyle }}" onClick="{{ setOutline }}">Plan</div>
+            </div>
+            <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted); border:1px solid var(--border-card); border-radius:var(--r-md); padding:6px 10px;">Aperçu ▷</div>
+            <div style="font-family:var(--font-mono); font-size:10px; color:var(--accent-fg); background:var(--accent); border-radius:var(--r-md); padding:6px 12px; cursor:pointer;" onClick="{{ addNode }}">+ Nœud</div>
+          </div>
+        </div>
+
+        <div style="display:flex;">
+          <!-- LEFT: canvas or outline (grows to full width when the panel is closed) -->
+          <div style="flex:1; height:600px; overflow:hidden; position:relative; min-width:0;">
+
+            <sc-if value="{{ isCanvas }}" hint-placeholder-val="{{ true }}">
+              <div style="position:absolute; inset:0; background:var(--surface-sunken); background-image:radial-gradient(#E3E3E0 1px, transparent 1px); background-size:22px 22px; overflow:auto;">
+                <div style="position:relative; width:980px; height:600px;">
+                  <svg width="980" height="600" style="position:absolute; top:0; left:0; pointer-events:none;">
+                    <defs>
+                      <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto"><path d="M0,0 L7,3.2 L0,6.4 z" fill="#A9A9A4"></path></marker>
+                    </defs>
+                    <sc-for list="{{ edges }}" as="e" hint-placeholder-count="8">
+                      <line x1="{{ e.x1 }}" y1="{{ e.y1 }}" x2="{{ e.x2 }}" y2="{{ e.y2 }}" stroke="#A9A9A4" stroke-width="1.5" marker-end="url(#ar)"></line>
+                    </sc-for>
+                    <path d="{{ relinkPath }}" fill="none" stroke="#B0B0AB" stroke-width="1.5" stroke-dasharray="6 5" marker-end="url(#ar)"></path>
+                  </svg>
+                  <sc-for list="{{ edges }}" as="e" hint-placeholder-count="8">
+                    <div style="{{ e.labelStyle }}">{{ e.label }}</div>
+                  </sc-for>
+                  <div style="{{ relinkLabelStyle }}">Fuite ↻</div>
+
+                  <sc-for list="{{ nodes }}" as="n" hint-placeholder-count="8">
+                    <div style="{{ n.wrapStyle }}">
+                      <div style="{{ n.cardStyle }}" onClick="{{ n.onClick }}" onDragOver="{{ n.onDragOver }}" onDrop="{{ n.onDrop }}">
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:5px;">
+                          <span style="{{ n.badgeStyle }}"><span style="{{ n.markStyle }}"></span>{{ n.badgeLabel }}</span>
+                          <span style="font-family:var(--font-mono); font-size:9px; color:var(--ink-5);">{{ n.ref }}</span>
+                        </div>
+                        <div style="font-size:var(--fs-body); font-weight:var(--fw-semibold); line-height:1.2; letter-spacing:var(--track-tight); color:{{ n.titleColor }};">{{ n.title }}</div>
+                        <div style="font-size:var(--fs-meta); color:{{ n.snippetColor }}; line-height:1.3; margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ n.snippet }}</div>
+                      </div>
+                      <sc-if value="{{ n.canLink }}" hint-placeholder-val="{{ true }}">
+                        <div draggable="true" style="{{ n.anchorStyle }}" onDragStart="{{ n.onDragStart }}" onDragEnd="{{ n.onDragEnd }}" title="Glisser vers une carte pour créer un choix"></div>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="position:absolute; bottom:14px; right:14px; display:flex; flex-direction:column; gap:4px;">
+                  <div style="width:28px; height:28px; background:var(--paper-0); border:1px solid var(--border-card); border-radius:var(--r-md); display:flex; align-items:center; justify-content:center; font-size:15px; color:var(--text-muted);">+</div>
+                  <div style="width:28px; height:28px; background:var(--paper-0); border:1px solid var(--border-card); border-radius:var(--r-md); display:flex; align-items:center; justify-content:center; font-size:15px; color:var(--text-muted);">−</div>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isOutline }}" hint-placeholder-val="{{ true }}">
+              <div style="position:absolute; inset:0; overflow:auto; padding:16px 18px;">
+                <sc-for list="{{ outlineRows }}" as="r" hint-placeholder-count="8">
+                  <div style="{{ r.rowStyle }}" onClick="{{ r.onClick }}">
+                    <span style="{{ r.tagStyle }}">{{ r.tag }}</span>
+                    <span style="font-size:var(--fs-row); color:{{ r.titleColor }};">{{ r.title }}</span>
+                    <span style="font-family:var(--font-mono); font-size:9px; color:var(--ink-5); margin-left:6px;">{{ r.note }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+
+          <!-- RIGHT: side panel — rendered ONLY when a node is selected, so closing it reveals the full tree -->
+          <sc-if value="{{ hasSelection }}" hint-placeholder-val="{{ true }}">
+          <div style="flex:0 0 374px; border-left:1px solid var(--line-3); height:600px; overflow-y:auto; background:var(--surface-card);">
+            <div>
+              <div style="padding:14px 16px; border-bottom:1px solid var(--line-4); display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; background:var(--surface-card); z-index:2;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="{{ selBadgeStyle }}"><span style="{{ selMarkStyle }}"></span>{{ selRef }}</span>
+                  <span style="font-size:var(--fs-row); font-weight:var(--fw-semibold);">{{ selTitle }}</span>
+                </div>
+                <span style="color:var(--ink-5); font-size:16px; cursor:pointer;" onClick="{{ closePanel }}" title="Fermer le panneau">✕</span>
+              </div>
+
+              <div style="padding:16px; display:flex; flex-direction:column; gap:16px;">
+                <!-- libellé (le choix qui mène ici) — feuilles seulement -->
+                <sc-if value="{{ selHasFullForm }}" hint-placeholder-val="{{ true }}">
+                  <div>
+                    <div style="font-family:var(--font-mono); font-size:var(--fs-eyebrow); letter-spacing:var(--track-eyebrow); color:var(--text-label); text-transform:uppercase; margin-bottom:6px;">Libellé du choix <span style="color:var(--ink-6);">— le choix qui mène ici</span></div>
+                    <input value="{{ selLibelle }}" onChange="{{ onLibelle }}" placeholder="Ex. Affronter le gardien" style="width:100%; border:1px solid var(--border-field); border-radius:var(--r-md); padding:8px 10px; background:var(--surface-sunken); font-size:var(--fs-body); color:var(--text-body);" />
+                  </div>
+                </sc-if>
+
+                <!-- description / texte (tous) -->
+                <div>
+                  <div style="font-family:var(--font-mono); font-size:var(--fs-eyebrow); letter-spacing:var(--track-eyebrow); color:var(--text-label); text-transform:uppercase; margin-bottom:6px;">{{ selDescLabel }} <span style="color:var(--ink-6);">{{ selDescHint }}</span></div>
+                  <textarea value="{{ selDescription }}" onChange="{{ onDescription }}" rows="3" placeholder="{{ selDescPlaceholder }}" style="width:100%; border:1px solid var(--border-field); border-radius:var(--r-md); padding:9px 10px; background:var(--surface-sunken); font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-body);"></textarea>
+                </div>
+
+                <!-- illustration (tous sauf Mort) -->
+                <sc-if value="{{ selShowIllustration }}" hint-placeholder-val="{{ true }}">
+                  <div>
+                    <div style="font-family:var(--font-mono); font-size:var(--fs-eyebrow); letter-spacing:var(--track-eyebrow); color:var(--text-label); text-transform:uppercase; margin-bottom:6px;">Illustration <span style="color:var(--ink-6);">— optionnelle</span></div>
+                    <div style="border:1.5px dashed var(--line-field); border-radius:var(--r-md); height:62px; display:flex; align-items:center; justify-content:center; gap:8px; color:var(--ink-5); font-size:var(--fs-sm); background:var(--paper-1);"><span style="font-size:16px;">⬚</span> Déposer une image</div>
+                  </div>
+                </sc-if>
+
+                <!-- note Sommaire -->
+                <sc-if value="{{ selIsSommaire }}" hint-placeholder-val="{{ true }}">
+                  <div style="font-size:var(--fs-meta); color:var(--text-faint); background:var(--accent-bg-2); border:1px solid var(--accent-line-3); border-radius:var(--r-md); padding:9px 11px; line-height:var(--lh-body);">Le sommaire ne contient qu'un texte et une image. Glissez son point d'ancrage <span style="color:var(--accent);">●</span> vers une carte pour ouvrir le livre sur le premier écran.</div>
+                </sc-if>
+
+                <!-- note Mort -->
+                <sc-if value="{{ selIsMort }}" hint-placeholder-val="{{ true }}">
+                  <div style="font-size:var(--fs-meta); color:var(--text-faint); background:var(--paper-3); border:1px solid var(--line-2); border-radius:var(--r-md); padding:9px 11px; line-height:var(--lh-body);">Nœud verrouillé — atteint quand le héros meurt (piège ou combat perdu). Seul son texte est éditable.</div>
+                </sc-if>
+
+                <!-- ===== feuilles complètes seulement ===== -->
+                <sc-if value="{{ selHasFullForm }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex; flex-direction:column; gap:16px;">
+                    <!-- inventaire -->
+                    <div>
+                      <div style="font-family:var(--font-mono); font-size:var(--fs-eyebrow); letter-spacing:var(--track-eyebrow); color:var(--text-label); text-transform:uppercase; margin-bottom:6px; display:flex; justify-content:space-between;"><span>Objets à prendre</span><span style="color:var(--accent);">+ ajouter</span></div>
+                      <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                        <sc-for list="{{ selInventory }}" as="it" hint-placeholder-count="1">
+                          <div style="font-size:11px; border:1px solid var(--line-1); border-radius:var(--r-pill); padding:4px 10px; background:var(--surface-chip); display:flex; gap:6px; align-items:center;">{{ it.label }} <span style="color:var(--ink-5);">✕</span></div>
+                        </sc-for>
+                        <div style="font-size:11px; border:1px dashed var(--line-field); border-radius:var(--r-pill); padding:4px 10px; color:var(--ink-5);">+ objet</div>
+                      </div>
+                    </div>
+
+                    <!-- action requise -->
+                    <div style="border-top:1px solid var(--line-4); padding-top:14px;">
+                      <div style="font-family:var(--font-mono); font-size:var(--fs-eyebrow); letter-spacing:var(--track-eyebrow); color:var(--text-muted); text-transform:uppercase; margin-bottom:8px; font-weight:var(--fw-semibold);">Action requise pour poursuivre</div>
+                      <div style="display:flex; gap:4px; background:var(--surface-track); border-radius:var(--r-xl); padding:3px; margin-bottom:12px;">
+                        <sc-for list="{{ actionSegments }}" as="s" hint-placeholder-count="5">
+                          <div style="{{ s.style }}" onClick="{{ s.onClick }}">{{ s.label }}</div>
+                        </sc-for>
+                      </div>
+
+                      <sc-if value="{{ selIsMonstre }}" hint-placeholder-val="{{ true }}">
+                        <div style="border:1px solid var(--line-3); border-radius:var(--r-xl); padding:12px; background:var(--paper-1); display:flex; flex-direction:column; gap:11px;">
+                          <div>
+                            <div style="font-family:var(--font-mono); font-size:var(--fs-eyebrow); color:var(--ink-4); margin-bottom:5px;">MONSTRE</div>
+                            <div style="border:1px solid var(--border-field); border-radius:var(--r-md); padding:7px 10px; background:var(--paper-0); font-size:var(--fs-body); display:flex; justify-content:space-between; align-items:center;">Gobelin des cavernes <span style="color:var(--ink-5);">▾</span></div>
+                            <div style="display:flex; align-items:center; gap:7px; margin-top:8px;"><div style="width:30px; height:17px; background:var(--accent); border-radius:var(--r-pill); position:relative;"><span style="position:absolute; top:2px; right:2px; width:13px; height:13px; background:#fff; border-radius:50%;"></span></div><span style="font-size:var(--fs-meta); color:var(--text-muted);">Ajouter à la librairie</span></div>
+                          </div>
+                          <div>
+                            <div style="font-family:var(--font-mono); font-size:var(--fs-eyebrow); color:var(--ink-4); margin-bottom:5px;">TEXTE SI VICTOIRE → poursuit</div>
+                            <textarea value="{{ selVictory }}" onChange="{{ onVictory }}" rows="2" placeholder="Décrivez la victoire…" style="width:100%; border:1px solid var(--border-field); border-radius:var(--r-md); padding:7px 10px; background:var(--paper-0); font-size:var(--fs-sm); color:var(--text-body); line-height:var(--lh-body);"></textarea>
+                          </div>
+                          <div>
+                            <div style="font-family:var(--font-mono); font-size:var(--fs-eyebrow); color:var(--ink-4); margin-bottom:5px;">TEXTE SI FUITE → reliaison</div>
+                            <textarea value="{{ selFlee }}" onChange="{{ onFlee }}" rows="2" placeholder="Décrivez la fuite…" style="width:100%; border:1px solid var(--border-field); border-radius:var(--r-md); padding:7px 10px; background:var(--paper-0); font-size:var(--fs-sm); color:var(--text-body); line-height:var(--lh-body);"></textarea>
+                          </div>
+                        </div>
+                      </sc-if>
+
+                      <sc-if value="{{ selIsPnj }}" hint-placeholder-val="{{ true }}">
+                        <div style="border:1px solid var(--line-3); border-radius:var(--r-xl); padding:12px; background:var(--paper-1); display:flex; flex-direction:column; gap:11px;">
+                          <div><div style="font-family:var(--font-mono); font-size:var(--fs-eyebrow); color:var(--ink-4); margin-bottom:5px;">PERSONNAGE</div><div style="border:1px solid var(--border-field); border-radius:var(--r-md); padding:7px 10px; background:var(--paper-0); font-size:var(--fs-body); display:flex; justify-content:space-between;">Choisir ou créer… <span style="color:var(--ink-5);">▾</span></div></div>
+                          <div><div style="font-family:var(--font-mono); font-size:var(--fs-eyebrow); color:var(--ink-4); margin-bottom:5px;">DIALOGUE</div><textarea rows="2" placeholder="« Approche, voyageur… »" style="width:100%; border:1px solid var(--border-field); border-radius:var(--r-md); padding:7px 10px; background:var(--paper-0); font-size:var(--fs-sm); color:var(--text-body); line-height:var(--lh-body);"></textarea></div>
+                          <div style="display:flex; align-items:center; justify-content:space-between;"><span style="font-size:var(--fs-sm); color:var(--text-muted);">Donne un objet</span><div style="width:30px; height:17px; background:var(--line-2); border-radius:var(--r-pill); position:relative;"><span style="position:absolute; top:2px; left:2px; width:13px; height:13px; background:#fff; border-radius:50%;"></span></div></div>
+                        </div>
+                      </sc-if>
+
+                      <sc-if value="{{ selIsDecor }}" hint-placeholder-val="{{ true }}">
+                        <div style="border:1px solid var(--line-3); border-radius:var(--r-xl); padding:12px; background:var(--paper-1); display:flex; flex-direction:column; gap:11px;">
+                          <div style="display:flex; gap:4px;">
+                            <div style="flex:1; text-align:center; font-size:10px; color:var(--accent-fg); background:var(--ink-0); padding:5px; border-radius:var(--r-sm);">Prendre</div>
+                            <div style="flex:1; text-align:center; font-size:10px; color:var(--text-muted); border:1px solid var(--line-2); padding:5px; border-radius:var(--r-sm);">Écouter</div>
+                            <div style="flex:1; text-align:center; font-size:10px; color:var(--text-muted); border:1px solid var(--line-2); padding:5px; border-radius:var(--r-sm);">Fouiller</div>
+                          </div>
+                          <div style="display:flex; align-items:center; gap:10px; border:1px solid var(--line-3); border-radius:var(--r-lg); padding:9px 10px;"><span style="color:var(--ink-6);">⠿</span><div style="flex:1;"><div style="font-size:var(--fs-body); font-weight:var(--fw-semibold);">Potion de soin</div><div style="font-size:var(--fs-meta); color:var(--text-faint);">Une fiole tiède où perle un liquide ambré.</div></div><span style="font-size:9.5px; color:var(--good); border:1px solid var(--good-line); background:var(--good-bg-2); border-radius:var(--r-pill); padding:3px 8px;">+12 PV</span></div>
+                          <div style="font-size:var(--fs-meta); color:var(--accent);">+ Ajouter un objet au décor</div>
+                        </div>
+                      </sc-if>
+
+                      <sc-if value="{{ selIsPiege }}" hint-placeholder-val="{{ true }}">
+                        <div style="border:1px solid var(--line-3); border-radius:var(--r-xl); padding:12px; background:var(--paper-1); display:flex; flex-direction:column; gap:11px;">
+                          <div style="display:flex; align-items:center; justify-content:space-between;"><div style="display:flex; align-items:center; gap:8px;"><span style="font-family:var(--font-mono); font-size:var(--fs-eyebrow); color:var(--ink-4);">CARACT.</span><div style="border:1px solid var(--border-field); border-radius:var(--r-md); padding:5px 10px; background:var(--paper-0); font-size:var(--fs-sm);">Force ▾</div></div><div style="display:flex; gap:3px;"><span style="width:11px;height:11px;background:var(--ink-0);border-radius:2px;"></span><span style="width:11px;height:11px;background:var(--ink-0);border-radius:2px;"></span><span style="width:11px;height:11px;border:1px solid var(--ink-6);border-radius:2px;"></span></div></div>
+                          <div style="border:1px solid var(--bad-line); border-radius:var(--r-lg); padding:9px; background:var(--bad-bg);"><div style="font-family:var(--font-mono); font-size:8.5px; color:var(--bad); margin-bottom:4px;">✕ ÉCHEC</div><div style="font-size:var(--fs-sm); color:var(--text-body); line-height:var(--lh-body);">Mène à « Mort du personnage » sans nouveau choix.</div></div>
+                        </div>
+                      </sc-if>
+
+                      <sc-if value="{{ selIsAucune }}" hint-placeholder-val="{{ true }}">
+                        <div style="border:1px dashed var(--line-field); border-radius:var(--r-xl); padding:14px; background:var(--paper-1); font-size:var(--fs-sm); color:var(--text-muted); line-height:var(--lh-body);">Aucune action — le lecteur poursuit via les choix sortants ci-dessous.</div>
+                      </sc-if>
+                    </div>
+
+                    <!-- choix sortants -->
+                    <div style="border-top:1px solid var(--line-4); padding-top:14px;">
+                      <div style="font-family:var(--font-mono); font-size:var(--fs-eyebrow); letter-spacing:var(--track-eyebrow); color:var(--text-muted); text-transform:uppercase; margin-bottom:8px; font-weight:var(--fw-semibold); display:flex; justify-content:space-between;"><span>Choix sortants</span><span style="color:var(--accent); cursor:pointer;" onClick="{{ beginBranch }}">+ branche</span></div>
+                      <sc-for list="{{ choiceRows }}" as="c" hint-placeholder-count="2">
+                        <div style="border:1px solid var(--line-3); border-radius:var(--r-xl); padding:10px; margin-bottom:8px;">
+                          <div style="font-size:var(--fs-body); font-weight:var(--fw-semibold); margin-bottom:6px;">→ {{ c.title }}</div>
+                          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                            <sc-for list="{{ c.badges }}" as="bd" hint-placeholder-count="0">
+                              <div style="font-size:9.5px; font-family:var(--font-mono); color:var(--text-muted); border:1px solid var(--line-2); border-radius:var(--r-pill); padding:3px 8px;">{{ bd.label }}</div>
+                            </sc-for>
+                          </div>
+                        </div>
+                      </sc-for>
+                      <sc-if value="{{ noChoices }}" hint-placeholder-val="{{ true }}">
+                        <div style="font-size:var(--fs-meta); color:var(--ink-5); font-style:italic;">Aucun choix sortant — « + branche » ou glissez l'ancre vers une carte.</div>
+                      </sc-if>
+                    </div>
+
+                    <!-- fin toggles -->
+                    <div style="border-top:1px solid var(--line-4); padding-top:14px; display:flex; flex-direction:column; gap:10px;">
+                      <div style="display:flex; align-items:center; justify-content:space-between;">
+                        <span style="font-size:var(--fs-body);">Fin victoire</span>
+                        <div style="{{ victoryTrackStyle }}" onClick="{{ toggleVictory }}"><span style="{{ victoryKnobStyle }}"></span></div>
+                      </div>
+                      <div style="display:flex; align-items:center; justify-content:space-between;">
+                        <span style="font-size:var(--fs-body);">Fin échec</span>
+                        <div style="{{ failTrackStyle }}" onClick="{{ toggleFail }}"><span style="{{ failKnobStyle }}"></span></div>
+                      </div>
+                    </div>
+
+                    <!-- footer -->
+                    <div style="border-top:1px solid var(--line-4); padding-top:14px; display:flex; gap:8px;">
+                      <div style="flex:1; text-align:center; font-size:var(--fs-sm); color:var(--accent-fg); background:var(--accent); border-radius:var(--r-lg); padding:9px; cursor:pointer;" onClick="{{ beginBranch }}">+ Ajouter une branche</div>
+                      <div style="flex:1; text-align:center; font-size:var(--fs-sm); color:var(--text-strong); border:1px solid var(--border-field); border-radius:var(--r-lg); padding:9px;">↪ Relier…</div>
+                    </div>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+          </div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ================= CREATE MODAL ================= -->
+  <sc-if value="{{ creating }}" hint-placeholder-val="{{ true }}">
+    <div style="position:fixed; inset:0; background:rgba(43,43,41,0.32); display:flex; align-items:center; justify-content:center; z-index:50;" onClick="{{ cancelCreate }}">
+      <div style="width:360px; background:var(--surface-card); border:1px solid var(--border-card); border-radius:var(--r-3xl); box-shadow:var(--shadow-modal); overflow:hidden;" onClick="{{ stop }}">
+        <div style="padding:14px 16px; border-bottom:1px solid var(--line-4); font-size:var(--fs-row); font-weight:var(--fw-semibold);">Nouveau livre</div>
+        <div style="padding:16px;">
+          <div style="font-family:var(--font-mono); font-size:var(--fs-eyebrow); letter-spacing:var(--track-eyebrow); color:var(--text-label); text-transform:uppercase; margin-bottom:6px;">Titre</div>
+          <input value="{{ newTitle }}" onChange="{{ onNewTitle }}" placeholder="La Caverne d'Aldûr" style="width:100%; border:1px solid var(--border-field); border-radius:var(--r-md); padding:9px 10px; background:var(--surface-sunken); font-size:var(--fs-body); color:var(--text-body);" />
+        </div>
+        <div style="display:flex; gap:8px; padding:0 16px 16px;">
+          <div style="flex:1; text-align:center; font-size:var(--fs-sm); color:var(--text-muted); border:1px solid var(--border-field); border-radius:var(--r-lg); padding:9px; cursor:pointer;" onClick="{{ cancelCreate }}">Annuler</div>
+          <div style="{{ createBtnStyle }}" onClick="{{ doCreate }}">Créer</div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ================= BRANCH / LINK MODAL ================= -->
+  <sc-if value="{{ linking }}" hint-placeholder-val="{{ true }}">
+    <div style="position:fixed; inset:0; background:rgba(43,43,41,0.32); display:flex; align-items:center; justify-content:center; z-index:50;" onClick="{{ cancelLink }}">
+      <div style="width:390px; background:var(--surface-card); border:1px solid var(--border-card); border-radius:var(--r-3xl); box-shadow:var(--shadow-modal); overflow:hidden;" onClick="{{ stop }}">
+        <div style="padding:14px 16px; border-bottom:1px solid var(--line-4); font-size:var(--fs-row); font-weight:var(--fw-semibold);">{{ linkTitle }}</div>
+        <div style="padding:16px;">
+          <div style="font-family:var(--font-mono); font-size:var(--fs-eyebrow); letter-spacing:var(--track-eyebrow); color:var(--text-label); text-transform:uppercase; margin-bottom:6px;">Le choix que devra faire le joueur</div>
+          <input value="{{ linkLabel }}" onChange="{{ onLinkLabel }}" placeholder="Ex. Ouvrir la porte rouillée" style="width:100%; border:1px solid var(--border-field); border-radius:var(--r-md); padding:9px 10px; background:var(--surface-sunken); font-size:var(--fs-body); color:var(--text-body);" />
+          <div style="font-size:var(--fs-meta); color:var(--text-faint); margin-top:8px; line-height:var(--lh-body);">{{ linkHint }}</div>
+        </div>
+        <div style="display:flex; gap:8px; padding:0 16px 16px;">
+          <div style="flex:1; text-align:center; font-size:var(--fs-sm); color:var(--text-muted); border:1px solid var(--border-field); border-radius:var(--r-lg); padding:9px; cursor:pointer;" onClick="{{ cancelLink }}">Annuler</div>
+          <div style="{{ linkBtnStyle }}" onClick="{{ confirmLink }}">{{ linkConfirmLabel }}</div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ================= DELETE MODAL ================= -->
+  <sc-if value="{{ confirmingDelete }}" hint-placeholder-val="{{ true }}">
+    <div style="position:fixed; inset:0; background:rgba(43,43,41,0.32); display:flex; align-items:center; justify-content:center; z-index:50;" onClick="{{ cancelDelete }}">
+      <div style="width:360px; background:var(--surface-card); border:1px solid var(--border-card); border-radius:var(--r-3xl); box-shadow:var(--shadow-modal); overflow:hidden;" onClick="{{ stop }}">
+        <div style="padding:14px 16px; border-bottom:1px solid var(--line-4); font-size:var(--fs-row); font-weight:var(--fw-semibold);">Supprimer ce livre ?</div>
+        <div style="padding:16px; font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-body);">« {{ deleteTitle }} » et tout son arbre seront supprimés. Cette action est irréversible.</div>
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:0 16px 16px;">
+          <div style="font-size:var(--fs-sm); color:var(--bad); border:1px solid var(--bad-line); border-radius:var(--r-lg); padding:9px 14px; cursor:pointer;" onClick="{{ doDelete }}">✕ Supprimer</div>
+          <div style="font-size:var(--fs-sm); color:var(--text-muted); border:1px solid var(--border-field); border-radius:var(--r-lg); padding:9px 16px; cursor:pointer;" onClick="{{ cancelDelete }}">Annuler</div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      screen: 'home',
+      books: [
+        { id: 'demo', title: "La Caverne d'Aldûr", meta: 'modifié à l\u2019instant' },
+        { id: 'b2', title: 'Le Phare oublié', meta: 'modifié hier' },
+        { id: 'b3', title: 'Les Sept Portes', meta: 'modifié il y a 3 j' },
+      ],
+      trees: { demo: this.demoTree() },
+      openBookId: null,
+      view: 'canvas',
+      selectedId: null,
+      creating: false,
+      newTitle: '',
+      confirmId: null,
+      dragging: null,
+      link: null,
+      seq: 100,
+    };
+  }
+
+  KIND() {
+    return {
+      sommaire: { label: 'SOMMAIRE', mark: { borderRadius: '2px', background: 'var(--ink-0)' }, card: { background: 'var(--ink-0)', border: '1px solid var(--ink-0)' }, dark: true, badge: { background: '#3D3D3A', color: '#fff', border: '1px solid #4A4A47' } },
+      choix: { label: 'CHOIX', mark: { borderRadius: '2px', border: '1.5px solid var(--ink-0)' } },
+      pnj: { label: 'PNJ', mark: { borderRadius: '50%', border: '1.5px solid var(--ink-0)' } },
+      decor: { label: 'DÉCOR', mark: { borderRadius: '2px', border: '1.5px dashed var(--ink-0)' }, card: { borderStyle: 'dashed' }, badge: { borderStyle: 'dashed' } },
+      piege: { label: 'PIÈGE', tri: true, mark: { width: 0, height: 0, borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderBottom: '9px solid var(--ink-0)' } },
+      monstre: { label: 'MONSTRE', mark: { background: 'repeating-linear-gradient(45deg,var(--ink-0) 0 2px,transparent 2px 4px)' }, badge: { background: 'repeating-linear-gradient(45deg,var(--ink-0) 0 2px,transparent 2px 4px)', color: 'var(--ink-0)', border: '1px solid var(--ink-6)' } },
+      fin: { label: 'FIN', mark: { border: '2px double var(--ink-0)' }, card: { border: '2px double var(--ink-0)' }, badge: { border: '2px double var(--ink-0)', color: 'var(--ink-0)' } },
+      mort: { label: 'MORT', mark: { background: 'repeating-linear-gradient(45deg,var(--ink-4) 0 1.5px,transparent 1.5px 3px)' }, card: { background: 'repeating-linear-gradient(45deg,#F4F4F2 0 4px,#fff 4px 8px)', border: '1px solid var(--line-strong)' }, badge: { background: 'repeating-linear-gradient(45deg,var(--ink-4) 0 1.5px,transparent 1.5px 3px)', color: 'var(--ink-2)' } },
+    };
+  }
+
+  base(kind, extra) {
+    const h = kind === 'monstre' ? 80 : (kind === 'sommaire' || kind === 'fin' || kind === 'mort') ? 56 : 70;
+    return Object.assign({ kind, w: 154, h, libelle: '', description: '', inventory: [], action: 'aucune', endVictory: false, endFail: false, victory: '', flee: '' }, extra);
+  }
+
+  demoTree() {
+    const n = {
+      '0': this.base('sommaire', { ref: '#0', title: 'Sommaire', snippet: 'Page de garde — mène au premier écran', x: 380, y: 16, description: "Aux confins du royaume s'ouvre la Caverne d'Aldûr. Vous y entrez, torche au poing." }),
+      '1': this.base('choix', { ref: '#1', title: "L'entrée de la grotte", snippet: 'Un souffle froid monte des ténèbres…', x: 380, y: 120, libelle: 'Commencer', description: 'Un souffle froid monte des ténèbres.' }),
+      '2': this.base('piege', { ref: '#2', title: 'La fosse dissimulée', snippet: 'Le sol se dérobe sous vos pas.', x: 150, y: 256, action: 'piege', libelle: 'Avancer dans le noir', description: 'Le sol se dérobe sous vos pas.' }),
+      '3': this.base('decor', { ref: '#3', title: 'La salle aux runes', snippet: 'Des symboles luisent sur les murs.', x: 620, y: 256, action: 'decor', libelle: 'Allumer une torche', description: 'Des symboles luisent sur les murs.' }),
+      '4': this.base('monstre', { ref: '#4', title: 'Le gardien gobelin', snippet: 'Une créature surgit, gourdin levé.', x: 115, y: 384, action: 'monstre', libelle: 'Affronter le gardien', description: "Une créature trapue surgit de l'ombre, gourdin clouté levé. Ses yeux jaunes vous fixent sans ciller…", inventory: [{ label: 'Gourdin clouté' }], victory: "Le gobelin s'effondre. La voie vers la sortie est libre.", flee: 'Vous détalez vers la fosse…' }),
+      '5': this.base('decor', { ref: '#5', title: 'Le coffre scellé', snippet: 'Un coffre de fer, lourdement verrouillé.', x: 620, y: 384, action: 'decor', libelle: 'Examiner les runes', description: 'Un coffre de fer, lourdement verrouillé.' }),
+      '6': this.base('fin', { ref: '#6', title: 'La salle au trésor', snippet: 'La lumière du jour, enfin.', x: 380, y: 500, endVictory: true, libelle: 'Victoire', description: 'La lumière du jour, enfin.' }),
+      'M': this.base('mort', { ref: '✕', title: 'Personnage décédé', snippet: 'Feuille obligatoire et isolée.', x: 780, y: 500, endFail: true, locked: true, description: 'Votre aventure s\u2019achève ici, dans les ténèbres de la caverne.' }),
+    };
+    const edges = [
+      { from: '0', to: '1', label: 'Commencer' },
+      { from: '1', to: '2', label: 'Avancer dans le noir' },
+      { from: '1', to: '3', label: 'Allumer une torche' },
+      { from: '2', to: '4', label: 'réussite' },
+      { from: '2', to: 'M', label: 'échec' },
+      { from: '3', to: '5', label: 'Examiner' },
+      { from: '4', to: '6', label: 'Victoire', badges: [{ label: '⊘ pré-requis caché' }, { label: '⏱ compte à rebours' }] },
+      { from: '5', to: '6', label: 'Ouvrir 🗝' },
+    ];
+    return { order: ['0', '1', '2', '3', '4', '5', '6', 'M'], nodes: n, edges, relink: { from: '4', to: '2' } };
+  }
+
+  seedTree() {
+    const nodes = {
+      '0': this.base('sommaire', { ref: '#0', title: 'Sommaire', snippet: 'Écrivez ici le texte d\u2019introduction…', x: 360, y: 60 }),
+      'M': this.base('mort', { ref: '✕', title: 'Personnage décédé', snippet: 'Feuille obligatoire et isolée.', x: 700, y: 420, endFail: true, locked: true }),
+    };
+    return { order: ['0', 'M'], nodes, edges: [], relink: null };
+  }
+
+  tree() { return this.state.trees[this.state.openBookId]; }
+  sel() { const t = this.tree(); return t && this.state.selectedId ? t.nodes[this.state.selectedId] : null; }
+
+  openBook = (id) => {
+    this.setState((s) => {
+      const trees = Object.assign({}, s.trees);
+      if (!trees[id]) trees[id] = this.seedTree();
+      const selectedId = id === 'demo' ? '4' : '0';
+      return { trees, openBookId: id, screen: 'editor', view: 'canvas', selectedId };
+    });
+  };
+  backHome = () => this.setState({ screen: 'home', openBookId: null, selectedId: null });
+  setCanvas = () => this.setState({ view: 'canvas' });
+  setOutline = () => this.setState({ view: 'outline' });
+  select = (id) => this.setState({ selectedId: id });
+  closePanel = () => this.setState({ selectedId: null });
+
+  openCreate = () => this.setState({ creating: true, newTitle: '' });
+  cancelCreate = () => this.setState({ creating: false });
+  onNewTitle = (e) => this.setState({ newTitle: e.target.value });
+  doCreate = () => {
+    const title = (this.state.newTitle || '').trim();
+    if (!title) return;
+    this.setState((s) => {
+      const id = 'bk' + s.seq;
+      const trees = Object.assign({}, s.trees, { [id]: this.seedTree() });
+      const books = [{ id, title, meta: 'créé à l\u2019instant' }, ...s.books];
+      return { books, trees, creating: false, newTitle: '', seq: s.seq + 1, openBookId: id, screen: 'editor', view: 'canvas', selectedId: '0' };
+    });
+  };
+
+  askDelete = (id, e) => { if (e && e.stopPropagation) e.stopPropagation(); this.setState({ confirmId: id }); };
+  cancelDelete = () => this.setState({ confirmId: null });
+  doDelete = () => this.setState((s) => {
+    const books = s.books.filter((b) => b.id !== s.confirmId);
+    const trees = Object.assign({}, s.trees); delete trees[s.confirmId];
+    return { books, trees, confirmId: null };
+  });
+  stop = (e) => { if (e && e.stopPropagation) e.stopPropagation(); };
+
+  addNode = () => {
+    this.setState((s) => {
+      const t = s.trees[s.openBookId]; if (!t) return {};
+      const id = 'n' + s.seq;
+      const nodes = Object.assign({}, t.nodes, { [id]: this.base('choix', { ref: '#' + s.seq, title: 'Nouvelle feuille', snippet: 'Décrivez la scène pour le lecteur…', x: 300, y: 300 }) });
+      const nt = Object.assign({}, t, { nodes, order: [...t.order, id] });
+      return { trees: Object.assign({}, s.trees, { [s.openBookId]: nt }), seq: s.seq + 1, selectedId: id };
+    });
+  };
+
+  // ----- branch by choice + drag-to-link -----
+  beginBranch = () => { if (this.state.selectedId) this.setState({ link: { fromId: this.state.selectedId, toId: null, label: '' } }); };
+  onAnchorDragStart = (id) => (e) => { if (e.dataTransfer) { e.dataTransfer.setData('text/plain', id); e.dataTransfer.effectAllowed = 'link'; } this.setState({ dragging: id }); };
+  onAnchorDragEnd = () => this.setState({ dragging: null });
+  onCardDragOver = (e) => { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'link'; };
+  onCardDrop = (toId) => (e) => {
+    e.preventDefault();
+    const from = e.dataTransfer ? e.dataTransfer.getData('text/plain') : this.state.dragging;
+    this.setState({ dragging: null });
+    if (!from || from === toId) return;
+    const t = this.tree(); if (!t) return;
+    const fromNode = t.nodes[from];
+    if (fromNode && fromNode.kind === 'sommaire') { this.addEdge(from, toId, 'Commencer'); this.setState({ selectedId: from }); return; }
+    this.setState({ link: { fromId: from, toId, label: '' } });
+  };
+  onLinkLabel = (e) => this.setState((s) => ({ link: Object.assign({}, s.link, { label: e.target.value }) }));
+  cancelLink = () => this.setState({ link: null });
+  addEdge = (fromId, toId, label) => {
+    this.setState((s) => {
+      const t = s.trees[s.openBookId]; if (!t) return {};
+      if ((t.edges || []).some((e) => e.from === fromId && e.to === toId)) return {};
+      const edges = [...(t.edges || []), { from: fromId, to: toId, label: label || '' }];
+      return { trees: Object.assign({}, s.trees, { [s.openBookId]: Object.assign({}, t, { edges }) }) };
+    });
+  };
+  confirmLink = () => {
+    const lk = this.state.link; if (!lk) return;
+    const label = (lk.label || '').trim();
+    if (lk.toId == null && !label) return;
+    this.setState((s) => {
+      const t = s.trees[s.openBookId]; if (!t) return {};
+      if (lk.toId != null) {
+        if ((t.edges || []).some((e) => e.from === lk.fromId && e.to === lk.toId)) return { link: null };
+        const edges = [...(t.edges || []), { from: lk.fromId, to: lk.toId, label }];
+        return { trees: Object.assign({}, s.trees, { [s.openBookId]: Object.assign({}, t, { edges }) }), link: null, selectedId: lk.fromId };
+      }
+      const fromNode = t.nodes[lk.fromId];
+      const id = 'n' + s.seq;
+      const child = this.base('choix', { ref: '#' + s.seq, title: label, snippet: 'Décrivez la scène pour le lecteur…', x: (fromNode ? fromNode.x + 60 : 300), y: (fromNode ? fromNode.y + 150 : 320), libelle: label });
+      const nodes = Object.assign({}, t.nodes, { [id]: child });
+      const edges = [...(t.edges || []), { from: lk.fromId, to: id, label }];
+      const nt = Object.assign({}, t, { nodes, order: [...t.order, id], edges });
+      return { trees: Object.assign({}, s.trees, { [s.openBookId]: nt }), seq: s.seq + 1, link: null, selectedId: id };
+    });
+  };
+
+  updateSel = (patch) => {
+    this.setState((s) => {
+      const t = s.trees[s.openBookId]; if (!t) return {};
+      const cur = t.nodes[s.selectedId];
+      const nodes = Object.assign({}, t.nodes, { [s.selectedId]: Object.assign({}, cur, patch) });
+      return { trees: Object.assign({}, s.trees, { [s.openBookId]: Object.assign({}, t, { nodes }) }) };
+    });
+  };
+  onLibelle = (e) => this.updateSel({ libelle: e.target.value });
+  onDescription = (e) => this.updateSel({ description: e.target.value });
+  onVictory = (e) => this.updateSel({ victory: e.target.value });
+  onFlee = (e) => this.updateSel({ flee: e.target.value });
+  setAction = (a) => this.updateSel({ action: a });
+  toggleVictory = () => this.updateSel({ endVictory: !this.sel().endVictory });
+  toggleFail = () => this.updateSel({ endFail: !this.sel().endFail });
+
+  edgeGeo(t) {
+    const N = t.nodes;
+    return (t.edges || []).filter((e) => N[e.from] && N[e.to]).map((e) => {
+      const a = N[e.from], b = N[e.to];
+      const x1 = a.x + a.w / 2, y1 = a.y + a.h, x2 = b.x + b.w / 2, y2 = b.y;
+      const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+      return {
+        x1, y1, x2, y2, label: e.label,
+        labelStyle: { position: 'absolute', left: mx + 'px', top: my + 'px', transform: 'translate(-50%,-50%)', fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-muted)', background: 'var(--paper-0)', border: '1px solid var(--line-2)', borderRadius: 'var(--r-xs)', padding: '2px 7px', whiteSpace: 'nowrap' },
+      };
+    });
+  }
+
+  renderVals() {
+    const s = this.state;
+    const isHome = s.screen === 'home';
+    const isEditor = s.screen === 'editor';
+    const KIND = this.KIND();
+
+    const markBase = (k) => Object.assign({ display: 'inline-block', width: '10px', height: '10px', flex: 'none' }, KIND[k].tri ? { width: 0, height: 0 } : {}, KIND[k].mark);
+    const badgeBase = (k) => Object.assign({ display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: 'var(--font-mono)', fontSize: '8.5px', letterSpacing: '0.04em', borderRadius: 'var(--r-xs)', padding: '2px 6px', color: 'var(--ink-2)', border: '1px solid var(--line-strong)', background: 'transparent' }, KIND[k].badge || {});
+
+    const books = s.books.map((b) => ({
+      id: b.id, title: b.title, meta: b.meta,
+      markStyle: { display: 'inline-block', width: '14px', height: '14px', borderRadius: '2px', border: '1.5px solid var(--ink-6)' },
+      onOpen: () => this.openBook(b.id),
+      onDelete: (e) => this.askDelete(b.id, e),
+    }));
+
+    const t = isEditor ? this.tree() : null;
+    const selected = this.sel();
+    const book = isEditor ? s.books.find((x) => x.id === s.openBookId) : null;
+
+    const tabActive = { padding: '5px 12px', borderRadius: 'var(--r-md)', fontSize: 'var(--fs-sm)', fontWeight: 'var(--fw-semibold)', color: 'var(--accent-fg)', background: 'var(--ink-0)', cursor: 'pointer' };
+    const tabIdle = { padding: '5px 12px', borderRadius: 'var(--r-md)', fontSize: 'var(--fs-sm)', color: 'var(--text-faint)', cursor: 'pointer' };
+
+    let nodes = [], edges = [], relinkPath = '', relinkLabelStyle = {}, outlineRows = [];
+    if (t) {
+      nodes = t.order.map((id) => {
+        const n = t.nodes[id];
+        const k = KIND[n.kind];
+        const isSel = id === s.selectedId;
+        const card = Object.assign({ background: 'var(--paper-0)', border: '1px solid var(--border-card)', borderRadius: 'var(--r-sm)', padding: '9px 11px', width: '100%', height: '100%', boxSizing: 'border-box', cursor: 'pointer', boxShadow: 'var(--shadow-card)' }, k.card || {});
+        if (isSel) { card.border = '1.5px solid var(--accent)'; card.boxShadow = 'var(--ring-selected)'; }
+        if (s.dragging && s.dragging !== id) { card.outline = '2px dashed var(--accent)'; card.outlineOffset = '2px'; }
+        const canLink = !['fin', 'mort'].includes(n.kind);
+        return {
+          wrapStyle: { position: 'absolute', left: n.x + 'px', top: n.y + 'px', width: n.w + 'px', height: n.h + 'px' },
+          cardStyle: card,
+          markStyle: markBase(n.kind),
+          badgeStyle: badgeBase(n.kind),
+          badgeLabel: k.label,
+          ref: n.ref,
+          title: n.title,
+          snippet: n.snippet,
+          titleColor: k.dark ? '#fff' : 'var(--text-strong)',
+          snippetColor: k.dark ? 'rgba(255,255,255,0.6)' : 'var(--text-faint)',
+          canLink,
+          anchorStyle: { position: 'absolute', bottom: '-7px', left: '50%', transform: 'translateX(-50%)', width: '14px', height: '14px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid #fff', boxShadow: '0 1px 3px rgba(0,0,0,.25)', cursor: 'grab', zIndex: 3 },
+          onClick: () => this.select(id),
+          onDragStart: this.onAnchorDragStart(id),
+          onDragEnd: this.onAnchorDragEnd,
+          onDragOver: this.onCardDragOver,
+          onDrop: this.onCardDrop(id),
+        };
+      });
+      edges = this.edgeGeo(t);
+      if (t.relink && t.nodes[t.relink.from] && t.nodes[t.relink.to]) {
+        const a = t.nodes[t.relink.from], b = t.nodes[t.relink.to];
+        const x1 = a.x, y1 = a.y + a.h / 2, x2 = b.x, y2 = b.y + b.h / 2;
+        relinkPath = `M${x1} ${y1} C ${x1 - 80} ${y1}, ${x2 - 80} ${y2}, ${x2} ${y2}`;
+        relinkLabelStyle = { position: 'absolute', left: (Math.min(x1, x2) - 70) + 'px', top: ((y1 + y2) / 2) + 'px', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-faint)', background: 'var(--paper-0)', border: '1px solid var(--line-2)', borderRadius: 'var(--r-xs)', padding: '2px 6px', whiteSpace: 'nowrap' };
+      }
+      const adj = {}; (t.edges || []).forEach((e) => { (adj[e.from] = adj[e.from] || []).push(e.to); });
+      const seen = {}; const rows = [];
+      const tag3 = { sommaire: 'SOM', choix: 'CHX', pnj: 'PNJ', decor: 'DÉC', piege: 'PIÈ', monstre: 'MON', fin: 'FIN', mort: 'MORT' };
+      const walk = (id, d) => {
+        const n = t.nodes[id]; if (!n) return;
+        const ref = !!seen[id];
+        rows.push({ id, kind: n.kind, title: n.title, d, ref });
+        if (ref) return; seen[id] = true;
+        (adj[id] || []).forEach((c) => walk(c, d + 1));
+      };
+      walk('0', 0);
+      t.order.forEach((id) => { if (!seen[id] && id !== '0') rows.push({ id, kind: t.nodes[id].kind, title: t.nodes[id].title, d: 0, ref: false }); });
+      outlineRows = rows.map((r) => ({
+        title: r.title,
+        tag: tag3[r.kind],
+        note: r.ref ? '↪ reliaison' : (r.kind === 'mort' ? '— isolée' : ''),
+        titleColor: r.ref ? 'var(--text-faint)' : 'var(--text-strong)',
+        rowStyle: { display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 0', paddingLeft: (r.d * 22) + 'px', borderLeft: r.d > 0 ? '1px solid var(--line-3)' : 'none', marginLeft: r.d > 0 ? '12px' : '0', cursor: 'pointer', background: r.id === s.selectedId ? 'var(--accent-bg-2)' : 'transparent', borderRadius: 'var(--r-sm)' },
+        tagStyle: Object.assign({}, badgeBase(r.kind), { fontSize: '9px' }),
+        onClick: () => this.select(r.id),
+      }));
+    }
+
+    let panel = {};
+    if (selected) {
+      const k = KIND[selected.kind];
+      const a = selected.action;
+      const isSom = selected.kind === 'sommaire';
+      const isMort = selected.kind === 'mort';
+      const trackOn = { width: '34px', height: '19px', background: 'var(--accent)', borderRadius: 'var(--r-pill)', position: 'relative', cursor: 'pointer' };
+      const trackOff = { width: '34px', height: '19px', background: 'var(--line-2)', borderRadius: 'var(--r-pill)', position: 'relative', cursor: 'pointer' };
+      const knobOn = { position: 'absolute', top: '2px', left: '17px', width: '15px', height: '15px', background: '#fff', borderRadius: '50%', boxShadow: '0 1px 2px rgba(0,0,0,.2)' };
+      const knobOff = { position: 'absolute', top: '2px', left: '2px', width: '15px', height: '15px', background: '#fff', borderRadius: '50%', boxShadow: '0 1px 2px rgba(0,0,0,.2)' };
+      const segs = [['aucune', 'Aucune'], ['pnj', 'PNJ'], ['decor', 'Décor'], ['piege', 'Piège'], ['monstre', 'Monstre']].map(([key, label]) => ({
+        label,
+        onClick: () => this.setAction(key),
+        style: { flex: 1, textAlign: 'center', fontSize: '10.5px', padding: '6px 2px', borderRadius: 'var(--r-md)', cursor: 'pointer', color: a === key ? 'var(--accent-fg)' : 'var(--text-faint)', background: a === key ? 'var(--ink-0)' : 'transparent', fontWeight: a === key ? 'var(--fw-semibold)' : 'var(--fw-regular)' },
+      }));
+      const outgoing = (t.edges || []).filter((e) => e.from === s.selectedId).map((e) => ({ title: t.nodes[e.to] ? t.nodes[e.to].title : '?', badges: e.badges || [] }));
+      if (t.relink && t.relink.from === s.selectedId) outgoing.push({ title: (t.nodes[t.relink.to] ? t.nodes[t.relink.to].title : '?') + ' (fuite)', badges: [{ label: '↻ reliaison' }] });
+
+      panel = {
+        selRef: selected.ref,
+        selTitle: selected.title,
+        selMarkStyle: markBase(selected.kind),
+        selBadgeStyle: badgeBase(selected.kind),
+        selLibelle: selected.libelle,
+        selDescription: selected.description,
+        selDescLabel: isSom ? 'Texte du sommaire' : (isMort ? 'Texte de fin' : 'Description'),
+        selDescHint: '— lu par le joueur',
+        selDescPlaceholder: isSom ? "Écrivez l'introduction du livre…" : (isMort ? 'Décrivez la mort du personnage…' : 'Décrivez la scène pour le lecteur…'),
+        selInventory: selected.inventory || [],
+        selVictory: selected.victory,
+        selFlee: selected.flee,
+        selIsSommaire: isSom,
+        selIsMort: isMort,
+        selHasFullForm: !isSom && !isMort,
+        selShowIllustration: !isMort,
+        selIsMonstre: a === 'monstre',
+        selIsPnj: a === 'pnj',
+        selIsDecor: a === 'decor',
+        selIsPiege: a === 'piege',
+        selIsAucune: a === 'aucune',
+        actionSegments: segs,
+        choiceRows: outgoing,
+        noChoices: outgoing.length === 0,
+        victoryTrackStyle: selected.endVictory ? trackOn : trackOff,
+        victoryKnobStyle: selected.endVictory ? knobOn : knobOff,
+        failTrackStyle: selected.endFail ? trackOn : trackOff,
+        failKnobStyle: selected.endFail ? knobOn : knobOff,
+      };
+    }
+
+    const canCreate = !!(s.newTitle && s.newTitle.trim());
+    const lk = s.link;
+    const canLinkConfirm = !!lk && (lk.toId != null || !!(lk.label && lk.label.trim()));
+
+    return Object.assign({
+      isHome, isEditor,
+      books, hasBooks: s.books.length > 0, noBooks: s.books.length === 0,
+      openCreate: this.openCreate,
+      bookTitle: book ? book.title : '',
+      nodeCount: t ? (t.order.length + ' nœuds') : '',
+      isCanvas: s.view === 'canvas', isOutline: s.view === 'outline',
+      canvasTabStyle: s.view === 'canvas' ? tabActive : tabIdle,
+      outlineTabStyle: s.view === 'outline' ? tabActive : tabIdle,
+      setCanvas: this.setCanvas, setOutline: this.setOutline,
+      backHome: this.backHome, addNode: this.addNode,
+      nodes, edges, relinkPath, relinkLabelStyle, outlineRows,
+      hasSelection: !!selected,
+      closePanel: this.closePanel,
+      onLibelle: this.onLibelle, onDescription: this.onDescription,
+      onVictory: this.onVictory, onFlee: this.onFlee,
+      toggleVictory: this.toggleVictory, toggleFail: this.toggleFail,
+      beginBranch: this.beginBranch,
+      // branch / link modal
+      linking: !!s.link,
+      linkLabel: lk ? lk.label : '',
+      onLinkLabel: this.onLinkLabel, confirmLink: this.confirmLink, cancelLink: this.cancelLink,
+      linkTitle: lk && lk.toId != null ? 'Relier vers une feuille existante' : 'Créer une nouvelle branche',
+      linkConfirmLabel: lk && lk.toId != null ? 'Relier' : 'Créer la branche',
+      linkHint: lk && lk.toId != null ? 'Le texte du bouton qui mènera le joueur vers cette feuille.' : 'Le texte du bouton que verra le joueur ; il crée une nouvelle feuille à éditer.',
+      linkBtnStyle: { flex: 1, textAlign: 'center', fontSize: 'var(--fs-sm)', borderRadius: 'var(--r-lg)', padding: '9px', cursor: canLinkConfirm ? 'pointer' : 'not-allowed', color: 'var(--accent-fg)', background: canLinkConfirm ? 'var(--accent)' : 'var(--ink-5)', fontWeight: 'var(--fw-semibold)', opacity: canLinkConfirm ? 1 : 0.6 },
+      // create modal
+      creating: s.creating, newTitle: s.newTitle, onNewTitle: this.onNewTitle,
+      doCreate: this.doCreate, cancelCreate: this.cancelCreate, stop: this.stop,
+      createBtnStyle: { flex: 1, textAlign: 'center', fontSize: 'var(--fs-sm)', borderRadius: 'var(--r-lg)', padding: '9px', cursor: canCreate ? 'pointer' : 'not-allowed', color: 'var(--accent-fg)', background: canCreate ? 'var(--accent)' : 'var(--ink-5)', fontWeight: 'var(--fw-semibold)', opacity: canCreate ? 1 : 0.6 },
+      // delete modal
+      confirmingDelete: !!s.confirmId,
+      deleteTitle: s.confirmId ? (s.books.find((b) => b.id === s.confirmId) || {}).title : '',
+      doDelete: this.doDelete, cancelDelete: this.cancelDelete,
+    }, panel);
+  }
+}
+</script>
+</body>
+</html>

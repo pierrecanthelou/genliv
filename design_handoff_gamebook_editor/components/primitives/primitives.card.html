@@ -1,0 +1,59 @@
+<!-- @dsCard group="Components" viewport="700x230" subtitle="NodeBadge · Badge · Chip · IconButton · Toggle" name="Primitives" -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-ui); background: var(--surface-card); padding: 18px; color: var(--text-strong); }
+  .grid { display: flex; flex-direction: column; gap: 14px; }
+  .lane { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .cap { font-family: var(--font-mono); font-size: 9px; color: var(--ink-4); width: 92px; flex: none; letter-spacing: .04em; }
+  .badge { display:inline-flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:9.5px; letter-spacing:.04em; color:var(--ink-2); border:1px solid var(--line-1); border-radius:var(--r-lg); padding:3px 8px; }
+  .badge.sel { color:var(--accent); border-color:var(--accent); }
+  .mk { width:10px; height:10px; flex:none; }
+  .pill { display:inline-flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:10px; border-radius:var(--r-pill); padding:3px 9px; }
+  .chip { display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--ink-1); border:1px solid var(--line-1); background:var(--surface-chip); border-radius:var(--r-pill); padding:4px 10px; }
+  .chip.dash { background:transparent; border-style:dashed; color:var(--ink-5); }
+  .ib { width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:11px; border:1px solid var(--line-2); background:var(--paper-0); border-radius:var(--r-md); color:var(--ink-2); }
+  .ib.dn { color:var(--bad); }
+  .ib.ac { color:var(--accent-fg); background:var(--accent); border-color:var(--accent); }
+  .sw { width:30px; height:17px; border-radius:var(--r-pill); position:relative; }
+  .knob { position:absolute; top:2px; width:13px; height:13px; background:#fff; border-radius:50%; box-shadow:0 1px 2px rgba(0,0,0,.2); }
+</style>
+</head>
+<body>
+  <div class="grid">
+    <div class="lane">
+      <span class="cap">NodeBadge</span>
+      <span class="badge"><span class="mk" style="border-radius:2px;background:var(--ink-0)"></span>SOMMAIRE</span>
+      <span class="badge"><span class="mk" style="border-radius:2px;border:1.5px solid var(--ink-0)"></span>CHOIX</span>
+      <span class="badge"><span class="mk" style="border-radius:50%;border:1.5px solid var(--ink-0)"></span>PNJ</span>
+      <span class="badge sel"><span class="mk" style="border-radius:2px;background:var(--accent)"></span>MONSTRE · #4</span>
+    </div>
+    <div class="lane">
+      <span class="cap">Badge</span>
+      <span class="pill" style="color:var(--good);border:1px solid var(--good-line);background:var(--good-bg-2)">utile · +12 PV</span>
+      <span class="pill" style="color:var(--ink-4);border:1px solid var(--line-2)">leurre · sans effet</span>
+      <span class="pill" style="color:var(--accent);border:1px solid var(--accent-line)">scénario</span>
+    </div>
+    <div class="lane">
+      <span class="cap">Chip</span>
+      <span class="chip">Gourdin clouté <span style="color:var(--ink-5)">✕</span></span>
+      <span class="chip">🗝 Clé rouillée <span style="color:var(--ink-5)">✕</span></span>
+      <span class="chip dash">+ objet</span>
+    </div>
+    <div class="lane">
+      <span class="cap">IconButton</span>
+      <span class="ib">✎</span>
+      <span class="ib dn">✕</span>
+      <span class="ib ac">✎</span>
+    </div>
+    <div class="lane">
+      <span class="cap">Toggle</span>
+      <span class="sw" style="background:var(--line-2)"><span class="knob" style="left:2px"></span></span>
+      <span class="sw" style="background:var(--accent)"><span class="knob" style="left:15px"></span></span>
+    </div>
+  </div>
+</body>
+</html>

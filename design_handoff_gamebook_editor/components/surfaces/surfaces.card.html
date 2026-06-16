@@ -1,0 +1,63 @@
+<!-- @dsCard group="Components" viewport="700x340" subtitle="Card + CardHead · ListRow · OutcomeBlock · Modal footer" name="Surfaces" -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-ui); background: var(--surface-app); padding: 18px; color: var(--text-strong); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  .card { background: var(--surface-card); border: 1px solid var(--border-card); border-radius: var(--r-3xl); box-shadow: var(--shadow-card); padding: 16px; }
+  .eyebrow { font-family: var(--font-mono); font-size: var(--fs-eyebrow); letter-spacing: .14em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 4px; }
+  .title { font-size: var(--fs-title); font-weight: 500; letter-spacing: -.01em; }
+  .row { display:flex; align-items:center; gap:12px; border:1.5px solid var(--accent); background:var(--accent-bg-2); border-radius:var(--r-xl); padding:10px 12px; margin-top:12px; }
+  .row .h { color:var(--ink-6); }
+  .row .t { font-size:var(--fs-body); font-weight:600; }
+  .row .s { font-size:var(--fs-meta); color:var(--text-faint); margin-top:2px; }
+  .pill { display:inline-flex; font-family:var(--font-mono); font-size:10px; color:var(--accent); border:1px solid var(--accent-line); border-radius:var(--r-pill); padding:3px 9px; }
+  .sw { width:30px; height:17px; border-radius:var(--r-pill); background:var(--accent); position:relative; }
+  .knob { position:absolute; top:2px; left:15px; width:13px; height:13px; background:#fff; border-radius:50%; }
+  .ib { width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center; font-size:11px; border:1px solid var(--line-2); border-radius:var(--r-md); color:var(--bad); background:#fff; }
+  .out { border:1px solid var(--good-line); background:var(--good-bg); border-radius:var(--r-lg); padding:10px; margin-top:12px; }
+  .out .oh { font-family:var(--font-mono); font-size:8.5px; color:var(--good); margin-bottom:6px; }
+  .out.bad { border-color:var(--bad-line); background:var(--bad-bg); }
+  .out.bad .oh { color:var(--bad); }
+  .otext { font-size:var(--fs-sm); color:var(--text-body); line-height:var(--lh-body); }
+  .foot { display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-top:1px solid var(--line-4); background:var(--paper-1); margin:14px -16px -16px; border-radius:0 0 var(--r-3xl) var(--r-3xl); }
+  .btn { font-size:var(--fs-sm); border-radius:var(--r-lg); padding:8px 14px; }
+  .del { color:var(--bad); border:1px solid var(--bad-line); background:none; }
+  .ghost { color:var(--text-muted); border:1px solid var(--border-field); background:none; }
+  .pri { color:var(--accent-fg); background:var(--accent); border:none; font-weight:600; padding:8px 18px; }
+</style>
+</head>
+<body>
+  <div class="grid">
+    <div class="card">
+      <div class="eyebrow">DÉCOR · PRENDRE</div>
+      <div class="title">La salle aux runes</div>
+      <div class="row">
+        <span class="h">⠿</span>
+        <div><div class="t">Chandelier en argent</div><div class="s">Lourd, terni, gravé d'initiales effacées.</div></div>
+        <span style="flex:1"></span>
+        <span class="pill">scénario</span>
+        <span class="sw"><span class="knob"></span></span>
+        <span class="ib">✕</span>
+      </div>
+      <div class="out"><div class="oh">✓ RÉUSSITE — ajoute un choix</div><div class="otext">Vous dénichez une trappe sous la paille.</div></div>
+      <div class="out bad"><div class="oh">✕ ÉCHEC</div><div class="otext">Rien que de la poussière.</div></div>
+    </div>
+    <div class="card">
+      <div class="eyebrow">MODALE — ÉDITEUR D'OBJET</div>
+      <div class="title">Éditer l'objet</div>
+      <div style="font-size:var(--fs-body);color:var(--text-body);line-height:var(--lh-body);margin-top:10px">Nom interne, description joueur, effet, jet d'obtention… puis le pied sépare l'action destructrice du couple Annuler / Enregistrer.</div>
+      <div class="foot">
+        <button class="btn del">✕ Supprimer l'objet</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn ghost">Annuler</button>
+          <button class="btn pri">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,81 @@
+/* ============================================================
+   COLORS — low-fi wireframe palette (grayscale + one accent).
+   Base ramps first, then semantic aliases. Light theme only for
+   now; a dark scope can be added under [data-theme="dark"] later
+   without touching the semantic layer.
+   ============================================================ */
+:root {
+  /* ---- Paper / surfaces (light → slightly sunken) ---- */
+  --paper-0: #FFFFFF; /* card surface */
+  --paper-1: #FCFCFB; /* dropzone / faint inset */
+  --paper-2: #FAFAF9; /* field background */
+  --paper-3: #F7F7F5; /* sunken tile */
+  --paper-4: #F4F4F2; /* chip background */
+  --paper-5: #F2F2F0; /* segmented-control track */
+  --paper-6: #ECECEA; /* app background */
+
+  /* ---- Ink / text (strong → faint) ---- */
+  --ink-0: #2B2B29; /* primary text, dark fills */
+  --ink-1: #4E4E4B; /* secondary body */
+  --ink-2: #6E6E6A; /* muted */
+  --ink-3: #8A8A86; /* faint / captions */
+  --ink-4: #9A9A96; /* eyebrow labels */
+  --ink-5: #B0B0AB; /* disabled / placeholder glyph */
+  --ink-6: #C2C2BE; /* hairline ink / drag handle */
+
+  /* ---- Lines / borders ---- */
+  --line-1: #D9D9D6; /* default card border */
+  --line-2: #E2E2DF; /* subtle divider */
+  --line-3: #E6E6E3; /* inner border */
+  --line-4: #EEEEEB; /* faint divider */
+  --line-strong: #D2D2CE; /* section rule */
+  --line-field: #D5D5D2; /* input border */
+
+  /* ---- Accent (blue) ---- */
+  --accent: #2F6BFF;
+  --accent-fg: #FFFFFF;     /* text/ink ON accent */
+  --accent-bg: #F4F8FF;     /* tinted surface */
+  --accent-bg-2: #F8FAFF;   /* faintest tint */
+  --accent-line: #B9CDFB;
+  --accent-line-2: #CFE0FF;
+  --accent-line-3: #DCE7FB;
+
+  /* ---- Semantic · success (green) ---- */
+  --good: #3E9E5E;
+  --good-bg: #F8FBF8;
+  --good-bg-2: #F4FBF6;
+  --good-line: #BFE3CC;
+  --good-line-2: #CFE3D6;
+
+  /* ---- Semantic · danger / failure (terracotta) ---- */
+  --bad: #C0654A;
+  --bad-bg: #FBF8F8;
+  --bad-bg-2: #FBF6F4;
+  --bad-line: #EBD3CC;
+
+  /* ============================================================
+     SEMANTIC ALIASES — prefer these in components.
+     ============================================================ */
+  --text-strong: var(--ink-0);
+  --text-body: var(--ink-1);
+  --text-muted: var(--ink-2);
+  --text-faint: var(--ink-3);
+  --text-label: var(--ink-4);
+  --text-disabled: var(--ink-5);
+  --text-on-accent: var(--accent-fg);
+
+  --surface-app: var(--paper-6);
+  --surface-card: var(--paper-0);
+  --surface-sunken: var(--paper-2);
+  --surface-inset: var(--paper-3);
+  --surface-chip: var(--paper-4);
+  --surface-track: var(--paper-5);
+
+  --border-card: var(--line-1);
+  --border-subtle: var(--line-3);
+  --border-divider: var(--line-4);
+  --border-rule: var(--line-strong);
+  --border-field: var(--line-field);
+
+  --focus-ring: var(--accent);
+}

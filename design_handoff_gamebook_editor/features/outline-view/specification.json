@@ -1,0 +1,61 @@
+{
+  "feature": "outline-view",
+  "created_at": "2026-06-15",
+  "status": "planned",
+  "design_reference": "Editeur Livre-Jeu - Wireframes.dc.html § 03 variant A « Outline / plan du livre » (the BINDING target: an indented tree list, each row = a mono kind tag + node title, depth shown by left indent + a hairline guide rail, relink rows marked ↪ « (reliaison) », the isolated Mort row at the bottom). Tags reuse the NodeBadge mark language; tokens from styles.css. Low-fi, light theme.",
+  "plan": {
+    "goal": "Offer an indented outline of the whole book as an alternative to the canvas — fast navigation and structural overview for long books — sharing selection and data with tree-canvas.",
+    "design_contract": {
+      "_binding": "Rebuild § 03 variant A with design-system components; DS tokens win over prose.",
+      "rows": "Each row: a compact `NodeBadge` (or its mark + 3-letter mono tag SOM/CHX/PNJ/DÉC/PIÈ/MON/FIN/MORT) + the node title (--fs-row). Indentation by depth with a 1px var(--line-3) guide rail and var(--space-6) left step per level.",
+      "relink_rows": "A row reached by a relink/fuite edge renders with a ↪ glyph + a muted « (reliaison) » mono note, NOT as a duplicated subtree — it points back to the canonical node.",
+      "special_rows": "FIN rows use the double-border mark; the obligatory « Mort du personnage » row sits at the bottom with the gray-hatch mark and a muted « — isolée » note.",
+      "interaction": "Hover lightens the row and reveals a peek affordance; click selects (emits node:selected) and the row shows the accent selected treatment, mirroring canvas selection.",
+      "empty_state": "An empty/near-empty book still lists Sommaire + Mort and shows an inviting « + Première feuille » row (project-wide empty-state rule)."
+    },
+    "acceptance_criteria": [
+      "The outline lists every node exactly once, ordered by traversal from the Sommaire, with depth shown by indentation + guide rail, read live from BookService.",
+      "Each row shows the node's kind (via mark/tag) and title; FIN rows use the double-border mark and the Mort row is shown isolated at the bottom.",
+      "A node reached via a relink/fuite edge appears as a single ↪ « (reliaison) » reference row — never as a duplicated branch — so cycles and convergences don't infinitely expand.",
+      "Clicking a row selects that node and emits node:selected{nodeId}; selection is shared with tree-canvas (selecting here highlights there and vice versa), with a single selected node at a time.",
+      "Switching between canvas and outline preserves the current selection and the open book; the view mode persists per book via UIPreferencesService and is not cloud-synced.",
+      "Renaming/adding/deleting nodes or edges elsewhere updates the outline live (node:* / edge:* events) without reload.",
+      "An empty or single-leaf book renders Sommaire + Mort plus an inviting affordance to add the first leaf (empty-state rule).",
+      "Rows render from design-system tokens, light theme; titles ≥ --fs-row; the outline is keyboard-navigable (up/down to move, Enter to select)."
+    ],
+    "brain_contracts": [
+      { "type": "service", "name": "BookService", "direction": "consumes" },
+      { "type": "service", "name": "UIPreferencesService", "direction": "consumes" },
+      { "type": "event", "name": "node:selected", "direction": "emits", "payload": { "nodeId": "string" } },
+      { "type": "event", "name": "node:updated", "direction": "consumes" },
+      { "type": "event", "name": "node:created", "direction": "consumes" },
+      { "type": "event", "name": "node:deleted", "direction": "consumes" },
+      { "type": "event", "name": "edge:created", "direction": "consumes" },
+      { "type": "event", "name": "edge:deleted", "direction": "consumes" }
+    ],
+    "walking_skeleton": "Traverse the book from BookService starting at the Sommaire, render an indented list of rows with kind tag + title, dedupe relink targets into ↪ reference rows, click a row → emit node:selected. Subscribe to node:*/edge:* to rebuild. Reuse the canvas's selection source. No keyboard nav or peek polish yet.",
+    "n": 2,
+    "iterations": [
+      { "id": 1, "goal": "Faithful render of § 03 variant A: traversal-ordered indented rows with marks/tags, guide rail, relink reference rows, FIN + isolated Mort treatment; live binding to BookService + node:*/edge:* events; click-to-select shared with canvas.", "status": "planned" },
+      { "id": 2, "goal": "Navigation polish: keyboard up/down/Enter, hover peek, collapse/expand subtrees, smooth canvas↔outline switch preserving selection + scroll; persist view mode via UIPreferencesService.", "status": "planned" }
+    ],
+    "known_risks": [
+      "KR-030 — Relink/cycle handling: the book graph is NOT a pure tree; a naive recursive render of relink/fuite edges infinite-loops. Detect visited nodes and emit reference rows (↪) instead of re-expanding.",
+      "KR-031 — Shared selection: outline and canvas must read/write the SAME selection (node:selected), not two mirrors, or the panels desync (re-asserts KR-024).",
+      "KR-032 — Outline is a view over BookService; never hold a private copy of the tree that can drift (re-asserts KR-020).",
+      "KR-011 — No raw localStorage; view mode via UIPreferencesService (global config KR-111).",
+      "KR-013 — Build the row list in render/memo from book data, not a useEffect-synced state mirror (global config KR-113).",
+      "A11y — full keyboard navigation (roving tabindex), and traversal order must be stable and meaningful for screen readers."
+    ]
+  },
+  "implementation": {
+    "iterations_log": [],
+    "resolved_decisions": [
+      "Outline and canvas are two visualizations of the same book and share one selection source; the user explicitly asked for a canvas ↔ outline toggle.",
+      "Relink targets are reference rows, not duplicated subtrees."
+    ],
+    "open_questions": [
+      "Traversal/ordering when a node has multiple parents (convergence): order under its first-authored parent, or list once at min depth? (Leaning first-authored parent.)"
+    ]
+  }
+}

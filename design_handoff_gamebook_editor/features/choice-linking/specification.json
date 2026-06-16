@@ -1,0 +1,67 @@
+{
+  "feature": "choice-linking",
+  "created_at": "2026-06-15",
+  "status": "planned",
+  "design_reference": "Editeur Livre-Jeu - Wireframes.dc.html § 02 « Choix sortants » (choice rows with « ⊘ pré-requis caché » + « ⏱ compte à rebours » pills), § 05 « Choix à pré-requis caché » and « Choix sous compte à rebours » (the BINDING detail for those two mechanics), and § 06 A « Créer une nouvelle branche » + B « Relier à un nœud existant » (the search popover + the dashed « fuite ↻ » relink edge). Anatomy + tokens from styles.css: ListRow, Field, Select, Badge, the search popover. Low-fi, light theme.",
+  "plan": {
+    "goal": "Manage a node's outgoing choices: create a new child branch, relink a choice to an existing node, and configure per-choice rules — hidden prerequisite (requires an inventory object) and countdown (expires to a default node).",
+    "design_contract": {
+      "_binding": "Rebuild § 02 choices + § 05 mechanics + § 06 linking with design-system components; DS tokens win over prose. This feature is mounted inside node-editor's reserved choices slot.",
+      "choice_rows": "Each outgoing choice = a `surfaces/ListRow`-style card: « → <destination title> » + a wrap of mono `Badge`s for active rules (⊘ pré-requis caché, ⏱ compte à rebours). Header action « + branche ».",
+      "new_branch": "§ 06 A: « + Nouvelle branche » creates a new child node (empty, with placeholder), already edged from this choice, and selects it for editing. Visualized as a solid `choice` edge.",
+      "relink": "§ 06 B: « ↪ Relier… » opens a search popover (var(--shadow-menu)) listing existing nodes (title + #ref, current match highlighted accent); choosing one points the choice at that node, creating a `relink`/`fuite` edge (dashed on canvas) — enabling loops and convergences.",
+      "hidden_prereq": "§ 05: a toggle « Conditionné à un objet » + a required-item picker (Chip from the book inventory). The choice is hidden from the reader unless the object is in inventory; shown as a ⊘ Badge on the row.",
+      "countdown": "§ 05: a toggle « Activer le compte à rebours » + a délai Select + an « à expiration → nœud » Select; shown as a ⏱ Badge. A progress bar illustrates the mechanic in-editor only.",
+      "empty_state": "A node with no choices shows an inviting « + Ajouter une branche » affordance (project-wide empty-state rule)."
+    },
+    "acceptance_criteria": [
+      "A node's outgoing choices are listed as rows showing the destination title and a badge per active rule; the list is read from BookService and reflects edges live (edge:* events).",
+      "« + Nouvelle branche » creates a new child node via BookService, links it from this choice with a `choice` edge, and selects the new node (emits node:created + edge:created{kind:'choice'} + node:selected); the new node starts empty with placeholders.",
+      "« Relier… » opens a searchable list of existing nodes; selecting one creates a `relink` edge from this choice to that node (edge:created{kind:'relink'}) without creating a node, enabling cycles/convergence; the canvas renders it dashed.",
+      "Toggling « pré-requis caché » on a choice and picking a required object persists a hidden-prerequisite rule referencing an ObjectCatalogService object id; the choice row shows the ⊘ badge; clearing the toggle removes the rule.",
+      "Toggling « compte à rebours » persists a délai + a fallback destination node; the row shows the ⏱ badge; the fallback target must resolve to an existing node.",
+      "The countdown délai is a free numeric seconds input defaulting to 15 s and clamped to 5–60 s; values outside the range are corrected to the nearest bound.",
+      "Removing a choice deletes its edge (edge:deleted) and, for the relink case, never deletes the target node — only the edge; deleting a `choice` branch prompts about its now-orphaned child if any.",
+      "A required-object reference that points at a deleted object, or a fallback/relink target pointing at a deleted node, is detected and surfaced (not silently broken).",
+      "All controls render from design-system components/tokens, light theme; the relink search is keyboard-navigable and rules have ≥44px targets."
+    ],
+    "brain_contracts": [
+      { "type": "service", "name": "BookService", "direction": "consumes" },
+      { "type": "service", "name": "ObjectCatalogService", "direction": "consumes" },
+      { "type": "event", "name": "node:created", "direction": "emits", "payload": { "nodeId": "string", "kind": "string" } },
+      { "type": "event", "name": "node:selected", "direction": "emits", "payload": { "nodeId": "string" } },
+      { "type": "event", "name": "edge:created", "direction": "emits", "payload": { "from": "string", "to": "string", "kind": "choice|relink|flee" } },
+      { "type": "event", "name": "edge:deleted", "direction": "emits", "payload": { "from": "string", "to": "string" } }
+    ],
+    "walking_skeleton": "Render the selected node's outgoing choices from BookService. « + branche » creates+links+selects a child (emit node:created/edge:created/node:selected). « Relier… » lists nodes and creates a relink edge. Persist a basic hidden-prereq object reference and a countdown fallback. No search-fuzzy/progress-bar polish yet.",
+    "n": 4,
+    "iterations": [
+      { "id": 1, "goal": "Choice rows + new branch (§ 06 A): list outgoing choices as rows with rule badges; « + Nouvelle branche » creates+links+selects a child node with placeholders; emit the three events. Design-system fidelity.", "status": "planned" },
+      { "id": 2, "goal": "Relink (§ 06 B): searchable node popover, create a `relink`/`fuite` edge to an existing node enabling cycles/convergence; canvas shows it dashed; guard self-link and duplicate edges (KR-061).", "status": "planned" },
+      { "id": 3, "goal": "Hidden prerequisite (§ 05): toggle + required-object picker referencing ObjectCatalogService by id; choice hidden unless owned; ⊘ badge; clean removal (KR-062).", "status": "planned" },
+      { "id": 4, "goal": "Countdown (§ 05): toggle + délai + fallback-node Select with validation; ⏱ badge; referential-integrity sweep for deleted targets/objects across all rules (KR-063).", "status": "planned" }
+    ],
+    "known_risks": [
+      "KR-060 — Edges are the book's structure: all create/delete goes through BookService so tree-canvas + outline-view + game-preview agree; never mutate edges locally (re-asserts KR-020).",
+      "KR-061 — Relink must allow cycles/convergence by DESIGN but guard degenerate cases: no duplicate identical edges, sane handling of self-links, and the target node is never created/deleted by relinking (only the edge).",
+      "KR-062 — Hidden prerequisite references an object by STABLE id from ObjectCatalogService, not by name (names duplicate and change); a dangling reference to a deleted object must be detected, not silently true/false.",
+      "KR-063 — Countdown fallback + relink targets are node references that can dangle if the target is deleted; run a referential-integrity check and surface broken targets rather than crashing the reader later (re-asserts KR-021).",
+      "KR-064 — Deleting a `choice` branch may orphan its child subtree; prompt/handle explicitly (don't silently leave unreachable nodes or cascade-delete without consent).",
+      "KR-065 — Cumulative rules: a choice may hold BOTH a hidden prerequisite and a countdown; the countdown must be gated on visibility (only ticks when the prerequisite is met), so a hidden choice never expires invisibly.",
+      "KR-011 — No raw localStorage; all edges/rules via BookService/ObjectCatalogService (global config KR-111).",
+      "KR-013 — Derive row/rule view-state inline from book data, not useEffect mirrors (global config KR-113).",
+      "A11y — relink search and rule toggles fully keyboard-operable; popover traps focus and restores it on close."
+    ]
+  },
+  "implementation": {
+    "iterations_log": [],
+    "resolved_decisions": [
+      "Two linking modes — new branch vs relink to existing — both required (the user asked for both; relink enables loops/convergence).",
+      "Hidden-prerequisite and countdown are per-choice rules (the digital-only mechanics from § 05).",
+      "Mounted inside node-editor's choices slot; choice-linking owns edges, node-editor owns node text.",
+      "A single choice CAN carry both a hidden prerequisite AND a countdown simultaneously; the countdown only runs while the choice is visible (i.e. when its hidden prerequisite is satisfied) — a hidden choice does not tick down in the background.",
+      "Countdown délai is a FREE numeric input (seconds), default 15 s, clamped to a 5–60 s range."
+    ],
+    "open_questions": []
+  }
+}

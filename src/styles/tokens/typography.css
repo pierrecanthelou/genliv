@@ -1,0 +1,38 @@
+/* ============================================================
+   TYPOGRAPHY — two families. Hanken Grotesk carries all UI text;
+   JetBrains Mono carries eyebrows, field labels, meta, and badges.
+   Sizes are small by design (a dense authoring tool).
+   ============================================================ */
+:root {
+  /* ---- Families ---- */
+  --font-ui: 'Hanken Grotesk', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
+
+  /* ---- Size scale (px) ---- */
+  --fs-eyebrow: 9.5px;  /* mono uppercase labels */
+  --fs-meta: 10.5px;    /* captions, status text */
+  --fs-sm: 11px;        /* dense controls */
+  --fs-body: 12.5px;    /* default body / field text */
+  --fs-row: 13.5px;     /* list-row titles */
+  --fs-title: 16px;     /* card titles */
+  --fs-h2: 20px;        /* sub-headers */
+  --fs-h1: 30px;        /* page title */
+
+  /* ---- Weights ---- */
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  /* ---- Tracking ---- */
+  --track-eyebrow: 0.08em;  /* mono labels */
+  --track-eyebrow-wide: 0.14em;
+  --track-tight: -0.01em;   /* titles */
+  --track-tighter: -0.02em; /* page H1 */
+
+  /* ---- Line heights ---- */
+  --lh-tight: 1.2;
+  --lh-snug: 1.35;
+  --lh-body: 1.45;
+  --lh-loose: 1.5;
+}

@@ -1,0 +1,65 @@
+{
+  "feature": "action-decor",
+  "created_at": "2026-06-15",
+  "status": "planned",
+  "design_reference": "Editeur Livre-Jeu - Wireframes.dc.html § 04 « DÉCOR — ÉCOUTER (test) » and « DÉCOR — FOUILLER & PIÈGE » cards, the § 02 inventory object rows (Potion / Vieux chiffon / Chandelier with ✎/✕ + Jet requis), and the « MODALE — ÉDITEUR D'OBJET » (the BINDING target for the shared ObjectEditor: nom interne, description joueur, effet, jet d'obtention + texte d'échec, Supprimer). Anatomy + tokens from styles.css: SegmentedControl, ListRow, DifficultyPicker, Select, OutcomeBlock, Modal, Toggle. Low-fi, light theme.",
+  "plan": {
+    "goal": "Model a décor interaction on a node — Prendre (take objects), Écouter (listen, a roll), Fouiller (search, a roll that can add a choice) — and OWN the shared ObjectEditor used across the app. Registered as the 'decor' action type.",
+    "design_contract": {
+      "_binding": "Rebuild § 04 décor cards + the object editor modal with design-system components; DS tokens win over prose. Self-registers with ActionRegistry as 'decor'; also exports the shared ObjectEditor into brain/components for reuse by pnj/monster/node-editor.",
+      "mode_switch": "A `SegmentedControl` Prendre / Écouter / Fouiller selects the sub-mode and swaps the body.",
+      "prendre": "A list of object `ListRow`s (drag handle, name + player-facing description, an effect Badge, a « Jet requis » Toggle, ✎/✕ via IconButton). Not all objects are useful: an object may be « utile » (effect) or « leurre » (sans effet). An object may require a roll to obtain (e.g. « le chandelier est collé à la table, jet de Force »): expanding the row reveals caractéristique Select + DifficultyPicker + a failure text.",
+      "ecouter_fouiller": "A roll config (caractéristique + difficulté) feeding two `OutcomeBlock`s — réussite / échec — each with player text + an effect + a destination. Fouiller's réussite can ADD a new choice (dashed accent affordance) — i.e. mint a new outgoing edge on success.",
+      "object_editor": "The shared `surfaces/Modal` ObjectEditor: « NOM — interne » + « DESCRIPTION — lue par le joueur » + EFFET (+N PV / +N Attaque / +N Défense / Objet de scénario) + « Nécessite un jet pour l'obtenir » (caractéristique + difficulté + texte d'échec) + a destructive « Supprimer l'objet ». This is the canonical object-editing surface for the whole app.",
+      "empty_state": "Empty object/outcome lists show inviting « + Ajouter un objet au décor » / placeholder outcome prompts (project-wide empty-state rule)."
+    },
+    "acceptance_criteria": [
+      "action-decor self-registers with ActionRegistry as 'decor' and exposes a shared ObjectEditor component via brain/components consumed by node-editor, action-pnj, and action-monster (one object-editing surface, no per-feature copies).",
+      "The Prendre/Écouter/Fouiller SegmentedControl swaps the body; each sub-mode persists its own config on the node via BookService.",
+      "Prendre: objects are listed with name + player-facing description + effect; each object can be flagged « leurre » (no effect) or carry an effect (+PV / +Attaque / +Défense / scénario); objects reorder, edit (✎ opens ObjectEditor), and delete (✕) from the row.",
+      "An object that « nécessite un jet pour l'obtenir » stores a caractéristique + difficulté + a failure text; the caractéristique list comes from the book's caractéristiques schema (BookService), NOT a runtime hero (play mode is out of scope).",
+      "Écouter and Fouiller persist a roll (caractéristique + difficulté) and two outcomes (réussite/échec), each with editable player text + an effect + a destination; Fouiller's réussite can add a new outgoing choice (mints an edge via choice-linking/BookService).",
+      "The ObjectEditor edits name + player-facing description + effect + obtain-roll, and its « Supprimer l'objet » removes the object behind the destructive Modal footer; deleting an object surfaces any choice/grant that referenced it (referential integrity).",
+      "All object references are by stable id from ObjectCatalogService; outcome destinations resolve to existing nodes; broken references are surfaced, not silently dropped.",
+      "Everything renders from design-system components/tokens, light theme; ✎/✕ and toggles have ≥44px targets and are keyboard-operable; the ObjectEditor Modal traps focus."
+    ],
+    "brain_contracts": [
+      { "type": "service", "name": "ActionRegistry", "direction": "emits" },
+      { "type": "service", "name": "ObjectCatalogService", "direction": "consumes" },
+      { "type": "service", "name": "BookService", "direction": "consumes" },
+      { "type": "component", "name": "ObjectEditor", "direction": "emits" },
+      { "type": "event", "name": "action:changed", "direction": "consumes" }
+    ],
+    "walking_skeleton": "Register 'decor' with ActionRegistry. Build the Prendre list (ListRows from ObjectCatalogService) + the shared ObjectEditor modal (name + player description + effect + obtain-roll + delete). Add Écouter/Fouiller roll + two OutcomeBlocks persisted on the node. Wire Fouiller-success → add choice via BookService. No drag-reorder/referential-sweep polish yet.",
+    "n": 4,
+    "iterations": [
+      { "id": 1, "goal": "Register 'decor' + the shared ObjectEditor (the § 04 modal: nom interne, description joueur, effet, jet d'obtention + texte d'échec, Supprimer) exported to brain/components. Design-system fidelity.", "status": "planned" },
+      { "id": 2, "goal": "Prendre sub-mode: object ListRows with effect/leurre badges, ✎ (ObjectEditor) / ✕ / drag handle, per-object obtain-roll (caractéristique Select from book schema + DifficultyPicker + failure text) (KR-082).", "status": "planned" },
+      { "id": 3, "goal": "Écouter + Fouiller: roll config + two OutcomeBlocks (player text + effect + destination); Fouiller-réussite adds a new outgoing choice via choice-linking/BookService (KR-083).", "status": "planned" },
+      { "id": 4, "goal": "Integrity + reorder: drag-reorder objects, referential-integrity sweep when objects/nodes are deleted, full a11y pass on rows + ObjectEditor modal (KR-084).", "status": "planned" }
+    ],
+    "known_risks": [
+      "KR-080 — Self-registration only via ActionRegistry; never imported directly by node-editor (Open/Closed; re-asserts KR-051).",
+      "KR-081 — The ObjectEditor is SHARED (brain/components): pnj/monster/node-editor must reuse it; forking a second object editor splits the object model and breaks the name+description contract (KR-109).",
+      "KR-082 — Caractéristiques for rolls come from the book-level schema in BookService, NOT a runtime hero — the hero/character-sheet is play-mode and out of editor scope; storing a hero stat value here would leak play state into the editor.",
+      "KR-083 — Fouiller-success that 'adds a choice' must mint a real edge through choice-linking/BookService, not a private decoration; otherwise the added path won't exist for the reader or the canvas (re-asserts KR-060).",
+      "KR-084 — Objects are referenced by stable id (ObjectCatalogService); deleting an object must surface dependent choices/grants/combat-boosts, never leave dangling references (re-asserts KR-062/KR-021).",
+      "KR-011 — No raw localStorage; persist via BookService/ObjectCatalogService (global config KR-111).",
+      "KR-013 — Bind sub-mode/roll/outcome state to the store + handlers, not useEffect mirrors (global config KR-113).",
+      "A11y — drag-reorder has a keyboard alternative; the ObjectEditor modal traps + restores focus; ≥44px targets."
+    ]
+  },
+  "implementation": {
+    "iterations_log": [],
+    "resolved_decisions": [
+      "action-decor owns the shared ObjectEditor (the canonical object surface for the whole app), per the brain decision to put object editing in brain/components.",
+      "Objects have a name AND a player-facing description; some objects are leurres (useless); some require a roll to obtain (e.g. chandelier collé, jet de Force).",
+      "Object effects: +N PV, +N Attaque, +N Défense, or scénario (story object).",
+      "Roll caractéristiques come from a book-level schema, not a runtime hero (play mode out of scope)."
+    ],
+    "open_questions": [
+      "Effect magnitudes (+N): free integer vs presets — leaning free integer with a sane max.",
+      "Does Écouter ever add a choice like Fouiller, or is add-a-choice exclusive to Fouiller? (Wireframe shows add-choice on Fouiller; confirm.)"
+    ]
+  }
+}

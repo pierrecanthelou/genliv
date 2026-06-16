@@ -1,0 +1,62 @@
+{
+  "feature": "cloud-sync",
+  "created_at": "2026-06-15",
+  "status": "planned",
+  "design_reference": "No dedicated wireframe screen — cloud-sync is infrastructure. Its only UI surface is a small sync-status affordance (online/offline/syncing/conflict) rendered with design-system tokens (a muted Badge in the top bar of tree-canvas / book-library). Keep it quiet and low-fi; tokens from styles.css.",
+  "plan": {
+    "goal": "Provide cloud-first persistence for books: local writes are the source of truth and always succeed; changes sync to the cloud in the background; conflicts are detected and resolved without losing an author's work. Owns CloudSyncService in brain.",
+    "design_contract": {
+      "_binding": "Minimal, quiet UI only. A sync-status `Badge` (muted/neutral; accent when syncing; bad tone on conflict) sits in the existing top bars. No full sync dashboard, no blocking spinners over the editor. Tokens from styles.css.",
+      "status_states": "idle/synced (muted ✓), syncing (accent ↻), offline (muted, « hors ligne — modifications locales »), conflict (bad tone, opens a minimal resolution affordance).",
+      "non_goal_ui": "Sync must never block authoring: no modal spinners gating edits; status is ambient."
+    },
+    "acceptance_criteria": [
+      "All persistence flows through PersistenceService locally; CloudSyncService layers background push/pull on top — a write succeeds locally and is observable immediately even with no network (cloud-first).",
+      "When offline, edits are queued and the status shows « hors ligne »; on reconnect the queue flushes in order and the status returns to synced, with no lost or duplicated writes.",
+      "CloudSyncService exposes a subscribable status (idle/syncing/offline/conflict) and emits sync:status{state}; the top-bar Badge reflects it without polling.",
+      "Concurrent edits to the same book from two clients are detected via per-document version/clock; a conflict is surfaced (sync:status 'conflict') and resolved by a defined strategy (last-write-wins per field with a recoverable backup, or a minimal pick-a-side) — never a silent overwrite of the larger/older document.",
+      "The save-shrink safeguard holds: a sync pull must not replace a local book with a drastically smaller/empty remote unless that deletion is explicitly intended (guards accidental data loss).",
+      "Book ids are the stable sync keys; the seeded tree (Sommaire + isolated Mort) round-trips through sync intact (node/edge counts preserved).",
+      "Sensitive sync material (tokens) is kept out of the synced document and flagged in persistenceKeys.ts; nothing secret is written into book data.",
+      "The status affordance renders from design-system tokens, light theme, and never blocks authoring (no edit-gating spinner)."
+    ],
+    "brain_contracts": [
+      { "type": "service", "name": "CloudSyncService", "direction": "emits" },
+      { "type": "service", "name": "PersistenceService", "direction": "consumes" },
+      { "type": "service", "name": "BookService", "direction": "consumes" },
+      { "type": "event", "name": "sync:status", "direction": "emits", "payload": { "state": "idle|syncing|offline|conflict" } },
+      { "type": "event", "name": "book:created", "direction": "consumes" },
+      { "type": "event", "name": "book:deleted", "direction": "consumes" },
+      { "type": "event", "name": "node:updated", "direction": "consumes" }
+    ],
+    "walking_skeleton": "Wrap PersistenceService with CloudSyncService: local write-through (always succeeds) + a background push to the cloud store; on load, pull remote and merge into local. Expose a status + emit sync:status; render the top-bar Badge. Defer real conflict UI — start with last-write-wins + a backup. Prove the offline-queue + reconnect-flush path end-to-end.",
+    "n": 3,
+    "iterations": [
+      { "id": 1, "goal": "Local write-through + background push/pull: CloudSyncService over PersistenceService; books load local-first then reconcile remote without flicker; status + sync:status + top-bar Badge. Design-system fidelity on the badge.", "status": "planned" },
+      { "id": 2, "goal": "Offline queue + reconnect flush: queue writes offline, flush in order on reconnect, no loss/dup; « hors ligne » status; integrate with book-creation's offline-create path (KR-005).", "status": "planned" },
+      { "id": 3, "goal": "Conflict detection + safe resolution: per-document version/clock, conflict status, defined resolution (LWW-per-field + recoverable backup or minimal pick-a-side), shrink-guard against destructive remote pulls (KR-122).", "status": "planned" }
+    ],
+    "known_risks": [
+      "KR-120 — Cloud-first inversion: the LOCAL store is the source of truth; the cloud is a background replica. A naive 'cloud wins' pull will clobber unsynced local edits. Local write-through must always succeed and never be gated on the network (re-asserts KR-005).",
+      "KR-121 — Ordering + dedupe: the offline queue must flush in causal order and be idempotent so a retried push doesn't duplicate nodes/edges or resurrect deleted books.",
+      "KR-122 — Destructive-pull guard: never replace a local book with a drastically smaller/empty remote document unless the deletion is explicit (mirrors the >50% shrink safeguard); a bad pull can wipe an author's book.",
+      "KR-123 — Conflict resolution must be recoverable: keep a backup of the losing side; silent last-write-wins that discards the other client's work is unacceptable for long-form authoring.",
+      "KR-124 — Sync must not block authoring: no edit-gating spinners; status is ambient. Coupling the editor's responsiveness to network latency makes the tool feel broken offline.",
+      "KR-011 — Persistence only via PersistenceService/persistenceKeys.ts; no raw localStorage anywhere (global config KR-111).",
+      "KR-125 — Secrets (sync tokens) never go into the synced book document; keep them in a SENSITIVE-flagged key (config hygiene).",
+      "A11y — the status badge has an accessible label conveying state; conflict resolution (if any UI) is keyboard-operable."
+    ]
+  },
+  "implementation": {
+    "iterations_log": [],
+    "resolved_decisions": [
+      "Cloud-first: local is the source of truth; sync is background; authoring never blocks on the network (per the brain proposal the user validated).",
+      "UI is a quiet ambient status badge only — no sync dashboard.",
+      "Sync keys are book ids; secrets stay out of the synced document."
+    ],
+    "open_questions": [
+      "Cloud backend: confirm the Cloudflare Worker + store assumption from the brain proposal, and the document granularity (whole-book vs per-node sync).",
+      "Conflict strategy default: last-write-wins-per-field with backup vs explicit pick-a-side — leaning LWW-per-field + recoverable backup."
+    ]
+  }
+}

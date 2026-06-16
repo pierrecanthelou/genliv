@@ -1,0 +1,38 @@
+<!-- @dsCard group="Colors" viewport="700x170" subtitle="Success (réussite) & failure (échec) for skill rolls" name="Semantic — réussite / échec" -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-mono); background: var(--surface-card); padding: 18px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .block { border-radius: var(--r-lg); padding: 11px 12px; font-size: 10px; }
+  .lbl { letter-spacing: .04em; margin-bottom: 8px; }
+  .swatches { display: flex; gap: 8px; }
+  .sw { flex: 1; }
+  .chip { height: 26px; border-radius: var(--r-md); }
+  .n { font-size: 8.5px; color: var(--ink-3); margin-top: 5px; }
+</style>
+</head>
+<body>
+  <div class="grid">
+    <div class="block" style="background:var(--good-bg);border:1px solid var(--good-line)">
+      <div class="lbl" style="color:var(--good)">✓ RÉUSSITE — --good #3E9E5E</div>
+      <div class="swatches">
+        <div class="sw"><div class="chip" style="background:var(--good)"></div><div class="n">--good</div></div>
+        <div class="sw"><div class="chip" style="background:var(--good-bg-2);border:1px solid var(--good-line-2)"></div><div class="n">--good-bg</div></div>
+        <div class="sw"><div class="chip" style="background:var(--paper-0);border:1px solid var(--good-line)"></div><div class="n">--good-line</div></div>
+      </div>
+    </div>
+    <div class="block" style="background:var(--bad-bg);border:1px solid var(--bad-line)">
+      <div class="lbl" style="color:var(--bad)">✕ ÉCHEC — --bad #C0654A</div>
+      <div class="swatches">
+        <div class="sw"><div class="chip" style="background:var(--bad)"></div><div class="n">--bad</div></div>
+        <div class="sw"><div class="chip" style="background:var(--bad-bg-2);border:1px solid var(--bad-line)"></div><div class="n">--bad-bg</div></div>
+        <div class="sw"><div class="chip" style="background:var(--paper-0);border:1px solid var(--bad-line)"></div><div class="n">--bad-line</div></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

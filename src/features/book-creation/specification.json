@@ -1,0 +1,84 @@
+{
+	"feature": "book-creation",
+	"created_at": "2026-06-16",
+	"status": "in-progress",
+	"design_reference": "Editeur Livre-Jeu - Wireframes.dc.html § 01 « Parcours bout-en-bout » steps 1->3 (Accueil -> modale « Nouveau livre » -> Arbre initial avec Sommaire + Mort). Component anatomy + tokens from the design system (styles.css): dialog = surfaces/Modal over a scrim, title input = forms/Field, « Créer » = accent primary button. Low-fi wireframe fidelity, light theme only.",
+	"plan": {
+		"goal": "Let an author create a new book — name it, seed its initial tree (Sommaire + an isolated « Mort du personnage »), and land in the editor — as the entry point of the whole authoring flow.",
+		"acceptance_criteria": [
+			"From the home screen, a « + Nouveau livre » affordance opens a creation dialog containing a single « Titre » field plus « Annuler » and « Créer » actions.",
+			"« Créer » is disabled while the trimmed title is empty; pressing Enter in the field is equivalent to « Créer »; the field is focused when the dialog opens.",
+			"On « Créer », BookService persists a new book whose tree contains EXACTLY two seeded nodes — one sommaire node (empty text zone, root) and one mort node — and zero other nodes.",
+			"The seeded « Mort du personnage » node is isolated: zero incoming and zero outgoing edges, locked, never auto-linked on creation.",
+			"After a successful create the app navigates to the new book's editor with that book opened, and emits book:created then book:opened (in that order) carrying the new bookId.",
+			"Every created book receives a unique, collision-free id and a created_at timestamp; the id (not the title) is the persistence key; duplicate titles are allowed; the title is stored trimmed.",
+			"« Annuler », Esc, or scrim click closes the dialog with no book created and no events emitted; focus returns to the triggering affordance.",
+			"A created book is retrievable via BookService.listBooks()/getBook(id) and survives reload (persisted via PersistenceService).",
+			"The dialog renders strictly from design-system tokens/components (Modal, Field, accent primary), light theme; >=44px hit targets on « Créer »/« Annuler ».",
+			"Empty elements invite action: the « Titre » input shows a placeholder, and the seeded Sommaire's empty text zone shows an inviting placeholder."
+		],
+		"brain_contracts": [
+			{ "type": "service", "name": "BookService", "direction": "consumes" },
+			{ "type": "service", "name": "Router", "direction": "consumes" },
+			{ "type": "event", "name": "book:created", "direction": "emits", "payload": { "bookId": "string" } },
+			{ "type": "event", "name": "book:opened", "direction": "emits", "payload": { "bookId": "string" } }
+		],
+		"walking_skeleton": "A « + Nouveau livre » button opens a minimal dialog (single title field + « Créer »). On submit, BookService.createBook(title) seeds the Sommaire + isolated Mort nodes and persists, then book:created -> book:opened fire and the app navigates to the editor route for the new bookId. Wired entirely through brain.",
+		"n": 3,
+		"iterations": [
+			{
+				"id": 1,
+				"goal": "Dialog UX & validation polish: focus field on open; Créer disabled until trimmed non-empty (computed inline, KR-013); Enter submits; Annuler/Esc/scrim dismiss with focus restored to trigger; trim on submit; full DS fidelity.",
+				"status": "done"
+			},
+			{
+				"id": 2,
+				"goal": "Seed contract & events: route creation through a single BookService.createBook factory that atomically seeds exactly Sommaire + isolated Mort with a collision-free id + created_at; emit book:created -> book:opened in order AFTER persistence; navigate only on success. Tests assert node count = 2, Mort edge count = 0, event order.",
+				"status": "done"
+			},
+			{
+				"id": 3,
+				"goal": "Persistence & cloud-first: persist under persistenceKeys.ts key (no raw localStorage, KR-011); restore on reload; queue create via CloudSyncService when offline. Cloud-sync portion deferred until the cloud-sync feature lands.",
+				"status": "planned"
+			}
+		],
+		"known_risks": [
+			"KR-001 — Seed must be atomic and EXACT: a book always contains exactly Sommaire + isolated Mort. Seed through one BookService factory, never ad hoc.",
+			"KR-002 — The Mort node is isolated by contract (0 edges) and obligatory; never auto-link on create.",
+			"KR-003 — Book id collision-free and stable; the id, not the title, is the persistence key. Ids via brain/utils/id.",
+			"KR-004 — Navigation and events fire only AFTER persistence resolves, in order book:created -> book:opened.",
+			"KR-011 — No raw window.localStorage in feature files; persist only via PersistenceService/persistenceKeys.ts.",
+			"KR-013 — No useEffect for the « can create » derived state; compute inline from the trimmed title."
+		]
+	},
+	"implementation": {
+		"iterations_log": [
+			{
+				"id": 0,
+				"label": "walking-skeleton",
+				"completed_at": "2026-06-16",
+				"architecture_choices": [
+					"Create flow orchestrated by useCreateBook hook through brain contracts only: BookService.createBook (persist + book:created) -> BookService.openBook (book:opened) -> Router.navigate. Order guarantees listeners observe a persisted book (KR-004).",
+					"Seed factory (seedNodes) lives inside BookService so the exact two-node seed is the single code path (KR-001/KR-002).",
+					"Modal owns scrim/Esc/scrim-click dismiss + focus capture-and-restore + focus trap, so accessibility is shared across all future dialogs.",
+					"Validation (Créer disabled, trim) computed inline in NewBookDialog — no useEffect derived state (KR-013).",
+					"EditorStub at the app shell renders the seeded tree as a temporary landing; the real graph view is owned by tree-canvas."
+				],
+				"deviations_from_plan": [
+					"Iterations 1 and 2 folded into the walking skeleton (validation + seed/event contract shipped together). Iteration 3 (cloud-first offline queue) deferred until cloud-sync exists; CloudSyncService is not yet a brain service.",
+					"book:created and book:opened are emitted by BookService (the mutation owner) rather than by the feature, keeping features from emitting domain events directly while preserving order."
+				],
+				"test_coverage": { "unit": "BookService seed/persistence/event-order + NewBookDialog validation + create-flow integration", "e2e": "deferred (Playwright not yet set up)" }
+			}
+		],
+		"resolved_decisions": [
+			"Sommaire seeded as an EMPTY text zone showing an inviting placeholder (not pre-filled).",
+			"No character/hero seeding here (play mode is out of scope).",
+			"Creation captures the title only.",
+			"The seeded Mort node is LOCKED for the book's life: not deletable/duplicable, type fixed; only its text editable."
+		],
+		"open_questions": [
+			"cloud-sync: offline create queue (iteration 3) to be implemented when CloudSyncService lands."
+		]
+	}
+}

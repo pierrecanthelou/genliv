@@ -1,0 +1,28 @@
+{
+	"features": [
+		{
+			"feature": "book-creation",
+			"completed_at": "2026-06-16",
+			"goal": "Create a new book — name it, seed Sommaire + isolated Mort, and land in the editor.",
+			"key_architecture_choices": [
+				"BookService owns the single atomic seed factory (exactly Sommaire + isolated locked Mort, 0 edges) — KR-001/KR-002.",
+				"Create flow orchestrated by useCreateBook through brain only: createBook (persist + book:created) -> openBook (book:opened) -> Router.navigate, guaranteeing listeners see a persisted book (KR-004).",
+				"BookService emits domain events (the mutation owner) so features never emit domain events directly.",
+				"Modal primitive owns scrim/Esc dismiss + focus capture/restore + focus trap, shared by all future dialogs.",
+				"Validation computed inline in NewBookDialog (no useEffect derived state, KR-013)."
+			],
+			"brain_contracts_added": [
+				{ "type": "service", "name": "BookService" },
+				{ "type": "service", "name": "Router" },
+				{ "type": "service", "name": "PersistenceService" },
+				{ "type": "event", "name": "book:created" },
+				{ "type": "event", "name": "book:opened" }
+			],
+			"lessons_learned": [
+				"react/no-unescaped-entities flags raw apostrophes in JSX text — use the typographic apostrophe in French copy.",
+				"Iteration 3 (cloud-first offline queue) blocked on the cloud-sync feature / CloudSyncService not yet existing; left planned."
+			],
+			"bugs_encountered": []
+		}
+	]
+}

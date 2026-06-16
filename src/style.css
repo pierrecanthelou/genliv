@@ -1,0 +1,39 @@
+/* ============================================================
+   Global stylesheet — reset, design-system tokens, base type.
+   All styling drives from styles/styles.css tokens — never
+   hardcode the wireframe hex values (see CLAUDE.md, KR-111 spirit).
+   ============================================================ */
+@import './styles/styles.css';
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+	height: 100%;
+}
+
+body {
+	margin: 0;
+	font-family: var(--font-ui);
+	font-size: var(--fs-body);
+	line-height: var(--lh-body);
+	color: var(--text-body);
+	background: var(--surface-app);
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
+}
+
+button {
+	font-family: inherit;
+}
+
+/* Visible keyboard focus everywhere; mouse focus stays quiet. */
+:focus-visible {
+	outline: 2px solid var(--focus-ring);
+	outline-offset: 2px;
+}
