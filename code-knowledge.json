@@ -87,6 +87,41 @@
 			"risk": "Sommaire (root) and Mort (death leaf) are STRUCTURAL screens: no « libellé du choix », no « action requise pour poursuivre », no Fin victoire/échec toggles. Mort additionally has NO outgoing choices. Their only editable field is the text. Enforce both in the UI (hide those sections) AND in BookService.updateNode (text-only patch for sommaire/mort), so the invariant holds at the SSOT, not just the panel."
 		},
 		{
+			"id": "KR-060",
+			"feature": "choice-linking",
+			"risk": "Edges are the book's structure: all create/delete goes through BookService (addChoiceBranch/addEdge/removeEdge) so tree-canvas + outline-view + game-preview agree; never mutate edges locally (re-asserts KR-020). Mort may not have outgoing edges — enforced at the SSOT, not just the UI (KR-055)."
+		},
+		{
+			"id": "KR-061",
+			"feature": "choice-linking",
+			"risk": "Relink allows cycles/convergence by DESIGN but must guard degenerate cases: no duplicate identical edges, sane self-link handling, and the target node is never created/deleted by relinking (only the edge). [self-link/duplicate guards land in iteration 2]"
+		},
+		{
+			"id": "KR-062",
+			"feature": "choice-linking",
+			"risk": "Hidden prerequisite references an object by STABLE id from ObjectCatalogService, not by name; a dangling reference to a deleted object must be detected, not silently treated as true/false."
+		},
+		{
+			"id": "KR-063",
+			"feature": "choice-linking",
+			"risk": "Countdown fallback + relink targets are node references that can dangle if the target is deleted; run a referential-integrity check and surface broken targets rather than crashing the reader later (re-asserts KR-021)."
+		},
+		{
+			"id": "KR-064",
+			"feature": "choice-linking",
+			"risk": "Deleting a `choice` branch may orphan its child subtree; prompt/handle explicitly — do not silently leave unreachable nodes or cascade-delete without consent."
+		},
+		{
+			"id": "KR-065",
+			"feature": "choice-linking",
+			"risk": "A choice may hold BOTH a hidden prerequisite and a countdown; the countdown only ticks while the choice is visible (prerequisite met), so a hidden choice never expires invisibly."
+		},
+		{
+			"id": "KR-066",
+			"feature": "choice-linking",
+			"risk": "Cross-feature panel composition uses the brain SlotRegistry: a host (node-editor) reserves a slot id (SLOT_NODE_EDITOR_CHOICES) and renders whatever is registered, falling back to a placeholder; a provider (choice-linking) registers a renderer at the composition root (App). Neither feature imports the other — same OCP seam as ActionRegistry, for arbitrary panel regions."
+		},
+		{
 			"id": "KR-109",
 			"feature": "global-config",
 			"risk": "Any presentational component consumed by more than one feature belongs in brain/components/ and is re-exported from brain/components/index.ts. A component living in a feature but imported by another is a cross-feature violation — move it."

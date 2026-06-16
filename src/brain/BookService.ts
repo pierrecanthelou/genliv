@@ -1,6 +1,6 @@
 import type { EventBus } from './EventBus'
 import type { PersistenceService } from './PersistenceService'
-import type { Book, BookNode, NodeKind } from './types'
+import type { Book, BookNode, NodeKind, Edge, EdgeKind } from './types'
 import { bookKey, BOOK_KEY_PREFIX } from './persistenceKeys'
 import { createId } from './utils/id'
 
@@ -31,6 +31,23 @@ export interface BookService {
 	 * null if the book/node does not exist.
 	 */
 	updateNode(bookId: string, nodeId: string, patch: NodePatch): BookNode | null
+	/**
+	 * Create a new child screen and a `choice` edge from `fromNodeId` to it,
+	 * then return the new node (choice-linking « + Nouvelle branche »). The
+	 * structural `mort` leaf may not have outgoing choices (KR-055/060).
+	 * Persists before emitting `node:created` then `edge:created`. Returns
+	 * null if the book/parent is missing or the parent is `mort`.
+	 */
+	addChoiceBranch(bookId: string, fromNodeId: string): { node: BookNode; edge: Edge } | null
+	/**
+	 * Create an edge between two existing nodes (choice-linking « Relier… »).
+	 * Enables cycles/convergence. Rejects edges out of `mort` (KR-055) and a
+	 * book/endpoint that does not exist. Persists before emitting
+	 * `edge:created`. Returns the edge, or null on rejection.
+	 */
+	addEdge(bookId: string, from: string, to: string, kind: EdgeKind): Edge | null
+	/** Remove an edge by id (never deletes its target node). Emits `edge:deleted`. */
+	removeEdge(bookId: string, edgeId: string): boolean
 }
 
 /** The author-editable surface of a node (everything else is structural). */
@@ -161,6 +178,60 @@ export function createBookService(persistence: PersistenceService, events: Event
 			persist(next)
 			events.emit('node:updated', { bookId, nodeId })
 			return updated
+		},
+
+		addChoiceBranch(bookId, fromNodeId) {
+			const book = persistence.get<Book>(bookKey(bookId))
+			if (book === null) return null
+			const parent = book.nodes.find((n) => n.id === fromNodeId)
+			// Mort is structural: no outgoing choices (KR-055/060).
+			if (parent === undefined || parent.kind === 'mort') return null
+			const node: BookNode = {
+				id: createId('node'),
+				kind: 'choix',
+				text: '',
+				position: autoSlot(book.nodes.length),
+			}
+			const edge: Edge = { id: createId('edge'), from: fromNodeId, to: node.id, kind: 'choice' }
+			const next: Book = {
+				...book,
+				nodes: [...book.nodes, node],
+				edges: [...book.edges, edge],
+				updatedAt: new Date().toISOString(),
+			}
+			persist(next)
+			events.emit('node:created', { bookId, nodeId: node.id, kind: node.kind })
+			events.emit('edge:created', { bookId, edgeId: edge.id, from: edge.from, to: edge.to, kind: edge.kind })
+			return { node, edge }
+		},
+
+		addEdge(bookId, from, to, kind) {
+			const book = persistence.get<Book>(bookKey(bookId))
+			if (book === null) return null
+			const fromNode = book.nodes.find((n) => n.id === from)
+			const toNode = book.nodes.find((n) => n.id === to)
+			if (fromNode === undefined || toNode === undefined) return null
+			// Mort is structural: no outgoing choices (KR-055/060).
+			if (fromNode.kind === 'mort') return null
+			const edge: Edge = { id: createId('edge'), from, to, kind }
+			const next: Book = { ...book, edges: [...book.edges, edge], updatedAt: new Date().toISOString() }
+			persist(next)
+			events.emit('edge:created', { bookId, edgeId: edge.id, from, to, kind })
+			return edge
+		},
+
+		removeEdge(bookId, edgeId) {
+			const book = persistence.get<Book>(bookKey(bookId))
+			if (book === null) return false
+			if (!book.edges.some((e) => e.id === edgeId)) return false
+			const next: Book = {
+				...book,
+				edges: book.edges.filter((e) => e.id !== edgeId),
+				updatedAt: new Date().toISOString(),
+			}
+			persist(next)
+			events.emit('edge:deleted', { bookId, edgeId })
+			return true
 		},
 	}
 }

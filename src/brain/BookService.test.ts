@@ -193,3 +193,81 @@ describe('BookService.updateNode', () => {
 		expect(service.updateNode(book.id, 'node_missing', { text: 'a' })).toBeNull()
 	})
 })
+
+describe('BookService edges (choice-linking)', () => {
+	beforeEach(() => {
+		window.localStorage.clear()
+	})
+
+	it('addChoiceBranch creates a child + a choice edge and emits node:created then edge:created', () => {
+		const { service, events } = setup()
+		const book = service.createBook('Arbre')
+		const sommaire = book.nodes.find((n) => n.kind === 'sommaire')!
+		const order: AppEventName[] = []
+		events.on('node:created', () => order.push('node:created'))
+		events.on('edge:created', () => order.push('edge:created'))
+
+		const created = service.addChoiceBranch(book.id, sommaire.id)
+
+		expect(created).not.toBeNull()
+		expect(created!.edge).toMatchObject({ from: sommaire.id, to: created!.node.id, kind: 'choice' })
+		const stored = service.getBook(book.id)!
+		expect(stored.nodes).toHaveLength(3)
+		expect(stored.edges).toHaveLength(1)
+		expect(order).toEqual(['node:created', 'edge:created'])
+	})
+
+	it('refuses an outgoing branch from the structural Mort node (KR-055/060)', () => {
+		const { service } = setup()
+		const book = service.createBook('Arbre')
+		const mort = book.nodes.find((n) => n.kind === 'mort')!
+		expect(service.addChoiceBranch(book.id, mort.id)).toBeNull()
+		expect(service.getBook(book.id)!.edges).toHaveLength(0)
+	})
+
+	it('addEdge relinks to an existing node (enabling cycles) without creating a node', () => {
+		const { service, events } = setup()
+		const book = service.createBook('Arbre')
+		const sommaire = book.nodes.find((n) => n.kind === 'sommaire')!
+		const mort = book.nodes.find((n) => n.kind === 'mort')!
+		let payload: { from: string; to: string; kind: string } | null = null
+		events.on('edge:created', (p) => {
+			payload = { from: p.from, to: p.to, kind: p.kind }
+		})
+
+		const edge = service.addEdge(book.id, sommaire.id, mort.id, 'relink')
+
+		expect(edge).not.toBeNull()
+		expect(payload).toEqual({ from: sommaire.id, to: mort.id, kind: 'relink' })
+		const stored = service.getBook(book.id)!
+		expect(stored.nodes).toHaveLength(2) // no node created
+		expect(stored.edges).toHaveLength(1)
+	})
+
+	it('addEdge rejects unknown endpoints and edges out of Mort', () => {
+		const { service } = setup()
+		const book = service.createBook('Arbre')
+		const sommaire = book.nodes.find((n) => n.kind === 'sommaire')!
+		const mort = book.nodes.find((n) => n.kind === 'mort')!
+		expect(service.addEdge(book.id, sommaire.id, 'ghost', 'relink')).toBeNull()
+		expect(service.addEdge(book.id, mort.id, sommaire.id, 'relink')).toBeNull()
+	})
+
+	it('removeEdge deletes only the edge (never the target node) and emits edge:deleted', () => {
+		const { service, events } = setup()
+		const book = service.createBook('Arbre')
+		const sommaire = book.nodes.find((n) => n.kind === 'sommaire')!
+		const { edge, node } = service.addChoiceBranch(book.id, sommaire.id)!
+		let deleted = false
+		events.on('edge:deleted', () => {
+			deleted = true
+		})
+
+		expect(service.removeEdge(book.id, edge.id)).toBe(true)
+		expect(deleted).toBe(true)
+		const stored = service.getBook(book.id)!
+		expect(stored.edges).toHaveLength(0)
+		expect(stored.nodes.some((n) => n.id === node.id)).toBe(true) // target node survives
+		expect(service.removeEdge(book.id, 'edge_missing')).toBe(false)
+	})
+})

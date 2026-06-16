@@ -9,6 +9,7 @@ import {
 	effectiveKind,
 	endLabel,
 	nodeTitle,
+	SLOT_NODE_EDITOR_CHOICES,
 	type NodeActionType,
 	type NodePatch,
 } from '../../../brain'
@@ -26,7 +27,7 @@ const PANEL_WIDTH = 372
  * choice-linking; illustration + inventory + choices are deferred slots.
  */
 export function NodeEditorPanel(): JSX.Element {
-	const { books, selection, events } = useBrain()
+	const { books, selection, events, slots } = useBrain()
 	const route = useRoute()
 	const bookId = route.name === 'editor' ? route.bookId : null
 	const book = useOpenBook(bookId)
@@ -140,12 +141,22 @@ export function NodeEditorPanel(): JSX.Element {
 					/>
 				)}
 
-				{showOutgoing && (
-					<section>
-						<SectionLabel hint="— à venir (choice-linking)">Choix sortants</SectionLabel>
-						<div style={deferredBox}>Les branches sortantes se gèrent depuis l’arbre.</div>
-					</section>
-				)}
+				{showOutgoing &&
+					(() => {
+						const renderChoices = slots.get(SLOT_NODE_EDITOR_CHOICES)
+						return (
+							<section>
+								{renderChoices !== null ? (
+									renderChoices({ bookId: activeBookId, nodeId: activeNode.id })
+								) : (
+									<>
+										<SectionLabel hint="— à venir (choice-linking)">Choix sortants</SectionLabel>
+										<div style={deferredBox}>Les branches sortantes se gèrent depuis l’arbre.</div>
+									</>
+								)}
+							</section>
+						)
+					})()}
 
 				{showEndToggles && (
 					<section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
