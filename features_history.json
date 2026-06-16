@@ -46,6 +46,30 @@
 				"Canvas event flow: node cards / controls must stopPropagation on pointerdown+click so background pan/clear-selection only fire on true empty-canvas interactions."
 			],
 			"bugs_encountered": ["BUG-001"]
+		},
+		{
+			"feature": "node-editor",
+			"completed_at": "2026-06-16",
+			"goal": "Edit a single leaf in a side panel beside the tree — description + end toggles now, with action/inventory/choices delegated to other features via brain seams.",
+			"key_architecture_choices": [
+				"Promoted node selection to a brain SelectionService (single source of truth, KR-024): canvas + panel read via useSelectedNode and write via selection.select; the service is the sole node:selected emitter and clears on book:opened. This resolved the two-writer problem (panel ✕ deselect) that local canvas state could not.",
+				"node-editor is a HOST shell (KR-050) mounting action editors from a brain ActionRegistry (Open/Closed, KR-051) — adding an action type needs zero changes here; SegmentedControl options derive from the registry.",
+				"Fields bind directly to BookService.updateNode with no local mirror, and the panel subtree is keyed by node id, so selection swaps can't leak stale field state (KR-053/013).",
+				"End flags live on the node; effectiveKind/endLabel derive the FIN badge so canvas + panel reflect it from one source via node:updated (KR-054).",
+				"Shared view logic (useOpenBook, nodeTitle) and DS primitives (Toggle, SegmentedControl) promoted to brain (KR-109/110); the app shell composes canvas + panel without the features importing each other."
+			],
+			"brain_contracts_added": [
+				{ "type": "service", "name": "SelectionService" },
+				{ "type": "service", "name": "ActionRegistry" },
+				{ "type": "service", "name": "BookService.updateNode" },
+				{ "type": "event", "name": "action:changed" }
+			],
+			"lessons_learned": [
+				"A second writer of selection (the panel ✕) is the signal to promote selection from feature-local state to a brain SSOT — event-only broadcast is insufficient when two features both set it.",
+				"In RTL, drive selection through the UI (click a canvas card / + Nœud) rather than calling brain.selection.select directly — direct service mutations outside act() don't flush to the DOM before the next query.",
+				"Libellé du choix belongs on the incoming edge, not duplicated on the node — confirmed with the user to avoid a desync trap (KR-053-adjacent)."
+			],
+			"bugs_encountered": []
 		}
 	]
 }

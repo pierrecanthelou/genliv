@@ -54,7 +54,32 @@
 		{
 			"id": "KR-024",
 			"feature": "tree-canvas",
-			"risk": "Node selection is owned by the canvas (single source of truth) and broadcast via node:selected; node-editor must REACT to it and not own a competing selection source (avoids two-panel desync)."
+			"risk": "Node selection is the single source of truth in the brain SelectionService (promoted from tree-canvas local state). Canvas and node-editor both read via useSelectedNode and write via selection.select; the service is the sole emitter of node:selected and clears on book:opened. No feature keeps a competing copy (avoids two-panel desync)."
+		},
+		{
+			"id": "KR-050",
+			"feature": "node-editor",
+			"risk": "node-editor is a HOST shell: the action body (PNJ/décor/piège/monstre) and the choices list are mounted from other features via ActionRegistry / feature slots. Importing an action feature directly would break feature isolation."
+		},
+		{
+			"id": "KR-051",
+			"feature": "node-editor",
+			"risk": "Adding a new action type must require ZERO changes to node-editor: the SegmentedControl options + the mounted editor come from the ActionRegistry. Hard-coding a type couples node-editor to a specialty (Open/Closed)."
+		},
+		{
+			"id": "KR-052",
+			"feature": "node-editor",
+			"risk": "Objects carry a player-facing DESCRIPTION, not just a name; the inventory editor must capture both via the shared brain ObjectEditor, never a bare string (domain rule)."
+		},
+		{
+			"id": "KR-053",
+			"feature": "node-editor",
+			"risk": "Selection swap must not leak the previous node's uncommitted field state into the next node. Bind fields to the store (no local mirror) and/or key the panel subtree by node id so it resets on selection change."
+		},
+		{
+			"id": "KR-054",
+			"feature": "node-editor",
+			"risk": "Turning a node into a Fin (victoire/échec) changes its kind/badge everywhere; the end flags live on the node in BookService and the FIN badge is derived (effectiveKind/endLabel) so canvas/outline/panel reflect it from one source via node:updated."
 		},
 		{
 			"id": "KR-109",

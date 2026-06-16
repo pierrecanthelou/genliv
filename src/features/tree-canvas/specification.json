@@ -76,7 +76,7 @@
 		],
 		"resolved_decisions": [
 			"Editor scope only: « Aperçu du jeu ▷ » is play/book-launch mode (out of scope) — rendered disabled.",
-			"Canvas owns node selection (single source of truth); node-editor reacts to node:selected.",
+			"Node selection was promoted to a brain SelectionService (single source of truth) during node-editor work: the canvas reads via useSelectedNode and writes via selection.select instead of holding local state, so the editor panel can deselect without desyncing the canvas highlight (KR-024).",
 			"Pan/zoom + canvas↔outline view mode are local UI preferences, not synced.",
 			"Auto-layout for position-less nodes is a deterministic diagonal cascade keyed by node index (no random scatter, no 0,0 pileup).",
 			"« + Nœud » creates a FREE-FLOATING unattached node (kind `choix`), then selects it; attaching to a parent choice is done in choice-linking."

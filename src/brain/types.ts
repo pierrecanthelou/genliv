@@ -10,6 +10,9 @@ export type NodeKind = 'sommaire' | 'choix' | 'pnj' | 'decor' | 'piege' | 'monst
 /** Edges carry a kind: a `choice` is the labelled button in a parent screen. */
 export type EdgeKind = 'choice' | 'relink' | 'flee'
 
+/** Required-action slot on a node; concrete editors come from the ActionRegistry. */
+export type NodeActionType = 'aucune' | 'pnj' | 'decor' | 'piege' | 'monstre'
+
 export interface BookNode {
 	id: string
 	kind: NodeKind
@@ -22,6 +25,11 @@ export interface BookNode {
 	locked?: boolean
 	/** Canvas position; optional until tree-canvas owns layout. */
 	position?: { x: number; y: number }
+	/** End-leaf flags (Fin victoire / Fin échec). Drive the FIN badge (KR-054). */
+	endVictory?: boolean
+	endFailure?: boolean
+	/** Required-action type to continue; defaults to 'aucune'. */
+	actionType?: NodeActionType
 }
 
 export interface Edge {

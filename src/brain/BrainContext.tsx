@@ -3,6 +3,8 @@ import { createEventBus, type EventBus } from './EventBus'
 import { createLocalStoragePersistence, type PersistenceService } from './PersistenceService'
 import { createRouter, type Route, type Router } from './Router'
 import { createBookService, type BookService } from './BookService'
+import { createSelectionService, type SelectionService } from './SelectionService'
+import { createActionRegistry, type ActionRegistry } from './ActionRegistry'
 
 /**
  * Brain — the application core. It wires the services together (Service
@@ -14,6 +16,8 @@ export interface Brain {
 	persistence: PersistenceService
 	router: Router
 	books: BookService
+	selection: SelectionService
+	actions: ActionRegistry
 }
 
 export interface CreateBrainOptions {
@@ -26,7 +30,9 @@ export function createBrain(options: CreateBrainOptions = {}): Brain {
 	const persistence = options.persistence ?? createLocalStoragePersistence()
 	const router = createRouter(options.initialRoute)
 	const books = createBookService(persistence, events)
-	return { events, persistence, router, books }
+	const selection = createSelectionService(events)
+	const actions = createActionRegistry()
+	return { events, persistence, router, books, selection, actions }
 }
 
 const BrainContext = createContext<Brain | null>(null)
@@ -47,4 +53,10 @@ export function useBrain(): Brain {
 export function useRoute(): Route {
 	const { router } = useBrain()
 	return useSyncExternalStore(router.subscribe, router.current)
+}
+
+/** Subscribe to the currently selected node id (single source of truth, KR-024). */
+export function useSelectedNode(): string | null {
+	const { selection } = useBrain()
+	return useSyncExternalStore(selection.subscribe, selection.getSelected)
 }

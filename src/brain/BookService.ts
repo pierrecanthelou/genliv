@@ -23,7 +23,17 @@ export interface BookService {
 	 * new node, or null if the book does not exist.
 	 */
 	addNode(bookId: string, kind: NodeKind): BookNode | null
+	/**
+	 * Patch a node's editable content (KR-020). A locked node (the `mort`
+	 * leaf) accepts only `text` changes — its end flags / action are ignored
+	 * (KR-002). Persists before emitting `node:updated`. Returns the updated
+	 * node, or null if the book/node does not exist.
+	 */
+	updateNode(bookId: string, nodeId: string, patch: NodePatch): BookNode | null
 }
+
+/** The author-editable surface of a node (everything else is structural). */
+export type NodePatch = Partial<Pick<BookNode, 'text' | 'endVictory' | 'endFailure' | 'actionType'>>
 
 /**
  * Deterministic slot for a position-less / newly added node (KR-023): a
@@ -124,6 +134,29 @@ export function createBookService(persistence: PersistenceService, events: Event
 			persist(next)
 			events.emit('node:created', { bookId: next.id, nodeId: node.id, kind })
 			return node
+		},
+
+		updateNode(bookId, nodeId, patch) {
+			const book = persistence.get<Book>(bookKey(bookId))
+			if (book === null) return null
+			const current = book.nodes.find((n) => n.id === nodeId)
+			if (current === undefined) return null
+			// Locked nodes (mort) only accept text edits (KR-002).
+			const allowed: NodePatch = current.locked === true ? { text: patch.text } : patch
+			const updated: BookNode = { ...current }
+			for (const key of Object.keys(allowed) as (keyof NodePatch)[]) {
+				if (allowed[key] !== undefined) {
+					Object.assign(updated, { [key]: allowed[key] })
+				}
+			}
+			const next: Book = {
+				...book,
+				nodes: book.nodes.map((n) => (n.id === nodeId ? updated : n)),
+				updatedAt: new Date().toISOString(),
+			}
+			persist(next)
+			events.emit('node:updated', { bookId, nodeId })
+			return updated
 		},
 	}
 }
