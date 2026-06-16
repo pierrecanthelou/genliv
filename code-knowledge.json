@@ -122,6 +122,11 @@
 			"risk": "Cross-feature panel composition uses the brain SlotRegistry: a host (node-editor) reserves a slot id (SLOT_NODE_EDITOR_CHOICES) and renders whatever is registered, falling back to a placeholder; a provider (choice-linking) registers a renderer at the composition root (App). Neither feature imports the other — same OCP seam as ActionRegistry, for arbitrary panel regions."
 		},
 		{
+			"id": "KR-067",
+			"feature": "choice-linking",
+			"risk": "Structural screens are never authored choice targets: the Sommaire root has no incoming choices and the Mort leaf is reached ONLY automatically at the end of a combat, never via a choice/relink. Enforce at the SSOT (BookService.addEdge rejects a target whose kind is sommaire/mort) AND in the relink picker (exclude them from candidates), not just one. The future automatic combat→Mort link uses a dedicated path, not the manual edge API."
+		},
+		{
 			"id": "KR-070",
 			"feature": "book-library",
 			"risk": "Deleting a book is a dangerous, irreversible action: always gate behind a confirmation dialog (name the book, error-toned confirm, labelled Annuler) and route the delete through BookService.deleteBook (persist-remove then book:deleted, KR-004) — never a raw removal."

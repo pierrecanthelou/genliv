@@ -8,7 +8,7 @@
 		"acceptance_criteria": [
 			"A node's outgoing choices are listed as rows showing the destination title and a badge per active rule; the list is read from BookService and reflects edges live (edge:* events).",
 			"« + Nouvelle branche » creates a new child node via BookService, links it from this choice with a `choice` edge, and selects the new node (emits node:created + edge:created{kind:'choice'} + node:selected); the new node starts empty with placeholders.",
-			"« Relier… » opens a searchable list of existing nodes; selecting one creates a `relink` edge from this choice to that node (edge:created{kind:'relink'}) without creating a node, enabling cycles/convergence; the canvas renders it dashed.",
+			"« Relier… » opens a searchable list of existing nodes; selecting one creates a `relink` edge from this choice to that node (edge:created{kind:'relink'}) without creating a node, enabling cycles/convergence; the canvas renders it dashed. Structural screens (the Sommaire root, the Mort leaf) are excluded from the candidates and rejected at the SSOT — Mort is reached only automatically in combat (KR-067).",
 			"Toggling « pré-requis caché » on a choice and picking a required object persists a hidden-prerequisite rule referencing an ObjectCatalogService object id; the row shows the ⊘ badge; clearing the toggle removes the rule.",
 			"Toggling « compte à rebours » persists a délai + a fallback destination node; the row shows the ⏱ badge; the fallback target must resolve to an existing node.",
 			"The countdown délai is a free numeric seconds input defaulting to 15 s and clamped to 5–60 s; values outside the range are corrected to the nearest bound.",
@@ -42,6 +42,7 @@
 			"KR-065 — A choice may hold BOTH a hidden prerequisite and a countdown; the countdown only ticks while the choice is visible (prerequisite met), so a hidden choice never expires invisibly.",
 			"KR-066 — node-editor mounts choice-linking via the brain SlotRegistry (SLOT_NODE_EDITOR_CHOICES); the host renders the registered renderer and falls back to a placeholder if none — neither feature imports the other.",
 			"KR-055/060 — Mort is structural: BookService rejects outgoing edges from it (addChoiceBranch/addEdge), enforcing the invariant at the SSOT, not just by hiding the UI.",
+			"KR-067 — Structural screens are never authored choice targets: the Sommaire root has no incoming choices and the Mort leaf is reached only automatically at the end of a combat. BookService.addEdge rejects a sommaire/mort target and the relink picker excludes them — enforced at the SSOT and the UI.",
 			"KR-011 — No raw localStorage; edges/rules via BookService/ObjectCatalogService.",
 			"KR-013 — Derive row/rule view-state inline from book data, not useEffect mirrors."
 		]
