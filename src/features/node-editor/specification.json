@@ -11,6 +11,7 @@
 			"The « Action requise » SegmentedControl reflects the node's current action type; changing it emits action:changed{actionType} and swaps in the matching editor resolved from ActionRegistry — node-editor contains no action-specific logic.",
 			"Adding/removing inventory objects updates the node's « objets à prendre » via BookService/ObjectCatalogService; objects carry a name AND a player-facing description (shared ObjectEditor).",
 			"Toggling « Fin victoire » / « Fin échec » sets the node's end flags via BookService; turning a node into an end is reflected by its NodeBadge updating to the FIN mark on canvas/outline.",
+			"Sommaire and Mort are structural screens: the panel hides « libellé du choix », « action requise » and the Fin toggles for both, and hides « choix sortants » for Mort; only the text is editable (enforced in BookService.updateNode too).",
 			"The « Choix sortants » area and footer branch/relink actions are provided by choice-linking mounted in the reserved slot; node-editor does not duplicate edge logic.",
 			"The Illustration section renders as a deferred/disabled dropzone (no upload), without breaking layout.",
 			"Closing the panel (✕) deselects without losing committed edits; switching selection swaps content without leaking the previous node's field state.",
@@ -39,6 +40,7 @@
 			"KR-052 — Objects carry a player-facing DESCRIPTION, not just a name — the inventory editor must capture both via the shared ObjectEditor, never a bare string.",
 			"KR-053 — Selection swap must not leak the previous node's uncommitted field state into the next node; reset/keyed panel state on selection change.",
 			"KR-054 — Turning a node into a Fin (victory/échec) changes its kind/badge everywhere; the end flags live on the node in BookService so canvas/outline reflect it via node:updated.",
+			"KR-055 — Sommaire (root) and Mort (death leaf) are structural: no libellé, no required action, no Fin toggles; Mort also has no outgoing choices. Text-only — enforced in the panel AND in BookService.updateNode.",
 			"KR-024 — Selection is owned by the SelectionService (SSOT); node-editor reacts and may set it (deselect on ✕) but holds no competing copy.",
 			"KR-011 — No raw localStorage; all node data via BookService.",
 			"KR-013 — Field values bind to the store/handlers, not useEffect-mirrored copies of props."
@@ -75,7 +77,8 @@
 			"Libellé du choix lives on the INCOMING EDGE (not duplicated on the node); edited via choice-linking.",
 			"Selection is a brain SelectionService consumed by both canvas and panel (SSOT).",
 			"Illustration deferred (disabled placeholder); inventory + choices are mounted/expanded in later iterations.",
-			"node-editor owns text/toggles; action bodies and choices come from other features via ActionRegistry / slots."
+			"node-editor owns text/toggles; action bodies and choices come from other features via ActionRegistry / slots.",
+			"Sommaire and Mort are structural screens (KR-055): no libellé / action / Fin toggles; Mort also has no outgoing choices; text-only, enforced at the SSOT."
 		],
 		"open_questions": [
 			"ObjectCatalogService shape (iteration 3) — define when action-decor's object model lands.",

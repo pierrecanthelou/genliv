@@ -80,14 +80,32 @@ describe('node-editor panel', () => {
 		expect(brain.books.getBook(book.id)!.nodes[2].actionType).toBe('pnj')
 	})
 
-	it('closes via ✕ (clears selection) and disables end toggles on the locked Mort node', async () => {
+	it('hides choice-label, action, end toggles AND outgoing choices on the Mort node (KR-055), and closes via ✕', async () => {
 		const user = userEvent.setup()
 		setup()
 
 		await selectNode(user, /Mort du personnage/)
-		expect(screen.getByRole('switch', { name: /fin victoire/i })).toBeDisabled()
+		// Description stays editable (KR-002); everything structural is gone.
+		expect(screen.getByLabelText(/description/i)).toBeInTheDocument()
+		expect(screen.queryByRole('switch')).toBeNull()
+		expect(screen.queryByText(/action requise/i)).toBeNull()
+		expect(screen.queryByText(/libellé du choix/i)).toBeNull()
+		expect(screen.queryByText(/choix sortants/i)).toBeNull()
 
 		await user.click(screen.getByRole('button', { name: /fermer l’éditeur/i }))
 		expect(screen.getByText(/sélectionnez un nœud/i)).toBeInTheDocument()
+	})
+
+	it('hides choice-label, action and end toggles on the Sommaire root but keeps outgoing choices (KR-055)', async () => {
+		const user = userEvent.setup()
+		setup()
+
+		await selectNode(user, /Sommaire/)
+		expect(screen.getByLabelText(/description/i)).toBeInTheDocument()
+		expect(screen.queryByRole('switch')).toBeNull()
+		expect(screen.queryByText(/action requise/i)).toBeNull()
+		expect(screen.queryByText(/libellé du choix/i)).toBeNull()
+		// The root leads into the story, so it DOES keep outgoing choices.
+		expect(screen.getByText(/choix sortants/i)).toBeInTheDocument()
 	})
 })

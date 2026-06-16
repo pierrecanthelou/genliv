@@ -53,6 +53,17 @@ export function NodeEditorPanel(): JSX.Element {
 	const activeNode = node
 	const locked = node.locked === true
 
+	// Sommaire (root) and Mort (death leaf) are STRUCTURAL screens: no incoming
+	// choice label, no required action, no Fin victoire/échec. Mort additionally
+	// has no outgoing choices (KR-055). Their only editable field is the text.
+	const isSommaire = node.kind === 'sommaire'
+	const isMort = node.kind === 'mort'
+	const isStructural = isSommaire || isMort
+	const showLabel = !isStructural
+	const showAction = !isStructural
+	const showEndToggles = !isStructural
+	const showOutgoing = !isMort
+
 	function patch(p: NodePatch): void {
 		books.updateNode(activeBookId, activeNode.id, p)
 	}
@@ -95,10 +106,12 @@ export function NodeEditorPanel(): JSX.Element {
 			</header>
 
 			<div style={panelBody}>
-				<section>
-					<SectionLabel hint="— défini par la branche entrante (choice-linking)">Libellé du choix</SectionLabel>
-					<div style={deferredBox}>Le libellé du bouton se règle sur la branche qui mène à ce nœud.</div>
-				</section>
+				{showLabel && (
+					<section>
+						<SectionLabel hint="— défini par la branche entrante (choice-linking)">Libellé du choix</SectionLabel>
+						<div style={deferredBox}>Le libellé du bouton se règle sur la branche qui mène à ce nœud.</div>
+					</section>
+				)}
 
 				<section>
 					<Field
@@ -118,32 +131,38 @@ export function NodeEditorPanel(): JSX.Element {
 					</div>
 				</section>
 
-				<ActionSection
-					bookId={bookId}
-					nodeId={node.id}
-					value={node.actionType ?? 'aucune'}
-					onChange={setActionType}
-				/>
-
-				<section>
-					<SectionLabel hint="— à venir (choice-linking)">Choix sortants</SectionLabel>
-					<div style={deferredBox}>Les branches sortantes se gèrent depuis l’arbre.</div>
-				</section>
-
-				<section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-					<Toggle
-						label="Fin victoire"
-						checked={node.endVictory === true}
-						disabled={locked}
-						onChange={(v) => patch({ endVictory: v })}
+				{showAction && (
+					<ActionSection
+						bookId={bookId}
+						nodeId={node.id}
+						value={node.actionType ?? 'aucune'}
+						onChange={setActionType}
 					/>
-					<Toggle
-						label="Fin échec"
-						checked={node.endFailure === true}
-						disabled={locked}
-						onChange={(v) => patch({ endFailure: v })}
-					/>
-				</section>
+				)}
+
+				{showOutgoing && (
+					<section>
+						<SectionLabel hint="— à venir (choice-linking)">Choix sortants</SectionLabel>
+						<div style={deferredBox}>Les branches sortantes se gèrent depuis l’arbre.</div>
+					</section>
+				)}
+
+				{showEndToggles && (
+					<section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+						<Toggle
+							label="Fin victoire"
+							checked={node.endVictory === true}
+							disabled={locked}
+							onChange={(v) => patch({ endVictory: v })}
+						/>
+						<Toggle
+							label="Fin échec"
+							checked={node.endFailure === true}
+							disabled={locked}
+							onChange={(v) => patch({ endFailure: v })}
+						/>
+					</section>
+				)}
 			</div>
 		</aside>
 	)

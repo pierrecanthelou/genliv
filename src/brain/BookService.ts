@@ -24,10 +24,11 @@ export interface BookService {
 	 */
 	addNode(bookId: string, kind: NodeKind): BookNode | null
 	/**
-	 * Patch a node's editable content (KR-020). A locked node (the `mort`
-	 * leaf) accepts only `text` changes — its end flags / action are ignored
-	 * (KR-002). Persists before emitting `node:updated`. Returns the updated
-	 * node, or null if the book/node does not exist.
+	 * Patch a node's editable content (KR-020). Structural screens — the
+	 * locked `mort` leaf (KR-002) and the `sommaire` root (KR-055) — accept
+	 * only `text` changes; their end flags / required action are ignored.
+	 * Persists before emitting `node:updated`. Returns the updated node, or
+	 * null if the book/node does not exist.
 	 */
 	updateNode(bookId: string, nodeId: string, patch: NodePatch): BookNode | null
 }
@@ -141,8 +142,11 @@ export function createBookService(persistence: PersistenceService, events: Event
 			if (book === null) return null
 			const current = book.nodes.find((n) => n.id === nodeId)
 			if (current === undefined) return null
-			// Locked nodes (mort) only accept text edits (KR-002).
-			const allowed: NodePatch = current.locked === true ? { text: patch.text } : patch
+			// Structural screens accept only text edits: the locked Mort leaf
+			// (KR-002) and the Sommaire root have no end flags / required action
+			// (KR-055).
+			const textOnly = current.locked === true || current.kind === 'sommaire' || current.kind === 'mort'
+			const allowed: NodePatch = textOnly ? { text: patch.text } : patch
 			const updated: BookNode = { ...current }
 			for (const key of Object.keys(allowed) as (keyof NodePatch)[]) {
 				if (allowed[key] !== undefined) {

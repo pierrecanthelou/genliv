@@ -16,6 +16,7 @@ The `.dc.html` files are **HTML design references** (look + behaviour). Recreate
 
 - Node types: `sommaire` (root), `choix`, `pnj`, `décor` (prendre/écouter/fouiller), `piège`, `monstre`, `fin` (victoire/échec), `mort`.
 - Every new book is seeded with **exactly two nodes**: a `sommaire` (empty text zone, root) + an **isolated, locked** `mort` node (0 edges; not deletable/duplicable; only its text is editable). Never auto-link `mort` on create.
+- **`sommaire` and `mort` are structural screens** (KR-055): **no « libellé du choix », no « action requise », no « fin victoire/échec »**. `mort` additionally has **no outgoing choices**. Their **only editable field is the text** — enforced in the node-editor panel *and* in `BookService.updateNode`.
 - Edges carry `kind`: `choice` | `relink` | `flee`. A *choice* is the labelled button in a parent screen that leads to a child screen.
 - Objects always carry a **name (internal)** + a **player-facing description**. Skill rolls resolve to **réussite / échec** (the only semantic colors).
 - Format-specific mechanics: objects can accomplish/reinforce interactions; an inventory object can be a **hidden prerequisite** on a choice; some actions change screen without being a choice; choices can be under a **countdown**.
