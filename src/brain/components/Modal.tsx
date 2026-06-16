@@ -20,6 +20,8 @@ export interface ModalProps {
 	cancelLabel?: string
 	confirmLabel?: string
 	confirmDisabled?: boolean
+	/** 'error' paints the confirm button destructive-red for dangerous actions. */
+	confirmTone?: 'accent' | 'error'
 	onCancel?: () => void
 	onConfirm?: () => void
 }
@@ -35,6 +37,7 @@ export function Modal({
 	cancelLabel = 'Annuler',
 	confirmLabel = 'Enregistrer',
 	confirmDisabled = false,
+	confirmTone = 'accent',
 	onCancel,
 	onConfirm,
 }: ModalProps): JSX.Element {
@@ -186,8 +189,12 @@ export function Modal({
 							disabled={confirmDisabled}
 							style={{
 								fontSize: 'var(--fs-sm)',
-								color: 'var(--accent-fg)',
-								background: confirmDisabled ? 'var(--ink-5)' : 'var(--accent)',
+								color: 'var(--text-on-accent)',
+								background: confirmDisabled
+									? 'var(--ink-5)'
+									: confirmTone === 'error'
+										? 'var(--bad)'
+										: 'var(--accent)',
 								border: 'none',
 								borderRadius: 'var(--r-lg)',
 								padding: '11px 18px',

@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useBrain, useRoute } from './brain'
-import { HomeScreen } from './features/book-creation'
+import { CreateBookEntry } from './features/book-creation'
+import { LibraryScreen } from './features/book-library'
 import { TreeCanvas } from './features/tree-canvas'
 import { NodeEditorPanel } from './features/node-editor'
 import { registerChoiceLinking } from './features/choice-linking'
@@ -9,8 +10,9 @@ import { registerChoiceLinking } from './features/choice-linking'
  * App shell — routes between the home (book-creation) and the editor, and is
  * the composition root: it wires pluggable features into the brain registries
  * (e.g. choice-linking into node-editor's choices slot) so features never
- * import each other. The editor composes tree-canvas + node-editor panel (§ 02),
- * which communicate only through brain (selection + BookService).
+ * import each other. The home composes book-library's LibraryScreen with
+ * book-creation's create affordance; the editor composes tree-canvas +
+ * node-editor panel (§ 02). Features communicate only through brain.
  */
 export function App(): JSX.Element {
 	const { slots } = useBrain()
@@ -29,6 +31,6 @@ export function App(): JSX.Element {
 			)
 		case 'home':
 		default:
-			return <HomeScreen />
+			return <LibraryScreen createEntry={<CreateBookEntry />} />
 	}
 }

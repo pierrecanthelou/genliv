@@ -16,6 +16,13 @@ export interface BookService {
 	listBooks(): Book[]
 	openBook(id: string): Book | null
 	/**
+	 * Permanently remove a book and its whole tree (book-library). Persists
+	 * the removal before emitting `book:deleted` (KR-004), so listeners never
+	 * observe a half-deleted state. Returns true if a book was removed, false
+	 * if no book had that id.
+	 */
+	deleteBook(id: string): boolean
+	/**
 	 * Add a free-floating, unattached node of `kind` to a book (KR-020).
 	 * It receives a deterministic auto-layout slot so it never piles at
 	 * 0,0 (KR-023); attaching it to a parent is done later in
@@ -132,6 +139,15 @@ export function createBookService(persistence: PersistenceService, events: Event
 			if (book === null) return null
 			events.emit('book:opened', { bookId: book.id })
 			return book
+		},
+
+		deleteBook(id) {
+			if (persistence.get<Book>(bookKey(id)) === null) return false
+			// Persist the removal atomically before emitting, so listeners
+			// (the library view) re-read a store without the book (KR-004).
+			persistence.remove(bookKey(id))
+			events.emit('book:deleted', { bookId: id })
+			return true
 		},
 
 		addNode(bookId, kind) {

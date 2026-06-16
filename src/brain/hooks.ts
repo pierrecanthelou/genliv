@@ -18,6 +18,9 @@ const BOOK_MUTATION_EVENTS: AppEventName[] = [
 	'edge:deleted',
 ]
 
+/** List membership changes only when a book is created or deleted. */
+const BOOK_LIST_EVENTS: AppEventName[] = ['book:created', 'book:deleted']
+
 export function useOpenBook(bookId: string | null): Book | null {
 	const { books, events } = useBrain()
 
@@ -36,6 +39,34 @@ export function useOpenBook(bookId: string | null): Book | null {
 			getSnapshot: (): Book | null => snapshot,
 		}
 	}, [books, events, bookId])
+
+	return useSyncExternalStore(store.subscribe, store.getSnapshot)
+}
+
+/**
+ * Live list of all persisted books (book-library). A VIEW over BookService:
+ * the snapshot is cached and only recomputed on book:created / book:deleted,
+ * so useSyncExternalStore gets a stable reference between those events (no
+ * re-render loop) and the list stays a pure read of the SSOT (KR-020).
+ */
+export function useBooks(): Book[] {
+	const { books, events } = useBrain()
+
+	const store = useMemo(() => {
+		let snapshot: Book[] = books.listBooks()
+		return {
+			subscribe(onChange: () => void): () => void {
+				const offs = BOOK_LIST_EVENTS.map((name) =>
+					events.on(name, () => {
+						snapshot = books.listBooks()
+						onChange()
+					}),
+				)
+				return () => offs.forEach((off) => off())
+			},
+			getSnapshot: (): Book[] => snapshot,
+		}
+	}, [books, events])
 
 	return useSyncExternalStore(store.subscribe, store.getSnapshot)
 }
