@@ -195,6 +195,11 @@
 			"id": "KR-116",
 			"feature": "global-config",
 			"risk": "PersistenceService.get does an unchecked JSON.parse cast, so persisted data is UNTRUSTED at the runtime boundary even though it is typed: a corrupted store or a schema drift can carry a node/edge kind outside the registry, and a direct NODE_KINDS[kind].field then throws (undefined access). Validate kinds at the single read boundary (BookService.loadBook + listBooks) with isNodeKind/isEdgeKind; a book with an unknown kind is surfaced (console.warn) and treated as unreadable (getBook/openBook -> null, omitted from listBooks, mutations refused) — never silently coerced. A corrupt book must remain DELETABLE (deleteBook uses the raw read, not the validated one), so the user can clean it up."
+		},
+		{
+			"id": "KR-117",
+			"feature": "global-config",
+			"risk": "A closed set (a fixed union type — node/edge kind, décor interaction, action type, skill outcome…) lives in ONE Record<Union, Descriptor> as the single source of per-variant data + behaviour; derive option lists / labels / flags / copy from it, and NEVER re-list the literals or branch on the union with if (x === 'a') … else … or x === 'a' ? … : … ladders. This eliminates the Fowler/Uncle-Bob smells Duplicated Code, Repeated Switch/Conditional, Shotgun Surgery, Primitive Obsession, and honours Open/Closed + SRP — adding a variant is one new entry with zero consumer edits. In TypeScript the data-driven Record IS 'replace conditional with polymorphism' for a JSON-serialised domain (not a class hierarchy): use Record<Union, …> for compile-time exhaustiveness — never Partial<Record<…>> (silent gaps) — and derive the union from the keys (keyof typeof + a defineX factory) when the registry must be the single source for the set itself. Instances: NODE_KINDS/EDGE_KINDS (KR-068), DECOR_INTERACTIONS."
 		}
 	]
 }
