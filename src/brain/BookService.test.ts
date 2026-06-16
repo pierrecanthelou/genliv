@@ -78,3 +78,60 @@ describe('BookService.createBook', () => {
 		expect(order).toEqual(['book:created', 'book:opened'])
 	})
 })
+
+describe('BookService.addNode', () => {
+	beforeEach(() => {
+		window.localStorage.clear()
+	})
+
+	it('appends a free-floating node of the requested kind, never auto-linked', () => {
+		const { service } = setup()
+		const book = service.createBook('Arbre')
+		const node = service.addNode(book.id, 'choix')
+
+		expect(node).not.toBeNull()
+		expect(node?.kind).toBe('choix')
+		const stored = service.getBook(book.id)
+		expect(stored?.nodes).toHaveLength(3)
+		// Free-floating: no edge references the new node.
+		expect(stored?.edges).toHaveLength(0)
+	})
+
+	it('gives the new node a deterministic position, never piling at 0,0', () => {
+		const { service } = setup()
+		const book = service.createBook('Arbre')
+		const a = service.addNode(book.id, 'choix')
+		const b = service.addNode(book.id, 'pnj')
+
+		expect(a?.position).toBeDefined()
+		expect(b?.position).toBeDefined()
+		expect(a?.position).not.toEqual({ x: 0, y: 0 })
+		expect(a?.position).not.toEqual(b?.position)
+	})
+
+	it('persists before emitting node:created (carrying the kind)', () => {
+		const { service, events } = setup()
+		const book = service.createBook('Arbre')
+		let lengthAtEmit = -1
+		let kindAtEmit: string | null = null
+		events.on('node:created', ({ bookId, nodeId, kind }) => {
+			kindAtEmit = kind
+			const persisted = service.getBook(bookId)
+			lengthAtEmit = persisted?.nodes.length ?? -1
+			expect(persisted?.nodes.some((n) => n.id === nodeId)).toBe(true)
+		})
+		service.addNode(book.id, 'monstre')
+		expect(kindAtEmit).toBe('monstre')
+		expect(lengthAtEmit).toBe(3)
+	})
+
+	it('returns null and emits nothing for an unknown book', () => {
+		const { service, events } = setup()
+		let fired = false
+		events.on('node:created', () => {
+			fired = true
+		})
+		expect(service.addNode('book_missing', 'choix')).toBeNull()
+		expect(fired).toBe(false)
+	})
+})

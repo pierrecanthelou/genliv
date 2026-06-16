@@ -1,6 +1,6 @@
 import { useRoute } from './brain'
 import { HomeScreen } from './features/book-creation'
-import { EditorStub } from './EditorStub'
+import { TreeCanvas } from './features/tree-canvas'
 
 /**
  * App shell — routes between the home (book-creation) and the editor.
@@ -10,7 +10,7 @@ export function App(): JSX.Element {
 	const route = useRoute()
 	switch (route.name) {
 		case 'editor':
-			return <EditorStub />
+			return <TreeCanvas />
 		case 'home':
 		default:
 			return <HomeScreen />

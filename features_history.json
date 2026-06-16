@@ -23,6 +23,29 @@
 				"Iteration 3 (cloud-first offline queue) blocked on the cloud-sync feature / CloudSyncService not yet existing; left planned."
 			],
 			"bugs_encountered": []
+		},
+		{
+			"feature": "tree-canvas",
+			"completed_at": "2026-06-16",
+			"goal": "Render the open book as a navigable graph of node cards + labelled edges on a dot-grid canvas, with single-select and the « + Nœud » entry point — the primary editor surface (wireframe § 02).",
+			"key_architecture_choices": [
+				"The canvas is a pure VIEW over BookService (KR-020): useOpenBook subscribes to the brain event bus and re-reads the persisted book via useSyncExternalStore — an external-store subscription, not a useEffect-synced mirror (KR-013).",
+				"Node mutation lives in BookService (the SSOT): addNode creates a free-floating node with a deterministic auto-layout slot (autoSlot, KR-023), persists, then emits node:created carrying the kind.",
+				"Selection is owned by the canvas (single source of truth, KR-024) and broadcast via node:selected{nodeId|null}; node-editor will react to it.",
+				"Pure, testable geometry (resolvePositions/resolveEdges): position-less nodes fall back to autoSlot; orphaned edges are dropped, never drawn to nowhere (KR-021).",
+				"node:created payload extended with a typed kind on the brain EventBus — a core domain event emitted by BookService, kept in brain (emitter-owned)."
+			],
+			"brain_contracts_added": [
+				{ "type": "service", "name": "BookService.addNode" },
+				{ "type": "event", "name": "node:created (payload + kind)" },
+				{ "type": "event", "name": "node:selected" }
+			],
+			"lessons_learned": [
+				"Inheriting code-knowledge.json from another project left foreign KR ids (KR-001 = cloud-import-options) that collide with the gamebook's own KR namespace — the cross-project knowledge base needs a reset/namespacing before appending gamebook KRs.",
+				"Local pan/zoom is shippable without UIPreferencesService; only its PERSISTENCE must wait — split iteration 3 so the canvas is usable now (mirrors book-creation iter 3 deferring on CloudSyncService).",
+				"Canvas event flow: node cards / controls must stopPropagation on pointerdown+click so background pan/clear-selection only fire on true empty-canvas interactions."
+			],
+			"bugs_encountered": ["BUG-001"]
 		}
 	]
 }
