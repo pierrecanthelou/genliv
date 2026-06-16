@@ -147,6 +147,11 @@
 			"risk": "book-creation and book-library compose at the app root: LibraryScreen receives the create affordance as a prop (<CreateBookEntry/>); neither feature imports the other (feature isolation). Same composition-root seam as the ActionRegistry/SlotRegistry, for a sibling screen rather than a panel region."
 		},
 		{
+			"id": "KR-080",
+			"feature": "outline-view",
+			"risk": "The outline DFS MUST guard cycles/convergence: a node already shown — or reached via a relink/flee edge — becomes a ↪ reference row and is never recursed into, so a cyclic book (allowed by design, KR-061) cannot infinite-loop. Nodes unreachable from the sommaire root (the isolated mort, free-floating nodes) are listed flat so none are hidden. A dangling edge target is flagged (⚠ cible supprimée), never crashed (KR-021). buildOutline is pure + view-agnostic so the rule is tested once."
+		},
+		{
 			"id": "KR-109",
 			"feature": "global-config",
 			"risk": "Any presentational component consumed by more than one feature belongs in brain/components/ and is re-exported from brain/components/index.ts. A component living in a feature but imported by another is a cross-feature violation — move it."

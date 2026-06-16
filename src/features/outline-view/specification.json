@@ -1,0 +1,70 @@
+{
+	"feature": "outline-view",
+	"created_at": "2026-06-16",
+	"status": "in-progress",
+	"design_reference": "Editeur Livre-Jeu - Wireframes.dc.html § 03 « Mode Outline » variant A (plan indenté du livre) + the « ≣ Outline » switch in the § 02 top bar. Rows = NodeBadge + title, nested by choice edges, relinks marked ↪. Component anatomy + tokens from the design system; low-fi wireframe, light theme.",
+	"plan": {
+		"goal": "Show the open book as an indented outline that mirrors the tree, switchable from the canvas, so an author can read and navigate the whole structure as a plan and edit any screen by selecting its row.",
+		"acceptance_criteria": [
+			"The editor top bar exposes a canvas ↔ outline view-mode switch; selecting « Plan » replaces the canvas body with the indented outline and « Arbre » restores the canvas; the node-editor panel stays mounted in both.",
+			"The outline lists the book as an indented tree: a depth-first traversal from the sommaire root following choice edges, each row showing the node's badge (kind) + title.",
+			"relink / flee edges, convergences, and cycle back-edges render as ↪ reference rows (labelled by edge kind) and are NOT recursed into, so a cyclic book never loops forever.",
+			"Nodes unreachable from the root (the isolated mort, free-floating nodes) are listed flat so the whole book is visible.",
+			"Clicking a row selects its node through the brain SelectionService; the canvas and node-editor reflect that same selection (single source of truth), and the selected row is highlighted.",
+			"A reference row whose target node was deleted is surfaced (⚠ cible supprimée), never crashes the render.",
+			"The outline is a live VIEW over BookService (derived inline, no useEffect-synced copy) and holds no private node/edge copy.",
+			"The view-mode is a non-synced UI preference (local for the skeleton); it is never written to the book document.",
+			"Rows render from design-system tokens/primitives (NodeBadge, tokens), light theme; rows are keyboard-operable with ≥44px targets."
+		],
+		"brain_contracts": [
+			{ "type": "service", "name": "BookService", "direction": "consumes" },
+			{ "type": "service", "name": "SelectionService", "direction": "consumes" },
+			{ "type": "service", "name": "Router", "direction": "consumes" },
+			{ "type": "component", "name": "EditorTopBar", "direction": "consumes" }
+		],
+		"walking_skeleton": "buildOutline (pure) flattens the book into indented rows by DFS from the sommaire, following choice edges and emitting reference rows for relink/flee/convergence/cycles/dangling targets, then listing unreachable nodes flat. OutlineView renders the rows (NodeBadge + title), reads the live book via useOpenBook, and selects on click via SelectionService (shared with the canvas, KR-024). The editor shell hoists the shared EditorTopBar with a canvas ↔ outline SegmentedControl and swaps the body.",
+		"n": 3,
+		"iterations": [
+			{ "id": 1, "goal": "Outline fidelity (§ 03 A): hover preview, expand/collapse, per-row rule badges (⊘ prereq, ⏱ countdown) and end-leaf labels; refine reference-row affordance + « centrer dans l'arbre ».", "status": "planned" },
+			{ "id": 2, "goal": "Node inspector (§ 03 B): the node-card summary (entre depuis / victoire / fuite) on row focus, with Éditer + Centrer dans l'arbre actions.", "status": "planned" },
+			{ "id": 3, "goal": "Persist the view-mode + outline expand state via UIPreferencesService (non-synced UI prefs, KR-022) — deferred until that service lands.", "status": "planned" }
+		],
+		"known_risks": [
+			"KR-020 — The outline is a VIEW over BookService; never hold a private node/edge copy. Derive rows inline (useMemo), re-read on node:*/edge:* via useOpenBook.",
+			"KR-024 — Selection is the brain SelectionService SSOT; the outline reads via useSelectedNode and writes via selection.select, so canvas + outline + panel never desync.",
+			"KR-080 — Outline traversal MUST guard cycles/convergence: a target already shown (or reached by relink/flee) becomes a ↪ reference row, never recursed, so a cyclic book (allowed by design, KR-061) can't infinite-loop; unreachable nodes are listed flat so none are hidden.",
+			"KR-021 — A reference/edge whose target node was deleted must be flagged (⚠ cible supprimée), never rendered as a crash or a blank.",
+			"KR-022 — The canvas ↔ outline view-mode is a non-synced UI preference, never part of the book document; persistence waits for UIPreferencesService.",
+			"KR-068 — Row badges/labels come from the kind registry, not kind tests.",
+			"KR-013 — Derive the outline inline/useMemo, not via a useEffect-synced mirror."
+		]
+	},
+	"implementation": {
+		"iterations_log": [
+			{
+				"id": 0,
+				"label": "walking-skeleton",
+				"completed_at": "2026-06-16",
+				"architecture_choices": [
+					"Hoisted the shared editor chrome out of tree-canvas into brain/components/EditorTopBar (KR-109) and added the canvas ↔ outline SegmentedControl; a new src/EditorScreen shell owns the local view-mode (KR-022) and swaps TreeCanvas ↔ OutlineView while keeping NodeEditorPanel mounted. tree-canvas became the canvas body only.",
+					"buildOutline is a pure, view-agnostic DFS (cycle/convergence-safe via a visited set + reference rows, KR-080/061); OutlineView derives rows with useMemo from the live book (KR-020/013).",
+					"Selection is shared through the brain SelectionService (KR-024): the outline reads useSelectedNode and writes selection.select, so picking a row reflects on the canvas and the panel.",
+					"Row badges/labels read the kind registry (effectiveKind/endLabel/NodeBadge, KR-068); dangling reference targets are flagged ⚠ (KR-021)."
+				],
+				"deviations_from_plan": [
+					"View-mode persistence (iteration 3) deferred until UIPreferencesService exists — local state for now, mirroring tree-canvas pan/zoom and book-creation offline-queue deferrals.",
+					"Hoisting the top bar to the shell is a tree-canvas change inside this slice, made at the composition seam so both views share one bar (no duplication); CanvasTopBar removed."
+				],
+				"test_coverage": {
+					"unit": "buildOutline — nesting, relink reference, choice-cycle guard, isolated-node listing, dangling target, convergence",
+					"integration": "outline-view via App — view-mode switch shows the outline, row click selects via SelectionService, selection shared across the switch back to the canvas",
+					"e2e": "deferred (Playwright not set up)"
+				}
+			}
+		],
+		"open_questions": [
+			"Expand/collapse + node-inspector summary (iterations 1–2) when the outline gains interaction depth.",
+			"View-mode + expand-state persistence (iteration 3) when UIPreferencesService lands."
+		]
+	}
+}
