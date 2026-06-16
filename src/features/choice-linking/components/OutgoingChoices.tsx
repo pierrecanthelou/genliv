@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useBrain, useOpenBook, Badge, IconButton, nodeTitle, type SlotContext } from '../../../brain'
+import { useBrain, useOpenBook, Badge, IconButton, nodeTitle, NODE_KINDS, EDGE_KINDS, type SlotContext } from '../../../brain'
 
 /**
  * « Choix sortants » — a node's outgoing branches, mounted into node-editor's
@@ -27,7 +27,7 @@ export function OutgoingChoices({ bookId, nodeId }: SlotContext): JSX.Element {
 	// never authored choice targets (KR-067); Mort is reached only automatically
 	// in combat. Mirrors the SSOT guard in BookService.addEdge.
 	const candidates =
-		book !== null ? book.nodes.filter((n) => n.id !== nodeId && n.kind !== 'sommaire' && n.kind !== 'mort') : []
+		book !== null ? book.nodes.filter((n) => n.id !== nodeId && NODE_KINDS[n.kind].canBeTarget) : []
 
 	function addBranch(): void {
 		const created = books.addChoiceBranch(bookId, nodeId)
@@ -39,6 +39,8 @@ export function OutgoingChoices({ bookId, nodeId }: SlotContext): JSX.Element {
 		setRelinking(false)
 	}
 
+	// Handlers are recreated each render on purpose: the list is tiny and these
+	// close over fresh book state — no preemptive useCallback/memo (perf rule).
 	return (
 		<div>
 			<div style={header}>
@@ -58,9 +60,7 @@ export function OutgoingChoices({ bookId, nodeId }: SlotContext): JSX.Element {
 						<li key={edge.id} style={row}>
 							<span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>→ {titleOf(edge.to)}</span>
 							<span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flex: 'none' }}>
-								<Badge tone={edge.kind === 'choice' ? 'neutral' : 'muted'}>
-									{edge.kind === 'choice' ? 'choix' : edge.kind === 'relink' ? 'reliaison' : 'fuite'}
-								</Badge>
+								<Badge tone={EDGE_KINDS[edge.kind].rowTone}>{EDGE_KINDS[edge.kind].rowLabel}</Badge>
 								<IconButton label="Supprimer la branche" tone="danger" onClick={() => books.removeEdge(bookId, edge.id)}>
 									✕
 								</IconButton>

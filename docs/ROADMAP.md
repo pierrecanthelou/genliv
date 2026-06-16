@@ -46,3 +46,12 @@ Each tier = iteration `K` of every feature with an iteration `K`, in build order
 - `0.5.x` (V4) = iteration 4 of features whose `n ≥ 4`.
 
 Banked depth so far: tree-canvas iter 1–2, node-editor iter 1. Deferred dependencies to honor when their tier arrives: book-creation iter 3 (offline queue) needs `cloud-sync`; tree-canvas iter 3 (pan/zoom + position persistence) needs `UIPreferencesService`.
+
+## Code-health sweep (from the TODO review)
+
+A cross-cutting cleanup of the repo, phased so each lands as its own reviewed refactor (no version bump — folds into the touched code):
+
+- **P1 — kind registry (done):** `brain/kinds.ts` (`NODE_KINDS`/`EDGE_KINDS`) is the single per-kind source; removed scattered `if (kind === …)` tests, the `Partial<Record>` badge map, and 3 duplicate per-kind tables (KR-068).
+- **P2 — magic numbers / hit-target (planned, repo-wide):** introduce a `--hit-target` token + `HIT_TARGET_MIN` constant for the ≥44 px a11y minimum repeated in ~12 files; name the `autoSlot`/seed layout origins (BookService) and the canvas/card dimension literals (NodeCard, EdgeLayer, ZoomControls, TreeCanvas, CanvasTopBar, BookCard, LibraryScreen). Cosmetic one-off wireframe px are deliberately left (low-fi, slated for the visual reskin).
+- **P3 — finishing touches (planned):** a shared `plural()` helper (FR: 0 & 1 singular; BookCard, CanvasTopBar); extract the remaining large inline `style` objects to named consts for readability (NodeCard, BookCard, LibraryScreen — consistency with `panelShell`/`monoControl`). Memoization was reviewed and rejected (no preemptive `useMemo`/`useCallback`, perf rule).
+- **Deliberately not changed:** `tree-canvas/layout/nodeView.ts` keeps its `kind === 'sommaire'` snippet placeholder — that is a view-local empty-state string, not kind *domain* knowledge, so it stays out of the brain registry.

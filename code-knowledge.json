@@ -127,6 +127,11 @@
 			"risk": "Structural screens are never authored choice targets: the Sommaire root has no incoming choices and the Mort leaf is reached ONLY automatically at the end of a combat, never via a choice/relink. Enforce at the SSOT (BookService.addEdge rejects a target whose kind is sommaire/mort) AND in the relink picker (exclude them from candidates), not just one. The future automatic combat→Mort link uses a dedicated path, not the manual edge API."
 		},
 		{
+			"id": "KR-068",
+			"feature": "cross-cutting",
+			"risk": "Per-kind knowledge lives in ONE data-driven registry (brain/kinds.ts: NODE_KINDS / EDGE_KINDS), not scattered if (kind === …) tests or partial maps. Each descriptor carries the kind's label, default title, badge mark, and domain invariants (structural / canHaveOutgoing / canBeTarget). Consumers (NodeBadge, nodeView, effectiveKind, NodeEditorPanel, BookService, EdgeLayer, OutgoingChoices) READ the descriptor. The Record<NodeKind|EdgeKind, …> type makes every entry mandatory so a new kind fails to compile until handled (never a silent Partial<Record> gap). Kinds stay plain string literals (JSON-serialised domain) — descriptors, not classes, are the 'replace conditional with polymorphism' answer here. Same Open/Closed seam as ActionRegistry (KR-051)."
+		},
+		{
 			"id": "KR-070",
 			"feature": "book-library",
 			"risk": "Deleting a book is a dangerous, irreversible action: always gate behind a confirmation dialog (name the book, error-toned confirm, labelled Annuler) and route the delete through BookService.deleteBook (persist-remove then book:deleted, KR-004) — never a raw removal."
