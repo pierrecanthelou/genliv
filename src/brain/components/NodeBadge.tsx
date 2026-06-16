@@ -1,5 +1,6 @@
 import { type CSSProperties } from 'react'
 import type { NodeKind } from '../types'
+import { NODE_KINDS } from '../kinds'
 
 /**
  * NodeBadge — the node-type mark + mono label used on tree cards,
@@ -14,29 +15,12 @@ export interface NodeBadgeProps {
 	selected?: boolean
 }
 
-const MARKS: Partial<Record<NodeKind, CSSProperties>> = {
-	sommaire: { borderRadius: 2, background: 'var(--ink-0)' },
-	choix: { borderRadius: 2, border: '1.5px solid var(--ink-0)' },
-	pnj: { borderRadius: '50%', border: '1.5px solid var(--ink-0)' },
-	decor: { borderRadius: 2, border: '1.5px dashed var(--ink-0)' },
-	monstre: { background: 'repeating-linear-gradient(45deg,var(--ink-0) 0 2px,transparent 2px 4px)' },
-	fin: { border: '2px double var(--ink-0)' },
-	mort: { background: 'repeating-linear-gradient(45deg,var(--ink-4) 0 1.5px,transparent 1.5px 3px)' },
-}
-
-const LABELS: Record<NodeKind, string> = {
-	sommaire: 'SOMMAIRE',
-	choix: 'CHOIX',
-	pnj: 'PNJ',
-	decor: 'DÉCOR',
-	piege: 'PIÈGE',
-	monstre: 'MONSTRE',
-	fin: 'FIN',
-	mort: 'MORT',
-}
-
+// The node-type mark + label are self-described by the kind registry (KR-068),
+// so this primitive never branches on the kind value. `piege` is the one mark
+// drawn as a triangle rather than a styled box (its discriminated `mark` shape).
 function Mark({ kind, selected }: { kind: NodeKind; selected: boolean }): JSX.Element {
-	if (kind === 'piege') {
+	const mark = NODE_KINDS[kind].mark
+	if (mark.shape === 'triangle') {
 		return (
 			<span
 				style={{
@@ -50,12 +34,12 @@ function Mark({ kind, selected }: { kind: NodeKind; selected: boolean }): JSX.El
 		)
 	}
 	const base: CSSProperties = { width: 10, height: 10, flex: 'none' }
-	const skin: CSSProperties = selected ? { borderRadius: 2, background: 'var(--accent)' } : MARKS[kind] ?? {}
+	const skin: CSSProperties = selected ? { borderRadius: 2, background: 'var(--accent)' } : mark.style
 	return <span style={{ ...base, ...skin }} />
 }
 
 export function NodeBadge({ kind, label, selected = false }: NodeBadgeProps): JSX.Element {
-	const text = label ?? LABELS[kind] ?? ''
+	const text = label ?? NODE_KINDS[kind].label
 	return (
 		<span
 			style={{

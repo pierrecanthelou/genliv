@@ -1,3 +1,4 @@
+import { EDGE_KINDS } from '../../../brain'
 import { type EdgeGeometry } from '../layout/geometry'
 
 /**
@@ -62,7 +63,7 @@ export function EdgeLayer({ edges, width, height }: EdgeLayerProps): JSX.Element
 						pointerEvents: 'none',
 					}}
 				>
-					{edge.label ?? (edge.kind === 'flee' ? 'Fuite ↻' : edge.kind === 'relink' ? 'Reliaison ↻' : '→')}
+					{edge.label ?? EDGE_KINDS[edge.kind].canvasLabel}
 				</div>
 			))}
 		</>

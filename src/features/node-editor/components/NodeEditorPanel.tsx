@@ -10,6 +10,7 @@ import {
 	endLabel,
 	nodeTitle,
 	SLOT_NODE_EDITOR_CHOICES,
+	NODE_KINDS,
 	type NodeActionType,
 	type NodePatch,
 } from '../../../brain'
@@ -57,13 +58,12 @@ export function NodeEditorPanel(): JSX.Element {
 	// Sommaire (root) and Mort (death leaf) are STRUCTURAL screens: no incoming
 	// choice label, no required action, no Fin victoire/échec. Mort additionally
 	// has no outgoing choices (KR-055). Their only editable field is the text.
-	const isSommaire = node.kind === 'sommaire'
-	const isMort = node.kind === 'mort'
-	const isStructural = isSommaire || isMort
-	const showLabel = !isStructural
-	const showAction = !isStructural
-	const showEndToggles = !isStructural
-	const showOutgoing = !isMort
+	// Driven by the kind registry, not kind tests (KR-068).
+	const kind = NODE_KINDS[node.kind]
+	const showLabel = !kind.structural
+	const showAction = !kind.structural
+	const showEndToggles = !kind.structural
+	const showOutgoing = kind.canHaveOutgoing
 
 	function patch(p: NodePatch): void {
 		books.updateNode(activeBookId, activeNode.id, p)

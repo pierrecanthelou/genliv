@@ -3,6 +3,7 @@ import type { PersistenceService } from './PersistenceService'
 import type { Book, BookNode, NodeKind, Edge, EdgeKind } from './types'
 import { bookKey, BOOK_KEY_PREFIX } from './persistenceKeys'
 import { createId } from './utils/id'
+import { NODE_KINDS } from './kinds'
 
 /**
  * BookService — the API nœud. Single source of truth for the book tree
@@ -177,8 +178,9 @@ export function createBookService(persistence: PersistenceService, events: Event
 			if (current === undefined) return null
 			// Structural screens accept only text edits: the locked Mort leaf
 			// (KR-002) and the Sommaire root have no end flags / required action
-			// (KR-055).
-			const textOnly = current.locked === true || current.kind === 'sommaire' || current.kind === 'mort'
+			// (KR-055). The structural fact is read from the kind registry, not
+			// tested against kind values (KR-068).
+			const textOnly = current.locked === true || NODE_KINDS[current.kind].structural
 			const allowed: NodePatch = textOnly ? { text: patch.text } : patch
 			const updated: BookNode = { ...current }
 			for (const key of Object.keys(allowed) as (keyof NodePatch)[]) {
@@ -200,8 +202,9 @@ export function createBookService(persistence: PersistenceService, events: Event
 			const book = persistence.get<Book>(bookKey(bookId))
 			if (book === null) return null
 			const parent = book.nodes.find((n) => n.id === fromNodeId)
-			// Mort is structural: no outgoing choices (KR-055/060).
-			if (parent === undefined || parent.kind === 'mort') return null
+			// Mort is structural: no outgoing choices (KR-055/060) — read from the
+			// kind registry (canHaveOutgoing), not a kind test (KR-068).
+			if (parent === undefined || !NODE_KINDS[parent.kind].canHaveOutgoing) return null
 			const node: BookNode = {
 				id: createId('node'),
 				kind: 'choix',
@@ -227,14 +230,16 @@ export function createBookService(persistence: PersistenceService, events: Event
 			const fromNode = book.nodes.find((n) => n.id === from)
 			const toNode = book.nodes.find((n) => n.id === to)
 			if (fromNode === undefined || toNode === undefined) return null
-			// Mort is structural: no outgoing choices (KR-055/060).
-			if (fromNode.kind === 'mort') return null
+			// Mort is structural: no outgoing choices (KR-055/060). Read from the
+			// kind registry (canHaveOutgoing), not a kind test (KR-068).
+			if (!NODE_KINDS[fromNode.kind].canHaveOutgoing) return null
 			// Structural screens are never authored choice targets (KR-067): the
 			// Sommaire is the root (no incoming choices) and the Mort leaf is
 			// reached only automatically at the end of a combat, never via an
 			// authored choice/relink. The future automatic combat→Mort link will
-			// use a dedicated path, not this manual edge API.
-			if (toNode.kind === 'sommaire' || toNode.kind === 'mort') return null
+			// use a dedicated path, not this manual edge API. The invariant is the
+			// registry's `canBeTarget` flag, not a kind test (KR-068).
+			if (!NODE_KINDS[toNode.kind].canBeTarget) return null
 			const edge: Edge = { id: createId('edge'), from, to, kind }
 			const next: Book = { ...book, edges: [...book.edges, edge], updatedAt: new Date().toISOString() }
 			persist(next)

@@ -4,7 +4,14 @@
  * is a view over this. References are by stable id, never by name.
  */
 
-/** Leaf kinds. `mort` is the locked, obligatory death leaf. */
+/**
+ * Leaf kinds. `mort` is the locked, obligatory death leaf. Kinds are plain
+ * string literals, not classes: the book is serialised to/from JSON by the
+ * PersistenceService, so a class hierarchy would fight (de)serialisation. The
+ * per-kind behaviour lives in the data-driven kind registry (`kinds.ts`,
+ * KR-068) — the idiomatic alternative to "replace conditional with
+ * polymorphism" for a serialised domain.
+ */
 export type NodeKind = 'sommaire' | 'choix' | 'pnj' | 'decor' | 'piege' | 'monstre' | 'fin' | 'mort'
 
 /** Edges carry a kind: a `choice` is the labelled button in a parent screen. */
