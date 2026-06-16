@@ -2,6 +2,12 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.1.3 — outline-view walking skeleton (MVP slice)
+
+- New **`outline-view`** feature: the open book as an indented « plan » (`OutlineView`), a DFS from the sommaire that nests `choice` edges and renders `relink`/`flee`/convergence/cycle back-edges as `↪` reference rows (cycle-safe, **KR-080**); unreachable nodes (isolated `mort`) listed flat; dangling targets flagged `⚠ cible supprimée`.
+- Hoisted the shared editor chrome to **`brain/components/EditorTopBar`** (KR-109) with a canvas ↔ outline **view-mode switch**; a new **`src/EditorScreen`** shell owns the (non-synced, KR-022) view-mode and swaps `TreeCanvas` ↔ `OutlineView` while keeping the node-editor panel mounted. `tree-canvas` is now the canvas body only; `CanvasTopBar` removed.
+- Selection is shared via the brain `SelectionService` (KR-024): picking an outline row reflects on the canvas and the panel. `buildOutline` is pure + tested. 87 tests passing (9 new).
+
 ## Unreleased — unknown-kind boundary guard (KR-116)
 
 - Hardened the persistence trust boundary: `PersistenceService.get` casts JSON unchecked, so a corrupted store / schema drift could carry a kind outside the registry and crash a `NODE_KINDS[kind]` lookup. New `isNodeKind` / `isEdgeKind` guards (derived from the registry keys) + a single `BookService.loadBook` validation: a book with an unknown node/edge kind is surfaced (`console.warn`) and treated as **unreadable** (`getBook`/`openBook` → null, omitted from `listBooks`, mutations refused) rather than throwing — but stays **deletable** so it can be cleaned up. New **KR-116**. 78 tests passing (5 new).

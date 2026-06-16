@@ -1,13 +1,22 @@
-import { Badge, plural } from '../../../brain'
+import { Badge } from './Badge'
+import { SegmentedControl } from './SegmentedControl'
+import { plural } from '../utils/plural'
+
+/** Which editor body is shown: the graph canvas or the indented outline. */
+export type EditorViewMode = 'canvas' | 'outline'
 
 /**
- * Editor top bar (wireframe § 02): « ← Mes livres », book title + node-count
- * badge, the view-mode switch (canvas ↔ outline), « Aperçu du jeu ▷ » (play
- * mode — out of editor scope) and the accent « + Nœud » primary action.
+ * Editor top bar (wireframe § 02/03): « ← Mes livres », book title + node-count
+ * badge, the canvas ↔ outline view-mode switch, « Aperçu du jeu ▷ » (play mode —
+ * out of editor scope) and the accent « + Nœud » primary action. Shared chrome
+ * above both the canvas and the outline (KR-109), so the switch and the title
+ * live in one place rather than being duplicated per view.
  */
-export interface CanvasTopBarProps {
+export interface EditorTopBarProps {
 	title: string
 	nodeCount: number
+	viewMode: EditorViewMode
+	onViewModeChange: (mode: EditorViewMode) => void
 	onBack: () => void
 	onAddNode: () => void
 }
@@ -24,7 +33,19 @@ const monoControl: React.CSSProperties = {
 	cursor: 'pointer',
 }
 
-export function CanvasTopBar({ title, nodeCount, onBack, onAddNode }: CanvasTopBarProps): JSX.Element {
+const VIEW_OPTIONS: { value: EditorViewMode; label: string }[] = [
+	{ value: 'canvas', label: '⌗ Arbre' },
+	{ value: 'outline', label: '≣ Plan' },
+]
+
+export function EditorTopBar({
+	title,
+	nodeCount,
+	viewMode,
+	onViewModeChange,
+	onBack,
+	onAddNode,
+}: EditorTopBarProps): JSX.Element {
 	return (
 		<header
 			style={{
@@ -40,12 +61,7 @@ export function CanvasTopBar({ title, nodeCount, onBack, onAddNode }: CanvasTopB
 				<button
 					type="button"
 					onClick={onBack}
-					style={{
-						...monoControl,
-						color: 'var(--text-label)',
-						border: '1px solid transparent',
-						background: 'transparent',
-					}}
+					style={{ ...monoControl, color: 'var(--text-label)', border: '1px solid transparent', background: 'transparent' }}
 				>
 					<span aria-hidden="true">←</span> Mes livres
 				</button>
@@ -67,6 +83,12 @@ export function CanvasTopBar({ title, nodeCount, onBack, onAddNode }: CanvasTopB
 			</div>
 
 			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+				<SegmentedControl
+					ariaLabel="Mode d’affichage"
+					options={VIEW_OPTIONS}
+					value={viewMode}
+					onChange={onViewModeChange}
+				/>
 				<button
 					type="button"
 					disabled
