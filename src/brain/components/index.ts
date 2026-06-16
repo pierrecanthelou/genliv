@@ -9,3 +9,5 @@ export { IconButton, type IconButtonProps, type IconButtonTone } from './IconBut
 export { Card, type CardProps } from './Card'
 export { Field, type FieldProps } from './Field'
 export { Modal, type ModalProps, type ModalDestructiveAction } from './Modal'
+export { Toggle, type ToggleProps } from './Toggle'
+export { SegmentedControl, type SegmentedControlProps, type SegmentedOption } from './SegmentedControl'

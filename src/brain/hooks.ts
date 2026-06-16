@@ -1,12 +1,13 @@
 import { useMemo, useSyncExternalStore } from 'react'
-import { useBrain, type AppEventName, type Book } from '../../../brain'
+import { useBrain } from './BrainContext'
+import type { AppEventName } from './EventBus'
+import type { Book } from './types'
 
 /**
- * Live read of the open book from BookService (the single source of truth),
- * kept current by subscribing to the brain event bus — NOT by mirroring
- * props through useEffect (KR-013). The canvas re-reads the persisted book
- * whenever a node/edge changes anywhere, so it stays a faithful VIEW
- * (KR-020) without holding its own copy.
+ * Shared brain hooks. Views (tree-canvas, node-editor, outline-view) read the
+ * open book live from BookService — the single source of truth — by
+ * subscribing to the event bus, NOT by mirroring props through useEffect
+ * (KR-013/113). Each view stays a VIEW, holding no private copy (KR-020).
  */
 const BOOK_MUTATION_EVENTS: AppEventName[] = [
 	'book:opened',

@@ -135,3 +135,45 @@ describe('BookService.addNode', () => {
 		expect(fired).toBe(false)
 	})
 })
+
+describe('BookService.updateNode', () => {
+	beforeEach(() => {
+		window.localStorage.clear()
+	})
+
+	it('patches text + end flags and persists before emitting node:updated', () => {
+		const { service, events } = setup()
+		const book = service.createBook('Arbre')
+		const target = service.addNode(book.id, 'choix')!
+		let textAtEmit: string | null = null
+		events.on('node:updated', ({ bookId, nodeId }) => {
+			textAtEmit = service.getBook(bookId)?.nodes.find((n) => n.id === nodeId)?.text ?? null
+		})
+
+		const updated = service.updateNode(book.id, target.id, { text: 'Une porte close.', endVictory: true })
+
+		expect(updated?.text).toBe('Une porte close.')
+		expect(updated?.endVictory).toBe(true)
+		expect(textAtEmit).toBe('Une porte close.')
+		// Survives reload (persisted).
+		expect(service.getBook(book.id)?.nodes.find((n) => n.id === target.id)?.endVictory).toBe(true)
+	})
+
+	it('only accepts text edits on a locked node, ignoring end flags (KR-002)', () => {
+		const { service } = setup()
+		const book = service.createBook('Arbre')
+		const mort = book.nodes.find((n) => n.kind === 'mort')!
+
+		const updated = service.updateNode(book.id, mort.id, { text: 'Vous périssez.', endVictory: true })
+
+		expect(updated?.text).toBe('Vous périssez.')
+		expect(updated?.endVictory).toBeUndefined()
+	})
+
+	it('returns null for an unknown book or node', () => {
+		const { service } = setup()
+		const book = service.createBook('Arbre')
+		expect(service.updateNode('book_missing', 'x', { text: 'a' })).toBeNull()
+		expect(service.updateNode(book.id, 'node_missing', { text: 'a' })).toBeNull()
+	})
+})

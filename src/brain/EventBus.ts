@@ -3,7 +3,7 @@
  * Features never import each other; they emit/observe events here.
  * Typed by AppEvents so payloads stay honest at compile time.
  */
-import type { NodeKind } from './types'
+import type { NodeKind, NodeActionType } from './types'
 
 export interface AppEvents {
 	'book:created': { bookId: string }
@@ -15,6 +15,7 @@ export interface AppEvents {
 	'node:selected': { bookId: string; nodeId: string | null }
 	'edge:created': { bookId: string; edgeId: string; kind: string }
 	'edge:deleted': { bookId: string; edgeId: string }
+	'action:changed': { bookId: string; nodeId: string; actionType: NodeActionType }
 }
 
 export type AppEventName = keyof AppEvents

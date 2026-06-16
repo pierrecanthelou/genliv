@@ -59,8 +59,9 @@ Node kinds: `sommaire` (root) · `choix` · `pnj` · `decor` · `piege` · `mons
 | Feature | Status | Summary |
 |---------|--------|---------|
 | `book-creation` | walking skeleton ✅ | Home → « Nouveau livre » dialog → seed Sommaire + isolated Mort → editor. Iteration 3 (cloud-first offline queue) deferred until `cloud-sync`. |
-| `tree-canvas` | iter 1–2 ✅ | § 02 graph view: node cards (NodeBadge + ref + title + snippet) + SVG edges on a dot-grid; live binding to `BookService` via `node:*`/`edge:*`; single-select broadcast as `node:selected`; « + Nœud » adds a free-floating node. Local pan/zoom shipped; persisting view-state/positions (iter 3) deferred until `UIPreferencesService`. Retires `EditorStub`. |
+| `tree-canvas` | iter 1–2 ✅ | § 02 graph view: node cards (NodeBadge + ref + title + snippet) + SVG edges on a dot-grid; live binding to `BookService` via `node:*`/`edge:*`; single-select; « + Nœud » adds a free-floating node. Local pan/zoom shipped; persisting view-state/positions (iter 3) deferred until `UIPreferencesService`. Retires `EditorStub`. |
+| `node-editor` | iter 1 ✅ | § 02 side panel mounted beside the canvas: header (NodeBadge + ref + title + ✕), editable Description, Fin victoire/échec toggles, « Action requise » SegmentedControl mounting editors from `ActionRegistry`. Selection promoted to a brain `SelectionService` (SSOT). Libellé/inventory/choices/illustration are deferred slots. |
 
-Next in the build order: `node-editor` → `choice-linking` → `book-library` → `outline-view` → `action-*` → `cloud-sync`.
+Next in the build order: `choice-linking` → `book-library` → `outline-view` → `action-*` → `cloud-sync`.
 
-> The editor surface is now the real `tree-canvas`. Its node side-panel (wireframe § 02 right) belongs to the next feature, `node-editor`, which reacts to the `node:selected` the canvas emits.
+> The editor is now `tree-canvas` (graph) + `node-editor` (side panel), two isolated features composed by the app shell and talking only through brain (`SelectionService` + `BookService`). The four `action-*` features will self-register their required-action editors with `ActionRegistry`; `node-editor` mounts them without importing them.

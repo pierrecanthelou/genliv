@@ -1,5 +1,5 @@
 import { type KeyboardEvent } from 'react'
-import { NodeBadge, type BookNode } from '../../../brain'
+import { NodeBadge, effectiveKind, endLabel, type BookNode } from '../../../brain'
 import { NODE_W, NODE_H, type Point } from '../layout/geometry'
 import { nodeView, nodeRef } from '../layout/nodeView'
 
@@ -56,7 +56,7 @@ export function NodeCard({ node, index, position, selected, onSelect }: NodeCard
 			}}
 		>
 			<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-				<NodeBadge kind={node.kind} selected={selected} />
+				<NodeBadge kind={effectiveKind(node)} label={endLabel(node)} selected={selected} />
 				<span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-eyebrow)', color: 'var(--ink-5)' }}>
 					{nodeRef(index)}
 				</span>

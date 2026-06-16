@@ -1,6 +1,5 @@
-import { useMemo, useState } from 'react'
-import { useBrain, useRoute } from '../../../brain'
-import { useOpenBook } from '../hooks/useOpenBook'
+import { useMemo } from 'react'
+import { useBrain, useRoute, useSelectedNode, useOpenBook } from '../../../brain'
 import { useViewport } from '../hooks/useViewport'
 import { resolvePositions, resolveEdges, NODE_W, NODE_H } from '../layout/geometry'
 import { CanvasTopBar } from './CanvasTopBar'
@@ -18,11 +17,11 @@ const DOT_GRID = 'radial-gradient(var(--ink-6) 1px, transparent 1px)'
  * (KR-020). Replaces the temporary EditorStub.
  */
 export function TreeCanvas(): JSX.Element {
-	const { books, router, events } = useBrain()
+	const { books, router, selection } = useBrain()
 	const route = useRoute()
 	const bookId = route.name === 'editor' ? route.bookId : null
 	const book = useOpenBook(bookId)
-	const [selectedId, setSelectedId] = useState<string | null>(null)
+	const selectedId = useSelectedNode()
 	const { viewport, zoomIn, zoomOut, onBackgroundPointerDown, onWheel, didDragRef } = useViewport()
 
 	const positions = useMemo(() => resolvePositions(book?.nodes ?? []), [book])
@@ -49,15 +48,13 @@ export function TreeCanvas(): JSX.Element {
 	}
 
 	function select(nodeId: string): void {
-		setSelectedId(nodeId)
-		events.emit('node:selected', { bookId: book!.id, nodeId })
+		selection.select(book!.id, nodeId)
 	}
 
 	function clearSelection(): void {
 		// A drag-release is a pan, not a deselect click.
 		if (didDragRef.current) return
-		setSelectedId(null)
-		events.emit('node:selected', { bookId: book!.id, nodeId: null })
+		selection.select(book!.id, null)
 	}
 
 	function addNode(): void {
@@ -68,7 +65,7 @@ export function TreeCanvas(): JSX.Element {
 	const isSeededEmpty = book.nodes.length <= 2 && book.edges.length === 0
 
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--surface-app)' }}>
+		<div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--surface-app)' }}>
 			<CanvasTopBar
 				title={book.title}
 				nodeCount={book.nodes.length}
