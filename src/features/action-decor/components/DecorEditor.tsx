@@ -17,6 +17,9 @@ const INTERACTIONS: SegmentedOption<DecorInteraction>[] = [
 	{ value: 'fouiller', label: 'Fouiller' },
 ]
 
+/** The config a node falls back to before any décor is authored. */
+const DEFAULT_DECOR: DecorConfig = { interaction: 'prendre' }
+
 /**
  * action-decor — the « Décor » required-action editor, mounted by node-editor
  * via the brain ActionRegistry (self-registered, KR-050/051; node-editor never
@@ -29,24 +32,21 @@ export function DecorEditor({ bookId, nodeId }: ActionEditorContext): JSX.Elemen
 	const { books } = useBrain()
 	const book = useOpenBook(bookId)
 	const node = book?.nodes.find((n) => n.id === nodeId) ?? null
-	const decor = node?.decor ?? null
-	const interaction: DecorInteraction = decor?.interaction ?? 'prendre'
+	// Normalise the config once (default « prendre ») so every read and the write
+	// share one shape — no repeated `?? 'prendre'` fallback or `decor?.object?.` chain.
+	const decor = node?.decor ?? DEFAULT_DECOR
+	const { interaction, object } = decor
 
 	function patchDecor(patch: Partial<DecorConfig>): void {
-		const current: DecorConfig = decor ?? { interaction: 'prendre' }
-		books.updateNode(bookId, nodeId, { decor: { ...current, ...patch } })
+		books.updateNode(bookId, nodeId, { decor: { ...decor, ...patch } })
 	}
 
 	function handleObjectChange(draft: ObjectDraft): void {
 		// Keep the object's stable id across edits; mint one on first authoring (KR-003).
-		const id = decor?.object?.id ?? createId('object')
-		patchDecor({ object: { id, ...draft } })
+		patchDecor({ object: { id: object?.id ?? createId('object'), ...draft } })
 	}
 
-	const objectValue: ObjectDraft = {
-		name: decor?.object?.name ?? '',
-		description: decor?.object?.description ?? '',
-	}
+	const objectValue: ObjectDraft = { name: object?.name ?? '', description: object?.description ?? '' }
 
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
