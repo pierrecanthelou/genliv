@@ -5,6 +5,7 @@ import { createRouter, type Route, type Router } from './Router'
 import { createBookService, type BookService } from './BookService'
 import { createSelectionService, type SelectionService } from './SelectionService'
 import { createActionRegistry, type ActionRegistry } from './ActionRegistry'
+import { createSlotRegistry, type SlotRegistry } from './SlotRegistry'
 
 /**
  * Brain — the application core. It wires the services together (Service
@@ -18,6 +19,7 @@ export interface Brain {
 	books: BookService
 	selection: SelectionService
 	actions: ActionRegistry
+	slots: SlotRegistry
 }
 
 export interface CreateBrainOptions {
@@ -32,7 +34,8 @@ export function createBrain(options: CreateBrainOptions = {}): Brain {
 	const books = createBookService(persistence, events)
 	const selection = createSelectionService(events)
 	const actions = createActionRegistry()
-	return { events, persistence, router, books, selection, actions }
+	const slots = createSlotRegistry()
+	return { events, persistence, router, books, selection, actions, slots }
 }
 
 const BrainContext = createContext<Brain | null>(null)

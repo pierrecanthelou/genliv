@@ -70,6 +70,28 @@
 				"Libellé du choix belongs on the incoming edge, not duplicated on the node — confirmed with the user to avoid a desync trap (KR-053-adjacent)."
 			],
 			"bugs_encountered": []
+		},
+		{
+			"feature": "choice-linking",
+			"completed_at": "2026-06-16",
+			"goal": "Manage a node's outgoing choices — create a new child branch, relink to an existing node (cycles/convergence), and (later) per-choice hidden-prereq + countdown rules.",
+			"key_architecture_choices": [
+				"New brain SlotRegistry (KR-066): node-editor reserves SLOT_NODE_EDITOR_CHOICES and renders the registered renderer (placeholder fallback); choice-linking registers its OutgoingChoices renderer at the composition root (App). Generalises the ActionRegistry OCP seam to arbitrary panel regions — neither feature imports the other.",
+				"Edge mutation in BookService (SSOT, KR-060): addChoiceBranch (child + choice edge, node:created then edge:created), addEdge (relink, cycles allowed, no node created), removeEdge (edge only, target node survives). edge:created payload extended with from/to + typed EdgeKind.",
+				"Mort's no-outgoing invariant enforced at the SSOT (KR-055/060), not just by hiding the UI section.",
+				"OutgoingChoices is a live VIEW via useOpenBook; the relink picker is local UI state (not derived-from-props, KR-013)."
+			],
+			"brain_contracts_added": [
+				{ "type": "service", "name": "SlotRegistry" },
+				{ "type": "service", "name": "BookService.addChoiceBranch / addEdge / removeEdge" },
+				{ "type": "event", "name": "edge:created (payload + from/to/EdgeKind)" }
+			],
+			"lessons_learned": [
+				"When one feature must render inside another's panel, reach for a brain slot registry (host reserves, provider registers at the composition root) rather than a cross-feature import — mirrors ActionRegistry.",
+				"A slot renderer registered in a useEffect won't force the host to re-render (the registry has no subscribe); it works because the host re-renders for another reason (selection change) before the slot is needed — fine here, but a notify-on-register would be needed if a slot must appear without any other state change.",
+				"Pre-seed test fixtures BEFORE render() — a brain mutation after render (e.g. addChoiceBranch) updates subscribed views outside act() and triggers warnings."
+			],
+			"bugs_encountered": []
 		}
 	]
 }
