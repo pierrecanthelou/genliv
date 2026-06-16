@@ -175,6 +175,11 @@
 			"id": "KR-114",
 			"feature": "global-config",
 			"risk": "Any localStorage key holding a credential/token/secret (PAT, OAuth, API key) must be registered in brain/persistenceKeys.ts with a /* SENSITIVE */ marker and annotated in UIPreferenceKey — one auditable location for all credential storage. None yet."
+		},
+		{
+			"id": "KR-115",
+			"feature": "global-config",
+			"risk": "A design value needed both as a CSS string and as a numeric JS value lives in TWO synced forms: a CSS token (e.g. --hit-target: 44px in styles/tokens) and a mirrored brain constant (e.g. HIT_TARGET_MIN = 44 in brain/ui.ts). Use the token in CSS/style strings and the constant only where a number is required (numeric size props). The two MUST stay in sync — never reintroduce the bare literal at call sites."
 		}
 	]
 }

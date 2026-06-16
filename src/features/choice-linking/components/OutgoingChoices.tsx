@@ -115,7 +115,7 @@ const addButton: React.CSSProperties = {
 	background: 'transparent',
 	border: 'none',
 	cursor: 'pointer',
-	minHeight: 44,
+	minHeight: 'var(--hit-target)',
 	padding: '0 var(--space-2)',
 }
 const row: React.CSSProperties = {
@@ -128,7 +128,7 @@ const row: React.CSSProperties = {
 	padding: '8px 10px',
 	fontSize: 'var(--fs-body)',
 	color: 'var(--text-body)',
-	minHeight: 44,
+	minHeight: 'var(--hit-target)',
 	boxSizing: 'border-box',
 }
 const emptyAffordance: React.CSSProperties = {
@@ -141,7 +141,7 @@ const emptyAffordance: React.CSSProperties = {
 	fontSize: 'var(--fs-meta)',
 	padding: 'var(--space-5)',
 	cursor: 'pointer',
-	minHeight: 44,
+	minHeight: 'var(--hit-target)',
 }
 const relinkButton: React.CSSProperties = {
 	fontFamily: 'var(--font-mono)',
@@ -152,7 +152,7 @@ const relinkButton: React.CSSProperties = {
 	borderRadius: 'var(--r-md)',
 	padding: '8px 10px',
 	cursor: 'pointer',
-	minHeight: 44,
+	minHeight: 'var(--hit-target)',
 	width: '100%',
 	textAlign: 'left',
 }
@@ -177,5 +177,5 @@ const candidate: React.CSSProperties = {
 	fontSize: 'var(--fs-body)',
 	color: 'var(--text-body)',
 	cursor: 'pointer',
-	minHeight: 44,
+	minHeight: 'var(--hit-target)',
 }

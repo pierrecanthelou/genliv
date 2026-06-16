@@ -9,8 +9,8 @@ export interface ZoomControlsProps {
 }
 
 const button: React.CSSProperties = {
-	width: 44,
-	height: 44,
+	width: 'var(--hit-target)',
+	height: 'var(--hit-target)',
 	background: 'var(--surface-card)',
 	border: '1px solid var(--border-card)',
 	borderRadius: 'var(--r-md)',

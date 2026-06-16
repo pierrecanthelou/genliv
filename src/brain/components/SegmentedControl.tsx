@@ -45,7 +45,7 @@ export function SegmentedControl<T extends string>({
 						onClick={() => onChange(option.value)}
 						style={{
 							flex: 1,
-							minHeight: 44,
+							minHeight: 'var(--hit-target)',
 							border: 'none',
 							borderRadius: 'var(--r-md)',
 							cursor: 'pointer',

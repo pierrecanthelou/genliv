@@ -17,6 +17,9 @@
   --space-10: 28px;
   --space-12: 40px;
 
+  /* ---- Interactive sizing ---- */
+  --hit-target: 44px; /* minimum interactive hit-target (a11y ≥44px) */
+
   /* ---- Radii ---- */
   --r-xs: 4px;   /* dots, tiny squares */
   --r-sm: 5px;   /* nodes, small buttons */

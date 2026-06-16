@@ -16,7 +16,7 @@ export function Toggle({ label, checked, onChange, disabled = false }: TogglePro
 				display: 'flex',
 				alignItems: 'center',
 				justifyContent: 'space-between',
-				minHeight: 44,
+				minHeight: 'var(--hit-target)',
 				cursor: disabled ? 'not-allowed' : 'pointer',
 				opacity: disabled ? 0.5 : 1,
 			}}
