@@ -12,10 +12,11 @@ import {
 } from '../../../brain'
 
 /**
- * Single source for per-interaction data (same data-driven pattern as the kind
- * registry, KR-068): the label is written once here, never duplicated in the
- * switch options and the placeholder copy. New per-interaction facts (reveal
- * text, roll config) get added as fields here in later iterations.
+ * Single source for per-interaction data — a closed set in one Record (KR-117,
+ * the same data-driven pattern as the kind registry KR-068): the label is
+ * written once here, never duplicated across the switch options and the
+ * placeholder copy, and never branched on with an `x === 'a' ? …` ladder. New
+ * per-interaction facts (reveal text, roll config) get added as fields here.
  */
 const DECOR_INTERACTIONS: Record<DecorInteraction, { label: string }> = {
 	prendre: { label: 'Prendre' },
