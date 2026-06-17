@@ -23,7 +23,7 @@
 		"walking_skeleton": "registerActionMonster registers an ActionEditor { type:'monstre', label:'Monstre', render } with the brain ActionRegistry (wired at the App composition root). MonsterEditor reads node.monster live via useOpenBook and writes via BookService.updateNode: a NAME Field, and for each RollOutcome from the brain ROLL_OUTCOMES registry a good/bad Badge + a reveal-text Field. « Ajouter à la librairie » emits monster:savedToLibrary. Stats (PV/Attaque/Défense), loot, combat-reinforced-by-object, outcome targets, and the real library are later iterations.",
 		"n": 3,
 		"iterations": [
-			{ "id": 1, "goal": "Combat mechanics (§ 4D): PV / Attaque / Défense stats; outcome targets (victoire → poursuit / fuite → reliaison) wired through edges; defeat → Mort (the automatic combat path, KR-067).", "status": "planned" },
+			{ "id": 1, "goal": "Combat mechanics (§ 4D): PV / Attaque / Défense stats; outcome targets (victoire → poursuit / fuite → reliaison) wired through edges; defeat → Mort (the automatic combat path, KR-067).", "status": "done" },
 			{ "id": 2, "goal": "Loot (« butin lâché ») via the shared ObjectEditor + combat reinforced by an inventory object (« si le joueur possède … alors victoire automatique »).", "status": "planned" },
 			{ "id": 3, "goal": "Reusable monster library via a MonsterLibraryService (« créer / librairie du générateur », reusable across books), consumed from the monster:savedToLibrary event.", "status": "planned" }
 		],
@@ -54,6 +54,27 @@
 				"test_coverage": {
 					"unit": "registerActionMonster adds/removes the 'monstre' editor (KR-051)",
 					"integration": "action-monster via App — « Monstre » offered through the registry seam, name + both réussite/échec outcome texts persisted, « Ajouter à la librairie » emits monster:savedToLibrary; structural-screen guard now covers monster (BookService)",
+					"e2e": "deferred (Playwright not set up)"
+				}
+			},
+			{
+				"id": 1,
+				"label": "iteration-1",
+				"completed_at": "2026-06-17",
+				"architecture_choices": [
+					"Combat mechanics: MonsterConfig gained pv/attack/defense stats edited with the shared brain Stepper, plus victoryTarget/fleeTarget node references. A skeleton monster (name + outcomes only) is normalised with stat defaults on read ({ ...DEFAULT_MONSTER, ...node.monster }) so it still loads and canonicalises on write (KR-116).",
+					"Two brain extractions at their SECOND consumer (KR-109, same rule as ObjectEditor/OutcomesEditor): the value Stepper (action-pnj gift + action-monster stats) and the TargetPicker (PNJ « mène à » + monster victoire/fuite) moved to brain/components; action-pnj refactored to import them (its feature-local TargetPicker deleted, GiftSection's local ValueStepper removed). TargetPicker gained label/emptyLabel props to stay generic.",
+					"Outcome targets follow the established config-reference deferral (like PNJ « mène à » / trap fatal): victoire → « poursuit » and fuite → « reliaison » are node-id references on the config (structural screens excluded, KR-067; dangling surfaced, KR-021/063), pending promotion to rendered edges via the dedicated combat path. Défaite → Mort is the AUTOMATIC combat path (KR-067) — surfaced read-only, never an authored edge / never the manual edge API.",
+					"MonsterEditor stays a VIEW over BookService (KR-020); réussite/échec reveal texts still derive from ROLL_OUTCOMES via the shared OutcomesEditor (KR-091/117). The library button still emits the monster:savedToLibrary stub (iteration 3)."
+				],
+				"deviations_from_plan": [
+					"« wired through edges » is realised as config references + the automatic defeat→Mort statement, NOT rendered tree edges yet — the dedicated combat-edge path (KR-067) that draws victoire/fuite/défaite on the canvas is deferred, consistent with the PNJ/trap deferrals; the model captures the intent now.",
+					"Dangling targets are UI-surfaced in the TargetPicker (⚠ cible supprimée) but NOT yet SSOT-pruned: since targets are config references (not edges), BookService does not drop them on node delete — that pruning lands with the edge promotion (KR-021/063 fully closed then). Pre-commit tech-lead nit: added a NaN guard to the now-shared brain Stepper for parity with clampGiftValue.",
+					"Loot + combat-reinforced-by-object (iteration 2) and the reusable MonsterLibraryService (iteration 3) remain deferred."
+				],
+				"test_coverage": {
+					"unit": "(shared) Stepper + TargetPicker covered via the pnj/monster integration tests",
+					"integration": "action-monster via App — PV stepper persists, victoire → poursuit target select (structural screens excluded, KR-067), automatic défaite → Mort statement shown; existing name/outcomes + library-event tests still green",
 					"e2e": "deferred (Playwright not set up)"
 				}
 			}

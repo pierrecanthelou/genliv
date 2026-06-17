@@ -298,7 +298,7 @@ describe('BookService.updateNode', () => {
 			actionType: 'monstre',
 			decor: { interaction: 'prendre' },
 			pnj: { name: 'X', dialogue: 'Y' },
-			monster: { name: 'M', outcomes: { reussite: '', echec: '' } },
+			monster: { name: 'M', pv: 10, attack: 1, defense: 1, outcomes: { reussite: '', echec: '' } },
 			trap: { description: 'T', outcomes: { reussite: '', echec: '' }, fatal: true },
 		})
 

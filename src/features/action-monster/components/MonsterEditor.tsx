@@ -3,28 +3,51 @@ import {
 	useOpenBook,
 	Field,
 	OutcomesEditor,
+	Stepper,
+	TargetPicker,
+	NODE_KINDS,
 	type ActionEditorContext,
 	type MonsterConfig,
 	type RollOutcome,
 } from '../../../brain'
 
-/** The config a node falls back to before any monster is authored. */
-const DEFAULT_MONSTER: MonsterConfig = { name: '', outcomes: { reussite: '', echec: '' } }
+/**
+ * The config a node falls back to before any monster is authored. Skeleton
+ * monsters (name + outcomes only) get the stat defaults filled in on read, so a
+ * persisted pre-stats monster still loads (KR-116) and canonicalises on write.
+ */
+const DEFAULT_MONSTER: MonsterConfig = {
+	name: '',
+	pv: 10,
+	attack: 1,
+	defense: 1,
+	outcomes: { reussite: '', echec: '' },
+}
+
+/** Stat bounds: a monster needs at least 1 PV; attack/defense may be 0. */
+const PV_MIN = 1
+const STAT_MIN = 0
+const STAT_MAX = 99
 
 /**
  * action-monster — the « Monstre » required-action editor, mounted by node-editor
  * via the brain ActionRegistry (self-registered, KR-050/051). A VIEW over
- * BookService (KR-020): reads node.monster live and writes via updateNode. The
- * two combat outcomes are derived from the brain ROLL_OUTCOMES registry (KR-117)
- * and coloured with the only semantic colours (réussite = good, échec = bad).
- * « Ajouter à la librairie » is a stub that emits monster:savedToLibrary; the
- * real reusable-monster catalog is a later iteration.
+ * BookService (KR-020): reads node.monster live and writes via updateNode.
+ *
+ * Iteration 1 — combat mechanics (§ 4D): PV / Attaque / Défense stats (shared
+ * brain Stepper), and the outcome targets — victoire → « poursuit » and fuite →
+ * « reliaison » via the shared brain TargetPicker (KR-109), while défaite → Mort
+ * is the automatic combat path (KR-067), surfaced read-only, never an authored
+ * edge. The réussite/échec reveal texts derive from ROLL_OUTCOMES (KR-091/117).
  */
 export function MonsterEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element {
 	const { books, events } = useBrain()
 	const book = useOpenBook(bookId)
 	const node = book?.nodes.find((n) => n.id === nodeId) ?? null
-	const monster = node?.monster ?? DEFAULT_MONSTER
+	// Normalise once (defaults fill a skeleton monster's missing stats, KR-116).
+	const monster: MonsterConfig = { ...DEFAULT_MONSTER, ...(node?.monster ?? {}) }
+	const nodes = book?.nodes ?? []
+	const mortTitle = NODE_KINDS.mort.defaultTitle
 
 	function patchMonster(patch: Partial<MonsterConfig>): void {
 		books.updateNode(bookId, nodeId, { monster: { ...monster, ...patch } })
@@ -43,7 +66,49 @@ export function MonsterEditor({ bookId, nodeId }: ActionEditorContext): JSX.Elem
 				onChange={(e) => patchMonster({ name: e.target.value })}
 			/>
 
+			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+				<span style={sectionLabel}>Caractéristiques</span>
+				<Stepper label="PV" value={monster.pv} min={PV_MIN} max={STAT_MAX} onChange={(pv) => patchMonster({ pv })} />
+				<Stepper
+					label="Attaque"
+					value={monster.attack}
+					min={STAT_MIN}
+					max={STAT_MAX}
+					onChange={(attack) => patchMonster({ attack })}
+				/>
+				<Stepper
+					label="Défense"
+					value={monster.defense}
+					min={STAT_MIN}
+					max={STAT_MAX}
+					onChange={(defense) => patchMonster({ defense })}
+				/>
+			</div>
+
 			<OutcomesEditor value={monster.outcomes} onChange={setOutcome} />
+
+			<TargetPicker
+				label="Victoire → poursuivre vers"
+				emptyLabel="Aucune suite"
+				nodes={nodes}
+				nodeId={nodeId}
+				target={monster.victoryTarget}
+				onChange={(victoryTarget) => patchMonster({ victoryTarget })}
+			/>
+			<TargetPicker
+				label="Fuite → relier à"
+				emptyLabel="Pas de fuite"
+				nodes={nodes}
+				nodeId={nodeId}
+				target={monster.fleeTarget}
+				onChange={(fleeTarget) => patchMonster({ fleeTarget })}
+			/>
+
+			{/* Défaite → Mort is automatic at the end of a combat (KR-067): surfaced,
+			    never an authored edge. The dedicated combat→Mort path wires it later. */}
+			<p style={defeatNote}>
+				Défaite → {mortTitle} <span style={{ color: 'var(--text-faint)' }}>(automatique)</span>
+			</p>
 
 			<button
 				type="button"
@@ -54,6 +119,20 @@ export function MonsterEditor({ bookId, nodeId }: ActionEditorContext): JSX.Elem
 			</button>
 		</div>
 	)
+}
+
+const sectionLabel: React.CSSProperties = {
+	fontFamily: 'var(--font-mono)',
+	fontSize: 'var(--fs-eyebrow)',
+	color: 'var(--text-label)',
+	letterSpacing: 'var(--track-eyebrow)',
+}
+
+const defeatNote: React.CSSProperties = {
+	margin: 0,
+	fontFamily: 'var(--font-mono)',
+	fontSize: 'var(--fs-meta)',
+	color: 'var(--text-muted)',
 }
 
 const libraryButton: React.CSSProperties = {

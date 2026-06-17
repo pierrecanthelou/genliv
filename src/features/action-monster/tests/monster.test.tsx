@@ -51,6 +51,50 @@ describe('action-monster', () => {
 		expect(monster?.outcomes.echec).toBe('Vous fuyez.')
 	})
 
+	it('steps the PV stat and persists it via BookService', async () => {
+		const user = userEvent.setup()
+		const { brain, bookId, nodeId } = setup()
+
+		await user.click(screen.getByRole('button', { name: /Nœud #3/ }))
+		await user.click(screen.getByRole('radio', { name: 'Monstre' }))
+
+		await user.click(screen.getByRole('button', { name: /augmenter PV/i }))
+
+		expect(monsterOf(brain, bookId, nodeId)?.pv).toBe(11) // default 10 → 11
+	})
+
+	it('wires « victoire → poursuivre » to a node, excluding structural screens (KR-067)', async () => {
+		// Seed a second, named node BEFORE render so it is a valid target candidate.
+		const brain = createBrain()
+		const created = brain.books.createBook('La Caverne')
+		const node = brain.books.addNode(created.id, 'choix')!
+		const next = brain.books.addNode(created.id, 'choix')!
+		brain.books.updateNode(created.id, next.id, { text: 'Salle suivante' })
+		brain.router.navigate({ name: 'editor', bookId: created.id })
+		render(
+			<BrainProvider brain={brain}>
+				<App />
+			</BrainProvider>,
+		)
+		const user = userEvent.setup()
+		await user.click(screen.getByRole('button', { name: /Nœud #3/ }))
+		await user.click(screen.getByRole('radio', { name: 'Monstre' }))
+
+		await user.click(screen.getByRole('button', { name: /Aucune suite/i })) // open victory picker
+		await user.click(screen.getByRole('button', { name: 'Salle suivante' }))
+
+		expect(monsterOf(brain, created.id, node.id)?.victoryTarget).toBe(next.id)
+	})
+
+	it('surfaces the automatic défaite → Mort path (KR-067)', async () => {
+		const user = userEvent.setup()
+		setup()
+		await user.click(screen.getByRole('button', { name: /Nœud #3/ }))
+		await user.click(screen.getByRole('radio', { name: 'Monstre' }))
+
+		expect(screen.getByText(/Défaite → Mort du personnage/i)).toBeInTheDocument()
+	})
+
 	it('« Ajouter à la librairie » emits monster:savedToLibrary (library stub)', async () => {
 		const user = userEvent.setup()
 		const { brain, bookId, nodeId } = setup()

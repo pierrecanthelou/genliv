@@ -14,3 +14,5 @@ export { SegmentedControl, type SegmentedControlProps, type SegmentedOption } fr
 export { EditorTopBar, type EditorTopBarProps, type EditorViewMode } from './EditorTopBar'
 export { ObjectEditor, type ObjectEditorProps, type ObjectDraft } from './ObjectEditor'
 export { OutcomesEditor, type OutcomesEditorProps } from './OutcomesEditor'
+export { Stepper, type StepperProps } from './Stepper'
+export { TargetPicker, type TargetPickerProps } from './TargetPicker'

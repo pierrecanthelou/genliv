@@ -1,30 +1,44 @@
 import { useState } from 'react'
-import { nodeTitle, NODE_KINDS, type BookNode } from '../../../brain'
+import { nodeTitle } from '../utils/nodeView'
+import { NODE_KINDS } from '../kinds'
+import type { BookNode } from '../types'
 
+/**
+ * TargetPicker — pick a node another node points at for a NON-choice screen
+ * change (PNJ « mène à », monster victoire/fuite targets). Lives in brain because
+ * more than one feature uses it (action-pnj + action-monster, KR-109). Structural
+ * screens are never authored targets so the Sommaire/Mort are excluded (KR-067,
+ * the canBeTarget flag), and a target whose node was deleted is surfaced (⚠),
+ * never silently broken (KR-021/063). Controlled: the chosen id lives on the
+ * owner's config (pending promotion to a rendered edge via the dedicated path).
+ */
 export interface TargetPickerProps {
+	/** Mono caption above the picker (e.g. « Ensuite, le PNJ mène à »). */
+	label: string
 	/** All nodes of the book (to list candidates + resolve the current target). */
 	nodes: BookNode[]
 	/** The node being edited (excluded from its own candidates). */
 	nodeId: string
-	/** The currently chosen « mène à » target node id, if any. */
+	/** The currently chosen target node id, if any. */
 	target: string | undefined
 	onChange: (target: string | undefined) => void
+	/** Copy for the no-target state + the clear option. */
+	emptyLabel?: string
 }
 
-/**
- * « Ensuite, le PNJ mène à » (§ 4A): pick a node the PNJ leads to — a non-choice
- * screen change (domain brief). Structural screens are never authored targets so
- * the Sommaire/Mort are excluded (KR-067, the canBeTarget flag), and a target
- * whose node was deleted is surfaced (⚠), never silently broken (KR-021/063).
- * The chosen id lives on pnj.target (config), pending promotion to a real edge.
- */
-export function TargetPicker({ nodes, nodeId, target, onChange }: TargetPickerProps): JSX.Element {
+export function TargetPicker({
+	label,
+	nodes,
+	nodeId,
+	target,
+	onChange,
+	emptyLabel = 'Aucune cible',
+}: TargetPickerProps): JSX.Element {
 	const [open, setOpen] = useState(false)
 	const candidates = nodes.filter((n) => n.id !== nodeId && NODE_KINDS[n.kind].canBeTarget)
 	const current = target !== undefined ? (nodes.find((n) => n.id === target) ?? null) : null
 	const dangling = target !== undefined && current === null
-	const summary =
-		current !== null ? nodeTitle(current) : dangling ? '⚠ cible supprimée' : 'Aucune suite — fin de l’échange'
+	const summary = current !== null ? nodeTitle(current) : dangling ? '⚠ cible supprimée' : emptyLabel
 
 	function choose(next: string | undefined): void {
 		onChange(next)
@@ -33,15 +47,15 @@ export function TargetPicker({ nodes, nodeId, target, onChange }: TargetPickerPr
 
 	return (
 		<div>
-			<span style={label}>Ensuite, le PNJ mène à</span>
+			<span style={labelStyle}>{label}</span>
 			<button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} style={pickerButton}>
 				{summary}
 			</button>
 			{open && (
-				<ul style={picker} aria-label="Choisir le nœud suivant">
+				<ul style={picker} aria-label={`Choisir : ${label}`}>
 					<li>
 						<button type="button" style={candidate} onClick={() => choose(undefined)}>
-							— Aucune suite —
+							— {emptyLabel} —
 						</button>
 					</li>
 					{candidates.length === 0 ? (
@@ -64,7 +78,7 @@ export function TargetPicker({ nodes, nodeId, target, onChange }: TargetPickerPr
 /** Target picker dropdown max height before it scrolls. */
 const PICKER_MAX_HEIGHT = 180
 
-const label: React.CSSProperties = {
+const labelStyle: React.CSSProperties = {
 	display: 'block',
 	fontFamily: 'var(--font-mono)',
 	fontSize: 'var(--fs-eyebrow)',

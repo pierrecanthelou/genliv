@@ -2,6 +2,12 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.2.6 — action-monster iteration 1 (V1 slice)
+
+- **Combat mechanics (§ 4D)**: the monster gains **PV / Attaque / Défense** stats (shared brain `Stepper`) and **outcome targets** — **victoire → poursuivre** and **fuite → relier** via the shared brain `TargetPicker` (structural screens excluded KR-067, deleted target surfaced KR-021/063). **Défaite → Mort** is shown as the **automatic** combat path (KR-067) — surfaced read-only, never an authored edge.
+- Two brain extractions at their **second consumer** (KR-109, same rule as `ObjectEditor`/`OutcomesEditor`): the value **`Stepper`** (pnj gift + monster stats) and the **`TargetPicker`** (pnj « mène à » + monster targets) moved to `brain/components`; `action-pnj` refactored to import them (feature-local `TargetPicker` deleted, `GiftSection`'s local stepper removed). `TargetPicker` gained `label`/`emptyLabel` props.
+- `MonsterConfig` gained `pv`/`attack`/`defense` + `victoryTarget`/`fleeTarget`; a skeleton monster (name + outcomes) normalises with stat defaults on read (KR-116) and canonicalises on write. réussite/échec reveal texts still derive from `ROLL_OUTCOMES` (KR-091/117). Loot + reusable library deferred to iters 2–3. 152 tests passing (3 new + the pnj refactor).
+
 ## 0.2.5 — action-pnj iteration 1 (V1 slice)
 
 - **Gift effect (§ 4A)**: the « Le PNJ donne un objet » gift now carries an **effect** — **+PV / +Attaque / +Défense / objet de scénario** (a closed-set `Record`, KR-117) — with a **− N + value stepper** (clamped 1–99) for the stat bonuses; a plot object hides the stepper. The gift's identity still uses the shared brain `ObjectEditor` (KR-052).
