@@ -2,6 +2,12 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.2.3 — outline-view iteration 1 (V1 slice)
+
+- **Expand/collapse** in the « plan du livre »: each node with nested children gets a ▸/▾ disclosure (≥44px, aria-labelled with the node title); collapsing hides the exact subtree while later siblings stay. The rule is a new **pure `computeVisibleRows`** helper (unit-tested, KR-080 spirit) over the flat pre-order rows; collapsed ids are local UI state derived with `useMemo` (no `useEffect` mirror, KR-013).
+- **Hover preview**: each row's `title` tooltip previews the screen's authored text (via the shared `textLines`, placeholder for an empty screen); reference rows instead read « Aller au nœud … » (or « Cible supprimée » for a dangling target, KR-021). End-leaf labels already render through `NodeBadge`.
+- Deferred (documented): per-row rule badges ⊘/⏱ (the edge rules land with choice-linking iters 3–4 — nothing to badge yet) and « centrer dans l'arbre » (needs canvas viewport centering — pairs with the iter-2 node inspector). 126 tests passing (7 new).
+
 ## 0.2.2 — book-library iteration 1 (V1 slice)
 
 - **Richer book cards**: each card now shows écrans · liens · fins counts (the « fins » count derives from `effectiveKind === 'fin'`, consistent with the FIN badge, KR-054/068) plus a « Modifié le {date} » line (feature-local timezone-stable `formatDate`).

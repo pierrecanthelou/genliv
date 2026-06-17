@@ -1,4 +1,4 @@
-import { buildOutline } from '../utils/buildOutline'
+import { buildOutline, computeVisibleRows } from '../utils/buildOutline'
 import type { Book, BookNode, Edge } from '../../../brain'
 
 const n = (id: string, kind: BookNode['kind'] = 'choix'): BookNode => ({ id, kind, text: '' })
@@ -63,5 +63,42 @@ describe('buildOutline', () => {
 		const rows = buildOutline(b)
 		expect(rows.filter((r) => r.targetId === 'c' && !r.reference)).toHaveLength(1)
 		expect(rows.filter((r) => r.targetId === 'c' && r.reference)).toHaveLength(1)
+	})
+})
+
+describe('computeVisibleRows (expand/collapse)', () => {
+	const tree = book(
+		[n('s', 'sommaire'), n('a'), n('c'), n('b')],
+		[e('e1', 's', 'a'), e('e2', 'a', 'c'), e('e3', 's', 'b')],
+	)
+	// Outline order: s(0) → a(1) → c(2), then b(1).
+
+	it('marks a row with a nested child as hasChildren, leaves as not', () => {
+		const visible = computeVisibleRows(buildOutline(tree), new Set())
+		const byId = new Map(visible.map((v) => [v.row.targetId, v]))
+		expect(byId.get('s')?.hasChildren).toBe(true)
+		expect(byId.get('a')?.hasChildren).toBe(true)
+		expect(byId.get('c')?.hasChildren).toBe(false)
+		expect(byId.get('b')?.hasChildren).toBe(false)
+	})
+
+	it('collapsing a node hides its whole subtree but keeps later siblings', () => {
+		const visible = computeVisibleRows(buildOutline(tree), new Set(['a']))
+		const ids = visible.map((v) => v.row.targetId)
+		// a is shown (collapsed), its child c is hidden, sibling b still shows.
+		expect(ids).toEqual(['s', 'a', 'b'])
+		expect(visible.find((v) => v.row.targetId === 'a')?.collapsed).toBe(true)
+	})
+
+	it('collapsing the root hides every descendant', () => {
+		const visible = computeVisibleRows(buildOutline(tree), new Set(['s']))
+		expect(visible.map((v) => v.row.targetId)).toEqual(['s'])
+	})
+
+	it('a reference row is never collapsible (it is a leaf)', () => {
+		const b = book([n('s', 'sommaire'), n('a')], [e('e1', 's', 'a'), e('e2', 'a', 's', 'relink')])
+		const visible = computeVisibleRows(buildOutline(b), new Set())
+		const ref = visible.find((v) => v.row.reference)
+		expect(ref?.hasChildren).toBe(false)
 	})
 })
