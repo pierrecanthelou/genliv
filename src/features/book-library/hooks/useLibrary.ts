@@ -6,6 +6,10 @@ export interface Library {
 	books: Book[]
 	/** Open a book and navigate to its editor, in order, through brain only. */
 	open: (id: string) => void
+	/** Rename a book through BookService (trims; emits book:updated). */
+	rename: (id: string, title: string) => void
+	/** Duplicate a book and its tree through BookService (emits book:created). */
+	duplicate: (id: string) => void
 	/** Permanently delete a book through BookService (emits book:deleted). */
 	remove: (id: string) => void
 }
@@ -29,7 +33,21 @@ export function useLibrary(): Library {
 		[bookService, router],
 	)
 
+	const rename = useCallback(
+		(id: string, title: string) => {
+			bookService.renameBook(id, title)
+		},
+		[bookService],
+	)
+
+	const duplicate = useCallback(
+		(id: string) => {
+			bookService.duplicateBook(id)
+		},
+		[bookService],
+	)
+
 	const remove = useCallback((id: string) => bookService.deleteBook(id), [bookService])
 
-	return { books, open, remove }
+	return { books, open, rename, duplicate, remove }
 }

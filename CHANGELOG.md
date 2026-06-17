@@ -2,6 +2,13 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.2.2 — book-library iteration 1 (V1 slice)
+
+- **Richer book cards**: each card now shows écrans · liens · fins counts (the « fins » count derives from `effectiveKind === 'fin'`, consistent with the FIN badge, KR-054/068) plus a « Modifié le {date} » line (feature-local timezone-stable `formatDate`).
+- **In-place rename** + **duplicate** + delete, revealed on hover/focus via a CSS-only `.book-card` rule (the canonical hover-reveal pattern — no `isHovered` JS state, keyboard-reachable). Rename edits the title in place (Enter/blur commits, Esc cancels; blank is a no-op).
+- Two new SSOT mutations on **`BookService`**: **`renameBook`** (trims, rejects blank, persist → new **`book:updated`** event) and **`duplicateBook`** (deep copy with a fresh book id + fresh node/edge ids, edge endpoints remapped by stable id so the copy references its own nodes, KR-003; « (copie) » title; persist → `book:created`). `book:updated` is wired into `useBooks` (list re-reads on rename) and `useOpenBook` (KR-020/013/071/004).
+- 117 tests passing (7 new). Search/sort + open-book-delete guard stay in iteration 2; per-book sync status in iteration 3.
+
 ## 0.2.1 — choice-linking iteration 1 (V1 slice — first of the 0.2.x tier 🚀)
 
 - **Editable « libellé du choix » per outgoing row** — the player-facing button text now rides the edge (`Edge.label`) and persists through a new **`BookService.updateEdge`** (`EdgePatch`), the SSOT for every edge mutation (KR-060/020). A **blank label is dropped** at the SSOT so the canvas falls back to the kind's label (an empty `edge.label` never renders as a blank button); the field shows an inviting placeholder when empty.

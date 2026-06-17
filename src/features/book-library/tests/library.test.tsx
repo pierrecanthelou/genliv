@@ -47,6 +47,44 @@ describe('book-library', () => {
 		expect(brain.router.current()).toEqual({ name: 'editor', bookId: expect.any(String) })
 	})
 
+	it('shows richer per-book meta: screen, link, and ending counts plus a modified date', () => {
+		renderLibrary((brain) => {
+			const book = brain.books.createBook('La Caverne')
+			const sommaire = brain.books.getBook(book.id)!.nodes.find((n) => n.kind === 'sommaire')!
+			brain.books.addChoiceBranch(book.id, sommaire.id) // → 3 screens, 1 link
+		})
+		// 3 écrans · 1 lien · 0 fin
+		expect(screen.getByText(/3 écrans · 1 lien · 0 fin/)).toBeInTheDocument()
+		expect(screen.getByText(/Modifié le/)).toBeInTheDocument()
+	})
+
+	it('renames a book in place via the card, persisting through BookService', async () => {
+		const user = userEvent.setup()
+		const { brain } = renderLibrary((b) => {
+			b.books.createBook('Brouillon')
+		})
+
+		await user.click(screen.getByRole('button', { name: /Renommer « Brouillon »/ }))
+		const input = screen.getByRole('textbox', { name: /Renommer « Brouillon »/ })
+		await user.clear(input)
+		await user.type(input, 'La Caverne{Enter}')
+
+		expect(brain.books.listBooks()[0].title).toBe('La Caverne')
+		expect(screen.getByRole('button', { name: /^La Caverne/ })).toBeInTheDocument()
+	})
+
+	it('duplicates a book via the card, adding a (copie) to the live list', async () => {
+		const user = userEvent.setup()
+		const { brain } = renderLibrary((b) => {
+			b.books.createBook('La Caverne')
+		})
+
+		await user.click(screen.getByRole('button', { name: /Dupliquer « La Caverne »/ }))
+
+		expect(brain.books.listBooks()).toHaveLength(2)
+		expect(screen.getByRole('button', { name: /^La Caverne \(copie\)/ })).toBeInTheDocument()
+	})
+
 	it('requires confirmation before deleting and cancels without removing', async () => {
 		const user = userEvent.setup()
 		const { brain } = renderLibrary((b) => {

@@ -11,6 +11,7 @@ import type { Book } from './types'
  */
 const BOOK_MUTATION_EVENTS: AppEventName[] = [
 	'book:opened',
+	'book:updated',
 	'node:created',
 	'node:updated',
 	'node:deleted',
@@ -19,8 +20,8 @@ const BOOK_MUTATION_EVENTS: AppEventName[] = [
 	'edge:deleted',
 ]
 
-/** List membership changes only when a book is created or deleted. */
-const BOOK_LIST_EVENTS: AppEventName[] = ['book:created', 'book:deleted']
+/** List membership/content changes on create, delete, or a rename (book:updated). */
+const BOOK_LIST_EVENTS: AppEventName[] = ['book:created', 'book:updated', 'book:deleted']
 
 export function useOpenBook(bookId: string | null): Book | null {
 	const { books, events } = useBrain()

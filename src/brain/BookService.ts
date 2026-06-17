@@ -24,6 +24,22 @@ export interface BookService {
 	 */
 	deleteBook(id: string): boolean
 	/**
+	 * Rename a book (book-library). The title is stored trimmed; a blank title is
+	 * rejected (a book always keeps a name). Persists before emitting
+	 * `book:updated` (KR-004). Returns the updated book, or null if the book is
+	 * missing or the trimmed title is empty.
+	 */
+	renameBook(id: string, title: string): Book | null
+	/**
+	 * Duplicate a book and its whole tree (book-library): a deep copy with a
+	 * fresh book id, fresh node/edge ids (edge endpoints remapped to the new node
+	 * ids), a « (copie) » title, and new timestamps. References stay by stable id
+	 * (KR-003), now pointing at the copy's own ids. Persists before emitting
+	 * `book:created` (KR-004), so the library list shows it. Returns the new book,
+	 * or null if the source is missing/unreadable.
+	 */
+	duplicateBook(id: string): Book | null
+	/**
 	 * Add a free-floating, unattached node of `kind` to a book (KR-020).
 	 * It receives a deterministic auto-layout slot so it never piles at
 	 * 0,0 (KR-023); attaching it to a parent is done later in
@@ -194,6 +210,45 @@ export function createBookService(persistence: PersistenceService, events: Event
 			persistence.remove(bookKey(id))
 			events.emit('book:deleted', { bookId: id })
 			return true
+		},
+
+		renameBook(id, title) {
+			const book = loadBook(id)
+			if (book === null) return null
+			const trimmed = title.trim()
+			// A book always keeps a name — reject a blank rename (KR-070 spirit:
+			// never leave the author with an unnameable entry).
+			if (trimmed === '') return null
+			const next: Book = { ...book, title: trimmed, updatedAt: new Date().toISOString() }
+			persist(next)
+			events.emit('book:updated', { bookId: id })
+			return next
+		},
+
+		duplicateBook(id) {
+			const source = loadBook(id)
+			if (source === null) return null
+			// Remap every node id, then rewrite edge endpoints through that map so
+			// references stay by stable id (KR-003) — pointing at the COPY's own
+			// nodes, never the source's. Edge ids are fresh too.
+			const idMap = new Map(source.nodes.map((n) => [n.id, createId('node')]))
+			const now = new Date().toISOString()
+			const copy: Book = {
+				id: createId('book'),
+				title: `${source.title} (copie)`,
+				createdAt: now,
+				updatedAt: now,
+				nodes: source.nodes.map((n) => ({ ...n, id: idMap.get(n.id) as string })),
+				edges: source.edges.map((e) => ({
+					...e,
+					id: createId('edge'),
+					from: idMap.get(e.from) as string,
+					to: idMap.get(e.to) as string,
+				})),
+			}
+			persist(copy)
+			events.emit('book:created', { bookId: copy.id })
+			return copy
 		},
 
 		addNode(bookId, kind) {
