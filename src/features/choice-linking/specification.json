@@ -28,7 +28,7 @@
 		"walking_skeleton": "Render the selected node's outgoing choices from BookService inside node-editor's choices slot (mounted via the brain SlotRegistry, no cross-feature import). « + branche » creates+links+selects a child (node:created/edge:created/node:selected). « Relier… » lists existing nodes and creates a relink edge. Remove deletes only the edge. Hidden-prereq/countdown deferred (need ObjectCatalogService).",
 		"n": 4,
 		"iterations": [
-			{ "id": 1, "goal": "Choice rows + new branch (§ 06 A): list outgoing choices as rows with rule badges; each row exposes an editable « libellé du choix » persisted on the edge (Edge.label) via BookService, with an inviting placeholder when empty; « + Nouvelle branche » creates+links+selects a child with placeholders; emit the three events. DS fidelity.", "status": "planned" },
+			{ "id": 1, "goal": "Choice rows + new branch (§ 06 A): list outgoing choices as rows with rule badges; each row exposes an editable « libellé du choix » persisted on the edge (Edge.label) via BookService, with an inviting placeholder when empty; « + Nouvelle branche » creates+links+selects a child with placeholders; emit the three events. DS fidelity.", "status": "done" },
 			{ "id": 2, "goal": "Relink (§ 06 B): searchable node popover, create a `relink`/`fuite` edge enabling cycles/convergence; canvas dashed; guard self-link and duplicate edges (KR-061).", "status": "planned" },
 			{ "id": 3, "goal": "Hidden prerequisite (§ 05): toggle + required-object picker referencing ObjectCatalogService by id; choice hidden unless owned; ⊘ badge; clean removal (KR-062).", "status": "planned" },
 			{ "id": 4, "goal": "Countdown (§ 05): toggle + délai + fallback-node Select with validation; ⏱ badge; referential-integrity sweep for deleted targets/objects (KR-063).", "status": "planned" }
@@ -67,6 +67,25 @@
 				"test_coverage": {
 					"unit": "BookService addChoiceBranch/addEdge/removeEdge — event order, relink-no-node, Mort-source rejection, unknown endpoints, target-node survives removal",
 					"integration": "OutgoingChoices via App: slot mount + empty state, « + branche » create+link+select, « Relier… » relink edge, remove-edge-keeps-node",
+					"e2e": "deferred (Playwright not set up)"
+				}
+			},
+			{
+				"id": 1,
+				"label": "iteration-1",
+				"completed_at": "2026-06-17",
+				"architecture_choices": [
+					"Editable « libellé du choix » rides the edge (Edge.label), the book's structure, so it persists through a new BookService.updateEdge (EdgePatch) — the SSOT for every edge mutation (KR-060/020). A blank label is DROPPED at the SSOT (not stored as '') so every consumer falls back to the kind's canvas label via `?? canvasLabel` — an empty edge.label must never render as a blank button; undefined leaves the field untouched.",
+					"New brain edge:updated event added to AppEvents and to the useOpenBook BOOK_MUTATION_EVENTS list, so the panel row AND the canvas (which already renders edge.label ?? canvasLabel) re-read live on a label change — no useEffect mirror (KR-013).",
+					"The row became a small two-line card (header line: → destination + kind badge + delete; second line: the libellé Field) with an inviting placeholder; the Field carries an ariaLabel naming its destination so it stays accessible without a visible label.",
+					"The libellé is shown on EVERY outgoing row (choice + relink), consistent with the canvas honouring edge.label for all kinds; rule badges (⊘ prereq / ⏱ countdown) wait for iterations 3–4 (no rules exist yet)."
+				],
+				"deviations_from_plan": [
+					"« Rule badges » in the iter-1 goal are deferred to iters 3–4: there are no per-choice rules yet (hidden-prereq/countdown need ObjectCatalogService), so only the edge-kind badge renders. The label-editing slice is the substantive iter-1 addition over the skeleton."
+				],
+				"test_coverage": {
+					"unit": "BookService.updateEdge — sets/persists the label + emits edge:updated, clears with '', null for missing book/edge",
+					"integration": "OutgoingChoices via App: typing a libellé persists it on the edge; empty field shows the placeholder",
 					"e2e": "deferred (Playwright not set up)"
 				}
 			}

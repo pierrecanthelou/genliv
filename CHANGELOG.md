@@ -2,6 +2,12 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.2.1 — choice-linking iteration 1 (V1 slice — first of the 0.2.x tier 🚀)
+
+- **Editable « libellé du choix » per outgoing row** — the player-facing button text now rides the edge (`Edge.label`) and persists through a new **`BookService.updateEdge`** (`EdgePatch`), the SSOT for every edge mutation (KR-060/020). A **blank label is dropped** at the SSOT so the canvas falls back to the kind's label (an empty `edge.label` never renders as a blank button); the field shows an inviting placeholder when empty.
+- New brain **`edge:updated`** event, wired into `useOpenBook`'s mutation list, so the panel row **and** the canvas (which already renders `edge.label ?? canvasLabel`) reflect a label change live — no `useEffect` mirror (KR-013). Each row is now a two-line card (→ destination + kind badge + delete · libellé `Field` with an `ariaLabel` naming its destination).
+- The libellé renders on every outgoing row (choice + relink), consistent with the canvas honouring `edge.label` for all kinds. Per-choice **rule badges** (⊘ prereq / ⏱ countdown) stay deferred to iterations 3–4 (need `ObjectCatalogService`). 110 tests passing (4 new). **🚀 Opens the 0.2.x / V1 tier** — `book-creation` / `tree-canvas` / `node-editor` iter-1 were banked depth-first, so `choice-linking` is the first V1 slice.
+
 ## 0.1.8 — cloud-sync walking skeleton (MVP slice — tier complete 🏁)
 
 - New **`CloudSyncService`** (brain) — a **local-first Decorator** over `PersistenceService` (Liskov; `BookService` + every feature unchanged), wired once in `createBrain`. Writes hit local **synchronously** (offline-ready, KR-004), then push to a cloud transport in the background: status `idle → syncing → synced` (or `error`, local write preserved). With no transport the store is **`offline`** (local-only) and emits no per-write noise — so the existing suite is fully transparent. New **KR-093**.

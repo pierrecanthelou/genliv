@@ -54,6 +54,14 @@ export interface BookService {
 	 * `edge:created`. Returns the edge, or null on rejection.
 	 */
 	addEdge(bookId: string, from: string, to: string, kind: EdgeKind): Edge | null
+	/**
+	 * Patch an edge's author-editable surface — the player-facing choice label
+	 * (choice-linking « libellé du choix »). The label rides the edge, the book's
+	 * structure, so it goes through the SSOT like every other edge mutation
+	 * (KR-060/020). An empty-string label clears it. Persists before emitting
+	 * `edge:updated`. Returns the updated edge, or null if the book/edge is gone.
+	 */
+	updateEdge(bookId: string, edgeId: string, patch: EdgePatch): Edge | null
 	/** Remove an edge by id (never deletes its target node). Emits `edge:deleted`. */
 	removeEdge(bookId: string, edgeId: string): boolean
 }
@@ -62,6 +70,9 @@ export interface BookService {
 export type NodePatch = Partial<
 	Pick<BookNode, 'text' | 'endVictory' | 'endFailure' | 'actionType' | 'decor' | 'pnj' | 'monster' | 'trap'>
 >
+
+/** The author-editable surface of an edge (the choice button's label). */
+export type EdgePatch = Partial<Pick<Edge, 'label'>>
 
 /**
  * Deterministic slot for a position-less / newly added node (KR-023): a
@@ -279,6 +290,29 @@ export function createBookService(persistence: PersistenceService, events: Event
 			persist(next)
 			events.emit('edge:created', { bookId, edgeId: edge.id, from, to, kind })
 			return edge
+		},
+
+		updateEdge(bookId, edgeId, patch) {
+			const book = loadBook(bookId)
+			if (book === null) return null
+			const current = book.edges.find((e) => e.id === edgeId)
+			if (current === undefined) return null
+			const updated: Edge = { ...current }
+			// `label === undefined` leaves the field untouched. A blank label means
+			// "no custom label": drop it so every consumer falls back to the kind's
+			// canvas label (an empty edge.label must never render as a blank button).
+			if (patch.label !== undefined) {
+				if (patch.label.trim() === '') delete updated.label
+				else updated.label = patch.label
+			}
+			const next: Book = {
+				...book,
+				edges: book.edges.map((e) => (e.id === edgeId ? updated : e)),
+				updatedAt: new Date().toISOString(),
+			}
+			persist(next)
+			events.emit('edge:updated', { bookId, edgeId })
+			return updated
 		},
 
 		removeEdge(bookId, edgeId) {

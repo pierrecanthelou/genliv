@@ -15,6 +15,7 @@ const BOOK_MUTATION_EVENTS: AppEventName[] = [
 	'node:updated',
 	'node:deleted',
 	'edge:created',
+	'edge:updated',
 	'edge:deleted',
 ]
 

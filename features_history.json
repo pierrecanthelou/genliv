@@ -89,7 +89,8 @@
 			"lessons_learned": [
 				"When one feature must render inside another's panel, reach for a brain slot registry (host reserves, provider registers at the composition root) rather than a cross-feature import — mirrors ActionRegistry.",
 				"A slot renderer registered in a useEffect won't force the host to re-render (the registry has no subscribe); it works because the host re-renders for another reason (selection change) before the slot is needed — fine here, but a notify-on-register would be needed if a slot must appear without any other state change.",
-				"Pre-seed test fixtures BEFORE render() — a brain mutation after render (e.g. addChoiceBranch) updates subscribed views outside act() and triggers warnings."
+				"Pre-seed test fixtures BEFORE render() — a brain mutation after render (e.g. addChoiceBranch) updates subscribed views outside act() and triggers warnings.",
+				"iter 1: the libellé belongs on the EDGE (Edge.label), not the node — added BookService.updateEdge + an edge:updated event wired into useOpenBook's mutation list; the canvas already rendered edge.label ?? canvasLabel, so the new event made the canvas reflect labels live for free. A property that already exists on the model + a view that already reads it means the iteration is just the SSOT mutation path + its event."
 			],
 			"bugs_encountered": []
 		},

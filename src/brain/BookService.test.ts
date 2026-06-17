@@ -411,4 +411,39 @@ describe('BookService edges (choice-linking)', () => {
 		expect(stored.nodes.some((n) => n.id === node.id)).toBe(true) // target node survives
 		expect(service.removeEdge(book.id, 'edge_missing')).toBe(false)
 	})
+
+	it('updateEdge sets the choice label, persists it, and emits edge:updated', () => {
+		const { service, events } = setup()
+		const book = service.createBook('Arbre')
+		const sommaire = book.nodes.find((n) => n.kind === 'sommaire')!
+		const { edge } = service.addChoiceBranch(book.id, sommaire.id)!
+		let updatedId: string | null = null
+		events.on('edge:updated', (p) => {
+			updatedId = p.edgeId
+		})
+
+		const updated = service.updateEdge(book.id, edge.id, { label: 'Ouvrir la porte' })
+		expect(updated?.label).toBe('Ouvrir la porte')
+		expect(updatedId).toBe(edge.id)
+		expect(service.getBook(book.id)!.edges.find((e) => e.id === edge.id)!.label).toBe('Ouvrir la porte')
+	})
+
+	it('updateEdge drops the label when set blank, so consumers fall back to the kind label', () => {
+		const { service } = setup()
+		const book = service.createBook('Arbre')
+		const sommaire = book.nodes.find((n) => n.kind === 'sommaire')!
+		const { edge } = service.addChoiceBranch(book.id, sommaire.id)!
+		service.updateEdge(book.id, edge.id, { label: 'Fuir' })
+
+		const cleared = service.updateEdge(book.id, edge.id, { label: '   ' })
+		expect(cleared?.label).toBeUndefined()
+		expect(service.getBook(book.id)!.edges.find((e) => e.id === edge.id)!.label).toBeUndefined()
+	})
+
+	it('updateEdge returns null for a missing book or edge', () => {
+		const { service } = setup()
+		const book = service.createBook('Arbre')
+		expect(service.updateEdge('book_missing', 'edge_x', { label: 'x' })).toBeNull()
+		expect(service.updateEdge(book.id, 'edge_missing', { label: 'x' })).toBeNull()
+	})
 })

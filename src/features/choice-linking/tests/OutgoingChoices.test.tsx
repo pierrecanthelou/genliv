@@ -87,6 +87,29 @@ describe('choice-linking — outgoing choices', () => {
 		expect(screen.queryByRole('button', { name: 'Mort du personnage' })).not.toBeInTheDocument()
 	})
 
+	it('typing a libellé persists it on the edge via BookService and shows a placeholder when empty', async () => {
+		// Seed the branch BEFORE render so the mutation isn't an out-of-act update.
+		const brain = createBrain()
+		const book = brain.books.createBook('La Caverne')
+		const sommaireId = brain.books.getBook(book.id)!.nodes.find((n) => n.kind === 'sommaire')!.id
+		const created = brain.books.addChoiceBranch(book.id, sommaireId)!
+		brain.router.navigate({ name: 'editor', bookId: book.id })
+		render(
+			<BrainProvider brain={brain}>
+				<App />
+			</BrainProvider>,
+		)
+		const user = userEvent.setup()
+		await user.click(screen.getByRole('button', { name: /Nœud #1 — Sommaire/ }))
+
+		const field = screen.getByRole('textbox', { name: /libellé du choix/i })
+		expect(field).toHaveAttribute('placeholder', expect.stringMatching(/bouton de choix/i))
+
+		await user.type(field, 'Ouvrir la porte')
+
+		expect(brain.books.getBook(book.id)!.edges.find((e) => e.id === created.edge.id)!.label).toBe('Ouvrir la porte')
+	})
+
 	it('removing a branch deletes only the edge, not the target node', async () => {
 		// Seed the branch BEFORE render so the mutation isn't an out-of-act update.
 		const brain = createBrain()

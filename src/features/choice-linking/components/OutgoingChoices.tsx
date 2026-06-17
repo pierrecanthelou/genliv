@@ -1,5 +1,15 @@
 import { useState } from 'react'
-import { useBrain, useOpenBook, Badge, IconButton, nodeTitle, NODE_KINDS, EDGE_KINDS, type SlotContext } from '../../../brain'
+import {
+	useBrain,
+	useOpenBook,
+	Badge,
+	Field,
+	IconButton,
+	nodeTitle,
+	NODE_KINDS,
+	EDGE_KINDS,
+	type SlotContext,
+} from '../../../brain'
 
 /**
  * « Choix sortants » — a node's outgoing branches, mounted into node-editor's
@@ -7,8 +17,10 @@ import { useBrain, useOpenBook, Badge, IconButton, nodeTitle, NODE_KINDS, EDGE_K
  * via the brain SlotRegistry). Edges are the book's structure, so every
  * create/remove goes through BookService (KR-060/020); this is a live VIEW.
  *
- * Skeleton scope: list rows + « + Nouvelle branche » (new child via a `choice`
- * edge) + « Relier… » (a `relink` edge to an existing node) + remove. Hidden
+ * Scope: list rows + « + Nouvelle branche » (new child via a `choice` edge) +
+ * « Relier… » (a `relink` edge to an existing node) + remove + an editable
+ * « libellé du choix » per row persisted on the edge via BookService (the player
+ * button text; canvas falls back to the kind label when empty). Hidden
  * prerequisite / countdown rules arrive in later iterations (need
  * ObjectCatalogService, which lands with action-decor).
  */
@@ -26,8 +38,7 @@ export function OutgoingChoices({ bookId, nodeId }: SlotContext): JSX.Element {
 	// excluding structural screens — the Sommaire root and the Mort leaf are
 	// never authored choice targets (KR-067); Mort is reached only automatically
 	// in combat. Mirrors the SSOT guard in BookService.addEdge.
-	const candidates =
-		book !== null ? book.nodes.filter((n) => n.id !== nodeId && NODE_KINDS[n.kind].canBeTarget) : []
+	const candidates = book !== null ? book.nodes.filter((n) => n.id !== nodeId && NODE_KINDS[n.kind].canBeTarget) : []
 
 	function addBranch(): void {
 		const created = books.addChoiceBranch(bookId, nodeId)
@@ -55,16 +66,41 @@ export function OutgoingChoices({ bookId, nodeId }: SlotContext): JSX.Element {
 					+ Ajouter une première branche…
 				</button>
 			) : (
-				<ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+				<ul
+					style={{
+						listStyle: 'none',
+						margin: 0,
+						padding: 0,
+						display: 'flex',
+						flexDirection: 'column',
+						gap: 'var(--space-2)',
+					}}
+				>
 					{outgoing.map((edge) => (
 						<li key={edge.id} style={row}>
-							<span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>→ {titleOf(edge.to)}</span>
-							<span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flex: 'none' }}>
-								<Badge tone={EDGE_KINDS[edge.kind].rowTone}>{EDGE_KINDS[edge.kind].rowLabel}</Badge>
-								<IconButton label="Supprimer la branche" tone="danger" onClick={() => books.removeEdge(bookId, edge.id)}>
-									✕
-								</IconButton>
-							</span>
+							<div style={rowHeader}>
+								<span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+									→ {titleOf(edge.to)}
+								</span>
+								<span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flex: 'none' }}>
+									<Badge tone={EDGE_KINDS[edge.kind].rowTone}>{EDGE_KINDS[edge.kind].rowLabel}</Badge>
+									<IconButton
+										label="Supprimer la branche"
+										tone="danger"
+										onClick={() => books.removeEdge(bookId, edge.id)}
+									>
+										✕
+									</IconButton>
+								</span>
+							</div>
+							{/* Player-facing button text, persisted on the edge (KR-060). Empty is
+							    valid — the canvas then shows the kind's fallback label. */}
+							<Field
+								ariaLabel={`Libellé du choix vers ${titleOf(edge.to)}`}
+								value={edge.label ?? ''}
+								placeholder="Texte du bouton de choix…"
+								onChange={(e) => books.updateEdge(bookId, edge.id, { label: e.target.value })}
+							/>
 						</li>
 					))}
 				</ul>
@@ -123,16 +159,21 @@ const addButton: React.CSSProperties = {
 }
 const row: React.CSSProperties = {
 	display: 'flex',
-	alignItems: 'center',
-	justifyContent: 'space-between',
-	gap: 'var(--space-3)',
+	flexDirection: 'column',
+	gap: 'var(--space-2)',
 	border: '1px solid var(--border-subtle)',
 	borderRadius: 'var(--r-lg)',
 	padding: '8px 10px',
 	fontSize: 'var(--fs-body)',
 	color: 'var(--text-body)',
-	minHeight: 'var(--hit-target)',
 	boxSizing: 'border-box',
+}
+const rowHeader: React.CSSProperties = {
+	display: 'flex',
+	alignItems: 'center',
+	justifyContent: 'space-between',
+	gap: 'var(--space-3)',
+	minHeight: 'var(--hit-target)',
 }
 const emptyAffordance: React.CSSProperties = {
 	width: '100%',
