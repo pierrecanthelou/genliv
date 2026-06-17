@@ -16,6 +16,7 @@ export interface AppEvents {
 	'edge:created': { bookId: string; edgeId: string; from: string; to: string; kind: EdgeKind }
 	'edge:deleted': { bookId: string; edgeId: string }
 	'action:changed': { bookId: string; nodeId: string; actionType: NodeActionType }
+	'monster:savedToLibrary': { bookId: string; nodeId: string }
 }
 
 export type AppEventName = keyof AppEvents

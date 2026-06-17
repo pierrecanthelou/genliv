@@ -1,0 +1,66 @@
+{
+	"feature": "action-monster",
+	"created_at": "2026-06-17",
+	"status": "in-progress",
+	"design_reference": "Editeur Livre-Jeu - Wireframes.dc.html § 04 → 4D « MONSTRE · création à la volée »: identity (NOM + visuel deferred), CARACTÉRISTIQUES (PV / ATTAQUE / DÉFENSE), outcome reveal texts, BUTIN LÂCHÉ (loot via shared ObjectEditor), « Ajouter à la librairie du générateur » (reusable across books). Combat outcomes resolve to réussite/échec — the only semantic colours (green/red), per § 05. Mounted via node-editor's « Action requise » seam. Low-fi wireframe.",
+	"plan": {
+		"goal": "Let an author configure a node's « Monstre » action — the monster's name and the player-facing reveal text for each combat outcome (réussite / échec) — mounted via the ActionRegistry, with a stub to save the monster to a reusable library.",
+		"acceptance_criteria": [
+			"action-monster self-registers a « Monstre » editor with the brain ActionRegistry; node-editor's « Action requise » control offers « Monstre » alongside « Décor »/« PNJ » with zero node-editor changes (Open/Closed, KR-051).",
+			"Selecting « Monstre » mounts the editor for that node; structural screens (sommaire/mort) never show it.",
+			"The editor captures the monster name + a player-facing reveal text for EACH of the two outcomes; both are persisted on the node via BookService.",
+			"The two outcomes are réussite and échec — the only semantic outcomes — rendered with the only semantic colours (réussite = good/green, échec = bad/red), derived from the brain ROLL_OUTCOMES registry (KR-117), never hardcoded or branched on.",
+			"A « Ajouter à la librairie du générateur » affordance emits monster:savedToLibrary{bookId,nodeId} on the brain event bus (library stub; the reusable-monster catalog + persistence is a later iteration).",
+			"All monster config is persisted through BookService.updateNode (no private copy, KR-020) and lives on the node document; action-monster and node-editor never import each other (wired at the composition root).",
+			"The editor renders strictly from design-system primitives/tokens (Field, Badge good/bad), light theme; controls are keyboard-operable with ≥44px targets and the outcome fields carry an accessible name."
+		],
+		"brain_contracts": [
+			{ "type": "service", "name": "ActionRegistry", "direction": "consumes" },
+			{ "type": "service", "name": "BookService", "direction": "consumes" },
+			{ "type": "registry", "name": "ROLL_OUTCOMES", "direction": "consumes" },
+			{ "type": "event", "name": "monster:savedToLibrary", "direction": "emits", "payload": { "bookId": "string", "nodeId": "string" } }
+		],
+		"walking_skeleton": "registerActionMonster registers an ActionEditor { type:'monstre', label:'Monstre', render } with the brain ActionRegistry (wired at the App composition root). MonsterEditor reads node.monster live via useOpenBook and writes via BookService.updateNode: a NAME Field, and for each RollOutcome from the brain ROLL_OUTCOMES registry a good/bad Badge + a reveal-text Field. « Ajouter à la librairie » emits monster:savedToLibrary. Stats (PV/Attaque/Défense), loot, combat-reinforced-by-object, outcome targets, and the real library are later iterations.",
+		"n": 3,
+		"iterations": [
+			{ "id": 1, "goal": "Combat mechanics (§ 4D): PV / Attaque / Défense stats; outcome targets (victoire → poursuit / fuite → reliaison) wired through edges; defeat → Mort (the automatic combat path, KR-067).", "status": "planned" },
+			{ "id": 2, "goal": "Loot (« butin lâché ») via the shared ObjectEditor + combat reinforced by an inventory object (« si le joueur possède … alors victoire automatique »).", "status": "planned" },
+			{ "id": 3, "goal": "Reusable monster library via a MonsterLibraryService (« créer / librairie du générateur », reusable across books), consumed from the monster:savedToLibrary event.", "status": "planned" }
+		],
+		"known_risks": [
+			"KR-050/051 — node-editor is a host: action-monster self-registers via the ActionRegistry and is mounted without being imported; adding the action needs zero node-editor changes.",
+			"KR-091 — combat/skill outcomes are réussite/échec ONLY, the only semantic colours; their label + tone live in the brain ROLL_OUTCOMES registry (KR-117) and the editor derives both outcomes from it — never hardcode « Réussite »/« Échec » or branch on the value. ROLL_OUTCOMES sits in brain because trap/skill-roll editors will reuse it (KR-109).",
+			"KR-020 — monster config is read/written through BookService (the SSOT); the editor holds no private copy and reflects live via useOpenBook.",
+			"KR-090 — monster config lives on the node document (node.monster); structural screens never carry it (updateNode's text-only guard for sommaire/mort, KR-055).",
+			"KR-013 — derive the editor's current values inline from the live node, not via a useEffect-synced mirror.",
+			"monster:savedToLibrary is wired as a contract now but has no consumer/persistence yet (library stub) — the real MonsterLibraryService lands in iteration 3, like the deferred Object/PNJ catalogs."
+		]
+	},
+	"implementation": {
+		"iterations_log": [
+			{
+				"id": 0,
+				"label": "walking-skeleton",
+				"completed_at": "2026-06-17",
+				"architecture_choices": [
+					"Third action-* feature: self-registers with the brain ActionRegistry at the App composition root (registerActionMonster) — the seam now mounts three editors (« Décor »/« PNJ »/« Monstre ») with zero node-editor changes (KR-050/051).",
+					"réussite/échec — the only semantic outcomes — modelled as a brain ROLL_OUTCOMES registry (Record<RollOutcome,{label,tone}>, KR-117) placed in brain because trap/skill-roll editors will reuse it (KR-109). MonsterEditor derives BOTH outcome rows from it (good/bad Badge + reveal Field), no hardcoded labels/branches.",
+					"MonsterEditor is a VIEW over BookService (KR-020): reads node.monster via useOpenBook, normalised once (DEFAULT_MONSTER + the cleaned pattern), writes via updateNode.",
+					"The monster-library is stubbed via a new monster:savedToLibrary event on the brain EventBus (per CLAUDE.md's event list) — wired now, consumed later. Added ariaLabel to the shared Field so the Badge-captioned outcome fields keep an accessible name."
+				],
+				"deviations_from_plan": [
+					"Stats (PV/Attaque/Défense), loot, combat-reinforced-by-object, outcome targets, and the real reusable-monster library are deferred to iterations 1–3; the skeleton ships name + réussite/échec reveal texts + the library-event stub."
+				],
+				"test_coverage": {
+					"unit": "registerActionMonster adds/removes the 'monstre' editor (KR-051)",
+					"integration": "action-monster via App — « Monstre » offered through the registry seam, name + both réussite/échec outcome texts persisted, « Ajouter à la librairie » emits monster:savedToLibrary; structural-screen guard now covers monster (BookService)",
+					"e2e": "deferred (Playwright not set up)"
+				}
+			}
+		],
+		"open_questions": [
+			"Combat stats + outcome targets + defeat→Mort automatic path (iteration 1).",
+			"Loot + combat-reinforced-by-object (iteration 2); reusable MonsterLibraryService consuming monster:savedToLibrary (iteration 3)."
+		]
+	}
+}

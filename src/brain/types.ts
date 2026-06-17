@@ -40,6 +40,21 @@ export interface DecorConfig {
 	object?: GameObject
 }
 
+/**
+ * The outcome of a skill roll / combat — the ONLY semantic outcomes in the
+ * domain, and the only ones that carry a semantic colour (réussite = good,
+ * échec = bad). See the ROLL_OUTCOMES registry for their labels + tones.
+ */
+export type RollOutcome = 'reussite' | 'echec'
+
+/** Per-node monster action config (owned by action-monster). */
+export interface MonsterConfig {
+	/** The monster's name (author/display). */
+	name: string
+	/** Player-facing reveal text shown per combat outcome (réussite / échec). */
+	outcomes: Record<RollOutcome, string>
+}
+
 /** Per-node PNJ action config (owned by action-pnj). */
 export interface PnjConfig {
 	/** The PNJ's name (author/display). */
@@ -71,6 +86,8 @@ export interface BookNode {
 	decor?: DecorConfig
 	/** PNJ action config when `actionType === 'pnj'` (owned by action-pnj). */
 	pnj?: PnjConfig
+	/** Monster action config when `actionType === 'monstre'` (owned by action-monster). */
+	monster?: MonsterConfig
 }
 
 export interface Edge {

@@ -298,6 +298,7 @@ describe('BookService.updateNode', () => {
 			actionType: 'monstre',
 			decor: { interaction: 'prendre' },
 			pnj: { name: 'X', dialogue: 'Y' },
+			monster: { name: 'M', outcomes: { reussite: '', echec: '' } },
 		})
 
 		expect(updated?.text).toBe('Au seuil.')
@@ -306,6 +307,7 @@ describe('BookService.updateNode', () => {
 		// Action config never lands on a structural screen (KR-090).
 		expect(updated?.decor).toBeUndefined()
 		expect(updated?.pnj).toBeUndefined()
+		expect(updated?.monster).toBeUndefined()
 	})
 
 	it('returns null for an unknown book or node', () => {

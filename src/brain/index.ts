@@ -4,7 +4,8 @@
  * Feature-agnostic: never imports from features/.
  */
 export type { Book, BookNode, Edge, NodeKind, EdgeKind, NodeActionType } from './types'
-export type { GameObject, DecorConfig, DecorInteraction, PnjConfig } from './types'
+export type { GameObject, DecorConfig, DecorInteraction, PnjConfig, MonsterConfig, RollOutcome } from './types'
+export { ROLL_OUTCOMES, type RollOutcomeDescriptor } from './outcomes'
 export { createId } from './utils/id'
 export type { EventBus, AppEvents, AppEventName } from './EventBus'
 export type { PersistenceService } from './PersistenceService'

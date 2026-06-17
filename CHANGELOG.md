@@ -2,6 +2,12 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.1.6 — action-monster walking skeleton (MVP slice)
+
+- New **`action-monster`** feature — third `action-*`: self-registers a « Monstre » editor with the brain **ActionRegistry** (node-editor now offers Décor / PNJ / Monstre with zero changes). `MonsterEditor` is a VIEW over `BookService`: a NAME + a player-facing reveal text per combat outcome, persisted on `node.monster`.
+- **réussite / échec** — the only semantic outcomes/colours — modelled as a new brain **`ROLL_OUTCOMES`** registry (`Record<RollOutcome, {label, tone}>`, an instance of **KR-117**), placed in brain so trap/skill-roll editors reuse it (KR-109). The editor **derives** both outcome rows (good/bad `Badge` + field) from it — no hardcoded labels. New **KR-091**.
+- The monster-library is **stubbed** via a new `monster:savedToLibrary` event on the brain EventBus (wired now, consumed later). Added `ariaLabel` to the shared `Field` so Badge-captioned fields keep an accessible name. Domain model gained `node.monster` (`MonsterConfig`) + `RollOutcome`; `NodePatch` carries `monster` (text-only guard covers it, KR-055/090, regression-tested). 97 tests passing (3 new). Stats / loot / outcome targets / real library deferred to iterations.
+
 ## 0.1.5 — action-pnj walking skeleton (MVP slice)
 
 - New **`action-pnj`** feature — second `action-*`: self-registers a « PNJ » editor with the brain **ActionRegistry** (node-editor offers « Décor » + « PNJ » with zero changes, KR-050/051). `PnjEditor` is a VIEW over `BookService` (KR-020): a NAME + player-facing DIALOGUE, persisted on `node.pnj`.

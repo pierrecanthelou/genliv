@@ -59,7 +59,9 @@ export interface BookService {
 }
 
 /** The author-editable surface of a node (everything else is structural). */
-export type NodePatch = Partial<Pick<BookNode, 'text' | 'endVictory' | 'endFailure' | 'actionType' | 'decor' | 'pnj'>>
+export type NodePatch = Partial<
+	Pick<BookNode, 'text' | 'endVictory' | 'endFailure' | 'actionType' | 'decor' | 'pnj' | 'monster'>
+>
 
 /**
  * Deterministic slot for a position-less / newly added node (KR-023): a
