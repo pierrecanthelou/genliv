@@ -1,0 +1,65 @@
+{
+	"feature": "cloud-sync",
+	"created_at": "2026-06-17",
+	"status": "in-progress",
+	"design_reference": "No dedicated wireframe screen — cloud-sync is infrastructure with a small status surface. Anatomy: a low-fi status pill (the design system Badge, good/bad/accent/muted tones) in a corner, reflecting the local-first store's sync state. Light theme, tokens only.",
+	"plan": {
+		"goal": "Make the whole app local-first and sync-aware: every write persists locally first, optionally pushes to a cloud transport in the background, and a status surface reflects the sync state — so the editor always works offline and is ready for a real backend without touching feature code.",
+		"acceptance_criteria": [
+			"A CloudSyncService decorates the PersistenceService (Liskov: it IS a PersistenceService) so BookService and every feature are unchanged; it is wired once in createBrain wrapping the local store.",
+			"Writes are local-first: get/set/keys/remove hit the local store synchronously, so reads right after a write succeed and the app works fully offline.",
+			"When a cloud transport is configured, a write pushes in the background and the sync state moves idle → syncing → synced, or → error if the push fails; the local write is never lost on error.",
+			"With no transport configured the store is « offline » (local-only) and emits no per-write noise (status only changes broadcast).",
+			"Sync state changes are broadcast on the brain sync:status event; a SyncIndicator surfaces the live state, derived from a status→label/tone Record (KR-117), reading via a useSyncStatus external store (no private copy).",
+			"The SyncIndicator renders from design-system tokens/Badge (good=synced, bad=error, accent=syncing, muted=local/idle), is an aria-live status region, and is mounted once by the composition root over both routes.",
+			"View-mode/UI state is NOT synced; only the book document flows through the persistence layer (cloud-first boundary, KR-022)."
+		],
+		"brain_contracts": [
+			{ "type": "service", "name": "PersistenceService", "direction": "consumes" },
+			{ "type": "service", "name": "CloudSyncService", "direction": "provides" },
+			{ "type": "event", "name": "sync:status", "direction": "emits", "payload": { "status": "idle|syncing|synced|offline|error" } }
+		],
+		"walking_skeleton": "createCloudSyncService(local, events, transport?) decorates the local PersistenceService: local-first set (sync write) + a background transport.push that moves the status idle→syncing→synced/error and emits sync:status; with no transport it stays offline (local-only). createBrain wraps the local store with it and exposes brain.sync. useSyncStatus subscribes to sync:status; the cloud-sync feature's SyncIndicator renders the live state as a Badge pill, mounted by App over both routes. The real cloud transport (Cloudflare worker client) + offline write queue are later iterations.",
+		"n": 3,
+		"iterations": [
+			{ "id": 1, "goal": "Real cloud transport: a CloudflareSyncService client (worker route + auth) implementing CloudTransport; debounced batched pushes; last-write-wins reconciliation on book:opened.", "status": "planned" },
+			{ "id": 2, "goal": "Offline write queue: persist pending pushes and flush on reconnect (unblocks book-creation iteration 3); surface a « N changements en attente » state.", "status": "planned" },
+			{ "id": 3, "goal": "Conflict handling: detect divergence between local and cloud, surface a resolution affordance rather than silently overwriting.", "status": "planned" }
+		],
+		"known_risks": [
+			"KR-022 — pan/zoom and the canvas↔outline view-mode are UI preferences, NOT part of the synced book document; only the book flows through the persistence layer, so cloud-sync never pushes UI state (avoids spurious conflicts).",
+			"KR-011/111 — all persistence still goes through PersistenceService; CloudSyncService is a decorator over it, not a second storage surface; no raw localStorage in feature code.",
+			"KR-004 — local-first: the synchronous local write resolves before any event/navigation; the background cloud push must never block or reorder the local write.",
+			"KR-117 — the SyncStatus → label/tone mapping lives in one Record (SyncIndicator), derived not branched.",
+			"KR-114 — when the real transport lands, any cloud credential/token must be registered in persistenceKeys.ts with a SENSITIVE marker (none yet)."
+		]
+	},
+	"implementation": {
+		"iterations_log": [
+			{
+				"id": 0,
+				"label": "walking-skeleton",
+				"completed_at": "2026-06-17",
+				"architecture_choices": [
+					"CloudSyncService is a Decorator over PersistenceService (Liskov, KR-011): createBrain wraps the local store with it and feeds it to BookService, so every feature is sync-aware with zero changes. brain.sync exposes status().",
+					"Local-first: set writes local synchronously THEN pushes in the background (KR-004); the status moves idle→syncing→synced/error and is broadcast on a new sync:status event. With no transport the store is offline (local-only) and emits nothing on writes — so the existing 99 tests are fully transparent (no async, no status noise).",
+					"useSyncStatus is an external-store subscription over sync:status (KR-013); the cloud-sync feature's SyncIndicator is a VIEW that derives label/tone from a SyncStatus Record (KR-117) and is mounted once by App over both routes.",
+					"SyncStatus is a brain type; the CloudTransport interface keeps the real backend swappable (the Cloudflare worker client is deferred)."
+				],
+				"deviations_from_plan": [
+					"No real cloud transport in the skeleton — default is local-only (offline). The Cloudflare worker client, debounced batched pushes, reconciliation, the offline queue, and conflict handling are iterations 1–3.",
+					"This completes the 0.1.x MVP tier: every feature now has a walking skeleton."
+				],
+				"test_coverage": {
+					"unit": "CloudSyncService — local-first delegation, offline (no transport) no-noise, idle→syncing→synced broadcast, error on push failure with the local write preserved",
+					"integration": "SyncIndicator via brain — « Local » with no transport, syncing→synced after a write with a transport",
+					"e2e": "deferred (Playwright not set up)"
+				}
+			}
+		],
+		"open_questions": [
+			"Cloudflare worker route + auth shape for the real transport (iteration 1) — must follow the Worker Route Parity checklist.",
+			"Reconciliation/conflict policy (iterations 1/3) and the offline queue that unblocks book-creation iteration 3 (iteration 2)."
+		]
+	}
+}
