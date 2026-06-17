@@ -114,9 +114,10 @@
 				"A getByRole regex like /Title/ also matches a delete button whose accessible name contains the title (« Supprimer « Title » ») — anchor the open-button query (/^Title/) to disambiguate.",
 				"book:deleted already existed on the EventBus before any emitter; wiring the emitter (deleteBook) closed the loop without a contract change.",
 				"iter 1: a rename needs a list-membership-agnostic refresh event — added book:updated to BOTH useBooks (BOOK_LIST_EVENTS) and useOpenBook (BOOK_MUTATION_EVENTS), since a rename changes list CONTENT (not membership) and an open editor's title. Enter-then-blur does NOT double-commit: React doesn't fire onBlur when the input unmounts on setEditing(false), so the inline-rename commit path is single regardless of Enter/blur/Esc.",
-				"iter 1: per-test localStorage.clear() must be added to every new describe block — a new BookService describe without its own beforeEach leaks prior tests' books into a listBooks() assertion."
+				"iter 1: per-test localStorage.clear() must be added to every new describe block — a new BookService describe without its own beforeEach leaks prior tests' books into a listBooks() assertion.",
+				"iter 1: a 'deep copy' must deep-clone nested sub-objects, not shallow-spread the top level (BUG-002) — structuredClone is NOT defined in the jsdom jest env, so a JSON round-trip is the portable deep clone (and exact here, since the book is JSON-persisted anyway)."
 			],
-			"bugs_encountered": []
+			"bugs_encountered": ["BUG-002", "BUG-003"]
 		},
 		{
 			"feature": "outline-view",

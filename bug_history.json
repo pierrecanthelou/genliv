@@ -11,6 +11,30 @@
 			"mitigation": "Single detach ref reused for both pointerup and unmount; impossible to leave a dangling listener.",
 			"regression_test": "covered indirectly by tree-canvas selection tests; pan/zoom e2e deferred with iteration 3",
 			"severity": "minor"
+		},
+		{
+			"id": "BUG-002",
+			"date": "2026-06-17",
+			"feature": "book-library",
+			"discovered_at": "iteration-1",
+			"symptom": "BookService.duplicateBook spread each node shallowly ({ ...n, id }), so the copy shared the SAME nested position/decor/pnj/monster/trap object references as the source — the spec promised a deep copy. Latent: an in-place edit of a sub-object on one book would leak into the other.",
+			"root_cause": "Shallow object spread only clones top-level node fields; nested objects stay shared references. Surfaced in the tech-lead review of the book-library iter-1 diff.",
+			"fix": "duplicateBook now deep-clones each node via a JSON round-trip (the exact clone here — the book is JSON-serialised by PersistenceService anyway) before reassigning its remapped id. (src/brain/BookService.ts duplicateBook)",
+			"mitigation": "Regression test asserts the copy's decor/position are toEqual but NOT toBe (===) the source's, so a future shallow-copy regression fails the suite.",
+			"regression_test": "src/brain/BookService.test.ts — 'duplicateBook deep-clones nested node sub-objects (no shared references with the source)'",
+			"severity": "minor"
+		},
+		{
+			"id": "BUG-003",
+			"date": "2026-06-17",
+			"feature": "book-library",
+			"discovered_at": "iteration-1",
+			"symptom": "The in-place rename Escape-cancel path (a named iter-1 goal) had no test, leaving the no-commit-on-Escape contract unverified and brittle to refactors.",
+			"root_cause": "Coverage gap, flagged in the tech-lead review.",
+			"fix": "Added an integration test that types into the rename input then presses Escape and asserts the title is unchanged and edit mode exits. Confirms React does not fire onBlur when the input unmounts on setEditing(false), so Escape does not double-commit via the onBlur handler.",
+			"mitigation": "The asymmetric trim comparison was also tightened (commitRename compares against book.title.trim()), so a re-commit of a visually-same value never fires a redundant book:updated.",
+			"regression_test": "src/features/book-library/tests/library.test.tsx — 'cancels an in-place rename with Escape, leaving the title unchanged'",
+			"severity": "minor"
 		}
 	]
 }

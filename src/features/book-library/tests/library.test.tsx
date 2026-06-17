@@ -73,6 +73,21 @@ describe('book-library', () => {
 		expect(screen.getByRole('button', { name: /^La Caverne/ })).toBeInTheDocument()
 	})
 
+	it('cancels an in-place rename with Escape, leaving the title unchanged', async () => {
+		const user = userEvent.setup()
+		const { brain } = renderLibrary((b) => {
+			b.books.createBook('Brouillon')
+		})
+
+		await user.click(screen.getByRole('button', { name: /Renommer « Brouillon »/ }))
+		const input = screen.getByRole('textbox', { name: /Renommer « Brouillon »/ })
+		await user.clear(input)
+		await user.type(input, 'La Caverne{Escape}')
+
+		expect(brain.books.listBooks()[0].title).toBe('Brouillon')
+		expect(screen.getByRole('button', { name: /^Brouillon/ })).toBeInTheDocument()
+	})
+
 	it('duplicates a book via the card, adding a (copie) to the live list', async () => {
 		const user = userEvent.setup()
 		const { brain } = renderLibrary((b) => {

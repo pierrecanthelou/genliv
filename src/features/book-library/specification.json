@@ -83,7 +83,8 @@
 				],
 				"deviations_from_plan": [
 					"« hover-reveal delete » generalised to all three card actions (rename/duplicate/delete) sharing one reveal rule — the wireframe groups them in the card corner.",
-					"Date formatting kept feature-local (book-library/utils/formatDate) since no second consumer exists yet; promote to brain/utils when cloud-sync's per-book status needs it (KR-110)."
+					"Date formatting kept feature-local (book-library/utils/formatDate) since no second consumer exists yet; promote to brain/utils when cloud-sync's per-book status needs it (KR-110).",
+					"Post-review fixes (tech-lead): duplicateBook now DEEP-clones each node (JSON round-trip — structuredClone is undefined in the jsdom test env) so the copy shares no nested sub-object reference with the source (BUG-002); added an Escape-cancel rename test (BUG-003); tightened the rename no-op comparison to book.title.trim()."
 				],
 				"test_coverage": {
 					"unit": "BookService.renameBook (trim + book:updated, blank/missing rejection) + duplicateBook (fresh ids, remapped edges, (copie) title, book:created, independence) + book-library integration (meta counts, rename in place, duplicate adds a card)",

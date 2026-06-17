@@ -508,6 +508,21 @@ describe('BookService.renameBook / duplicateBook (book-library)', () => {
 		).toEqual([source.id, copy.id].sort())
 	})
 
+	it('duplicateBook deep-clones nested node sub-objects (no shared references with the source)', () => {
+		const { service } = setup()
+		const source = service.createBook('La Caverne')
+		const child = service.addChoiceBranch(source.id, source.nodes.find((n) => n.kind === 'sommaire')!.id)!.node
+		service.updateNode(source.id, child.id, { decor: { interaction: 'fouiller' } })
+
+		const copy = service.duplicateBook(source.id)!
+		const sourceChild = service.getBook(source.id)!.nodes.find((n) => n.decor !== undefined)!
+		const copyChild = copy.nodes.find((n) => n.decor !== undefined)!
+		// Same value, but distinct object references — an in-place edit can't leak across books.
+		expect(copyChild.decor).toEqual(sourceChild.decor)
+		expect(copyChild.decor).not.toBe(sourceChild.decor)
+		expect(copyChild.position).not.toBe(sourceChild.position)
+	})
+
 	it('duplicateBook returns null for a missing book', () => {
 		const { service } = setup()
 		expect(service.duplicateBook('book_missing')).toBeNull()

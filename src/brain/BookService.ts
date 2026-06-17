@@ -230,7 +230,12 @@ export function createBookService(persistence: PersistenceService, events: Event
 			if (source === null) return null
 			// Remap every node id, then rewrite edge endpoints through that map so
 			// references stay by stable id (KR-003) — pointing at the COPY's own
-			// nodes, never the source's. Edge ids are fresh too.
+			// nodes, never the source's. Edge ids are fresh too. Nodes are
+			// DEEP-cloned so the copy never shares a nested
+			// position/decor/pnj/monster/trap object reference with the source —
+			// an in-place edit of one book must never leak into the other. A JSON
+			// round-trip is the exact clone here: the book is JSON-serialised by
+			// PersistenceService anyway, so it carries no non-JSON values.
 			const idMap = new Map(source.nodes.map((n) => [n.id, createId('node')]))
 			const now = new Date().toISOString()
 			const copy: Book = {
@@ -238,7 +243,11 @@ export function createBookService(persistence: PersistenceService, events: Event
 				title: `${source.title} (copie)`,
 				createdAt: now,
 				updatedAt: now,
-				nodes: source.nodes.map((n) => ({ ...n, id: idMap.get(n.id) as string })),
+				nodes: source.nodes.map((n) => {
+					const clone = JSON.parse(JSON.stringify(n)) as BookNode
+					clone.id = idMap.get(n.id) as string
+					return clone
+				}),
 				edges: source.edges.map((e) => ({
 					...e,
 					id: createId('edge'),

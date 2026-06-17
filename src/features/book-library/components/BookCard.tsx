@@ -36,8 +36,9 @@ export function BookCard({ book, onOpen, onRename, onDuplicate, onRequestDelete 
 
 	function commitRename(): void {
 		const trimmed = draft.trim()
-		// A blank rename is a no-op (BookService rejects it too); just leave edit mode.
-		if (trimmed !== '' && trimmed !== book.title) onRename(book.id, trimmed)
+		// A blank or unchanged rename is a no-op (BookService rejects blanks too and
+		// stores titles trimmed, so compare against the trimmed stored title).
+		if (trimmed !== '' && trimmed !== book.title.trim()) onRename(book.id, trimmed)
 		setEditing(false)
 	}
 
