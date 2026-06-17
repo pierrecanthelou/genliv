@@ -1,7 +1,14 @@
-import { useBrain, useOpenBook, Field, type ActionEditorContext, type PnjConfig, type PnjGift } from '../../../brain'
+import {
+	useBrain,
+	useOpenBook,
+	Field,
+	TargetPicker,
+	type ActionEditorContext,
+	type PnjConfig,
+	type PnjGift,
+} from '../../../brain'
 import { giftOf } from '../utils/gift'
 import { GiftSection } from './GiftSection'
-import { TargetPicker } from './TargetPicker'
 
 /** The config a node falls back to before any PNJ is authored. */
 const DEFAULT_PNJ: PnjConfig = { name: '', dialogue: '' }
@@ -55,7 +62,14 @@ export function PnjEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element 
 				onChange={(e) => patchPnj({ dialogue: e.target.value })}
 			/>
 			<GiftSection gift={gift} onChange={handleGiftChange} />
-			<TargetPicker nodes={nodes} nodeId={nodeId} target={pnj.target} onChange={(target) => patchPnj({ target })} />
+			<TargetPicker
+				label="Ensuite, le PNJ mène à"
+				emptyLabel="Aucune suite — fin de l’échange"
+				nodes={nodes}
+				nodeId={nodeId}
+				target={pnj.target}
+				onChange={(target) => patchPnj({ target })}
+			/>
 		</div>
 	)
 }

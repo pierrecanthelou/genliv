@@ -2,14 +2,20 @@ import {
 	Toggle,
 	ObjectEditor,
 	SegmentedControl,
-	IconButton,
-	HIT_TARGET_MIN,
+	Stepper,
 	type ObjectDraft,
 	type PnjGift,
 	type PnjGiftEffect,
 	type SegmentedOption,
 } from '../../../brain'
-import { GIFT_EFFECTS, GIFT_EFFECT_VALUES, clampGiftValue, blankGift } from '../utils/gift'
+import {
+	GIFT_EFFECTS,
+	GIFT_EFFECT_VALUES,
+	GIFT_VALUE_MIN,
+	GIFT_VALUE_MAX,
+	clampGiftValue,
+	blankGift,
+} from '../utils/gift'
 
 const EFFECT_OPTIONS: SegmentedOption<PnjGiftEffect>[] = GIFT_EFFECT_VALUES.map((value) => ({
 	value,
@@ -24,9 +30,9 @@ export interface GiftSectionProps {
 /**
  * « Le PNJ donne un objet » (§ 4A): the gift toggle revealing the shared brain
  * ObjectEditor (KR-052), the gift's effect (a closed set from GIFT_EFFECTS,
- * KR-117) and — for a stat bonus — a value stepper. Controlled: the owner
- * persists `onChange` through BookService (KR-020); turning the toggle off drops
- * the gift, on seeds a fresh one with a stable id (KR-003).
+ * KR-117) and — for a stat bonus — the shared brain Stepper. Controlled: the
+ * owner persists `onChange` through BookService (KR-020); turning the toggle off
+ * drops the gift, on seeds a fresh one with a stable id (KR-003).
  */
 export function GiftSection({ gift, onChange }: GiftSectionProps): JSX.Element {
 	function toggle(on: boolean): void {
@@ -63,34 +69,18 @@ export function GiftSection({ gift, onChange }: GiftSectionProps): JSX.Element {
 							onChange={setEffect}
 						/>
 					</div>
-					{GIFT_EFFECTS[gift.effect].hasValue && <ValueStepper value={gift.value} onChange={setValue} />}
+					{GIFT_EFFECTS[gift.effect].hasValue && (
+						<Stepper
+							label="Valeur du bonus"
+							prefix="+"
+							value={gift.value}
+							min={GIFT_VALUE_MIN}
+							max={GIFT_VALUE_MAX}
+							onChange={setValue}
+						/>
+					)}
 				</>
 			)}
-		</div>
-	)
-}
-
-interface ValueStepperProps {
-	value: number
-	onChange: (value: number) => void
-}
-
-/** A − N + stepper for the gift's stat bonus, clamped to the gift bounds. */
-function ValueStepper({ value, onChange }: ValueStepperProps): JSX.Element {
-	return (
-		<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-			<span style={label}>Valeur du bonus</span>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-				<IconButton label="Diminuer la valeur" size={HIT_TARGET_MIN} onClick={() => onChange(value - 1)}>
-					−
-				</IconButton>
-				<span style={valueDisplay} aria-live="polite">
-					+{value}
-				</span>
-				<IconButton label="Augmenter la valeur" size={HIT_TARGET_MIN} onClick={() => onChange(value + 1)}>
-					+
-				</IconButton>
-			</div>
 		</div>
 	)
 }
@@ -102,13 +92,4 @@ const label: React.CSSProperties = {
 	color: 'var(--text-label)',
 	letterSpacing: 'var(--track-eyebrow)',
 	marginBottom: 5,
-}
-
-const valueDisplay: React.CSSProperties = {
-	minWidth: 36,
-	textAlign: 'center',
-	fontFamily: 'var(--font-mono)',
-	fontSize: 'var(--fs-body)',
-	fontWeight: 'var(--fw-semibold)',
-	color: 'var(--text-strong)',
 }

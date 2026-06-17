@@ -1,10 +1,9 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createBrain, BrainProvider, type BookNode } from '../../../brain'
+import { createBrain, BrainProvider, TargetPicker, type BookNode } from '../../../brain'
 import { App } from '../../../App'
 import { registerActionPnj } from '../register'
 import { GiftSection } from '../components/GiftSection'
-import { TargetPicker } from '../components/TargetPicker'
 
 function setup() {
 	const brain = createBrain()
@@ -76,9 +75,9 @@ describe('action-pnj', () => {
 		await user.click(screen.getByRole('radio', { name: 'Défense' }))
 		expect(pnjOf(brain, bookId, nodeId)?.gift?.effect).toBe('defense')
 
-		await user.click(screen.getByRole('button', { name: /augmenter la valeur/i }))
+		await user.click(screen.getByRole('button', { name: /augmenter Valeur du bonus/i }))
 		expect(pnjOf(brain, bookId, nodeId)?.gift?.value).toBe(2)
-		await user.click(screen.getByRole('button', { name: /diminuer la valeur/i }))
+		await user.click(screen.getByRole('button', { name: /diminuer Valeur du bonus/i }))
 		expect(pnjOf(brain, bookId, nodeId)?.gift?.value).toBe(1)
 	})
 
@@ -91,7 +90,7 @@ describe('action-pnj', () => {
 		await user.click(screen.getByRole('radio', { name: 'Scénario' }))
 
 		expect(pnjOf(brain, bookId, nodeId)?.gift?.effect).toBe('scenario')
-		expect(screen.queryByRole('button', { name: /augmenter la valeur/i })).not.toBeInTheDocument()
+		expect(screen.queryByRole('button', { name: /augmenter Valeur du bonus/i })).not.toBeInTheDocument()
 	})
 
 	it('removing the gift drops it from the node and hides the object editor', async () => {
@@ -151,7 +150,7 @@ describe('action-pnj', () => {
 
 	it('surfaces a deleted « mène à » target, never silently broken (KR-021/063)', () => {
 		const nodes: BookNode[] = [{ id: 'n1', kind: 'choix', text: '' }]
-		render(<TargetPicker nodes={nodes} nodeId="n1" target="ghost" onChange={() => {}} />)
+		render(<TargetPicker label="Mène à" nodes={nodes} nodeId="n1" target="ghost" onChange={() => {}} />)
 
 		expect(screen.getByRole('button', { name: /cible supprimée/i })).toBeInTheDocument()
 	})

@@ -204,7 +204,9 @@
 			"lessons_learned": [
 				"Applied the ObjectEditor placement lesson to a DOMAIN CONCEPT, not just a component: réussite/échec is domain-wide, so its registry went straight to brain — future trap/skill-roll editors reuse it with no cross-feature import.",
 				"When a Badge captions a field (semantic colour) the input loses its accessible name — add an ariaLabel rather than leaning on the placeholder; caught in self-review by making the outcome fields queryable.",
-				"A closed-set Record (KR-117) doubles as the loop source for the UI: mapping ROLL_OUTCOMES keys renders both outcome rows, so adding an outcome would be one entry — no second edit site."
+				"A closed-set Record (KR-117) doubles as the loop source for the UI: mapping ROLL_OUTCOMES keys renders both outcome rows, so adding an outcome would be one entry — no second edit site.",
+				"iter 1: the 'extract to brain at the 2nd consumer' rule fired twice more — the value Stepper and the TargetPicker moved to brain/components when action-monster became their second consumer (after action-pnj), refactoring pnj in the SAME slice (behaviour-preserving, tests stay green). Same trigger as ObjectEditor/OutcomesEditor (KR-109).",
+				"iter 1: a shared brain component needs its feature-specific copy parameterised — TargetPicker gained label/emptyLabel props so PNJ « mène à » and monster victoire/fuite reuse one component; bumping per-stepper aria-labels off the `label` prop keeps several Steppers on one screen distinct (and required updating the pnj test queries)."
 			],
 			"bugs_encountered": []
 		},

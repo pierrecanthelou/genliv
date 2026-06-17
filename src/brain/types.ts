@@ -91,8 +91,22 @@ export type RollOutcome = 'reussite' | 'echec'
 export interface MonsterConfig {
 	/** The monster's name (author/display). */
 	name: string
+	/** Combat stats (§ 4D). Skeleton monsters without these default in via the editor. */
+	pv: number
+	attack: number
+	defense: number
 	/** Player-facing reveal text shown per combat outcome (réussite / échec). */
 	outcomes: Record<RollOutcome, string>
+	/**
+	 * Victoire (réussite) → the node the player continues to (« poursuit »), and
+	 * fuite → the node the player relinks to (« reliaison »). Node id references —
+	 * structural screens are never targets (KR-067) and a deleted target is
+	 * surfaced (KR-021/063). Défaite (échec) → Mort is automatic (KR-067), so it
+	 * carries no field. Promotion to rendered edges via the dedicated combat path
+	 * (not the manual edge API) is later.
+	 */
+	victoryTarget?: string
+	fleeTarget?: string
 }
 
 /** Per-node trap action config (owned by action-trap). */
