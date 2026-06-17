@@ -162,6 +162,11 @@
 			"risk": "Combat/skill outcomes are réussite/échec ONLY — the only semantic outcomes and the only semantic colours (réussite = good/green, échec = bad/red). Their label + tone live in the brain ROLL_OUTCOMES registry (Record<RollOutcome,{label,tone}>, an instance of KR-117), placed in brain (not the feature) because trap + décor/PNJ skill-roll editors will reuse it (KR-109). Editors DERIVE every outcome row from ROLL_OUTCOMES — never hardcode « Réussite »/« Échec », never branch on the value, never invent other outcome colours. The monster library is wired via the monster:savedToLibrary event (per the event list) but stubbed: no consumer/persistence until the MonsterLibraryService iteration (like the deferred Object/PNJ catalogs)."
 		},
 		{
+			"id": "KR-092",
+			"feature": "action-trap",
+			"risk": "A trap is a réussite/échec skill roll: its outcome reveal rows reuse the SHARED brain OutcomesEditor (KR-109) derived from ROLL_OUTCOMES (KR-117/091) — never a per-feature copy of the rows or the labels (the rows were extracted to brain at the SECOND consumer, monster→trap, like ObjectEditor). The « échec sanctionné » variant is a fatal boolean on node.trap capturing intent; the actual automatic échec→Mort edge is wired later via the dedicated combat/trap path, NOT the manual edge API (KR-067). Trap config lives on node.trap and rides updateNode's text-only structural guard (KR-055/090)."
+		},
+		{
 			"id": "KR-109",
 			"feature": "global-config",
 			"risk": "Any presentational component consumed by more than one feature belongs in brain/components/ and is re-exported from brain/components/index.ts. A component living in a feature but imported by another is a cross-feature violation — move it."

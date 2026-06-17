@@ -197,6 +197,27 @@
 				"A closed-set Record (KR-117) doubles as the loop source for the UI: mapping ROLL_OUTCOMES keys renders both outcome rows, so adding an outcome would be one entry — no second edit site."
 			],
 			"bugs_encountered": []
+		},
+		{
+			"feature": "action-trap",
+			"completed_at": "2026-06-17",
+			"goal": "Configure a node's « Piège » action — description + réussite/échec reveal texts + whether failure is lethal — via the ActionRegistry, reusing the shared outcome editor.",
+			"key_architecture_choices": [
+				"Fourth and final action-* feature: self-registers with the brain ActionRegistry (registerActionTrap) — node-editor now offers all four action types with zero changes (KR-050/051), validating the seam end-to-end.",
+				"Extracted a shared brain OutcomesEditor (KR-109) at the SECOND consumer of the réussite/échec rows (monster→trap): both editors render outcomes from one component derived from ROLL_OUTCOMES (KR-117/091); MonsterEditor refactored to use it. Same trigger as the ObjectEditor extraction.",
+				"TrapEditor is a VIEW over BookService (KR-020), normalised once; trap config on node.trap, NodePatch carries it (text-only guard, KR-055/090).",
+				"The « échec sanctionné » variant is a fatal boolean capturing intent; the automatic échec→Mort edge is deferred to the dedicated combat/trap path, not the manual edge API (KR-067/092)."
+			],
+			"brain_contracts_added": [
+				{ "type": "type", "name": "TrapConfig" },
+				{ "type": "component", "name": "OutcomesEditor (brain/components)" }
+			],
+			"lessons_learned": [
+				"The 'extract to brain at the 2nd consumer' rule now has two confirmations (ObjectEditor, OutcomesEditor) — when a second feature needs the same rows, refactor the first to the shared component in the same slice; behaviour-preserving and the tests stay green.",
+				"All four action editors landed by composing the SAME seams (ActionRegistry + BookService VIEW + shared brain primitives) — the skeleton's investment in node-editor's host seam + brain registries paid back four times with near-zero node-editor churn.",
+				"A boolean flag (trap.fatal) is the right skeleton stand-in for a deferred structural mechanic (the automatic →Mort edge): capture intent on the node now, wire the edge when the dedicated path is built (KR-067)."
+			],
+			"bugs_encountered": []
 		}
 	]
 }
