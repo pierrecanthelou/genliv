@@ -8,6 +8,7 @@ import type { NodeKind, NodeActionType, EdgeKind, SyncStatus } from './types'
 export interface AppEvents {
 	'book:created': { bookId: string }
 	'book:opened': { bookId: string }
+	'book:updated': { bookId: string }
 	'book:deleted': { bookId: string }
 	'node:created': { bookId: string; nodeId: string; kind: NodeKind }
 	'node:updated': { bookId: string; nodeId: string }

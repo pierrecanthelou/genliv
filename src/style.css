@@ -37,3 +37,15 @@ button {
 	outline: 2px solid var(--focus-ring);
 	outline-offset: 2px;
 }
+
+/* Hover-reveal row actions (book-library card): actions stay out of the way
+   until the card is hovered or holds keyboard focus, so they never crowd the
+   title yet remain reachable. CSS-only — no isHovered JS state. */
+.book-card__actions {
+	opacity: 0;
+	transition: opacity 0.15s ease;
+}
+.book-card:hover .book-card__actions,
+.book-card:focus-within .book-card__actions {
+	opacity: 1;
+}

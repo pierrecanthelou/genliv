@@ -28,7 +28,7 @@
 			{
 				"id": 1,
 				"goal": "Card content & affordances: richer per-book meta (updatedAt, edge/end counts), hover-reveal delete, rename, duplicate; full DS card fidelity matching the wireframe grid.",
-				"status": "planned"
+				"status": "done"
 			},
 			{
 				"id": 2,
@@ -68,6 +68,25 @@
 				],
 				"test_coverage": {
 					"unit": "BookService.deleteBook (persist-before-emit, isolation, unknown-book no-op) + book-library integration (list/open/confirm-cancel/confirm-delete) via App",
+					"e2e": "deferred (Playwright not yet set up)"
+				}
+			},
+			{
+				"id": 1,
+				"label": "iteration-1",
+				"completed_at": "2026-06-17",
+				"architecture_choices": [
+					"Two new SSOT mutations on BookService (KR-004): renameBook (trims, rejects a blank name, persist → book:updated) and duplicateBook (deep copy with a fresh book id + fresh node/edge ids; edge endpoints remapped via an id Map so references stay by stable id and point at the COPY, KR-003; « (copie) » title; persist → book:created so the live list shows it).",
+					"New brain book:updated event wired into BOTH useBooks' BOOK_LIST_EVENTS (a rename re-reads the list) and useOpenBook's BOOK_MUTATION_EVENTS (a rename reflects in an open editor) — the list stays a VIEW, no private mirror (KR-020/013/071).",
+					"BookCard gained richer meta computed inline from the book — écrans (nodes) · liens (edges) · fins (effectiveKind === 'fin', consistent with the FIN badge logic KR-054/068) — plus « Modifié le {date} » via a feature-local pure formatDate (UTC date-portion parse, timezone-stable, no Date locale dependency).",
+					"Hover-reveal actions (rename ✎ / duplicate ⧉ / delete ✕) via a CSS-only .book-card:hover/.focus-within rule (the canonical hover-reveal pattern, no isHovered JS state; revealed on keyboard focus too for a11y). Rename is in place: the title becomes an input (local edit state, KR-013) committing on Enter/blur, Esc cancels; a blank rename is a no-op (BookService rejects it too)."
+				],
+				"deviations_from_plan": [
+					"« hover-reveal delete » generalised to all three card actions (rename/duplicate/delete) sharing one reveal rule — the wireframe groups them in the card corner.",
+					"Date formatting kept feature-local (book-library/utils/formatDate) since no second consumer exists yet; promote to brain/utils when cloud-sync's per-book status needs it (KR-110)."
+				],
+				"test_coverage": {
+					"unit": "BookService.renameBook (trim + book:updated, blank/missing rejection) + duplicateBook (fresh ids, remapped edges, (copie) title, book:created, independence) + book-library integration (meta counts, rename in place, duplicate adds a card)",
 					"e2e": "deferred (Playwright not yet set up)"
 				}
 			}

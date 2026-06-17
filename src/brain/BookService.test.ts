@@ -447,3 +447,69 @@ describe('BookService edges (choice-linking)', () => {
 		expect(service.updateEdge(book.id, 'edge_missing', { label: 'x' })).toBeNull()
 	})
 })
+
+describe('BookService.renameBook / duplicateBook (book-library)', () => {
+	beforeEach(() => {
+		window.localStorage.clear()
+	})
+
+	it('renameBook stores the trimmed title, persists it, and emits book:updated', () => {
+		const { service, events } = setup()
+		const book = service.createBook('Brouillon')
+		let updatedId: string | null = null
+		events.on('book:updated', (p) => {
+			updatedId = p.bookId
+		})
+
+		const renamed = service.renameBook(book.id, '  La Caverne  ')
+		expect(renamed?.title).toBe('La Caverne')
+		expect(updatedId).toBe(book.id)
+		expect(service.getBook(book.id)!.title).toBe('La Caverne')
+	})
+
+	it('renameBook rejects a blank title and a missing book', () => {
+		const { service } = setup()
+		const book = service.createBook('La Caverne')
+		expect(service.renameBook(book.id, '   ')).toBeNull()
+		expect(service.getBook(book.id)!.title).toBe('La Caverne') // unchanged
+		expect(service.renameBook('book_missing', 'x')).toBeNull()
+	})
+
+	it('duplicateBook deep-copies the tree with fresh ids, remapped edges, and a (copie) title', () => {
+		const { service, events } = setup()
+		const source = service.createBook('La Caverne')
+		const sommaire = source.nodes.find((n) => n.kind === 'sommaire')!
+		service.addChoiceBranch(source.id, sommaire.id) // gives the source a node + an edge to remap
+		let createdId: string | null = null
+		events.on('book:created', (p) => {
+			createdId = p.bookId
+		})
+
+		const copy = service.duplicateBook(source.id)!
+		expect(createdId).toBe(copy.id)
+		expect(copy.id).not.toBe(source.id)
+		expect(copy.title).toBe('La Caverne (copie)')
+		expect(copy.nodes).toHaveLength(source.nodes.length + 1)
+		expect(copy.edges).toHaveLength(1)
+
+		// Fresh node ids, and the copied edge points at the COPY's nodes (KR-003).
+		const sourceIds = new Set(service.getBook(source.id)!.nodes.map((n) => n.id))
+		expect(copy.nodes.every((n) => !sourceIds.has(n.id))).toBe(true)
+		const copyIds = new Set(copy.nodes.map((n) => n.id))
+		expect(copyIds.has(copy.edges[0].from)).toBe(true)
+		expect(copyIds.has(copy.edges[0].to)).toBe(true)
+
+		// Both books persist independently.
+		expect(
+			service
+				.listBooks()
+				.map((b) => b.id)
+				.sort(),
+		).toEqual([source.id, copy.id].sort())
+	})
+
+	it('duplicateBook returns null for a missing book', () => {
+		const { service } = setup()
+		expect(service.duplicateBook('book_missing')).toBeNull()
+	})
+})

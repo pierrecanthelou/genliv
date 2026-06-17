@@ -20,7 +20,7 @@ export interface LibraryScreenProps {
  * pending-deletion target is local UI state, not derived from props (KR-013).
  */
 export function LibraryScreen({ createEntry }: LibraryScreenProps): JSX.Element {
-	const { books, open, remove } = useLibrary()
+	const { books, open, rename, duplicate, remove } = useLibrary()
 	const [pendingDelete, setPendingDelete] = useState<Book | null>(null)
 
 	function handleConfirmDelete() {
@@ -36,7 +36,14 @@ export function LibraryScreen({ createEntry }: LibraryScreenProps): JSX.Element 
 
 			<div style={grid}>
 				{books.map((book) => (
-					<BookCard key={book.id} book={book} onOpen={open} onRequestDelete={setPendingDelete} />
+					<BookCard
+						key={book.id}
+						book={book}
+						onOpen={open}
+						onRename={rename}
+						onDuplicate={duplicate}
+						onRequestDelete={setPendingDelete}
+					/>
 				))}
 				<div style={{ display: 'flex' }}>{createEntry}</div>
 			</div>
