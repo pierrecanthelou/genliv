@@ -30,7 +30,7 @@ Default to React with **TypeScript**. All source files use `.ts`/`.tsx`. Explici
 
 ```
 ...                         # config files (vite.config.js, .eslintrc.cjs, .prettierrc, package.json, ...)
-bug_history.json            # bugs surfaced after merging a feature branch, with mitigation
+bug_history.json            # bugs surfaced during a feature's quality loop (review/test) or after merge, with mitigation
 features_history.json       # what was built and how, to inform future work
 src/
     index.html              # Vite entry HTML
@@ -285,8 +285,8 @@ We build the app as **horizontal slices** (see `docs/ROADMAP.md`): tier `0.1.x` 
 3. **Gate**: Prettier → `tsc --noEmit` → ESLint → `jest`. (The pre-commit hook enforces tsc+jest; never bypass it.) Refactor → re-gate.
 4. **Docs**: update `specification.json` (implementation log / iteration status), mirror new `known_risks` into `code-knowledge.json`, add a `CHANGELOG.md` line, update `features_history.json` and `README.md`.
 5. **Self review gate** (quick): `Severity | File:line | Principle/KR | Finding | Fix`. Fix ALL findings; log each to `bug_history.json`. Re-run `tsc` + `jest`.
-6. **Ship**: feature branch → `--no-ff` merge to `main` → delete branch → bump `package.json` PATCH +1.
-7. **Tech-lead review (PR-style, no PR)**: invoke the `tech-lead` subagent on this feature's diff. Present its verdict + acceptance-criteria table + findings. If `REQUEST CHANGES`, fix must-fixes (critical/major), re-review.
+6. **Tech-lead review (PR-style, no PR) — BEFORE committing.** Stage the slice (`git add -A`, do NOT commit) and invoke the `tech-lead` subagent on the **uncommitted** diff (the slice against `main`; on a fresh feature branch with no commits this is `git diff --staged`). Present its verdict + acceptance-criteria table + findings. Fix every must-fix (critical/major) **and** every accepted minor finding, logging each to `bug_history.json`; re-gate (`tsc` + `jest`) and re-review until the verdict is `APPROVE`. **Never commit a diff that still carries an open finding — reviewing before committing is the whole point: we do not commit changes that already need correction.**
+7. **Ship (only once the review is `APPROVE`)**: commit the slice → feature branch `--no-ff` merge to `main` → delete branch → bump `package.json` PATCH +1.
 8. **STOP and ask for user validation.** Do not start the next feature until the user has challenged this one and given the go.
 
 When a tier's last feature ships, the app is runnable at that depth across all features; the next tier begins only on user go.
@@ -337,7 +337,7 @@ Every path listed must have a `url.pathname === '/...'` branch in `worker/index.
 - **PR review requires significant rework**: close the PR, branch from the corrected main, port the valid parts, re-run the quality loop from scratch.
 - **Branch goes stale (main has diverged)**: rebase the feature branch onto main, resolve conflicts, re-run the full test suite before continuing.
 - **E2E regression on a previously passing flow**: log it in `bug_history.json` immediately, block the merge, and fix before closing the quality loop.
-- **Review gate produces critical/major findings**: fix all of them before merging. Do not carry known issues into main.
+- **Review gate produces critical/major findings**: the tech-lead review runs on the uncommitted diff, so fix all of them **before committing** — never commit (let alone merge) a slice that still carries an open finding. Do not carry known issues into main.
 
 ## JSON Schemas
 

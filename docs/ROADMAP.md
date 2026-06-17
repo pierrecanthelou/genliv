@@ -16,7 +16,7 @@ Iteration counts are ragged (`n` is 3–4 per feature), so later tiers include f
 
 ## Per-feature loop (every slice)
 
-read spec + `code-knowledge.json` + histories → build the slice (brain contracts only) → Prettier/`tsc`/ESLint/`jest` → update spec log + `code-knowledge` + `CHANGELOG` + `features_history` + `README` → self-review gate → feature branch → `--no-ff` merge to `main` → bump PATCH → **`tech-lead` subagent review of the diff** → **STOP for user challenge**.
+read spec + `code-knowledge.json` + histories → build the slice (brain contracts only) → Prettier/`tsc`/ESLint/`jest` → update spec log + `code-knowledge` + `CHANGELOG` + `features_history` + `README` → self-review gate → **`tech-lead` subagent review of the uncommitted diff (fix every finding, re-gate, re-review until `APPROVE`)** → only then commit → feature branch `--no-ff` merge to `main` → bump PATCH → **STOP for user challenge**.
 
 ## Tier 0.1.x — MVP (walking skeletons)
 
