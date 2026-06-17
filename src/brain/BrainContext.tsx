@@ -6,6 +6,8 @@ import { createBookService, type BookService } from './BookService'
 import { createSelectionService, type SelectionService } from './SelectionService'
 import { createActionRegistry, type ActionRegistry } from './ActionRegistry'
 import { createSlotRegistry, type SlotRegistry } from './SlotRegistry'
+import { createCloudSyncService, type CloudSyncService, type CloudTransport } from './CloudSyncService'
+import type { SyncStatus } from './types'
 
 /**
  * Brain — the application core. It wires the services together (Service
@@ -14,7 +16,10 @@ import { createSlotRegistry, type SlotRegistry } from './SlotRegistry'
  */
 export interface Brain {
 	events: EventBus
-	persistence: PersistenceService
+	/** Local-first, cloud-sync-aware persistence (a PersistenceService + status()). */
+	persistence: CloudSyncService
+	/** Same instance as `persistence`, typed for its sync surface (status). */
+	sync: CloudSyncService
 	router: Router
 	books: BookService
 	selection: SelectionService
@@ -24,18 +29,22 @@ export interface Brain {
 
 export interface CreateBrainOptions {
 	persistence?: PersistenceService
+	/** Cloud transport; omitted = local-only (status stays `offline`). */
+	transport?: CloudTransport
 	initialRoute?: Route
 }
 
 export function createBrain(options: CreateBrainOptions = {}): Brain {
 	const events = createEventBus()
-	const persistence = options.persistence ?? createLocalStoragePersistence()
+	const local = options.persistence ?? createLocalStoragePersistence()
+	// Wrap local persistence so every write is local-first + sync-aware (KR-022/011).
+	const sync = createCloudSyncService(local, events, options.transport)
 	const router = createRouter(options.initialRoute)
-	const books = createBookService(persistence, events)
+	const books = createBookService(sync, events)
 	const selection = createSelectionService(events)
 	const actions = createActionRegistry()
 	const slots = createSlotRegistry()
-	return { events, persistence, router, books, selection, actions, slots }
+	return { events, persistence: sync, sync, router, books, selection, actions, slots }
 }
 
 const BrainContext = createContext<Brain | null>(null)
@@ -62,4 +71,10 @@ export function useRoute(): Route {
 export function useSelectedNode(): string | null {
 	const { selection } = useBrain()
 	return useSyncExternalStore(selection.subscribe, selection.getSelected)
+}
+
+/** Subscribe to the cloud-sync status (external-store sync over the sync:status event). */
+export function useSyncStatus(): SyncStatus {
+	const { sync, events } = useBrain()
+	return useSyncExternalStore((onChange) => events.on('sync:status', onChange), sync.status)
 }

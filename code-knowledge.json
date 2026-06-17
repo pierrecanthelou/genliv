@@ -167,6 +167,11 @@
 			"risk": "A trap is a réussite/échec skill roll: its outcome reveal rows reuse the SHARED brain OutcomesEditor (KR-109) derived from ROLL_OUTCOMES (KR-117/091) — never a per-feature copy of the rows or the labels (the rows were extracted to brain at the SECOND consumer, monster→trap, like ObjectEditor). The « échec sanctionné » variant is a fatal boolean on node.trap capturing intent; the actual automatic échec→Mort edge is wired later via the dedicated combat/trap path, NOT the manual edge API (KR-067). Trap config lives on node.trap and rides updateNode's text-only structural guard (KR-055/090)."
 		},
 		{
+			"id": "KR-093",
+			"feature": "cloud-sync",
+			"risk": "CloudSyncService is a Decorator over PersistenceService (Liskov) wired once in createBrain — features stay unchanged. It MUST be local-first: get/set/keys/remove hit the local store synchronously so the app works offline and the synchronous write resolves before any event/navigation (KR-004); the cloud push is best-effort in the background and never blocks/reorders the local write, and a failed push keeps the local write (status → error). With no transport the store is `offline` (local-only) and emits sync:status ONLY on a real change (no per-write noise) — so wrapping is transparent to non-sync code. Only the book document flows through persistence; UI state (view-mode, pan/zoom) is never synced (KR-022). The SyncStatus→label/tone mapping is one Record (KR-117); a real transport's credentials must be registered SENSITIVE in persistenceKeys.ts (KR-114)."
+		},
+		{
 			"id": "KR-109",
 			"feature": "global-config",
 			"risk": "Any presentational component consumed by more than one feature belongs in brain/components/ and is re-exported from brain/components/index.ts. A component living in a feature but imported by another is a cross-feature violation — move it."

@@ -17,6 +17,8 @@ export { ROLL_OUTCOMES, type RollOutcomeDescriptor } from './outcomes'
 export { createId } from './utils/id'
 export type { EventBus, AppEvents, AppEventName } from './EventBus'
 export type { PersistenceService } from './PersistenceService'
+export type { SyncStatus } from './types'
+export type { CloudSyncService, CloudTransport } from './CloudSyncService'
 export type { Router, Route } from './Router'
 export type { BookService, NodePatch } from './BookService'
 export { autoSlot } from './BookService'
@@ -37,6 +39,7 @@ export {
 	useBrain,
 	useRoute,
 	useSelectedNode,
+	useSyncStatus,
 	type Brain,
 	type CreateBrainOptions,
 } from './BrainContext'

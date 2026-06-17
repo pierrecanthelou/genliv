@@ -8,6 +8,7 @@ import { registerActionDecor } from './features/action-decor'
 import { registerActionPnj } from './features/action-pnj'
 import { registerActionMonster } from './features/action-monster'
 import { registerActionTrap } from './features/action-trap'
+import { SyncIndicator } from './features/cloud-sync'
 
 /**
  * App shell — routes between the home (book-library) and the editor, and is
@@ -36,11 +37,17 @@ export function App(): JSX.Element {
 			offTrap()
 		}
 	}, [slots, actions])
-	switch (route.name) {
-		case 'editor':
-			return <EditorScreen bookId={route.bookId} />
-		case 'home':
-		default:
-			return <LibraryScreen createEntry={<CreateBookEntry />} />
-	}
+	const content =
+		route.name === 'editor' ? (
+			<EditorScreen bookId={route.bookId} />
+		) : (
+			<LibraryScreen createEntry={<CreateBookEntry />} />
+		)
+	// SyncIndicator overlays both routes (composition root mounts it once).
+	return (
+		<>
+			{content}
+			<SyncIndicator />
+		</>
+	)
 }

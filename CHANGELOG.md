@@ -2,6 +2,12 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.1.8 — cloud-sync walking skeleton (MVP slice — tier complete 🏁)
+
+- New **`CloudSyncService`** (brain) — a **local-first Decorator** over `PersistenceService` (Liskov; `BookService` + every feature unchanged), wired once in `createBrain`. Writes hit local **synchronously** (offline-ready, KR-004), then push to a cloud transport in the background: status `idle → syncing → synced` (or `error`, local write preserved). With no transport the store is **`offline`** (local-only) and emits no per-write noise — so the existing suite is fully transparent. New **KR-093**.
+- New `sync:status` event + `useSyncStatus` hook; the **`cloud-sync`** feature's `SyncIndicator` (a corner Badge pill, aria-live) surfaces the live state, derived from a `SyncStatus`→label/tone `Record` (KR-117), mounted once by `App` over both routes. Real cloud transport / offline queue / reconciliation deferred to iterations.
+- 106 tests passing (7 new). **🏁 The 0.1.x MVP tier is complete — every feature now has a walking skeleton.**
+
 ## 0.1.7 — action-trap walking skeleton (MVP slice)
 
 - New **`action-trap`** feature — the fourth and last `action-*`: self-registers a « Piège » editor with the brain **ActionRegistry**, so node-editor now offers **all four** action types (Décor / PNJ / Monstre / Piège) with zero changes. `TrapEditor` is a VIEW over `BookService`: a DESCRIPTION + réussite/échec reveal texts + a « L'échec mène à la Mort » toggle (the « échec sanctionné » variant), persisted on `node.trap`.

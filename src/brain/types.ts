@@ -19,6 +19,9 @@ export type { NodeKind, EdgeKind }
 /** Required-action slot on a node; concrete editors come from the ActionRegistry. */
 export type NodeActionType = 'aucune' | 'pnj' | 'decor' | 'piege' | 'monstre'
 
+/** Cloud-sync state of the local-first store (cloud-sync). `offline` = local-only (no transport). */
+export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'offline' | 'error'
+
 /**
  * A game object. The `name` is internal (author-facing); the `description` is
  * read by the player (domain rule, KR-052). Referenced by stable `id`, never by

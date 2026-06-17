@@ -218,6 +218,29 @@
 				"A boolean flag (trap.fatal) is the right skeleton stand-in for a deferred structural mechanic (the automatic →Mort edge): capture intent on the node now, wire the edge when the dedicated path is built (KR-067)."
 			],
 			"bugs_encountered": []
+		},
+		{
+			"feature": "cloud-sync",
+			"completed_at": "2026-06-17",
+			"goal": "Make the app local-first and sync-aware: every write persists locally first, optionally pushes to a cloud transport in the background, and a status pill reflects the sync state.",
+			"key_architecture_choices": [
+				"CloudSyncService is a Decorator over PersistenceService (Liskov, KR-011/093): createBrain wraps the local store with it and feeds it to BookService, so every feature is sync-aware with ZERO changes — the cleanest demonstration of the interface-first persistence boundary.",
+				"Local-first (KR-004): set writes local synchronously, then pushes in the background (idle→syncing→synced/error); a failed push keeps the local write. With no transport the store is offline (local-only) and emits sync:status only on a real change — so wrapping is transparent and the existing 99 tests needed no edits.",
+				"useSyncStatus is an external-store subscription over the new sync:status event (KR-013); the cloud-sync feature's SyncIndicator is a VIEW deriving label/tone from a SyncStatus Record (KR-117), mounted once by App over both routes.",
+				"SyncStatus is a brain type and CloudTransport keeps the real backend swappable; the Cloudflare worker client + offline queue + reconciliation are deferred to iterations 1–3."
+			],
+			"brain_contracts_added": [
+				{ "type": "service", "name": "CloudSyncService (brain) + CloudTransport" },
+				{ "type": "type", "name": "SyncStatus" },
+				{ "type": "event", "name": "sync:status" },
+				{ "type": "hook", "name": "useSyncStatus" }
+			],
+			"lessons_learned": [
+				"An interface-first persistence boundary pays off exactly when a decorator is introduced: wrapping local with CloudSyncService changed one line in createBrain and nothing in any feature — the Liskov contract held.",
+				"Default-inert infrastructure keeps a big change safe: with no transport the wrapper is a transparent synchronous pass-through (no async, no events), so 99 existing tests stayed green without touching them — design the default so the new layer is invisible until opted into.",
+				"This closes the 0.1.x MVP tier: all eleven features have a walking skeleton; the next tier (0.2.x / V1) is iteration 1 of each, in build order."
+			],
+			"bugs_encountered": []
 		}
 	]
 }
