@@ -175,6 +175,28 @@
 				"Normalising the config once (DEFAULT_PNJ + destructure) from the start avoided the scattered-default smell DecorEditor had to be refactored out of — apply the cleaned pattern to each new action editor."
 			],
 			"bugs_encountered": []
+		},
+		{
+			"feature": "action-monster",
+			"completed_at": "2026-06-17",
+			"goal": "Configure a node's « Monstre » action — name + a player-facing reveal text per réussite/échec outcome — via the ActionRegistry, with a stub to save the monster to a reusable library.",
+			"key_architecture_choices": [
+				"Third action-* feature: self-registers with the brain ActionRegistry at the App composition root (registerActionMonster) — the seam mounts three editors with zero node-editor changes (KR-050/051).",
+				"réussite/échec — the only semantic outcomes/colours — modelled as a brain ROLL_OUTCOMES registry (Record<RollOutcome,{label,tone}>, KR-117/091), placed in brain because trap/skill-roll editors will reuse it (KR-109, the ObjectEditor lesson applied pre-emptively to a domain concept). MonsterEditor derives both outcome rows from it.",
+				"MonsterEditor is a VIEW over BookService (KR-020), normalised once; monster config lives on node.monster, NodePatch carries it (text-only guard keeps it off structural screens, KR-055/090).",
+				"Monster library stubbed via a new monster:savedToLibrary EventBus event (wired, unconsumed) — like book:deleted existed before its emitter. Added ariaLabel to the shared Field so Badge-captioned fields keep an accessible name."
+			],
+			"brain_contracts_added": [
+				{ "type": "type", "name": "MonsterConfig / RollOutcome" },
+				{ "type": "registry", "name": "ROLL_OUTCOMES (brain/outcomes.ts)" },
+				{ "type": "event", "name": "monster:savedToLibrary" }
+			],
+			"lessons_learned": [
+				"Applied the ObjectEditor placement lesson to a DOMAIN CONCEPT, not just a component: réussite/échec is domain-wide, so its registry went straight to brain — future trap/skill-roll editors reuse it with no cross-feature import.",
+				"When a Badge captions a field (semantic colour) the input loses its accessible name — add an ariaLabel rather than leaning on the placeholder; caught in self-review by making the outcome fields queryable.",
+				"A closed-set Record (KR-117) doubles as the loop source for the UI: mapping ROLL_OUTCOMES keys renders both outcome rows, so adding an outcome would be one entry — no second edit site."
+			],
+			"bugs_encountered": []
 		}
 	]
 }

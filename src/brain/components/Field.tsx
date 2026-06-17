@@ -11,6 +11,8 @@ export interface FieldProps {
 	hint?: string
 	value?: string
 	placeholder?: string
+	/** Accessible name when there is no visible `label` (e.g. a Badge captions it). */
+	ariaLabel?: string
 	/** Renders a textarea instead of an input. */
 	multiline?: boolean
 	rows?: number
@@ -40,6 +42,7 @@ export function Field({
 	hint,
 	value,
 	placeholder,
+	ariaLabel,
 	multiline = false,
 	rows = 2,
 	id,
@@ -66,7 +69,16 @@ export function Field({
 				</span>
 			)}
 			{multiline ? (
-				<textarea id={id} rows={rows} value={value} placeholder={placeholder} onChange={onChange} onKeyDown={onKeyDown} style={shared} />
+				<textarea
+					id={id}
+					rows={rows}
+					value={value}
+					placeholder={placeholder}
+					aria-label={ariaLabel}
+					onChange={onChange}
+					onKeyDown={onKeyDown}
+					style={shared}
+				/>
 			) : (
 				<input
 					id={id}
@@ -75,6 +87,7 @@ export function Field({
 					autoFocus={autoFocus}
 					value={value}
 					placeholder={placeholder}
+					aria-label={ariaLabel}
 					onChange={onChange}
 					onKeyDown={onKeyDown}
 					style={shared}
