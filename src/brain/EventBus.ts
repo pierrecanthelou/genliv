@@ -14,6 +14,7 @@ export interface AppEvents {
 	'node:deleted': { bookId: string; nodeId: string }
 	'node:selected': { bookId: string; nodeId: string | null }
 	'edge:created': { bookId: string; edgeId: string; from: string; to: string; kind: EdgeKind }
+	'edge:updated': { bookId: string; edgeId: string }
 	'edge:deleted': { bookId: string; edgeId: string }
 	'action:changed': { bookId: string; nodeId: string; actionType: NodeActionType }
 	'monster:savedToLibrary': { bookId: string; nodeId: string }
