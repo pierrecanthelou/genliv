@@ -22,7 +22,7 @@
 		"walking_skeleton": "registerActionDecor registers an ActionEditor { type:'decor', label:'Décor', render } with the brain ActionRegistry (wired at the App composition root). DecorEditor reads the node's decor config live via useOpenBook and writes it through BookService.updateNode: a Prendre/Écouter/Fouiller SegmentedControl, and for « prendre » the shared brain ObjectEditor (name + description) with a stable object id. Écouter/Fouiller are placeholder stubs for later iterations.",
 		"n": 3,
 		"iterations": [
-			{ "id": 1, "goal": "« Prendre » full (§ 4B): multiple takeable objects as rows (useful / leurre badges), add/remove/reorder, per-object « jet requis » (caractéristique + difficulté + échec text); object edit modal.", "status": "planned" },
+			{ "id": 1, "goal": "« Prendre » full (§ 4B): multiple takeable objects as rows (useful / leurre badges), add/remove/reorder, per-object « jet requis » (caractéristique + difficulté + échec text); object edit modal.", "status": "done" },
 			{ "id": 2, "goal": "« Écouter » / « Fouiller »: the heard/found reveal text + optional skill roll gating; surface réussite/échec outcomes (the only semantic colors).", "status": "planned" },
 			{ "id": 3, "goal": "Promote objects to a shared ObjectCatalogService (reuse « prendre dans la liste », by stable id) so décor/PNJ/monster share one object catalog and hidden-prereqs (KR-062) can reference them.", "status": "planned" }
 		],
@@ -54,6 +54,27 @@
 				"test_coverage": {
 					"unit": "ObjectEditor captures name + description (KR-052); registerActionDecor adds/removes the 'decor' editor (KR-051)",
 					"integration": "action-decor via App — « Décor » offered through the registry seam, « prendre » edits an object persisted via BookService with a stable id, interaction switch persists + toggles the object editor",
+					"e2e": "deferred (Playwright not set up)"
+				}
+			},
+			{
+				"id": 1,
+				"label": "iteration-1",
+				"completed_at": "2026-06-17",
+				"architecture_choices": [
+					"« Prendre » became a LIST of takeable objects: the domain model gained TakeableObject (object + kind + optional roll), SkillRoll (trait/difficulty/failureText), and TakeableKind ('utile'|'leurre'); DecorConfig.objects holds the list. The walking-skeleton single DecorConfig.object is migrated to objects on read via a pure takeablesOf helper and canonicalised (legacy field dropped) on the first write (KR-090/116 spirit: a persisted book may still carry the old shape — never lose it).",
+					"utile/leurre is a closed set in a feature-local Record TAKEABLE_KINDS (KR-117): label + Badge tone written once, option list + row badge derived from it, no kind === 'utile' branch. Tones stay neutral/muted — never good/bad, reserved for réussite/échec (KR-091).",
+					"Each object is edited in an ObjectEditModal with REAL commit/cancel semantics: a local DRAFT (legitimate editing state, not a useEffect mirror — KR-013) initialised once from the takeable, keyed by object id so each open is fresh (KR-053); « Enregistrer » commits through the owner (BookService.updateNode), « Annuler »/Esc discards so a cancelled new object never lands. The modal composes the shared brain ObjectEditor (KR-052) + a kind SegmentedControl + a « jet requis » Toggle revealing caractéristique/difficulté/texte-d'échec Fields.",
+					"DecorEditor stays a VIEW over BookService (KR-020): list add/remove/reorder all write the canonical { interaction, objects } through updateNode; object ids are stable (KR-003); the row shows the name + utile/leurre Badge + a « jet » marker.",
+					"Pre-commit tech-lead review (review the uncommitted diff, fix before commit): the row ↑↓✕ actions were bumped to HIT_TARGET_MIN (44px) to meet the ≥44px AC rather than leave the choice-linking 24px precedent unmet, and the unnamed-object fallback unified to one UNNAMED constant. (The pre-existing 24px row actions in choice-linking are a separate, noted backfill — not changed in this slice.)"
+				],
+				"deviations_from_plan": [
+					"« jet requis » captures the échec branch only (caractéristique + difficulté + texte d'échec) — a réussite simply takes the object — rather than the full réussite/échec OutcomesEditor; the caractéristique is author free text (a shared caractéristique catalog would be extracted at the second consumer, e.g. action-trap, like ObjectEditor/OutcomesEditor).",
+					"Écouter / Fouiller stay stubs (iteration 2); promotion to a shared ObjectCatalogService is iteration 3."
+				],
+				"test_coverage": {
+					"unit": "takeablesOf migration (objects list / legacy single object / both / none), blankTakeable fresh id, TAKEABLE_KINDS non-semantic tones",
+					"integration": "action-decor via App — add object (modal, stable id), cancel discards, multiple rows, leurre badge, remove, reorder (move up), jet requis persists trait/difficulty/failure, interaction switch hides the list",
 					"e2e": "deferred (Playwright not set up)"
 				}
 			}
