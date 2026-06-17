@@ -22,7 +22,7 @@
 		"walking_skeleton": "registerActionPnj registers an ActionEditor { type:'pnj', label:'PNJ', render } with the brain ActionRegistry (wired at the App composition root, alongside action-decor). PnjEditor reads node.pnj live via useOpenBook and writes via BookService.updateNode: a NAME Field, a DIALOGUE Field, and a « donne un objet » Toggle that reveals the shared brain ObjectEditor for the gift (stable id). Reusable PNJ catalog + portrait + dialogue tree are later iterations.",
 		"n": 3,
 		"iterations": [
-			{ "id": 1, "goal": "Gift effect (§ 4A): object effect (+N PV / +N Attaque / +N Défense / objet de scénario) + value stepper; « ensuite le PNJ mène à » target wiring.", "status": "planned" },
+			{ "id": 1, "goal": "Gift effect (§ 4A): object effect (+N PV / +N Attaque / +N Défense / objet de scénario) + value stepper; « ensuite le PNJ mène à » target wiring.", "status": "done" },
 			{ "id": 2, "goal": "Portrait upload + the dialogue affordance; richer identity.", "status": "planned" },
 			{ "id": 3, "goal": "Reusable PNJs via a shared catalog (« créer / choisir dans le livre »), referenced by stable id — paired with the ObjectCatalogService work (KR-062).", "status": "planned" }
 		],
@@ -53,6 +53,27 @@
 				"test_coverage": {
 					"unit": "registerActionPnj adds/removes the 'pnj' editor (KR-051)",
 					"integration": "action-pnj via App — « PNJ » offered through the registry seam, name persisted, the gift reveals the SHARED ObjectEditor and persists with a stable id, removing the gift drops it; structural-screen guard now covers pnj (BookService)",
+					"e2e": "deferred (Playwright not set up)"
+				}
+			},
+			{
+				"id": 1,
+				"label": "iteration-1",
+				"completed_at": "2026-06-17",
+				"architecture_choices": [
+					"The gift became a PnjGift (object + effect + value): the domain model gained PnjGiftEffect ('pv'|'attaque'|'defense'|'scenario') and PnjGift. The skeleton's bare-GameObject gift is migrated on read via a pure giftOf helper (legacy → a 'scenario' plot object) and canonicalised on the next write (KR-116), so old persisted books still load; PnjConfig also gained an optional target.",
+					"Gift effect is a closed set in a feature-local GIFT_EFFECTS Record (KR-117): the segment labels, the option order and the value-stepper visibility (hasValue) all derive from it — no effect === 'pv' branch. A − N + ValueStepper edits the stat bonus, clamped 1–99 (clampGiftValue); a plot object hides the stepper.",
+					"« Ensuite, le PNJ mène à » (TargetPicker) captures a node reference on pnj.target — a non-choice screen change (domain brief). Structural screens are excluded from candidates (KR-067, canBeTarget) and a deleted target is surfaced « ⚠ cible supprimée » (KR-021/063). It lives on the config now; promotion to a real edge via the dedicated action→target path (like the deferred trap échec→Mort edge) is later, NOT the manual edge API (KR-067).",
+					"PnjEditor stays a VIEW over BookService (KR-020): GiftSection + TargetPicker are controlled, the owner writes the canonical { name, dialogue, gift, target } via updateNode; gift object ids are stable (KR-003). The « donne un objet » gift still reuses the shared brain ObjectEditor (KR-052/109). Split into GiftSection + TargetPicker for SRP/size.",
+					"Pre-commit tech-lead review (review the uncommitted diff, fix before commit): setEffect now re-clamps the value when switching to a stat effect, so a migrated legacy gift (effect 'scenario', value 0) never renders an out-of-range « +0 »; added a GiftSection re-clamp test and a TargetPicker dangling-target test (KR-021/063 path)."
+				],
+				"deviations_from_plan": [
+					"« mène à » is a config reference (pnj.target) for now, not a rendered tree edge — the canvas does not yet draw action→target navigations; that promotion pairs with the dedicated action-edge path (KR-067), mirroring action-trap's deferred échec→Mort edge.",
+					"The caractéristique-style catalogs and portrait/dialogue affordance + reusable-PNJ catalog stay in iterations 2–3."
+				],
+				"test_coverage": {
+					"unit": "giftOf migration (new shape / legacy bare object / none), blankGift fresh id + +1 PV default, clampGiftValue bounds+round, GIFT_EFFECTS hasValue",
+					"integration": "action-pnj via App — name/dialogue + gift (effect default +1 PV, stable id preserved), change effect + value stepper, plot object hides the stepper, remove gift, « mène à » select+clear (structural screens excluded)",
 					"e2e": "deferred (Playwright not set up)"
 				}
 			}

@@ -2,6 +2,12 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.2.5 — action-pnj iteration 1 (V1 slice)
+
+- **Gift effect (§ 4A)**: the « Le PNJ donne un objet » gift now carries an **effect** — **+PV / +Attaque / +Défense / objet de scénario** (a closed-set `Record`, KR-117) — with a **− N + value stepper** (clamped 1–99) for the stat bonuses; a plot object hides the stepper. The gift's identity still uses the shared brain `ObjectEditor` (KR-052).
+- **« Ensuite, le PNJ mène à »**: a target picker wires the PNJ to a follow-up node (a non-choice screen change). Structural screens are excluded (KR-067) and a deleted target is surfaced « ⚠ cible supprimée » (KR-021/063). Stored on `pnj.target` for now; promotion to a rendered tree edge pairs with the dedicated action-edge path (like trap's deferred échec→Mort edge).
+- Domain model gained **`PnjGift`** (object + `effect` + `value`) and **`PnjGiftEffect`**; the skeleton's bare-object gift **migrates** on read (pure `giftOf`) and canonicalises on the next write (KR-116). `PnjEditor` split into `GiftSection` + `TargetPicker` (SRP), each a VIEW over `BookService`; gift ids stable (KR-003). Portrait + reusable-PNJ catalog stay in iters 2–3. 147 tests passing (9 new).
+
 ## 0.2.4 — action-decor iteration 1 (V1 slice)
 
 - **« Prendre » full (§ 4B)**: the décor « prendre » action is now a **list of takeable objects** as rows — add / remove / reorder (↑↓), each with a **utile / leurre** badge and an optional **« jet requis »** marker. Each object is edited in a **modal** with real commit/cancel semantics (a local draft; « Annuler » discards, so a cancelled new object never lands), composing the shared brain `ObjectEditor` (KR-052) + a utile/leurre `SegmentedControl` + a « jet requis » `Toggle` revealing caractéristique / difficulté / texte d'échec.

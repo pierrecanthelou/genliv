@@ -105,14 +105,38 @@ export interface TrapConfig {
 	fatal: boolean
 }
 
+/**
+ * What a PNJ's gift does for the player: a stat bonus or a plot object. A closed
+ * set surfaced through the action-pnj GIFT_EFFECTS registry (KR-117) — never
+ * branched on with `effect === 'pv' ? …`.
+ */
+export type PnjGiftEffect = 'pv' | 'attaque' | 'defense' | 'scenario'
+
+/**
+ * The object a PNJ gives, with its effect. `value` is the bonus magnitude for
+ * pv/attaque/defense and is ignored for a plot object ('scenario').
+ */
+export interface PnjGift {
+	object: GameObject
+	effect: PnjGiftEffect
+	value: number
+}
+
 /** Per-node PNJ action config (owned by action-pnj). */
 export interface PnjConfig {
 	/** The PNJ's name (author/display). */
 	name: string
 	/** What the PNJ says — read by the player. */
 	dialogue: string
-	/** The object the PNJ gives, if any (shared ObjectEditor). */
-	gift?: GameObject
+	/** The object the PNJ gives, if any (effect + value + shared ObjectEditor). */
+	gift?: PnjGift
+	/**
+	 * « ensuite le PNJ mène à » — a node the PNJ leads to (a non-choice screen
+	 * change, domain brief). A stable node id reference; may dangle if the target
+	 * is deleted (surfaced, KR-021/063). Promotion to a real edge via the dedicated
+	 * action→target path (like the deferred trap échec→Mort edge, KR-067) is later.
+	 */
+	target?: string
 }
 
 export interface BookNode {

@@ -180,7 +180,9 @@
 			"lessons_learned": [
 				"A shared brain primitive proves its worth at the SECOND consumer: action-pnj reused ObjectEditor with a single brain import — the cross-feature-violation trap (importing a sibling feature's component) never materialised because it was placed in brain from the start.",
 				"Patch semantics: updateNode skips top-level undefined keys, but a nested undefined (pnj.gift) is fine — it reads as absent in memory and is dropped by JSON on persist, so a toggle-off cleanly removes a sub-object without a dedicated unset API.",
-				"Normalising the config once (DEFAULT_PNJ + destructure) from the start avoided the scattered-default smell DecorEditor had to be refactored out of — apply the cleaned pattern to each new action editor."
+				"Normalising the config once (DEFAULT_PNJ + destructure) from the start avoided the scattered-default smell DecorEditor had to be refactored out of — apply the cleaned pattern to each new action editor.",
+				"iter 1: a config node-reference (« mène à » → pnj.target) is the right skeleton for a non-choice screen change the canvas can't draw yet — capture the id + surface dangling (KR-021/063), defer the rendered edge to the dedicated action-edge path (KR-067), mirroring action-trap's deferred échec→Mort edge.",
+				"iter 1: a node-title shown both in a config picker AND on a canvas card collides in RTL `getByRole` — the card name is « Nœud #N — Title » so use an EXACT picker-button name (not /Title/) to disambiguate (cf. the outline /Sommaire$/ lesson)."
 			],
 			"bugs_encountered": []
 		},
