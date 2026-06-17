@@ -25,7 +25,7 @@
 		"walking_skeleton": "buildOutline (pure) flattens the book into indented rows by DFS from the sommaire, following choice edges and emitting reference rows for relink/flee/convergence/cycles/dangling targets, then listing unreachable nodes flat. OutlineView renders the rows (NodeBadge + title), reads the live book via useOpenBook, and selects on click via SelectionService (shared with the canvas, KR-024). The editor shell hoists the shared EditorTopBar with a canvas ↔ outline SegmentedControl and swaps the body.",
 		"n": 3,
 		"iterations": [
-			{ "id": 1, "goal": "Outline fidelity (§ 03 A): hover preview, expand/collapse, per-row rule badges (⊘ prereq, ⏱ countdown) and end-leaf labels; refine reference-row affordance + « centrer dans l'arbre ».", "status": "planned" },
+			{ "id": 1, "goal": "Outline fidelity (§ 03 A): hover preview, expand/collapse, per-row rule badges (⊘ prereq, ⏱ countdown) and end-leaf labels; refine reference-row affordance + « centrer dans l'arbre ».", "status": "done" },
 			{ "id": 2, "goal": "Node inspector (§ 03 B): the node-card summary (entre depuis / victoire / fuite) on row focus, with Éditer + Centrer dans l'arbre actions.", "status": "planned" },
 			{ "id": 3, "goal": "Persist the view-mode + outline expand state via UIPreferencesService (non-synced UI prefs, KR-022) — deferred until that service lands.", "status": "planned" }
 		],
@@ -58,6 +58,26 @@
 				"test_coverage": {
 					"unit": "buildOutline — nesting, relink reference, choice-cycle guard, isolated-node listing, dangling target, convergence",
 					"integration": "outline-view via App — view-mode switch shows the outline, row click selects via SelectionService, selection shared across the switch back to the canvas",
+					"e2e": "deferred (Playwright not set up)"
+				}
+			},
+			{
+				"id": 1,
+				"label": "iteration-1",
+				"completed_at": "2026-06-17",
+				"architecture_choices": [
+					"Expand/collapse lives in a NEW pure helper computeVisibleRows(rows, collapsed) in the same module as buildOutline (KR-080 philosophy: the rule is unit-tested, not discovered in the browser). It walks the flat pre-order rows and hides every later row deeper than a collapsed node until a row at/above its depth resumes — so collapsing hides the exact subtree while later siblings stay. hasChildren is a one-step lookahead; reference rows (↪) are never collapsible (leaves).",
+					"Collapsed node ids are LOCAL UI state in OutlineView (a ReadonlySet keyed by node id), derived into visible rows with useMemo — no useEffect-synced mirror (KR-013). The disclosure (▸/▾) is a sibling button of the select button (never nested — button-in-button is invalid), each ≥44px; its aria-label names the node so the collapse target is announced.",
+					"Hover preview is a title tooltip built from the node's authored text via the shared brain textLines (KR-068 fallback to a placeholder for an empty screen); the reference row's tooltip instead says « Aller au nœud … » (or « Cible supprimée » for a dangling target, KR-021). End-leaf labels already render through NodeBadge label={endLabel} from the skeleton.",
+					"Pre-commit tech-lead review (new workflow: review the uncommitted diff, fix before commit) folded in one nit — rows are keyed by their stable position in the full outline (carried on VisibleOutlineRow.index), not the collapse-filtered index, so toggling a node never remounts the rows below it (no focus loss)."
+				],
+				"deviations_from_plan": [
+					"Per-row rule badges (⊘ prereq / ⏱ countdown) deferred: the underlying edge rules (hidden-prerequisite, countdown) do not exist until choice-linking iterations 3–4 — there is nothing to badge yet (same upstream-data deferral as choice-linking iter 1).",
+					"« Centrer dans l'arbre » deferred to iteration 2: it needs canvas viewport center-on-node (tree-canvas has no such API yet) plus lifting the view-mode out of EditorScreen, and the spec already lists « Centrer dans l'arbre » in iter 2 alongside the node-inspector's Éditer + Centrer actions — the natural home for the action surface."
+				],
+				"test_coverage": {
+					"unit": "computeVisibleRows — hasChildren detection, collapse hides the subtree but keeps siblings, root-collapse hides all, reference rows never collapsible",
+					"integration": "outline-view via App — collapse/expand hides+restores child rows, screen-text hover preview tooltip, relink reference row with an « Aller au nœud » tooltip",
 					"e2e": "deferred (Playwright not set up)"
 				}
 			}

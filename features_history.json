@@ -136,7 +136,9 @@
 			"lessons_learned": [
 				"Hoisting shared chrome (the top bar) out of the first feature that owned it into brain/components is the clean way to let a second view reuse it — the editor shell composes both views + the panel, features still don't import each other.",
 				"A cycle/convergence-safe traversal needs a visited set + reference rows BEFORE building any outline UI — bake it into the pure builder so the recursion guard is unit-tested, not discovered in the browser.",
-				"Hoisting the top bar kept every existing editor test green because EditorTopBar preserved the same roles/labels (heading title, « Ajouter un nœud », « N nœuds »); preserve accessible names when moving chrome."
+				"Hoisting the top bar kept every existing editor test green because EditorTopBar preserved the same roles/labels (heading title, « Ajouter un nœud », « N nœuds »); preserve accessible names when moving chrome.",
+				"iter 1: expand/collapse over a flat pre-order list is a pure helper (computeVisibleRows) — hide every later row deeper than a collapsed node until depth resumes; unit-test it, don't discover it in the browser (KR-080 spirit).",
+				"iter 1: adding a sibling disclosure button broke existing /Sommaire/ row queries (the disclosure aria-label « Replier « Sommaire » » also matched) — anchor row queries (/Sommaire$/) when a new button shares the node title, and remember KR-067 forbids relinking INTO the Sommaire/Mort (relink A→B between two children instead)."
 			],
 			"bugs_encountered": []
 		},

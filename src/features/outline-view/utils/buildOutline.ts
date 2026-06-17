@@ -56,3 +56,45 @@ export function buildOutline(book: Book): OutlineRow[] {
 
 	return rows
 }
+
+/** An outline row enriched with the expand/collapse view-state of iteration 1. */
+export interface VisibleOutlineRow {
+	row: OutlineRow
+	/**
+	 * The row's stable position in the full (un-collapsed) outline — a unique,
+	 * collapse-independent React key, so toggling a node never remounts the rows
+	 * below it (which would drop their focus).
+	 */
+	index: number
+	/** True when this (non-reference) row has at least one nested child row. */
+	hasChildren: boolean
+	/** True when this row is collapsed (its subtree is hidden). */
+	collapsed: boolean
+}
+
+/**
+ * Apply expand/collapse to the flat DFS rows (iteration 1). The rows are in
+ * pre-order, so a node's descendants are exactly the following rows with a
+ * greater depth — collapsing a node hides every later row deeper than it, until
+ * a row at the same or a shallower depth resumes the outline. `hasChildren` is a
+ * one-step lookahead (the next row sits one level deeper). Pure and
+ * view-agnostic (KR-013/080), so the collapse rule is unit-tested, not
+ * discovered in the browser. `collapsed` is keyed by node id (the row's
+ * `targetId`); reference rows (↪) are never collapsible (they are leaves).
+ */
+export function computeVisibleRows(rows: OutlineRow[], collapsed: ReadonlySet<string>): VisibleOutlineRow[] {
+	const visible: VisibleOutlineRow[] = []
+	let hideDeeperThan = Infinity
+	for (let i = 0; i < rows.length; i++) {
+		const row = rows[i] as OutlineRow
+		if (row.depth > hideDeeperThan) continue
+		// Reached a row at/above the collapsed level: stop hiding.
+		hideDeeperThan = Infinity
+		const next = rows[i + 1]
+		const hasChildren = !row.reference && next !== undefined && next.depth === row.depth + 1
+		const isCollapsed = hasChildren && collapsed.has(row.targetId)
+		visible.push({ row, index: i, hasChildren, collapsed: isCollapsed })
+		if (isCollapsed) hideDeeperThan = row.depth
+	}
+	return visible
+}
