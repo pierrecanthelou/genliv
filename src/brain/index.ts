@@ -12,6 +12,8 @@ export type {
 	SkillRoll,
 	TakeableObject,
 	PnjConfig,
+	PnjGift,
+	PnjGiftEffect,
 	MonsterConfig,
 	TrapConfig,
 	RollOutcome,
