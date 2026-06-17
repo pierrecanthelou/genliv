@@ -253,7 +253,11 @@
 			"lessons_learned": [
 				"An interface-first persistence boundary pays off exactly when a decorator is introduced: wrapping local with CloudSyncService changed one line in createBrain and nothing in any feature — the Liskov contract held.",
 				"Default-inert infrastructure keeps a big change safe: with no transport the wrapper is a transparent synchronous pass-through (no async, no events), so 99 existing tests stayed green without touching them — design the default so the new layer is invisible until opted into.",
-				"This closes the 0.1.x MVP tier: all eleven features have a walking skeleton; the next tier (0.2.x / V1) is iteration 1 of each, in build order."
+				"This closes the 0.1.x MVP tier: all eleven features have a walking skeleton; the next tier (0.2.x / V1) is iteration 1 of each, in build order.",
+				"iter 1: the cloud transport is chosen by BUILD/PRODUCTION TARGET at the composition root (main.tsx) — the local build wires a localStorage-backed LocalStorageTransport (fake remote) so the full machinery runs serverless; Cloudflare swaps a worker-backed one via the same interface later. Keeping createBrain transport-optional kept every existing test transparent (offline).",
+				"iter 1: a sync decorator that adopts a pulled value must write the UNDERLYING store, never its own decorated set — otherwise it re-pushes what it just pulled (echo loop). LWW reconciliation on book:opened emits book:updated so open views re-read (KR-094).",
+				"iter 1: debouncing the push changed set()'s timing (push is no longer synchronous), so the CloudSyncService tests moved to a debounceMs:0 + macrotask-flush pattern; status 'syncing' is still set synchronously on write so the UI feels instant.",
+				"This closes the 0.2.x / V1 tier: every feature has its iteration 1; the next tier (0.3.x / V2) is iteration 2 of each, in build order."
 			],
 			"bugs_encountered": []
 		}

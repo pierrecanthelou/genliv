@@ -2,8 +2,8 @@ import { render, screen, act } from '@testing-library/react'
 import { createBrain, BrainProvider, type CloudTransport } from '../../../brain'
 import { SyncIndicator } from '../components/SyncIndicator'
 
-function renderWith(transport?: CloudTransport) {
-	const brain = createBrain({ transport })
+function renderWith(transport?: CloudTransport, syncDebounceMs?: number) {
+	const brain = createBrain({ transport, syncDebounceMs })
 	render(
 		<BrainProvider brain={brain}>
 			<SyncIndicator />
@@ -21,11 +21,12 @@ describe('cloud-sync — SyncIndicator', () => {
 	})
 
 	it('reflects the live sync status: syncing → synced after a write', async () => {
-		const { brain } = renderWith({ push: () => Promise.resolve() })
+		const { brain } = renderWith({ push: () => Promise.resolve() }, 0) // 0ms debounce
 		expect(screen.getByRole('status')).toHaveTextContent(/prêt/i) // idle
 
 		await act(async () => {
 			brain.persistence.set('genliv:k', 1)
+			await new Promise((r) => setTimeout(r, 0)) // let the debounced batch flush + resolve
 		})
 
 		expect(screen.getByRole('status')).toHaveTextContent(/synchronisé/i)

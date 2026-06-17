@@ -22,7 +22,7 @@
 		"walking_skeleton": "createCloudSyncService(local, events, transport?) decorates the local PersistenceService: local-first set (sync write) + a background transport.push that moves the status idle→syncing→synced/error and emits sync:status; with no transport it stays offline (local-only). createBrain wraps the local store with it and exposes brain.sync. useSyncStatus subscribes to sync:status; the cloud-sync feature's SyncIndicator renders the live state as a Badge pill, mounted by App over both routes. The real cloud transport (Cloudflare worker client) + offline write queue are later iterations.",
 		"n": 3,
 		"iterations": [
-			{ "id": 1, "goal": "Real cloud transport: a CloudflareSyncService client (worker route + auth) implementing CloudTransport; debounced batched pushes; last-write-wins reconciliation on book:opened.", "status": "planned" },
+			{ "id": 1, "goal": "Real cloud transport: a CloudflareSyncService client (worker route + auth) implementing CloudTransport; debounced batched pushes; last-write-wins reconciliation on book:opened.", "status": "done" },
 			{ "id": 2, "goal": "Offline write queue: persist pending pushes and flush on reconnect (unblocks book-creation iteration 3); surface a « N changements en attente » state.", "status": "planned" },
 			{ "id": 3, "goal": "Conflict handling: detect divergence between local and cloud, surface a resolution affordance rather than silently overwriting.", "status": "planned" }
 		],
@@ -31,7 +31,8 @@
 			"KR-011/111 — all persistence still goes through PersistenceService; CloudSyncService is a decorator over it, not a second storage surface; no raw localStorage in feature code.",
 			"KR-004 — local-first: the synchronous local write resolves before any event/navigation; the background cloud push must never block or reorder the local write.",
 			"KR-117 — the SyncStatus → label/tone mapping lives in one Record (SyncIndicator), derived not branched.",
-			"KR-114 — when the real transport lands, any cloud credential/token must be registered in persistenceKeys.ts with a SENSITIVE marker (none yet)."
+			"KR-114 — when the real transport lands, any cloud credential/token must be registered in persistenceKeys.ts with a SENSITIVE marker (none yet — the Cloudflare client + auth land with the Cloudflare build target).",
+			"KR-094 — the CloudTransport is selected by BUILD/PRODUCTION TARGET at the composition root (main.tsx): the local target wires a localStorage-backed LocalStorageTransport (a fake remote in a separate `cloudsync:` namespace), the Cloudflare target a worker-backed one; both implement one interface so app code is target-agnostic and tests stay offline by default. Pushes are DEBOUNCED + BATCHED (rapid writes coalesce into one push cycle; status syncing→synced/error once). book:opened triggers LAST-WRITE-WINS reconciliation by updatedAt: a newer cloud copy is adopted by writing the UNDERLYING local store (never the decorated set — avoids re-pushing what was just pulled, no echo loop) then emitting book:updated so open views re-read; a newer local copy is pushed up. Reconciliation is the only place the persistence decorator is book-aware (resolves bookKey, emits book:updated)."
 		]
 	},
 	"implementation": {
@@ -53,6 +54,26 @@
 				"test_coverage": {
 					"unit": "CloudSyncService — local-first delegation, offline (no transport) no-noise, idle→syncing→synced broadcast, error on push failure with the local write preserved",
 					"integration": "SyncIndicator via brain — « Local » with no transport, syncing→synced after a write with a transport",
+					"e2e": "deferred (Playwright not set up)"
+				}
+			},
+			{
+				"id": 1,
+				"label": "iteration-1",
+				"completed_at": "2026-06-17",
+				"architecture_choices": [
+					"Per the production-target direction: the « cloud » is selected at the composition root. The LOCAL build target wires a new LocalStorageTransport — a CloudTransport backed by a separate `cloudsync:` localStorage namespace (a fake remote) — so the full local-first machinery runs with no server; the Cloudflare build target swaps in a worker-backed transport (client + worker route + SENSITIVE auth, KR-114) via the same interface later (its CI builds around the full Cloudflare slice). createBrain stays transport-optional so tests default to offline (transparent).",
+					"CloudTransport gained an optional pull (for reconciliation). CloudSyncService now DEBOUNCES + BATCHES pushes: set() writes local synchronously then coalesces into a pending map flushed after a debounce window (default 300ms, 0 in tests); status moves syncing (synchronously on write) → synced/error once per batch; the flush timer is tracked + cleared on reschedule (timer-safe).",
+					"Last-write-wins reconciliation on book:opened (KR-094): pull the cloud copy, compare updatedAt — a newer cloud copy is adopted by writing the UNDERLYING local store (never the decorated set, so it is not re-pushed — no echo loop) then emitting book:updated so the open view re-reads; a newer local copy is pushed up; an empty cloud is seeded. This is the one place the persistence decorator is book-aware (bookKey + book:updated).",
+					"useSyncStatus/SyncIndicator unchanged (KR-013/117). No regression: with no transport (every existing test) the decorator is a transparent synchronous pass-through."
+				],
+				"deviations_from_plan": [
+					"Per user direction, the real Cloudflare client + worker route + auth are deferred to the Cloudflare build target / CI; iteration 1 delivers the transport machinery (debounce/batch + LWW reconciliation) and the local localStorage-backed transport. The Worker Route Parity checklist + KR-114 SENSITIVE token apply when that transport lands (no worker code / credential in the repo yet, so nothing un-deployable is committed).",
+					"Reconciliation is last-write-wins by updatedAt (iteration 1); divergence detection + a resolution affordance are iteration 3 (conflict handling). The offline write queue is iteration 2."
+				],
+				"test_coverage": {
+					"unit": "CloudSyncService — debounced+batched push (last value per key wins, one syncing/synced), error preserves local, book:opened reconciliation both directions (adopt newer cloud + notify, push newer local up); LocalStorageTransport — push/pull round-trip + separate namespace",
+					"integration": "SyncIndicator via brain — « Local » offline, syncing→synced after a debounced write",
 					"e2e": "deferred (Playwright not set up)"
 				}
 			}

@@ -31,6 +31,8 @@ export interface CreateBrainOptions {
 	persistence?: PersistenceService
 	/** Cloud transport; omitted = local-only (status stays `offline`). */
 	transport?: CloudTransport
+	/** Debounce window (ms) for batched cloud pushes; forwarded to CloudSyncService. */
+	syncDebounceMs?: number
 	initialRoute?: Route
 }
 
@@ -38,7 +40,7 @@ export function createBrain(options: CreateBrainOptions = {}): Brain {
 	const events = createEventBus()
 	const local = options.persistence ?? createLocalStoragePersistence()
 	// Wrap local persistence so every write is local-first + sync-aware (KR-022/011).
-	const sync = createCloudSyncService(local, events, options.transport)
+	const sync = createCloudSyncService(local, events, options.transport, { debounceMs: options.syncDebounceMs })
 	const router = createRouter(options.initialRoute)
 	const books = createBookService(sync, events)
 	const selection = createSelectionService(events)

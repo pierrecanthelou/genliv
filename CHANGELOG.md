@@ -2,6 +2,13 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.2.8 — cloud-sync iteration 1 (V1 slice — tier complete 🏁)
+
+- **Real transport machinery, local-target « cloud »**: per the production-target swap, the LOCAL build wires a new **`LocalStorageTransport`** — a `CloudTransport` backed by a separate `cloudsync:` localStorage namespace (a fake remote) — so the full local-first sync machinery runs with **no server**. The Cloudflare build target swaps in a worker-backed transport (client + worker route + SENSITIVE auth, KR-114) via the same interface later.
+- **Debounced + batched pushes**: `set()` writes local synchronously, then rapid writes coalesce into one background push cycle (status syncing → synced/error once per batch; timer-safe, default 300ms).
+- **Last-write-wins reconciliation on `book:opened`** (KR-094): `CloudTransport` gained `pull`; on open, the cloud copy is compared by `updatedAt` — a newer cloud copy is **adopted** locally (written underneath, never re-pushed → no echo loop) and `book:updated` is emitted so the open view re-reads; a newer local copy is **pushed up**; an empty cloud is seeded.
+- `createBrain` stays transport-optional (a new `syncDebounceMs` option), so every existing test is transparent (offline). 160 tests passing (6 new). The real Cloudflare client/worker/auth + offline queue + conflict handling are iters 1(CF)/2/3. **🏁 The 0.2.x / V1 tier is complete — every feature has its iteration 1.**
+
 ## 0.2.7 — action-trap iteration 1 (V1 slice)
 
 - **Skill roll (§ 05)**: the trap gains a **CARACTÉRISTIQUE** select + a **DIFFICULTÉ** stepper (shared brain `Stepper`) on `trap.roll`, beside the existing réussite/échec reveal texts (shared `OutcomesEditor`) and the « échec mène à la Mort » toggle.
