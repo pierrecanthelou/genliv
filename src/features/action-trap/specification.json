@@ -22,7 +22,7 @@
 		"walking_skeleton": "registerActionTrap registers an ActionEditor { type:'piege', label:'Piège', render } with the brain ActionRegistry (wired at the App composition root). TrapEditor reads node.trap live via useOpenBook and writes via BookService.updateNode: a DESCRIPTION Field, the shared brain OutcomesEditor for the réussite/échec reveal texts, and a « L'échec mène à la Mort » Toggle (fatal). Skill caractéristique/difficulté + the automatic →Mort edge are later iterations.",
 		"n": 3,
 		"iterations": [
-			{ "id": 1, "goal": "Skill roll (§ 05): CARACTÉRISTIQUE select + DIFFICULTÉ; the roll gates which outcome applies; surface réussite/échec.", "status": "planned" },
+			{ "id": 1, "goal": "Skill roll (§ 05): CARACTÉRISTIQUE select + DIFFICULTÉ; the roll gates which outcome applies; surface réussite/échec.", "status": "done" },
 			{ "id": 2, "goal": "Wire outcome targets through edges; the « échec sanctionné » fatal flag creates/maintains the automatic →Mort link (KR-067), not the manual edge API.", "status": "planned" },
 			{ "id": 3, "goal": "Trap-on-object variant (a décor « prendre » object that triggers a trap roll) — share the roll model with action-decor.", "status": "planned" }
 		],
@@ -53,6 +53,26 @@
 					"unit": "registerActionTrap adds/removes the 'piege' editor (KR-051)",
 					"integration": "action-trap via App — « Piège » offered through the registry seam; description, both réussite/échec texts (shared OutcomesEditor), and the fatal toggle persisted; structural-screen guard now covers trap (BookService)",
 					"e2e": "deferred (Playwright not set up)"
+				}
+			},
+			{
+				"id": 1,
+				"label": "iteration-1",
+				"completed_at": "2026-06-17",
+				"architecture_choices": [
+					"The skill roll (§ 05): TrapConfig gained a roll (SkillRoll) — a CARACTÉRISTIQUE SegmentedControl + a DIFFICULTÉ Stepper (the shared brain primitive). The réussite/échec reveal texts stay in trap.outcomes (shared OutcomesEditor), so the roll only carries trait + difficulty — SkillRoll.failureText was made OPTIONAL so trap and décor share one roll shape (décor sets failureText, trap does not).",
+					"Caractéristiques became a brain CHARACTERISTICS registry (Characteristic union + Record{label}, KR-117) — placed in brain like ROLL_OUTCOMES because skill-roll editors reuse it (trap now; décor « jet requis » later). The select options + labels derive from it, never a hardcoded list or a trait === branch. Fulfils the décor-iter-1 note that the caractéristique catalog would be extracted at the second consumer.",
+					"A skeleton trap (description + outcomes + fatal, no roll) migrates the default roll in on read ({ ...DEFAULT_TRAP, ...node.trap }, KR-116) and canonicalises on write. TrapEditor stays a VIEW over BookService (KR-020); the « échec sanctionné » fatal flag still captures intent, its automatic →Mort edge deferred to iteration 2 (KR-067)."
+				],
+				"deviations_from_plan": [
+					"action-decor's « jet requis » still uses a free-text caractéristique Field + a numeric Field (its shipped iter-1 UX); adopting the shared CHARACTERISTICS select + Stepper there is a décor product change left for a later décor iteration — not bundled into this trap slice (the registry is in brain, ready). Difficulté bounds are a low-fi 1–12 target number.",
+					"« the roll gates which outcome applies » is captured in authoring (the roll config sits beside the réussite/échec texts); the actual play-time gating + the automatic échec→Mort edge are iteration 2 (KR-067)."
+				],
+				"test_coverage": {
+					"unit": "(shared) CHARACTERISTICS exercised via the trap caractéristique radios",
+					"integration": "action-trap via App — caractéristique select (Endurance) + difficulté stepper persist on trap.roll; a pre-roll trap migrates the default roll in without clobbering description/outcomes/fatal (KR-116); existing description/outcomes/fatal test still green",
+					"e2e": "deferred (Playwright not set up)",
+					"review_note": "Pre-commit tech-lead review (APPROVE): folded in the migration test, hoisted the roll-section inline style to a const, and commented the intentional roll.trait cast."
 				}
 			}
 		],

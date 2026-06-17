@@ -53,4 +53,50 @@ describe('action-trap', () => {
 		expect(trap?.outcomes.echec).toBe('Les piques jaillissent.')
 		expect(trap?.fatal).toBe(true)
 	})
+
+	it('captures the skill roll: caractéristique select + difficulté (§ 05)', async () => {
+		const user = userEvent.setup()
+		const { brain, bookId, nodeId } = setup()
+
+		await user.click(screen.getByRole('button', { name: /Nœud #3/ }))
+		await user.click(screen.getByRole('radio', { name: 'Piège' }))
+
+		// Default roll is Habileté / 7; change the caractéristique and step the difficulty.
+		await user.click(screen.getByRole('radio', { name: 'Endurance' }))
+		await user.click(screen.getByRole('button', { name: /augmenter Difficulté/i }))
+
+		const roll = trapOf(brain, bookId, nodeId)?.roll
+		expect(roll?.trait).toBe('endurance')
+		expect(roll?.difficulty).toBe(8) // default 7 → 8
+	})
+
+	it('migrates a pre-roll trap: fills the default roll without clobbering other fields (KR-116)', async () => {
+		const user = userEvent.setup()
+		const brain = createBrain()
+		const created = brain.books.createBook('La Caverne')
+		const node = brain.books.addNode(created.id, 'choix')!
+		// Seed a skeleton trap WITHOUT a roll (the pre-iteration-1 shape).
+		brain.books.updateNode(created.id, node.id, {
+			trap: { description: 'Dalle', outcomes: { reussite: 'ok', echec: 'aïe' }, fatal: true },
+		})
+		brain.router.navigate({ name: 'editor', bookId: created.id })
+		render(
+			<BrainProvider brain={brain}>
+				<App />
+			</BrainProvider>,
+		)
+
+		await user.click(screen.getByRole('button', { name: /Nœud #3/ }))
+		await user.click(screen.getByRole('radio', { name: 'Piège' }))
+
+		// The default roll surfaces (Habileté selected) without losing the seeded fields.
+		expect(screen.getByRole('radio', { name: 'Habileté' })).toBeChecked()
+		await user.click(screen.getByRole('button', { name: /augmenter Difficulté/i }))
+
+		const trap = trapOf(brain, created.id, node.id)
+		expect(trap?.roll).toEqual({ trait: 'habilete', difficulty: 8 })
+		expect(trap?.description).toBe('Dalle')
+		expect(trap?.outcomes).toEqual({ reussite: 'ok', echec: 'aïe' })
+		expect(trap?.fatal).toBe(true)
+	})
 })

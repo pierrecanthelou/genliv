@@ -50,12 +50,16 @@ export type TakeableKind = 'utile' | 'leurre'
  * only the échec branch carries authored text (a réussite simply takes the object).
  */
 export interface SkillRoll {
-	/** The tested caractéristique (author free text for now). */
+	/** The tested caractéristique (a Characteristic key; see CHARACTERISTICS). */
 	trait: string
 	/** Target difficulty of the roll. */
 	difficulty: number
-	/** Player-facing text shown when the roll fails. */
-	failureText: string
+	/**
+	 * Player-facing text shown when the roll fails. Optional: the décor « jet
+	 * requis » carries it, but a trap's réussite/échec reveal lives in its
+	 * `outcomes` (OutcomesEditor), so a trap roll leaves it unset.
+	 */
+	failureText?: string
 }
 
 /**
@@ -113,6 +117,8 @@ export interface MonsterConfig {
 export interface TrapConfig {
 	/** What the player encounters (author/encounter description). */
 	description: string
+	/** The skill roll gating the outcome (caractéristique + difficulté, § 05). */
+	roll?: SkillRoll
 	/** Player-facing reveal text per roll outcome (réussite / échec). */
 	outcomes: Record<RollOutcome, string>
 	/** The « échec sanctionné » variant: a failed roll is lethal (leads to Mort). */

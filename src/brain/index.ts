@@ -19,6 +19,7 @@ export type {
 	RollOutcome,
 } from './types'
 export { ROLL_OUTCOMES, type RollOutcomeDescriptor } from './outcomes'
+export { CHARACTERISTICS, CHARACTERISTIC_VALUES, DEFAULT_CHARACTERISTIC, type Characteristic } from './characteristics'
 export { createId } from './utils/id'
 export type { EventBus, AppEvents, AppEventName } from './EventBus'
 export type { PersistenceService } from './PersistenceService'

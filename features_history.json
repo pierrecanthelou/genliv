@@ -227,7 +227,10 @@
 			"lessons_learned": [
 				"The 'extract to brain at the 2nd consumer' rule now has two confirmations (ObjectEditor, OutcomesEditor) — when a second feature needs the same rows, refactor the first to the shared component in the same slice; behaviour-preserving and the tests stay green.",
 				"All four action editors landed by composing the SAME seams (ActionRegistry + BookService VIEW + shared brain primitives) — the skeleton's investment in node-editor's host seam + brain registries paid back four times with near-zero node-editor churn.",
-				"A boolean flag (trap.fatal) is the right skeleton stand-in for a deferred structural mechanic (the automatic →Mort edge): capture intent on the node now, wire the edge when the dedicated path is built (KR-067)."
+				"A boolean flag (trap.fatal) is the right skeleton stand-in for a deferred structural mechanic (the automatic →Mort edge): capture intent on the node now, wire the edge when the dedicated path is built (KR-067).",
+				"iter 1: a DOMAIN closed set goes straight to brain as a registry — CHARACTERISTICS joined ROLL_OUTCOMES in brain (KR-117) at the trap skill roll, fulfilling the décor-iter-1 note that the caractéristique catalog extracts at the 2nd consumer; the select derives from it.",
+				"iter 1: widen a shared type rather than fork it — making SkillRoll.failureText optional let trap (réussite/échec via outcomes) and décor (échec via failureText) share ONE roll shape instead of two near-duplicates; the additive optional field broke nothing in décor.",
+				"iter 1: don't bundle a product change into an unrelated slice — switching décor's free-text caractéristique to the new closed select changes décor UX, so it was deferred to a décor iteration (registry left brain-ready) rather than smuggled into the trap slice."
 			],
 			"bugs_encountered": []
 		},
