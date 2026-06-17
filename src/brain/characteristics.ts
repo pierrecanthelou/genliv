@@ -8,6 +8,9 @@
  */
 export type Characteristic = 'habilete' | 'endurance' | 'chance'
 
+// Editor scope = label only. When PLAY MODE lands, how a caractéristique is
+// computed/tested becomes a descriptor field here ({ label, compute, test }),
+// NOT an if/switch at call sites (KR-117) — see code-knowledge KR-117.
 export const CHARACTERISTICS: Record<Characteristic, { label: string }> = {
 	habilete: { label: 'Habileté' },
 	endurance: { label: 'Endurance' },

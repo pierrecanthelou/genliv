@@ -1,16 +1,16 @@
 import type { BookNode, NodeKind } from '../types'
-import { NODE_KINDS } from '../kinds'
+import { isStructural } from '../kinds'
 
 /**
  * The kind a node should DISPLAY as. A regular leaf flagged « Fin victoire »
  * or « Fin échec » reads as a `fin` everywhere (badge on canvas, outline, and
  * the panel header) — the end flags are the single source of truth (KR-054).
  * Structural roots/leaves (`sommaire`, `mort`) are never reinterpreted: the
- * guard makes that invariant explicit, reading the `structural` flag from the
- * kind registry rather than testing the kind value (KR-068).
+ * guard makes that invariant explicit via the `isStructural` registry predicate
+ * rather than testing the kind value (KR-068).
  */
 export function effectiveKind(node: BookNode): NodeKind {
-	if (NODE_KINDS[node.kind].structural) return node.kind
+	if (isStructural(node.kind)) return node.kind
 	if (node.endVictory === true || node.endFailure === true) return 'fin'
 	return node.kind
 }

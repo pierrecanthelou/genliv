@@ -128,7 +128,9 @@ export interface TrapConfig {
 /**
  * What a PNJ's gift does for the player: a stat bonus or a plot object. A closed
  * set surfaced through the action-pnj GIFT_EFFECTS registry (KR-117) — never
- * branched on with `effect === 'pv' ? …`.
+ * branched on with `effect === 'pv' ? …`. The editor only needs its data
+ * (label/value); when PLAY MODE adds « apply this effect », that behaviour
+ * becomes a descriptor field on GIFT_EFFECTS, not an if/switch (KR-117).
  */
 export type PnjGiftEffect = 'pv' | 'attaque' | 'defense' | 'scenario'
 

@@ -6,7 +6,8 @@ import {
 	Field,
 	IconButton,
 	nodeTitle,
-	NODE_KINDS,
+	getNode,
+	canBeTarget,
 	EDGE_KINDS,
 	type SlotContext,
 } from '../../../brain'
@@ -31,14 +32,14 @@ export function OutgoingChoices({ bookId, nodeId }: SlotContext): JSX.Element {
 
 	const outgoing = book !== null ? book.edges.filter((e) => e.from === nodeId) : []
 	const titleOf = (id: string): string => {
-		const node = book?.nodes.find((n) => n.id === id)
-		return node !== undefined ? nodeTitle(node) : '⚠ cible supprimée'
+		const node = getNode(book, id)
+		return node !== null ? nodeTitle(node) : '⚠ cible supprimée'
 	}
 	// Relink candidates: any node except this one (cycles/convergence allowed),
 	// excluding structural screens — the Sommaire root and the Mort leaf are
 	// never authored choice targets (KR-067); Mort is reached only automatically
 	// in combat. Mirrors the SSOT guard in BookService.addEdge.
-	const candidates = book !== null ? book.nodes.filter((n) => n.id !== nodeId && NODE_KINDS[n.kind].canBeTarget) : []
+	const candidates = book !== null ? book.nodes.filter((n) => n.id !== nodeId && canBeTarget(n.kind)) : []
 
 	function addBranch(): void {
 		const created = books.addChoiceBranch(bookId, nodeId)

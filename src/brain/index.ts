@@ -36,7 +36,17 @@ export { SLOT_NODE_EDITOR_CHOICES } from './SlotRegistry'
 export { effectiveKind, endLabel } from './utils/nodeKind'
 export { nodeTitle, textLines } from './utils/nodeView'
 export { plural } from './utils/plural'
-export { NODE_KINDS, EDGE_KINDS, isNodeKind, isEdgeKind } from './kinds'
+export {
+	NODE_KINDS,
+	EDGE_KINDS,
+	isNodeKind,
+	isEdgeKind,
+	isStructural,
+	canHaveOutgoing,
+	canBeTarget,
+	edgeNests,
+} from './kinds'
+export { getNode, getEdge } from './utils/book'
 export type { NodeKindDescriptor, EdgeKindDescriptor, BadgeMark } from './kinds'
 export { useOpenBook, useBooks } from './hooks'
 export { HIT_TARGET_MIN } from './ui'

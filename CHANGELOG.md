@@ -2,6 +2,15 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## Code-health — P4 (registry predicates + book lookups) — no version bump
+
+Cross-cutting cleanup from a review of inline `// FIX:`/`// TODO:` notes (folds into the touched code; see `docs/ROADMAP.md` § Code-health sweep, P4):
+
+- **Domain-invariant predicates**: new `kinds.ts` helpers `isStructural` / `canHaveOutgoing` / `canBeTarget` / `edgeNests` replace `NODE_KINDS[kind].flag` indexing at ~8 call sites (BookService, OutgoingChoices, TargetPicker, NodeEditorPanel, nodeKind) — callers stop importing the registry to ask a domain question (Law of Demeter; registry stays the SSOT, KR-068). Presentational reads (label/mark/tone/…) unchanged.
+- **`getNode`/`getEdge`** (`brain/utils/book.ts`) hide the book's internal arrays, removing the repeated `book?.nodes.find(n => n.id === …) ?? null` from BookService + the four action editors + OutgoingChoices.
+- **`buildOutline`** nests via `EDGE_KINDS.nests`, not `edge.kind === 'choice'`.
+- **Decisions recorded** (KR-068/117 extended): event-name lists in `hooks.ts` are typed curated subsets (not magic strings — kept); per-variant behaviour (gift `apply`, caractéristique `compute/test`) is deferred to PLAY MODE as registry descriptor fields, never if/switch. 167 tests passing (+7); all inline notes resolved/removed.
+
 ## 0.2.8 — cloud-sync iteration 1 (V1 slice — tier complete 🏁)
 
 - **Real transport machinery, local-target « cloud »**: per the production-target swap, the LOCAL build wires a new **`LocalStorageTransport`** — a `CloudTransport` backed by a separate `cloudsync:` localStorage namespace (a fake remote) — so the full local-first sync machinery runs with **no server**. The Cloudflare build target swaps in a worker-backed transport (client + worker route + SENSITIVE auth, KR-114) via the same interface later.

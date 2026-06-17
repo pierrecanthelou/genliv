@@ -6,6 +6,7 @@ import {
 	Badge,
 	IconButton,
 	HIT_TARGET_MIN,
+	getNode,
 	type ActionEditorContext,
 	type DecorConfig,
 	type DecorInteraction,
@@ -51,7 +52,7 @@ const UNNAMED = 'Objet sans nom'
 export function DecorEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element {
 	const { books } = useBrain()
 	const book = useOpenBook(bookId)
-	const node = book?.nodes.find((n) => n.id === nodeId) ?? null
+	const node = getNode(book, nodeId)
 	// Normalise the config once (default « prendre », migrate the skeleton's single
 	// object to the list) so every read and write share one canonical shape.
 	const decor = node?.decor ?? DEFAULT_DECOR

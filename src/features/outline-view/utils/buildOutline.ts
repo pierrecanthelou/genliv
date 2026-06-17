@@ -1,4 +1,4 @@
-import type { Book, BookNode, EdgeKind } from '../../../brain'
+import { edgeNests, type Book, type BookNode, type EdgeKind } from '../../../brain'
 
 /**
  * One line of the indented outline (§ 03). A normal row is a node detailed in
@@ -37,11 +37,12 @@ export function buildOutline(book: Book): OutlineRow[] {
 		rows.push({ depth, reference: false, node, targetId: node.id })
 		for (const edge of book.edges.filter((e) => e.from === node.id)) {
 			const target = byId.get(edge.to) ?? null
-			if (edge.kind === 'choice' && target !== null && !visited.has(edge.to)) {
+			if (edgeNests(edge.kind) && target !== null && !visited.has(edge.to)) {
 				visit(target, depth + 1)
 			} else {
-				// relink/flee, an already-shown target (convergence/cycle), or a
-				// dangling edge → a reference row, never recursed (KR-061/021).
+				// a non-nesting edge (relink/flee), an already-shown target
+				// (convergence/cycle), or a dangling edge → a reference row, never
+				// recursed (KR-068/061/021).
 				rows.push({ depth: depth + 1, reference: true, via: edge.kind, node: target, targetId: edge.to })
 			}
 		}

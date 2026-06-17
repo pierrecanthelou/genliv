@@ -1,4 +1,13 @@
-import { NODE_KINDS, EDGE_KINDS, isNodeKind, isEdgeKind } from './kinds'
+import {
+	NODE_KINDS,
+	EDGE_KINDS,
+	isNodeKind,
+	isEdgeKind,
+	isStructural,
+	canHaveOutgoing,
+	canBeTarget,
+	edgeNests,
+} from './kinds'
 import type { NodeKind, EdgeKind } from './types'
 
 describe('NODE_KINDS registry', () => {
@@ -47,5 +56,30 @@ describe('EDGE_KINDS registry', () => {
 			expect(d.canvasLabel.length).toBeGreaterThan(0)
 			expect(d.rowTone === 'neutral' || d.rowTone === 'muted').toBe(true)
 		}
+	})
+
+	it('nests only the hierarchy edge (choice), not relink/flee (KR-068)', () => {
+		const nesting = (Object.keys(EDGE_KINDS) as EdgeKind[]).filter(edgeNests)
+		expect(nesting).toEqual(['choice'])
+	})
+})
+
+describe('kind invariant predicates (KR-068)', () => {
+	it('isStructural matches the registry structural flag', () => {
+		expect(isStructural('sommaire')).toBe(true)
+		expect(isStructural('mort')).toBe(true)
+		expect(isStructural('choix')).toBe(false)
+	})
+
+	it('canHaveOutgoing is false only for Mort', () => {
+		expect(canHaveOutgoing('mort')).toBe(false)
+		expect(canHaveOutgoing('sommaire')).toBe(true)
+		expect(canHaveOutgoing('choix')).toBe(true)
+	})
+
+	it('canBeTarget is false for the structural screens (KR-067)', () => {
+		expect(canBeTarget('sommaire')).toBe(false)
+		expect(canBeTarget('mort')).toBe(false)
+		expect(canBeTarget('choix')).toBe(true)
 	})
 })

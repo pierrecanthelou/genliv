@@ -3,7 +3,8 @@ import type { PersistenceService } from './PersistenceService'
 import type { Book, BookNode, NodeKind, Edge, EdgeKind } from './types'
 import { bookKey, BOOK_KEY_PREFIX } from './persistenceKeys'
 import { createId } from './utils/id'
-import { NODE_KINDS, isNodeKind, isEdgeKind } from './kinds'
+import { isNodeKind, isEdgeKind, isStructural, canHaveOutgoing, canBeTarget } from './kinds'
+import { getNode, getEdge } from './utils/book'
 
 /**
  * BookService — the API nœud. Single source of truth for the book tree
@@ -283,13 +284,13 @@ export function createBookService(persistence: PersistenceService, events: Event
 		updateNode(bookId, nodeId, patch) {
 			const book = loadBook(bookId)
 			if (book === null) return null
-			const current = book.nodes.find((n) => n.id === nodeId)
-			if (current === undefined) return null
+			const current = getNode(book, nodeId)
+			if (current === null) return null
 			// Structural screens accept only text edits: the locked Mort leaf
 			// (KR-002) and the Sommaire root have no end flags / required action
-			// (KR-055). The structural fact is read from the kind registry, not
-			// tested against kind values (KR-068).
-			const textOnly = current.locked === true || NODE_KINDS[current.kind].structural
+			// (KR-055). The structural fact is a named registry predicate, not a
+			// kind test (KR-068).
+			const textOnly = current.locked === true || isStructural(current.kind)
 			const allowed: NodePatch = textOnly ? { text: patch.text } : patch
 			const updated: BookNode = { ...current }
 			for (const key of Object.keys(allowed) as (keyof NodePatch)[]) {
@@ -310,10 +311,10 @@ export function createBookService(persistence: PersistenceService, events: Event
 		addChoiceBranch(bookId, fromNodeId) {
 			const book = loadBook(bookId)
 			if (book === null) return null
-			const parent = book.nodes.find((n) => n.id === fromNodeId)
-			// Mort is structural: no outgoing choices (KR-055/060) — read from the
-			// kind registry (canHaveOutgoing), not a kind test (KR-068).
-			if (parent === undefined || !NODE_KINDS[parent.kind].canHaveOutgoing) return null
+			const parent = getNode(book, fromNodeId)
+			// Mort is structural: no outgoing choices (KR-055/060) — registry
+			// predicate, not a kind test (KR-068).
+			if (parent === null || !canHaveOutgoing(parent.kind)) return null
 			const node: BookNode = {
 				id: createId('node'),
 				kind: 'choix',
@@ -336,19 +337,18 @@ export function createBookService(persistence: PersistenceService, events: Event
 		addEdge(bookId, from, to, kind) {
 			const book = loadBook(bookId)
 			if (book === null) return null
-			const fromNode = book.nodes.find((n) => n.id === from)
-			const toNode = book.nodes.find((n) => n.id === to)
-			if (fromNode === undefined || toNode === undefined) return null
-			// Mort is structural: no outgoing choices (KR-055/060). Read from the
-			// kind registry (canHaveOutgoing), not a kind test (KR-068).
-			if (!NODE_KINDS[fromNode.kind].canHaveOutgoing) return null
+			const fromNode = getNode(book, from)
+			const toNode = getNode(book, to)
+			if (fromNode === null || toNode === null) return null
+			// Mort is structural: no outgoing choices (KR-055/060) — registry predicate.
+			if (!canHaveOutgoing(fromNode.kind)) return null
 			// Structural screens are never authored choice targets (KR-067): the
-			// Sommaire is the root (no incoming choices) and the Mort leaf is
-			// reached only automatically at the end of a combat, never via an
-			// authored choice/relink. The future automatic combat→Mort link will
-			// use a dedicated path, not this manual edge API. The invariant is the
-			// registry's `canBeTarget` flag, not a kind test (KR-068).
-			if (!NODE_KINDS[toNode.kind].canBeTarget) return null
+			// Sommaire is the root (no incoming choices) and the Mort leaf is reached
+			// only automatically at the end of a combat, never via an authored
+			// choice/relink. The future automatic combat→Mort link uses a dedicated
+			// path, not this manual edge API. The invariant is the canBeTarget
+			// predicate, not a kind test (KR-068).
+			if (!canBeTarget(toNode.kind)) return null
 			const edge: Edge = { id: createId('edge'), from, to, kind }
 			const next: Book = { ...book, edges: [...book.edges, edge], updatedAt: new Date().toISOString() }
 			persist(next)
@@ -359,8 +359,8 @@ export function createBookService(persistence: PersistenceService, events: Event
 		updateEdge(bookId, edgeId, patch) {
 			const book = loadBook(bookId)
 			if (book === null) return null
-			const current = book.edges.find((e) => e.id === edgeId)
-			if (current === undefined) return null
+			const current = getEdge(book, edgeId)
+			if (current === null) return null
 			const updated: Edge = { ...current }
 			// `label === undefined` leaves the field untouched. A blank label means
 			// "no custom label": drop it so every consumer falls back to the kind's
@@ -382,7 +382,7 @@ export function createBookService(persistence: PersistenceService, events: Event
 		removeEdge(bookId, edgeId) {
 			const book = loadBook(bookId)
 			if (book === null) return false
-			if (!book.edges.some((e) => e.id === edgeId)) return false
+			if (getEdge(book, edgeId) === null) return false
 			const next: Book = {
 				...book,
 				edges: book.edges.filter((e) => e.id !== edgeId),

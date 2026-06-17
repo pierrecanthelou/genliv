@@ -6,6 +6,7 @@ import {
 	Stepper,
 	TargetPicker,
 	NODE_KINDS,
+	getNode,
 	type ActionEditorContext,
 	type MonsterConfig,
 	type RollOutcome,
@@ -43,7 +44,7 @@ const STAT_MAX = 99
 export function MonsterEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element {
 	const { books, events } = useBrain()
 	const book = useOpenBook(bookId)
-	const node = book?.nodes.find((n) => n.id === nodeId) ?? null
+	const node = getNode(book, nodeId)
 	// Normalise once (defaults fill a skeleton monster's missing stats, KR-116).
 	const monster: MonsterConfig = { ...DEFAULT_MONSTER, ...(node?.monster ?? {}) }
 	const nodes = book?.nodes ?? []

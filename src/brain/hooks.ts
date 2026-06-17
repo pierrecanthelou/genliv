@@ -9,6 +9,9 @@ import type { Book } from './types'
  * subscribing to the event bus, NOT by mirroring props through useEffect
  * (KR-013/113). Each view stays a VIEW, holding no private copy (KR-020).
  */
+// These are CURATED SUBSETS of AppEvents — which events should make a book VIEW
+// re-read — not a duplication of the bus: the `AppEventName[]` type rejects any
+// name that is not a real event, so the literals can't drift from EventBus.
 const BOOK_MUTATION_EVENTS: AppEventName[] = [
 	'book:opened',
 	'book:updated',

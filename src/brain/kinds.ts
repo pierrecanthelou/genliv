@@ -132,12 +132,19 @@ export interface EdgeKindDescriptor {
 	rowTone: 'neutral' | 'muted'
 	/** Fallback label drawn on the canvas edge when the edge has no author label. */
 	canvasLabel: string
+	/**
+	 * Does this edge form the book's HIERARCHY (a parent→child `choice`)? The
+	 * outline nests `nests` edges and shows the others as ↪ reference rows; the
+	 * domain rule (a choice leads to a child screen) lives here, not as a
+	 * `kind === 'choice'` test in the traversal (KR-068).
+	 */
+	nests: boolean
 }
 
 export const EDGE_KINDS = defineKinds<EdgeKindDescriptor>()({
-	choice: { rowLabel: 'choix', rowTone: 'neutral', canvasLabel: '→' },
-	relink: { rowLabel: 'reliaison', rowTone: 'muted', canvasLabel: 'Reliaison ↻' },
-	flee: { rowLabel: 'fuite', rowTone: 'muted', canvasLabel: 'Fuite ↻' },
+	choice: { rowLabel: 'choix', rowTone: 'neutral', canvasLabel: '→', nests: true },
+	relink: { rowLabel: 'reliaison', rowTone: 'muted', canvasLabel: 'Reliaison ↻', nests: false },
+	flee: { rowLabel: 'fuite', rowTone: 'muted', canvasLabel: 'Fuite ↻', nests: false },
 })
 
 /** Edge kinds — derived from the registry keys. A `choice` is a labelled button. */
@@ -157,4 +164,27 @@ export function isNodeKind(value: unknown): value is NodeKind {
 
 export function isEdgeKind(value: unknown): value is EdgeKind {
 	return typeof value === 'string' && Object.prototype.hasOwnProperty.call(EDGE_KINDS, value)
+}
+
+/**
+ * Domain-invariant predicates over a node/edge kind. Callers ask « is this kind
+ * structural / may it have outgoing choices / may it be a target / does this edge
+ * nest » WITHOUT importing the registry or knowing its indexing shape — the
+ * registry stays the single source (KR-068), but the rule reads as a named
+ * question (Law of Demeter), not a scattered `NODE_KINDS[kind].flag` access.
+ */
+export function isStructural(kind: NodeKind): boolean {
+	return NODE_KINDS[kind].structural
+}
+
+export function canHaveOutgoing(kind: NodeKind): boolean {
+	return NODE_KINDS[kind].canHaveOutgoing
+}
+
+export function canBeTarget(kind: NodeKind): boolean {
+	return NODE_KINDS[kind].canBeTarget
+}
+
+export function edgeNests(kind: EdgeKind): boolean {
+	return EDGE_KINDS[kind].nests
 }

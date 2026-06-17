@@ -9,6 +9,7 @@ import {
 	CHARACTERISTICS,
 	CHARACTERISTIC_VALUES,
 	DEFAULT_CHARACTERISTIC,
+	getNode,
 	type ActionEditorContext,
 	type TrapConfig,
 	type RollOutcome,
@@ -50,7 +51,7 @@ const CHARACTERISTIC_OPTIONS: SegmentedOption<Characteristic>[] = CHARACTERISTIC
 export function TrapEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element {
 	const { books } = useBrain()
 	const book = useOpenBook(bookId)
-	const node = book?.nodes.find((n) => n.id === nodeId) ?? null
+	const node = getNode(book, nodeId)
 	// Normalise once (default + roll migration) so every read and write share one shape.
 	const trap: TrapConfig = { ...DEFAULT_TRAP, ...(node?.trap ?? {}) }
 	const roll = trap.roll ?? DEFAULT_TRAP.roll!

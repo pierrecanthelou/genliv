@@ -3,6 +3,7 @@ import {
 	useOpenBook,
 	Field,
 	TargetPicker,
+	getNode,
 	type ActionEditorContext,
 	type PnjConfig,
 	type PnjGift,
@@ -27,7 +28,7 @@ const DEFAULT_PNJ: PnjConfig = { name: '', dialogue: '' }
 export function PnjEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element {
 	const { books } = useBrain()
 	const book = useOpenBook(bookId)
-	const node = book?.nodes.find((n) => n.id === nodeId) ?? null
+	const node = getNode(book, nodeId)
 	// Normalise once (default + gift migration) so every read and write share one shape.
 	const pnj = node?.pnj ?? DEFAULT_PNJ
 	const gift = giftOf(pnj)

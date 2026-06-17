@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { nodeTitle } from '../utils/nodeView'
-import { NODE_KINDS } from '../kinds'
+import { canBeTarget } from '../kinds'
 import type { BookNode } from '../types'
 
 /**
@@ -35,7 +35,7 @@ export function TargetPicker({
 	emptyLabel = 'Aucune cible',
 }: TargetPickerProps): JSX.Element {
 	const [open, setOpen] = useState(false)
-	const candidates = nodes.filter((n) => n.id !== nodeId && NODE_KINDS[n.kind].canBeTarget)
+	const candidates = nodes.filter((n) => n.id !== nodeId && canBeTarget(n.kind))
 	const current = target !== undefined ? (nodes.find((n) => n.id === target) ?? null) : null
 	const dangling = target !== undefined && current === null
 	const summary = current !== null ? nodeTitle(current) : dangling ? '⚠ cible supprimée' : emptyLabel
