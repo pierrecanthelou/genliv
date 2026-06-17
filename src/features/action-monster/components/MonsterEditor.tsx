@@ -2,14 +2,11 @@ import {
 	useBrain,
 	useOpenBook,
 	Field,
-	Badge,
-	ROLL_OUTCOMES,
+	OutcomesEditor,
 	type ActionEditorContext,
 	type MonsterConfig,
 	type RollOutcome,
 } from '../../../brain'
-
-const OUTCOMES = Object.keys(ROLL_OUTCOMES) as RollOutcome[]
 
 /** The config a node falls back to before any monster is authored. */
 const DEFAULT_MONSTER: MonsterConfig = { name: '', outcomes: { reussite: '', echec: '' } }
@@ -46,19 +43,7 @@ export function MonsterEditor({ bookId, nodeId }: ActionEditorContext): JSX.Elem
 				onChange={(e) => patchMonster({ name: e.target.value })}
 			/>
 
-			{OUTCOMES.map((outcome) => (
-				<div key={outcome} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-					<Badge tone={ROLL_OUTCOMES[outcome].tone}>{ROLL_OUTCOMES[outcome].label}</Badge>
-					<Field
-						ariaLabel={`Texte affiché au joueur si ${ROLL_OUTCOMES[outcome].label}`}
-						multiline
-						rows={2}
-						value={monster.outcomes[outcome]}
-						placeholder="Texte affiché au joueur…"
-						onChange={(e) => setOutcome(outcome, e.target.value)}
-					/>
-				</div>
-			))}
+			<OutcomesEditor value={monster.outcomes} onChange={setOutcome} />
 
 			<button
 				type="button"

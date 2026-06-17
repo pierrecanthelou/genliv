@@ -7,6 +7,7 @@ import { registerChoiceLinking } from './features/choice-linking'
 import { registerActionDecor } from './features/action-decor'
 import { registerActionPnj } from './features/action-pnj'
 import { registerActionMonster } from './features/action-monster'
+import { registerActionTrap } from './features/action-trap'
 
 /**
  * App shell — routes between the home (book-library) and the editor, and is
@@ -26,11 +27,13 @@ export function App(): JSX.Element {
 		const offDecor = registerActionDecor(actions)
 		const offPnj = registerActionPnj(actions)
 		const offMonster = registerActionMonster(actions)
+		const offTrap = registerActionTrap(actions)
 		return () => {
 			offChoices()
 			offDecor()
 			offPnj()
 			offMonster()
+			offTrap()
 		}
 	}, [slots, actions])
 	switch (route.name) {

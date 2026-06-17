@@ -60,7 +60,7 @@ export interface BookService {
 
 /** The author-editable surface of a node (everything else is structural). */
 export type NodePatch = Partial<
-	Pick<BookNode, 'text' | 'endVictory' | 'endFailure' | 'actionType' | 'decor' | 'pnj' | 'monster'>
+	Pick<BookNode, 'text' | 'endVictory' | 'endFailure' | 'actionType' | 'decor' | 'pnj' | 'monster' | 'trap'>
 >
 
 /**

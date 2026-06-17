@@ -299,6 +299,7 @@ describe('BookService.updateNode', () => {
 			decor: { interaction: 'prendre' },
 			pnj: { name: 'X', dialogue: 'Y' },
 			monster: { name: 'M', outcomes: { reussite: '', echec: '' } },
+			trap: { description: 'T', outcomes: { reussite: '', echec: '' }, fatal: true },
 		})
 
 		expect(updated?.text).toBe('Au seuil.')
@@ -308,6 +309,7 @@ describe('BookService.updateNode', () => {
 		expect(updated?.decor).toBeUndefined()
 		expect(updated?.pnj).toBeUndefined()
 		expect(updated?.monster).toBeUndefined()
+		expect(updated?.trap).toBeUndefined()
 	})
 
 	it('returns null for an unknown book or node', () => {

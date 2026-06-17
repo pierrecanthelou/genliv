@@ -2,6 +2,12 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.1.7 — action-trap walking skeleton (MVP slice)
+
+- New **`action-trap`** feature — the fourth and last `action-*`: self-registers a « Piège » editor with the brain **ActionRegistry**, so node-editor now offers **all four** action types (Décor / PNJ / Monstre / Piège) with zero changes. `TrapEditor` is a VIEW over `BookService`: a DESCRIPTION + réussite/échec reveal texts + a « L'échec mène à la Mort » toggle (the « échec sanctionné » variant), persisted on `node.trap`.
+- Extracted a shared **`brain/components/OutcomesEditor`** (KR-109) at the **second consumer** of the réussite/échec rows: monster + trap now render outcomes from one component derived from `ROLL_OUTCOMES` (KR-117/091); `MonsterEditor` refactored to use it (rows de-duplicated). New **KR-092**.
+- The automatic `échec → Mort` edge is deferred (KR-067) — the skeleton captures the `fatal` intent. Domain model gained `node.trap` (`TrapConfig`); `NodePatch` carries `trap` (text-only guard covers it, KR-055/090, regression-tested). 99 tests passing (2 new + MonsterEditor refactor). **All MVP action editors complete; only `cloud-sync` remains in the 0.1.x tier.**
+
 ## 0.1.6 — action-monster walking skeleton (MVP slice)
 
 - New **`action-monster`** feature — third `action-*`: self-registers a « Monstre » editor with the brain **ActionRegistry** (node-editor now offers Décor / PNJ / Monstre with zero changes). `MonsterEditor` is a VIEW over `BookService`: a NAME + a player-facing reveal text per combat outcome, persisted on `node.monster`.

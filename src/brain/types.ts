@@ -55,6 +55,16 @@ export interface MonsterConfig {
 	outcomes: Record<RollOutcome, string>
 }
 
+/** Per-node trap action config (owned by action-trap). */
+export interface TrapConfig {
+	/** What the player encounters (author/encounter description). */
+	description: string
+	/** Player-facing reveal text per roll outcome (réussite / échec). */
+	outcomes: Record<RollOutcome, string>
+	/** The « échec sanctionné » variant: a failed roll is lethal (leads to Mort). */
+	fatal: boolean
+}
+
 /** Per-node PNJ action config (owned by action-pnj). */
 export interface PnjConfig {
 	/** The PNJ's name (author/display). */
@@ -88,6 +98,8 @@ export interface BookNode {
 	pnj?: PnjConfig
 	/** Monster action config when `actionType === 'monstre'` (owned by action-monster). */
 	monster?: MonsterConfig
+	/** Trap action config when `actionType === 'piege'` (owned by action-trap). */
+	trap?: TrapConfig
 }
 
 export interface Edge {
