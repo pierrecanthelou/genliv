@@ -2,6 +2,12 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.2.7 — action-trap iteration 1 (V1 slice)
+
+- **Skill roll (§ 05)**: the trap gains a **CARACTÉRISTIQUE** select + a **DIFFICULTÉ** stepper (shared brain `Stepper`) on `trap.roll`, beside the existing réussite/échec reveal texts (shared `OutcomesEditor`) and the « échec mène à la Mort » toggle.
+- Caractéristiques are now a brain **`CHARACTERISTICS`** registry (Habileté / Endurance / Chance — a closed-set `Record`, KR-117), placed in brain like `ROLL_OUTCOMES` because skill-roll editors reuse it (trap now; décor « jet requis » later). The select derives from it — no hardcoded list. `SkillRoll.failureText` made **optional** so trap (outcomes-based) and décor (failureText-based) share one roll shape.
+- `TrapConfig` gained `roll`; a skeleton trap migrates the default roll in on read (KR-116) and canonicalises on write. The automatic échec→Mort edge stays deferred to iter 2 (KR-067). 153 tests passing (1 new). **🏁 All four action editors have their V1 — only `cloud-sync` remains in the 0.2.x tier.**
+
 ## 0.2.6 — action-monster iteration 1 (V1 slice)
 
 - **Combat mechanics (§ 4D)**: the monster gains **PV / Attaque / Défense** stats (shared brain `Stepper`) and **outcome targets** — **victoire → poursuivre** and **fuite → relier** via the shared brain `TargetPicker` (structural screens excluded KR-067, deleted target surfaced KR-021/063). **Défaite → Mort** is shown as the **automatic** combat path (KR-067) — surfaced read-only, never an authored edge.
