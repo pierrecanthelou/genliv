@@ -36,10 +36,47 @@ export interface GameObject {
 /** Décor interaction: take an object, listen, or search (domain rule; KR-090). */
 export type DecorInteraction = 'prendre' | 'ecouter' | 'fouiller'
 
+/**
+ * Whether a takeable object is genuinely useful or a decoy (leurre). A closed
+ * set surfaced through the action-decor TAKEABLE_KINDS registry (KR-117) — never
+ * branched on with `kind === 'utile' ? …`.
+ */
+export type TakeableKind = 'utile' | 'leurre'
+
+/**
+ * An optional skill roll gating an action (décor « prendre »): which
+ * caractéristique is tested, the difficulty, and the player-facing text shown on
+ * a failed roll. réussite/échec stay the only semantic outcomes (KR-091); here
+ * only the échec branch carries authored text (a réussite simply takes the object).
+ */
+export interface SkillRoll {
+	/** The tested caractéristique (author free text for now). */
+	trait: string
+	/** Target difficulty of the roll. */
+	difficulty: number
+	/** Player-facing text shown when the roll fails. */
+	failureText: string
+}
+
+/**
+ * One takeable object in a décor « prendre » list: the game object plus whether
+ * it is useful or a leurre, and an optional « jet requis » to take it.
+ */
+export interface TakeableObject {
+	object: GameObject
+	kind: TakeableKind
+	roll?: SkillRoll
+}
+
 /** Per-node décor action config (owned by action-decor). */
 export interface DecorConfig {
 	interaction: DecorInteraction
-	/** For « prendre »: the object the player may take. */
+	/** « Prendre » takeable objects (iteration 1+). */
+	objects?: TakeableObject[]
+	/**
+	 * @deprecated walking-skeleton single object — migrated to `objects` on read
+	 * (takeablesOf) and on the next write; kept so old persisted books still load.
+	 */
 	object?: GameObject
 }
 

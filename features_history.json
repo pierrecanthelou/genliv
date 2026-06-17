@@ -160,7 +160,9 @@
 			"lessons_learned": [
 				"The ActionRegistry seam built in node-editor's skeleton paid off: the first real action feature needed only a register call + an editor component, no node-editor change — validate a registry seam with its first real consumer.",
 				"A component shared by future siblings belongs in brain/components from its FIRST use (ObjectEditor), even when only one feature consumes it yet — putting it in the feature would force a cross-feature import later (KR-052/109).",
-				"Action config persists on the node document (node.decor) and rides the existing updateNode text-only guard for free — no new structural-screen handling needed (KR-055/090)."
+				"Action config persists on the node document (node.decor) and rides the existing updateNode text-only guard for free — no new structural-screen handling needed (KR-055/090).",
+				"iter 1: when a skeleton field becomes a list (decor.object → decor.objects[]), migrate on read with a pure helper (takeablesOf) and canonicalise on the next write — never lose an old persisted shape (KR-090/116 spirit), and keep the deprecated field in the type with an @deprecated note.",
+				"iter 1: a per-item editor in a Modal wants DRAFT commit/cancel semantics (local state, keyed by item id, Enregistrer commits / Annuler discards) — distinct from the app's usual live-persist inline fields, but the right call for a modal so a cancelled NEW item never lands. Not a KR-013 violation: a one-shot draft init from props is legitimate editing state, not a useEffect-synced mirror."
 			],
 			"bugs_encountered": []
 		},

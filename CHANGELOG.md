@@ -2,6 +2,12 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.2.4 — action-decor iteration 1 (V1 slice)
+
+- **« Prendre » full (§ 4B)**: the décor « prendre » action is now a **list of takeable objects** as rows — add / remove / reorder (↑↓), each with a **utile / leurre** badge and an optional **« jet requis »** marker. Each object is edited in a **modal** with real commit/cancel semantics (a local draft; « Annuler » discards, so a cancelled new object never lands), composing the shared brain `ObjectEditor` (KR-052) + a utile/leurre `SegmentedControl` + a « jet requis » `Toggle` revealing caractéristique / difficulté / texte d'échec.
+- Domain model gained **`TakeableObject`** (object + `kind` + optional `roll`), **`SkillRoll`** (trait/difficulty/failureText), and **`TakeableKind`** (`'utile' | 'leurre'`, a closed-set `Record` per KR-117, non-semantic tones — good/bad reserved for réussite/échec, KR-091). The walking-skeleton single `decor.object` is **migrated** to `decor.objects` on read (pure `takeablesOf`) and canonicalised on the next write (KR-090/116 spirit), so old persisted books still load.
+- `DecorEditor` stays a VIEW over `BookService` (KR-020): all list ops write the canonical `{ interaction, objects }` via `updateNode`; object ids are stable (KR-003). Écouter/Fouiller stay stubs (iter 2); shared `ObjectCatalogService` is iter 3. 138 tests passing (12 new).
+
 ## 0.2.3 — outline-view iteration 1 (V1 slice)
 
 - **Expand/collapse** in the « plan du livre »: each node with nested children gets a ▸/▾ disclosure (≥44px, aria-labelled with the node title); collapsing hides the exact subtree while later siblings stay. The rule is a new **pure `computeVisibleRows`** helper (unit-tested, KR-080 spirit) over the flat pre-order rows; collapsed ids are local UI state derived with `useMemo` (no `useEffect` mirror, KR-013).
