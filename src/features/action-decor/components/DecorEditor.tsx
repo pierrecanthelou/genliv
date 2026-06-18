@@ -10,23 +10,38 @@ import {
 	type ActionEditorContext,
 	type DecorConfig,
 	type DecorInteraction,
+	type DecorReveal,
 	type SegmentedOption,
 	type TakeableObject,
 } from '../../../brain'
 import { TAKEABLE_KINDS, takeablesOf, blankTakeable } from '../utils/takeables'
 import { ObjectEditModal } from './ObjectEditModal'
+import { RevealEditor } from './RevealEditor'
 
 /**
  * Single source for per-interaction data — a closed set in one Record (KR-117,
- * the same data-driven pattern as the kind registry KR-068): the label is
- * written once here, never duplicated across the switch options and the
- * placeholder copy, and never branched on with an `x === 'a' ? …` ladder.
+ * the same data-driven pattern as the kind registry KR-068): each interaction's
+ * label and (for écouter/fouiller) its reveal-field copy are written once here,
+ * never duplicated across the switch options, and never branched on with an
+ * `x === 'a' ? …` ladder.
  */
-const DECOR_INTERACTIONS: Record<DecorInteraction, { label: string }> = {
-	prendre: { label: 'Prendre' },
-	ecouter: { label: 'Écouter' },
-	fouiller: { label: 'Fouiller' },
-}
+const DECOR_INTERACTIONS: Record<DecorInteraction, { label: string; revealLabel: string; revealPlaceholder: string }> =
+	{
+		prendre: { label: 'Prendre', revealLabel: '', revealPlaceholder: '' },
+		ecouter: {
+			label: 'Écouter',
+			revealLabel: 'Ce que le joueur entend',
+			revealPlaceholder: 'En tendant l’oreille, vous percevez…',
+		},
+		fouiller: {
+			label: 'Fouiller',
+			revealLabel: 'Ce que le joueur trouve',
+			revealPlaceholder: 'En fouillant les lieux, vous découvrez…',
+		},
+	}
+
+/** The reveal a node falls back to before any écouter/fouiller text is authored. */
+const DEFAULT_REVEAL: DecorReveal = { text: '' }
 
 const INTERACTION_OPTIONS: SegmentedOption<DecorInteraction>[] = (
 	Object.keys(DECOR_INTERACTIONS) as DecorInteraction[]
@@ -47,7 +62,8 @@ const UNNAMED = 'Objet sans nom'
  * Iteration 1 — « Prendre » full (§ 4B): a list of takeable objects as rows
  * (utile/leurre badge + a « jet » marker), add / remove / reorder, each edited
  * in the shared ObjectEditor inside a modal with an optional « jet requis »
- * (KR-052/003). « Écouter »/« Fouiller » remain stubs for iteration 2.
+ * (KR-052/003). Iteration 2 — « Écouter »/« Fouiller »: a reveal text + an
+ * optional skill-roll gate (RevealEditor) with réussite/échec outcomes.
  */
 export function DecorEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element {
 	const { books } = useBrain()
@@ -61,14 +77,21 @@ export function DecorEditor({ bookId, nodeId }: ActionEditorContext): JSX.Elemen
 	// mirror of the node (KR-013).
 	const [editing, setEditing] = useState<{ takeable: TakeableObject; isNew: boolean } | null>(null)
 
-	// Every write canonicalises to { interaction, objects } — the legacy single
-	// `object` field is dropped on the first write (migration, KR-090).
+	// Every write canonicalises to { interaction, objects, reveal } — the legacy
+	// single `object` field is dropped on the first write (migration, KR-090) and
+	// all live fields are preserved so editing one never drops the others.
+	function writeDecor(patch: Partial<DecorConfig>): void {
+		books.updateNode(bookId, nodeId, {
+			decor: { interaction: decor.interaction, objects, reveal: decor.reveal, ...patch },
+		})
+	}
+
 	function writeObjects(next: TakeableObject[]): void {
-		books.updateNode(bookId, nodeId, { decor: { interaction: decor.interaction, objects: next } })
+		writeDecor({ objects: next })
 	}
 
 	function setInteraction(interaction: DecorInteraction): void {
-		books.updateNode(bookId, nodeId, { decor: { interaction, objects } })
+		writeDecor({ interaction })
 	}
 
 	function handleSave(takeable: TakeableObject): void {
@@ -167,9 +190,12 @@ export function DecorEditor({ bookId, nodeId }: ActionEditorContext): JSX.Elemen
 					</div>
 				)
 			) : (
-				<p style={{ margin: 0, fontSize: 'var(--fs-meta)', color: 'var(--text-faint)' }}>
-					« {DECOR_INTERACTIONS[decor.interaction].label} » — détail à venir (jet de caractéristique, indices cachés).
-				</p>
+				<RevealEditor
+					label={DECOR_INTERACTIONS[decor.interaction].revealLabel}
+					placeholder={DECOR_INTERACTIONS[decor.interaction].revealPlaceholder}
+					reveal={decor.reveal ?? DEFAULT_REVEAL}
+					onChange={(reveal) => writeDecor({ reveal })}
+				/>
 			)}
 
 			{editing !== null && (

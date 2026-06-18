@@ -72,11 +72,28 @@ export interface TakeableObject {
 	roll?: SkillRoll
 }
 
+/**
+ * The reveal of a décor « écouter » / « fouiller » interaction: what the player
+ * hears/finds, optionally gated by a skill roll. When `roll` is set the player
+ * tests it and `outcomes` carries the réussite/échec reveal text (the only
+ * semantic outcomes, KR-091); ungated, only `text` is shown.
+ */
+export interface DecorReveal {
+	/** Base reveal text — what the player hears (écouter) / finds (fouiller). */
+	text: string
+	/** Optional gating roll (trait + difficulty); `failureText` is unused here. */
+	roll?: SkillRoll
+	/** réussite/échec reveal text, authored only when a `roll` gates the reveal. */
+	outcomes?: Record<RollOutcome, string>
+}
+
 /** Per-node décor action config (owned by action-decor). */
 export interface DecorConfig {
 	interaction: DecorInteraction
 	/** « Prendre » takeable objects (iteration 1+). */
 	objects?: TakeableObject[]
+	/** « Écouter » / « Fouiller » reveal + optional skill roll (iteration 2). */
+	reveal?: DecorReveal
 	/**
 	 * @deprecated walking-skeleton single object — migrated to `objects` on read
 	 * (takeablesOf) and on the next write; kept so old persisted books still load.

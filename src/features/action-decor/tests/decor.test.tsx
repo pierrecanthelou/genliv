@@ -158,4 +158,45 @@ describe('action-decor', () => {
 		expect(decorOf(brain, bookId, nodeId)?.interaction).toBe('ecouter')
 		expect(screen.queryByRole('button', { name: /Ajouter un objet/ })).not.toBeInTheDocument()
 	})
+
+	it('« Écouter »: authors a reveal text and gates it behind a skill roll with réussite/échec (iter 2)', async () => {
+		const user = userEvent.setup()
+		const { brain, bookId, nodeId } = setup()
+		await openDecor(user)
+		await user.click(screen.getByRole('radio', { name: 'Écouter' }))
+
+		await user.type(screen.getByRole('textbox', { name: /ce que le joueur entend/i }), 'Un murmure derrière le mur.')
+		// Gate it: default roll Habileté / 7 → switch trait + step difficulty, author both outcomes.
+		await user.click(screen.getByRole('switch', { name: /jet requis/i }))
+		await user.click(screen.getByRole('radio', { name: 'Endurance' }))
+		await user.click(screen.getByRole('button', { name: /augmenter Difficulté/i }))
+		await user.type(screen.getByRole('textbox', { name: /si Réussite/i }), 'Vous saisissez le mot de passe.')
+		await user.type(screen.getByRole('textbox', { name: /si Échec/i }), 'Le bruit se perd.')
+
+		const reveal = decorOf(brain, bookId, nodeId)?.reveal
+		expect(reveal?.text).toBe('Un murmure derrière le mur.')
+		expect(reveal?.roll).toEqual({ trait: 'endurance', difficulty: 8 })
+		expect(reveal?.outcomes).toEqual({ reussite: 'Vous saisissez le mot de passe.', echec: 'Le bruit se perd.' })
+	})
+
+	it('« Fouiller »: toggling the roll off drops the roll + outcomes but keeps the reveal text (iter 2)', async () => {
+		const user = userEvent.setup()
+		const { brain, bookId, nodeId } = setup()
+		await openDecor(user)
+		await user.click(screen.getByRole('radio', { name: 'Fouiller' }))
+
+		// Fouiller carries its own field copy.
+		await user.type(screen.getByRole('textbox', { name: /ce que le joueur trouve/i }), 'Une trappe dissimulée.')
+		await user.click(screen.getByRole('switch', { name: /jet requis/i }))
+		expect(decorOf(brain, bookId, nodeId)?.reveal?.roll).toBeDefined()
+
+		await user.click(screen.getByRole('switch', { name: /jet requis/i }))
+
+		const reveal = decorOf(brain, bookId, nodeId)?.reveal
+		expect(reveal?.roll).toBeUndefined()
+		expect(reveal?.outcomes).toBeUndefined()
+		expect(reveal?.text).toBe('Une trappe dissimulée.')
+		// The outcome fields are gone once the gate is off.
+		expect(screen.queryByRole('textbox', { name: /si Réussite/i })).not.toBeInTheDocument()
+	})
 })

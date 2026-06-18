@@ -8,6 +8,7 @@ export type {
 	GameObject,
 	DecorConfig,
 	DecorInteraction,
+	DecorReveal,
 	TakeableKind,
 	SkillRoll,
 	TakeableObject,

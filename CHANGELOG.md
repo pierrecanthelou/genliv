@@ -2,6 +2,13 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.3.4 — action-decor iteration 2 (V2 slice)
+
+- **« Écouter » / « Fouiller » reveal (§ 4B)**: the two décor interactions (previously stubs) gain a `RevealEditor` — the heard/found text plus an optional **« jet requis »** that gates it behind a skill roll: a **caractéristique** (`SegmentedControl` from the brain `CHARACTERISTICS` registry) + a **difficulté** `Stepper` + the shared brain **`OutcomesEditor`** for the réussite/échec reveal (the only semantic outcomes, KR-091/117). Toggling the gate off drops the roll + outcomes but keeps the base text.
+- New `DecorReveal` domain type on `DecorConfig.reveal`; the per-interaction field copy lives in the `DECOR_INTERACTIONS` `Record` (KR-117), extended to carry `revealLabel`/`revealPlaceholder`. The third reuse of the extracted `OutcomesEditor` (after monster + trap) needed zero new shared code.
+- All décor writes unified through one canonical `writeDecor(patch)` that re-emits `{ interaction, objects, reveal }` (legacy `object` dropped, KR-090), so editing one facet never drops the others.
+- 193 tests passing (+2). Shared `ObjectCatalogService` remains iter 3.
+
 ## Code-health — inline-note cleanup (no version bump)
 
 Resolved two flagged inline notes in `tree-canvas`:

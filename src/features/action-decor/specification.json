@@ -22,9 +22,21 @@
 		"walking_skeleton": "registerActionDecor registers an ActionEditor { type:'decor', label:'Décor', render } with the brain ActionRegistry (wired at the App composition root). DecorEditor reads the node's decor config live via useOpenBook and writes it through BookService.updateNode: a Prendre/Écouter/Fouiller SegmentedControl, and for « prendre » the shared brain ObjectEditor (name + description) with a stable object id. Écouter/Fouiller are placeholder stubs for later iterations.",
 		"n": 3,
 		"iterations": [
-			{ "id": 1, "goal": "« Prendre » full (§ 4B): multiple takeable objects as rows (useful / leurre badges), add/remove/reorder, per-object « jet requis » (caractéristique + difficulté + échec text); object edit modal.", "status": "done" },
-			{ "id": 2, "goal": "« Écouter » / « Fouiller »: the heard/found reveal text + optional skill roll gating; surface réussite/échec outcomes (the only semantic colors).", "status": "planned" },
-			{ "id": 3, "goal": "Promote objects to a shared ObjectCatalogService (reuse « prendre dans la liste », by stable id) so décor/PNJ/monster share one object catalog and hidden-prereqs (KR-062) can reference them.", "status": "planned" }
+			{
+				"id": 1,
+				"goal": "« Prendre » full (§ 4B): multiple takeable objects as rows (useful / leurre badges), add/remove/reorder, per-object « jet requis » (caractéristique + difficulté + échec text); object edit modal.",
+				"status": "done"
+			},
+			{
+				"id": 2,
+				"goal": "« Écouter » / « Fouiller »: the heard/found reveal text + optional skill roll gating; surface réussite/échec outcomes (the only semantic colors).",
+				"status": "done"
+			},
+			{
+				"id": 3,
+				"goal": "Promote objects to a shared ObjectCatalogService (reuse « prendre dans la liste », by stable id) so décor/PNJ/monster share one object catalog and hidden-prereqs (KR-062) can reference them.",
+				"status": "planned"
+			}
 		],
 		"known_risks": [
 			"KR-050/051 — node-editor is a host: action-decor self-registers via the ActionRegistry and is mounted by node-editor without being imported; adding the action needs zero node-editor changes.",
@@ -75,6 +87,25 @@
 				"test_coverage": {
 					"unit": "takeablesOf migration (objects list / legacy single object / both / none), blankTakeable fresh id, TAKEABLE_KINDS non-semantic tones",
 					"integration": "action-decor via App — add object (modal, stable id), cancel discards, multiple rows, leurre badge, remove, reorder (move up), jet requis persists trait/difficulty/failure, interaction switch hides the list",
+					"e2e": "deferred (Playwright not set up)"
+				}
+			},
+			{
+				"id": 2,
+				"label": "iteration-2",
+				"completed_at": "2026-06-18",
+				"architecture_choices": [
+					"« Écouter » / « Fouiller » gained a reveal: the domain model added DecorReveal { text, roll?, outcomes? } on DecorConfig.reveal. A new RevealEditor renders the heard/found text Field + a « jet requis » Toggle that, when on, reveals the SHARED brain controls — CHARACTERISTIQUE SegmentedControl (from CHARACTERISTICS, KR-117) + DIFFICULTÉ Stepper + the shared OutcomesEditor (réussite/échec reveal, KR-091/117) — exactly the trap roll pattern, reused not re-built (KR-109). Toggling the gate off drops roll + outcomes but keeps the base text.",
+					"écouter and fouiller share one reveal field (only one interaction is active per node); their field copy (« Ce que le joueur entend / trouve » + placeholder) lives in the DECOR_INTERACTIONS Record (KR-117), extended from { label } to also carry revealLabel/revealPlaceholder — one source, no per-interaction branch.",
+					"All décor writes were unified into a single writeDecor(patch: Partial<DecorConfig>) that re-emits the canonical { interaction, objects, reveal } (legacy `object` dropped, KR-090): editing one facet (interaction / objects / reveal) never drops the others. RevealEditor is controlled — DecorEditor persists every change via BookService.updateNode (KR-020); the editor holds no private copy (KR-013)."
+				],
+				"deviations_from_plan": [
+					"One shared reveal for both écouter and fouiller (not a per-interaction reveal): a node has a single active interaction, so a second reveal field would be dead state. If an author needs distinct heard/found text they re-author after switching — acceptable for the low-fi slice.",
+					"The reveal gates on a roll with réussite/échec OutcomesEditor (the spec's « surface réussite/échec »); the prendre « jet requis » keeps its échec-only SkillRoll.failureText shape (a réussite simply takes the object) — the two roll shapes coexist as designed."
+				],
+				"test_coverage": {
+					"unit": "covered via integration (RevealEditor is presentational over brain controls)",
+					"integration": "action-decor via App — Écouter authors a reveal text + gates it (trait + stepped difficulty + réussite/échec persisted on reveal); Fouiller uses its own field copy and toggling the roll off drops roll+outcomes but keeps the text (outcome fields removed)",
 					"e2e": "deferred (Playwright not set up)"
 				}
 			}
