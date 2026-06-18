@@ -11,25 +11,61 @@ import {
 } from '../layout/geometry'
 import type { BookNode, Edge } from '../../../brain'
 
-function node(id: string, position?: { x: number; y: number }): BookNode {
-	return { id, kind: 'choix', text: '', position }
+function node(id: string, kind: BookNode['kind'] = 'choix'): BookNode {
+	return { id, kind, text: '' }
 }
 
-describe('resolvePositions', () => {
-	it('uses the stored position when present', () => {
-		const positions = resolvePositions([node('n1', { x: 120, y: 80 })])
-		expect(positions.get('n1')).toEqual({ x: 120, y: 80 })
+function choice(id: string, from: string, to: string): Edge {
+	return { id, from, to, kind: 'choice' }
+}
+
+describe('resolvePositions (top-down tree)', () => {
+	it('puts the sommaire at the top with a lone child centred below it', () => {
+		const nodes = [node('root', 'sommaire'), node('child')]
+		const positions = resolvePositions(nodes, [choice('e', 'root', 'child')])
+		const root = positions.get('root')!
+		const child = positions.get('child')!
+		// Root on top; the child sits a level below, centred under the parent.
+		expect(child.y).toBeGreaterThan(root.y)
+		expect(child.x).toBe(root.x)
 	})
 
-	it('derives a deterministic, non-overlapping slot for position-less nodes', () => {
-		const nodes = [node('a'), node('b'), node('c')]
-		const first = resolvePositions(nodes)
-		const second = resolvePositions(nodes)
-		// Deterministic across calls.
-		expect(first.get('a')).toEqual(second.get('a'))
-		// No 0,0 pileup: distinct slots.
-		expect(first.get('a')).not.toEqual(first.get('b'))
-		expect(first.get('b')).not.toEqual(first.get('c'))
+	it('lays direct children on one evenly-spaced row, parent centred over them', () => {
+		const nodes = [node('root', 'sommaire'), node('a'), node('b'), node('c')]
+		const positions = resolvePositions(nodes, [
+			choice('e1', 'root', 'a'),
+			choice('e2', 'root', 'b'),
+			choice('e3', 'root', 'c'),
+		])
+		const [a, b, c, root] = ['a', 'b', 'c', 'root'].map((id) => positions.get(id)!)
+		// The three children share ONE row beneath the root…
+		expect(a.y).toBe(b.y)
+		expect(b.y).toBe(c.y)
+		expect(a.y).toBeGreaterThan(root.y)
+		// …evenly spaced, with the parent centred over the row.
+		expect(b.x - a.x).toBe(c.x - b.x)
+		expect(root.x).toBeCloseTo((a.x + c.x) / 2)
+	})
+
+	it('lays linkless nodes (mort, unconnected pages) in a grid below the tree, not a single line', () => {
+		const nodes = [node('root', 'sommaire'), node('child'), node('mort', 'mort'), node('f1'), node('f2'), node('f3')]
+		const positions = resolvePositions(nodes, [choice('e', 'root', 'child')])
+		const child = positions.get('child')!
+		const free = ['mort', 'f1', 'f2', 'f3'].map((id) => positions.get(id)!)
+		// All free nodes sit below the connected tree…
+		for (const p of free) expect(p.y).toBeGreaterThan(child.y)
+		// …and WRAP into a grid (>1 column and >1 row across 4 nodes), so they never
+		// form a single horizontal row or a single descending column.
+		const xs = new Set(free.map((p) => p.x))
+		const ys = new Set(free.map((p) => p.y))
+		expect(xs.size).toBeGreaterThan(1)
+		expect(ys.size).toBeGreaterThan(1)
+	})
+
+	it('is deterministic across calls', () => {
+		const nodes = [node('root', 'sommaire'), node('a'), node('b'), node('mort', 'mort')]
+		const edges = [choice('e1', 'root', 'a'), choice('e2', 'a', 'b')]
+		expect(resolvePositions(nodes, edges)).toEqual(resolvePositions(nodes, edges))
 	})
 })
 
@@ -48,7 +84,7 @@ describe('resolveBounds', () => {
 })
 
 describe('resolveEdges', () => {
-	const positions = resolvePositions([node('n1', { x: 0, y: 0 }), node('n2', { x: 200, y: 200 })])
+	const positions = resolvePositions([node('n1', 'sommaire'), node('n2')], [choice('e', 'n1', 'n2')])
 
 	it('produces a segment between node centers with a midpoint label anchor', () => {
 		const edges: Edge[] = [{ id: 'e1', from: 'n1', to: 'n2', kind: 'choice', label: 'Aller' }]

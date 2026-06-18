@@ -49,7 +49,7 @@
 		{
 			"id": "KR-023",
 			"feature": "tree-canvas",
-			"risk": "Node positions belong to the book document and must persist; position-less nodes use a deterministic layout (no random scatter, no 0,0 pileup) so reopening a book is stable."
+			"risk": "The canvas AUTO-LAYS-OUT the book as a top-down TREE (resolvePositions, a pure VIEW over the choice-edge structure, KR-020): a DFS of the choice hierarchy from the sommaire root assigns y by DEPTH (each level a row beneath the previous) and x by a left-to-right leaf cursor with each PARENT CENTRED over its children's span — so the sommaire is at the TOP, every node's direct children sit on ONE evenly-spaced horizontal row beneath it, recursively, and links read downward. Convergence/cycle targets reached via nesting are placed once (visited set, KR-080/061). LINKLESS / unreachable nodes (the isolated mort, any page not reached from the sommaire by a choice edge) WRAP INTO A GRID below the tree (FREE_COLS columns) — so a book of loose pages reads as a familiar grid while a connected book reads as the tree above it. Do NOT place free nodes in a single horizontal row (reads as 'all nodes horizontal') NOR a single vertical column (reads as 'one branch descending') — both regressed this and were rejected; a wrapping grid avoids both. Deterministic, stable across reloads, never a 0,0 pileup. Stored node.position is currently IGNORED by the view; manual drag + per-book position persistence is a later iteration, at which point a stored position overrides the computed slot. autoSlot remains the BookService document default but is not consulted for the canvas layout."
 		},
 		{
 			"id": "KR-024",

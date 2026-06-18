@@ -1,12 +1,17 @@
-import type { BookNode, Edge } from '../../../brain'
-import { autoSlot } from '../../../brain'
+import { edgeNests, type BookNode, type Edge } from '../../../brain'
 
 /**
  * Pure geometry for the canvas view. The canvas is a VIEW over the book
- * (KR-020): it never mutates node data, it only reads stored positions and
- * derives screen coordinates. Position-less nodes fall back to the same
- * deterministic auto-layout slot the BookService uses (KR-023), so the
- * render is stable across reloads and never piles at 0,0.
+ * (KR-020): it never mutates node data, it derives screen coordinates from the
+ * book's STRUCTURE. Positions are AUTO-LAID-OUT as a top-down TREE — the
+ * `sommaire` root sits at the top and each level's children form a horizontal
+ * ROW beneath their parent, evenly spaced, with the parent centred over them
+ * (depth → y, classic tidy tree). Linkless nodes (the isolated `mort`, any
+ * page not reached from the sommaire by a choice edge) wrap into a GRID below
+ * the tree — never a single long row or column (KR-023: deterministic, stable
+ * across reloads, never a 0,0 pileup). Manual drag +
+ * per-book position persistence is a later iteration; when it lands a stored
+ * position will override this computed slot.
  */
 
 /** Node card footprint, in canvas (pre-zoom) coordinate units. */
@@ -17,6 +22,13 @@ export const NODE_H = 70
 export const CANVAS_MIN_W = 600
 export const CANVAS_MIN_H = 400
 export const CANVAS_MARGIN = 80
+
+/** Tidy-tree spacing: one level down per depth, one slot per sibling. */
+const LAYOUT_ORIGIN = 60
+const LEVEL_GAP_Y = NODE_H + 70
+const SIBLING_GAP_X = NODE_W + 48
+/** Free/unconnected nodes wrap into a grid of this many columns below the tree. */
+const FREE_COLS = 3
 
 export interface Point {
 	x: number
@@ -37,13 +49,71 @@ export function resolveBounds(positions: Map<string, Point>): { w: number; h: nu
 	return { w, h }
 }
 
-/** Top-left position for every node, stored or deterministically derived. */
-export function resolvePositions(nodes: BookNode[]): Map<string, Point> {
-	const map = new Map<string, Point>()
-	nodes.forEach((node, index) => {
-		map.set(node.id, node.position ?? autoSlot(index))
-	})
-	return map
+/**
+ * Top-left position for every node, laid out as a tidy top-down tree. A DFS of
+ * the `choice` (nesting) hierarchy from the `sommaire` root assigns y by depth
+ * (each level a row beneath the previous) and x by a left-to-right leaf cursor,
+ * with each parent CENTRED over the horizontal span of its children — so the
+ * root is at the top, every node's direct children sit on one evenly-spaced row
+ * beneath it, and parent→child links read downward. A node already placed
+ * (convergence / cycle reached via nesting) is not recursed again (KR-080/061).
+ * Linkless nodes unreachable from the root (the isolated `mort`, any page not
+ * reached by a choice edge) wrap into a GRID below the tree (KR-023) — so a book
+ * of loose pages reads as a familiar grid rather than a single row or column.
+ */
+export function resolvePositions(nodes: BookNode[], edges: Edge[]): Map<string, Point> {
+	const byId = new Map(nodes.map((n) => [n.id, n]))
+	const childrenOf = new Map<string, string[]>()
+	for (const edge of edges) {
+		if (!edgeNests(edge.kind) || !byId.has(edge.from) || !byId.has(edge.to)) continue
+		const siblings = childrenOf.get(edge.from)
+		if (siblings === undefined) childrenOf.set(edge.from, [edge.to])
+		else siblings.push(edge.to)
+	}
+
+	const positions = new Map<string, Point>()
+	const placed = new Set<string>()
+	let leafCursor = 0
+
+	// Returns the node's x (its own slot if a leaf, else the centre of its
+	// children's span) so a parent can centre itself over its subtree.
+	function layout(id: string, depth: number): number {
+		placed.add(id)
+		const y = LAYOUT_ORIGIN + depth * LEVEL_GAP_Y
+		const children = (childrenOf.get(id) ?? []).filter((childId) => !placed.has(childId))
+		let x: number
+		if (children.length === 0) {
+			x = LAYOUT_ORIGIN + leafCursor * SIBLING_GAP_X
+			leafCursor += 1
+		} else {
+			const childXs = children.map((childId) => layout(childId, depth + 1))
+			x = (childXs[0] + childXs[childXs.length - 1]) / 2
+		}
+		positions.set(id, { x, y })
+		return x
+	}
+
+	const root = nodes.find((n) => n.kind === 'sommaire')
+	if (root !== undefined) layout(root.id, 0)
+
+	// Linkless / unreachable nodes (the isolated `mort`, any page not reached from
+	// the sommaire by a choice edge) wrap into a GRID below the tree — never a
+	// single long row or column. A book of loose pages then reads as a familiar
+	// grid, while a connected book reads as the tree above it.
+	const treeBottom =
+		positions.size > 0 ? Math.max(...[...positions.values()].map((p) => p.y)) : LAYOUT_ORIGIN - LEVEL_GAP_Y
+	const freeTop = treeBottom + LEVEL_GAP_Y
+	let freeIndex = 0
+	for (const node of nodes) {
+		if (positions.has(node.id)) continue
+		positions.set(node.id, {
+			x: LAYOUT_ORIGIN + (freeIndex % FREE_COLS) * SIBLING_GAP_X,
+			y: freeTop + Math.floor(freeIndex / FREE_COLS) * LEVEL_GAP_Y,
+		})
+		freeIndex += 1
+	}
+
+	return positions
 }
 
 function center(p: Point): Point {

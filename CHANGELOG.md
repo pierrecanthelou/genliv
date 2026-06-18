@@ -2,6 +2,14 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## Code-health — inline-note cleanup (no version bump)
+
+Resolved two flagged inline notes in `tree-canvas`:
+
+- **Top-down tree canvas layout**: the canvas now **auto-lays-out** the book as a classic top-down tree (`resolvePositions` reads the `choice`-edge structure): the **sommaire sits at the top**, each node's direct children form **one evenly-spaced row beneath it** (parent centred over them), recursively, with downward links — so a branching book reads as proper triangles with sub-branches and leaves. **Linkless nodes** (the isolated `mort`, any page not reached from the sommaire by a `choice` edge) **wrap into a grid below the tree** — never a single horizontal row nor a single descending column. This fixes both the prior grid (children beside parents, unreadable sideways links) and the intermediate attempts that collapsed loose-page books into one line. The canvas stays a pure VIEW (KR-020); the layout is deterministic (KR-023). Manual drag + per-book position persistence is a later iteration (a stored position will then override the computed slot).
+- **Per-kind snippet to the registry**: the node-card empty-state placeholder moved from an inline `kind === 'sommaire' ? … : …` test in `nodeView.ts` to an `emptySnippet` field on the `NODE_KINDS` registry, so the per-kind copy self-describes (KR-068).
+- 188 tests passing.
+
 ## 0.3.3 — outline-view iteration 2 (V2 slice)
 
 - **Node inspector (§ 03 B)**: focusing or hovering an outline row previews its structural relations in a pinned card — **« entre depuis »** (every edge leading here + its kind) and a monstre node's combat outcomes (**victoire / fuite** targets), built by a new pure `buildNodeInspector` (resolved by stable id; a deleted source/target surfaces as ⚠, never a crash — KR-021). The previewed node is local UI state (the focused row, falling back to the selection), so the card previews **without** committing selection.

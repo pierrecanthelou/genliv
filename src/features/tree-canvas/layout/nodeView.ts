@@ -1,14 +1,12 @@
-import { nodeTitle, textLines, type BookNode } from '../../../brain'
+import { nodeTitle, textLines, NODE_KINDS, type BookNode } from '../../../brain'
 
 /**
  * Card text for a node: the shared title (from brain) plus a 1-line snippet
- * derived from the remaining authored text, falling back to an inviting
- * placeholder (project-wide empty-state rule).
+ * derived from the remaining authored text, falling back to the kind's inviting
+ * empty-state placeholder (project-wide empty-state rule). The per-kind
+ * placeholder copy lives on the kind registry (KR-068), not an inline
+ * `kind === 'sommaire'` test here.
  */
-
-/** Inviting placeholder shown as the snippet of a node with no text yet. */
-export const SOMMAIRE_PLACEHOLDER = "Écrivez ici le texte d'introduction…"
-const EMPTY_SNIPPET = 'Écran sans texte — cliquez pour l’écrire…'
 
 export interface NodeView {
 	title: string
@@ -25,7 +23,7 @@ export function nodeView(node: BookNode): NodeView {
 	}
 	return {
 		title,
-		snippet: node.kind === 'sommaire' ? SOMMAIRE_PLACEHOLDER : EMPTY_SNIPPET,
+		snippet: NODE_KINDS[node.kind].emptySnippet,
 		snippetIsPlaceholder: true,
 	}
 }

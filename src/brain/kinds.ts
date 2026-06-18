@@ -30,6 +30,8 @@ export interface NodeKindDescriptor {
 	label: string
 	/** Inviting placeholder title when the node has no authored text yet. */
 	defaultTitle: string
+	/** Inviting placeholder snippet shown on the card when the node has no text. */
+	emptySnippet: string
 	/**
 	 * Structural screens (the `sommaire` root, the `mort` leaf): text-only —
 	 * no choice label / required action / end toggles, and never reinterpreted
@@ -53,6 +55,7 @@ export const NODE_KINDS = defineKinds<NodeKindDescriptor>()({
 	sommaire: {
 		label: 'SOMMAIRE',
 		defaultTitle: 'Sommaire',
+		emptySnippet: "Écrivez ici le texte d'introduction…",
 		structural: true,
 		canHaveOutgoing: true,
 		canBeTarget: false,
@@ -61,6 +64,7 @@ export const NODE_KINDS = defineKinds<NodeKindDescriptor>()({
 	choix: {
 		label: 'CHOIX',
 		defaultTitle: 'Nouvel écran',
+		emptySnippet: 'Écran sans texte — cliquez pour l’écrire…',
 		structural: false,
 		canHaveOutgoing: true,
 		canBeTarget: true,
@@ -69,6 +73,7 @@ export const NODE_KINDS = defineKinds<NodeKindDescriptor>()({
 	pnj: {
 		label: 'PNJ',
 		defaultTitle: 'Personnage',
+		emptySnippet: 'Écran sans texte — cliquez pour l’écrire…',
 		structural: false,
 		canHaveOutgoing: true,
 		canBeTarget: true,
@@ -77,6 +82,7 @@ export const NODE_KINDS = defineKinds<NodeKindDescriptor>()({
 	decor: {
 		label: 'DÉCOR',
 		defaultTitle: 'Décor',
+		emptySnippet: 'Écran sans texte — cliquez pour l’écrire…',
 		structural: false,
 		canHaveOutgoing: true,
 		canBeTarget: true,
@@ -85,6 +91,7 @@ export const NODE_KINDS = defineKinds<NodeKindDescriptor>()({
 	piege: {
 		label: 'PIÈGE',
 		defaultTitle: 'Piège',
+		emptySnippet: 'Écran sans texte — cliquez pour l’écrire…',
 		structural: false,
 		canHaveOutgoing: true,
 		canBeTarget: true,
@@ -93,6 +100,7 @@ export const NODE_KINDS = defineKinds<NodeKindDescriptor>()({
 	monstre: {
 		label: 'MONSTRE',
 		defaultTitle: 'Monstre',
+		emptySnippet: 'Écran sans texte — cliquez pour l’écrire…',
 		structural: false,
 		canHaveOutgoing: true,
 		canBeTarget: true,
@@ -104,6 +112,7 @@ export const NODE_KINDS = defineKinds<NodeKindDescriptor>()({
 	fin: {
 		label: 'FIN',
 		defaultTitle: 'Fin',
+		emptySnippet: 'Écran sans texte — cliquez pour l’écrire…',
 		structural: false,
 		canHaveOutgoing: true,
 		canBeTarget: true,
@@ -112,6 +121,7 @@ export const NODE_KINDS = defineKinds<NodeKindDescriptor>()({
 	mort: {
 		label: 'MORT',
 		defaultTitle: 'Mort du personnage',
+		emptySnippet: 'Écran sans texte — cliquez pour l’écrire…',
 		structural: true,
 		canHaveOutgoing: false,
 		canBeTarget: false,

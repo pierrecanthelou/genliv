@@ -41,7 +41,7 @@ export function TreeCanvas({ reveal }: { reveal?: RevealRequest } = {}): JSX.Ele
 	/** The last reveal `seq` already centred — so we act once per request. */
 	const centredSeqRef = useRef<number>(-1)
 
-	const positions = useMemo(() => resolvePositions(book?.nodes ?? []), [book])
+	const positions = useMemo(() => resolvePositions(book?.nodes ?? [], book?.edges ?? []), [book])
 	const edges = useMemo(() => resolveEdges(book?.edges ?? [], positions), [book, positions])
 	const bounds = useMemo(() => resolveBounds(positions), [positions])
 
