@@ -2,6 +2,12 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.3.1 — choice-linking iteration 2 (V2 slice — tier 0.3.x opens)
+
+- **Self-link + duplicate-edge guards at the SSOT (KR-061)**: `BookService.addEdge` now rejects a self-link (`from === to`) and any **duplicate identical edge** (same `from`/`to`/`kind` already present), returning `null` and emitting nothing. Identity is `from+to+kind`, so a second edge to the same target of a **different** kind (e.g. a `relink` then the future automatic `flee`) is legitimate convergence, not a duplicate.
+- **Searchable relink popover (§ 06 B)**: « Relier… » gains a brain `Field` search box that filters candidates by title (case-insensitive), autofocused on open for keyboard use; a non-matching query shows « Aucun nœud ne correspond », distinct from the « Aucun autre nœud » no-candidates state. The picker mirrors both SSOT guards — the current node and any **already-relinked** target are excluded — so it never offers a rejected edge (SSOT is the law; the picker is convenience). Filtering is derived inline (KR-013), no `useEffect` mirror.
+- 170 tests passing (+3). Hidden-prerequisite (iter 3) and countdown (iter 4) still await `ObjectCatalogService`. **Tier 0.3.x / V2 begins.**
+
 ## Code-health — P4 (registry predicates + book lookups) — no version bump
 
 Cross-cutting cleanup from a review of inline `// FIX:`/`// TODO:` notes (folds into the touched code; see `docs/ROADMAP.md` § Code-health sweep, P4):
@@ -104,7 +110,7 @@ Cross-cutting cleanup from a review of inline `// FIX:`/`// TODO:` notes (folds 
 
 ## Unreleased — magic numbers, plural & kind single-source (P3 of the code-health sweep)
 
-- **`NodeKind` / `EdgeKind` are now derived from the kind registry** via a `defineKinds` factory + `keyof typeof` (KR-068): the registry is the single source for the kind *set* as well as its behaviour — no parallel union to keep in sync. (Answers "a builder to add a kind without duplicating the union".)
+- **`NodeKind` / `EdgeKind` are now derived from the kind registry** via a `defineKinds` factory + `keyof typeof` (KR-068): the registry is the single source for the kind _set_ as well as its behaviour — no parallel union to keep in sync. (Answers "a builder to add a kind without duplicating the union".)
 - Killed the remaining geometry/dimension magic numbers as **named constants**: canvas bounds → `resolveBounds` + `CANVAS_MIN_W/H` + `CANVAS_MARGIN` (geometry); `DOT_GRID_SIZE`, `HINT_INSET`, `HINT_GAP` (TreeCanvas); `LAYOUT_ORIGIN` (BookService autoSlot); `CARD_MIN_HEIGHT`, `PAGE_MAX_WIDTH`, `GRID_MIN_COL` (book-library); `MODAL_MAX_WIDTH`, `CLOSE_BUTTON_SIZE` (Modal); `PICKER_MAX_HEIGHT` (choice-linking).
 - New shared **`plural()`** helper (FR: 0 & 1 singular) replaces the inline `n > 1 ? …` ternaries (CanvasTopBar, BookCard).
 - Extracted the large inline `style={{…}}` objects in `LibraryScreen` and `BookCard` to named `React.CSSProperties` consts (readability, matching the `panelShell`/`monoControl` pattern). 71 tests passing (3 new plural tests). No bump.
@@ -149,7 +155,7 @@ Cross-cutting cleanup from a review of inline `// FIX:`/`// TODO:` notes (folds 
 
 - `node-editor` side panel (§ 02): mounted beside the canvas by the app shell. Sticky header (NodeBadge + ref + title + ✕), editable Description `Field`, Fin victoire/échec `Toggle`s, the « Action requise » `SegmentedControl`, and deferred slots (libellé, illustration, inventory, choix sortants).
 - **Selection promoted to a brain `SelectionService`** (single source of truth, KR-024): tree-canvas and node-editor both read via `useSelectedNode` and write via `selection.select`; the service is the sole emitter of `node:selected` and clears on `book:opened`. The panel's ✕ deselects without desyncing the canvas highlight.
-- **`ActionRegistry`** (brain): the Open/Closed seam (KR-051) — action-* features self-register editors; node-editor mounts them with zero action-specific code. SegmentedControl emits `action:changed`.
+- **`ActionRegistry`** (brain): the Open/Closed seam (KR-051) — action-\* features self-register editors; node-editor mounts them with zero action-specific code. SegmentedControl emits `action:changed`.
 - `BookService.updateNode` commits Description + end flags + action type, emitting `node:updated`; a locked node accepts only text edits (KR-002). End flags drive the FIN badge everywhere via `effectiveKind`/`endLabel` (KR-054).
 - Shared view logic (`useOpenBook`, `nodeTitle`) and new DS primitives (`Toggle`, `SegmentedControl`) promoted to brain (KR-109/110). Libellé du choix decided to live on the incoming edge (deferred to choice-linking). 41 tests passing.
 

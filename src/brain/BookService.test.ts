@@ -394,6 +394,38 @@ describe('BookService edges (choice-linking)', () => {
 		expect(service.getBook(book.id)!.edges).toHaveLength(1)
 	})
 
+	it('addEdge rejects a self-link and a duplicate identical edge (KR-061)', () => {
+		const { service, events } = setup()
+		const book = service.createBook('Arbre')
+		const sommaire = book.nodes.find((n) => n.kind === 'sommaire')!
+		const target = service.addNode(book.id, 'choix')!
+
+		// Self-link is degenerate: a node may not relink to itself.
+		expect(service.addEdge(book.id, target.id, target.id, 'relink')).toBeNull()
+
+		// First relink succeeds; an identical second one (same from/to/kind) is rejected.
+		expect(service.addEdge(book.id, sommaire.id, target.id, 'relink')).not.toBeNull()
+		let created = 0
+		events.on('edge:created', () => {
+			created += 1
+		})
+		expect(service.addEdge(book.id, sommaire.id, target.id, 'relink')).toBeNull()
+		expect(created).toBe(0) // no event for the rejected duplicate
+		// Only the one accepted relink survives.
+		expect(service.getBook(book.id)!.edges.filter((e) => e.kind === 'relink')).toHaveLength(1)
+	})
+
+	it('addEdge allows a second edge to the same target when the kind differs (not identical)', () => {
+		const { service } = setup()
+		const book = service.createBook('Arbre')
+		const sommaire = book.nodes.find((n) => n.kind === 'sommaire')!
+		const target = service.addNode(book.id, 'choix')!
+		expect(service.addEdge(book.id, sommaire.id, target.id, 'relink')).not.toBeNull()
+		// A flee edge to the same target is a different kind — not a duplicate.
+		expect(service.addEdge(book.id, sommaire.id, target.id, 'flee')).not.toBeNull()
+		expect(service.getBook(book.id)!.edges).toHaveLength(2)
+	})
+
 	it('removeEdge deletes only the edge (never the target node) and emits edge:deleted', () => {
 		const { service, events } = setup()
 		const book = service.createBook('Arbre')
