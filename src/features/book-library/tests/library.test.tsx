@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createBrain, BrainProvider, type Brain } from '../../../brain'
 import { App } from '../../../App'
@@ -133,5 +133,73 @@ describe('book-library', () => {
 		expect(deletedId).toBe(id)
 		expect(brain.books.listBooks()).toHaveLength(0)
 		expect(screen.queryByRole('button', { name: /^La Caverne/ })).not.toBeInTheDocument()
+	})
+
+	it('filters the grid by the search box and shows a no-match message', async () => {
+		const user = userEvent.setup()
+		renderLibrary((b) => {
+			b.books.createBook('La Caverne')
+			b.books.createBook('Le Donjon')
+		})
+
+		await user.type(screen.getByRole('textbox', { name: /rechercher un livre/i }), 'donjon')
+
+		expect(screen.getByRole('button', { name: /^Le Donjon/ })).toBeInTheDocument()
+		expect(screen.queryByRole('button', { name: /^La Caverne/ })).not.toBeInTheDocument()
+
+		await user.clear(screen.getByRole('textbox', { name: /rechercher un livre/i }))
+		await user.type(screen.getByRole('textbox', { name: /rechercher un livre/i }), 'zzz')
+		expect(screen.getByText(/aucun livre ne correspond/i)).toBeInTheDocument()
+	})
+
+	it('sorts by most-recently-modified by default and alphabetically when toggled', async () => {
+		// Fixed clock so updatedAt is deterministic: Alpha is older, Zebra newer.
+		jest.useFakeTimers()
+		jest.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+		const brain = createBrain()
+		brain.books.createBook('Alpha')
+		jest.setSystemTime(new Date('2026-03-01T00:00:00Z'))
+		brain.books.createBook('Zebra')
+		jest.useRealTimers()
+		render(
+			<BrainProvider brain={brain}>
+				<App />
+			</BrainProvider>,
+		)
+		const user = userEvent.setup()
+		const titlesInOrder = () =>
+			screen.getAllByRole('button', { name: /écrans? ·/ }).map((b) => b.textContent?.match(/^[^0-9]+/)?.[0]?.trim())
+
+		// Default « Récent »: the newer Zebra comes before the older Alpha.
+		expect(titlesInOrder()).toEqual(['Zebra', 'Alpha'])
+
+		await user.click(screen.getByRole('radio', { name: 'A→Z' }))
+		expect(titlesInOrder()).toEqual(['Alpha', 'Zebra'])
+	})
+
+	it('shows an inviting empty state and the create affordance when there is no book', () => {
+		renderLibrary()
+		expect(screen.getByRole('note')).toHaveTextContent(/bibliothèque est vide/i)
+		expect(screen.getByRole('button', { name: /nouveau livre/i })).toBeInTheDocument()
+		// No search toolbar when the library is empty.
+		expect(screen.queryByRole('textbox', { name: /rechercher un livre/i })).not.toBeInTheDocument()
+	})
+
+	it('navigates home when the book currently open in the editor is deleted (KR-071)', async () => {
+		const user = userEvent.setup()
+		const { brain } = renderLibrary((b) => {
+			b.books.createBook('La Caverne')
+		})
+		await user.click(screen.getByRole('button', { name: /^La Caverne/ }))
+		expect(brain.router.current()).toEqual({ name: 'editor', bookId: expect.any(String) })
+		const id = brain.books.listBooks()[0].id
+
+		// Deleting the open book (e.g. from another surface) must not strand the editor.
+		await act(async () => {
+			brain.books.deleteBook(id)
+		})
+
+		expect(brain.router.current()).toEqual({ name: 'home' })
+		expect(screen.getByRole('heading', { name: /mes livres-jeux/i })).toBeInTheDocument()
 	})
 })

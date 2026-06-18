@@ -2,6 +2,13 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.3.2 — book-library iteration 2 (V2 slice)
+
+- **Search + sort (list ergonomics)**: the library gains a **search** box (brain `Field`, case-insensitive title filter) and a **sort** toggle (brain `SegmentedControl`: « Récent » = `updatedAt` desc / « A→Z » = title). Both are derived inline over the live `useBooks` list (KR-013) — the cached snapshot array is never mutated (sorts a copy). The toolbar appears only when the library is non-empty.
+- **Empty states**: a dashed, inviting « votre bibliothèque est vide » panel when there are zero books (alongside the always-present create affordance, KR-072), and a « aucun livre ne correspond » status line when a search matches nothing — never a blank void.
+- **Open-book delete guard (KR-071)**: a composition-root subscription (in `App`) navigates home if the book currently open in the editor is deleted, so the editor never strands on a removed book. The route is read fresh in the handler (no stale-closure dependency); the guard lives at the root, not in book-library, so no feature owns cross-route navigation.
+- 176 tests passing (+4). Per-book sync status + offline delete queue remain in iter 3 (need `cloud-sync`).
+
 ## 0.3.1 — choice-linking iteration 2 (V2 slice — tier 0.3.x opens)
 
 - **Self-link + duplicate-edge guards at the SSOT (KR-061)**: `BookService.addEdge` now rejects a self-link (`from === to`) and any **duplicate identical edge** (same `from`/`to`/`kind` already present), returning `null` and emitting nothing. Identity is `from+to+kind`, so a second edge to the same target of a **different** kind (e.g. a `relink` then the future automatic `flee`) is legitimate convergence, not a duplicate.

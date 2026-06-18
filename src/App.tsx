@@ -20,7 +20,7 @@ import { SyncIndicator } from './features/cloud-sync'
  * communicate only through brain.
  */
 export function App(): JSX.Element {
-	const { slots, actions } = useBrain()
+	const { slots, actions, events, router } = useBrain()
 	const route = useRoute()
 	// Register pluggable feature renderers once (external registry wiring, KR-013 ok).
 	useEffect(() => {
@@ -37,6 +37,18 @@ export function App(): JSX.Element {
 			offTrap()
 		}
 	}, [slots, actions])
+	// Guard a dangling editor route: if the book currently open in the editor is
+	// deleted (e.g. from the library), navigate home so the editor never points
+	// at a removed book (KR-071). The route is read fresh inside the handler, so
+	// the subscription needs no route dependency (no stale closure, KR-013).
+	useEffect(() => {
+		return events.on('book:deleted', ({ bookId }) => {
+			const current = router.current()
+			if (current.name === 'editor' && current.bookId === bookId) {
+				router.navigate({ name: 'home' })
+			}
+		})
+	}, [events, router])
 	const content =
 		route.name === 'editor' ? (
 			<EditorScreen bookId={route.bookId} />

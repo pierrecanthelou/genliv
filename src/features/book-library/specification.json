@@ -33,7 +33,7 @@
 			{
 				"id": 2,
 				"goal": "List ergonomics: search/filter, sort (recent/alpha), and an explicit empty state illustration; guard deleting the currently-open book (navigate home, avoid a dangling editor route).",
-				"status": "planned"
+				"status": "done"
 			},
 			{
 				"id": 3,
@@ -90,10 +90,28 @@
 					"unit": "BookService.renameBook (trim + book:updated, blank/missing rejection) + duplicateBook (fresh ids, remapped edges, (copie) title, book:created, independence) + book-library integration (meta counts, rename in place, duplicate adds a card)",
 					"e2e": "deferred (Playwright not yet set up)"
 				}
+			},
+			{
+				"id": 2,
+				"label": "iteration-2",
+				"completed_at": "2026-06-18",
+				"architecture_choices": [
+					"Search + sort are pure derived views over the live useBooks list (KR-013): a trimmed lowercased needle filters by title, then a COPY is sorted ('recent' = updatedAt desc, 'alpha' = title localeCompare 'fr'). The snapshot array from useBooks is never mutated in place (sort a copy) so the cached external-store reference stays stable. Query + sort mode are local UI state, not useEffect mirrors.",
+					"The sort control is the shared brain SegmentedControl (radiogroup, KR-117-style closed option set) and the search box the brain Field — no bespoke inputs. The toolbar only renders when the library is non-empty (nothing to search/sort otherwise).",
+					"Two distinct empty surfaces: a dashed « bibliothèque est vide » note (role=note) when there are zero books (the inviting empty state, alongside the always-present create affordance KR-072), and a « aucun livre ne correspond » status line when a search matches nothing — never a blank void.",
+					"Currently-open-book delete guard (KR-071) lives at the COMPOSITION ROOT (App), not in book-library: an App-level subscription to book:deleted reads the router route FRESH in the handler and navigates home if the deleted id is the one open in the editor — so no feature owns cross-route navigation and there is no stale-closure route dependency (KR-013). Defensive against any future delete surface, not just the library."
+				],
+				"deviations_from_plan": [
+					"The delete guard is wired even though no in-editor delete path exists yet (the library is the only delete surface, shown on the home route): it is a cheap, composition-root safety net so any future surface (or a duplicate/relink interaction) cannot strand the editor on a removed book.",
+					"The « empty state illustration » is a low-fi dashed panel with a placeholder glyph (❏) + copy, not real art — consistent with the wireframe fidelity; the glyph swaps at the icon reskin."
+				],
+				"test_coverage": {
+					"unit": "book-library integration via App: search filters the grid + no-match message; default recent vs toggled alpha ordering (deterministic via a fixed system clock); empty-state note + create affordance + no toolbar when empty; delete-guard navigates home when the open book is deleted (KR-071)",
+					"e2e": "deferred (Playwright not yet set up)"
+				}
 			}
 		],
 		"open_questions": [
-			"Guarding deletion of the currently-open book (navigate home) is iteration 2.",
 			"cloud-sync: per-book sync status + offline delete queue (iteration 3) when CloudSyncService lands."
 		]
 	}

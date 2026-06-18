@@ -139,7 +139,7 @@
 		{
 			"id": "KR-071",
 			"feature": "book-library",
-			"risk": "The library list is a VIEW over BookService via useBooks (recomputed only on book:created/book:deleted, cached snapshot for useSyncExternalStore), never a private copy (re-asserts KR-020/013). Deleting the currently-open book could leave the editor on a dangling route — guard it (navigate home) when that path exists. [guard lands in iteration 2]"
+			"risk": "The library list is a VIEW over BookService via useBooks (recomputed only on book:created/book:deleted, cached snapshot for useSyncExternalStore), never a private copy (re-asserts KR-020/013). Search/sort over it must be DERIVED INLINE (filter + sort a COPY — never mutate the cached snapshot array, or useSyncExternalStore's stable reference breaks). Deleting the currently-open book could leave the editor on a dangling route — guarded (iteration 2) at the COMPOSITION ROOT (App subscribes to book:deleted, reads the router route fresh in the handler, navigates home if the deleted id is open in the editor), not in the feature, so no feature owns cross-route navigation and there is no stale-closure route dependency."
 		},
 		{
 			"id": "KR-072",
