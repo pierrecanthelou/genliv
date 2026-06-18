@@ -22,16 +22,37 @@
 			{ "type": "service", "name": "ObjectCatalogService", "direction": "consumes" },
 			{ "type": "event", "name": "node:created", "direction": "emits" },
 			{ "type": "event", "name": "node:selected", "direction": "emits" },
-			{ "type": "event", "name": "edge:created", "direction": "emits", "payload": { "from": "string", "to": "string", "kind": "choice|relink|flee" } },
+			{
+				"type": "event",
+				"name": "edge:created",
+				"direction": "emits",
+				"payload": { "from": "string", "to": "string", "kind": "choice|relink|flee" }
+			},
 			{ "type": "event", "name": "edge:deleted", "direction": "emits" }
 		],
 		"walking_skeleton": "Render the selected node's outgoing choices from BookService inside node-editor's choices slot (mounted via the brain SlotRegistry, no cross-feature import). « + branche » creates+links+selects a child (node:created/edge:created/node:selected). « Relier… » lists existing nodes and creates a relink edge. Remove deletes only the edge. Hidden-prereq/countdown deferred (need ObjectCatalogService).",
 		"n": 4,
 		"iterations": [
-			{ "id": 1, "goal": "Choice rows + new branch (§ 06 A): list outgoing choices as rows with rule badges; each row exposes an editable « libellé du choix » persisted on the edge (Edge.label) via BookService, with an inviting placeholder when empty; « + Nouvelle branche » creates+links+selects a child with placeholders; emit the three events. DS fidelity.", "status": "done" },
-			{ "id": 2, "goal": "Relink (§ 06 B): searchable node popover, create a `relink`/`fuite` edge enabling cycles/convergence; canvas dashed; guard self-link and duplicate edges (KR-061).", "status": "planned" },
-			{ "id": 3, "goal": "Hidden prerequisite (§ 05): toggle + required-object picker referencing ObjectCatalogService by id; choice hidden unless owned; ⊘ badge; clean removal (KR-062).", "status": "planned" },
-			{ "id": 4, "goal": "Countdown (§ 05): toggle + délai + fallback-node Select with validation; ⏱ badge; referential-integrity sweep for deleted targets/objects (KR-063).", "status": "planned" }
+			{
+				"id": 1,
+				"goal": "Choice rows + new branch (§ 06 A): list outgoing choices as rows with rule badges; each row exposes an editable « libellé du choix » persisted on the edge (Edge.label) via BookService, with an inviting placeholder when empty; « + Nouvelle branche » creates+links+selects a child with placeholders; emit the three events. DS fidelity.",
+				"status": "done"
+			},
+			{
+				"id": 2,
+				"goal": "Relink (§ 06 B): searchable node popover, create a `relink`/`fuite` edge enabling cycles/convergence; canvas dashed; guard self-link and duplicate edges (KR-061).",
+				"status": "done"
+			},
+			{
+				"id": 3,
+				"goal": "Hidden prerequisite (§ 05): toggle + required-object picker referencing ObjectCatalogService by id; choice hidden unless owned; ⊘ badge; clean removal (KR-062).",
+				"status": "planned"
+			},
+			{
+				"id": 4,
+				"goal": "Countdown (§ 05): toggle + délai + fallback-node Select with validation; ⏱ badge; referential-integrity sweep for deleted targets/objects (KR-063).",
+				"status": "planned"
+			}
 		],
 		"known_risks": [
 			"KR-060 — Edges are the book's structure: all create/delete goes through BookService so tree-canvas + outline-view + game-preview agree; never mutate edges locally (re-asserts KR-020).",
@@ -86,6 +107,25 @@
 				"test_coverage": {
 					"unit": "BookService.updateEdge — sets/persists the label + emits edge:updated, clears with '', null for missing book/edge",
 					"integration": "OutgoingChoices via App: typing a libellé persists it on the edge; empty field shows the placeholder",
+					"e2e": "deferred (Playwright not set up)"
+				}
+			},
+			{
+				"id": 2,
+				"label": "iteration-2",
+				"completed_at": "2026-06-18",
+				"architecture_choices": [
+					"Self-link + duplicate-edge guards land at the SSOT (BookService.addEdge), not just the picker (KR-061): addEdge rejects `from === to` and any edge whose from/to/kind already exists, returning null and emitting nothing. Identity is from+to+kind — a second edge to the same target of a DIFFERENT kind (e.g. relink then flee) is legitimate convergence, not a duplicate.",
+					"The relink picker mirrors both SSOT guards so it never offers a rejected target: the current node is excluded (self-link) and any node already reached by a `relink` from here is excluded (duplicate). The SSOT stays the law; the picker is convenience.",
+					"The « Relier… » popover became searchable (§ 06 B): a brain Field filters candidates by title (case-insensitive substring), derived inline from the live candidate list (KR-013) — no useEffect mirror. The field autofocuses on open so the popover is keyboard-operable immediately; an empty filtered list shows « Aucun nœud ne correspond », distinct from the « Aucun autre nœud » no-candidates state.",
+					"Opening/closing the popover and committing a relink reset the query (toggleRelink/relinkTo) so a stale needle never leaks into the next open."
+				],
+				"deviations_from_plan": [
+					"« fuite » edges are created only by the future automatic combat-flee path, not authored here; the relink button mints a `relink` edge. The duplicate guard is kind-aware, so that automatic path can still add a `flee` to a node already reached by a `relink`."
+				],
+				"test_coverage": {
+					"unit": "BookService.addEdge — rejects self-link, rejects a duplicate identical edge (no edge:created emitted), allows a same-target edge of a different kind",
+					"integration": "OutgoingChoices via App: the search box filters candidates, an already-relinked node is excluded, a non-matching needle shows the distinct empty message",
 					"e2e": "deferred (Playwright not set up)"
 				}
 			}

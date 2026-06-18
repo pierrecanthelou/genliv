@@ -340,6 +340,13 @@ export function createBookService(persistence: PersistenceService, events: Event
 			const fromNode = getNode(book, from)
 			const toNode = getNode(book, to)
 			if (fromNode === null || toNode === null) return null
+			// Relink allows cycles/convergence by DESIGN, but two degenerate cases
+			// are rejected at the SSOT, not just hidden in the picker (KR-061):
+			// a self-link (a node pointing at itself) and a duplicate identical edge
+			// (same from/to/kind already present). The target node is never created
+			// or deleted here — only the edge.
+			if (from === to) return null
+			if (book.edges.some((e) => e.from === from && e.to === to && e.kind === kind)) return null
 			// Mort is structural: no outgoing choices (KR-055/060) — registry predicate.
 			if (!canHaveOutgoing(fromNode.kind)) return null
 			// Structural screens are never authored choice targets (KR-067): the

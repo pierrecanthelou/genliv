@@ -29,17 +29,27 @@ export function OutgoingChoices({ bookId, nodeId }: SlotContext): JSX.Element {
 	const { books, selection } = useBrain()
 	const book = useOpenBook(bookId)
 	const [relinking, setRelinking] = useState(false)
+	const [query, setQuery] = useState('')
 
 	const outgoing = book !== null ? book.edges.filter((e) => e.from === nodeId) : []
 	const titleOf = (id: string): string => {
 		const node = getNode(book, id)
 		return node !== null ? nodeTitle(node) : '⚠ cible supprimée'
 	}
-	// Relink candidates: any node except this one (cycles/convergence allowed),
+	// Relink candidates: any node except this one (self-link guarded, KR-061),
 	// excluding structural screens — the Sommaire root and the Mort leaf are
 	// never authored choice targets (KR-067); Mort is reached only automatically
-	// in combat. Mirrors the SSOT guard in BookService.addEdge.
-	const candidates = book !== null ? book.nodes.filter((n) => n.id !== nodeId && canBeTarget(n.kind)) : []
+	// in combat. A node already reached by a `relink` from here is excluded too,
+	// so this control never offers a duplicate edge — the exclusion is scoped to
+	// `relink` because that is the only kind this control mints (a future kind
+	// minted here would need to key the set on kind too). Both mirror SSOT guards
+	// in BookService.addEdge (the picker is convenience; the SSOT is the law).
+	const relinkedTargets = new Set(outgoing.filter((e) => e.kind === 'relink').map((e) => e.to))
+	const candidates =
+		book !== null ? book.nodes.filter((n) => n.id !== nodeId && canBeTarget(n.kind) && !relinkedTargets.has(n.id)) : []
+	// Search is derived inline from the live candidates (KR-013), not mirrored.
+	const needle = query.trim().toLowerCase()
+	const matches = needle === '' ? candidates : candidates.filter((n) => nodeTitle(n).toLowerCase().includes(needle))
 
 	function addBranch(): void {
 		const created = books.addChoiceBranch(bookId, nodeId)
@@ -49,6 +59,12 @@ export function OutgoingChoices({ bookId, nodeId }: SlotContext): JSX.Element {
 	function relinkTo(targetId: string): void {
 		books.addEdge(bookId, nodeId, targetId, 'relink')
 		setRelinking(false)
+		setQuery('')
+	}
+
+	function toggleRelink(): void {
+		setQuery('')
+		setRelinking((v) => !v)
 	}
 
 	// Handlers are recreated each render on purpose: the list is tiny and these
@@ -108,23 +124,36 @@ export function OutgoingChoices({ bookId, nodeId }: SlotContext): JSX.Element {
 			)}
 
 			<div style={{ marginTop: 'var(--space-3)' }}>
-				<button type="button" onClick={() => setRelinking((v) => !v)} style={relinkButton} aria-expanded={relinking}>
+				<button type="button" onClick={toggleRelink} style={relinkButton} aria-expanded={relinking}>
 					↪ Relier à un nœud existant…
 				</button>
 				{relinking && (
-					<ul style={picker} aria-label="Choisir un nœud cible">
-						{candidates.length === 0 ? (
-							<li style={{ ...candidate, color: 'var(--text-faint)' }}>Aucun autre nœud</li>
-						) : (
-							candidates.map((node) => (
-								<li key={node.id}>
-									<button type="button" style={candidate} onClick={() => relinkTo(node.id)}>
-										{nodeTitle(node)}
-									</button>
+					<div style={pickerWrap}>
+						{/* Search the candidates by title; autofocus so the popover is
+						    keyboard-operable from the moment it opens. */}
+						<Field
+							ariaLabel="Rechercher un nœud à relier"
+							value={query}
+							placeholder="Rechercher un nœud…"
+							autoFocus
+							onChange={(e) => setQuery(e.target.value)}
+						/>
+						<ul style={picker} aria-label="Choisir un nœud cible">
+							{matches.length === 0 ? (
+								<li style={{ ...candidate, color: 'var(--text-faint)' }}>
+									{candidates.length === 0 ? 'Aucun autre nœud' : 'Aucun nœud ne correspond'}
 								</li>
-							))
-						)}
-					</ul>
+							) : (
+								matches.map((node) => (
+									<li key={node.id}>
+										<button type="button" style={candidate} onClick={() => relinkTo(node.id)}>
+											{nodeTitle(node)}
+										</button>
+									</li>
+								))
+							)}
+						</ul>
+					</div>
 				)}
 			</div>
 		</div>
@@ -201,9 +230,15 @@ const relinkButton: React.CSSProperties = {
 	width: '100%',
 	textAlign: 'left',
 }
+const pickerWrap: React.CSSProperties = {
+	display: 'flex',
+	flexDirection: 'column',
+	gap: 'var(--space-2)',
+	marginTop: 'var(--space-2)',
+}
 const picker: React.CSSProperties = {
 	listStyle: 'none',
-	margin: 'var(--space-2) 0 0',
+	margin: 0,
 	padding: 'var(--space-1)',
 	border: '1px solid var(--border-card)',
 	borderRadius: 'var(--r-md)',

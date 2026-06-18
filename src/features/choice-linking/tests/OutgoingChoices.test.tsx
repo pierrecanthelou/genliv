@@ -87,6 +87,37 @@ describe('choice-linking — outgoing choices', () => {
 		expect(screen.queryByRole('button', { name: 'Mort du personnage' })).not.toBeInTheDocument()
 	})
 
+	it('filters relink candidates by the search box and excludes an already-relinked node (KR-061)', async () => {
+		const brain = createBrain()
+		const book = brain.books.createBook('La Caverne')
+		const sommaireId = brain.books.getBook(book.id)!.nodes.find((n) => n.kind === 'sommaire')!.id
+		const salle = brain.books.addNode(book.id, 'choix')!
+		brain.books.updateNode(book.id, salle.id, { text: 'Salle secrète' })
+		const couloir = brain.books.addNode(book.id, 'choix')!
+		brain.books.updateNode(book.id, couloir.id, { text: 'Couloir sombre' })
+		// Pre-relink the Sommaire to the couloir so it is a duplicate candidate.
+		brain.books.addEdge(book.id, sommaireId, couloir.id, 'relink')
+		brain.router.navigate({ name: 'editor', bookId: book.id })
+		render(
+			<BrainProvider brain={brain}>
+				<App />
+			</BrainProvider>,
+		)
+		const user = userEvent.setup()
+		await user.click(screen.getByRole('button', { name: /Nœud #1 — Sommaire/ }))
+		await user.click(screen.getByRole('button', { name: /relier à un nœud existant/i }))
+
+		// The already-relinked couloir is excluded; only the salle remains.
+		expect(screen.queryByRole('button', { name: 'Couloir sombre' })).not.toBeInTheDocument()
+		expect(screen.getByRole('button', { name: 'Salle secrète' })).toBeInTheDocument()
+
+		// Typing a non-matching needle empties the list with a distinct message.
+		await user.type(screen.getByRole('textbox', { name: /rechercher un nœud/i }), 'zzz')
+		expect(screen.queryByRole('button', { name: 'Salle secrète' })).not.toBeInTheDocument()
+		const picker = screen.getByRole('list', { name: /choisir un nœud cible/i })
+		expect(picker).toHaveTextContent(/aucun nœud ne correspond/i)
+	})
+
 	it('typing a libellé persists it on the edge via BookService and shows a placeholder when empty', async () => {
 		// Seed the branch BEFORE render so the mutation isn't an out-of-act update.
 		const brain = createBrain()

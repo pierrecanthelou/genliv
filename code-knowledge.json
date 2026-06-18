@@ -94,7 +94,7 @@
 		{
 			"id": "KR-061",
 			"feature": "choice-linking",
-			"risk": "Relink allows cycles/convergence by DESIGN but must guard degenerate cases: no duplicate identical edges, sane self-link handling, and the target node is never created/deleted by relinking (only the edge). [self-link/duplicate guards land in iteration 2]"
+			"risk": "Relink allows cycles/convergence by DESIGN but must guard degenerate cases: no duplicate identical edges, sane self-link handling, and the target node is never created/deleted by relinking (only the edge). Guards landed in iteration 2 at the SSOT (BookService.addEdge rejects from===to and any pre-existing from/to/kind edge — identity is from+to+kind, so a same-target edge of a different kind is legitimate convergence) AND mirrored in the relink picker (self + already-relinked targets excluded); the SSOT is the law, the picker is convenience."
 		},
 		{
 			"id": "KR-062",
