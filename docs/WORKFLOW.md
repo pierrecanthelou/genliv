@@ -1,6 +1,10 @@
 # Claude Code Config — genliv
 
-CRITICAL: the test + `tsc --noEmit` gate before every commit is **enforced deterministically** by a `PreToolUse` hook (`.claude/hooks/pre-commit-gate.sh`, wired in `.claude/settings.json`) — it blocks any `git commit` until `tsc --noEmit` and `jest` pass. Do not treat the gate as optional or try to work around it. Your remaining responsibilities: show a one-line summary (files + intent) and commit automatically once green — do not wait for user approval.
+CRITICAL: the test + `tsc --noEmit` gate before every commit is **enforced deterministically** by a `PreToolUse` hook (`.claude/hooks/pre-commit-gate.sh`, wired in `.claude/settings.json`) — it blocks any `git commit` until `tsc --noEmit` and `jest` pass. Do not treat the gate as optional or try to work around it.
+
+**Commit/review flow (binding):** write code → **`tech-lead` agent PR** review (re-review until `APPROVE`) → **user review** → **commit to `main`**. The user reviews the still-uncommitted slice and must approve before anything is committed; commit directly to `main` (no feature branch). Your remaining responsibilities: keep the gate green, present the tech-lead verdict + a one-line summary (files + intent) to the user, and commit only after the user approves. See **Build Steps → The per-feature unit** for the full sequence.
+
+**Review scope is by file type:** if the change touches **only `.md`** files (docs), skip both the tech-lead PR and user review — just commit it directly to `main` once green. If the change touches **any `.ts`/`.tsx`** file (code), apply the full flow above (tech-lead PR → user review → commit), even when the diff also includes `.md` files.
 
 ## Stack: React
 
@@ -238,12 +242,12 @@ We build **breadth-first**: every MINOR is a *runnable slice across all features
 `package.json` follows **0.MINOR.PATCH**:
 
 - **MINOR = capability tier.** `0.1.x` = MVP (every feature has a walking skeleton). `0.2.x` = V1 (iteration 1 of every feature). `0.3.x` = V2 (iteration 2). `0.4.x` = V3, etc. Iteration counts are ragged (per-feature `n` is 3–4), so later tiers include fewer features.
-- **PATCH = one feature advanced within the current tier.** Each feature's slice (skeleton in `0.1.x`, or iteration *K* in the `0.(K+1).x` tier) merged → PATCH +1.
+- **PATCH = one feature advanced within the current tier.** Each feature's slice (skeleton in `0.1.x`, or iteration *K* in the `0.(K+1).x` tier) committed to `main` → PATCH +1.
 - Within a tier, advance features in the documented **build order** (dependencies first).
 - Bug fixes do not bump the version on their own — they fold into the feature/iteration that introduced them.
 - A feature whose iteration *K* was already banked in a prior (depth-first) pass is **skipped** in that tier (no-op, no bump).
 
-Apply the bump immediately after each merge, before the doc-update step.
+Apply the bump immediately after the slice is committed to `main`.
 
 **Session-gate floor**: every session bumps at minimum PATCH +1. If `package.json` hasn't changed since last session, bump PATCH +1 in a `chore(release)` commit so every deployed build carries a distinct version.
 
@@ -285,9 +289,9 @@ We build the app as **horizontal slices** (see `docs/ROADMAP.md`): tier `0.1.x` 
 3. **Gate**: Prettier → `tsc --noEmit` → ESLint → `jest`. (The pre-commit hook enforces tsc+jest; never bypass it.) Refactor → re-gate.
 4. **Docs**: update `specification.json` (implementation log / iteration status), mirror new `known_risks` into `code-knowledge.json`, add a `CHANGELOG.md` line, update `features_history.json` and `README.md`.
 5. **Self review gate** (quick): `Severity | File:line | Principle/KR | Finding | Fix`. Fix ALL findings; log each to `bug_history.json`. Re-run `tsc` + `jest`.
-6. **Tech-lead review (PR-style, no PR) — BEFORE committing.** Stage the slice (`git add -A`, do NOT commit) and invoke the `tech-lead` subagent on the **uncommitted** diff (the slice against `main`; on a fresh feature branch with no commits this is `git diff --staged`). Present its verdict + acceptance-criteria table + findings. Fix every must-fix (critical/major) **and** every accepted minor finding, logging each to `bug_history.json`; re-gate (`tsc` + `jest`) and re-review until the verdict is `APPROVE`. **Never commit a diff that still carries an open finding — reviewing before committing is the whole point: we do not commit changes that already need correction.**
-7. **Ship (only once the review is `APPROVE`)**: commit the slice → feature branch `--no-ff` merge to `main` → delete branch → bump `package.json` PATCH +1.
-8. **STOP and ask for user validation.** Do not start the next feature until the user has challenged this one and given the go.
+6. **Tech-lead review (the PR) — BEFORE the user sees it.** Stage the slice (`git add -A`, do NOT commit) and invoke the `tech-lead` subagent on the **uncommitted** staged diff against `main` (`git diff --staged`). Fix every must-fix (critical/major) **and** every accepted minor finding, logging each to `bug_history.json`; re-gate (`tsc` + `jest`) and re-review until the verdict is `APPROVE`. **The user never reviews a diff that still carries an open finding — the tech-lead PR is the pre-screen.**
+7. **User review (the commit gate) — STOP.** Present the still-uncommitted slice: the `tech-lead` `APPROVE` verdict, the acceptance-criteria table, and a one-line summary (files + intent). **Wait for the user to review and approve.** Do not commit before the user approves; address any change the user asks for, then re-gate and re-run the tech-lead PR (step 6) before re-presenting.
+8. **Ship (only once the USER approves)**: show the one-line summary and commit the slice **directly to `main`** (no feature branch) → bump `package.json` PATCH +1. Then do not start the next feature until the user gives the go.
 
 When a tier's last feature ships, the app is runnable at that depth across all features; the next tier begins only on user go.
 
@@ -333,17 +337,16 @@ Every path listed must have a `url.pathname === '/...'` branch in `worker/index.
 ## Failure Paths
 
 - **Worker route missing (404)**: a `Cloudflare*Service` calls a URL that has no handler in the worker — client gets a 404 at runtime. Fix: add the handler, `ROUTE_LIMITS` entry, and all guards per the Worker Route Parity checklist above. Log as critical in `bug_history.json`. Past occurrences: BUG-065 (`/top-three-suggest-day`, `/top-three-suggest-week`), BUG-066 (`/ai/recall/stream`).
-- **Test suite fails before merge**: do not merge. Fix failing tests first. If the failure reveals a scope problem, update `specification.json` and re-plan with the user before proceeding.
-- **PR review requires significant rework**: close the PR, branch from the corrected main, port the valid parts, re-run the quality loop from scratch.
-- **Branch goes stale (main has diverged)**: rebase the feature branch onto main, resolve conflicts, re-run the full test suite before continuing.
-- **E2E regression on a previously passing flow**: log it in `bug_history.json` immediately, block the merge, and fix before closing the quality loop.
-- **Review gate produces critical/major findings**: the tech-lead review runs on the uncommitted diff, so fix all of them **before committing** — never commit (let alone merge) a slice that still carries an open finding. Do not carry known issues into main.
+- **Test suite fails before commit**: do not commit. Fix failing tests first. If the failure reveals a scope problem, update `specification.json` and re-plan with the user before proceeding.
+- **Tech-lead PR review requires significant rework**: keep the slice uncommitted, fix it in place (or `git restore` and redo the affected part), re-gate, and re-run the tech-lead PR from scratch before it reaches the user.
+- **E2E regression on a previously passing flow**: log it in `bug_history.json` immediately, block the commit, and fix before the slice reaches the user.
+- **Review gate produces critical/major findings**: the tech-lead PR runs on the uncommitted staged diff, so fix all of them **before the user sees it** — the user never reviews (and we never commit) a slice that still carries an open finding. Do not carry known issues into `main`.
 
 ## JSON Schemas
 
 ### `features/[feature_name]/specification.json`
 
-Two-phase document. `plan` is written at branch creation. `implementation` is filled after the walking skeleton and updated after each iteration.
+Two-phase document. `plan` is written when the slice begins. `implementation` is filled after the walking skeleton and updated after each iteration.
 
 ```json
 {

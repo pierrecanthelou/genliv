@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Field, SegmentedControl, type Book, type SegmentedOption } from '../../../brain'
 import { useLibrary } from '../hooks/useLibrary'
+import { selectVisibleBooks, type SortMode } from '../utils/selectVisibleBooks'
 import { BookCard } from './BookCard'
 import { DeleteBookDialog } from './DeleteBookDialog'
 
@@ -11,9 +12,6 @@ export interface LibraryScreenProps {
 	 */
 	createEntry: ReactNode
 }
-
-/** Sort order for the library grid. */
-type SortMode = 'recent' | 'alpha'
 
 const SORT_OPTIONS: SegmentedOption<SortMode>[] = [
 	{ value: 'recent', label: 'Récent' },
@@ -40,13 +38,9 @@ export function LibraryScreen({ createEntry }: LibraryScreenProps): JSX.Element 
 		setPendingDelete(null)
 	}
 
-	// Filter + sort are pure derived views over the live list (KR-013): never
-	// mutate the snapshot array from useBooks — sort a copy.
-	const needle = query.trim().toLowerCase()
-	const filtered = needle === '' ? books : books.filter((b) => b.title.toLowerCase().includes(needle))
-	const visible = [...filtered].sort((a, b) =>
-		sort === 'alpha' ? a.title.localeCompare(b.title, 'fr') : b.updatedAt.localeCompare(a.updatedAt),
-	)
+	// Filtered + sorted view of the live list, derived inline via a pure helper
+	// (KR-013); selectVisibleBooks never mutates the useBooks snapshot.
+	const visible = selectVisibleBooks(books, query, sort)
 
 	return (
 		<main style={page}>

@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useBrain, useRoute } from './brain'
+import { useBrain, useRoute, type Route } from './brain'
 import { CreateBookEntry } from './features/book-creation'
 import { LibraryScreen } from './features/book-library'
 import { EditorScreen } from './EditorScreen'
@@ -9,6 +9,15 @@ import { registerActionPnj } from './features/action-pnj'
 import { registerActionMonster } from './features/action-monster'
 import { registerActionTrap } from './features/action-trap'
 import { SyncIndicator } from './features/cloud-sync'
+
+/**
+ * True when `route` is the editor showing `bookId` — the one screen a delete
+ * must not strand (KR-071). Named so the guard reads as a question, not inline
+ * route logic.
+ */
+function isEditingBook(route: Route, bookId: string): boolean {
+	return route.name === 'editor' && route.bookId === bookId
+}
 
 /**
  * App shell — routes between the home (book-library) and the editor, and is
@@ -43,10 +52,7 @@ export function App(): JSX.Element {
 	// the subscription needs no route dependency (no stale closure, KR-013).
 	useEffect(() => {
 		return events.on('book:deleted', ({ bookId }) => {
-			const current = router.current()
-			if (current.name === 'editor' && current.bookId === bookId) {
-				router.navigate({ name: 'home' })
-			}
+			if (isEditingBook(router.current(), bookId)) router.navigate({ name: 'home' })
 		})
 	}, [events, router])
 	const content =
