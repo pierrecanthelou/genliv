@@ -2,6 +2,8 @@ import {
 	useBrain,
 	useOpenBook,
 	Field,
+	Toggle,
+	ObjectEditor,
 	OutcomesEditor,
 	Stepper,
 	TargetPicker,
@@ -9,8 +11,10 @@ import {
 	getNode,
 	type ActionEditorContext,
 	type MonsterConfig,
+	type ObjectDraft,
 	type RollOutcome,
 } from '../../../brain'
+import { blankLoot } from '../utils/loot'
 
 /**
  * The config a node falls back to before any monster is authored. Skeleton
@@ -40,6 +44,12 @@ const STAT_MAX = 99
  * « reliaison » via the shared brain TargetPicker (KR-109), while défaite → Mort
  * is the automatic combat path (KR-067), surfaced read-only, never an authored
  * edge. The réussite/échec reveal texts derive from ROLL_OUTCOMES (KR-091/117).
+ *
+ * Iteration 2 — « butin lâché »: a toggle revealing the shared brain ObjectEditor
+ * for the loot dropped on victory (4th ObjectEditor reuse, KR-052/003). Combat
+ * reinforced by an inventory object (« si le joueur possède … → victoire auto »)
+ * is the same by-id inventory reference as choice-linking's hidden prerequisite,
+ * deferred to the ObjectCatalogService work (KR-062).
  */
 export function MonsterEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element {
 	const { books, events } = useBrain()
@@ -56,6 +66,15 @@ export function MonsterEditor({ bookId, nodeId }: ActionEditorContext): JSX.Elem
 
 	function setOutcome(outcome: RollOutcome, text: string): void {
 		patchMonster({ outcomes: { ...monster.outcomes, [outcome]: text } })
+	}
+
+	function toggleLoot(on: boolean): void {
+		patchMonster({ loot: on ? blankLoot() : undefined })
+	}
+
+	function setLoot(draft: ObjectDraft): void {
+		if (monster.loot === undefined) return
+		patchMonster({ loot: { ...monster.loot, ...draft } })
 	}
 
 	return (
@@ -104,6 +123,11 @@ export function MonsterEditor({ bookId, nodeId }: ActionEditorContext): JSX.Elem
 				target={monster.fleeTarget}
 				onChange={(fleeTarget) => patchMonster({ fleeTarget })}
 			/>
+
+			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+				<Toggle label="Le monstre lâche un butin" checked={monster.loot !== undefined} onChange={toggleLoot} />
+				{monster.loot !== undefined && <ObjectEditor value={monster.loot} onChange={setLoot} />}
+			</div>
 
 			{/* Défaite → Mort is automatic at the end of a combat (KR-067): surfaced,
 			    never an authored edge. The dedicated combat→Mort path wires it later. */}

@@ -18,14 +18,31 @@
 			{ "type": "service", "name": "ActionRegistry", "direction": "consumes" },
 			{ "type": "service", "name": "BookService", "direction": "consumes" },
 			{ "type": "registry", "name": "ROLL_OUTCOMES", "direction": "consumes" },
-			{ "type": "event", "name": "monster:savedToLibrary", "direction": "emits", "payload": { "bookId": "string", "nodeId": "string" } }
+			{
+				"type": "event",
+				"name": "monster:savedToLibrary",
+				"direction": "emits",
+				"payload": { "bookId": "string", "nodeId": "string" }
+			}
 		],
 		"walking_skeleton": "registerActionMonster registers an ActionEditor { type:'monstre', label:'Monstre', render } with the brain ActionRegistry (wired at the App composition root). MonsterEditor reads node.monster live via useOpenBook and writes via BookService.updateNode: a NAME Field, and for each RollOutcome from the brain ROLL_OUTCOMES registry a good/bad Badge + a reveal-text Field. « Ajouter à la librairie » emits monster:savedToLibrary. Stats (PV/Attaque/Défense), loot, combat-reinforced-by-object, outcome targets, and the real library are later iterations.",
 		"n": 3,
 		"iterations": [
-			{ "id": 1, "goal": "Combat mechanics (§ 4D): PV / Attaque / Défense stats; outcome targets (victoire → poursuit / fuite → reliaison) wired through edges; defeat → Mort (the automatic combat path, KR-067).", "status": "done" },
-			{ "id": 2, "goal": "Loot (« butin lâché ») via the shared ObjectEditor + combat reinforced by an inventory object (« si le joueur possède … alors victoire automatique »).", "status": "planned" },
-			{ "id": 3, "goal": "Reusable monster library via a MonsterLibraryService (« créer / librairie du générateur », reusable across books), consumed from the monster:savedToLibrary event.", "status": "planned" }
+			{
+				"id": 1,
+				"goal": "Combat mechanics (§ 4D): PV / Attaque / Défense stats; outcome targets (victoire → poursuit / fuite → reliaison) wired through edges; defeat → Mort (the automatic combat path, KR-067).",
+				"status": "done"
+			},
+			{
+				"id": 2,
+				"goal": "Loot (« butin lâché ») via the shared ObjectEditor + combat reinforced by an inventory object (« si le joueur possède … alors victoire automatique »).",
+				"status": "done"
+			},
+			{
+				"id": 3,
+				"goal": "Reusable monster library via a MonsterLibraryService (« créer / librairie du générateur », reusable across books), consumed from the monster:savedToLibrary event.",
+				"status": "planned"
+			}
 		],
 		"known_risks": [
 			"KR-050/051 — node-editor is a host: action-monster self-registers via the ActionRegistry and is mounted without being imported; adding the action needs zero node-editor changes.",
@@ -75,6 +92,24 @@
 				"test_coverage": {
 					"unit": "(shared) Stepper + TargetPicker covered via the pnj/monster integration tests",
 					"integration": "action-monster via App — PV stepper persists, victoire → poursuit target select (structural screens excluded, KR-067), automatic défaite → Mort statement shown; existing name/outcomes + library-event tests still green",
+					"e2e": "deferred (Playwright not set up)"
+				}
+			},
+			{
+				"id": 2,
+				"label": "iteration-2",
+				"completed_at": "2026-06-18",
+				"architecture_choices": [
+					"« Butin lâché »: MonsterConfig gained an optional loot (GameObject). A « Le monstre lâche un butin » Toggle reveals the SHARED brain ObjectEditor (its FOURTH consumer after décor/pnj/the gift, KR-052/109) — name internal + player-facing description, stable id minted once via blankLoot/createId (KR-003). Toggle off drops the loot (undefined → dropped by JSON). VIEW over BookService (KR-020), no private copy; written via the canonical patchMonster.",
+					"The ObjectEditor is edited live (no modal): a monster's loot has no draft-commit/cancel need (unlike décor's per-row modal where a cancelled NEW object must not land) — the toggle already gates whether loot exists, so live-edit through ObjectEditor is the simpler correct shape."
+				],
+				"deviations_from_plan": [
+					"« Combat reinforced by an inventory object » (« si le joueur possède … → victoire automatique ») is DEFERRED to the ObjectCatalogService work: it is the SAME by-id inventory-object reference as choice-linking's hidden prerequisite (KR-062), which needs the shared object catalog (action-decor iter 3 / choice-linking iter 3). Capturing it by object NAME now would violate KR-062 (references by stable id, never by name), so it pairs with the catalog rather than introducing a by-name reference to untangle later. Loot — the self-contained half — ships now.",
+					"Loot is a SINGLE dropped object (toggle + ObjectEditor, mirroring the PNJ gift), not a list; a multi-item butin is a possible refinement."
+				],
+				"test_coverage": {
+					"unit": "blankLoot mints a fresh stable id (covered via integration)",
+					"integration": "action-monster via App — toggling « lâche un butin » reveals the shared ObjectEditor, authoring it persists loot.name + a stable id, toggling off drops the loot",
 					"e2e": "deferred (Playwright not set up)"
 				}
 			}

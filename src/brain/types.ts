@@ -128,6 +128,12 @@ export interface MonsterConfig {
 	 */
 	victoryTarget?: string
 	fleeTarget?: string
+	/**
+	 * « Butin lâché » — the object the monster drops on victory (iteration 2),
+	 * authored via the shared brain ObjectEditor with a stable id (KR-052/003).
+	 * Absent when the monster drops nothing.
+	 */
+	loot?: GameObject
 }
 
 /** Per-node trap action config (owned by action-trap). */

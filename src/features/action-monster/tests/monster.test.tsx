@@ -95,6 +95,27 @@ describe('action-monster', () => {
 		expect(screen.getByText(/Défaite → Mort du personnage/i)).toBeInTheDocument()
 	})
 
+	it('« butin lâché »: toggles loot, authors it via the shared ObjectEditor (stable id), drops it on toggle-off (iter 2)', async () => {
+		const user = userEvent.setup()
+		const { brain, bookId, nodeId } = setup()
+		await user.click(screen.getByRole('button', { name: /Nœud #3/ }))
+		await user.click(screen.getByRole('radio', { name: 'Monstre' }))
+
+		// No loot until the toggle is on.
+		expect(monsterOf(brain, bookId, nodeId)?.loot).toBeUndefined()
+		await user.click(screen.getByRole('switch', { name: /lâche un butin/i }))
+
+		// The loot is authored through the SHARED brain ObjectEditor (name + description).
+		await user.type(screen.getByRole('textbox', { name: /nom de l/i }), 'Dague ébréchée')
+		const loot = monsterOf(brain, bookId, nodeId)?.loot
+		expect(loot?.name).toBe('Dague ébréchée')
+		expect(loot?.id).toBeTruthy() // stable id minted (KR-003)
+
+		// Toggling off drops the loot entirely.
+		await user.click(screen.getByRole('switch', { name: /lâche un butin/i }))
+		expect(monsterOf(brain, bookId, nodeId)?.loot).toBeUndefined()
+	})
+
 	it('« Ajouter à la librairie » emits monster:savedToLibrary (library stub)', async () => {
 		const user = userEvent.setup()
 		const { brain, bookId, nodeId } = setup()

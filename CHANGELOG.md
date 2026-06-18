@@ -2,6 +2,12 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.3.6 — action-monster iteration 2 (V2 slice)
+
+- **« Butin lâché » loot (§ 4D)**: a « Le monstre lâche un butin » toggle reveals the shared brain **`ObjectEditor`** (its **4th** reuse, after décor/pnj/the gift — KR-052/109) for the object dropped on victory, persisted on `monster.loot` with a stable id (`blankLoot`/`createId`, KR-003); toggling off drops it. Live-edited (no modal — a toggle-gated single object has no cancel-a-new-item need).
+- **Combat reinforced by an inventory object deferred**: « si le joueur possède … → victoire automatique » is the **same by-id inventory reference** as choice-linking's hidden prerequisite (KR-062), so it pairs with the `ObjectCatalogService` work rather than introducing a by-name reference now (which KR-062 forbids). Recorded as a deviation.
+- 195 tests passing (+1). Reusable `MonsterLibraryService` remains iter 3.
+
 ## 0.3.5 — action-pnj iteration 2 (V2 slice)
 
 - **Richer identity (§ 4A)**: the PNJ editor gains a **RÔLE** field (`pnj.role` — « Marchand », « Gardien du seuil »…), carried through the canonical `patchPnj` write so editing one facet never drops another.
