@@ -1,4 +1,12 @@
-import { createId, type BadgeTone, type DecorConfig, type TakeableKind, type TakeableObject } from '../../../brain'
+import {
+	createId,
+	type BadgeTone,
+	type DecorConfig,
+	type DecorInteraction,
+	type DecorReveal,
+	type TakeableKind,
+	type TakeableObject,
+} from '../../../brain'
 
 /**
  * Single source for the « utile / leurre » closed set (KR-117): each kind's
@@ -30,4 +38,17 @@ export function takeablesOf(decor: DecorConfig): TakeableObject[] {
 /** A fresh, empty takeable with a stable object id minted once (KR-003). */
 export function blankTakeable(): TakeableObject {
 	return { object: { id: createId('object'), name: '', description: '' }, kind: 'utile' }
+}
+
+/**
+ * The PER-INTERACTION reveals of a décor config, migrating the iteration-2 single
+ * shared `reveal` on read (KR-090): a persisted book may still carry one `reveal`
+ * that both écouter and fouiller used — attribute it to the node's CURRENT
+ * interaction so its text is not lost, and let the next write canonicalise to
+ * `reveals`. `prendre` never carries a reveal.
+ */
+export function revealsOf(decor: DecorConfig): Partial<Record<DecorInteraction, DecorReveal>> {
+	if (decor.reveals !== undefined) return decor.reveals
+	if (decor.reveal !== undefined && decor.interaction !== 'prendre') return { [decor.interaction]: decor.reveal }
+	return {}
 }

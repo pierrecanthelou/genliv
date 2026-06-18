@@ -92,7 +92,17 @@ export interface DecorConfig {
 	interaction: DecorInteraction
 	/** « Prendre » takeable objects (iteration 1+). */
 	objects?: TakeableObject[]
-	/** « Écouter » / « Fouiller » reveal + optional skill roll (iteration 2). */
+	/**
+	 * « Écouter » / « Fouiller » reveal + optional skill roll, kept PER INTERACTION
+	 * so each one carries its OWN heard/found text (switching the interaction tab
+	 * shows that interaction's reveal, not the previous one). `prendre` has no
+	 * reveal (it uses `objects`).
+	 */
+	reveals?: Partial<Record<DecorInteraction, DecorReveal>>
+	/**
+	 * @deprecated single shared reveal — migrated to `reveals[interaction]` on read
+	 * (revealsOf) and on the next write; kept so old persisted books still load.
+	 */
 	reveal?: DecorReveal
 	/**
 	 * @deprecated walking-skeleton single object — migrated to `objects` on read

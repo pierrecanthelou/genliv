@@ -14,7 +14,7 @@ import {
 	type SegmentedOption,
 	type TakeableObject,
 } from '../../../brain'
-import { TAKEABLE_KINDS, takeablesOf, blankTakeable } from '../utils/takeables'
+import { TAKEABLE_KINDS, takeablesOf, revealsOf, blankTakeable } from '../utils/takeables'
 import { ObjectEditModal } from './ObjectEditModal'
 import { RevealEditor } from './RevealEditor'
 
@@ -73,16 +73,19 @@ export function DecorEditor({ bookId, nodeId }: ActionEditorContext): JSX.Elemen
 	// object to the list) so every read and write share one canonical shape.
 	const decor = node?.decor ?? DEFAULT_DECOR
 	const objects = takeablesOf(decor)
+	// Reveals are kept per interaction (écouter / fouiller each own their text),
+	// migrating the old single shared `reveal` on read (KR-090).
+	const reveals = revealsOf(decor)
 	// The object currently open in the edit modal — local UI state, not a derived
 	// mirror of the node (KR-013).
 	const [editing, setEditing] = useState<{ takeable: TakeableObject; isNew: boolean } | null>(null)
 
-	// Every write canonicalises to { interaction, objects, reveal } — the legacy
-	// single `object` field is dropped on the first write (migration, KR-090) and
-	// all live fields are preserved so editing one never drops the others.
+	// Every write canonicalises to { interaction, objects, reveals } — the legacy
+	// single `object` / `reveal` fields are dropped on the first write (migration,
+	// KR-090) and all live fields are preserved so editing one never drops the others.
 	function writeDecor(patch: Partial<DecorConfig>): void {
 		books.updateNode(bookId, nodeId, {
-			decor: { interaction: decor.interaction, objects, reveal: decor.reveal, ...patch },
+			decor: { interaction: decor.interaction, objects, reveals, ...patch },
 		})
 	}
 
@@ -193,8 +196,8 @@ export function DecorEditor({ bookId, nodeId }: ActionEditorContext): JSX.Elemen
 				<RevealEditor
 					label={DECOR_INTERACTIONS[decor.interaction].revealLabel}
 					placeholder={DECOR_INTERACTIONS[decor.interaction].revealPlaceholder}
-					reveal={decor.reveal ?? DEFAULT_REVEAL}
-					onChange={(reveal) => writeDecor({ reveal })}
+					reveal={reveals[decor.interaction] ?? DEFAULT_REVEAL}
+					onChange={(reveal) => writeDecor({ reveals: { ...reveals, [decor.interaction]: reveal } })}
 				/>
 			)}
 

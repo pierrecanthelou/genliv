@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { createBrain, BrainProvider } from '../../../brain'
 import { App } from '../../../App'
 import { registerActionDecor } from '../register'
+import { revealsOf } from '../utils/takeables'
 
 function setup() {
 	const brain = createBrain()
@@ -173,7 +174,7 @@ describe('action-decor', () => {
 		await user.type(screen.getByRole('textbox', { name: /si Réussite/i }), 'Vous saisissez le mot de passe.')
 		await user.type(screen.getByRole('textbox', { name: /si Échec/i }), 'Le bruit se perd.')
 
-		const reveal = decorOf(brain, bookId, nodeId)?.reveal
+		const reveal = decorOf(brain, bookId, nodeId)?.reveals?.ecouter
 		expect(reveal?.text).toBe('Un murmure derrière le mur.')
 		expect(reveal?.roll).toEqual({ trait: 'endurance', difficulty: 8 })
 		expect(reveal?.outcomes).toEqual({ reussite: 'Vous saisissez le mot de passe.', echec: 'Le bruit se perd.' })
@@ -188,15 +189,54 @@ describe('action-decor', () => {
 		// Fouiller carries its own field copy.
 		await user.type(screen.getByRole('textbox', { name: /ce que le joueur trouve/i }), 'Une trappe dissimulée.')
 		await user.click(screen.getByRole('switch', { name: /jet requis/i }))
-		expect(decorOf(brain, bookId, nodeId)?.reveal?.roll).toBeDefined()
+		expect(decorOf(brain, bookId, nodeId)?.reveals?.fouiller?.roll).toBeDefined()
 
 		await user.click(screen.getByRole('switch', { name: /jet requis/i }))
 
-		const reveal = decorOf(brain, bookId, nodeId)?.reveal
+		const reveal = decorOf(brain, bookId, nodeId)?.reveals?.fouiller
 		expect(reveal?.roll).toBeUndefined()
 		expect(reveal?.outcomes).toBeUndefined()
 		expect(reveal?.text).toBe('Une trappe dissimulée.')
 		// The outcome fields are gone once the gate is off.
 		expect(screen.queryByRole('textbox', { name: /si Réussite/i })).not.toBeInTheDocument()
+	})
+
+	it('keeps Écouter and Fouiller reveal texts INDEPENDENT when switching tabs (BUG-007)', async () => {
+		const user = userEvent.setup()
+		const { brain, bookId, nodeId } = setup()
+		await openDecor(user)
+
+		// Author an « Écouter » reveal…
+		await user.click(screen.getByRole('radio', { name: 'Écouter' }))
+		await user.type(screen.getByRole('textbox', { name: /ce que le joueur entend/i }), 'bruit de pas')
+
+		// …switch to « Fouiller »: its field starts EMPTY (not the écouter text).
+		await user.click(screen.getByRole('radio', { name: 'Fouiller' }))
+		const fouiller = screen.getByRole('textbox', { name: /ce que le joueur trouve/i }) as HTMLTextAreaElement
+		expect(fouiller.value).toBe('')
+		await user.type(fouiller, 'une trappe')
+
+		// …back to « Écouter »: its own text is intact.
+		await user.click(screen.getByRole('radio', { name: 'Écouter' }))
+		expect((screen.getByRole('textbox', { name: /ce que le joueur entend/i }) as HTMLTextAreaElement).value).toBe(
+			'bruit de pas',
+		)
+
+		// Both reveals persist independently on the node document.
+		const reveals = decorOf(brain, bookId, nodeId)?.reveals
+		expect(reveals?.ecouter?.text).toBe('bruit de pas')
+		expect(reveals?.fouiller?.text).toBe('une trappe')
+	})
+
+	it('migrates a legacy single shared reveal onto the node current interaction (KR-090)', () => {
+		const brain = createBrain()
+		const created = brain.books.createBook('Vieux livre')
+		const node = brain.books.addNode(created.id, 'choix')!
+		// Simulate an iteration-2 persisted node: a single shared `reveal`, no `reveals`.
+		brain.books.updateNode(created.id, node.id, {
+			decor: { interaction: 'fouiller', reveal: { text: 'ancien texte' } },
+		})
+		// revealsOf attributes the legacy reveal to the current interaction (fouiller).
+		expect(revealsOf(decorOf(brain, created.id, node.id)!)).toEqual({ fouiller: { text: 'ancien texte' } })
 	})
 })

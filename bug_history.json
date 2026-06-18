@@ -35,6 +35,18 @@
 			"mitigation": "The asymmetric trim comparison was also tightened (commitRename compares against book.title.trim()), so a re-commit of a visually-same value never fires a redundant book:updated.",
 			"regression_test": "src/features/book-library/tests/library.test.tsx — 'cancels an in-place rename with Escape, leaving the title unchanged'",
 			"severity": "minor"
+		},
+		{
+			"id": "BUG-007",
+			"date": "2026-06-18",
+			"feature": "action-decor",
+			"discovered_at": "regression",
+			"symptom": "In the Décor editor, authoring a reveal text under « Écouter » then switching to the « Fouiller » tab showed exactly the same text — the user read it as React failing to re-render.",
+			"root_cause": "NOT a render bug — React did re-render (the field label correctly changed from « Ce que le joueur entend » to « Ce que le joueur trouve »). DecorConfig stored a SINGLE shared `reveal`, so écouter and fouiller read/wrote the same field; switching the interaction tab carried the text across because it was literally the same data.",
+			"fix": "Made the reveal PER INTERACTION: DecorConfig.reveals?: Partial<Record<DecorInteraction, DecorReveal>>; DecorEditor reads/writes reveals[interaction] (RevealEditor now bound to the current interaction's reveal). The legacy single `reveal` is migrated on read (revealsOf attributes it to the node's current interaction, KR-090) and dropped on the next canonical write. (src/brain/types.ts, src/features/action-decor/utils/takeables.ts revealsOf, src/features/action-decor/components/DecorEditor.tsx)",
+			"mitigation": "Regression test drives écouter→fouiller→écouter and asserts each field is independent and both reveals persist; a migration test asserts an old single-reveal book maps onto the current interaction.",
+			"regression_test": "src/features/action-decor/tests/decor.test.tsx — 'keeps Écouter and Fouiller reveal texts INDEPENDENT when switching tabs (BUG-007)' + 'migrates a legacy single shared reveal onto the node current interaction (KR-090)'",
+			"severity": "major"
 		}
 	]
 }
