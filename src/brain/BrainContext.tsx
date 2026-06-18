@@ -80,3 +80,9 @@ export function useSyncStatus(): SyncStatus {
 	const { sync, events } = useBrain()
 	return useSyncExternalStore((onChange) => events.on('sync:status', onChange), sync.status)
 }
+
+/** Subscribe to the count of writes queued offline (« N changements en attente », iter 2). */
+export function useSyncPending(): number {
+	const { sync, events } = useBrain()
+	return useSyncExternalStore((onChange) => events.on('sync:status', onChange), sync.pendingCount)
+}

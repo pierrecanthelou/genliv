@@ -1,7 +1,7 @@
 import type { EventBus } from './EventBus'
 import type { PersistenceService } from './PersistenceService'
 import type { SyncStatus } from './types'
-import { bookKey } from './persistenceKeys'
+import { bookKey, CLOUDSYNC_QUEUE_KEY } from './persistenceKeys'
 
 /**
  * The cloud side of persistence — a swappable transport that pushes/pulls a
@@ -36,9 +36,19 @@ export interface CloudSyncOptions {
  * copy locally (and notifying views via `book:updated`) or pushing a newer local
  * copy up. Reconciliation is the one place the persistence layer is book-aware
  * (it resolves the book key + emits `book:updated`); everything else stays generic.
+ *
+ * Iteration 2: the pending pushes are an OFFLINE QUEUE persisted locally
+ * (`CLOUDSYNC_QUEUE_KEY`), so an unconfirmed write survives a reload and is
+ * flushed on reconnect (on the next write, on `retry()`, or on startup). A failed
+ * push keeps the queue (status → `error`) and `pendingCount()` surfaces the
+ * « N changements en attente » count alongside the status on `sync:status`.
  */
 export interface CloudSyncService extends PersistenceService {
 	status(): SyncStatus
+	/** How many writes are queued (pushed locally, not yet confirmed to the cloud). */
+	pendingCount(): number
+	/** Retry the offline queue now (e.g. on reconnect); a no-op when empty/offline. */
+	retry(): void
 }
 
 /** A persisted value carrying an ISO `updatedAt` — the LWW comparison field. */
@@ -54,32 +64,62 @@ export function createCloudSyncService(
 ): CloudSyncService {
 	const debounceMs = options.debounceMs ?? 300
 	let status: SyncStatus = transport === undefined ? 'offline' : 'idle'
-	// Pending writes coalesced by key; flushed as one batch after the debounce.
-	const pending = new Map<string, unknown>()
+	// The OFFLINE QUEUE: writes pushed locally but not yet confirmed to the cloud,
+	// coalesced by key (last value wins) and PERSISTED so they survive a reload and
+	// flush on reconnect (iter 2). Loaded from the local store at startup.
+	const queue = new Map<string, unknown>(local.get<[string, unknown][]>(CLOUDSYNC_QUEUE_KEY) ?? [])
 	let flushTimer: ReturnType<typeof setTimeout> | null = null
+	let flushing = false
 
+	function persistQueue(): void {
+		// Persist via the UNDERLYING local store, never the decorated set — the queue
+		// is local metadata and must not itself be pushed (no echo loop).
+		local.set(CLOUDSYNC_QUEUE_KEY, [...queue.entries()])
+	}
+
+	// Emit only on a real STATUS change (no per-keystroke noise). The pending count
+	// rides every emit and is re-read by useSyncPending; offline, the status toggles
+	// syncing↔error per write so the « N en attente » count stays live.
 	function setStatus(next: SyncStatus): void {
-		if (next === status) return // only emit on a real change (no per-keystroke noise)
+		if (next === status) return
 		status = next
-		events.emit('sync:status', { status })
+		events.emit('sync:status', { status, pending: queue.size })
 	}
 
 	function flush(): void {
 		flushTimer = null
-		if (transport === undefined || pending.size === 0) return
-		const batch = [...pending.entries()]
-		pending.clear()
+		if (transport === undefined || flushing || queue.size === 0) return
+		flushing = true
+		setStatus('syncing')
+		const batch = [...queue.entries()]
 		Promise.all(batch.map(([key, value]) => transport.push(key, value)))
-			.then(() => setStatus('synced'))
-			.catch(() => setStatus('error'))
+			.then(() => {
+				// Drop only the entries we actually pushed; a newer write to the same key
+				// during the in-flight push keeps its (different) value queued.
+				for (const [key, value] of batch) if (queue.get(key) === value) queue.delete(key)
+				persistQueue()
+				if (queue.size === 0) setStatus('synced')
+				else scheduleFlush() // newer writes arrived during the push → push them too
+			})
+			.catch(() => setStatus('error')) // queue retained → « N en attente » surfaces, retried later
+			.finally(() => {
+				flushing = false
+			})
 	}
 
-	function scheduleFlush(key: string, value: unknown): void {
-		if (transport === undefined) return // local-only: stay `offline`, never block the write
-		pending.set(key, value) // last value per key wins within the window
-		setStatus('syncing')
+	function scheduleFlush(): void {
+		if (transport === undefined) return
 		if (flushTimer !== null) clearTimeout(flushTimer)
 		flushTimer = setTimeout(flush, debounceMs)
+	}
+
+	/** Queue a write for the background push (local-only stores stay `offline`). */
+	function queuePush(key: string, value: unknown): void {
+		if (transport === undefined) return // local-only: stay `offline`, never block the write
+		queue.set(key, value) // last value per key wins within the window
+		persistQueue()
+		setStatus('syncing')
+		scheduleFlush()
 	}
 
 	/** Last-write-wins reconciliation of one book against the cloud (KR background). */
@@ -92,7 +132,7 @@ export function createCloudSyncService(
 				const localValue = local.get<Timestamped>(key)
 				if (cloud === null) {
 					// Cloud has nothing yet: seed it with the local copy.
-					if (localValue !== null) scheduleFlush(key, localValue)
+					if (localValue !== null) queuePush(key, localValue)
 					return
 				}
 				const localAt = localValue?.updatedAt ?? ''
@@ -104,7 +144,7 @@ export function createCloudSyncService(
 					events.emit('book:updated', { bookId })
 				} else if (localAt > cloudAt) {
 					// Local is newer: push it up.
-					scheduleFlush(key, localValue)
+					queuePush(key, localValue)
 				}
 			})
 			.catch(() => setStatus('error'))
@@ -112,6 +152,11 @@ export function createCloudSyncService(
 
 	if (transport !== undefined) {
 		events.on('book:opened', ({ bookId }) => reconcile(bookId))
+		// A backlog persisted from a previous session: flush it on (re)start.
+		if (queue.size > 0) {
+			setStatus('syncing')
+			scheduleFlush()
+		}
 	}
 
 	return {
@@ -120,7 +165,7 @@ export function createCloudSyncService(
 		},
 		set<T>(key: string, value: T): void {
 			local.set<T>(key, value) // local-first: persist synchronously before any cloud work
-			scheduleFlush(key, value) // debounced, batched background push
+			queuePush(key, value) // queue + debounced, batched background push
 		},
 		remove(key: string): void {
 			local.remove(key)
@@ -130,6 +175,16 @@ export function createCloudSyncService(
 		},
 		status(): SyncStatus {
 			return status
+		},
+		pendingCount(): number {
+			return queue.size
+		},
+		retry(): void {
+			if (flushTimer !== null) {
+				clearTimeout(flushTimer)
+				flushTimer = null
+			}
+			flush()
 		},
 	}
 }

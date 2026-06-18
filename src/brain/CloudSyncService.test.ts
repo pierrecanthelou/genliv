@@ -112,4 +112,53 @@ describe('CloudSyncService', () => {
 		const cloud = (await transport.pull!(key)) as { title: string }
 		expect(cloud.title).toBe('local-new') // local pushed up
 	})
+
+	it('persists the offline queue and a fresh service reloads the backlog (iter 2)', async () => {
+		const transport: CloudTransport = { push: () => Promise.reject(new Error('offline')) }
+		const { sync, local } = setup(transport)
+
+		sync.set(bookKey('b1'), { id: 'b1', updatedAt: '2026-01-01' })
+		await flush()
+		expect(sync.status()).toBe('error')
+		expect(sync.pendingCount()).toBe(1) // queued for retry, local write never lost
+		expect(local.get(bookKey('b1'))).not.toBeNull()
+
+		// A reload: a fresh service over the same localStorage reloads the persisted queue.
+		const local2 = createLocalStoragePersistence()
+		const sync2 = createCloudSyncService(local2, createEventBus(), transport, { debounceMs: 0 })
+		expect(sync2.pendingCount()).toBe(1)
+		await flush() // its startup retry runs (still offline) and re-fails — queue kept
+		expect(sync2.pendingCount()).toBe(1)
+	})
+
+	it('flushes the queue on retry() once the transport recovers (iter 2)', async () => {
+		let online = false
+		const transport: CloudTransport = { push: () => (online ? Promise.resolve() : Promise.reject(new Error())) }
+		const { sync } = setup(transport)
+
+		sync.set('genliv:k', 1)
+		await flush()
+		expect(sync.status()).toBe('error')
+		expect(sync.pendingCount()).toBe(1)
+
+		online = true // reconnect
+		sync.retry()
+		await flush()
+		expect(sync.status()).toBe('synced')
+		expect(sync.pendingCount()).toBe(0) // backlog flushed
+	})
+
+	it('keeps a newer write to the same key queued through an in-flight push (iter 2)', async () => {
+		let resolvePush: () => void = () => {}
+		const transport: CloudTransport = { push: () => new Promise<void>((res) => (resolvePush = res)) }
+		const { sync } = setup(transport)
+
+		sync.set('genliv:k', 1)
+		await flush() // the push of value 1 is now in-flight (unresolved)
+		sync.set('genliv:k', 2) // a newer write to the same key lands DURING the push
+		resolvePush() // value 1 is confirmed
+		await flush() // success handler dequeues only value 1; value 2 stays queued
+
+		expect(sync.pendingCount()).toBe(1) // the newer write was not lost
+	})
 })

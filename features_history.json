@@ -276,7 +276,10 @@
 				"iter 1: the cloud transport is chosen by BUILD/PRODUCTION TARGET at the composition root (main.tsx) — the local build wires a localStorage-backed LocalStorageTransport (fake remote) so the full machinery runs serverless; Cloudflare swaps a worker-backed one via the same interface later. Keeping createBrain transport-optional kept every existing test transparent (offline).",
 				"iter 1: a sync decorator that adopts a pulled value must write the UNDERLYING store, never its own decorated set — otherwise it re-pushes what it just pulled (echo loop). LWW reconciliation on book:opened emits book:updated so open views re-read (KR-094).",
 				"iter 1: debouncing the push changed set()'s timing (push is no longer synchronous), so the CloudSyncService tests moved to a debounceMs:0 + macrotask-flush pattern; status 'syncing' is still set synchronously on write so the UI feels instant.",
-				"This closes the 0.2.x / V1 tier: every feature has its iteration 1; the next tier (0.3.x / V2) is iteration 2 of each, in build order."
+				"This closes the 0.2.x / V1 tier: every feature has its iteration 1; the next tier (0.3.x / V2) is iteration 2 of each, in build order.",
+				"iter 2: an offline write queue must be PERSISTED (a local key loaded at startup) and a failed push must KEEP the batch — the iter-1 code cleared `pending` BEFORE pushing, which lost it on error. Dequeue only the entries actually pushed (compare the queued value to the pushed one) so a newer write during the in-flight push isn't dropped; a `flushing` flag prevents a double-push.",
+				"iter 2: surfacing a derived COUNT through an external store needs the event to fire when the count changes — but emitting on every pending delta re-broadcasts an online burst (broke the 'one syncing per burst' test). Keep emits status-change-only: offline the status toggles syncing↔error per write (so the count stays live), and the count rides every emit for useSyncPending to re-read. Status-change dedup + a count-carrying payload beats a (status,count) dedup.",
+				"This closes the 0.3.x / V2 tier: every feature has its iteration 2 (tree-canvas iter-2 banked depth-first); the next tier (0.4.x / V3) is iteration 3 of each feature that has one, in build order. The offline queue unblocks book-creation iter 3."
 			],
 			"bugs_encountered": []
 		}

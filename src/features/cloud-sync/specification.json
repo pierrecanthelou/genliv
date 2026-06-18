@@ -17,14 +17,31 @@
 		"brain_contracts": [
 			{ "type": "service", "name": "PersistenceService", "direction": "consumes" },
 			{ "type": "service", "name": "CloudSyncService", "direction": "provides" },
-			{ "type": "event", "name": "sync:status", "direction": "emits", "payload": { "status": "idle|syncing|synced|offline|error" } }
+			{
+				"type": "event",
+				"name": "sync:status",
+				"direction": "emits",
+				"payload": { "status": "idle|syncing|synced|offline|error" }
+			}
 		],
 		"walking_skeleton": "createCloudSyncService(local, events, transport?) decorates the local PersistenceService: local-first set (sync write) + a background transport.push that moves the status idle→syncing→synced/error and emits sync:status; with no transport it stays offline (local-only). createBrain wraps the local store with it and exposes brain.sync. useSyncStatus subscribes to sync:status; the cloud-sync feature's SyncIndicator renders the live state as a Badge pill, mounted by App over both routes. The real cloud transport (Cloudflare worker client) + offline write queue are later iterations.",
 		"n": 3,
 		"iterations": [
-			{ "id": 1, "goal": "Real cloud transport: a CloudflareSyncService client (worker route + auth) implementing CloudTransport; debounced batched pushes; last-write-wins reconciliation on book:opened.", "status": "done" },
-			{ "id": 2, "goal": "Offline write queue: persist pending pushes and flush on reconnect (unblocks book-creation iteration 3); surface a « N changements en attente » state.", "status": "planned" },
-			{ "id": 3, "goal": "Conflict handling: detect divergence between local and cloud, surface a resolution affordance rather than silently overwriting.", "status": "planned" }
+			{
+				"id": 1,
+				"goal": "Real cloud transport: a CloudflareSyncService client (worker route + auth) implementing CloudTransport; debounced batched pushes; last-write-wins reconciliation on book:opened.",
+				"status": "done"
+			},
+			{
+				"id": 2,
+				"goal": "Offline write queue: persist pending pushes and flush on reconnect (unblocks book-creation iteration 3); surface a « N changements en attente » state.",
+				"status": "done"
+			},
+			{
+				"id": 3,
+				"goal": "Conflict handling: detect divergence between local and cloud, surface a resolution affordance rather than silently overwriting.",
+				"status": "planned"
+			}
 		],
 		"known_risks": [
 			"KR-022 — pan/zoom and the canvas↔outline view-mode are UI preferences, NOT part of the synced book document; only the book flows through the persistence layer, so cloud-sync never pushes UI state (avoids spurious conflicts).",
@@ -76,11 +93,30 @@
 					"integration": "SyncIndicator via brain — « Local » offline, syncing→synced after a debounced write",
 					"e2e": "deferred (Playwright not set up)"
 				}
+			},
+			{
+				"id": 2,
+				"label": "iteration-2",
+				"completed_at": "2026-06-18",
+				"architecture_choices": [
+					"The pending pushes became an OFFLINE QUEUE persisted locally under a new CLOUDSYNC_QUEUE_KEY (in the genliv namespace via the UNDERLYING local store — never the decorated set, no echo; not a book key, so listBooks ignores it). The in-memory pending map is now this persisted Map; it is LOADED at startup, so a write that failed to push survives a reload. A failed push KEEPS the queue (status → error) instead of dropping the batch (the iter-1 behaviour lost it); only the entries actually pushed are dequeued on success (a newer write to the same key during the in-flight push stays queued), guarded by a `flushing` flag against double-push.",
+					"Flush-on-reconnect has three triggers: the next write (queuePush reschedules a flush over the whole queue), an explicit retry() (e.g. a reconnect signal), and STARTUP (a persisted backlog schedules a flush). pendingCount() exposes the queue size; a new useSyncPending external-store hook reads it (KR-013), and the sync:status payload gained a `pending` field.",
+					"The SyncIndicator surfaces « N changements en attente » (plural() helper) when pending > 0, keeping the status tone (bad on error, accent while syncing) — derived, no new SyncStatus enum value. Emits stay STATUS-change-only (no per-keystroke noise): offline the status toggles syncing↔error per write so the count stays live; an online burst keeps one « syncing » and the count settles on the synced emit."
+				],
+				"deviations_from_plan": [
+					"This UNBLOCKS book-creation iteration 3 (cloud-first offline queue) — the persistence layer now queues + retries; book-creation can build its create-offline flow on top.",
+					"`remove` is not queued for cloud propagation (only `set` pushes, as in iter 1) — a synced delete pairs with the conflict/tombstone handling of iteration 3. Divergence detection + resolution affordance remain iteration 3."
+				],
+				"test_coverage": {
+					"unit": "CloudSyncService — a failed push queues + persists (pendingCount, local write kept) and a fresh service reloads the backlog; retry() flushes the queue once the transport recovers (pendingCount → 0, synced). Existing debounce/batch/reconcile tests still green.",
+					"integration": "SyncIndicator via brain — « N changements en attente » when two writes are queued behind a failing transport",
+					"e2e": "deferred (Playwright not set up)"
+				}
 			}
 		],
 		"open_questions": [
-			"Cloudflare worker route + auth shape for the real transport (iteration 1) — must follow the Worker Route Parity checklist.",
-			"Reconciliation/conflict policy (iterations 1/3) and the offline queue that unblocks book-creation iteration 3 (iteration 2)."
+			"Conflict handling (iteration 3): divergence detection + a resolution affordance instead of last-write-wins; queued deletes/tombstones.",
+			"book-creation iteration 3 can now build on the offline queue (this slice unblocked it)."
 		]
 	}
 }

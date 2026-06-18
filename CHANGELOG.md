@@ -2,6 +2,14 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.3.8 — cloud-sync iteration 2 (V2 slice — tier complete 🏁)
+
+- **Offline write queue**: the pending pushes are now a **persisted queue** (`CLOUDSYNC_QUEUE_KEY`, local namespace via the underlying store — no echo, not a book key) loaded at startup, so an **unconfirmed write survives a reload**. A failed push **keeps the queue** (status → `error`) instead of dropping the batch; on success only the entries actually pushed are dequeued (a newer write to the same key during the in-flight push stays queued), guarded by a `flushing` flag against double-push.
+- **Flush on reconnect**: three triggers — the next write, an explicit `retry()`, and **startup** (a persisted backlog schedules a flush). New `CloudSyncService.pendingCount()` / `retry()`; the `sync:status` payload carries `pending`; a new `useSyncPending` external-store hook (KR-013).
+- **« N changements en attente »**: the `SyncIndicator` surfaces the queued count (via `plural()`), keeping the status tone — derived, no new `SyncStatus` value (KR-095). Emits stay status-change-only (no per-keystroke noise).
+- **Unblocks `book-creation` iteration 3** (cloud-first offline create). Conflict handling remains iter 3.
+- 202 tests passing (+3). **🏁 The 0.3.x / V2 tier is complete — every feature has its iteration 2.**
+
 ## 0.3.7 — action-trap iteration 2 (V2 slice)
 
 - **The « échec sanctionné » fatal flag now wires the automatic →Mort link (§ 05, KR-067)** — the long-deferred "dedicated combat/trap path". Built as a **view-derived** edge, never stored and never the manual `addEdge` API (which rejects a Mort target): a new pure brain **`deriveAutomaticEdges(book)`** emits a synthetic `{ kind: 'fatal' }` edge from each fatal-trap node (`actionType === 'piege' && trap.fatal`) to the Mort leaf; `TreeCanvas` resolves authored + derived edges together. The config stays the SSOT, so the link can never desync (KR-020/013) and is present iff fatal.

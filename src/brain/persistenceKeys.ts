@@ -15,3 +15,11 @@ export const BOOK_KEY_PREFIX = `${PERSISTENCE_PREFIX}:book:`
 export function bookKey(bookId: string): string {
 	return `${BOOK_KEY_PREFIX}${bookId}`
 }
+
+/**
+ * The cloud-sync OFFLINE QUEUE: writes pushed-but-not-yet-confirmed, persisted
+ * LOCALLY (in the genliv namespace, not the transport's fake-remote namespace)
+ * so pending changes survive a reload and flush on reconnect (cloud-sync iter 2).
+ * Not a book key, so it never pollutes listBooks (keys(BOOK_KEY_PREFIX)).
+ */
+export const CLOUDSYNC_QUEUE_KEY = `${PERSISTENCE_PREFIX}:cloudsync:queue`

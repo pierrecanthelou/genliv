@@ -59,6 +59,7 @@ export {
 	useRoute,
 	useSelectedNode,
 	useSyncStatus,
+	useSyncPending,
 	type Brain,
 	type CreateBrainOptions,
 } from './BrainContext'

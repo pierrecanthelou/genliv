@@ -19,7 +19,7 @@ export interface AppEvents {
 	'edge:deleted': { bookId: string; edgeId: string }
 	'action:changed': { bookId: string; nodeId: string; actionType: NodeActionType }
 	'monster:savedToLibrary': { bookId: string; nodeId: string }
-	'sync:status': { status: SyncStatus }
+	'sync:status': { status: SyncStatus; pending: number }
 }
 
 export type AppEventName = keyof AppEvents

@@ -1,4 +1,4 @@
-import { useSyncStatus, Badge, type SyncStatus, type BadgeTone } from '../../../brain'
+import { useSyncStatus, useSyncPending, plural, Badge, type SyncStatus, type BadgeTone } from '../../../brain'
 
 /**
  * Single source for each sync state's label + Badge tone (KR-117): the
@@ -17,15 +17,21 @@ const SYNC_STATUS: Record<SyncStatus, { label: string; tone: BadgeTone }> = {
 /**
  * cloud-sync — a small live status pill in the corner reflecting the local-first
  * store's sync state (KR-022). A VIEW over the brain CloudSyncService via
- * useSyncStatus (the sync:status external store); holds no state. The real
- * cloud transport lands later — by default the store is local-only (« Local »).
+ * useSyncStatus / useSyncPending (the sync:status external store); holds no state.
+ * The real cloud transport lands later — by default the store is local-only
+ * (« Local »). When writes are queued offline it shows « N changements en
+ * attente » with the current status tone (iter 2).
  */
 export function SyncIndicator(): JSX.Element {
 	const status = useSyncStatus()
+	const pending = useSyncPending()
 	const { label, tone } = SYNC_STATUS[status]
+	// Pending writes take the label (the count is what the author needs to see);
+	// the tone still follows the status (bad on error, accent while syncing).
+	const display = pending > 0 ? `${pending} ${plural(pending, 'changement')} en attente` : label
 	return (
-		<div role="status" aria-live="polite" aria-label={`Synchronisation : ${label}`} style={wrapper}>
-			<Badge tone={tone}>{label}</Badge>
+		<div role="status" aria-live="polite" aria-label={`Synchronisation : ${display}`} style={wrapper}>
+			<Badge tone={tone}>{display}</Badge>
 		</div>
 	)
 }

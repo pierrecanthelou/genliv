@@ -31,4 +31,16 @@ describe('cloud-sync — SyncIndicator', () => {
 
 		expect(screen.getByRole('status')).toHaveTextContent(/synchronisé/i)
 	})
+
+	it('surfaces « N changements en attente » when writes are queued offline (iter 2)', async () => {
+		const { brain } = renderWith({ push: () => Promise.reject(new Error('offline')) }, 0)
+
+		await act(async () => {
+			brain.persistence.set('genliv:a', 1)
+			brain.persistence.set('genliv:b', 2)
+			await new Promise((r) => setTimeout(r, 0)) // let the batch flush + fail
+		})
+
+		expect(screen.getByRole('status')).toHaveTextContent(/2 changements en attente/i)
+	})
 })
