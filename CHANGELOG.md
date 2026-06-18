@@ -2,6 +2,13 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.4.0 — book-creation iteration 3 (V3 slice — tier opens 🚀)
+
+- **Cloud-first create, surfaced + locked in.** The cloud-first persistence the iter-3 goal describes was already satisfied transparently by the `CloudSyncService` decorator (KR-093): `createBook` writes through `brain.sync`, so a new book is **local-first** (synchronous local write) and **queued for the background cloud push**, and `listBooks`/`getBook` **restore it on reload**. This slice surfaces that to the author and pins it with tests rather than re-plumbing persistence.
+- **Sync-aware cloud-first hint** in `NewBookDialog`: a muted line reads the brain `useSyncStatus` external store (KR-013, no `useEffect` mirror) and derives its reassurance copy from a closed-set `Record<SyncStatus, string>` (KR-117) — **offline** promises a later sync (« Enregistré sur cet appareil, synchronisé au retour en ligne »), **online** an immediate one — so « Créer » visibly works without a connection and the book is saved on-device first. The copy Record lives in the feature (not brain): book-creation owns this author-facing string, distinct from `SyncIndicator`'s badge-label Record (KR-109).
+- **Integration tests** pin the contract: a created book **persists + survives a reload** (a fresh brain over the same store re-reads it); a configured-but-unreachable transport **queues the create** (`pendingCount() >= 1`) while the book stays **readable locally**; the offline hint renders.
+- 206 tests passing (+3). **🚀 The 0.4.x / V3 tier opens** — iteration 3 of each feature that has one, in build order, starting with `book-creation`.
+
 ## 0.3.8 — cloud-sync iteration 2 (V2 slice — tier complete 🏁)
 
 - **Offline write queue**: the pending pushes are now a **persisted queue** (`CLOUDSYNC_QUEUE_KEY`, local namespace via the underlying store — no echo, not a book key) loaded at startup, so an **unconfirmed write survives a reload**. A failed push **keeps the queue** (status → `error`) instead of dropping the batch; on success only the entries actually pushed are dequeued (a newer write to the same key during the in-flight push stays queued), guarded by a `flushing` flag against double-push.

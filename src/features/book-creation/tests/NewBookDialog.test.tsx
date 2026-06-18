@@ -1,11 +1,19 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { createBrain, BrainProvider } from '../../../brain'
 import { NewBookDialog } from '../components/NewBookDialog'
 
 function renderDialog() {
 	const onCreate = jest.fn()
 	const onCancel = jest.fn()
-	render(<NewBookDialog onCancel={onCancel} onCreate={onCreate} />)
+	// The dialog reads the sync status (cloud-first hint) via the brain, so it
+	// must render under a BrainProvider; createBrain() is local-only (offline).
+	const brain = createBrain()
+	render(
+		<BrainProvider brain={brain}>
+			<NewBookDialog onCancel={onCancel} onCreate={onCreate} />
+		</BrainProvider>,
+	)
 	return { onCreate, onCancel }
 }
 
@@ -62,5 +70,11 @@ describe('NewBookDialog', () => {
 		await user.keyboard('{Escape}')
 		expect(onCancel).toHaveBeenCalled()
 		expect(onCreate).not.toHaveBeenCalled()
+	})
+
+	it('shows the cloud-first hint (offline: saved on device, synced later)', () => {
+		renderDialog()
+		// createBrain() is local-only (offline), so the hint promises a later sync.
+		expect(screen.getByText(/synchronisé au retour en ligne/i)).toBeInTheDocument()
 	})
 })

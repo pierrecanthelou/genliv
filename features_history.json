@@ -20,7 +20,11 @@
 			],
 			"lessons_learned": [
 				"react/no-unescaped-entities flags raw apostrophes in JSX text — use the typographic apostrophe in French copy.",
-				"Iteration 3 (cloud-first offline queue) blocked on the cloud-sync feature / CloudSyncService not yet existing; left planned."
+				"Iteration 3 (cloud-first offline queue) blocked on the cloud-sync feature / CloudSyncService not yet existing; left planned.",
+				"iter 3: when the named mechanics of an iteration are already satisfied transparently by infrastructure landed later (the CloudSyncService decorator made createBook local-first + offline-queued + restore-on-reload for free), the honest slice is to SURFACE the behaviour to the user + LOCK it with integration tests, not to re-plumb persistence — the decorator boundary already did the work (KR-093).",
+				"iter 3: a per-state UI string varying over a closed union (SyncStatus) is a Record<Union,string> (KR-117), never an if/ternary ladder — even two distinct messages across five states go in the Record so adding a state is one entry.",
+				"iter 3: reading useSyncStatus made the dialog require a BrainProvider — a bare-render unit test (no provider) then throws; wrap the dialog test in a provider (createBrain() is offline by default, which also exercises the offline hint copy).",
+				"iter 3: keep an author-facing copy string in the feature that owns it (the create-dialog hint), not brain — KR-109 only promotes a SHARED concern, and this Record is distinct from SyncIndicator's badge-label Record despite both keying on SyncStatus."
 			],
 			"bugs_encountered": []
 		},
