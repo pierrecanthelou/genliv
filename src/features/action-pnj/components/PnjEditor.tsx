@@ -24,6 +24,10 @@ const DEFAULT_PNJ: PnjConfig = { name: '', dialogue: '' }
  * de scénario) with a value stepper — reusing the shared brain ObjectEditor for
  * its identity (KR-052) — plus a « ensuite le PNJ mène à » target. Every write
  * canonicalises through giftOf so the skeleton's bare-object gift migrates (KR-116).
+ *
+ * Iteration 2 (§ 4A identity): a RÔLE field for a richer identity, and a portrait
+ * dropzone. The actual image UPLOAD is deferred project-wide (no image scope yet,
+ * like node-editor's illustration), so the portrait ships as a disabled affordance.
  */
 export function PnjEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element {
 	const { books } = useBrain()
@@ -36,8 +40,8 @@ export function PnjEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element 
 
 	function patchPnj(patch: Partial<PnjConfig>): void {
 		// Write the canonical shape (migrated gift) so a legacy bare-object gift is
-		// rewritten on the first edit; an undefined gift/target is dropped by JSON.
-		const base: PnjConfig = { name: pnj.name, dialogue: pnj.dialogue, gift, target: pnj.target }
+		// rewritten on the first edit; an undefined gift/target/role is dropped by JSON.
+		const base: PnjConfig = { name: pnj.name, role: pnj.role, dialogue: pnj.dialogue, gift, target: pnj.target }
 		books.updateNode(bookId, nodeId, { pnj: { ...base, ...patch } })
 	}
 
@@ -53,6 +57,19 @@ export function PnjEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element 
 				placeholder="Le vieil ermite"
 				onChange={(e) => patchPnj({ name: e.target.value })}
 			/>
+			<Field
+				label="RÔLE"
+				hint="optionnel"
+				value={pnj.role ?? ''}
+				placeholder="Marchand, gardien du seuil…"
+				onChange={(e) => patchPnj({ role: e.target.value })}
+			/>
+			<section>
+				<span style={sectionLabel}>Portrait</span>
+				<div style={portraitDropzone} aria-disabled="true">
+					⬚ Portrait du PNJ — dépôt d’image à venir
+				</div>
+			</section>
 			<Field
 				label="DIALOGUE"
 				hint="lu par le joueur"
@@ -73,4 +90,26 @@ export function PnjEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element 
 			/>
 		</div>
 	)
+}
+
+const sectionLabel: React.CSSProperties = {
+	display: 'block',
+	fontFamily: 'var(--font-mono)',
+	fontSize: 'var(--fs-eyebrow)',
+	color: 'var(--text-label)',
+	letterSpacing: 'var(--track-eyebrow)',
+	marginBottom: 5,
+}
+
+/** Deferred portrait affordance — disabled until image scope lands (no upload yet). */
+const portraitDropzone: React.CSSProperties = {
+	border: '1.5px dashed var(--border-field)',
+	borderRadius: 'var(--r-lg)',
+	background: 'var(--paper-1)',
+	color: 'var(--text-faint)',
+	fontFamily: 'var(--font-mono)',
+	fontSize: 'var(--fs-meta)',
+	textAlign: 'center',
+	padding: 'var(--space-6)',
+	cursor: 'not-allowed',
 }

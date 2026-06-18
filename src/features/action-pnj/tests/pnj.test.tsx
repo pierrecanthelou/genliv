@@ -154,4 +154,17 @@ describe('action-pnj', () => {
 
 		expect(screen.getByRole('button', { name: /cible supprimée/i })).toBeInTheDocument()
 	})
+
+	it('persists a richer identity « rôle » and shows the deferred portrait affordance (iter 2)', async () => {
+		const user = userEvent.setup()
+		const { brain, bookId, nodeId } = setup()
+		await openPnj(user)
+
+		await user.type(screen.getByRole('textbox', { name: /rôle/i }), 'Marchand ambulant')
+		expect(pnjOf(brain, bookId, nodeId)?.role).toBe('Marchand ambulant')
+
+		// The portrait is a deferred affordance until image scope lands (no upload yet).
+		const portrait = screen.getByText(/portrait du pnj/i)
+		expect(portrait).toHaveAttribute('aria-disabled', 'true')
+	})
 })

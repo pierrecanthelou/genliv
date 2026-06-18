@@ -194,7 +194,9 @@
 				"Patch semantics: updateNode skips top-level undefined keys, but a nested undefined (pnj.gift) is fine — it reads as absent in memory and is dropped by JSON on persist, so a toggle-off cleanly removes a sub-object without a dedicated unset API.",
 				"Normalising the config once (DEFAULT_PNJ + destructure) from the start avoided the scattered-default smell DecorEditor had to be refactored out of — apply the cleaned pattern to each new action editor.",
 				"iter 1: a config node-reference (« mène à » → pnj.target) is the right skeleton for a non-choice screen change the canvas can't draw yet — capture the id + surface dangling (KR-021/063), defer the rendered edge to the dedicated action-edge path (KR-067), mirroring action-trap's deferred échec→Mort edge.",
-				"iter 1: a node-title shown both in a config picker AND on a canvas card collides in RTL `getByRole` — the card name is « Nœud #N — Title » so use an EXACT picker-button name (not /Title/) to disambiguate (cf. the outline /Sommaire$/ lesson)."
+				"iter 1: a node-title shown both in a config picker AND on a canvas card collides in RTL `getByRole` — the card name is « Nœud #N — Title » so use an EXACT picker-button name (not /Title/) to disambiguate (cf. the outline /Sommaire$/ lesson).",
+				"iter 2: when a spec goal collides with a project-wide rule (« portrait upload » vs the no-image-scope deferral), deliver the achievable part (a deferred dropzone affordance + the richer-identity `role` field) and record the deviation — don't fake the unsupported capability. Match the existing deferral pattern (node-editor's disabled illustration dropzone).",
+				"iter 2: a deferred « bientôt disponible » placeholder must not reuse another component's exact copy — node-editor's illustration dropzone and the PNJ portrait both render in the panel, so identical text breaks getByText. Give each deferred affordance distinct copy (« Portrait du PNJ — … »)."
 			],
 			"bugs_encountered": []
 		},

@@ -22,9 +22,17 @@
 		"walking_skeleton": "registerActionPnj registers an ActionEditor { type:'pnj', label:'PNJ', render } with the brain ActionRegistry (wired at the App composition root, alongside action-decor). PnjEditor reads node.pnj live via useOpenBook and writes via BookService.updateNode: a NAME Field, a DIALOGUE Field, and a « donne un objet » Toggle that reveals the shared brain ObjectEditor for the gift (stable id). Reusable PNJ catalog + portrait + dialogue tree are later iterations.",
 		"n": 3,
 		"iterations": [
-			{ "id": 1, "goal": "Gift effect (§ 4A): object effect (+N PV / +N Attaque / +N Défense / objet de scénario) + value stepper; « ensuite le PNJ mène à » target wiring.", "status": "done" },
-			{ "id": 2, "goal": "Portrait upload + the dialogue affordance; richer identity.", "status": "planned" },
-			{ "id": 3, "goal": "Reusable PNJs via a shared catalog (« créer / choisir dans le livre »), referenced by stable id — paired with the ObjectCatalogService work (KR-062).", "status": "planned" }
+			{
+				"id": 1,
+				"goal": "Gift effect (§ 4A): object effect (+N PV / +N Attaque / +N Défense / objet de scénario) + value stepper; « ensuite le PNJ mène à » target wiring.",
+				"status": "done"
+			},
+			{ "id": 2, "goal": "Portrait upload + the dialogue affordance; richer identity.", "status": "done" },
+			{
+				"id": 3,
+				"goal": "Reusable PNJs via a shared catalog (« créer / choisir dans le livre »), referenced by stable id — paired with the ObjectCatalogService work (KR-062).",
+				"status": "planned"
+			}
 		],
 		"known_risks": [
 			"KR-050/051 — node-editor is a host: action-pnj self-registers via the ActionRegistry and is mounted without being imported; adding the action needs zero node-editor changes.",
@@ -74,6 +82,24 @@
 				"test_coverage": {
 					"unit": "giftOf migration (new shape / legacy bare object / none), blankGift fresh id + +1 PV default, clampGiftValue bounds+round, GIFT_EFFECTS hasValue",
 					"integration": "action-pnj via App — name/dialogue + gift (effect default +1 PV, stable id preserved), change effect + value stepper, plot object hides the stepper, remove gift, « mène à » select+clear (structural screens excluded)",
+					"e2e": "deferred (Playwright not set up)"
+				}
+			},
+			{
+				"id": 2,
+				"label": "iteration-2",
+				"completed_at": "2026-06-18",
+				"architecture_choices": [
+					"Richer identity: PnjConfig gained an optional `role` (« Marchand », « Gardien du seuil »…), authored in a RÔLE Field and carried in the canonical patchPnj write { name, role, dialogue, gift, target } so editing one facet never drops it (an undefined role is dropped by JSON, like gift/target). VIEW over BookService, no private copy (KR-020/013).",
+					"Portrait ships as a DEFERRED affordance: a disabled dashed dropzone (aria-disabled) reading « Portrait du PNJ — dépôt d'image à venir », mirroring node-editor's illustration deferral. The distinct copy avoids colliding with node-editor's own « Dépôt d'image bientôt disponible » (both render in the panel at once)."
+				],
+				"deviations_from_plan": [
+					"SPEC vs PROJECT RULE: the iter-2 goal says « Portrait UPLOAD », but image handling is deferred project-wide (no image scope — node-editor's illustration is likewise a disabled dropzone). So the slice delivers the portrait AFFORDANCE (disabled dropzone) + the richer-identity `role` field; the actual upload lands when image scope does. The « dialogue affordance » was already shipped as the DIALOGUE Field in the skeleton — iter 2's net-new is role + the portrait affordance.",
+					"Reusable-PNJ catalog (« créer / choisir dans le livre ») stays iteration 3, paired with the ObjectCatalogService (KR-062)."
+				],
+				"test_coverage": {
+					"unit": "covered via integration (role + portrait are presentational)",
+					"integration": "action-pnj via App — the RÔLE field persists on pnj.role; the portrait dropzone renders as a disabled (aria-disabled) deferred affordance",
 					"e2e": "deferred (Playwright not set up)"
 				}
 			}

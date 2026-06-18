@@ -2,6 +2,12 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.3.5 — action-pnj iteration 2 (V2 slice)
+
+- **Richer identity (§ 4A)**: the PNJ editor gains a **RÔLE** field (`pnj.role` — « Marchand », « Gardien du seuil »…), carried through the canonical `patchPnj` write so editing one facet never drops another.
+- **Portrait** ships as a **deferred dropzone** affordance (disabled, `aria-disabled`) — the actual image **upload is deferred project-wide** (no image scope yet, exactly like node-editor's illustration). The « dialogue affordance » in the iter-2 goal was already the skeleton's DIALOGUE field; the net-new is the role + the portrait affordance. (Recorded as a spec-vs-project-rule deviation.)
+- 194 tests passing (+1). Reusable-PNJ catalog deferred to iter 3.
+
 ## 0.3.4 — action-decor iteration 2 (V2 slice)
 
 - **« Écouter » / « Fouiller » reveal (§ 4B)**: the two décor interactions (previously stubs) gain a `RevealEditor` — the heard/found text plus an optional **« jet requis »** that gates it behind a skill roll: a **caractéristique** (`SegmentedControl` from the brain `CHARACTERISTICS` registry) + a **difficulté** `Stepper` + the shared brain **`OutcomesEditor`** for the réussite/échec reveal (the only semantic outcomes, KR-091/117). Toggling the gate off drops the roll + outcomes but keeps the base text.

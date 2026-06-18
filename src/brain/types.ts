@@ -165,6 +165,8 @@ export interface PnjGift {
 export interface PnjConfig {
 	/** The PNJ's name (author/display). */
 	name: string
+	/** The PNJ's role / function (« Marchand », « Gardien du seuil »…), optional. */
+	role?: string
 	/** What the PNJ says — read by the player. */
 	dialogue: string
 	/** The object the PNJ gives, if any (effect + value + shared ObjectEditor). */
