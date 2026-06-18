@@ -45,8 +45,12 @@ const CHARACTERISTIC_OPTIONS: SegmentedOption<Characteristic>[] = CHARACTERISTIC
  * CHARACTERISTICS registry, KR-117) + a DIFFICULTÉ stepper gate which outcome
  * applies; the réussite/échec reveal texts use the shared brain OutcomesEditor
  * (KR-117/091). The « échec mène à la Mort » toggle is the « échec sanctionné »
- * variant (the automatic →Mort edge is wired later, KR-067). A skeleton trap
- * (no roll) migrates in the default roll on read (KR-116).
+ * variant. A skeleton trap (no roll) migrates in the default roll on read (KR-116).
+ *
+ * Iteration 2 — the « échec sanctionné » fatal flag now WIRES the automatic →Mort
+ * link (KR-067): a new `fatal` edge kind + the pure brain deriveAutomaticEdges
+ * derive it from the config at the view (never stored, never the manual edge API),
+ * so the canvas draws a dashed « ✕ Mort » edge whenever the trap is fatal.
  */
 export function TrapEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element {
 	const { books } = useBrain()
@@ -100,7 +104,14 @@ export function TrapEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element
 			</div>
 
 			<OutcomesEditor value={trap.outcomes} onChange={setOutcome} />
-			<Toggle label="L’échec mène à la Mort" checked={trap.fatal} onChange={(fatal) => patchTrap({ fatal })} />
+			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+				<Toggle label="L’échec mène à la Mort" checked={trap.fatal} onChange={(fatal) => patchTrap({ fatal })} />
+				{trap.fatal && (
+					<p style={fatalNote}>
+						Lien automatique vers la Mort <span style={{ color: 'var(--text-faint)' }}>(tracé sur l’arbre)</span>
+					</p>
+				)}
+			</div>
 		</div>
 	)
 }
@@ -116,4 +127,11 @@ const sectionLabel: React.CSSProperties = {
 	fontSize: 'var(--fs-eyebrow)',
 	color: 'var(--text-label)',
 	letterSpacing: 'var(--track-eyebrow)',
+}
+
+const fatalNote: React.CSSProperties = {
+	margin: 0,
+	fontFamily: 'var(--font-mono)',
+	fontSize: 'var(--fs-meta)',
+	color: 'var(--text-muted)',
 }

@@ -99,4 +99,32 @@ describe('action-trap', () => {
 		expect(trap?.outcomes).toEqual({ reussite: 'ok', echec: 'aïe' })
 		expect(trap?.fatal).toBe(true)
 	})
+
+	it('« échec sanctionné »: the fatal flag draws the automatic →Mort link on the canvas (iter 2, KR-067)', async () => {
+		const user = userEvent.setup()
+		// Seed a trap action node BEFORE render so the live view never mutates outside act().
+		const brain = createBrain()
+		const created = brain.books.createBook('La Caverne')
+		const node = brain.books.addNode(created.id, 'choix')!
+		brain.books.updateNode(created.id, node.id, {
+			actionType: 'piege',
+			trap: { description: 'Dalle', outcomes: { reussite: '', echec: '' }, fatal: false },
+		})
+		brain.router.navigate({ name: 'editor', bookId: created.id })
+		render(
+			<BrainProvider brain={brain}>
+				<App />
+			</BrainProvider>,
+		)
+
+		// No automatic link while the trap is not fatal.
+		expect(screen.queryByText(/✕ Mort/)).not.toBeInTheDocument()
+
+		await user.click(screen.getByRole('button', { name: /Nœud #3/ }))
+		await user.click(screen.getByRole('radio', { name: 'Piège' }))
+		await user.click(screen.getByRole('switch', { name: /mène à la mort/i }))
+
+		// The derived fatal edge now renders on the canvas (its « ✕ Mort » chip).
+		expect(screen.getByText('✕ Mort')).toBeInTheDocument()
+	})
 })

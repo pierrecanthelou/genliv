@@ -22,9 +22,21 @@
 		"walking_skeleton": "registerActionTrap registers an ActionEditor { type:'piege', label:'Piège', render } with the brain ActionRegistry (wired at the App composition root). TrapEditor reads node.trap live via useOpenBook and writes via BookService.updateNode: a DESCRIPTION Field, the shared brain OutcomesEditor for the réussite/échec reveal texts, and a « L'échec mène à la Mort » Toggle (fatal). Skill caractéristique/difficulté + the automatic →Mort edge are later iterations.",
 		"n": 3,
 		"iterations": [
-			{ "id": 1, "goal": "Skill roll (§ 05): CARACTÉRISTIQUE select + DIFFICULTÉ; the roll gates which outcome applies; surface réussite/échec.", "status": "done" },
-			{ "id": 2, "goal": "Wire outcome targets through edges; the « échec sanctionné » fatal flag creates/maintains the automatic →Mort link (KR-067), not the manual edge API.", "status": "planned" },
-			{ "id": 3, "goal": "Trap-on-object variant (a décor « prendre » object that triggers a trap roll) — share the roll model with action-decor.", "status": "planned" }
+			{
+				"id": 1,
+				"goal": "Skill roll (§ 05): CARACTÉRISTIQUE select + DIFFICULTÉ; the roll gates which outcome applies; surface réussite/échec.",
+				"status": "done"
+			},
+			{
+				"id": 2,
+				"goal": "Wire outcome targets through edges; the « échec sanctionné » fatal flag creates/maintains the automatic →Mort link (KR-067), not the manual edge API.",
+				"status": "done"
+			},
+			{
+				"id": 3,
+				"goal": "Trap-on-object variant (a décor « prendre » object that triggers a trap roll) — share the roll model with action-decor.",
+				"status": "planned"
+			}
 		],
 		"known_risks": [
 			"KR-050/051 — node-editor is a host: action-trap self-registers via the ActionRegistry and is mounted without being imported; adding the action needs zero node-editor changes.",
@@ -74,11 +86,30 @@
 					"e2e": "deferred (Playwright not set up)",
 					"review_note": "Pre-commit tech-lead review (APPROVE): folded in the migration test, hoisted the roll-section inline style to a const, and commented the intentional roll.trait cast."
 				}
+			},
+			{
+				"id": 2,
+				"label": "iteration-2",
+				"completed_at": "2026-06-18",
+				"architecture_choices": [
+					"The « échec sanctionné » fatal flag now WIRES the automatic →Mort link (KR-067). Built the deferred « dedicated combat/trap path » as a VIEW-DERIVED edge, never the manual edge API (which rejects a Mort target): a new pure brain helper deriveAutomaticEdges(book) emits, for each node whose ACTIVE action is a fatal trap (actionType === 'piege' && trap.fatal), a synthetic Edge { id: auto-fatal-<id>, from, to: mort, kind: 'fatal' }. Derived at the view, NEVER stored — so the config stays the SSOT and the link can never desync (KR-020/013), and it is created/maintained automatically (present iff fatal).",
+					"A new `fatal` EdgeKind in the EDGE_KINDS registry (one entry, KR-068): dashed (EdgeLayer already dashes every non-choice kind) with a « ✕ Mort » canvasLabel. The manual addEdge still rejects a Mort target (KR-067) — the fatal kind only ever reaches the canvas through the derived path, never through book.edges.",
+					"tree-canvas renders authored + derived edges together: resolveEdges([...book.edges, ...deriveAutomaticEdges(book)]). Gated on actionType (not node.kind) because the action config is keyed by actionType — a 'choix' node with « Piège » as its required action carries the live trap. TrapEditor shows a « lien automatique vers la Mort (tracé sur l'arbre) » note when fatal."
+				],
+				"deviations_from_plan": [
+					"Scoped to the trap fatal→Mort link (the action-trap deliverable). deriveAutomaticEdges is written to GENERALISE to the other deferred outcome targets (monster victoire/fuite/défaite, PNJ « mène à ») — those fold into the same helper when their promotions land, but are not wired in this slice to keep it bounded to action-trap.",
+					"A death edge to the single shared Mort leaf (which lays out as a free node) is inherently a long dashed line; acceptable for the low-fi wireframe — it is a distinct (dashed « ✕ Mort ») visual class from the authored choice tree."
+				],
+				"test_coverage": {
+					"unit": "deriveAutomaticEdges — fatal trap action → Mort edge, nothing for a non-fatal/non-piège-action node (incl. stale trap config), nothing without a Mort leaf or a null book",
+					"integration": "action-trap via App — toggling « L'échec mène à la Mort » draws the « ✕ Mort » edge chip on the canvas (and not before)",
+					"e2e": "deferred (Playwright not set up)"
+				}
 			}
 		],
 		"open_questions": [
-			"Skill roll model (caractéristique/difficulté) — shared with the décor « jet requis » (iteration 1/3).",
-			"The automatic échec→Mort edge (KR-067) and outcome targets (iteration 2)."
+			"Trap-on-object variant (iteration 3) sharing the roll model with action-decor.",
+			"Generalising deriveAutomaticEdges to the monster/PNJ outcome targets (a follow-up to this slice's trap fatal→Mort path)."
 		]
 	}
 }

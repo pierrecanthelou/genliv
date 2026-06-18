@@ -155,6 +155,10 @@ export const EDGE_KINDS = defineKinds<EdgeKindDescriptor>()({
 	choice: { rowLabel: 'choix', rowTone: 'neutral', canvasLabel: '→', nests: true },
 	relink: { rowLabel: 'reliaison', rowTone: 'muted', canvasLabel: 'Reliaison ↻', nests: false },
 	flee: { rowLabel: 'fuite', rowTone: 'muted', canvasLabel: 'Fuite ↻', nests: false },
+	// An AUTOMATIC edge derived from a node's config (never authored via addEdge):
+	// a trap's « échec sanctionné » fatal flag → the Mort leaf (KR-067). Derived at
+	// the view by deriveAutomaticEdges, never stored, so the config stays the SSOT.
+	fatal: { rowLabel: 'fatale', rowTone: 'muted', canvasLabel: '✕ Mort', nests: false },
 })
 
 /** Edge kinds — derived from the registry keys. A `choice` is a labelled button. */

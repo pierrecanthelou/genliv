@@ -124,7 +124,7 @@
 		{
 			"id": "KR-067",
 			"feature": "choice-linking",
-			"risk": "Structural screens are never authored choice targets: the Sommaire root has no incoming choices and the Mort leaf is reached ONLY automatically at the end of a combat, never via a choice/relink. Enforce at the SSOT (BookService.addEdge rejects a target whose kind is sommaire/mort) AND in the relink picker (exclude them from candidates), not just one. The future automatic combat→Mort link uses a dedicated path, not the manual edge API."
+			"risk": "Structural screens are never authored choice targets: the Sommaire root has no incoming choices and the Mort leaf is reached ONLY automatically at the end of a combat, never via a choice/relink. Enforce at the SSOT (BookService.addEdge rejects a target whose kind is sommaire/mort) AND in the relink picker (exclude them from candidates), not just one. The automatic combat→Mort link uses a DEDICATED path, not the manual edge API — IMPLEMENTED (action-trap iter 2) as a VIEW-DERIVED edge: brain/deriveAutomaticEdges(book) emits a synthetic { kind: 'fatal' } edge from each fatal-trap node (actionType === 'piege' && trap.fatal) to the Mort leaf; the canvas renders authored + derived edges together (resolveEdges([...book.edges, ...derived])). Derived, NEVER stored — the config stays the SSOT so the link can't desync and never touches addEdge (KR-020/013). Gate on actionType (the action config key), not node.kind. The same helper generalises to the other deferred outcome targets (monster victoire/fuite/défaite, PNJ « mène à »)."
 		},
 		{
 			"id": "KR-068",

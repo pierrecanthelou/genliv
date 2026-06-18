@@ -48,6 +48,7 @@ export {
 	edgeNests,
 } from './kinds'
 export { getNode, getEdge } from './utils/book'
+export { deriveAutomaticEdges } from './utils/automaticEdges'
 export type { NodeKindDescriptor, EdgeKindDescriptor, BadgeMark } from './kinds'
 export { useOpenBook, useBooks } from './hooks'
 export { HIT_TARGET_MIN } from './ui'

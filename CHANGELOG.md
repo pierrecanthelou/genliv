@@ -2,6 +2,13 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.3.7 — action-trap iteration 2 (V2 slice)
+
+- **The « échec sanctionné » fatal flag now wires the automatic →Mort link (§ 05, KR-067)** — the long-deferred "dedicated combat/trap path". Built as a **view-derived** edge, never stored and never the manual `addEdge` API (which rejects a Mort target): a new pure brain **`deriveAutomaticEdges(book)`** emits a synthetic `{ kind: 'fatal' }` edge from each fatal-trap node (`actionType === 'piege' && trap.fatal`) to the Mort leaf; `TreeCanvas` resolves authored + derived edges together. The config stays the SSOT, so the link can never desync (KR-020/013) and is present iff fatal.
+- New **`fatal` edge kind** in the `EDGE_KINDS` registry (one entry, KR-068): the canvas draws it as a dashed **« ✕ Mort »** edge (`EdgeLayer` already dashes every non-`choice` kind). The `TrapEditor` shows a « lien automatique vers la Mort » note when fatal.
+- Scoped to the trap fatal→Mort link; `deriveAutomaticEdges` generalises to the deferred monster/PNJ outcome targets (a follow-up).
+- 199 tests passing (+4). Trap-on-object variant remains iter 3.
+
 ## 0.3.6 — action-monster iteration 2 (V2 slice)
 
 - **« Butin lâché » loot (§ 4D)**: a « Le monstre lâche un butin » toggle reveals the shared brain **`ObjectEditor`** (its **4th** reuse, after décor/pnj/the gift — KR-052/109) for the object dropped on victory, persisted on `monster.loot` with a stable id (`blankLoot`/`createId`, KR-003); toggling off drops it. Live-edited (no modal — a toggle-gated single object has no cancel-a-new-item need).

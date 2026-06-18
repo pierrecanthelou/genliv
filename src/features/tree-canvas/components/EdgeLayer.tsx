@@ -3,9 +3,10 @@ import { type EdgeGeometry } from '../layout/geometry'
 
 /**
  * SVG connectors between nodes (wireframe § 02): a shared arrowhead marker,
- * `choice` edges solid and `relink`/`flee` (« fuite ») edges dashed, each
- * carrying a centered mono label chip with the choice text. Orphaned edges
- * are already filtered out upstream (KR-021), so every segment has anchors.
+ * `choice` edges solid and every non-`choice` kind (`relink`/`flee`, and the
+ * derived `fatal` « ✕ Mort » link) dashed, each carrying a centered mono label
+ * chip. Orphaned edges are filtered out upstream (KR-021), so every segment has
+ * anchors.
  */
 export interface EdgeLayerProps {
 	edges: EdgeGeometry[]

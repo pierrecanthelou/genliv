@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { useBrain, useRoute, useSelectedNode, useOpenBook } from '../../../brain'
+import { useBrain, useRoute, useSelectedNode, useOpenBook, deriveAutomaticEdges } from '../../../brain'
 import { useViewport } from '../hooks/useViewport'
 import { resolvePositions, resolveEdges, resolveBounds, NODE_W, NODE_H } from '../layout/geometry'
 import { NodeCard } from './NodeCard'
@@ -42,7 +42,12 @@ export function TreeCanvas({ reveal }: { reveal?: RevealRequest } = {}): JSX.Ele
 	const centredSeqRef = useRef<number>(-1)
 
 	const positions = useMemo(() => resolvePositions(book?.nodes ?? [], book?.edges ?? []), [book])
-	const edges = useMemo(() => resolveEdges(book?.edges ?? [], positions), [book, positions])
+	// Authored edges plus the automatic ones derived from node configs (the trap
+	// « échec sanctionné » → Mort link, KR-067) — derived at the view, never stored.
+	const edges = useMemo(
+		() => resolveEdges([...(book?.edges ?? []), ...deriveAutomaticEdges(book)], positions),
+		[book, positions],
+	)
 	const bounds = useMemo(() => resolveBounds(positions), [positions])
 
 	// « Centrer dans l'arbre »: centre on the revealed node once per request. The
