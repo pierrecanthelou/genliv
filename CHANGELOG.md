@@ -8,6 +8,12 @@
 - **Searchable relink popover (§ 06 B)**: « Relier… » gains a brain `Field` search box that filters candidates by title (case-insensitive), autofocused on open for keyboard use; a non-matching query shows « Aucun nœud ne correspond », distinct from the « Aucun autre nœud » no-candidates state. The picker mirrors both SSOT guards — the current node and any **already-relinked** target are excluded — so it never offers a rejected edge (SSOT is the law; the picker is convenience). Filtering is derived inline (KR-013), no `useEffect` mirror.
 - 170 tests passing (+3). Hidden-prerequisite (iter 3) and countdown (iter 4) still await `ObjectCatalogService`. **Tier 0.3.x / V2 begins.**
 
+**Follow-up refinements (user-requested, fold into 0.3.1 — no bump):**
+
+- **Confirmation-gated branch deletion (dangerous-action rule + KR-064)**: the « Choix sortants » row ✕ no longer removes the edge immediately — it opens a `DeleteBranchDialog` (brain `Modal`, `confirmTone="error"`, labelled « Annuler »). The dialog states the destination **node is not deleted** (only the link) and, when this is the node's **sole incoming link**, warns it will become unreachable (the KR-064 orphan prompt, computed live). Removal still only deletes the edge; the orphaned node survives.
+- **Removed the deferred « Libellé du choix » note** from the node-editor panel: it was a skeleton-era hint pointing authors to the parent's « Choix sortants », rendered read-only on **every** non-structural node. Now that the label is editable there (iter 1), the note was pure clutter — the panel drops the libellé section entirely.
+- 172 tests passing (+2).
+
 ## Code-health — P4 (registry predicates + book lookups) — no version bump
 
 Cross-cutting cleanup from a review of inline `// FIX:`/`// TODO:` notes (folds into the touched code; see `docs/ROADMAP.md` § Code-health sweep, P4):

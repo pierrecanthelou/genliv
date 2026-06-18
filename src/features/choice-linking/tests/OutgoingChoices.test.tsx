@@ -156,9 +156,56 @@ describe('choice-linking — outgoing choices', () => {
 		const user = userEvent.setup()
 		await user.click(screen.getByRole('button', { name: /Nœud #1 — Sommaire/ }))
 
+		// The ✕ now only REQUESTS deletion — a confirmation dialog guards it.
 		await user.click(screen.getByRole('button', { name: /supprimer la branche/i }))
+		await user.click(screen.getByRole('button', { name: 'Supprimer' }))
 
 		expect(outgoingOf(brain, book.id, 'sommaire')).toHaveLength(0)
 		expect(brain.books.getBook(book.id)!.nodes.some((n) => n.id === created.node.id)).toBe(true)
+	})
+
+	it('cancelling the delete-branch confirmation keeps the edge (dangerous-action guard)', async () => {
+		const brain = createBrain()
+		const book = brain.books.createBook('La Caverne')
+		const sommaireId = brain.books.getBook(book.id)!.nodes.find((n) => n.kind === 'sommaire')!.id
+		brain.books.addChoiceBranch(book.id, sommaireId)!
+		brain.router.navigate({ name: 'editor', bookId: book.id })
+		render(
+			<BrainProvider brain={brain}>
+				<App />
+			</BrainProvider>,
+		)
+		const user = userEvent.setup()
+		await user.click(screen.getByRole('button', { name: /Nœud #1 — Sommaire/ }))
+
+		await user.click(screen.getByRole('button', { name: /supprimer la branche/i }))
+		// A sole incoming link warns about orphaning the child (KR-064).
+		expect(screen.getByRole('dialog')).toHaveTextContent(/seul lien/i)
+		await user.click(screen.getByRole('button', { name: 'Annuler' }))
+
+		expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+		expect(outgoingOf(brain, book.id, 'sommaire')).toHaveLength(1)
+	})
+
+	it('does not warn about orphaning when the destination has another incoming link (KR-064)', async () => {
+		const brain = createBrain()
+		const book = brain.books.createBook('La Caverne')
+		const sommaireId = brain.books.getBook(book.id)!.nodes.find((n) => n.kind === 'sommaire')!.id
+		// The Sommaire branches to a child that is ALSO reached by a relink from
+		// another node, so deleting this branch leaves the child reachable.
+		const child = brain.books.addChoiceBranch(book.id, sommaireId)!.node
+		const other = brain.books.addNode(book.id, 'choix')!
+		brain.books.addEdge(book.id, other.id, child.id, 'relink')
+		brain.router.navigate({ name: 'editor', bookId: book.id })
+		render(
+			<BrainProvider brain={brain}>
+				<App />
+			</BrainProvider>,
+		)
+		const user = userEvent.setup()
+		await user.click(screen.getByRole('button', { name: /Nœud #1 — Sommaire/ }))
+
+		await user.click(screen.getByRole('button', { name: /supprimer la branche/i }))
+		expect(screen.getByRole('dialog')).not.toHaveTextContent(/seul lien/i)
 	})
 })

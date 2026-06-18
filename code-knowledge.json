@@ -109,7 +109,7 @@
 		{
 			"id": "KR-064",
 			"feature": "choice-linking",
-			"risk": "Deleting a `choice` branch may orphan its child subtree; prompt/handle explicitly — do not silently leave unreachable nodes or cascade-delete without consent."
+			"risk": "Deleting a `choice` branch may orphan its child subtree; prompt/handle explicitly — do not silently leave unreachable nodes or cascade-delete without consent. Implemented: the row ✕ is confirmation-gated (DeleteBranchDialog over the brain Modal, confirmTone='error', dangerous-action rule); the dialog states the target NODE is never deleted (only the link) and warns when this is the node's SOLE incoming link (orphaning), computed live from the book. It still only removes the edge — the orphaned node survives (listed flat in the outline); a cascade 'also delete the node' affordance would need a BookService.deleteNode that does not exist yet."
 		},
 		{
 			"id": "KR-065",

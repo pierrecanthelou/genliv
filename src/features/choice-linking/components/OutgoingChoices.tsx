@@ -9,8 +9,10 @@ import {
 	getNode,
 	canBeTarget,
 	EDGE_KINDS,
+	type Edge,
 	type SlotContext,
 } from '../../../brain'
+import { DeleteBranchDialog } from './DeleteBranchDialog'
 
 /**
  * « Choix sortants » — a node's outgoing branches, mounted into node-editor's
@@ -19,7 +21,8 @@ import {
  * create/remove goes through BookService (KR-060/020); this is a live VIEW.
  *
  * Scope: list rows + « + Nouvelle branche » (new child via a `choice` edge) +
- * « Relier… » (a `relink` edge to an existing node) + remove + an editable
+ * « Relier… » (a `relink` edge to an existing node) + a confirmation-gated
+ * remove (dangerous-action rule; warns on orphaning, KR-064) + an editable
  * « libellé du choix » per row persisted on the edge via BookService (the player
  * button text; canvas falls back to the kind label when empty). Hidden
  * prerequisite / countdown rules arrive in later iterations (need
@@ -30,6 +33,9 @@ export function OutgoingChoices({ bookId, nodeId }: SlotContext): JSX.Element {
 	const book = useOpenBook(bookId)
 	const [relinking, setRelinking] = useState(false)
 	const [query, setQuery] = useState('')
+	// The branch awaiting delete confirmation (null = no dialog open). Removing an
+	// edge is destructive + irreversible, so it is gated (dangerous-action rule).
+	const [pendingDelete, setPendingDelete] = useState<Edge | null>(null)
 
 	const outgoing = book !== null ? book.edges.filter((e) => e.from === nodeId) : []
 	const titleOf = (id: string): string => {
@@ -67,6 +73,19 @@ export function OutgoingChoices({ bookId, nodeId }: SlotContext): JSX.Element {
 		setRelinking((v) => !v)
 	}
 
+	function confirmDelete(): void {
+		if (pendingDelete !== null) books.removeEdge(bookId, pendingDelete.id)
+		setPendingDelete(null)
+	}
+
+	// A branch removal orphans its destination when this is the node's ONLY
+	// incoming link — the dialog warns about it (KR-064). Computed from the live
+	// book, not stored, so it stays correct if edges change before confirming.
+	const pendingOrphans =
+		pendingDelete !== null &&
+		book !== null &&
+		book.edges.filter((e) => e.to === pendingDelete.to && e.id !== pendingDelete.id).length === 0
+
 	// Handlers are recreated each render on purpose: the list is tiny and these
 	// close over fresh book state — no preemptive useCallback/memo (perf rule).
 	return (
@@ -101,11 +120,7 @@ export function OutgoingChoices({ bookId, nodeId }: SlotContext): JSX.Element {
 								</span>
 								<span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flex: 'none' }}>
 									<Badge tone={EDGE_KINDS[edge.kind].rowTone}>{EDGE_KINDS[edge.kind].rowLabel}</Badge>
-									<IconButton
-										label="Supprimer la branche"
-										tone="danger"
-										onClick={() => books.removeEdge(bookId, edge.id)}
-									>
+									<IconButton label="Supprimer la branche" tone="danger" onClick={() => setPendingDelete(edge)}>
 										✕
 									</IconButton>
 								</span>
@@ -156,6 +171,15 @@ export function OutgoingChoices({ bookId, nodeId }: SlotContext): JSX.Element {
 					</div>
 				)}
 			</div>
+
+			{pendingDelete !== null && (
+				<DeleteBranchDialog
+					destination={titleOf(pendingDelete.to)}
+					wouldOrphan={pendingOrphans}
+					onCancel={() => setPendingDelete(null)}
+					onConfirm={confirmDelete}
+				/>
+			)}
 		</div>
 	)
 }

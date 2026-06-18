@@ -136,9 +136,12 @@
 			"Hidden-prerequisite and countdown are per-choice rules; a choice may carry both, and the countdown only ticks while visible (KR-065).",
 			"Countdown délai is a free numeric input (seconds), default 15 s, clamped 5–60 s."
 		],
+		"resolved_decisions_followups": [
+			"Branch removal (the row ✕) is a DANGEROUS action — destructive + irreversible — so it is gated behind a confirmation dialog (DeleteBranchDialog over the brain Modal, confirmTone='error'), per the dangerous-action rule. The dialog states the target NODE is never deleted (only the link) and, when this is the node's SOLE incoming link, warns it will become unreachable — the KR-064 orphan prompt, computed live from the book. Done outside the iter-2 plan on user request; folds into the V2 slice (no bump)."
+		],
 		"open_questions": [
 			"ObjectCatalogService shape (iters 3) — define when action-decor's object model lands.",
-			"Orphaned-child prompt on choice-branch delete (KR-064) — wire when deletion UX is fleshed out."
+			"Cascade vs keep on orphaning: the confirmation currently WARNS about an orphaned child but still only removes the edge (the node survives, listed flat in the outline). A future 'supprimer aussi le nœud' affordance needs BookService.deleteNode (not yet built)."
 		]
 	}
 }

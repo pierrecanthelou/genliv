@@ -24,15 +24,36 @@
 			{ "type": "service", "name": "ActionRegistry", "direction": "consumes" },
 			{ "type": "event", "name": "node:selected", "direction": "consumes" },
 			{ "type": "event", "name": "node:updated", "direction": "emits", "payload": { "nodeId": "string" } },
-			{ "type": "event", "name": "action:changed", "direction": "emits", "payload": { "nodeId": "string", "actionType": "string" } }
+			{
+				"type": "event",
+				"name": "action:changed",
+				"direction": "emits",
+				"payload": { "nodeId": "string", "actionType": "string" }
+			}
 		],
 		"walking_skeleton": "On selection, load the node from BookService and render the panel shell with the Description Field and the end toggles, committing edits via BookService.updateNode (emit node:updated). Render the Action SegmentedControl and mount the editor resolved from ActionRegistry for the current type. Reserve the libellé/illustration/inventory/choices slots as deferred placeholders. Compose canvas + panel in the app shell.",
 		"n": 4,
 		"iterations": [
-			{ "id": 1, "goal": "Panel shell + text/toggles: faithful § 02 layout, sticky header with NodeBadge, Description Field with placeholder, Fin victoire/échec toggles wired to BookService (node:updated). DS fidelity.", "status": "done" },
-			{ "id": 2, "goal": "Action block via ActionRegistry: SegmentedControl reflects + sets action type, emits action:changed, mounts the registered editor; zero action-specific code in node-editor (KR-051). Registry seam shipped; concrete editors arrive with action-* features.", "status": "planned" },
-			{ "id": 3, "goal": "Inventory + shared ObjectEditor: add/remove « objets à prendre » as Chips, open the shared brain ObjectEditor (name + player-facing description + effect), persist via ObjectCatalogService/BookService (KR-052).", "status": "planned" },
-			{ "id": 4, "goal": "Edit-safety + slots: debounced commits without focus loss, clean content swap (KR-053), mount choice-linking + editable libellé (on the incoming edge) in the choices slot, deferred Illustration dropzone, full a11y/keyboard pass.", "status": "planned" }
+			{
+				"id": 1,
+				"goal": "Panel shell + text/toggles: faithful § 02 layout, sticky header with NodeBadge, Description Field with placeholder, Fin victoire/échec toggles wired to BookService (node:updated). DS fidelity.",
+				"status": "done"
+			},
+			{
+				"id": 2,
+				"goal": "Action block via ActionRegistry: SegmentedControl reflects + sets action type, emits action:changed, mounts the registered editor; zero action-specific code in node-editor (KR-051). Registry seam shipped; concrete editors arrive with action-* features.",
+				"status": "planned"
+			},
+			{
+				"id": 3,
+				"goal": "Inventory + shared ObjectEditor: add/remove « objets à prendre » as Chips, open the shared brain ObjectEditor (name + player-facing description + effect), persist via ObjectCatalogService/BookService (KR-052).",
+				"status": "planned"
+			},
+			{
+				"id": 4,
+				"goal": "Edit-safety + slots: debounced commits without focus loss, clean content swap (KR-053), mount choice-linking + editable libellé (on the incoming edge) in the choices slot, deferred Illustration dropzone, full a11y/keyboard pass.",
+				"status": "planned"
+			}
 		],
 		"known_risks": [
 			"KR-050 — node-editor is a HOST shell: the action body and the choices list are mounted from other features via ActionRegistry / feature slots. Importing an action feature directly would break feature isolation.",
@@ -61,7 +82,7 @@
 					"App shell composes tree-canvas + node-editor side-by-side (§ 02); the two features never import each other — they talk only through brain (selection + BookService)."
 				],
 				"deviations_from_plan": [
-					"Libellé du choix is DEFERRED: it lives on the incoming edge (user decision), so its editable field arrives with choice-linking (iteration 4). The skeleton edits Description + toggles and shows a deferred note in the libellé slot.",
+					"Libellé du choix is DEFERRED: it lives on the incoming edge (user decision), so its editable field arrives with choice-linking. The skeleton showed a read-only note in the libellé slot pointing authors to the parent's « Choix sortants »; once choice-linking shipped the editable label there (iter 1), the note was clutter on every node and was REMOVED (user request) — the panel no longer renders a libellé section.",
 					"Inventory (iter 3) and the choices slot mount (iter 4) render as deferred placeholders; Illustration upload stays disabled (no image scope).",
 					"Iteration 2's ActionRegistry SEAM is shipped in the skeleton (SegmentedControl + registry mount + action:changed), but concrete action editors land with the action-* features, so iter 2 stays planned."
 				],

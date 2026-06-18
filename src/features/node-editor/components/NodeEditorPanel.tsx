@@ -56,12 +56,11 @@ export function NodeEditorPanel(): JSX.Element {
 	const activeNode = node
 	const locked = node.locked === true
 
-	// Sommaire (root) and Mort (death leaf) are STRUCTURAL screens: no incoming
-	// choice label, no required action, no Fin victoire/échec. Mort additionally
-	// has no outgoing choices (KR-055). Their only editable field is the text.
-	// Driven by the kind registry predicates, not kind tests (KR-068).
+	// Sommaire (root) and Mort (death leaf) are STRUCTURAL screens: no required
+	// action, no Fin victoire/échec. Mort additionally has no outgoing choices
+	// (KR-055). Their only editable field is the text. Driven by the kind
+	// registry predicates, not kind tests (KR-068).
 	const structural = isStructural(node.kind)
-	const showLabel = !structural
 	const showAction = !structural
 	const showEndToggles = !structural
 	const showOutgoing = canHaveOutgoing(node.kind)
@@ -108,13 +107,6 @@ export function NodeEditorPanel(): JSX.Element {
 			</header>
 
 			<div style={panelBody}>
-				{showLabel && (
-					<section>
-						<SectionLabel hint="— défini par la branche entrante (choice-linking)">Libellé du choix</SectionLabel>
-						<div style={deferredBox}>Le libellé du bouton se règle sur la branche qui mène à ce nœud.</div>
-					</section>
-				)}
-
 				<section>
 					<Field
 						label="Description"
