@@ -25,9 +25,21 @@
 		"walking_skeleton": "buildOutline (pure) flattens the book into indented rows by DFS from the sommaire, following choice edges and emitting reference rows for relink/flee/convergence/cycles/dangling targets, then listing unreachable nodes flat. OutlineView renders the rows (NodeBadge + title), reads the live book via useOpenBook, and selects on click via SelectionService (shared with the canvas, KR-024). The editor shell hoists the shared EditorTopBar with a canvas ↔ outline SegmentedControl and swaps the body.",
 		"n": 3,
 		"iterations": [
-			{ "id": 1, "goal": "Outline fidelity (§ 03 A): hover preview, expand/collapse, per-row rule badges (⊘ prereq, ⏱ countdown) and end-leaf labels; refine reference-row affordance + « centrer dans l'arbre ».", "status": "done" },
-			{ "id": 2, "goal": "Node inspector (§ 03 B): the node-card summary (entre depuis / victoire / fuite) on row focus, with Éditer + Centrer dans l'arbre actions.", "status": "planned" },
-			{ "id": 3, "goal": "Persist the view-mode + outline expand state via UIPreferencesService (non-synced UI prefs, KR-022) — deferred until that service lands.", "status": "planned" }
+			{
+				"id": 1,
+				"goal": "Outline fidelity (§ 03 A): hover preview, expand/collapse, per-row rule badges (⊘ prereq, ⏱ countdown) and end-leaf labels; refine reference-row affordance + « centrer dans l'arbre ».",
+				"status": "done"
+			},
+			{
+				"id": 2,
+				"goal": "Node inspector (§ 03 B): the node-card summary (entre depuis / victoire / fuite) on row focus, with Éditer + Centrer dans l'arbre actions.",
+				"status": "done"
+			},
+			{
+				"id": 3,
+				"goal": "Persist the view-mode + outline expand state via UIPreferencesService (non-synced UI prefs, KR-022) — deferred until that service lands.",
+				"status": "planned"
+			}
 		],
 		"known_risks": [
 			"KR-020 — The outline is a VIEW over BookService; never hold a private node/edge copy. Derive rows inline (useMemo), re-read on node:*/edge:* via useOpenBook.",
@@ -80,11 +92,31 @@
 					"integration": "outline-view via App — collapse/expand hides+restores child rows, screen-text hover preview tooltip, relink reference row with an « Aller au nœud » tooltip",
 					"e2e": "deferred (Playwright not set up)"
 				}
+			},
+			{
+				"id": 2,
+				"label": "iteration-2",
+				"completed_at": "2026-06-18",
+				"architecture_choices": [
+					"Node inspector summary is a NEW pure helper buildNodeInspector(book, nodeId) (same KR-080 philosophy as buildOutline/computeVisibleRows): it resolves « entre depuis » (every edge whose to === nodeId, carrying the source title + edge kind) and the monstre node's combat outcomes (victoire/fuite targets from node.monster). References resolve by stable id; a deleted source/target surfaces as a null title (KR-021), never a crash. NodeInspector is a dumb presentational card reading that inspection.",
+					"The inspected node is LOCAL UI state (inspectedId) set on row focus/hover, falling back to the selection — so the card previews a row WITHOUT committing selection (giving « Éditer » a real job: select the previewed node). Row click still selects (iteration-1 contract preserved). Derived inline, no useEffect mirror (KR-013).",
+					"« Centrer dans l'arbre » reveals + centres the node on the canvas. Wired at the COMPOSITION ROOT (EditorScreen owns a {nodeId, seq} RevealRequest): the outline calls an onRevealInTree callback prop; the shell bumps seq + switches viewMode to 'canvas'; TreeCanvas gets the request as a prop and centres once per seq. outline-view and tree-canvas never import each other (same shell-seam as the hoisted top bar). The seq makes repeat reveals distinct; a centred-seq ref means an unrelated re-render (a book edit) never re-centres.",
+					"Canvas centering: useViewport gained centerOn(point, size) — pans so a canvas-space point sits at the viewport centre at the current zoom (transform is translate(x,y) scale(zoom), origin 0,0). TreeCanvas reads its surface size from a ref and the node position from resolvePositions, centring on the node's middle (pos + NODE_W/2, NODE_H/2). Runs on mount, so revealing from the outline (which remounts the canvas) lands centred — the EditorScreen-owned prop sidesteps the navigate-then-act timing trap (the event-before-mount problem)."
+				],
+				"deviations_from_plan": [
+					"The inspector triggers on row focus/hover (the spec's « on row focus »); it does not also auto-show on plain selection beyond the fallback, to avoid duplicating the always-mounted node-editor panel.",
+					"« victoire / fuite » outcomes show only for monstre nodes (the combat outcomes live on node.monster); other kinds show just « entre depuis » since their outgoing structure is already the outline nesting."
+				],
+				"test_coverage": {
+					"unit": "buildNodeInspector — incoming links + edge kind + dangling source, monstre victoire/fuite + dangling target, no outcomes for a non-combat node, empty for an unknown id",
+					"integration": "outline-view via App — focusing a row previews its « entre depuis » in the inspector, Éditer selects a hovered-not-selected node, « Centrer dans l'arbre » switches to the canvas and selects",
+					"e2e": "deferred (Playwright not set up)"
+				}
 			}
 		],
 		"open_questions": [
-			"Expand/collapse + node-inspector summary (iterations 1–2) when the outline gains interaction depth.",
-			"View-mode + expand-state persistence (iteration 3) when UIPreferencesService lands."
+			"View-mode + expand-state persistence (iteration 3) when UIPreferencesService lands.",
+			"« Centrer dans l'arbre » centres but does not yet animate/zoom-to-fit; smooth pan + a zoom-to-node could pair with the iter-3 viewport-persistence work."
 		]
 	}
 }

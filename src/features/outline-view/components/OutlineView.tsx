@@ -4,6 +4,7 @@ import {
 	useRoute,
 	useOpenBook,
 	useSelectedNode,
+	getNode,
 	NodeBadge,
 	nodeTitle,
 	textLines,
@@ -13,6 +14,16 @@ import {
 	type BookNode,
 } from '../../../brain'
 import { buildOutline, computeVisibleRows, type OutlineRow } from '../utils/buildOutline'
+import { buildNodeInspector } from '../utils/buildNodeInspector'
+import { NodeInspector } from './NodeInspector'
+
+export interface OutlineViewProps {
+	/**
+	 * Reveal a node in the canvas (switch to the tree view + centre on it),
+	 * wired by the editor shell so outline-view never imports tree-canvas.
+	 */
+	onRevealInTree?: (nodeId: string) => void
+}
 
 const INDENT = 24
 /** Hover-preview tooltip length cap — enough to recognise a screen, not a wall of text. */
@@ -26,18 +37,23 @@ const PREVIEW_MAX = 140
  * node-editor + canvas reflect it. Reference rows (↪) jump to their target.
  *
  * Iteration 1 (§ 03 A) adds expand/collapse (collapsed node ids are local UI
- * state, KR-013), a hover preview of each screen's text (title tooltip), and a
- * clearer reference-row affordance. Per-row rule badges (⊘/⏱) wait for the
- * edge rules (choice-linking iter 3–4) and « centrer dans l'arbre » for the
- * iter-2 inspector (needs canvas viewport centering).
+ * state, KR-013), a hover preview of each screen's text, and a clearer
+ * reference-row affordance. Iteration 2 (§ 03 B) adds the node inspector card:
+ * focusing/hovering a row previews its relations (« entre depuis » + combat
+ * outcomes) with Éditer (select) + « Centrer dans l'arbre » (reveal + centre on
+ * the canvas, wired through the editor shell). Per-row rule badges (⊘/⏱) still
+ * wait for the edge rules (choice-linking iter 3–4).
  */
-export function OutlineView(): JSX.Element {
+export function OutlineView({ onRevealInTree }: OutlineViewProps = {}): JSX.Element {
 	const { selection } = useBrain()
 	const route = useRoute()
 	const bookId = route.name === 'editor' ? route.bookId : null
 	const book = useOpenBook(bookId)
 	const selectedId = useSelectedNode()
 	const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set())
+	// The node previewed in the inspector — set on row focus/hover (§ 03 B);
+	// falls back to the selection so the card always reflects a real node.
+	const [inspectedId, setInspectedId] = useState<string | null>(null)
 
 	const rows = useMemo(() => (book !== null ? buildOutline(book) : []), [book])
 	const visible = useMemo(() => computeVisibleRows(rows, collapsed), [rows, collapsed])
@@ -55,21 +71,43 @@ export function OutlineView(): JSX.Element {
 		})
 	}
 
+	// Inspector target: the focused row, falling back to the current selection.
+	// Resolve against the live book so a deleted node drops the card (not a crash).
+	const inspectId = inspectedId ?? selectedId
+	const inspectNode = inspectId !== null ? getNode(book, inspectId) : null
+
 	return (
-		<div role="tree" aria-label="Plan du livre" style={container}>
-			<ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-				{visible.map(({ row, index, hasChildren, collapsed: isCollapsed }) => (
-					<OutlineRowItem
-						key={`${index}-${row.reference ? 'ref' : 'node'}`}
-						row={row}
-						hasChildren={hasChildren}
-						collapsed={isCollapsed}
-						selected={!row.reference && row.targetId === selectedId}
-						onSelect={() => row.node !== null && selection.select(bookId, row.node.id)}
-						onToggle={() => toggleCollapse(row.targetId)}
+		<div style={pane}>
+			<div role="tree" aria-label="Plan du livre" style={container}>
+				<ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+					{visible.map(({ row, index, hasChildren, collapsed: isCollapsed }) => (
+						<OutlineRowItem
+							key={`${index}-${row.reference ? 'ref' : 'node'}`}
+							row={row}
+							hasChildren={hasChildren}
+							collapsed={isCollapsed}
+							selected={!row.reference && row.targetId === selectedId}
+							onSelect={() => row.node !== null && selection.select(bookId, row.node.id)}
+							onInspect={() => row.node !== null && setInspectedId(row.node.id)}
+							onToggle={() => toggleCollapse(row.targetId)}
+						/>
+					))}
+				</ul>
+			</div>
+
+			{inspectNode !== null && (
+				<div style={inspectorWrap}>
+					<NodeInspector
+						title={nodeTitle(inspectNode)}
+						inspection={buildNodeInspector(book, inspectNode.id)}
+						onEdit={() => selection.select(bookId, inspectNode.id)}
+						onCenter={() => {
+							selection.select(bookId, inspectNode.id)
+							onRevealInTree?.(inspectNode.id)
+						}}
 					/>
-				))}
-			</ul>
+				</div>
+			)}
 		</div>
 	)
 }
@@ -87,6 +125,7 @@ interface OutlineRowItemProps {
 	collapsed: boolean
 	selected: boolean
 	onSelect: () => void
+	onInspect: () => void
 	onToggle: () => void
 }
 
@@ -96,6 +135,7 @@ function OutlineRowItem({
 	collapsed,
 	selected,
 	onSelect,
+	onInspect,
 	onToggle,
 }: OutlineRowItemProps): JSX.Element {
 	const node = row.node
@@ -138,6 +178,8 @@ function OutlineRowItem({
 				<button
 					type="button"
 					onClick={onSelect}
+					onFocus={onInspect}
+					onMouseEnter={onInspect}
 					disabled={node === null}
 					aria-pressed={selected}
 					title={hint}
@@ -171,11 +213,25 @@ function OutlineRowItem({
 	)
 }
 
-const container: React.CSSProperties = {
+const pane: React.CSSProperties = {
+	display: 'flex',
+	flexDirection: 'column',
 	height: '100%',
+	background: 'var(--surface-app)',
+}
+
+const container: React.CSSProperties = {
+	flex: 1,
+	minHeight: 0,
 	overflow: 'auto',
 	padding: 'var(--space-7)',
-	background: 'var(--surface-app)',
+}
+
+const inspectorWrap: React.CSSProperties = {
+	flex: 'none',
+	borderTop: '1px solid var(--border-divider)',
+	padding: 'var(--space-4)',
+	background: 'var(--paper-1)',
 }
 
 const rowButton: React.CSSProperties = {

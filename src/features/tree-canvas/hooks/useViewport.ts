@@ -35,6 +35,11 @@ export interface UseViewport {
 	onBackgroundPointerDown: (e: ReactPointerEvent) => void
 	onWheel: (e: ReactWheelEvent) => void
 	/**
+	 * Pan so a canvas-space `point` sits at the centre of a viewport of size
+	 * `size`, keeping the current zoom (used by « Centrer dans l'arbre »).
+	 */
+	centerOn: (point: { x: number; y: number }, size: { w: number; h: number }) => void
+	/**
 	 * True if the last pointer interaction was a drag (so a click handler can
 	 * skip clearing selection on drag-release). Reset on each pointer down.
 	 */
@@ -49,6 +54,12 @@ export function useViewport(): UseViewport {
 
 	const zoomBy = useCallback((delta: number) => {
 		setViewport((v) => ({ ...v, zoom: clampZoom(v.zoom + delta) }))
+	}, [])
+
+	const centerOn = useCallback((point: { x: number; y: number }, size: { w: number; h: number }) => {
+		// translate = container centre − scaled point (the transform is
+		// translate(x,y) scale(zoom) with origin 0,0, so point maps to x+point*zoom).
+		setViewport((v) => ({ ...v, x: size.w / 2 - point.x * v.zoom, y: size.h / 2 - point.y * v.zoom }))
 	}, [])
 
 	const onBackgroundPointerDown = useCallback((e: ReactPointerEvent) => {
@@ -87,6 +98,7 @@ export function useViewport(): UseViewport {
 	const onWheel = useCallback(
 		(e: ReactWheelEvent) => {
 			if (e.deltaY === 0) return
+			// TODO: put a throttle on this so it doesn't feel too jumpy on fast scroll wheels.
 			zoomBy(e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP)
 		},
 		[zoomBy],
@@ -98,6 +110,7 @@ export function useViewport(): UseViewport {
 		zoomOut: () => zoomBy(-ZOOM_STEP),
 		onBackgroundPointerDown,
 		onWheel,
+		centerOn,
 		didDragRef,
 	}
 }

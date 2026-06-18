@@ -117,4 +117,81 @@ describe('outline-view', () => {
 		// Back on the canvas, the same node reads as selected (single SSOT, KR-024).
 		expect(screen.getByRole('button', { name: /Nœud #1 — Sommaire/ })).toHaveAttribute('aria-pressed', 'true')
 	})
+
+	it('previews a focused row in the node inspector (§ 03 B « entre depuis »)', async () => {
+		// Pre-seed the child text BEFORE render so the live view never mutates outside act().
+		const user = userEvent.setup()
+		const brain = createBrain()
+		const created = brain.books.createBook('La Caverne')
+		const sommaire = brain.books.getBook(created.id)!.nodes.find((n) => n.kind === 'sommaire')!
+		const child = brain.books.addChoiceBranch(created.id, sommaire.id)!.node
+		brain.books.updateNode(created.id, child.id, { text: 'Salle B' })
+		brain.router.navigate({ name: 'editor', bookId: created.id })
+		render(
+			<BrainProvider brain={brain}>
+				<App />
+			</BrainProvider>,
+		)
+
+		await user.click(screen.getByRole('radio', { name: /Plan/ }))
+		await user.click(screen.getByRole('button', { name: /Salle B/ }))
+
+		const inspector = screen.getByRole('complementary', { name: /aperçu du nœud/i })
+		expect(inspector).toHaveTextContent(/entre depuis/i)
+		// The seeded choice edge from the Sommaire is the one incoming link.
+		expect(inspector).toHaveTextContent(/choix/i)
+		expect(inspector).not.toHaveTextContent(/aucune entrée/i)
+	})
+
+	it('Éditer in the inspector selects the previewed (not yet selected) node', async () => {
+		// Two children: select A, then hover B to preview it without selecting.
+		const user = userEvent.setup()
+		const brain = createBrain()
+		const created = brain.books.createBook('La Caverne')
+		const sommaire = brain.books.getBook(created.id)!.nodes.find((n) => n.kind === 'sommaire')!
+		const a = brain.books.addChoiceBranch(created.id, sommaire.id)!.node
+		const b = brain.books.addChoiceBranch(created.id, sommaire.id)!.node
+		brain.books.updateNode(created.id, a.id, { text: 'Salle A' })
+		brain.books.updateNode(created.id, b.id, { text: 'Salle B' })
+		brain.router.navigate({ name: 'editor', bookId: created.id })
+		render(
+			<BrainProvider brain={brain}>
+				<App />
+			</BrainProvider>,
+		)
+
+		await user.click(screen.getByRole('radio', { name: /Plan/ }))
+		await user.click(screen.getByRole('button', { name: /Salle A/ }))
+		expect(brain.selection.getSelected()).toBe(a.id)
+
+		// Hover B → the inspector previews it, but selection is still A.
+		await user.hover(screen.getByRole('button', { name: /Salle B/ }))
+		expect(brain.selection.getSelected()).toBe(a.id)
+
+		await user.click(screen.getByRole('button', { name: 'Éditer' }))
+		expect(brain.selection.getSelected()).toBe(b.id)
+	})
+
+	it('« Centrer dans l arbre » reveals the node on the canvas (switches view + selects)', async () => {
+		const user = userEvent.setup()
+		const brain = createBrain()
+		const created = brain.books.createBook('La Caverne')
+		const sommaire = brain.books.getBook(created.id)!.nodes.find((n) => n.kind === 'sommaire')!
+		const child = brain.books.addChoiceBranch(created.id, sommaire.id)!.node
+		brain.books.updateNode(created.id, child.id, { text: 'Salle B' })
+		brain.router.navigate({ name: 'editor', bookId: created.id })
+		render(
+			<BrainProvider brain={brain}>
+				<App />
+			</BrainProvider>,
+		)
+
+		await user.click(screen.getByRole('radio', { name: /Plan/ }))
+		await user.click(screen.getByRole('button', { name: /Salle B/ }))
+		await user.click(screen.getByRole('button', { name: /centrer dans l.arbre/i }))
+
+		// Back on the canvas, with the previewed node now selected (shared SSOT).
+		expect(screen.getByTestId('canvas-surface')).toBeInTheDocument()
+		expect(brain.selection.getSelected()).toBe(child.id)
+	})
 })

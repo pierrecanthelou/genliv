@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useBrain, useOpenBook, EditorTopBar, type EditorViewMode } from './brain'
-import { TreeCanvas } from './features/tree-canvas'
+import { TreeCanvas, type RevealRequest } from './features/tree-canvas'
 import { OutlineView } from './features/outline-view'
 import { NodeEditorPanel } from './features/node-editor'
 
@@ -16,6 +16,16 @@ export function EditorScreen({ bookId }: { bookId: string }): JSX.Element {
 	const { books, router, selection } = useBrain()
 	const book = useOpenBook(bookId)
 	const [viewMode, setViewMode] = useState<EditorViewMode>('canvas')
+	// « Centrer dans l'arbre » from the outline: switch to the canvas and ask it
+	// to centre on the node. A monotonic seq makes each request distinct so the
+	// same node can be revealed repeatedly. Owned by the shell so outline-view and
+	// tree-canvas never import each other (composition-root wiring).
+	const [reveal, setReveal] = useState<RevealRequest | undefined>(undefined)
+
+	function revealInTree(nodeId: string): void {
+		setReveal((prev) => ({ nodeId, seq: (prev?.seq ?? 0) + 1 }))
+		setViewMode('canvas')
+	}
 
 	if (book === null) {
 		return (
@@ -44,7 +54,9 @@ export function EditorScreen({ bookId }: { bookId: string }): JSX.Element {
 				onAddNode={handleAddNode}
 			/>
 			<div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-				<div style={{ flex: 1, minWidth: 0 }}>{viewMode === 'canvas' ? <TreeCanvas /> : <OutlineView />}</div>
+				<div style={{ flex: 1, minWidth: 0 }}>
+					{viewMode === 'canvas' ? <TreeCanvas reveal={reveal} /> : <OutlineView onRevealInTree={revealInTree} />}
+				</div>
 				<NodeEditorPanel />
 			</div>
 		</div>

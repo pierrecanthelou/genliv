@@ -1,10 +1,20 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useBrain, useRoute, useSelectedNode, useOpenBook } from '../../../brain'
 import { useViewport } from '../hooks/useViewport'
 import { resolvePositions, resolveEdges, resolveBounds, NODE_W, NODE_H } from '../layout/geometry'
 import { NodeCard } from './NodeCard'
 import { EdgeLayer } from './EdgeLayer'
 import { ZoomControls } from './ZoomControls'
+
+/**
+ * A request to centre the canvas on a node, raised by « Centrer dans l'arbre »
+ * (outline-view) and wired through the editor shell. `seq` makes each request
+ * distinct so revealing the same node twice re-centres.
+ */
+export interface RevealRequest {
+	nodeId: string
+	seq: number
+}
 
 const DOT_GRID = 'radial-gradient(var(--ink-6) 1px, transparent 1px)'
 /** Dot-grid cell size (px). */
@@ -20,17 +30,34 @@ const HINT_GAP = 28
  * BookService. A VIEW over BookService that never mutates locally (KR-020). The
  * surrounding chrome (top bar, view-mode switch, panel) is the editor shell's.
  */
-export function TreeCanvas(): JSX.Element {
+export function TreeCanvas({ reveal }: { reveal?: RevealRequest } = {}): JSX.Element {
 	const { books, selection } = useBrain()
 	const route = useRoute()
 	const bookId = route.name === 'editor' ? route.bookId : null
 	const book = useOpenBook(bookId)
 	const selectedId = useSelectedNode()
-	const { viewport, zoomIn, zoomOut, onBackgroundPointerDown, onWheel, didDragRef } = useViewport()
+	const { viewport, zoomIn, zoomOut, onBackgroundPointerDown, onWheel, centerOn, didDragRef } = useViewport()
+	const surfaceRef = useRef<HTMLDivElement>(null)
+	/** The last reveal `seq` already centred — so we act once per request. */
+	const centredSeqRef = useRef<number>(-1)
 
 	const positions = useMemo(() => resolvePositions(book?.nodes ?? []), [book])
 	const edges = useMemo(() => resolveEdges(book?.edges ?? [], positions), [book, positions])
 	const bounds = useMemo(() => resolveBounds(positions), [positions])
+
+	// « Centrer dans l'arbre »: centre on the revealed node once per request. The
+	// seq guard means an unrelated re-render (a book edit changing `positions`)
+	// never re-centres — only a new request does. Runs on mount too, so revealing
+	// from the outline (which remounts the canvas) lands centred (KR-013 ok:
+	// imperative viewport sync to an external request, not a derived-state mirror).
+	useEffect(() => {
+		if (reveal === undefined || reveal.seq === centredSeqRef.current) return
+		const pos = positions.get(reveal.nodeId)
+		const el = surfaceRef.current
+		if (pos === undefined || el === null) return
+		centredSeqRef.current = reveal.seq
+		centerOn({ x: pos.x + NODE_W / 2, y: pos.y + NODE_H / 2 }, { w: el.clientWidth, h: el.clientHeight })
+	}, [reveal, positions, centerOn])
 
 	if (book === null) {
 		return <div style={{ padding: 'var(--space-9)', color: 'var(--text-muted)' }}>Livre introuvable.</div>
@@ -58,6 +85,7 @@ export function TreeCanvas(): JSX.Element {
 
 	return (
 		<div
+			ref={surfaceRef}
 			data-testid="canvas-surface"
 			onPointerDown={(e) => {
 				didDragRef.current = false

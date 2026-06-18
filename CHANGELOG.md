@@ -2,6 +2,13 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.3.3 — outline-view iteration 2 (V2 slice)
+
+- **Node inspector (§ 03 B)**: focusing or hovering an outline row previews its structural relations in a pinned card — **« entre depuis »** (every edge leading here + its kind) and a monstre node's combat outcomes (**victoire / fuite** targets), built by a new pure `buildNodeInspector` (resolved by stable id; a deleted source/target surfaces as ⚠, never a crash — KR-021). The previewed node is local UI state (the focused row, falling back to the selection), so the card previews **without** committing selection.
+- **Éditer**: selects the previewed node (drives the node-editor panel). Row-click selection (the iter-1 contract) is unchanged.
+- **« Centrer dans l'arbre »**: reveals + centres the node on the canvas. Wired at the composition root (`EditorScreen` owns a `{nodeId, seq}` `RevealRequest`): the outline calls an `onRevealInTree` callback, the shell switches to the tree view and passes the request to `TreeCanvas`, which centres via the new `useViewport.centerOn`. outline-view and tree-canvas never import each other; the shell-owned prop survives the view switch (no event-before-mount loss), and a `seq` + consumed-seq ref makes repeat reveals work without re-centring on unrelated re-renders (**KR-081**).
+- 187 tests passing (+7). View-mode/expand-state persistence remains iter 3 (needs `UIPreferencesService`).
+
 ## 0.3.2 — book-library iteration 2 (V2 slice)
 
 - **Search + sort (list ergonomics)**: the library gains a **search** box (brain `Field`, case-insensitive title filter) and a **sort** toggle (brain `SegmentedControl`: « Récent » = `updatedAt` desc / « A→Z » = title). Both are derived inline over the live `useBooks` list (KR-013) — the cached snapshot array is never mutated (sorts a copy). The toolbar appears only when the library is non-empty.
