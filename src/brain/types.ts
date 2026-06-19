@@ -259,6 +259,20 @@ export interface ChoicePrereq {
 	objectId: string
 }
 
+/**
+ * A per-choice COUNTDOWN (§ 05): the choice expires after `delay` seconds to the
+ * `fallback` node. The fallback is a node id reference (KR-063) — a deleted target
+ * dangles and is surfaced (KR-021), never silently broken. The countdown only
+ * ticks while the choice is VISIBLE (a hidden-prereq gate met, KR-065) — a
+ * play-mode semantic; the editor just captures the rule.
+ */
+export interface ChoiceCountdown {
+	/** Seconds before the choice expires (clamped 5–60, default 15). */
+	delay: number
+	/** Node the choice expires to; '' = not yet chosen (surfaced as unconfigured). */
+	fallback: string
+}
+
 export interface Edge {
 	id: string
 	from: string
@@ -268,6 +282,8 @@ export interface Edge {
 	label?: string
 	/** Hidden-prerequisite rule: the choice is hidden unless the object is owned (KR-062). */
 	prereq?: ChoicePrereq
+	/** Countdown rule: the choice expires after a délai to a fallback node (KR-063/065). */
+	countdown?: ChoiceCountdown
 }
 
 export interface Book {

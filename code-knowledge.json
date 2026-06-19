@@ -109,7 +109,7 @@
 		{
 			"id": "KR-063",
 			"feature": "choice-linking",
-			"risk": "Countdown fallback + relink targets are node references that can dangle if the target is deleted; run a referential-integrity check and surface broken targets rather than crashing the reader later (re-asserts KR-021)."
+			"risk": "Countdown fallback + relink targets are node references that can dangle if the target is deleted; run a referential-integrity check and surface broken targets rather than crashing the reader later (re-asserts KR-021). IMPLEMENTED (choice-linking iter 4): the countdown rides Edge.countdown { delay (clamped 5–60s via the shared Stepper, default 15), fallback (node id) } via updateEdge (EdgePatch countdown: T | null, independent of label/prereq). ChoiceCountdownEditor mirrors ChoicePrereqEditor and reuses the brain TargetPicker for the fallback (structural/self excluded KR-067, deleted target surfaced). The row runs the referential-integrity sweep over BOTH rules against the LIVE book: prereq vs collectObjects (⊘/⚠), countdown.fallback vs getNode (⏱ Ns / ⏱ « repli manquant » for  or deleted). A choice may hold both (KR-065); the play-mode ticking/expiry is out of editor scope."
 		},
 		{
 			"id": "KR-064",

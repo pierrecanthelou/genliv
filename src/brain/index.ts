@@ -3,7 +3,7 @@
  * communication (Event Bus), and service wiring (Service Locator + DI).
  * Feature-agnostic: never imports from features/.
  */
-export type { Book, BookNode, Edge, ChoicePrereq, NodeKind, EdgeKind, NodeActionType } from './types'
+export type { Book, BookNode, Edge, ChoicePrereq, ChoiceCountdown, NodeKind, EdgeKind, NodeActionType } from './types'
 export type {
 	GameObject,
 	DecorConfig,

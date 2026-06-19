@@ -499,6 +499,23 @@ describe('BookService edges (choice-linking)', () => {
 		expect(cleared?.prereq).toBeUndefined()
 		expect(service.getBook(book.id)!.edges.find((e) => e.id === edge.id)!.prereq).toBeUndefined()
 	})
+
+	it('updateEdge sets and clears the countdown rule, independent of the label/prereq (KR-063)', () => {
+		const { service } = setup()
+		const book = service.createBook('Arbre')
+		const sommaire = book.nodes.find((n) => n.kind === 'sommaire')!
+		const { edge } = service.addChoiceBranch(book.id, sommaire.id)!
+
+		const withRule = service.updateEdge(book.id, edge.id, { countdown: { delay: 20, fallback: 'node_x' } })
+		expect(withRule?.countdown).toEqual({ delay: 20, fallback: 'node_x' })
+
+		// A label edit must NOT drop the countdown (independent fields).
+		const labelled = service.updateEdge(book.id, edge.id, { label: 'Vite !' })
+		expect(labelled?.countdown).toEqual({ delay: 20, fallback: 'node_x' })
+
+		const cleared = service.updateEdge(book.id, edge.id, { countdown: null })
+		expect(cleared?.countdown).toBeUndefined()
+	})
 })
 
 describe('BookService.renameBook / duplicateBook (book-library)', () => {

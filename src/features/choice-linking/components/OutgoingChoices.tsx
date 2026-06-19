@@ -12,10 +12,12 @@ import {
 	EDGE_KINDS,
 	type Edge,
 	type ChoicePrereq,
+	type ChoiceCountdown,
 	type SlotContext,
 } from '../../../brain'
 import { DeleteBranchDialog } from './DeleteBranchDialog'
 import { ChoicePrereqEditor } from './ChoicePrereqEditor'
+import { ChoiceCountdownEditor } from './ChoiceCountdownEditor'
 
 /**
  * « Choix sortants » — a node's outgoing branches, mounted into node-editor's
@@ -50,6 +52,10 @@ export function OutgoingChoices({ bookId, nodeId }: SlotContext): JSX.Element {
 	// (KR-013) so adding/removing an object elsewhere updates the picker + dangling check.
 	const catalog = collectObjects(book)
 	const prereqResolves = (prereq: ChoicePrereq): boolean => catalog.some((o) => o.id === prereq.objectId)
+	// A countdown's fallback node must resolve to an existing node (KR-063/021) —
+	// '' (unconfigured) or a deleted target dangles and is surfaced on the row.
+	const countdownResolves = (cd: ChoiceCountdown): boolean => cd.fallback !== '' && getNode(book, cd.fallback) !== null
+	const allNodes = book !== null ? book.nodes : []
 	// Relink candidates: any node except this one (self-link guarded, KR-061),
 	// excluding structural screens — the Sommaire root and the Mort leaf are
 	// never authored choice targets (KR-067); Mort is reached only automatically
@@ -135,6 +141,12 @@ export function OutgoingChoices({ bookId, nodeId }: SlotContext): JSX.Element {
 											// Text (not just the ⚠ glyph) names the dangling state for screen readers.
 											<Badge tone="bad">⚠ pré-requis introuvable</Badge>
 										))}
+									{edge.countdown !== undefined &&
+										(countdownResolves(edge.countdown) ? (
+											<Badge tone="muted">⏱ {edge.countdown.delay}s</Badge>
+										) : (
+											<Badge tone="bad">⏱ repli manquant</Badge>
+										))}
 									<IconButton label="Supprimer la branche" tone="danger" onClick={() => setPendingDelete(edge)}>
 										✕
 									</IconButton>
@@ -154,6 +166,14 @@ export function OutgoingChoices({ bookId, nodeId }: SlotContext): JSX.Element {
 								prereq={edge.prereq}
 								catalog={catalog}
 								onChange={(prereq) => books.updateEdge(bookId, edge.id, { prereq })}
+							/>
+							{/* Countdown rule (§ 05, KR-063/065): persisted on the edge; the
+							    fallback is picked via the shared brain TargetPicker. */}
+							<ChoiceCountdownEditor
+								countdown={edge.countdown}
+								nodes={allNodes}
+								fromNodeId={nodeId}
+								onChange={(countdown) => books.updateEdge(bookId, edge.id, { countdown })}
 							/>
 						</li>
 					))}

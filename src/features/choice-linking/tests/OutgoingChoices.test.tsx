@@ -260,4 +260,49 @@ describe('choice-linking — outgoing choices', () => {
 		// The dangling reference is surfaced, never silently treated as met.
 		expect(screen.getByText(/⚠ pré-requis/)).toBeInTheDocument()
 	})
+
+	it('toggles a countdown on a choice (default 15s) and persists it; an unset fallback is surfaced (KR-063, iter 4)', async () => {
+		const brain = createBrain()
+		const book = brain.books.createBook('La Caverne')
+		const sommaireId = brain.books.getBook(book.id)!.nodes.find((n) => n.kind === 'sommaire')!.id
+		brain.books.addChoiceBranch(book.id, sommaireId)
+		brain.router.navigate({ name: 'editor', bookId: book.id })
+		render(
+			<BrainProvider brain={brain}>
+				<App />
+			</BrainProvider>,
+		)
+		const user = userEvent.setup()
+		await user.click(screen.getByRole('button', { name: /Nœud #1 — Sommaire/ }))
+
+		await user.click(screen.getByRole('switch', { name: /compte à rebours/i }))
+
+		// Persisted on the edge with the default délai; the fallback is unset → surfaced.
+		expect(outgoingOf(brain, book.id, 'sommaire')[0].countdown).toEqual({ delay: 15, fallback: '' })
+		expect(screen.getByText(/repli manquant/)).toBeInTheDocument()
+	})
+
+	it('shows the ⏱ délai badge for a configured countdown and ⏱ repli manquant for a dangling fallback', async () => {
+		const brain = createBrain()
+		const book = brain.books.createBook('La Caverne')
+		const sommaireId = brain.books.getBook(book.id)!.nodes.find((n) => n.kind === 'sommaire')!.id
+		// A valid fallback target node, plus a branch whose countdown points at it.
+		const fallback = brain.books.addNode(book.id, 'choix')!
+		const ok = brain.books.addChoiceBranch(book.id, sommaireId)!
+		brain.books.updateEdge(book.id, ok.edge.id, { countdown: { delay: 30, fallback: fallback.id } })
+		// A second branch whose countdown points at a deleted node.
+		const broken = brain.books.addChoiceBranch(book.id, sommaireId)!
+		brain.books.updateEdge(book.id, broken.edge.id, { countdown: { delay: 10, fallback: 'ghost' } })
+		brain.router.navigate({ name: 'editor', bookId: book.id })
+		render(
+			<BrainProvider brain={brain}>
+				<App />
+			</BrainProvider>,
+		)
+		const user = userEvent.setup()
+		await user.click(screen.getByRole('button', { name: /Nœud #1 — Sommaire/ }))
+
+		expect(screen.getByText('⏱ 30s')).toBeInTheDocument()
+		expect(screen.getByText(/repli manquant/)).toBeInTheDocument()
+	})
 })

@@ -2,6 +2,13 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.5.2 — choice-linking iteration 4 (V4 slice — tier complete 🏁)
+
+- **Per-choice countdown (§ 05)** — a choice can now carry a **« compte à rebours »**: a **délai** (Stepper clamped 5–60s, default 15) + a **fallback node** it expires to. The rule rides the choice edge as `Edge.countdown?: { delay, fallback }`, persisted via `BookService.updateEdge` (`EdgePatch` gained `countdown: ChoiceCountdown | null`); label, prereq, and countdown are independent.
+- **Referential-integrity sweep (KR-063)** — the row validates **both** rules against the live book: the prereq vs `collectObjects` (⊘ / ⚠), and the countdown fallback vs `getNode` — **« ⏱ Ns »** when it resolves, **« ⏱ repli manquant »** when unset or deleted. A choice may hold both a prereq and a countdown (KR-065). The fallback is picked via the shared brain `TargetPicker` (excludes structural/self, surfaces a deleted target).
+- New `ChoiceCountdownEditor` (mirrors the iter-3 `ChoicePrereqEditor`). The play-mode ticking/expiry is out of editor scope.
+- **choice-linking is complete (n=4).** 275 tests passing (+3). **🏁 The 0.5.x / V4 tier is complete** — iteration 4 of every n≥4 feature (tree-canvas, node-editor, choice-linking). **All features are now at their full iteration depth.**
+
 ## 0.5.1 — node-editor iteration 4 (V4 slice)
 
 - **Debounced Description commits** — typing in a node's Description now updates a fast local draft and writes through `BookService` only after the typing settles (or on blur), so a keystroke no longer fires `updateNode → node:updated → a canvas/outline re-read` per character. **No data loss**: a pending edit is flushed on blur **and** on the selection-swap unmount (the panel is keyed by node id, KR-053); the debounce timer is ref-tracked + cleared on unmount.

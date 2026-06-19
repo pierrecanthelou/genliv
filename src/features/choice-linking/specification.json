@@ -1,7 +1,7 @@
 {
 	"feature": "choice-linking",
 	"created_at": "2026-06-16",
-	"status": "in-progress",
+	"status": "done",
 	"design_reference": "Editeur Livre-Jeu - Wireframes.dc.html § 02 « Choix sortants », § 05 hidden-prereq + countdown mechanics, § 06 A « Créer une nouvelle branche » + B « Relier à un nœud existant » (search popover + dashed « fuite ↻ » relink edge). Anatomy + tokens from styles.css. Low-fi, light theme.",
 	"plan": {
 		"goal": "Manage a node's outgoing choices: create a new child branch, relink a choice to an existing node, and configure per-choice rules — hidden prerequisite (requires an inventory object) and countdown (expires to a default node).",
@@ -11,24 +11,52 @@
 			"« Relier… » opens a searchable list of existing nodes; selecting one creates a `relink` edge from this choice to that node (edge:created{kind:'relink'}) without creating a node, enabling cycles/convergence; the canvas renders it dashed. Structural screens (the Sommaire root, the Mort leaf) are excluded from the candidates and rejected at the SSOT — Mort is reached only automatically in combat (KR-067).",
 			"Toggling « pré-requis caché » on a choice and picking a required object persists a hidden-prerequisite rule referencing an ObjectCatalogService object id; the row shows the ⊘ badge; clearing the toggle removes the rule.",
 			"Toggling « compte à rebours » persists a délai + a fallback destination node; the row shows the ⏱ badge; the fallback target must resolve to an existing node.",
-			"The countdown délai is a free numeric seconds input defaulting to 15 s and clamped to 5–60 s; values outside the range are corrected to the nearest bound.",
+			"The countdown délai is a délai control (the shared brain Stepper) defaulting to 15 s and bounded to 5–60 s — the Stepper clamps, so the value can never leave the range.",
 			"Removing a choice deletes its edge (edge:deleted) and, for the relink case, never deletes the target node — only the edge; deleting a `choice` branch prompts about its now-orphaned child if any.",
 			"A required-object reference pointing at a deleted object, or a fallback/relink target pointing at a deleted node, is detected and surfaced (not silently broken).",
 			"All controls render from design-system components/tokens, light theme; the relink search is keyboard-navigable and rules have ≥44px targets."
 		],
 		"brain_contracts": [
-			{ "type": "service", "name": "BookService", "direction": "consumes" },
-			{ "type": "service", "name": "SlotRegistry", "direction": "consumes" },
-			{ "type": "service", "name": "ObjectCatalogService", "direction": "consumes" },
-			{ "type": "event", "name": "node:created", "direction": "emits" },
-			{ "type": "event", "name": "node:selected", "direction": "emits" },
+			{
+				"type": "service",
+				"name": "BookService",
+				"direction": "consumes"
+			},
+			{
+				"type": "service",
+				"name": "SlotRegistry",
+				"direction": "consumes"
+			},
+			{
+				"type": "service",
+				"name": "ObjectCatalogService",
+				"direction": "consumes"
+			},
+			{
+				"type": "event",
+				"name": "node:created",
+				"direction": "emits"
+			},
+			{
+				"type": "event",
+				"name": "node:selected",
+				"direction": "emits"
+			},
 			{
 				"type": "event",
 				"name": "edge:created",
 				"direction": "emits",
-				"payload": { "from": "string", "to": "string", "kind": "choice|relink|flee" }
+				"payload": {
+					"from": "string",
+					"to": "string",
+					"kind": "choice|relink|flee"
+				}
 			},
-			{ "type": "event", "name": "edge:deleted", "direction": "emits" }
+			{
+				"type": "event",
+				"name": "edge:deleted",
+				"direction": "emits"
+			}
 		],
 		"walking_skeleton": "Render the selected node's outgoing choices from BookService inside node-editor's choices slot (mounted via the brain SlotRegistry, no cross-feature import). « + branche » creates+links+selects a child (node:created/edge:created/node:selected). « Relier… » lists existing nodes and creates a relink edge. Remove deletes only the edge. Hidden-prereq/countdown deferred (need ObjectCatalogService).",
 		"n": 4,
@@ -51,7 +79,7 @@
 			{
 				"id": 4,
 				"goal": "Countdown (§ 05): toggle + délai + fallback-node Select with validation; ⏱ badge; referential-integrity sweep for deleted targets/objects (KR-063).",
-				"status": "planned"
+				"status": "done"
 			}
 		],
 		"known_risks": [
@@ -147,6 +175,24 @@
 					"integration": "OutgoingChoices via App: toggle « pré-requis caché » + pick an object persists prereq by id + shows ⊘; a prereq pointing at a deleted object shows ⚠",
 					"e2e": "deferred (Playwright not set up)"
 				}
+			},
+			{
+				"id": 4,
+				"label": "iteration-4 (countdown)",
+				"completed_at": "2026-06-19",
+				"architecture_choices": [
+					"The per-choice COUNTDOWN rides the EDGE (Edge.countdown?: ChoiceCountdown { delay, fallback }), persisted via the SAME updateEdge as the label + prereq — EdgePatch gained countdown: ChoiceCountdown | null (null clears, omitted untouched); the three fields are independent and editing one never clobbers the others (mirrors the iter-3 prereq).",
+					"New ChoiceCountdownEditor (mirrors ChoicePrereqEditor): a « compte à rebours » Toggle + a Délai Stepper (clamped 5–60s, default 15 — the shared brain Stepper enforces the bounds) + the shared brain TargetPicker for the fallback node (which excludes structural screens + self, KR-067, and surfaces a deleted target, KR-021). Controlled — OutgoingChoices persists each change.",
+					"Referential-integrity sweep (KR-063): the row validates BOTH rules against the live book — prereq vs collectObjects (⊘ / ⚠), countdown.fallback vs getNode (⏱ Ns when resolved, ⏱ « repli manquant » when  or deleted). A choice may carry BOTH a prereq and a countdown (KR-065) — they are independent edge fields; the play-mode « ticks only while visible » semantic is captured but not executed (editor scope)."
+				],
+				"deviations_from_plan": [
+					"The play-mode countdown BEHAVIOUR (the actual ticking, expiry, hide-while-prereq-unmet KR-065) is out of editor scope — the slice captures the rule + validates its references. The fallback edge is NOT drawn on the canvas as an authored edge (it is a rule reference, like the PNJ « mène à » target); promoting it to a rendered/derived edge could fold into deriveAutomaticEdges later."
+				],
+				"test_coverage": {
+					"unit": "BookService.updateEdge — sets/clears countdown independent of label/prereq",
+					"integration": "OutgoingChoices via App — toggling « compte à rebours » persists { delay:15, fallback: } + surfaces the unset fallback; a configured countdown shows « ⏱ Ns », a dangling fallback shows « ⏱ repli manquant »",
+					"e2e": "deferred (Playwright not set up)"
+				}
 			}
 		],
 		"resolved_decisions": [
@@ -159,9 +205,7 @@
 			"Branch removal (the row ✕) is a DANGEROUS action — destructive + irreversible — so it is gated behind a confirmation dialog (DeleteBranchDialog over the brain Modal, confirmTone='error'), per the dangerous-action rule. The dialog states the target NODE is never deleted (only the link) and, when this is the node's SOLE incoming link, warns it will become unreachable — the KR-064 orphan prompt, computed live from the book. Done outside the iter-2 plan on user request; folds into the V2 slice (no bump)."
 		],
 		"open_questions": [
-			"Countdown (iter 4, V4 tier): toggle + délai (5–60s, default 15) + fallback-node Select with validation; ⏱ badge; the full referential-integrity sweep for deleted targets/objects (KR-063). The hidden-prereq dangling check (iter 3) is the first half of that sweep.",
-			"A node-level « objets à prendre » that the player can carry independent of a node's action is currently modelled only as action-decor « prendre » takeables; collectObjects already unions them as the catalog. If play mode needs an explicit inventory model, revisit then (the by-id references already hold).",
-			"Cascade vs keep on orphaning: the confirmation currently WARNS about an orphaned child but still only removes the edge (the node survives, listed flat in the outline). A future 'supprimer aussi le nœud' affordance needs BookService.deleteNode (not yet built)."
+			"Promote the countdown fallback (and the PNJ « mène à » / monster victoire/fuite) config references to rendered/derived canvas edges via deriveAutomaticEdges — a cross-feature follow-up (KR-067)."
 		]
 	}
 }
