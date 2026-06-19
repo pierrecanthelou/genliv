@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { useBrain, useRoute, useSelectedNode, useOpenBook, deriveAutomaticEdges } from '../../../brain'
+import {
+	useBrain,
+	useRoute,
+	useSelectedNode,
+	useOpenBook,
+	useBookNodePositions,
+	deriveAutomaticEdges,
+} from '../../../brain'
+import type { Point } from '../layout/geometry'
 import { useViewport } from '../hooks/useViewport'
 import { resolvePositions, resolveEdges, resolveBounds, NODE_W, NODE_H } from '../layout/geometry'
 import { NodeCard } from './NodeCard'
@@ -31,17 +39,21 @@ const HINT_GAP = 28
  * surrounding chrome (top bar, view-mode switch, panel) is the editor shell's.
  */
 export function TreeCanvas({ reveal }: { reveal?: RevealRequest } = {}): JSX.Element {
-	const { books, selection } = useBrain()
+	const { books, selection, uiPreferences } = useBrain()
 	const route = useRoute()
 	const bookId = route.name === 'editor' ? route.bookId : null
 	const book = useOpenBook(bookId)
 	const selectedId = useSelectedNode()
-	const { viewport, zoomIn, zoomOut, onBackgroundPointerDown, onWheel, centerOn, didDragRef } = useViewport()
+	const positionOverrides = useBookNodePositions(bookId ?? '')
+	const { viewport, zoomIn, zoomOut, onBackgroundPointerDown, onWheel, centerOn, didDragRef } = useViewport(bookId)
 	const surfaceRef = useRef<HTMLDivElement>(null)
 	/** The last reveal `seq` already centred — so we act once per request. */
 	const centredSeqRef = useRef<number>(-1)
 
-	const positions = useMemo(() => resolvePositions(book?.nodes ?? [], book?.edges ?? []), [book])
+	const positions = useMemo(
+		() => resolvePositions(book?.nodes ?? [], book?.edges ?? [], positionOverrides),
+		[book, positionOverrides],
+	)
 	// Authored edges plus the automatic ones derived from node configs (the trap
 	// « échec sanctionné » → Mort link, KR-067) — derived at the view, never stored.
 	const edges = useMemo(
@@ -86,16 +98,18 @@ export function TreeCanvas({ reveal }: { reveal?: RevealRequest } = {}): JSX.Ele
 		if (node !== null) select(node.id)
 	}
 
+	function moveNode(nodeId: string, position: Point): void {
+		// Layout is a per-device view preference, not synced book content (KR-022).
+		uiPreferences.setNodePosition(activeBookId, nodeId, position)
+	}
+
 	const isSeededEmpty = book.nodes.length <= 2 && book.edges.length === 0
 
 	return (
 		<div
 			ref={surfaceRef}
 			data-testid="canvas-surface"
-			onPointerDown={(e) => {
-				didDragRef.current = false
-				onBackgroundPointerDown(e)
-			}}
+			onPointerDown={onBackgroundPointerDown}
 			onClick={clearSelection}
 			onWheel={onWheel}
 			style={{
@@ -128,7 +142,9 @@ export function TreeCanvas({ reveal }: { reveal?: RevealRequest } = {}): JSX.Ele
 						index={index}
 						position={positions.get(node.id) ?? { x: 0, y: 0 }}
 						selected={node.id === selectedId}
+						zoom={viewport.zoom}
 						onSelect={select}
+						onMove={moveNode}
 					/>
 				))}
 

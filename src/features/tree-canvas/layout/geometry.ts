@@ -60,8 +60,17 @@ export function resolveBounds(positions: Map<string, Point>): { w: number; h: nu
  * Linkless nodes unreachable from the root (the isolated `mort`, any page not
  * reached by a choice edge) wrap into a GRID below the tree (KR-023) — so a book
  * of loose pages reads as a familiar grid rather than a single row or column.
+ *
+ * A manually dragged node's stored position (`overrides`, persisted per book via
+ * UIPreferencesService) OVERRIDES its computed slot (KR-023): the auto-layout is
+ * the default, an explicit position wins. Overrides for nodes no longer in the
+ * book are ignored (no orphan ghosts).
  */
-export function resolvePositions(nodes: BookNode[], edges: Edge[]): Map<string, Point> {
+export function resolvePositions(
+	nodes: BookNode[],
+	edges: Edge[],
+	overrides: Record<string, Point> = {},
+): Map<string, Point> {
 	const byId = new Map(nodes.map((n) => [n.id, n]))
 	const childrenOf = new Map<string, string[]>()
 	for (const edge of edges) {
@@ -111,6 +120,13 @@ export function resolvePositions(nodes: BookNode[], edges: Edge[]): Map<string, 
 			y: freeTop + Math.floor(freeIndex / FREE_COLS) * LEVEL_GAP_Y,
 		})
 		freeIndex += 1
+	}
+
+	// A stored (dragged) position overrides the computed slot — but only for nodes
+	// still in the book, so a deleted node's stale override leaves no ghost.
+	for (const node of nodes) {
+		const override = overrides[node.id]
+		if (override !== undefined) positions.set(node.id, override)
 	}
 
 	return positions

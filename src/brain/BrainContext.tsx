@@ -7,6 +7,13 @@ import { createSelectionService, type SelectionService } from './SelectionServic
 import { createActionRegistry, type ActionRegistry } from './ActionRegistry'
 import { createSlotRegistry, type SlotRegistry } from './SlotRegistry'
 import { createCloudSyncService, type CloudSyncService, type CloudTransport } from './CloudSyncService'
+import {
+	createUIPreferencesService,
+	type UIPreferencesService,
+	type BookUIPrefs,
+	type Point,
+} from './UIPreferencesService'
+import type { EditorViewMode } from './components/EditorTopBar'
 import type { SyncStatus } from './types'
 
 /**
@@ -25,6 +32,8 @@ export interface Brain {
 	selection: SelectionService
 	actions: ActionRegistry
 	slots: SlotRegistry
+	/** Per-device, non-synced editor view state — pan/zoom, view-mode, dragged positions (KR-022). */
+	uiPreferences: UIPreferencesService
 }
 
 export interface CreateBrainOptions {
@@ -46,7 +55,10 @@ export function createBrain(options: CreateBrainOptions = {}): Brain {
 	const selection = createSelectionService(events)
 	const actions = createActionRegistry()
 	const slots = createSlotRegistry()
-	return { events, persistence: sync, sync, router, books, selection, actions, slots }
+	// UI preferences persist through the RAW local store, NOT the sync decorator,
+	// so per-device view state (pan/zoom, view-mode, positions) is never cloud-synced (KR-022).
+	const uiPreferences = createUIPreferencesService(local)
+	return { events, persistence: sync, sync, router, books, selection, actions, slots, uiPreferences }
 }
 
 const BrainContext = createContext<Brain | null>(null)
@@ -86,3 +98,28 @@ export function useSyncPending(): number {
 	const { sync, events } = useBrain()
 	return useSyncExternalStore((onChange) => events.on('sync:status', onChange), sync.pendingCount)
 }
+
+/** The non-synced UI preferences service (pan/zoom, view-mode, dragged positions, KR-022). */
+export function useUIPreferences(): UIPreferencesService {
+	return useBrain().uiPreferences
+}
+
+/** Stable empty position map so the no-overrides snapshot keeps the SAME reference. */
+const EMPTY_POSITIONS: Record<string, Point> = Object.freeze({})
+
+/** Reactive read of a book's persisted canvas↔outline view-mode (external store, KR-013). */
+export function useBookViewMode(bookId: string): EditorViewMode {
+	const { uiPreferences } = useBrain()
+	return useSyncExternalStore(uiPreferences.subscribe, () => uiPreferences.getBookPrefs(bookId).viewMode ?? 'canvas')
+}
+
+/** Reactive read of a book's dragged node-position overrides (external store, KR-013). */
+export function useBookNodePositions(bookId: string): Record<string, Point> {
+	const { uiPreferences } = useBrain()
+	return useSyncExternalStore(
+		uiPreferences.subscribe,
+		() => uiPreferences.getBookPrefs(bookId).positions ?? EMPTY_POSITIONS,
+	)
+}
+
+export type { UIPreferencesService, BookUIPrefs, Point }

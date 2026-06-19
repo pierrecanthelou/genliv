@@ -57,7 +57,9 @@ export function App(): JSX.Element {
 	}, [events, router])
 	const content =
 		route.name === 'editor' ? (
-			<EditorScreen bookId={route.bookId} />
+			// Key by bookId so a book→book switch remounts the shell and re-seeds the
+			// seed-once viewport from the new book's persisted prefs (KR-013).
+			<EditorScreen key={route.bookId} bookId={route.bookId} />
 		) : (
 			<LibraryScreen createEntry={<CreateBookEntry />} />
 		)

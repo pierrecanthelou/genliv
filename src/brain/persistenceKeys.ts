@@ -23,3 +23,17 @@ export function bookKey(bookId: string): string {
  * Not a book key, so it never pollutes listBooks (keys(BOOK_KEY_PREFIX)).
  */
 export const CLOUDSYNC_QUEUE_KEY = `${PERSISTENCE_PREFIX}:cloudsync:queue`
+
+/**
+ * Per-book UI PREFERENCES — pan/zoom, the canvas↔outline view-mode, and dragged
+ * node positions (tree-canvas iter 3). These are PER-DEVICE view state, NOT part
+ * of the synced book document (KR-022): UIPreferencesService writes them through
+ * the RAW local store, so they never enter the cloud queue. The `ui:` namespace
+ * keeps them out of listBooks (keys(BOOK_KEY_PREFIX) never matches `genliv:ui:`).
+ */
+export const UI_PREFS_KEY_PREFIX = `${PERSISTENCE_PREFIX}:ui:book:`
+
+/** Storage key for one book's UI preferences, keyed by its stable id. */
+export function uiPrefsKey(bookId: string): string {
+	return `${UI_PREFS_KEY_PREFIX}${bookId}`
+}

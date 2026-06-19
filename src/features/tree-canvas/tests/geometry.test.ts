@@ -67,6 +67,21 @@ describe('resolvePositions (top-down tree)', () => {
 		const edges = [choice('e1', 'root', 'a'), choice('e2', 'a', 'b')]
 		expect(resolvePositions(nodes, edges)).toEqual(resolvePositions(nodes, edges))
 	})
+
+	it('lets a stored (dragged) override REPLACE a node computed slot (KR-023)', () => {
+		const nodes = [node('root', 'sommaire'), node('child')]
+		const edges = [choice('e', 'root', 'child')]
+		const auto = resolvePositions(nodes, edges).get('child')!
+		const moved = resolvePositions(nodes, edges, { child: { x: 999, y: 777 } }).get('child')!
+		expect(moved).toEqual({ x: 999, y: 777 })
+		expect(moved).not.toEqual(auto)
+	})
+
+	it('ignores an override for a node no longer in the book (no ghost)', () => {
+		const nodes = [node('root', 'sommaire')]
+		const positions = resolvePositions(nodes, [], { deleted: { x: 10, y: 10 } })
+		expect(positions.has('deleted')).toBe(false)
+	})
 })
 
 describe('resolveBounds', () => {

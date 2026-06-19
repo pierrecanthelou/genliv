@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useBrain, useOpenBook, EditorTopBar, type EditorViewMode } from './brain'
+import { useBrain, useOpenBook, useBookViewMode, EditorTopBar, type EditorViewMode } from './brain'
 import { TreeCanvas, type RevealRequest } from './features/tree-canvas'
 import { OutlineView } from './features/outline-view'
 import { NodeEditorPanel } from './features/node-editor'
@@ -9,13 +9,14 @@ import { NodeEditorPanel } from './features/node-editor'
  * the shared top bar (back, title, count, the canvas ↔ outline switch, + Nœud)
  * and swaps the body between the graph canvas and the indented outline; both
  * are VIEWS over the same BookService and share selection (KR-020/024). The
- * view-mode is a non-synced UI preference held locally (KR-022) — persistence
- * waits for UIPreferencesService, like the canvas pan/zoom.
+ * view-mode is a non-synced per-book UI preference persisted via
+ * UIPreferencesService (KR-022), read reactively and written on change.
  */
 export function EditorScreen({ bookId }: { bookId: string }): JSX.Element {
-	const { books, router, selection } = useBrain()
+	const { books, router, selection, uiPreferences } = useBrain()
 	const book = useOpenBook(bookId)
-	const [viewMode, setViewMode] = useState<EditorViewMode>('canvas')
+	const viewMode = useBookViewMode(bookId)
+	const setViewMode = (mode: EditorViewMode): void => uiPreferences.setViewMode(bookId, mode)
 	// « Centrer dans l'arbre » from the outline: switch to the canvas and ask it
 	// to centre on the node. A monotonic seq makes each request distinct so the
 	// same node can be revealed repeatedly. Owned by the shell so outline-view and

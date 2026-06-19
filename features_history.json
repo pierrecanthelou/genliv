@@ -42,12 +42,22 @@
 			"brain_contracts_added": [
 				{ "type": "service", "name": "BookService.addNode" },
 				{ "type": "event", "name": "node:created (payload + kind)" },
-				{ "type": "event", "name": "node:selected" }
+				{ "type": "event", "name": "node:selected" },
+				{
+					"type": "service",
+					"name": "UIPreferencesService (brain) + useUIPreferences/useBookViewMode/useBookNodePositions"
+				}
 			],
 			"lessons_learned": [
 				"Inheriting code-knowledge.json from another project left foreign KR ids (KR-001 = cloud-import-options) that collide with the gamebook's own KR namespace — the cross-project knowledge base needs a reset/namespacing before appending gamebook KRs.",
 				"Local pan/zoom is shippable without UIPreferencesService; only its PERSISTENCE must wait — split iteration 3 so the canvas is usable now (mirrors book-creation iter 3 deferring on CloudSyncService).",
-				"Canvas event flow: node cards / controls must stopPropagation on pointerdown+click so background pan/clear-selection only fire on true empty-canvas interactions."
+				"Canvas event flow: node cards / controls must stopPropagation on pointerdown+click so background pan/clear-selection only fire on true empty-canvas interactions.",
+				"iter 3: a feature's blocked DEPENDENCY that is a brain SERVICE (not a build-order feature) is built by its first consumer — UIPreferencesService landed inside the tree-canvas iter-3 slice, like SelectionService/SlotRegistry were built within their consuming features. No separate ui-preferences feature.",
+				"iter 3: non-synced view state must persist through the RAW local store, NOT the CloudSyncService decorator (KR-022/025) — wire UIPreferencesService over `local`, not `sync`, in createBrain, so pan/zoom/positions can never enter the cloud queue. A `ui:` key namespace keeps it out of listBooks.",
+				"iter 3: dragged node positions are a UI PREFERENCE, not synced node.position — persist them in UIPreferencesService and let resolvePositions OVERRIDE the computed slot (only for nodes still in the book, so a deleted node's stale override leaves no ghost). Layout is a view concern; keeping it off the synced document avoids spurious sync conflicts.",
+				"iter 3: a useSyncExternalStore snapshot must be a STABLE reference between writes — serve reads from an in-memory cache (new object only on write) and return a single frozen EMPTY constant for the no-prefs case, or the getSnapshot infinite-loops.",
+				"iter 3: persist the live viewport ON SETTLE (drag-release, zoom step, centre), not every pan frame — keep the fast pan in local useState (seeded lazily from the service) and write to localStorage only when the gesture ends, so 60fps panning doesn't thrash storage.",
+				"iter 3: jsdom defines no PointerEvent, so fireEvent.pointerMove drops clientX/clientY — dispatch coordinate-carrying MouseEvents typed as pointer events (via fireEvent, which act-wraps) to drive a window-pointer drag in tests; production keeps real pointer events."
 			],
 			"bugs_encountered": ["BUG-001"]
 		},

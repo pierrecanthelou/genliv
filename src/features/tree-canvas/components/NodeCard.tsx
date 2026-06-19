@@ -2,23 +2,31 @@ import { type KeyboardEvent } from 'react'
 import { NodeBadge, effectiveKind, endLabel, type BookNode } from '../../../brain'
 import { NODE_W, NODE_H, type Point } from '../layout/geometry'
 import { nodeView, nodeRef } from '../layout/nodeView'
+import { useNodeDrag } from '../hooks/useNodeDrag'
 
 /**
  * A single node rendered as an absolutely-positioned card on the canvas
  * (wireframe § 02 anatomy: NodeBadge + mono ref, title, 1-line snippet).
  * Selecting it is the canvas's job (single source of truth, KR-024); the
- * card is keyboard-focusable and selectable without a pointer (a11y).
+ * card is keyboard-focusable and selectable without a pointer (a11y). It can
+ * also be dragged to a new position, committed via onMove (persisted by the
+ * canvas, overriding the auto-layout slot, KR-022/023).
  */
 export interface NodeCardProps {
 	node: BookNode
 	index: number
 	position: Point
 	selected: boolean
+	/** Current canvas zoom, so screen drag travel maps to canvas units. */
+	zoom: number
 	onSelect: (nodeId: string) => void
+	/** Commit a dragged position (canvas units) for this node. */
+	onMove: (nodeId: string, position: Point) => void
 }
 
-export function NodeCard({ node, index, position, selected, onSelect }: NodeCardProps): JSX.Element {
+export function NodeCard({ node, index, position, selected, zoom, onSelect, onMove }: NodeCardProps): JSX.Element {
 	const view = nodeView(node)
+	const { delta, onPointerDown, consumeDragClick } = useNodeDrag(position, zoom, (next) => onMove(node.id, next))
 
 	function handleKeyDown(e: KeyboardEvent): void {
 		if (e.key === 'Enter' || e.key === ' ') {
@@ -27,22 +35,28 @@ export function NodeCard({ node, index, position, selected, onSelect }: NodeCard
 		}
 	}
 
+	const left = position.x + (delta?.x ?? 0)
+	const top = position.y + (delta?.y ?? 0)
+	const dragging = delta !== null
+
 	return (
 		<div
 			role="button"
 			tabIndex={0}
 			aria-pressed={selected}
 			aria-label={`Nœud ${nodeRef(index)} — ${view.title}`}
-			onPointerDown={(e) => e.stopPropagation()}
+			onPointerDown={onPointerDown}
 			onClick={(e) => {
 				e.stopPropagation()
+				// A drag-release is not a select click (consume the gesture's click).
+				if (consumeDragClick()) return
 				onSelect(node.id)
 			}}
 			onKeyDown={handleKeyDown}
 			style={{
 				position: 'absolute',
-				left: position.x,
-				top: position.y,
+				left,
+				top,
 				width: NODE_W,
 				minHeight: NODE_H,
 				boxSizing: 'border-box',
@@ -51,8 +65,9 @@ export function NodeCard({ node, index, position, selected, onSelect }: NodeCard
 				borderRadius: 'var(--r-2xl)',
 				boxShadow: selected ? 'var(--ring-selected)' : 'var(--shadow-card)',
 				padding: '10px 12px',
-				cursor: 'pointer',
+				cursor: dragging ? 'grabbing' : 'grab',
 				userSelect: 'none',
+				zIndex: dragging ? 1 : undefined,
 			}}
 		>
 			<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>

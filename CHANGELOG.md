@@ -2,6 +2,14 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.4.1 — tree-canvas iteration 3 (V3 slice)
+
+- **New brain `UIPreferencesService`** — the single gateway for per-device, **non-synced** editor view state (pan/zoom, canvas↔outline view-mode, dragged node positions, KR-022/025). Wired in `createBrain` over the **raw local store, never the `CloudSyncService` decorator**, so this state can't enter the cloud queue (KR-093); its `genliv:ui:book:<id>` key stays out of `listBooks`. Reads are **cache-backed** for `useSyncExternalStore` snapshot stability; each write makes a new prefs object and notifies subscribers. New hooks `useUIPreferences` / `useBookViewMode` / `useBookNodePositions` (KR-013, external-store).
+- **Pan/zoom persists per book** — `useViewport` seeds the live viewport from the service and **persists on settle** (drag-release, each zoom step, a centre request), not every pan frame.
+- **Canvas↔outline view-mode persists per book** — `EditorScreen` reads/writes it through the service, so the switch survives a reload.
+- **Drag a node to reposition it** — a new `useNodeDrag` hook (window pointer listeners, ref-tracked + unmount-cleaned, the BUG-001 pattern): travel past a threshold commits the position (persisted via `UIPreferencesService`) and consumes the click so a drag never selects; a press without travel stays a select. The dragged position is a **UI preference, not synced `node.position`**, and **overrides** the auto-layout slot in `resolvePositions` (only for nodes still in the book — a deleted node's stale override leaves no ghost, KR-021/023).
+- 220 tests passing (+14). This unblocks the long-deferred tree-canvas layout-persistence work (the iter-3 dependency that needed `UIPreferencesService`).
+
 ## 0.4.0 — book-creation iteration 3 (V3 slice — tier opens 🚀)
 
 - **Cloud-first create, surfaced + locked in.** The cloud-first persistence the iter-3 goal describes was already satisfied transparently by the `CloudSyncService` decorator (KR-093): `createBook` writes through `brain.sync`, so a new book is **local-first** (synchronous local write) and **queued for the background cloud push**, and `listBooks`/`getBook` **restore it on reload**. This slice surfaces that to the author and pins it with tests rather than re-plumbing persistence.

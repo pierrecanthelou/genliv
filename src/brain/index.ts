@@ -27,6 +27,8 @@ export type { PersistenceService } from './PersistenceService'
 export type { SyncStatus } from './types'
 export type { CloudSyncService, CloudTransport, CloudSyncOptions } from './CloudSyncService'
 export { createLocalStorageTransport } from './LocalStorageTransport'
+export { createUIPreferencesService } from './UIPreferencesService'
+export type { UIPreferencesService, BookUIPrefs, Viewport } from './UIPreferencesService'
 export type { Router, Route } from './Router'
 export type { BookService, NodePatch } from './BookService'
 export { autoSlot } from './BookService'
@@ -60,6 +62,9 @@ export {
 	useSelectedNode,
 	useSyncStatus,
 	useSyncPending,
+	useUIPreferences,
+	useBookViewMode,
+	useBookNodePositions,
 	type Brain,
 	type CreateBrainOptions,
 } from './BrainContext'

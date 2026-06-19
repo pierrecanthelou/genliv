@@ -72,4 +72,65 @@ describe('tree-canvas', () => {
 		expect(added).toHaveAttribute('aria-pressed', 'true')
 		expect(selections[selections.length - 1]).toBeTruthy()
 	})
+
+	it('persists a dragged node position (UIPreferencesService) and overrides its layout slot', () => {
+		const { brain, book, selections } = setup()
+		const sommaire = screen.getByRole('button', { name: /Sommaire/ })
+		const beforeLeft = sommaire.style.left
+
+		// jsdom has no PointerEvent, so dispatch coordinate-carrying MouseEvents typed
+		// as pointer events (fireEvent act-wraps the dispatch). A press that travels
+		// past the threshold is a drag, not a select.
+		const ptr = (type: string, target: Element | Window, x: number, y: number): void =>
+			void fireEvent(target, new MouseEvent(type, { clientX: x, clientY: y, bubbles: true }))
+		ptr('pointerdown', sommaire, 0, 0)
+		ptr('pointermove', window, 80, 50)
+		ptr('pointerup', window, 80, 50)
+
+		const sommaireId = brain.books.getBook(book.id)!.nodes.find((n) => n.kind === 'sommaire')!.id
+		const stored = brain.uiPreferences.getBookPrefs(book.id).positions?.[sommaireId]
+		expect(stored).toBeDefined()
+		// The card re-renders at the persisted (overridden) position, and the drag did
+		// not register as a selection.
+		expect(sommaire.style.left).not.toBe(beforeLeft)
+		expect(selections).not.toContain(sommaireId)
+	})
+
+	it('persists the canvas/outline view-mode per book', async () => {
+		const user = userEvent.setup()
+		const { brain, book } = setup()
+		expect(brain.uiPreferences.getBookPrefs(book.id).viewMode ?? 'canvas').toBe('canvas')
+
+		await user.click(screen.getByRole('radio', { name: /Plan/ }))
+
+		expect(brain.uiPreferences.getBookPrefs(book.id).viewMode).toBe('outline')
+		// A re-render reads the persisted mode: the outline body is shown.
+		expect(screen.getByRole('radio', { name: /Plan/ })).toHaveAttribute('aria-checked', 'true')
+	})
+
+	it('persists the canvas zoom per book', async () => {
+		const user = userEvent.setup()
+		const { brain, book } = setup()
+
+		await user.click(screen.getByRole('button', { name: 'Zoom avant' }))
+
+		expect(brain.uiPreferences.getBookPrefs(book.id).viewport?.zoom).toBeGreaterThan(1)
+	})
+
+	it('restores persisted view state on reload (a fresh App over the same store)', () => {
+		// First "session": create a book and switch to the outline.
+		const first = createBrain()
+		const book = first.books.createBook('La Caverne')
+		first.uiPreferences.setViewMode(book.id, 'outline')
+		// "Reload": a brand-new brain (cold cache) over the same localStorage, opening
+		// straight onto the editor route.
+		const reloaded = createBrain({ initialRoute: { name: 'editor', bookId: book.id } })
+		render(
+			<BrainProvider brain={reloaded}>
+				<App />
+			</BrainProvider>,
+		)
+		// The persisted outline mode is read on mount (its radio is checked).
+		expect(screen.getByRole('radio', { name: /Plan/ })).toHaveAttribute('aria-checked', 'true')
+	})
 })

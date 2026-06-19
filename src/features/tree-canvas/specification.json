@@ -48,7 +48,7 @@
 			{
 				"id": 3,
 				"goal": "Pan/zoom + layout persistence: drag-pan, wheel/control zoom (local, shipped), deterministic auto-layout for position-less nodes (shipped); PERSIST positions on drag + per-book view state via UIPreferencesService (not cloud-synced, KR-022) — deferred until UIPreferencesService lands.",
-				"status": "planned"
+				"status": "done"
 			},
 			{
 				"id": 4,
@@ -62,6 +62,7 @@
 			"KR-022 — Pan/zoom and view-mode are UI preferences (UIPreferencesService), NOT part of the synced book document.",
 			"KR-023 — The canvas auto-lays-out the book as a top-down TREE (resolvePositions, a pure VIEW over the choice-edge structure): y by depth (each level a row beneath the previous), x by a leaf cursor with each parent centred over its children — sommaire at the top, direct children on one evenly-spaced row beneath, recursively. Linkless/unreachable nodes (the isolated mort, any page not reached by a choice edge) wrap into a GRID below the tree — never a single horizontal row ('all nodes horizontal') nor a single descending column ('one branch'); a wrapping grid avoids both. Deterministic, stable, no 0,0 pileup. Stored node.position is currently ignored by the view; manual drag + persistence is a later iteration.",
 			"KR-024 — Selection is owned here and broadcast via node:selected; node-editor must not own a competing selection source.",
+			"KR-025 — Per-device view state (pan/zoom, view-mode, dragged positions) lives in the brain UIPreferencesService over the RAW local store (never the sync decorator, KR-022/093); dragged positions are a UI preference (not synced node.position) that overrides the auto-layout slot; reads are cache-backed for snapshot stability; viewport persists on settle, not per frame.",
 			"KR-011 — No raw window.localStorage; positions/view-state persist only through PersistenceService/UIPreferencesService.",
 			"KR-013 — Derive layout/selection state inline or via an external-store subscription, not via useEffect-synced mirrors of props.",
 			"Perf — large books must cull off-screen rendering and keep pan/zoom at 60fps; SVG edge count is the usual bottleneck.",
@@ -93,6 +94,28 @@
 					"integration": "TreeCanvas render (title/count/cards/empty-state placeholder), single-select + node:selected, clear-on-empty-click, « + Nœud » create+select+count via BookService",
 					"e2e": "deferred (Playwright not yet set up)"
 				}
+			},
+			{
+				"id": 3,
+				"label": "iteration-3",
+				"completed_at": "2026-06-18",
+				"architecture_choices": [
+					"Built the missing brain UIPreferencesService (KR-025): the single gateway for per-device, non-synced editor view state (pan/zoom, canvas↔outline view-mode, dragged node positions). createBrain wires it over the RAW local store, NOT the CloudSyncService decorator, so this state never enters the cloud queue (KR-022/093/011); its key is the `genliv:ui:book:<id>` namespace (uiPrefsKey), kept out of listBooks.",
+					"Reads are served from an in-memory CACHE so getBookPrefs returns a STABLE reference between writes (useSyncExternalStore snapshot stability); each write makes a NEW prefs object and notifies subscribers. New external-store hooks useBookViewMode / useBookNodePositions (KR-013), and useUIPreferences for imperative writes.",
+					"Dragged positions are a UI PREFERENCE, not synced node.position: resolvePositions gained an `overrides` param that REPLACES the computed slot for a node (only if still in the book — a deleted node's stale override leaves no ghost, KR-021/023). node.position on the document stays the autoSlot default, unconsulted by the canvas.",
+					"useViewport now takes the bookId, seeds the live viewport lazily from the service, and PERSISTS ON SETTLE (drag-release, each zoom step, a centre request) — never every pan frame, so localStorage isn't thrashed at 60fps.",
+					"Node drag is a new useNodeDrag hook (window pointer listeners tracked in a ref + unmount cleanup, the BUG-001 pattern): travel past a threshold commits the position via onMove (persisted by the canvas) and consumes the click so a drag-release never selects; a press without travel stays a select. EditorScreen reads/writes the view-mode through the service so the canvas↔outline switch survives a reload."
+				],
+				"deviations_from_plan": [
+					"This iteration also BUILT its blocked dependency (UIPreferencesService) — there is no separate ui-preferences feature; the brain service is infrastructure created by its first consumer (tree-canvas), like SelectionService/SlotRegistry were built within their consuming features.",
+					"Orphaned UI prefs: deleting a book leaves its `genliv:ui:book:<id>` entry behind (harmless, keyed by a dead id, never read). A cleanup on book:deleted is deferred (would cross BookService→uiPreferences) — logged as an open question.",
+					"jsdom has no PointerEvent, so the drag integration test dispatches coordinate-carrying MouseEvents typed as pointer events (production keeps pointer events, correct in real browsers)."
+				],
+				"test_coverage": {
+					"unit": "UIPreferencesService (store/read viewport+view-mode+positions, per-book isolation, snapshot-reference stability, position merge, subscribe/unsubscribe, survives-reload, ui: namespace ≠ book key); geometry (a stored override replaces the computed slot; an override for a deleted node leaves no ghost)",
+					"integration": "TreeCanvas — drag persists a position via UIPreferencesService + overrides the slot (no select on drag), view-mode persists per book, zoom persists per book, view state restored on reload (fresh App over the same store)",
+					"e2e": "deferred (Playwright not yet set up)"
+				}
 			}
 		],
 		"resolved_decisions": [
@@ -103,8 +126,8 @@
 			"« + Nœud » creates a FREE-FLOATING unattached node (kind `choix`), then selects it; attaching to a parent choice is done in choice-linking."
 		],
 		"open_questions": [
-			"UIPreferencesService: persist per-book pan/zoom + view-mode + dragged node positions (iteration 3) when the service lands.",
-			"Outline view-mode switch is specced in the top bar but owned by outline-view; wire the toggle when that feature lands."
+			"Orphaned UI prefs on book deletion: the `genliv:ui:book:<id>` entry survives deleteBook (harmless, never read). A cleanup on book:deleted (wired at the composition root so BookService stays decoupled from uiPreferences) is a possible follow-up.",
+			"A « réinitialiser la disposition » affordance to clear dragged-position overrides back to the auto-layout is a natural follow-up (iter 4 / polish)."
 		]
 	}
 }

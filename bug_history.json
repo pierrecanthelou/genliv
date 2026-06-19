@@ -37,6 +37,42 @@
 			"severity": "minor"
 		},
 		{
+			"id": "BUG-004",
+			"date": "2026-06-18",
+			"feature": "tree-canvas",
+			"discovered_at": "iteration-3",
+			"symptom": "useViewport re-declared its own `Viewport` interface, duplicating the brain UIPreferencesService `Viewport`. Two structurally-identical types for one concept can silently drift (a field added to one and not the other).",
+			"root_cause": "The hook predates UIPreferencesService and owned its local type; iter 3 introduced the canonical brain type without collapsing the duplicate. Flagged in the tech-lead review.",
+			"fix": "useViewport now imports `Viewport` from brain (re-exporting the type) and the local interface was deleted. (src/features/tree-canvas/hooks/useViewport.ts)",
+			"mitigation": "One source of truth for the viewport shape (brain); the hook references it, so a future field lands once.",
+			"regression_test": "covered by existing useViewport-driven TreeCanvas tests (zoom persistence); tsc enforces the shared shape",
+			"severity": "minor"
+		},
+		{
+			"id": "BUG-005",
+			"date": "2026-06-18",
+			"feature": "tree-canvas",
+			"discovered_at": "iteration-3",
+			"symptom": "The live viewport is seed-once via a lazy useState initializer and does not re-seed when bookId changes; a future in-editor book→book switch would keep the previous book's pan/zoom.",
+			"root_cause": "Latent (not reachable today — every editor entry mounts EditorScreen fresh from home). Flagged as an insurance fix in the tech-lead review.",
+			"fix": "EditorScreen is keyed by route.bookId at the composition root (App.tsx), so a book switch remounts the shell and the viewport re-seeds from the new book's persisted prefs.",
+			"mitigation": "The seed-once contract is made explicit by the key; reactive prefs (view-mode/positions) were already safe via external-store hooks.",
+			"regression_test": "src/features/tree-canvas/tests/TreeCanvas.test.tsx — 'restores persisted view state on reload (a fresh App over the same store)'",
+			"severity": "minor"
+		},
+		{
+			"id": "BUG-006",
+			"date": "2026-06-18",
+			"feature": "tree-canvas",
+			"discovered_at": "iteration-3",
+			"symptom": "The KR-022/093 non-sync guarantee (UI prefs never reach the cloud queue) was pinned only structurally (key namespace, service wired over local), with no test proving a prefs write leaves the cloud queue empty.",
+			"root_cause": "Coverage gap on the slice's headline contract, flagged in the tech-lead review.",
+			"fix": "Added a test that runs createBrain with a never-resolving transport, writes viewport+view-mode+position via brain.uiPreferences, and asserts sync.pendingCount() === 0 and the CLOUDSYNC_QUEUE_KEY is absent.",
+			"mitigation": "A leaked write through the sync decorator would stick the never-resolving push and fail the assertion, so a future mis-wiring is caught.",
+			"regression_test": "src/brain/UIPreferencesService.test.ts — 'is NEVER cloud-synced: prefs writes do not enter the cloud queue (KR-022/093)'",
+			"severity": "minor"
+		},
+		{
 			"id": "BUG-007",
 			"date": "2026-06-18",
 			"feature": "action-decor",
