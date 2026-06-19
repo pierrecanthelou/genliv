@@ -2,6 +2,13 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.4.9 — cloud-sync iteration 3 (V3 slice — tier complete 🏁)
+
+- **Conflict handling instead of silent last-write-wins** — when a book diverged on **both** sides (local has unpushed edits **and** the cloud copy is newer), `book:opened` reconciliation no longer silently overwrites either side (KR-098). It stashes the cloud copy, emits a new **`sync:conflict`** event, and surfaces a resolution affordance. A clean local (no unpushed edits) still adopts a newer cloud via safe LWW — nothing to lose.
+- **Resolution** — new `CloudSyncService.conflicts()` + `resolveConflict(bookId, 'local' | 'cloud')`: **« Garder ma version »** re-queues local to push over the cloud; **« Prendre la version du cloud »** adopts the cloud copy and drops the queued local edit. A new **`ConflictDialog`** (mounted once by App, a VIEW over `useSyncConflict`) presents the choice for the open book.
+- **Deferred:** queued deletes/tombstones + cloud-only list reconciliation (need new `CloudTransport` delete + list capabilities) — shared with the book-library iter-3 deferral.
+- 268 tests passing (+7). **🏁 The 0.4.x / V3 tier is complete** — iteration 3 of every feature that has one (`node-editor` iter 3 superseded).
+
 ## 0.4.8 — action-trap iteration 3 (V3 slice)
 
 - **Trap-on-object** — a décor « Prendre » object's « jet requis » can now be marked **« Variante piège : échec → mort »**: taking the object and failing the roll is lethal. It reuses the **shared roll model** (`SkillRoll` gained a `fatal` flag) and the trap's **derived fatal → Mort edge** — `deriveAutomaticEdges` now emits the same `auto-fatal-<node>` edge for a décor node with a fatal takeable roll as for a « échec sanctionné » trap (KR-067/092). View-derived from config, never authored.

@@ -126,6 +126,15 @@ export function useUIPreferences(): UIPreferencesService {
 	return useBrain().uiPreferences
 }
 
+/** Whether a book is in sync CONFLICT (both sides diverged) — drives the resolution dialog (iter 3). */
+export function useSyncConflict(bookId: string | null): boolean {
+	const { sync, events } = useBrain()
+	return useSyncExternalStore(
+		(onChange) => events.on('sync:conflict', onChange),
+		() => bookId !== null && sync.conflicts().includes(bookId),
+	)
+}
+
 /** Stable empty position map so the no-overrides snapshot keeps the SAME reference. */
 const EMPTY_POSITIONS: Record<string, Point> = Object.freeze({})
 

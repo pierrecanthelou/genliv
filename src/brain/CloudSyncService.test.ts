@@ -176,4 +176,64 @@ describe('CloudSyncService', () => {
 
 		expect(sync.pendingCount()).toBe(1) // the newer write was not lost
 	})
+
+	describe('conflict handling (iter 3)', () => {
+		const key = bookKey('b1')
+		// A transport whose push never resolves (the local edit stays queued/pending)
+		// and whose pull returns a NEWER cloud copy — the divergence condition.
+		function conflictTransport(): CloudTransport {
+			return {
+				push: () => new Promise<void>(() => {}),
+				pull: async () => ({ updatedAt: '2026-06-01T00:00:00.000Z', title: 'cloud' }),
+			}
+		}
+
+		it('detects a conflict (local unpushed edits + newer cloud) without overwriting local', async () => {
+			const { sync, events } = setup(conflictTransport())
+			const conflicts: string[] = []
+			events.on('sync:conflict', ({ bookId }) => conflicts.push(bookId))
+
+			sync.set(key, { updatedAt: '2026-05-01T00:00:00.000Z', title: 'local' }) // local edit, now queued
+			events.emit('book:opened', { bookId: 'b1' }) // triggers reconcile (pulls the newer cloud)
+			await flush()
+
+			expect(sync.conflicts()).toEqual(['b1'])
+			expect(conflicts).toEqual(['b1'])
+			// Local was NOT silently overwritten.
+			expect(sync.get<{ title: string }>(key)?.title).toBe('local')
+		})
+
+		it('does NOT conflict when local is clean (no unpushed edits) — safe LWW adopt', async () => {
+			const { sync, local, events } = setup(conflictTransport())
+			// Local copy is older but has NO queued edit (written underneath, not via set).
+			local.set(key, { updatedAt: '2026-05-01T00:00:00.000Z', title: 'local' })
+			events.emit('book:opened', { bookId: 'b1' })
+			await flush()
+
+			expect(sync.conflicts()).toEqual([])
+			expect(sync.get<{ title: string }>(key)?.title).toBe('cloud') // adopted the newer cloud
+		})
+
+		it('resolveConflict("cloud") adopts the cloud copy and clears the conflict', async () => {
+			const { sync, events } = setup(conflictTransport())
+			sync.set(key, { updatedAt: '2026-05-01T00:00:00.000Z', title: 'local' })
+			events.emit('book:opened', { bookId: 'b1' })
+			await flush()
+
+			sync.resolveConflict('b1', 'cloud')
+			expect(sync.conflicts()).toEqual([])
+			expect(sync.get<{ title: string }>(key)?.title).toBe('cloud')
+		})
+
+		it('resolveConflict("local") keeps local and clears the conflict', async () => {
+			const { sync, events } = setup(conflictTransport())
+			sync.set(key, { updatedAt: '2026-05-01T00:00:00.000Z', title: 'local' })
+			events.emit('book:opened', { bookId: 'b1' })
+			await flush()
+
+			sync.resolveConflict('b1', 'local')
+			expect(sync.conflicts()).toEqual([])
+			expect(sync.get<{ title: string }>(key)?.title).toBe('local') // local kept
+		})
+	})
 })

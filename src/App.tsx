@@ -8,7 +8,7 @@ import { registerActionDecor } from './features/action-decor'
 import { registerActionPnj } from './features/action-pnj'
 import { registerActionMonster } from './features/action-monster'
 import { registerActionTrap } from './features/action-trap'
-import { SyncIndicator } from './features/cloud-sync'
+import { SyncIndicator, ConflictDialog } from './features/cloud-sync'
 
 /**
  * True when `route` is the editor showing `bookId` — the one screen a delete
@@ -68,6 +68,7 @@ export function App(): JSX.Element {
 		<>
 			{content}
 			<SyncIndicator />
+			<ConflictDialog />
 		</>
 	)
 }

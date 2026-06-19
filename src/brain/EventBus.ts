@@ -20,6 +20,8 @@ export interface AppEvents {
 	'action:changed': { bookId: string; nodeId: string; actionType: NodeActionType }
 	'monster:savedToLibrary': { bookId: string; nodeId: string }
 	'sync:status': { status: SyncStatus; pending: number }
+	/** A book diverged on both sides (local unpushed edits + a newer cloud copy) — awaiting resolution. */
+	'sync:conflict': { bookId: string }
 }
 
 export type AppEventName = keyof AppEvents

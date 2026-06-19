@@ -66,6 +66,7 @@ export {
 	useSyncStatus,
 	useSyncPending,
 	useBookPending,
+	useSyncConflict,
 	useUIPreferences,
 	useBookViewMode,
 	useBookNodePositions,

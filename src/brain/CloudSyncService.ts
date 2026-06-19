@@ -55,6 +55,19 @@ export interface CloudSyncService extends PersistenceService {
 	pendingKeys(): string[]
 	/** Retry the offline queue now (e.g. on reconnect); a no-op when empty/offline. */
 	retry(): void
+	/**
+	 * Book ids currently in CONFLICT — both sides diverged (local has unpushed edits
+	 * AND the cloud copy is newer), so reconciliation did NOT silently overwrite
+	 * either (iter 3). Resolved via resolveConflict.
+	 */
+	conflicts(): string[]
+	/**
+	 * Resolve a book's conflict: keep the local version (`local` — push it up) or
+	 * adopt the cloud version (`cloud` — overwrite local, discard the queued local
+	 * edit). Clears the conflict and notifies (book:updated on adopt). No-op if the
+	 * book is not in conflict.
+	 */
+	resolveConflict(bookId: string, choice: 'local' | 'cloud'): void
 }
 
 /** A persisted value carrying an ISO `updatedAt` — the LWW comparison field. */
@@ -76,6 +89,9 @@ export function createCloudSyncService(
 	const queue = new Map<string, unknown>(local.get<[string, unknown][]>(CLOUDSYNC_QUEUE_KEY) ?? [])
 	let flushTimer: ReturnType<typeof setTimeout> | null = null
 	let flushing = false
+	// Books in CONFLICT, by bookId → the cloud value awaiting resolution. Transient
+	// (in-memory; re-detected on the next book:opened) — never silently overwritten.
+	const conflictMap = new Map<string, unknown>()
 
 	function persistQueue(): void {
 		// Persist via the UNDERLYING local store, never the decorated set — the queue
@@ -144,10 +160,18 @@ export function createCloudSyncService(
 				const localAt = localValue?.updatedAt ?? ''
 				const cloudAt = (cloud as Timestamped).updatedAt ?? ''
 				if (cloudAt > localAt) {
-					// Cloud is newer: adopt it locally (write underneath, do NOT re-push)
-					// and notify the open views to re-read the changed document.
-					local.set(key, cloud)
-					events.emit('book:updated', { bookId })
+					if (queue.has(key)) {
+						// CONFLICT (iter 3): local has UNPUSHED edits (key still queued) AND the
+						// cloud moved to a newer version — both diverged. Do NOT silently LWW;
+						// stash the cloud copy and surface a resolution affordance instead.
+						conflictMap.set(bookId, cloud)
+						events.emit('sync:conflict', { bookId })
+					} else {
+						// Cloud is newer and local is clean (no unpushed edits): safe to adopt it
+						// locally (write underneath, do NOT re-push) and notify open views.
+						local.set(key, cloud)
+						events.emit('book:updated', { bookId })
+					}
 				} else if (localAt > cloudAt) {
 					// Local is newer: push it up.
 					queuePush(key, localValue)
@@ -194,6 +218,29 @@ export function createCloudSyncService(
 				flushTimer = null
 			}
 			flush()
+		},
+		conflicts(): string[] {
+			return [...conflictMap.keys()]
+		},
+		resolveConflict(bookId, choice): void {
+			const cloud = conflictMap.get(bookId)
+			if (cloud === undefined) return
+			conflictMap.delete(bookId)
+			const key = bookKey(bookId)
+			if (choice === 'cloud') {
+				// Adopt the cloud version: overwrite local + discard the queued local edit
+				// (write underneath, never the decorated set — no echo loop).
+				local.set(key, cloud)
+				queue.delete(key)
+				persistQueue()
+				events.emit('book:updated', { bookId })
+			} else {
+				// Keep local: (re)queue the local copy so it pushes over the cloud.
+				const localValue = local.get(key)
+				if (localValue !== null) queuePush(key, localValue)
+			}
+			// Notify conflict subscribers to re-read (the book is no longer in conflict).
+			events.emit('sync:conflict', { bookId })
 		},
 	}
 }

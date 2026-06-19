@@ -4,3 +4,4 @@
  * PersistenceService and is wired in createBrain).
  */
 export { SyncIndicator } from './components/SyncIndicator'
+export { ConflictDialog } from './components/ConflictDialog'

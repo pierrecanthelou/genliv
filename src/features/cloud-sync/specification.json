@@ -15,13 +15,23 @@
 			"View-mode/UI state is NOT synced; only the book document flows through the persistence layer (cloud-first boundary, KR-022)."
 		],
 		"brain_contracts": [
-			{ "type": "service", "name": "PersistenceService", "direction": "consumes" },
-			{ "type": "service", "name": "CloudSyncService", "direction": "provides" },
+			{
+				"type": "service",
+				"name": "PersistenceService",
+				"direction": "consumes"
+			},
+			{
+				"type": "service",
+				"name": "CloudSyncService",
+				"direction": "provides"
+			},
 			{
 				"type": "event",
 				"name": "sync:status",
 				"direction": "emits",
-				"payload": { "status": "idle|syncing|synced|offline|error" }
+				"payload": {
+					"status": "idle|syncing|synced|offline|error"
+				}
 			}
 		],
 		"walking_skeleton": "createCloudSyncService(local, events, transport?) decorates the local PersistenceService: local-first set (sync write) + a background transport.push that moves the status idle→syncing→synced/error and emits sync:status; with no transport it stays offline (local-only). createBrain wraps the local store with it and exposes brain.sync. useSyncStatus subscribes to sync:status; the cloud-sync feature's SyncIndicator renders the live state as a Badge pill, mounted by App over both routes. The real cloud transport (Cloudflare worker client) + offline write queue are later iterations.",
@@ -40,7 +50,7 @@
 			{
 				"id": 3,
 				"goal": "Conflict handling: detect divergence between local and cloud, surface a resolution affordance rather than silently overwriting.",
-				"status": "planned"
+				"status": "done"
 			}
 		],
 		"known_risks": [
@@ -112,11 +122,28 @@
 					"integration": "SyncIndicator via brain — « N changements en attente » when two writes are queued behind a failing transport",
 					"e2e": "deferred (Playwright not set up)"
 				}
+			},
+			{
+				"id": 3,
+				"label": "iteration-3 (conflict handling)",
+				"completed_at": "2026-06-19",
+				"architecture_choices": [
+					"CONFLICT DETECTION on book:opened reconciliation (KR-098): a conflict is when BOTH sides diverged — local has UNPUSHED edits (the book key is still in the offline queue) AND the cloud copy is NEWER (cloudAt > localAt). In that case reconcile no longer silently last-write-wins: it stashes the cloud copy in a transient in-memory conflictMap (by bookId), does NOT overwrite local, and emits a new sync:conflict event. When local is CLEAN (no queued edit) the existing safe LWW adopt still runs — there are no local edits to lose.",
+					"RESOLUTION via CloudSyncService.resolveConflict(bookId, local|cloud): « cloud » writes the cloud copy under the local store (never the decorated set — no echo) + drops the queued local edit + emits book:updated; « local » re-queues the local copy so it pushes over the cloud. Either clears the conflict and re-emits sync:conflict so subscribers re-read. conflicts() lists the books awaiting resolution. resolveConflict is the second book-aware spot in the decorator (like reconcile, KR-094).",
+					"The cloud-sync feature gained a ConflictDialog (brain Modal, confirmTone=error) mounted once by App over the editor route: a VIEW over useSyncConflict(openBookId) (external store over sync:conflict, KR-013), offering « Garder ma version » (local) / « Prendre la version du cloud » (cloud). It holds no state and resolves through sync.resolveConflict."
+				],
+				"deviations_from_plan": [
+					"Conflict detection is timestamp+pending based (no per-key version vector): local-pending + cloud-newer is the divergence signal, which is sufficient without a stored base version. Queued DELETES/tombstones (the open question) stay deferred — they need a CloudTransport delete capability that does not exist (same deferral as book-library iter 3 list/delete)."
+				],
+				"test_coverage": {
+					"unit": "CloudSyncService — detects a conflict (local pending + newer cloud) without overwriting local + emits sync:conflict; clean-local stays safe LWW; resolveConflict cloud adopts / local keeps",
+					"integration": "ConflictDialog via the feature — surfaces for the open conflicted book, « Garder ma version » keeps local + hides, « Prendre la version du cloud » adopts the cloud book",
+					"e2e": "deferred (Playwright not set up)"
+				}
 			}
 		],
 		"open_questions": [
-			"Conflict handling (iteration 3): divergence detection + a resolution affordance instead of last-write-wins; queued deletes/tombstones.",
-			"book-creation iteration 3 can now build on the offline queue (this slice unblocked it)."
+			"Queued DELETES / tombstones + cloud-only book list reconciliation need new CloudTransport capabilities (delete + list/enumerate) — deferred (shared with the book-library iter-3 deferral)."
 		]
 	}
 }
