@@ -42,12 +42,12 @@
 			{
 				"id": 2,
 				"goal": "Action block via ActionRegistry: SegmentedControl reflects + sets action type, emits action:changed, mounts the registered editor; zero action-specific code in node-editor (KR-051). Registry seam shipped; concrete editors arrive with action-* features.",
-				"status": "planned"
+				"status": "done"
 			},
 			{
 				"id": 3,
 				"goal": "Inventory + shared ObjectEditor: add/remove « objets à prendre » as Chips, open the shared brain ObjectEditor (name + player-facing description + effect), persist via ObjectCatalogService/BookService (KR-052).",
-				"status": "planned"
+				"status": "done"
 			},
 			{
 				"id": 4,
@@ -91,6 +91,37 @@
 					"integration": "NodeEditorPanel: empty-state, select+edit Description via BookService, Fin victoire toggle flips FIN badge, action:changed + actionType persisted from SegmentedControl, ✕ closes + locked Mort toggles disabled",
 					"e2e": "deferred (Playwright not yet set up)"
 				}
+			},
+			{
+				"id": 2,
+				"label": "iteration-2 (action seam — banked)",
+				"completed_at": "2026-06-19",
+				"architecture_choices": [
+					"The ActionRegistry seam (ActionSection: SegmentedControl options + the mounted editor body both derived from the registry; action:changed emitted on change) shipped in the walking skeleton and was VALIDATED end-to-end by all four action-* features self-registering against it (action-decor/pnj/monster/trap), each adding only a register call + an editor — node-editor needed ZERO changes (KR-050/051). The iteration is complete; it was banked across the skeleton + the action-* slices rather than as a standalone node-editor slice."
+				],
+				"deviations_from_plan": [
+					"No standalone node-editor slice/bump: the seam was in the skeleton and the concrete editors are owned by the action-* features, so iter 2 is marked done-by-supersession (no PATCH bump)."
+				],
+				"test_coverage": {
+					"integration": "ActionSection options + body derive from the ActionRegistry (NodeEditorPanel.test.tsx); each action-*/tests exercise their mounted editor through the seam",
+					"e2e": "deferred"
+				}
+			},
+			{
+				"id": 3,
+				"label": "iteration-3 (inventory — superseded by action-decor)",
+				"completed_at": "2026-06-19",
+				"architecture_choices": [
+					"SUPERSEDED, by user decision: takeable « objets à prendre » live under the action-decor « Prendre » interaction (node.decor.objects as rows + the shared brain ObjectEditor capturing name + player-facing description, KR-052), NOT a separate node-level inventory section. A parallel node inventory would duplicate that ownership and the object model, so node-editor keeps no inventory section.",
+					"The shared ObjectCatalogService (objects by stable id, reused across décor/PNJ/monster + choice-linking hidden-prereqs, KR-062) remains the real deferred infra — owned by action-decor iter 3 / the hidden-prereq work when it lands; node-editor will REFERENCE it (a picker), never own the catalog. The iter-3 brain_contract on ObjectCatalogService stays aspirational until then."
+				],
+				"deviations_from_plan": [
+					"No node-level inventory built and no PATCH bump: the « objets à prendre » concept was absorbed by action-decor « prendre » during the depth-first build; node-editor iter 3 is done-by-supersession."
+				],
+				"test_coverage": {
+					"unit": "covered by action-decor takeables (takeablesOf) + the shared ObjectEditor tests",
+					"e2e": "deferred"
+				}
 			}
 		],
 		"resolved_decisions": [
@@ -99,11 +130,12 @@
 			"Selection is a brain SelectionService consumed by both canvas and panel (SSOT).",
 			"Illustration deferred (disabled placeholder); inventory + choices are mounted/expanded in later iterations.",
 			"node-editor owns text/toggles; action bodies and choices come from other features via ActionRegistry / slots.",
-			"Sommaire and Mort are structural screens (KR-055): no libellé / action / Fin toggles; Mort also has no outgoing choices; text-only, enforced at the SSOT."
+			"Sommaire and Mort are structural screens (KR-055): no libellé / action / Fin toggles; Mort also has no outgoing choices; text-only, enforced at the SSOT.",
+			"Inventory « objets à prendre » (iter 3) is SUPERSEDED by action-decor « Prendre » takeables (node.decor.objects + shared ObjectEditor): node-editor builds no separate node-level inventory; the shared ObjectCatalogService (KR-062) is owned by action-decor / the hidden-prereq work, and node-editor will reference it, never own it (user decision, 2026-06-19)."
 		],
 		"open_questions": [
-			"ObjectCatalogService shape (iteration 3) — define when action-decor's object model lands.",
-			"Debounce strategy for Description commits (iteration 4) vs the current commit-on-change."
+			"ObjectCatalogService shape — define when action-decor's object catalog (its iter 3) lands; node-editor consumes it for an « objets à prendre » picker only if a node-level inventory is later deemed distinct from décor « prendre ».",
+			"Debounce strategy for Description commits (iteration 4, a V4 / 0.5.x item) vs the current commit-on-change — the only remaining genuine node-editor work."
 		]
 	}
 }
