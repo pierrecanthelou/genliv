@@ -106,7 +106,14 @@
 				"Pre-seed test fixtures BEFORE render() — a brain mutation after render (e.g. addChoiceBranch) updates subscribed views outside act() and triggers warnings.",
 				"iter 1: the libellé belongs on the EDGE (Edge.label), not the node — added BookService.updateEdge + an edge:updated event wired into useOpenBook's mutation list; the canvas already rendered edge.label ?? canvasLabel, so the new event made the canvas reflect labels live for free. A property that already exists on the model + a view that already reads it means the iteration is just the SSOT mutation path + its event.",
 				"iter 2: degenerate-edge guards (self-link, duplicate) belong at the SSOT (addEdge returns null + emits nothing), with the picker mirroring them only as a convenience — never UI-only, or a programmatic/API caller bypasses the invariant (the KR-067 pattern again). Edge IDENTITY for the duplicate guard is from+to+kind (not from+to): a relink and the future automatic flee to the same target are distinct legitimate convergence, so collapsing on from+to would forbid a valid future edge.",
-				"iter 2: a search filter over a live list is pure derived state — needle.toLowerCase() + Array.filter computed inline each render (KR-013), never a useEffect-synced mirror; reset the query on popover open/close/commit so a stale needle can't leak into the next open."
+				"iter 2: a search filter over a live list is pure derived state — needle.toLowerCase() + Array.filter computed inline each render (KR-013), never a useEffect-synced mirror; reset the query on popover open/close/commit so a stale needle can't leak into the next open.",
+				"iter 3: a deferred « catalog service » dependency (KR-062) was best realised as a DERIVED VIEW, not a new owned brain service — brain collectObjects(book) unions the objects already authored on nodes (décor takeables + PNJ gift + monster loot) by stable id. Objects stay owned where authored (no desync, KR-020); the by-id reference holds, so a future owned catalog could replace collectObjects transparently. Same instinct as deriveAutomaticEdges: prefer a pure view over a stored mirror.",
+				"iter 3: a per-choice rule (hidden prereq) rides the EDGE (Edge.prereq), persisted via the SAME updateEdge as the label — extend EdgePatch with `prereq: T | null` (null = clear, omitted = untouched) so independent fields never clobber each other; the SSOT stores intent, the VIEW validates the id against the live catalog and surfaces ⊘ (resolves) vs ⚠ (dangling), never silently 'met' (KR-062/021).",
+				"iter 3: extract the per-row rule UI to its own component (ChoicePrereqEditor) the moment the host row crosses the 400-line split signal (KR-112) — OutgoingChoices was already ~285 lines."
+			],
+			"brain_contracts_added_iter3": [
+				{ "type": "util", "name": "collectObjects / findObject (brain/utils/objects.ts)" },
+				{ "type": "type", "name": "ChoicePrereq + Edge.prereq" }
 			],
 			"bugs_encountered": []
 		},

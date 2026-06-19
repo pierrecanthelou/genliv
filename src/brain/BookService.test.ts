@@ -478,6 +478,27 @@ describe('BookService edges (choice-linking)', () => {
 		expect(service.updateEdge('book_missing', 'edge_x', { label: 'x' })).toBeNull()
 		expect(service.updateEdge(book.id, 'edge_missing', { label: 'x' })).toBeNull()
 	})
+
+	it('updateEdge sets and clears the hidden-prerequisite rule (KR-062)', () => {
+		const { service } = setup()
+		const book = service.createBook('Arbre')
+		const sommaire = book.nodes.find((n) => n.kind === 'sommaire')!
+		const { edge } = service.addChoiceBranch(book.id, sommaire.id)!
+
+		// Set the rule (references an object by stable id).
+		const withRule = service.updateEdge(book.id, edge.id, { prereq: { objectId: 'obj_1' } })
+		expect(withRule?.prereq).toEqual({ objectId: 'obj_1' })
+		expect(service.getBook(book.id)!.edges.find((e) => e.id === edge.id)!.prereq).toEqual({ objectId: 'obj_1' })
+
+		// Editing the label must NOT drop the prereq (independent fields).
+		const labelled = service.updateEdge(book.id, edge.id, { label: 'Forcer' })
+		expect(labelled?.prereq).toEqual({ objectId: 'obj_1' })
+
+		// Clearing the rule (toggle off) removes the field entirely.
+		const cleared = service.updateEdge(book.id, edge.id, { prereq: null })
+		expect(cleared?.prereq).toBeUndefined()
+		expect(service.getBook(book.id)!.edges.find((e) => e.id === edge.id)!.prereq).toBeUndefined()
+	})
 })
 
 describe('BookService.renameBook / duplicateBook (book-library)', () => {

@@ -104,7 +104,7 @@
 		{
 			"id": "KR-062",
 			"feature": "choice-linking",
-			"risk": "Hidden prerequisite references an object by STABLE id from ObjectCatalogService, not by name; a dangling reference to a deleted object must be detected, not silently treated as true/false."
+			"risk": "Hidden prerequisite references an acquirable object by STABLE id, not by name; a dangling reference (the object was deleted, or none is chosen yet) must be DETECTED and surfaced, never silently treated as true/false. IMPLEMENTED (choice-linking iter 3) against a DERIVED catalog, not an owned store: brain/utils/objects.ts `collectObjects(book)` is a pure VIEW (KR-020) that unions every acquirable object already authored on a node (décor « prendre » takeables incl. the deprecated single `object`, the PNJ gift, the monster loot), de-duped by id — objects stay owned where they are authored (no separate ObjectCatalogService to desync), and the catalog is recomputed inline (KR-013). The rule lives on the choice EDGE as `Edge.prereq?: { objectId }` (`'' ` = chosen-but-unconfigured), persisted via BookService.updateEdge (EdgePatch `prereq: ChoicePrereq | null`, where null CLEARS the rule and an omitted key leaves it untouched — mirrors the label-drop pattern). The SSOT stores intent only; the VIEW validates the id against `collectObjects` / `findObject` and shows ⊘ when it resolves, ⚠ when it dangles. A future owned catalog (if objects ever need reuse independent of a node) can replace `collectObjects` transparently since everything already references by id."
 		},
 		{
 			"id": "KR-063",

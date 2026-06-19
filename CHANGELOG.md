@@ -2,6 +2,14 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.4.2 — choice-linking iteration 3 (V3 slice)
+
+- **Hidden prerequisite on a choice (§ 05, KR-062)** — a choice can now require the player to own an object before it appears. Per-row **« pré-requis caché »** toggle + an object picker; the rule rides the choice edge as `Edge.prereq?: { objectId }`, persisted via `BookService.updateEdge` (`EdgePatch` gained `prereq: ChoicePrereq | null` — `null` clears, omitted leaves untouched; the label and prereq are independent).
+- **Object catalog is a derived VIEW, not an owned store** — new pure brain `collectObjects(book)` / `findObject(book, id)` (`brain/utils/objects.ts`) union every acquirable object already authored on a node (décor « prendre » takeables, the PNJ gift, the monster loot), de-duped by stable id. Objects stay owned where they're authored (KR-020, no `ObjectCatalogService` to desync); everything references by id, so a future owned catalog could swap in transparently.
+- **Dangling references surfaced, never silent** — the row shows a **⊘ « pré-requis »** badge when the id resolves and a **⚠ « pré-requis »** badge when it dangles (object deleted, or none chosen yet), validated at the view against the live catalog (KR-062/021/013).
+- Per-row rule UI extracted to `ChoicePrereqEditor` so `OutgoingChoices` stays under the 400-line split signal (KR-112).
+- 229 tests passing (+7). node-editor iter 3 was superseded; choice-linking iter 3 is the V3 tier's third shipped slice.
+
 ## 0.4.1 — tree-canvas iteration 3 (V3 slice)
 
 - **New brain `UIPreferencesService`** — the single gateway for per-device, **non-synced** editor view state (pan/zoom, canvas↔outline view-mode, dragged node positions, KR-022/025). Wired in `createBrain` over the **raw local store, never the `CloudSyncService` decorator**, so this state can't enter the cloud queue (KR-093); its `genliv:ui:book:<id>` key stays out of `listBooks`. Reads are **cache-backed** for `useSyncExternalStore` snapshot stability; each write makes a new prefs object and notifies subscribers. New hooks `useUIPreferences` / `useBookViewMode` / `useBookNodePositions` (KR-013, external-store).

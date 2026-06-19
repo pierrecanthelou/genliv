@@ -208,4 +208,56 @@ describe('choice-linking — outgoing choices', () => {
 		await user.click(screen.getByRole('button', { name: /supprimer la branche/i }))
 		expect(screen.getByRole('dialog')).not.toHaveTextContent(/seul lien/i)
 	})
+
+	it('sets a hidden prerequisite on a choice, references an object by id, and shows ⊘ (KR-062)', async () => {
+		const brain = createBrain()
+		const book = brain.books.createBook('La Caverne')
+		const sommaireId = brain.books.getBook(book.id)!.nodes.find((n) => n.kind === 'sommaire')!.id
+		// An acquirable object so the catalog is non-empty (a décor takeable).
+		const decorNode = brain.books.addNode(book.id, 'choix')!
+		brain.books.updateNode(book.id, decorNode.id, {
+			actionType: 'decor',
+			decor: {
+				interaction: 'prendre',
+				objects: [{ object: { id: 'obj_cle', name: 'Clé rouillée', description: '' }, kind: 'utile' }],
+			},
+		})
+		brain.books.addChoiceBranch(book.id, sommaireId)
+		brain.router.navigate({ name: 'editor', bookId: book.id })
+		render(
+			<BrainProvider brain={brain}>
+				<App />
+			</BrainProvider>,
+		)
+		const user = userEvent.setup()
+		await user.click(screen.getByRole('button', { name: /Nœud #1 — Sommaire/ }))
+
+		// Toggle the rule on, then pick the required object.
+		await user.click(screen.getByRole('switch', { name: /pré-requis caché/i }))
+		await user.selectOptions(screen.getByRole('combobox', { name: /objet requis/i }), 'obj_cle')
+
+		// Persisted on the edge by stable id; the row shows the ⊘ badge.
+		expect(outgoingOf(brain, book.id, 'sommaire')[0].prereq).toEqual({ objectId: 'obj_cle' })
+		expect(screen.getByText(/⊘ pré-requis/)).toBeInTheDocument()
+	})
+
+	it('surfaces a prerequisite pointing at a deleted object as a ⚠ badge (KR-062/021)', async () => {
+		const brain = createBrain()
+		const book = brain.books.createBook('La Caverne')
+		const sommaireId = brain.books.getBook(book.id)!.nodes.find((n) => n.kind === 'sommaire')!.id
+		const created = brain.books.addChoiceBranch(book.id, sommaireId)!
+		// A rule referencing an object id that resolves to nothing (deleted/unknown).
+		brain.books.updateEdge(book.id, created.edge.id, { prereq: { objectId: 'obj_ghost' } })
+		brain.router.navigate({ name: 'editor', bookId: book.id })
+		render(
+			<BrainProvider brain={brain}>
+				<App />
+			</BrainProvider>,
+		)
+		const user = userEvent.setup()
+		await user.click(screen.getByRole('button', { name: /Nœud #1 — Sommaire/ }))
+
+		// The dangling reference is surfaced, never silently treated as met.
+		expect(screen.getByText(/⚠ pré-requis/)).toBeInTheDocument()
+	})
 })

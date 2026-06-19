@@ -1,6 +1,6 @@
 import type { EventBus } from './EventBus'
 import type { PersistenceService } from './PersistenceService'
-import type { Book, BookNode, NodeKind, Edge, EdgeKind } from './types'
+import type { Book, BookNode, NodeKind, Edge, EdgeKind, ChoicePrereq } from './types'
 import { bookKey, BOOK_KEY_PREFIX } from './persistenceKeys'
 import { createId } from './utils/id'
 import { isNodeKind, isEdgeKind, isStructural, canHaveOutgoing, canBeTarget } from './kinds'
@@ -88,8 +88,12 @@ export type NodePatch = Partial<
 	Pick<BookNode, 'text' | 'endVictory' | 'endFailure' | 'actionType' | 'decor' | 'pnj' | 'monster' | 'trap'>
 >
 
-/** The author-editable surface of an edge (the choice button's label). */
-export type EdgePatch = Partial<Pick<Edge, 'label'>>
+/**
+ * The author-editable surface of an edge: the choice button's label, and the
+ * hidden-prerequisite rule. `prereq: null` CLEARS the rule (removes the toggle);
+ * an object sets it; omitting the key leaves it untouched.
+ */
+export type EdgePatch = Partial<Pick<Edge, 'label'>> & { prereq?: ChoicePrereq | null }
 
 /**
  * Deterministic slot for a position-less / newly added node (KR-023): a
@@ -375,6 +379,14 @@ export function createBookService(persistence: PersistenceService, events: Event
 			if (patch.label !== undefined) {
 				if (patch.label.trim() === '') delete updated.label
 				else updated.label = patch.label
+			}
+			// Hidden-prerequisite rule: `null` clears it (toggle off), an object sets
+			// it, omitting the key leaves it untouched (KR-062). The referenced object
+			// id is validated at the VIEW (dangling surfaced), not here — the SSOT just
+			// stores the author's intent.
+			if (patch.prereq !== undefined) {
+				if (patch.prereq === null) delete updated.prereq
+				else updated.prereq = patch.prereq
 			}
 			const next: Book = {
 				...book,

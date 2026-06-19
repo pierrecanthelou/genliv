@@ -223,6 +223,18 @@ export interface BookNode {
 	trap?: TrapConfig
 }
 
+/**
+ * A per-choice HIDDEN PREREQUISITE (§ 05): the choice is hidden from the player
+ * unless they own the referenced object. References an acquirable object by its
+ * STABLE id (KR-062), resolved against the book's derived object catalog
+ * (collectObjects) — never by name. A dangling id (the object was deleted, or
+ * none chosen yet) is detected and surfaced, never silently treated as met.
+ */
+export interface ChoicePrereq {
+	/** Stable id of the required object (from collectObjects); '' = not yet chosen. */
+	objectId: string
+}
+
 export interface Edge {
 	id: string
 	from: string
@@ -230,6 +242,8 @@ export interface Edge {
 	kind: EdgeKind
 	/** Player-facing choice label (for `choice` edges). */
 	label?: string
+	/** Hidden-prerequisite rule: the choice is hidden unless the object is owned (KR-062). */
+	prereq?: ChoicePrereq
 }
 
 export interface Book {

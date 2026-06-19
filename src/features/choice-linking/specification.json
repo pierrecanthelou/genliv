@@ -46,7 +46,7 @@
 			{
 				"id": 3,
 				"goal": "Hidden prerequisite (§ 05): toggle + required-object picker referencing ObjectCatalogService by id; choice hidden unless owned; ⊘ badge; clean removal (KR-062).",
-				"status": "planned"
+				"status": "done"
 			},
 			{
 				"id": 4,
@@ -57,7 +57,7 @@
 		"known_risks": [
 			"KR-060 — Edges are the book's structure: all create/delete goes through BookService so tree-canvas + outline-view + game-preview agree; never mutate edges locally (re-asserts KR-020).",
 			"KR-061 — Relink allows cycles/convergence by DESIGN but must guard degenerate cases: no duplicate identical edges, sane self-link handling, and the target node is never created/deleted by relinking (only the edge).",
-			"KR-062 — Hidden prerequisite references an object by STABLE id from ObjectCatalogService, not by name; a dangling reference to a deleted object must be detected, not silently true/false.",
+			"KR-062 — Hidden prerequisite references an object by STABLE id, not by name; a dangling reference (deleted object / none chosen) must be detected, not silently true/false. Implemented against a DERIVED catalog (brain collectObjects, a pure VIEW over the book), not an owned ObjectCatalogService — objects stay owned on their nodes (no desync); the rule rides Edge.prereq via updateEdge.",
 			"KR-063 — Countdown fallback + relink targets are node references that can dangle if the target is deleted; run a referential-integrity check and surface broken targets (re-asserts KR-021).",
 			"KR-064 — Deleting a `choice` branch may orphan its child subtree; prompt/handle explicitly (don't silently leave unreachable nodes or cascade-delete without consent).",
 			"KR-065 — A choice may hold BOTH a hidden prerequisite and a countdown; the countdown only ticks while the choice is visible (prerequisite met), so a hidden choice never expires invisibly.",
@@ -128,6 +128,25 @@
 					"integration": "OutgoingChoices via App: the search box filters candidates, an already-relinked node is excluded, a non-matching needle shows the distinct empty message",
 					"e2e": "deferred (Playwright not set up)"
 				}
+			},
+			{
+				"id": 3,
+				"label": "iteration-3 (hidden prerequisite)",
+				"completed_at": "2026-06-19",
+				"architecture_choices": [
+					"The object catalog (KR-062) is a DERIVED VIEW, not an owned store (user decision): brain/utils/objects.ts collectObjects(book) unions every acquirable object already authored on a node (décor « prendre » takeables + the deprecated single object, the PNJ gift, the monster loot), de-duped by id. Objects stay owned where they are authored (KR-020, no ObjectCatalogService to desync); the picker references one by stable id (KR-062). collectObjects/findObject are pure brain utils reused by future play mode (KR-110).",
+					"The rule lives on the choice EDGE as Edge.prereq?: ChoicePrereq ({ objectId }, '' = chosen-but-unconfigured), persisted via BookService.updateEdge — EdgePatch gained `prereq: ChoicePrereq | null` where null CLEARS the rule and an omitted key leaves it untouched, mirroring the label-drop pattern (the SSOT stores intent only; the label and prereq are independent and editing one never drops the other).",
+					"OutgoingChoices recomputes the catalog inline from the live book (KR-013) and validates each rule at the VIEW: a resolved id shows the ⊘ « pré-requis » badge, a dangling one (deleted object, or '' unconfigured) shows the ⚠ « pré-requis » badge — surfaced, never silently met (KR-062/021).",
+					"The per-row rule UI was extracted to a ChoicePrereqEditor component (toggle « pré-requis caché » + a native object Select + dangling message) so OutgoingChoices stays under the 400-line split signal (KR-112). Controlled — the owner persists via updateEdge."
+				],
+				"deviations_from_plan": [
+					"« ObjectCatalogService » in the iter-3 goal is realised as the pure derived helper collectObjects, not a new owned brain service — the cleaner design (objects already carry stable ids on their nodes; an owned copy would risk desync). Everything references by id, so a future owned catalog can replace collectObjects transparently. Countdown (iter 4) + a full referential-integrity sweep stay for the V4 tier (KR-063)."
+				],
+				"test_coverage": {
+					"unit": "collectObjects (gathers décor/pnj/monster objects, migrates the deprecated single object, de-dups, null book) + findObject (resolve/dangling/empty); BookService.updateEdge sets+clears prereq without dropping the label",
+					"integration": "OutgoingChoices via App: toggle « pré-requis caché » + pick an object persists prereq by id + shows ⊘; a prereq pointing at a deleted object shows ⚠",
+					"e2e": "deferred (Playwright not set up)"
+				}
 			}
 		],
 		"resolved_decisions": [
@@ -140,7 +159,8 @@
 			"Branch removal (the row ✕) is a DANGEROUS action — destructive + irreversible — so it is gated behind a confirmation dialog (DeleteBranchDialog over the brain Modal, confirmTone='error'), per the dangerous-action rule. The dialog states the target NODE is never deleted (only the link) and, when this is the node's SOLE incoming link, warns it will become unreachable — the KR-064 orphan prompt, computed live from the book. Done outside the iter-2 plan on user request; folds into the V2 slice (no bump)."
 		],
 		"open_questions": [
-			"ObjectCatalogService shape (iters 3) — define when action-decor's object model lands.",
+			"Countdown (iter 4, V4 tier): toggle + délai (5–60s, default 15) + fallback-node Select with validation; ⏱ badge; the full referential-integrity sweep for deleted targets/objects (KR-063). The hidden-prereq dangling check (iter 3) is the first half of that sweep.",
+			"A node-level « objets à prendre » that the player can carry independent of a node's action is currently modelled only as action-decor « prendre » takeables; collectObjects already unions them as the catalog. If play mode needs an explicit inventory model, revisit then (the by-id references already hold).",
 			"Cascade vs keep on orphaning: the confirmation currently WARNS about an orphaned child but still only removes the edge (the node survives, listed flat in the outline). A future 'supprimer aussi le nœud' affordance needs BookService.deleteNode (not yet built)."
 		]
 	}

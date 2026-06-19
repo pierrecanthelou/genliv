@@ -8,11 +8,14 @@ import {
 	nodeTitle,
 	getNode,
 	canBeTarget,
+	collectObjects,
 	EDGE_KINDS,
 	type Edge,
+	type ChoicePrereq,
 	type SlotContext,
 } from '../../../brain'
 import { DeleteBranchDialog } from './DeleteBranchDialog'
+import { ChoicePrereqEditor } from './ChoicePrereqEditor'
 
 /**
  * « Choix sortants » — a node's outgoing branches, mounted into node-editor's
@@ -42,6 +45,11 @@ export function OutgoingChoices({ bookId, nodeId }: SlotContext): JSX.Element {
 		const node = getNode(book, id)
 		return node !== null ? nodeTitle(node) : '⚠ cible supprimée'
 	}
+	// The book's acquirable-object catalog (derived VIEW, KR-062): the hidden-prereq
+	// picker references these by stable id. Recomputed inline from the live book
+	// (KR-013) so adding/removing an object elsewhere updates the picker + dangling check.
+	const catalog = collectObjects(book)
+	const prereqResolves = (prereq: ChoicePrereq): boolean => catalog.some((o) => o.id === prereq.objectId)
 	// Relink candidates: any node except this one (self-link guarded, KR-061),
 	// excluding structural screens — the Sommaire root and the Mort leaf are
 	// never authored choice targets (KR-067); Mort is reached only automatically
@@ -120,6 +128,13 @@ export function OutgoingChoices({ bookId, nodeId }: SlotContext): JSX.Element {
 								</span>
 								<span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flex: 'none' }}>
 									<Badge tone={EDGE_KINDS[edge.kind].rowTone}>{EDGE_KINDS[edge.kind].rowLabel}</Badge>
+									{edge.prereq !== undefined &&
+										(prereqResolves(edge.prereq) ? (
+											<Badge tone="muted">⊘ pré-requis</Badge>
+										) : (
+											// Text (not just the ⚠ glyph) names the dangling state for screen readers.
+											<Badge tone="bad">⚠ pré-requis introuvable</Badge>
+										))}
 									<IconButton label="Supprimer la branche" tone="danger" onClick={() => setPendingDelete(edge)}>
 										✕
 									</IconButton>
@@ -132,6 +147,13 @@ export function OutgoingChoices({ bookId, nodeId }: SlotContext): JSX.Element {
 								value={edge.label ?? ''}
 								placeholder="Texte du bouton de choix…"
 								onChange={(e) => books.updateEdge(bookId, edge.id, { label: e.target.value })}
+							/>
+							{/* Hidden-prerequisite rule (§ 05, KR-062): persisted on the edge; the
+							    picker references the book's object catalog by stable id. */}
+							<ChoicePrereqEditor
+								prereq={edge.prereq}
+								catalog={catalog}
+								onChange={(prereq) => books.updateEdge(bookId, edge.id, { prereq })}
 							/>
 						</li>
 					))}
