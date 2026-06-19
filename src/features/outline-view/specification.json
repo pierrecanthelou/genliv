@@ -38,7 +38,7 @@
 			{
 				"id": 3,
 				"goal": "Persist the view-mode + outline expand state via UIPreferencesService (non-synced UI prefs, KR-022) — deferred until that service lands.",
-				"status": "planned"
+				"status": "done"
 			}
 		],
 		"known_risks": [
@@ -112,11 +112,28 @@
 					"integration": "outline-view via App — focusing a row previews its « entre depuis » in the inspector, Éditer selects a hovered-not-selected node, « Centrer dans l'arbre » switches to the canvas and selects",
 					"e2e": "deferred (Playwright not set up)"
 				}
+			},
+			{
+				"id": 3,
+				"label": "iteration-3 (persist view-mode + outline expand state)",
+				"completed_at": "2026-06-19",
+				"architecture_choices": [
+					"The view-mode half was ALREADY landed by tree-canvas iter 3: EditorScreen reads it via the brain useBookViewMode and writes it via uiPreferences.setViewMode, so the canvas↔outline switch already persists per book (KR-022). This slice completes the second half — the outline EXPAND/COLLAPSE state.",
+					"The collapsed-node set is now a per-book, non-synced UI preference (KR-022/025): BookUIPrefs gained outlineCollapsed?: string[], UIPreferencesService.setOutlineCollapsed(bookId, ids), and a new brain useBookOutlineCollapsed(bookId) external-store hook that returns a Set memoised on the cache-stable array snapshot (KR-013, no per-render new Set that would loop). OutlineView dropped its local useState<Set> for the hook; toggleCollapse writes the full set through the service.",
+					"A stale collapsed id (its node was deleted) is harmless — computeVisibleRows simply never matches it, like dragged positions ignoring deleted nodes (KR-021 spirit), so no cleanup is needed."
+				],
+				"deviations_from_plan": [
+					"No new view-mode work here: it was completed in tree-canvas iter 3 (the UIPreferencesService consumer that landed first). This slice is purely the outline expand-state persistence, the remaining half of the iter-3 goal."
+				],
+				"test_coverage": {
+					"unit": "UIPreferencesService.setOutlineCollapsed (stores + replaces the set)",
+					"integration": "outline-view via App — collapsing a node persists it by id and survives a canvas↔outline view switch (the outline remounts but the collapse is restored)",
+					"e2e": "deferred (Playwright not set up)"
+				}
 			}
 		],
 		"open_questions": [
-			"View-mode + expand-state persistence (iteration 3) when UIPreferencesService lands.",
-			"« Centrer dans l'arbre » centres but does not yet animate/zoom-to-fit; smooth pan + a zoom-to-node could pair with the iter-3 viewport-persistence work."
+			"« Centrer dans l'arbre » centres but does not yet animate/zoom-to-fit; smooth pan + a zoom-to-node could pair with the viewport-persistence work (a later polish)."
 		]
 	}
 }

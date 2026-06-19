@@ -65,6 +65,26 @@ describe('outline-view', () => {
 		expect(screen.getByRole('button', { name: /Salle secrète/ })).toBeInTheDocument()
 	})
 
+	it('persists the collapse state (UIPreferencesService) so it survives a view switch (iter 3)', async () => {
+		const user = userEvent.setup()
+		const { brain, bookId } = setup()
+		const child = brain.books.getBook(bookId)!.nodes.find((node) => node.kind === 'choix')!
+		brain.books.updateNode(bookId, child.id, { text: 'Salle secrète' })
+		const sommaireId = brain.books.getBook(bookId)!.nodes.find((node) => node.kind === 'sommaire')!.id
+
+		await user.click(screen.getByRole('radio', { name: /Plan/ }))
+		await user.click(screen.getByRole('button', { name: /Replier « Sommaire »/ }))
+		expect(screen.queryByRole('button', { name: /Salle secrète/ })).not.toBeInTheDocument()
+		// Persisted by stable id (not synced — a per-device UI preference, KR-022).
+		expect(brain.uiPreferences.getBookPrefs(bookId).outlineCollapsed).toContain(sommaireId)
+
+		// Switch to the canvas (unmounts the outline) and back: the collapse survives.
+		await user.click(screen.getByRole('radio', { name: /Arbre/ }))
+		await user.click(screen.getByRole('radio', { name: /Plan/ }))
+		expect(screen.queryByRole('button', { name: /Salle secrète/ })).not.toBeInTheDocument()
+		expect(screen.getByRole('button', { name: /Déplier « Sommaire »/ })).toBeInTheDocument()
+	})
+
 	it('previews a screen text as the row tooltip (hover preview)', async () => {
 		const user = userEvent.setup()
 		const { brain, bookId } = setup()

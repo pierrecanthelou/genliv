@@ -2,6 +2,13 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.4.4 — outline-view iteration 3 (V3 slice)
+
+- **Outline expand/collapse state now persists per book** — collapsing a node in the outline survives switching to the canvas and back (and a reload). The collapsed-node set is a per-device, **non-synced** UI preference (KR-022): `BookUIPrefs` gained `outlineCollapsed?: string[]`, `UIPreferencesService.setOutlineCollapsed`, and a new brain **`useBookOutlineCollapsed(bookId)`** external-store hook (returns a `Set` memoised on the cache-stable array, KR-013). `OutlineView` dropped its local `useState<Set>` for the hook.
+- **The view-mode half was already done** — `EditorScreen` has persisted the canvas↔outline view-mode via `useBookViewMode` since tree-canvas iter 3; this slice completes iter 3 with the remaining expand-state persistence.
+- A stale collapsed id (its node was deleted) is harmless — `computeVisibleRows` simply never matches it (no cleanup needed, KR-021 spirit).
+- 236 tests passing (+2).
+
 ## 0.4.3 — book-library iteration 3 (V3 slice)
 
 - **Per-book cloud-sync status on each card** — a small chip reflects whether that book is **« ✓ à jour »**, **« ⏳ en attente »** (its write is still queued to the cloud), or **« ⚠ non synchronisé »** (last push errored). A local-only build (no transport) shows no chip — there's no cloud state to reflect. A live VIEW over `CloudSyncService`, never a private mirror (KR-095/020/013).

@@ -35,6 +35,15 @@ describe('UIPreferencesService', () => {
 		expect(prefs.getBookPrefs('b1')).not.toBe(first) // a new object after a write
 	})
 
+	it('stores and replaces the outline collapsed-node set', () => {
+		const prefs = createUIPreferencesService(createLocalStoragePersistence())
+		prefs.setOutlineCollapsed('b1', ['n1', 'n2'])
+		expect(prefs.getBookPrefs('b1').outlineCollapsed).toEqual(['n1', 'n2'])
+		// A later write replaces the set wholesale (the view sends the full list).
+		prefs.setOutlineCollapsed('b1', ['n1'])
+		expect(prefs.getBookPrefs('b1').outlineCollapsed).toEqual(['n1'])
+	})
+
 	it('merges a second node position without dropping the first', () => {
 		const prefs = createUIPreferencesService(createLocalStoragePersistence())
 		prefs.setNodePosition('b1', 'n1', { x: 1, y: 1 })

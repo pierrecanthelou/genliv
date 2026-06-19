@@ -67,6 +67,7 @@ export {
 	useUIPreferences,
 	useBookViewMode,
 	useBookNodePositions,
+	useBookOutlineCollapsed,
 	type Brain,
 	type CreateBrainOptions,
 } from './BrainContext'

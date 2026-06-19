@@ -4,6 +4,7 @@ import {
 	useRoute,
 	useOpenBook,
 	useSelectedNode,
+	useBookOutlineCollapsed,
 	getNode,
 	NodeBadge,
 	nodeTitle,
@@ -45,12 +46,14 @@ const PREVIEW_MAX = 140
  * wait for the edge rules (choice-linking iter 3–4).
  */
 export function OutlineView({ onRevealInTree }: OutlineViewProps = {}): JSX.Element {
-	const { selection } = useBrain()
+	const { selection, uiPreferences } = useBrain()
 	const route = useRoute()
 	const bookId = route.name === 'editor' ? route.bookId : null
 	const book = useOpenBook(bookId)
 	const selectedId = useSelectedNode()
-	const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set())
+	// Collapsed node ids are a per-book, non-synced UI preference (KR-022): persisted
+	// via UIPreferencesService so the outline shape survives a view switch + reload.
+	const collapsed = useBookOutlineCollapsed(bookId ?? '')
 	// The node previewed in the inspector — set on row focus/hover (§ 03 B);
 	// falls back to the selection so the card always reflects a real node.
 	const [inspectedId, setInspectedId] = useState<string | null>(null)
@@ -62,13 +65,15 @@ export function OutlineView({ onRevealInTree }: OutlineViewProps = {}): JSX.Elem
 		return <div style={{ padding: 'var(--space-9)', color: 'var(--text-muted)' }}>Livre introuvable.</div>
 	}
 
+	// Narrowed non-null local for the nested handler closures (TS doesn't carry the
+	// guard's flow-narrowing of `bookId` into a nested function).
+	const activeBookId: string = bookId
+
 	function toggleCollapse(targetId: string): void {
-		setCollapsed((prev) => {
-			const next = new Set(prev)
-			if (next.has(targetId)) next.delete(targetId)
-			else next.add(targetId)
-			return next
-		})
+		const next = new Set(collapsed)
+		if (next.has(targetId)) next.delete(targetId)
+		else next.add(targetId)
+		uiPreferences.setOutlineCollapsed(activeBookId, [...next])
 	}
 
 	// Inspector target: the focused row, falling back to the current selection.

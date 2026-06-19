@@ -1,4 +1,4 @@
-import { createContext, useContext, useSyncExternalStore, type ReactNode } from 'react'
+import { createContext, useContext, useMemo, useSyncExternalStore, type ReactNode } from 'react'
 import { createEventBus, type EventBus } from './EventBus'
 import { createLocalStoragePersistence, type PersistenceService } from './PersistenceService'
 import { createRouter, type Route, type Router } from './Router'
@@ -137,6 +137,23 @@ export function useBookNodePositions(bookId: string): Record<string, Point> {
 		uiPreferences.subscribe,
 		() => uiPreferences.getBookPrefs(bookId).positions ?? EMPTY_POSITIONS,
 	)
+}
+
+/** Stable empty array so the no-collapse snapshot keeps the SAME reference. */
+const EMPTY_COLLAPSED: readonly string[] = Object.freeze([])
+
+/**
+ * Reactive read of the outline's collapsed node ids as a Set (external store,
+ * KR-013). The stored array snapshot is stable between writes (cache-backed), so
+ * the derived Set is memoised on it — no per-render new Set that would loop.
+ */
+export function useBookOutlineCollapsed(bookId: string): ReadonlySet<string> {
+	const { uiPreferences } = useBrain()
+	const ids = useSyncExternalStore(
+		uiPreferences.subscribe,
+		() => uiPreferences.getBookPrefs(bookId).outlineCollapsed ?? EMPTY_COLLAPSED,
+	)
+	return useMemo(() => new Set(ids), [ids])
 }
 
 export type { UIPreferencesService, BookUIPrefs, Point }

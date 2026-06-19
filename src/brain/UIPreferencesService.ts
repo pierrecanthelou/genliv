@@ -25,6 +25,8 @@ export interface BookUIPrefs {
 	viewMode?: EditorViewMode
 	/** Manually dragged node positions, by node id; a stored position overrides the auto-layout slot. */
 	positions?: Record<string, Point>
+	/** Node ids collapsed in the outline view (a stale id for a deleted node is harmless). */
+	outlineCollapsed?: string[]
 }
 
 /**
@@ -41,6 +43,8 @@ export interface UIPreferencesService {
 	setViewMode(bookId: string, viewMode: EditorViewMode): void
 	/** Persist a dragged node's position (overrides its computed layout slot). */
 	setNodePosition(bookId: string, nodeId: string, position: Point): void
+	/** Persist the set of node ids collapsed in the outline view. */
+	setOutlineCollapsed(bookId: string, nodeIds: string[]): void
 	/** Subscribe to any prefs change (for useSyncExternalStore). Returns an unsubscribe. */
 	subscribe(listener: () => void): () => void
 }
@@ -82,6 +86,9 @@ export function createUIPreferencesService(local: PersistenceService): UIPrefere
 		setNodePosition(bookId, nodeId, position) {
 			const current = load(bookId)
 			commit(bookId, { ...current, positions: { ...current.positions, [nodeId]: position } })
+		},
+		setOutlineCollapsed(bookId, nodeIds) {
+			commit(bookId, { ...load(bookId), outlineCollapsed: nodeIds })
 		},
 		subscribe(listener) {
 			listeners.add(listener)
