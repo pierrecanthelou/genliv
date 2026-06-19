@@ -23,6 +23,12 @@ export const CANVAS_MIN_W = 600
 export const CANVAS_MIN_H = 400
 export const CANVAS_MARGIN = 80
 
+/**
+ * Off-screen culling margin (canvas units): cards/edges within this distance of
+ * the visible rect still render, so panning never pops a card in at the edge.
+ */
+export const CULL_MARGIN = 240
+
 /** Tidy-tree spacing: one level down per depth, one slot per sibling. */
 const LAYOUT_ORIGIN = 60
 const LEVEL_GAP_Y = NODE_H + 70
@@ -134,6 +140,47 @@ export function resolvePositions(
 
 function center(p: Point): Point {
 	return { x: p.x + NODE_W / 2, y: p.y + NODE_H / 2 }
+}
+
+/** The VISIBLE canvas-space rectangle for a viewport (KR-013-pure, for culling). */
+export interface ViewRect {
+	minX: number
+	minY: number
+	maxX: number
+	maxY: number
+}
+
+/**
+ * Map the on-screen surface back to the visible CANVAS-space rectangle, given the
+ * viewport transform `translate(x,y) scale(zoom)` (origin 0,0): a screen point s
+ * maps to canvas (s − offset) / zoom. Padded by CULL_MARGIN so just-off-screen
+ * cards still render (no pop on pan). Used to cull large books for 60fps (iter 4).
+ */
+export function viewportRect(
+	viewport: { x: number; y: number; zoom: number },
+	size: { w: number; h: number },
+	margin: number = CULL_MARGIN,
+): ViewRect {
+	return {
+		minX: (0 - viewport.x) / viewport.zoom - margin,
+		minY: (0 - viewport.y) / viewport.zoom - margin,
+		maxX: (size.w - viewport.x) / viewport.zoom + margin,
+		maxY: (size.h - viewport.y) / viewport.zoom + margin,
+	}
+}
+
+/** Whether a node's card box (NODE_W×NODE_H at `pos`) intersects the visible rect. */
+export function nodeInView(pos: Point, rect: ViewRect): boolean {
+	return pos.x < rect.maxX && pos.x + NODE_W > rect.minX && pos.y < rect.maxY && pos.y + NODE_H > rect.minY
+}
+
+/** Whether an edge segment's bounding box intersects the visible rect. */
+export function edgeInView(geo: EdgeGeometry, rect: ViewRect): boolean {
+	const minX = Math.min(geo.x1, geo.x2)
+	const maxX = Math.max(geo.x1, geo.x2)
+	const minY = Math.min(geo.y1, geo.y2)
+	const maxY = Math.max(geo.y1, geo.y2)
+	return minX < rect.maxX && maxX > rect.minX && minY < rect.maxY && maxY > rect.minY
 }
 
 export interface EdgeGeometry {

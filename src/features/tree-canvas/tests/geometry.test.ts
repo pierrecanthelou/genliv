@@ -2,12 +2,16 @@ import {
 	resolvePositions,
 	resolveEdges,
 	resolveBounds,
+	viewportRect,
+	nodeInView,
+	edgeInView,
 	NODE_W,
 	NODE_H,
 	CANVAS_MIN_W,
 	CANVAS_MIN_H,
 	CANVAS_MARGIN,
 	type Point,
+	type EdgeGeometry,
 } from '../layout/geometry'
 import type { BookNode, Edge } from '../../../brain'
 
@@ -116,5 +120,50 @@ describe('resolveEdges', () => {
 		]
 		const resolved = resolveEdges(edges, positions)
 		expect(resolved.map((e) => e.id)).toEqual(['ok'])
+	})
+})
+
+describe('off-screen culling (iter 4)', () => {
+	const geo = (x1: number, y1: number, x2: number, y2: number): EdgeGeometry => ({
+		id: 'e',
+		kind: 'choice',
+		x1,
+		y1,
+		x2,
+		y2,
+		mx: (x1 + x2) / 2,
+		my: (y1 + y2) / 2,
+	})
+
+	it('maps the surface to the visible canvas rect, accounting for pan + zoom', () => {
+		// No pan, zoom 1, margin 0: the rect is exactly the surface in canvas units.
+		expect(viewportRect({ x: 0, y: 0, zoom: 1 }, { w: 1000, h: 800 }, 0)).toEqual({
+			minX: 0,
+			minY: 0,
+			maxX: 1000,
+			maxY: 800,
+		})
+		// Pan right by 200 shifts the window left; zoom 2 halves the canvas span.
+		expect(viewportRect({ x: 200, y: 0, zoom: 2 }, { w: 1000, h: 800 }, 0)).toEqual({
+			minX: -100,
+			minY: 0,
+			maxX: 400,
+			maxY: 400,
+		})
+	})
+
+	it('nodeInView keeps cards intersecting the rect and culls far ones', () => {
+		const rect = viewportRect({ x: 0, y: 0, zoom: 1 }, { w: 500, h: 500 }, 0)
+		expect(nodeInView({ x: 10, y: 10 }, rect)).toBe(true) // inside
+		expect(nodeInView({ x: 490, y: 490 }, rect)).toBe(true) // straddles the edge
+		expect(nodeInView({ x: 5000, y: 5000 }, rect)).toBe(false) // far off-screen → culled
+		expect(nodeInView({ x: -NODE_W - 1, y: 0 }, rect)).toBe(false) // just past the left edge
+	})
+
+	it('edgeInView keeps a segment crossing the rect and culls one entirely outside', () => {
+		const rect = viewportRect({ x: 0, y: 0, zoom: 1 }, { w: 500, h: 500 }, 0)
+		expect(edgeInView(geo(-100, 250, 600, 250), rect)).toBe(true) // crosses the rect
+		expect(edgeInView(geo(10, 10, 200, 200), rect)).toBe(true) // inside
+		expect(edgeInView(geo(900, 900, 1200, 1200), rect)).toBe(false) // entirely outside → culled
 	})
 })

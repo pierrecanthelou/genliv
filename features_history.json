@@ -81,7 +81,8 @@
 				"iter 3: dragged node positions are a UI PREFERENCE, not synced node.position — persist them in UIPreferencesService and let resolvePositions OVERRIDE the computed slot (only for nodes still in the book, so a deleted node's stale override leaves no ghost). Layout is a view concern; keeping it off the synced document avoids spurious sync conflicts.",
 				"iter 3: a useSyncExternalStore snapshot must be a STABLE reference between writes — serve reads from an in-memory cache (new object only on write) and return a single frozen EMPTY constant for the no-prefs case, or the getSnapshot infinite-loops.",
 				"iter 3: persist the live viewport ON SETTLE (drag-release, zoom step, centre), not every pan frame — keep the fast pan in local useState (seeded lazily from the service) and write to localStorage only when the gesture ends, so 60fps panning doesn't thrash storage.",
-				"iter 3: jsdom defines no PointerEvent, so fireEvent.pointerMove drops clientX/clientY — dispatch coordinate-carrying MouseEvents typed as pointer events (via fireEvent, which act-wraps) to drive a window-pointer drag in tests; production keeps real pointer events."
+				"iter 3: jsdom defines no PointerEvent, so fireEvent.pointerMove drops clientX/clientY — dispatch coordinate-carrying MouseEvents typed as pointer events (via fireEvent, which act-wraps) to drive a window-pointer drag in tests; production keeps real pointer events.",
+				"iter 4: virtualization/culling is a pure VIEW FILTER, not a layout change — measure the surface (ResizeObserver), map it back to canvas space through the inverse transform (viewportRect), and filter the existing resolvePositions/resolveEdges output with box-intersection predicates. Keep it null-safe (unmeasured → render all) so jsdom/first-paint is unaffected; unit-test the pure predicates (the DOM-measured render is impractical in jsdom)."
 			],
 			"bugs_encountered": ["BUG-001"]
 		},

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
 	useBrain,
 	useRoute,
@@ -9,7 +9,16 @@ import {
 } from '../../../brain'
 import type { Point } from '../layout/geometry'
 import { useViewport } from '../hooks/useViewport'
-import { resolvePositions, resolveEdges, resolveBounds, NODE_W, NODE_H } from '../layout/geometry'
+import {
+	resolvePositions,
+	resolveEdges,
+	resolveBounds,
+	viewportRect,
+	nodeInView,
+	edgeInView,
+	NODE_W,
+	NODE_H,
+} from '../layout/geometry'
 import { NodeCard } from './NodeCard'
 import { EdgeLayer } from './EdgeLayer'
 import { ZoomControls } from './ZoomControls'
@@ -49,6 +58,20 @@ export function TreeCanvas({ reveal }: { reveal?: RevealRequest } = {}): JSX.Ele
 	const surfaceRef = useRef<HTMLDivElement>(null)
 	/** The last reveal `seq` already centred — so we act once per request. */
 	const centredSeqRef = useRef<number>(-1)
+	// Measured surface size for off-screen culling (iter 4). {0,0} until measured →
+	// no culling (render all), so an unmeasured env (jsdom, first paint) is unaffected.
+	const [surfaceSize, setSurfaceSize] = useState({ w: 0, h: 0 })
+
+	// Track the surface size via ResizeObserver (imperative DOM measure, KR-013 ok).
+	useEffect(() => {
+		const el = surfaceRef.current
+		if (el === null || typeof ResizeObserver === 'undefined') return
+		const measure = (): void => setSurfaceSize({ w: el.clientWidth, h: el.clientHeight })
+		measure()
+		const observer = new ResizeObserver(measure)
+		observer.observe(el)
+		return () => observer.disconnect()
+	}, [])
 
 	const positions = useMemo(
 		() => resolvePositions(book?.nodes ?? [], book?.edges ?? [], positionOverrides),
@@ -61,6 +84,17 @@ export function TreeCanvas({ reveal }: { reveal?: RevealRequest } = {}): JSX.Ele
 		[book, positions],
 	)
 	const bounds = useMemo(() => resolveBounds(positions), [positions])
+	// Off-screen culling (iter 4): only render cards/edges intersecting the visible
+	// canvas rect, so a large book stays at 60fps. Null until the surface is measured
+	// → no culling (render everything), keeping small/unmeasured cases unchanged.
+	const cullRect = useMemo(
+		() => (surfaceSize.w > 0 ? viewportRect(viewport, surfaceSize) : null),
+		[viewport, surfaceSize],
+	)
+	const visibleEdges = useMemo(
+		() => (cullRect === null ? edges : edges.filter((e) => edgeInView(e, cullRect))),
+		[edges, cullRect],
+	)
 
 	// « Centrer dans l'arbre »: centre on the revealed node once per request. The
 	// seq guard means an unrelated re-render (a book edit changing `positions`)
@@ -133,20 +167,23 @@ export function TreeCanvas({ reveal }: { reveal?: RevealRequest } = {}): JSX.Ele
 					height: bounds.h,
 				}}
 			>
-				<EdgeLayer edges={edges} width={bounds.w} height={bounds.h} />
+				<EdgeLayer edges={visibleEdges} width={bounds.w} height={bounds.h} />
 
-				{book.nodes.map((node, index) => (
-					<NodeCard
-						key={node.id}
-						node={node}
-						index={index}
-						position={positions.get(node.id) ?? { x: 0, y: 0 }}
-						selected={node.id === selectedId}
-						zoom={viewport.zoom}
-						onSelect={select}
-						onMove={moveNode}
-					/>
-				))}
+				{book.nodes
+					.map((node, index) => ({ node, index, pos: positions.get(node.id) ?? { x: 0, y: 0 } }))
+					.filter(({ pos }) => cullRect === null || nodeInView(pos, cullRect))
+					.map(({ node, index, pos }) => (
+						<NodeCard
+							key={node.id}
+							node={node}
+							index={index}
+							position={pos}
+							selected={node.id === selectedId}
+							zoom={viewport.zoom}
+							onSelect={select}
+							onMove={moveNode}
+						/>
+					))}
 
 				{isSeededEmpty && (
 					<button

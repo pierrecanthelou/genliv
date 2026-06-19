@@ -1,7 +1,7 @@
 {
 	"feature": "tree-canvas",
 	"created_at": "2026-06-15",
-	"status": "in-progress",
+	"status": "done",
 	"design_reference": "Editeur Livre-Jeu - Wireframes.dc.html § 02 « Éditeur — vue d'ensemble de l'arbre » (BINDING): top bar with book title + node count + « + Nœud »; dot-grid canvas; node cards with NodeBadge + ref + title + 1-line snippet; SVG connectors with arrowheads + mono edge labels; dashed-curve « fuite » relink edge; bottom-right zoom controls. Node marks from foundations/badges-nodes.html; cards/badges/tokens from styles.css. Low-fi, light theme.",
 	"plan": {
 		"goal": "Render the book as a navigable graph of node cards and labelled edges on a dot-grid canvas, with selection, pan/zoom, and the entry point to add a node — the primary editor surface.",
@@ -17,20 +17,58 @@
 			"All chrome renders from design-system tokens/components, light theme; node cards stay legible at default zoom (title ≥ --fs-body)."
 		],
 		"brain_contracts": [
-			{ "type": "service", "name": "BookService", "direction": "consumes" },
-			{ "type": "service", "name": "UIPreferencesService", "direction": "consumes" },
-			{ "type": "service", "name": "Router", "direction": "consumes" },
-			{ "type": "event", "name": "node:selected", "direction": "emits", "payload": { "nodeId": "string|null" } },
+			{
+				"type": "service",
+				"name": "BookService",
+				"direction": "consumes"
+			},
+			{
+				"type": "service",
+				"name": "UIPreferencesService",
+				"direction": "consumes"
+			},
+			{
+				"type": "service",
+				"name": "Router",
+				"direction": "consumes"
+			},
+			{
+				"type": "event",
+				"name": "node:selected",
+				"direction": "emits",
+				"payload": {
+					"nodeId": "string|null"
+				}
+			},
 			{
 				"type": "event",
 				"name": "node:created",
 				"direction": "emits",
-				"payload": { "nodeId": "string", "kind": "string" }
+				"payload": {
+					"nodeId": "string",
+					"kind": "string"
+				}
 			},
-			{ "type": "event", "name": "node:updated", "direction": "consumes" },
-			{ "type": "event", "name": "node:deleted", "direction": "consumes" },
-			{ "type": "event", "name": "edge:created", "direction": "consumes" },
-			{ "type": "event", "name": "edge:deleted", "direction": "consumes" }
+			{
+				"type": "event",
+				"name": "node:updated",
+				"direction": "consumes"
+			},
+			{
+				"type": "event",
+				"name": "node:deleted",
+				"direction": "consumes"
+			},
+			{
+				"type": "event",
+				"name": "edge:created",
+				"direction": "consumes"
+			},
+			{
+				"type": "event",
+				"name": "edge:deleted",
+				"direction": "consumes"
+			}
 		],
 		"walking_skeleton": "Read the open book from BookService, lay nodes out (stored position or auto-layout), draw cards + SVG edges on a dot-grid. Click a card → emit node:selected. Wire node:*/edge:* listeners to re-render. A faithful static graph with live selection.",
 		"n": 4,
@@ -53,7 +91,7 @@
 			{
 				"id": 4,
 				"goal": "Robustness at scale: virtualize / cull off-screen nodes for large books, avoid edge-label overlap, keep 60fps pan; guard against orphaned edges referencing deleted nodes (KR-021, partially shipped: orphans are dropped).",
-				"status": "planned"
+				"status": "done"
 			}
 		],
 		"known_risks": [
@@ -116,6 +154,24 @@
 					"integration": "TreeCanvas — drag persists a position via UIPreferencesService + overrides the slot (no select on drag), view-mode persists per book, zoom persists per book, view state restored on reload (fresh App over the same store)",
 					"e2e": "deferred (Playwright not yet set up)"
 				}
+			},
+			{
+				"id": 4,
+				"label": "iteration-4 (robustness at scale)",
+				"completed_at": "2026-06-19",
+				"architecture_choices": [
+					"OFF-SCREEN CULLING for large books: TreeCanvas measures its surface via a ResizeObserver (imperative DOM measure in a useEffect, KR-013-ok) and renders ONLY the node cards + edges intersecting the visible canvas-space rect (+ a CULL_MARGIN so panning never pops a card in). Pure, testable geometry: viewportRect maps the surface back to canvas space through the translate(x,y) scale(zoom) transform; nodeInView / edgeInView are box/segment-bbox intersection tests. Until the surface is measured (jsdom, first paint) cullRect is null → NO culling (render all), so small/unmeasured cases are unchanged.",
+					"Culling is derived inline with useMemo from viewport + measured size (KR-013), never a useEffect-synced mirror; it filters the existing resolvePositions/resolveEdges output, so the layout + orphaned-edge drop (KR-021) are untouched — culling is a pure VIEW filter over them."
+				],
+				"deviations_from_plan": [
+					"Edge-label overlap avoidance is deferred (a minor visual refinement) — the load-bearing iter-4 work is the cull (the SVG edge count + card DOM count are the 60fps bottleneck, now bounded by the viewport). Orphaned-edge guarding (KR-021) was already shipped (resolveEdges drops them).",
+					"Culling integration is unit-tested at the pure-geometry level (viewportRect/nodeInView/edgeInView); a full DOM-measured render test is impractical in jsdom (clientWidth is 0, ResizeObserver absent) — the unmeasured path (render-all) is covered by the existing TreeCanvas tests."
+				],
+				"test_coverage": {
+					"unit": "geometry cull — viewportRect (pan+zoom mapping), nodeInView (inside/straddle/far/just-past), edgeInView (crossing/inside/outside)",
+					"integration": "existing TreeCanvas render/select/drag tests still pass (unmeasured surface → no culling, render-all)",
+					"e2e": "deferred (Playwright not set up)"
+				}
 			}
 		],
 		"resolved_decisions": [
@@ -126,8 +182,7 @@
 			"« + Nœud » creates a FREE-FLOATING unattached node (kind `choix`), then selects it; attaching to a parent choice is done in choice-linking."
 		],
 		"open_questions": [
-			"Orphaned UI prefs on book deletion: the `genliv:ui:book:<id>` entry survives deleteBook (harmless, never read). A cleanup on book:deleted (wired at the composition root so BookService stays decoupled from uiPreferences) is a possible follow-up.",
-			"A « réinitialiser la disposition » affordance to clear dragged-position overrides back to the auto-layout is a natural follow-up (iter 4 / polish)."
+			"Edge-label overlap avoidance for dense graphs (a label-collision pass) — a visual refinement deferred from iter 4."
 		]
 	}
 }

@@ -2,6 +2,12 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.5.0 — tree-canvas iteration 4 (V4 tier opens 🚀)
+
+- **Off-screen culling for large books** — the canvas now measures its surface (a `ResizeObserver`) and renders **only the node cards + edges intersecting the visible viewport** (+ a `CULL_MARGIN` so panning never pops a card in), so a big book stays at 60fps. Pure, testable geometry: `viewportRect` maps the surface back to canvas space through the `translate scale` transform; `nodeInView` / `edgeInView` are box/segment intersection tests. Until the surface is measured (first paint / jsdom) nothing is culled — small cases are unchanged.
+- Culling is a pure **view filter** (derived inline with `useMemo`, KR-013) over the existing layout + orphaned-edge drop (KR-021) — the SSOT and layout are untouched. Edge-label overlap avoidance deferred (minor visual).
+- **tree-canvas is complete (n=4).** 271 tests passing (+3). **🚀 The 0.5.x / V4 tier opens** — iteration 4 of the features whose n≥4 (tree-canvas, node-editor, choice-linking).
+
 ## 0.4.9 — cloud-sync iteration 3 (V3 slice — tier complete 🏁)
 
 - **Conflict handling instead of silent last-write-wins** — when a book diverged on **both** sides (local has unpushed edits **and** the cloud copy is newer), `book:opened` reconciliation no longer silently overwrites either side (KR-098). It stashes the cloud copy, emits a new **`sync:conflict`** event, and surfaces a resolution affordance. A clean local (no unpushed edits) still adopts a newer cloud via safe LWW — nothing to lose.
