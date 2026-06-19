@@ -167,4 +167,67 @@ describe('action-pnj', () => {
 		const portrait = screen.getByText(/portrait du pnj/i)
 		expect(portrait).toHaveAttribute('aria-disabled', 'true')
 	})
+
+	it('« Réutiliser un PNJ du livre » reuses an existing PNJ BY ID (a reference) — iter 3', async () => {
+		const user = userEvent.setup()
+		const brain = createBrain()
+		const created = brain.books.createBook('La Caverne')
+		// A source PNJ « Le Marchand » authored on node #3.
+		const source = brain.books.addNode(created.id, 'choix')!
+		brain.books.updateNode(created.id, source.id, {
+			actionType: 'pnj',
+			pnj: { name: 'Le Marchand', dialogue: 'Bonjour, voyageur.' },
+		})
+		// The node we edit (node #4) reuses the source.
+		const target = brain.books.addNode(created.id, 'choix')!
+		brain.router.navigate({ name: 'editor', bookId: created.id })
+		render(
+			<BrainProvider brain={brain}>
+				<App />
+			</BrainProvider>,
+		)
+
+		await user.click(screen.getByRole('button', { name: /Nœud #4/ }))
+		await user.click(screen.getByRole('radio', { name: 'PNJ' }))
+		await user.click(screen.getByRole('button', { name: /Réutiliser un PNJ du livre/ }))
+		await user.click(screen.getByRole('button', { name: 'Le Marchand' }))
+
+		// Persisted as a REFERENCE (pnjRef = owner node id), not a copy. Becoming a ref
+		// drops any own fields wholesale (no residual name/role/gift leak).
+		const pnj = brain.books.getBook(created.id)!.nodes.find((n) => n.id === target.id)!.pnj!
+		expect(pnj.pnjRef).toBe(source.id)
+		expect(pnj.name).toBe('')
+		expect(pnj.role).toBeUndefined()
+		expect(pnj.gift).toBeUndefined()
+		// The identity is resolved live + shown read-only with a « réutilisé » badge.
+		expect(screen.getByText('réutilisé')).toBeInTheDocument()
+		expect(screen.getByText('Le Marchand')).toBeInTheDocument()
+
+		// « Ne plus réutiliser » detaches back to an own (empty) PNJ.
+		await user.click(screen.getByRole('button', { name: /Ne plus réutiliser/ }))
+		expect(brain.books.getBook(created.id)!.nodes.find((n) => n.id === target.id)!.pnj!.pnjRef).toBeUndefined()
+		expect(screen.getByRole('textbox', { name: /nom du pnj/i })).toBeInTheDocument()
+	})
+
+	it('surfaces a reused PNJ whose origin node was deleted as « ⚠ PNJ introuvable » (KR-021)', async () => {
+		const user = userEvent.setup()
+		const brain = createBrain()
+		const created = brain.books.createBook('La Caverne')
+		const target = brain.books.addNode(created.id, 'choix')!
+		brain.books.updateNode(created.id, target.id, {
+			actionType: 'pnj',
+			pnj: { pnjRef: 'gone', name: '', dialogue: '' },
+		})
+		brain.router.navigate({ name: 'editor', bookId: created.id })
+		render(
+			<BrainProvider brain={brain}>
+				<App />
+			</BrainProvider>,
+		)
+
+		await user.click(screen.getByRole('button', { name: /Nœud #3/ }))
+		await user.click(screen.getByRole('radio', { name: 'PNJ' }))
+
+		expect(screen.getByText(/PNJ introuvable/)).toBeInTheDocument()
+	})
 })

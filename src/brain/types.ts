@@ -187,6 +187,15 @@ export interface PnjGift {
 
 /** Per-node PNJ action config (owned by action-pnj). */
 export interface PnjConfig {
+	/**
+	 * When set, this node REUSES the PNJ authored on another node (« choisir dans
+	 * le livre », action-pnj iter 3): the value is that owner NODE's id (the PNJ's
+	 * stable id, KR-003), and the identity is resolved LIVE from the owner — the
+	 * other fields are unused on a reference. A dangling ref (owner deleted or no
+	 * longer a PNJ) is surfaced, never silently broken (KR-021). Mutually exclusive
+	 * with authoring the fields below.
+	 */
+	pnjRef?: string
 	/** The PNJ's name (author/display). */
 	name: string
 	/** The PNJ's role / function (« Marchand », « Gardien du seuil »…), optional. */

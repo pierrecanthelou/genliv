@@ -2,6 +2,13 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.4.6 — action-pnj iteration 3 (V3 slice)
+
+- **Reuse a PNJ « du livre » by stable id** — a PNJ node can now reference an existing PNJ authored elsewhere instead of re-typing it. A new searchable **`PnjPicker`** (« ↪ Réutiliser un PNJ du livre… », mirrors the décor reuse picker) lists the book's other PNJs; picking one stores a **reference**.
+- **The owner node id IS the PNJ's stable id** — no new id field, no minting, no migration (KR-096). `PnjConfig` gained `pnjRef?: string` (the owner node id). A reference resolves its identity **live** via the new derived `collectPnjs` / `resolvePnj` (`action-pnj/utils/pnjCatalog.ts`), so the PNJ stays single-sourced on its origin node (no desync, KR-020).
+- **Read-only + dangling-safe** — a referenced PNJ renders read-only (resolved name/role/dialogue/gift + **« réutilisé »** badge + « défini sur <owner> », with a **« Ne plus réutiliser »** detach). A dangling reference (origin deleted, no longer a PNJ, or itself a ref — refs don't chain) shows **« ⚠ PNJ introuvable »** (KR-021).
+- 250 tests passing (+6).
+
 ## 0.4.5 — action-decor iteration 3 (V3 slice)
 
 - **Reuse an object « dans la liste » by stable id** — a décor « Prendre » can now reference an existing acquirable object (a décor takeable, PNJ gift or monster loot anywhere in the book) instead of authoring a duplicate. A new searchable **`ReuseObjectPicker`** (mirrors the relink popover) lists `collectObjects(book)` minus the objects already present here; picking one adds a **reference** takeable.

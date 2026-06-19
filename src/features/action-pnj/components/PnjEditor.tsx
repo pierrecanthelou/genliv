@@ -1,15 +1,19 @@
 import {
 	useBrain,
 	useOpenBook,
+	Badge,
 	Field,
 	TargetPicker,
 	getNode,
+	nodeTitle,
 	type ActionEditorContext,
 	type PnjConfig,
 	type PnjGift,
 } from '../../../brain'
 import { giftOf } from '../utils/gift'
+import { collectPnjs, resolvePnj, isRefPnj } from '../utils/pnjCatalog'
 import { GiftSection } from './GiftSection'
+import { PnjPicker } from './PnjPicker'
 
 /** The config a node falls back to before any PNJ is authored. */
 const DEFAULT_PNJ: PnjConfig = { name: '', dialogue: '' }
@@ -37,6 +41,8 @@ export function PnjEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element 
 	const pnj = node?.pnj ?? DEFAULT_PNJ
 	const gift = giftOf(pnj)
 	const nodes = book?.nodes ?? []
+	// Reusable PNJs in the book, excluding this node (a PNJ can't reference itself).
+	const pnjCandidates = collectPnjs(book).filter((p) => p.nodeId !== nodeId)
 
 	function patchPnj(patch: Partial<PnjConfig>): void {
 		// Write the canonical shape (migrated gift) so a legacy bare-object gift is
@@ -49,8 +55,54 @@ export function PnjEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element 
 		patchPnj({ gift: next })
 	}
 
+	// « Choisir dans le livre » (iter 3): reuse an existing PNJ by its owner node id
+	// (the stable PNJ id), excluding this node so a PNJ can't reference itself.
+	function reusePnj(ownerNodeId: string): void {
+		books.updateNode(bookId, nodeId, { pnj: { pnjRef: ownerNodeId, name: '', dialogue: '' } })
+	}
+
+	function detachPnj(): void {
+		books.updateNode(bookId, nodeId, { pnj: { name: '', dialogue: '' } })
+	}
+
+	// A reference REUSES another node's PNJ — resolve its identity live (KR-020) and
+	// render it read-only here; the PNJ is edited on its origin node (single source).
+	if (isRefPnj(pnj)) {
+		const resolved = resolvePnj(book, node)
+		const owner = pnj.pnjRef !== undefined ? getNode(book, pnj.pnjRef) : null
+		const resolvedGift = resolved !== null ? giftOf(resolved) : undefined
+		return (
+			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+				<div style={reuseHeader}>
+					<Badge tone={resolved !== null ? 'muted' : 'bad'}>réutilisé</Badge>
+					{owner !== null && <span style={ownerNote}>défini sur « {nodeTitle(owner)} »</span>}
+				</div>
+				{resolved !== null ? (
+					<div style={resolvedCard}>
+						<span style={resolvedName}>{resolved.name.trim() === '' ? 'PNJ sans nom' : resolved.name}</span>
+						{resolved.role !== undefined && resolved.role.trim() !== '' && (
+							<span style={resolvedMeta}>{resolved.role}</span>
+						)}
+						{resolved.dialogue.trim() !== '' && <p style={resolvedDialogue}>« {resolved.dialogue} »</p>}
+						{resolvedGift !== undefined && (
+							<span style={resolvedMeta}>Donne : {resolvedGift.object.name || 'objet'}</span>
+						)}
+					</div>
+				) : (
+					<p style={{ margin: 0, color: 'var(--bad)', fontSize: 'var(--fs-meta)' }}>
+						⚠ PNJ introuvable — le PNJ d’origine n’existe plus.
+					</p>
+				)}
+				<button type="button" onClick={detachPnj} style={detachButton}>
+					Ne plus réutiliser — créer un PNJ propre
+				</button>
+			</div>
+		)
+	}
+
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
+			{pnjCandidates.length > 0 && <PnjPicker candidates={pnjCandidates} onPick={reusePnj} />}
 			<Field
 				label="NOM DU PNJ"
 				value={pnj.name}
@@ -99,6 +151,60 @@ const sectionLabel: React.CSSProperties = {
 	color: 'var(--text-label)',
 	letterSpacing: 'var(--track-eyebrow)',
 	marginBottom: 5,
+}
+
+const reuseHeader: React.CSSProperties = {
+	display: 'flex',
+	alignItems: 'center',
+	gap: 'var(--space-3)',
+}
+
+const ownerNote: React.CSSProperties = {
+	fontSize: 'var(--fs-meta)',
+	color: 'var(--text-muted)',
+	overflow: 'hidden',
+	textOverflow: 'ellipsis',
+	whiteSpace: 'nowrap',
+}
+
+const resolvedCard: React.CSSProperties = {
+	display: 'flex',
+	flexDirection: 'column',
+	gap: 'var(--space-2)',
+	border: '1px solid var(--border-subtle)',
+	borderRadius: 'var(--r-lg)',
+	background: 'var(--surface-sunken)',
+	padding: 'var(--space-5)',
+}
+
+const resolvedName: React.CSSProperties = {
+	fontSize: 'var(--fs-row)',
+	fontWeight: 'var(--fw-semibold)',
+	color: 'var(--text-strong)',
+}
+
+const resolvedMeta: React.CSSProperties = {
+	fontSize: 'var(--fs-meta)',
+	color: 'var(--text-muted)',
+}
+
+const resolvedDialogue: React.CSSProperties = {
+	margin: 0,
+	fontSize: 'var(--fs-body)',
+	color: 'var(--text-body)',
+	fontStyle: 'italic',
+}
+
+const detachButton: React.CSSProperties = {
+	alignSelf: 'flex-start',
+	fontFamily: 'var(--font-mono)',
+	fontSize: 'var(--fs-eyebrow)',
+	color: 'var(--accent)',
+	background: 'transparent',
+	border: 'none',
+	cursor: 'pointer',
+	minHeight: 'var(--hit-target)',
+	padding: '0 var(--space-2)',
 }
 
 /** Deferred portrait affordance — disabled until image scope lands (no upload yet). */

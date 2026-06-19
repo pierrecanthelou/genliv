@@ -31,11 +31,12 @@
 			{
 				"id": 3,
 				"goal": "Reusable PNJs via a shared catalog (« créer / choisir dans le livre »), referenced by stable id — paired with the ObjectCatalogService work (KR-062).",
-				"status": "planned"
+				"status": "done"
 			}
 		],
 		"known_risks": [
 			"KR-050/051 — node-editor is a host: action-pnj self-registers via the ActionRegistry and is mounted without being imported; adding the action needs zero node-editor changes.",
+			"KR-096 — reusable PNJs (iter 3) follow the derived-reference pattern: the OWNER NODE id is the PNJ's stable id (no separate id), a ref is { pnjRef } resolved live via collectPnjs/resolvePnj (read-only editor, dangling ⚠ KR-021, refs don't chain); the PNJ stays single-sourced on its origin node (KR-020).",
 			"KR-052 — the gift object carries a player-facing DESCRIPTION, not just a name; captured via the SHARED brain ObjectEditor (now its second consumer), never a bare string and never a per-feature copy (KR-109).",
 			"KR-020 — PNJ config is read/written through BookService (the SSOT); the editor holds no private copy and reflects live via useOpenBook.",
 			"KR-003 — the gift object is referenced by a stable id minted once (createId) and preserved across edits.",
@@ -102,11 +103,31 @@
 					"integration": "action-pnj via App — the RÔLE field persists on pnj.role; the portrait dropzone renders as a disabled (aria-disabled) deferred affordance",
 					"e2e": "deferred (Playwright not set up)"
 				}
+			},
+			{
+				"id": 3,
+				"label": "iteration-3 (reusable PNJ by reference)",
+				"completed_at": "2026-06-19",
+				"architecture_choices": [
+					"Reusable PNJs landed as a DERIVED REFERENCE (KR-096, same pattern as the action-decor object catalog), with the key simplification that the OWNER NODE id is the PNJ's stable id — PNJs have no id of their own, so no id field, no minting, no migration. PnjConfig gained pnjRef?: string; a node's PNJ is own (authored) or a ref ({ pnjRef: ownerNodeId, name:'', dialogue:'' }).",
+					"New action-pnj/utils/pnjCatalog.ts: collectPnjs(book) (own PNJ nodes keyed by node id, refs skipped so no phantom entry), isRefPnj, resolvePnj(book, node) (own → its config; ref → the owner's config resolved LIVE, null when dangling — owner deleted / no longer a PNJ / itself a ref; refs do NOT chain, KR-021).",
+					"PnjEditor renders a ref READ-ONLY (resolved identity card — name/role/dialogue/gift summary — with a « réutilisé » badge + « défini sur <owner> », « ⚠ PNJ introuvable » when dangling, and a « Ne plus réutiliser » detach to an own empty PNJ). Own mode adds a « ↪ Réutiliser un PNJ du livre… » PnjPicker (searchable popover mirroring action-decor's ReuseObjectPicker) listing collectPnjs minus self. The PNJ stays single-sourced on its origin node (no desync, KR-020); updateNode replaces node.pnj wholesale, so reuse/detach write the full canonical shape.",
+					"collectObjects is unaffected: a ref pnj stores no gift, so the owner's gift is still counted once from the owner — no double-count in the object catalog (KR-062)."
+				],
+				"deviations_from_plan": [
+					"« créer / choisir dans le livre » realised WITHOUT a separate PnjCatalogService — the owner node id is the stable id and collectPnjs is a pure derived view (same call as KR-062's derived object catalog).",
+					"A ref reuses the WHOLE PNJ (identity + dialogue + gift) by reference — there is no per-scene dialogue override on a reference; an author who needs distinct dialogue authors a separate (own) PNJ. A future identity-vs-scene split is possible but deliberately out of this low-fi slice."
+				],
+				"test_coverage": {
+					"unit": "pnjCatalog — collectPnjs (own only, refs skipped), isRefPnj, resolvePnj (own / ref→owner / dangling / no-chain)",
+					"integration": "action-pnj via App — « Réutiliser un PNJ du livre » persists pnjRef (owner node id) + shows the resolved identity read-only with « réutilisé »; « Ne plus réutiliser » detaches to an own PNJ; a dangling reference shows « ⚠ PNJ introuvable »",
+					"e2e": "deferred (Playwright not set up)"
+				}
 			}
 		],
 		"open_questions": [
-			"Gift effects + « mène à » target (iteration 1), portrait/dialogue affordance (iteration 2).",
-			"Reusable PNJ + object catalogs (iteration 3) — share with the ObjectCatalogService work needed for hidden-prereqs (KR-062)."
+			"A reference reuses the whole PNJ (incl. dialogue); a per-scene dialogue override on a reused PNJ identity (identity-vs-scene split) is a possible later refinement if authors need the same character to say different things at different screens.",
+			"Reusing the PNJ GIFT object alone (the action-decor objectRef pattern applied to PnjGift) was not needed once the whole PNJ is reusable; revisit only if a use case for « same gift object, different PNJ » appears."
 		]
 	}
 }
