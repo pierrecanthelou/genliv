@@ -21,6 +21,7 @@ export interface FieldProps {
 	inputRef?: Ref<HTMLInputElement>
 	onChange?: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void
 	onKeyDown?: (e: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => void
+	onBlur?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void
 }
 
 const shared: CSSProperties = {
@@ -50,6 +51,7 @@ export function Field({
 	inputRef,
 	onChange,
 	onKeyDown,
+	onBlur,
 }: FieldProps): JSX.Element {
 	return (
 		<label style={{ display: 'block' }} htmlFor={id}>
@@ -77,6 +79,7 @@ export function Field({
 					aria-label={ariaLabel}
 					onChange={onChange}
 					onKeyDown={onKeyDown}
+					onBlur={onBlur}
 					style={shared}
 				/>
 			) : (
@@ -90,6 +93,7 @@ export function Field({
 					aria-label={ariaLabel}
 					onChange={onChange}
 					onKeyDown={onKeyDown}
+					onBlur={onBlur}
 					style={shared}
 				/>
 			)}

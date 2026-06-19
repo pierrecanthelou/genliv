@@ -1,7 +1,7 @@
 {
 	"feature": "node-editor",
 	"created_at": "2026-06-16",
-	"status": "in-progress",
+	"status": "done",
 	"design_reference": "Editeur Livre-Jeu - Wireframes.dc.html § 02 side panel « NŒUD #4 »: sticky header (NodeBadge + ref + title + ✕); sections — Libellé du choix, Description, Illustration (deferred), Objets à prendre, Action requise (SegmentedControl + delegated body), Choix sortants, Fin victoire/Fin échec toggles. Anatomy + tokens from styles.css.",
 	"plan": {
 		"goal": "Edit a single leaf's content in a side panel beside the tree — text, inventory, the required-action block (delegated to action-* via ActionRegistry), outgoing choices (delegated to choice-linking), and the victory/failure end toggles.",
@@ -18,17 +18,47 @@
 			"The whole panel renders from design-system components/tokens, light theme; controls have ≥44px targets and the panel is keyboard-navigable."
 		],
 		"brain_contracts": [
-			{ "type": "service", "name": "BookService", "direction": "consumes" },
-			{ "type": "service", "name": "SelectionService", "direction": "consumes" },
-			{ "type": "service", "name": "ObjectCatalogService", "direction": "consumes" },
-			{ "type": "service", "name": "ActionRegistry", "direction": "consumes" },
-			{ "type": "event", "name": "node:selected", "direction": "consumes" },
-			{ "type": "event", "name": "node:updated", "direction": "emits", "payload": { "nodeId": "string" } },
+			{
+				"type": "service",
+				"name": "BookService",
+				"direction": "consumes"
+			},
+			{
+				"type": "service",
+				"name": "SelectionService",
+				"direction": "consumes"
+			},
+			{
+				"type": "service",
+				"name": "ObjectCatalogService",
+				"direction": "consumes"
+			},
+			{
+				"type": "service",
+				"name": "ActionRegistry",
+				"direction": "consumes"
+			},
+			{
+				"type": "event",
+				"name": "node:selected",
+				"direction": "consumes"
+			},
+			{
+				"type": "event",
+				"name": "node:updated",
+				"direction": "emits",
+				"payload": {
+					"nodeId": "string"
+				}
+			},
 			{
 				"type": "event",
 				"name": "action:changed",
 				"direction": "emits",
-				"payload": { "nodeId": "string", "actionType": "string" }
+				"payload": {
+					"nodeId": "string",
+					"actionType": "string"
+				}
 			}
 		],
 		"walking_skeleton": "On selection, load the node from BookService and render the panel shell with the Description Field and the end toggles, committing edits via BookService.updateNode (emit node:updated). Render the Action SegmentedControl and mount the editor resolved from ActionRegistry for the current type. Reserve the libellé/illustration/inventory/choices slots as deferred placeholders. Compose canvas + panel in the app shell.",
@@ -52,7 +82,7 @@
 			{
 				"id": 4,
 				"goal": "Edit-safety + slots: debounced commits without focus loss, clean content swap (KR-053), mount choice-linking + editable libellé (on the incoming edge) in the choices slot, deferred Illustration dropzone, full a11y/keyboard pass.",
-				"status": "planned"
+				"status": "done"
 			}
 		],
 		"known_risks": [
@@ -122,6 +152,24 @@
 					"unit": "covered by action-decor takeables (takeablesOf) + the shared ObjectEditor tests",
 					"e2e": "deferred"
 				}
+			},
+			{
+				"id": 4,
+				"label": "iteration-4 (edit-safety: debounced commits)",
+				"completed_at": "2026-06-19",
+				"architecture_choices": [
+					"Most of iter 4 was already shipped across earlier slices: clean content swap (the panel is KEYED by node.id, KR-053), the choice-linking choices slot + editable libellé on the incoming edge (via SlotRegistry), and the deferred Illustration dropzone. The genuine new work is DEBOUNCED Description commits.",
+					"New useDebouncedText hook: the Description shows a fast LOCAL draft and commits to BookService.updateNode only after typing settles (400ms) or on blur — so a keystroke no longer fires updateNode → node:updated → a canvas/outline re-read per character. The draft is seeded ONCE from node.text (legitimate editing state, not a useEffect-synced mirror, KR-013); the keyed panel resets it on a selection swap (KR-053).",
+					"NO DATA LOSS: a pending edit is FLUSHED on blur AND on unmount (the selection swap that unmounts the keyed panel), the debounce timer is tracked in a ref + cleared on unmount (timer-safety rule), and commit is held in a ref so the scheduled callback always calls the latest one (KR-004). Extracted to a NodeDescription component so the hook is unconditional (the panel empty-state early-return would otherwise make it conditional). The brain Field gained an optional onBlur prop (used to flush)."
+				],
+				"deviations_from_plan": [
+					"Only the Description is debounced — the end toggles + action SegmentedControl are infrequent discrete writes that need no debounce. The « full a11y/keyboard pass » found the panel already keyboard-operable (native Field/Toggle/SegmentedControl/buttons); no change needed."
+				],
+				"test_coverage": {
+					"unit": "covered via the panel integration",
+					"integration": "NodeEditorPanel — Description commits on blur (debounced flush); a pending edit is flushed (not lost) when selection swaps to another node",
+					"e2e": "deferred (Playwright not set up)"
+				}
 			}
 		],
 		"resolved_decisions": [
@@ -133,9 +181,6 @@
 			"Sommaire and Mort are structural screens (KR-055): no libellé / action / Fin toggles; Mort also has no outgoing choices; text-only, enforced at the SSOT.",
 			"Inventory « objets à prendre » (iter 3) is SUPERSEDED by action-decor « Prendre » takeables (node.decor.objects + shared ObjectEditor): node-editor builds no separate node-level inventory; the shared ObjectCatalogService (KR-062) is owned by action-decor / the hidden-prereq work, and node-editor will reference it, never own it (user decision, 2026-06-19)."
 		],
-		"open_questions": [
-			"ObjectCatalogService shape — define when action-decor's object catalog (its iter 3) lands; node-editor consumes it for an « objets à prendre » picker only if a node-level inventory is later deemed distinct from décor « prendre ».",
-			"Debounce strategy for Description commits (iteration 4, a V4 / 0.5.x item) vs the current commit-on-change — the only remaining genuine node-editor work."
-		]
+		"open_questions": []
 	}
 }

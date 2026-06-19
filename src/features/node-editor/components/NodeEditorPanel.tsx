@@ -4,7 +4,6 @@ import {
 	useSelectedNode,
 	useOpenBook,
 	NodeBadge,
-	Field,
 	Toggle,
 	effectiveKind,
 	endLabel,
@@ -17,6 +16,7 @@ import {
 } from '../../../brain'
 import { SectionLabel } from './SectionLabel'
 import { ActionSection } from './ActionSection'
+import { NodeDescription } from './NodeDescription'
 
 const PANEL_WIDTH = 372
 
@@ -108,14 +108,9 @@ export function NodeEditorPanel(): JSX.Element {
 
 			<div style={panelBody}>
 				<section>
-					<Field
-						label="Description"
-						multiline
-						rows={4}
-						value={node.text}
-						placeholder="Décrivez l’écran tel que le joueur le lit…"
-						onChange={(e) => patch({ text: e.target.value })}
-					/>
+					{/* Debounced commits (iter 4): the panel is keyed by node.id, so this
+					    remounts + reseeds on a selection swap and flushes on unmount (KR-053). */}
+					<NodeDescription value={node.text} onCommit={(text) => patch({ text })} />
 				</section>
 
 				<section>

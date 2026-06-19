@@ -36,9 +36,25 @@ describe('node-editor panel', () => {
 		await selectNode(user, /Nœud #1 — Sommaire/)
 		const description = screen.getByLabelText(/description/i)
 		await user.type(description, 'Au seuil de la caverne.')
+		// Description commits are debounced (iter 4): blurring flushes the pending edit.
+		await user.tab()
 
 		const sommaireId = brain.books.getBook(book.id)!.nodes.find((n) => n.kind === 'sommaire')!.id
 		expect(brain.books.getBook(book.id)?.nodes.find((n) => n.id === sommaireId)?.text).toBe('Au seuil de la caverne.')
+	})
+
+	it('flushes a pending (debounced) Description edit when selection swaps — no data loss (iter 4)', async () => {
+		const user = userEvent.setup()
+		const { brain, book } = setup()
+		const sommaireId = brain.books.getBook(book.id)!.nodes.find((n) => n.kind === 'sommaire')!.id
+
+		await selectNode(user, /Nœud #1 — Sommaire/)
+		await user.type(screen.getByLabelText(/description/i), 'sauvé au swap')
+		// Swap to another node: the keyed panel unmounts (and the field blurs) → the
+		// pending edit is flushed, never lost.
+		await selectNode(user, /Nœud #2 — Mort/)
+
+		expect(brain.books.getBook(book.id)!.nodes.find((n) => n.id === sommaireId)!.text).toBe('sauvé au swap')
 	})
 
 	it('toggling « Fin victoire » sets the end flag and flips the node badge to FIN', async () => {

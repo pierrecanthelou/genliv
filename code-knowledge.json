@@ -79,7 +79,7 @@
 		{
 			"id": "KR-053",
 			"feature": "node-editor",
-			"risk": "Selection swap must not leak the previous node's uncommitted field state into the next node. Bind fields to the store (no local mirror) and/or key the panel subtree by node id so it resets on selection change."
+			"risk": "Selection swap must not leak the previous node's uncommitted field state into the next node. Bind fields to the store (no local mirror) and/or key the panel subtree by node id so it resets on selection change. DEBOUNCED fields (node-editor iter 4, useDebouncedText): the Description shows a fast LOCAL draft seeded ONCE from the node value and commits to the store on idle/blur — so the keyed-by-node-id reset (this KR) is what makes the once-seeded draft safe across a selection swap. A pending edit MUST be flushed on blur AND on unmount (the swap unmounts the keyed panel) so the last typed characters are never lost; the debounce timer is ref-tracked + cleared on unmount (timer-safety) and commit is held in a ref (latest, KR-004)."
 		},
 		{
 			"id": "KR-054",

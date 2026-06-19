@@ -113,12 +113,17 @@
 				{
 					"type": "event",
 					"name": "action:changed"
+				},
+				{
+					"type": "hook",
+					"name": "useDebouncedText (node-editor) + Field.onBlur (iter 4)"
 				}
 			],
 			"lessons_learned": [
 				"A second writer of selection (the panel ✕) is the signal to promote selection from feature-local state to a brain SSOT — event-only broadcast is insufficient when two features both set it.",
 				"In RTL, drive selection through the UI (click a canvas card / + Nœud) rather than calling brain.selection.select directly — direct service mutations outside act() don't flush to the DOM before the next query.",
-				"Libellé du choix belongs on the incoming edge, not duplicated on the node — confirmed with the user to avoid a desync trap (KR-053-adjacent)."
+				"Libellé du choix belongs on the incoming edge, not duplicated on the node — confirmed with the user to avoid a desync trap (KR-053-adjacent).",
+				"iter 4: a debounced field needs a flush on BOTH blur and unmount — the keyed-by-id panel (KR-053) unmounts on a selection swap, so without an unmount-flush the last typed characters (within the debounce window) are silently lost. Track the timer in a ref + clear on unmount (timer-safety), hold commit in a ref (latest, KR-004), and extract the hook into a child component so it stays unconditional past the panel's empty-state early-return."
 			],
 			"bugs_encountered": []
 		},

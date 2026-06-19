@@ -2,6 +2,12 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.5.1 — node-editor iteration 4 (V4 slice)
+
+- **Debounced Description commits** — typing in a node's Description now updates a fast local draft and writes through `BookService` only after the typing settles (or on blur), so a keystroke no longer fires `updateNode → node:updated → a canvas/outline re-read` per character. **No data loss**: a pending edit is flushed on blur **and** on the selection-swap unmount (the panel is keyed by node id, KR-053); the debounce timer is ref-tracked + cleared on unmount.
+- New `useDebouncedText` hook + a `NodeDescription` component (so the hook stays unconditional past the panel's empty-state guard); the brain `Field` gained an optional `onBlur`. The rest of iter 4 (clean content swap, choices slot, deferred illustration, keyboard a11y) was already in place.
+- **node-editor is complete (n=4).** 272 tests passing (+1).
+
 ## 0.5.0 — tree-canvas iteration 4 (V4 tier opens 🚀)
 
 - **Off-screen culling for large books** — the canvas now measures its surface (a `ResizeObserver`) and renders **only the node cards + edges intersecting the visible viewport** (+ a `CULL_MARGIN` so panning never pops a card in), so a big book stays at 60fps. Pure, testable geometry: `viewportRect` maps the surface back to canvas space through the `translate scale` transform; `nodeInView` / `edgeInView` are box/segment intersection tests. Until the surface is measured (first paint / jsdom) nothing is culled — small cases are unchanged.
