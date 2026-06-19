@@ -2,6 +2,12 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.4.8 — action-trap iteration 3 (V3 slice)
+
+- **Trap-on-object** — a décor « Prendre » object's « jet requis » can now be marked **« Variante piège : échec → mort »**: taking the object and failing the roll is lethal. It reuses the **shared roll model** (`SkillRoll` gained a `fatal` flag) and the trap's **derived fatal → Mort edge** — `deriveAutomaticEdges` now emits the same `auto-fatal-<node>` edge for a décor node with a fatal takeable roll as for a « échec sanctionné » trap (KR-067/092). View-derived from config, never authored.
+- The two features share only the brain `SkillRoll` + `deriveAutomaticEdges` (and the toggle lives in décor's `ObjectEditModal`) — neither imports the other.
+- 261 tests passing (+4).
+
 ## 0.4.7 — action-monster iteration 3 (V3 slice)
 
 - **Reusable monster library** — « Ajouter à la librairie du générateur » now actually **persists** a monster to a new cross-book **`MonsterLibraryService`** (brain, raw local store, not synced), and a searchable **`MonsterLibraryPicker`** (« ↪ Choisir dans la librairie… ») **instantiates** a saved monster onto a node. The long-wired `monster:savedToLibrary` event is now consumed (no longer a stub).

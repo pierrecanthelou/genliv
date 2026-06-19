@@ -38,4 +38,41 @@ describe('deriveAutomaticEdges (KR-067 dedicated path)', () => {
 		expect(deriveAutomaticEdges(book([node('p', 'choix', { actionType: 'piege', trap: trap(true) })]))).toEqual([])
 		expect(deriveAutomaticEdges(null)).toEqual([])
 	})
+
+	it('derives a fatal → Mort edge for a décor « prendre » object with a fatal jet (trap-on-object, iter 3)', () => {
+		const b = book([
+			node('root', 'sommaire'),
+			node('d', 'choix', {
+				actionType: 'decor',
+				decor: {
+					interaction: 'prendre',
+					objects: [
+						{
+							object: { id: 'o1', name: 'Coffre', description: '' },
+							kind: 'utile',
+							roll: { trait: 'hab', difficulty: 7, fatal: true },
+						},
+					],
+				},
+			}),
+			node('m', 'mort'),
+		])
+		expect(deriveAutomaticEdges(b)).toEqual([{ id: 'auto-fatal-d', from: 'd', to: 'm', kind: 'fatal' }])
+	})
+
+	it('derives nothing for a décor object whose jet is not fatal (or whose action is not décor)', () => {
+		const nonFatal = book([
+			node('d', 'choix', {
+				actionType: 'decor',
+				decor: {
+					interaction: 'prendre',
+					objects: [
+						{ object: { id: 'o1', name: '', description: '' }, kind: 'utile', roll: { trait: 'h', difficulty: 5 } },
+					],
+				},
+			}),
+			node('m', 'mort'),
+		])
+		expect(deriveAutomaticEdges(nonFatal)).toEqual([])
+	})
 })

@@ -60,6 +60,13 @@ export interface SkillRoll {
 	 * `outcomes` (OutcomesEditor), so a trap roll leaves it unset.
 	 */
 	failureText?: string
+	/**
+	 * « Variante piège » (action-trap iter 3): a failed roll is LETHAL — taking
+	 * the object triggers a trap whose échec leads to Mort. The actual échec→Mort
+	 * edge is DERIVED (deriveAutomaticEdges), never authored (KR-067), reusing the
+	 * trap's fatal→Mort path. Unset = a plain failure (only `failureText` is shown).
+	 */
+	fatal?: boolean
 }
 
 /**

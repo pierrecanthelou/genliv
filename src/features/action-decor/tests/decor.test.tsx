@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createBrain, BrainProvider } from '../../../brain'
+import { createBrain, BrainProvider, deriveAutomaticEdges } from '../../../brain'
 import { App } from '../../../App'
 import { registerActionDecor } from '../register'
 import { revealsOf } from '../utils/takeables'
@@ -148,6 +148,25 @@ describe('action-decor', () => {
 
 		const roll = decorOf(brain, bookId, nodeId)?.objects?.[0].roll
 		expect(roll).toEqual({ trait: 'Habileté', difficulty: 8, failureText: 'Le mécanisme cède.' })
+	})
+
+	it('« Variante piège : échec → mort » persists roll.fatal and derives a fatal → Mort edge (iter 3)', async () => {
+		const user = userEvent.setup()
+		const { brain, bookId, nodeId } = setup()
+		await openDecor(user)
+
+		await user.click(screen.getByRole('button', { name: /Ajouter un objet/ }))
+		await user.type(screen.getByRole('textbox', { name: /nom de l/i }), 'Coffre piégé')
+		await user.click(screen.getByRole('switch', { name: /jet requis/i }))
+		await user.click(screen.getByRole('switch', { name: /variante piège/i }))
+		await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+		expect(decorOf(brain, bookId, nodeId)?.objects?.[0].roll?.fatal).toBe(true)
+		// The lethal failure derives a fatal edge to Mort (KR-067), never an authored one.
+		const fatal = deriveAutomaticEdges(brain.books.getBook(bookId)).find((e) => e.kind === 'fatal')
+		expect(fatal?.from).toBe(nodeId)
+		expect(fatal?.kind).toBe('fatal')
+		expect(brain.books.getBook(bookId)!.nodes.find((n) => n.id === fatal!.to)!.kind).toBe('mort')
 	})
 
 	it('switches the décor interaction and persists it, hiding the prendre list', async () => {

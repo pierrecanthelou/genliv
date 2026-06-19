@@ -15,9 +15,21 @@
 			"The editor renders strictly from design-system primitives/tokens (Field, OutcomesEditor, Toggle), light theme; controls are keyboard-operable with ≥44px targets."
 		],
 		"brain_contracts": [
-			{ "type": "service", "name": "ActionRegistry", "direction": "consumes" },
-			{ "type": "service", "name": "BookService", "direction": "consumes" },
-			{ "type": "component", "name": "OutcomesEditor", "direction": "consumes" }
+			{
+				"type": "service",
+				"name": "ActionRegistry",
+				"direction": "consumes"
+			},
+			{
+				"type": "service",
+				"name": "BookService",
+				"direction": "consumes"
+			},
+			{
+				"type": "component",
+				"name": "OutcomesEditor",
+				"direction": "consumes"
+			}
 		],
 		"walking_skeleton": "registerActionTrap registers an ActionEditor { type:'piege', label:'Piège', render } with the brain ActionRegistry (wired at the App composition root). TrapEditor reads node.trap live via useOpenBook and writes via BookService.updateNode: a DESCRIPTION Field, the shared brain OutcomesEditor for the réussite/échec reveal texts, and a « L'échec mène à la Mort » Toggle (fatal). Skill caractéristique/difficulté + the automatic →Mort edge are later iterations.",
 		"n": 3,
@@ -35,7 +47,7 @@
 			{
 				"id": 3,
 				"goal": "Trap-on-object variant (a décor « prendre » object that triggers a trap roll) — share the roll model with action-decor.",
-				"status": "planned"
+				"status": "done"
 			}
 		],
 		"known_risks": [
@@ -105,11 +117,28 @@
 					"integration": "action-trap via App — toggling « L'échec mène à la Mort » draws the « ✕ Mort » edge chip on the canvas (and not before)",
 					"e2e": "deferred (Playwright not set up)"
 				}
+			},
+			{
+				"id": 3,
+				"label": "iteration-3 (trap-on-object)",
+				"completed_at": "2026-06-19",
+				"architecture_choices": [
+					"Trap-on-object reuses the SHARED roll model (brain SkillRoll) and the trap fatal→Mort DERIVED edge (deriveAutomaticEdges), not a new mechanism: SkillRoll gained an optional `fatal` flag, and a décor « prendre » takeable whose jet requis is fatal now derives the same auto-fatal-<node> edge to Mort as a « échec sanctionné » trap (KR-067/092). The edge is view-derived from the config (SSOT), never authored (the manual edge API rejects a Mort target).",
+					"deriveAutomaticEdges gained a second fatal SOURCE (a décor node with a fatal takeable roll) folded into the SAME one-edge-per-node output — a node has a single actionType, so the piège and décor branches never both fire. Gated on actionType (decor) + decor.objects[].roll.fatal, read inline (no action-decor import — deriveAutomaticEdges is brain).",
+					"The UI is a « Variante piège : échec → mort » Toggle in action-decor ObjectEditModal (where the takeable jet requis is already edited), writing roll.fatal — the trap capability rides the décor takeable editor; the two features share only the brain SkillRoll + deriveAutomaticEdges, never import each other."
+				],
+				"deviations_from_plan": [
+					"No new trap-feature UI: the décor takeable already owned the jet-requis editor, so « trap-on-object » is a one-flag extension of the SHARED roll there + the brain derivation. Generalising deriveAutomaticEdges to the monster victoire/fuite + PNJ « mène à » targets remains a follow-up (the helper is structured for it)."
+				],
+				"test_coverage": {
+					"unit": "deriveAutomaticEdges — a décor « prendre » fatal-jet object derives a fatal→Mort edge; a non-fatal jet (or non-décor action) derives nothing",
+					"integration": "action-decor via App — the « Variante piège » toggle persists roll.fatal and the book then derives a fatal edge from the décor node",
+					"e2e": "deferred (Playwright not set up)"
+				}
 			}
 		],
 		"open_questions": [
-			"Trap-on-object variant (iteration 3) sharing the roll model with action-decor.",
-			"Generalising deriveAutomaticEdges to the monster/PNJ outcome targets (a follow-up to this slice's trap fatal→Mort path)."
+			"Generalise deriveAutomaticEdges to the monster victoire/fuite + PNJ « mène à » outcome targets (the helper already structured for it) — a follow-up that promotes those config references to rendered edges (KR-067)."
 		]
 	}
 }

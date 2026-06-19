@@ -19,10 +19,16 @@ export function deriveAutomaticEdges(book: Book | null): Edge[] {
 	const edges: Edge[] = []
 	for (const node of book.nodes) {
 		// « Variante piège — échec sanctionné » → automatic edge to Mort (KR-067).
-		// Gated on the active trap ACTION (actionType), not node.kind — the action
-		// config is keyed by actionType, and a node only carries a live trap while
-		// « Piège » is its required action.
-		if (node.actionType === 'piege' && node.trap?.fatal === true) {
+		// Gated on the active ACTION (actionType), not node.kind — the action config
+		// is keyed by actionType, and a node only carries a live config while that
+		// action is its required action. Two fatal sources fold into ONE edge per
+		// node (a node has a single actionType, so the branches never both fire):
+		//   • a « Piège » action whose trap.fatal is set, and
+		//   • a « Décor » « prendre » takeable whose jet requis is fatal (trap-on-object,
+		//     action-trap iter 3) — taking it and failing the roll is lethal.
+		const trapFatal = node.actionType === 'piege' && node.trap?.fatal === true
+		const objectTrap = node.actionType === 'decor' && (node.decor?.objects ?? []).some((t) => t.roll?.fatal === true)
+		if (trapFatal || objectTrap) {
 			edges.push({ id: `auto-fatal-${node.id}`, from: node.id, to: mort.id, kind: 'fatal' })
 		}
 	}

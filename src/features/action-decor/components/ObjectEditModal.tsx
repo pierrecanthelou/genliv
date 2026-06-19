@@ -110,6 +110,13 @@ export function ObjectEditModal({ takeable, isNew, onSave, onCancel }: ObjectEdi
 							placeholder="Le mécanisme cède et l’objet se brise…"
 							onChange={(e) => setRoll({ failureText: e.target.value })}
 						/>
+						{/* Trap-on-object (action-trap iter 3): a fatal échec leads to Mort via
+						    the derived fatal edge (KR-067), not an authored one. */}
+						<Toggle
+							label="Variante piège : échec → mort"
+							checked={roll.fatal === true}
+							onChange={(on) => setRoll({ fatal: on ? true : undefined })}
+						/>
 					</div>
 				)}
 			</div>
