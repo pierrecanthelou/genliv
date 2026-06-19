@@ -7,6 +7,7 @@ import {
 	IconButton,
 	HIT_TARGET_MIN,
 	getNode,
+	collectObjects,
 	type ActionEditorContext,
 	type DecorConfig,
 	type DecorInteraction,
@@ -14,8 +15,18 @@ import {
 	type SegmentedOption,
 	type TakeableObject,
 } from '../../../brain'
-import { TAKEABLE_KINDS, takeablesOf, revealsOf, blankTakeable } from '../utils/takeables'
+import {
+	TAKEABLE_KINDS,
+	takeablesOf,
+	revealsOf,
+	blankTakeable,
+	refTakeable,
+	isRefTakeable,
+	takeableId,
+	resolveTakeableObject,
+} from '../utils/takeables'
 import { ObjectEditModal } from './ObjectEditModal'
+import { ReuseObjectPicker } from './ReuseObjectPicker'
 import { RevealEditor } from './RevealEditor'
 
 /**
@@ -98,15 +109,23 @@ export function DecorEditor({ bookId, nodeId }: ActionEditorContext): JSX.Elemen
 	}
 
 	function handleSave(takeable: TakeableObject): void {
-		const exists = objects.some((o) => o.object.id === takeable.object.id)
-		writeObjects(
-			exists ? objects.map((o) => (o.object.id === takeable.object.id ? takeable : o)) : [...objects, takeable],
-		)
+		const id = takeableId(takeable)
+		const exists = objects.some((o) => takeableId(o) === id)
+		writeObjects(exists ? objects.map((o) => (takeableId(o) === id ? takeable : o)) : [...objects, takeable])
 		setEditing(null)
 	}
 
 	function removeObject(id: string): void {
-		writeObjects(objects.filter((o) => o.object.id !== id))
+		writeObjects(objects.filter((o) => takeableId(o) !== id))
+	}
+
+	// « Prendre dans la liste » (iter 3): reuse an existing catalog object by id —
+	// excluding objects already present here (own or referenced) so no duplicates.
+	const presentIds = new Set(objects.map(takeableId))
+	const reuseCandidates = collectObjects(book).filter((o) => !presentIds.has(o.id))
+
+	function reuseObject(objectId: string): void {
+		writeObjects([...objects, refTakeable(objectId)])
 	}
 
 	function move(index: number, direction: -1 | 1): void {
@@ -132,12 +151,12 @@ export function DecorEditor({ bookId, nodeId }: ActionEditorContext): JSX.Elemen
 			/>
 
 			{decor.interaction === 'prendre' ? (
-				objects.length === 0 ? (
-					<button type="button" onClick={openNew} style={emptyAffordance}>
-						+ Ajouter un objet à prendre…
-					</button>
-				) : (
-					<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+					{objects.length === 0 ? (
+						<button type="button" onClick={openNew} style={emptyAffordance}>
+							+ Ajouter un objet à prendre…
+						</button>
+					) : (
 						<ul
 							style={{
 								listStyle: 'none',
@@ -148,50 +167,62 @@ export function DecorEditor({ bookId, nodeId }: ActionEditorContext): JSX.Elemen
 								gap: 'var(--space-2)',
 							}}
 						>
-							{objects.map((takeable, i) => (
-								<li key={takeable.object.id} style={row}>
-									<button
-										type="button"
-										onClick={() => setEditing({ takeable, isNew: false })}
-										title="Modifier l’objet"
-										style={rowMain}
-									>
-										<span style={objectName}>{takeable.object.name || UNNAMED}</span>
-										<Badge tone={TAKEABLE_KINDS[takeable.kind].tone}>{TAKEABLE_KINDS[takeable.kind].label}</Badge>
-										{takeable.roll !== undefined && <Badge tone="accent">jet</Badge>}
-									</button>
-									<span style={rowActions}>
-										<IconButton
-											label={`Monter « ${takeable.object.name || UNNAMED} »`}
-											size={HIT_TARGET_MIN}
-											onClick={() => move(i, -1)}
-										>
-											↑
-										</IconButton>
-										<IconButton
-											label={`Descendre « ${takeable.object.name || UNNAMED} »`}
-											size={HIT_TARGET_MIN}
-											onClick={() => move(i, 1)}
-										>
-											↓
-										</IconButton>
-										<IconButton
-											tone="danger"
-											label={`Retirer « ${takeable.object.name || UNNAMED} »`}
-											size={HIT_TARGET_MIN}
-											onClick={() => removeObject(takeable.object.id)}
-										>
-											✕
-										</IconButton>
-									</span>
-								</li>
-							))}
+							{objects.map((takeable, i) => {
+								const id = takeableId(takeable)
+								const resolved = resolveTakeableObject(book, takeable)
+								const isRef = isRefTakeable(takeable)
+								const name = resolved !== null ? resolved.name || UNNAMED : '⚠ objet supprimé'
+								return (
+									<li key={id} style={row}>
+										{isRef ? (
+											// A reused object is authored on its origin node — read-only here.
+											<span style={{ ...rowMain, cursor: 'default' }}>
+												<span style={objectName}>{name}</span>
+												<Badge tone={resolved !== null ? 'muted' : 'bad'}>réutilisé</Badge>
+												{takeable.roll !== undefined && <Badge tone="accent">jet</Badge>}
+											</span>
+										) : (
+											<button
+												type="button"
+												onClick={() => setEditing({ takeable, isNew: false })}
+												title="Modifier l’objet"
+												style={rowMain}
+											>
+												<span style={objectName}>{name}</span>
+												<Badge tone={TAKEABLE_KINDS[takeable.kind].tone}>{TAKEABLE_KINDS[takeable.kind].label}</Badge>
+												{takeable.roll !== undefined && <Badge tone="accent">jet</Badge>}
+											</button>
+										)}
+										<span style={rowActions}>
+											<IconButton label={`Monter « ${name} »`} size={HIT_TARGET_MIN} onClick={() => move(i, -1)}>
+												↑
+											</IconButton>
+											<IconButton label={`Descendre « ${name} »`} size={HIT_TARGET_MIN} onClick={() => move(i, 1)}>
+												↓
+											</IconButton>
+											<IconButton
+												tone="danger"
+												label={`Retirer « ${name} »`}
+												size={HIT_TARGET_MIN}
+												onClick={() => removeObject(id)}
+											>
+												✕
+											</IconButton>
+										</span>
+									</li>
+								)
+							})}
 						</ul>
-						<button type="button" onClick={openNew} style={addButton}>
-							+ Ajouter un objet
-						</button>
+					)}
+					<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+						{objects.length > 0 && (
+							<button type="button" onClick={openNew} style={addButton}>
+								+ Ajouter un objet
+							</button>
+						)}
+						<ReuseObjectPicker candidates={reuseCandidates} onPick={reuseObject} />
 					</div>
-				)
+				</div>
 			) : (
 				<RevealEditor
 					label={DECOR_INTERACTIONS[decor.interaction].revealLabel}
@@ -203,7 +234,7 @@ export function DecorEditor({ bookId, nodeId }: ActionEditorContext): JSX.Elemen
 
 			{editing !== null && (
 				<ObjectEditModal
-					key={editing.takeable.object.id}
+					key={takeableId(editing.takeable)}
 					takeable={editing.takeable}
 					isNew={editing.isNew}
 					onSave={handleSave}

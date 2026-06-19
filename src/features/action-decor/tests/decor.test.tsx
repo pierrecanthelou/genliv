@@ -61,8 +61,8 @@ describe('action-decor', () => {
 		const decor = decorOf(brain, bookId, nodeId)
 		expect(decor?.interaction).toBe('prendre')
 		expect(decor?.objects).toHaveLength(1)
-		expect(decor?.objects?.[0].object.name).toBe('Clé rouillée')
-		expect(decor?.objects?.[0].object.id).toBeTruthy() // stable id minted (KR-003)
+		expect(decor?.objects?.[0].object?.name).toBe('Clé rouillée')
+		expect(decor?.objects?.[0].object?.id).toBeTruthy() // stable id minted (KR-003)
 		expect(decor?.objects?.[0].kind).toBe('utile') // default
 	})
 
@@ -127,7 +127,7 @@ describe('action-decor', () => {
 
 		await user.click(screen.getByRole('button', { name: /Monter « Second »/ }))
 
-		const names = decorOf(brain, bookId, nodeId)?.objects?.map((o) => o.object.name)
+		const names = decorOf(brain, bookId, nodeId)?.objects?.map((o) => o.object?.name)
 		expect(names).toEqual(['Second', 'Premier'])
 	})
 
@@ -238,5 +238,68 @@ describe('action-decor', () => {
 		})
 		// revealsOf attributes the legacy reveal to the current interaction (fouiller).
 		expect(revealsOf(decorOf(brain, created.id, node.id)!)).toEqual({ fouiller: { text: 'ancien texte' } })
+	})
+
+	it('« prendre dans la liste » reuses an existing object BY ID (a reference, not a copy) — iter 3', async () => {
+		const user = userEvent.setup()
+		const brain = createBrain()
+		const created = brain.books.createBook('La Caverne')
+		// A source node authoring « Clé rouillée » — the catalog object to reuse.
+		const source = brain.books.addNode(created.id, 'choix')!
+		brain.books.updateNode(created.id, source.id, {
+			actionType: 'decor',
+			decor: {
+				interaction: 'prendre',
+				objects: [{ object: { id: 'obj_cle', name: 'Clé rouillée', description: '' }, kind: 'utile' }],
+			},
+		})
+		// The node we edit (node #4: sommaire #1, mort #2, source #3, target #4).
+		const target = brain.books.addNode(created.id, 'choix')!
+		brain.router.navigate({ name: 'editor', bookId: created.id })
+		render(
+			<BrainProvider brain={brain}>
+				<App />
+			</BrainProvider>,
+		)
+
+		await user.click(screen.getByRole('button', { name: /Nœud #4/ }))
+		await user.click(screen.getByRole('radio', { name: 'Décor' }))
+		await user.click(screen.getByRole('button', { name: /Prendre dans la liste/ }))
+		await user.click(screen.getByRole('button', { name: 'Clé rouillée' }))
+
+		// Persisted as a REFERENCE (objectRef), never a copy — the object stays single-sourced.
+		const objs = brain.books.getBook(created.id)!.nodes.find((n) => n.id === target.id)!.decor!.objects!
+		expect(objs).toHaveLength(1)
+		expect(objs[0].objectRef).toBe('obj_cle')
+		expect(objs[0].object).toBeUndefined()
+		// The row resolves + shows the object name with a « réutilisé » badge.
+		expect(screen.getByText('réutilisé')).toBeInTheDocument()
+
+		// Reopening the picker no longer offers the now-present object (excluded by id).
+		await user.click(screen.getByRole('button', { name: /Prendre dans la liste/ }))
+		expect(screen.getByText(/Aucun objet à réutiliser/)).toBeInTheDocument()
+	})
+
+	it('surfaces a reused object whose target was deleted as « ⚠ objet supprimé » (KR-021)', async () => {
+		const user = userEvent.setup()
+		const brain = createBrain()
+		const created = brain.books.createBook('La Caverne')
+		const target = brain.books.addNode(created.id, 'choix')!
+		// A reference to an object that does not exist in the catalog (deleted).
+		brain.books.updateNode(created.id, target.id, {
+			actionType: 'decor',
+			decor: { interaction: 'prendre', objects: [{ objectRef: 'ghost', kind: 'utile' }] },
+		})
+		brain.router.navigate({ name: 'editor', bookId: created.id })
+		render(
+			<BrainProvider brain={brain}>
+				<App />
+			</BrainProvider>,
+		)
+
+		await user.click(screen.getByRole('button', { name: /Nœud #3/ }))
+		await user.click(screen.getByRole('radio', { name: 'Décor' }))
+
+		expect(screen.getByText(/objet supprimé/)).toBeInTheDocument()
 	})
 })

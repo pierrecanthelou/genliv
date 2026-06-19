@@ -63,11 +63,19 @@ export interface SkillRoll {
 }
 
 /**
- * One takeable object in a décor « prendre » list: the game object plus whether
- * it is useful or a leurre, and an optional « jet requis » to take it.
+ * One takeable object in a décor « prendre » list: whether it is useful or a
+ * leurre, and an optional « jet requis » to take it, plus EITHER an authored
+ * object (`object`, an « own » takeable) OR a REFERENCE to an existing catalog
+ * object by stable id (`objectRef`, « prendre dans la liste », action-decor
+ * iter 3). Exactly one of `object` / `objectRef` is set — a reference is
+ * resolved LIVE against the book's object catalog (collectObjects), never
+ * copied, so the object stays single-sourced on its authoring node (KR-020/062);
+ * a ref whose target was deleted dangles and is surfaced (KR-021).
  */
 export interface TakeableObject {
-	object: GameObject
+	object?: GameObject
+	/** Stable id of an existing catalog object reused here (mutually exclusive with `object`). */
+	objectRef?: string
 	kind: TakeableKind
 	roll?: SkillRoll
 }

@@ -1,9 +1,12 @@
 import {
 	createId,
+	findObject,
 	type BadgeTone,
+	type Book,
 	type DecorConfig,
 	type DecorInteraction,
 	type DecorReveal,
+	type GameObject,
 	type TakeableKind,
 	type TakeableObject,
 } from '../../../brain'
@@ -35,9 +38,36 @@ export function takeablesOf(decor: DecorConfig): TakeableObject[] {
 	return []
 }
 
-/** A fresh, empty takeable with a stable object id minted once (KR-003). */
+/** A fresh, empty « own » takeable with a stable object id minted once (KR-003). */
 export function blankTakeable(): TakeableObject {
 	return { object: { id: createId('object'), name: '', description: '' }, kind: 'utile' }
+}
+
+/** A « prendre dans la liste » takeable that REFERENCES an existing object by id (iter 3). */
+export function refTakeable(objectId: string): TakeableObject {
+	return { objectRef: objectId, kind: 'utile' }
+}
+
+/** Whether a takeable reuses an existing catalog object (vs authoring its own). */
+export function isRefTakeable(takeable: TakeableObject): boolean {
+	return takeable.objectRef !== undefined
+}
+
+/** The takeable's stable id — its own object's id, or the referenced object id. */
+export function takeableId(takeable: TakeableObject): string {
+	return takeable.object?.id ?? takeable.objectRef ?? ''
+}
+
+/**
+ * Resolve a takeable to its GameObject: the authored object for an « own »
+ * takeable, or the live catalog lookup for a reference (KR-062). Returns null
+ * when a reference dangles (its target object was deleted) — surfaced, not
+ * silently dropped (KR-021).
+ */
+export function resolveTakeableObject(book: Book | null, takeable: TakeableObject): GameObject | null {
+	if (takeable.object !== undefined) return takeable.object
+	if (takeable.objectRef !== undefined) return findObject(book, takeable.objectRef)
+	return null
 }
 
 /**

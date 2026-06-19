@@ -2,6 +2,13 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.4.5 — action-decor iteration 3 (V3 slice)
+
+- **Reuse an object « dans la liste » by stable id** — a décor « Prendre » can now reference an existing acquirable object (a décor takeable, PNJ gift or monster loot anywhere in the book) instead of authoring a duplicate. A new searchable **`ReuseObjectPicker`** (mirrors the relink popover) lists `collectObjects(book)` minus the objects already present here; picking one adds a **reference** takeable.
+- **Reference, not copy** — `TakeableObject` is now `own { object }` **or** `ref { objectRef }` (`object` became optional; exactly one set). A ref is **resolved live** via `findObject`, so the object stays single-sourced on its authoring node (no desync, KR-020); `collectObjects` skips refs (no phantom catalog entry). A ref row is read-only (shows the resolved name + **« réutilisé »**) and a dangling reference (owner deleted) surfaces **« ⚠ objet supprimé »** (KR-021).
+- **Not an owned `ObjectCatalogService`** — the derived `collectObjects` catalog (built for choice-linking iter 3) IS the catalog; this slice adds the décor authoring side over the same foundation. New `takeables.ts` helpers `refTakeable` / `isRefTakeable` / `takeableId` / `resolveTakeableObject`. `ReuseObjectPicker` extracted to keep `DecorEditor` under 400 lines (KR-112).
+- 243 tests passing (+7).
+
 ## 0.4.4 — outline-view iteration 3 (V3 slice)
 
 - **Outline expand/collapse state now persists per book** — collapsing a node in the outline survives switching to the canvas and back (and a reload). The collapsed-node set is a per-device, **non-synced** UI preference (KR-022): `BookUIPrefs` gained `outlineCollapsed?: string[]`, `UIPreferencesService.setOutlineCollapsed`, and a new brain **`useBookOutlineCollapsed(bookId)`** external-store hook (returns a `Set` memoised on the cache-stable array, KR-013). `OutlineView` dropped its local `useState<Set>` for the hook.

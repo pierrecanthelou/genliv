@@ -45,10 +45,13 @@ export interface ObjectEditModalProps {
 export function ObjectEditModal({ takeable, isNew, onSave, onCancel }: ObjectEditModalProps): JSX.Element {
 	const [draft, setDraft] = useState<TakeableObject>(takeable)
 	const roll = draft.roll
-	const nameEmpty = draft.object.name.trim() === ''
+	// The modal only ever edits an « own » takeable (refs are read-only in the row);
+	// the fallback keeps the types honest for the optional object field.
+	const object = draft.object ?? { id: '', name: '', description: '' }
+	const nameEmpty = object.name.trim() === ''
 
 	function setObject(value: ObjectDraft): void {
-		setDraft({ ...draft, object: { ...draft.object, ...value } })
+		setDraft({ ...draft, object: { ...object, ...value } })
 	}
 
 	function toggleRoll(on: boolean): void {
@@ -70,7 +73,7 @@ export function ObjectEditModal({ takeable, isNew, onSave, onCancel }: ObjectEdi
 			onConfirm={() => onSave(draft)}
 		>
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
-				<ObjectEditor value={draft.object} onChange={setObject} />
+				<ObjectEditor value={object} onChange={setObject} />
 
 				<div>
 					<span style={fieldLabel}>Nature</span>

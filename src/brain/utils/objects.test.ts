@@ -45,6 +45,15 @@ describe('collectObjects (derived object catalog)', () => {
 		expect(collectObjects(b).map((o) => o.id)).toEqual(['o1'])
 	})
 
+	it('does not count a décor REFERENCE takeable as an authoring source (no phantom entry)', () => {
+		const b = book([
+			node('n1', { decor: { interaction: 'prendre', objects: [{ object: obj('o1'), kind: 'utile' }] } }),
+			// n2 REUSES o1 by reference — it must not add a second/phantom entry.
+			node('n2', { decor: { interaction: 'prendre', objects: [{ objectRef: 'o1', kind: 'utile' }] } }),
+		])
+		expect(collectObjects(b).map((o) => o.id)).toEqual(['o1'])
+	})
+
 	it('returns an empty catalog for a book with no objects (or a null book)', () => {
 		expect(collectObjects(book([node('n1')]))).toEqual([])
 		expect(collectObjects(null)).toEqual([])
