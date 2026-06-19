@@ -38,7 +38,7 @@
 			{
 				"id": 3,
 				"goal": "Cloud-first: reflect sync:status per book, reconcile the list with CloudSyncService, and queue deletes when offline. Deferred until the cloud-sync feature lands.",
-				"status": "planned"
+				"status": "done"
 			}
 		],
 		"known_risks": [
@@ -109,10 +109,29 @@
 					"unit": "book-library integration via App: search filters the grid + no-match message; default recent vs toggled alpha ordering (deterministic via a fixed system clock); empty-state note + create affordance + no toolbar when empty; delete-guard navigates home when the open book is deleted (KR-071)",
 					"e2e": "deferred (Playwright not yet set up)"
 				}
+			},
+			{
+				"id": 3,
+				"label": "iteration-3 (per-book cloud-sync status)",
+				"completed_at": "2026-06-19",
+				"architecture_choices": [
+					"Per-book sync chip on each card — « ✓ à jour » / « ⏳ en attente » / « ⚠ non synchronisé », hidden in a local-only build (offline = no transport, no cloud state to reflect). A live VIEW over CloudSyncService (KR-095), never a private mirror.",
+					"CloudSyncService gained a GENERIC pendingKeys(): string[] (the queued storage keys); the decorator stays book-agnostic (KR-094 — it never resolves bookKey here). The book→key mapping lives in a new brain useBookPending(bookId) hook (bookKey(id) ∈ pendingKeys), an external-store read over sync:status (KR-013), re-read on the same cadence as the global indicator (no extra events, KR-095).",
+					"The chip's (status, pending) → {label, tone} mapping is a small pure helper in BookCard (offline → null), derived once — not an ad-hoc branch ladder. « à jour » is a QUIET muted resting state (not the global pill's good/green, to avoid shouting on every card); « en attente » = accent, « non synchronisé » = bad. error/syncing are store-global while pending is per-book, so the mapping is conservative (never falsely « à jour », batch-atomic KR-095)."
+				],
+				"deviations_from_plan": [
+					"Built the book-library-owned part — « reflect sync:status per book ». The other two iter-3 sub-goals need NEW CloudTransport capabilities and are deferred to a cloud-sync iteration: « reconcile the list » needs a transport list/enumerate-pull (to surface cloud-only books), and « queue deletes when offline » needs the decorator's remove() to propagate a deletion (CloudTransport has push/pull only, no delete). Both are cloud-sync's domain, not the library view's.",
+					"Existing library tests are unaffected: createBrain() has no transport (offline) so the chip renders nothing; the new chip is exercised with a transport-configured brain."
+				],
+				"test_coverage": {
+					"unit": "CloudSyncService.pendingKeys (lists queued keys, clears on confirm, empty with no transport)",
+					"integration": "book-library via App with a transport: a queued book shows « en attente », a confirmed book shows « à jour », a local-only build shows no chip (queries scoped to the card glyph text to avoid colliding with the global SyncIndicator)",
+					"e2e": "deferred (Playwright not yet set up)"
+				}
 			}
 		],
 		"open_questions": [
-			"cloud-sync: per-book sync status + offline delete queue (iteration 3) when CloudSyncService lands."
+			"cloud-sync iteration: list reconciliation (pull cloud-only books — needs a CloudTransport list/enumerate) + offline DELETE propagation (decorator remove() pushing a tombstone — needs CloudTransport delete). Both deferred from book-library iter 3 as transport-capability work."
 		]
 	}
 }

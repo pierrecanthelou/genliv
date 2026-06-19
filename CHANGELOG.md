@@ -2,6 +2,13 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.4.3 — book-library iteration 3 (V3 slice)
+
+- **Per-book cloud-sync status on each card** — a small chip reflects whether that book is **« ✓ à jour »**, **« ⏳ en attente »** (its write is still queued to the cloud), or **« ⚠ non synchronisé »** (last push errored). A local-only build (no transport) shows no chip — there's no cloud state to reflect. A live VIEW over `CloudSyncService`, never a private mirror (KR-095/020/013).
+- **`CloudSyncService.pendingKeys()`** (new, generic) returns the queued storage keys; the decorator stays **book-agnostic** (KR-094). The book→key mapping lives in a new brain **`useBookPending(bookId)`** external-store hook (`bookKey(id) ∈ pendingKeys`), re-read on each `sync:status` emit (same cadence as the global indicator).
+- **Deferred (transport-capability work, cloud-sync's domain):** list reconciliation (pulling cloud-only books needs a `CloudTransport` enumerate/list) and offline **delete** propagation (the decorator's `remove()` pushing a tombstone needs `CloudTransport` delete). `CloudTransport` currently has `push`/`pull` only.
+- 234 tests passing (+5).
+
 ## 0.4.2 — choice-linking iteration 3 (V3 slice)
 
 - **Hidden prerequisite on a choice (§ 05, KR-062)** — a choice can now require the player to own an object before it appears. Per-row **« pré-requis caché »** toggle + an object picker; the rule rides the choice edge as `Edge.prereq?: { objectId }`, persisted via `BookService.updateEdge` (`EdgePatch` gained `prereq: ChoicePrereq | null` — `null` clears, omitted leaves untouched; the label and prereq are independent).

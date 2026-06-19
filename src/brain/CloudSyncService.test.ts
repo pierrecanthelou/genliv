@@ -72,6 +72,21 @@ describe('CloudSyncService', () => {
 		expect(statuses).toEqual(['syncing', 'synced']) // one synced
 	})
 
+	it('pendingKeys lists the queued keys and clears them once the push confirms', async () => {
+		const { sync } = setup({ push: () => Promise.resolve() })
+		sync.set('genliv:book:b1', { updatedAt: '1' })
+		sync.set('genliv:book:b2', { updatedAt: '1' })
+		expect(sync.pendingKeys().sort()).toEqual(['genliv:book:b1', 'genliv:book:b2'])
+		await flush()
+		expect(sync.pendingKeys()).toEqual([]) // confirmed → dequeued
+	})
+
+	it('pendingKeys stays empty with no transport (local-only, nothing queued)', () => {
+		const { sync } = setup()
+		sync.set('genliv:book:b1', { updatedAt: '1' })
+		expect(sync.pendingKeys()).toEqual([])
+	})
+
 	it('reports « error » when the cloud push fails (the local write still succeeded)', async () => {
 		const { sync } = setup({ push: () => Promise.reject(new Error('offline')) })
 		sync.set('k', 1)

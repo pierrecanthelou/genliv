@@ -63,6 +63,7 @@ export {
 	useSelectedNode,
 	useSyncStatus,
 	useSyncPending,
+	useBookPending,
 	useUIPreferences,
 	useBookViewMode,
 	useBookNodePositions,

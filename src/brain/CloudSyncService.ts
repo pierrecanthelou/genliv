@@ -47,6 +47,12 @@ export interface CloudSyncService extends PersistenceService {
 	status(): SyncStatus
 	/** How many writes are queued (pushed locally, not yet confirmed to the cloud). */
 	pendingCount(): number
+	/**
+	 * The storage keys with a write still queued (not yet confirmed to the cloud).
+	 * Generic by key — the decorator stays book-agnostic (KR-094); a book-aware
+	 * consumer maps bookKey(id) onto this to show per-book « non synchronisé ».
+	 */
+	pendingKeys(): string[]
 	/** Retry the offline queue now (e.g. on reconnect); a no-op when empty/offline. */
 	retry(): void
 }
@@ -178,6 +184,9 @@ export function createCloudSyncService(
 		},
 		pendingCount(): number {
 			return queue.size
+		},
+		pendingKeys(): string[] {
+			return [...queue.keys()]
 		},
 		retry(): void {
 			if (flushTimer !== null) {

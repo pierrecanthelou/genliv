@@ -203,3 +203,51 @@ describe('book-library', () => {
 		expect(screen.getByRole('heading', { name: /mes livres-jeux/i })).toBeInTheDocument()
 	})
 })
+
+describe('book-library — per-book sync status (iteration 3)', () => {
+	beforeEach(() => window.localStorage.clear())
+
+	const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+	it('shows « en attente » on a card whose write is still queued to the cloud', () => {
+		// A transport whose push never resolves keeps the book's write queued.
+		const brain = createBrain({ transport: { push: () => new Promise<void>(() => {}) } })
+		brain.books.createBook('Hors-ligne')
+		render(
+			<BrainProvider brain={brain}>
+				<App />
+			</BrainProvider>,
+		)
+		// Match the card chip's exact glyph text — the global SyncIndicator also says
+		// « … en attente », so a bare /en attente/ would match two elements.
+		expect(screen.getByText(/⏳ en attente/)).toBeInTheDocument()
+		expect(screen.queryByText(/✓ à jour/)).not.toBeInTheDocument()
+	})
+
+	it('shows « à jour » once the book write has been confirmed to the cloud', async () => {
+		const brain = createBrain({ transport: { push: () => Promise.resolve() }, syncDebounceMs: 0 })
+		brain.books.createBook('Synchronisé')
+		// Drain the queue (push confirms) before rendering.
+		await act(async () => {
+			await flush()
+		})
+		render(
+			<BrainProvider brain={brain}>
+				<App />
+			</BrainProvider>,
+		)
+		expect(screen.getByText(/✓ à jour/)).toBeInTheDocument()
+		expect(screen.queryByText(/⏳ en attente/)).not.toBeInTheDocument()
+	})
+
+	it('shows no per-book sync chip in a local-only build (no transport)', () => {
+		const brain = createBrain() // offline: no cloud state to reflect
+		brain.books.createBook('Locale')
+		render(
+			<BrainProvider brain={brain}>
+				<App />
+			</BrainProvider>,
+		)
+		expect(screen.queryByText(/✓ à jour|⏳ en attente|⚠ non synchronisé/)).not.toBeInTheDocument()
+	})
+})

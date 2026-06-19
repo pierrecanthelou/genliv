@@ -7,6 +7,7 @@ import { createSelectionService, type SelectionService } from './SelectionServic
 import { createActionRegistry, type ActionRegistry } from './ActionRegistry'
 import { createSlotRegistry, type SlotRegistry } from './SlotRegistry'
 import { createCloudSyncService, type CloudSyncService, type CloudTransport } from './CloudSyncService'
+import { bookKey } from './persistenceKeys'
 import {
 	createUIPreferencesService,
 	type UIPreferencesService,
@@ -97,6 +98,22 @@ export function useSyncStatus(): SyncStatus {
 export function useSyncPending(): number {
 	const { sync, events } = useBrain()
 	return useSyncExternalStore((onChange) => events.on('sync:status', onChange), sync.pendingCount)
+}
+
+/**
+ * Whether a SPECIFIC book has a write still queued to the cloud (its key is in the
+ * offline queue) — drives the library's per-book « non synchronisé » chip. Reads
+ * the generic pendingKeys() and maps bookKey(id) here, so the feature never
+ * touches storage keys and the decorator stays book-agnostic (KR-094). The
+ * snapshot is a boolean (value-compared, stable); it re-reads on every
+ * sync:status emit, the same cadence as the global indicator (KR-095).
+ */
+export function useBookPending(bookId: string): boolean {
+	const { sync, events } = useBrain()
+	return useSyncExternalStore(
+		(onChange) => events.on('sync:status', onChange),
+		() => sync.pendingKeys().includes(bookKey(bookId)),
+	)
 }
 
 /** The non-synced UI preferences service (pan/zoom, view-mode, dragged positions, KR-022). */

@@ -130,7 +130,9 @@
 			"brain_contracts_added": [
 				{ "type": "service", "name": "BookService.deleteBook" },
 				{ "type": "hook", "name": "useBooks" },
-				{ "type": "event", "name": "book:deleted (now emitted)" }
+				{ "type": "event", "name": "book:deleted (now emitted)" },
+				{ "type": "service", "name": "CloudSyncService.pendingKeys() (iter 3)" },
+				{ "type": "hook", "name": "useBookPending(bookId) (iter 3)" }
 			],
 			"lessons_learned": [
 				"When two sibling features must share a screen (list + create), compose at the app root by passing one's affordance as a prop — same isolation seam as the panel registries, no slot registry needed for a single static injection.",
@@ -142,7 +144,10 @@
 				"iter 2: filter+sort over the live useBooks snapshot must sort a COPY ([...books].sort) — the snapshot is the cached useSyncExternalStore reference, and mutating it in place breaks reference stability. Search/sort/sort-mode are local UI state, all derived inline (KR-013), no useEffect.",
 				"iter 2: a cross-route safety net (navigate home when the open book is deleted, KR-071) belongs at the COMPOSITION ROOT (App), not the feature — App subscribes to book:deleted and reads router.current() FRESH in the handler (no route dependency, no stale closure). Keeps cross-route navigation out of any single feature.",
 				"iter 2: SyncIndicator already uses role=status, so a second role=status (the search no-match line) makes getByRole('status') ambiguous — query the no-match copy by text, and reserve role=note for the empty state. A title span concatenated with a meta-count span has NO separator in textContent ('Zebra2 écrans…'), so extract a title with /^[^0-9]+/, not /\\w+/.",
-				"iter 2: order-dependent sort tests need deterministic timestamps — drive updatedAt with jest.useFakeTimers()+setSystemTime around each createBook, then useRealTimers() before rendering/userEvent (createBrain is offline by default, so no transport timers to fight)."
+				"iter 2: order-dependent sort tests need deterministic timestamps — drive updatedAt with jest.useFakeTimers()+setSystemTime around each createBook, then useRealTimers() before rendering/userEvent (createBrain is offline by default, so no transport timers to fight).",
+				"iter 3: per-book sync status reads a GENERIC pendingKeys() and maps bookKey(id) in a brain hook (useBookPending), keeping the CloudSyncService decorator book-agnostic (KR-094) — a service must not grow book-aware methods just because a view wants a per-book slice; expose the generic primitive and map in brain.",
+				"iter 3: a per-card chip whose copy overlaps the global SyncIndicator (« … en attente ») makes a bare getByText(/en attente/) match TWO elements — scope the test to the card's exact glyph text (« ⏳ en attente », « ✓ à jour ») to disambiguate. Same family as the iter-2 role=status collision.",
+				"iter 3: a slice gated on infra you don't own (CloudTransport list/delete) ships the part you DO own (the view chip over the existing queue) and defers the transport-capability work to the owning feature (cloud-sync) with a clear note — don't bolt a half-built list-reconcile/delete-queue onto the library."
 			],
 			"bugs_encountered": ["BUG-002", "BUG-003"]
 		},

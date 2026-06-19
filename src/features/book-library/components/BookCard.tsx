@@ -1,6 +1,36 @@
 import { useState, type KeyboardEvent } from 'react'
-import { IconButton, HIT_TARGET_MIN, effectiveKind, plural, type Book } from '../../../brain'
+import {
+	Badge,
+	IconButton,
+	HIT_TARGET_MIN,
+	effectiveKind,
+	plural,
+	useSyncStatus,
+	useBookPending,
+	type Book,
+	type BadgeTone,
+	type SyncStatus,
+} from '../../../brain'
 import { formatDate } from '../utils/formatDate'
+
+/**
+ * Per-book sync chip (iteration 3): reflects whether THIS book is up to date with
+ * the cloud or still has a queued write. `offline` (no transport, local-only
+ * build) shows nothing — there is no cloud state to reflect. Otherwise a book
+ * whose key sits in the offline queue is « en attente » (or « non synchronisé »
+ * if the last push errored); a settled book is a quiet muted « à jour » (a
+ * resting per-card state, deliberately not the global pill's loud green).
+ * `error`/`syncing` are STORE-GLOBAL while `pending` is PER-BOOK: a book whose
+ * own push succeeded shows « à jour » even if a sibling in the same batch
+ * errored — the mapping is conservative (never falsely « à jour », since the
+ * batch is atomic, KR-095). Derived once, never branched ad hoc.
+ */
+function bookSyncChip(status: SyncStatus, pending: boolean): { label: string; tone: BadgeTone } | null {
+	if (status === 'offline') return null // local-only build: no cloud state to reflect
+	if (!pending) return { label: '✓ à jour', tone: 'muted' }
+	if (status === 'error') return { label: '⚠ non synchronisé', tone: 'bad' }
+	return { label: '⏳ en attente', tone: 'accent' } // queued (syncing/idle is unreachable while pending)
+}
 
 export interface BookCardProps {
 	book: Book
@@ -28,6 +58,9 @@ export function BookCard({ book, onOpen, onRename, onDuplicate, onRequestDelete 
 	const screenCount = book.nodes.length
 	const linkCount = book.edges.length
 	const endingCount = book.nodes.filter((n) => effectiveKind(n) === 'fin').length
+	// Per-book cloud-sync state — a live VIEW over CloudSyncService (KR-095): the
+	// global status + whether this book's write is still queued. No private mirror.
+	const syncChip = bookSyncChip(useSyncStatus(), useBookPending(book.id))
 
 	function startRename(): void {
 		setDraft(book.title)
@@ -70,6 +103,11 @@ export function BookCard({ book, onOpen, onRename, onDuplicate, onRequestDelete 
 						{plural(endingCount, 'fin')}
 					</span>
 					<span style={cardDate}>Modifié le {formatDate(book.updatedAt)}</span>
+					{syncChip !== null && (
+						<span style={syncChipRow}>
+							<Badge tone={syncChip.tone}>{syncChip.label}</Badge>
+						</span>
+					)}
 				</button>
 			)}
 
@@ -139,6 +177,11 @@ const cardDate: React.CSSProperties = {
 	fontFamily: 'var(--font-mono)',
 	fontSize: 'var(--fs-meta)',
 	color: 'var(--text-faint)',
+}
+
+const syncChipRow: React.CSSProperties = {
+	display: 'inline-flex',
+	marginTop: 'var(--space-3)',
 }
 
 const editBox: React.CSSProperties = {
