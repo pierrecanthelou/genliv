@@ -15,14 +15,29 @@
 			"The editor renders strictly from design-system primitives/tokens (Field, Badge good/bad), light theme; controls are keyboard-operable with ≥44px targets and the outcome fields carry an accessible name."
 		],
 		"brain_contracts": [
-			{ "type": "service", "name": "ActionRegistry", "direction": "consumes" },
-			{ "type": "service", "name": "BookService", "direction": "consumes" },
-			{ "type": "registry", "name": "ROLL_OUTCOMES", "direction": "consumes" },
+			{
+				"type": "service",
+				"name": "ActionRegistry",
+				"direction": "consumes"
+			},
+			{
+				"type": "service",
+				"name": "BookService",
+				"direction": "consumes"
+			},
+			{
+				"type": "registry",
+				"name": "ROLL_OUTCOMES",
+				"direction": "consumes"
+			},
 			{
 				"type": "event",
 				"name": "monster:savedToLibrary",
 				"direction": "emits",
-				"payload": { "bookId": "string", "nodeId": "string" }
+				"payload": {
+					"bookId": "string",
+					"nodeId": "string"
+				}
 			}
 		],
 		"walking_skeleton": "registerActionMonster registers an ActionEditor { type:'monstre', label:'Monstre', render } with the brain ActionRegistry (wired at the App composition root). MonsterEditor reads node.monster live via useOpenBook and writes via BookService.updateNode: a NAME Field, and for each RollOutcome from the brain ROLL_OUTCOMES registry a good/bad Badge + a reveal-text Field. « Ajouter à la librairie » emits monster:savedToLibrary. Stats (PV/Attaque/Défense), loot, combat-reinforced-by-object, outcome targets, and the real library are later iterations.",
@@ -41,7 +56,7 @@
 			{
 				"id": 3,
 				"goal": "Reusable monster library via a MonsterLibraryService (« créer / librairie du générateur », reusable across books), consumed from the monster:savedToLibrary event.",
-				"status": "planned"
+				"status": "done"
 			}
 		],
 		"known_risks": [
@@ -50,7 +65,8 @@
 			"KR-020 — monster config is read/written through BookService (the SSOT); the editor holds no private copy and reflects live via useOpenBook.",
 			"KR-090 — monster config lives on the node document (node.monster); structural screens never carry it (updateNode's text-only guard for sommaire/mort, KR-055).",
 			"KR-013 — derive the editor's current values inline from the live node, not via a useEffect-synced mirror.",
-			"monster:savedToLibrary is wired as a contract now but has no consumer/persistence yet (library stub) — the real MonsterLibraryService lands in iteration 3, like the deferred Object/PNJ catalogs."
+			"monster:savedToLibrary is wired as a contract now but has no consumer/persistence yet (library stub) — the real MonsterLibraryService lands in iteration 3, like the deferred Object/PNJ catalogs.",
+			"KR-097 — the reusable MONSTER LIBRARY is a persisted CROSS-BOOK store (brain MonsterLibraryService over the raw local store, not synced), distinct from the within-book derived references (KR-062/096): a library monster is INSTANTIATED as an independent COPY (different books can not share a live reference), with node-specific targets stripped on save and a fresh loot id on instantiate (KR-003)."
 		]
 	},
 	"implementation": {
@@ -112,11 +128,29 @@
 					"integration": "action-monster via App — toggling « lâche un butin » reveals the shared ObjectEditor, authoring it persists loot.name + a stable id, toggling off drops the loot",
 					"e2e": "deferred (Playwright not set up)"
 				}
+			},
+			{
+				"id": 3,
+				"label": "iteration-3 (reusable monster library)",
+				"completed_at": "2026-06-19",
+				"architecture_choices": [
+					"New brain MonsterLibraryService — a PERSISTED, CROSS-BOOK library of reusable monsters (« la librairie du générateur »), wired in createBrain over the RAW local store (not a book document, not cloud-synced) under MONSTER_LIBRARY_KEY. Cache-backed list() for useSyncExternalStore snapshot stability; useMonsterLibrary hook (KR-013).",
+					"Unlike the within-book PNJ/object references (resolved LIVE, KR-062/096), a library monster is INSTANTIATED as an independent COPY: different books can not share a live reference, so « Choisir dans la librairie » deep-clones the saved config onto the node with a FRESH loot id (KR-003, so re-uses do not collide) and keeps this node own victory/flee targets (the library config carries none — they are stripped on save).",
+					"« Ajouter à la librairie » now actually persists (monsterLibrary.save) in addition to emitting the long-wired monster:savedToLibrary event (it consumes the previously-stubbed event path). A new MonsterLibraryPicker (searchable popover) mirrors the action-decor/pnj reuse pickers."
+				],
+				"deviations_from_plan": [
+					"Cross-device SYNC of the library is out of scope — it persists via the raw local store (per-device), like UIPreferences. The combat-reinforced-by-object hidden-prereq (iter 2 deferral) remains deferred; this slice is the library half."
+				],
+				"test_coverage": {
+					"unit": "MonsterLibraryService (save/list/remove, strip targets, snapshot stability, subscribe, survives reload under the dedicated key)",
+					"integration": "action-monster via App — Ajouter persists to the library + emits the event; Choisir instantiates a saved monster as a copy onto the node",
+					"e2e": "deferred (Playwright not set up)"
+				}
 			}
 		],
 		"open_questions": [
-			"Combat stats + outcome targets + defeat→Mort automatic path (iteration 1).",
-			"Loot + combat-reinforced-by-object (iteration 2); reusable MonsterLibraryService consuming monster:savedToLibrary (iteration 3)."
+			"Cross-device sync of the monster library (currently per-device local) — a later refinement if a shared library is wanted.",
+			"Combat reinforced by an inventory object (iter 2 deferral): the by-id hidden-prereq reference over collectObjects (KR-062), a small follow-up now that collectObjects exists."
 		]
 	}
 }

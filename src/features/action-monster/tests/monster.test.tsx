@@ -116,16 +116,79 @@ describe('action-monster', () => {
 		expect(monsterOf(brain, bookId, nodeId)?.loot).toBeUndefined()
 	})
 
-	it('« Ajouter à la librairie » emits monster:savedToLibrary (library stub)', async () => {
+	it('« Ajouter à la librairie » saves to the MonsterLibrary and emits the event (iter 3)', async () => {
 		const user = userEvent.setup()
-		const { brain, bookId, nodeId } = setup()
+		const { brain } = setup()
 		const saved: { bookId: string; nodeId: string }[] = []
 		brain.events.on('monster:savedToLibrary', (p) => saved.push(p))
 
 		await user.click(screen.getByRole('button', { name: /Nœud #3/ }))
 		await user.click(screen.getByRole('radio', { name: 'Monstre' }))
+		await user.type(screen.getByRole('textbox', { name: /nom du monstre/i }), 'Troll')
 		await user.click(screen.getByRole('button', { name: /ajouter à la librairie/i }))
 
-		expect(saved).toEqual([{ bookId, nodeId }])
+		// Persisted in the cross-book library (no longer a stub) + the event still fires.
+		expect(brain.monsterLibrary.list().map((m) => m.config.name)).toEqual(['Troll'])
+		expect(saved).toHaveLength(1)
+	})
+
+	it('« Choisir dans la librairie » instantiates a saved monster as a copy onto the node (iter 3)', async () => {
+		const user = userEvent.setup()
+		const { brain, bookId, nodeId } = setup()
+		// Pre-seed the library with a reusable monster (e.g. saved from another book).
+		brain.monsterLibrary.save({
+			name: 'Dragon',
+			pv: 40,
+			attack: 8,
+			defense: 6,
+			outcomes: { reussite: 'Il rugit.', echec: 'Il crache du feu.' },
+		})
+
+		await user.click(screen.getByRole('button', { name: /Nœud #3/ }))
+		await user.click(screen.getByRole('radio', { name: 'Monstre' }))
+		await user.click(screen.getByRole('button', { name: /choisir dans la librairie/i }))
+		await user.click(screen.getByRole('button', { name: 'Dragon' }))
+
+		// The node's monster is now a COPY of the library entry.
+		const m = monsterOf(brain, bookId, nodeId)
+		expect(m?.name).toBe('Dragon')
+		expect(m?.pv).toBe(40)
+		expect(m?.outcomes.echec).toBe('Il crache du feu.')
+	})
+
+	it('instantiate keeps the node own targets and re-mints the loot id (KR-097/003)', async () => {
+		const user = userEvent.setup()
+		const { brain, bookId, nodeId } = setup()
+		// The node already has a monster with its own victory target.
+		brain.books.updateNode(bookId, nodeId, {
+			actionType: 'monstre',
+			monster: {
+				name: 'Ancien',
+				pv: 5,
+				attack: 1,
+				defense: 1,
+				outcomes: { reussite: '', echec: '' },
+				victoryTarget: 'node_keep',
+			},
+		})
+		// A library monster carrying loot.
+		brain.monsterLibrary.save({
+			name: 'Hydre',
+			pv: 30,
+			attack: 5,
+			defense: 3,
+			outcomes: { reussite: '', echec: '' },
+			loot: { id: 'loot_src', name: 'Écaille', description: '' },
+		})
+
+		await user.click(screen.getByRole('button', { name: /Nœud #3/ }))
+		await user.click(screen.getByRole('radio', { name: 'Monstre' }))
+		await user.click(screen.getByRole('button', { name: /choisir dans la librairie/i }))
+		await user.click(screen.getByRole('button', { name: 'Hydre' }))
+
+		const m = monsterOf(brain, bookId, nodeId)!
+		expect(m.victoryTarget).toBe('node_keep') // the node's own target is preserved (merge)
+		expect(m.loot?.name).toBe('Écaille')
+		expect(m.loot?.id).not.toBe('loot_src') // fresh loot id — no cross-use collision (KR-003)
 	})
 })

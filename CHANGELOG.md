@@ -2,6 +2,12 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.4.7 — action-monster iteration 3 (V3 slice)
+
+- **Reusable monster library** — « Ajouter à la librairie du générateur » now actually **persists** a monster to a new cross-book **`MonsterLibraryService`** (brain, raw local store, not synced), and a searchable **`MonsterLibraryPicker`** (« ↪ Choisir dans la librairie… ») **instantiates** a saved monster onto a node. The long-wired `monster:savedToLibrary` event is now consumed (no longer a stub).
+- **Copy, not reference** — unlike the within-book PNJ/object references (resolved live), a library monster is reused **across books**, so it's instantiated as an independent **copy**: node-specific targets are stripped on save, and loot gets a **fresh id** on instantiate (KR-097/003). New `useMonsterLibrary` external-store hook.
+- 257 tests passing (+7).
+
 ## 0.4.6 — action-pnj iteration 3 (V3 slice)
 
 - **Reuse a PNJ « du livre » by stable id** — a PNJ node can now reference an existing PNJ authored elsewhere instead of re-typing it. A new searchable **`PnjPicker`** (« ↪ Réutiliser un PNJ du livre… », mirrors the décor reuse picker) lists the book's other PNJs; picking one stores a **reference**.

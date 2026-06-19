@@ -1,6 +1,8 @@
 import {
 	useBrain,
 	useOpenBook,
+	useMonsterLibrary,
+	createId,
 	Field,
 	Toggle,
 	ObjectEditor,
@@ -13,8 +15,10 @@ import {
 	type MonsterConfig,
 	type ObjectDraft,
 	type RollOutcome,
+	type SavedMonster,
 } from '../../../brain'
 import { blankLoot } from '../utils/loot'
+import { MonsterLibraryPicker } from './MonsterLibraryPicker'
 
 /**
  * The config a node falls back to before any monster is authored. Skeleton
@@ -52,16 +56,40 @@ const STAT_MAX = 99
  * deferred to the ObjectCatalogService work (KR-062).
  */
 export function MonsterEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element {
-	const { books, events } = useBrain()
+	const { books, events, monsterLibrary } = useBrain()
 	const book = useOpenBook(bookId)
 	const node = getNode(book, nodeId)
 	// Normalise once (defaults fill a skeleton monster's missing stats, KR-116).
 	const monster: MonsterConfig = { ...DEFAULT_MONSTER, ...(node?.monster ?? {}) }
 	const nodes = book?.nodes ?? []
 	const mortTitle = NODE_KINDS.mort.defaultTitle
+	const library = useMonsterLibrary()
 
 	function patchMonster(patch: Partial<MonsterConfig>): void {
 		books.updateNode(bookId, nodeId, { monster: { ...monster, ...patch } })
+	}
+
+	// « Ajouter à la librairie »: persist a reusable COPY (targets stripped) to the
+	// cross-book library, then emit the event for any other listener.
+	function saveToLibrary(): void {
+		monsterLibrary.save(monster)
+		events.emit('monster:savedToLibrary', { bookId, nodeId })
+	}
+
+	// « Choisir dans la librairie »: instantiate a saved monster as an independent
+	// copy on this node — fresh loot id (KR-003) so re-uses don't collide; keep this
+	// node's own victory/flee targets (the library config carries none).
+	function instantiateFromLibrary(saved: SavedMonster): void {
+		const copy: MonsterConfig = JSON.parse(JSON.stringify(saved.config))
+		const loot = copy.loot !== undefined ? { ...copy.loot, id: createId('obj') } : undefined
+		patchMonster({
+			name: copy.name,
+			pv: copy.pv,
+			attack: copy.attack,
+			defense: copy.defense,
+			outcomes: copy.outcomes,
+			loot,
+		})
 	}
 
 	function setOutcome(outcome: RollOutcome, text: string): void {
@@ -135,13 +163,12 @@ export function MonsterEditor({ bookId, nodeId }: ActionEditorContext): JSX.Elem
 				Défaite → {mortTitle} <span style={{ color: 'var(--text-faint)' }}>(automatique)</span>
 			</p>
 
-			<button
-				type="button"
-				onClick={() => events.emit('monster:savedToLibrary', { bookId, nodeId })}
-				style={libraryButton}
-			>
-				<span aria-hidden="true">＋</span> Ajouter à la librairie du générateur
-			</button>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+				<button type="button" onClick={saveToLibrary} style={libraryButton}>
+					<span aria-hidden="true">＋</span> Ajouter à la librairie du générateur
+				</button>
+				<MonsterLibraryPicker library={library} onPick={instantiateFromLibrary} />
+			</div>
 		</div>
 	)
 }

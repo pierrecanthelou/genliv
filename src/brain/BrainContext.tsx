@@ -14,6 +14,7 @@ import {
 	type BookUIPrefs,
 	type Point,
 } from './UIPreferencesService'
+import { createMonsterLibraryService, type MonsterLibraryService, type SavedMonster } from './MonsterLibraryService'
 import type { EditorViewMode } from './components/EditorTopBar'
 import type { SyncStatus } from './types'
 
@@ -35,6 +36,8 @@ export interface Brain {
 	slots: SlotRegistry
 	/** Per-device, non-synced editor view state — pan/zoom, view-mode, dragged positions (KR-022). */
 	uiPreferences: UIPreferencesService
+	/** Cross-book library of reusable monsters (« la librairie du générateur »). */
+	monsterLibrary: MonsterLibraryService
 }
 
 export interface CreateBrainOptions {
@@ -59,7 +62,9 @@ export function createBrain(options: CreateBrainOptions = {}): Brain {
 	// UI preferences persist through the RAW local store, NOT the sync decorator,
 	// so per-device view state (pan/zoom, view-mode, positions) is never cloud-synced (KR-022).
 	const uiPreferences = createUIPreferencesService(local)
-	return { events, persistence: sync, sync, router, books, selection, actions, slots, uiPreferences }
+	// Cross-book reusable-monster library — persisted via the raw local store (not synced).
+	const monsterLibrary = createMonsterLibraryService(local)
+	return { events, persistence: sync, sync, router, books, selection, actions, slots, uiPreferences, monsterLibrary }
 }
 
 const BrainContext = createContext<Brain | null>(null)
@@ -154,6 +159,12 @@ export function useBookOutlineCollapsed(bookId: string): ReadonlySet<string> {
 		() => uiPreferences.getBookPrefs(bookId).outlineCollapsed ?? EMPTY_COLLAPSED,
 	)
 	return useMemo(() => new Set(ids), [ids])
+}
+
+/** The cross-book reusable-monster library service. */
+export function useMonsterLibrary(): SavedMonster[] {
+	const { monsterLibrary } = useBrain()
+	return useSyncExternalStore(monsterLibrary.subscribe, monsterLibrary.list)
 }
 
 export type { UIPreferencesService, BookUIPrefs, Point }

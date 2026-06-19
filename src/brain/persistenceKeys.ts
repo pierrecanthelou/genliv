@@ -37,3 +37,11 @@ export const UI_PREFS_KEY_PREFIX = `${PERSISTENCE_PREFIX}:ui:book:`
 export function uiPrefsKey(bookId: string): string {
 	return `${UI_PREFS_KEY_PREFIX}${bookId}`
 }
+
+/**
+ * The reusable MONSTER LIBRARY (action-monster iter 3) — saved monsters reusable
+ * ACROSS books (« la librairie du générateur »). Persisted in the genliv
+ * namespace via the raw local store (cross-device sync is out of scope); not a
+ * book key, so listBooks never matches it.
+ */
+export const MONSTER_LIBRARY_KEY = `${PERSISTENCE_PREFIX}:monster-library`

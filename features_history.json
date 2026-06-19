@@ -12,11 +12,26 @@
 				"Validation computed inline in NewBookDialog (no useEffect derived state, KR-013)."
 			],
 			"brain_contracts_added": [
-				{ "type": "service", "name": "BookService" },
-				{ "type": "service", "name": "Router" },
-				{ "type": "service", "name": "PersistenceService" },
-				{ "type": "event", "name": "book:created" },
-				{ "type": "event", "name": "book:opened" }
+				{
+					"type": "service",
+					"name": "BookService"
+				},
+				{
+					"type": "service",
+					"name": "Router"
+				},
+				{
+					"type": "service",
+					"name": "PersistenceService"
+				},
+				{
+					"type": "event",
+					"name": "book:created"
+				},
+				{
+					"type": "event",
+					"name": "book:opened"
+				}
 			],
 			"lessons_learned": [
 				"react/no-unescaped-entities flags raw apostrophes in JSX text — use the typographic apostrophe in French copy.",
@@ -40,9 +55,18 @@
 				"node:created payload extended with a typed kind on the brain EventBus — a core domain event emitted by BookService, kept in brain (emitter-owned)."
 			],
 			"brain_contracts_added": [
-				{ "type": "service", "name": "BookService.addNode" },
-				{ "type": "event", "name": "node:created (payload + kind)" },
-				{ "type": "event", "name": "node:selected" },
+				{
+					"type": "service",
+					"name": "BookService.addNode"
+				},
+				{
+					"type": "event",
+					"name": "node:created (payload + kind)"
+				},
+				{
+					"type": "event",
+					"name": "node:selected"
+				},
 				{
 					"type": "service",
 					"name": "UIPreferencesService (brain) + useUIPreferences/useBookViewMode/useBookNodePositions"
@@ -73,10 +97,22 @@
 				"Shared view logic (useOpenBook, nodeTitle) and DS primitives (Toggle, SegmentedControl) promoted to brain (KR-109/110); the app shell composes canvas + panel without the features importing each other."
 			],
 			"brain_contracts_added": [
-				{ "type": "service", "name": "SelectionService" },
-				{ "type": "service", "name": "ActionRegistry" },
-				{ "type": "service", "name": "BookService.updateNode" },
-				{ "type": "event", "name": "action:changed" }
+				{
+					"type": "service",
+					"name": "SelectionService"
+				},
+				{
+					"type": "service",
+					"name": "ActionRegistry"
+				},
+				{
+					"type": "service",
+					"name": "BookService.updateNode"
+				},
+				{
+					"type": "event",
+					"name": "action:changed"
+				}
 			],
 			"lessons_learned": [
 				"A second writer of selection (the panel ✕) is the signal to promote selection from feature-local state to a brain SSOT — event-only broadcast is insufficient when two features both set it.",
@@ -96,9 +132,18 @@
 				"OutgoingChoices is a live VIEW via useOpenBook; the relink picker is local UI state (not derived-from-props, KR-013)."
 			],
 			"brain_contracts_added": [
-				{ "type": "service", "name": "SlotRegistry" },
-				{ "type": "service", "name": "BookService.addChoiceBranch / addEdge / removeEdge" },
-				{ "type": "event", "name": "edge:created (payload + from/to/EdgeKind)" }
+				{
+					"type": "service",
+					"name": "SlotRegistry"
+				},
+				{
+					"type": "service",
+					"name": "BookService.addChoiceBranch / addEdge / removeEdge"
+				},
+				{
+					"type": "event",
+					"name": "edge:created (payload + from/to/EdgeKind)"
+				}
 			],
 			"lessons_learned": [
 				"When one feature must render inside another's panel, reach for a brain slot registry (host reserves, provider registers at the composition root) rather than a cross-feature import — mirrors ActionRegistry.",
@@ -112,8 +157,14 @@
 				"iter 3: extract the per-row rule UI to its own component (ChoicePrereqEditor) the moment the host row crosses the 400-line split signal (KR-112) — OutgoingChoices was already ~285 lines."
 			],
 			"brain_contracts_added_iter3": [
-				{ "type": "util", "name": "collectObjects / findObject (brain/utils/objects.ts)" },
-				{ "type": "type", "name": "ChoicePrereq + Edge.prereq" }
+				{
+					"type": "util",
+					"name": "collectObjects / findObject (brain/utils/objects.ts)"
+				},
+				{
+					"type": "type",
+					"name": "ChoicePrereq + Edge.prereq"
+				}
 			],
 			"bugs_encountered": []
 		},
@@ -128,11 +179,26 @@
 				"Deletion gated behind a confirmation dialog (dangerous action); shared Modal extended with confirmTone='error'. Pending-deletion target is local UI state, not derived from props (KR-013)."
 			],
 			"brain_contracts_added": [
-				{ "type": "service", "name": "BookService.deleteBook" },
-				{ "type": "hook", "name": "useBooks" },
-				{ "type": "event", "name": "book:deleted (now emitted)" },
-				{ "type": "service", "name": "CloudSyncService.pendingKeys() (iter 3)" },
-				{ "type": "hook", "name": "useBookPending(bookId) (iter 3)" }
+				{
+					"type": "service",
+					"name": "BookService.deleteBook"
+				},
+				{
+					"type": "hook",
+					"name": "useBooks"
+				},
+				{
+					"type": "event",
+					"name": "book:deleted (now emitted)"
+				},
+				{
+					"type": "service",
+					"name": "CloudSyncService.pendingKeys() (iter 3)"
+				},
+				{
+					"type": "hook",
+					"name": "useBookPending(bookId) (iter 3)"
+				}
 			],
 			"lessons_learned": [
 				"When two sibling features must share a screen (list + create), compose at the app root by passing one's affordance as a prop — same isolation seam as the panel registries, no slot registry needed for a single static injection.",
@@ -162,8 +228,14 @@
 				"Outline derived inline with useMemo from the live book (KR-013/020); row badges/labels read the kind registry (KR-068); dangling targets flagged ⚠ (KR-021)."
 			],
 			"brain_contracts_added": [
-				{ "type": "component", "name": "EditorTopBar (brain/components)" },
-				{ "type": "type", "name": "EditorViewMode" }
+				{
+					"type": "component",
+					"name": "EditorTopBar (brain/components)"
+				},
+				{
+					"type": "type",
+					"name": "EditorViewMode"
+				}
 			],
 			"lessons_learned": [
 				"Hoisting shared chrome (the top bar) out of the first feature that owned it into brain/components is the clean way to let a second view reuse it — the editor shell composes both views + the panel, features still don't import each other.",
@@ -191,9 +263,18 @@
 				"Domain model gained node.decor (DecorConfig) + GameObject; NodePatch carries decor so updateNode's text-only guard keeps it off structural screens (KR-055/090). createId is now exported from brain for feature id minting."
 			],
 			"brain_contracts_added": [
-				{ "type": "component", "name": "ObjectEditor (brain/components)" },
-				{ "type": "type", "name": "GameObject / DecorConfig / DecorInteraction" },
-				{ "type": "util", "name": "createId (exported from brain)" }
+				{
+					"type": "component",
+					"name": "ObjectEditor (brain/components)"
+				},
+				{
+					"type": "type",
+					"name": "GameObject / DecorConfig / DecorInteraction"
+				},
+				{
+					"type": "util",
+					"name": "createId (exported from brain)"
+				}
 			],
 			"lessons_learned": [
 				"The ActionRegistry seam built in node-editor's skeleton paid off: the first real action feature needed only a register call + an editor component, no node-editor change — validate a registry seam with its first real consumer.",
@@ -220,7 +301,12 @@
 				"PnjEditor is a VIEW over BookService (KR-020): reads node.pnj via useOpenBook, normalises it once (DEFAULT_PNJ + destructure, mirroring the cleaned DecorEditor), writes via updateNode; the gift's stable id is minted lazily and preserved (KR-003).",
 				"Domain model gained node.pnj (PnjConfig); NodePatch carries pnj so updateNode's text-only guard keeps it off structural screens (KR-055/090). The gift toggle-off persists pnj without a gift (JSON drops the undefined value)."
 			],
-			"brain_contracts_added": [{ "type": "type", "name": "PnjConfig" }],
+			"brain_contracts_added": [
+				{
+					"type": "type",
+					"name": "PnjConfig"
+				}
+			],
 			"lessons_learned": [
 				"A shared brain primitive proves its worth at the SECOND consumer: action-pnj reused ObjectEditor with a single brain import — the cross-feature-violation trap (importing a sibling feature's component) never materialised because it was placed in brain from the start.",
 				"Patch semantics: updateNode skips top-level undefined keys, but a nested undefined (pnj.gift) is fine — it reads as absent in memory and is dropped by JSON on persist, so a toggle-off cleanly removes a sub-object without a dedicated unset API.",
@@ -246,9 +332,22 @@
 				"Monster library stubbed via a new monster:savedToLibrary EventBus event (wired, unconsumed) — like book:deleted existed before its emitter. Added ariaLabel to the shared Field so Badge-captioned fields keep an accessible name."
 			],
 			"brain_contracts_added": [
-				{ "type": "type", "name": "MonsterConfig / RollOutcome" },
-				{ "type": "registry", "name": "ROLL_OUTCOMES (brain/outcomes.ts)" },
-				{ "type": "event", "name": "monster:savedToLibrary" }
+				{
+					"type": "type",
+					"name": "MonsterConfig / RollOutcome"
+				},
+				{
+					"type": "registry",
+					"name": "ROLL_OUTCOMES (brain/outcomes.ts)"
+				},
+				{
+					"type": "event",
+					"name": "monster:savedToLibrary"
+				},
+				{
+					"type": "service",
+					"name": "MonsterLibraryService (brain) + useMonsterLibrary (iter 3)"
+				}
 			],
 			"lessons_learned": [
 				"Applied the ObjectEditor placement lesson to a DOMAIN CONCEPT, not just a component: réussite/échec is domain-wide, so its registry went straight to brain — future trap/skill-roll editors reuse it with no cross-feature import.",
@@ -257,7 +356,9 @@
 				"iter 1: the 'extract to brain at the 2nd consumer' rule fired twice more — the value Stepper and the TargetPicker moved to brain/components when action-monster became their second consumer (after action-pnj), refactoring pnj in the SAME slice (behaviour-preserving, tests stay green). Same trigger as ObjectEditor/OutcomesEditor (KR-109).",
 				"iter 1: a shared brain component needs its feature-specific copy parameterised — TargetPicker gained label/emptyLabel props so PNJ « mène à » and monster victoire/fuite reuse one component; bumping per-stepper aria-labels off the `label` prop keeps several Steppers on one screen distinct (and required updating the pnj test queries).",
 				"iter 2: ObjectEditor's FOURTH reuse (monster loot, after décor/pnj/the gift) needed only a toggle + a blankLoot id-minter — a brain primitive that survives four consumers unchanged is correctly placed (KR-109). Loot is live-edited (no modal): décor's per-row modal exists only to discard a cancelled NEW object; a toggle-gated single object has no such need, so the simpler shape is right.",
-				"iter 2: when an iteration bundles a self-contained feature (loot) with one that needs deferred infrastructure (combat reinforced by an inventory object = the by-id hidden-prereq reference, KR-062, needs ObjectCatalogService), ship the self-contained half and pair the dependent half with the catalog — do NOT introduce a by-NAME object reference as a stopgap (KR-062 forbids it and it would have to be untangled later). Same call as deferring choice-linking's hidden prereq."
+				"iter 2: when an iteration bundles a self-contained feature (loot) with one that needs deferred infrastructure (combat reinforced by an inventory object = the by-id hidden-prereq reference, KR-062, needs ObjectCatalogService), ship the self-contained half and pair the dependent half with the catalog — do NOT introduce a by-NAME object reference as a stopgap (KR-062 forbids it and it would have to be untangled later). Same call as deferring choice-linking's hidden prereq.",
+				"iter 3: a CROSS-BOOK reusable library is a different beast from within-book references — different books can't share a live reference, so it's a persisted owned store (MonsterLibraryService) and reuse INSTANTIATES a COPY (strip node-specific targets on save, fresh sub-object ids on instantiate). Within-book = live reference (KR-062/096); cross-book = copy from a library (KR-097).",
+				"iter 3: an event wired-but-unconsumed since an earlier iteration (monster:savedToLibrary) is the seam to build the consumer on — the save button now persists to the library AND keeps emitting the event, so any later listener still works."
 			],
 			"bugs_encountered": []
 		},
@@ -272,8 +373,14 @@
 				"The « échec sanctionné » variant is a fatal boolean capturing intent; the automatic échec→Mort edge is deferred to the dedicated combat/trap path, not the manual edge API (KR-067/092)."
 			],
 			"brain_contracts_added": [
-				{ "type": "type", "name": "TrapConfig" },
-				{ "type": "component", "name": "OutcomesEditor (brain/components)" }
+				{
+					"type": "type",
+					"name": "TrapConfig"
+				},
+				{
+					"type": "component",
+					"name": "OutcomesEditor (brain/components)"
+				}
 			],
 			"lessons_learned": [
 				"The 'extract to brain at the 2nd consumer' rule now has two confirmations (ObjectEditor, OutcomesEditor) — when a second feature needs the same rows, refactor the first to the shared component in the same slice; behaviour-preserving and the tests stay green.",
@@ -299,10 +406,22 @@
 				"SyncStatus is a brain type and CloudTransport keeps the real backend swappable; the Cloudflare worker client + offline queue + reconciliation are deferred to iterations 1–3."
 			],
 			"brain_contracts_added": [
-				{ "type": "service", "name": "CloudSyncService (brain) + CloudTransport" },
-				{ "type": "type", "name": "SyncStatus" },
-				{ "type": "event", "name": "sync:status" },
-				{ "type": "hook", "name": "useSyncStatus" }
+				{
+					"type": "service",
+					"name": "CloudSyncService (brain) + CloudTransport"
+				},
+				{
+					"type": "type",
+					"name": "SyncStatus"
+				},
+				{
+					"type": "event",
+					"name": "sync:status"
+				},
+				{
+					"type": "hook",
+					"name": "useSyncStatus"
+				}
 			],
 			"lessons_learned": [
 				"An interface-first persistence boundary pays off exactly when a decorator is introduced: wrapping local with CloudSyncService changed one line in createBrain and nothing in any feature — the Liskov contract held.",
