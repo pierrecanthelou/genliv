@@ -3,6 +3,7 @@ import { useBrain, useOpenBook, useBookViewMode, EditorTopBar, type EditorViewMo
 import { TreeCanvas, type RevealRequest } from './features/tree-canvas'
 import { OutlineView } from './features/outline-view'
 import { NodeEditorPanel } from './features/node-editor'
+import { ExportGameButton } from './features/book-export'
 
 /**
  * Editor shell — the composition root for the editor route (§ 02/03). It owns
@@ -53,6 +54,7 @@ export function EditorScreen({ bookId }: { bookId: string }): JSX.Element {
 				onViewModeChange={setViewMode}
 				onBack={() => router.navigate({ name: 'home' })}
 				onAddNode={handleAddNode}
+				actions={<ExportGameButton bookId={bookId} />}
 			/>
 			<div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
 				<div style={{ flex: 1, minWidth: 0 }}>

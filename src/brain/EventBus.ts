@@ -19,6 +19,8 @@ export interface AppEvents {
 	'edge:deleted': { bookId: string; edgeId: string }
 	'action:changed': { bookId: string; nodeId: string; actionType: NodeActionType }
 	'monster:savedToLibrary': { bookId: string; nodeId: string }
+	/** A book was exported to a play file (book-export); `warnings` counts surfaced dangling refs. */
+	'book:exported': { bookId: string; warnings: number }
 	'sync:status': { status: SyncStatus; pending: number }
 	/** A book diverged on both sides (local unpushed edits + a newer cloud copy) — awaiting resolution. */
 	'sync:conflict': { bookId: string }

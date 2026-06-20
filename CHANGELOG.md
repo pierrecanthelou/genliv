@@ -2,6 +2,13 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.5.4 — book-export: play-ready file export (new feature, walking skeleton)
+
+- **« Exporter le jeu ⬇ »** — a new control in the editor top bar downloads the book as a **self-contained, versioned play file** (`<titre>.jeu.json`, format `genliv-play` v1) destined for the (deferred) play runtime.
+- **Pure brain transform `exportBookForPlay(book)`** — bakes in everything a runtime needs without recomputation: nodes (minus the editor-only `position`), authored edges **plus the config-derived automatic edges** (échec→Mort, KR-067) folded into one list, and the **resolved object catalog** (`collectObjects`). Reuses the existing derivations, so the export can never disagree with the canvas/outline.
+- **Non-blocking referential-integrity report (KR-021)** — the export always succeeds and surfaces **dangling references** (deleted edge targets, prereq objects, countdown fallbacks, monster/PNJ targets, décor object refs, unconfigured rules) as structured `warnings` in the file; a transient status beside the button shows **« ✓ Export réussi »** or **« ⚠ N avertissement(s) »** and `book:exported` is emitted with the count.
+- New brain utils `downloadJson` / `slugifyFilename` (Blob + object URL, **always revoked**; no-op outside a DOM). `EditorTopBar` gained a generic **`actions` slot** (KR-120) the editor shell fills with `<ExportGameButton>` — the bar never imports the feature. 299 tests passing (+17). New capability outside the ragged-iteration plan; play mode itself stays deferred.
+
 ## 0.5.3 — choice-linking refinement: lineage-scoped hidden-prereq picker (KR-118)
 
 - **« Pré-requis caché » now offers only objects in the choice node's lineage** — the required-object picker used to list **every** acquirable object in the whole book; it now offers only objects collectable on the **path that reaches this screen** (the node itself + its ancestors), because a player can only own an object they could have found on the lineage they chose.

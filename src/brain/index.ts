@@ -54,6 +54,15 @@ export {
 export { getNode, getEdge } from './utils/book'
 export { collectObjects, collectLineageObjects, findObject } from './utils/objects'
 export { deriveAutomaticEdges } from './utils/automaticEdges'
+export {
+	exportBookForPlay,
+	PLAY_EXPORT_FORMAT,
+	PLAY_EXPORT_VERSION,
+	type PlayExport,
+	type PlayNode,
+	type PlayWarning,
+} from './utils/playExport'
+export { downloadJson, slugifyFilename } from './utils/download'
 export type { NodeKindDescriptor, EdgeKindDescriptor, BadgeMark } from './kinds'
 export { useOpenBook, useBooks } from './hooks'
 export { HIT_TARGET_MIN } from './ui'

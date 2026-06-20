@@ -19,6 +19,13 @@ export interface EditorTopBarProps {
 	onViewModeChange: (mode: EditorViewMode) => void
 	onBack: () => void
 	onAddNode: () => void
+	/**
+	 * Composition-root injected feature actions (e.g. book-export's « Exporter le
+	 * jeu »), rendered in the right cluster before « Aperçu du jeu ». A generic
+	 * ReactNode slot keeps this shared chrome feature-agnostic (Open/Closed) — the
+	 * bar never imports a feature; the editor shell wires the node in.
+	 */
+	actions?: React.ReactNode
 }
 
 const monoControl: React.CSSProperties = {
@@ -45,6 +52,7 @@ export function EditorTopBar({
 	onViewModeChange,
 	onBack,
 	onAddNode,
+	actions,
 }: EditorTopBarProps): JSX.Element {
 	return (
 		<header
@@ -61,7 +69,12 @@ export function EditorTopBar({
 				<button
 					type="button"
 					onClick={onBack}
-					style={{ ...monoControl, color: 'var(--text-label)', border: '1px solid transparent', background: 'transparent' }}
+					style={{
+						...monoControl,
+						color: 'var(--text-label)',
+						border: '1px solid transparent',
+						background: 'transparent',
+					}}
 				>
 					<span aria-hidden="true">←</span> Mes livres
 				</button>
@@ -89,6 +102,7 @@ export function EditorTopBar({
 					value={viewMode}
 					onChange={onViewModeChange}
 				/>
+				{actions}
 				<button
 					type="button"
 					disabled

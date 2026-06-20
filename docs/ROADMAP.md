@@ -44,6 +44,7 @@ Each tier = iteration `K` of every feature with an iteration `K`, in build order
 - `0.3.x` (V2) = iteration 2 of each — tree-canvas iter-2 already banked → skipped.
 - `0.4.x` (V3) = iteration 3 of each. Shipped: `book-creation` iter 3 (0.4.0), `tree-canvas` iter 3 (0.4.1). `node-editor` iter 3 = **superseded** (its « objets à prendre » inventory was absorbed by action-decor « prendre »; no slice, no bump) — its iter 2 (action seam) was also banked across the skeleton + the action-\* features.
 - `0.5.x` (V4) = iteration 4 of features whose `n ≥ 4` (e.g. `node-editor` iter 4 = debounced commits, `tree-canvas` iter 4 = robustness at scale).
+- `0.5.4` = **`book-export`** (new capability, walking skeleton) — a play-ready file export from the editor top bar, **outside** the ragged-iteration plan; play mode itself stays deferred. The file (`genliv-play` v1) is what the future play runtime will consume.
 
 Banked depth so far: tree-canvas iter 1–2, node-editor iter 1–3 (iter 2 banked, iter 3 superseded). Deferred dependencies to honor when their tier arrives: book-creation iter 3 (offline queue) needs `cloud-sync` ✅ done; tree-canvas iter 3 (pan/zoom + position persistence) needs `UIPreferencesService` ✅ done; the shared `ObjectCatalogService` (action-decor iter 3 + choice-linking hidden-prereqs, KR-062) is still deferred.
 

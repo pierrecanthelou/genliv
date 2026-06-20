@@ -452,6 +452,29 @@
 				"This closes the 0.4.x / V3 tier — iteration 3 of every feature that has one (node-editor iter 3 superseded). The next tier (0.5.x / V4) is iteration 4 of the features whose n>=4: node-editor (debounced commits) and tree-canvas (robustness at scale)."
 			],
 			"bugs_encountered": []
+		},
+		{
+			"feature": "book-export",
+			"completed_at": "2026-06-20",
+			"goal": "Export the authored book to a self-contained, versioned play-ready file (download) for the deferred play runtime.",
+			"key_architecture_choices": [
+				"exportBookForPlay is a PURE brain transform over the book SSOT that REUSES the existing derivations rather than recomputing: deriveAutomaticEdges (fatal→Mort, KR-067) folded into the edge list + collectObjects (catalog, KR-062) as the resolved objects, so the export can never disagree with the canvas/outline views. Nodes drop the editor-only position (KR-022/023).",
+				"Export is non-blocking (user decision): collectWarnings validates every by-id reference the domain carries (edge targets, prereq objects, countdown fallbacks, monster/PNJ targets, décor objectRef) into structured warnings + a count, surfaced never blocked (KR-021).",
+				"The download is a separate browser side-effect util (downloadJson): Blob + object URL + synthetic anchor click, the URL ALWAYS revoked in a finally (no leak), no-op without a document — so the pure transform stays trivially testable and the side-effect is isolated.",
+				"EditorTopBar got a generic `actions` ReactNode slot (KR-120) the editor shell fills with <ExportGameButton>; the bar never imports the feature (Open/Closed; mirrors SlotRegistry KR-066 + cross-feature-primitive KR-109)."
+			],
+			"brain_contracts_added": [
+				{ "type": "util", "name": "exportBookForPlay + PlayExport/PlayWarning (brain/utils/playExport.ts)" },
+				{ "type": "util", "name": "downloadJson / slugifyFilename (brain/utils/download.ts)" },
+				{ "type": "event", "name": "book:exported" },
+				{ "type": "component", "name": "EditorTopBar.actions slot (KR-120)" }
+			],
+			"lessons_learned": [
+				"An export feature is mostly a PURE transform + an isolated I/O util: keep the document builder side-effect-free (testable in isolation, reuses brain derivations so it can't desync) and put the Blob/anchor/objectURL dance in a thin download util that always revokes. The UI is then a thin button + a ref-tracked transient status.",
+				"When a feature must add a control to shared brain chrome, add a generic `actions` ReactNode slot rather than threading feature-specific callbacks through the chrome — same Open/Closed seam as the SlotRegistry, and the composition root does the wiring so neither imports the other.",
+				"New capability outside the ragged-iteration plan (n=0 walking skeleton), like the choice-linking lineage refinement — bump PATCH, keep play mode deferred; this only produces the file the runtime will later consume (versioned so the schema can evolve)."
+			],
+			"bugs_encountered": []
 		}
 	]
 }

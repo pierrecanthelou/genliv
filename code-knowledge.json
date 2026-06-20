@@ -255,6 +255,16 @@
 			"id": "KR-118",
 			"feature": "choice-linking",
 			"risk": "A hidden-prerequisite picker (and any future ownership gate) must offer only objects the player could actually OWN at that screen — i.e. those collectable in the node's LINEAGE (the node itself + its ancestors), not the whole-book catalog. Use brain collectLineageObjects(book, nodeId) (reverse-reachability over book.edges, all kinds count, cycles handled by a visited set; reuses collectObjects over the lineage subset so de-dup/migration stay single-sourced) for the OFFER, and the full collectObjects(book) only to RESOLVE an already-set reference. Narrowing must never silently DROP an authored rule: an existing reference that resolves in the book but lies outside the lineage stays selectable and is flagged « hors lignée » (distinct from a truly deleted id → « ⚠ introuvable »); the dangling-ref warning still renders even when the lineage picker is empty (gate the empty-state hint on list empty AND no selection). Lineage uses authored edges only — config-target navigations not yet promoted to edges (monster victoire/fuite, PNJ « mène à », KR-067) are a known under-approximation that errs safe (can only hide a reachable object, never offer an unreachable one)."
+		},
+		{
+			"id": "KR-119",
+			"feature": "book-export",
+			"risk": "The play-mode EXPORT is a PURE transform over the book SSOT (brain exportBookForPlay, KR-020) — no mutation, no private copy — producing a versioned, self-contained document (format 'genliv-play' + version). It BAKES IN what a runtime needs without recomputation: nodes minus the editor-only `position` (KR-022/023), authored edges PLUS the config-derived automatic edges (deriveAutomaticEdges, échec→Mort, KR-067) folded into one edge list, and the resolved object catalog (collectObjects, KR-062). Reuse those existing derivations rather than re-deriving, so the export can never disagree with the canvas/outline. The download is a SEPARATE browser side-effect (brain downloadJson): Blob + object URL + synthetic anchor click, the URL ALWAYS revoked in a finally (an object URL leaks until revoked), no-op when there is no document. Export is NON-BLOCKING: dangling references (KR-021 — edge targets, prereq objects, countdown fallbacks, monster/PNJ targets, décor objectRef) become structured file warnings + a surfaced count, never block the export nor get silently dropped. Bump the version + add a reader when the schema changes."
+		},
+		{
+			"id": "KR-120",
+			"feature": "book-export",
+			"risk": "Shared editor chrome (brain EditorTopBar) must stay feature-agnostic: when a feature needs to contribute a control to it, expose a generic `actions` ReactNode slot the composition root (EditorScreen) fills with the feature's component — the bar NEVER imports a feature. Same Open/Closed seam as the SlotRegistry (KR-066) and the cross-feature presentational-primitive rule (KR-109): a brain component renders an injected node, the feature owns the node. A transient status the control shows after an action must ref-track its hide timeout and clear it on unmount (timer-safety rule)."
 		}
 	]
 }
