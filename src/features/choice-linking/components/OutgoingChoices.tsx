@@ -9,6 +9,7 @@ import {
 	getNode,
 	canBeTarget,
 	collectObjects,
+	collectLineageObjects,
 	EDGE_KINDS,
 	type Edge,
 	type ChoicePrereq,
@@ -47,10 +48,16 @@ export function OutgoingChoices({ bookId, nodeId }: SlotContext): JSX.Element {
 		const node = getNode(book, id)
 		return node !== null ? nodeTitle(node) : '⚠ cible supprimée'
 	}
-	// The book's acquirable-object catalog (derived VIEW, KR-062): the hidden-prereq
-	// picker references these by stable id. Recomputed inline from the live book
-	// (KR-013) so adding/removing an object elsewhere updates the picker + dangling check.
+	// The book's acquirable-object catalog (derived VIEW, KR-062): used to RESOLVE a
+	// rule's reference (the row badge + an already-set, possibly out-of-lineage id).
+	// Recomputed inline from the live book (KR-013) so adding/removing an object
+	// elsewhere updates the picker + dangling check.
 	const catalog = collectObjects(book)
+	// The objects OFFERED in the hidden-prereq picker — only those collectable in
+	// this node's lineage (KR-118): the player can require an object only if they
+	// could have found it on the path that reached this screen. Same node for every
+	// outgoing choice, so it is computed once here.
+	const lineageObjects = collectLineageObjects(book, nodeId)
 	const prereqResolves = (prereq: ChoicePrereq): boolean => catalog.some((o) => o.id === prereq.objectId)
 	// A countdown's fallback node must resolve to an existing node (KR-063/021) —
 	// '' (unconfigured) or a deleted target dangles and is surfaced on the row.
@@ -161,9 +168,11 @@ export function OutgoingChoices({ bookId, nodeId }: SlotContext): JSX.Element {
 								onChange={(e) => books.updateEdge(bookId, edge.id, { label: e.target.value })}
 							/>
 							{/* Hidden-prerequisite rule (§ 05, KR-062): persisted on the edge; the
-							    picker references the book's object catalog by stable id. */}
+							    picker offers only objects in this node's lineage (KR-118) and
+							    resolves an existing reference against the full catalog. */}
 							<ChoicePrereqEditor
 								prereq={edge.prereq}
+								options={lineageObjects}
 								catalog={catalog}
 								onChange={(prereq) => books.updateEdge(bookId, edge.id, { prereq })}
 							/>

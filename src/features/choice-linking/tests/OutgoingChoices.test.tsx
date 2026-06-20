@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createBrain, BrainProvider } from '../../../brain'
 import { App } from '../../../App'
@@ -213,16 +213,96 @@ describe('choice-linking — outgoing choices', () => {
 		const brain = createBrain()
 		const book = brain.books.createBook('La Caverne')
 		const sommaireId = brain.books.getBook(book.id)!.nodes.find((n) => n.kind === 'sommaire')!.id
-		// An acquirable object so the catalog is non-empty (a décor takeable).
-		const decorNode = brain.books.addNode(book.id, 'choix')!
+		// A décor node — child of the Sommaire — that lets the player TAKE an object,
+		// so that object is in the lineage of this node's own outgoing choices (KR-118).
+		const decorNode = brain.books.addChoiceBranch(book.id, sommaireId)!.node
 		brain.books.updateNode(book.id, decorNode.id, {
+			text: 'Salle au coffre',
 			actionType: 'decor',
 			decor: {
 				interaction: 'prendre',
 				objects: [{ object: { id: 'obj_cle', name: 'Clé rouillée', description: '' }, kind: 'utile' }],
 			},
 		})
-		brain.books.addChoiceBranch(book.id, sommaireId)
+		// A further branch off the décor node — the choice that will require the key.
+		brain.books.addChoiceBranch(book.id, decorNode.id)
+		brain.router.navigate({ name: 'editor', bookId: book.id })
+		render(
+			<BrainProvider brain={brain}>
+				<App />
+			</BrainProvider>,
+		)
+		const user = userEvent.setup()
+		await user.click(screen.getByRole('button', { name: /Salle au coffre/ }))
+
+		// Toggle the rule on, then pick the required object (offered because it is in
+		// this node's lineage).
+		await user.click(screen.getByRole('switch', { name: /pré-requis caché/i }))
+		await user.selectOptions(screen.getByRole('combobox', { name: /objet requis/i }), 'obj_cle')
+
+		// Persisted on the edge by stable id; the row shows the ⊘ badge.
+		const decorOut = brain.books.getBook(book.id)!.edges.filter((e) => e.from === decorNode.id)
+		expect(decorOut[0].prereq).toEqual({ objectId: 'obj_cle' })
+		expect(screen.getByText(/⊘ pré-requis/)).toBeInTheDocument()
+	})
+
+	it('offers only objects collectable in the choice node lineage, not unrelated branches (KR-118)', async () => {
+		const brain = createBrain()
+		const book = brain.books.createBook('La Caverne')
+		const sommaireId = brain.books.getBook(book.id)!.nodes.find((n) => n.kind === 'sommaire')!.id
+		// Branch A off the Sommaire carries an object on the player path; branch B is a
+		// SIBLING the player never visits on the way to A.
+		const branchA = brain.books.addChoiceBranch(book.id, sommaireId)!.node
+		brain.books.updateNode(book.id, branchA.id, {
+			text: 'Couloir A',
+			actionType: 'decor',
+			decor: {
+				interaction: 'prendre',
+				objects: [{ object: { id: 'obj_path', name: 'Torche', description: '' }, kind: 'utile' }],
+			},
+		})
+		const branchB = brain.books.addChoiceBranch(book.id, sommaireId)!.node
+		brain.books.updateNode(book.id, branchB.id, {
+			actionType: 'decor',
+			decor: {
+				interaction: 'prendre',
+				objects: [{ object: { id: 'obj_other', name: 'Amulette', description: '' }, kind: 'utile' }],
+			},
+		})
+		// The choice that will require an object hangs off branch A.
+		brain.books.addChoiceBranch(book.id, branchA.id)
+		brain.router.navigate({ name: 'editor', bookId: book.id })
+		render(
+			<BrainProvider brain={brain}>
+				<App />
+			</BrainProvider>,
+		)
+		const user = userEvent.setup()
+		await user.click(screen.getByRole('button', { name: /Couloir A/ }))
+		await user.click(screen.getByRole('switch', { name: /pré-requis caché/i }))
+
+		const picker = screen.getByRole('combobox', { name: /objet requis/i })
+		// The lineage object (on branch A itself) is offered; the sibling's is not.
+		expect(within(picker).getByRole('option', { name: 'Torche' })).toBeInTheDocument()
+		expect(within(picker).queryByRole('option', { name: 'Amulette' })).not.toBeInTheDocument()
+	})
+
+	it('keeps an already-set out-of-lineage reference selectable and flags it (KR-118)', async () => {
+		const brain = createBrain()
+		const book = brain.books.createBook('La Caverne')
+		const sommaireId = brain.books.getBook(book.id)!.nodes.find((n) => n.kind === 'sommaire')!.id
+		// An object authored on an UNRELATED node (not in the Sommaire's lineage).
+		const island = brain.books.addNode(book.id, 'choix')!
+		brain.books.updateNode(book.id, island.id, {
+			actionType: 'decor',
+			decor: {
+				interaction: 'prendre',
+				objects: [{ object: { id: 'obj_far', name: 'Relique', description: '' }, kind: 'utile' }],
+			},
+		})
+		// A Sommaire branch whose prereq already points at that out-of-lineage object.
+		const created = brain.books.addChoiceBranch(book.id, sommaireId)!
+		brain.books.updateEdge(book.id, created.edge.id, { prereq: { objectId: 'obj_far' } })
 		brain.router.navigate({ name: 'editor', bookId: book.id })
 		render(
 			<BrainProvider brain={brain}>
@@ -232,13 +312,13 @@ describe('choice-linking — outgoing choices', () => {
 		const user = userEvent.setup()
 		await user.click(screen.getByRole('button', { name: /Nœud #1 — Sommaire/ }))
 
-		// Toggle the rule on, then pick the required object.
-		await user.click(screen.getByRole('switch', { name: /pré-requis caché/i }))
-		await user.selectOptions(screen.getByRole('combobox', { name: /objet requis/i }), 'obj_cle')
-
-		// Persisted on the edge by stable id; the row shows the ⊘ badge.
-		expect(outgoingOf(brain, book.id, 'sommaire')[0].prereq).toEqual({ objectId: 'obj_cle' })
+		// The reference resolves (not deleted) so the row shows ⊘, not ⚠…
 		expect(screen.getByText(/⊘ pré-requis/)).toBeInTheDocument()
+		// …it stays selectable in the picker (named, not dropped)…
+		const picker = screen.getByRole('combobox', { name: /objet requis/i })
+		expect(within(picker).getByRole('option', { name: 'Relique' })).toBeInTheDocument()
+		// …and the editor flags that it lies outside this screen's lineage.
+		expect(screen.getByText(/hors lignée|n’apparaît pas dans la lignée/i)).toBeInTheDocument()
 	})
 
 	it('surfaces a prerequisite pointing at a deleted object as a ⚠ badge (KR-062/021)', async () => {
@@ -257,8 +337,13 @@ describe('choice-linking — outgoing choices', () => {
 		const user = userEvent.setup()
 		await user.click(screen.getByRole('button', { name: /Nœud #1 — Sommaire/ }))
 
-		// The dangling reference is surfaced, never silently treated as met.
+		// The dangling reference is surfaced on the row, never silently treated as met.
 		expect(screen.getByText(/⚠ pré-requis/)).toBeInTheDocument()
+		// Even though the Sommaire's lineage is EMPTY (no acquirable object on the path),
+		// the editor still renders the picker + the « introuvable » message rather than the
+		// empty-state hint — a dangling selection must never be hidden (KR-118 edge case).
+		expect(screen.getByRole('combobox', { name: /objet requis/i })).toBeInTheDocument()
+		expect(screen.getByText(/objet introuvable \(supprimé\)/i)).toBeInTheDocument()
 	})
 
 	it('toggles a countdown on a choice (default 15s) and persists it; an unset fallback is surfaced (KR-063, iter 4)', async () => {

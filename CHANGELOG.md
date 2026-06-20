@@ -2,6 +2,13 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.5.3 — choice-linking refinement: lineage-scoped hidden-prereq picker (KR-118)
+
+- **« Pré-requis caché » now offers only objects in the choice node's lineage** — the required-object picker used to list **every** acquirable object in the whole book; it now offers only objects collectable on the **path that reaches this screen** (the node itself + its ancestors), because a player can only own an object they could have found on the lineage they chose.
+- New pure brain util **`collectLineageObjects(book, nodeId)`** — reverse-reachability over `book.edges` (all kinds count; cycles handled by a visited set), reusing `collectObjects` over the lineage-scoped node subset so de-dup/migration stay single-sourced. The whole-book `collectObjects` still **resolves** an existing reference.
+- **Narrowing never silently drops a rule** — an already-set reference that resolves but lies outside the lineage stays selectable and is flagged **« ⓘ hors lignée »** (distinct from a deleted **« ⚠ introuvable »**); the dangling warning still renders when the lineage picker is empty. The empty state distinguishes « no objects in the book » from « none in this lineage ».
+- `ChoicePrereqEditor` gained an `options` prop (lineage) beside `catalog` (full, for resolution). 282 tests passing (+7). User-requested refinement; no new tier.
+
 ## 0.5.2 — choice-linking iteration 4 (V4 slice — tier complete 🏁)
 
 - **Per-choice countdown (§ 05)** — a choice can now carry a **« compte à rebours »**: a **délai** (Stepper clamped 5–60s, default 15) + a **fallback node** it expires to. The rule rides the choice edge as `Edge.countdown?: { delay, fallback }`, persisted via `BookService.updateEdge` (`EdgePatch` gained `countdown: ChoiceCountdown | null`); label, prereq, and countdown are independent.

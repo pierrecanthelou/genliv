@@ -52,7 +52,7 @@ export {
 	edgeNests,
 } from './kinds'
 export { getNode, getEdge } from './utils/book'
-export { collectObjects, findObject } from './utils/objects'
+export { collectObjects, collectLineageObjects, findObject } from './utils/objects'
 export { deriveAutomaticEdges } from './utils/automaticEdges'
 export type { NodeKindDescriptor, EdgeKindDescriptor, BadgeMark } from './kinds'
 export { useOpenBook, useBooks } from './hooks'

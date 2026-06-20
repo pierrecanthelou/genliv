@@ -1,5 +1,5 @@
-import { collectObjects, findObject } from './objects'
-import type { Book, BookNode, GameObject, MonsterConfig } from '../types'
+import { collectObjects, collectLineageObjects, findObject } from './objects'
+import type { Book, BookNode, Edge, GameObject, MonsterConfig } from '../types'
 
 const obj = (id: string, name = id): GameObject => ({ id, name, description: '' })
 
@@ -13,9 +13,20 @@ const monsterWithLoot = (name: string, loot: GameObject): MonsterConfig => ({
 	loot,
 })
 
-function book(nodes: BookNode[]): Book {
-	return { id: 'b', title: 'B', createdAt: '', updatedAt: '', nodes, edges: [] }
+function book(nodes: BookNode[], edges: Edge[] = []): Book {
+	return { id: 'b', title: 'B', createdAt: '', updatedAt: '', nodes, edges }
 }
+
+const edge = (from: string, to: string, kind: Edge['kind'] = 'choice'): Edge => ({
+	id: `${from}-${to}`,
+	from,
+	to,
+	kind,
+})
+
+const takeable = (id: string): Partial<BookNode> => ({
+	decor: { interaction: 'prendre', objects: [{ object: obj(id), kind: 'utile' }] },
+})
 
 function node(id: string, extra: Partial<BookNode> = {}): BookNode {
 	return { id, kind: 'choix', text: '', ...extra }
@@ -64,5 +75,62 @@ describe('collectObjects (derived object catalog)', () => {
 		expect(findObject(b, 'o1')?.name).toBe('Clé')
 		expect(findObject(b, 'ghost')).toBeNull()
 		expect(findObject(b, '')).toBeNull()
+	})
+})
+
+describe('collectLineageObjects (lineage-scoped catalog, KR-118)', () => {
+	// root → mid → leaf, plus a sibling branch off root and an unrelated island.
+	const tree = (): Book =>
+		book(
+			[
+				node('root', takeable('o_root')),
+				node('mid', takeable('o_mid')),
+				node('leaf'),
+				node('sibling', takeable('o_sibling')),
+				node('island', takeable('o_island')),
+				node('lonely'),
+			],
+			[edge('root', 'mid'), edge('mid', 'leaf'), edge('root', 'sibling')],
+		)
+
+	it('offers only objects from the node and its ancestors, not siblings/descendants/islands', () => {
+		const ids = collectLineageObjects(tree(), 'mid')
+			.map((o) => o.id)
+			.sort()
+		// mid + its ancestor root — never the sibling, the unreached island, nor a
+		// downstream leaf.
+		expect(ids).toEqual(['o_mid', 'o_root'])
+	})
+
+	it('includes the node itself so an object taken on the current screen counts', () => {
+		expect(collectLineageObjects(tree(), 'root').map((o) => o.id)).toEqual(['o_root'])
+	})
+
+	it('walks all ancestors and terminates on a cycle (relink back-edge)', () => {
+		const cyclic = book(
+			[node('a', takeable('o_a')), node('b', takeable('o_b'))],
+			[edge('a', 'b'), edge('b', 'a', 'relink')],
+		)
+		expect(
+			collectLineageObjects(cyclic, 'b')
+				.map((o) => o.id)
+				.sort(),
+		).toEqual(['o_a', 'o_b'])
+	})
+
+	it('counts a node-local object even when the node has no ancestors (island)', () => {
+		expect(collectLineageObjects(tree(), 'island')).toEqual([{ id: 'o_island', name: 'o_island', description: '' }])
+	})
+
+	it('returns an empty catalog for a node with no lineage objects or a null book', () => {
+		// A downstream leaf with no own object still inherits its ancestors' objects.
+		expect(
+			collectLineageObjects(tree(), 'leaf')
+				.map((o) => o.id)
+				.sort(),
+		).toEqual(['o_mid', 'o_root'])
+		// A lonely node with no ancestors and no own object → nothing.
+		expect(collectLineageObjects(tree(), 'lonely')).toEqual([])
+		expect(collectLineageObjects(null, 'x')).toEqual([])
 	})
 })
