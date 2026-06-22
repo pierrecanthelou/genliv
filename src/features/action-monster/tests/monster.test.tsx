@@ -23,6 +23,9 @@ const monsterOf = (brain: ReturnType<typeof createBrain>, bookId: string, nodeId
 describe('action-monster', () => {
 	beforeEach(() => {
 		window.localStorage.clear()
+		// Suppress the 23-monster bestiary auto-seed from createBrain() so the
+		// library starts empty in every test (anti-re-injection guard, KR-011).
+		window.localStorage.setItem('genliv:monster-library:seeded', 'true')
 	})
 
 	it('self-registers a « Monstre » editor with the ActionRegistry and unregisters cleanly (KR-051)', () => {

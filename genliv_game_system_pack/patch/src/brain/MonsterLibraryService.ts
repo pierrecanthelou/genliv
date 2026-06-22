@@ -71,7 +71,7 @@ export function createMonsterLibraryService(local: PersistenceService): MonsterL
 			commit(cache.filter((m) => m.id !== id))
 		},
 		seedDefaults(templates) {
-			// KR-132: one-time guard — a deleted bestiary entry must NOT come back.
+			// One-time guard (KR-011): a deleted bestiary entry must NOT come back.
 			if (local.get<boolean>(MONSTER_LIBRARY_SEEDED_KEY) === true) return
 			const existing = new Set(cache.map((m) => m.config.templateId).filter((t): t is string => t !== undefined))
 			const added = templates

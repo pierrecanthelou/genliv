@@ -79,7 +79,7 @@ export function RevealEditor({ label, placeholder, reveal, onChange }: RevealEdi
 					/>
 					<Stepper
 						label="Difficulté"
-						value={roll.difficulty}
+						value={roll.difficulty ?? DEFAULT_DIFFICULTY}
 						min={DIFFICULTY_MIN}
 						max={DIFFICULTY_MAX}
 						onChange={(difficulty) => onChange({ ...reveal, roll: { ...roll, difficulty }, outcomes })}

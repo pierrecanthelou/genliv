@@ -83,6 +83,30 @@
 			"mitigation": "Regression test drives écouter→fouiller→écouter and asserts each field is independent and both reveals persist; a migration test asserts an old single-reveal book maps onto the current interaction.",
 			"regression_test": "src/features/action-decor/tests/decor.test.tsx — 'keeps Écouter and Fouiller reveal texts INDEPENDENT when switching tabs (BUG-007)' + 'migrates a legacy single shared reveal onto the node current interaction (KR-090)'",
 			"severity": "major"
+		},
+		{
+			"id": "BUG-008",
+			"date": "2026-06-22",
+			"feature": "game-system",
+			"discovered_at": "iteration-1",
+			"symptom": "Tech-lead review: EquipmentEffect was a flat interface with weapon? and protection? both optional, allowing TypeScript to accept { kind: 'arme', protection: 'cuir' } without error — a structurally invalid object that the runtime would guard by kind but could not be caught at compile time.",
+			"root_cause": "The interface used a union literal kind: 'arme' | 'protection' with optional sibling fields, which is a structural union not a discriminated one. TypeScript cannot narrow optional fields by discriminant alone.",
+			"fix": "Changed EquipmentEffect to a discriminated union type: { kind: 'arme'; weapon: WeaponId } | { kind: 'protection'; protection: ProtectionId }. Updated ObjectEditor.tsx to use narrowed access (equip.kind === 'arme' ? equip.weapon : DEFAULT_WEAPON) instead of equip?.weapon ?? WEAPON_VALUES[0].",
+			"mitigation": "KR-117 registries should always be discriminated unions, not structural unions. When the kind discriminant determines which fields are present, use type X = A | B, not interface X with optional sibling fields.",
+			"regression_test": "src/brain/components/ObjectEditor.test.tsx (tsc compile-time check)",
+			"severity": "minor"
+		},
+		{
+			"id": "BUG-009",
+			"date": "2026-06-22",
+			"feature": "game-system",
+			"discovered_at": "iteration-1",
+			"symptom": "Tech-lead review: ObjectEditor used WEAPON_VALUES[0] and PROTECTION_VALUES[0] as fallback defaults for the equipment effect selects instead of named constants. If the registry order changed, the default would silently shift.",
+			"root_cause": "DEFAULT_WEAPON was exported from equipment.ts but not imported in ObjectEditor. DEFAULT_PROTECTION did not exist at all.",
+			"fix": "Added DEFAULT_PROTECTION = 'cuir' to equipment.ts and brain/index.ts. Updated ObjectEditor.tsx to import and use DEFAULT_WEAPON/DEFAULT_PROTECTION instead of WEAPON_VALUES[0]/PROTECTION_VALUES[0].",
+			"mitigation": "KR-117 registries must expose a DEFAULT_X constant alongside WEAPON_VALUES/PROTECTION_VALUES. New registries should always include a named default; callers should always import the named constant, never index the values array.",
+			"regression_test": "src/brain/components/ObjectEditor.test.tsx",
+			"severity": "minor"
 		}
 	]
 }

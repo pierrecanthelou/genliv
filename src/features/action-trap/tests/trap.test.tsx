@@ -61,13 +61,13 @@ describe('action-trap', () => {
 		await user.click(screen.getByRole('button', { name: /Nœud #3/ }))
 		await user.click(screen.getByRole('radio', { name: 'Piège' }))
 
-		// Default roll is Habileté / 7; change the caractéristique and step the difficulty.
-		await user.click(screen.getByRole('radio', { name: 'Endurance' }))
-		await user.click(screen.getByRole('button', { name: /augmenter Difficulté/i }))
+		// Default roll is FO / TC1; change the caractéristique and the tier.
+		await user.click(screen.getByRole('radio', { name: 'EN' }))
+		await user.click(screen.getByRole('radio', { name: 'TC2 · 2D5' }))
 
 		const roll = trapOf(brain, bookId, nodeId)?.roll
-		expect(roll?.trait).toBe('endurance')
-		expect(roll?.difficulty).toBe(8) // default 7 → 8
+		expect(roll?.trait).toBe('EN')
+		expect(roll?.tier).toBe('TC2')
 	})
 
 	it('migrates a pre-roll trap: fills the default roll without clobbering other fields (KR-116)', async () => {
@@ -89,12 +89,12 @@ describe('action-trap', () => {
 		await user.click(screen.getByRole('button', { name: /Nœud #3/ }))
 		await user.click(screen.getByRole('radio', { name: 'Piège' }))
 
-		// The default roll surfaces (Habileté selected) without losing the seeded fields.
-		expect(screen.getByRole('radio', { name: 'Habileté' })).toBeChecked()
-		await user.click(screen.getByRole('button', { name: /augmenter Difficulté/i }))
+		// The default roll surfaces (FO/TC1 selected) without losing the seeded fields.
+		expect(screen.getByRole('radio', { name: 'FO' })).toBeChecked()
+		await user.click(screen.getByRole('radio', { name: 'TC2 · 2D5' }))
 
 		const trap = trapOf(brain, created.id, node.id)
-		expect(trap?.roll).toEqual({ trait: 'habilete', difficulty: 8 })
+		expect(trap?.roll).toEqual({ trait: 'FO', tier: 'TC2' })
 		expect(trap?.description).toBe('Dalle')
 		expect(trap?.outcomes).toEqual({ reussite: 'ok', echec: 'aïe' })
 		expect(trap?.fatal).toBe(true)

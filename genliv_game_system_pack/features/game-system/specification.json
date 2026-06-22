@@ -1,0 +1,71 @@
+{
+  "feature": "game-system",
+  "created_at": "2026-06-21",
+  "status": "planned",
+  "design_reference": "REGLES-DU-JEU.md (the canonical manual — source of truth) + Editeur Livre-Jeu - Wireframes.dc.html § 02 (monster stat block) & § 05 (skill rolls / reinforced combat). See DESIGN-DELTAS.md for the four editor UI changes. Anatomy + tokens from styles.css (Select, SegmentedControl, Stepper, Field, the shared ObjectEditor). Low-fi, light theme.",
+  "plan": {
+    "goal": "Replace the deliberately low-fi placeholder game system (3-trait CHARACTERISTICS, SkillRoll.difficulty:number, pv/attack/defense MonsterConfig) with the real genliv system: 7 caractéristiques (cap 12), 4 Tiers de Challenge, full monster stat blocks seeded from a 23-entry bestiary, equipment (weapon multipliers + protections), and the PLAY-MODE runtime (PV/PE, combat resolution, XP & progression) modelled as pure brain functions so the editor schema is shaped right and the play runtime can lift them directly. Authoring scope only changes the SCHEMA + four editor controls; resolution stays deferred to play mode.",
+    "design_contract": {
+      "_binding": "REGLES-DU-JEU.md wins over any prose or prior placeholder. Every closed set is a KR-117 registry; no if/switch at call sites. Pure runtime functions carry RNG injection for tests. Editor renders from existing DS components/tokens only.",
+      "characteristics": "CHARACTERISTICS registry = the 7 caracs (FO/AG/DX/EN/IN/IG/CA), cap 12. Replaces the habileté/endurance/chance trio. Every skill-roll trait picker derives options from it (§ 1).",
+      "challenge_tiers": "CHALLENGE_TIERS registry = TC1..TC4 (dice + baseXp). SkillRoll.difficulty:number → tier:ChallengeTier; the difficulty control becomes a 4-option SegmentedControl (§ 2, DESIGN-DELTAS #2).",
+      "monster_stat_block": "MonsterConfig drops attack/defense for the § 4 block (5 caracs, MC, PV, armour, weaponMultiplier, tier, capacity). The action-monster inline editor renders the block; MonsterLibraryPicker lists the seeded BESTIARY grouped by tier, COPY-ON-USE (KR-101). (§ 4, DESIGN-DELTAS #3).",
+      "equipment": "WEAPONS + PROTECTIONS registries (§ 3). GameObject gains an optional EquipmentEffect; the shared ObjectEditor gains an « effet d'équipement » section (DESIGN-DELTAS #4).",
+      "play_runtime_deferred": "characteristics.ts (PV/PE/malus), combat.ts (MC/postures/AT/PF/écart), xp.ts (delta matrix + progression shop) are PURE, no UI, not wired into the editor — they exist so the schema is right and book-export bakes the full data. No editor screen resolves combat or awards XP.",
+      "empty_state": "All new pickers keep the project-wide inviting empty-state rule."
+    },
+    "acceptance_criteria": [
+      "CHARACTERISTICS exposes the 7 caracs (cap 12); every skill-roll trait picker (action-trap, action-decor « jet requis ») derives its options from the registry — no hardcoded trait list anywhere.",
+      "SkillRoll stores a ChallengeTier (not a number); the editor difficulty control is a 4-option TC1..TC4 SegmentedControl showing the dice notation; persisted numeric difficulties migrate to the nearest tier and are surfaced once (KR-021).",
+      "MonsterConfig carries the § 4 stat block (5 caracs + MC + PV + armour + weaponMultiplier + tier + capacity); the inline monster editor edits all of it; legacy { attack, defense } monsters migrate to a minimal block and are surfaced, never dropped.",
+      "The cross-book MonsterLibraryService is seeded with the 23 BESTIARY monsters grouped by tier; inserting one is COPY-ON-USE (KR-101) — per-book tuning never mutates the template.",
+      "WEAPONS and PROTECTIONS registries match § 3 exactly (incl. ranged FO→4D2 and shield +1D4 Défensive flags); the shared ObjectEditor can mark an object as a weapon or protection (optional).",
+      "Pure runtime modules match REGLES-DU-JEU.md exactly and are unit-tested with an injected RNG: maxPV, healthState, enduranceMalus (corrected ordering), resolveChallenge, maitriseDesCoups, resolveAssault (postures/écart/PF/protection), challengeXp, combatXp, characteristicUpgradeCost, mcUpgradeCost.",
+      "No raw localStorage; all persistence via BookService / MonsterLibraryService (KR-011/111). No useEffect mirrors for derived state (KR-013/113).",
+      "book-export (genliv-play v1) bakes in the full monster stat block + object equipment effects so the deferred play runtime is self-contained.",
+      "Everything renders from DS components/tokens, light theme, ≥44px targets, keyboard-operable."
+    ],
+    "brain_contracts": [
+      { "type": "registry", "name": "CHARACTERISTICS", "direction": "emits", "note": "replaces the 3-trait placeholder" },
+      { "type": "registry", "name": "CHALLENGE_TIERS", "direction": "emits" },
+      { "type": "registry", "name": "WEAPONS", "direction": "emits" },
+      { "type": "registry", "name": "PROTECTIONS", "direction": "emits" },
+      { "type": "data", "name": "BESTIARY", "direction": "emits", "note": "seeds MonsterLibraryService" },
+      { "type": "service", "name": "MonsterLibraryService", "direction": "consumes" },
+      { "type": "service", "name": "BookService", "direction": "consumes" },
+      { "type": "component", "name": "ObjectEditor", "direction": "consumes" },
+      { "type": "module", "name": "combat.ts / xp.ts (pure, play mode)", "direction": "emits" }
+    ],
+    "walking_skeleton": "Swap CHARACTERISTICS to the 7 caracs + cap 12 (pickers repopulate automatically). Change SkillRoll to { trait: Characteristic, tier: ChallengeTier } with read-time migration. Land CHALLENGE_TIERS + the SegmentedControl difficulty control. Defer the monster block, equipment, bestiary seed, and the pure runtime modules to later iterations.",
+    "n": 4,
+    "iterations": [
+      { "id": 1, "goal": "Characteristics 3→7 (cap 12) + Challenge tiers: registries + SkillRoll schema change + difficulty SegmentedControl + read-time migration. Pure helpers maxPV/healthState/enduranceMalus/resolveChallenge with RNG-injected tests.", "status": "planned" },
+      { "id": 2, "goal": "Monster stat block (§ 4): MonsterConfig migration + inline editor for the full block; legacy { attack, defense } migration surfaced.", "status": "planned" },
+      { "id": 3, "goal": "Bestiary seed (23 monsters) into MonsterLibraryService, grouped by tier, COPY-ON-USE; MonsterLibraryPicker lists them.", "status": "planned" },
+      { "id": 4, "goal": "Equipment (§ 3): WEAPONS/PROTECTIONS registries + ObjectEditor « effet d'équipement »; combat.ts + xp.ts pure modules complete + fully tested; book-export bakes the block + equipment.", "status": "planned" }
+    ],
+    "known_risks": [
+      "KR-130 — REGLES-DU-JEU.md is the single source of truth; any divergence is resolved in favour of the manual, then the code corrected. The two cohérence corrections (endurance malus ordering; harmonised challenge dice) are baked into the modules — do not 'fix' them back.",
+      "KR-131 — Authoring vs play split: the editor stores SCHEMA only (which trait, which tier, which monster block, which equipment). PV/PE/combat/XP are PURE functions, never editor screens (re-asserts the deferred play-mode scope). Wiring them into an editor view is out of scope.",
+      "KR-117 — Every closed set (caracs, tiers, postures, weapons, protections, gift effects) is a registry with descriptor data; per-variant BEHAVIOUR (compute/test/resolve) is a descriptor field for play mode, never an if/switch at call sites.",
+      "KR-101 — Bestiary monsters are COPY-ON-USE templates; inserting one snapshots its stats so per-book tuning never mutates the library entry or other books.",
+      "KR-021 — Schema migrations (numeric difficulty → tier; legacy trait id; { attack, defense } → block) SURFACE legacy/dangling values; never silently coerce or drop persisted authoring.",
+      "KR-011/111 — No raw localStorage; persist via BookService/MonsterLibraryService. KR-013/113 — derived state inline, no useEffect mirrors.",
+      "A11y — new Selects/SegmentedControls/Steppers keyboard-operable, ≥44px targets; the ObjectEditor equipment section is part of the focus-trapped modal."
+    ]
+  },
+  "implementation": {
+    "iterations_log": [],
+    "resolved_decisions": [
+      "The genliv system (7 caracs, TC1–4, full bestiary, combat PF/postures, XP matrix) REPLACES the low-fi placeholder the codebase explicitly flagged as 'an author-defined caractéristique set is a later feature'.",
+      "Two cohérence corrections from the original rules note are adopted: endurance malus ordering (EN/3 before EN/5) and challenge dice harmonised to the four tiers.",
+      "Editor scope changes are limited to four UI deltas (trait picker 3→7, difficulty→TC SegmentedControl, monster stat block, ObjectEditor equipment). Combat/XP/PV stay pure and deferred to play mode.",
+      "The 23-monster bestiary seeds the existing cross-book MonsterLibraryService and is COPY-ON-USE, matching the established action-monster library pattern (KR-101).",
+      "Monster capacités are carried as descriptive text on the template now (editor shows them; play mode interprets them), not modelled as if/switch — consistent with KR-117."
+    ],
+    "open_questions": [
+      "Hero stat GENERATION (2D4 per carac + 1D4 over 3) and the progression SHOP UI belong to play mode / a future character-sheet feature — confirm they stay out of the editor.",
+      "Should the book-level caractéristiques schema be author-EDITABLE per book, or is the 7-carac set fixed system-wide? Current assumption: fixed system-wide (the registry)."
+    ]
+  }
+}

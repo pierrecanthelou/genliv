@@ -139,15 +139,13 @@ describe('action-decor', () => {
 		await user.click(screen.getByRole('button', { name: /Ajouter un objet/ }))
 		await user.type(screen.getByRole('textbox', { name: /nom de l/i }), 'Épée')
 		await user.click(screen.getByRole('switch', { name: /jet requis/i }))
-		await user.type(screen.getByRole('textbox', { name: /caractéristique/i }), 'Habileté')
-		const difficulty = screen.getByRole('textbox', { name: /difficulté/i })
-		await user.clear(difficulty)
-		await user.type(difficulty, '8')
+		await user.click(screen.getByRole('radio', { name: 'DX' }))
+		await user.click(screen.getByRole('radio', { name: 'TC2 · 2D5' }))
 		await user.type(screen.getByRole('textbox', { name: /texte d/i }), 'Le mécanisme cède.')
 		await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
 		const roll = decorOf(brain, bookId, nodeId)?.objects?.[0].roll
-		expect(roll).toEqual({ trait: 'Habileté', difficulty: 8, failureText: 'Le mécanisme cède.' })
+		expect(roll).toEqual({ trait: 'DX', tier: 'TC2', failureText: 'Le mécanisme cède.' })
 	})
 
 	it('« Variante piège : échec → mort » persists roll.fatal and derives a fatal → Mort edge (iter 3)', async () => {
@@ -195,7 +193,7 @@ describe('action-decor', () => {
 
 		const reveal = decorOf(brain, bookId, nodeId)?.reveals?.ecouter
 		expect(reveal?.text).toBe('Un murmure derrière le mur.')
-		expect(reveal?.roll).toEqual({ trait: 'endurance', difficulty: 8 })
+		expect(reveal?.roll).toEqual({ trait: 'EN', difficulty: 8 })
 		expect(reveal?.outcomes).toEqual({ reussite: 'Vous saisissez le mot de passe.', echec: 'Le bruit se perd.' })
 	})
 

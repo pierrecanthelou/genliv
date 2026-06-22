@@ -265,6 +265,21 @@
 			"id": "KR-120",
 			"feature": "book-export",
 			"risk": "Shared editor chrome (brain EditorTopBar) must stay feature-agnostic: when a feature needs to contribute a control to it, expose a generic `actions` ReactNode slot the composition root (EditorScreen) fills with the feature's component — the bar NEVER imports a feature. Same Open/Closed seam as the SlotRegistry (KR-066) and the cross-feature presentational-primitive rule (KR-109): a brain component renders an injected node, the feature owns the node. A transient status the control shows after an action must ref-track its hide timeout and clear it on unmount (timer-safety rule)."
+		},
+		{
+			"id": "KR-130",
+			"feature": "game-system",
+			"risk": "REGLES-DU-JEU.md is the SINGLE SOURCE OF TRUTH for all game mechanics. Two coherence corrections are baked in relative to the original brief: (1) the enduranceMalus ordering is most-severe-first (PE≤0 → −3; PE<EN/5 → −2; PE<EN/3 → −1; else 0), not the reverse; (2) the challenge dice are harmonised across §1/§2/§3 (1D6/2D5/3D4/4D4). Never resolve a game-rule ambiguity from the code — go back to REGLES-DU-JEU.md first and propagate the correction there before updating the implementation."
+		},
+		{
+			"id": "KR-131",
+			"feature": "game-system",
+			"risk": "AUTHORING vs PLAY split: the EDITOR stores only the SCHEMA of a game rule (which caractéristique is tested, which Tier de Challenge, which monster stat block); the RUNTIME computes PV, PE, combat rounds, XP, and all dice outcomes. Pure play-mode helpers (resolveChallenge, resolveAssault, combatXp, etc.) live in brain/ as injectable-RNG pure functions so they are unit-testable without a play runtime; the editor imports ONLY the TYPE/REGISTRY parts (CHARACTERISTICS, CHALLENGE_TIERS, WEAPONS, etc.) to build its pickers. Never let the editor call play-mode resolvers — that is a play-mode concern and violates the authoring/play seam."
+		},
+		{
+			"id": "KR-132",
+			"feature": "game-system",
+			"risk": "BESTIARY SEED IS IDEMPOTENT AND DELETION-SAFE: MonsterLibraryService.seedDefaults(BESTIARY) is guarded by the MONSTER_LIBRARY_SEEDED_KEY flag. Once the flag is set (first successful seed), seedDefaults() is a no-op on every subsequent launch — a user who deletes bestiary entries does NOT get them re-injected. Tests must suppress the auto-seed by pre-setting the flag in beforeEach (window.localStorage.setItem('genliv:monster-library:seeded', 'true')) so the library starts empty and assertions on library contents remain deterministic."
 		}
 	]
 }

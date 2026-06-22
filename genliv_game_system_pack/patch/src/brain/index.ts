@@ -6,6 +6,7 @@
 export type { Book, BookNode, Edge, ChoicePrereq, ChoiceCountdown, NodeKind, EdgeKind, NodeActionType } from './types'
 export type {
 	GameObject,
+	EquipmentEffect,
 	DecorConfig,
 	DecorInteraction,
 	DecorReveal,
@@ -16,6 +17,7 @@ export type {
 	PnjGift,
 	PnjGiftEffect,
 	MonsterConfig,
+	MonsterStatBlock,
 	TrapConfig,
 	RollOutcome,
 } from './types'
@@ -53,7 +55,6 @@ export {
 	DEFAULT_WEAPON,
 	PROTECTIONS,
 	PROTECTION_VALUES,
-	DEFAULT_PROTECTION,
 	type WeaponId,
 	type WeaponDescriptor,
 	type ProtectionId,
@@ -87,7 +88,6 @@ export {
 	type DeltaBand,
 } from './xp'
 export { BESTIARY, BESTIARY_BY_TEMPLATE, type MonsterTier } from './bestiary'
-export type { EquipmentEffect, MonsterStatBlock } from './types'
 export { createId } from './utils/id'
 export type { EventBus, AppEvents, AppEventName } from './EventBus'
 export type { PersistenceService } from './PersistenceService'

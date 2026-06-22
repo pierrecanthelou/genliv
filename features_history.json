@@ -475,6 +475,38 @@
 				"New capability outside the ragged-iteration plan (n=0 walking skeleton), like the choice-linking lineage refinement — bump PATCH, keep play mode deferred; this only produces the file the runtime will later consume (versioned so the schema can evolve)."
 			],
 			"bugs_encountered": []
+		},
+		{
+			"feature": "game-system",
+			"completed_at": "2026-06-22",
+			"goal": "Replace the 3-trait placeholder with the full genliv game system: 7 caractéristiques, 4 Tiers de Challenge, WEAPONS/PROTECTIONS registries, a 23-monster canonical bestiary, and pure play-mode helpers — all surfaced in the editor via updated SegmentedControl pickers and a full monster stat block UI.",
+			"key_architecture_choices": [
+				"All new registries follow KR-117 (a single Record<Union, Descriptor>); editors derive options from the registry, never hardcode lists or branch on union values. The same pattern was applied to CHARACTERISTICS (7 entries with abbr), CHALLENGE_TIERS (4 tiers with notation), WEAPONS (8 entries with multiplier), PROTECTIONS (4 entries with reduction), POSTURES (3 entries), and BESTIARY (23 monsters mapped via toConfig()).",
+				"AUTHORING vs PLAY split (KR-131): editor components import only type/registry parts (CHARACTERISTICS, CHALLENGE_TIERS, WEAPONS); pure play helpers (resolveChallenge, resolveAssault, combatXp) live in separate brain modules as injectable-RNG functions and are unit-tested without a play runtime.",
+				"SegmentedControl is constrained to T extends string; MonsterTier (1|2|3|4 number) is bridged via MonsterTierKey ('T1'|'T2'|'T3'|'T4') helper pair (tierToKey/keyToTier) in MonsterEditor — avoids changing the component API.",
+				"seedDefaults() on MonsterLibraryService: one-time bestiary seeding guarded by MONSTER_LIBRARY_SEEDED_KEY, deletion-safe (the flag is set before the commit so a crash between the two does not re-seed). Test suites suppress the seed in beforeEach to keep library assertions deterministic (KR-132).",
+				"RevealEditor (Écouter/Fouiller) deliberately NOT migrated to tier SegmentedControl in this pack — it still uses a legacy difficulty Stepper. The `difficulty?: number` type change required a `?? DEFAULT_DIFFICULTY` fallback to satisfy the Stepper's `value: number` prop. Deferred to a future iteration to keep the pack focused."
+			],
+			"brain_contracts_added": [
+				{ "type": "module", "name": "brain/characteristics.ts — 7 caracs + CHARACTERISTIC_MAX + MONSTER_CHARACTERISTICS + pure helpers (maxPV, healthState, enduranceMalus)" },
+				{ "type": "module", "name": "brain/challenge.ts — CHALLENGE_TIERS (TC1–TC4) + rollTier + pure dice helpers (resolveChallenge)" },
+				{ "type": "module", "name": "brain/equipment.ts — WEAPONS (8 entries) + PROTECTIONS (4 entries) + EquipmentEffect type" },
+				{ "type": "module", "name": "brain/combat.ts — POSTURES + maitriseDesCoups + pfBase + resolveAssault" },
+				{ "type": "module", "name": "brain/xp.ts — tierOf + deltaBand + challengeXp + combatXp + characteristicUpgradeCost + mcUpgradeCost" },
+				{ "type": "module", "name": "brain/bestiary.ts — BESTIARY (23 MonsterConfig) + BESTIARY_BY_TEMPLATE" },
+				{ "type": "method", "name": "MonsterLibraryService.seedDefaults(templates) — one-time idempotent bestiary seeding" },
+				{ "type": "type", "name": "MonsterStatBlock (brain/types.ts) — full § 4 stat block on MonsterConfig" },
+				{ "type": "type", "name": "EquipmentEffect (brain/types.ts) — arme | protection on GameObject" },
+				{ "type": "key", "name": "MONSTER_LIBRARY_SEEDED_KEY (brain/persistenceKeys.ts)" }
+			],
+			"lessons_learned": [
+				"SegmentedControl<T extends string> is the constraint that forces the MonsterTierKey bridge pattern — when a registry value is a number, introduce a string-keyed type and convert at the two write/read sites rather than widening the component constraint.",
+				"The one-time seed guard (MONSTER_LIBRARY_SEEDED_KEY) must be set BEFORE the commit so a crash between the flag write and the data write does not re-seed on the next launch (crash-safe ordering).",
+				"Test seed suppression belongs in beforeEach, not in individual tests — adding `localStorage.setItem(MONSTER_LIBRARY_SEEDED_KEY, 'true')` once in the monster.test.tsx beforeEach block keeps every test independent and prevents 23 auto-seeded monsters from polluting library-count assertions.",
+				"A deprecated optional field (SkillRoll.difficulty?, MonsterConfig.attack?, .defense?) requires `?? fallback` at every consumer that passes the field to a required-value prop (Stepper.value: number). A type-only change surfaces all consumers via tsc, making the migration safe and exhaustive.",
+				"The RevealEditor (Écouter/Fouiller) was intentionally left on legacy difficulty to keep the pack focused — the key lesson is that a partial migration is fine when you fix the type incompatibility (the ?? fallback) and the tests still pass; a future iteration completes the migration."
+			],
+			"bugs_encountered": []
 		}
 	]
 }

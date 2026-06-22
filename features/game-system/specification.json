@@ -1,0 +1,66 @@
+{
+	"feature": "game-system",
+	"created_at": "2026-06-22",
+	"status": "done",
+	"plan": {
+		"goal": "Replace the low-fi 3-trait placeholder game system with the full genliv rules: 7 caractéristiques (FO/AG/DX/EN/IN/IG/CA), 4 Tiers de Challenge (TC1–TC4), a 23-monster canonical bestiary, WEAPONS/PROTECTIONS registries, and pure play-mode functions (combat, XP) — all as data-driven KR-117 registries so the editor picks options from them and play mode resolves them.",
+		"acceptance_criteria": [
+			"CHARACTERISTICS registry has exactly 7 entries (FO/AG/DX/EN/IN/IG/CA) with label, abbr, and describe fields; CHARACTERISTIC_MAX = 12",
+			"CHALLENGE_TIERS registry has 4 entries (TC1–TC4) with label, difficulty, dice, notation, baseXp; DEFAULT_CHALLENGE_TIER = TC1",
+			"WEAPONS registry has 8 entries; PROTECTIONS registry has 4 entries; each with label and combat multiplier/reduction field",
+			"BESTIARY has 23 monsters (BestiaryRow[] mapped via toConfig()) seeded idempotently into MonsterLibrary on first launch via seedDefaults(BESTIARY)",
+			"seedDefaults() is deletion-safe: a user who removes bestiary entries is never re-seeded on the next launch (MONSTER_LIBRARY_SEEDED_KEY guard)",
+			"TrapEditor renders SegmentedControl (abbr labels) for trait and SegmentedControl (TC1·1D6…TC4·4D4) for tier; deprecated difficulty dropped on write",
+			"ObjectEditModal renders same SegmentedControls for trait and tier in the « jet requis » section; deprecated difficulty dropped on write",
+			"MonsterEditor renders a full stat block UI: 5 Steppers for MONSTER_CHARACTERISTICS (FO/AG/DX/EN/IG), MC, PV, PV Variance, Armure steppers, natural-weapon multiplier <select>, Tier SegmentedControl (T1–T4), and Capacité Field",
+			"ObjectEditor renders an « Effet d'équipement » section: SegmentedControl (Aucun/Arme/Protection) + conditional <select> from WEAPONS or PROTECTIONS",
+			"gameSystem.test.ts: §1 characteristics, §2 challenge resolution, §3 combat (maitriseDesCoups/ecartBand/pfBase/resolveAssault), §4 bestiary, §5 XP — all via injectable-RNG pure functions",
+			"BrainContext.createBrain() calls monsterLibrary.seedDefaults(BESTIARY) after creating the service",
+			"brain/index.ts exports all new registries and pure helpers",
+			"All 316+ tests pass; tsc --noEmit clean"
+		],
+		"brain_contracts": [
+			{ "type": "service", "name": "MonsterLibraryService.seedDefaults()", "direction": "emits" },
+			{ "type": "registry", "name": "CHARACTERISTICS (7 caracs)", "direction": "emits" },
+			{ "type": "registry", "name": "CHALLENGE_TIERS (TC1–TC4)", "direction": "emits" },
+			{ "type": "registry", "name": "WEAPONS / PROTECTIONS", "direction": "emits" },
+			{ "type": "pure-module", "name": "combat.ts (resolveAssault)", "direction": "emits" },
+			{ "type": "pure-module", "name": "xp.ts (challengeXp/combatXp)", "direction": "emits" },
+			{ "type": "data", "name": "BESTIARY (23 MonsterConfig)", "direction": "emits" }
+		],
+		"walking_skeleton": "Replace CHARACTERISTICS from 3-trait placeholder to 7-carac registry; add CHALLENGE_TIERS replacing numeric difficulty; add WEAPONS/PROTECTIONS; add BESTIARY + seedDefaults; update editor UIs (TrapEditor, ObjectEditModal, MonsterEditor, ObjectEditor) to pick from the new registries.",
+		"n": 1,
+		"iterations": [
+			{ "id": 1, "goal": "Full game system pack: 7 caracs, TC1–TC4, WEAPONS/PROTECTIONS, bestiary, editor UI updates, pure play helpers", "status": "done" }
+		],
+		"known_risks": [
+			"KR-130: REGLES-DU-JEU.md is the single source of truth — two coherence corrections baked in (EN malus order; harmonised challenge dice).",
+			"KR-131: Authoring vs play split — editor stores schema (which tier, which monster block); PV/PE/combat/XP are pure helpers deferred to play mode.",
+			"KR-132: seedDefaults() is deletion-safe — the seeded flag prevents re-injection after the user deletes entries; tests must suppress with localStorage.setItem('genliv:monster-library:seeded', 'true') in beforeEach.",
+			"KR-021: Schema migration — persisted SkillRoll.difficulty is migrated via rollTier() on read and dropped on write; persisted MonsterConfig.attack/defense are kept as @deprecated optional fields and ignored on write.",
+			"KR-101: BESTIARY monsters are COPY-ON-USE templates — instantiating one creates an independent copy; the library entry is never shared."
+		]
+	},
+	"implementation": {
+		"iterations_log": [
+			{
+				"id": 1,
+				"label": "iteration-1 (full game system pack)",
+				"completed_at": "2026-06-22",
+				"architecture_choices": [
+					"All registries follow KR-117: a single Record<Union, Descriptor>; editors derive options/labels from the registry, never a hardcoded list, never an if/switch on the union.",
+					"AUTHORING vs PLAY split (KR-131): editor components import only type/registry parts (CHARACTERISTICS, CHALLENGE_TIERS, WEAPONS); pure play helpers (resolveChallenge, resolveAssault, combatXp) live in brain/ as injectable-RNG functions.",
+					"SegmentedControl uses `T extends string`, so MonsterTier (1|2|3|4 number) is bridged via MonsterTierKey ('T1'|'T2'|'T3'|'T4') in MonsterEditor.",
+					"RevealEditor (Écouter/Fouiller) is NOT migrated to tier in this pack — it still uses the legacy Stepper for difficulty. A `?? DEFAULT_DIFFICULTY` fallback was added to satisfy the new `difficulty?: number` union type. This is deferred to a future iteration.",
+					"seedDefaults guards on MONSTER_LIBRARY_SEEDED_KEY (one-time, deletion-safe, KR-132). The flag is set BEFORE the commit() call so a crash between the two does not re-seed on restart.",
+					"BestiaryRow[] is an intermediate typed shape; toConfig() maps it to MonsterConfig with templateId derived from the name slug, making BESTIARY_BY_TEMPLATE a stable lookup by slug."
+				],
+				"deviations_from_plan": [
+					"RevealEditor (action-decor Écouter/Fouiller) not migrated to tier SegmentedControl — it still uses the legacy Stepper; the test assertion for the Écouter roll was updated from `trait: 'endurance'` to `trait: 'EN'` (key change only)."
+				],
+				"test_coverage": { "unit": "316 tests passing", "e2e": "not applicable (editor-only)" }
+			}
+		],
+		"open_questions": []
+	}
+}

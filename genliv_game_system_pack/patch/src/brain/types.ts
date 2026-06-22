@@ -31,14 +31,14 @@ export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'offline' | 'error'
  * multiplier; a protection a flat damage reduction (or, for a shield, a Défensive
  * AT bonus). The concrete ids resolve against the WEAPONS / PROTECTIONS registries
  * (KR-117); the play runtime reads them, the editor only authors the choice.
- *
- * Typed as a discriminated union so TypeScript can narrow by `kind` at compile
- * time: `{ kind: 'arme', weapon: W }` and `{ kind: 'protection', protection: P }`
- * are the only valid shapes — a mixed-field object is a compile-time error.
  */
-export type EquipmentEffect =
-	| { kind: 'arme'; weapon: WeaponId }
-	| { kind: 'protection'; protection: ProtectionId }
+export interface EquipmentEffect {
+	kind: 'arme' | 'protection'
+	/** Set when kind === 'arme' (a WeaponId). */
+	weapon?: WeaponId
+	/** Set when kind === 'protection' (a ProtectionId). */
+	protection?: ProtectionId
+}
 
 /**
  * A game object. The `name` is internal (author-facing); the `description` is

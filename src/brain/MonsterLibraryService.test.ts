@@ -66,4 +66,17 @@ describe('MonsterLibraryService', () => {
 		// Stored under the dedicated key (not a book key).
 		expect(window.localStorage.getItem(MONSTER_LIBRARY_KEY)).not.toBeNull()
 	})
+
+	it('seedDefaults() seeds templates once (idempotent) and does not re-inject after deletion', () => {
+		const store = createLocalStoragePersistence()
+		const lib = createMonsterLibraryService(store)
+		const template = monster({ name: 'Dragon', templateId: 'dragon' })
+		lib.seedDefaults([template])
+		expect(lib.list()).toHaveLength(1)
+		lib.seedDefaults([template])
+		expect(lib.list()).toHaveLength(1) // idempotent
+		lib.remove(lib.list()[0].id)
+		lib.seedDefaults([template])
+		expect(lib.list()).toHaveLength(0) // anti-re-injection: deleted entries do not come back
+	})
 })
