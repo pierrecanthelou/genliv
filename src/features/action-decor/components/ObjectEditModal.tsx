@@ -2,6 +2,7 @@ import { useState } from 'react'
 import {
 	Modal,
 	ObjectEditor,
+	Select,
 	SegmentedControl,
 	Field,
 	Toggle,
@@ -13,6 +14,7 @@ import {
 	DEFAULT_CHALLENGE_TIER,
 	rollTier,
 	type ObjectDraft,
+	type SelectOption,
 	type SegmentedOption,
 	type SkillRoll,
 	type TakeableKind,
@@ -27,9 +29,9 @@ const KIND_OPTIONS: SegmentedOption<TakeableKind>[] = TAKEABLE_KIND_VALUES.map((
 	label: TAKEABLE_KINDS[value].label,
 }))
 
-const TRAIT_OPTIONS: SegmentedOption<Characteristic>[] = CHARACTERISTIC_VALUES.map((value) => ({
+const TRAIT_OPTIONS: SelectOption<Characteristic>[] = CHARACTERISTIC_VALUES.map((value) => ({
 	value,
-	label: CHARACTERISTICS[value].abbr,
+	label: `${CHARACTERISTICS[value].abbr} — ${CHARACTERISTICS[value].label}`,
 }))
 
 const TIER_OPTIONS: SegmentedOption<ChallengeTier>[] = CHALLENGE_TIER_VALUES.map((value) => ({
@@ -107,16 +109,13 @@ export function ObjectEditModal({ takeable, isNew, onSave, onCancel }: ObjectEdi
 
 				{roll !== undefined && (
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-							<span style={fieldLabel}>Caractéristique</span>
-							<SegmentedControl<Characteristic>
-								ariaLabel="Caractéristique du jet"
-								options={TRAIT_OPTIONS}
-								// Cast is intentional: trait is a free string for forward-compat.
-								value={roll.trait as Characteristic}
-								onChange={(trait) => setRoll({ trait })}
-							/>
-						</div>
+						<Select<Characteristic>
+							label="CARACTÉRISTIQUE"
+							ariaLabel="Caractéristique du jet"
+							options={TRAIT_OPTIONS}
+							value={roll.trait as Characteristic}
+							onChange={(trait) => setRoll({ trait })}
+						/>
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
 							<span style={fieldLabel}>Difficulté</span>
 							<SegmentedControl<ChallengeTier>

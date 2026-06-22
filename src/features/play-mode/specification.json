@@ -1,0 +1,140 @@
+{
+  "feature": "play-mode",
+  "created_at": "2026-06-22",
+  "status": "planned",
+  "plan": {
+    "goal": "Implement the full play runtime: load a book → hero creation → traverse nodes → resolve actions (décor/PNJ/piège/monstre) → manage inventory/equipment → track health/endurance/XP → save progress. All orchestration decisions are sourced from REGLES-PLAY-A-COMPLETER.md (completed 2026-06-22); that file is the canonical complement to REGLES-DU-JEU.md for play mode.",
+    "design_reference": "REGLES-DU-JEU.md (math) + genliv_game_system_pack/REGLES-PLAY-A-COMPLETER.md (orchestration). Play mode is a separate app surface from the editor; the editor must never call play resolvers (KR-131).",
+    "acceptance_criteria": [
+      "A1 — Game starts at the `sommaire` node; its text is displayed first.",
+      "A2 — Each screen resolves its required action (décor / PNJ / piège / monstre) before showing outgoing choice buttons; the player may use one object per action phase.",
+      "A3 — `choice` edges with `prereq` are hidden when the hero does not own the referenced object; `choice` edges with `countdown` auto-redirect to `fallback` after delay seconds (only while visible).",
+      "A4 — Each node transition (screen change) awards +5 PE to the hero.",
+      "A5 — Nodes with `endVictory` show a victory screen; `endFailure` shows a failure screen; the `mort` node = game over.",
+      "B1 — Hero generation: computer rolls 2D4 per carac; player distributes a +1D4 bonus across any 3 caracs of their choice; rolled results are assignable to any carac in any order.",
+      "B2 — Player may request 1 global re-roll (new 2D4 + 1D4 bonus round, again fully assignable); only 1 re-roll allowed per session start.",
+      "B3 — Hero starts with mains nues (×0.3 weapon multiplier), no armor, no shield, 0 objects; all equipment must come from the book.",
+      "B4 — Starting PE courant = EN (full endurance gauge).",
+      "B5 — Player enters a name (cosmetic, no gameplay effect).",
+      "C1 — Inventory is unlimited (no item cap).",
+      "C2 — Hero carries multiple weapons but only 1 is active at a time; switching active weapon from inventory costs 1 combat round (no attack that round).",
+      "C3 — Hero may wear 1 armor and 1 shield simultaneously (shield stacks with armor reduction); equipping a 2-handed weapon while wearing a shield is blocked.",
+      "C4 — Ranged ammo is unlimited (no tracking).",
+      "C5 — Object reinforcement bonus (author-defined) applies to the relevant action outcome (e.g. reduced trap damage, reinforced combat).",
+      "D1 — Both combatants choose posture simultaneously each round; AT is computed for both; higher AT wins the assault; AT tie = null round (no damage, replay).",
+      "D2 — Monster posture AI baseline: 60 % Normale / 25 % Précise / 15 % Défensive; shifts to 40 % Défensive when monster PV < 25 % of max.",
+      "D3 — Monster flee behavior is driven by creatureType (KR-135): humanoid flees at 25 % PV (MC roll, TC = 1 + ΔT); undead never flee; animal at 50 % PV / giant-animal at 40 % PV (50/50 chance); magic creature at 10 % PV (MC roll, TC = ΔT; ΔT = 0 → never flees).",
+      "D4 — Monsters do NOT have a PE gauge; only the hero tracks PE. Squelette 'Pas d'endurance' = immunised from fatigue malus via a CREATURE_TYPES descriptor flag, not a PE gauge.",
+      "D5 — Hero flee: attempted at start of round; monster deals 1 free assault (Normal posture vs hero Defensive); hero then moves to `fleeTarget`; impossible if `fleeTarget` is absent.",
+      "D6 — Critical hit degrades the target's armor by 1 for the rest of the book (applies to hero AND monster; tracked in session state).",
+      "D7 — Monster at 0 PV → victoryTarget node + loot granted + XP awarded. Hero PV ≤ -CA → mort node.",
+      "D8 — V1: 1 monster per combat screen; Hobgobelin 'en groupe' MC=5 capacity is ignored.",
+      "E1 — Unconscious (0 ≥ PV > -CA): in combat, monster deals 1 last assault; if hero PV then ≤ -CA → mort; otherwise hero wakes at 1 PV after combat ends. Out of combat → mort.",
+      "E2 — Potion restores PV to max AND PE to max; potions are book objects; usage unlimited while possessed.",
+      "E3 — PE recovery: only +5 per screen transition; no passive regen.",
+      "E4 — PNJ gift effect 'pv' = immediate heal X PV (capped at max PV); 'attaque' = permanent +X to hero AT floor; 'defense' = permanent +X to armor reduction; 'scenario' = plot object, no numeric effect.",
+      "F1 — V1: skill rolls (TC challenges) appear only on traps and décor 'prendre' objects; choice-gated rolls are out of scope.",
+      "F2 — XP shop accessible at any time via a persistent 'Progression' screen; no gating by location or rest.",
+      "F3 — XP awarded immediately after a challenge success or combat win.",
+      "F4 — Upgrading a carac increases PV max; current PV gains the same difference (implicit partial heal).",
+      "G1 — Session save state: current node id + hero snapshot (caracs, PV/PE/XP, MC bonus) + inventory (all objects by id) + active weapon/armor/shield + visited-node set (node ids where an object was taken or a monster was defeated, anti-farm).",
+      "G2 — Visited-node set: an object already taken from a node cannot be taken again; a monster already defeated on a node does not re-trigger.",
+      "G3 — 1 auto-save per book (keyed by book id); 'Continuer' resumes from save.",
+      "H — All 23 monster capacités resolve as coded play effects via a MONSTER_CAPACITIES registry (KR-133/KR-117); each maps a capacity id to a { trigger, apply } descriptor. The `capacity` string on MonsterConfig identifies the variant.",
+      "H-bis — `magic: n` on EquipmentEffect.arme adds n to both MC (before AT) and PF_base (before écart × posture). `silver: true` bypasses armour for monsters whose MONSTER_CAPACITIES descriptor carries `bypassedBySilver: true` (Loup-Garou). No if/switch on templateId."
+    ],
+    "brain_contracts": [
+      {
+        "type": "service",
+        "name": "PlaySessionService",
+        "direction": "emits",
+        "note": "Owns the mutable hero + session state; persists via PersistenceService per-book (KR-134). Never mutates the book itself."
+      },
+      {
+        "type": "module",
+        "name": "CombatEngine (brain/combatEngine.ts)",
+        "direction": "emits",
+        "note": "Pure, RNG-injectable: resolveRound, pickMonsterPosture, resolveMonsterFlee. Reads CREATURE_TYPES registry, not if/switch (KR-135)."
+      },
+      {
+        "type": "registry",
+        "name": "MONSTER_CAPACITIES",
+        "direction": "emits",
+        "note": "KR-133: maps each monster capacity id to { trigger: CapacitéTrigger, apply: CapacitéEffect }. Play runtime dispatches through it."
+      },
+      {
+        "type": "registry",
+        "name": "CREATURE_TYPES",
+        "direction": "emits",
+        "note": "KR-135: maps CreatureType → { fleeThresholdPct, fleeStrategy, postureBias, passiveFlags }."
+      },
+      { "type": "service", "name": "BookService", "direction": "consumes" },
+      { "type": "service", "name": "PersistenceService", "direction": "consumes" },
+      { "type": "service", "name": "EventBus", "direction": "consumes" },
+      { "type": "registry", "name": "CHARACTERISTICS", "direction": "consumes" },
+      { "type": "registry", "name": "CHALLENGE_TIERS", "direction": "consumes" },
+      { "type": "registry", "name": "WEAPONS", "direction": "consumes" },
+      { "type": "registry", "name": "PROTECTIONS", "direction": "consumes" },
+      { "type": "data", "name": "BESTIARY", "direction": "consumes" },
+      { "type": "module", "name": "combat.ts (resolveAssault, pfBase, maitriseDesCoups)", "direction": "consumes" },
+      { "type": "module", "name": "xp.ts (combatXp, challengeXp, characteristicUpgradeCost)", "direction": "consumes" },
+      { "type": "module", "name": "challenge.ts (resolveChallenge)", "direction": "consumes" }
+    ],
+    "events": [
+      { "name": "play:started", "direction": "emits", "payload": { "bookId": "string" } },
+      { "name": "play:nodeEntered", "direction": "emits", "payload": { "nodeId": "string", "peRecovered": "number" } },
+      { "name": "play:heroUpdated", "direction": "emits", "payload": { "hero": "HeroState" } },
+      { "name": "play:combatStarted", "direction": "emits", "payload": { "monsterName": "string" } },
+      { "name": "play:combatEnded", "direction": "emits", "payload": { "outcome": "'victory'|'defeat'", "xp": "number?", "loot": "GameObject?" } },
+      { "name": "play:challengeResolved", "direction": "emits", "payload": { "outcome": "RollOutcome", "xp": "number?" } },
+      { "name": "play:ended", "direction": "emits", "payload": { "outcome": "'victory'|'failure'|'death'" } },
+      { "name": "play:saved", "direction": "emits", "payload": {} }
+    ],
+    "walking_skeleton": "Load a book → render sommaire text → show outgoing choices (no filtering yet) → clicking a choice navigates to the next node → +5 PE applied → basic hero state (caracs generated, PV=FO+AG+EN, PE=EN) persisted → one auto-save per book. Combat/action resolution and character creation screen deferred to later iterations.",
+    "n": 5,
+    "iterations": [
+      {
+        "id": 1,
+        "goal": "Game loop skeleton + save/load: sommaire start, node traversal, +5 PE per transition, basic choice buttons, save/load session (current node + hero caracs + PV/PE). endVictory/endFailure/mort screens.",
+        "status": "planned"
+      },
+      {
+        "id": 2,
+        "goal": "Character creation screen: 2D4 per carac + 1D4 assignable to 3 chosen caracs, 1 re-roll, name input. Inventory + equipment management: unlimited inventory, 1 active weapon/armor, shield stacking, 2H+shield incompatibility, switching weapon costs a combat round.",
+        "status": "planned"
+      },
+      {
+        "id": 3,
+        "goal": "Combat engine: simultaneous posture resolution, monster AI (CREATURE_TYPES registry, posture weights + flee thresholds by creatureType), hero flee, unconscious/mort states, loot grant, XP award, armor degradation on critical, -1 PE per round for hero.",
+        "status": "planned"
+      },
+      {
+        "id": 4,
+        "goal": "Monster capacités: MONSTER_CAPACITIES registry with { trigger, apply } descriptors for all 23 monsters; combat loop dispatches through registry. Magic/silver weapon flags applied in pfBase + armour bypass.",
+        "status": "planned"
+      },
+      {
+        "id": 5,
+        "goal": "Full action resolution: décor (prendre + skill roll + object reinforcement), PNJ (gift effects pv/attaque/defense/scenario), piège (PE cost + fatal variant). XP shop (anytime), carac upgrade → PV max diff healed. prereq + countdown choice filtering.",
+        "status": "planned"
+      }
+    ],
+    "known_risks": [
+      "KR-133 — MONSTER CAPACITÉS AS PLAY REGISTRY: capacités must be a KR-117 registry (MONSTER_CAPACITIES) mapping each capacity id to { trigger: CapacitéTrigger, apply: CapacitéEffect } — never an if/switch in the combat loop. Adding a capacité effect = one new registry entry, zero consumer edits.",
+      "KR-134 — SESSION SAVE STATE: play session persists via PersistenceService with per-book key `genliv:play:session:{bookId}` (registered in persistenceKeys.ts, KR-011). State includes the visited-node set for anti-farm. Battle transients (current-round state) are NOT persisted; saves happen only at node transitions.",
+      "KR-135 — CREATURE TYPE DRIVES AI: `creatureType` on MonsterStatBlock is a KR-117 registry key (CREATURE_TYPES) whose descriptor carries flee threshold %, flee strategy (roll-based / chance / never), posture-weight overrides at low HP, and passive trait flags (e.g. immuneToFatigue). Never infer creature type from name or capacity text. Bestiary seeds the correct type for all 23 canonical monsters.",
+      "KR-136 — MAGIC AND SILVER WEAPON MODIFIERS: `magic: n` on EquipmentEffect.arme adds n to wielder MC (before AT computation) AND n to PF_base (before écart × posture multiplier). `silver: true` sets the target's effective armour to 0, ONLY for monsters whose MONSTER_CAPACITIES descriptor includes `bypassedBySilver: true`. Never check templateId or name at call sites.",
+      "KR-131 (re-assert) — Editor must never call play resolvers. PlaySessionService and CombatEngine are play-only; importing them from any editor feature is a violation of the authoring/play seam.",
+      "KR-117 (re-assert) — Every closed set introduced by play mode (CreatureType, CapacitéTrigger, flee strategies) must be a registry with descriptor data + eventual behaviour fields. No if/switch at call sites."
+    ]
+  },
+  "implementation": {
+    "iterations_log": [],
+    "open_questions": [
+      "Object reinforcement bonus (C5): exact schema not yet defined — could be a numeric field on EquipmentEffect or a new BoostEffect type. Decide before iter 5.",
+      "PNJ 'scenario' gift items: should they auto-add to inventory, or only set a boolean presence flag? Clarify before iter 5.",
+      "Fire/acid damage source (Troll capacity): REGLES-PLAY says not V1. If modelled later, needs a new EquipmentEffect kind or object flag.",
+      "Méduse 'aveugle ou pétrification': questionnaire marks her for removal ('enlever la méduse') — confirm whether she is excluded from V1 or replaced by a simpler capacity."
+    ]
+  }
+}

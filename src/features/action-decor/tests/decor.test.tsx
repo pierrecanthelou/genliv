@@ -139,7 +139,7 @@ describe('action-decor', () => {
 		await user.click(screen.getByRole('button', { name: /Ajouter un objet/ }))
 		await user.type(screen.getByRole('textbox', { name: /nom de l/i }), 'Épée')
 		await user.click(screen.getByRole('switch', { name: /jet requis/i }))
-		await user.click(screen.getByRole('radio', { name: 'DX' }))
+		await user.selectOptions(screen.getByRole('combobox', { name: /caractéristique du jet/i }), 'DX')
 		await user.click(screen.getByRole('radio', { name: 'TC2 · 2D5' }))
 		await user.type(screen.getByRole('textbox', { name: /texte d/i }), 'Le mécanisme cède.')
 		await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
@@ -184,16 +184,16 @@ describe('action-decor', () => {
 		await user.click(screen.getByRole('radio', { name: 'Écouter' }))
 
 		await user.type(screen.getByRole('textbox', { name: /ce que le joueur entend/i }), 'Un murmure derrière le mur.')
-		// Gate it: default roll Habileté / 7 → switch trait + step difficulty, author both outcomes.
+		// Gate it: default roll FO/TC1 → switch trait + tier, author both outcomes.
 		await user.click(screen.getByRole('switch', { name: /jet requis/i }))
-		await user.click(screen.getByRole('radio', { name: 'Endurance' }))
-		await user.click(screen.getByRole('button', { name: /augmenter Difficulté/i }))
+		await user.selectOptions(screen.getByRole('combobox', { name: /caractéristique du jet/i }), 'EN')
+		await user.click(screen.getByRole('radio', { name: 'TC2 · 2D5' }))
 		await user.type(screen.getByRole('textbox', { name: /si Réussite/i }), 'Vous saisissez le mot de passe.')
 		await user.type(screen.getByRole('textbox', { name: /si Échec/i }), 'Le bruit se perd.')
 
 		const reveal = decorOf(brain, bookId, nodeId)?.reveals?.ecouter
 		expect(reveal?.text).toBe('Un murmure derrière le mur.')
-		expect(reveal?.roll).toEqual({ trait: 'EN', difficulty: 8 })
+		expect(reveal?.roll).toEqual({ trait: 'EN', tier: 'TC2' })
 		expect(reveal?.outcomes).toEqual({ reussite: 'Vous saisissez le mot de passe.', echec: 'Le bruit se perd.' })
 	})
 

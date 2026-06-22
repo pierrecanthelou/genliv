@@ -4,6 +4,7 @@ import {
 	Field,
 	Toggle,
 	OutcomesEditor,
+	Select,
 	SegmentedControl,
 	CHARACTERISTICS,
 	CHARACTERISTIC_VALUES,
@@ -19,6 +20,7 @@ import {
 	type SkillRoll,
 	type Characteristic,
 	type ChallengeTier,
+	type SelectOption,
 	type SegmentedOption,
 } from '../../../brain'
 
@@ -30,9 +32,9 @@ const DEFAULT_TRAP: TrapConfig = {
 	fatal: false,
 }
 
-const CHARACTERISTIC_OPTIONS: SegmentedOption<Characteristic>[] = CHARACTERISTIC_VALUES.map((value) => ({
+const CHARACTERISTIC_OPTIONS: SelectOption<Characteristic>[] = CHARACTERISTIC_VALUES.map((value) => ({
 	value,
-	label: CHARACTERISTICS[value].abbr,
+	label: `${CHARACTERISTICS[value].abbr} — ${CHARACTERISTICS[value].label}`,
 }))
 
 const TIER_OPTIONS: SegmentedOption<ChallengeTier>[] = CHALLENGE_TIER_VALUES.map((value) => ({
@@ -93,11 +95,10 @@ export function TrapEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element
 
 			<div style={rollSection}>
 				<span style={sectionLabel}>Jet de caractéristique</span>
-				<SegmentedControl<Characteristic>
+				<Select<Characteristic>
+					label="CARACTÉRISTIQUE"
 					ariaLabel="Caractéristique du jet"
 					options={CHARACTERISTIC_OPTIONS}
-					// Cast is intentional: trait is a free string for forward-compat; an
-					// unknown value simply highlights no segment (no unguarded lookup).
 					value={roll.trait as Characteristic}
 					onChange={(trait) => setRoll({ trait })}
 				/>

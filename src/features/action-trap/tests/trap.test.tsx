@@ -62,7 +62,7 @@ describe('action-trap', () => {
 		await user.click(screen.getByRole('radio', { name: 'Piège' }))
 
 		// Default roll is FO / TC1; change the caractéristique and the tier.
-		await user.click(screen.getByRole('radio', { name: 'EN' }))
+		await user.selectOptions(screen.getByRole('combobox', { name: /caractéristique du jet/i }), 'EN')
 		await user.click(screen.getByRole('radio', { name: 'TC2 · 2D5' }))
 
 		const roll = trapOf(brain, bookId, nodeId)?.roll
@@ -90,7 +90,7 @@ describe('action-trap', () => {
 		await user.click(screen.getByRole('radio', { name: 'Piège' }))
 
 		// The default roll surfaces (FO/TC1 selected) without losing the seeded fields.
-		expect(screen.getByRole('radio', { name: 'FO' })).toBeChecked()
+		expect((screen.getByRole('combobox', { name: /caractéristique du jet/i }) as HTMLSelectElement).value).toBe('FO')
 		await user.click(screen.getByRole('radio', { name: 'TC2 · 2D5' }))
 
 		const trap = trapOf(brain, created.id, node.id)

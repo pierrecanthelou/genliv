@@ -280,6 +280,26 @@
 			"id": "KR-132",
 			"feature": "game-system",
 			"risk": "BESTIARY SEED IS IDEMPOTENT AND DELETION-SAFE: MonsterLibraryService.seedDefaults(BESTIARY) is guarded by the MONSTER_LIBRARY_SEEDED_KEY flag. Once the flag is set (first successful seed), seedDefaults() is a no-op on every subsequent launch — a user who deletes bestiary entries does NOT get them re-injected. Tests must suppress the auto-seed by pre-setting the flag in beforeEach (window.localStorage.setItem('genliv:monster-library:seeded', 'true')) so the library starts empty and assertions on library contents remain deterministic."
+		},
+		{
+			"id": "KR-133",
+			"feature": "play-mode",
+			"risk": "MONSTER CAPACITÉS AS PLAY REGISTRY: capacités must be a KR-117 registry (MONSTER_CAPACITIES) mapping each capacity id to { trigger: CapacitéTrigger, apply: CapacitéEffect } — never an if/switch in the combat loop. The `capacity` string on MonsterConfig identifies the variant; the play runtime dispatches through the registry. Adding a new capacité effect = one registry entry, zero consumer edits. Source decisions: REGLES-PLAY-A-COMPLETER.md § H."
+		},
+		{
+			"id": "KR-134",
+			"feature": "play-mode",
+			"risk": "SESSION SAVE STATE: the play session persists via PersistenceService with a per-book key `genliv:play:session:{bookId}` (must be registered in persistenceKeys.ts, KR-011). State includes: current node id, hero snapshot (caracs, PV/PE/XP, MC bonus), full inventory (objects by id), active weapon/armor/shield ids, and the visited-node set (node ids where an object was taken or a monster was defeated — anti-farm). Battle transients (current-round state) are NOT persisted; saves happen only at node transitions."
+		},
+		{
+			"id": "KR-135",
+			"feature": "play-mode",
+			"risk": "CREATURE TYPE DRIVES AI: `creatureType` on MonsterStatBlock (and every BestiaryRow) is a KR-117 registry key (CREATURE_TYPES) whose descriptor carries flee threshold %, flee strategy (roll-based / chance / never), posture-weight overrides at low HP, and passive trait flags (e.g. immuneToFatigue for Squelette). Never infer creature type from monster name or capacity text string. Classification: humanoide (Gobelin, Orque, Hobgobelin, Sorcière, Ogre, Géant); mort-vivant (Squelette, Zombie, Spectre, Momie, Liche, Vampire); animal (Ours); animal-geant (Rat géant, Araignée géante, Loup géant, Serpent géant); creature-magique (Harpie, Méduse, Manticore, Troll, Loup-Garou, Tyrannœil). Flee rules from REGLES-PLAY-A-COMPLETER.md: humanoide at 25% PV (MC roll TC=1+ΔT); undead never; animal at 50% / animal-geant at 40% (50/50 chance); creature-magique at 10% PV (MC roll TC=ΔT; ΔT=0 → never)."
+		},
+		{
+			"id": "KR-136",
+			"feature": "play-mode",
+			"risk": "MAGIC AND SILVER WEAPON MODIFIERS: `magic: n` on EquipmentEffect.arme adds n to the wielder's MC (before AT computation) AND n to PF_base (before écart × posture multiplier). `silver: true` sets the target's effective armour to 0 during damage calculation, ONLY for monsters whose MONSTER_CAPACITIES descriptor includes `bypassedBySilver: true` (Loup-Garou). Never check templateId or monster name at call sites — the flag on the MONSTER_CAPACITIES descriptor is the only gate. Source decision: REGLES-PLAY-A-COMPLETER.md § H-bis."
 		}
 	]
 }

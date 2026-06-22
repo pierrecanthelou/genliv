@@ -1,5 +1,5 @@
 /**
- * CHARACTERISTICS — the 7 caractéristiques of the genliv game system (§ 1),
+ * CHARACTERISTICS — the 8 caractéristiques of the genliv game system (§ 1),
  * capped at 12. REPLACES the low-fi placeholder trio (habileté/endurance/chance)
  * that characteristics.ts itself flagged as "an author-defined caractéristique
  * set is a later feature" — this is that feature.
@@ -14,7 +14,7 @@
  * a persisted legacy trait id ('habilete'…) simply highlights no segment and is
  * surfaced, never coerced (KR-021).
  */
-export type Characteristic = 'FO' | 'AG' | 'DX' | 'EN' | 'IN' | 'IG' | 'CA'
+export type Characteristic = 'FO' | 'AG' | 'DX' | 'EN' | 'IN' | 'IG' | 'CA' | 'SE'
 
 export interface CharacteristicDescriptor {
 	/** Full label. */
@@ -33,9 +33,10 @@ export const CHARACTERISTICS: Record<Characteristic, CharacteristicDescriptor> =
 	IN: { label: 'Intelligence', abbr: 'IN', describe: 'Connaissances et mémoire.' },
 	IG: { label: 'Ingéniosité', abbr: 'IG', describe: 'Débrouillardise et perception.' },
 	CA: { label: 'Caractère', abbr: 'CA', describe: 'Volonté et résilience mentale.' },
+	SE: { label: 'Sens', abbr: 'SE', describe: 'Perception sensorielle et intuition.' },
 }
 
-/** Option order, derived from the registry (KR-117). */
+/** All 8 hero characteristics, derived from the registry (KR-117). */
 export const CHARACTERISTIC_VALUES = Object.keys(CHARACTERISTICS) as Characteristic[]
 
 /** The caractéristique a fresh skill roll defaults to. */

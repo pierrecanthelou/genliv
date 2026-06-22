@@ -26,6 +26,13 @@ export type NodeActionType = 'aucune' | 'pnj' | 'decor' | 'piege' | 'monstre'
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'offline' | 'error'
 
 /**
+ * Creature classification driving play-mode AI behaviour (flee thresholds,
+ * posture weights, passive flags). A KR-117 registry key (CREATURE_TYPES in
+ * play mode); the bestiary seeds the correct value for all 23 monsters (KR-135).
+ */
+export type CreatureType = 'humanoide' | 'mort-vivant' | 'animal' | 'animal-geant' | 'creature-magique'
+
+/**
  * How a game object equips, when it does (§ 3, game system). Optional on a
  * GameObject — a plain plot object carries none. A weapon contributes a PF
  * multiplier; a protection a flat damage reduction (or, for a shield, a Défensive
@@ -35,9 +42,13 @@ export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'offline' | 'error'
  * Typed as a discriminated union so TypeScript can narrow by `kind` at compile
  * time: `{ kind: 'arme', weapon: W }` and `{ kind: 'protection', protection: P }`
  * are the only valid shapes — a mixed-field object is a compile-time error.
+ *
+ * `magic`: play-mode bonus — adds n to wielder MC and PF_base (KR-136).
+ * `silver`: play-mode flag — bypasses armour on monsters with `bypassedBySilver`
+ * in their MONSTER_CAPACITIES descriptor (KR-136).
  */
 export type EquipmentEffect =
-	| { kind: 'arme'; weapon: WeaponId }
+	| { kind: 'arme'; weapon: WeaponId; magic?: number; silver?: boolean }
 	| { kind: 'protection'; protection: ProtectionId }
 
 /**
@@ -179,6 +190,8 @@ export interface MonsterStatBlock {
 	capacity?: string
 	/** Stable id of the bestiary template this was copied from (COPY-ON-USE, KR-101). */
 	templateId?: string
+	/** Creature type — drives AI flee behaviour and posture weights in play mode (KR-135). */
+	creatureType?: CreatureType
 }
 
 /** Per-node monster action config (owned by action-monster). */

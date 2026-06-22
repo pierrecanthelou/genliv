@@ -16,3 +16,4 @@ export { ObjectEditor, type ObjectEditorProps, type ObjectDraft } from './Object
 export { OutcomesEditor, type OutcomesEditorProps } from './OutcomesEditor'
 export { Stepper, type StepperProps } from './Stepper'
 export { TargetPicker, type TargetPickerProps } from './TargetPicker'
+export { Select, type SelectProps, type SelectOption } from './Select'
