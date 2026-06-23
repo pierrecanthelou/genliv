@@ -53,3 +53,10 @@ export const MONSTER_LIBRARY_KEY = `${PERSISTENCE_PREFIX}:monster-library`
  * re-injected on the next launch. Not a book key.
  */
 export const MONSTER_LIBRARY_SEEDED_KEY = `${PERSISTENCE_PREFIX}:monster-library:seeded`
+
+/**
+ * Per-book PLAY SESSION key prefix used by `src/player/utils/persist.ts` directly
+ * (the play runtime cannot depend on PersistenceService — it must be extractible).
+ * Documented here for auditability (KR-011/134). Full key = `${prefix}{bookId}`.
+ */
+export const PLAY_SESSION_KEY_PREFIX = `${PERSISTENCE_PREFIX}:play:session:`

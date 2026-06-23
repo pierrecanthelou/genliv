@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { useBrain, useOpenBook, useBookViewMode, EditorTopBar, type EditorViewMode } from './brain'
+import { buildAdventureDocument } from './brain'
 import { TreeCanvas, type RevealRequest } from './features/tree-canvas'
 import { OutlineView } from './features/outline-view'
 import { NodeEditorPanel } from './features/node-editor'
 import { ExportGameButton } from './features/book-export'
+import { PlayerModal } from './features/play-mode/components/PlayerModal'
+import type { AdventureDocument } from './player/types'
 
 /**
  * Editor shell — the composition root for the editor route (§ 02/03). It owns
@@ -23,6 +26,7 @@ export function EditorScreen({ bookId }: { bookId: string }): JSX.Element {
 	// same node can be revealed repeatedly. Owned by the shell so outline-view and
 	// tree-canvas never import each other (composition-root wiring).
 	const [reveal, setReveal] = useState<RevealRequest | undefined>(undefined)
+	const [adventure, setAdventure] = useState<AdventureDocument | null>(null)
 
 	function revealInTree(nodeId: string): void {
 		setReveal((prev) => ({ nodeId, seq: (prev?.seq ?? 0) + 1 }))
@@ -45,6 +49,11 @@ export function EditorScreen({ bookId }: { bookId: string }): JSX.Element {
 		if (node !== null) selection.select(bookId, node.id)
 	}
 
+	function handlePreview(): void {
+		if (book === null) return
+		setAdventure(buildAdventureDocument(book))
+	}
+
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
 			<EditorTopBar
@@ -55,7 +64,9 @@ export function EditorScreen({ bookId }: { bookId: string }): JSX.Element {
 				onBack={() => router.navigate({ name: 'home' })}
 				onAddNode={handleAddNode}
 				actions={<ExportGameButton bookId={bookId} />}
+				onPreview={handlePreview}
 			/>
+			<PlayerModal adventure={adventure} onClose={() => setAdventure(null)} />
 			<div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
 				<div style={{ flex: 1, minWidth: 0 }}>
 					{viewMode === 'canvas' ? <TreeCanvas reveal={reveal} /> : <OutlineView onRevealInTree={revealInTree} />}

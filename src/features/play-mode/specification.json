@@ -1,7 +1,7 @@
 {
   "feature": "play-mode",
   "created_at": "2026-06-22",
-  "status": "planned",
+  "status": "in-progress",
   "plan": {
     "goal": "Implement the full play runtime: load a book → hero creation → traverse nodes → resolve actions (décor/PNJ/piège/monstre) → manage inventory/equipment → track health/endurance/XP → save progress. All orchestration decisions are sourced from REGLES-PLAY-A-COMPLETER.md (completed 2026-06-22); that file is the canonical complement to REGLES-DU-JEU.md for play mode.",
     "design_reference": "REGLES-DU-JEU.md (math) + genliv_game_system_pack/REGLES-PLAY-A-COMPLETER.md (orchestration). Play mode is a separate app surface from the editor; the editor must never call play resolvers (KR-131).",
@@ -96,7 +96,7 @@
       {
         "id": 1,
         "goal": "Game loop skeleton + save/load: sommaire start, node traversal, +5 PE per transition, basic choice buttons, save/load session (current node + hero caracs + PV/PE). endVictory/endFailure/mort screens.",
-        "status": "planned"
+        "status": "done"
       },
       {
         "id": 2,
@@ -129,7 +129,29 @@
     ]
   },
   "implementation": {
-    "iterations_log": [],
+    "iterations_log": [
+      {
+        "id": 0,
+        "label": "walking-skeleton + iter-1",
+        "completed_at": "2026-06-23",
+        "architecture_choices": [
+          "src/player/ is a hard isolation boundary: imports only pure brain/ modules (characteristics, challenge, xp, combat, equipment, monsterCapacities, playExport types) — never BookService, PersistenceService, EventBus, or any feature (KR-131).",
+          "AdventureDocument = PlayExport (type alias in player/types.ts); buildAdventureDocument(book) in brain/utils/ is a pass-through over exportBookForPlay — no separate type invented (confirmed architecture decision).",
+          "Session persistence uses window.localStorage directly in player/utils/persist.ts (not PersistenceService) for extractibility. Key prefix 'genliv:play:session:' is mirrored in persistenceKeys.ts as PLAY_SESSION_KEY_PREFIX for auditability (KR-134).",
+          "PlayerModal lives in features/play-mode/ (editor integration), not in player/ (which stays runtime-only). EditorScreen is the composition root wiring both.",
+          "Hero is auto-rolled (2D4 per carac) on 'Nouvelle partie'; character creation screen deferred to iter 2.",
+          "sessionEngine.ts is pure (no React, no state): createSession, navigate, listChoices, determinePhase all take immutable inputs and return new objects. usePlaySession hook owns React state and auto-save side effects."
+        ],
+        "deviations_from_plan": [
+          "Walking skeleton and iter 1 shipped together (identical scope — both cover sommaire start, node traversal, +5 PE, save/load, end screens)."
+        ],
+        "test_coverage": {
+          "unit": "heroGen (rollHeroCaracs, defaultHero, pvMax/peMax derivation), sessionEngine (findSommaire, listChoices, determinePhase, navigate PE cap), persist (round-trip, key isolation, clearSession) — 33 tests",
+          "component": "deferred to iter 2 (UI-composition smoke tests)",
+          "e2e": "deferred"
+        }
+      }
+    ],
     "open_questions": [
       "Object reinforcement bonus (C5): exact schema not yet defined — could be a numeric field on EquipmentEffect or a new BoostEffect type. Decide before iter 5.",
       "PNJ 'scenario' gift items: should they auto-add to inventory, or only set a boolean presence flag? Clarify before iter 5.",

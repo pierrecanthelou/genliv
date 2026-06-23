@@ -1,6 +1,27 @@
 {
 	"features": [
 		{
+			"feature": "play-mode",
+			"completed_at": "2026-06-23",
+			"goal": "Isolated play runtime: load a book → start prompt → node traversal → +5 PE per transition → auto-save/load → end screens (victory/failure/mort).",
+			"key_architecture_choices": [
+				"src/player/ is a hard isolation boundary — zero imports from src/features/ or brain/ services; only pure brain functions (characteristics, challenge, combat, xp, equipment, monsterCapacities). Extractible to another webapp/mobile app by bundling src/player/ + pure brain modules.",
+				"AdventureDocument = PlayExport (type alias); buildAdventureDocument(book) in brain/utils/ is a pass-through over exportBookForPlay — no new type invented.",
+				"Session persistence in player/utils/persist.ts uses window.localStorage directly (not PersistenceService) for extractibility; key prefix matches persistenceKeys.ts for auditability (KR-134).",
+				"sessionEngine.ts is a pure state machine (no React, no side effects); usePlaySession hook owns React state and auto-save.",
+				"PlayerModal lives in features/play-mode/ (editor integration); EditorScreen is the composition root."
+			],
+			"brain_contracts_added": [
+				{ "type": "util", "name": "buildAdventureDocument" }
+			],
+			"lessons_learned": [
+				"Isolation boundary is straightforward to enforce when player/ is outside src/features/ — TypeScript import paths make violations visible immediately.",
+				"Combining walking-skeleton + iter 1 was the right call: the two were identical in scope (sommaire, traversal, save/load, end screens).",
+				"Tech-lead caught: role='listitem' redundant on <button> inside <div role='list'>; snapshot useState pattern needs a comment to avoid mis-copying."
+			],
+			"bugs_encountered": []
+		},
+		{
 			"feature": "book-creation",
 			"completed_at": "2026-06-16",
 			"goal": "Create a new book — name it, seed Sommaire + isolated Mort, and land in the editor.",

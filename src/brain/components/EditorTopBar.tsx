@@ -26,6 +26,8 @@ export interface EditorTopBarProps {
 	 * bar never imports a feature; the editor shell wires the node in.
 	 */
 	actions?: React.ReactNode
+	/** Wired by EditorScreen once the play runtime exists (play-mode iter 0). */
+	onPreview?: () => void
 }
 
 const monoControl: React.CSSProperties = {
@@ -53,6 +55,7 @@ export function EditorTopBar({
 	onBack,
 	onAddNode,
 	actions,
+	onPreview,
 }: EditorTopBarProps): JSX.Element {
 	return (
 		<header
@@ -105,14 +108,15 @@ export function EditorTopBar({
 				{actions}
 				<button
 					type="button"
-					disabled
-					title="Aperçu du jeu — mode lecture (hors éditeur)"
+					onClick={onPreview}
+					disabled={!onPreview}
+					title={onPreview ? 'Aperçu du jeu' : 'Aperçu du jeu — mode lecture (hors éditeur)'}
 					style={{
 						...monoControl,
-						color: 'var(--text-muted)',
+						color: onPreview ? 'var(--text-body)' : 'var(--text-muted)',
 						border: '1px solid var(--border-card)',
 						background: 'var(--surface-card)',
-						cursor: 'not-allowed',
+						cursor: onPreview ? 'pointer' : 'not-allowed',
 					}}
 				>
 					Aperçu du jeu <span aria-hidden="true">▷</span>

@@ -137,6 +137,7 @@ export {
 	type PlayWarning,
 } from './utils/playExport'
 export { downloadJson, slugifyFilename } from './utils/download'
+export { buildAdventureDocument } from './utils/buildAdventureDocument'
 export type { NodeKindDescriptor, EdgeKindDescriptor, BadgeMark } from './kinds'
 export { useOpenBook, useBooks } from './hooks'
 export { HIT_TARGET_MIN } from './ui'

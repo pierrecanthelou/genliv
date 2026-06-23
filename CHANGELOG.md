@@ -2,6 +2,19 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.5.7 — play-mode: walking skeleton + iter 1 (node traversal, auto-save, end screens)
+
+- **`src/player/`** — new isolated play runtime (zero editor imports; extractible to another webapp/mobile):
+  - `engine/heroGen.ts` — auto-roll hero (2D4 per carac); `pvMax = FO+AG+EN`, `peMax = EN`.
+  - `engine/sessionEngine.ts` — pure state machine: `createSession`, `navigate` (+5 PE per transition, capped at peMax), `listChoices`, `determinePhase` (victory / failure / mort).
+  - `utils/persist.ts` — per-book save/load via `localStorage` key `genliv:play:session:{bookId}` (KR-134).
+  - `components/PlayerRuntime.tsx` — start prompt (Continuer / Nouvelle partie) → NodeScreen → EndScreen.
+- **`brain/utils/buildAdventureDocument.ts`** — pass-through over `exportBookForPlay`; no file download.
+- **`features/play-mode/components/PlayerModal.tsx`** — fullscreen overlay; Escape key closes.
+- **EditorTopBar** — `onPreview?` prop makes « Aperçu du jeu ▷ » active when wired.
+- **EditorScreen** — wires `onPreview → buildAdventureDocument(book) → PlayerModal`.
+- 355 tests passing (+33 new).
+
 ## 0.5.6 — game-system: XP steppers, capacity registry, auto-tier
 
 - **XP attribué** (0–5) Stepper added to the PNJ editor and the Décor editor (`xp?:number` on `PnjConfig` / `DecorConfig`).
