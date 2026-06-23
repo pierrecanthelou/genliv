@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { AdventureDocument } from '../../../player/types'
 import { PlayerRuntime } from '../../../player/components/PlayerRuntime'
+import { plural } from '../../../brain/utils/plural'
 
 interface PlayerModalProps {
 	adventure: AdventureDocument | null
@@ -69,7 +70,7 @@ function PlayerModalInner({
 							style={{ marginLeft: 8, color: 'var(--bad)' }}
 							title={`${adventure.warnings.length} avertissement(s) détecté(s)`}
 						>
-							⚠ {adventure.warnings.length} avertissement{adventure.warnings.length > 1 ? 's' : ''}
+							⚠ {adventure.warnings.length} {plural(adventure.warnings.length, 'avertissement')}
 						</span>
 					)}
 				</span>

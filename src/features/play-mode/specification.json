@@ -11,7 +11,7 @@
       "A3 — `choice` edges with `prereq` are hidden when the hero does not own the referenced object; `choice` edges with `countdown` auto-redirect to `fallback` after delay seconds (only while visible).",
       "A4 — Each node transition (screen change) awards +5 PE to the hero.",
       "A5 — Nodes with `endVictory` show a victory screen; `endFailure` shows a failure screen; the `mort` node = game over.",
-      "B1 — Hero generation: computer rolls 2D4 per carac; player distributes a +1D4 bonus across any 3 caracs of their choice; rolled results are assignable to any carac in any order.",
+      "B1 — Hero generation: computer rolls 2D4 per carac; player distributes a +1D4 bonus pool freely across any caracs of their choice (not restricted to 3, cap 10 per carac at creation); rolled results are assignable to any carac in any order.",
       "B2 — Player may request 1 global re-roll (new 2D4 + 1D4 bonus round, again fully assignable); only 1 re-roll allowed per session start.",
       "B3 — Hero starts with mains nues (×0.3 weapon multiplier), no armor, no shield, 0 objects; all equipment must come from the book.",
       "B4 — Starting PE courant = EN (full endurance gauge).",
@@ -101,7 +101,7 @@
       {
         "id": 2,
         "goal": "Character creation screen: 2D4 per carac + 1D4 assignable to 3 chosen caracs, 1 re-roll, name input. Inventory + equipment management: unlimited inventory, 1 active weapon/armor, shield stacking, 2H+shield incompatibility, switching weapon costs a combat round.",
-        "status": "planned"
+        "status": "done"
       },
       {
         "id": 3,
@@ -148,6 +148,27 @@
         "test_coverage": {
           "unit": "heroGen (rollHeroCaracs, defaultHero, pvMax/peMax derivation), sessionEngine (findSommaire, listChoices, determinePhase, navigate PE cap), persist (round-trip, key isolation, clearSession) — 33 tests",
           "component": "deferred to iter 2 (UI-composition smoke tests)",
+          "e2e": "deferred"
+        }
+      },
+      {
+        "id": 2,
+        "label": "iter-2: character creation + equipment state",
+        "completed_at": "2026-06-23",
+        "architecture_choices": [
+          "charCreation.ts is pure (no React, RNG-injectable): rollCreationPool, emptyAssignment, isAssignmentComplete, baseValue, totalValue, buildHeroFromCreation. All creation math lives here.",
+          "Assignment uses rollIndices (index into rolls[], not values) so duplicate roll values (e.g. two 5s) remain independently assignable without ambiguity.",
+          "UsePlayRuntimePhase = 'start' | 'creating' | 'playing' in usePlaySession splits the runtime into three phases; CharacterCreationScreen only mounts during 'creating'.",
+          "rerollUsed tracked as local useState in PlayerRuntime (not in the hook) — it is pure UI state for the creation phase, not session data.",
+          "SessionState extended with inventory/activeWeapon/activeProtection/activeShield/armorDegradation; loadSession() applies defaults for sessions saved before iter 2 (migration guard).",
+          "CREATION_CAP = 10: per-carac cap at creation = base (roll) + bonus ≤ 10."
+        ],
+        "deviations_from_plan": [
+          "Inventory + equipment management fields are tracked in SessionState but not yet exposed as a UI — that screen comes with iter 3+ (combat/loot). The state is ready; the display is deferred."
+        ],
+        "test_coverage": {
+          "unit": "charCreation (rollCreationPool, emptyAssignment, isAssignmentComplete, baseValue, totalValue, buildHeroFromCreation, CREATION_CAP), sessionEngine (createSessionFromHero, default equipment fields), persist (migration from pre-iter-2 sessions) — 58 tests total",
+          "component": "deferred",
           "e2e": "deferred"
         }
       }

@@ -1,8 +1,20 @@
 import type { Edge } from '../../brain/types'
-import type { AdventureDocument, PlayPhase, PlayNode, SessionState } from '../types'
+import type { AdventureDocument, PlayPhase, PlayNode, SessionState, SessionEquipmentState } from '../types'
+import type { HeroState } from '../types'
+import { DEFAULT_WEAPON } from '../../brain/equipment'
 import { rollHero } from './heroGen'
 
 const PE_PER_TRANSITION = 5
+
+export function defaultSessionFields(): SessionEquipmentState {
+	return {
+		inventory: [],
+		activeWeapon: DEFAULT_WEAPON,
+		activeProtection: null,
+		activeShield: false,
+		armorDegradation: 0,
+	}
+}
 
 export function findSommaire(adventure: AdventureDocument): string {
 	const node = adventure.nodes.find((n) => n.kind === 'sommaire')
@@ -27,16 +39,23 @@ export function determinePhase(adventure: AdventureDocument, session: SessionSta
 	return 'playing'
 }
 
+/** Create a session with an auto-rolled hero (used for quick starts; iter 1 default). */
 export function createSession(
 	adventure: AdventureDocument,
 	rng: () => number = Math.random,
 ): SessionState {
 	const hero = rollHero('Aventurier', rng)
+	return createSessionFromHero(adventure, hero)
+}
+
+/** Create a session from a fully-specified hero (from the character creation screen). */
+export function createSessionFromHero(adventure: AdventureDocument, hero: HeroState): SessionState {
 	return {
 		bookId: adventure.book.id,
 		currentNodeId: findSommaire(adventure),
 		hero,
 		visitedNodes: [],
+		...defaultSessionFields(),
 	}
 }
 

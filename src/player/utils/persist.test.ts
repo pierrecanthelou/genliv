@@ -16,6 +16,11 @@ function makeSession(bookId = 'book-1'): SessionState {
 			xp: 0,
 		},
 		visitedNodes: [],
+		inventory: [],
+		activeWeapon: 'mains-nues',
+		activeProtection: null,
+		activeShield: false,
+		armorDegradation: 0,
 	}
 }
 
@@ -53,6 +58,24 @@ describe('saveSession / loadSession', () => {
 		saveSession('book-2', s2)
 		expect(loadSession('book-1')?.currentNodeId).toBe('n-1')
 		expect(loadSession('book-2')?.currentNodeId).toBe('n-2')
+	})
+})
+
+describe('loadSession migration', () => {
+	it('applies default equipment fields when loading a session saved before iter 2', () => {
+		const legacy = {
+			bookId: 'book-1',
+			currentNodeId: 'n-1',
+			hero: { name: 'Old', caracs: {}, pvMax: 10, pv: 10, peMax: 4, pe: 4, mcBonus: 0, xp: 0 },
+			visitedNodes: [],
+		}
+		window.localStorage.setItem(`${PLAY_SESSION_KEY_PREFIX}book-1`, JSON.stringify(legacy))
+		const loaded = loadSession('book-1')
+		expect(loaded?.inventory).toEqual([])
+		expect(loaded?.activeWeapon).toBe('mains-nues')
+		expect(loaded?.activeProtection).toBeNull()
+		expect(loaded?.activeShield).toBe(false)
+		expect(loaded?.armorDegradation).toBe(0)
 	})
 })
 

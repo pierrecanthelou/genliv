@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import type { AdventureDocument, PlayPhase } from '../types'
 import { getNode } from '../engine/sessionEngine'
 import { usePlaySession } from '../hooks/usePlaySession'
 import { HeroStatusBar } from './HeroStatusBar'
 import { NodeScreen } from './NodeScreen'
 import { EndScreen } from './EndScreen'
+import { CharacterCreationScreen } from './CharacterCreationScreen'
 
 interface PlayerRuntimeProps {
 	adventure: AdventureDocument
@@ -11,17 +13,66 @@ interface PlayerRuntimeProps {
 }
 
 export function PlayerRuntime({ adventure, onQuit }: PlayerRuntimeProps): JSX.Element {
-	const { session, choices, phase, hasSavedSession, resume, startNew, navigateTo, restart } =
-		usePlaySession(adventure)
+	const {
+		session,
+		choices,
+		phase,
+		runtimePhase,
+		creationPool,
+		hasSavedSession,
+		resume,
+		goToCreation,
+		rerollCreation,
+		confirmHero,
+		navigateTo,
+		restart,
+	} = usePlaySession(adventure)
 
-	if (session === null) {
+	const [rerollUsed, setRerollUsed] = useState(false)
+
+	function handleGoToCreation(): void {
+		setRerollUsed(false)
+		goToCreation()
+	}
+
+	function handleRestart(): void {
+		setRerollUsed(false)
+		restart()
+	}
+
+	function handleReroll(): void {
+		rerollCreation()
+		setRerollUsed(true)
+	}
+
+	if (runtimePhase === 'start') {
 		return (
 			<StartPrompt
 				bookTitle={adventure.book.title}
 				hasSavedSession={hasSavedSession}
 				onContinue={resume}
-				onNew={startNew}
+				onNew={handleGoToCreation}
 			/>
+		)
+	}
+
+	if (runtimePhase === 'creating' && creationPool !== null) {
+		return (
+			<CharacterCreationScreen
+				key={creationPool.rolls.join('-')}
+				pool={creationPool}
+				onConfirm={confirmHero}
+				onReroll={handleReroll}
+				rerollUsed={rerollUsed}
+			/>
+		)
+	}
+
+	if (session === null) {
+		return (
+			<div style={{ padding: 'var(--space-12)', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+				Chargement…
+			</div>
 		)
 	}
 
@@ -34,7 +85,7 @@ export function PlayerRuntime({ adventure, onQuit }: PlayerRuntimeProps): JSX.El
 				<EndScreen
 					phase={phase as Exclude<PlayPhase, 'playing'>}
 					node={currentNode}
-					onRestart={restart}
+					onRestart={handleRestart}
 					onQuit={onQuit}
 				/>
 			</div>
@@ -47,7 +98,7 @@ export function PlayerRuntime({ adventure, onQuit }: PlayerRuntimeProps): JSX.El
 			{currentNode !== null ? (
 				<NodeScreen node={currentNode} choices={choices} onChoice={navigateTo} />
 			) : (
-				<div style={{ padding: 'var(--space-12)', color: 'var(--text-muted)' }}>
+				<div style={{ padding: 'var(--space-12)', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
 					Écran introuvable (id: {session.currentNodeId}).
 				</div>
 			)}

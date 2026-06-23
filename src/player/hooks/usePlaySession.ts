@@ -1,16 +1,24 @@
 import { useState, useCallback } from 'react'
 import type { Edge } from '../../brain/types'
-import type { AdventureDocument, PlayPhase, SessionState } from '../types'
-import { createSession, navigate, listChoices, determinePhase } from '../engine/sessionEngine'
+import type { AdventureDocument, PlayPhase, SessionState, HeroState } from '../types'
+import type { CreationPool } from '../engine/charCreation'
+import { rollCreationPool } from '../engine/charCreation'
+import { createSessionFromHero, navigate, listChoices, determinePhase } from '../engine/sessionEngine'
 import { saveSession, loadSession, clearSession } from '../utils/persist'
+
+export type UsePlayRuntimePhase = 'start' | 'creating' | 'playing'
 
 export interface UsePlaySessionResult {
 	session: SessionState | null
 	choices: Edge[]
 	phase: PlayPhase | null
+	runtimePhase: UsePlayRuntimePhase
+	creationPool: CreationPool | null
 	hasSavedSession: boolean
 	resume: () => void
-	startNew: () => void
+	goToCreation: () => void
+	rerollCreation: () => void
+	confirmHero: (hero: HeroState) => void
 	navigateTo: (targetNodeId: string) => void
 	restart: () => void
 }
@@ -21,21 +29,39 @@ export function usePlaySession(adventure: AdventureDocument): UsePlaySessionResu
 	// NOTE: snapshot at mount — not reactive after startNew/restart. Safe here because
 	// the start prompt unmounts once session is set; do not copy this pattern.
 	const [hasSavedSession] = useState<boolean>(() => loadSession(bookId) !== null)
+	const [runtimePhase, setRuntimePhase] = useState<UsePlayRuntimePhase>('start')
+	const [creationPool, setCreationPool] = useState<CreationPool | null>(null)
 
 	const choices = session ? listChoices(adventure, session) : []
 	const phase = session ? determinePhase(adventure, session) : null
 
 	const resume = useCallback(() => {
 		const saved = loadSession(bookId)
-		if (saved) setSession(saved)
+		if (saved) {
+			setSession(saved)
+			setRuntimePhase('playing')
+		}
 	}, [bookId])
 
-	const startNew = useCallback(() => {
-		clearSession(bookId)
-		const s = createSession(adventure)
-		setSession(s)
-		saveSession(bookId, s)
-	}, [adventure, bookId])
+	const goToCreation = useCallback(() => {
+		setCreationPool(rollCreationPool())
+		setRuntimePhase('creating')
+	}, [])
+
+	const rerollCreation = useCallback(() => {
+		setCreationPool(rollCreationPool())
+	}, [])
+
+	const confirmHero = useCallback(
+		(hero: HeroState) => {
+			clearSession(bookId)
+			const s = createSessionFromHero(adventure, hero)
+			setSession(s)
+			saveSession(bookId, s)
+			setRuntimePhase('playing')
+		},
+		[adventure, bookId],
+	)
 
 	const navigateTo = useCallback(
 		(targetNodeId: string) => {
@@ -49,10 +75,23 @@ export function usePlaySession(adventure: AdventureDocument): UsePlaySessionResu
 
 	const restart = useCallback(() => {
 		clearSession(bookId)
-		const s = createSession(adventure)
-		setSession(s)
-		saveSession(bookId, s)
-	}, [adventure, bookId])
+		setSession(null)
+		setCreationPool(rollCreationPool())
+		setRuntimePhase('creating')
+	}, [bookId])
 
-	return { session, choices, phase, hasSavedSession, resume, startNew, navigateTo, restart }
+	return {
+		session,
+		choices,
+		phase,
+		runtimePhase,
+		creationPool,
+		hasSavedSession,
+		resume,
+		goToCreation,
+		rerollCreation,
+		confirmHero,
+		navigateTo,
+		restart,
+	}
 }

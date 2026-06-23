@@ -1,4 +1,4 @@
-import { findSommaire, getNode, listChoices, determinePhase, createSession, navigate } from './sessionEngine'
+import { findSommaire, getNode, listChoices, determinePhase, createSession, createSessionFromHero, navigate } from './sessionEngine'
 import type { AdventureDocument, SessionState } from '../types'
 import type { Edge } from '../../brain/types'
 
@@ -40,6 +40,11 @@ function makeSession(overrides: Partial<SessionState> = {}): SessionState {
 			xp: 0,
 		},
 		visitedNodes: [],
+		inventory: [],
+		activeWeapon: 'mains-nues',
+		activeProtection: null,
+		activeShield: false,
+		armorDegradation: 0,
 		...overrides,
 	}
 }
@@ -118,6 +123,29 @@ describe('createSession', () => {
 	it('hero PV starts at pvMax', () => {
 		const session = createSession(makeAdventure())
 		expect(session.hero.pv).toBe(session.hero.pvMax)
+	})
+})
+
+describe('createSessionFromHero', () => {
+	const hero = makeSession().hero
+
+	it('places the hero at sommaire', () => {
+		const s = createSessionFromHero(makeAdventure(), hero)
+		expect(s.currentNodeId).toBe('n-sommaire')
+	})
+
+	it('preserves the supplied hero', () => {
+		const s = createSessionFromHero(makeAdventure(), hero)
+		expect(s.hero).toEqual(hero)
+	})
+
+	it('initialises default equipment fields', () => {
+		const s = createSessionFromHero(makeAdventure(), hero)
+		expect(s.inventory).toEqual([])
+		expect(s.activeWeapon).toBe('mains-nues')
+		expect(s.activeProtection).toBeNull()
+		expect(s.activeShield).toBe(false)
+		expect(s.armorDegradation).toBe(0)
 	})
 })
 

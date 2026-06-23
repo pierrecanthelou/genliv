@@ -2,6 +2,16 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.5.8 — play-mode iter 2: character creation screen + equipment state
+
+- **`src/player/engine/charCreation.ts`** — pure creation logic: `rollCreationPool` (8×2D4 + 1D4 bonus), `emptyAssignment`, `isAssignmentComplete`, `baseValue/totalValue`, `buildHeroFromCreation`. `CREATION_CAP = 10`.
+- **`src/player/components/CharacterCreationScreen.tsx`** — interactive pool assignment (click pool die → click carac), bonus stepper per carac (capped at CREATION_CAP), 1-reroll, name input, "Valider →" enabled when complete.
+- **`src/player/hooks/usePlaySession`** — `UsePlayRuntimePhase = 'start' | 'creating' | 'playing'`; `goToCreation`, `rerollCreation`, `confirmHero` replace `startNew`; `restart` now goes to creation screen.
+- **`src/player/engine/sessionEngine`** — `createSessionFromHero(adventure, hero)` + `defaultSessionFields()` (inventory + equipment defaults).
+- **`src/player/utils/persist`** — `loadSession` migrates pre-iter-2 sessions (defaults inventory/equipment fields).
+- **`src/player/types`** — `SessionState` extended with `inventory`, `activeWeapon`, `activeProtection`, `activeShield`, `armorDegradation`.
+- 380 tests passing (+25 new).
+
 ## 0.5.7 — play-mode: walking skeleton + iter 1 (node traversal, auto-save, end screens)
 
 - **`src/player/`** — new isolated play runtime (zero editor imports; extractible to another webapp/mobile):

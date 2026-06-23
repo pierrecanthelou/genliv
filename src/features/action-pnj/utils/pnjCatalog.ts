@@ -15,6 +15,15 @@ export function isRefPnj(pnj: PnjConfig | undefined): boolean {
 }
 
 /**
+ * Returns the node's own PNJ config when it is a primary (non-reference) PNJ, or null.
+ * Callers avoid re-checking actionType/pnjRef individually and get a typed result directly.
+ */
+function ownPnjOf(node: BookNode | null): PnjConfig | null {
+	if (node === null || node.actionType !== 'pnj' || node.pnj === undefined || isRefPnj(node.pnj)) return null
+	return node.pnj
+}
+
+/**
  * The book's reusable-PNJ catalog — a pure VIEW (KR-020): every OWN PNJ authored
  * on a node (actionType « pnj », not itself a reference), keyed by its owner node
  * id (the PNJ's stable id). References are skipped (a ref is not an authoring
@@ -25,9 +34,8 @@ export function collectPnjs(book: Book | null): PnjEntry[] {
 	if (book === null) return []
 	const entries: PnjEntry[] = []
 	for (const node of book.nodes) {
-		if (node.actionType === 'pnj' && node.pnj !== undefined && node.pnj.pnjRef === undefined) {
-			entries.push({ nodeId: node.id, name: node.pnj.name, config: node.pnj })
-		}
+		const pnj = ownPnjOf(node)
+		if (pnj !== null) entries.push({ nodeId: node.id, name: pnj.name, config: pnj })
 	}
 	return entries
 }
@@ -42,9 +50,5 @@ export function resolvePnj(book: Book | null, node: BookNode | null): PnjConfig 
 	const pnj = node?.pnj
 	if (pnj === undefined) return null
 	if (pnj.pnjRef === undefined) return pnj
-	const owner = getNode(book, pnj.pnjRef)
-	if (owner?.pnj !== undefined && owner.actionType === 'pnj' && owner.pnj.pnjRef === undefined) {
-		return owner.pnj
-	}
-	return null
+	return ownPnjOf(getNode(book, pnj.pnjRef))
 }

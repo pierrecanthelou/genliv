@@ -77,6 +77,11 @@ function toPlayNode(node: BookNode): PlayNode {
  * targets + PNJ « mène à »/réutilisé refs, and a décor « prendre dans la liste »
  * objectRef (action-decor, KR-021). Each is surfaced, never silently dropped.
  */
+/** True when `target` is set (non-empty) but not present in `nodeIds` — a dangling reference. */
+function isDanglingRef(target: string | undefined, nodeIds: Set<string>): boolean {
+	return target !== undefined && target !== '' && !nodeIds.has(target)
+}
+
 function collectWarnings(book: Book, objectIds: Set<string>): PlayWarning[] {
 	const warnings: PlayWarning[] = []
 	const nodeIds = new Set(book.nodes.map((n) => n.id))
@@ -132,7 +137,7 @@ function collectWarnings(book: Book, objectIds: Set<string>): PlayWarning[] {
 		const here = `Le nœud « ${titleOf(node.id)} »`
 		// Monster victoire/fuite targets (set-but-unresolved is dangling; unset is legit).
 		for (const target of [node.monster?.victoryTarget, node.monster?.fleeTarget]) {
-			if (target !== undefined && target !== '' && !nodeIds.has(target)) {
+			if (isDanglingRef(target, nodeIds)) {
 				warnings.push({
 					code: 'dangling-monster-target',
 					message: `${here} (monstre) mène à une cible supprimée.`,
@@ -142,20 +147,22 @@ function collectWarnings(book: Book, objectIds: Set<string>): PlayWarning[] {
 			}
 		}
 		// PNJ « mène à » target + a reused-PNJ reference (must point at a real node).
-		if (node.pnj?.target !== undefined && node.pnj.target !== '' && !nodeIds.has(node.pnj.target)) {
+		const pnjTarget = node.pnj?.target
+		if (isDanglingRef(pnjTarget, nodeIds)) {
 			warnings.push({
 				code: 'dangling-pnj-target',
 				message: `${here} (PNJ) mène à une cible supprimée.`,
 				nodeId: node.id,
-				ref: node.pnj.target,
+				ref: pnjTarget as string,
 			})
 		}
-		if (node.pnj?.pnjRef !== undefined && node.pnj.pnjRef !== '' && !nodeIds.has(node.pnj.pnjRef)) {
+		const pnjRef = node.pnj?.pnjRef
+		if (isDanglingRef(pnjRef, nodeIds)) {
 			warnings.push({
 				code: 'dangling-pnj-target',
 				message: `${here} réutilise un PNJ supprimé.`,
 				nodeId: node.id,
-				ref: node.pnj.pnjRef,
+				ref: pnjRef as string,
 			})
 		}
 		// Décor « prendre dans la liste » references to a catalog object by id.
