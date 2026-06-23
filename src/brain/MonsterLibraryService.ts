@@ -1,6 +1,7 @@
 import type { PersistenceService } from './PersistenceService'
 import type { MonsterConfig } from './types'
 import { MONSTER_LIBRARY_KEY, MONSTER_LIBRARY_SEEDED_KEY } from './persistenceKeys'
+import { MONSTER_CAPACITIES, type MonsterCapacityId } from './monsterCapacities'
 import { createId } from './utils/id'
 
 /** One reusable monster in the library — a stable id + its config (node-specific targets stripped). */
@@ -72,7 +73,23 @@ export function createMonsterLibraryService(local: PersistenceService): MonsterL
 		},
 		seedDefaults(templates) {
 			// KR-132: one-time guard — a deleted bestiary entry must NOT come back.
-			if (local.get<boolean>(MONSTER_LIBRARY_SEEDED_KEY) === true) return
+			if (local.get<boolean>(MONSTER_LIBRARY_SEEDED_KEY) === true) {
+				// Migration pass: update legacy free-text capacity → MonsterCapacityId for any
+				// existing bestiary entry whose capacity is not a valid registry key. Runs on
+				// every launch until all entries are migrated (self-limiting once all are valid).
+				const byTemplateId = new Map(
+					templates.filter((t) => t.templateId !== undefined).map((t) => [t.templateId!, t]),
+				)
+				const migrated = cache.map((m) => {
+					if (m.config.templateId === undefined) return m
+					if (MONSTER_CAPACITIES[m.config.capacity as MonsterCapacityId] !== undefined) return m
+					const template = byTemplateId.get(m.config.templateId)
+					if (template === undefined) return m
+					return { ...m, config: { ...m.config, capacity: template.capacity } }
+				})
+				if (migrated.some((m, i) => m !== cache[i])) commit(migrated)
+				return
+			}
 			const existing = new Set(cache.map((m) => m.config.templateId).filter((t): t is string => t !== undefined))
 			const added = templates
 				.filter((t) => t.templateId === undefined || !existing.has(t.templateId))

@@ -5,6 +5,7 @@ import {
 	SegmentedControl,
 	Badge,
 	IconButton,
+	Stepper,
 	HIT_TARGET_MIN,
 	getNode,
 	collectObjects,
@@ -96,7 +97,7 @@ export function DecorEditor({ bookId, nodeId }: ActionEditorContext): JSX.Elemen
 	// KR-090) and all live fields are preserved so editing one never drops the others.
 	function writeDecor(patch: Partial<DecorConfig>): void {
 		books.updateNode(bookId, nodeId, {
-			decor: { interaction: decor.interaction, objects, reveals, ...patch },
+			decor: { interaction: decor.interaction, objects, reveals, xp: decor.xp, ...patch },
 		})
 	}
 
@@ -231,6 +232,14 @@ export function DecorEditor({ bookId, nodeId }: ActionEditorContext): JSX.Elemen
 					onChange={(reveal) => writeDecor({ reveals: { ...reveals, [decor.interaction]: reveal } })}
 				/>
 			)}
+
+			<Stepper
+				label="XP attribué"
+				value={decor.xp ?? 0}
+				min={0}
+				max={5}
+				onChange={(xp) => writeDecor({ xp })}
+			/>
 
 			{editing !== null && (
 				<ObjectEditModal

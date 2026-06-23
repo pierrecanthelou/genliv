@@ -168,6 +168,20 @@ describe('action-pnj', () => {
 		expect(portrait).toHaveAttribute('aria-disabled', 'true')
 	})
 
+	it('XP attribué stepper persists xp on the PNJ config (0–5)', async () => {
+		const user = userEvent.setup()
+		const { brain, bookId, nodeId } = setup()
+		await openPnj(user)
+
+		// Default xp is 0; increment once → xp becomes 1.
+		await user.click(screen.getByRole('button', { name: /Augmenter XP attribué/i }))
+		expect(pnjOf(brain, bookId, nodeId)?.xp).toBe(1)
+
+		// Decrement back → xp becomes 0 (floor, not negative).
+		await user.click(screen.getByRole('button', { name: /Diminuer XP attribué/i }))
+		expect(pnjOf(brain, bookId, nodeId)?.xp).toBe(0)
+	})
+
 	it('« Réutiliser un PNJ du livre » reuses an existing PNJ BY ID (a reference) — iter 3', async () => {
 		const user = userEvent.setup()
 		const brain = createBrain()

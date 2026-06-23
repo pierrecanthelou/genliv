@@ -2,6 +2,14 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.5.6 — game-system: XP steppers, capacity registry, auto-tier
+
+- **XP attribué** (0–5) Stepper added to the PNJ editor and the Décor editor (`xp?:number` on `PnjConfig` / `DecorConfig`).
+- **Capacités monstres** — replaced the free-text capacity Field with a picker from the new `MONSTER_CAPACITIES` KR-117 registry (`brain/monsterCapacities.ts`): 24 ids (`aucune` + 23 named abilities from the bestiary). The bestiary now seeds all 23 monsters with typed capacity ids. Legacy free-text values fall back to `aucune` in the editor.
+- **Tier auto-calculé** — the Tier SegmentedControl is replaced by a read-only badge computed from `tierOf(maitriseDesCoups(stats))`. Changing a carac stepper writes the new tier to `MonsterConfig.tier`. Tier is never manually editable.
+- **ObjectEditModal & TrapEditor** — characteristic picker migrated from `Select` (combobox) to `SegmentedControl` (abbr labels); `ObjectEditor` select options now show weapon multiplier and protection reduction values; invalid CSS tokens (`--border`, `--surface-2`, `--font-body`) replaced with correct tokens.
+- 321 tests passing (+5 new).
+
 ## 0.5.5 — game-system: full genliv rules pack (iter 1)
 
 - **7 caractéristiques** (FO/AG/DX/EN/IN/IG/CA, capped 12) replace the 3-trait placeholder via the `CHARACTERISTICS` KR-117 registry in `brain/characteristics.ts`.

@@ -67,6 +67,22 @@ describe('MonsterLibraryService', () => {
 		expect(window.localStorage.getItem(MONSTER_LIBRARY_KEY)).not.toBeNull()
 	})
 
+	it('seedDefaults() migrates legacy free-text capacity to registry id on subsequent launches (BUG)', () => {
+		const store = createLocalStoragePersistence()
+		const lib = createMonsterLibraryService(store)
+		// Simulate an old bestiary entry seeded with free-text capacity.
+		const oldTemplate = monster({ templateId: 'gobelin', capacity: 'Vole un objet mineur.' })
+		lib.seedDefaults([oldTemplate])
+		expect(lib.list()[0].config.capacity).toBe('Vole un objet mineur.')
+
+		// Fresh service (page reload) with updated bestiary using id.
+		const newTemplate = monster({ templateId: 'gobelin', capacity: 'vol' })
+		const lib2 = createMonsterLibraryService(store)
+		lib2.seedDefaults([newTemplate])
+		// Migration pass updated the capacity to the new id.
+		expect(lib2.list()[0].config.capacity).toBe('vol')
+	})
+
 	it('seedDefaults() seeds templates once (idempotent) and does not re-inject after deletion', () => {
 		const store = createLocalStoragePersistence()
 		const lib = createMonsterLibraryService(store)

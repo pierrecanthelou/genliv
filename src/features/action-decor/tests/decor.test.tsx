@@ -139,7 +139,7 @@ describe('action-decor', () => {
 		await user.click(screen.getByRole('button', { name: /Ajouter un objet/ }))
 		await user.type(screen.getByRole('textbox', { name: /nom de l/i }), 'Épée')
 		await user.click(screen.getByRole('switch', { name: /jet requis/i }))
-		await user.selectOptions(screen.getByRole('combobox', { name: /caractéristique du jet/i }), 'DX')
+		await user.click(screen.getByRole('radio', { name: 'DX' }))
 		await user.click(screen.getByRole('radio', { name: 'TC2 · 2D5' }))
 		await user.type(screen.getByRole('textbox', { name: /texte d/i }), 'Le mécanisme cède.')
 		await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
@@ -295,6 +295,20 @@ describe('action-decor', () => {
 		// Reopening the picker no longer offers the now-present object (excluded by id).
 		await user.click(screen.getByRole('button', { name: /Prendre dans la liste/ }))
 		expect(screen.getByText(/Aucun objet à réutiliser/)).toBeInTheDocument()
+	})
+
+	it('XP attribué stepper persists xp on the Décor config (0–5)', async () => {
+		const user = userEvent.setup()
+		const { brain, bookId, nodeId } = setup()
+		await openDecor(user)
+
+		// Default xp is 0; increment once → xp becomes 1.
+		await user.click(screen.getByRole('button', { name: /Augmenter XP attribué/i }))
+		expect(decorOf(brain, bookId, nodeId)?.xp).toBe(1)
+
+		// Decrement back → xp becomes 0 (floor, not negative).
+		await user.click(screen.getByRole('button', { name: /Diminuer XP attribué/i }))
+		expect(decorOf(brain, bookId, nodeId)?.xp).toBe(0)
 	})
 
 	it('surfaces a reused object whose target was deleted as « ⚠ objet supprimé » (KR-021)', async () => {

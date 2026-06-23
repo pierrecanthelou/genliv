@@ -146,11 +146,30 @@
 					"integration": "action-monster via App — Ajouter persists to the library + emits the event; Choisir instantiates a saved monster as a copy onto the node",
 					"e2e": "deferred (Playwright not set up)"
 				}
+			},
+			{
+				"id": 4,
+				"label": "iteration-4 (capacity registry + auto-tier)",
+				"completed_at": "2026-06-23",
+				"architecture_choices": [
+					"New brain/monsterCapacities.ts — a KR-117 registry (MONSTER_CAPACITIES) mapping 24 MonsterCapacityId values ('aucune' + 23 named abilities from the bestiary) to { label, description } descriptors. The editor stores the id on MonsterConfig.capacity; the play runtime reads the descriptor (KR-131/133). bestiary.ts migrated from free-text capacity strings to typed ids.",
+					"Tier is now READ-ONLY in the editor: computed inline as tierOf(maitriseDesCoups(stats)) — §5 bands (1–3→T1, 4–6→T2, 7–9→T3, 10–12→T4) — no useEffect (KR-013). setStat also writes the computed tier to MonsterConfig.tier so persisted data stays consistent.",
+					"The capacity free-text Field is replaced by a native <select> over MONSTER_CAPACITY_VALUES. Legacy free-text values not in the registry fall back to 'aucune' in the editor UI (MonsterConfig.capacity stays string for backward compat). The description hint renders below the select for non-aucune selections."
+				],
+				"deviations_from_plan": [
+					"MonsterCapacityDescriptor uses { label, description } only (play-mode { trigger, apply } deferred); a TODO(KR-136) comment marks the bypassedBySilver extension point for the Loup-Garou capacity."
+				],
+				"test_coverage": {
+					"unit": "monster.test.tsx: capacity select persists id + description hint, legacy free-text fallback to aucune, tier badge T1/T2 rendered correctly",
+					"integration": "321 tests passing",
+					"e2e": "deferred (Playwright not set up)"
+				}
 			}
 		],
 		"open_questions": [
 			"Cross-device sync of the monster library (currently per-device local) — a later refinement if a shared library is wanted.",
-			"Combat reinforced by an inventory object (iter 2 deferral): the by-id hidden-prereq reference over collectObjects (KR-062), a small follow-up now that collectObjects exists."
+			"Combat reinforced by an inventory object (iter 2 deferral): the by-id hidden-prereq reference over collectObjects (KR-062), a small follow-up now that collectObjects exists.",
+			"MonsterCapacityDescriptor extension for play mode: bypassedBySilver (KR-136), trigger, apply — to be added when play runtime lands."
 		]
 	}
 }

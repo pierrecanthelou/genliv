@@ -97,7 +97,7 @@ export function ObjectEditor({ value, onChange }: ObjectEditorProps): JSX.Elemen
 					>
 						{WEAPON_VALUES.map((id) => (
 							<option key={id} value={id}>
-								{WEAPONS[id].label}
+								{WEAPONS[id].label} (×{WEAPONS[id].multiplier})
 							</option>
 						))}
 					</select>
@@ -112,6 +112,7 @@ export function ObjectEditor({ value, onChange }: ObjectEditorProps): JSX.Elemen
 						{PROTECTION_VALUES.map((id) => (
 							<option key={id} value={id}>
 								{PROTECTIONS[id].label}
+								{PROTECTIONS[id].reduction > 0 ? ` (−${PROTECTIONS[id].reduction})` : ' (+1D4 parade)'}
 							</option>
 						))}
 					</select>
@@ -131,11 +132,11 @@ const sectionLabel: React.CSSProperties = {
 const selectStyle: React.CSSProperties = {
 	minHeight: 'var(--hit-target)',
 	padding: 'var(--space-2) var(--space-3)',
-	border: '1.5px solid var(--border)',
+	border: '1px solid var(--border-field)',
 	borderRadius: 'var(--r-md)',
-	background: 'var(--surface-2)',
+	background: 'var(--surface-card)',
 	color: 'var(--text-body)',
-	fontFamily: 'var(--font-body)',
+	fontFamily: 'var(--font-ui)',
 	fontSize: 'var(--fs-body)',
 	cursor: 'pointer',
 }

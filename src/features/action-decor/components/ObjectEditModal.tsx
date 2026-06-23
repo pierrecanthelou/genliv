@@ -2,7 +2,6 @@ import { useState } from 'react'
 import {
 	Modal,
 	ObjectEditor,
-	Select,
 	SegmentedControl,
 	Field,
 	Toggle,
@@ -14,13 +13,12 @@ import {
 	DEFAULT_CHALLENGE_TIER,
 	rollTier,
 	type ObjectDraft,
-	type SelectOption,
 	type SegmentedOption,
 	type SkillRoll,
-	type TakeableKind,
-	type TakeableObject,
 	type Characteristic,
 	type ChallengeTier,
+	type TakeableKind,
+	type TakeableObject,
 } from '../../../brain'
 import { TAKEABLE_KINDS, TAKEABLE_KIND_VALUES } from '../utils/takeables'
 
@@ -29,9 +27,9 @@ const KIND_OPTIONS: SegmentedOption<TakeableKind>[] = TAKEABLE_KIND_VALUES.map((
 	label: TAKEABLE_KINDS[value].label,
 }))
 
-const TRAIT_OPTIONS: SelectOption<Characteristic>[] = CHARACTERISTIC_VALUES.map((value) => ({
+const TRAIT_OPTIONS: SegmentedOption<Characteristic>[] = CHARACTERISTIC_VALUES.map((value) => ({
 	value,
-	label: `${CHARACTERISTICS[value].abbr} — ${CHARACTERISTICS[value].label}`,
+	label: CHARACTERISTICS[value].abbr,
 }))
 
 const TIER_OPTIONS: SegmentedOption<ChallengeTier>[] = CHALLENGE_TIER_VALUES.map((value) => ({
@@ -56,6 +54,10 @@ export interface ObjectEditModalProps {
  * takeable, and « Enregistrer » commits it through the owner (which persists via
  * BookService). « Annuler »/Esc discards, so a cancelled new object never lands.
  * Mounted keyed by the object id so each open starts from a fresh draft (KR-053).
+ *
+ * The optional « jet requis » uses the 8 caracs (CHARACTERISTICS, abbr segments)
+ * + a Tier de Challenge (CHALLENGE_TIERS); a legacy numeric difficulty migrates
+ * via rollTier (KR-021/116) and canonicalises to a tier on write.
  */
 export function ObjectEditModal({ takeable, isNew, onSave, onCancel }: ObjectEditModalProps): JSX.Element {
 	const [draft, setDraft] = useState<TakeableObject>(takeable)
@@ -64,8 +66,6 @@ export function ObjectEditModal({ takeable, isNew, onSave, onCancel }: ObjectEdi
 	// the fallback keeps the types honest for the optional object field.
 	const object = draft.object ?? { id: '', name: '', description: '' }
 	const nameEmpty = object.name.trim() === ''
-	// Migrate legacy numeric difficulty to a tier on read (KR-021/116).
-	const currentTier: ChallengeTier = roll !== undefined ? rollTier(roll) : DEFAULT_CHALLENGE_TIER
 
 	function setObject(value: ObjectDraft): void {
 		setDraft({ ...draft, object: { ...object, ...value } })
@@ -77,15 +77,15 @@ export function ObjectEditModal({ takeable, isNew, onSave, onCancel }: ObjectEdi
 
 	function setRoll(patch: Partial<SkillRoll>): void {
 		if (draft.roll === undefined) return
-		// Canonicalise to `tier`; drop deprecated `difficulty` on every write (KR-021).
-		const next: SkillRoll = { ...draft.roll, tier: currentTier, ...patch }
+		// Canonicalise to a tier on write — drop the deprecated numeric difficulty.
+		const next: SkillRoll = { ...draft.roll, tier: rollTier(draft.roll), ...patch }
 		delete next.difficulty
 		setDraft({ ...draft, roll: next })
 	}
 
 	return (
 		<Modal
-			title={isNew ? 'Nouvel objet à prendre' : "Modifier l’objet"}
+			title={isNew ? 'Nouvel objet à prendre' : "Modifier l'objet"}
 			confirmLabel="Enregistrer"
 			confirmDisabled={nameEmpty}
 			onCancel={onCancel}
@@ -109,22 +109,20 @@ export function ObjectEditModal({ takeable, isNew, onSave, onCancel }: ObjectEdi
 
 				{roll !== undefined && (
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-						<Select<Characteristic>
-							label="CARACTÉRISTIQUE"
+						<span style={fieldLabel}>Caractéristique</span>
+						<SegmentedControl
 							ariaLabel="Caractéristique du jet"
 							options={TRAIT_OPTIONS}
 							value={roll.trait as Characteristic}
 							onChange={(trait) => setRoll({ trait })}
 						/>
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-							<span style={fieldLabel}>Difficulté</span>
-							<SegmentedControl<ChallengeTier>
-								ariaLabel="Tier de challenge"
-								options={TIER_OPTIONS}
-								value={currentTier}
-								onChange={(tier) => setRoll({ tier })}
-							/>
-						</div>
+						<span style={fieldLabel}>Difficulté (Tier de Challenge)</span>
+						<SegmentedControl
+							ariaLabel="Tier de Challenge"
+							options={TIER_OPTIONS}
+							value={rollTier(roll)}
+							onChange={(tier) => setRoll({ tier })}
+						/>
 						<Field
 							label="TEXTE D'ÉCHEC"
 							hint="lu par le joueur"

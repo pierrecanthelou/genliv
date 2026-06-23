@@ -107,6 +107,18 @@
 			"mitigation": "KR-117 registries must expose a DEFAULT_X constant alongside WEAPON_VALUES/PROTECTION_VALUES. New registries should always include a named default; callers should always import the named constant, never index the values array.",
 			"regression_test": "src/brain/components/ObjectEditor.test.tsx",
 			"severity": "minor"
+		},
+		{
+			"id": "BUG-010",
+			"date": "2026-06-23",
+			"feature": "action-monster",
+			"discovered_at": "regression",
+			"symptom": "A monster selected from the library showed 'Aucune' in the Capacité spéciale field instead of its actual capacity (e.g. 'Vol' for a Gobelin). Observed immediately after the capacity registry (KR-117) landed.",
+			"root_cause": "MonsterLibraryService.seedDefaults() has a one-time guard (MONSTER_LIBRARY_SEEDED_KEY). When the capacity registry shipped, the guard key was already set for existing users, so seedDefaults() returned early without updating old bestiary entries that stored free-text capacity strings (e.g. 'Vole un objet mineur.'). The new MonsterEditor editor-side fallback (free-text → 'aucune') then rendered 'Aucune' for every affected library entry.",
+			"fix": "Added a migration pass inside seedDefaults() that runs even when the guard key is set. It scans all cache entries with a templateId, skips those already holding a valid MonsterCapacityId, and updates the rest from the corresponding template. Self-limiting: after all entries are migrated the pass becomes a no-op. (src/brain/MonsterLibraryService.ts)",
+			"mitigation": "The migration is tied to templateId + the registry validity check, so it cannot mutate user-authored monsters (those have no templateId). Future schema migrations of bestiary-templated entries should use the same seedDefaults migration-pass pattern rather than a separate migration step.",
+			"regression_test": "src/brain/MonsterLibraryService.test.ts — 'seedDefaults() migrates legacy free-text capacity to registry id on subsequent launches (BUG)'",
+			"severity": "major"
 		}
 	]
 }

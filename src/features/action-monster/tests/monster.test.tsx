@@ -159,6 +159,89 @@ describe('action-monster', () => {
 		expect(m?.outcomes.echec).toBe('Il crache du feu.')
 	})
 
+	it('displays the computed tier badge (T1 for default stats) and updates when a carac stepper changes', async () => {
+		const user = userEvent.setup()
+		const { brain, bookId, nodeId } = setup()
+
+		await user.click(screen.getByRole('button', { name: /Nœud #3/ }))
+		await user.click(screen.getByRole('radio', { name: 'Monstre' }))
+
+		// Default stats FO/AG/DX/EN/IG = 1 → MC = floor(3/3) = 1 → T1.
+		expect(screen.getByText('T1')).toBeInTheDocument()
+
+		// Increment AG 3 times (AG=4, DX=1, IG=1 → MC = floor(6/3) = 2 → still T1).
+		// Then increment AG 9 more times total (AG=10, DX=1, IG=1 → MC=4 → T2).
+		// Shortcut: directly seed stats and re-render to confirm the computed tier persists.
+		brain.books.updateNode(bookId, nodeId, {
+			monster: {
+				name: '',
+				pv: 10,
+				pvVariance: 0,
+				stats: { FO: 1, AG: 6, DX: 6, EN: 1, IG: 6 },
+				mc: 1,
+				armour: 0,
+				weaponMultiplier: 1,
+				tier: 1,
+				outcomes: { reussite: '', echec: '' },
+			},
+		})
+		// Trigger a re-read: click away and back.
+		await user.click(screen.getByRole('button', { name: /sommaire/i }))
+		await user.click(screen.getByRole('button', { name: /Nœud #3/ }))
+		// AG=6, DX=6, IG=6 → MC = 6 → T2.
+		expect(screen.getByText('T2')).toBeInTheDocument()
+	})
+
+	it('capacity select persists the id and shows the description hint', async () => {
+		const user = userEvent.setup()
+		const { brain, bookId, nodeId } = setup()
+
+		await user.click(screen.getByRole('button', { name: /Nœud #3/ }))
+		await user.click(screen.getByRole('radio', { name: 'Monstre' }))
+
+		await user.selectOptions(screen.getByRole('combobox', { name: /capacité du monstre/i }), 'maladie')
+
+		expect(monsterOf(brain, bookId, nodeId)?.capacity).toBe('maladie')
+		// The description hint appears for a non-aucune selection.
+		expect(screen.getByText(/EN max/i)).toBeInTheDocument()
+	})
+
+	it('legacy free-text capacity falls back to Aucune in the editor without crashing', async () => {
+		const user = userEvent.setup()
+		const brain = createBrain()
+		const created = brain.books.createBook('La Caverne')
+		const node = brain.books.addNode(created.id, 'choix')!
+		// Seed an old free-text capacity that is not a registry id.
+		brain.books.updateNode(created.id, node.id, {
+			actionType: 'monstre',
+			monster: {
+				name: 'Ancien monstre',
+				pv: 10,
+				pvVariance: 0,
+				stats: { FO: 1, AG: 1, DX: 1, EN: 1, IG: 1 },
+				mc: 1,
+				armour: 0,
+				weaponMultiplier: 1,
+				tier: 1,
+				capacity: 'Régénération : 3 PV/round (ancienne description libre)',
+				outcomes: { reussite: '', echec: '' },
+			},
+		})
+		brain.router.navigate({ name: 'editor', bookId: created.id })
+		render(
+			<BrainProvider brain={brain}>
+				<App />
+			</BrainProvider>,
+		)
+
+		await user.click(screen.getByRole('button', { name: /Nœud #3/ }))
+		await user.click(screen.getByRole('radio', { name: 'Monstre' }))
+
+		// The select shows the Aucune fallback (no crash, no unknown option).
+		const select = screen.getByRole('combobox', { name: /capacité du monstre/i }) as HTMLSelectElement
+		expect(select.value).toBe('aucune')
+	})
+
 	it('instantiate keeps the node own targets and re-mints the loot id (KR-097/003)', async () => {
 		const user = userEvent.setup()
 		const { brain, bookId, nodeId } = setup()

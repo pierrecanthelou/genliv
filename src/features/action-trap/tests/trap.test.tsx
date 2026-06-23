@@ -54,7 +54,7 @@ describe('action-trap', () => {
 		expect(trap?.fatal).toBe(true)
 	})
 
-	it('captures the skill roll: caractéristique select + difficulté (§ 05)', async () => {
+	it('captures the skill roll: caractéristique + tier de challenge (§ 05/§ 2)', async () => {
 		const user = userEvent.setup()
 		const { brain, bookId, nodeId } = setup()
 
@@ -62,7 +62,7 @@ describe('action-trap', () => {
 		await user.click(screen.getByRole('radio', { name: 'Piège' }))
 
 		// Default roll is FO / TC1; change the caractéristique and the tier.
-		await user.selectOptions(screen.getByRole('combobox', { name: /caractéristique du jet/i }), 'EN')
+		await user.click(screen.getByRole('radio', { name: 'EN' }))
 		await user.click(screen.getByRole('radio', { name: 'TC2 · 2D5' }))
 
 		const roll = trapOf(brain, bookId, nodeId)?.roll
@@ -90,7 +90,7 @@ describe('action-trap', () => {
 		await user.click(screen.getByRole('radio', { name: 'Piège' }))
 
 		// The default roll surfaces (FO/TC1 selected) without losing the seeded fields.
-		expect((screen.getByRole('combobox', { name: /caractéristique du jet/i }) as HTMLSelectElement).value).toBe('FO')
+		expect(screen.getByRole('radio', { name: 'FO' })).toHaveAttribute('aria-checked', 'true')
 		await user.click(screen.getByRole('radio', { name: 'TC2 · 2D5' }))
 
 		const trap = trapOf(brain, created.id, node.id)

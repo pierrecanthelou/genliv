@@ -87,6 +87,13 @@ export {
 	type DeltaBand,
 } from './xp'
 export { BESTIARY, BESTIARY_BY_TEMPLATE, type MonsterTier } from './bestiary'
+export {
+	MONSTER_CAPACITIES,
+	MONSTER_CAPACITY_VALUES,
+	DEFAULT_CAPACITY,
+	type MonsterCapacityId,
+	type MonsterCapacityDescriptor,
+} from './monsterCapacities'
 export type { EquipmentEffect, MonsterStatBlock } from './types'
 export { createId } from './utils/id'
 export type { EventBus, AppEvents, AppEventName } from './EventBus'

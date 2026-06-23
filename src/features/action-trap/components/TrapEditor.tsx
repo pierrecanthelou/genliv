@@ -4,7 +4,6 @@ import {
 	Field,
 	Toggle,
 	OutcomesEditor,
-	Select,
 	SegmentedControl,
 	CHARACTERISTICS,
 	CHARACTERISTIC_VALUES,
@@ -20,7 +19,6 @@ import {
 	type SkillRoll,
 	type Characteristic,
 	type ChallengeTier,
-	type SelectOption,
 	type SegmentedOption,
 } from '../../../brain'
 
@@ -32,9 +30,9 @@ const DEFAULT_TRAP: TrapConfig = {
 	fatal: false,
 }
 
-const CHARACTERISTIC_OPTIONS: SelectOption<Characteristic>[] = CHARACTERISTIC_VALUES.map((value) => ({
+const CHARACTERISTIC_OPTIONS: SegmentedOption<Characteristic>[] = CHARACTERISTIC_VALUES.map((value) => ({
 	value,
-	label: `${CHARACTERISTICS[value].abbr} — ${CHARACTERISTICS[value].label}`,
+	label: CHARACTERISTICS[value].abbr,
 }))
 
 const TIER_OPTIONS: SegmentedOption<ChallengeTier>[] = CHALLENGE_TIER_VALUES.map((value) => ({
@@ -47,14 +45,13 @@ const TIER_OPTIONS: SegmentedOption<ChallengeTier>[] = CHALLENGE_TIER_VALUES.map
  * the brain ActionRegistry (self-registered, KR-050/051). A VIEW over BookService
  * (KR-020): reads node.trap live and writes via updateNode.
  *
- * Iteration 1 — the skill roll (§ 05): a CARACTÉRISTIQUE SegmentedControl (abbr
- * labels, 7 caracs from CHARACTERISTICS, KR-117) + a TIER DE CHALLENGE
- * SegmentedControl (TC1·1D6 … TC4·4D4, from CHALLENGE_TIERS, KR-117). Legacy
- * numeric `difficulty` is migrated via `rollTier()` on read and dropped on write
- * (KR-021/116). réussite/échec reveal uses the shared brain OutcomesEditor (KR-091).
- *
- * Iteration 2 — the « échec sanctionné » fatal flag wires the automatic →Mort
- * link (KR-067): the canvas draws a dashed « ✕ Mort » edge whenever fatal.
+ * The skill roll (§ 05/§ 2): a CARACTÉRISTIQUE SegmentedControl (the 8 caracs from
+ * CHARACTERISTICS, abbr labels, KR-117) + a TIER DE CHALLENGE SegmentedControl
+ * (TC1..TC4 from CHALLENGE_TIERS) gate which outcome applies; réussite/échec reveal
+ * texts use the shared brain OutcomesEditor (KR-091). A persisted legacy numeric
+ * difficulty migrates to a tier on read via rollTier (KR-021/116). The « échec mène
+ * à la Mort » toggle is the « échec sanctionné » fatal variant, which derives the
+ * automatic →Mort edge (deriveAutomaticEdges, KR-067).
  */
 export function TrapEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element {
 	const { books } = useBrain()
@@ -63,7 +60,6 @@ export function TrapEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element
 	// Normalise once (default + roll migration) so every read and write share one shape.
 	const trap: TrapConfig = { ...DEFAULT_TRAP, ...(node?.trap ?? {}) }
 	const roll = trap.roll ?? DEFAULT_TRAP.roll!
-	// Migrate legacy numeric difficulty to a tier on read (KR-021/116).
 	const tier = rollTier(roll)
 
 	function patchTrap(patch: Partial<TrapConfig>): void {
@@ -71,7 +67,7 @@ export function TrapEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element
 	}
 
 	function setRoll(patch: Partial<SkillRoll>): void {
-		// Canonicalise to `tier`; drop deprecated `difficulty` on every write (KR-021).
+		// Canonicalise to a tier on write — drop the deprecated numeric difficulty.
 		const next: SkillRoll = { ...roll, tier, ...patch }
 		delete next.difficulty
 		patchTrap({ roll: next })
@@ -95,15 +91,17 @@ export function TrapEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element
 
 			<div style={rollSection}>
 				<span style={sectionLabel}>Jet de caractéristique</span>
-				<Select<Characteristic>
-					label="CARACTÉRISTIQUE"
+				<SegmentedControl
 					ariaLabel="Caractéristique du jet"
 					options={CHARACTERISTIC_OPTIONS}
+					// Cast is intentional: trait is a free string for forward-compat; an
+					// unknown value simply highlights no segment (no unguarded lookup).
 					value={roll.trait as Characteristic}
 					onChange={(trait) => setRoll({ trait })}
 				/>
-				<SegmentedControl<ChallengeTier>
-					ariaLabel="Tier de challenge"
+				<span style={sectionLabel}>Difficulté (Tier de Challenge)</span>
+				<SegmentedControl
+					ariaLabel="Tier de Challenge"
 					options={TIER_OPTIONS}
 					value={tier}
 					onChange={(t) => setRoll({ tier: t })}

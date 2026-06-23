@@ -128,6 +128,20 @@
 					"integration": "action-decor via App — « Prendre dans la liste » reuses an object by id (persists objectRef, not a copy; row shows « réutilisé »); a ref to a deleted object shows « ⚠ objet supprimé »",
 					"e2e": "deferred (Playwright not set up)"
 				}
+			},
+			{
+				"id": 4,
+				"label": "iteration-4 (XP attribué)",
+				"completed_at": "2026-06-23",
+				"architecture_choices": [
+					"Added xp?: number (0–5) to DecorConfig (brain/types.ts). The Stepper is placed after the prendre/écouter/fouiller content area and before the ObjectEditModal. writeDecor canonicalisation includes xp: decor.xp so the field is preserved when interaction or objects change."
+				],
+				"deviations_from_plan": [],
+				"test_coverage": {
+					"unit": "decor.test.tsx: XP stepper increments → decor.xp === 1; decrement → 0 (floor, not negative)",
+					"integration": "321 tests passing",
+					"e2e": "deferred (Playwright not set up)"
+				}
 			}
 		],
 		"open_questions": [

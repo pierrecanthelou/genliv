@@ -140,6 +140,8 @@ export interface DecorReveal {
 /** Per-node décor action config (owned by action-decor). */
 export interface DecorConfig {
 	interaction: DecorInteraction
+	/** XP attribué au joueur pour cette interaction (0–5, § 5). */
+	xp?: number
 	/** « Prendre » takeable objects (iteration 1+). */
 	objects?: TakeableObject[]
 	/**
@@ -284,6 +286,8 @@ export interface PnjConfig {
 	 * action→target path (like the deferred trap échec→Mort edge, KR-067) is later.
 	 */
 	target?: string
+	/** XP attribué au joueur pour l'échange avec ce PNJ (0–5, § 5). */
+	xp?: number
 }
 
 export interface BookNode {

@@ -123,6 +123,20 @@
 					"integration": "action-pnj via App — « Réutiliser un PNJ du livre » persists pnjRef (owner node id) + shows the resolved identity read-only with « réutilisé »; « Ne plus réutiliser » detaches to an own PNJ; a dangling reference shows « ⚠ PNJ introuvable »",
 					"e2e": "deferred (Playwright not set up)"
 				}
+			},
+			{
+				"id": 4,
+				"label": "iteration-4 (XP attribué)",
+				"completed_at": "2026-06-23",
+				"architecture_choices": [
+					"Added xp?: number (0–5) to PnjConfig (brain/types.ts). The Stepper is added after GiftSection in the own-PNJ editor branch; not shown on ref PNJs (early return at isRefPnj). patchPnj canonicalisation includes xp: pnj.xp so the field is preserved across unrelated edits."
+				],
+				"deviations_from_plan": [],
+				"test_coverage": {
+					"unit": "pnj.test.tsx: XP stepper increments → pnj.xp === 1; decrement → 0 (floor, not negative)",
+					"integration": "321 tests passing",
+					"e2e": "deferred (Playwright not set up)"
+				}
 			}
 		],
 		"open_questions": [

@@ -9,35 +9,36 @@ import {
 	OutcomesEditor,
 	Stepper,
 	TargetPicker,
-	SegmentedControl,
 	NODE_KINDS,
-	getNode,
+	CHARACTERISTICS,
 	MONSTER_CHARACTERISTICS,
-	CHARACTERISTIC_MAX,
+	MONSTER_CAPACITIES,
+	MONSTER_CAPACITY_VALUES,
+	DEFAULT_CAPACITY,
+	maitriseDesCoups,
+	tierOf,
+	getNode,
 	type ActionEditorContext,
 	type MonsterConfig,
 	type MonsterCharacteristic,
+	type MonsterCapacityId,
 	type ObjectDraft,
 	type RollOutcome,
 	type SavedMonster,
-	type SegmentedOption,
 } from '../../../brain'
 import { blankLoot } from '../utils/loot'
 import { MonsterLibraryPicker } from './MonsterLibraryPicker'
 
-/** Full default stat block for a freshly authored monster (§ 4). */
-const DEFAULT_STATS: Record<MonsterCharacteristic, number> = { FO: 1, AG: 1, DX: 1, EN: 1, IG: 1 }
-
 /**
- * The config a node falls back to before any monster is authored. The full stat
- * block is the canonical shape; old (attack/defense-only) monsters get the stat
- * defaults merged in on read so they load and canonicalise on write (KR-116).
+ * The config a node falls back to before any monster is authored. Skeleton /
+ * legacy monsters (name + outcomes, or the old attack/defense pair) get the § 4
+ * stat-block defaults filled in on read (KR-116) and canonicalise on write.
  */
 const DEFAULT_MONSTER: MonsterConfig = {
 	name: '',
 	pv: 10,
 	pvVariance: 0,
-	stats: { ...DEFAULT_STATS },
+	stats: { FO: 1, AG: 1, DX: 1, EN: 1, IG: 1 },
 	mc: 1,
 	armour: 0,
 	weaponMultiplier: 1,
@@ -45,63 +46,36 @@ const DEFAULT_MONSTER: MonsterConfig = {
 	outcomes: { reussite: '', echec: '' },
 }
 
-/** PV bounds: at least 1 PV; variance and armour may be 0. */
 const PV_MIN = 1
-const STAT_MIN = 1
-const STAT_MAX = CHARACTERISTIC_MAX
-const MC_MIN = 0
-const MC_MAX = 5
-const ARMOUR_MIN = 0
-const ARMOUR_MAX = 10
-const PV_MAX = 99
-const VARIANCE_MIN = 0
-const VARIANCE_MAX = 10
+const STAT_MIN = 0
+const STAT_MAX = 99
+const CARAC_MIN = 1
+const CARAC_MAX = 12
 
-/** Natural-weapon PF multipliers exposed to the author (§ 3/§ 4). */
+/** Preset natural-weapon multipliers (§ 4: 0.3–2, moyenne 1). */
 const WEAPON_MULTIPLIERS = [0.3, 0.5, 0.8, 1, 1.2, 1.5, 1.8, 2]
-
-type MonsterTierKey = 'T1' | 'T2' | 'T3' | 'T4'
-
-const TIER_OPTIONS: SegmentedOption<MonsterTierKey>[] = [
-	{ value: 'T1', label: 'T1' },
-	{ value: 'T2', label: 'T2' },
-	{ value: 'T3', label: 'T3' },
-	{ value: 'T4', label: 'T4' },
-]
-
-function tierToKey(t: 1 | 2 | 3 | 4 | undefined): MonsterTierKey {
-	return `T${t ?? 1}` as MonsterTierKey
-}
-
-function keyToTier(key: MonsterTierKey): 1 | 2 | 3 | 4 {
-	return Number(key.slice(1)) as 1 | 2 | 3 | 4
-}
 
 /**
  * action-monster — the « Monstre » required-action editor, mounted by node-editor
  * via the brain ActionRegistry (self-registered, KR-050/051). A VIEW over
  * BookService (KR-020): reads node.monster live and writes via updateNode.
  *
- * Iteration 1 — combat mechanics (§ 4): PV, stat block (FO/AG/DX/EN/IG steppers),
- * MC, PV variance, Armure, natural-weapon multiplier, and Tier (KR-117). Deprecated
- * `attack`/`defense` fields are ignored on write; canonical stat block is used
- * (KR-021/116). Victory/flee targets via TargetPicker (KR-109); défaite → Mort
- * is automatic (KR-067), surfaced read-only. réussite/échec texts via
- * OutcomesEditor (KR-091/117).
- *
- * Iteration 2 — « butin lâché »: a toggle revealing the shared brain ObjectEditor
- * for the loot dropped on victory (KR-052/003).
+ * Combat mechanics use the § 4 stat block: the 5 monster caracs (FO/AG/DX/EN/IG,
+ * from MONSTER_CHARACTERISTICS, full labels), Maîtrise des Coups, PV (+ variance),
+ * Armure, the natural-weapon multiplier, the monster Tier (drives XP, § 5), and a
+ * free-text Capacité. Outcome targets — victoire → « poursuit » and fuite →
+ * « reliaison » — use the shared brain TargetPicker (KR-109); défaite → Mort is
+ * automatic (KR-067). The réussite/échec reveal texts use the shared brain
+ * OutcomesEditor (KR-091). « Ajouter à la librairie » saves a reusable COPY; the
+ * MonsterLibraryPicker instantiates a bestiary template (COPY-ON-USE, KR-101).
  */
 export function MonsterEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element {
 	const { books, events, monsterLibrary } = useBrain()
 	const book = useOpenBook(bookId)
 	const node = getNode(book, nodeId)
-	// Normalise once: merge defaults for any skeleton/legacy monster (KR-116).
-	const monster: MonsterConfig = {
-		...DEFAULT_MONSTER,
-		...(node?.monster ?? {}),
-		stats: { ...DEFAULT_STATS, ...(node?.monster?.stats ?? {}) },
-	}
+	// Normalise once (defaults fill a skeleton/legacy monster's missing block, KR-116).
+	const monster: MonsterConfig = { ...DEFAULT_MONSTER, ...(node?.monster ?? {}) }
+	const stats = monster.stats ?? DEFAULT_MONSTER.stats!
 	const nodes = book?.nodes ?? []
 	const mortTitle = NODE_KINDS.mort.defaultTitle
 	const library = useMonsterLibrary()
@@ -110,20 +84,21 @@ export function MonsterEditor({ bookId, nodeId }: ActionEditorContext): JSX.Elem
 		books.updateNode(bookId, nodeId, { monster: { ...monster, ...patch } })
 	}
 
-	function patchStat(c: MonsterCharacteristic, v: number): void {
-		patchMonster({ stats: { ...(monster.stats ?? DEFAULT_STATS), [c]: v } })
+	function setStat(key: MonsterCharacteristic, value: number): void {
+		const nextStats = { ...stats, [key]: value }
+		// Tier is derived from stats (§ 5: tierOf(MC) where MC = floor((AG+DX+IG)/3)).
+		const nextTier = tierOf(maitriseDesCoups(nextStats)) as 1 | 2 | 3 | 4
+		patchMonster({ stats: nextStats, tier: nextTier })
 	}
 
-	// « Ajouter à la librairie »: persist a reusable COPY (targets stripped) to
-	// the cross-book library, then emit the event for any other listener.
 	function saveToLibrary(): void {
 		monsterLibrary.save(monster)
 		events.emit('monster:savedToLibrary', { bookId, nodeId })
 	}
 
-	// « Choisir dans la librairie »: instantiate a saved monster as an independent
-	// copy on this node — fresh loot id (KR-003) so re-uses don't collide; keep
-	// this node's own victory/flee targets (the library config carries none).
+	// « Choisir dans la librairie »: instantiate a saved/bestiary monster as an
+	// independent copy on this node — fresh loot id (KR-003); keep this node's own
+	// victory/flee targets (the library config carries none).
 	function instantiateFromLibrary(saved: SavedMonster): void {
 		const copy: MonsterConfig = JSON.parse(JSON.stringify(saved.config))
 		const loot = copy.loot !== undefined ? { ...copy.loot, id: createId('obj') } : undefined
@@ -156,7 +131,14 @@ export function MonsterEditor({ bookId, nodeId }: ActionEditorContext): JSX.Elem
 		patchMonster({ loot: { ...monster.loot, ...draft } })
 	}
 
-	const stats = monster.stats ?? DEFAULT_STATS
+	// Tier is derived from stats (readonly in editor) — §5: tierOf(maitriseDesCoups(stats)).
+	// Uses AG+DX+IG from the stats block, NOT the authored `monster.mc` field.
+	const computedTier = tierOf(maitriseDesCoups(stats))
+
+	// Capacity id; fall back to 'aucune' for legacy free-text values not in the registry.
+	const capacityId: MonsterCapacityId = MONSTER_CAPACITIES[monster.capacity as MonsterCapacityId]
+		? (monster.capacity as MonsterCapacityId)
+		: DEFAULT_CAPACITY
 
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
@@ -168,54 +150,49 @@ export function MonsterEditor({ bookId, nodeId }: ActionEditorContext): JSX.Elem
 			/>
 
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-				<span style={sectionLabel}>Caractéristiques</span>
-				{MONSTER_CHARACTERISTICS.map((c) => (
+				<span style={sectionLabel}>Caractéristiques (§ 4)</span>
+				{MONSTER_CHARACTERISTICS.map((key) => (
 					<Stepper
-						key={c}
-						label={c}
-						value={stats[c] ?? 1}
-						min={STAT_MIN}
-						max={STAT_MAX}
-						onChange={(v) => patchStat(c, v)}
+						key={key}
+						label={CHARACTERISTICS[key].label}
+						value={stats[key]}
+						min={CARAC_MIN}
+						max={CARAC_MAX}
+						onChange={(v) => setStat(key, v)}
 					/>
 				))}
-				<Stepper
-					label="MC (Maîtrise des Coups)"
-					value={monster.mc ?? 0}
-					min={MC_MIN}
-					max={MC_MAX}
-					onChange={(mc) => patchMonster({ mc })}
-				/>
 			</div>
 
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-				<span style={sectionLabel}>Points de vie</span>
-				<Stepper label="PV" value={monster.pv} min={PV_MIN} max={PV_MAX} onChange={(pv) => patchMonster({ pv })} />
+				<span style={sectionLabel}>Combat</span>
+				<Stepper
+					label="Maîtrise des coups (MC)"
+					value={monster.mc ?? 1}
+					min={STAT_MIN}
+					max={STAT_MAX}
+					onChange={(mc) => patchMonster({ mc })}
+				/>
+				<Stepper label="PV" value={monster.pv} min={PV_MIN} max={STAT_MAX} onChange={(pv) => patchMonster({ pv })} />
 				<Stepper
 					label="Variance PV (±)"
 					value={monster.pvVariance ?? 0}
-					min={VARIANCE_MIN}
-					max={VARIANCE_MAX}
+					min={STAT_MIN}
+					max={STAT_MAX}
 					onChange={(pvVariance) => patchMonster({ pvVariance })}
 				/>
-			</div>
-
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-				<span style={sectionLabel}>Défense</span>
 				<Stepper
-					label="Armure (réduction dégâts)"
+					label="Armure"
 					value={monster.armour ?? 0}
-					min={ARMOUR_MIN}
-					max={ARMOUR_MAX}
+					min={STAT_MIN}
+					max={STAT_MAX}
 					onChange={(armour) => patchMonster({ armour })}
 				/>
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-					<span style={fieldLabel}>Multiplicateur d'arme naturelle</span>
+				<label style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+					<span style={sectionLabel}>Arme naturelle (multiplicateur)</span>
 					<select
-						aria-label="Multiplicateur d'arme naturelle"
-						value={monster.weaponMultiplier ?? 1}
-						onChange={(e) => patchMonster({ weaponMultiplier: Number(e.target.value) })}
 						style={selectStyle}
+						value={String(monster.weaponMultiplier ?? 1)}
+						onChange={(e) => patchMonster({ weaponMultiplier: parseFloat(e.target.value) })}
 					>
 						{WEAPON_MULTIPLIERS.map((m) => (
 							<option key={m} value={m}>
@@ -223,26 +200,31 @@ export function MonsterEditor({ bookId, nodeId }: ActionEditorContext): JSX.Elem
 							</option>
 						))}
 					</select>
+				</label>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+					<span style={sectionLabel}>Tier (§ 5 — calculé automatiquement)</span>
+					<span style={tierBadge}>T{computedTier}</span>
 				</div>
 			</div>
 
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-				<span style={sectionLabel}>Tier</span>
-				<SegmentedControl<MonsterTierKey>
-					ariaLabel="Tier du monstre"
-					options={TIER_OPTIONS}
-					value={tierToKey(monster.tier)}
-					onChange={(k) => patchMonster({ tier: keyToTier(k) })}
-				/>
-			</div>
-
-			<Field
-				label="CAPACITÉ SPÉCIALE"
-				hint="interprétée en mode jeu"
-				value={monster.capacity ?? ''}
-				placeholder="Immunisé au feu, régénération…"
-				onChange={(e) => patchMonster({ capacity: e.target.value || undefined })}
-			/>
+			<label style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+				<span style={sectionLabel}>Capacité spéciale</span>
+				<select
+					aria-label="Capacité du monstre"
+					value={capacityId}
+					onChange={(e) => patchMonster({ capacity: e.target.value as MonsterCapacityId })}
+					style={selectStyle}
+				>
+					{MONSTER_CAPACITY_VALUES.map((id) => (
+						<option key={id} value={id}>
+							{MONSTER_CAPACITIES[id].label}
+						</option>
+					))}
+				</select>
+				{capacityId !== 'aucune' && (
+					<span style={capacityHint}>{MONSTER_CAPACITIES[capacityId].description}</span>
+				)}
+			</label>
 
 			<OutcomesEditor value={monster.outcomes} onChange={setOutcome} />
 
@@ -269,7 +251,7 @@ export function MonsterEditor({ bookId, nodeId }: ActionEditorContext): JSX.Elem
 			</div>
 
 			{/* Défaite → Mort is automatic at the end of a combat (KR-067): surfaced,
-			    never an authored edge. */}
+			    never an authored edge. The dedicated combat→Mort path wires it later. */}
 			<p style={defeatNote}>
 				Défaite → {mortTitle} <span style={{ color: 'var(--text-faint)' }}>(automatique)</span>
 			</p>
@@ -291,20 +273,41 @@ const sectionLabel: React.CSSProperties = {
 	letterSpacing: 'var(--track-eyebrow)',
 }
 
-const fieldLabel: React.CSSProperties = {
-	display: 'block',
-	fontFamily: 'var(--font-mono)',
-	fontSize: 'var(--fs-eyebrow)',
-	color: 'var(--text-label)',
-	letterSpacing: 'var(--track-eyebrow)',
-	marginBottom: 5,
-}
-
 const defeatNote: React.CSSProperties = {
 	margin: 0,
 	fontFamily: 'var(--font-mono)',
 	fontSize: 'var(--fs-meta)',
 	color: 'var(--text-muted)',
+}
+
+const tierBadge: React.CSSProperties = {
+	display: 'inline-block',
+	alignSelf: 'flex-start',
+	fontFamily: 'var(--font-mono)',
+	fontSize: 'var(--fs-body)',
+	fontWeight: 'var(--fw-semibold)',
+	color: 'var(--text-strong)',
+	background: 'var(--surface-chip)',
+	borderRadius: 'var(--r-sm)',
+	padding: 'var(--space-1) var(--space-3)',
+}
+
+const capacityHint: React.CSSProperties = {
+	fontFamily: 'var(--font-mono)',
+	fontSize: 'var(--fs-meta)',
+	color: 'var(--text-muted)',
+	lineHeight: 1.4,
+}
+
+const selectStyle: React.CSSProperties = {
+	minHeight: 'var(--hit-target)',
+	padding: '0 var(--space-3)',
+	border: '1px solid var(--border-field)',
+	borderRadius: 'var(--r-md)',
+	background: 'var(--surface-card)',
+	color: 'var(--text-body)',
+	fontFamily: 'var(--font-ui)',
+	fontSize: 'var(--fs-body)',
 }
 
 const libraryButton: React.CSSProperties = {
@@ -319,17 +322,5 @@ const libraryButton: React.CSSProperties = {
 	color: 'var(--accent)',
 	fontFamily: 'var(--font-mono)',
 	fontSize: 'var(--fs-meta)',
-	cursor: 'pointer',
-}
-
-const selectStyle: React.CSSProperties = {
-	minHeight: 'var(--hit-target)',
-	padding: 'var(--space-2) var(--space-3)',
-	border: '1.5px solid var(--border)',
-	borderRadius: 'var(--r-md)',
-	background: 'var(--surface-2)',
-	color: 'var(--text-body)',
-	fontFamily: 'var(--font-body)',
-	fontSize: 'var(--fs-body)',
 	cursor: 'pointer',
 }
