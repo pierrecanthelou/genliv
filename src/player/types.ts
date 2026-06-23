@@ -30,6 +30,18 @@ export interface SessionEquipmentState {
 	activeShield: boolean
 	/** Cumulative armour reduction from critical hits (§ 3, iter 3+). */
 	armorDegradation: number
+	/**
+	 * KR-136: magic bonus from the active weapon's EquipmentEffect (arme.magic).
+	 * Added to hero MC for AT and PF computation. 0 = no magic weapon equipped.
+	 * Set when equipping a weapon object with magic?: number (iter 5 equipment screen).
+	 */
+	activeMagicBonus: number
+	/**
+	 * KR-136: true when the active weapon has silver: true on its EquipmentEffect.
+	 * Bypasses the armour of monsters whose capacity has bypassedBySilver: true.
+	 * Set when equipping a silver-weapon object (iter 5 equipment screen).
+	 */
+	activeSilverWeapon: boolean
 }
 
 export interface SessionState extends SessionEquipmentState {

@@ -13,6 +13,8 @@ export function defaultSessionFields(): SessionEquipmentState {
 		activeProtection: null,
 		activeShield: false,
 		armorDegradation: 0,
+		activeMagicBonus: 0,
+		activeSilverWeapon: false,
 	}
 }
 

@@ -45,6 +45,8 @@ function makeSession(overrides: Partial<SessionState> = {}): SessionState {
 		activeProtection: null,
 		activeShield: false,
 		armorDegradation: 0,
+		activeMagicBonus: 0,
+		activeSilverWeapon: false,
 		...overrides,
 	}
 }

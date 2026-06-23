@@ -2,6 +2,19 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.5.10 — play-mode iter 4: CAPACITY_HOOKS registry (23 capacités, magic/silver)
+
+- **`src/player/engine/combatTypes.ts`** (NEW) — shared combat types extracted to avoid circular imports (CombatState, MonsterInstance, CombatEffectsState, defaultEffectsState).
+- **`src/player/engine/capacityEffects.ts`** (NEW) — `CAPACITY_HOOKS: Record<MonsterCapacityId, CapacityHooks>` — all 23 capacités wired as pure lifecycle hooks (KR-133). Covers: maladie, vol, se-relève, chant-stressant, fureur, poison/venin (DoT), renversement, étreinte (×2 on 3rd win), malédiction (disarm), intangible, force-écrasante, insensible, piques (pre-combat), régénération/argentée, séisme (stun), magie/rayon (armour bypass + per-round effects), vol-de-vie.
+- **`src/player/engine/capacityEffects.test.ts`** (NEW) — 35 targeted hook tests.
+- **`src/player/engine/combatEngine.ts`** (rewrite) — dispatches all monster behaviour through `CAPACITY_HOOKS`; KR-136 magic bonus + silver armour bypass wired.
+- **`src/brain/monsterCapacities.ts`** — `bypassedBySilver?: boolean` on descriptor; `magie` description corrected to match implementation.
+- **`src/player/types.ts`** — `activeMagicBonus: number`, `activeSilverWeapon: boolean` on `SessionEquipmentState`.
+- **`src/player/engine/sessionEngine.ts`** — defaults for new session fields.
+- **`src/player/hooks/useCombat.ts`** — `onVictory` extended with `enMaxDelta/pvMaxDelta/volTriggered`.
+- **`src/player/hooks/usePlaySession.ts`** — `finishCombat` applies post-combat permanent mutations.
+- **`src/player/components/PlayerRuntime.tsx`** — updated combat callbacks.
+
 ## 0.5.9 — play-mode iter 3: combat engine (CREATURE_TYPES, posture AI, flee, E1, XP)
 
 - **`src/brain/creatureTypes.ts`** — `CREATURE_TYPES` KR-135 registry: flee threshold/strategy, posture weights, `immuneToFatigue` per creatureType. Mort-vivants have `immuneToFatigue: true` (no PE gauge).

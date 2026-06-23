@@ -8,7 +8,17 @@ import type { Posture } from '../../brain/combat'
 export type { CombatState }
 
 export interface UseCombatCallbacks {
-	onVictory: (victoryTarget: string | null, loot: GameObject | null, xp: number, updatedPv: number, updatedPe: number, armorDeg: number) => void
+	onVictory: (
+		victoryTarget: string | null,
+		loot: GameObject | null,
+		xp: number,
+		updatedPv: number,
+		updatedPe: number,
+		armorDeg: number,
+		enMaxDelta: number,
+		pvMaxDelta: number,
+		volTriggered: boolean,
+	) => void
 	onFlee: (fleeTarget: string, updatedPv: number, updatedPe: number, armorDeg: number) => void
 	onDeath: () => void
 	onSurvivedUnconscious: (updatedPe: number, armorDeg: number) => void
@@ -47,7 +57,17 @@ export function useCombat(
 		switch (s.outcome) {
 			case 'hero-victory':
 			case 'monster-fled':
-				cb.onVictory(s.monster.victoryTarget, s.pendingLoot, s.pendingXp, s.heroPv, s.heroPe, s.heroArmorDegradation)
+				cb.onVictory(
+					s.monster.victoryTarget,
+					s.pendingLoot,
+					s.pendingXp,
+					s.heroPv,
+					s.heroPe,
+					s.heroArmorDegradation,
+					s.pendingEnMaxDelta,
+					s.pendingPvMaxDelta,
+					s.pendingVol,
+				)
 				break
 			case 'hero-fled':
 				if (s.monster.fleeTarget !== null) {

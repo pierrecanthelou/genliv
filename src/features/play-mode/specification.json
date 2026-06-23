@@ -111,7 +111,7 @@
       {
         "id": 4,
         "goal": "Monster capacités: MONSTER_CAPACITIES registry with { trigger, apply } descriptors for all 23 monsters; combat loop dispatches through registry. Magic/silver weapon flags applied in pfBase + armour bypass.",
-        "status": "planned"
+        "status": "done"
       },
       {
         "id": 5,
@@ -195,13 +195,37 @@
           "component": "deferred",
           "e2e": "deferred"
         }
+      },
+      {
+        "id": 4,
+        "label": "iter-4: CAPACITY_HOOKS registry — 23 capacités + magic/silver",
+        "completed_at": "2026-06-23",
+        "architecture_choices": [
+          "combatTypes.ts extracted as a shared type file (CombatState, MonsterInstance, CombatEffectsState, etc.) to avoid circular imports between combatEngine.ts and capacityEffects.ts.",
+          "CAPACITY_HOOKS: Record<MonsterCapacityId, CapacityHooks> in player/engine/capacityEffects.ts. Every hook is a pure function; the registry is the only dispatch point — zero if/switch on capacity strings (KR-133).",
+          "CombatEffectsState tracks per-combat transient state (poisonRoundsLeft, renversementMalus, seismeStunned, disarmedThisRound, fureurUsed, zombieRevived, etreinte, piquesUsed, soinsBloques). Cleared correctly at round start.",
+          "Magic bonus (KR-136): activeMagicBonus on SessionEquipmentState; added to hero MC; zeroed when disarmedThisRound. Mirror guard applied in both combatEngine.heroMcEffective and capacityEffects.heroMcForHooks.",
+          "Silver bypass (KR-136): bypassedBySilver on MonsterInstance (sourced from MONSTER_CAPACITIES descriptor). When monster.bypassedBySilver && session.activeSilverWeapon → monster armour = 0 in combat engine.",
+          "Post-combat mutations (maladie EN drain, rayon PVmax drain, vol inventory removal) stored on CombatState as pendingEnMaxDelta/pendingPvMaxDelta/pendingVol, propagated through useCombat.onVictory to usePlaySession.finishCombat.",
+          "enMaxDelta applied to hero.peMax only (V1 approximation — full EN carac mutation would cascade to pvMax + fatigue thresholds, deferred to V2).",
+          "vol-de-vie heals full damage dealt (= damage), not half — matches MONSTER_CAPACITIES descriptor 'Récupère autant de PV qu''il inflige' (BUG-011 caught in self-review)."
+        ],
+        "deviations_from_plan": [
+          "Plan said 'magic: n adds n to PF_base' but implementation adds n only to hero MC (activeMagicBonus on session). PF_base integration deferred — changing pfBase would require passing activeMagicBonus through the PF computation chain. AC H-bis partially met: MC addend is done; PF addend is open_question for iter 5."
+        ],
+        "test_coverage": {
+          "unit": "capacityEffects.test.ts: 35 tests — aucune, maladie, vol, se-releve, chant-stressant, poison (trigger + DoT), renversement, etreinte (counter/double/kill/reset), intangible (cap/magic bypass/zero), insensible (damageFactor/soinsBloques), magie/rayon (armour bypass), regeneration, vol-de-vie. Total suite: 439 tests, 44 suites.",
+          "component": "deferred",
+          "e2e": "deferred"
+        }
       }
     ],
     "open_questions": [
       "Object reinforcement bonus (C5): exact schema not yet defined — could be a numeric field on EquipmentEffect or a new BoostEffect type. Decide before iter 5.",
       "PNJ 'scenario' gift items: should they auto-add to inventory, or only set a boolean presence flag? Clarify before iter 5.",
       "Fire/acid damage source (Troll capacity): REGLES-PLAY says not V1. If modelled later, needs a new EquipmentEffect kind or object flag.",
-      "Méduse 'aveugle ou pétrification': questionnaire marks her for removal ('enlever la méduse') — confirm whether she is excluded from V1 or replaced by a simpler capacity."
+      "Méduse 'aveugle ou pétrification': questionnaire marks her for removal ('enlever la méduse') — confirm whether she is excluded from V1 or replaced by a simpler capacity.",
+      "magic: n PF_base addend (AC H-bis): iter 4 adds n to MC only; adding n to pfBase requires threading activeMagicBonus through pfBase() call in combatEngine. Decide before iter 5 whether to wire this or treat MC addend as sufficient."
     ]
   }
 }

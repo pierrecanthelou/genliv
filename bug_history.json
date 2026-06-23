@@ -119,6 +119,30 @@
 			"mitigation": "The migration is tied to templateId + the registry validity check, so it cannot mutate user-authored monsters (those have no templateId). Future schema migrations of bestiary-templated entries should use the same seedDefaults migration-pass pattern rather than a separate migration step.",
 			"regression_test": "src/brain/MonsterLibraryService.test.ts — 'seedDefaults() migrates legacy free-text capacity to registry id on subsequent launches (BUG)'",
 			"severity": "major"
+		},
+		{
+			"id": "BUG-011",
+			"date": "2026-06-23",
+			"feature": "play-mode",
+			"discovered_at": "iteration-4",
+			"symptom": "Vol de vie (Vampire) healed only half the damage dealt instead of the full damage, contradicting the spec entry 'Récupère autant de PV qu'il inflige de dégâts'.",
+			"root_cause": "capacityEffects.ts used Math.floor(damage/2) instead of damage in the vol-de-vie onMonsterWon hook — a V1 overly-cautious simplification that was not aligned with the registry descriptor.",
+			"fix": "Changed heal = Math.floor(damage / 2) to heal = damage in CAPACITY_HOOKS['vol-de-vie'].onMonsterWon (src/player/engine/capacityEffects.ts:524). Updated test expectation from 13 to 16 for a 6-damage hit with 10 starting PV.",
+			"mitigation": "Always cross-check hook implementations against the descriptor text in MONSTER_CAPACITIES (brain/monsterCapacities.ts). The descriptor is the authoritative rule text; the hook is the implementation. Mismatches surface during self-review by comparing comment vs code.",
+			"regression_test": "src/player/engine/capacityEffects.test.ts — 'vol-de-vie heals monster by the full damage dealt'",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-012",
+			"date": "2026-06-23",
+			"feature": "play-mode",
+			"discovered_at": "iteration-4",
+			"symptom": "combatEngine.ts locally re-declared type HitQuality, duplicating the canonical export from brain/combat.ts. No runtime bug but a DRY violation and drift risk.",
+			"root_cause": "Initial implementation omitted the import of HitQuality from brain/combat.ts and re-declared it locally instead.",
+			"fix": "Added HitQuality to the type import from '../../brain/combat' in combatEngine.ts and removed the local const HIT_ORDER as const / type HitQuality declaration, replacing it with a plain HitQuality[] array.",
+			"mitigation": "When adding types already exported from brain/, always import from the canonical source rather than re-declaring locally.",
+			"regression_test": "tsc --noEmit (type check only, no runtime regression)",
+			"severity": "minor"
 		}
 	]
 }

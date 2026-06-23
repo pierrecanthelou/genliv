@@ -36,7 +36,12 @@ export interface MonsterCapacityDescriptor {
 	label: string
 	/** Full play-mode description (rule text shown in editor + interpreted at runtime). */
 	description: string
-	// TODO(KR-136): add bypassedBySilver?: boolean when play mode lands (Loup-Garou entry needs it).
+	/**
+	 * KR-136: when true, a hero wielding a silver weapon bypasses this monster's armour
+	 * (and/or armour-replacement effects like regeneration-argentee regen stop). Applied
+	 * in combatEngine.ts via session.activeSilverWeapon.
+	 */
+	bypassedBySilver?: boolean
 }
 
 export const MONSTER_CAPACITIES: Record<MonsterCapacityId, MonsterCapacityDescriptor> = {
@@ -80,6 +85,7 @@ export const MONSTER_CAPACITIES: Record<MonsterCapacityId, MonsterCapacityDescri
 	'regeneration-argentee': {
 		label: 'Régénération argentée',
 		description: "2 PV/round. Armure ignorée par l'argent.",
+		bypassedBySilver: true,
 	},
 	seisme: {
 		label: 'Séisme',

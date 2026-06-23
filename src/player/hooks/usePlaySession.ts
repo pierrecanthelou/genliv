@@ -20,6 +20,14 @@ export interface FinishCombatOpts {
 	combatNodeId: string
 	/** True when monster was defeated / hero survived unconscious; false on flee. */
 	markVisited: boolean
+	/**
+	 * Permanent session mutations from capacity hooks (iter 4).
+	 * enMaxDelta: maladie (−1 EN max). pvMaxDelta: liche drain (−1D4 PV max).
+	 * volTriggered: gobelin stole an inventory object.
+	 */
+	enMaxDelta: number
+	pvMaxDelta: number
+	volTriggered: boolean
 }
 
 export interface UsePlaySessionResult {
@@ -108,14 +116,26 @@ export function usePlaySession(adventure: AdventureDocument): UsePlaySessionResu
 					opts.nextNodeId !== null
 						? Math.min(opts.updatedPe + PE_PER_TRANSITION, prev.hero.peMax)
 						: opts.updatedPe
+				// Apply permanent session mutations from capacity hooks (maladie, liche, vol).
+				// V1 approximation: enMaxDelta (maladie −1 EN) reduces peMax only.
+				// Full EN carac mutation would also cascade to pvMax and fatigue thresholds; deferred.
+				const newEnMax = Math.max(1, prev.hero.peMax + opts.enMaxDelta)
+				const newPvMax = Math.max(1, prev.hero.pvMax + opts.pvMaxDelta)
+				// Vol: remove last inventory item (first minor object proxy for V1).
+				const inventoryAfterVol =
+					opts.volTriggered && prev.inventory.length > 0
+						? prev.inventory.slice(0, -1)
+						: prev.inventory
+				const newInventory =
+					opts.loot !== null ? [...inventoryAfterVol, opts.loot.id] : inventoryAfterVol
 				const updatedHero: HeroState = {
 					...prev.hero,
-					pv: opts.updatedPv,
+					pv: Math.min(opts.updatedPv, newPvMax),
+					pvMax: newPvMax,
 					pe: peAfterCombat,
+					peMax: newEnMax,
 					xp: prev.hero.xp + opts.xp,
 				}
-				const newInventory =
-					opts.loot !== null ? [...prev.inventory, opts.loot.id] : prev.inventory
 				const newVisited =
 					opts.markVisited && !prev.visitedNodes.includes(opts.combatNodeId)
 						? [...prev.visitedNodes, opts.combatNodeId]

@@ -108,7 +108,7 @@ export function PlayerRuntime({ adventure, onQuit }: PlayerRuntimeProps): JSX.El
 		const monsterConfig = currentNode.monster
 
 		const combatCallbacks: UseCombatCallbacks = {
-			onVictory: (victoryTarget, loot, xp, updatedPv, updatedPe, armorDeg) => {
+			onVictory: (victoryTarget, loot, xp, updatedPv, updatedPe, armorDeg, enMaxDelta, pvMaxDelta, volTriggered) => {
 				finishCombat({
 					updatedPv,
 					updatedPe,
@@ -118,6 +118,9 @@ export function PlayerRuntime({ adventure, onQuit }: PlayerRuntimeProps): JSX.El
 					nextNodeId: victoryTarget,
 					combatNodeId,
 					markVisited: true,
+					enMaxDelta,
+					pvMaxDelta,
+					volTriggered,
 				})
 			},
 			onFlee: (fleeTarget, updatedPv, updatedPe, armorDeg) => {
@@ -130,6 +133,9 @@ export function PlayerRuntime({ adventure, onQuit }: PlayerRuntimeProps): JSX.El
 					nextNodeId: fleeTarget,
 					combatNodeId,
 					markVisited: false,
+					enMaxDelta: 0,
+					pvMaxDelta: 0,
+					volTriggered: false,
 				})
 			},
 			onDeath: () => navigateToMort(),
@@ -143,6 +149,9 @@ export function PlayerRuntime({ adventure, onQuit }: PlayerRuntimeProps): JSX.El
 					nextNodeId: null,
 					combatNodeId,
 					markVisited: true,
+					enMaxDelta: 0,
+					pvMaxDelta: 0,
+					volTriggered: false,
 				})
 			},
 		}

@@ -38,6 +38,8 @@ const baseSession: SessionState = {
 	activeProtection: null,
 	activeShield: false,
 	armorDegradation: 0,
+	activeMagicBonus: 0,
+	activeSilverWeapon: false,
 }
 
 // Deterministic rng: returns values in sequence
