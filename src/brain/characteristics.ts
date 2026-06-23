@@ -14,7 +14,7 @@
  * a persisted legacy trait id ('habilete'…) simply highlights no segment and is
  * surfaced, never coerced (KR-021).
  */
-export type Characteristic = 'FO' | 'AG' | 'DX' | 'EN' | 'IN' | 'IG' | 'CA' | 'SE'
+export type Characteristic = 'FO' | 'AG' | 'DX' | 'EN' | 'IN' | 'IG' | 'SE' | 'CA'
 
 export interface CharacteristicDescriptor {
 	/** Full label. */
@@ -31,9 +31,9 @@ export const CHARACTERISTICS: Record<Characteristic, CharacteristicDescriptor> =
 	DX: { label: 'Dextérité', abbr: 'DX', describe: 'Précision manuelle.' },
 	EN: { label: 'Endurance', abbr: 'EN', describe: 'Résistance physique et souffle.' },
 	IN: { label: 'Intelligence', abbr: 'IN', describe: 'Connaissances et mémoire.' },
-	IG: { label: 'Ingéniosité', abbr: 'IG', describe: 'Débrouillardise et perception.' },
+	IG: { label: 'Ingéniosité', abbr: 'IG', describe: 'Débrouillardise et improvisation.' },
+	SE: { label: 'Sens', abbr: 'SE', describe: 'Perception, vigilance et instinct ; jets de détection.' },
 	CA: { label: 'Caractère', abbr: 'CA', describe: 'Volonté et résilience mentale.' },
-	SE: { label: 'Sens', abbr: 'SE', describe: 'Perception sensorielle et intuition.' },
 }
 
 /** All 8 hero characteristics, derived from the registry (KR-117). */
@@ -45,7 +45,7 @@ export const DEFAULT_CHARACTERISTIC: Characteristic = 'FO'
 /** Hard cap on any caractéristique (§ 1, § 5). */
 export const CHARACTERISTIC_MAX = 12
 
-/** The 5 caracs a MONSTER carries (§ 4) — the hero's 7 minus IN and CA. */
+/** The 5 caracs a MONSTER carries (§ 4) — the hero's 8 minus IN, SE and CA. */
 export type MonsterCharacteristic = Extract<Characteristic, 'FO' | 'AG' | 'DX' | 'EN' | 'IG'>
 export const MONSTER_CHARACTERISTICS: MonsterCharacteristic[] = ['FO', 'AG', 'DX', 'EN', 'IG']
 
