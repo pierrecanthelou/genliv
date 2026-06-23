@@ -42,6 +42,11 @@ export interface SessionEquipmentState {
 	 * Set when equipping a silver-weapon object (iter 5 equipment screen).
 	 */
 	activeSilverWeapon: boolean
+	/**
+	 * Permanent flat damage reduction granted by PNJ 'defense' gifts (E4).
+	 * Stacks with equipped armor; applied in heroArmourEffective (combatEngine + capacityEffects).
+	 */
+	permanentArmorBonus: number
 }
 
 export interface SessionState extends SessionEquipmentState {

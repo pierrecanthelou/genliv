@@ -300,6 +300,26 @@
 			"id": "KR-136",
 			"feature": "play-mode",
 			"risk": "MAGIC AND SILVER WEAPON MODIFIERS: `magic: n` on EquipmentEffect.arme adds n to the wielder's MC (before AT computation) AND n to PF_base (before écart × posture multiplier). `silver: true` sets the target's effective armour to 0 during damage calculation, ONLY for monsters whose MONSTER_CAPACITIES descriptor includes `bypassedBySilver: true` (Loup-Garou). Never check templateId or monster name at call sites — the flag on the MONSTER_CAPACITIES descriptor is the only gate. Source decision: REGLES-PLAY-A-COMPLETER.md § H-bis."
+		},
+		{
+			"id": "KR-137",
+			"feature": "play-mode",
+			"risk": "PERMANENT ARMOR BONUS IN SESSION NOT HERO: `permanentArmorBonus` lives on SessionEquipmentState, not HeroState, so PNJ 'defense' gift bonuses survive combat without touching hero caracs. Must be applied in BOTH heroArmourEffective (combatEngine.ts) AND heroArmour (capacityEffects.ts) — these are separate helper functions. When adding new armor computation helpers, always include permanentArmorBonus."
+		},
+		{
+			"id": "KR-138",
+			"feature": "play-mode",
+			"risk": "PREREQ FILTERING IS CANONICAL IN sessionEngine.listChoices: `filterChoicesByPrereq` is called inside listChoices so all callers automatically get filtered results. Never filter choice edges outside of sessionEngine — the single-source guarantees consistency. Empty objectId ('' — unconfigured prereq) → hide the choice (safe default, not an error)."
+		},
+		{
+			"id": "KR-139",
+			"feature": "play-mode",
+			"risk": "COUNTDOWN TIMER IN CHOICE LIST — TIMER SAFETY: Each countdown choice gets its own setInterval tracked in a useRef, cancelled in the useEffect cleanup. The dep array uses primitive values (delay, fallback) extracted from the edge object — not the edge object itself — to avoid unnecessary restarts. onChoice is stable-reffed (onChoiceRef.current = onChoice) so interval callbacks never close over stale references."
+		},
+		{
+			"id": "KR-140",
+			"feature": "play-mode",
+			"risk": "EN CARAC UPGRADE MUST ALSO INCREMENT peMax: peMax = EN (§ 1, heroGen.ts). When applyCaracUpgrade is called with carac='EN', both pvMax (+1 via FO+AG+EN formula) AND peMax (+1) must be incremented. Forgetting peMax leaves the endurance ceiling permanently frozen at creation value. CaracUpgradeInfo.peMaxDelta carries this flag (1 for EN, 0 for all others)."
 		}
 	]
 }

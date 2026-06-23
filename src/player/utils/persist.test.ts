@@ -23,6 +23,7 @@ function makeSession(bookId = 'book-1'): SessionState {
 		armorDegradation: 0,
 		activeMagicBonus: 0,
 		activeSilverWeapon: false,
+		permanentArmorBonus: 0,
 	}
 }
 

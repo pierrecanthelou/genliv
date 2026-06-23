@@ -3,13 +3,18 @@
 		{
 			"feature": "play-mode",
 			"completed_at": "2026-06-23",
-			"goal": "Isolated play runtime: load a book → start prompt → node traversal → +5 PE per transition → auto-save/load → end screens (victory/failure/mort).",
+			"goal": "Isolated play runtime: load a book → start prompt → node traversal → +5 PE per transition → auto-save/load → end screens (victory/failure/mort) → full combat + capacity registry → full action resolution (décor/PNJ/piège/XP shop, choice prereq/countdown).",
 			"key_architecture_choices": [
 				"src/player/ is a hard isolation boundary — zero imports from src/features/ or brain/ services; only pure brain functions (characteristics, challenge, combat, xp, equipment, monsterCapacities). Extractible to another webapp/mobile app by bundling src/player/ + pure brain modules.",
 				"AdventureDocument = PlayExport (type alias); buildAdventureDocument(book) in brain/utils/ is a pass-through over exportBookForPlay — no new type invented.",
 				"Session persistence in player/utils/persist.ts uses window.localStorage directly (not PersistenceService) for extractibility; key prefix matches persistenceKeys.ts for auditability (KR-134).",
 				"sessionEngine.ts is a pure state machine (no React, no side effects); usePlaySession hook owns React state and auto-save.",
-				"PlayerModal lives in features/play-mode/ (editor integration); EditorScreen is the composition root."
+				"PlayerModal lives in features/play-mode/ (editor integration); EditorScreen is the composition root.",
+				"combatTypes.ts extracted as shared type file to break circular dependency between combatEngine and capacityEffects.",
+				"CAPACITY_HOOKS: Record<MonsterCapacityId, CapacityHooks> dispatches all 23 monster capacity behaviours as pure lifecycle hooks (KR-133) — no if/switch on union strings.",
+				"actionEngine.ts is a pure function layer (no React, no state) for all action-screen resolution: traps, décor reveals, takeable rolls, PNJ gifts, autoEquip, carac/MC XP spend.",
+				"Lazy useState initializer pattern used in TrapScreen/DecorScreen to fix a random roll exactly once on mount without useEffect — avoids re-rolling on parent re-render.",
+				"CountdownChoice uses stable onChoiceRef + primitive dep array (KR-139) to avoid stale-closure bugs while respecting the ESLint exhaustive-deps rule."
 			],
 			"brain_contracts_added": [
 				{ "type": "util", "name": "buildAdventureDocument" }
@@ -17,9 +22,14 @@
 			"lessons_learned": [
 				"Isolation boundary is straightforward to enforce when player/ is outside src/features/ — TypeScript import paths make violations visible immediately.",
 				"Combining walking-skeleton + iter 1 was the right call: the two were identical in scope (sommaire, traversal, save/load, end screens).",
-				"Tech-lead caught: role='listitem' redundant on <button> inside <div role='list'>; snapshot useState pattern needs a comment to avoid mis-copying."
+				"Tech-lead caught: role='listitem' redundant on <button> inside <div role='list'>; snapshot useState pattern needs a comment to avoid mis-copying.",
+				"Circular dependencies between two engine files that share types are best resolved by extracting the types into a third file (combatTypes.ts), not by restructuring the callers.",
+				"Every derived maximum (pvMax, peMax) must be updated together whenever any of its contributing caracs is mutated — failing to do so creates silent drift that only surfaces during gameplay (BUG-013, KR-140).",
+				"When using lazy useState initializers for random results, React 18 Strict Mode calls them twice in dev — this is acceptable for game logic since both calls produce valid game state.",
+				"Design token discipline matters: always verify a token name exists in tokens/*.css before using it in a component. Non-existent tokens silently fall through to browser defaults (e.g. --fs-heading → undefined).",
+				"The ESLint rule react-hooks/exhaustive-deps must never be disabled; instead extract primitive values from objects and use them as dep array items (as in CountdownChoice)."
 			],
-			"bugs_encountered": []
+			"bugs_encountered": ["BUG-011", "BUG-012", "BUG-013", "BUG-014"]
 		},
 		{
 			"feature": "book-creation",

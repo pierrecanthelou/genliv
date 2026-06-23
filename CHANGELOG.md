@@ -2,6 +2,22 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.5.11 — play-mode iter 5: full action resolution (décor/PNJ/piège/XP shop, choice prereq/countdown)
+
+- **`src/player/engine/actionEngine.ts`** (NEW) — pure functions: `resolveTrap`, `resolveDecorReveal`, `resolveTakeableRoll`, `applyPnjGift`, `autoEquipObject`, `computeCaracUpgrade/applyCaracUpgrade`, `computeMcUpgrade/applyMcUpgrade`. EN upgrade increments both `pvMax` and `peMax` (§ 1, KR-140).
+- **`src/player/engine/actionEngine.test.ts`** (NEW) — 48 tests covering all branches including deterministic RNG, EN/peMax invariant, prereq filtering.
+- **`src/player/components/ChoiceList.tsx`** (NEW) — choice list with `CountdownChoice` per-choice setInterval (stable `onChoiceRef`, primitive deps, cleanup on unmount — KR-139).
+- **`src/player/components/TrapScreen.tsx`** (NEW) — piège screen; random result fixed once via lazy `useState` initializer.
+- **`src/player/components/PnjScreen.tsx`** (NEW) — PNJ dialogue + optional gift preview; `applyPnjGift` returns additive deltas.
+- **`src/player/components/DecorScreen.tsx`** (NEW) — décor reveals + per-object takeable roll; `autoEquipObject` wired via `session: SessionEquipmentState` prop.
+- **`src/player/components/XpShopScreen.tsx`** (NEW) — bottom-sheet XP progression modal (caracs + MC, IN ≥ 6 gate).
+- **`src/player/hooks/usePlaySession.ts`** — `takeObject`, `finishDecor`, `finishPnj`, `finishTrap`, `spendXpOnCarac`, `spendXpOnMc` callbacks added.
+- **`src/player/components/NodeScreen.tsx`** — uses `ChoiceList` instead of inline buttons.
+- **`src/player/components/HeroStatusBar.tsx`** — optional `onProgressionClick` prop → "Progression" button.
+- **`src/player/components/PlayerRuntime.tsx`** — routes décor/PNJ/piège screens with anti-farm visited-node guard; XpShopScreen overlay; PNJ ref resolution.
+- **`src/styles/tokens/colors.css`** — `--overlay: rgba(0, 0, 0, 0.45)` token added.
+- **`src/player/engine/sessionEngine.test.ts`** — 3 new tests for `filterChoicesByPrereq` (satisfied, unsatisfied, empty objectId).
+
 ## 0.5.10 — play-mode iter 4: CAPACITY_HOOKS registry (23 capacités, magic/silver)
 
 - **`src/player/engine/combatTypes.ts`** (NEW) — shared combat types extracted to avoid circular imports (CombatState, MonsterInstance, CombatEffectsState, defaultEffectsState).

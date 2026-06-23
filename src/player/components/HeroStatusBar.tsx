@@ -2,9 +2,11 @@ import type { HeroState } from '../types'
 
 interface HeroStatusBarProps {
 	hero: HeroState
+	/** When provided, shows a "Progression" button that opens the XP shop. */
+	onProgressionClick?: () => void
 }
 
-export function HeroStatusBar({ hero }: HeroStatusBarProps): JSX.Element {
+export function HeroStatusBar({ hero, onProgressionClick }: HeroStatusBarProps): JSX.Element {
 	const pvPct = hero.pvMax > 0 ? hero.pv / hero.pvMax : 0
 	const pvColor = pvPct > 0.5 ? 'var(--good)' : 'var(--bad)'
 
@@ -49,6 +51,26 @@ export function HeroStatusBar({ hero }: HeroStatusBarProps): JSX.Element {
 			<span>
 				XP <span style={{ fontWeight: 'var(--fw-semibold)' }}>{hero.xp}</span>
 			</span>
+			{onProgressionClick !== undefined && (
+				<button
+					type="button"
+					onClick={onProgressionClick}
+					style={{
+						marginLeft: 'auto',
+						padding: '4px 10px',
+						borderRadius: 'var(--r-sm)',
+						border: '1px solid var(--border-card)',
+						background: 'var(--surface-chip)',
+						color: 'var(--text-body)',
+						fontFamily: 'var(--font-mono)',
+						fontSize: 'var(--fs-meta)',
+						cursor: 'pointer',
+						minHeight: 'var(--hit-target)',
+					}}
+				>
+					Progression
+				</button>
+			)}
 		</div>
 	)
 }

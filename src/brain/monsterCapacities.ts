@@ -93,7 +93,7 @@ export const MONSTER_CAPACITIES: Record<MonsterCapacityId, MonsterCapacityDescri
 	},
 	magie: {
 		label: 'Magie',
-		description: 'Lance un sort de niveau 1D4 (Drain −2 EN si niveau 3+).',
+		description: 'Lance un sort 1D4/round. Niveaux 3–4 : draine −1D4 PV max.',
 	},
 	rayon: { label: 'Rayon', description: "Attaque à distance (portée 20 m) ignorant l'armure." },
 	'vol-de-vie': {

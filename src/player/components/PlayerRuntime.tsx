@@ -7,6 +7,10 @@ import { NodeScreen } from './NodeScreen'
 import { EndScreen } from './EndScreen'
 import { CharacterCreationScreen } from './CharacterCreationScreen'
 import { CombatScreen } from './CombatScreen'
+import { DecorScreen } from './DecorScreen'
+import { PnjScreen } from './PnjScreen'
+import { TrapScreen } from './TrapScreen'
+import { XpShopScreen } from './XpShopScreen'
 import type { UseCombatCallbacks } from '../hooks/useCombat'
 
 interface PlayerRuntimeProps {
@@ -29,10 +33,17 @@ export function PlayerRuntime({ adventure, onQuit }: PlayerRuntimeProps): JSX.El
 		navigateTo,
 		navigateToMort,
 		finishCombat,
+		takeObject,
+		finishDecor,
+		finishPnj,
+		finishTrap,
+		spendXpOnCarac,
+		spendXpOnMc,
 		restart,
 	} = usePlaySession(adventure)
 
 	const [rerollUsed, setRerollUsed] = useState(false)
+	const [showXpShop, setShowXpShop] = useState(false)
 
 	function handleGoToCreation(): void {
 		setRerollUsed(false)
@@ -170,15 +181,110 @@ export function PlayerRuntime({ adventure, onQuit }: PlayerRuntimeProps): JSX.El
 		)
 	}
 
+	// Route piège nodes (anti-farm: only if not already visited)
+	const isTrapNode =
+		currentNode !== null &&
+		currentNode.actionType === 'piege' &&
+		currentNode.trap !== undefined &&
+		!session.visitedNodes.includes(currentNode.id)
+
+	if (isTrapNode && currentNode !== null && currentNode.trap !== undefined) {
+		const trapNodeId = currentNode.id
+		const trapConfig = currentNode.trap
+		return (
+			<div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+				<HeroStatusBar hero={session.hero} />
+				<TrapScreen
+					key={trapNodeId}
+					trap={trapConfig}
+					hero={session.hero}
+					onFinish={(isLethal, xp) => finishTrap(trapNodeId, isLethal, xp)}
+				/>
+			</div>
+		)
+	}
+
+	// Route PNJ nodes (anti-farm: only if not already visited)
+	const isPnjNode =
+		currentNode !== null &&
+		currentNode.actionType === 'pnj' &&
+		currentNode.pnj !== undefined &&
+		!session.visitedNodes.includes(currentNode.id)
+
+	if (isPnjNode && currentNode !== null && currentNode.pnj !== undefined) {
+		const pnjNodeId = currentNode.id
+		const pnjConfig = currentNode.pnj
+		// Resolve a reused PNJ reference to the owner node's PNJ config.
+		const ownerPnj = pnjConfig.pnjRef
+			? adventure.nodes.find((n) => n.id === pnjConfig.pnjRef)?.pnj
+			: undefined
+		const resolvedPnj = pnjConfig.pnjRef ? (ownerPnj ?? null) : pnjConfig
+		if (!resolvedPnj) {
+			return (
+				<div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+					<HeroStatusBar hero={session.hero} />
+					<div style={{ padding: 'var(--space-12)', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+						Ce PNJ est introuvable.
+					</div>
+				</div>
+			)
+		}
+		return (
+			<div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+				<HeroStatusBar hero={session.hero} />
+				<PnjScreen
+					key={pnjNodeId}
+					pnj={resolvedPnj}
+					hero={session.hero}
+					onFinish={(gift, xp, target) => finishPnj(pnjNodeId, gift, xp, target)}
+				/>
+			</div>
+		)
+	}
+
+	// Route décor nodes (anti-farm: only if not already visited)
+	const isDecorNode =
+		currentNode !== null &&
+		currentNode.actionType === 'decor' &&
+		currentNode.decor !== undefined &&
+		!session.visitedNodes.includes(currentNode.id)
+
+	if (isDecorNode && currentNode !== null && currentNode.decor !== undefined) {
+		const decorNodeId = currentNode.id
+		const decorConfig = currentNode.decor
+		return (
+			<div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+				<HeroStatusBar hero={session.hero} />
+				<DecorScreen
+					key={decorNodeId}
+					decor={decorConfig}
+					hero={session.hero}
+					adventure={adventure}
+					session={session}
+					onTakeObject={(obj, xp, equip) => takeObject(obj, xp, equip)}
+					onFinish={(xp) => finishDecor(decorNodeId, xp)}
+				/>
+			</div>
+		)
+	}
+
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-			<HeroStatusBar hero={session.hero} />
+			<HeroStatusBar hero={session.hero} onProgressionClick={() => setShowXpShop(true)} />
 			{currentNode !== null ? (
 				<NodeScreen node={currentNode} choices={choices} onChoice={navigateTo} />
 			) : (
 				<div style={{ padding: 'var(--space-12)', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
 					Écran introuvable (id: {session.currentNodeId}).
 				</div>
+			)}
+			{showXpShop && (
+				<XpShopScreen
+					hero={session.hero}
+					onSpendCarac={spendXpOnCarac}
+					onSpendMc={spendXpOnMc}
+					onClose={() => setShowXpShop(false)}
+				/>
 			)}
 		</div>
 	)

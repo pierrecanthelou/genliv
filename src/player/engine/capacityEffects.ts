@@ -64,14 +64,16 @@ export interface CapacityHooks {
 
 function heroArmour(session: SessionState, heroArmorDeg: number): number {
 	const base = session.activeProtection ? PROTECTIONS[session.activeProtection].reduction : 0
-	return Math.max(0, base - heroArmorDeg)
+	return Math.max(0, base + session.permanentArmorBonus - heroArmorDeg)
 }
 
 /** Compute hero effective MC at the current state (for hooks that need AT). */
 function heroMcForHooks(state: CombatState, hero: HeroState, session: SessionState): number {
 	const base = maitriseDesCoups({ AG: hero.caracs.AG, DX: hero.caracs.DX, IG: hero.caracs.IG })
 	const fatigue = enduranceMalus(state.heroPe, hero.caracs.EN)
-	return base + hero.mcBonus + state.gardeBonus.hero + fatigue + session.activeMagicBonus
+	// Mirror combatEngine.ts heroMcEffective: magic bonus is 0 during disarm round.
+	const magicBonus = state.effects.disarmedThisRound ? 0 : session.activeMagicBonus
+	return base + hero.mcBonus + state.gardeBonus.hero + fatigue + magicBonus
 }
 
 function monsterMcForHooks(state: CombatState): number {
@@ -108,7 +110,7 @@ export const CAPACITY_HOOKS: Record<MonsterCapacityId, CapacityHooks> = {
 	// ── No capacity ──────────────────────────────────────────────────────────────
 	aucune: {},
 
-	// ── Maladie (Goule) — −1 EN max si vaincu avec Écart > 4 ────────────────────
+	// ── Maladie (Rat géant) — −1 EN max si vaincu avec Écart > 4 ────────────────
 	maladie: {
 		onHeroWon: (state, _hero, _session, _rng, ecart) => {
 			if (ecart <= 4) return state

@@ -116,7 +116,7 @@
       {
         "id": 5,
         "goal": "Full action resolution: décor (prendre + skill roll + object reinforcement), PNJ (gift effects pv/attaque/defense/scenario), piège (PE cost + fatal variant). XP shop (anytime), carac upgrade → PV max diff healed. prereq + countdown choice filtering.",
-        "status": "planned"
+        "status": "done"
       }
     ],
     "known_risks": [
@@ -218,14 +218,47 @@
           "component": "deferred",
           "e2e": "deferred"
         }
+      },
+      {
+        "id": 5,
+        "label": "iter-5: full action resolution + XP shop + choice filtering",
+        "completed_at": "2026-06-23",
+        "architecture_choices": [
+          "actionEngine.ts: pure function layer (no React, no state, RNG-injectable) — resolveTrap, resolveDecorReveal, resolveTakeableRoll, applyPnjGift, autoEquipObject, computeCaracUpgrade, applyCaracUpgrade, computeMcUpgrade, applyMcUpgrade. Zero imports from features/.",
+          "PnjGiftMutations: additive delta struct (pvDelta, mcBonusDelta, armorBonusDelta, inventoryAdd); calling hook applies with prev + delta — avoids passing current session to actionEngine.",
+          "autoEquipObject: checks current session equipment state to determine if slot is vacant; weapon slot vacant when activeWeapon === DEFAULT_WEAPON; shield uses bouclier descriptor's shieldDefensiveBonus flag.",
+          "permanentArmorBonus on SessionEquipmentState (not HeroState): keeps hero creation unchanged; stacks with equipped armor in heroArmourEffective in both combatEngine and capacityEffects (already wired in iter 5 start).",
+          "filterChoicesByPrereq in sessionEngine.ts: called from listChoices so all callers get filtered results. Empty objectId → hide (safe default for unconfigured prereqs).",
+          "ChoiceList.tsx: CountdownChoice sub-component isolates timer per-edge; uses lazy useState init for delay + fallback, with the delay/fallback in useEffect dep array to restart if they change.",
+          "TrapScreen uses lazy useState initializer (resolveTrap on first render only); no useEffect needed — removes the exhaustive-deps concern entirely.",
+          "DecorScreen resolves reveal via lazy useState; uses per-object TakeState map so multiple takeables can be attempted independently.",
+          "XpShopScreen: bottom-sheet modal overlay with role=dialog; Progression button only shown on NodeScreen (not combat/action screens).",
+          "EN upgrade also increments peMax (peMax = EN per heroGen; caught by tech-lead review as F-1 major bug).",
+          "KR-137: permanentArmorBonus is session equipment state, not hero state — survives combat without touching hero caracs.",
+          "KR-138: prereq filtering is canonical in sessionEngine.listChoices — no caller needs to filter independently.",
+          "KR-139: countdown timer safety — delay + fallback as dep array primitives in useEffect; onChoiceRef stable ref for callback.",
+          "--overlay CSS token added to colors.css for modal backdrop scrim (nit from tech-lead review)."
+        ],
+        "deviations_from_plan": [
+          "C5 object reinforcement still deferred — schema blocked on design decision.",
+          "magic: n PF_base addend (AC H-bis) still deferred — MC addend only.",
+          "Equipment screen (inventory browser, weapon switching) deferred beyond iter 5.",
+          "piège does not cost PE (no PE cost mechanic in current spec) — fatal variant fully implemented.",
+          "Révélation reveal roll result for écouter/fouiller resolved via lazy useState (one stable random result per mount); React Strict Mode double-invocation in dev produces a different result but still mechanically valid."
+        ],
+        "test_coverage": {
+          "unit": "actionEngine.test.ts: 48 tests — resolveTrap (all branches), resolveDecorReveal (ungated/gated/fallback), resolveTakeableRoll (success/fail/xp), applyPnjGift (pv/attaque/defense/scenario), autoEquipObject (weapon/magic/silver/armor/shield/no-op), computeCaracUpgrade (upgrade/cap/pvMaxDelta/peMaxDelta), applyCaracUpgrade (pvMax/pv/peMax/xp), computeMcUpgrade (gate/cap), applyMcUpgrade. sessionEngine.test.ts: 3 new tests for filterChoicesByPrereq (satisfied/unsatisfied/empty objectId). Total suite: 487 tests, 45 suites.",
+          "component": "deferred",
+          "e2e": "deferred"
+        }
       }
     ],
     "open_questions": [
-      "Object reinforcement bonus (C5): exact schema not yet defined — could be a numeric field on EquipmentEffect or a new BoostEffect type. Decide before iter 5.",
-      "PNJ 'scenario' gift items: should they auto-add to inventory, or only set a boolean presence flag? Clarify before iter 5.",
+      "Object reinforcement bonus (C5): deferred — schema not yet defined. Requires a new BoostEffect type or a numeric field on EquipmentEffect; blocked on design decision.",
       "Fire/acid damage source (Troll capacity): REGLES-PLAY says not V1. If modelled later, needs a new EquipmentEffect kind or object flag.",
       "Méduse 'aveugle ou pétrification': questionnaire marks her for removal ('enlever la méduse') — confirm whether she is excluded from V1 or replaced by a simpler capacity.",
-      "magic: n PF_base addend (AC H-bis): iter 4 adds n to MC only; adding n to pfBase requires threading activeMagicBonus through pfBase() call in combatEngine. Decide before iter 5 whether to wire this or treat MC addend as sufficient."
+      "magic: n PF_base addend (AC H-bis): iter 5 still adds n to MC only; PF_base integration requires threading activeMagicBonus through pfBase() call in combatEngine. Treat MC addend as sufficient for now.",
+      "Equipment screen (inventory browser, active weapon/armor switching): deferred beyond iter 5."
     ]
   }
 }

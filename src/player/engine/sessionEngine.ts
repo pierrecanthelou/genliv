@@ -15,7 +15,18 @@ export function defaultSessionFields(): SessionEquipmentState {
 		armorDegradation: 0,
 		activeMagicBonus: 0,
 		activeSilverWeapon: false,
+		permanentArmorBonus: 0,
 	}
+}
+
+/** Filter out choice edges whose prereq object the hero does not own (A3). */
+export function filterChoicesByPrereq(edges: Edge[], inventory: string[]): Edge[] {
+	return edges.filter((e) => {
+		if (!e.prereq) return true
+		const { objectId } = e.prereq
+		if (!objectId) return false // unconfigured prereq — hide the choice (safe default)
+		return inventory.includes(objectId)
+	})
 }
 
 export function findSommaire(adventure: AdventureDocument): string {
@@ -29,7 +40,8 @@ export function getNode(adventure: AdventureDocument, nodeId: string): PlayNode 
 }
 
 export function listChoices(adventure: AdventureDocument, session: SessionState): Edge[] {
-	return adventure.edges.filter((e) => e.from === session.currentNodeId && e.kind === 'choice')
+	const all = adventure.edges.filter((e) => e.from === session.currentNodeId && e.kind === 'choice')
+	return filterChoicesByPrereq(all, session.inventory)
 }
 
 export function determinePhase(adventure: AdventureDocument, session: SessionState): PlayPhase {

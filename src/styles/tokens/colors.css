@@ -78,4 +78,7 @@
   --border-field: var(--line-field);
 
   --focus-ring: var(--accent);
+
+  /* ---- Overlay / scrim ---- */
+  --overlay: rgba(0, 0, 0, 0.45); /* modal/sheet backdrop scrim */
 }

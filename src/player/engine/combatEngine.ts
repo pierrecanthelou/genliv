@@ -45,7 +45,7 @@ function pfMonster(m: MonsterInstance): number {
 
 function heroArmourEffective(session: SessionState, heroArmorDeg: number): number {
 	const base = session.activeProtection ? PROTECTIONS[session.activeProtection].reduction : 0
-	return Math.max(0, base - heroArmorDeg)
+	return Math.max(0, base + session.permanentArmorBonus - heroArmorDeg)
 }
 
 function heroMcEffective(hero: HeroState, state: CombatState, session: SessionState): number {
@@ -190,11 +190,11 @@ export function pickMonsterPosture(state: CombatState, rng: () => number = Math.
 	const { monster } = state
 	const desc = monster.creatureType !== null ? CREATURE_TYPES[monster.creatureType] : null
 	const isLowHp = monster.pv / monster.pvMax < 0.25
-	const [wN, wP] = desc ? (isLowHp ? desc.lowHpPostureWeights : desc.postureWeights) : [60, 25, 15]
+	const [wN, wP, _wD] = desc ? (isLowHp ? desc.lowHpPostureWeights : desc.postureWeights) : [60, 25, 15]
 	const roll = randInt(1, 100, rng)
 	if (roll <= wN) return 'normale'
 	if (roll <= wN + wP) return 'precise'
-	return 'defensive'
+	return 'defensive' // implicit wD bucket
 }
 
 export function resolveCombatRound(

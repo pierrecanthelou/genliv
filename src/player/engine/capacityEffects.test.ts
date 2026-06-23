@@ -32,6 +32,7 @@ const baseSession: SessionState = {
 	armorDegradation: 0,
 	activeMagicBonus: 0,
 	activeSilverWeapon: false,
+	permanentArmorBonus: 0,
 }
 
 const fakeMonster = {

@@ -1,9 +1,12 @@
 import { useState, useCallback } from 'react'
 import type { Edge, GameObject } from '../../brain/types'
+import type { Characteristic } from '../../brain/characteristics'
 import type { AdventureDocument, PlayPhase, SessionState, HeroState } from '../types'
 import type { CreationPool } from '../engine/charCreation'
 import { rollCreationPool } from '../engine/charCreation'
 import { createSessionFromHero, navigate, listChoices, determinePhase, PE_PER_TRANSITION } from '../engine/sessionEngine'
+import { applyCaracUpgrade, applyMcUpgrade } from '../engine/actionEngine'
+import type { PnjGiftMutations, EquipMutations } from '../engine/actionEngine'
 import { saveSession, loadSession, clearSession } from '../utils/persist'
 
 export type UsePlayRuntimePhase = 'start' | 'creating' | 'playing'
@@ -44,6 +47,18 @@ export interface UsePlaySessionResult {
 	navigateTo: (targetNodeId: string) => void
 	navigateToMort: () => void
 	finishCombat: (opts: FinishCombatOpts) => void
+	/** Add an object to inventory (and auto-equip it) after a décor « prendre ». */
+	takeObject: (obj: GameObject, xp: number, equip: EquipMutations) => void
+	/** Mark a décor node visited and award its authored XP. */
+	finishDecor: (nodeId: string, xp: number) => void
+	/** Apply a PNJ gift, mark the node visited, award XP, and optionally navigate. */
+	finishPnj: (nodeId: string, gift: PnjGiftMutations | null, xp: number, target: string | null) => void
+	/** Mark a trap node resolved: lethal → mort; otherwise mark visited + award XP. */
+	finishTrap: (nodeId: string, isLethal: boolean, xp: number) => void
+	/** Spend XP on a characteristic upgrade (caller pre-checks canUpgrade). */
+	spendXpOnCarac: (carac: Characteristic) => void
+	/** Spend XP on a MC bonus upgrade (caller pre-checks canUpgrade). */
+	spendXpOnMc: () => void
 	restart: () => void
 }
 
@@ -155,6 +170,118 @@ export function usePlaySession(adventure: AdventureDocument): UsePlaySessionResu
 		[bookId],
 	)
 
+	const takeObject = useCallback(
+		(obj: GameObject, xp: number, equip: EquipMutations) => {
+			setSession((prev) => {
+				if (prev === null) return prev
+				const next: SessionState = {
+					...prev,
+					inventory: [...prev.inventory, obj.id],
+					hero: { ...prev.hero, xp: prev.hero.xp + xp },
+					activeWeapon: equip.activeWeapon ?? prev.activeWeapon,
+					activeProtection: equip.activeProtection ?? prev.activeProtection,
+					activeShield: equip.activeShield ?? prev.activeShield,
+					activeMagicBonus: equip.activeMagicBonus ?? prev.activeMagicBonus,
+					activeSilverWeapon: equip.activeSilverWeapon ?? prev.activeSilverWeapon,
+				}
+				saveSession(bookId, next)
+				return next
+			})
+		},
+		[bookId],
+	)
+
+	const finishDecor = useCallback(
+		(nodeId: string, xp: number) => {
+			setSession((prev) => {
+				if (prev === null) return prev
+				const newVisited = prev.visitedNodes.includes(nodeId) ? prev.visitedNodes : [...prev.visitedNodes, nodeId]
+				const next: SessionState = {
+					...prev,
+					hero: { ...prev.hero, xp: prev.hero.xp + xp },
+					visitedNodes: newVisited,
+				}
+				saveSession(bookId, next)
+				return next
+			})
+		},
+		[bookId],
+	)
+
+	const finishPnj = useCallback(
+		(nodeId: string, gift: PnjGiftMutations | null, xp: number, target: string | null) => {
+			setSession((prev) => {
+				if (prev === null) return prev
+				const g: PnjGiftMutations = gift ?? { pvDelta: 0, mcBonusDelta: 0, armorBonusDelta: 0, inventoryAdd: [] }
+				const newPv = Math.min(prev.hero.pv + g.pvDelta, prev.hero.pvMax)
+				const newInventory = g.inventoryAdd.length > 0 ? [...prev.inventory, ...g.inventoryAdd] : prev.inventory
+				const newVisited = prev.visitedNodes.includes(nodeId) ? prev.visitedNodes : [...prev.visitedNodes, nodeId]
+				const newPe = target !== null ? Math.min(prev.hero.pe + PE_PER_TRANSITION, prev.hero.peMax) : prev.hero.pe
+				const next: SessionState = {
+					...prev,
+					hero: {
+						...prev.hero,
+						pv: newPv,
+						pe: newPe,
+						mcBonus: prev.hero.mcBonus + g.mcBonusDelta,
+						xp: prev.hero.xp + xp,
+					},
+					inventory: newInventory,
+					permanentArmorBonus: prev.permanentArmorBonus + g.armorBonusDelta,
+					visitedNodes: newVisited,
+					currentNodeId: target !== null ? target : prev.currentNodeId,
+				}
+				saveSession(bookId, next)
+				return next
+			})
+		},
+		[bookId],
+	)
+
+	const finishTrap = useCallback(
+		(nodeId: string, isLethal: boolean, xp: number) => {
+			if (isLethal) {
+				navigateToMort()
+				return
+			}
+			setSession((prev) => {
+				if (prev === null) return prev
+				const newVisited = prev.visitedNodes.includes(nodeId) ? prev.visitedNodes : [...prev.visitedNodes, nodeId]
+				const next: SessionState = {
+					...prev,
+					hero: { ...prev.hero, xp: prev.hero.xp + xp },
+					visitedNodes: newVisited,
+				}
+				saveSession(bookId, next)
+				return next
+			})
+		},
+		[bookId, navigateToMort],
+	)
+
+	const spendXpOnCarac = useCallback(
+		(carac: Characteristic) => {
+			setSession((prev) => {
+				if (prev === null) return prev
+				const updatedHero = applyCaracUpgrade(carac, prev.hero)
+				const next: SessionState = { ...prev, hero: updatedHero }
+				saveSession(bookId, next)
+				return next
+			})
+		},
+		[bookId],
+	)
+
+	const spendXpOnMc = useCallback(() => {
+		setSession((prev) => {
+			if (prev === null) return prev
+			const updatedHero = applyMcUpgrade(prev.hero)
+			const next: SessionState = { ...prev, hero: updatedHero }
+			saveSession(bookId, next)
+			return next
+		})
+	}, [bookId])
+
 	const restart = useCallback(() => {
 		clearSession(bookId)
 		setSession(null)
@@ -176,6 +303,12 @@ export function usePlaySession(adventure: AdventureDocument): UsePlaySessionResu
 		navigateTo,
 		navigateToMort,
 		finishCombat,
+		takeObject,
+		finishDecor,
+		finishPnj,
+		finishTrap,
+		spendXpOnCarac,
+		spendXpOnMc,
 		restart,
 	}
 }
