@@ -6,6 +6,8 @@ import { HeroStatusBar } from './HeroStatusBar'
 import { NodeScreen } from './NodeScreen'
 import { EndScreen } from './EndScreen'
 import { CharacterCreationScreen } from './CharacterCreationScreen'
+import { CombatScreen } from './CombatScreen'
+import type { UseCombatCallbacks } from '../hooks/useCombat'
 
 interface PlayerRuntimeProps {
 	adventure: AdventureDocument
@@ -25,6 +27,8 @@ export function PlayerRuntime({ adventure, onQuit }: PlayerRuntimeProps): JSX.El
 		rerollCreation,
 		confirmHero,
 		navigateTo,
+		navigateToMort,
+		finishCombat,
 		restart,
 	} = usePlaySession(adventure)
 
@@ -87,6 +91,71 @@ export function PlayerRuntime({ adventure, onQuit }: PlayerRuntimeProps): JSX.El
 					node={currentNode}
 					onRestart={handleRestart}
 					onQuit={onQuit}
+				/>
+			</div>
+		)
+	}
+
+	// Route monster nodes to CombatScreen (anti-farm: only if not already visited)
+	const isCombatNode =
+		currentNode !== null &&
+		currentNode.actionType === 'monstre' &&
+		currentNode.monster !== undefined &&
+		!session.visitedNodes.includes(currentNode.id)
+
+	if (isCombatNode && currentNode !== null && currentNode.monster !== undefined) {
+		const combatNodeId = currentNode.id
+		const monsterConfig = currentNode.monster
+
+		const combatCallbacks: UseCombatCallbacks = {
+			onVictory: (victoryTarget, loot, xp, updatedPv, updatedPe, armorDeg) => {
+				finishCombat({
+					updatedPv,
+					updatedPe,
+					xp,
+					armorDeg,
+					loot,
+					nextNodeId: victoryTarget,
+					combatNodeId,
+					markVisited: true,
+				})
+			},
+			onFlee: (fleeTarget, updatedPv, updatedPe, armorDeg) => {
+				finishCombat({
+					updatedPv,
+					updatedPe,
+					xp: 0,
+					armorDeg,
+					loot: null,
+					nextNodeId: fleeTarget,
+					combatNodeId,
+					markVisited: false,
+				})
+			},
+			onDeath: () => navigateToMort(),
+			onSurvivedUnconscious: (updatedPe, armorDeg) => {
+				finishCombat({
+					updatedPv: 1,
+					updatedPe,
+					xp: 0,
+					armorDeg,
+					loot: null,
+					nextNodeId: null,
+					combatNodeId,
+					markVisited: true,
+				})
+			},
+		}
+
+		return (
+			<div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+				<HeroStatusBar hero={session.hero} />
+				<CombatScreen
+					key={combatNodeId}
+					config={monsterConfig}
+					hero={session.hero}
+					session={session}
+					callbacks={combatCallbacks}
 				/>
 			</div>
 		)

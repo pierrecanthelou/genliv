@@ -95,6 +95,7 @@ export {
 	type MonsterCapacityDescriptor,
 } from './monsterCapacities'
 export type { EquipmentEffect, MonsterStatBlock } from './types'
+export { CREATURE_TYPES, type CreatureTypeDescriptor, type FleeStrategy } from './creatureTypes'
 export { createId } from './utils/id'
 export type { EventBus, AppEvents, AppEventName } from './EventBus'
 export type { PersistenceService } from './PersistenceService'

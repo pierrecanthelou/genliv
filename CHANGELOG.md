@@ -2,6 +2,15 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.5.9 — play-mode iter 3: combat engine (CREATURE_TYPES, posture AI, flee, E1, XP)
+
+- **`src/brain/creatureTypes.ts`** — `CREATURE_TYPES` KR-135 registry: flee threshold/strategy, posture weights, `immuneToFatigue` per creatureType. Mort-vivants have `immuneToFatigue: true` (no PE gauge).
+- **`src/player/engine/combatEngine.ts`** — pure RNG-injectable combat engine: `startCombat`, `pickMonsterPosture` (AI weights + lowHp shift), `resolveCombatRound` (simultaneous AT, Garde aiguisée D2-bis, monster PE drain, armour degradation, E1 unconscious), `tryHeroFlee` (free assault then hero-fled).
+- **`src/player/hooks/useCombat.ts`** — `useCombat` hook wiring combat state + 4 end callbacks (onVictory, onFlee, onDeath, onSurvivedUnconscious).
+- **`src/player/components/CombatScreen.tsx`** — combat UI: monster PV/PE bars, hero PV/PE bars, posture buttons, flee button, round log, end panel.
+- **`src/player/components/PlayerRuntime.tsx`** — routes unvisited monster nodes to `CombatScreen`; visited nodes show `NodeScreen` (anti-farm G2).
+- **`src/player/hooks/usePlaySession.ts`** — `finishCombat` (updates hero PV/PE/XP, loot, armorDeg, visited set, navigates) + `navigateToMort`.
+
 ## 0.5.8 — play-mode iter 2: character creation screen + equipment state
 
 - **`src/player/engine/charCreation.ts`** — pure creation logic: `rollCreationPool` (8×2D4 + 1D4 bonus), `emptyAssignment`, `isAssignmentComplete`, `baseValue/totalValue`, `buildHeroFromCreation`. `CREATION_CAP = 10`.

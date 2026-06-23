@@ -24,7 +24,7 @@
       "D1 — Both combatants choose posture simultaneously each round; AT is computed for both; higher AT wins the assault; AT tie = null round (no damage, replay).",
       "D2 — Monster posture AI baseline: 60 % Normale / 25 % Précise / 15 % Défensive; shifts to 40 % Défensive when monster PV < 25 % of max.",
       "D3 — Monster flee behavior is driven by creatureType (KR-135): humanoid flees at 25 % PV (MC roll, TC = 1 + ΔT); undead never flee; animal at 50 % PV / giant-animal at 40 % PV (50/50 chance); magic creature at 10 % PV (MC roll, TC = ΔT; ΔT = 0 → never flees).",
-      "D4 — Monsters do NOT have a PE gauge; only the hero tracks PE. Squelette 'Pas d'endurance' = immunised from fatigue malus via a CREATURE_TYPES descriptor flag, not a PE gauge.",
+      "D4 — Both hero AND monster lose 1 PE per round (§ D4). Monster peMax = stats.EN; monster PE starts full. Mort-vivants and creatures with 'pas d'endurance' are immune (immuneToFatigue: true on their CREATURE_TYPES descriptor → no PE gauge, no fatigue malus). Other creature types with this capacité handled in MONSTER_CAPACITIES (iter 4).",
       "D5 — Hero flee: attempted at start of round; monster deals 1 free assault (Normal posture vs hero Defensive); hero then moves to `fleeTarget`; impossible if `fleeTarget` is absent.",
       "D6 — Critical hit degrades the target's armor by 1 for the rest of the book (applies to hero AND monster; tracked in session state).",
       "D7 — Monster at 0 PV → victoryTarget node + loot granted + XP awarded. Hero PV ≤ -CA → mort node.",
@@ -105,8 +105,8 @@
       },
       {
         "id": 3,
-        "goal": "Combat engine: simultaneous posture resolution, monster AI (CREATURE_TYPES registry, posture weights + flee thresholds by creatureType), hero flee, unconscious/mort states, loot grant, XP award, armor degradation on critical, -1 PE per round for hero.",
-        "status": "planned"
+        "goal": "Combat engine: simultaneous posture resolution, monster AI (CREATURE_TYPES registry, posture weights + flee thresholds by creatureType), hero flee, unconscious/mort states, loot grant, XP award, armor degradation on critical, -1 PE per round for hero AND monster.",
+        "status": "done"
       },
       {
         "id": 4,
@@ -168,6 +168,30 @@
         ],
         "test_coverage": {
           "unit": "charCreation (rollCreationPool, emptyAssignment, isAssignmentComplete, baseValue, totalValue, buildHeroFromCreation, CREATION_CAP), sessionEngine (createSessionFromHero, default equipment fields), persist (migration from pre-iter-2 sessions) — 58 tests total",
+          "component": "deferred",
+          "e2e": "deferred"
+        }
+      },
+      {
+        "id": 3,
+        "label": "iter-3: combat engine",
+        "completed_at": "2026-06-23",
+        "architecture_choices": [
+          "CREATURE_TYPES registry in brain/creatureTypes.ts (KR-135): maps each CreatureType to flee threshold, flee strategy, posture weights, lowHp weights, immuneToFatigue. Drives monster AI; never branched on by string (KR-117).",
+          "combatEngine.ts is pure (no React, RNG-injectable): startCombat, pickMonsterPosture, resolveCombatRound, tryHeroFlee. All orchestration rules (D1–D8, E1, I) implemented here.",
+          "Monster PE gauge: peMax = stats.EN, pe starts full, -1 per round unless immuneToFatigue. Mort-vivants have peMax=0 and skip PE drain entirely.",
+          "Garde aiguisée (D2-bis): consecutiveDefWins counter per combatant; at 3, opponent gets +2 MC (gardeBonus) for the rest of combat, counter resets.",
+          "freeAssault() shared helper for flee penalty (D5) and E1 last-monster-assault; always monster Normale vs hero Défensive with forced postures.",
+          "hero-survived-unconscious outcome for E1 survival (hero at 1 PV, node marked visited, combat ends without death).",
+          "pendingXp computed in combatEngine on victory/monster-fled; stored in CombatState for the hook to read without re-computing.",
+          "CombatScreen uses key={combatNodeId} in PlayerRuntime to force remount on new combat node.",
+          "useCombat dispatches callbacks via useEffect+endFiredRef guard (fires exactly once when outcome flips from ongoing)."
+        ],
+        "deviations_from_plan": [
+          "Spec AC D4 corrected: monsters DO have a PE gauge (peMax = EN), only immuneToFatigue types skip it. Previous session wrote 'monsters do not have PE' in error."
+        ],
+        "test_coverage": {
+          "unit": "combatEngine: 24 tests — startCombat, pickMonsterPosture, resolveCombatRound (tie, PE drain, monster PE, guard, log, victory), tryHeroFlee (survived/died/log/phase). Total test suite: 404 tests.",
           "component": "deferred",
           "e2e": "deferred"
         }

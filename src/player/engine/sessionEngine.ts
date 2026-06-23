@@ -4,7 +4,7 @@ import type { HeroState } from '../types'
 import { DEFAULT_WEAPON } from '../../brain/equipment'
 import { rollHero } from './heroGen'
 
-const PE_PER_TRANSITION = 5
+export const PE_PER_TRANSITION = 5
 
 export function defaultSessionFields(): SessionEquipmentState {
 	return {
