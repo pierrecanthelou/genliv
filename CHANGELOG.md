@@ -2,6 +2,12 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.5.16 — tree-canvas iter 5: Dagre auto-layout + bouton Réorganiser
+
+- **`src/features/tree-canvas/layout/geometry.ts`** — remplace le DFS tidy-tree par Dagre/Sugiyama (DAG-aware) ; BFS pour les nœuds connectés ; grid inchangée pour les isolés
+- **`src/brain/UIPreferencesService.ts`** — ajout `clearNodePositions(bookId)` : efface tous les overrides de position pour un livre
+- **`src/features/tree-canvas/components/AutoLayoutButton.tsx`** — bouton « Réorganiser » affiché en vue canvas ; statut transitoire « ✓ Réorganisé »
+
 ## 0.5.15 — Field: auto-grow multiline textareas (4× cap + scroll)
 
 - **`src/brain/components/Field.tsx`** — `useEffect` mount hook snapshots `offsetHeight × 4` as the cap; `useEffect([value])` resizes on every keystroke; `overflowY: auto` scrolls beyond the cap
