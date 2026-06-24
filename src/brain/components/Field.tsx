@@ -1,4 +1,4 @@
-import { type CSSProperties, type KeyboardEvent, type Ref } from 'react'
+import { type CSSProperties, type KeyboardEvent, type Ref, useRef, useEffect } from 'react'
 
 /**
  * Field — a labelled value box. The base authoring control: a mono
@@ -53,6 +53,29 @@ export function Field({
 	onKeyDown,
 	onBlur,
 }: FieldProps): JSX.Element {
+	const textareaRef = useRef<HTMLTextAreaElement>(null)
+	// 4× cap snapshotted once at mount (browser-computed rows height).
+	// Legitimate useEffects: both sync with imperative DOM APIs (offsetHeight / scrollHeight).
+	const maxHeightRef = useRef<number | null>(null)
+
+	useEffect(() => {
+		// No-op when multiline=false (textareaRef is null).
+		const el = textareaRef.current
+		if (!el) return
+		maxHeightRef.current = el.offsetHeight * 4
+	}, [])
+
+	useEffect(() => {
+		const el = textareaRef.current
+		// No-op when multiline=false (textareaRef is null).
+		if (!el) return
+		const maxH = maxHeightRef.current
+		// offsetHeight is 0 in JSDOM / hidden containers — skip to preserve rows height.
+		if (!maxH) return
+		el.style.height = 'auto'
+		el.style.height = `${Math.min(el.scrollHeight, maxH)}px`
+	}, [value])
+
 	return (
 		<label style={{ display: 'block' }} htmlFor={id}>
 			{label && (
@@ -72,6 +95,7 @@ export function Field({
 			)}
 			{multiline ? (
 				<textarea
+					ref={textareaRef}
 					id={id}
 					rows={rows}
 					value={value}
@@ -80,7 +104,7 @@ export function Field({
 					onChange={onChange}
 					onKeyDown={onKeyDown}
 					onBlur={onBlur}
-					style={shared}
+					style={{ ...shared, overflowY: 'auto' }}
 				/>
 			) : (
 				<input
