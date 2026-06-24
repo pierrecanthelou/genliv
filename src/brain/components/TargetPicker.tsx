@@ -24,6 +24,8 @@ export interface TargetPickerProps {
 	onChange: (target: string | undefined) => void
 	/** Copy for the no-target state + the clear option. */
 	emptyLabel?: string
+	/** Node ids to surface at the top of the picker as contextually relevant (e.g. predecessors + siblings). */
+	suggestedIds?: ReadonlySet<string>
 }
 
 export function TargetPicker({
@@ -33,9 +35,12 @@ export function TargetPicker({
 	target,
 	onChange,
 	emptyLabel = 'Aucune cible',
+	suggestedIds,
 }: TargetPickerProps): JSX.Element {
 	const [open, setOpen] = useState(false)
 	const candidates = nodes.filter((n) => n.id !== nodeId && canBeTarget(n.kind))
+	const suggested = suggestedIds !== undefined ? candidates.filter((n) => suggestedIds.has(n.id)) : []
+	const rest = suggestedIds !== undefined ? candidates.filter((n) => !suggestedIds.has(n.id)) : candidates
 	const current = target !== undefined ? (nodes.find((n) => n.id === target) ?? null) : null
 	const dangling = target !== undefined && current === null
 	const summary = current !== null ? nodeTitle(current) : dangling ? '⚠ cible supprimée' : emptyLabel
@@ -58,10 +63,26 @@ export function TargetPicker({
 							— {emptyLabel} —
 						</button>
 					</li>
-					{candidates.length === 0 ? (
+					{suggested.length > 0 && (
+						<>
+							<li style={groupLabel} role="presentation">
+								Nœuds proches
+							</li>
+							{suggested.map((n) => (
+								<li key={n.id}>
+									<button type="button" style={candidate} onClick={() => choose(n.id)}>
+										{nodeTitle(n)}
+									</button>
+								</li>
+							))}
+							<li role="separator" style={groupSeparator} />
+						</>
+					)}
+					{/* empty-state only when both suggested and rest are empty */}
+					{rest.length === 0 && suggested.length === 0 ? (
 						<li style={{ ...candidate, color: 'var(--text-faint)' }}>Aucun autre nœud</li>
 					) : (
-						candidates.map((n) => (
+						rest.map((n) => (
 							<li key={n.id}>
 								<button type="button" style={candidate} onClick={() => choose(n.id)}>
 									{nodeTitle(n)}
@@ -76,7 +97,7 @@ export function TargetPicker({
 }
 
 /** Target picker dropdown max height before it scrolls. */
-const PICKER_MAX_HEIGHT = 180
+const PICKER_MAX_HEIGHT = 240
 
 const labelStyle: React.CSSProperties = {
 	display: 'block',
@@ -124,4 +145,20 @@ const candidate: React.CSSProperties = {
 	color: 'var(--text-body)',
 	cursor: 'pointer',
 	minHeight: 'var(--hit-target)',
+}
+
+const groupLabel: React.CSSProperties = {
+	padding: '4px 10px 2px',
+	fontFamily: 'var(--font-mono)',
+	fontSize: 'var(--fs-eyebrow)',
+	color: 'var(--text-faint)',
+	letterSpacing: 'var(--track-eyebrow)',
+	userSelect: 'none',
+}
+
+const groupSeparator: React.CSSProperties = {
+	height: 1,
+	background: 'var(--border-divider)',
+	margin: 'var(--space-1) var(--space-2)',
+	listStyle: 'none',
 }

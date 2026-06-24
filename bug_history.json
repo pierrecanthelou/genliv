@@ -167,6 +167,18 @@
 			"mitigation": "Before exporting a new function, verify at least one external caller exists. Dead exports are noise that misleads callers about the public API surface.",
 			"regression_test": "tsc --noEmit (dead export removed; no runtime regression)",
 			"severity": "minor"
+		},
+		{
+			"id": "BUG-015",
+			"date": "2026-06-24",
+			"feature": "node-editor",
+			"discovered_at": "regression",
+			"symptom": "On a piège node (TrapEditor is tall), the NodeEditorPanel appeared read-only: the OutgoingChoices section and end toggles were invisible and could not be interacted with. On any complex node, sections below the viewport fold were silently clipped.",
+			"root_cause": "panelBody (flex child of the flex-column panelShell) had no `flex: 1` and no `minHeight: 0`. In CSS flexbox, a flex child without explicit grow takes its natural content height. The panelShell clips overflow (overflow: hidden). Result: panelBody grew to fit content, the shell clipped the overflow, and panelBody's own `overflowY: auto` was ineffective because its height was never constrained — it always equalled its content height.",
+			"fix": "Added `flex: 1, minHeight: 0` to panelBody in NodeEditorPanel.tsx so it fills the remaining flex-column space and lets `overflowY: auto` scroll its content. Fixes both the 'read-only appearance' and the 'impossible to edit outgoing choices on piège' reports.",
+			"mitigation": "KR-147: in any flex-column shell with overflow: hidden, every scrollable child div MUST have `flex: 1, minHeight: 0` in addition to `overflowY: auto`. Without the flex/minHeight pair the overflow property has no effect.",
+			"regression_test": "Manual: select a piège node → scroll the NodeEditorPanel → OutgoingChoices + end toggles are visible and editable.",
+			"severity": "major"
 		}
 	]
 }

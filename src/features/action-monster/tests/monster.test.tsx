@@ -242,6 +242,39 @@ describe('action-monster', () => {
 		expect(select.value).toBe('aucune')
 	})
 
+	it('surfaces predecessor nodes as Noeuds proches in the victoire target picker', async () => {
+		const user = userEvent.setup()
+		const brain = createBrain()
+		const created = brain.books.createBook('La Foret')
+		const predecessor = brain.books.addNode(created.id, 'choix')!
+		brain.books.updateNode(created.id, predecessor.id, { text: 'Carrefour' })
+		const combat = brain.books.addNode(created.id, 'choix')!
+		// Wire predecessor → combat so the combat node knows its context.
+		brain.books.addEdge(created.id, predecessor.id, combat.id, 'choice')
+		brain.router.navigate({ name: 'editor', bookId: created.id })
+		render(
+			<BrainProvider brain={brain}>
+				<App />
+			</BrainProvider>,
+		)
+
+		// combat is the 4th node (sommaire #1, mort #2, predecessor #3, combat #4).
+		await user.click(screen.getByRole('button', { name: /Nœud #4/ }))
+		await user.click(screen.getByRole('radio', { name: 'Monstre' }))
+		await user.click(screen.getByRole('button', { name: /Aucune suite/i })) // open victoire picker
+
+		// Predecessor surfaced under the group label.
+		expect(screen.getByText('Nœuds proches')).toBeInTheDocument()
+		const predecessorBtn = screen.getByRole('button', { name: 'Carrefour' })
+		expect(predecessorBtn).toBeInTheDocument()
+
+		// Picking it persists the victoryTarget.
+		await user.click(predecessorBtn)
+		expect(
+			brain.books.getBook(created.id)!.nodes.find((n) => n.id === combat.id)?.monster?.victoryTarget,
+		).toBe(predecessor.id)
+	})
+
 	it('instantiate keeps the node own targets and re-mints the loot id (KR-097/003)', async () => {
 		const user = userEvent.setup()
 		const { brain, bookId, nodeId } = setup()

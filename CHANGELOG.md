@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.5.22 — hotfix : panneau nœud tronqué + suggestions TargetPicker
+
+- **`src/features/node-editor/components/NodeEditorPanel.tsx`** — `flex: 1, minHeight: 0` sur `panelBody` : le corps du panneau remplit maintenant l'espace restant et devient scrollable. Corrige le panneau apparemment « en lecture seule » et l'impossibilité d'éditer les choix sortants d'un nœud Piège (sections coupées silencieusement par le shell, BUG-015).
+- **`src/brain/components/TargetPicker.tsx`** — prop optionnelle `suggestedIds: ReadonlySet<string>` : affiche les nœuds contextuels (« Nœuds proches ») en tête du picker avec séparateur, avant la liste complète. Hauteur max portée à 240 px.
+- **`src/features/action-monster/components/MonsterEditor.tsx`** — calcule `suggestedTargetIds` (prédécesseurs + leurs autres cibles) avec `useMemo` et les passe aux deux TargetPickers (victoire / fuite). Rend la sélection de la suite du combat intelligente et contextualisée.
+
+## 0.5.21 — outline-view iter 4 : vue colonnes horizontales (Miller columns)
+
+- **`src/features/outline-view/utils/buildColumnNodes.ts`** (nouveau) — `buildColumnNodes(book, path)` pure : only choice edges; `seenAt` map pour les convergences (↪ reference); ancestors set par profondeur pour les back-links (↩); outcomes monstre (victoryTarget/fleeTarget). `findChoicePath(book, from, to)` : BFS cycle-safe (KR-080) pour réconcilier la sélection externe avec le chemin courant.
+- **`src/features/outline-view/components/ColumnPanel.tsx`** (nouveau) — colonne 220 px scrollable : NodeBadge + titre, prefix ↩/↪, chips outcomes monstre, `aria-pressed` sur la ligne active.
+- **`src/features/outline-view/components/OutlineColumns.tsx`** (nouveau) — layout Miller columns : `useReducer` pour la navigation locale ; réconciliation de la sélection externe en render (dispatch-during-render, KR-013) ; `useLayoutEffect` auto-scroll à droite ; keyed sur `bookId` pour reset inter-livres.
+- **`src/brain/UIPreferencesService.ts`** — `OutlineDisplayMode` + `setOutlineDisplayMode(bookId, mode)` dans `BookUIPrefs` ; pattern parallèle à `setLayoutSpacing`.
+- **`src/brain/BrainContext.tsx`** — hook `useBookOutlineDisplayMode(bookId)` via `useSyncExternalStore`.
+- **`src/brain/index.ts`** — export `OutlineDisplayMode` + `useBookOutlineDisplayMode`.
+- **`src/features/outline-view/components/OutlineView.tsx`** — toggle [≡ Liste] [⦿ Colonnes] (SegmentedControl) ; rendu conditionnel `OutlineColumns` / vue liste existante ; mode persisté par livre via `UIPreferencesService`.
+- Tests : `buildColumnNodes.test.ts` (15 tests) + `OutlineColumns.test.tsx` (6 tests) + `UIPreferencesService.test.ts` (`setOutlineDisplayMode`).
+
 ## 0.5.20 — book-export iter 4 : validation structurelle en direct (cul-de-sac + cibles fantômes)
 
 - **`src/brain/utils/bookHealth.ts`** (nouveau) — `checkBookHealth(book)` pure : détecte les nœuds sans sortie (`dead-end`) et les arêtes pointant vers un nœud inexistant (`dangling-edge-target`) ; la sommaire est exempt (racine toujours valide vide)

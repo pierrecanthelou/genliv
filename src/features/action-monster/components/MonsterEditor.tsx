@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import {
 	useBrain,
 	useOpenBook,
@@ -135,6 +136,24 @@ export function MonsterEditor({ bookId, nodeId }: ActionEditorContext): JSX.Elem
 	// Uses AG+DX+IG from the stats block, NOT the authored `monster.mc` field.
 	const computedTier = tierOf(maitriseDesCoups(stats))
 
+	// Contextual target suggestions: predecessors (nodes that lead INTO this combat)
+	// plus their other outgoing targets (screens the player came from / could go to).
+	const suggestedTargetIds = useMemo((): ReadonlySet<string> => {
+		if (book === null) return new Set()
+		const suggested = new Set<string>()
+		const edges = book.edges
+		for (const e of edges) {
+			if (e.to === nodeId) {
+				suggested.add(e.from)
+				for (const e2 of edges) {
+					if (e2.from === e.from && e2.to !== nodeId) suggested.add(e2.to)
+				}
+			}
+		}
+		suggested.delete(nodeId)
+		return suggested
+	}, [book, nodeId])
+
 	// Capacity id; fall back to 'aucune' for legacy free-text values not in the registry.
 	const capacityId: MonsterCapacityId = MONSTER_CAPACITIES[monster.capacity as MonsterCapacityId]
 		? (monster.capacity as MonsterCapacityId)
@@ -235,6 +254,7 @@ export function MonsterEditor({ bookId, nodeId }: ActionEditorContext): JSX.Elem
 				nodeId={nodeId}
 				target={monster.victoryTarget}
 				onChange={(victoryTarget) => patchMonster({ victoryTarget })}
+				suggestedIds={suggestedTargetIds}
 			/>
 			<TargetPicker
 				label="Fuite → relier à"
@@ -243,6 +263,7 @@ export function MonsterEditor({ bookId, nodeId }: ActionEditorContext): JSX.Elem
 				nodeId={nodeId}
 				target={monster.fleeTarget}
 				onChange={(fleeTarget) => patchMonster({ fleeTarget })}
+				suggestedIds={suggestedTargetIds}
 			/>
 
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
