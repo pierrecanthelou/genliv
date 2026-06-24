@@ -6,6 +6,7 @@ import type { EquipMutations } from '../engine/actionEngine'
 import { CHALLENGE_TIERS, rollTier } from '../../brain/challenge'
 import { CHARACTERISTICS } from '../../brain/characteristics'
 import type { Characteristic } from '../../brain/characteristics'
+import { ReinforcementPicker } from './ReinforcementPicker'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -40,6 +41,8 @@ interface DecorScreenProps {
 export function DecorScreen({ decor, hero, adventure, session, onTakeObject, onFinish }: DecorScreenProps): JSX.Element {
 	// Record of resolved take attempts, keyed by object id.
 	const [takeResults, setTakeResults] = useState<Record<string, TakeState>>({})
+	// Reinforcement object selected before a « prendre » roll (AC C5, KR-141).
+	const [selectedReinforceId, setSelectedReinforceId] = useState<string | null>(null)
 	const decorXp = decor.xp ?? 0
 
 	// Lazy useState initializer — called exactly once on mount, not on re-renders — so the random roll result is fixed for this screen lifetime.
@@ -54,12 +57,17 @@ export function DecorScreen({ decor, hero, adventure, session, onTakeObject, onF
 		const obj = resolveObject(takeable, adventure)
 		if (!obj) return
 
+		const selectedObj = selectedReinforceId
+			? adventure.objects.find((o) => o.id === selectedReinforceId)
+			: null
+		const rollBonus = selectedObj?.reinforcementBonus?.rollBonus ?? 0
+
 		let rollResult: Omit<TakeState, 'canTake'> & { canTake: boolean }
 
 		if (!takeable.roll) {
 			rollResult = { canTake: true, xp: 0 }
 		} else {
-			const r = resolveTakeableRoll(takeable.roll, hero)
+			const r = resolveTakeableRoll(takeable.roll, hero, Math.random, rollBonus)
 			rollResult = {
 				canTake: r.canTake,
 				xp: r.xp,
@@ -133,6 +141,17 @@ export function DecorScreen({ decor, hero, adventure, session, onTakeObject, onF
 				</div>
 			)}
 
+			{/* Reinforcement picker (prendre — shown above objects if any applicable) */}
+			{decor.interaction === 'prendre' && (
+				<ReinforcementPicker
+					label="Utiliser un objet avant de prendre"
+					inventory={session.inventory}
+					objects={adventure.objects}
+					selectedId={selectedReinforceId}
+					onSelect={setSelectedReinforceId}
+				/>
+			)}
+
 			{/* Takeable objects (prendre) */}
 			{decor.interaction === 'prendre' && objects.length > 0 && (
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
@@ -170,7 +189,7 @@ export function DecorScreen({ decor, hero, adventure, session, onTakeObject, onF
 											onClick={() => handleTakeAttempt(takeable)}
 											style={{
 												flexShrink: 0,
-												padding: '8px 14px',
+												padding: 'var(--space-3) var(--space-6)',
 												borderRadius: 'var(--r-sm)',
 												border: '1px solid var(--border-card)',
 												background: 'var(--surface-chip)',
@@ -215,7 +234,7 @@ export function DecorScreen({ decor, hero, adventure, session, onTakeObject, onF
 				onClick={() => onFinish(decorXp)}
 				style={{
 					alignSelf: 'flex-start',
-					padding: '10px 20px',
+					padding: 'var(--space-4) var(--space-9)',
 					borderRadius: 'var(--r-md)',
 					border: '1px solid var(--accent)',
 					background: 'var(--accent)',

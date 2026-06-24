@@ -91,7 +91,7 @@
       { "name": "play:saved", "direction": "emits", "payload": {} }
     ],
     "walking_skeleton": "Load a book → render sommaire text → show outgoing choices (no filtering yet) → clicking a choice navigates to the next node → +5 PE applied → basic hero state (caracs generated, PV=FO+AG+EN, PE=EN) persisted → one auto-save per book. Combat/action resolution and character creation screen deferred to later iterations.",
-    "n": 5,
+    "n": 6,
     "iterations": [
       {
         "id": 1,
@@ -117,6 +117,11 @@
         "id": 5,
         "goal": "Full action resolution: décor (prendre + skill roll + object reinforcement), PNJ (gift effects pv/attaque/defense/scenario), piège (PE cost + fatal variant). XP shop (anytime), carac upgrade → PV max diff healed. prereq + countdown choice filtering.",
         "status": "done"
+      },
+      {
+        "id": 6,
+        "goal": "Object reinforcement (AC C5): author assigns rollBonus on any GameObject; player picks 0 or 1 applicable object before a trap or décor prendre roll; bonus adds to effective carac value (KR-141).",
+        "status": "done"
       }
     ],
     "known_risks": [
@@ -125,7 +130,8 @@
       "KR-135 — CREATURE TYPE DRIVES AI: `creatureType` on MonsterStatBlock is a KR-117 registry key (CREATURE_TYPES) whose descriptor carries flee threshold %, flee strategy (roll-based / chance / never), posture-weight overrides at low HP, and passive trait flags (e.g. immuneToFatigue). Never infer creature type from name or capacity text. Bestiary seeds the correct type for all 23 canonical monsters.",
       "KR-136 — MAGIC AND SILVER WEAPON MODIFIERS: `magic: n` on EquipmentEffect.arme adds n to wielder MC (before AT computation) AND n to PF_base (before écart × posture multiplier). `silver: true` sets the target's effective armour to 0, ONLY for monsters whose MONSTER_CAPACITIES descriptor includes `bypassedBySilver: true`. Never check templateId or name at call sites.",
       "KR-131 (re-assert) — Editor must never call play resolvers. PlaySessionService and CombatEngine are play-only; importing them from any editor feature is a violation of the authoring/play seam.",
-      "KR-117 (re-assert) — Every closed set introduced by play mode (CreatureType, CapacitéTrigger, flee strategies) must be a registry with descriptor data + eventual behaviour fields. No if/switch at call sites."
+      "KR-117 (re-assert) — Every closed set introduced by play mode (CreatureType, CapacitéTrigger, flee strategies) must be a registry with descriptor data + eventual behaviour fields. No if/switch at call sites.",
+      "KR-141 — OBJECT REINFORCEMENT (AC C5): ReinforcementBonus.rollBonus on a GameObject adds to the hero's effective characteristic value for a skill roll (trap or décor prendre). The player picks 0 or 1 object before the roll; `rollBonus` is the 4th param on resolveTrap/resolveTakeableRoll (after `rng`, default 0) so existing test signatures need no update. TrapScreen: if trap.roll exists, start in pick phase (result=null); resolve on 'Affronter' click. DecorScreen: ReinforcementPicker above object list; rollBonus injected into resolveTakeableRoll per click. ObjectEditor: Stepper 0–5 for rollBonus (authored in brain/components, KR-052). Author sets reinforcementBonus on any GameObject; the play runtime only reads it."
     ]
   },
   "implementation": {
@@ -251,10 +257,29 @@
           "component": "deferred",
           "e2e": "deferred"
         }
+      },
+      {
+        "id": 6,
+        "label": "iter-6: object reinforcement (AC C5, KR-141)",
+        "completed_at": "2026-06-23",
+        "architecture_choices": [
+          "ReinforcementBonus interface added to brain/types.ts; reinforcementBonus?: field added to GameObject. Schema is additive — existing books load unchanged.",
+          "ObjectEditor (brain/components/ObjectEditor.tsx): Stepper 0–5 for BONUS DE JET; onChange sets reinforcementBonus = { rollBonus: v } when v > 0, clears to undefined when v = 0 to keep clean serialisation.",
+          "rollBonus added as 4th param (after rng, default 0) to resolveRoll, resolveTrap, resolveTakeableRoll — preserves all existing test call signatures without change.",
+          "TrapScreen: if trap.roll exists, start in pick phase (result = null); ReinforcementPicker renders; 'Affronter le piège' button resolves with rollBonus on click. Auto-skips pick phase when trap has no roll (auto-échec branch).",
+          "ReinforcementPicker (NEW src/player/components/): renders only when inventory contains applicable objects (rollBonus > 0). Toggle-selection pattern — clicking the active choice deselects it. Returns null when no applicable objects (callers render nothing).",
+          "DecorScreen: ReinforcementPicker rendered above object list for prendre only; rollBonus threaded into resolveTakeableRoll per Prendre click. session.inventory and adventure.objects already on existing props.",
+          "PlayerRuntime: passes inventory={session.inventory} and adventureObjects={adventure.objects} to TrapScreen (new props added in iter 6)."
+        ],
+        "deviations_from_plan": [],
+        "test_coverage": {
+          "unit": "actionEngine.test.ts: 2 new rollBonus tests (resolveTrap lifts borderline fail, resolveTakeableRoll increments characteristicValue). ObjectEditor.test.tsx: 1 new test (reinforcementBonus Stepper + persisted via onChange). Total suite: 491 tests, 45 suites.",
+          "component": "deferred",
+          "e2e": "deferred"
+        }
       }
     ],
     "open_questions": [
-      "Object reinforcement bonus (C5): deferred — schema not yet defined. Requires a new BoostEffect type or a numeric field on EquipmentEffect; blocked on design decision.",
       "Fire/acid damage source (Troll capacity): REGLES-PLAY says not V1. If modelled later, needs a new EquipmentEffect kind or object flag.",
       "Méduse 'aveugle ou pétrification': questionnaire marks her for removal ('enlever la méduse') — confirm whether she is excluded from V1 or replaced by a simpler capacity.",
       "magic: n PF_base addend (AC H-bis): iter 5 still adds n to MC only; PF_base integration requires threading activeMagicBonus through pfBase() call in combatEngine. Treat MC addend as sufficient for now.",

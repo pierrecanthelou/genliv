@@ -19,9 +19,10 @@ function resolveRoll(
 	roll: SkillRoll,
 	hero: HeroState,
 	rng: () => number,
+	rollBonus = 0,
 ): { outcome: RollOutcome; diceRoll: number; characteristicValue: number; margin: number; xp: number } {
 	const tier = rollTier(roll)
-	const characteristicValue = hero.caracs[roll.trait as Characteristic] ?? 0
+	const characteristicValue = (hero.caracs[roll.trait as Characteristic] ?? 0) + rollBonus
 	const { roll: diceRoll, success, margin } = resolveChallenge(tier, characteristicValue, rng)
 	const outcome: RollOutcome = success ? 'reussite' : 'echec'
 	const xp = challengeXp({
@@ -52,8 +53,9 @@ export interface TrapResult {
 /**
  * Resolve a trap encounter. When no `roll` is authored the trap auto-fires (échec).
  * `isLethal` is only true when the roll fails AND the trap has the fatal flag.
+ * `rollBonus` (AC C5) adds to the hero's effective characteristic value for the roll.
  */
-export function resolveTrap(trap: TrapConfig, hero: HeroState, rng: () => number = Math.random): TrapResult {
+export function resolveTrap(trap: TrapConfig, hero: HeroState, rng: () => number = Math.random, rollBonus = 0): TrapResult {
 	if (!trap.roll) {
 		return {
 			outcome: 'echec',
@@ -65,7 +67,7 @@ export function resolveTrap(trap: TrapConfig, hero: HeroState, rng: () => number
 			isLethal: trap.fatal,
 		}
 	}
-	const { outcome, diceRoll, characteristicValue, margin, xp } = resolveRoll(trap.roll, hero, rng)
+	const { outcome, diceRoll, characteristicValue, margin, xp } = resolveRoll(trap.roll, hero, rng, rollBonus)
 	return {
 		outcome,
 		diceRoll,
@@ -113,9 +115,10 @@ export interface TakeableRollResult {
 /**
  * Resolve the optional skill roll gating access to a takeable object.
  * Called only when `takeable.roll` is set; the caller checks that guard first.
+ * `rollBonus` (AC C5) adds to the hero's effective characteristic value.
  */
-export function resolveTakeableRoll(roll: SkillRoll, hero: HeroState, rng: () => number = Math.random): TakeableRollResult {
-	const { outcome, diceRoll, characteristicValue, margin, xp } = resolveRoll(roll, hero, rng)
+export function resolveTakeableRoll(roll: SkillRoll, hero: HeroState, rng: () => number = Math.random, rollBonus = 0): TakeableRollResult {
+	const { outcome, diceRoll, characteristicValue, margin, xp } = resolveRoll(roll, hero, rng, rollBonus)
 	return { outcome, diceRoll, characteristicValue, margin, xp, canTake: outcome === 'reussite' }
 }
 

@@ -3,7 +3,7 @@
 		{
 			"feature": "play-mode",
 			"completed_at": "2026-06-23",
-			"goal": "Isolated play runtime: load a book → start prompt → node traversal → +5 PE per transition → auto-save/load → end screens (victory/failure/mort) → full combat + capacity registry → full action resolution (décor/PNJ/piège/XP shop, choice prereq/countdown).",
+			"goal": "Isolated play runtime: load a book → start prompt → node traversal → +5 PE per transition → auto-save/load → end screens (victory/failure/mort) → full combat + capacity registry → full action resolution (décor/PNJ/piège/XP shop, choice prereq/countdown) → object reinforcement (AC C5, KR-141).",
 			"key_architecture_choices": [
 				"src/player/ is a hard isolation boundary — zero imports from src/features/ or brain/ services; only pure brain functions (characteristics, challenge, combat, xp, equipment, monsterCapacities). Extractible to another webapp/mobile app by bundling src/player/ + pure brain modules.",
 				"AdventureDocument = PlayExport (type alias); buildAdventureDocument(book) in brain/utils/ is a pass-through over exportBookForPlay — no new type invented.",
@@ -14,7 +14,8 @@
 				"CAPACITY_HOOKS: Record<MonsterCapacityId, CapacityHooks> dispatches all 23 monster capacity behaviours as pure lifecycle hooks (KR-133) — no if/switch on union strings.",
 				"actionEngine.ts is a pure function layer (no React, no state) for all action-screen resolution: traps, décor reveals, takeable rolls, PNJ gifts, autoEquip, carac/MC XP spend.",
 				"Lazy useState initializer pattern used in TrapScreen/DecorScreen to fix a random roll exactly once on mount without useEffect — avoids re-rolling on parent re-render.",
-				"CountdownChoice uses stable onChoiceRef + primitive dep array (KR-139) to avoid stale-closure bugs while respecting the ESLint exhaustive-deps rule."
+				"CountdownChoice uses stable onChoiceRef + primitive dep array (KR-139) to avoid stale-closure bugs while respecting the ESLint exhaustive-deps rule.",
+				"KR-141 — object reinforcement (AC C5): ReinforcementBonus.rollBonus on GameObject adds to effective carac value for skill rolls. rollBonus is the 4th param (default 0) on resolveTrap/resolveTakeableRoll — all existing test signatures unchanged. TrapScreen starts in pick phase (result=null) when trap has a roll; ReinforcementPicker is a new reusable component that returns null when no applicable inventory objects, so callers need no guard."
 			],
 			"brain_contracts_added": [
 				{ "type": "util", "name": "buildAdventureDocument" }

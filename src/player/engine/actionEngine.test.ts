@@ -101,6 +101,24 @@ describe('resolveTrap', () => {
 		const r = resolveTrap(trap, makeHero(), alwaysSucceed)
 		expect(r.xp).toBeGreaterThan(0)
 	})
+
+	it('rollBonus lifts a borderline failure into a success (AC C5)', () => {
+		// Hero FO=1 + alwaysFail rng = dice=6 for 1D6.
+		// FO=1 < 6 → échec without bonus; FO=1 + rollBonus=10 = 11 ≥ 6 → réussite.
+		// Same rng for both calls — only rollBonus varies.
+		const weakHero = makeHero({ caracs: { FO: 1, AG: 1, DX: 1, EN: 1, IN: 1, IG: 1, SE: 1, CA: 1 } })
+		const withoutBonus = resolveTrap(trap, weakHero, alwaysFail, 0)
+		const withBonus = resolveTrap(trap, weakHero, alwaysFail, 10)
+		expect(withoutBonus.outcome).toBe('echec')
+		expect(withBonus.outcome).toBe('reussite')
+	})
+
+	it('rollBonus=0 leaves the result unchanged', () => {
+		const r0 = resolveTrap(trap, makeHero(), alwaysSucceed, 0)
+		const rBase = resolveTrap(trap, makeHero(), alwaysSucceed)
+		expect(r0.outcome).toBe(rBase.outcome)
+		expect(r0.characteristicValue).toBe(rBase.characteristicValue)
+	})
 })
 
 // ─── resolveDecorReveal ───────────────────────────────────────────────────────
@@ -158,6 +176,13 @@ describe('resolveTakeableRoll', () => {
 	it('returns xp on success', () => {
 		const r = resolveTakeableRoll(makeSkillRoll(), makeHero(), alwaysSucceed)
 		expect(typeof r.xp).toBe('number')
+	})
+
+	it('rollBonus increases characteristicValue (AC C5)', () => {
+		const hero = makeHero()
+		const base = resolveTakeableRoll(makeSkillRoll({ trait: 'FO' }), hero, alwaysSucceed, 0)
+		const boosted = resolveTakeableRoll(makeSkillRoll({ trait: 'FO' }), hero, alwaysSucceed, 3)
+		expect(boosted.characteristicValue).toBe(base.characteristicValue + 3)
 	})
 })
 

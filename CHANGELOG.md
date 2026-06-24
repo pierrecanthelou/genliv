@@ -2,6 +2,18 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.5.12 — play-mode iter 6: object reinforcement (AC C5, KR-141)
+
+- **`src/brain/types.ts`** — `ReinforcementBonus` interface; `reinforcementBonus?` field on `GameObject`.
+- **`src/brain/components/ObjectEditor.tsx`** — Stepper 0–5 for BONUS DE JET (renforcement d'action section); `ObjectDraft` extended.
+- **`src/player/engine/actionEngine.ts`** — `rollBonus` as 4th param (default 0) on `resolveTrap`, `resolveTakeableRoll`, inner `resolveRoll` — no breaking change to existing call sites.
+- **`src/player/components/ReinforcementPicker.tsx`** (NEW) — toggle-select applicable inventory objects before a roll; returns null when none applicable.
+- **`src/player/components/TrapScreen.tsx`** — two-phase UX: pick phase (result=null) when trap has a roll; resolves on "Affronter le piège" click with chosen rollBonus.
+- **`src/player/components/DecorScreen.tsx`** — `ReinforcementPicker` above object list for prendre; rollBonus injected into `resolveTakeableRoll` per click.
+- **`src/player/components/PlayerRuntime.tsx`** — passes `inventory` and `adventureObjects` to `TrapScreen`; hardcoded paddings → tokens.
+- **`src/player/engine/actionEngine.test.ts`** — 2 new rollBonus tests (resolveTrap lifts fail, resolveTakeableRoll characteristicValue offset).
+- **`src/brain/components/ObjectEditor.test.tsx`** — 1 new test (reinforcementBonus Stepper + onChange).
+
 ## 0.5.11 — play-mode iter 5: full action resolution (décor/PNJ/piège/XP shop, choice prereq/countdown)
 
 - **`src/player/engine/actionEngine.ts`** (NEW) — pure functions: `resolveTrap`, `resolveDecorReveal`, `resolveTakeableRoll`, `applyPnjGift`, `autoEquipObject`, `computeCaracUpgrade/applyCaracUpgrade`, `computeMcUpgrade/applyMcUpgrade`. EN upgrade increments both `pvMax` and `peMax` (§ 1, KR-140).

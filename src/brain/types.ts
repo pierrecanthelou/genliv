@@ -52,6 +52,17 @@ export type EquipmentEffect =
 	| { kind: 'protection'; protection: ProtectionId }
 
 /**
+ * Author-defined reinforcement that applies when the hero uses this object
+ * before a skill roll during a trap or décor « prendre » action (AC C5).
+ * The player may use one object per action phase; the bonus adds to the
+ * hero's effective characteristic value for the roll (KR-141).
+ */
+export interface ReinforcementBonus {
+	/** Adds to the hero's effective characteristic value on skill rolls. */
+	rollBonus?: number
+}
+
+/**
  * A game object. The `name` is internal (author-facing); the `description` is
  * read by the player (domain rule, KR-052). Referenced by stable `id`, never by
  * name (KR-003). Shared shape edited through the brain ObjectEditor. May
@@ -63,6 +74,8 @@ export interface GameObject {
 	description: string
 	/** Optional: this object equips as a weapon or protection (§ 3, game system). */
 	equipment?: EquipmentEffect
+	/** Optional: this object reinforces skill rolls when used before an action (AC C5, KR-141). */
+	reinforcementBonus?: ReinforcementBonus
 }
 
 /** Décor interaction: take an object, listen, or search (domain rule; KR-090). */

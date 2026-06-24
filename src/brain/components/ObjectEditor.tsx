@@ -1,5 +1,6 @@
 import { Field } from './Field'
 import { SegmentedControl, type SegmentedOption } from './SegmentedControl'
+import { Stepper } from './Stepper'
 import type { GameObject, EquipmentEffect } from '../types'
 import {
 	WEAPONS,
@@ -13,7 +14,7 @@ import {
 } from '../equipment'
 
 /** The author-editable surface of a game object (its id is owned by the caller). */
-export type ObjectDraft = Pick<GameObject, 'name' | 'description' | 'equipment'>
+export type ObjectDraft = Pick<GameObject, 'name' | 'description' | 'equipment' | 'reinforcementBonus'>
 
 /**
  * ObjectEditor — the shared editor for a game object (KR-052): an internal
@@ -117,6 +118,20 @@ export function ObjectEditor({ value, onChange }: ObjectEditorProps): JSX.Elemen
 						))}
 					</select>
 				)}
+			</div>
+
+			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+				<span style={sectionLabel}>Renforcement d'action</span>
+				<Stepper
+					label="BONUS DE JET"
+					value={value.reinforcementBonus?.rollBonus ?? 0}
+					onChange={(v) =>
+						onChange({ ...value, reinforcementBonus: v > 0 ? { rollBonus: v } : undefined })
+					}
+					min={0}
+					max={5}
+					prefix="+"
+				/>
 			</div>
 		</div>
 	)

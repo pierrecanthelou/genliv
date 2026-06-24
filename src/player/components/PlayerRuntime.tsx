@@ -198,6 +198,8 @@ export function PlayerRuntime({ adventure, onQuit }: PlayerRuntimeProps): JSX.El
 					key={trapNodeId}
 					trap={trapConfig}
 					hero={session.hero}
+					inventory={session.inventory}
+					adventureObjects={adventure.objects}
 					onFinish={(isLethal, xp) => finishTrap(trapNodeId, isLethal, xp)}
 				/>
 			</div>
@@ -331,7 +333,7 @@ function StartPrompt({ bookTitle, hasSavedSession, onContinue, onNew }: StartPro
 						type="button"
 						onClick={onContinue}
 						style={{
-							padding: '10px 20px',
+							padding: 'var(--space-4) var(--space-9)',
 							borderRadius: 'var(--r-md)',
 							border: '1px solid var(--border-card)',
 							background: 'var(--surface-card)',

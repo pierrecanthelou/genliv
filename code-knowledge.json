@@ -320,6 +320,11 @@
 			"id": "KR-140",
 			"feature": "play-mode",
 			"risk": "EN CARAC UPGRADE MUST ALSO INCREMENT peMax: peMax = EN (§ 1, heroGen.ts). When applyCaracUpgrade is called with carac='EN', both pvMax (+1 via FO+AG+EN formula) AND peMax (+1) must be incremented. Forgetting peMax leaves the endurance ceiling permanently frozen at creation value. CaracUpgradeInfo.peMaxDelta carries this flag (1 for EN, 0 for all others)."
+		},
+		{
+			"id": "KR-141",
+			"feature": "play-mode",
+			"risk": "OBJECT REINFORCEMENT (AC C5): ReinforcementBonus.rollBonus on a GameObject adds to the hero's effective characteristic value for a skill roll (trap or décor prendre). Author sets the bonus via ObjectEditor Stepper (0–5). The player picks 0 or 1 applicable object before the roll (one object per action phase). rollBonus is the 4th param on resolveTrap / resolveTakeableRoll (after rng, default 0) — existing test signatures remain unchanged. TrapScreen: if trap.roll exists, start in pick phase (result=null); resolve on Affronter le piège click. DecorScreen: ReinforcementPicker above object list; rollBonus injected per Prendre click. ReinforcementPicker returns null when no applicable inventory objects — callers render nothing. ObjectEditor clears reinforcementBonus to undefined when rollBonus drops to 0 (clean serialisation)."
 		}
 	]
 }
