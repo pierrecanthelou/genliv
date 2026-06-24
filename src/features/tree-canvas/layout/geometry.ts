@@ -1,17 +1,15 @@
+import * as dagre from 'dagre'
 import { edgeNests, type BookNode, type Edge } from '../../../brain'
 
 /**
  * Pure geometry for the canvas view. The canvas is a VIEW over the book
  * (KR-020): it never mutates node data, it derives screen coordinates from the
- * book's STRUCTURE. Positions are AUTO-LAID-OUT as a top-down TREE — the
- * `sommaire` root sits at the top and each level's children form a horizontal
- * ROW beneath their parent, evenly spaced, with the parent centred over them
- * (depth → y, classic tidy tree). Linkless nodes (the isolated `mort`, any
- * page not reached from the sommaire by a choice edge) wrap into a GRID below
- * the tree — never a single long row or column (KR-023: deterministic, stable
- * across reloads, never a 0,0 pileup). Manual drag +
- * per-book position persistence is a later iteration; when it lands a stored
- * position will override this computed slot.
+ * book's STRUCTURE. Positions are AUTO-LAID-OUT using the Dagre/Sugiyama
+ * algorithm: DAG-aware, handles convergent paths, minimises edge crossings.
+ * Linkless nodes (the isolated `mort`, any page unreachable via choice edges)
+ * wrap into a GRID below the tree — never a single long row or column
+ * (KR-023: deterministic, stable across reloads, never a 0,0 pileup). A
+ * manually-dragged node's stored position overrides its computed slot.
  */
 
 /** Node card footprint, in canvas (pre-zoom) coordinate units. */
@@ -56,65 +54,88 @@ export function resolveBounds(positions: Map<string, Point>): { w: number; h: nu
 }
 
 /**
- * Top-left position for every node, laid out as a tidy top-down tree. A DFS of
- * the `choice` (nesting) hierarchy from the `sommaire` root assigns y by depth
- * (each level a row beneath the previous) and x by a left-to-right leaf cursor,
- * with each parent CENTRED over the horizontal span of its children — so the
- * root is at the top, every node's direct children sit on one evenly-spaced row
- * beneath it, and parent→child links read downward. A node already placed
- * (convergence / cycle reached via nesting) is not recursed again (KR-080/061).
- * Linkless nodes unreachable from the root (the isolated `mort`, any page not
- * reached by a choice edge) wrap into a GRID below the tree (KR-023) — so a book
- * of loose pages reads as a familiar grid rather than a single row or column.
+ * Top-left position for every node. Tree-connected nodes (reachable from the
+ * `sommaire` via `choice` edges) are laid out by Dagre (Sugiyama-style):
+ * DAG-aware, handles convergent paths and cycles, minimises crossings. Isolated
+ * nodes (the `mort`, unreachable pages) wrap into a GRID below the tree (KR-023).
  *
- * A manually dragged node's stored position (`overrides`, persisted per book via
- * UIPreferencesService) OVERRIDES its computed slot (KR-023): the auto-layout is
- * the default, an explicit position wins. Overrides for nodes no longer in the
- * book are ignored (no orphan ghosts).
+ * A dragged node's stored position (`overrides`, persisted per book via
+ * UIPreferencesService) OVERRIDES its computed slot (KR-023): the auto-layout
+ * is the default; an explicit position wins. Overrides for deleted nodes are
+ * silently ignored (no orphan ghosts).
  */
 export function resolvePositions(
 	nodes: BookNode[],
 	edges: Edge[],
 	overrides: Record<string, Point> = {},
 ): Map<string, Point> {
-	const byId = new Map(nodes.map((n) => [n.id, n]))
+	// --- BFS from sommaire via choice edges to find tree-connected nodes ---
+	const nodeIds = new Set(nodes.map((n) => n.id))
 	const childrenOf = new Map<string, string[]>()
 	for (const edge of edges) {
-		if (!edgeNests(edge.kind) || !byId.has(edge.from) || !byId.has(edge.to)) continue
+		if (!edgeNests(edge.kind) || !nodeIds.has(edge.from) || !nodeIds.has(edge.to)) continue
 		const siblings = childrenOf.get(edge.from)
 		if (siblings === undefined) childrenOf.set(edge.from, [edge.to])
 		else siblings.push(edge.to)
 	}
 
-	const positions = new Map<string, Point>()
-	const placed = new Set<string>()
-	let leafCursor = 0
-
-	// Returns the node's x (its own slot if a leaf, else the centre of its
-	// children's span) so a parent can centre itself over its subtree.
-	function layout(id: string, depth: number): number {
-		placed.add(id)
-		const y = LAYOUT_ORIGIN + depth * LEVEL_GAP_Y
-		const children = (childrenOf.get(id) ?? []).filter((childId) => !placed.has(childId))
-		let x: number
-		if (children.length === 0) {
-			x = LAYOUT_ORIGIN + leafCursor * SIBLING_GAP_X
-			leafCursor += 1
-		} else {
-			const childXs = children.map((childId) => layout(childId, depth + 1))
-			x = (childXs[0] + childXs[childXs.length - 1]) / 2
+	const root = nodes.find((n) => n.kind === 'sommaire')
+	const treeNodeIds = new Set<string>()
+	if (root !== undefined) {
+		const queue = [root.id]
+		while (queue.length > 0) {
+			const id = queue.shift()!
+			if (treeNodeIds.has(id)) continue
+			treeNodeIds.add(id)
+			for (const childId of childrenOf.get(id) ?? []) {
+				if (!treeNodeIds.has(childId)) queue.push(childId)
+			}
 		}
-		positions.set(id, { x, y })
-		return x
 	}
 
-	const root = nodes.find((n) => n.kind === 'sommaire')
-	if (root !== undefined) layout(root.id, 0)
+	// --- Dagre layout on tree-connected nodes ---
+	const positions = new Map<string, Point>()
 
-	// Linkless / unreachable nodes (the isolated `mort`, any page not reached from
-	// the sommaire by a choice edge) wrap into a GRID below the tree — never a
-	// single long row or column. A book of loose pages then reads as a familiar
-	// grid, while a connected book reads as the tree above it.
+	if (treeNodeIds.size > 0) {
+		const g = new dagre.graphlib.Graph()
+		g.setDefaultEdgeLabel(() => ({}))
+		g.setGraph({
+			rankdir: 'TB',
+			nodesep: SIBLING_GAP_X - NODE_W,
+			ranksep: LEVEL_GAP_Y - NODE_H,
+		})
+
+		for (const node of nodes) {
+			if (treeNodeIds.has(node.id)) g.setNode(node.id, { width: NODE_W, height: NODE_H })
+		}
+		for (const edge of edges) {
+			if (edgeNests(edge.kind) && treeNodeIds.has(edge.from) && treeNodeIds.has(edge.to)) {
+				g.setEdge(edge.from, edge.to)
+			}
+		}
+
+		dagre.layout(g)
+
+		// Dagre positions are node centers. Convert to top-left and offset so the
+		// top-left node starts at LAYOUT_ORIGIN (normalise the graph origin).
+		let minX = Infinity
+		let minY = Infinity
+		for (const id of treeNodeIds) {
+			const pos = g.node(id)
+			if (pos) {
+				minX = Math.min(minX, pos.x - NODE_W / 2)
+				minY = Math.min(minY, pos.y - NODE_H / 2)
+			}
+		}
+		const ox = LAYOUT_ORIGIN - minX
+		const oy = LAYOUT_ORIGIN - minY
+		for (const id of treeNodeIds) {
+			const pos = g.node(id)
+			if (pos) positions.set(id, { x: pos.x - NODE_W / 2 + ox, y: pos.y - NODE_H / 2 + oy })
+		}
+	}
+
+	// --- Grid-place linkless / unreachable nodes below the tree ---
 	const treeBottom =
 		positions.size > 0 ? Math.max(...[...positions.values()].map((p) => p.y)) : LAYOUT_ORIGIN - LEVEL_GAP_Y
 	const freeTop = treeBottom + LEVEL_GAP_Y

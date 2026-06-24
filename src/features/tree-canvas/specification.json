@@ -4,7 +4,7 @@
 	"status": "done",
 	"design_reference": "Editeur Livre-Jeu - Wireframes.dc.html § 02 « Éditeur — vue d'ensemble de l'arbre » (BINDING): top bar with book title + node count + « + Nœud »; dot-grid canvas; node cards with NodeBadge + ref + title + 1-line snippet; SVG connectors with arrowheads + mono edge labels; dashed-curve « fuite » relink edge; bottom-right zoom controls. Node marks from foundations/badges-nodes.html; cards/badges/tokens from styles.css. Low-fi, light theme.",
 	"plan": {
-		"goal": "Render the book as a navigable graph of node cards and labelled edges on a dot-grid canvas, with selection, pan/zoom, and the entry point to add a node — the primary editor surface.",
+		"goal": "Render the book as a navigable graph of node cards and labelled edges on a dot-grid canvas, with selection, pan/zoom, Dagre auto-layout, and the entry point to add a node — the primary editor surface.",
 		"acceptance_criteria": [
 			"The canvas renders one card per node and one edge per relationship, read live from BookService; adding/removing/renaming a node or edge elsewhere updates the canvas without reload (driven by node:* / edge:* events).",
 			"Each node card shows its type via the correct NodeBadge mark, its ref, its title, and a 1-line snippet of its description.",
@@ -71,7 +71,7 @@
 			}
 		],
 		"walking_skeleton": "Read the open book from BookService, lay nodes out (stored position or auto-layout), draw cards + SVG edges on a dot-grid. Click a card → emit node:selected. Wire node:*/edge:* listeners to re-render. A faithful static graph with live selection.",
-		"n": 4,
+		"n": 5,
 		"iterations": [
 			{
 				"id": 1,
@@ -91,6 +91,11 @@
 			{
 				"id": 4,
 				"goal": "Robustness at scale: virtualize / cull off-screen nodes for large books, avoid edge-label overlap, keep 60fps pan; guard against orphaned edges referencing deleted nodes (KR-021, partially shipped: orphans are dropped).",
+				"status": "done"
+			},
+			{
+				"id": 5,
+				"goal": "Dagre auto-layout + reset button: replace the custom DFS tidy-tree with the Dagre/Sugiyama algorithm (DAG-aware, handles convergent paths, minimises crossings); add AutoLayoutButton (clears UIPreferences overrides) in the editor top bar for canvas view.",
 				"status": "done"
 			}
 		],
@@ -183,6 +188,26 @@
 		],
 		"open_questions": [
 			"Edge-label overlap avoidance for dense graphs (a label-collision pass) — a visual refinement deferred from iter 4."
+		],
+		"iterations_log": [
+			{
+				"id": 5,
+				"label": "iteration-5 (Dagre auto-layout)",
+				"completed_at": "2026-06-24",
+				"architecture_choices": [
+					"Replaced the custom DFS tidy-tree in resolvePositions (layout/geometry.ts) with the Dagre/Sugiyama algorithm (npm: dagre). Dagre is DAG-aware: it handles convergent paths (a screen reachable from multiple parents), back-edges/cycles, and minimises crossings — all cases the DFS got wrong by skipping already-visited nodes.",
+					"Only `choice` edges (edgeNests) are fed into Dagre; relink/flee edges are visual overlays that don't belong in the hierarchy. BFS from sommaire identifies tree-connected nodes; isolated nodes (mort, unreachable pages) keep the existing grid-placement below the tree (KR-023 preserved).",
+					"Dagre outputs node CENTER coordinates. After layout, positions are normalised: the minimum top-left is offset to LAYOUT_ORIGIN so the graph always starts at (60,60) regardless of Dagre's internal origin (KR-144). The existing overrides pass (dragged positions from UIPreferences) is untouched.",
+					"Added clearNodePositions(bookId) to UIPreferencesService (interface + implementation): sets positions to undefined for a book, firing subscribers so the canvas re-renders with the fresh Dagre layout.",
+					"AutoLayoutButton (tree-canvas/components/AutoLayoutButton.tsx) wraps the reset call with a transient 'Réorganisé ✓' status (timer-safe: ref + useEffect cleanup). Exported from tree-canvas/index.ts, wired in EditorScreen actions slot, conditionally shown when viewMode === 'canvas'."
+				],
+				"deviations_from_plan": [],
+				"test_coverage": {
+					"unit": "geometry — all 13 existing tests pass (updated toBe→toBeCloseTo for x-positions since Dagre uses float arithmetic; y-equality within rank stays toBe); UIPreferencesService — new clearNodePositions test (clears positions, preserves other prefs)",
+					"integration": "existing TreeCanvas tests unaffected (drag/override/view-mode/zoom paths unchanged)",
+					"e2e": "deferred"
+				}
+			}
 		]
 	}
 }

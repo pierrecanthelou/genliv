@@ -31,7 +31,7 @@ describe('resolvePositions (top-down tree)', () => {
 		const child = positions.get('child')!
 		// Root on top; the child sits a level below, centred under the parent.
 		expect(child.y).toBeGreaterThan(root.y)
-		expect(child.x).toBe(root.x)
+		expect(child.x).toBeCloseTo(root.x)
 	})
 
 	it('lays direct children on one evenly-spaced row, parent centred over them', () => {
@@ -47,7 +47,7 @@ describe('resolvePositions (top-down tree)', () => {
 		expect(b.y).toBe(c.y)
 		expect(a.y).toBeGreaterThan(root.y)
 		// …evenly spaced, with the parent centred over the row.
-		expect(b.x - a.x).toBe(c.x - b.x)
+		expect(b.x - a.x).toBeCloseTo(c.x - b.x)
 		expect(root.x).toBeCloseTo((a.x + c.x) / 2)
 	})
 

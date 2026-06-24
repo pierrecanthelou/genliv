@@ -335,6 +335,11 @@
 			"id": "KR-143",
 			"feature": "book-export",
 			"risk": "SCENARIO IMPORT (importBook): BookService.importBook(data: unknown) validates the payload with isScenarioExport() (format marker 'genliv-scenario', version 1, presence of id/title/nodes/edges arrays) AND hasOnlyKnownKinds() (every node.kind must be a known BookNode kind). A fresh book id is always minted on import — internal node/edge ids are book-local and carry no collision risk, but the top-level book id must be unique in the library. Timestamps (createdAt/updatedAt) are also refreshed. importBook returns null on any validation failure; callers must guard the null before navigating. The book:created event is emitted after persistence (standard ordering rule — event only after persistence resolves)."
+		},
+		{
+			"id": "KR-144",
+			"feature": "tree-canvas",
+			"risk": "DAGRE AUTO-LAYOUT (resolvePositions): tree-connected nodes (reachable from sommaire via choice edges, BFS) are laid out by Dagre (Sugiyama-style DAG layout). Isolated nodes (mort, unreachable pages) are grid-placed below. Dagre outputs CENTER coordinates — always convert to top-left (pos.x - NODE_W/2, pos.y - NODE_H/2) then apply a global offset so the top-left node starts at LAYOUT_ORIGIN. UIPreferencesService.clearNodePositions(bookId) resets all dragged overrides for a book (auto-layout reset). AutoLayoutButton in tree-canvas is the only UI entry point for that reset — it is wired conditionally (canvas view mode only) in EditorScreen actions. Do NOT call dagre.layout on an empty graph (0 nodes); guard with treeNodeIds.size > 0."
 		}
 	]
 }

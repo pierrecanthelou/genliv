@@ -3,3 +3,4 @@
  * surface; internals stay private to this feature.
  */
 export { TreeCanvas, type RevealRequest } from './components/TreeCanvas'
+export { AutoLayoutButton } from './components/AutoLayoutButton'

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useBrain, useOpenBook, useBookViewMode, EditorTopBar, type EditorViewMode } from './brain'
 import { buildAdventureDocument } from './brain'
-import { TreeCanvas, type RevealRequest } from './features/tree-canvas'
+import { TreeCanvas, AutoLayoutButton, type RevealRequest } from './features/tree-canvas'
 import { OutlineView } from './features/outline-view'
 import { NodeEditorPanel } from './features/node-editor'
 import { ExportGameButton, ExportScenarioButton, DownloadAiPromptButton } from './features/book-export'
@@ -65,6 +65,7 @@ export function EditorScreen({ bookId }: { bookId: string }): JSX.Element {
 				onAddNode={handleAddNode}
 				actions={
 					<span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+						{viewMode === 'canvas' && <AutoLayoutButton bookId={bookId} />}
 						<DownloadAiPromptButton />
 						<ExportScenarioButton bookId={bookId} />
 						<ExportGameButton bookId={bookId} />

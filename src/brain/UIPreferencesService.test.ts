@@ -51,6 +51,20 @@ describe('UIPreferencesService', () => {
 		expect(prefs.getBookPrefs('b1').positions).toEqual({ n1: { x: 1, y: 1 }, n2: { x: 2, y: 2 } })
 	})
 
+	it('clearNodePositions removes all dragged overrides for a book (auto-layout reset)', () => {
+		const prefs = createUIPreferencesService(createLocalStoragePersistence())
+		prefs.setNodePosition('b1', 'n1', { x: 1, y: 1 })
+		prefs.setNodePosition('b1', 'n2', { x: 2, y: 2 })
+		prefs.clearNodePositions('b1')
+		expect(prefs.getBookPrefs('b1').positions).toBeUndefined()
+		// Other prefs for the same book are preserved.
+		prefs.setViewMode('b1', 'outline')
+		prefs.setNodePosition('b1', 'n3', { x: 3, y: 3 })
+		prefs.clearNodePositions('b1')
+		expect(prefs.getBookPrefs('b1').viewMode).toBe('outline')
+		expect(prefs.getBookPrefs('b1').positions).toBeUndefined()
+	})
+
 	it('notifies subscribers on a change and stops after unsubscribe', () => {
 		const prefs = createUIPreferencesService(createLocalStoragePersistence())
 		const listener = jest.fn()
