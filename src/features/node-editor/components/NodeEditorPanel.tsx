@@ -114,7 +114,7 @@ export function NodeEditorPanel(): JSX.Element {
 					<NodeDescription value={node.text} onCommit={(text) => patch({ text })} />
 				</section>
 
-				{!structural && (
+				{node.kind !== 'mort' && (
 					<section>
 						<ImageUpload
 							label="Illustration"

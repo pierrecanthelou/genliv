@@ -13,7 +13,7 @@
 			"Toggling « Fin victoire » / « Fin échec » sets the node's end flags via BookService; turning a node into an end is reflected by its NodeBadge updating to the FIN mark on canvas/outline.",
 			"Sommaire and Mort are structural screens: the panel hides « libellé du choix », « action requise » and the Fin toggles for both, and hides « choix sortants » for Mort; only the text is editable (enforced in BookService.updateNode too).",
 			"The « Choix sortants » area and footer branch/relink actions are provided by choice-linking mounted in the reserved slot; node-editor does not duplicate edge logic.",
-			"The Illustration section renders as a deferred/disabled dropzone (no upload), without breaking layout.",
+			"The Illustration section is active for all nodes except mort: selecting an illustration displays a thumbnail with a lightbox (Escape / click-outside); the section is hidden only for mort.",
 			"Closing the panel (✕) deselects without losing committed edits; switching selection swaps content without leaking the previous node's field state.",
 			"The whole panel renders from design-system components/tokens, light theme; controls have ≥44px targets and the panel is keyboard-navigable."
 		],
@@ -176,9 +176,9 @@
 			"Editing happens in a persistent SIDE PANEL beside the tree.",
 			"Libellé du choix lives on the INCOMING EDGE (not duplicated on the node); edited via choice-linking.",
 			"Selection is a brain SelectionService consumed by both canvas and panel (SSOT).",
-			"Illustration deferred (disabled placeholder); inventory + choices are mounted/expanded in later iterations.",
+			"Illustration: fully active for all nodes except mort (unlocked 2026-06-24). The ImageUpload brain primitive (lightbox on click, Escape/click-outside to close) renders in the node editor for all node.kind !== 'mort'. BookService.updateNode accepts { text, illustration } for structural-but-not-locked nodes (sommaire); mot still text-only. Cover thumbnail propagated to BookCard (book-library); full-bleed header in NodeScreen (player).",
 			"node-editor owns text/toggles; action bodies and choices come from other features via ActionRegistry / slots.",
-			"Sommaire and Mort are structural screens (KR-055): no libellé / action / Fin toggles; Mort also has no outgoing choices; text-only, enforced at the SSOT.",
+			"Sommaire and Mort are structural screens (KR-055): no libellé / action / Fin toggles; Mort also has no outgoing choices. Sommaire editable fields: text + illustration (see above); mort: text only; enforced at the SSOT.",
 			"Inventory « objets à prendre » (iter 3) is SUPERSEDED by action-decor « Prendre » takeables (node.decor.objects + shared ObjectEditor): node-editor builds no separate node-level inventory; the shared ObjectCatalogService (KR-062) is owned by action-decor / the hidden-prereq work, and node-editor will reference it, never own it (user decision, 2026-06-19)."
 		],
 		"open_questions": []

@@ -1,20 +1,24 @@
 import { useEffect, useRef, useState } from 'react'
-import { plural } from '../../../brain'
+import { plural, type PlayWarning } from '../../../brain'
 import { useExportBook, type ExportResult } from '../hooks/useExportBook'
 
-/** How long the transient post-export status stays visible before auto-hiding. */
-const STATUS_TIMEOUT_MS = 6000
+/** How long the success status stays visible before auto-hiding (warnings stay until next export). */
+const SUCCESS_TIMEOUT_MS = 6000
 
 /**
- * « Exporter le jeu ⬇ » — the book-export trigger, mounted into the editor top
- * bar's generic `actions` slot by the editor shell (the feature never imports the
- * bar, KR-109). Clicking builds + downloads the play file and shows a transient
- * status beside the button: « ✓ Export réussi » or « ⚠ N avertissement(s) » when
- * dangling references were surfaced (KR-021) — non-blocking (user decision). The
- * status auto-hides; its timer is ref-tracked and cleared on unmount + before
- * re-scheduling (timer-safety rule).
+ * « Exporter le jeu ⬇ » — the book-export trigger. Shows « ✓ Export réussi » or
+ * « ⚠ N avertissement(s) » after export. The success status auto-hides; warnings
+ * stay visible until the next export so the author sees which nodes are broken
+ * (KR-021). `onResult` lets the editor shell receive the full warning list to
+ * highlight the affected nodes in the canvas / outline.
  */
-export function ExportGameButton({ bookId }: { bookId: string }): JSX.Element {
+export function ExportGameButton({
+	bookId,
+	onResult,
+}: {
+	bookId: string
+	onResult?: (warnings: PlayWarning[]) => void
+}): JSX.Element {
 	const exportBook = useExportBook(bookId)
 	const [result, setResult] = useState<ExportResult | null>(null)
 	const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -29,11 +33,16 @@ export function ExportGameButton({ bookId }: { bookId: string }): JSX.Element {
 		const next = exportBook()
 		if (next === null) return
 		setResult(next)
+		onResult?.(next.warningList)
 		if (timerRef.current !== null) clearTimeout(timerRef.current)
-		timerRef.current = setTimeout(() => setResult(null), STATUS_TIMEOUT_MS)
+		// Warnings stay until the next export; only the success status auto-hides.
+		if (next.warnings === 0) {
+			timerRef.current = setTimeout(() => setResult(null), SUCCESS_TIMEOUT_MS)
+		}
 	}
 
 	const hasWarnings = result !== null && result.warnings > 0
+	const warningTooltip = hasWarnings ? result!.warningList.map((w) => `• ${w.message}`).join('\n') : undefined
 
 	return (
 		<span style={wrap}>
@@ -41,7 +50,11 @@ export function ExportGameButton({ bookId }: { bookId: string }): JSX.Element {
 				<span aria-hidden="true">⬇</span> Exporter le jeu
 			</button>
 			{result !== null && (
-				<span role="status" style={{ ...status, color: hasWarnings ? 'var(--bad)' : 'var(--good)' }}>
+				<span
+					role="status"
+					title={warningTooltip}
+					style={{ ...status, color: hasWarnings ? 'var(--bad)' : 'var(--good)' }}
+				>
 					{hasWarnings ? `⚠ ${result.warnings} ${plural(result.warnings, 'avertissement')}` : '✓ Export réussi'}
 				</span>
 			)}

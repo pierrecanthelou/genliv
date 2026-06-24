@@ -13,6 +13,7 @@ import {
 	type UIPreferencesService,
 	type BookUIPrefs,
 	type Point,
+	type LayoutSpacing,
 } from './UIPreferencesService'
 import { createMonsterLibraryService, type MonsterLibraryService, type SavedMonster } from './MonsterLibraryService'
 import { BESTIARY } from './bestiary'
@@ -172,6 +173,15 @@ export function useBookOutlineCollapsed(bookId: string): ReadonlySet<string> {
 		() => uiPreferences.getBookPrefs(bookId).outlineCollapsed ?? EMPTY_COLLAPSED,
 	)
 	return useMemo(() => new Set(ids), [ids])
+}
+
+/** Reactive read of a book's canvas spacing mode (external store, KR-013). */
+export function useBookLayoutSpacing(bookId: string): LayoutSpacing {
+	const { uiPreferences } = useBrain()
+	return useSyncExternalStore(
+		uiPreferences.subscribe,
+		() => uiPreferences.getBookPrefs(bookId).layoutSpacing ?? 'compact',
+	)
 }
 
 /** The cross-book reusable-monster library service. */

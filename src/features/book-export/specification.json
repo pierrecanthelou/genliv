@@ -25,9 +25,11 @@
 			}
 		],
 		"walking_skeleton": "A pure brain transform exportBookForPlay(book) builds the versioned play document (nodes minus position + authored edges + derived automatic edges + object catalog + dangling-reference warnings). A brain downloadJson util serialises + downloads it (Blob/objectURL/anchor, always revokes). The book-export feature's ExportGameButton (mounted into EditorTopBar's actions slot by the editor shell) reads the book from BookService, downloads the file, emits book:exported, and shows a transient success/warning status.",
-		"n": 1,
+		"n": 3,
 		"iterations": [
-			{ "id": 1, "goal": "Image upload (portrait/illustration), scenario import/export, AI prompt download", "status": "done" }
+			{ "id": 1, "goal": "Image upload (portrait/illustration), scenario import/export, AI prompt download", "status": "done" },
+			{ "id": 2, "goal": "Warned-node highlighting after export: red NodeCard ring + OutlineView badge", "status": "done" },
+			{ "id": 3, "goal": "Sommaire illustration: lightbox in ImageUpload, cover thumbnail in BookCard, full-bleed header in NodeScreen", "status": "done" }
 		],
 		"known_risks": [
 			"KR-119 — Play export is a PURE transform over the book SSOT (KR-020), baking the config-derived automatic edges (KR-067) + the resolved object catalog into one versioned, self-contained document; the download (Blob/objectURL/anchor) is a separate browser side-effect that ALWAYS revokes its object URL. Export is non-blocking: dangling references (KR-021) become file warnings + a count, never block or silently drop.",
@@ -82,6 +84,43 @@
 		"open_questions": [
 			"Library-card export action (the second placement option) — deferred; the shared useExportBook hook + pure transform already make it a thin add when wanted.",
 			"When play mode lands, it consumes this format; bump PLAY_EXPORT_VERSION + add a reader if the schema changes."
+		],
+		"iterations_log": [
+			{
+				"id": 2,
+				"label": "warned-node highlighting",
+				"completed_at": "2026-06-24",
+				"architecture_choices": [
+					"ExportResult gains warningList: PlayWarning[] so callers can receive the full list, not just the count. The optional onResult prop on ExportGameButton is the seam: the editor shell (EditorScreen) passes a setter, keeping ExportGameButton self-contained.",
+					"warnedNodeIds derived via useMemo in EditorScreen (KR-013): nodeId-based warnings map directly; edgeId-based ones resolve to edge.from so the source node of the broken choice is highlighted, not an edge phantom.",
+					"Warning status no longer auto-hides: the timer only fires on a clean export (warnings === 0), so the ⚠ badge stays visible until re-export. Hovering it shows a native title tooltip with the message list.",
+					"NodeCard: warned prop → red border (--bad), red outer ring (--bad-line), red tinted background (--bad-bg). Selection takes priority (a warned+selected card still shows the accent).",
+					"OutlineView: OutlineRowItem gains warned bool → red text (--bad), tinted bg (--bad-bg), and an inline ⚠ span with aria-label='Référence cassée' for a11y."
+				],
+				"deviations_from_plan": [],
+				"test_coverage": {
+					"unit": "ExportGameButton: onResult receives [] on clean export; onResult receives [warning] on dirty export; warning status persists after dirty export. TreeCanvas: warned card carries var(--bad-line) ring after export. OutlineView: warned row shows aria-label=Référence cassée badge after export.",
+					"integration": "full App: export triggers warnedNodeIds propagation to both views (canvas + outline tests)",
+					"e2e": "deferred"
+				}
+			},
+			{
+				"id": 3,
+				"label": "sommaire illustration (cover + lightbox + player header)",
+				"completed_at": "2026-06-24",
+				"architecture_choices": [
+					"KR-055 exception: sommaire (structural but NOT locked) now accepts { text, illustration } patches in BookService.updateNode; mort still accepts { text } only. NodeEditorPanel gates the illustration section on node.kind !== 'mort' instead of !structural — the ImageUpload dropzone is visible for sommaire.",
+					"ImageUpload (brain/components) gains a lightbox: clicking the thumbnail opens a role=dialog fixed-overlay (position: fixed, inset: 0, z-index: 9999, semi-transparent). Click-outside and Escape both close it. useEffect subscribes to keydown only while the dialog is open.",
+					"BookCard (book-library) derives the cover URL inline: book.nodes.find(n => n.kind === 'sommaire')?.illustration. Renders as a full-width <img aria-hidden> at the top of the card (object-fit: cover, height: 140px, borderRadius on top corners only). No brain event needed — BookCard already receives the live book prop.",
+					"NodeScreen (player) renders node.illustration as a full-bleed img before the padded text block: the img sits outside the padding container so it is edge-to-edge within the 680px max-width shell (maxHeight 360, object-fit: cover)."
+				],
+				"deviations_from_plan": [],
+				"test_coverage": {
+					"unit": "ImageUpload: lightbox opens on thumbnail click; lightbox closes on backdrop click; lightbox closes on Escape key (4 new tests, 3 existing pass unchanged).",
+					"integration": "book-library tests unaffected (no cover in seed books). NodeScreen behaviour unchanged (no illustration in seed nodes).",
+					"e2e": "deferred"
+				}
+			}
 		]
 	}
 }

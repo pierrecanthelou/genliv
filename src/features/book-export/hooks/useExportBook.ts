@@ -1,9 +1,10 @@
-import { useBrain, exportBookForPlay, downloadJson, slugifyFilename } from '../../../brain'
+import { useBrain, exportBookForPlay, downloadJson, slugifyFilename, type PlayWarning } from '../../../brain'
 
-/** Outcome of an export attempt: the file name written + how many dangling refs were surfaced. */
+/** Outcome of an export attempt: the file name written + dangling-ref warnings. */
 export interface ExportResult {
 	filename: string
 	warnings: number
+	warningList: PlayWarning[]
 }
 
 /**
@@ -25,6 +26,6 @@ export function useExportBook(bookId: string): () => ExportResult | null {
 		const filename = `${slugifyFilename(book.title)}.jeu.json`
 		downloadJson(filename, doc)
 		events.emit('book:exported', { bookId, warnings: doc.warnings.length })
-		return { filename, warnings: doc.warnings.length }
+		return { filename, warnings: doc.warnings.length, warningList: doc.warnings }
 	}
 }

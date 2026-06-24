@@ -42,14 +42,18 @@ export interface BookCardProps {
 
 /** Card surface height — tall enough for title + two meta lines with breathing room. */
 const CARD_MIN_HEIGHT = 116
+/** Cover image height when a sommaire illustration is present. */
+const COVER_HEIGHT = 140
 
 /**
  * One book in the library grid: a clickable surface that opens the book in the
  * editor, showing its title plus meta (screen / link / ending counts and the
- * last-modified date). Hover (or keyboard focus) reveals the rename, duplicate
- * and delete actions; the title can be renamed in place. The action buttons are
- * siblings of the open button (not nested) so they never also open the book;
- * deletion only REQUESTS confirmation (the dangerous action is handled upstream).
+ * last-modified date). When the sommaire node has an illustration it is displayed
+ * as a cover thumbnail at the top of the card. Hover (or keyboard focus) reveals
+ * the rename, duplicate and delete actions; the title can be renamed in place.
+ * The action buttons are siblings of the open button (not nested) so they never
+ * also open the book; deletion only REQUESTS confirmation (the dangerous action
+ * is handled upstream).
  */
 export function BookCard({ book, onOpen, onRename, onDuplicate, onRequestDelete }: BookCardProps): JSX.Element {
 	const [editing, setEditing] = useState(false)
@@ -61,6 +65,7 @@ export function BookCard({ book, onOpen, onRename, onDuplicate, onRequestDelete 
 	// Per-book cloud-sync state — a live VIEW over CloudSyncService (KR-095): the
 	// global status + whether this book's write is still queued. No private mirror.
 	const syncChip = bookSyncChip(useSyncStatus(), useBookPending(book.id))
+	const coverUrl = book.nodes.find((n) => n.kind === 'sommaire')?.illustration
 
 	function startRename(): void {
 		setDraft(book.title)
@@ -82,6 +87,20 @@ export function BookCard({ book, onOpen, onRename, onDuplicate, onRequestDelete 
 
 	return (
 		<article className="book-card" style={cardSurface}>
+			{coverUrl !== undefined && (
+				<img
+					src={coverUrl}
+					alt=""
+					aria-hidden
+					style={{
+						display: 'block',
+						width: '100%',
+						height: COVER_HEIGHT,
+						objectFit: 'cover',
+						borderRadius: 'var(--r-2xl) var(--r-2xl) 0 0',
+					}}
+				/>
+			)}
 			{editing ? (
 				<div style={editBox}>
 					<input

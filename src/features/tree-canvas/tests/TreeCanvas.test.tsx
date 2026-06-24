@@ -117,6 +117,55 @@ describe('tree-canvas', () => {
 		expect(brain.uiPreferences.getBookPrefs(book.id).viewport?.zoom).toBeGreaterThan(1)
 	})
 
+	describe('warned-node highlighting after export', () => {
+		let createObjectURL: jest.Mock
+		let revokeObjectURL: jest.Mock
+		let realCreate: typeof URL.createObjectURL
+		let realRevoke: typeof URL.revokeObjectURL
+
+		beforeEach(() => {
+			realCreate = URL.createObjectURL
+			realRevoke = URL.revokeObjectURL
+			createObjectURL = jest.fn(() => 'blob:fake')
+			revokeObjectURL = jest.fn()
+			URL.createObjectURL = createObjectURL
+			URL.revokeObjectURL = revokeObjectURL
+			jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+		})
+
+		afterEach(() => {
+			URL.createObjectURL = realCreate
+			URL.revokeObjectURL = realRevoke
+			jest.restoreAllMocks()
+		})
+
+		it('adds warning styling to a node card after export reveals a dangling ref on its outgoing edge', async () => {
+			const user = userEvent.setup()
+			const brain = createBrain()
+			const book = brain.books.createBook('La Caverne')
+			const sommaire = brain.books.getBook(book.id)!.nodes.find((n) => n.kind === 'sommaire')!
+			const branch = brain.books.addChoiceBranch(book.id, sommaire.id)!
+			// Edge from sommaire has a missing prereq object → edgeId warning resolves to sommaire.
+			brain.books.updateEdge(book.id, branch.edge.id, { prereq: { objectId: 'ghost' } })
+			brain.router.navigate({ name: 'editor', bookId: book.id })
+			render(
+				<BrainProvider brain={brain}>
+					<App />
+				</BrainProvider>,
+			)
+
+			const sommaireCard = screen.getByRole('button', { name: /Nœud #1 — Sommaire/ })
+			// Before export: no warning ring.
+			expect(sommaireCard.getAttribute('style') ?? '').not.toContain('var(--bad-line)')
+
+			await user.click(screen.getByRole('button', { name: /exporter le jeu/i }))
+
+			// Sommaire is the edge.from node — it should now carry the warning ring.
+			// (jsdom rejects the border shorthand with a CSS var, but box-shadow is preserved.)
+			expect(sommaireCard.getAttribute('style')).toContain('var(--bad-line)')
+		})
+	})
+
 	it('restores persisted view state on reload (a fresh App over the same store)', () => {
 		// First "session": create a book and switch to the outline.
 		const first = createBrain()

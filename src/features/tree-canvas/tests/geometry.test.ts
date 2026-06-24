@@ -66,6 +66,26 @@ describe('resolvePositions (top-down tree)', () => {
 		expect(ys.size).toBeGreaterThan(1)
 	})
 
+	it('spacious spacing produces larger vertical and horizontal gaps than compact', () => {
+		const nodes = [node('root', 'sommaire'), node('a'), node('b')]
+		const edges = [
+			choice('e1', 'root', 'a'),
+			choice('e2', 'root', 'b'),
+		]
+		const compact = resolvePositions(nodes, edges, {}, 'compact')
+		const spacious = resolvePositions(nodes, edges, {}, 'spacious')
+
+		// Vertical gap root→child is larger in spacious mode.
+		const compactGapY = compact.get('a')!.y - compact.get('root')!.y
+		const spaciousGapY = spacious.get('a')!.y - spacious.get('root')!.y
+		expect(spaciousGapY).toBeGreaterThan(compactGapY)
+
+		// Horizontal gap between siblings is larger in spacious mode.
+		const compactGapX = compact.get('b')!.x - compact.get('a')!.x
+		const spaciousGapX = spacious.get('b')!.x - spacious.get('a')!.x
+		expect(spaciousGapX).toBeGreaterThan(compactGapX)
+	})
+
 	it('is deterministic across calls', () => {
 		const nodes = [node('root', 'sommaire'), node('a'), node('b'), node('mort', 'mort')]
 		const edges = [choice('e1', 'root', 'a'), choice('e2', 'a', 'b')]

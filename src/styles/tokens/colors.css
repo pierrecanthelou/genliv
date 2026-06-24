@@ -81,4 +81,5 @@
 
   /* ---- Overlay / scrim ---- */
   --overlay: rgba(0, 0, 0, 0.45); /* modal/sheet backdrop scrim */
+  --overlay-strong: rgba(0, 0, 0, 0.82); /* lightbox backdrop */
 }

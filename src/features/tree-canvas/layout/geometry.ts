@@ -1,5 +1,6 @@
 import * as dagre from 'dagre'
 import { edgeNests, type BookNode, type Edge } from '../../../brain'
+import type { LayoutSpacing } from '../../../brain/UIPreferencesService'
 
 /**
  * Pure geometry for the canvas view. The canvas is a VIEW over the book
@@ -29,10 +30,14 @@ export const CULL_MARGIN = 240
 
 /** Tidy-tree spacing: one level down per depth, one slot per sibling. */
 const LAYOUT_ORIGIN = 60
-const LEVEL_GAP_Y = NODE_H + 70
-const SIBLING_GAP_X = NODE_W + 48
 /** Free/unconnected nodes wrap into a grid of this many columns below the tree. */
 const FREE_COLS = 3
+
+/** Gap values (canvas units) for each spacing mode. */
+const SPACING = {
+	compact: { levelGapY: NODE_H + 70, siblingGapX: NODE_W + 48 },
+	spacious: { levelGapY: NODE_H + 200, siblingGapX: NODE_W + 150 },
+} as const
 
 export interface Point {
 	x: number
@@ -68,7 +73,9 @@ export function resolvePositions(
 	nodes: BookNode[],
 	edges: Edge[],
 	overrides: Record<string, Point> = {},
+	spacing: LayoutSpacing = 'compact',
 ): Map<string, Point> {
+	const { levelGapY: LEVEL_GAP_Y, siblingGapX: SIBLING_GAP_X } = SPACING[spacing]
 	// --- BFS from sommaire via choice edges to find tree-connected nodes ---
 	const nodeIds = new Set(nodes.map((n) => n.id))
 	const childrenOf = new Map<string, string[]>()

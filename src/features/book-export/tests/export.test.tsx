@@ -3,10 +3,14 @@ import userEvent from '@testing-library/user-event'
 import { createBrain, BrainProvider } from '../../../brain'
 import { ExportGameButton } from '../index'
 
-function renderButton(bookId: string, brain = createBrain()) {
+function renderButton(
+	bookId: string,
+	brain = createBrain(),
+	onResult?: Parameters<typeof ExportGameButton>[0]['onResult'],
+) {
 	render(
 		<BrainProvider brain={brain}>
-			<ExportGameButton bookId={bookId} />
+			<ExportGameButton bookId={bookId} onResult={onResult} />
 		</BrainProvider>,
 	)
 	return brain
@@ -61,6 +65,39 @@ describe('book-export — ExportGameButton', () => {
 		await user.click(screen.getByRole('button', { name: /exporter le jeu/i }))
 
 		expect(seen).toEqual([{ bookId: book.id, warnings: 1 }])
+		expect(screen.getByRole('status')).toHaveTextContent(/1 avertissement/i)
+	})
+
+	it('calls onResult with an empty array for a clean export', async () => {
+		const brain = createBrain()
+		const book = brain.books.createBook('La Caverne')
+		const received: unknown[] = []
+		renderButton(book.id, brain, (w) => received.push(w))
+		const user = userEvent.setup()
+
+		await user.click(screen.getByRole('button', { name: /exporter le jeu/i }))
+
+		expect(received).toHaveLength(1)
+		expect(received[0]).toEqual([])
+	})
+
+	it('calls onResult with the warning list and keeps the status visible for dirty exports', async () => {
+		const brain = createBrain()
+		const book = brain.books.createBook('La Caverne')
+		const sommaireId = brain.books.getBook(book.id)!.nodes.find((n) => n.kind === 'sommaire')!.id
+		const created = brain.books.addChoiceBranch(book.id, sommaireId)!
+		brain.books.updateEdge(book.id, created.edge.id, { prereq: { objectId: 'ghost' } })
+		const received: unknown[] = []
+		renderButton(book.id, brain, (w) => received.push(w))
+		const user = userEvent.setup()
+
+		await user.click(screen.getByRole('button', { name: /exporter le jeu/i }))
+
+		// onResult receives the full warning list (one dangling prereq).
+		expect(received).toHaveLength(1)
+		expect(Array.isArray(received[0])).toBe(true)
+		expect((received[0] as unknown[]).length).toBe(1)
+		// Warning status remains visible (no auto-hide timer for warnings).
 		expect(screen.getByRole('status')).toHaveTextContent(/1 avertissement/i)
 	})
 

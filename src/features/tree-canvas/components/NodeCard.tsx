@@ -19,12 +19,14 @@ export interface NodeCardProps {
 	selected: boolean
 	/** Current canvas zoom, so screen drag travel maps to canvas units. */
 	zoom: number
+	/** When true, the card renders in the error state (dangling reference after export). */
+	warned?: boolean
 	onSelect: (nodeId: string) => void
 	/** Commit a dragged position (canvas units) for this node. */
 	onMove: (nodeId: string, position: Point) => void
 }
 
-export function NodeCard({ node, index, position, selected, zoom, onSelect, onMove }: NodeCardProps): JSX.Element {
+export function NodeCard({ node, index, position, selected, zoom, warned, onSelect, onMove }: NodeCardProps): JSX.Element {
 	const view = nodeView(node)
 	const { delta, onPointerDown, consumeDragClick } = useNodeDrag(position, zoom, (next) => onMove(node.id, next))
 
@@ -60,10 +62,10 @@ export function NodeCard({ node, index, position, selected, zoom, onSelect, onMo
 				width: NODE_W,
 				minHeight: NODE_H,
 				boxSizing: 'border-box',
-				background: 'var(--surface-card)',
-				border: `1.5px solid ${selected ? 'var(--accent)' : 'var(--border-card)'}`,
+				background: warned && !selected ? 'var(--bad-bg)' : 'var(--surface-card)',
+				border: `1.5px solid ${selected ? 'var(--accent)' : warned ? 'var(--bad)' : 'var(--border-card)'}`,
 				borderRadius: 'var(--r-2xl)',
-				boxShadow: selected ? 'var(--ring-selected)' : 'var(--shadow-card)',
+				boxShadow: selected ? 'var(--ring-selected)' : warned ? '0 0 0 2px var(--bad-line)' : 'var(--shadow-card)',
 				padding: '10px 12px',
 				cursor: dragging ? 'grabbing' : 'grab',
 				userSelect: 'none',

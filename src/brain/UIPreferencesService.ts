@@ -19,6 +19,8 @@ export interface Point {
 	y: number
 }
 
+export type LayoutSpacing = 'compact' | 'spacious'
+
 /** Everything we remember for one book's editor view (all optional — absent = default). */
 export interface BookUIPrefs {
 	viewport?: Viewport
@@ -27,6 +29,8 @@ export interface BookUIPrefs {
 	positions?: Record<string, Point>
 	/** Node ids collapsed in the outline view (a stale id for a deleted node is harmless). */
 	outlineCollapsed?: string[]
+	/** Canvas node spacing: 'compact' (default) or 'spacious' (generous gaps). */
+	layoutSpacing?: LayoutSpacing
 }
 
 /**
@@ -47,6 +51,8 @@ export interface UIPreferencesService {
 	clearNodePositions(bookId: string): void
 	/** Persist the set of node ids collapsed in the outline view. */
 	setOutlineCollapsed(bookId: string, nodeIds: string[]): void
+	/** Persist the canvas spacing mode (compact / spacious). */
+	setLayoutSpacing(bookId: string, spacing: LayoutSpacing): void
 	/** Subscribe to any prefs change (for useSyncExternalStore). Returns an unsubscribe. */
 	subscribe(listener: () => void): () => void
 }
@@ -95,6 +101,9 @@ export function createUIPreferencesService(local: PersistenceService): UIPrefere
 		},
 		setOutlineCollapsed(bookId, nodeIds) {
 			commit(bookId, { ...load(bookId), outlineCollapsed: nodeIds })
+		},
+		setLayoutSpacing(bookId, spacing) {
+			commit(bookId, { ...load(bookId), layoutSpacing: spacing })
 		},
 		subscribe(listener) {
 			listeners.add(listener)

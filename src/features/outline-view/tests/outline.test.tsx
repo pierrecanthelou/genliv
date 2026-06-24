@@ -214,4 +214,51 @@ describe('outline-view', () => {
 		expect(screen.getByTestId('canvas-surface')).toBeInTheDocument()
 		expect(brain.selection.getSelected()).toBe(child.id)
 	})
+
+	describe('warned-node highlighting after export', () => {
+		let createObjectURL: jest.Mock
+		let revokeObjectURL: jest.Mock
+		const realCreate = URL.createObjectURL
+		const realRevoke = URL.revokeObjectURL
+
+		beforeEach(() => {
+			createObjectURL = jest.fn(() => 'blob:fake')
+			revokeObjectURL = jest.fn()
+			URL.createObjectURL = createObjectURL
+			URL.revokeObjectURL = revokeObjectURL
+			jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+		})
+
+		afterEach(() => {
+			URL.createObjectURL = realCreate
+			URL.revokeObjectURL = realRevoke
+			jest.restoreAllMocks()
+		})
+
+		it('shows a warning badge on an outline row after export surfaces a dangling ref', async () => {
+			const user = userEvent.setup()
+			const brain = createBrain()
+			const created = brain.books.createBook('La Caverne')
+			const sommaire = brain.books.getBook(created.id)!.nodes.find((n) => n.kind === 'sommaire')!
+			const branch = brain.books.addChoiceBranch(created.id, sommaire.id)!
+			// Edge from sommaire carries a missing prereq → edgeId warning resolves to sommaire.
+			brain.books.updateEdge(created.id, branch.edge.id, { prereq: { objectId: 'ghost' } })
+			brain.router.navigate({ name: 'editor', bookId: created.id })
+			render(
+				<BrainProvider brain={brain}>
+					<App />
+				</BrainProvider>,
+			)
+
+			// Switch to the outline — no badge yet.
+			await user.click(screen.getByRole('radio', { name: /Plan/ }))
+			expect(screen.queryByLabelText('Référence cassée')).not.toBeInTheDocument()
+
+			// Export (button is always visible in the top bar).
+			await user.click(screen.getByRole('button', { name: /exporter le jeu/i }))
+
+			// The Sommaire row (source of the broken edge) now shows the warning badge.
+			expect(screen.getByLabelText('Référence cassée')).toBeInTheDocument()
+		})
+	})
 })

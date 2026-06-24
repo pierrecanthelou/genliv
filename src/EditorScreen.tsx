@@ -1,7 +1,7 @@
-import { useState } from 'react'
-import { useBrain, useOpenBook, useBookViewMode, EditorTopBar, type EditorViewMode } from './brain'
+import { useState, useMemo } from 'react'
+import { useBrain, useOpenBook, useBookViewMode, EditorTopBar, type EditorViewMode, type PlayWarning } from './brain'
 import { buildAdventureDocument } from './brain'
-import { TreeCanvas, AutoLayoutButton, type RevealRequest } from './features/tree-canvas'
+import { TreeCanvas, AutoLayoutButton, SpacingToggle, type RevealRequest } from './features/tree-canvas'
 import { OutlineView } from './features/outline-view'
 import { NodeEditorPanel } from './features/node-editor'
 import { ExportGameButton, ExportScenarioButton, DownloadAiPromptButton } from './features/book-export'
@@ -27,6 +27,23 @@ export function EditorScreen({ bookId }: { bookId: string }): JSX.Element {
 	// tree-canvas never import each other (composition-root wiring).
 	const [reveal, setReveal] = useState<RevealRequest | undefined>(undefined)
 	const [adventure, setAdventure] = useState<AdventureDocument | null>(null)
+	const [exportWarnings, setExportWarnings] = useState<PlayWarning[]>([])
+
+	// Derive warned node ids: nodeId-based warnings directly; edgeId-based ones resolve
+	// to their edge's `from` node so the source of the broken choice is highlighted.
+	const warnedNodeIds = useMemo<ReadonlySet<string>>(() => {
+		if (exportWarnings.length === 0 || book === null) return new Set()
+		const edgeFromById = new Map(book.edges.map((e) => [e.id, e.from]))
+		const ids = new Set<string>()
+		for (const w of exportWarnings) {
+			if (w.nodeId !== undefined) ids.add(w.nodeId)
+			if (w.edgeId !== undefined) {
+				const from = edgeFromById.get(w.edgeId)
+				if (from !== undefined) ids.add(from)
+			}
+		}
+		return ids
+	}, [exportWarnings, book])
 
 	function revealInTree(nodeId: string): void {
 		setReveal((prev) => ({ nodeId, seq: (prev?.seq ?? 0) + 1 }))
@@ -65,10 +82,11 @@ export function EditorScreen({ bookId }: { bookId: string }): JSX.Element {
 				onAddNode={handleAddNode}
 				actions={
 					<span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+						{viewMode === 'canvas' && <SpacingToggle bookId={bookId} />}
 						{viewMode === 'canvas' && <AutoLayoutButton bookId={bookId} />}
 						<DownloadAiPromptButton />
 						<ExportScenarioButton bookId={bookId} />
-						<ExportGameButton bookId={bookId} />
+						<ExportGameButton bookId={bookId} onResult={setExportWarnings} />
 					</span>
 				}
 				onPreview={handlePreview}
@@ -76,7 +94,11 @@ export function EditorScreen({ bookId }: { bookId: string }): JSX.Element {
 			<PlayerModal adventure={adventure} onClose={() => setAdventure(null)} />
 			<div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
 				<div style={{ flex: 1, minWidth: 0 }}>
-					{viewMode === 'canvas' ? <TreeCanvas reveal={reveal} /> : <OutlineView onRevealInTree={revealInTree} />}
+					{viewMode === 'canvas' ? (
+						<TreeCanvas reveal={reveal} warnedNodeIds={warnedNodeIds} />
+					) : (
+						<OutlineView onRevealInTree={revealInTree} warnedNodeIds={warnedNodeIds} />
+					)}
 				</div>
 				<NodeEditorPanel />
 			</div>

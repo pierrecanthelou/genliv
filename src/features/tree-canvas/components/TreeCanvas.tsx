@@ -5,6 +5,7 @@ import {
 	useSelectedNode,
 	useOpenBook,
 	useBookNodePositions,
+	useBookLayoutSpacing,
 	deriveAutomaticEdges,
 } from '../../../brain'
 import type { Point } from '../layout/geometry'
@@ -33,6 +34,12 @@ export interface RevealRequest {
 	seq: number
 }
 
+export interface TreeCanvasProps {
+	reveal?: RevealRequest
+	/** Node ids with dangling references after export — rendered with a red border. */
+	warnedNodeIds?: ReadonlySet<string>
+}
+
 const DOT_GRID = 'radial-gradient(var(--ink-6) 1px, transparent 1px)'
 /** Dot-grid cell size (px). */
 const DOT_GRID_SIZE = 22
@@ -47,13 +54,14 @@ const HINT_GAP = 28
  * BookService. A VIEW over BookService that never mutates locally (KR-020). The
  * surrounding chrome (top bar, view-mode switch, panel) is the editor shell's.
  */
-export function TreeCanvas({ reveal }: { reveal?: RevealRequest } = {}): JSX.Element {
+export function TreeCanvas({ reveal, warnedNodeIds }: TreeCanvasProps = {}): JSX.Element {
 	const { books, selection, uiPreferences } = useBrain()
 	const route = useRoute()
 	const bookId = route.name === 'editor' ? route.bookId : null
 	const book = useOpenBook(bookId)
 	const selectedId = useSelectedNode()
 	const positionOverrides = useBookNodePositions(bookId ?? '')
+	const layoutSpacing = useBookLayoutSpacing(bookId ?? '')
 	const { viewport, zoomIn, zoomOut, onBackgroundPointerDown, onWheel, centerOn, didDragRef } = useViewport(bookId)
 	const surfaceRef = useRef<HTMLDivElement>(null)
 	/** The last reveal `seq` already centred — so we act once per request. */
@@ -74,8 +82,8 @@ export function TreeCanvas({ reveal }: { reveal?: RevealRequest } = {}): JSX.Ele
 	}, [])
 
 	const positions = useMemo(
-		() => resolvePositions(book?.nodes ?? [], book?.edges ?? [], positionOverrides),
-		[book, positionOverrides],
+		() => resolvePositions(book?.nodes ?? [], book?.edges ?? [], positionOverrides, layoutSpacing),
+		[book, positionOverrides, layoutSpacing],
 	)
 	// Authored edges plus the automatic ones derived from node configs (the trap
 	// « échec sanctionné » → Mort link, KR-067) — derived at the view, never stored.
@@ -179,6 +187,7 @@ export function TreeCanvas({ reveal }: { reveal?: RevealRequest } = {}): JSX.Ele
 							index={index}
 							position={pos}
 							selected={node.id === selectedId}
+							warned={warnedNodeIds?.has(node.id) ?? false}
 							zoom={viewport.zoom}
 							onSelect={select}
 							onMove={moveNode}

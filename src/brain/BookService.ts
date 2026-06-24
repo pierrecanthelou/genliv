@@ -303,12 +303,16 @@ export function createBookService(persistence: PersistenceService, events: Event
 			if (book === null) return null
 			const current = getNode(book, nodeId)
 			if (current === null) return null
-			// Structural screens accept only text edits: the locked Mort leaf
-			// (KR-002) and the Sommaire root have no end flags / required action
-			// (KR-055). The structural fact is a named registry predicate, not a
-			// kind test (KR-068).
-			const textOnly = current.locked === true || isStructural(current.kind)
-			const allowed: NodePatch = textOnly ? { text: patch.text } : patch
+			// Structural screens restrict editable fields (KR-055/updated):
+			// - Mort (locked): text only.
+			// - Sommaire (structural, not locked): text + illustration (the
+			//   illustration doubles as the book cover in the library and play header).
+			// - All other nodes: full patch.
+			const allowed: NodePatch = current.locked === true
+				? { text: patch.text }
+				: isStructural(current.kind)
+					? { text: patch.text, illustration: patch.illustration }
+					: patch
 			const updated: BookNode = { ...current }
 			for (const key of Object.keys(allowed) as (keyof NodePatch)[]) {
 				if (allowed[key] !== undefined) {

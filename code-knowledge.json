@@ -89,7 +89,7 @@
 		{
 			"id": "KR-055",
 			"feature": "node-editor",
-			"risk": "Sommaire (root) and Mort (death leaf) are STRUCTURAL screens: no « libellé du choix », no « action requise pour poursuivre », no Fin victoire/échec toggles. Mort additionally has NO outgoing choices. Their only editable field is the text. Enforce both in the UI (hide those sections) AND in BookService.updateNode (text-only patch for sommaire/mort), so the invariant holds at the SSOT, not just the panel."
+			"risk": "Sommaire (root) and Mort (death leaf) are STRUCTURAL screens: no « libellé du choix », no « action requise pour poursuivre », no Fin victoire/échec toggles. Mort additionally has NO outgoing choices. Sommaire's editable fields: text + illustration (serves as book cover thumbnail in the library and as full-width header in play mode). Mort's only editable field is the text. Enforced in NodeEditorPanel (illustration section gated on node.kind !== 'mort'; action/end-toggle sections gated on !structural) AND in BookService.updateNode (structural nodes accept { text, illustration } patch; locked nodes accept only { text })."
 		},
 		{
 			"id": "KR-060",

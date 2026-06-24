@@ -24,6 +24,8 @@ export interface OutlineViewProps {
 	 * wired by the editor shell so outline-view never imports tree-canvas.
 	 */
 	onRevealInTree?: (nodeId: string) => void
+	/** Node ids with dangling references after export — shown with a ⚠ badge. */
+	warnedNodeIds?: ReadonlySet<string>
 }
 
 const INDENT = 24
@@ -45,7 +47,7 @@ const PREVIEW_MAX = 140
  * the canvas, wired through the editor shell). Per-row rule badges (⊘/⏱) still
  * wait for the edge rules (choice-linking iter 3–4).
  */
-export function OutlineView({ onRevealInTree }: OutlineViewProps = {}): JSX.Element {
+export function OutlineView({ onRevealInTree, warnedNodeIds }: OutlineViewProps = {}): JSX.Element {
 	const { selection, uiPreferences } = useBrain()
 	const route = useRoute()
 	const bookId = route.name === 'editor' ? route.bookId : null
@@ -92,6 +94,7 @@ export function OutlineView({ onRevealInTree }: OutlineViewProps = {}): JSX.Elem
 							hasChildren={hasChildren}
 							collapsed={isCollapsed}
 							selected={!row.reference && row.targetId === selectedId}
+							warned={!row.reference && row.node !== null && (warnedNodeIds?.has(row.node.id) ?? false)}
 							onSelect={() => row.node !== null && selection.select(bookId, row.node.id)}
 							onInspect={() => row.node !== null && setInspectedId(row.node.id)}
 							onToggle={() => toggleCollapse(row.targetId)}
@@ -129,6 +132,7 @@ interface OutlineRowItemProps {
 	hasChildren: boolean
 	collapsed: boolean
 	selected: boolean
+	warned: boolean
 	onSelect: () => void
 	onInspect: () => void
 	onToggle: () => void
@@ -139,6 +143,7 @@ function OutlineRowItem({
 	hasChildren,
 	collapsed,
 	selected,
+	warned,
 	onSelect,
 	onInspect,
 	onToggle,
@@ -190,8 +195,8 @@ function OutlineRowItem({
 					title={hint}
 					style={{
 						...rowButton,
-						background: selected ? 'var(--accent-bg)' : 'transparent',
-						color: row.reference ? 'var(--text-muted)' : 'var(--text-body)',
+						background: selected ? 'var(--accent-bg)' : warned ? 'var(--bad-bg)' : 'transparent',
+						color: row.reference ? 'var(--text-muted)' : warned ? 'var(--bad)' : 'var(--text-body)',
 						cursor: node === null ? 'not-allowed' : 'pointer',
 					}}
 				>
@@ -199,6 +204,11 @@ function OutlineRowItem({
 						<span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-3)' }}>
 							<NodeBadge kind={effectiveKind(node)} label={endLabel(node)} selected={selected} />
 							{title}
+							{warned && (
+								<span aria-label="Référence cassée" style={{ color: 'var(--bad)', fontSize: 'var(--fs-meta)' }}>
+									⚠
+								</span>
+							)}
 						</span>
 					) : (
 						<span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>

@@ -2,6 +2,31 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.5.19 — sommaire illustration : vignette bibliothèque + lightbox éditeur + header mode jeu
+
+- **`src/brain/BookService.ts`** — `updateNode` accepte `{ text, illustration }` pour les nœuds structurels non-verrouillés (sommaire) ; mort reste text-only (KR-055)
+- **`src/features/node-editor/components/NodeEditorPanel.tsx`** — section Illustration visible pour tous les nœuds sauf mort (`node.kind !== 'mort'`)
+- **`src/brain/components/ImageUpload.tsx`** — lightbox sur clic de la vignette : overlay fixe, fermeture via Escape ou clic extérieur
+- **`src/features/book-library/components/BookCard.tsx`** — illustration du sommaire affichée en vignette de couverture (140 px, object-fit: cover, coins arrondis haut)
+- **`src/player/components/NodeScreen.tsx`** — illustration rendue en header pleine largeur avant le texte (maxHeight 360, edge-to-edge dans le conteneur 680 px)
+- **`code-knowledge.json` / `CLAUDE.md`** — KR-055 mis à jour : sommaire = text + illustration ; mort = text uniquement
+
+## 0.5.18 — book-export: nœuds problématiques surlignés en rouge après export
+
+- **`src/features/book-export/hooks/useExportBook.ts`** — `ExportResult` gagne `warningList: PlayWarning[]`
+- **`src/features/book-export/components/ExportGameButton.tsx`** — prop `onResult?` ; statut d'avertissement sans auto-hide ; tooltip `title` avec les messages
+- **`src/EditorScreen.tsx`** — état `exportWarnings`, `warnedNodeIds` dérivé via `useMemo` (KR-013) ; `edgeId` résolu vers `edge.from` ; passé à `TreeCanvas` + `OutlineView`
+- **`src/features/tree-canvas/components/NodeCard.tsx`** — prop `warned` ; bordure + fond + anneau `--bad` quand actif
+- **`src/features/outline-view/components/OutlineView.tsx`** — prop `warnedNodeIds` ; badge `⚠` + fond `--bad-bg` + texte `--bad` sur les lignes concernées
+
+## 0.5.17 — tree-canvas iter 6: SpacingToggle compact / aéré
+
+- **`src/brain/UIPreferencesService.ts`** — `LayoutSpacing` type + `setLayoutSpacing()` dans `BookUIPrefs`
+- **`src/brain/BrainContext.tsx`** — hook `useBookLayoutSpacing` (useSyncExternalStore, KR-013)
+- **`src/features/tree-canvas/layout/geometry.ts`** — `resolvePositions` accepte un 4e param `spacing` ; constantes `SPACING.compact/spacious` (×2.9 V, ×3.1 H)
+- **`src/features/tree-canvas/components/SpacingToggle.tsx`** — bouton toggle compact ↔ aéré avec `aria-pressed`, état actif en bleu accent
+- **`src/EditorScreen.tsx`** — `<SpacingToggle>` affiché en vue canvas à côté de « Réorganiser »
+
 ## 0.5.16 — tree-canvas iter 5: Dagre auto-layout + bouton Réorganiser
 
 - **`src/features/tree-canvas/layout/geometry.ts`** — remplace le DFS tidy-tree par Dagre/Sugiyama (DAG-aware) ; BFS pour les nœuds connectés ; grid inchangée pour les isolés

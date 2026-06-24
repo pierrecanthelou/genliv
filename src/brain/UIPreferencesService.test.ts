@@ -91,6 +91,24 @@ describe('UIPreferencesService', () => {
 		expect(uiPrefsKey('b1').startsWith(BOOK_KEY_PREFIX)).toBe(false)
 	})
 
+	it('setLayoutSpacing persists the spacing, notifies subscribers, and preserves other prefs', () => {
+		const prefs = createUIPreferencesService(createLocalStoragePersistence())
+		prefs.setViewMode('b1', 'outline')
+		const listener = jest.fn()
+		prefs.subscribe(listener)
+
+		prefs.setLayoutSpacing('b1', 'spacious')
+
+		expect(prefs.getBookPrefs('b1').layoutSpacing).toBe('spacious')
+		// Other prefs for the same book are preserved.
+		expect(prefs.getBookPrefs('b1').viewMode).toBe('outline')
+		expect(listener).toHaveBeenCalledTimes(1)
+
+		// Toggle back to compact.
+		prefs.setLayoutSpacing('b1', 'compact')
+		expect(prefs.getBookPrefs('b1').layoutSpacing).toBe('compact')
+	})
+
 	it('is NEVER cloud-synced: prefs writes do not enter the cloud queue (KR-022/093)', () => {
 		// A transport whose push never resolves would surface any leaked write as a
 		// stuck pending count — UI prefs must bypass the sync decorator entirely.

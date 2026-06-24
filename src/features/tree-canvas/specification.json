@@ -97,6 +97,11 @@
 				"id": 5,
 				"goal": "Dagre auto-layout + reset button: replace the custom DFS tidy-tree with the Dagre/Sugiyama algorithm (DAG-aware, handles convergent paths, minimises crossings); add AutoLayoutButton (clears UIPreferences overrides) in the editor top bar for canvas view.",
 				"status": "done"
+			},
+			{
+				"id": 6,
+				"goal": "SpacingToggle: compact ↔ spacious canvas layout mode persisted per book via UIPreferencesService; generous spacious gaps (×2.9 vertical, ×3.1 horizontal) accessible from the editor top bar.",
+				"status": "done"
 			}
 		],
 		"known_risks": [
@@ -205,6 +210,22 @@
 				"test_coverage": {
 					"unit": "geometry — all 13 existing tests pass (updated toBe→toBeCloseTo for x-positions since Dagre uses float arithmetic; y-equality within rank stays toBe); UIPreferencesService — new clearNodePositions test (clears positions, preserves other prefs)",
 					"integration": "existing TreeCanvas tests unaffected (drag/override/view-mode/zoom paths unchanged)",
+					"e2e": "deferred"
+				}
+			},
+			{
+				"id": 6,
+				"label": "iteration-6 (SpacingToggle)",
+				"completed_at": "2026-06-24",
+				"architecture_choices": [
+					"Added LayoutSpacing to BookUIPrefs + setLayoutSpacing() to UIPreferencesService; hook useBookLayoutSpacing in BrainContext (same useSyncExternalStore pattern as useBookViewMode, KR-013/022).",
+					"resolvePositions accepts a 4th param spacing (default compact): picks gaps from a SPACING constant table; zero existing call sites broken.",
+					"SpacingToggle component: toggle button with aria-pressed, active state via accent color + border. Mounted in EditorScreen next to AutoLayoutButton, conditional on canvas viewMode."
+				],
+				"deviations_from_plan": [],
+				"test_coverage": {
+					"unit": "UIPreferencesService: setLayoutSpacing persists spacing, preserves other prefs, notifies subscribers; geometry: spacious mode produces strictly larger gaps than compact",
+					"integration": "existing TreeCanvas tests unaffected",
 					"e2e": "deferred"
 				}
 			}
