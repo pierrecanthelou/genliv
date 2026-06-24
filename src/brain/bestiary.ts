@@ -69,7 +69,6 @@ const ROWS: BestiaryRow[] = [
 	// Tier 3
 	{ id: 'serpent-geant', name: 'Serpent géant', tier: 3, creatureType: 'animal-geant', stats: { FO: 5, AG: 7, DX: 5, EN: 5, IG: 3 }, mc: 5, pv: 17, pvVariance: 2, armour: 2, weaponMultiplier: 1, capacity: 'venin' },
 	{ id: 'sorciere', name: 'Sorcière', tier: 3, creatureType: 'humanoide', stats: { FO: 2, AG: 4, DX: 6, EN: 4, IG: 8 }, mc: 6, pv: 10, pvVariance: 2, armour: 1, weaponMultiplier: 0.5, capacity: 'malediction' },
-	{ id: 'meduse', name: 'Méduse', tier: 3, creatureType: 'creature-magique', stats: { FO: 3, AG: 6, DX: 8, EN: 5, IG: 7 }, mc: 7, pv: 14, pvVariance: 2, armour: 1, weaponMultiplier: 0.8, capacity: 'regard-petrifiant' },
 	{ id: 'spectre', name: 'Spectre', tier: 3, creatureType: 'mort-vivant', stats: { FO: 2, AG: 8, DX: 6, EN: 6, IG: 7 }, mc: 7, pv: 16, pvVariance: 4, armour: 0, weaponMultiplier: 0.8, capacity: 'intangible' },
 	{ id: 'ogre', name: 'Ogre', tier: 3, creatureType: 'humanoide', stats: { FO: 9, AG: 3, DX: 4, EN: 8, IG: 2 }, mc: 3, pv: 20, pvVariance: 2, armour: 2, weaponMultiplier: 1.8, capacity: 'force-ecrasante' },
 	{ id: 'momie', name: 'Momie', tier: 3, creatureType: 'mort-vivant', stats: { FO: 9, AG: 2, DX: 4, EN: 10, IG: 3 }, mc: 3, pv: 21, pvVariance: 2, armour: 4, weaponMultiplier: 1.5, capacity: 'insensible' },

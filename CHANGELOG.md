@@ -2,6 +2,27 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.5.14 — book-export iter 1: image upload, scenario import/export, AI prompt download; remove Méduse
+
+- **`src/brain/bestiary.ts`** — Méduse removed (22 monsters; `regard-petrifiant` capacity kept in type union)
+- **`src/brain/types.ts`** — `portrait?` on `PnjConfig`; `illustration?` on `BookNode`
+- **`src/brain/components/ImageUpload.tsx`** (NEW) — brain primitive for image pick → data URL; `portrait` and `illustration` UI wired
+- **`src/brain/components/index.ts`** — exports `ImageUpload`
+- **`src/brain/utils/scenarioExport.ts`** (NEW) — `ScenarioExport` type, `exportScenario`, `isScenarioExport`
+- **`src/brain/utils/download.ts`** — `downloadText` added alongside `downloadJson`
+- **`src/brain/BookService.ts`** — `importBook(data: unknown): Book | null` (KR-143); `illustration` on `NodePatch`
+- **`src/brain/index.ts`** — exports `exportScenario`, `isScenarioExport`, `ScenarioExport`, `downloadText`
+- **`src/features/book-export/hooks/useExportScenario.ts`** (NEW) — pure scenario export hook
+- **`src/features/book-export/components/ExportScenarioButton.tsx`** (NEW) — top-bar scenario export with timer-safe status
+- **`src/features/book-export/components/ImportScenarioButton.tsx`** (NEW) — library import from `.scenario.json`
+- **`src/features/book-export/components/DownloadAiPromptButton.tsx`** (NEW) — force-downloads `/PROMPT_SCENE_IA.md`
+- **`src/features/book-library/components/LibraryScreen.tsx`** — optional `importEntry` ReactNode prop
+- **`src/EditorScreen.tsx`** — adds `DownloadAiPromptButton` + `ExportScenarioButton` to actions bar
+- **`src/App.tsx`** — injects `ImportScenarioButton` into `LibraryScreen` (composition root)
+- **`PROMPT_SCENE_IA.md`** + **`public/PROMPT_SCENE_IA.md`** (NEW) — AI scenario-writing prompt (rules + bestiary + JSON format)
+- **`CLAUDE.md`** — always-on rule: rule/bestiary/format changes must update both PROMPT_SCENE_IA copies
+- **Tests** — `ImageUpload.test.tsx` (4); `scenarioExport.test.ts` (9); `pnj.test.tsx` portrait affordance updated; `gameSystem.test.ts` bestiary count 23→22
+
 ## 0.5.13 — action-trap iter 4: inventory loss on échec (KR-142)
 
 - **`src/brain/types.ts`** — `TrapInventoryLossKind`, `TrapInventoryLoss` interface, `inventoryLoss?` on `TrapConfig`; `scenario?` on `GameObject`

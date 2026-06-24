@@ -327,6 +327,8 @@ export interface PnjConfig {
 	target?: string
 	/** XP attribué au joueur pour l'échange avec ce PNJ (0–5, § 5). */
 	xp?: number
+	/** Portrait du PNJ — data URL d'une image uploadée par l'auteur. */
+	portrait?: string
 }
 
 export interface BookNode {
@@ -354,6 +356,8 @@ export interface BookNode {
 	monster?: MonsterConfig
 	/** Trap action config when `actionType === 'piege'` (owned by action-trap). */
 	trap?: TrapConfig
+	/** Illustration — data URL d'une image uploadée par l'auteur (non disponible sur les écrans structurels). */
+	illustration?: string
 }
 
 /**

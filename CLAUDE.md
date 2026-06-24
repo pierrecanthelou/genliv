@@ -20,6 +20,18 @@ An **authoring tool** for « livres dont vous êtes le héros » (gamebooks). A 
 
 The `.dc.html` files are **HTML design references** (look + behaviour). Recreate them in this codebase's stack and patterns — do not ship the HTML. `Editeur Livre-Jeu - Wireframes.dc.html` is the **binding visual reference**; `Editeur Prototype.dc.html` shows the interactions. Fidelity is **low-fi wireframe**: structure/layout/component-anatomy/token-names are binding; the specific greys, the blue, and the Unicode-glyph icons are a placeholder visual pass to be reskinned later.
 
+## AI Scenario Prompt — PROMPT_SCENE_IA.md (always-on rule)
+
+`PROMPT_SCENE_IA.md` (repo root + `public/PROMPT_SCENE_IA.md`) is a ready-to-use AI prompt for generating a Genliv scenario. It embeds the **game rules, the full bestiary, and the JSON scenario format**. The editor ships a « Prompt IA » download button that serves this file.
+
+**MANDATORY**: any change to the following MUST be reflected in both `PROMPT_SCENE_IA.md` AND `public/PROMPT_SCENE_IA.md` (they are identical copies — keep them in sync):
+- The bestiary (`src/brain/bestiary.ts`) — adding/removing monsters, changing stats or capacities
+- The combat or skill-roll rules (`src/brain/combat.ts`, `src/brain/challenge.ts`)
+- The `ScenarioExport` JSON format (`src/brain/utils/scenarioExport.ts`, `src/brain/types.ts` node/edge fields)
+- The characteristics registry (`src/brain/characteristics.ts`)
+
+Treat these files as a **paired triple**: code change → prompt update → sync to public/. Do not commit a bestiary or format change without updating the prompt.
+
 ## Domain rules (non-negotiable)
 
 - Node types: `sommaire` (root), `choix`, `pnj`, `décor` (prendre/écouter/fouiller), `piège`, `monstre`, `fin` (victoire/échec), `mort`.

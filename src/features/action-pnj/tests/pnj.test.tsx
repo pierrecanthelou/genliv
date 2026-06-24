@@ -155,7 +155,7 @@ describe('action-pnj', () => {
 		expect(screen.getByRole('button', { name: /cible supprimée/i })).toBeInTheDocument()
 	})
 
-	it('persists a richer identity « rôle » and shows the deferred portrait affordance (iter 2)', async () => {
+	it('persists a richer identity "role" and shows the portrait upload affordance (iter 2)', async () => {
 		const user = userEvent.setup()
 		const { brain, bookId, nodeId } = setup()
 		await openPnj(user)
@@ -163,9 +163,8 @@ describe('action-pnj', () => {
 		await user.type(screen.getByRole('textbox', { name: /rôle/i }), 'Marchand ambulant')
 		expect(pnjOf(brain, bookId, nodeId)?.role).toBe('Marchand ambulant')
 
-		// The portrait is a deferred affordance until image scope lands (no upload yet).
-		const portrait = screen.getByText(/portrait du pnj/i)
-		expect(portrait).toHaveAttribute('aria-disabled', 'true')
+		// Portrait upload is now live: the dropzone button is present and clickable.
+		expect(screen.getByRole('button', { name: /choisir une image pour : Portrait du PNJ/i })).toBeInTheDocument()
 	})
 
 	it('XP attribué stepper persists xp on the PNJ config (0–5)', async () => {

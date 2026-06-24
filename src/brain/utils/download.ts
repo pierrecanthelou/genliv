@@ -27,6 +27,27 @@ export function downloadJson(filename: string, data: unknown): void {
 }
 
 /**
+ * Trigger a client-side file download of `content` as a plain-text file.
+ * Same pattern as downloadJson but accepts a pre-formatted string (e.g. Markdown).
+ */
+export function downloadText(filename: string, content: string): void {
+	if (typeof document === 'undefined') return
+	const blob = new Blob([content], { type: 'text/plain; charset=utf-8' })
+	const url = URL.createObjectURL(blob)
+	try {
+		const anchor = document.createElement('a')
+		anchor.href = url
+		anchor.download = filename
+		anchor.rel = 'noopener'
+		document.body.appendChild(anchor)
+		anchor.click()
+		document.body.removeChild(anchor)
+	} finally {
+		URL.revokeObjectURL(url)
+	}
+}
+
+/**
  * Slugify a book title into a safe file base name — lowercase ASCII words joined
  * by hyphens, accents stripped, punctuation dropped. Falls back to `livre` when
  * the title has no usable characters, so the download always has a name.

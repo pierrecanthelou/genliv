@@ -5,6 +5,7 @@ import {
 	useOpenBook,
 	NodeBadge,
 	Toggle,
+	ImageUpload,
 	effectiveKind,
 	endLabel,
 	nodeTitle,
@@ -113,12 +114,15 @@ export function NodeEditorPanel(): JSX.Element {
 					<NodeDescription value={node.text} onCommit={(text) => patch({ text })} />
 				</section>
 
-				<section>
-					<SectionLabel hint="— optionnelle, à venir">Illustration</SectionLabel>
-					<div style={{ ...deferredBox, borderStyle: 'dashed', textAlign: 'center' }}>
-						⬚ Dépôt d’image bientôt disponible
-					</div>
-				</section>
+				{!structural && (
+					<section>
+						<ImageUpload
+							label="Illustration"
+							value={node.illustration}
+							onChange={(url) => patch({ illustration: url })}
+						/>
+					</section>
+				)}
 
 				{showAction && (
 					<ActionSection

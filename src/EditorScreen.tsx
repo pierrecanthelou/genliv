@@ -4,7 +4,7 @@ import { buildAdventureDocument } from './brain'
 import { TreeCanvas, type RevealRequest } from './features/tree-canvas'
 import { OutlineView } from './features/outline-view'
 import { NodeEditorPanel } from './features/node-editor'
-import { ExportGameButton } from './features/book-export'
+import { ExportGameButton, ExportScenarioButton, DownloadAiPromptButton } from './features/book-export'
 import { PlayerModal } from './features/play-mode/components/PlayerModal'
 import type { AdventureDocument } from './player/types'
 
@@ -63,7 +63,13 @@ export function EditorScreen({ bookId }: { bookId: string }): JSX.Element {
 				onViewModeChange={setViewMode}
 				onBack={() => router.navigate({ name: 'home' })}
 				onAddNode={handleAddNode}
-				actions={<ExportGameButton bookId={bookId} />}
+				actions={
+					<span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+						<DownloadAiPromptButton />
+						<ExportScenarioButton bookId={bookId} />
+						<ExportGameButton bookId={bookId} />
+					</span>
+				}
 				onPreview={handlePreview}
 			/>
 			<PlayerModal adventure={adventure} onClose={() => setAdventure(null)} />

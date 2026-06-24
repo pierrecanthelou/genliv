@@ -292,7 +292,7 @@ export const CAPACITY_HOOKS: Record<MonsterCapacityId, CapacityHooks> = {
 		},
 	},
 
-	// ── Regard pétrifiant (Méduse) — V1: retirée du bestiaire (capacité non implémentée)
+	// ── Regard pétrifiant — capacité disponible pour les monstres custom ; non utilisée dans le bestiaire de base
 	'regard-petrifiant': {},
 
 	// ── Intangible (Spectre) — max 1 dégât par coup d'arme non-magique ───────────

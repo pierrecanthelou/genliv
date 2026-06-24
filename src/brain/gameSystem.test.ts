@@ -112,8 +112,8 @@ describe('game system — XP & progression (§ 5)', () => {
 })
 
 describe('bestiary (§ 4)', () => {
-	it('has 23 monsters with full stat blocks', () => {
-		expect(BESTIARY).toHaveLength(23)
+	it('has 22 monsters with full stat blocks', () => {
+		expect(BESTIARY).toHaveLength(22)
 		const vampire = BESTIARY_BY_TEMPLATE['vampire']
 		expect(vampire.tier).toBe(4)
 		expect(vampire.stats).toEqual({ FO: 10, AG: 10, DX: 10, EN: 12, IG: 10 })

@@ -5,6 +5,7 @@ import {
 	Field,
 	Stepper,
 	TargetPicker,
+	ImageUpload,
 	getNode,
 	nodeTitle,
 	type ActionEditorContext,
@@ -47,8 +48,8 @@ export function PnjEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element 
 
 	function patchPnj(patch: Partial<PnjConfig>): void {
 		// Write the canonical shape (migrated gift) so a legacy bare-object gift is
-		// rewritten on the first edit; an undefined gift/target/role/xp is dropped by JSON.
-		const base: PnjConfig = { name: pnj.name, role: pnj.role, dialogue: pnj.dialogue, gift, target: pnj.target, xp: pnj.xp }
+		// rewritten on the first edit; an undefined gift/target/role/xp/portrait is dropped by JSON.
+		const base: PnjConfig = { name: pnj.name, role: pnj.role, dialogue: pnj.dialogue, gift, target: pnj.target, xp: pnj.xp, portrait: pnj.portrait }
 		books.updateNode(bookId, nodeId, { pnj: { ...base, ...patch } })
 	}
 
@@ -118,10 +119,11 @@ export function PnjEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element 
 				onChange={(e) => patchPnj({ role: e.target.value })}
 			/>
 			<section>
-				<span style={sectionLabel}>Portrait</span>
-				<div style={portraitDropzone} aria-disabled="true">
-					⬚ Portrait du PNJ — dépôt d’image à venir
-				</div>
+				<ImageUpload
+					label="Portrait du PNJ"
+					value={pnj.portrait}
+					onChange={(url) => patchPnj({ portrait: url })}
+				/>
 			</section>
 			<Field
 				label="DIALOGUE"
@@ -150,15 +152,6 @@ export function PnjEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element 
 			/>
 		</div>
 	)
-}
-
-const sectionLabel: React.CSSProperties = {
-	display: 'block',
-	fontFamily: 'var(--font-mono)',
-	fontSize: 'var(--fs-eyebrow)',
-	color: 'var(--text-label)',
-	letterSpacing: 'var(--track-eyebrow)',
-	marginBottom: 5,
 }
 
 const reuseHeader: React.CSSProperties = {
@@ -215,15 +208,3 @@ const detachButton: React.CSSProperties = {
 	padding: '0 var(--space-2)',
 }
 
-/** Deferred portrait affordance — disabled until image scope lands (no upload yet). */
-const portraitDropzone: React.CSSProperties = {
-	border: '1.5px dashed var(--border-field)',
-	borderRadius: 'var(--r-lg)',
-	background: 'var(--paper-1)',
-	color: 'var(--text-faint)',
-	fontFamily: 'var(--font-mono)',
-	fontSize: 'var(--fs-meta)',
-	textAlign: 'center',
-	padding: 'var(--space-6)',
-	cursor: 'not-allowed',
-}

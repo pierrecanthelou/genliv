@@ -25,13 +25,16 @@
 			}
 		],
 		"walking_skeleton": "A pure brain transform exportBookForPlay(book) builds the versioned play document (nodes minus position + authored edges + derived automatic edges + object catalog + dangling-reference warnings). A brain downloadJson util serialises + downloads it (Blob/objectURL/anchor, always revokes). The book-export feature's ExportGameButton (mounted into EditorTopBar's actions slot by the editor shell) reads the book from BookService, downloads the file, emits book:exported, and shows a transient success/warning status.",
-		"n": 0,
-		"iterations": [],
+		"n": 1,
+		"iterations": [
+			{ "id": 1, "goal": "Image upload (portrait/illustration), scenario import/export, AI prompt download", "status": "done" }
+		],
 		"known_risks": [
 			"KR-119 — Play export is a PURE transform over the book SSOT (KR-020), baking the config-derived automatic edges (KR-067) + the resolved object catalog into one versioned, self-contained document; the download (Blob/objectURL/anchor) is a separate browser side-effect that ALWAYS revokes its object URL. Export is non-blocking: dangling references (KR-021) become file warnings + a count, never block or silently drop.",
 			"KR-120 — Shared editor chrome (EditorTopBar) stays feature-agnostic via a generic `actions` ReactNode slot the editor shell fills with feature buttons; the bar never imports a feature (Open/Closed; mirrors the SlotRegistry seam, KR-066/109).",
 			"KR-021 — References are by stable id; a target/object that no longer resolves must be surfaced, not silently broken — the export validates edge targets, prereq objects, countdown fallbacks, monster/PNJ targets, and décor object refs.",
-			"Timer-safety — the transient status timeout is ref-tracked and cleared on unmount + before re-scheduling."
+			"Timer-safety — the transient status timeout is ref-tracked and cleared on unmount + before re-scheduling.",
+			"KR-143 — importBook always mints a fresh book id (no collision); validates format marker + version + required fields + all node kinds before accepting. Returns null on any failure; callers guard the null."
 		]
 	},
 	"implementation": {
@@ -53,6 +56,26 @@
 					"unit": "exportBookForPlay (format/version, position-stripped nodes, derived fatal edge folded in, catalog, each dangling-reference warning) + download (slugify cases, blob/anchor/revoke, revoke-on-throw)",
 					"integration": "ExportGameButton via BrainProvider — clean export shows success + triggers the download; a dangling prereq shows « 1 avertissement » + emits book:exported{warnings:1}; a missing book is a no-op",
 					"e2e": "deferred (Playwright not set up)"
+				}
+			},
+			{
+				"id": 1,
+				"label": "image-upload-scenario-io-ai-prompt",
+				"completed_at": "2026-06-24",
+				"architecture_choices": [
+					"ImageUpload is a new brain/components primitive (FileReader.readAsDataURL → data URL via onChange prop) consumed by PnjEditor (portrait) and NodeEditorPanel (illustration); stored directly on PnjConfig.portrait and BookNode.illustration as optional strings.",
+					"ScenarioExport type + exportScenario/isScenarioExport live in brain/utils/scenarioExport.ts (single source). BookService.importBook validates with isScenarioExport + hasOnlyKnownKinds, always mints a fresh book id (KR-143), emits book:created.",
+					"ImportScenarioButton (book-export feature) injected into LibraryScreen via an optional importEntry ReactNode prop on LibraryScreen; App.tsx is the composition root — no cross-feature import.",
+					"DownloadAiPromptButton serves /PROMPT_SCENE_IA.md from public/ via a plain anchor (no Blob, no ?raw import) to avoid tsconfig vite/client issues.",
+					"downloadText added to brain/utils/download.ts alongside downloadJson; both share the Blob+anchor pattern."
+				],
+				"deviations_from_plan": [
+					"Plan described only the play-export skeleton. This iteration extends the feature with three additional capabilities: scenario import/export, image upload, and AI prompt download — all cross-cutting but owned by this feature slot."
+				],
+				"test_coverage": {
+					"unit": "ImageUpload (4 tests: empty state, preview+remove, remove callback, FileReader stub); exportScenario + isScenarioExport (5+1 tests); BookService.importBook (3 tests: fresh id, null rejection, book:created event)",
+					"integration": "pnj.test.tsx updated: portrait affordance now checks for ImageUpload dropzone button instead of deferred placeholder",
+					"e2e": "deferred"
 				}
 			}
 		],

@@ -139,7 +139,8 @@ export {
 	type PlayNode,
 	type PlayWarning,
 } from './utils/playExport'
-export { downloadJson, slugifyFilename } from './utils/download'
+export { downloadJson, downloadText, slugifyFilename } from './utils/download'
+export { exportScenario, isScenarioExport, type ScenarioExport } from './utils/scenarioExport'
 export { buildAdventureDocument } from './utils/buildAdventureDocument'
 export type { NodeKindDescriptor, EdgeKindDescriptor, BadgeMark } from './kinds'
 export { useOpenBook, useBooks } from './hooks'

@@ -330,6 +330,11 @@
 			"id": "KR-142",
 			"feature": "action-trap",
 			"risk": "TRAP INVENTORY LOSS (KR-142): TrapConfig.inventoryLoss?: TrapInventoryLoss drives what the hero loses on échec. Four kinds: 'aucune' (default, no loss), 'petits' (non-equipment non-scenario objects), 'petits-et-armes' (all non-scenario objects), 'specifique' (one object by stable id). GameObject.scenario?: boolean marks plot-critical items — NEVER removed by 'petits' or 'petits-et-armes'; only 'specifique' can target them. computeInventoryLoss() is the canonical pure resolver (actionEngine.ts); TrapScreen derives lostObjectIds inline (KR-013); finishTrap filters session.inventory before saving. Absence of inventoryLoss on a persisted node = 'aucune' behaviour (no migration needed)."
+		},
+		{
+			"id": "KR-143",
+			"feature": "book-export",
+			"risk": "SCENARIO IMPORT (importBook): BookService.importBook(data: unknown) validates the payload with isScenarioExport() (format marker 'genliv-scenario', version 1, presence of id/title/nodes/edges arrays) AND hasOnlyKnownKinds() (every node.kind must be a known BookNode kind). A fresh book id is always minted on import — internal node/edge ids are book-local and carry no collision risk, but the top-level book id must be unique in the library. Timestamps (createdAt/updatedAt) are also refreshed. importBook returns null on any validation failure; callers must guard the null before navigating. The book:created event is emitted after persistence (standard ordering rule — event only after persistence resolves)."
 		}
 	]
 }

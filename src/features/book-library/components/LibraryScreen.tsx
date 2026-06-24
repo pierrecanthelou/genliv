@@ -11,6 +11,8 @@ export interface LibraryScreenProps {
 	 * root (book-creation) so the two features never import each other.
 	 */
 	createEntry: ReactNode
+	/** Optional « Importer un scénario » affordance injected by the composition root. */
+	importEntry?: ReactNode
 }
 
 const SORT_OPTIONS: SegmentedOption<SortMode>[] = [
@@ -26,7 +28,7 @@ const SORT_OPTIONS: SegmentedOption<SortMode>[] = [
  * pending-deletion target, search query, and sort mode are local UI state,
  * never useEffect-mirrored — the filtered/sorted list is derived inline (KR-013).
  */
-export function LibraryScreen({ createEntry }: LibraryScreenProps): JSX.Element {
+export function LibraryScreen({ createEntry, importEntry }: LibraryScreenProps): JSX.Element {
 	const { books, open, rename, duplicate, remove } = useLibrary()
 	const [pendingDelete, setPendingDelete] = useState<Book | null>(null)
 	const [query, setQuery] = useState('')
@@ -89,7 +91,10 @@ export function LibraryScreen({ createEntry }: LibraryScreenProps): JSX.Element 
 						onRequestDelete={setPendingDelete}
 					/>
 				))}
-				<div style={{ display: 'flex' }}>{createEntry}</div>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+					{createEntry}
+					{importEntry}
+				</div>
 			</div>
 
 			{pendingDelete !== null && (

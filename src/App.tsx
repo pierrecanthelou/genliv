@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useBrain, useRoute, type Route } from './brain'
 import { CreateBookEntry } from './features/book-creation'
 import { LibraryScreen } from './features/book-library'
+import { ImportScenarioButton } from './features/book-export'
 import { EditorScreen } from './EditorScreen'
 import { registerChoiceLinking } from './features/choice-linking'
 import { registerActionDecor } from './features/action-decor'
@@ -61,7 +62,7 @@ export function App(): JSX.Element {
 			// seed-once viewport from the new book's persisted prefs (KR-013).
 			<EditorScreen key={route.bookId} bookId={route.bookId} />
 		) : (
-			<LibraryScreen createEntry={<CreateBookEntry />} />
+			<LibraryScreen createEntry={<CreateBookEntry />} importEntry={<ImportScenarioButton />} />
 		)
 	// SyncIndicator overlays both routes (composition root mounts it once).
 	return (
