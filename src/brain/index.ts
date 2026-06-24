@@ -17,6 +17,8 @@ export type {
 	PnjGiftEffect,
 	MonsterConfig,
 	TrapConfig,
+	TrapInventoryLoss,
+	TrapInventoryLossKind,
 	RollOutcome,
 } from './types'
 export { ROLL_OUTCOMES, type RollOutcomeDescriptor } from './outcomes'

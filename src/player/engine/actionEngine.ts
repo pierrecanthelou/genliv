@@ -4,7 +4,7 @@
  * Every function takes the inputs it needs and returns a typed result the calling
  * hook applies to session state.
  */
-import type { TrapConfig, PnjGift, SkillRoll, DecorReveal, GameObject, RollOutcome } from '../../brain/types'
+import type { TrapConfig, TrapInventoryLoss, PnjGift, SkillRoll, DecorReveal, GameObject, RollOutcome } from '../../brain/types'
 import type { Characteristic } from '../../brain/characteristics'
 import { CHARACTERISTIC_MAX } from '../../brain/characteristics'
 import { resolveChallenge, rollTier, challengeTierValue, CHALLENGE_TIERS } from '../../brain/challenge'
@@ -77,6 +77,41 @@ export function resolveTrap(trap: TrapConfig, hero: HeroState, rng: () => number
 		text: trap.outcomes[outcome],
 		isLethal: outcome === 'echec' && trap.fatal,
 	}
+}
+
+// ─── Piège — inventory loss ───────────────────────────────────────────────────
+
+/**
+ * Compute which object ids to remove from the hero's inventory after a trap échec.
+ * Returns [] on réussite or when no loss is configured (KR-142).
+ *
+ * - 'aucune' / undefined → []
+ * - 'petits'             → non-equipment, non-scenario objects
+ * - 'petits-et-armes'    → all non-scenario objects (weapons/armor included)
+ * - 'specifique'         → [objectId] if in inventory, otherwise []
+ */
+export function computeInventoryLoss(
+	loss: TrapInventoryLoss | undefined,
+	outcome: RollOutcome,
+	inventory: string[],
+	objects: GameObject[],
+): string[] {
+	if (outcome !== 'echec' || !loss || loss.kind === 'aucune') return []
+
+	const byId = new Map(objects.map((o) => [o.id, o]))
+
+	if (loss.kind === 'specifique') {
+		if (!loss.objectId) return []
+		return inventory.includes(loss.objectId) ? [loss.objectId] : []
+	}
+
+	return inventory.filter((id) => {
+		const obj = byId.get(id)
+		if (!obj || obj.scenario) return false
+		if (loss.kind === 'petits') return !obj.equipment
+		// petits-et-armes: all non-scenario objects
+		return true
+	})
 }
 
 // ─── Décor — reveal (écouter / fouiller) ──────────────────────────────────────

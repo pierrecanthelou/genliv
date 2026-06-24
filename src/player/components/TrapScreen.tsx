@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { TrapConfig, GameObject } from '../../brain/types'
 import type { HeroState } from '../types'
-import { resolveTrap } from '../engine/actionEngine'
+import { resolveTrap, computeInventoryLoss } from '../engine/actionEngine'
 import type { TrapResult } from '../engine/actionEngine'
 import { CHALLENGE_TIERS, rollTier } from '../../brain/challenge'
 import { CHARACTERISTICS } from '../../brain/characteristics'
@@ -13,7 +13,7 @@ interface TrapScreenProps {
 	hero: HeroState
 	inventory: string[]
 	adventureObjects: GameObject[]
-	onFinish: (isLethal: boolean, xp: number) => void
+	onFinish: (isLethal: boolean, xp: number, lostObjectIds: string[]) => void
 }
 
 export function TrapScreen({ trap, hero, inventory, adventureObjects, onFinish }: TrapScreenProps): JSX.Element {
@@ -28,6 +28,12 @@ export function TrapScreen({ trap, hero, inventory, adventureObjects, onFinish }
 
 	const traitLabel = trap.roll ? (CHARACTERISTICS[trap.roll.trait as Characteristic]?.abbr ?? trap.roll.trait) : null
 	const tierLabel = trap.roll ? CHALLENGE_TIERS[rollTier(trap.roll)].notation : null
+
+	// Pure derived state — no useEffect needed (KR-013).
+	const lostObjectIds = result !== null
+		? computeInventoryLoss(trap.inventoryLoss, result.outcome, inventory, adventureObjects)
+		: []
+	const lostObjectNames = lostObjectIds.map((id) => adventureObjects.find((o) => o.id === id)?.name ?? id)
 
 	function handleFaceTrap(): void {
 		const obj = selectedObjId ? adventureObjects.find((o) => o.id === selectedObjId) : null
@@ -144,9 +150,23 @@ export function TrapScreen({ trap, hero, inventory, adventureObjects, onFinish }
 						)}
 					</div>
 
+					{/* Lost objects (KR-142) */}
+					{lostObjectNames.length > 0 && (
+						<div
+							style={{
+								fontFamily: 'var(--font-mono)',
+								fontSize: 'var(--fs-meta)',
+								color: 'var(--bad)',
+							}}
+						>
+							Objet{lostObjectNames.length > 1 ? 's' : ''} perdu{lostObjectNames.length > 1 ? 's' : ''} :{' '}
+							{lostObjectNames.join(', ')}
+						</div>
+					)}
+
 					<button
 						type="button"
-						onClick={() => onFinish(result.isLethal, result.xp)}
+						onClick={() => onFinish(result.isLethal, result.xp, lostObjectIds)}
 						style={{
 							alignSelf: 'flex-start',
 							padding: 'var(--space-4) var(--space-9)',

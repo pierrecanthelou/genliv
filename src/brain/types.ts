@@ -76,6 +76,12 @@ export interface GameObject {
 	equipment?: EquipmentEffect
 	/** Optional: this object reinforces skill rolls when used before an action (AC C5, KR-141). */
 	reinforcementBonus?: ReinforcementBonus
+	/**
+	 * Marks a plot-critical object (MacGuffin, key item). Scenario objects are NEVER
+	 * removed by the trap inventory-loss modes 'petits' or 'petits-et-armes'; they can
+	 * only be targeted explicitly by mode 'specifique' (KR-142).
+	 */
+	scenario?: boolean
 }
 
 /** Décor interaction: take an object, listen, or search (domain rule; KR-090). */
@@ -242,6 +248,24 @@ export interface MonsterConfig extends MonsterStatBlock {
 	loot?: GameObject
 }
 
+/**
+ * What the trap steals from the hero's inventory on échec (KR-142).
+ * Scenario objects (scenario: true on GameObject) are NEVER stolen by 'petits'
+ * or 'petits-et-armes'; only 'specifique' can target them explicitly.
+ *
+ * - 'aucune': nothing lost (default)
+ * - 'petits': remove non-equipment, non-scenario objects
+ * - 'petits-et-armes': remove all non-scenario objects (including weapons/armor)
+ * - 'specifique': remove one specific object by stable id
+ */
+export type TrapInventoryLossKind = 'aucune' | 'petits' | 'petits-et-armes' | 'specifique'
+
+export interface TrapInventoryLoss {
+	kind: TrapInventoryLossKind
+	/** Stable id of the object to remove (kind === 'specifique' only). */
+	objectId?: string
+}
+
 /** Per-node trap action config (owned by action-trap). */
 export interface TrapConfig {
 	/** What the player encounters (author/encounter description). */
@@ -252,6 +276,8 @@ export interface TrapConfig {
 	outcomes: Record<RollOutcome, string>
 	/** The « échec sanctionné » variant: a failed roll is lethal (leads to Mort). */
 	fatal: boolean
+	/** Optional inventory loss applied on échec (KR-142). */
+	inventoryLoss?: TrapInventoryLoss
 }
 
 /**

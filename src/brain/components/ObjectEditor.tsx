@@ -1,4 +1,5 @@
 import { Field } from './Field'
+import { Toggle } from './Toggle'
 import { SegmentedControl, type SegmentedOption } from './SegmentedControl'
 import { Stepper } from './Stepper'
 import type { GameObject, EquipmentEffect } from '../types'
@@ -14,7 +15,7 @@ import {
 } from '../equipment'
 
 /** The author-editable surface of a game object (its id is owned by the caller). */
-export type ObjectDraft = Pick<GameObject, 'name' | 'description' | 'equipment' | 'reinforcementBonus'>
+export type ObjectDraft = Pick<GameObject, 'name' | 'description' | 'equipment' | 'reinforcementBonus' | 'scenario'>
 
 /**
  * ObjectEditor — the shared editor for a game object (KR-052): an internal
@@ -133,6 +134,12 @@ export function ObjectEditor({ value, onChange }: ObjectEditorProps): JSX.Elemen
 					prefix="+"
 				/>
 			</div>
+
+			<Toggle
+				label="Objet de scénario"
+				checked={value.scenario ?? false}
+				onChange={(scenario) => onChange({ ...value, scenario: scenario || undefined })}
+			/>
 		</div>
 	)
 }

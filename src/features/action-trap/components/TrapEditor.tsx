@@ -13,8 +13,11 @@ import {
 	DEFAULT_CHALLENGE_TIER,
 	rollTier,
 	getNode,
+	collectObjects,
 	type ActionEditorContext,
 	type TrapConfig,
+	type TrapInventoryLoss,
+	type TrapInventoryLossKind,
 	type RollOutcome,
 	type SkillRoll,
 	type Characteristic,
@@ -39,6 +42,13 @@ const TIER_OPTIONS: SegmentedOption<ChallengeTier>[] = CHALLENGE_TIER_VALUES.map
 	value,
 	label: `${value} · ${CHALLENGE_TIERS[value].notation}`,
 }))
+
+const LOSS_OPTIONS: SegmentedOption<TrapInventoryLossKind>[] = [
+	{ value: 'aucune', label: 'Aucune' },
+	{ value: 'petits', label: 'Petits objets' },
+	{ value: 'petits-et-armes', label: 'Petits + armes' },
+	{ value: 'specifique', label: 'Spécifique' },
+]
 
 /**
  * action-trap — the « Piège » required-action editor, mounted by node-editor via
@@ -77,6 +87,19 @@ export function TrapEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element
 		patchTrap({ outcomes: { ...trap.outcomes, [outcome]: text } })
 	}
 
+	const lossKind: TrapInventoryLossKind = trap.inventoryLoss?.kind ?? 'aucune'
+
+	function setLossKind(kind: TrapInventoryLossKind): void {
+		const next: TrapInventoryLoss | undefined = kind === 'aucune' ? undefined : { kind }
+		patchTrap({ inventoryLoss: next })
+	}
+
+	function setLossObjectId(objectId: string): void {
+		patchTrap({ inventoryLoss: { kind: 'specifique', objectId } })
+	}
+
+	const catalogObjects = book !== null ? collectObjects(book) : []
+
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
 			<Field
@@ -109,6 +132,37 @@ export function TrapEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element
 			</div>
 
 			<OutcomesEditor value={trap.outcomes} onChange={setOutcome} />
+
+			<div style={rollSection}>
+				<span style={sectionLabel}>Perte d'inventaire (sur échec)</span>
+				<SegmentedControl<TrapInventoryLossKind>
+					ariaLabel="Perte d'inventaire"
+					options={LOSS_OPTIONS}
+					value={lossKind}
+					onChange={setLossKind}
+				/>
+				{lossKind === 'specifique' && (
+					<select
+						aria-label="Objet à perdre"
+						value={trap.inventoryLoss?.objectId ?? ''}
+						onChange={(e) => setLossObjectId(e.target.value)}
+						style={selectStyle}
+					>
+						<option value="" disabled>
+							— Choisir un objet —
+						</option>
+						{catalogObjects.map((obj) => (
+							<option key={obj.id} value={obj.id}>
+								{obj.name}{obj.scenario ? ' (scénario)' : ''}
+							</option>
+						))}
+					</select>
+				)}
+				{(lossKind === 'petits' || lossKind === 'petits-et-armes') && (
+					<p style={fatalNote}>Les objets de scénario ne sont jamais perdus.</p>
+				)}
+			</div>
+
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
 				<Toggle label="L'échec mène à la Mort" checked={trap.fatal} onChange={(fatal) => patchTrap({ fatal })} />
 				{trap.fatal && (
@@ -139,4 +193,16 @@ const fatalNote: React.CSSProperties = {
 	fontFamily: 'var(--font-mono)',
 	fontSize: 'var(--fs-meta)',
 	color: 'var(--text-muted)',
+}
+
+const selectStyle: React.CSSProperties = {
+	minHeight: 'var(--hit-target)',
+	padding: 'var(--space-2) var(--space-3)',
+	border: '1px solid var(--border-field)',
+	borderRadius: 'var(--r-md)',
+	background: 'var(--surface-card)',
+	color: 'var(--text-body)',
+	fontFamily: 'var(--font-ui)',
+	fontSize: 'var(--fs-body)',
+	cursor: 'pointer',
 }

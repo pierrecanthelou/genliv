@@ -2,6 +2,18 @@
 
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
+## 0.5.13 — action-trap iter 4: inventory loss on échec (KR-142)
+
+- **`src/brain/types.ts`** — `TrapInventoryLossKind`, `TrapInventoryLoss` interface, `inventoryLoss?` on `TrapConfig`; `scenario?` on `GameObject`
+- **`src/brain/index.ts`** — exports `TrapInventoryLoss`, `TrapInventoryLossKind`
+- **`src/brain/components/ObjectEditor.tsx`** — `scenario` toggle ("Objet de scénario"); `ObjectDraft` extended
+- **`src/player/engine/actionEngine.ts`** — `computeInventoryLoss(loss, outcome, inventory, objects): string[]` pure function
+- **`src/player/components/TrapScreen.tsx`** — derives `lostObjectIds` inline; shows lost object names in result panel; `onFinish` extended with `lostObjectIds`
+- **`src/player/hooks/usePlaySession.ts`** — `finishTrap` filters `session.inventory` by `lostObjectIds`
+- **`src/player/components/PlayerRuntime.tsx`** — threads `lostObjectIds` to `finishTrap`
+- **`src/features/action-trap/components/TrapEditor.tsx`** — inventory loss SegmentedControl (4 kinds) + object picker for Spécifique
+- **`src/player/engine/actionEngine.test.ts`** + **`src/brain/components/ObjectEditor.test.tsx`** — 9 new tests (8 computeInventoryLoss, 1 scenario toggle)
+
 ## 0.5.12 — play-mode iter 6: object reinforcement (AC C5, KR-141)
 
 - **`src/brain/types.ts`** — `ReinforcementBonus` interface; `reinforcementBonus?` field on `GameObject`.

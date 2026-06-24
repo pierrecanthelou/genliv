@@ -53,8 +53,8 @@ export interface UsePlaySessionResult {
 	finishDecor: (nodeId: string, xp: number) => void
 	/** Apply a PNJ gift, mark the node visited, award XP, and optionally navigate. */
 	finishPnj: (nodeId: string, gift: PnjGiftMutations | null, xp: number, target: string | null) => void
-	/** Mark a trap node resolved: lethal → mort; otherwise mark visited + award XP. */
-	finishTrap: (nodeId: string, isLethal: boolean, xp: number) => void
+	/** Mark a trap node resolved: lethal → mort; otherwise mark visited + award XP + remove lost objects. */
+	finishTrap: (nodeId: string, isLethal: boolean, xp: number, lostObjectIds: string[]) => void
 	/** Spend XP on a characteristic upgrade (caller pre-checks canUpgrade). */
 	spendXpOnCarac: (carac: Characteristic) => void
 	/** Spend XP on a MC bonus upgrade (caller pre-checks canUpgrade). */
@@ -239,7 +239,7 @@ export function usePlaySession(adventure: AdventureDocument): UsePlaySessionResu
 	)
 
 	const finishTrap = useCallback(
-		(nodeId: string, isLethal: boolean, xp: number) => {
+		(nodeId: string, isLethal: boolean, xp: number, lostObjectIds: string[]) => {
 			if (isLethal) {
 				navigateToMort()
 				return
@@ -250,6 +250,9 @@ export function usePlaySession(adventure: AdventureDocument): UsePlaySessionResu
 				const next: SessionState = {
 					...prev,
 					hero: { ...prev.hero, xp: prev.hero.xp + xp },
+					inventory: lostObjectIds.length > 0
+						? prev.inventory.filter((id) => !lostObjectIds.includes(id))
+						: prev.inventory,
 					visitedNodes: newVisited,
 				}
 				saveSession(bookId, next)

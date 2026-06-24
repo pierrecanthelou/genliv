@@ -200,7 +200,7 @@ export function PlayerRuntime({ adventure, onQuit }: PlayerRuntimeProps): JSX.El
 					hero={session.hero}
 					inventory={session.inventory}
 					adventureObjects={adventure.objects}
-					onFinish={(isLethal, xp) => finishTrap(trapNodeId, isLethal, xp)}
+					onFinish={(isLethal, xp, lostObjectIds) => finishTrap(trapNodeId, isLethal, xp, lostObjectIds)}
 				/>
 			</div>
 		)

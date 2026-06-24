@@ -325,6 +325,11 @@
 			"id": "KR-141",
 			"feature": "play-mode",
 			"risk": "OBJECT REINFORCEMENT (AC C5): ReinforcementBonus.rollBonus on a GameObject adds to the hero's effective characteristic value for a skill roll (trap or décor prendre). Author sets the bonus via ObjectEditor Stepper (0–5). The player picks 0 or 1 applicable object before the roll (one object per action phase). rollBonus is the 4th param on resolveTrap / resolveTakeableRoll (after rng, default 0) — existing test signatures remain unchanged. TrapScreen: if trap.roll exists, start in pick phase (result=null); resolve on Affronter le piège click. DecorScreen: ReinforcementPicker above object list; rollBonus injected per Prendre click. ReinforcementPicker returns null when no applicable inventory objects — callers render nothing. ObjectEditor clears reinforcementBonus to undefined when rollBonus drops to 0 (clean serialisation)."
+		},
+		{
+			"id": "KR-142",
+			"feature": "action-trap",
+			"risk": "TRAP INVENTORY LOSS (KR-142): TrapConfig.inventoryLoss?: TrapInventoryLoss drives what the hero loses on échec. Four kinds: 'aucune' (default, no loss), 'petits' (non-equipment non-scenario objects), 'petits-et-armes' (all non-scenario objects), 'specifique' (one object by stable id). GameObject.scenario?: boolean marks plot-critical items — NEVER removed by 'petits' or 'petits-et-armes'; only 'specifique' can target them. computeInventoryLoss() is the canonical pure resolver (actionEngine.ts); TrapScreen derives lostObjectIds inline (KR-013); finishTrap filters session.inventory before saving. Absence of inventoryLoss on a persisted node = 'aucune' behaviour (no migration needed)."
 		}
 	]
 }

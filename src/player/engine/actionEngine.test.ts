@@ -2,6 +2,7 @@ import {
 	resolveTrap,
 	resolveDecorReveal,
 	resolveTakeableRoll,
+	computeInventoryLoss,
 	applyPnjGift,
 	autoEquipObject,
 	computeCaracUpgrade,
@@ -9,7 +10,7 @@ import {
 	applyCaracUpgrade,
 	applyMcUpgrade,
 } from './actionEngine'
-import type { TrapConfig, PnjGift, SkillRoll, DecorReveal, GameObject } from '../../brain/types'
+import type { TrapConfig, TrapInventoryLoss, PnjGift, SkillRoll, DecorReveal, GameObject } from '../../brain/types'
 import type { HeroState, SessionEquipmentState } from '../types'
 
 // ─── Fixtures ──────────────────────────────────────────────────────────────────
@@ -183,6 +184,65 @@ describe('resolveTakeableRoll', () => {
 		const base = resolveTakeableRoll(makeSkillRoll({ trait: 'FO' }), hero, alwaysSucceed, 0)
 		const boosted = resolveTakeableRoll(makeSkillRoll({ trait: 'FO' }), hero, alwaysSucceed, 3)
 		expect(boosted.characteristicValue).toBe(base.characteristicValue + 3)
+	})
+})
+
+// ─── computeInventoryLoss ─────────────────────────────────────────────────────
+
+describe('computeInventoryLoss', () => {
+	const potion: GameObject = { id: 'potion', name: 'Potion', description: '' }
+	const sword: GameObject = { id: 'sword', name: 'Épée', description: '', equipment: { kind: 'arme', weapon: 'epee-1m' } }
+	const key: GameObject = { id: 'key', name: 'Clef', description: '', scenario: true }
+	const objects = [potion, sword, key]
+	const inventory = ['potion', 'sword', 'key']
+
+	it('returns [] on reussite regardless of kind (KR-142)', () => {
+		const loss: TrapInventoryLoss = { kind: 'petits' }
+		expect(computeInventoryLoss(loss, 'reussite', inventory, objects)).toEqual([])
+	})
+
+	it('returns [] when loss is undefined', () => {
+		expect(computeInventoryLoss(undefined, 'echec', inventory, objects)).toEqual([])
+	})
+
+	it('aucune returns [] on echec', () => {
+		const loss: TrapInventoryLoss = { kind: 'aucune' }
+		expect(computeInventoryLoss(loss, 'echec', inventory, objects)).toEqual([])
+	})
+
+	it('petits removes non-equipment non-scenario objects on echec', () => {
+		const loss: TrapInventoryLoss = { kind: 'petits' }
+		expect(computeInventoryLoss(loss, 'echec', inventory, objects)).toEqual(['potion'])
+	})
+
+	it('petits-et-armes removes non-scenario objects on echec', () => {
+		const loss: TrapInventoryLoss = { kind: 'petits-et-armes' }
+		const result = computeInventoryLoss(loss, 'echec', inventory, objects)
+		expect(result).toContain('potion')
+		expect(result).toContain('sword')
+		expect(result).not.toContain('key')
+	})
+
+	it('scenario objects are never removed by petits or petits-et-armes', () => {
+		const lossP: TrapInventoryLoss = { kind: 'petits' }
+		const lossPA: TrapInventoryLoss = { kind: 'petits-et-armes' }
+		expect(computeInventoryLoss(lossP, 'echec', inventory, objects)).not.toContain('key')
+		expect(computeInventoryLoss(lossPA, 'echec', inventory, objects)).not.toContain('key')
+	})
+
+	it('specifique removes the targeted object when in inventory', () => {
+		const loss: TrapInventoryLoss = { kind: 'specifique', objectId: 'key' }
+		expect(computeInventoryLoss(loss, 'echec', inventory, objects)).toEqual(['key'])
+	})
+
+	it('specifique returns [] when object not in inventory', () => {
+		const loss: TrapInventoryLoss = { kind: 'specifique', objectId: 'missing' }
+		expect(computeInventoryLoss(loss, 'echec', inventory, objects)).toEqual([])
+	})
+
+	it('specifique returns [] when objectId is undefined', () => {
+		const loss: TrapInventoryLoss = { kind: 'specifique' }
+		expect(computeInventoryLoss(loss, 'echec', inventory, objects)).toEqual([])
 	})
 })
 

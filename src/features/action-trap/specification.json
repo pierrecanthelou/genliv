@@ -32,11 +32,16 @@
 			}
 		],
 		"walking_skeleton": "registerActionTrap registers an ActionEditor { type:'piege', label:'Piège', render } with the brain ActionRegistry (wired at the App composition root). TrapEditor reads node.trap live via useOpenBook and writes via BookService.updateNode: a DESCRIPTION Field, the shared brain OutcomesEditor for the réussite/échec reveal texts, and a « L'échec mène à la Mort » Toggle (fatal). Skill caractéristique/difficulté + the automatic →Mort edge are later iterations.",
-		"n": 3,
+		"n": 4,
 		"iterations": [
 			{
 				"id": 1,
 				"goal": "Skill roll (§ 05): CARACTÉRISTIQUE select + DIFFICULTÉ; the roll gates which outcome applies; surface réussite/échec.",
+				"status": "done"
+			},
+			{
+				"id": 4,
+				"goal": "Inventory loss on échec (KR-142): four modes (aucune/petits/petits-et-armes/specifique); scenario? flag on GameObject protects plot items.",
 				"status": "done"
 			},
 			{
@@ -135,10 +140,31 @@
 					"integration": "action-decor via App — the « Variante piège » toggle persists roll.fatal and the book then derives a fatal edge from the décor node",
 					"e2e": "deferred (Playwright not set up)"
 				}
+			},
+			{
+				"id": 4,
+				"label": "iteration-4 (inventory loss on echec)",
+				"completed_at": "2026-06-24",
+				"architecture_choices": [
+					"TrapInventoryLoss discriminated type (KR-142): kind in 'aucune'|'petits'|'petits-et-armes'|'specifique'; objectId only for 'specifique'. Added to TrapConfig.inventoryLoss? — absent = 'aucune', so all existing books load unchanged.",
+					"scenario?: boolean on GameObject (brain/types.ts): marks plot-critical items never stolen by modes 'petits'/'petits-et-armes'. Only 'specifique' can target them explicitly, giving authors full control over MacGuffin loss.",
+					"computeInventoryLoss(loss, outcome, inventory, objects) in actionEngine.ts: pure function, returns [] on réussite or when undefined/aucune. 'petits' = non-equipment non-scenario ids; 'petits-et-armes' = non-scenario ids; 'specifique' = [objectId] iff in inventory.",
+					"TrapScreen derives lostObjectIds inline (pure KR-013) before the return. Shows lost object names in the result panel; passes lostObjectIds to onFinish alongside isLethal and xp.",
+					"finishTrap signature extended with lostObjectIds: string[]; filters session.inventory before persisting.",
+					"TrapEditor: SegmentedControl for loss kind (Aucune/Petits objets/Petits + armes/Spécifique); when Spécifique, a <select> from collectObjects(book) appears; scenario items flagged with '(scénario)' in the list.",
+					"ObjectEditor: scenario toggle ('Objet de scénario') added to ObjectDraft; clears to undefined when unchecked for clean serialisation."
+				],
+				"deviations_from_plan": [],
+				"test_coverage": {
+					"unit": "computeInventoryLoss: 8 tests (aucune/undefined/petits/petits-et-armes/specifique/not-in-inventory/no-objectId/scenario-protected). ObjectEditor: scenario toggle test. Total suite: 501 tests, 45 suites.",
+					"integration": "deferred",
+					"e2e": "deferred"
+				}
 			}
 		],
 		"open_questions": [
-			"Generalise deriveAutomaticEdges to the monster victoire/fuite + PNJ « mène à » outcome targets (the helper already structured for it) — a follow-up that promotes those config references to rendered edges (KR-067)."
+			"Generalise deriveAutomaticEdges to the monster victoire/fuite + PNJ « mène à » outcome targets (the helper already structured for it) — a follow-up that promotes those config references to rendered edges (KR-067).",
+			"playExport.ts collectWarnings: add a 'dangling-trap-loss-object' check for kind === 'specifique' when the objectId no longer exists in the book — currently silent at export (runtime safe: computeInventoryLoss returns [])."
 		]
 	}
 }
