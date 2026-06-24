@@ -176,6 +176,11 @@ Retourne un objet JSON valide au format `ScenarioExport` de Genliv.
 
 > L'id du livre sera remplacé par un nouvel identifiant à l'import. Tu peux utiliser n'importe quelle valeur pour `"id"`.
 
+> **CRITIQUE — séparation stricte `nodes` / `edges` :**
+> - Le tableau `nodes` ne contient que des **nœuds** (les écrans du livre). Chaque objet doit avoir un `kind` pris dans la liste des kinds de nœuds : `sommaire`, `choix`, `pnj`, `decor`, `piege`, `monstre`, `fin`, `mort`.
+> - Le tableau `edges` ne contient que des **arêtes** (les liens entre écrans). Chaque objet doit avoir un `kind` pris dans la liste des kinds d'arête : `choice`, `relink`, `flee`.
+> - **Ne mélange jamais des arêtes dans `nodes`, ni des nœuds dans `edges`.** Un objet avec `"kind": "choice"` ou `"kind": "relink"` dans le tableau `nodes` rend le fichier non importable.
+
 ### Nœud (BookNode)
 
 ```json
