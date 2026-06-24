@@ -250,15 +250,21 @@ describe('outline-view', () => {
 				</BrainProvider>,
 			)
 
-			// Switch to the outline — no badge yet.
+			// Switch to the outline.
 			await user.click(screen.getByRole('radio', { name: /Plan/ }))
-			expect(screen.queryByLabelText('Référence cassée')).not.toBeInTheDocument()
+			// The new choix node is an immediate dead-end (live structural check, KR-144) —
+			// its badge appears without needing an export. Sommaire does NOT have a badge
+			// yet because the ghost prereq is an export-only check (not a dead-end).
+			const badgesBeforeExport = screen.queryAllByLabelText('Référence cassée')
+			expect(badgesBeforeExport.length).toBeGreaterThan(0)
 
 			// Export (button is always visible in the top bar).
 			await user.click(screen.getByRole('button', { name: /exporter le jeu/i }))
 
-			// The Sommaire row (source of the broken edge) now shows the warning badge.
-			expect(screen.getByLabelText('Référence cassée')).toBeInTheDocument()
+			// After export the ghost prereq is surfaced: sommaire (edge.from) also gets a badge.
+			expect(screen.getAllByLabelText('Référence cassée').length).toBeGreaterThan(
+				badgesBeforeExport.length,
+			)
 		})
 	})
 })

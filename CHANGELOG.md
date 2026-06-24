@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.20 — book-export iter 4 : validation structurelle en direct (cul-de-sac + cibles fantômes)
+
+- **`src/brain/utils/bookHealth.ts`** (nouveau) — `checkBookHealth(book)` pure : détecte les nœuds sans sortie (`dead-end`) et les arêtes pointant vers un nœud inexistant (`dangling-edge-target`) ; la sommaire est exempt (racine toujours valide vide)
+- **`src/brain/hooks.ts`** — `useBookHealth(bookId)` : hook réactif sur `useOpenBook` ; relance `checkBookHealth` à chaque mutation du livre
+- **`src/brain/index.ts`** — export du hook + des types `StructuralWarning` / `StructuralWarningCode`
+- **`src/EditorScreen.tsx`** — `warnedNodeIds` = union des avertissements live (`useBookHealth`) + export (`onResult`) ; le rouge dans l'arbre et le plan s'allume sans cliquer sur « Exporter »
+- **`src/brain/bookHealth.test.ts`** (nouveau) — 17 tests couvrant tous les cas : nœud mort, fin victoire/échec, monstre avec victoryTarget/fleeTarget, PNJ avec target, piège fatal (garde actionType), objectTrap, cul-de-sac, cible fantôme, livre propre
+
 > **Versioning re-baselined to the horizontal-slice model** (see `docs/ROADMAP.md`): MINOR = capability tier (`0.1` MVP / `0.2` V1 / `0.3` V2 …), PATCH = one feature advanced within the tier. `package.json` reset `0.3.1 → 0.1.0`. The `0.2.0`/`0.3.0`/`0.3.1` entries below were produced under the earlier depth-first scheme and are kept for history; their work (tree-canvas iter 1–2, node-editor iter 1) is "banked depth" the slice plan won't redo.
 
 ## 0.5.19 — sommaire illustration : vignette bibliothèque + lightbox éditeur + header mode jeu

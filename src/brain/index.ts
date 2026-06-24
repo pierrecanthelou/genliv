@@ -143,7 +143,8 @@ export { downloadJson, downloadText, slugifyFilename } from './utils/download'
 export { exportScenario, isScenarioExport, type ScenarioExport } from './utils/scenarioExport'
 export { buildAdventureDocument } from './utils/buildAdventureDocument'
 export type { NodeKindDescriptor, EdgeKindDescriptor, BadgeMark } from './kinds'
-export { useOpenBook, useBooks } from './hooks'
+export { useOpenBook, useBooks, useBookHealth } from './hooks'
+export { type StructuralWarning, type StructuralWarningCode } from './utils/bookHealth'
 export { HIT_TARGET_MIN } from './ui'
 export {
 	createBrain,

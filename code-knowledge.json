@@ -340,6 +340,11 @@
 			"id": "KR-144",
 			"feature": "tree-canvas",
 			"risk": "DAGRE AUTO-LAYOUT (resolvePositions): tree-connected nodes (reachable from sommaire via choice edges, BFS) are laid out by Dagre (Sugiyama-style DAG layout). Isolated nodes (mort, unreachable pages) are grid-placed below. Dagre outputs CENTER coordinates — always convert to top-left (pos.x - NODE_W/2, pos.y - NODE_H/2) then apply a global offset so the top-left node starts at LAYOUT_ORIGIN. UIPreferencesService.clearNodePositions(bookId) resets all dragged overrides for a book (auto-layout reset). AutoLayoutButton in tree-canvas is the only UI entry point for that reset — it is wired conditionally (canvas view mode only) in EditorScreen actions. Do NOT call dagre.layout on an empty graph (0 nodes); guard with treeNodeIds.size > 0."
+		},
+		{
+			"id": "KR-145",
+			"feature": "book-export",
+			"risk": "LIVE STRUCTURAL VALIDATION (checkBookHealth + useBookHealth, KR-145): dead-ends (non-terminal, non-root nodes with no configured exit — stored edges OR monster.victoryTarget / pnj.target / trap.fatal) and dangling-edge-target (edge.to not in nodeIds) are flagged in the canvas + outline at ALL TIMES, not only after export. checkBookHealth(book) in brain/utils/bookHealth.ts is a pure function; useBookHealth(bookId) wraps it with useOpenBook + useMemo (re-runs on every BOOK_MUTATION_EVENT). EditorScreen warnedNodeIds = union of live StructuralWarnings + export PlayWarnings — live covers structural gaps; export covers deeper referential integrity (prereqs, countdowns, config targets). The sommaire root is EXEMPT from dead-end detection (a fresh book always starts unconnected; flagging it would add noise on every new book). StructuralWarning.nodeId is always set (never optional) so consumers never need secondary lookups."
 		}
 	]
 }

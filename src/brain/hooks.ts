@@ -2,6 +2,7 @@ import { useMemo, useSyncExternalStore } from 'react'
 import { useBrain } from './BrainContext'
 import type { AppEventName } from './EventBus'
 import type { Book } from './types'
+import { checkBookHealth, type StructuralWarning } from './utils/bookHealth'
 
 /**
  * Shared brain hooks. Views (tree-canvas, node-editor, outline-view) read the
@@ -46,6 +47,21 @@ export function useOpenBook(bookId: string | null): Book | null {
 	}, [books, events, bookId])
 
 	return useSyncExternalStore(store.subscribe, store.getSnapshot)
+}
+
+/**
+ * Live structural health check of an open book (KR-145). Runs `checkBookHealth`
+ * on every book mutation (same events as `useOpenBook`) and returns warnings
+ * immediately, without the author having to trigger an export. Dead-ends and
+ * dangling edge targets appear as soon as they are created and disappear the
+ * moment they are resolved.
+ */
+export function useBookHealth(bookId: string | null): StructuralWarning[] {
+	const book = useOpenBook(bookId)
+	return useMemo(() => {
+		if (book === null) return []
+		return checkBookHealth(book)
+	}, [book])
 }
 
 /**

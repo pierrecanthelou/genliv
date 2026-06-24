@@ -25,11 +25,12 @@
 			}
 		],
 		"walking_skeleton": "A pure brain transform exportBookForPlay(book) builds the versioned play document (nodes minus position + authored edges + derived automatic edges + object catalog + dangling-reference warnings). A brain downloadJson util serialises + downloads it (Blob/objectURL/anchor, always revokes). The book-export feature's ExportGameButton (mounted into EditorTopBar's actions slot by the editor shell) reads the book from BookService, downloads the file, emits book:exported, and shows a transient success/warning status.",
-		"n": 3,
+		"n": 4,
 		"iterations": [
 			{ "id": 1, "goal": "Image upload (portrait/illustration), scenario import/export, AI prompt download", "status": "done" },
 			{ "id": 2, "goal": "Warned-node highlighting after export: red NodeCard ring + OutlineView badge", "status": "done" },
-			{ "id": 3, "goal": "Sommaire illustration: lightbox in ImageUpload, cover thumbnail in BookCard, full-bleed header in NodeScreen", "status": "done" }
+			{ "id": 3, "goal": "Sommaire illustration: lightbox in ImageUpload, cover thumbnail in BookCard, full-bleed header in NodeScreen", "status": "done" },
+			{ "id": 4, "goal": "Live structural validation: dead-end and dangling-edge-target always visible in canvas + outline during authoring, not only after export", "status": "done" }
 		],
 		"known_risks": [
 			"KR-119 — Play export is a PURE transform over the book SSOT (KR-020), baking the config-derived automatic edges (KR-067) + the resolved object catalog into one versioned, self-contained document; the download (Blob/objectURL/anchor) is a separate browser side-effect that ALWAYS revokes its object URL. Export is non-blocking: dangling references (KR-021) become file warnings + a count, never block or silently drop.",
@@ -79,13 +80,7 @@
 					"integration": "pnj.test.tsx updated: portrait affordance now checks for ImageUpload dropzone button instead of deferred placeholder",
 					"e2e": "deferred"
 				}
-			}
-		],
-		"open_questions": [
-			"Library-card export action (the second placement option) — deferred; the shared useExportBook hook + pure transform already make it a thin add when wanted.",
-			"When play mode lands, it consumes this format; bump PLAY_EXPORT_VERSION + add a reader if the schema changes."
-		],
-		"iterations_log": [
+			},
 			{
 				"id": 2,
 				"label": "warned-node highlighting",
@@ -120,7 +115,28 @@
 					"integration": "book-library tests unaffected (no cover in seed books). NodeScreen behaviour unchanged (no illustration in seed nodes).",
 					"e2e": "deferred"
 				}
+			},
+			{
+				"id": 4,
+				"label": "live structural validation (dead-end + dangling-edge-target)",
+				"completed_at": "2026-06-24",
+				"architecture_choices": [
+					"checkBookHealth(book): StructuralWarning[] in brain/utils/bookHealth.ts — pure function, no side effects, runs on every book change. Detects: dead-end (non-terminal, non-root node with no configured exit — stored edges OR monster.victoryTarget / pnj.target / trap.fatal) and dangling-edge-target (edge.to not found in nodeIds). Sommaire is exempt from dead-end (root always starts unconnected on a fresh book).",
+					"useBookHealth(bookId) in brain/hooks.ts wraps useOpenBook + useMemo; the same BOOK_MUTATION_EVENTS that trigger canvas/outline re-reads also trigger the health check. Exported from the brain barrel alongside StructuralWarning.",
+					"EditorScreen warnedNodeIds = union of live StructuralWarnings (always) + export PlayWarnings (after export). Live health uses StructuralWarning.nodeId directly (always set); export warnings still resolve edgeId → edge.from for edge-anchored issues. The two systems are complementary: live covers structural gaps; export covers deeper referential integrity (prereqs, countdowns, config targets).",
+					"KR-145: the sommaire root is exempt from dead-end detection because an unconnected root is the expected starting state of every new book; all other non-terminal nodes are checked immediately."
+				],
+				"deviations_from_plan": [],
+				"test_coverage": {
+					"unit": "bookHealth.test.ts: 17 tests covering clean book, sommaire exempt, mort/endVictory/endFailure not flagged, monstre+victoryTarget/fleeTarget/pnj+target/piège(actionType guard) not flagged, objectTrap branch, dead-end choix, dead-end monstre, dead-end piège, piège with outgoing edges not flagged, dangling-edge-target, multiple issues.",
+					"integration": "outline.test.tsx + TreeCanvas.test.tsx updated: choix dead-end badge appears immediately (live), sommaire badge appears only after export (export-only prereq check). 538 tests pass.",
+					"e2e": "deferred"
+				}
 			}
+		],
+		"open_questions": [
+			"Library-card export action (the second placement option) — deferred; the shared useExportBook hook + pure transform already make it a thin add when wanted.",
+			"When play mode lands, it consumes this format; bump PLAY_EXPORT_VERSION + add a reader if the schema changes."
 		]
 	}
 }

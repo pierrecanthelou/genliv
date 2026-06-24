@@ -20,6 +20,7 @@ export interface Point {
 }
 
 export type LayoutSpacing = 'compact' | 'spacious'
+export type OutlineDisplayMode = 'list' | 'columns'
 
 /** Everything we remember for one book's editor view (all optional — absent = default). */
 export interface BookUIPrefs {
@@ -31,6 +32,8 @@ export interface BookUIPrefs {
 	outlineCollapsed?: string[]
 	/** Canvas node spacing: 'compact' (default) or 'spacious' (generous gaps). */
 	layoutSpacing?: LayoutSpacing
+	/** Outline display mode: 'list' (default, indented DFS) or 'columns' (Miller columns). */
+	outlineDisplayMode?: OutlineDisplayMode
 }
 
 /**
@@ -53,6 +56,8 @@ export interface UIPreferencesService {
 	setOutlineCollapsed(bookId: string, nodeIds: string[]): void
 	/** Persist the canvas spacing mode (compact / spacious). */
 	setLayoutSpacing(bookId: string, spacing: LayoutSpacing): void
+	/** Persist the outline display mode (list / columns). */
+	setOutlineDisplayMode(bookId: string, mode: OutlineDisplayMode): void
 	/** Subscribe to any prefs change (for useSyncExternalStore). Returns an unsubscribe. */
 	subscribe(listener: () => void): () => void
 }
@@ -104,6 +109,9 @@ export function createUIPreferencesService(local: PersistenceService): UIPrefere
 		},
 		setLayoutSpacing(bookId, spacing) {
 			commit(bookId, { ...load(bookId), layoutSpacing: spacing })
+		},
+		setOutlineDisplayMode(bookId, mode) {
+			commit(bookId, { ...load(bookId), outlineDisplayMode: mode })
 		},
 		subscribe(listener) {
 			listeners.add(listener)

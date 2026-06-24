@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useBrain, useOpenBook, useBookViewMode, EditorTopBar, type EditorViewMode, type PlayWarning } from './brain'
+import { useBrain, useOpenBook, useBookViewMode, useBookHealth, EditorTopBar, type EditorViewMode, type PlayWarning } from './brain'
 import { buildAdventureDocument } from './brain'
 import { TreeCanvas, AutoLayoutButton, SpacingToggle, type RevealRequest } from './features/tree-canvas'
 import { OutlineView } from './features/outline-view'
@@ -27,23 +27,32 @@ export function EditorScreen({ bookId }: { bookId: string }): JSX.Element {
 	// tree-canvas never import each other (composition-root wiring).
 	const [reveal, setReveal] = useState<RevealRequest | undefined>(undefined)
 	const [adventure, setAdventure] = useState<AdventureDocument | null>(null)
+	// Export warnings: dangling prereqs / countdowns / monster targets only detectable
+	// at export time (not in the live structural check). Cleared on the next export run.
 	const [exportWarnings, setExportWarnings] = useState<PlayWarning[]>([])
 
-	// Derive warned node ids: nodeId-based warnings directly; edgeId-based ones resolve
-	// to their edge's `from` node so the source of the broken choice is highlighted.
+	// Live structural health (KR-145): dead-ends and dangling edge targets always visible.
+	const liveWarnings = useBookHealth(bookId)
+
+	// warnedNodeIds = union of live structural warnings + export-time warnings.
+	// Live: dead-ends and dangling edge targets visible immediately during authoring.
+	// Export: deeper referential integrity (prereqs, countdowns, config targets) added
+	// on export and cleared on the next run.
 	const warnedNodeIds = useMemo<ReadonlySet<string>>(() => {
-		if (exportWarnings.length === 0 || book === null) return new Set()
-		const edgeFromById = new Map(book.edges.map((e) => [e.id, e.from]))
 		const ids = new Set<string>()
-		for (const w of exportWarnings) {
-			if (w.nodeId !== undefined) ids.add(w.nodeId)
-			if (w.edgeId !== undefined) {
-				const from = edgeFromById.get(w.edgeId)
-				if (from !== undefined) ids.add(from)
+		for (const w of liveWarnings) ids.add(w.nodeId)
+		if (exportWarnings.length > 0 && book !== null) {
+			const edgeFromById = new Map(book.edges.map((e) => [e.id, e.from]))
+			for (const w of exportWarnings) {
+				if (w.nodeId !== undefined) ids.add(w.nodeId)
+				if (w.edgeId !== undefined) {
+					const from = edgeFromById.get(w.edgeId)
+					if (from !== undefined) ids.add(from)
+				}
 			}
 		}
 		return ids
-	}, [exportWarnings, book])
+	}, [liveWarnings, exportWarnings, book])
 
 	function revealInTree(nodeId: string): void {
 		setReveal((prev) => ({ nodeId, seq: (prev?.seq ?? 0) + 1 }))

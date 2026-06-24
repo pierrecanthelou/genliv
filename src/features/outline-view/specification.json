@@ -39,6 +39,11 @@
 				"id": 3,
 				"goal": "Persist the view-mode + outline expand state via UIPreferencesService (non-synced UI prefs, KR-022) — deferred until that service lands.",
 				"status": "done"
+			},
+			{
+				"id": 4,
+				"goal": "Vue colonnes horizontales (Miller columns): toggle ≡ Liste / ⦿ Colonnes dans le panneau outline; chaque colonne = choice-children du nœud sélectionné à la profondeur précédente; back-links (↩) et références (↪) labellisés; panneau de prévisualisation du texte à droite; mode persisté par livre.",
+				"status": "done"
 			}
 		],
 		"known_risks": [
@@ -130,10 +135,33 @@
 					"integration": "outline-view via App — collapsing a node persists it by id and survives a canvas↔outline view switch (the outline remounts but the collapse is restored)",
 					"e2e": "deferred (Playwright not set up)"
 				}
+			},
+			{
+			"id": 4,
+			"label": "iteration-4 (Miller columns)",
+			"completed_at": "2026-06-24",
+			"architecture_choices": [
+				"New pure function buildColumnNodes(book, path) in brain/utils style: only choice edges participate in the column hierarchy; seenAt map detects convergences (reference entries ↪); ancestors set per column index detects back-links (↩). Path[0..i] = ancestors of column i; path[i+1] = selected child (normal node entry, highlighted via activePath). ReLink/flee/fatal edges excluded entirely.",
+				"findChoicePath(book, from, to): BFS with visited set over choice edges (KR-080 cycle-safe); used to reconcile external canvas selection with the column navigation path.",
+				"External selection sync via dispatch-during-render (KR-013 compliant): the pattern is the idiomatic React alternative to getDerivedStateFromProps. When selectedId !== state.syncedId during render, dispatch a 'sync' action (computes resolvedPath via findChoicePath, or null). The reducer applies the new path in a single atomic update; React discards the partial render and starts fresh with the new state — one extra render per selection change, no useEffect.",
+				"OutlineColumns keyed on bookId in OutlineView so state resets on book switch without needing a separate useEffect or reset action.",
+				"UIPreferencesService gained outlineDisplayMode: 'list' | 'columns' (parallel to layoutSpacing). Hook useBookOutlineDisplayMode follows the same pattern as useBookLayoutSpacing.",
+				"Toggle [≡ Liste] [⦿ Colonnes] uses the existing SegmentedControl in the outline pane header; mode persisted per book via UIPreferencesService.",
+				"ColumnNodePreview (separate right-side text preview panel) was designed then removed: the node-editor panel is always mounted on the right of the editor shell, making a duplicate content preview redundant."
+			],
+			"deviations_from_plan": [
+				"ColumnNodePreview removed per user feedback: the node-editor panel already shows the selected node's content on the right side of the editor; a duplicate preview panel inside the outline pane was redundant."
+			],
+			"test_coverage": {
+				"unit": "buildColumnNodes: single/multi-column paths, back-link detection, reference/convergence detection, dangling target (KR-021), monster outcomes, relink/flee exclusion, edge label. findChoicePath: direct path, multi-hop, null for relink/unreachable, cycle-safe termination.",
+				"integration": "OutlineColumns via App: Colonnes mode shows first column, clicking child opens second column, clicking node calls selection.select, external brain selection reconciles path, switching back to Liste restores tree view, mode persists per book.",
+				"e2e": "deferred (Playwright not set up)"
 			}
+		}
 		],
 		"open_questions": [
-			"« Centrer dans l'arbre » centres but does not yet animate/zoom-to-fit; smooth pan + a zoom-to-node could pair with the viewport-persistence work (a later polish)."
+			"« Centrer dans l'arbre » centres but does not yet animate/zoom-to-fit; smooth pan + a zoom-to-node could pair with the viewport-persistence work (a later polish).",
+			"Miller columns: relink/flee edges are excluded from the column hierarchy (correct by spec); if the author wants to see them as navigable, a future iteration could add them as non-hierarchical clickable chips."
 		]
 	}
 }

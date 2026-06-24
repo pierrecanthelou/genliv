@@ -14,6 +14,7 @@ import {
 	type BookUIPrefs,
 	type Point,
 	type LayoutSpacing,
+	type OutlineDisplayMode,
 } from './UIPreferencesService'
 import { createMonsterLibraryService, type MonsterLibraryService, type SavedMonster } from './MonsterLibraryService'
 import { BESTIARY } from './bestiary'
@@ -184,10 +185,19 @@ export function useBookLayoutSpacing(bookId: string): LayoutSpacing {
 	)
 }
 
+/** Reactive read of a book's outline display mode (list / columns) (external store, KR-013). */
+export function useBookOutlineDisplayMode(bookId: string): OutlineDisplayMode {
+	const { uiPreferences } = useBrain()
+	return useSyncExternalStore(
+		uiPreferences.subscribe,
+		() => uiPreferences.getBookPrefs(bookId).outlineDisplayMode ?? 'list',
+	)
+}
+
 /** The cross-book reusable-monster library service. */
 export function useMonsterLibrary(): SavedMonster[] {
 	const { monsterLibrary } = useBrain()
 	return useSyncExternalStore(monsterLibrary.subscribe, monsterLibrary.list)
 }
 
-export type { UIPreferencesService, BookUIPrefs, Point }
+export type { UIPreferencesService, BookUIPrefs, Point, OutlineDisplayMode }

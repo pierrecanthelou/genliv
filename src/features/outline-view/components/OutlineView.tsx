@@ -5,8 +5,10 @@ import {
 	useOpenBook,
 	useSelectedNode,
 	useBookOutlineCollapsed,
+	useBookOutlineDisplayMode,
 	getNode,
 	NodeBadge,
+	SegmentedControl,
 	nodeTitle,
 	textLines,
 	effectiveKind,
@@ -17,6 +19,7 @@ import {
 import { buildOutline, computeVisibleRows, type OutlineRow } from '../utils/buildOutline'
 import { buildNodeInspector } from '../utils/buildNodeInspector'
 import { NodeInspector } from './NodeInspector'
+import { OutlineColumns } from './OutlineColumns'
 
 export interface OutlineViewProps {
 	/**
@@ -47,6 +50,11 @@ const PREVIEW_MAX = 140
  * the canvas, wired through the editor shell). Per-row rule badges (⊘/⏱) still
  * wait for the edge rules (choice-linking iter 3–4).
  */
+const DISPLAY_MODE_OPTIONS = [
+	{ value: 'list' as const, label: '≡ Liste' },
+	{ value: 'columns' as const, label: '⦿ Colonnes' },
+]
+
 export function OutlineView({ onRevealInTree, warnedNodeIds }: OutlineViewProps = {}): JSX.Element {
 	const { selection, uiPreferences } = useBrain()
 	const route = useRoute()
@@ -56,6 +64,8 @@ export function OutlineView({ onRevealInTree, warnedNodeIds }: OutlineViewProps 
 	// Collapsed node ids are a per-book, non-synced UI preference (KR-022): persisted
 	// via UIPreferencesService so the outline shape survives a view switch + reload.
 	const collapsed = useBookOutlineCollapsed(bookId ?? '')
+	// Display mode: 'list' (indented DFS) or 'columns' (Miller columns).
+	const displayMode = useBookOutlineDisplayMode(bookId ?? '')
 	// The node previewed in the inspector — set on row focus/hover (§ 03 B);
 	// falls back to the selection so the card always reflects a real node.
 	const [inspectedId, setInspectedId] = useState<string | null>(null)
@@ -85,36 +95,57 @@ export function OutlineView({ onRevealInTree, warnedNodeIds }: OutlineViewProps 
 
 	return (
 		<div style={pane}>
-			<div role="tree" aria-label="Plan du livre" style={container}>
-				<ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-					{visible.map(({ row, index, hasChildren, collapsed: isCollapsed }) => (
-						<OutlineRowItem
-							key={`${index}-${row.reference ? 'ref' : 'node'}`}
-							row={row}
-							hasChildren={hasChildren}
-							collapsed={isCollapsed}
-							selected={!row.reference && row.targetId === selectedId}
-							warned={!row.reference && row.node !== null && (warnedNodeIds?.has(row.node.id) ?? false)}
-							onSelect={() => row.node !== null && selection.select(bookId, row.node.id)}
-							onInspect={() => row.node !== null && setInspectedId(row.node.id)}
-							onToggle={() => toggleCollapse(row.targetId)}
-						/>
-					))}
-				</ul>
+			{/* Display-mode toggle — list (indented DFS) vs columns (Miller columns) */}
+			<div style={modeBar}>
+				<SegmentedControl
+					options={DISPLAY_MODE_OPTIONS}
+					value={displayMode}
+					onChange={(mode) => uiPreferences.setOutlineDisplayMode(activeBookId, mode)}
+					ariaLabel="Mode d'affichage du plan"
+				/>
 			</div>
 
-			{inspectNode !== null && (
-				<div style={inspectorWrap}>
-					<NodeInspector
-						title={nodeTitle(inspectNode)}
-						inspection={buildNodeInspector(book, inspectNode.id)}
-						onEdit={() => selection.select(bookId, inspectNode.id)}
-						onCenter={() => {
-							selection.select(bookId, inspectNode.id)
-							onRevealInTree?.(inspectNode.id)
-						}}
-					/>
-				</div>
+			{displayMode === 'columns' ? (
+				<OutlineColumns
+					key={activeBookId}
+					book={book}
+					bookId={activeBookId}
+					warnedNodeIds={warnedNodeIds}
+				/>
+			) : (
+				<>
+					<div role="tree" aria-label="Plan du livre" style={container}>
+						<ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+							{visible.map(({ row, index, hasChildren, collapsed: isCollapsed }) => (
+								<OutlineRowItem
+									key={`${index}-${row.reference ? 'ref' : 'node'}`}
+									row={row}
+									hasChildren={hasChildren}
+									collapsed={isCollapsed}
+									selected={!row.reference && row.targetId === selectedId}
+									warned={!row.reference && row.node !== null && (warnedNodeIds?.has(row.node.id) ?? false)}
+									onSelect={() => row.node !== null && selection.select(bookId, row.node.id)}
+									onInspect={() => row.node !== null && setInspectedId(row.node.id)}
+									onToggle={() => toggleCollapse(row.targetId)}
+								/>
+							))}
+						</ul>
+					</div>
+
+					{inspectNode !== null && (
+						<div style={inspectorWrap}>
+							<NodeInspector
+								title={nodeTitle(inspectNode)}
+								inspection={buildNodeInspector(book, inspectNode.id)}
+								onEdit={() => selection.select(bookId, inspectNode.id)}
+								onCenter={() => {
+									selection.select(bookId, inspectNode.id)
+									onRevealInTree?.(inspectNode.id)
+								}}
+							/>
+						</div>
+					)}
+				</>
 			)}
 		</div>
 	)
@@ -232,6 +263,13 @@ const pane: React.CSSProperties = {
 	display: 'flex',
 	flexDirection: 'column',
 	height: '100%',
+	background: 'var(--surface-app)',
+}
+
+const modeBar: React.CSSProperties = {
+	flexShrink: 0,
+	padding: 'var(--space-3) var(--space-5)',
+	borderBottom: '1px solid var(--border-divider)',
 	background: 'var(--surface-app)',
 }
 
