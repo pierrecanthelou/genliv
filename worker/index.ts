@@ -81,7 +81,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
 		if (method === 'PUT') {
 			const body = await request.text()
 			if (!body) return respond('Empty body', 400)
-			if (body.length > 2_000_000) return respond('Payload too large', 413)
+			if (body.length > 25_000_000) return respond('Payload too large', 413)
 			await env.GENLIV_KV.put(fullKey, body)
 			return respond(null, 204)
 		}
