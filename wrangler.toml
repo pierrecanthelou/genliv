@@ -6,7 +6,7 @@ compatibility_date = "2025-01-01"
 # PLACEHOLDER below with the real id from the output.
 [[kv_namespaces]]
 binding = "GENLIV_KV"
-id = "PLACEHOLDER_REPLACE_WITH_KV_ID"
+id = "279136ba55ae4f6d8fedb6c22c38bc47"
 
 # CORS: set ALLOWED_ORIGINS to your production origin to restrict cross-origin
 # access (e.g. "https://genliv.pages.dev"). Defaults to "*" (open).
