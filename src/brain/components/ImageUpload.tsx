@@ -1,5 +1,39 @@
 import { useRef, useState, useEffect } from 'react'
 
+const MAX_PX = 800
+const JPEG_QUALITY = 0.8
+
+/**
+ * Compress an image data URL to JPEG at 80% quality, scaled down to fit
+ * within 800×800 px while preserving aspect ratio. Smaller images are still
+ * re-encoded to JPEG to normalise format and trim alpha channel overhead.
+ */
+async function compressImage(dataUrl: string): Promise<string> {
+	return new Promise((resolve, reject) => {
+		const img = new Image()
+		img.onload = () => {
+			let { width, height } = img
+			if (width > MAX_PX || height > MAX_PX) {
+				const ratio = Math.min(MAX_PX / width, MAX_PX / height)
+				width = Math.round(width * ratio)
+				height = Math.round(height * ratio)
+			}
+			const canvas = document.createElement('canvas')
+			canvas.width = width
+			canvas.height = height
+			const ctx = canvas.getContext('2d')
+			if (ctx === null) {
+				reject(new Error('Canvas 2D context unavailable'))
+				return
+			}
+			ctx.drawImage(img, 0, 0, width, height)
+			resolve(canvas.toDataURL('image/jpeg', JPEG_QUALITY))
+		}
+		img.onerror = () => reject(new Error('Image load failed'))
+		img.src = dataUrl
+	})
+}
+
 export interface ImageUploadProps {
 	/** Current image as a data URL, or undefined when no image is set. */
 	value: string | undefined
@@ -41,12 +75,13 @@ export function ImageUpload({ value, label, onChange }: ImageUploadProps): JSX.E
 		const file = e.target.files?.[0]
 		if (file === undefined) return
 		const reader = new FileReader()
-		reader.onload = (event) => {
+		reader.onload = async (event) => {
 			const result = event.target?.result
 			if (typeof result === 'string') {
-				setLocalUrl(result)
+				const compressed = await compressImage(result)
+				setLocalUrl(compressed)
 				setLocalRemoved(false)
-				onChange(result)
+				onChange(compressed)
 			}
 		}
 		reader.readAsDataURL(file)

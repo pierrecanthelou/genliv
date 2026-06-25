@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ImageUpload } from './ImageUpload'
 
@@ -51,36 +51,58 @@ describe('ImageUpload', () => {
 		expect(screen.getByRole('button', { name: /choisir une image/i })).toBeInTheDocument()
 	})
 
-	it('calls onChange with the data URL when a file is selected', async () => {
-		const fakeDataUrl = 'data:image/png;base64,ZmFrZQ=='
-		// JSDOM does not implement FileReader.readAsDataURL — stub it.
-		const originalFileReader = global.FileReader
+	it('calls onChange with a compressed JPEG when a file is selected', async () => {
+		const originalDataUrl = 'data:image/png;base64,ZmFrZQ=='
+		const compressedDataUrl = 'data:image/jpeg;base64,Y29tcHJlc3NlZA=='
+
+		// Stub FileReader — JSDOM does not implement readAsDataURL.
+		const origFileReader = global.FileReader
 		const mockReadAsDataURL = jest.fn()
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		;(global as any).FileReader = jest.fn(() => ({
-			readAsDataURL: mockReadAsDataURL,
-			onload: null,
-			result: fakeDataUrl,
-		}))
-		mockReadAsDataURL.mockImplementation(function (this: FileReader) {
-			// Simulate the async load event by calling onload synchronously.
-			if (typeof this.onload === 'function') {
-				this.onload({ target: { result: fakeDataUrl } } as ProgressEvent<FileReader>)
-			}
+		;(global as any).FileReader = jest.fn(() => ({ readAsDataURL: mockReadAsDataURL, onload: null }))
+		mockReadAsDataURL.mockImplementation(function (this: { onload: ((e: ProgressEvent<FileReader>) => void) | null }) {
+			this.onload?.({ target: { result: originalDataUrl } } as ProgressEvent<FileReader>)
 		})
 
-		const onChange = jest.fn()
-		render(<ImageUpload label="Portrait" value={undefined} onChange={onChange} />)
+		// Stub Image to fire onload asynchronously (JSDOM never loads images).
+		const origImage = (global as any).Image
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		;(global as any).Image = class {
+			width = 1200
+			height = 900
+			onload: (() => void) | null = null
+			onerror: (() => void) | null = null
+			set src(_: string) { setTimeout(() => this.onload?.(), 0) }
+		}
 
-		const file = new File(['content'], 'photo.png', { type: 'image/png' })
-		const input = document.querySelector('input[type="file"]') as HTMLInputElement
-		fireEvent.change(input, { target: { files: [file] } })
+		// Stub Canvas to return a known compressed URL.
+		const origGetContext = HTMLCanvasElement.prototype.getContext
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		;(HTMLCanvasElement.prototype as any).getContext = jest.fn(() => ({ drawImage: jest.fn() }))
+		const origToDataURL = HTMLCanvasElement.prototype.toDataURL
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		;(HTMLCanvasElement.prototype as any).toDataURL = jest.fn(() => compressedDataUrl)
 
-		expect(onChange).toHaveBeenCalledWith(fakeDataUrl)
-		// Optimistic: image is shown immediately without waiting for the value prop to update.
-		expect(screen.getByRole('img', { name: 'Portrait' })).toBeInTheDocument()
+		try {
+			const onChange = jest.fn()
+			render(<ImageUpload label="Portrait" value={undefined} onChange={onChange} />)
 
-		// Restore the original FileReader.
-		global.FileReader = originalFileReader
+			const file = new File(['content'], 'photo.png', { type: 'image/png' })
+			const input = document.querySelector('input[type="file"]') as HTMLInputElement
+			fireEvent.change(input, { target: { files: [file] } })
+
+			// Compression is async — wait for the canvas pipeline to complete.
+			await waitFor(() => expect(onChange).toHaveBeenCalledWith(compressedDataUrl))
+			// Optimistic: image is shown immediately without waiting for the value prop to update.
+			expect(screen.getByRole('img', { name: 'Portrait' })).toBeInTheDocument()
+		} finally {
+			global.FileReader = origFileReader
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			;(global as any).Image = origImage
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			;(HTMLCanvasElement.prototype as any).getContext = origGetContext
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			;(HTMLCanvasElement.prototype as any).toDataURL = origToDataURL
+		}
 	})
 })
