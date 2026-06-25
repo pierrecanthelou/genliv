@@ -1,11 +1,5 @@
 import { useBrain, useSyncStatus, useSyncPending, plural, Badge, type SyncStatus, type BadgeTone } from '../../../brain'
 
-/**
- * Single source for each sync state's label + Badge tone (KR-117): the
- * indicator derives its rendering from this Record rather than branching on the
- * status value. `offline` = local-only (no transport); the only semantic tones
- * are good (synced) / bad (error).
- */
 const SYNC_STATUS: Record<SyncStatus, { label: string; tone: BadgeTone }> = {
 	idle: { label: 'Prêt', tone: 'muted' },
 	syncing: { label: 'Synchronisation…', tone: 'accent' },
@@ -15,13 +9,13 @@ const SYNC_STATUS: Record<SyncStatus, { label: string; tone: BadgeTone }> = {
 }
 
 /**
- * cloud-sync — a small live status pill in the corner reflecting the local-first
- * store's sync state (KR-022). A VIEW over the brain CloudSyncService via
- * useSyncStatus / useSyncPending (the sync:status external store); holds no state.
- * The real cloud transport lands later — by default the store is local-only
- * (« Local »). When writes are queued it shows « N sauvegarde(s) en attente »
- * (« sauvegarde » is the domain term — it is always book writes that are queued).
- * In error state the badge becomes a « Réessayer » button that calls sync.retry().
+ * cloud-sync — pill de statut en bas à droite (KR-022).
+ *
+ * En fonctionnement normal (idle/syncing/synced/offline) on affiche le statut
+ * brut — jamais le compteur de sauvegardes en attente, qui clignote après
+ * chaque frappe et génère du bruit inutile. Le compteur n'apparaît que sur
+ * status === 'error' où il est actionnable : l'auteur voit ce qui est bloqué
+ * et peut déclencher un retry.
  */
 export function SyncIndicator(): JSX.Element {
 	const { sync } = useBrain()
@@ -29,34 +23,29 @@ export function SyncIndicator(): JSX.Element {
 	const pending = useSyncPending()
 	const { tone } = SYNC_STATUS[status]
 
-	// Pending writes replace the status label with a concrete count.
-	// « sauvegarde » names what is actually queued (a book write), not a generic
-	// « changement » whose meaning the author has to infer.
-	const baseLabel =
-		pending > 0
-			? `${pending} ${plural(pending, 'sauvegarde')} en attente`
-			: SYNC_STATUS[status].label
-
-	// Error state is always actionable — retry flushes the offline queue.
 	if (status === 'error') {
-		const errorLabel = `${baseLabel} · Réessayer`
+		const label =
+			pending > 0
+				? `${pending} ${plural(pending, 'sauvegarde')} en attente · Réessayer`
+				: 'Erreur · Réessayer'
 		return (
-			<div role="status" aria-live="polite" aria-label={`Synchronisation : ${errorLabel}`} style={wrapper}>
+			<div role="status" aria-live="polite" aria-label={`Synchronisation : ${label}`} style={wrapper}>
 				<button
 					type="button"
 					onClick={() => sync.retry()}
 					aria-label="Réessayer la synchronisation"
 					style={retryBtn}
 				>
-					<Badge tone={tone}>{errorLabel}</Badge>
+					<Badge tone={tone}>{label}</Badge>
 				</button>
 			</div>
 		)
 	}
 
+	const { label } = SYNC_STATUS[status]
 	return (
-		<div role="status" aria-live="polite" aria-label={`Synchronisation : ${baseLabel}`} style={wrapper}>
-			<Badge tone={tone}>{baseLabel}</Badge>
+		<div role="status" aria-live="polite" aria-label={`Synchronisation : ${label}`} style={wrapper}>
+			<Badge tone={tone}>{label}</Badge>
 		</div>
 	)
 }

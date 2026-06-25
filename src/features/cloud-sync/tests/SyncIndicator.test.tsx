@@ -22,33 +22,49 @@ describe('cloud-sync — SyncIndicator', () => {
 	})
 
 	it('reflects the live sync status: syncing → synced after a write', async () => {
-		const { brain } = renderWith({ push: () => Promise.resolve() }, 0) // 0ms debounce
-		expect(screen.getByRole('status')).toHaveTextContent(/prêt/i) // idle
+		const { brain } = renderWith({ push: () => Promise.resolve() }, 0)
+		expect(screen.getByRole('status')).toHaveTextContent(/prêt/i)
 
 		await act(async () => {
 			brain.persistence.set('genliv:k', 1)
-			await new Promise((r) => setTimeout(r, 0)) // let the debounced batch flush + resolve
+			await new Promise((r) => setTimeout(r, 0))
 		})
 
 		expect(screen.getByRole('status')).toHaveTextContent(/synchronisé/i)
 	})
 
-	it('surfaces « N sauvegardes en attente » when writes fail to reach the cloud (iter 2)', async () => {
+	it('shows « Synchronisation… » not a pending count during in-flight sync', () => {
+		// setStatus('syncing') fires synchronously inside queuePush — no need to wait
+		// for the debounce timer or the push to complete to verify the in-flight label.
+		const transport: CloudTransport = { push: () => new Promise(() => {}) }
+		const { brain } = renderWith(transport, 0)
+
+		act(() => {
+			brain.persistence.set('genliv:k', 1)
+		})
+
+		// Status is syncing: indicator shows the status label, not a pending count.
+		expect(screen.getByRole('status')).toHaveTextContent(/synchronisation/i)
+		expect(screen.queryByText(/en attente/i)).not.toBeInTheDocument()
+	})
+
+	it('surfaces « N sauvegardes en attente · Réessayer » only on error', async () => {
 		const { brain } = renderWith({ push: () => Promise.reject(new Error('offline')) }, 0)
 
 		await act(async () => {
 			brain.persistence.set('genliv:a', 1)
 			brain.persistence.set('genliv:b', 2)
-			await new Promise((r) => setTimeout(r, 0)) // let the batch flush + fail
+			await new Promise((r) => setTimeout(r, 0))
 		})
 
-		expect(screen.getByRole('status')).toHaveTextContent(/2 sauvegardes en attente/i)
+		// Error state: count + retry button are shown.
+		expect(screen.getByRole('status')).toHaveTextContent(/2 sauvegardes en attente · réessayer/i)
+		expect(screen.getByRole('button', { name: /réessayer/i })).toBeInTheDocument()
 	})
 
-	it('shows a Reessayer button on error that calls sync.retry()', async () => {
+	it('retry button calls sync.retry() and clears the error on success', async () => {
 		const user = userEvent.setup()
 		let pushCount = 0
-		// Fail first push; succeed on retry.
 		const transport: CloudTransport = {
 			push: () => (pushCount++ === 0 ? Promise.reject(new Error('offline')) : Promise.resolve()),
 		}
@@ -59,16 +75,14 @@ describe('cloud-sync — SyncIndicator', () => {
 			await new Promise((r) => setTimeout(r, 0))
 		})
 
-		// Error state: a retry button is shown.
 		const retryBtn = screen.getByRole('button', { name: /réessayer/i })
 		expect(retryBtn).toBeInTheDocument()
 
 		await act(async () => {
 			await user.click(retryBtn)
-			await new Promise((r) => setTimeout(r, 0)) // let the retry flush + resolve
+			await new Promise((r) => setTimeout(r, 0))
 		})
 
-		// After successful retry the error badge is gone.
 		expect(screen.queryByRole('button', { name: /réessayer/i })).not.toBeInTheDocument()
 		expect(screen.getByRole('status')).toHaveTextContent(/synchronisé/i)
 	})
