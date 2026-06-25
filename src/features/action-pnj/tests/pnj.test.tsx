@@ -122,12 +122,12 @@ describe('action-pnj', () => {
 		await user.click(screen.getByRole('radio', { name: 'PNJ' }))
 
 		// Structural Sommaire/Mort are excluded (KR-067); only « Salle du trésor » is a candidate.
-		await user.click(screen.getByRole('button', { name: /Aucune suite/i }))
+		await user.click(screen.getByRole('combobox', { name: /PNJ mène/i })) // focus opens the combobox
 		await user.click(screen.getByRole('button', { name: 'Salle du trésor' }))
 		expect(pnjOf(brain, created.id, node.id)?.target).toBe(next.id)
 
-		// Clearing restores « aucune suite » (exact name → the picker button, not the canvas card).
-		await user.click(screen.getByRole('button', { name: 'Salle du trésor' }))
+		// Clearing: focus the input again (now showing the selected title) then pick the clear option.
+		await user.click(screen.getByRole('combobox', { name: /PNJ mène/i }))
 		await user.click(screen.getByRole('button', { name: /Aucune suite/i }))
 		expect(pnjOf(brain, created.id, node.id)?.target).toBeUndefined()
 	})
@@ -152,7 +152,7 @@ describe('action-pnj', () => {
 		const nodes: BookNode[] = [{ id: 'n1', kind: 'choix', text: '' }]
 		render(<TargetPicker label="Mène à" nodes={nodes} nodeId="n1" target="ghost" onChange={() => {}} />)
 
-		expect(screen.getByRole('button', { name: /cible supprimée/i })).toBeInTheDocument()
+		expect(screen.getByRole('combobox', { name: /Mène à/i })).toHaveDisplayValue(/cible supprimée/i)
 	})
 
 	it('persists a richer identity "role" and shows the portrait upload affordance (iter 2)', async () => {

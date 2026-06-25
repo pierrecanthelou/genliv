@@ -7,6 +7,7 @@ import {
 	useBookNodePositions,
 	useBookLayoutSpacing,
 	deriveAutomaticEdges,
+	deriveMonsterEdges,
 } from '../../../brain'
 import type { Point } from '../layout/geometry'
 import { useViewport } from '../hooks/useViewport'
@@ -17,6 +18,7 @@ import {
 	viewportRect,
 	nodeInView,
 	edgeInView,
+	collectSubtreeIds,
 	NODE_W,
 	NODE_H,
 } from '../layout/geometry'
@@ -81,9 +83,16 @@ export function TreeCanvas({ reveal, warnedNodeIds }: TreeCanvasProps = {}): JSX
 		return () => observer.disconnect()
 	}, [])
 
+	// All story-path edges for LAYOUT: authored edges + monster-config-derived hints
+	// (victoryTarget / fleeTarget). Extracted here so both resolvePositions and
+	// collectSubtreeIds (drag-with-children) use the same edge set.
+	const allLayoutEdges = useMemo(
+		() => [...(book?.edges ?? []), ...deriveMonsterEdges(book)],
+		[book],
+	)
 	const positions = useMemo(
-		() => resolvePositions(book?.nodes ?? [], book?.edges ?? [], positionOverrides, layoutSpacing),
-		[book, positionOverrides, layoutSpacing],
+		() => resolvePositions(book?.nodes ?? [], allLayoutEdges, positionOverrides, layoutSpacing),
+		[book, allLayoutEdges, positionOverrides, layoutSpacing],
 	)
 	// Authored edges plus the automatic ones derived from node configs (the trap
 	// « échec sanctionné » → Mort link, KR-067) — derived at the view, never stored.
@@ -140,9 +149,25 @@ export function TreeCanvas({ reveal, warnedNodeIds }: TreeCanvasProps = {}): JSX
 		if (node !== null) select(node.id)
 	}
 
-	function moveNode(nodeId: string, position: Point): void {
+	function moveNode(nodeId: string, newPos: Point): void {
 		// Layout is a per-device view preference, not synced book content (KR-022).
-		uiPreferences.setNodePosition(activeBookId, nodeId, position)
+		// Moving a card also moves its entire subtree by the same delta so the
+		// relative layout of parent and children is preserved after a drag.
+		const old = positions.get(nodeId)
+		if (old !== undefined) {
+			const dx = newPos.x - old.x
+			const dy = newPos.y - old.y
+			if (dx !== 0 || dy !== 0) {
+				for (const id of collectSubtreeIds(nodeId, allLayoutEdges)) {
+					if (id === nodeId) continue
+					const p = positions.get(id)
+					if (p !== undefined) {
+						uiPreferences.setNodePosition(activeBookId, id, { x: p.x + dx, y: p.y + dy })
+					}
+				}
+			}
+		}
+		uiPreferences.setNodePosition(activeBookId, nodeId, newPos)
 	}
 
 	const isSeededEmpty = book.nodes.length <= 2 && book.edges.length === 0

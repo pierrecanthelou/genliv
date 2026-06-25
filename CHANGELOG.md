@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.5.27 — fix(cloud-sync) : indicateur de synchronisation descriptif et actionnable
+
+- **`src/features/cloud-sync/components/SyncIndicator.tsx`** — « changement » → « sauvegarde » (terme métier — c'est toujours une sauvegarde de livre) ; en état `error` la pastille devient un `<button>` qui appelle `sync.retry()` et affiche « N sauvegarde(s) en attente · Réessayer ». Accès à `sync.retry()` via `useBrain()`.
+- **`src/features/cloud-sync/tests/SyncIndicator.test.tsx`** — test mis à jour + nouveau cas « bouton Réessayer en état error → sync.retry() → badge disparaît ».
+
+## 0.5.26 — feat(node-editor) : Aperçu d'un écran avec contenu action complet
+
+- **`src/features/node-editor/components/NodePreviewModal.tsx`** (nouveau) — modal de preview : illustration + texte + section action (PNJ : dialogue + don ; Monstre : carte nom/PV + boutons posture + Fuir ; Piège : description + jet + fatal ; Décor : libellé interaction + objets) + choix sortants. Tous les boutons d'action et de choix ferment la modal sans naviguer. Focus trap Tab + restore focus sur fermeture. Fermeture via ✕, Escape, clic backdrop.
+- **`src/features/node-editor/components/NodeEditorPanel.tsx`** — bouton « Aperçu » dans le header du panneau.
+- **`src/EditorScreen.tsx`** — `key={selectedNodeId ?? ''}` sur `<NodeEditorPanel>` : reset complet du panel (dont `previewOpen`) à chaque changement de sélection (BUG-019).
+- **`src/features/node-editor/tests/NodeEditorPanel.test.tsx`** — 3 nouveaux cas : ouverture/fermeture via choix, via ✕/Escape, et via clic backdrop.
+
+## 0.5.25 — fix : alerte en direct sur les boutons de choix sans texte
+
+- **`src/brain/utils/bookHealth.ts`** — nouveau code `'unlabeled-choice'` dans `StructuralWarningCode` + boucle de détection dans `checkBookHealth` : toute `choice` edge sans libellé (ou libellé vide/espace) émet un avertissement sur le nœud source. Les edges `relink` et `flee` (non visibles par le joueur) sont exemptées.
+- **`src/brain/bookHealth.test.ts`** — 6 nouveaux cas couvrant : pas de label, label vide, label espaces seuls, label valide, relink/flee exemptés, plusieurs edges non-labellisées sur un même nœud.
+- **`src/features/outline-view/tests/outline.test.tsx`** + **`src/features/tree-canvas/tests/TreeCanvas.test.tsx`** — edges de test labellisées pour éviter les faux positifs `unlabeled-choice` dans les scénarios ciblant d'autres warnings.
+
+## 0.5.24 — fix : drag & drop déplace les enfants + TargetPicker combobox
+
+- **`src/features/tree-canvas/layout/geometry.ts`** — `collectSubtreeIds(rootId, edges)` : BFS sur les edges non-fatales depuis `rootId`, avec garde contre les cycles. Utilisé par `moveNode` pour propager le delta à tous les descendants.
+- **`src/features/tree-canvas/components/TreeCanvas.tsx`** — `allLayoutEdges` useMemo (edges + `deriveMonsterEdges`) partagé ; `moveNode` applique le delta à tout le sous-arbre avant de déplacer le nœud racine.
+- **`src/brain/components/TargetPicker.tsx`** — refonte en combobox : `<input type="text">` avec `role="combobox"` / `aria-controls` / `role="listbox"` sur la liste ; filtre temps réel par titre de nœud ; fermeture sur Escape et sur `onBlur` hors du composant.
+
+## 0.5.23 — fix(tree-canvas) : nœuds de résultat de combat placés dans l'arbre
+
+- **`src/brain/utils/automaticEdges.ts`** — `deriveMonsterEdges(book)` : dérive des edges layout-hint (`relink` pour `victoryTarget`, `flee` pour `fleeTarget`) à partir des configs des nœuds monstre. Ces champs sont stockés sur le nœud (pas comme edges explicites) donc les nœuds de résultat de combat n'avaient pas de parent reconnu par le BFS Dagre et tombaient dans la grille libre.
+- **`src/brain/index.ts`** — exporte `deriveMonsterEdges`.
+- **`src/features/tree-canvas/components/TreeCanvas.tsx`** — passe `deriveMonsterEdges(book)` à `resolvePositions` (layout uniquement — pas à `resolveEdges`, aucune flèche visuelle ajoutée).
+- Tests : 6 nouveaux cas dans `automaticEdges.test.ts` + 2 cas de layout dans `geometry.test.ts`.
+
 ## 0.5.22 — hotfix : panneau nœud tronqué + suggestions TargetPicker
 
 - **`src/features/node-editor/components/NodeEditorPanel.tsx`** — `flex: 1, minHeight: 0` sur `panelBody` : le corps du panneau remplit maintenant l'espace restant et devient scrollable. Corrige le panneau apparemment « en lecture seule » et l'impossibilité d'éditer les choix sortants d'un nœud Piège (sections coupées silencieusement par le shell, BUG-015).

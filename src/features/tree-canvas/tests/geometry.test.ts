@@ -5,6 +5,7 @@ import {
 	viewportRect,
 	nodeInView,
 	edgeInView,
+	collectSubtreeIds,
 	NODE_W,
 	NODE_H,
 	CANVAS_MIN_W,
@@ -21,6 +22,14 @@ function node(id: string, kind: BookNode['kind'] = 'choix'): BookNode {
 
 function choice(id: string, from: string, to: string): Edge {
 	return { id, from, to, kind: 'choice' }
+}
+
+function relink(id: string, from: string, to: string): Edge {
+	return { id, from, to, kind: 'relink' }
+}
+
+function flee(id: string, from: string, to: string): Edge {
+	return { id, from, to, kind: 'flee' }
 }
 
 describe('resolvePositions (top-down tree)', () => {
@@ -49,6 +58,33 @@ describe('resolvePositions (top-down tree)', () => {
 		// …evenly spaced, with the parent centred over the row.
 		expect(b.x - a.x).toBeCloseTo(c.x - b.x)
 		expect(root.x).toBeCloseTo((a.x + c.x) / 2)
+	})
+
+	it('relink forward edge: a node reachable only via relink is placed IN the tree, not the grid', () => {
+		// Typical piège/monstre scenario: sommaire→A (choice), A→B (relink = outcome routing)
+		// B must appear below A in the tree, not in the free grid below everything.
+		const nodes = [node('root', 'sommaire'), node('a'), node('b')]
+		const positions = resolvePositions(nodes, [
+			choice('e1', 'root', 'a'),
+			relink('e2', 'a', 'b'), // forward relink (e.g. piège success outcome)
+		])
+		const [root, a, b] = ['root', 'a', 'b'].map((id) => positions.get(id)!)
+		expect(a.y).toBeGreaterThan(root.y) // A below root
+		expect(b.y).toBeGreaterThan(a.y) // B below A (in tree, not free grid)
+	})
+
+	it('relink back-edge: a node pointing back to an ancestor stays at its forward depth', () => {
+		// sommaire→A→B (choice chain), then B→A relink (reliaison)
+		// B must not move up; A must not move down.
+		const nodes = [node('root', 'sommaire'), node('a'), node('b')]
+		const positions = resolvePositions(nodes, [
+			choice('e1', 'root', 'a'),
+			choice('e2', 'a', 'b'),
+			relink('e3', 'b', 'a'), // back-link — must NOT affect layout
+		])
+		const [root, a, b] = ['root', 'a', 'b'].map((id) => positions.get(id)!)
+		expect(a.y).toBeGreaterThan(root.y)
+		expect(b.y).toBeGreaterThan(a.y)
 	})
 
 	it('lays linkless nodes (mort, unconnected pages) in a grid below the tree, not a single line', () => {
@@ -86,6 +122,61 @@ describe('resolvePositions (top-down tree)', () => {
 		expect(spaciousGapX).toBeGreaterThan(compactGapX)
 	})
 
+	it('convergent path: a node reachable via two parents keeps its primary-parent depth', () => {
+		// sommaire → A → B → C, and also A → C (shortcut, added after B→C)
+		// Primary parent of C is B (first edge pointing to C). A→C is a visual overlay.
+		// C must appear below B, not at the same level as B.
+		const nodes = [node('root', 'sommaire'), node('a'), node('b'), node('c')]
+		const positions = resolvePositions(nodes, [
+			choice('e1', 'root', 'a'),
+			choice('e2', 'a', 'b'),
+			choice('e3', 'b', 'c'), // B→C first: primary parent of C is B
+			choice('e4', 'a', 'c'), // A→C second: must NOT change C's rank
+		])
+		const [a, b, c] = ['a', 'b', 'c'].map((id) => positions.get(id)!)
+		expect(b.y).toBeGreaterThan(a.y) // B is below A
+		expect(c.y).toBeGreaterThan(b.y) // C is below B (not alongside B)
+	})
+
+	it('back-edge via choice: a node pointing to an ancestor must not displace it', () => {
+		// sommaire → A → B → C, then C → A (back-edge via choice)
+		// Primary parent of A is sommaire (first edge pointing to A). C→A must be ignored for layout.
+		const nodes = [node('root', 'sommaire'), node('a'), node('b'), node('c')]
+		const positions = resolvePositions(nodes, [
+			choice('e1', 'root', 'a'),
+			choice('e2', 'a', 'b'),
+			choice('e3', 'b', 'c'),
+			choice('e4', 'c', 'a'), // back-edge: must NOT pull A below C
+		])
+		const [root, a, b, c] = ['root', 'a', 'b', 'c'].map((id) => positions.get(id)!)
+		expect(a.y).toBeGreaterThan(root.y) // A below sommaire
+		expect(b.y).toBeGreaterThan(a.y) // B below A
+		expect(c.y).toBeGreaterThan(b.y) // C below B
+	})
+
+	it('monster victoryTarget (relink hint) places the outcome node in the tree, not the free grid', () => {
+		// Simulates passing deriveMonsterEdges() output to resolvePositions.
+		// sommaire→combat (choice), combat→victoire (relink, no explicit authored edge).
+		// Without the relink hint, "victoire" has no incoming edge and lands in the free grid.
+		const nodes = [node('root', 'sommaire'), node('combat'), node('victoire')]
+		const positions = resolvePositions(nodes, [
+			choice('e1', 'root', 'combat'),
+			relink('auto-victory-combat', 'combat', 'victoire'),
+		])
+		const [combat, victoire] = ['combat', 'victoire'].map((id) => positions.get(id)!)
+		expect(victoire.y).toBeGreaterThan(combat.y) // victoire is below combat in the tree
+	})
+
+	it('monster fleeTarget (flee hint) places the escape node in the tree, not the free grid', () => {
+		const nodes = [node('root', 'sommaire'), node('combat'), node('fuite')]
+		const positions = resolvePositions(nodes, [
+			choice('e1', 'root', 'combat'),
+			flee('auto-flee-combat', 'combat', 'fuite'),
+		])
+		const [combat, fuite] = ['combat', 'fuite'].map((id) => positions.get(id)!)
+		expect(fuite.y).toBeGreaterThan(combat.y)
+	})
+
 	it('is deterministic across calls', () => {
 		const nodes = [node('root', 'sommaire'), node('a'), node('b'), node('mort', 'mort')]
 		const edges = [choice('e1', 'root', 'a'), choice('e2', 'a', 'b')]
@@ -105,6 +196,49 @@ describe('resolvePositions (top-down tree)', () => {
 		const nodes = [node('root', 'sommaire')]
 		const positions = resolvePositions(nodes, [], { deleted: { x: 10, y: 10 } })
 		expect(positions.has('deleted')).toBe(false)
+	})
+})
+
+describe('collectSubtreeIds', () => {
+	it('returns just the root when it has no children', () => {
+		const ids = collectSubtreeIds('root', [choice('e', 'other', 'leaf')])
+		expect(ids).toEqual(new Set(['root']))
+	})
+
+	it('collects root + all descendants via BFS', () => {
+		// root→a→b, root→c
+		const ids = collectSubtreeIds('root', [
+			choice('e1', 'root', 'a'),
+			choice('e2', 'root', 'c'),
+			choice('e3', 'a', 'b'),
+		])
+		expect(ids).toEqual(new Set(['root', 'a', 'b', 'c']))
+	})
+
+	it('does not traverse fatal edges', () => {
+		// root→a (choice), a→mort (fatal) — fatal must be excluded
+		const fatalEdge: Edge = { id: 'f', from: 'a', to: 'mort', kind: 'fatal' }
+		const ids = collectSubtreeIds('root', [choice('e1', 'root', 'a'), fatalEdge])
+		expect(ids.has('mort')).toBe(false)
+		expect(ids).toEqual(new Set(['root', 'a']))
+	})
+
+	it('handles back-edges and cycles without infinite loops', () => {
+		// root→a→b, b→root (cycle)
+		const ids = collectSubtreeIds('root', [
+			choice('e1', 'root', 'a'),
+			choice('e2', 'a', 'b'),
+			relink('e3', 'b', 'root'), // back to root
+		])
+		expect(ids).toEqual(new Set(['root', 'a', 'b']))
+	})
+
+	it('traverses relink and flee edges', () => {
+		const ids = collectSubtreeIds('root', [
+			relink('e1', 'root', 'victory'),
+			flee('e2', 'root', 'escape'),
+		])
+		expect(ids).toEqual(new Set(['root', 'victory', 'escape']))
 	})
 })
 

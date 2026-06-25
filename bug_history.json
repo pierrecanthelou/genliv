@@ -180,5 +180,54 @@
 			"regression_test": "Manual: select a piÃ¨ge node â†’ scroll the NodeEditorPanel â†’ OutgoingChoices + end toggles are visible and editable.",
 			"severity": "major"
 		}
+			,
+		{
+			"id": "BUG-016",
+			"date": "2026-06-25",
+			"feature": "tree-canvas",
+			"discovered_at": "iteration-7",
+			"symptom": "Monster outcome nodes (victoryTarget / fleeTarget) landed in the free grid below the tree instead of being placed under their monster parent node during Dagre auto-layout.",
+			"root_cause": "These nodes have no explicit authored edges — their parent relationship is stored in MonsterConfig fields. resolvePositions only saw explicit edges, so the nodes were unreachable from the BFS root and fell into the free-grid fallback.",
+			"fix": "Added deriveMonsterEdges(book) in brain/utils/automaticEdges.ts, exported from brain/index.ts, and passed to resolvePositions only (not resolveEdges — no visual arrows added). KR-021 guard: nodeIds.has(target) prevents phantom edges for stale references.",
+			"mitigation": "actionType === monstre guard prevents stale config from a switched-away node from creating phantom layout edges.",
+			"regression_test": "src/brain/utils/automaticEdges.test.ts — deriveMonsterEdges suite; src/features/tree-canvas/tests/geometry.test.ts — monster layout hints",
+			"severity": "minor"
+		},
+		{
+			"id": "BUG-017",
+			"date": "2026-06-25",
+			"feature": "tree-canvas",
+			"discovered_at": "iteration-7",
+			"symptom": "Dragging a parent node in the canvas moved only that node; its children stayed behind, breaking the visual tree structure.",
+			"root_cause": "moveNode called setNodePosition only for the dragged node. Position overrides are per-node, not per-subtree, so children kept their old overrides or fell back to Dagre positions that did not account for the parent delta.",
+			"fix": "Added collectSubtreeIds(rootId, edges) BFS in geometry.ts (cycle-guarded, fatal-edge-excluded). moveNode now computes the delta and propagates it to all descendant nodes before updating the root position.",
+			"mitigation": "Visited-set guard in collectSubtreeIds prevents infinite loops on cyclic graphs.",
+			"regression_test": "src/features/tree-canvas/tests/geometry.test.ts — collectSubtreeIds suite",
+			"severity": "minor"
+		},
+		{
+			"id": "BUG-018",
+			"date": "2026-06-25",
+			"feature": "tree-canvas",
+			"discovered_at": "iteration-7",
+			"symptom": "A choice edge with no label (blank player button) showed no visible warning in the canvas or outline, making it invisible to the author during authoring.",
+			"root_cause": "checkBookHealth only checked for dead-ends and dangling edge targets; unlabeled choice buttons were not part of the structural health check.",
+			"fix": "Added unlabeled-choice to StructuralWarningCode and a detection loop in checkBookHealth (brain/utils/bookHealth.ts). choice edges with absent, empty, or whitespace-only labels emit a warning on their source node. relink and flee edges are exempt (routing-only, not player-visible).",
+			"mitigation": "JSDoc on StructuralWarning.edgeId updated to reflect that unlabeled-choice also sets edgeId.",
+			"regression_test": "src/brain/bookHealth.test.ts — unlabeled-choice suite (6 cases)",
+			"severity": "minor"
+		},
+		{
+			"id": "BUG-019",
+			"date": "2026-06-25",
+			"feature": "node-editor",
+			"discovered_at": "iteration-5",
+			"symptom": "Opening the AperÃ§u preview modal, then clicking a different node in the canvas, would leave the modal open (it appeared on the newly selected node's panel, which had never opened the preview).",
+			"root_cause": "NodeEditorPanel was keyed by node.id on the aside INSIDE the function body. The inner key remounts the aside's children on selection change but does not unmount the NodeEditorPanel function itself â€” so previewOpen useState was never reset.",
+			"fix": "Moved the key to the component mount point in EditorScreen.tsx: <NodeEditorPanel key={selectedNodeId ?? ''} />. This unmounts and remounts the entire panel (resetting all state including previewOpen) on each node selection change.",
+			"mitigation": "The outer key pattern is the existing KR-053 technique; apply it consistently at the mount point, never inside the component body.",
+			"regression_test": "Covered indirectly by NodeEditorPanel.test.tsx â€” AperÃ§u tests verify the modal opens/closes correctly across interactions.",
+			"severity": "minor"
+		}
 	]
 }

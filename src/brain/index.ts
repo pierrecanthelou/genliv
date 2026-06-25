@@ -105,7 +105,7 @@ export type { SyncStatus } from './types'
 export type { CloudSyncService, CloudTransport, CloudSyncOptions } from './CloudSyncService'
 export { createLocalStorageTransport } from './LocalStorageTransport'
 export { createUIPreferencesService } from './UIPreferencesService'
-export type { UIPreferencesService, BookUIPrefs, Viewport, LayoutSpacing } from './UIPreferencesService'
+export type { UIPreferencesService, BookUIPrefs, Viewport, LayoutSpacing, OutlineDisplayMode } from './UIPreferencesService'
 export { createMonsterLibraryService } from './MonsterLibraryService'
 export type { MonsterLibraryService, SavedMonster } from './MonsterLibraryService'
 export type { Router, Route } from './Router'
@@ -130,7 +130,7 @@ export {
 } from './kinds'
 export { getNode, getEdge } from './utils/book'
 export { collectObjects, collectLineageObjects, findObject } from './utils/objects'
-export { deriveAutomaticEdges } from './utils/automaticEdges'
+export { deriveAutomaticEdges, deriveMonsterEdges } from './utils/automaticEdges'
 export {
 	exportBookForPlay,
 	PLAY_EXPORT_FORMAT,
@@ -161,6 +161,7 @@ export {
 	useBookNodePositions,
 	useBookOutlineCollapsed,
 	useBookLayoutSpacing,
+	useBookOutlineDisplayMode,
 	useMonsterLibrary,
 	type Brain,
 	type CreateBrainOptions,

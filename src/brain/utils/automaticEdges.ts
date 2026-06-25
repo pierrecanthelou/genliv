@@ -34,3 +34,32 @@ export function deriveAutomaticEdges(book: Book | null): Edge[] {
 	}
 	return edges
 }
+
+/**
+ * Layout-hint edges derived from monster node configs — `victoryTarget` (routed
+ * as `relink`) and `fleeTarget` (routed as `flee`). These fields are stored ON
+ * the node (not as explicit edges), so the monster outcome nodes have NO incoming
+ * authored edge and fall into the free grid when the canvas auto-lays-out. This
+ * function promotes them: pass the result to `resolvePositions` so the layout
+ * places them inside the tree, directly below their combat parent. Do NOT pass to
+ * `resolveEdges` — no visual arrow is added (the MonsterEditor shows the targets
+ * inline; the rendered canvas arrow is deferred to a later visual pass).
+ */
+export function deriveMonsterEdges(book: Book | null): Edge[] {
+	if (book === null) return []
+	const nodeIds = new Set(book.nodes.map((n) => n.id))
+	const edges: Edge[] = []
+	for (const node of book.nodes) {
+		// Guard on the active actionType — stale monster config can survive a switch to
+		// another action (BookService does not clear sibling config on actionType patch).
+		if (node.actionType !== 'monstre') continue
+		const { victoryTarget, fleeTarget } = node.monster ?? {}
+		if (victoryTarget !== undefined && nodeIds.has(victoryTarget)) {
+			edges.push({ id: `auto-victory-${node.id}`, from: node.id, to: victoryTarget, kind: 'relink' })
+		}
+		if (fleeTarget !== undefined && nodeIds.has(fleeTarget)) {
+			edges.push({ id: `auto-flee-${node.id}`, from: node.id, to: fleeTarget, kind: 'flee' })
+		}
+	}
+	return edges
+}

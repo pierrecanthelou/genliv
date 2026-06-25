@@ -175,6 +175,65 @@ describe('checkBookHealth', () => {
 		expect(checkBookHealth(book).filter((w) => w.code === 'dead-end' && w.nodeId === 'd')).toHaveLength(0)
 	})
 
+	it('flags a choice edge with no label as unlabeled-choice', () => {
+		// 'c' also triggers dead-end (no outgoing edges); we check only the unlabeled-choice entry.
+		const book = makeBook(
+			[node('s', 'sommaire'), node('c', 'choix'), node('m', 'mort', { locked: true })],
+			[{ id: 'e1', from: 's', to: 'c', kind: 'choice' }], // no label
+		)
+		const warnings = checkBookHealth(book)
+		const w = warnings.find((x) => x.code === 'unlabeled-choice')
+		expect(w).toMatchObject({ code: 'unlabeled-choice', nodeId: 's', edgeId: 'e1' })
+	})
+
+	it('flags a choice edge with an empty-string label as unlabeled-choice', () => {
+		const book = makeBook(
+			[node('s', 'sommaire'), node('c', 'choix'), node('m', 'mort', { locked: true })],
+			[{ id: 'e1', from: 's', to: 'c', kind: 'choice', label: '' }],
+		)
+		expect(checkBookHealth(book).some((w) => w.code === 'unlabeled-choice')).toBe(true)
+	})
+
+	it('flags a choice edge with a whitespace-only label as unlabeled-choice', () => {
+		const book = makeBook(
+			[node('s', 'sommaire'), node('c', 'choix'), node('m', 'mort', { locked: true })],
+			[{ id: 'e1', from: 's', to: 'c', kind: 'choice', label: '   ' }],
+		)
+		expect(checkBookHealth(book).some((w) => w.code === 'unlabeled-choice')).toBe(true)
+	})
+
+	it('does not flag a choice edge that has a non-empty label', () => {
+		const book = makeBook(
+			[node('s', 'sommaire'), node('c', 'choix'), node('m', 'mort', { locked: true })],
+			[{ id: 'e1', from: 's', to: 'c', kind: 'choice', label: 'Entrer' }, edge('e2', 'c', 'm')],
+		)
+		expect(checkBookHealth(book).some((w) => w.code === 'unlabeled-choice')).toBe(false)
+	})
+
+	it('does not flag relink or flee edges for missing label', () => {
+		const book = makeBook(
+			[node('s', 'sommaire'), node('c', 'choix'), node('m', 'mort', { locked: true })],
+			[
+				{ id: 'e1', from: 's', to: 'c', kind: 'relink' },
+				{ id: 'e2', from: 'c', to: 's', kind: 'flee' },
+			],
+		)
+		expect(checkBookHealth(book).some((w) => w.code === 'unlabeled-choice')).toBe(false)
+	})
+
+	it('emits one unlabeled-choice warning per unlabeled edge when a node has multiple', () => {
+		const book = makeBook(
+			[node('s', 'sommaire'), node('a', 'choix'), node('b', 'choix'), node('m', 'mort', { locked: true })],
+			[
+				{ id: 'e1', from: 's', to: 'a', kind: 'choice' }, // no label
+				{ id: 'e2', from: 's', to: 'b', kind: 'choice', label: '' }, // empty label
+			],
+		)
+		const warnings = checkBookHealth(book).filter((w) => w.code === 'unlabeled-choice')
+		expect(warnings).toHaveLength(2)
+		expect(warnings.map((w) => w.edgeId).sort()).toEqual(['e1', 'e2'])
+	})
+
 	it('returns multiple warnings when there are multiple issues', () => {
 		const book = makeBook(
 			[

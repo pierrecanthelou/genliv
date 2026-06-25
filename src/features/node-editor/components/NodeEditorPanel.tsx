@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
 	useBrain,
 	useRoute,
@@ -18,6 +19,7 @@ import {
 import { SectionLabel } from './SectionLabel'
 import { ActionSection } from './ActionSection'
 import { NodeDescription } from './NodeDescription'
+import { NodePreviewModal } from './NodePreviewModal'
 
 const PANEL_WIDTH = 372
 
@@ -35,6 +37,7 @@ export function NodeEditorPanel(): JSX.Element {
 	const bookId = route.name === 'editor' ? route.bookId : null
 	const book = useOpenBook(bookId)
 	const selectedId = useSelectedNode()
+	const [previewOpen, setPreviewOpen] = useState(false)
 
 	const index = book !== null ? book.nodes.findIndex((n) => n.id === selectedId) : -1
 	const node = index >= 0 && book !== null ? book.nodes[index] : null
@@ -45,12 +48,16 @@ export function NodeEditorPanel(): JSX.Element {
 				<div style={emptyState}>
 					<NodeBadge kind="choix" />
 					<p style={{ margin: 'var(--space-5) 0 0', fontSize: 'var(--fs-body)', color: 'var(--text-faint)' }}>
-						Sélectionnez un nœud dans l’arbre pour l’éditer.
+						{`Sélectionnez un nœud dans l'arbre pour l'éditer.`}
 					</p>
 				</div>
 			</aside>
 		)
 	}
+
+	// Outgoing choice edges for the preview (only `choice` kind are player-visible buttons).
+	// `book` is non-null here: `node !== null` implies `index >= 0 && book !== null`.
+	const outgoingChoices = (book ?? { edges: [] }).edges.filter((e) => e.from === node.id && e.kind === 'choice')
 
 	// Narrowed non-null locals for use inside the handler closures.
 	const activeBookId: string = bookId
@@ -78,11 +85,18 @@ export function NodeEditorPanel(): JSX.Element {
 	return (
 		// key by node id: a fresh subtree per selection, no stale field state (KR-053).
 		<aside key={node.id} style={panelShell} aria-label="Éditeur de nœud">
+			{previewOpen && (
+				<NodePreviewModal
+					node={node}
+					choices={outgoingChoices}
+					onClose={() => setPreviewOpen(false)}
+				/>
+			)}
 			<header style={panelHeader}>
 				<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minWidth: 0 }}>
 					<NodeBadge kind={effectiveKind(node)} label={endLabel(node)} selected />
 					<span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-eyebrow)', color: 'var(--text-faint)' }}>
-						#{index + 1}
+						{'#'}{index + 1}
 					</span>
 					<span
 						style={{
@@ -97,14 +111,24 @@ export function NodeEditorPanel(): JSX.Element {
 						{nodeTitle(node)}
 					</span>
 				</div>
-				<button
-					type="button"
-					aria-label="Fermer l’éditeur"
-					onClick={() => selection.select(activeBookId, null)}
-					style={closeButton}
-				>
-					✕
-				</button>
+				<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexShrink: 0 }}>
+					<button
+						type="button"
+						aria-label="Aperçu de l'écran"
+						onClick={() => setPreviewOpen(true)}
+						style={previewButton}
+					>
+						Aperçu
+					</button>
+					<button
+						type="button"
+						aria-label="Fermer l'éditeur"
+						onClick={() => selection.select(activeBookId, null)}
+						style={closeButton}
+					>
+						{'✕'}
+					</button>
+				</div>
 			</header>
 
 			<div style={panelBody}>
@@ -143,7 +167,7 @@ export function NodeEditorPanel(): JSX.Element {
 								) : (
 									<>
 										<SectionLabel hint="— à venir (choice-linking)">Choix sortants</SectionLabel>
-										<div style={deferredBox}>Les branches sortantes se gèrent depuis l’arbre.</div>
+										<div style={deferredBox}>Les branches sortantes se gèrent depuis l'arbre.</div>
 									</>
 								)}
 							</section>
@@ -218,6 +242,18 @@ const deferredBox: React.CSSProperties = {
 	padding: 'var(--space-5)',
 	fontSize: 'var(--fs-meta)',
 	color: 'var(--text-faint)',
+}
+
+const previewButton: React.CSSProperties = {
+	height: 'var(--hit-target)',
+	padding: '0 var(--space-4)',
+	border: '1px solid var(--border-card)',
+	borderRadius: 'var(--r-md)',
+	background: 'transparent',
+	color: 'var(--text-label)',
+	fontFamily: 'var(--font-mono)',
+	fontSize: 'var(--fs-meta)',
+	cursor: 'pointer',
 }
 
 const closeButton: React.CSSProperties = {

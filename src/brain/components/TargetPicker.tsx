@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { nodeTitle } from '../utils/nodeView'
 import { canBeTarget } from '../kinds'
 import type { BookNode } from '../types'
@@ -11,6 +11,11 @@ import type { BookNode } from '../types'
  * the canBeTarget flag), and a target whose node was deleted is surfaced (⚠),
  * never silently broken (KR-021/063). Controlled: the chosen id lives on the
  * owner's config (pending promotion to a rendered edge via the dedicated path).
+ *
+ * Renders as a combobox: the trigger input shows the current selection when
+ * closed and becomes a live-filter field when focused — type to narrow the
+ * candidate list. onMouseDown + preventDefault on the dropdown list prevents the
+ * input from losing focus when the author clicks a candidate.
  */
 export interface TargetPickerProps {
 	/** Mono caption above the picker (e.g. « Ensuite, le PNJ mène à »). */
@@ -38,26 +43,71 @@ export function TargetPicker({
 	suggestedIds,
 }: TargetPickerProps): JSX.Element {
 	const [open, setOpen] = useState(false)
+	const [search, setSearch] = useState('')
+	const containerRef = useRef<HTMLDivElement>(null)
+	const listId = useId()
+
 	const candidates = nodes.filter((n) => n.id !== nodeId && canBeTarget(n.kind))
-	const suggested = suggestedIds !== undefined ? candidates.filter((n) => suggestedIds.has(n.id)) : []
-	const rest = suggestedIds !== undefined ? candidates.filter((n) => !suggestedIds.has(n.id)) : candidates
 	const current = target !== undefined ? (nodes.find((n) => n.id === target) ?? null) : null
 	const dangling = target !== undefined && current === null
-	const summary = current !== null ? nodeTitle(current) : dangling ? '⚠ cible supprimée' : emptyLabel
+
+	const filtered =
+		search.length > 0 ? candidates.filter((n) => nodeTitle(n).toLowerCase().includes(search.toLowerCase())) : candidates
+
+	const suggested = suggestedIds !== undefined ? filtered.filter((n) => suggestedIds.has(n.id)) : []
+	const rest = suggestedIds !== undefined ? filtered.filter((n) => !suggestedIds.has(n.id)) : filtered
+
+	const displayValue = current !== null ? nodeTitle(current) : dangling ? '⚠ cible supprimée' : ''
+	const inputValue = open ? search : displayValue
+	const placeholder = open ? 'Rechercher…' : emptyLabel
 
 	function choose(next: string | undefined): void {
 		onChange(next)
 		setOpen(false)
+		setSearch('')
+	}
+
+	function handleContainerBlur(e: React.FocusEvent): void {
+		if (containerRef.current !== null && containerRef.current.contains(e.relatedTarget as Node)) return
+		setOpen(false)
+		setSearch('')
 	}
 
 	return (
-		<div>
+		<div ref={containerRef} onBlur={handleContainerBlur}>
 			<span style={labelStyle}>{label}</span>
-			<button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} style={pickerButton}>
-				{summary}
-			</button>
+			<input
+				type="text"
+				role="combobox"
+				aria-label={label}
+				aria-expanded={open}
+				aria-haspopup="listbox"
+				aria-controls={open ? listId : undefined}
+				aria-autocomplete="list"
+				value={inputValue}
+				placeholder={placeholder}
+				onChange={(e) => {
+					setSearch(e.target.value)
+					if (!open) setOpen(true)
+				}}
+				onFocus={() => {
+					setSearch('')
+					setOpen(true)
+				}}
+				onClick={() => setOpen(true)}
+				onKeyDown={(e) => {
+					if (e.key === 'Escape') {
+						setOpen(false)
+						setSearch('')
+					}
+				}}
+				style={{
+					...inputStyle,
+					...(dangling && !open ? { color: 'var(--bad)' } : {}),
+				}}
+			/>
 			{open && (
-				<ul style={picker} aria-label={`Choisir : ${label}`}>
+				<ul id={listId} role="listbox" onMouseDown={(e) => e.preventDefault()} style={picker} aria-label={`Choisir : ${label}`}>
 					<li>
 						<button type="button" style={candidate} onClick={() => choose(undefined)}>
 							— {emptyLabel} —
@@ -78,9 +128,10 @@ export function TargetPicker({
 							<li role="separator" style={groupSeparator} />
 						</>
 					)}
-					{/* empty-state only when both suggested and rest are empty */}
 					{rest.length === 0 && suggested.length === 0 ? (
-						<li style={{ ...candidate, color: 'var(--text-faint)' }}>Aucun autre nœud</li>
+						<li>
+							<span style={emptyItem}>{search.length > 0 ? 'Aucun résultat' : 'Aucun autre nœud'}</span>
+						</li>
 					) : (
 						rest.map((n) => (
 							<li key={n.id}>
@@ -108,9 +159,8 @@ const labelStyle: React.CSSProperties = {
 	marginBottom: 5,
 }
 
-const pickerButton: React.CSSProperties = {
+const inputStyle: React.CSSProperties = {
 	width: '100%',
-	textAlign: 'left',
 	fontFamily: 'var(--font-ui)',
 	fontSize: 'var(--fs-body)',
 	color: 'var(--text-body)',
@@ -119,7 +169,7 @@ const pickerButton: React.CSSProperties = {
 	borderRadius: 'var(--r-md)',
 	padding: '7px 10px',
 	minHeight: 'var(--hit-target)',
-	cursor: 'pointer',
+	boxSizing: 'border-box',
 }
 
 const picker: React.CSSProperties = {
@@ -145,6 +195,13 @@ const candidate: React.CSSProperties = {
 	color: 'var(--text-body)',
 	cursor: 'pointer',
 	minHeight: 'var(--hit-target)',
+}
+
+const emptyItem: React.CSSProperties = {
+	display: 'block',
+	padding: '8px 10px',
+	fontSize: 'var(--fs-body)',
+	color: 'var(--text-faint)',
 }
 
 const groupLabel: React.CSSProperties = {

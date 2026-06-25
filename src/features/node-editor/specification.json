@@ -182,5 +182,26 @@
 			"Inventory « objets à prendre » (iter 3) is SUPERSEDED by action-decor « Prendre » takeables (node.decor.objects + shared ObjectEditor): node-editor builds no separate node-level inventory; the shared ObjectCatalogService (KR-062) is owned by action-decor / the hidden-prereq work, and node-editor will reference it, never own it (user decision, 2026-06-19)."
 		],
 		"open_questions": []
-	}
+	},
+	"iterations_log_addendum": [
+		{
+			"id": 5,
+			"label": "iteration-5 (aperçu modal)",
+			"completed_at": "2026-06-25",
+			"architecture_choices": [
+				"NodePreviewModal is a standalone component in node-editor/components/: it receives the BookNode + outgoing choice edges as props and renders a read-only preview (no edits). All action-specific sub-previews (PnjPreview, MonsterPreview, TrapPreview, DecorPreview) live in the same file as private helpers — they are not features, just rendering sections of the same dialog.",
+				"All imports come from the brain barrel: CHARACTERISTICS, CHALLENGE_TIERS, rollTier, PnjConfig, MonsterConfig, TrapConfig, DecorConfig, Characteristic. No direct sub-module imports from brain/characteristics or brain/challenge (barrel discipline).",
+				"Focus trap (Tab wrapping) + focus restore on unmount follow the Modal.tsx pattern verbatim. The close button receives autoFocus via useEffect on mount, so keyboard users land inside the dialog immediately.",
+				"Stale previewOpen bug (BUG-019): the panel was keyed internally (key on the aside), which did not reset the component state on selection change. Fix: key={selectedNodeId ?? ''} moved to the NodeEditorPanel mount point in EditorScreen.tsx, so the entire panel unmounts/remounts on selection change (KR-053 applied at the correct level).",
+				"All action buttons (Continuer, Accepter et continuer, Affronter le piège, postures, Fuir, choice edges) call onClose — they close the modal without navigating, as requested."
+			],
+			"deviations_from_plan": [
+				"The Aperçu feature was not in the original 4-iteration plan; it is an unplanned iteration added at user request."
+			],
+			"test_coverage": {
+				"integration": "NodeEditorPanel.test.tsx: Aperçu button opens modal with node text; clicking a choice closes it; modal closes via ✕ and Escape.",
+				"e2e": "deferred"
+			}
+		}
+	]
 }

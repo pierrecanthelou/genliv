@@ -1,7 +1,7 @@
 import type { Book, BookNode } from '../types'
 import { nodeTitle } from './nodeView'
 
-export type StructuralWarningCode = 'dead-end' | 'dangling-edge-target'
+export type StructuralWarningCode = 'dead-end' | 'dangling-edge-target' | 'unlabeled-choice'
 
 /**
  * One structural problem found in the book during live authoring (KR-145).
@@ -13,7 +13,7 @@ export interface StructuralWarning {
 	message: string
 	/** Node to highlight — the source of the structural problem. Always set. */
 	nodeId: string
-	/** The edge involved (dangling-edge-target only). */
+	/** The edge involved (dangling-edge-target and unlabeled-choice). */
 	edgeId?: string
 	/** The unresolved target id (dangling-edge-target only). */
 	ref?: string
@@ -78,6 +78,20 @@ export function checkBookHealth(book: Book): StructuralWarning[] {
 				ref: edge.to,
 			})
 		}
+	}
+
+	// Unlabeled choice buttons: a `choice` edge with no label renders as a blank
+	// button in play mode. Only `choice` edges are player-visible; `relink` and
+	// `flee` are routing-only and never rendered as buttons (domain rules).
+	for (const edge of book.edges) {
+		if (edge.kind !== 'choice') continue
+		if (edge.label !== undefined && edge.label.trim() !== '') continue
+		warnings.push({
+			code: 'unlabeled-choice',
+			message: `L'écran « ${titleOf(edge.from)} » a un bouton de choix sans texte.`,
+			nodeId: edge.from,
+			edgeId: edge.id,
+		})
 	}
 
 	// Dead ends: non-terminal, non-root nodes with no exit.

@@ -108,7 +108,7 @@ describe('node-editor panel', () => {
 		expect(screen.queryByText(/libellé du choix/i)).toBeNull()
 		expect(screen.queryByText(/choix sortants/i)).toBeNull()
 
-		await user.click(screen.getByRole('button', { name: /fermer l’éditeur/i }))
+		await user.click(screen.getByRole('button', { name: /fermer l.éditeur/i }))
 		expect(screen.getByText(/sélectionnez un nœud/i)).toBeInTheDocument()
 	})
 
@@ -123,5 +123,68 @@ describe('node-editor panel', () => {
 		expect(screen.queryByText(/libellé du choix/i)).toBeNull()
 		// The root leads into the story, so it DOES keep outgoing choices.
 		expect(screen.getByText(/choix sortants/i)).toBeInTheDocument()
+	})
+
+	it('Aperçu button opens a preview modal with the node text; clicking a choice closes it', async () => {
+		const user = userEvent.setup()
+		const brain = createBrain()
+		const book = brain.books.createBook('La Caverne')
+		const sommaire = brain.books.getBook(book.id)!.nodes.find((n) => n.kind === 'sommaire')!
+		brain.books.updateNode(book.id, sommaire.id, { text: 'Vous entrez dans la caverne.' })
+		const branch = brain.books.addChoiceBranch(book.id, sommaire.id)!
+		brain.books.updateEdge(book.id, branch.edge.id, { label: 'Avancer' })
+		brain.router.navigate({ name: 'editor', bookId: book.id })
+		render(
+			<BrainProvider brain={brain}>
+				<App />
+			</BrainProvider>,
+		)
+
+		// Select the Sommaire node (title is now the first text line).
+		await user.click(screen.getByRole('button', { name: /Vous entrez dans la caverne/ }))
+
+		// Preview is not open yet.
+		expect(screen.queryByRole('dialog', { name: /aperçu/i })).not.toBeInTheDocument()
+
+		// Open the preview.
+		await user.click(screen.getByRole('button', { name: /aperçu de l/i }))
+		const dialog = screen.getByRole('dialog', { name: /aperçu/i })
+		expect(dialog).toBeInTheDocument()
+		expect(dialog).toHaveTextContent(/Vous entrez dans la caverne\./)
+
+		// The choice button is visible and clicking it closes the modal.
+		const choiceBtn = screen.getByRole('button', { name: 'Avancer' })
+		expect(choiceBtn).toBeInTheDocument()
+		await user.click(choiceBtn)
+		expect(screen.queryByRole('dialog', { name: /aperçu/i })).not.toBeInTheDocument()
+	})
+
+	it('Aperçu modal closes via the X button and via Escape', async () => {
+		const user = userEvent.setup()
+		setup()
+		await selectNode(user, /Nœud #1 — Sommaire/)
+		await user.click(screen.getByRole('button', { name: /aperçu de l/i }))
+		expect(screen.getByRole('dialog', { name: /aperçu/i })).toBeInTheDocument()
+
+		// Close via X button.
+		await user.click(screen.getByRole('button', { name: /fermer l.aperçu/i }))
+		expect(screen.queryByRole('dialog', { name: /aperçu/i })).not.toBeInTheDocument()
+
+		// Re-open, then close via Escape.
+		await user.click(screen.getByRole('button', { name: /aperçu de l/i }))
+		await user.keyboard('{Escape}')
+		expect(screen.queryByRole('dialog', { name: /aperçu/i })).not.toBeInTheDocument()
+	})
+
+	it('Aperçu modal closes via backdrop click', async () => {
+		const user = userEvent.setup()
+		setup()
+		await selectNode(user, /Nœud #1 — Sommaire/)
+		await user.click(screen.getByRole('button', { name: /aperçu de l/i }))
+		expect(screen.getByRole('dialog', { name: /aperçu/i })).toBeInTheDocument()
+
+		// Click the backdrop (role=presentation wraps the dialog).
+		await user.click(screen.getByRole('presentation'))
+		expect(screen.queryByRole('dialog', { name: /aperçu/i })).not.toBeInTheDocument()
 	})
 })

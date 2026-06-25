@@ -146,7 +146,8 @@ describe('tree-canvas', () => {
 			const sommaire = brain.books.getBook(book.id)!.nodes.find((n) => n.kind === 'sommaire')!
 			const branch = brain.books.addChoiceBranch(book.id, sommaire.id)!
 			// Edge from sommaire has a missing prereq object → edgeId warning resolves to sommaire.
-			brain.books.updateEdge(book.id, branch.edge.id, { prereq: { objectId: 'ghost' } })
+			// Label it to avoid a live unlabeled-choice warning on sommaire before export.
+			brain.books.updateEdge(book.id, branch.edge.id, { prereq: { objectId: 'ghost' }, label: 'Entrer' })
 			brain.router.navigate({ name: 'editor', bookId: book.id })
 			render(
 				<BrainProvider brain={brain}>

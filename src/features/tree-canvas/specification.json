@@ -192,7 +192,8 @@
 			"« + Nœud » creates a FREE-FLOATING unattached node (kind `choix`), then selects it; attaching to a parent choice is done in choice-linking."
 		],
 		"open_questions": [
-			"Edge-label overlap avoidance for dense graphs (a label-collision pass) — a visual refinement deferred from iter 4."
+			"Edge-label overlap avoidance for dense graphs (a label-collision pass) — a visual refinement deferred from iter 4.",
+			"TargetPicker (brain/components/TargetPicker.tsx) ARIA combobox is incomplete: <li> items lack role='option' / aria-selected, and arrow-key navigation between options is absent. Screen-reader users can filter by typing and Tab to the buttons but cannot use ↑/↓ as the ARIA 1.2 combobox pattern requires. Deferred to the visual/accessibility pass."
 		],
 		"iterations_log": [
 			{
@@ -225,6 +226,25 @@
 				"deviations_from_plan": [],
 				"test_coverage": {
 					"unit": "UIPreferencesService: setLayoutSpacing persists spacing, preserves other prefs, notifies subscribers; geometry: spacious mode produces strictly larger gaps than compact",
+					"integration": "existing TreeCanvas tests unaffected",
+					"e2e": "deferred"
+				}
+			},
+			{
+				"id": 7,
+				"label": "iteration-7 (bug-fixes: layout + drag-with-children)",
+				"completed_at": "2026-06-25",
+				"architecture_choices": [
+					"PRIMARY PARENT spanning tree for Dagre (iter 5 correction): BFS extended from choice-only to ALL non-fatal edges (choice + relink + flee), and Dagre receives only the SPANNING TREE edges (first non-fatal edge pointing to each node wins). Previously, relink-only nodes fell into the free grid (BFS used edgeNests which matched only choice), and convergent/back-choice edges caused rank distortion. New primaryParent map ensures each tree node has exactly one layout parent.",
+					"deriveMonsterEdges(book): layout-hint edges derived from MonsterConfig.victoryTarget/fleeTarget. These fields are stored on the node config (not as explicit edges), so combat outcome nodes had no authored incoming edge and fell into the free grid. Derived edges are passed to resolvePositions ONLY (not to resolveEdges — no visual arrows added, consistent with the PNJ/trap config-reference deferral pattern, KR-067).",
+					"collectSubtreeIds(rootId, edges): BFS returning all node IDs reachable from rootId over non-fatal edges (visited guard for cycles). Used by moveNode to propagate a drag delta to all descendants, so dragging a card moves its entire subtree rather than orphaning children.",
+					"allLayoutEdges useMemo extracted in TreeCanvas: book.edges + deriveMonsterEdges(book). Shared between resolvePositions and collectSubtreeIds so both use the same edge set without recomputing deriveMonsterEdges twice."
+				],
+				"deviations_from_plan": [
+					"deriveMonsterEdges is placed in brain/utils/automaticEdges.ts (next to deriveAutomaticEdges) and exported from brain/index.ts — consistent with the 'auto-derived from config, not stored' naming pattern; no new file needed."
+				],
+				"test_coverage": {
+					"unit": "geometry: 5 new collectSubtreeIds tests (no-children, BFS, fatal excluded, cycle, relink+flee); 2 new resolvePositions tests (monster victoryTarget/fleeTarget in tree, not free grid); automaticEdges: 6 new deriveMonsterEdges tests (victoryTarget, fleeTarget, both, stale id, non-monster, stale actionType)",
 					"integration": "existing TreeCanvas tests unaffected",
 					"e2e": "deferred"
 				}

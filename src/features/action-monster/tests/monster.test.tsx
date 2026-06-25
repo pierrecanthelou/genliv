@@ -83,7 +83,7 @@ describe('action-monster', () => {
 		await user.click(screen.getByRole('button', { name: /Nœud #3/ }))
 		await user.click(screen.getByRole('radio', { name: 'Monstre' }))
 
-		await user.click(screen.getByRole('button', { name: /Aucune suite/i })) // open victory picker
+		await user.click(screen.getByRole('combobox', { name: /Victoire/i })) // focus opens victory picker
 		await user.click(screen.getByRole('button', { name: 'Salle suivante' }))
 
 		expect(monsterOf(brain, created.id, node.id)?.victoryTarget).toBe(next.id)
@@ -261,7 +261,7 @@ describe('action-monster', () => {
 		// combat is the 4th node (sommaire #1, mort #2, predecessor #3, combat #4).
 		await user.click(screen.getByRole('button', { name: /Nœud #4/ }))
 		await user.click(screen.getByRole('radio', { name: 'Monstre' }))
-		await user.click(screen.getByRole('button', { name: /Aucune suite/i })) // open victoire picker
+		await user.click(screen.getByRole('combobox', { name: /Victoire/i })) // focus opens victoire picker
 
 		// Predecessor surfaced under the group label.
 		expect(screen.getByText('Nœuds proches')).toBeInTheDocument()

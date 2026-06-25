@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useBrain, useOpenBook, useBookViewMode, useBookHealth, EditorTopBar, type EditorViewMode, type PlayWarning } from './brain'
+import { useBrain, useOpenBook, useBookViewMode, useBookHealth, useSelectedNode, EditorTopBar, type EditorViewMode, type PlayWarning } from './brain'
 import { buildAdventureDocument } from './brain'
 import { TreeCanvas, AutoLayoutButton, SpacingToggle, type RevealRequest } from './features/tree-canvas'
 import { OutlineView } from './features/outline-view'
@@ -19,6 +19,7 @@ import type { AdventureDocument } from './player/types'
 export function EditorScreen({ bookId }: { bookId: string }): JSX.Element {
 	const { books, router, selection, uiPreferences } = useBrain()
 	const book = useOpenBook(bookId)
+	const selectedNodeId = useSelectedNode()
 	const viewMode = useBookViewMode(bookId)
 	const setViewMode = (mode: EditorViewMode): void => uiPreferences.setViewMode(bookId, mode)
 	// « Centrer dans l'arbre » from the outline: switch to the canvas and ask it
@@ -109,7 +110,7 @@ export function EditorScreen({ bookId }: { bookId: string }): JSX.Element {
 						<OutlineView onRevealInTree={revealInTree} warnedNodeIds={warnedNodeIds} />
 					)}
 				</div>
-				<NodeEditorPanel />
+				<NodeEditorPanel key={selectedNodeId ?? ''} />
 			</div>
 		</div>
 	)

@@ -1,16 +1,20 @@
 import * as dagre from 'dagre'
-import { edgeNests, type BookNode, type Edge } from '../../../brain'
+import { type BookNode, type Edge } from '../../../brain'
 import type { LayoutSpacing } from '../../../brain/UIPreferencesService'
 
 /**
  * Pure geometry for the canvas view. The canvas is a VIEW over the book
  * (KR-020): it never mutates node data, it derives screen coordinates from the
  * book's STRUCTURE. Positions are AUTO-LAID-OUT using the Dagre/Sugiyama
- * algorithm: DAG-aware, handles convergent paths, minimises edge crossings.
- * Linkless nodes (the isolated `mort`, any page unreachable via choice edges)
- * wrap into a GRID below the tree — never a single long row or column
- * (KR-023: deterministic, stable across reloads, never a 0,0 pileup). A
- * manually-dragged node's stored position overrides its computed slot.
+ * algorithm on the SPANNING TREE of the book: each node has exactly one primary
+ * parent (the first non-`fatal` edge — choice, relink, or flee — that points to
+ * it, by insertion order). Convergent paths and back-edges are rendered as
+ * visual overlays but never affect rank assignment — a node's position is
+ * determined solely by its primary parent. Linkless nodes (the isolated `mort`,
+ * any page unreachable via any authored edge) wrap into a GRID below the tree
+ * — never a single long row
+ * or column (KR-023: deterministic, stable across reloads, never a 0,0
+ * pileup). A manually-dragged node's stored position overrides its computed slot.
  */
 
 /** Node card footprint, in canvas (pre-zoom) coordinate units. */
@@ -60,9 +64,13 @@ export function resolveBounds(positions: Map<string, Point>): { w: number; h: nu
 
 /**
  * Top-left position for every node. Tree-connected nodes (reachable from the
- * `sommaire` via `choice` edges) are laid out by Dagre (Sugiyama-style):
- * DAG-aware, handles convergent paths and cycles, minimises crossings. Isolated
- * nodes (the `mort`, unreachable pages) wrap into a GRID below the tree (KR-023).
+ * `sommaire` via any authored edge) are laid out by Dagre over the SPANNING
+ * TREE: each node has exactly one primary parent (its first incoming non-`fatal`
+ * edge — choice, relink, or flee — by insertion order), so Dagre receives a
+ * pure tree and produces a faithful parent→child hierarchy. Convergent paths
+ * and back-edges are rendered by EdgeLayer but excluded from rank assignment.
+ * Isolated nodes (the `mort`, pages with no authored edge pointing to them) wrap
+ * into a GRID below the tree (KR-023).
  *
  * A dragged node's stored position (`overrides`, persisted per book via
  * UIPreferencesService) OVERRIDES its computed slot (KR-023): the auto-layout
@@ -76,11 +84,13 @@ export function resolvePositions(
 	spacing: LayoutSpacing = 'compact',
 ): Map<string, Point> {
 	const { levelGapY: LEVEL_GAP_Y, siblingGapX: SIBLING_GAP_X } = SPACING[spacing]
-	// --- BFS from sommaire via choice edges to find tree-connected nodes ---
+	// --- BFS from sommaire via ALL non-fatal edges → treeNodeIds ---
+	// choice, relink, AND flee edges all represent valid story paths. Only `fatal`
+	// is excluded (auto-derived to `mort`; `mort` must stay in the free grid).
 	const nodeIds = new Set(nodes.map((n) => n.id))
 	const childrenOf = new Map<string, string[]>()
 	for (const edge of edges) {
-		if (!edgeNests(edge.kind) || !nodeIds.has(edge.from) || !nodeIds.has(edge.to)) continue
+		if (edge.kind === 'fatal' || !nodeIds.has(edge.from) || !nodeIds.has(edge.to)) continue
 		const siblings = childrenOf.get(edge.from)
 		if (siblings === undefined) childrenOf.set(edge.from, [edge.to])
 		else siblings.push(edge.to)
@@ -100,6 +110,18 @@ export function resolvePositions(
 		}
 	}
 
+	// --- Primary-parent map: each tree node's layout parent = the FIRST edge
+	//     pointing to it (any non-fatal kind, by insertion order). Back-edges and
+	//     convergent paths added later are visual overlays; they don't move nodes.
+	//     Known limitation: if two nodes first point to each other forming a mutual
+	//     cycle, both primary edges reach Dagre; Dagre de-cycles via edge-reversal
+	//     (sub-optimal rank, no crash). Rare in practice. ---
+	const primaryParent = new Map<string, string>() // childId → primary parentId
+	for (const edge of edges) {
+		if (edge.kind === 'fatal' || !treeNodeIds.has(edge.from) || !treeNodeIds.has(edge.to)) continue
+		if (!primaryParent.has(edge.to)) primaryParent.set(edge.to, edge.from)
+	}
+
 	// --- Dagre layout on tree-connected nodes ---
 	const positions = new Map<string, Point>()
 
@@ -116,7 +138,9 @@ export function resolvePositions(
 			if (treeNodeIds.has(node.id)) g.setNode(node.id, { width: NODE_W, height: NODE_H })
 		}
 		for (const edge of edges) {
-			if (edgeNests(edge.kind) && treeNodeIds.has(edge.from) && treeNodeIds.has(edge.to)) {
+			// Only feed the primary-parent edge for each node — convergent paths
+			// and back-edges are visual overlays, not layout inputs.
+			if (edge.kind !== 'fatal' && primaryParent.get(edge.to) === edge.from) {
 				g.setEdge(edge.from, edge.to)
 			}
 		}
@@ -222,6 +246,30 @@ export interface EdgeGeometry {
 	/** Midpoint, where the mono label chip sits. */
 	mx: number
 	my: number
+}
+
+/**
+ * All node ids in the spanning subtree rooted at `rootId` (inclusive), found by
+ * a BFS over non-fatal edges. Used by TreeCanvas to move a whole subtree when
+ * the author drags a card. A visited guard prevents infinite loops on cycles.
+ */
+export function collectSubtreeIds(rootId: string, edges: Edge[]): Set<string> {
+	const childrenOf = new Map<string, string[]>()
+	for (const edge of edges) {
+		if (edge.kind === 'fatal') continue
+		const ch = childrenOf.get(edge.from)
+		if (ch === undefined) childrenOf.set(edge.from, [edge.to])
+		else ch.push(edge.to)
+	}
+	const visited = new Set<string>()
+	const queue = [rootId]
+	while (queue.length > 0) {
+		const id = queue.shift()!
+		if (visited.has(id)) continue
+		visited.add(id)
+		for (const child of childrenOf.get(id) ?? []) queue.push(child)
+	}
+	return visited
 }
 
 /**

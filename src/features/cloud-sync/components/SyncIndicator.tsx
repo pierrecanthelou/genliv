@@ -1,4 +1,4 @@
-import { useSyncStatus, useSyncPending, plural, Badge, type SyncStatus, type BadgeTone } from '../../../brain'
+import { useBrain, useSyncStatus, useSyncPending, plural, Badge, type SyncStatus, type BadgeTone } from '../../../brain'
 
 /**
  * Single source for each sync state's label + Badge tone (KR-117): the
@@ -19,19 +19,44 @@ const SYNC_STATUS: Record<SyncStatus, { label: string; tone: BadgeTone }> = {
  * store's sync state (KR-022). A VIEW over the brain CloudSyncService via
  * useSyncStatus / useSyncPending (the sync:status external store); holds no state.
  * The real cloud transport lands later — by default the store is local-only
- * (« Local »). When writes are queued offline it shows « N changements en
- * attente » with the current status tone (iter 2).
+ * (« Local »). When writes are queued it shows « N sauvegarde(s) en attente »
+ * (« sauvegarde » is the domain term — it is always book writes that are queued).
+ * In error state the badge becomes a « Réessayer » button that calls sync.retry().
  */
 export function SyncIndicator(): JSX.Element {
+	const { sync } = useBrain()
 	const status = useSyncStatus()
 	const pending = useSyncPending()
-	const { label, tone } = SYNC_STATUS[status]
-	// Pending writes take the label (the count is what the author needs to see);
-	// the tone still follows the status (bad on error, accent while syncing).
-	const display = pending > 0 ? `${pending} ${plural(pending, 'changement')} en attente` : label
+	const { tone } = SYNC_STATUS[status]
+
+	// Pending writes replace the status label with a concrete count.
+	// « sauvegarde » names what is actually queued (a book write), not a generic
+	// « changement » whose meaning the author has to infer.
+	const baseLabel =
+		pending > 0
+			? `${pending} ${plural(pending, 'sauvegarde')} en attente`
+			: SYNC_STATUS[status].label
+
+	// Error state is always actionable — retry flushes the offline queue.
+	if (status === 'error') {
+		const errorLabel = `${baseLabel} · Réessayer`
+		return (
+			<div role="status" aria-live="polite" aria-label={`Synchronisation : ${errorLabel}`} style={wrapper}>
+				<button
+					type="button"
+					onClick={() => sync.retry()}
+					aria-label="Réessayer la synchronisation"
+					style={retryBtn}
+				>
+					<Badge tone={tone}>{errorLabel}</Badge>
+				</button>
+			</div>
+		)
+	}
+
 	return (
-		<div role="status" aria-live="polite" aria-label={`Synchronisation : ${display}`} style={wrapper}>
-			<Badge tone={tone}>{display}</Badge>
+		<div role="status" aria-live="polite" aria-label={`Synchronisation : ${baseLabel}`} style={wrapper}>
+			<Badge tone={tone}>{baseLabel}</Badge>
 		</div>
 	)
 }
@@ -41,4 +66,11 @@ const wrapper: React.CSSProperties = {
 	right: 'var(--space-5)',
 	bottom: 'var(--space-5)',
 	zIndex: 50,
+}
+
+const retryBtn: React.CSSProperties = {
+	background: 'none',
+	border: 'none',
+	padding: 0,
+	cursor: 'pointer',
 }

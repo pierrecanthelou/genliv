@@ -199,6 +199,9 @@ Retourne un objet JSON valide au format `ScenarioExport` de Genliv.
 
 Champs optionnels : `endVictory: true` (fin victoire), `endFailure: true` (fin échec), `locked: true` (réservé à `mort`).
 
+> **⚠ CORRESPONDANCE `kind` ↔ `actionType` — OBLIGATOIRE :**
+> `kind` et `actionType` doivent toujours correspondre. Si `actionType` est `"pnj"`, alors `kind` doit être `"pnj"`. Si `actionType` est `"decor"`, `kind` doit être `"decor"`. Si `actionType` est `"piege"`, `kind` doit être `"piege"`. Si `actionType` est `"monstre"`, `kind` doit être `"monstre"`. Un nœud sans action spéciale utilise `kind: "choix"` et `actionType: "aucune"` (pas `"aucuna"`). Une incohérence entre ces deux champs cause un bug de rendu.
+
 ### Arête (Edge)
 
 ```json
@@ -214,6 +217,8 @@ Champs optionnels : `endVictory: true` (fin victoire), `endFailure: true` (fin �
 **`kind` autorisés :** `choice` (bouton de choix) · `relink` (redirection silencieuse) · `flee` (fuite de combat)
 
 ### Config décor (`actionType: "decor"`)
+
+> **⚠ Nom de champ critique :** la propriété de configuration décor dans un nœud s'appelle **`"decor"`** (sans `ation`). N'écris jamais `"decoration"` — ce champ est ignoré par le moteur.
 
 ```json
 {
@@ -272,6 +277,8 @@ Champs optionnels : `endVictory: true` (fin victoire), `endFailure: true` (fin �
 
 **`inventoryLoss.kind` autorisés :** `aucune` · `petits` (objets non-équipement) · `petits-et-armes` (tout sauf scénario) · `specifique` (un objet précis, ajouter `"objectId": "obj-xxx"`)
 
+> **⚠ Un piège = UNE SEULE arête sortante.** Le moteur exécute le jet, affiche le texte `reussite` ou `echec`, puis suit **l'unique arête** sortante — il n'y a pas de branchement conditionnel selon l'issue. Les deux issues (`reussite` et `echec`) mènent au **même écran suivant**. Décris leurs effets dans les textes `outcomes.reussite` / `outcomes.echec`, mais ne crée qu'un seul `relink` (ou `choice`) depuis le nœud piège. Créer deux relinks distincts (un par issue) provoque l'erreur « Pas de sortie depuis cet écran » en jeu.
+
 ### Config monstre (`actionType: "monstre"`)
 
 ```json
@@ -321,6 +328,29 @@ Champs optionnels : `endVictory: true` (fin victoire), `endFailure: true` (fin �
 - Les `outcomes.reussite` / `outcomes.echec` sont courts (1–2 phrases) et décrivent l'effet immédiat.
 - Un piège `fatal: true` mène automatiquement à la mort — réserve-le aux dangers extrêmes.
 - Prévois toujours un chemin vers la victoire depuis chaque branche principale.
+
+### ⚠ Vérification obligatoire avant de rendre le JSON
+
+Avant de produire le JSON final, effectue mentalement cette checklist :
+
+1. **IDs uniques :** chaque `id` de nœud et d'arête est unique dans l'ensemble du fichier. Aucun doublon.
+2. **Cibles d'arêtes existantes :** pour chaque arête, le champ `"to"` référence un `id` qui existe dans le tableau `nodes`. Toute cible fantôme (`"to"` sans nœud correspondant) provoque un écran mort en jeu.
+3. **`kind` ↔ `actionType` cohérents :** `kind` et `actionType` correspondent sur chaque nœud (voir tableau ci-dessous). Ne jamais écrire `actionType: "aucuna"` — la valeur correcte est `"aucune"`.
+
+   | `kind` du nœud | `actionType` requis |
+   |---|---|
+   | `choix` | `aucune` (sauf si le nœud porte aussi une action) |
+   | `pnj` | `pnj` |
+   | `decor` | `decor` |
+   | `piege` | `piege` |
+   | `monstre` | `monstre` |
+   | `sommaire`, `fin`, `mort` | `aucune` ou omis |
+
+4. **Champ `"decor"` (pas `"decoration"`) :** la config d'un nœud décor est dans `node.decor`, pas `node.decoration`.
+5. **Piège = une seule arête sortante :** un nœud `piege` n'a qu'une seule arête sortante (`relink` ou `choice`) quelle que soit l'issue du jet. Ne pas créer deux arêtes séparées (une réussite, une échec).
+6. **Pas d'arête manuelle vers `mort` :** les liens vers le nœud `mort` sont créés automatiquement par le moteur (défaite au combat, piège fatal). Ne pas créer d'arête `choice` ou `relink` pointant vers `mort`.
+7. **Pas d'écran isolé :** chaque nœud (sauf `sommaire`) a au moins une arête entrante.
+8. **Pas d'écran sans sortie :** chaque nœud non-terminal (`kind` ≠ `fin`, `mort`) a au moins une arête sortante OU un exit automatique configuré (`victoryTarget`, `fatal: true`, etc.).
 
 ### Exemple minimal (4 nœuds)
 

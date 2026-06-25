@@ -8,7 +8,9 @@ function setup() {
 	const created = brain.books.createBook('La Caverne')
 	const sommaire = brain.books.getBook(created.id)!.nodes.find((node) => node.kind === 'sommaire')!
 	// Pre-seed a child branch BEFORE render so live views don't update outside act().
-	brain.books.addChoiceBranch(created.id, sommaire.id)
+	// Label the edge so it does not trigger the live unlabeled-choice warning.
+	const branch = brain.books.addChoiceBranch(created.id, sommaire.id)!
+	brain.books.updateEdge(created.id, branch.edge.id, { label: 'Entrer' })
 	brain.router.navigate({ name: 'editor', bookId: created.id })
 	render(
 		<BrainProvider brain={brain}>
@@ -242,7 +244,8 @@ describe('outline-view', () => {
 			const sommaire = brain.books.getBook(created.id)!.nodes.find((n) => n.kind === 'sommaire')!
 			const branch = brain.books.addChoiceBranch(created.id, sommaire.id)!
 			// Edge from sommaire carries a missing prereq → edgeId warning resolves to sommaire.
-			brain.books.updateEdge(created.id, branch.edge.id, { prereq: { objectId: 'ghost' } })
+			// Label it to avoid a live unlabeled-choice warning on sommaire before export.
+			brain.books.updateEdge(created.id, branch.edge.id, { prereq: { objectId: 'ghost' }, label: 'Entrer' })
 			brain.router.navigate({ name: 'editor', bookId: created.id })
 			render(
 				<BrainProvider brain={brain}>
