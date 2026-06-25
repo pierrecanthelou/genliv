@@ -187,10 +187,10 @@
 			"feature": "tree-canvas",
 			"discovered_at": "iteration-7",
 			"symptom": "Monster outcome nodes (victoryTarget / fleeTarget) landed in the free grid below the tree instead of being placed under their monster parent node during Dagre auto-layout.",
-			"root_cause": "These nodes have no explicit authored edges — their parent relationship is stored in MonsterConfig fields. resolvePositions only saw explicit edges, so the nodes were unreachable from the BFS root and fell into the free-grid fallback.",
-			"fix": "Added deriveMonsterEdges(book) in brain/utils/automaticEdges.ts, exported from brain/index.ts, and passed to resolvePositions only (not resolveEdges — no visual arrows added). KR-021 guard: nodeIds.has(target) prevents phantom edges for stale references.",
+			"root_cause": "These nodes have no explicit authored edges ï¿½ their parent relationship is stored in MonsterConfig fields. resolvePositions only saw explicit edges, so the nodes were unreachable from the BFS root and fell into the free-grid fallback.",
+			"fix": "Added deriveMonsterEdges(book) in brain/utils/automaticEdges.ts, exported from brain/index.ts, and passed to resolvePositions only (not resolveEdges ï¿½ no visual arrows added). KR-021 guard: nodeIds.has(target) prevents phantom edges for stale references.",
 			"mitigation": "actionType === monstre guard prevents stale config from a switched-away node from creating phantom layout edges.",
-			"regression_test": "src/brain/utils/automaticEdges.test.ts — deriveMonsterEdges suite; src/features/tree-canvas/tests/geometry.test.ts — monster layout hints",
+			"regression_test": "src/brain/utils/automaticEdges.test.ts ï¿½ deriveMonsterEdges suite; src/features/tree-canvas/tests/geometry.test.ts ï¿½ monster layout hints",
 			"severity": "minor"
 		},
 		{
@@ -202,7 +202,7 @@
 			"root_cause": "moveNode called setNodePosition only for the dragged node. Position overrides are per-node, not per-subtree, so children kept their old overrides or fell back to Dagre positions that did not account for the parent delta.",
 			"fix": "Added collectSubtreeIds(rootId, edges) BFS in geometry.ts (cycle-guarded, fatal-edge-excluded). moveNode now computes the delta and propagates it to all descendant nodes before updating the root position.",
 			"mitigation": "Visited-set guard in collectSubtreeIds prevents infinite loops on cyclic graphs.",
-			"regression_test": "src/features/tree-canvas/tests/geometry.test.ts — collectSubtreeIds suite",
+			"regression_test": "src/features/tree-canvas/tests/geometry.test.ts ï¿½ collectSubtreeIds suite",
 			"severity": "minor"
 		},
 		{
@@ -214,7 +214,7 @@
 			"root_cause": "checkBookHealth only checked for dead-ends and dangling edge targets; unlabeled choice buttons were not part of the structural health check.",
 			"fix": "Added unlabeled-choice to StructuralWarningCode and a detection loop in checkBookHealth (brain/utils/bookHealth.ts). choice edges with absent, empty, or whitespace-only labels emit a warning on their source node. relink and flee edges are exempt (routing-only, not player-visible).",
 			"mitigation": "JSDoc on StructuralWarning.edgeId updated to reflect that unlabeled-choice also sets edgeId.",
-			"regression_test": "src/brain/bookHealth.test.ts — unlabeled-choice suite (6 cases)",
+			"regression_test": "src/brain/bookHealth.test.ts ï¿½ unlabeled-choice suite (6 cases)",
 			"severity": "minor"
 		},
 		{
@@ -228,6 +228,30 @@
 			"mitigation": "The outer key pattern is the existing KR-053 technique; apply it consistently at the mount point, never inside the component body.",
 			"regression_test": "Covered indirectly by NodeEditorPanel.test.tsx â€” AperÃ§u tests verify the modal opens/closes correctly across interactions.",
 			"severity": "minor"
+		},
+		{
+			"id": "BUG-020",
+			"date": "2026-06-25",
+			"feature": "cloud-sync",
+			"discovered_at": "regression",
+			"symptom": "Sync failed with 400 Missing X-Sync-Key header on every push/pull despite the header being set in CloudflareKVTransport.",
+			"root_cause": "wrangler deploy was never run after the KV namespace id was added to wrangler.toml. The worker code existed but the GENLIV_KV binding was not attached. Secondary: empty-string credentials could slip past the null guard in main.tsx and create a transport with a blank sync key.",
+			"fix": "Ran npx wrangler deploy to activate the KV binding. Added AbortController 45s timeout and response body in error messages (projetx pattern). Added empty-string guard in main.tsx.",
+			"mitigation": "Error message now includes HTTP body so the root cause is immediately visible in the sync error toast.",
+			"regression_test": "src/brain/CloudflareKVTransport.test.ts â€” push throws with status and body on non-ok response",
+			"severity": "critical"
+		},
+		{
+			"id": "BUG-021",
+			"date": "2026-06-25",
+			"feature": "action-monster",
+			"discovered_at": "regression",
+			"symptom": "TargetPicker (Fuite/Victoire): dropdown appeared and keyboard navigation worked but clicking an item with the mouse did nothing.",
+			"root_cause": "The ul element had onMouseDown={e.preventDefault()}. Per UIEvents spec, a cancelled mousedown suppresses the subsequent click event. All candidate buttons used onClick which never fired for mouse input. Tab+Enter worked because Enter fires click directly without a mousedown.",
+			"fix": "Moved selection logic to onMouseDown on each candidate button (e.preventDefault() + choose()). Kept onClick for keyboard activation. Removed onMouseDown from the ul element.",
+			"mitigation": "Regression test uses fireEvent.mouseDown (not click) to pin the exact event path.",
+			"regression_test": "src/brain/components/TargetPicker.test.tsx â€” calls onChange via onMouseDown on a candidate",
+			"severity": "major"
 		}
 	]
 }

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.30 — fix : Missing X-Sync-Key header + TargetPicker clic souris
+
+- **`CloudflareKVTransport.ts`** — timeout AbortController 45 s sur push/pull, corps de réponse inclus dans les erreurs, objet `headers` unifié (pattern projetx).
+- **`main.tsx`** — garde chaîne vide : des credentials vides (`''`) ne créent plus de transport.
+- **`TargetPicker.tsx`** — sélection déplacée vers `onMouseDown` sur chaque bouton candidat (`e.preventDefault()` + `choose()`); `onClick` conservé pour le clavier. Cause : `<ul onMouseDown={e.preventDefault()}>` annulait le `mousedown` de l'enfant ce qui, selon la spec UIEvents, supprime le `click` suivant — le clic souris était muet, Tab+Entrée fonctionnait car `click` s'y déclenche sans `mousedown`.
+- **`TargetPicker.test.tsx`** (nouveau) — 4 tests dont le test de non-régression exact (`fireEvent.mouseDown`).
+
 ## 0.5.29 — feat(cloud-sync iter 4) : transport Cloudflare KV + UI de configuration
 
 - **`worker/index.ts`** (nouveau) — proxy KV Cloudflare Worker : GET/PUT/DELETE `/kv/{key}`, auth via `X-Sync-Key`, namespacing par clé base64, CORS configurable via `ALLOWED_ORIGINS`, limite corps 2 Mo, erreurs 500 génériques.
