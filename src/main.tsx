@@ -17,7 +17,7 @@ const local = createLocalStoragePersistence()
 const workerUrl = local.get<string>(CLOUDSYNC_WORKER_URL_KEY)
 const syncKey = local.get<string>(CLOUDSYNC_KEY_KEY)
 const transport =
-	workerUrl !== null && syncKey !== null
+	workerUrl !== null && workerUrl !== '' && syncKey !== null && syncKey !== ''
 		? createCloudflareKVTransport(workerUrl, syncKey)
 		: undefined
 

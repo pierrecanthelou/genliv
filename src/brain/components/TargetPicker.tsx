@@ -14,8 +14,8 @@ import type { BookNode } from '../types'
  *
  * Renders as a combobox: the trigger input shows the current selection when
  * closed and becomes a live-filter field when focused — type to narrow the
- * candidate list. onMouseDown + preventDefault on the dropdown list prevents the
- * input from losing focus when the author clicks a candidate.
+ * candidate list. Each candidate button calls e.preventDefault() in onMouseDown
+ * to prevent focus from leaving the input; onClick retains keyboard activation.
  */
 export interface TargetPickerProps {
 	/** Mono caption above the picker (e.g. « Ensuite, le PNJ mène à »). */
@@ -107,9 +107,14 @@ export function TargetPicker({
 				}}
 			/>
 			{open && (
-				<ul id={listId} role="listbox" onMouseDown={(e) => e.preventDefault()} style={picker} aria-label={`Choisir : ${label}`}>
+				<ul id={listId} role="listbox" style={picker} aria-label={`Choisir : ${label}`}>
 					<li>
-						<button type="button" style={candidate} onClick={() => choose(undefined)}>
+						<button
+							type="button"
+							style={candidate}
+							onMouseDown={(e) => { e.preventDefault(); choose(undefined) }}
+							onClick={() => choose(undefined)}
+						>
 							— {emptyLabel} —
 						</button>
 					</li>
@@ -120,7 +125,12 @@ export function TargetPicker({
 							</li>
 							{suggested.map((n) => (
 								<li key={n.id}>
-									<button type="button" style={candidate} onClick={() => choose(n.id)}>
+									<button
+										type="button"
+										style={candidate}
+										onMouseDown={(e) => { e.preventDefault(); choose(n.id) }}
+										onClick={() => choose(n.id)}
+									>
 										{nodeTitle(n)}
 									</button>
 								</li>
@@ -135,7 +145,12 @@ export function TargetPicker({
 					) : (
 						rest.map((n) => (
 							<li key={n.id}>
-								<button type="button" style={candidate} onClick={() => choose(n.id)}>
+								<button
+									type="button"
+									style={candidate}
+									onMouseDown={(e) => { e.preventDefault(); choose(n.id) }}
+									onClick={() => choose(n.id)}
+								>
 									{nodeTitle(n)}
 								</button>
 							</li>
