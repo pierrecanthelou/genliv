@@ -5,3 +5,4 @@
  */
 export { SyncIndicator } from './components/SyncIndicator'
 export { ConflictDialog } from './components/ConflictDialog'
+export { CloudSyncSettings } from './components/CloudSyncSettings'

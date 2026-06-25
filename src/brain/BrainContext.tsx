@@ -17,6 +17,7 @@ import {
 	type OutlineDisplayMode,
 } from './UIPreferencesService'
 import { createMonsterLibraryService, type MonsterLibraryService, type SavedMonster } from './MonsterLibraryService'
+import { createCloudSettings, type CloudSettingsService } from './CloudSettingsService'
 import { BESTIARY } from './bestiary'
 import type { EditorViewMode } from './components/EditorTopBar'
 import type { SyncStatus } from './types'
@@ -41,6 +42,8 @@ export interface Brain {
 	uiPreferences: UIPreferencesService
 	/** Cross-book library of reusable monsters (« la librairie du générateur »). */
 	monsterLibrary: MonsterLibraryService
+	/** Cloudflare KV worker credentials — raw local, never synced (KR-114). */
+	cloudSettings: CloudSettingsService
 }
 
 export interface CreateBrainOptions {
@@ -70,7 +73,9 @@ export function createBrain(options: CreateBrainOptions = {}): Brain {
 	// Seed the canonical bestiary (§ 4) once, so every author starts with the full
 	// list available to « Choisir dans la librairie » (idempotent, deletion-safe).
 	monsterLibrary.seedDefaults(BESTIARY)
-	return { events, persistence: sync, sync, router, books, selection, actions, slots, uiPreferences, monsterLibrary }
+	// Worker credentials — raw local, never synced (KR-114).
+	const cloudSettings = createCloudSettings(local)
+	return { events, persistence: sync, sync, router, books, selection, actions, slots, uiPreferences, monsterLibrary, cloudSettings }
 }
 
 const BrainContext = createContext<Brain | null>(null)

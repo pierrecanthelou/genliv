@@ -35,7 +35,7 @@
 			}
 		],
 		"walking_skeleton": "createCloudSyncService(local, events, transport?) decorates the local PersistenceService: local-first set (sync write) + a background transport.push that moves the status idle→syncing→synced/error and emits sync:status; with no transport it stays offline (local-only). createBrain wraps the local store with it and exposes brain.sync. useSyncStatus subscribes to sync:status; the cloud-sync feature's SyncIndicator renders the live state as a Badge pill, mounted by App over both routes. The real cloud transport (Cloudflare worker client) + offline write queue are later iterations.",
-		"n": 3,
+		"n": 4,
 		"iterations": [
 			{
 				"id": 1,
@@ -50,6 +50,11 @@
 			{
 				"id": 3,
 				"goal": "Conflict handling: detect divergence between local and cloud, surface a resolution affordance rather than silently overwriting.",
+				"status": "done"
+			},
+			{
+				"id": 4,
+				"goal": "Real Cloudflare KV transport: worker proxy, CloudSettingsService credentials UI, user-selectable at runtime via CloudSyncSettings modal.",
 				"status": "done"
 			}
 		],
@@ -138,6 +143,28 @@
 				"test_coverage": {
 					"unit": "CloudSyncService — detects a conflict (local pending + newer cloud) without overwriting local + emits sync:conflict; clean-local stays safe LWW; resolveConflict cloud adopts / local keeps",
 					"integration": "ConflictDialog via the feature — surfaces for the open conflicted book, « Garder ma version » keeps local + hides, « Prendre la version du cloud » adopts the cloud book",
+					"e2e": "deferred (Playwright not set up)"
+				}
+			},
+			{
+				"id": 4,
+				"label": "iteration-4 (Cloudflare KV transport + settings UI)",
+				"completed_at": "2026-06-25",
+				"architecture_choices": [
+					"Real CloudTransport: `createCloudflareKVTransport(workerUrl, syncKey)` — a thin HTTP client that calls a Cloudflare Worker KV proxy. `push` → `PUT /kv/{key}` with JSON body; `pull` → `GET /kv/{key}`, returns null on 404. Auth: `X-Sync-Key` header (the key is base64-encoded inside the worker and used as a KV namespace prefix, so each user's data is isolated without server-side user management).",
+					"Worker (`worker/index.ts`) is a minimal KV proxy: GET/PUT/DELETE /kv/{key}, CORS configurable via `ALLOWED_ORIGINS` env var (defaults to * for zero-config). The key is encoded with `btoa` + URL-safe chars to form the namespace prefix `{encodedKey}:{dataKey}`. All 500 errors return a generic message; real message is only in `console.error`.",
+					"Credentials are stored in the RAW local store (never the sync decorator) via `CloudSettingsService` (KR-022, KR-114). Two new `persistenceKeys.ts` entries: `CLOUDSYNC_WORKER_URL_KEY` (not sensitive) and `CLOUDSYNC_KEY_KEY` (SENSITIVE — marked with `// SENSITIVE` line comment per KR-114).",
+					"`createBrain` gains `cloudSettings: CloudSettingsService` (raw local, never synced). `main.tsx` reads credentials BEFORE calling `createBrain`, picks `createCloudflareKVTransport` when both are present, falls back to no transport (offline) when not configured.",
+					"SyncIndicator: `offline` state is now a clickable button that opens `CloudSyncSettings`. `error` state keeps existing retry-button behaviour. `CloudSyncSettings` is a Modal with Worker URL + Sync Key fields, a `Générer une clé` button (crypto.randomUUID), URL validation with `new URL()` try/catch, and a two-step confirmation for the destructive Désactiver action (KR-dangerous-action rule).",
+					"`wrangler.toml` + `worker/` give the user everything needed to deploy their own worker to Cloudflare Workers in < 5 minutes."
+				],
+				"deviations_from_plan": [
+					"The plan spoke of a « Cloudflare build target »; instead, the target is user-selectable at RUNTIME via the settings UI — simpler UX (no separate build), no change to Vite config.",
+					"No rate-limiting in the worker — the KV namespace is namespaced by the user's own key, so abuse would require knowing the key (accepted risk for a personal tool)."
+				],
+				"test_coverage": {
+					"unit": "CloudflareKVTransport — push/pull round-trip, 404→null, non-ok throws, trailing-slash strip. CloudSettingsService — get/set/null-clear/isConfigured/round-trip.",
+					"integration": "CloudSyncSettings modal — URL+key validation, save→reload, Générer key, Désactiver confirmation dialog + clear+reload, Annuler. SyncIndicator — offline button opens settings modal.",
 					"e2e": "deferred (Playwright not set up)"
 				}
 			}

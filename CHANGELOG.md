@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.5.29 — feat(cloud-sync iter 4) : transport Cloudflare KV + UI de configuration
+
+- **`worker/index.ts`** (nouveau) — proxy KV Cloudflare Worker : GET/PUT/DELETE `/kv/{key}`, auth via `X-Sync-Key`, namespacing par clé base64, CORS configurable via `ALLOWED_ORIGINS`, limite corps 2 Mo, erreurs 500 génériques.
+- **`wrangler.toml`** (nouveau) — configuration Cloudflare Workers pour déploiement en < 5 min.
+- **`src/brain/CloudflareKVTransport.ts`** (nouveau) — `createCloudflareKVTransport(workerUrl, syncKey)` : implémente `CloudTransport` en appelant le worker via fetch.
+- **`src/brain/CloudSettingsService.ts`** (nouveau) — `createCloudSettings` : lit/écrit les credentials (URL worker + clé sync) dans le store local brut (jamais syncé, KR-114/KR-022).
+- **`src/brain/persistenceKeys.ts`** — deux nouvelles clés `CLOUDSYNC_WORKER_URL_KEY` et `CLOUDSYNC_KEY_KEY` (marquée `// SENSITIVE`).
+- **`src/brain/BrainContext.tsx`** — `cloudSettings: CloudSettingsService` ajouté au contexte brain.
+- **`src/main.tsx`** — lit les credentials AVANT `createBrain` et injecte le transport KV si configuré, sinon offline.
+- **`src/features/cloud-sync/components/CloudSyncSettings.tsx`** (nouveau) — modal de configuration : champs URL + clé, bouton « Générer une clé » (UUID), validation URL, double confirmation avant Désactiver (règle action dangereuse).
+- **`src/features/cloud-sync/components/SyncIndicator.tsx`** — état `offline` devient un bouton ouvrant `CloudSyncSettings`.
+
+## 0.5.28 — fix(cloud-sync) : supprime le bruit « en attente » après chaque frappe
+
+- **`src/features/cloud-sync/components/SyncIndicator.tsx`** — le compteur « N sauvegarde(s) en attente » n'apparaît plus pendant le cycle debounce normal (syncing). Il n'est affiché que lorsque `status === 'error'` où il est actionnable (bouton Réessayer). Les états nominaux (idle / syncing / synced / offline) continuent d'afficher leur label de statut brut.
+- **`src/features/cloud-sync/tests/SyncIndicator.test.tsx`** — test ajouté : en état `syncing`, le label est « Synchronisation… » et non un compteur ; test renommé pour refléter que « en attente » est spécifique à l'état error.
+
 ## 0.5.27 — fix(cloud-sync) : indicateur de synchronisation descriptif et actionnable
 
 - **`src/features/cloud-sync/components/SyncIndicator.tsx`** — « changement » → « sauvegarde » (terme métier — c'est toujours une sauvegarde de livre) ; en état `error` la pastille devient un `<button>` qui appelle `sync.retry()` et affiche « N sauvegarde(s) en attente · Réessayer ». Accès à `sync.retry()` via `useBrain()`.

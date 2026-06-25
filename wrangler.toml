@@ -1,0 +1,14 @@
+name = "genliv"
+main = "worker/index.ts"
+compatibility_date = "2025-01-01"
+
+# After running `npx wrangler kv:namespace create GENLIV_KV`, replace the
+# PLACEHOLDER below with the real id from the output.
+[[kv_namespaces]]
+binding = "GENLIV_KV"
+id = "PLACEHOLDER_REPLACE_WITH_KV_ID"
+
+# CORS: set ALLOWED_ORIGINS to your production origin to restrict cross-origin
+# access (e.g. "https://genliv.pages.dev"). Defaults to "*" (open).
+# [vars]
+# ALLOWED_ORIGINS = "https://your-app.pages.dev"

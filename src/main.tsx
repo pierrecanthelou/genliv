@@ -1,14 +1,27 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { createBrain, BrainProvider, createLocalStorageTransport } from './brain'
+import {
+	createBrain,
+	BrainProvider,
+	createLocalStoragePersistence,
+	createCloudflareKVTransport,
+} from './brain'
+import { CLOUDSYNC_WORKER_URL_KEY, CLOUDSYNC_KEY_KEY } from './brain/persistenceKeys'
 import { App } from './App'
 import './style.css'
 
-// Local build target: the « cloud » is a localStorage-backed transport (a fake
-// remote) so the full local-first sync machinery runs without a server. The
-// Cloudflare build target swaps in a real worker-backed transport via the same
-// CloudTransport interface.
-const brain = createBrain({ transport: createLocalStorageTransport() })
+// Read credentials before creating the brain so we can pick the right transport.
+// The raw persistence instance is passed through so cloudSettings shares the same
+// underlying store (never synced, KR-022/KR-114).
+const local = createLocalStoragePersistence()
+const workerUrl = local.get<string>(CLOUDSYNC_WORKER_URL_KEY)
+const syncKey = local.get<string>(CLOUDSYNC_KEY_KEY)
+const transport =
+	workerUrl !== null && syncKey !== null
+		? createCloudflareKVTransport(workerUrl, syncKey)
+		: undefined
+
+const brain = createBrain({ persistence: local, transport })
 const container = document.getElementById('root')
 
 if (container === null) {

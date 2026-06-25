@@ -3,6 +3,13 @@ import userEvent from '@testing-library/user-event'
 import { createBrain, BrainProvider, type CloudTransport } from '../../../brain'
 import { SyncIndicator } from '../components/SyncIndicator'
 
+// window.location.reload is not implemented in jsdom — stub it
+const reloadMock = jest.fn()
+Object.defineProperty(window, 'location', {
+	value: { ...window.location, reload: reloadMock },
+	writable: true,
+})
+
 function renderWith(transport?: CloudTransport, syncDebounceMs?: number) {
 	const brain = createBrain({ transport, syncDebounceMs })
 	render(
@@ -85,5 +92,16 @@ describe('cloud-sync — SyncIndicator', () => {
 
 		expect(screen.queryByRole('button', { name: /réessayer/i })).not.toBeInTheDocument()
 		expect(screen.getByRole('status')).toHaveTextContent(/synchronisé/i)
+	})
+
+	it('offline indicator is a button that opens the cloud settings modal', async () => {
+		const user = userEvent.setup()
+		renderWith() // no transport → offline
+		const btn = screen.getByRole('button', { name: /configurer la synchronisation/i })
+		expect(btn).toBeInTheDocument()
+		expect(screen.getByRole('status')).toHaveTextContent(/local/i)
+
+		await user.click(btn)
+		expect(screen.getByRole('dialog')).toBeInTheDocument()
 	})
 })

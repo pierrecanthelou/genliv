@@ -4,7 +4,7 @@
  * PersistenceService and these key builders only.
  *
  * Sensitive credentials (PAT, OAuth tokens, API keys) must be registered
- * here with a SENSITIVE marker (KR-114). None yet.
+ * here with a `// SENSITIVE` line comment (KR-114). See CLOUDSYNC_KEY_KEY.
  */
 export const PERSISTENCE_PREFIX = 'genliv'
 
@@ -60,3 +60,18 @@ export const MONSTER_LIBRARY_SEEDED_KEY = `${PERSISTENCE_PREFIX}:monster-library
  * Documented here for auditability (KR-011/134). Full key = `${prefix}{bookId}`.
  */
 export const PLAY_SESSION_KEY_PREFIX = `${PERSISTENCE_PREFIX}:play:session:`
+
+/**
+ * Cloudflare Worker URL entered by the user in the cloud-sync settings form.
+ * Stored in the RAW local store (not cloud-synced) — it is the endpoint for
+ * the sync itself, so syncing it would be circular (KR-022).
+ */
+export const CLOUDSYNC_WORKER_URL_KEY = `${PERSISTENCE_PREFIX}:cloudsync:worker-url`
+
+/**
+ * The user's sync key (personal shared secret) that namespaces their data in
+ * the Cloudflare KV store.  SENSITIVE — registered here per KR-114.
+ * Stored in the RAW local store (never cloud-synced).
+ */
+// SENSITIVE — do not cloud-sync (KR-114)
+export const CLOUDSYNC_KEY_KEY = `${PERSISTENCE_PREFIX}:cloudsync:key`

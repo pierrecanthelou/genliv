@@ -355,6 +355,16 @@
 			"id": "KR-147",
 			"feature": "node-editor",
 			"risk": "FLEX-COLUMN SCROLL SHELL PATTERN: in any flex-column container with overflow:hidden, a scrollable child div MUST have BOTH flex:1 AND minHeight:0 in addition to overflowY:auto. Without flex:1+minHeight:0 the child expands to its content height, the parent clips the overflow, and overflowY:auto is a no-op (the element is never constrained so it never needs to scroll). Symptom: sections below the visible area are silently cut off. Pattern: panelShell={display:flex,flexDirection:column,height:'100%',overflow:hidden} then panelBody={flex:1,minHeight:0,overflowY:auto}. BUG-015."
+		},
+		{
+			"id": "KR-148",
+			"feature": "cloud-sync",
+			"risk": "CLOUDFLARE KV TRANSPORT — KEY AS NAMESPACE: the sync key the user enters in the settings UI is base64-encoded inside the worker and used as a KV prefix `{encodedKey}:{dataKey}`. This means: (1) the key is NOT a password checked by the server — it IS the namespace; anyone who knows the key can read/write that namespace; (2) the user must keep the same key on every device; (3) deleting the key from the settings does not delete data from KV. When a user 'disables' sync, they lose the key locally — they must back it up externally. Never treat the sync key as a server-side authentication token; it is a personal shared secret used for data isolation only."
+		},
+		{
+			"id": "KR-149",
+			"feature": "cloud-sync",
+			"risk": "CLOUD SETTINGS ARE STORED IN THE RAW LOCAL STORE — NEVER SYNCED (KR-022/KR-114): `CLOUDSYNC_WORKER_URL_KEY` and `CLOUDSYNC_KEY_KEY` are written via `CloudSettingsService` which always uses the `local` (raw `PersistenceService`), never the `CloudSyncService` decorator. `createBrain` reads them via the same `local` instance before instantiating the transport. If credentials were stored in the sync layer, the sync transport would need to be initialised before the credentials are known — a circular boot dependency. Never route cloud credentials through `brain.persistence` (the sync decorator) or any feature's `set` call."
 		}
 	]
 }

@@ -443,7 +443,7 @@
 		},
 		{
 			"feature": "cloud-sync",
-			"completed_at": "2026-06-17",
+			"completed_at": "2026-06-25",
 			"goal": "Make the app local-first and sync-aware: every write persists locally first, optionally pushes to a cloud transport in the background, and a status pill reflects the sync state.",
 			"key_architecture_choices": [
 				"CloudSyncService is a Decorator over PersistenceService (Liskov, KR-011/093): createBrain wraps the local store with it and feeds it to BookService, so every feature is sync-aware with ZERO changes — the cleanest demonstration of the interface-first persistence boundary.",
@@ -485,7 +485,12 @@
 				"iter 2: surfacing a derived COUNT through an external store needs the event to fire when the count changes — but emitting on every pending delta re-broadcasts an online burst (broke the 'one syncing per burst' test). Keep emits status-change-only: offline the status toggles syncing↔error per write (so the count stays live), and the count rides every emit for useSyncPending to re-read. Status-change dedup + a count-carrying payload beats a (status,count) dedup.",
 				"This closes the 0.3.x / V2 tier: every feature has its iteration 2 (tree-canvas iter-2 banked depth-first); the next tier (0.4.x / V3) is iteration 3 of each feature that has one, in build order. The offline queue unblocks book-creation iter 3.",
 				"iter 3: conflict detection needs no version vector — local-pending (unpushed edits in the queue) + cloud-newer (cloudAt > localAt) IS the divergence signal; a clean local + newer cloud is still safe LWW (no edits to lose). Surface the choice (ConflictDialog) instead of silently overwriting; resolveConflict writes the cloud UNDER the local store (never the decorated set, no echo) and drops/keeps the queued edit accordingly.",
-				"This closes the 0.4.x / V3 tier — iteration 3 of every feature that has one (node-editor iter 3 superseded). The next tier (0.5.x / V4) is iteration 4 of the features whose n>=4: node-editor (debounced commits) and tree-canvas (robustness at scale)."
+				"This closes the 0.4.x / V3 tier — iteration 3 of every feature that has one (node-editor iter 3 superseded). The next tier (0.5.x / V4) is iteration 4 of the features whose n>=4: node-editor (debounced commits) and tree-canvas (robustness at scale).",
+				"iter 4 (Cloudflare KV transport): the transport is selected at the composition root (main.tsx) by reading CLOUDSYNC_WORKER_URL_KEY and CLOUDSYNC_KEY_KEY from raw local storage BEFORE createBrain — this avoids a circular boot dependency (CloudSyncService would otherwise need to self-configure before brain exists). The selected transport is injected into createBrain exactly as iters 1-3 expected; no change to any other feature (KR-022, KR-149).",
+				"iter 4: the sync key acts as BOTH auth credential and KV namespace prefix (base64-encoded) — the worker prepends `encodeKey(syncKey):{dataKey}` so multiple users share one KV namespace safely with no server-side user management. This collapses auth + sharding into a single header (KR-148).",
+				"iter 4: credentials (worker URL, sync key) must live in the RAW local store (PersistenceService backed by localStorage), never cloud-synced — syncing them would create an echo loop where the credential needed to push is itself being pushed. Register with SENSITIVE marker in persistenceKeys.ts for auditing (KR-114, KR-149).",
+				"iter 4: jsdom does not define globalThis.fetch or the Response constructor — CloudflareKVTransport tests must assign fetchMock directly to globalThis.fetch (not jest.spyOn) and use plain object stubs { ok, status, json } instead of new Response(), and delete globalThis.fetch in afterEach to avoid cross-test contamination.",
+				"iter 4: dangerous-action rule (Désactiver clears credentials + reloads) requires a two-step confirmation Modal — a single button click must not wipe credentials; show a second modal naming the consequences before executing. This is the cloud-sync implementation of the project-wide dangerous-action guard."
 			],
 			"bugs_encountered": []
 		},
