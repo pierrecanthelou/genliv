@@ -44,10 +44,7 @@ export function emptyAssignment(): CreationAssignment {
 }
 
 /** True when all 8 caracs have a roll assigned and all bonus points are distributed. */
-export function isAssignmentComplete(
-	pool: CreationPool,
-	assignment: CreationAssignment,
-): boolean {
+export function isAssignmentComplete(pool: CreationPool, assignment: CreationAssignment): boolean {
 	const allAssigned = CHARACTERISTIC_VALUES.every((c) => assignment.rollIndices[c] !== -1)
 	const bonusUsed = CHARACTERISTIC_VALUES.reduce((s, c) => s + assignment.bonus[c], 0)
 	return allAssigned && bonusUsed === pool.bonusPool
@@ -67,11 +64,7 @@ export function totalValue(pool: CreationPool, assignment: CreationAssignment, c
 	return baseValue(pool, assignment.rollIndices[c]) + assignment.bonus[c]
 }
 
-export function buildHeroFromCreation(
-	name: string,
-	pool: CreationPool,
-	assignment: CreationAssignment,
-): HeroState {
+export function buildHeroFromCreation(name: string, pool: CreationPool, assignment: CreationAssignment): HeroState {
 	const caracs: Partial<Record<Characteristic, number>> = {}
 	for (const c of CHARACTERISTIC_VALUES) {
 		caracs[c] = totalValue(pool, assignment, c)

@@ -1,4 +1,12 @@
-import { findSommaire, getNode, listChoices, determinePhase, createSession, createSessionFromHero, navigate } from './sessionEngine'
+import {
+	findSommaire,
+	getNode,
+	listChoices,
+	determinePhase,
+	createSession,
+	createSessionFromHero,
+	navigate,
+} from './sessionEngine'
 import type { AdventureDocument, SessionState } from '../types'
 import type { Edge } from '../../brain/types'
 
@@ -97,7 +105,14 @@ describe('listChoices', () => {
 	it('shows a prereq choice when the hero owns the required object (A3)', () => {
 		const advWithPrereq = makeAdventure({
 			edges: [
-				{ id: 'e-prereq', from: 'n-sommaire', to: 'n-choix', kind: 'choice', label: 'Secret', prereq: { objectId: 'obj-1' } } as Edge,
+				{
+					id: 'e-prereq',
+					from: 'n-sommaire',
+					to: 'n-choix',
+					kind: 'choice',
+					label: 'Secret',
+					prereq: { objectId: 'obj-1' },
+				} as Edge,
 			],
 		})
 		const session = makeSession({ currentNodeId: 'n-sommaire', inventory: ['obj-1'] })
@@ -107,7 +122,14 @@ describe('listChoices', () => {
 	it('hides a prereq choice when the hero does not own the required object (A3)', () => {
 		const advWithPrereq = makeAdventure({
 			edges: [
-				{ id: 'e-prereq', from: 'n-sommaire', to: 'n-choix', kind: 'choice', label: 'Secret', prereq: { objectId: 'obj-1' } } as Edge,
+				{
+					id: 'e-prereq',
+					from: 'n-sommaire',
+					to: 'n-choix',
+					kind: 'choice',
+					label: 'Secret',
+					prereq: { objectId: 'obj-1' },
+				} as Edge,
 			],
 		})
 		const session = makeSession({ currentNodeId: 'n-sommaire', inventory: [] })
@@ -117,7 +139,14 @@ describe('listChoices', () => {
 	it('hides a prereq choice when objectId is empty (unconfigured, safe default)', () => {
 		const advWithPrereq = makeAdventure({
 			edges: [
-				{ id: 'e-prereq', from: 'n-sommaire', to: 'n-choix', kind: 'choice', label: 'Non configuré', prereq: { objectId: '' } } as Edge,
+				{
+					id: 'e-prereq',
+					from: 'n-sommaire',
+					to: 'n-choix',
+					kind: 'choice',
+					label: 'Non configuré',
+					prereq: { objectId: '' },
+				} as Edge,
 			],
 		})
 		const session = makeSession({ currentNodeId: 'n-sommaire', inventory: ['obj-1'] })

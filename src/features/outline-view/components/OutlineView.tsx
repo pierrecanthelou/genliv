@@ -106,12 +106,7 @@ export function OutlineView({ onRevealInTree, warnedNodeIds }: OutlineViewProps 
 			</div>
 
 			{displayMode === 'columns' ? (
-				<OutlineColumns
-					key={activeBookId}
-					book={book}
-					bookId={activeBookId}
-					warnedNodeIds={warnedNodeIds}
-				/>
+				<OutlineColumns key={activeBookId} book={book} bookId={activeBookId} warnedNodeIds={warnedNodeIds} />
 			) : (
 				<>
 					<div role="tree" aria-label="Plan du livre" style={container}>

@@ -38,7 +38,14 @@ interface DecorScreenProps {
 	onFinish: (xp: number) => void
 }
 
-export function DecorScreen({ decor, hero, adventure, session, onTakeObject, onFinish }: DecorScreenProps): JSX.Element {
+export function DecorScreen({
+	decor,
+	hero,
+	adventure,
+	session,
+	onTakeObject,
+	onFinish,
+}: DecorScreenProps): JSX.Element {
 	// Record of resolved take attempts, keyed by object id.
 	const [takeResults, setTakeResults] = useState<Record<string, TakeState>>({})
 	// Reinforcement object selected before a « prendre » roll (AC C5, KR-141).
@@ -57,9 +64,7 @@ export function DecorScreen({ decor, hero, adventure, session, onTakeObject, onF
 		const obj = resolveObject(takeable, adventure)
 		if (!obj) return
 
-		const selectedObj = selectedReinforceId
-			? adventure.objects.find((o) => o.id === selectedReinforceId)
-			: null
+		const selectedObj = selectedReinforceId ? adventure.objects.find((o) => o.id === selectedReinforceId) : null
 		const rollBonus = selectedObj?.reinforcementBonus?.rollBonus ?? 0
 
 		let rollResult: Omit<TakeState, 'canTake'> & { canTake: boolean }
@@ -110,11 +115,7 @@ export function DecorScreen({ decor, hero, adventure, session, onTakeObject, onF
 					letterSpacing: 'var(--track-eyebrow)',
 				}}
 			>
-				{decor.interaction === 'prendre'
-					? 'Objet à saisir'
-					: decor.interaction === 'ecouter'
-						? 'Écouter'
-						: 'Fouiller'}
+				{decor.interaction === 'prendre' ? 'Objet à saisir' : decor.interaction === 'ecouter' ? 'Écouter' : 'Fouiller'}
 			</div>
 
 			{/* Reveal result (écouter / fouiller) */}
@@ -178,7 +179,14 @@ export function DecorScreen({ decor, hero, adventure, session, onTakeObject, onF
 									gap: 'var(--space-2)',
 								}}
 							>
-								<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
+								<div
+									style={{
+										display: 'flex',
+										alignItems: 'center',
+										justifyContent: 'space-between',
+										gap: 'var(--space-3)',
+									}}
+								>
 									<div>
 										<div style={{ fontWeight: 'var(--fw-semibold)', color: 'var(--text-strong)' }}>{obj.name}</div>
 										<div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}>{obj.description}</div>
@@ -204,12 +212,26 @@ export function DecorScreen({ decor, hero, adventure, session, onTakeObject, onF
 										</button>
 									)}
 									{result?.canTake === true && (
-										<span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-meta)', color: 'var(--good)', flexShrink: 0 }}>
+										<span
+											style={{
+												fontFamily: 'var(--font-mono)',
+												fontSize: 'var(--fs-meta)',
+												color: 'var(--good)',
+												flexShrink: 0,
+											}}
+										>
 											Pris
 										</span>
 									)}
 									{result?.canTake === false && (
-										<span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-meta)', color: 'var(--bad)', flexShrink: 0 }}>
+										<span
+											style={{
+												fontFamily: 'var(--font-mono)',
+												fontSize: 'var(--fs-meta)',
+												color: 'var(--bad)',
+												flexShrink: 0,
+											}}
+										>
 											Échec
 										</span>
 									)}
@@ -217,7 +239,9 @@ export function DecorScreen({ decor, hero, adventure, session, onTakeObject, onF
 
 								{/* Roll detail */}
 								{result?.outcome !== undefined && traitLabel !== null && (
-									<div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}>
+									<div
+										style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}
+									>
 										Jet {traitLabel} ({tierLabel}) : {result.characteristicValue} vs {result.diceRoll}
 										{result.xp > 0 ? ` — +${result.xp} XP` : ''}
 									</div>

@@ -112,7 +112,10 @@ export function TargetPicker({
 						<button
 							type="button"
 							style={candidate}
-							onMouseDown={(e) => { e.preventDefault(); choose(undefined) }}
+							onMouseDown={(e) => {
+								e.preventDefault()
+								choose(undefined)
+							}}
 							onClick={() => choose(undefined)}
 						>
 							— {emptyLabel} —
@@ -128,7 +131,10 @@ export function TargetPicker({
 									<button
 										type="button"
 										style={candidate}
-										onMouseDown={(e) => { e.preventDefault(); choose(n.id) }}
+										onMouseDown={(e) => {
+											e.preventDefault()
+											choose(n.id)
+										}}
 										onClick={() => choose(n.id)}
 									>
 										{nodeTitle(n)}
@@ -148,7 +154,10 @@ export function TargetPicker({
 								<button
 									type="button"
 									style={candidate}
-									onMouseDown={(e) => { e.preventDefault(); choose(n.id) }}
+									onMouseDown={(e) => {
+										e.preventDefault()
+										choose(n.id)
+									}}
 									onClick={() => choose(n.id)}
 								>
 									{nodeTitle(n)}

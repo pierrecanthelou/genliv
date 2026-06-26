@@ -28,17 +28,10 @@ export function SyncIndicator(): JSX.Element {
 
 	if (status === 'error') {
 		const label =
-			pending > 0
-				? `${pending} ${plural(pending, 'sauvegarde')} en attente · Réessayer`
-				: 'Erreur · Réessayer'
+			pending > 0 ? `${pending} ${plural(pending, 'sauvegarde')} en attente · Réessayer` : 'Erreur · Réessayer'
 		return (
 			<div role="status" aria-live="polite" aria-label={`Synchronisation : ${label}`} style={wrapper}>
-				<button
-					type="button"
-					onClick={() => sync.retry()}
-					aria-label="Réessayer la synchronisation"
-					style={bareBtn}
-				>
+				<button type="button" onClick={() => sync.retry()} aria-label="Réessayer la synchronisation" style={bareBtn}>
 					<Badge tone={tone}>{label}</Badge>
 				</button>
 			</div>

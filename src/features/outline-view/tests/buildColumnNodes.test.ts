@@ -170,13 +170,7 @@ describe('buildColumnNodes', () => {
 		const s = node('s', 'sommaire')
 		const c1 = node('c1')
 		const c2 = node('c2')
-		const b = book(
-			[s, c1, c2],
-			[
-				choice('e1', 's', 'c1'),
-				{ id: 'e2', from: 's', to: 'c2', kind: 'relink' },
-			],
-		)
+		const b = book([s, c1, c2], [choice('e1', 's', 'c1'), { id: 'e2', from: 's', to: 'c2', kind: 'relink' }])
 		const cols = buildColumnNodes(b, ['s'])
 		// Only the choice edge appears
 		expect(cols[0]!.entries).toHaveLength(1)

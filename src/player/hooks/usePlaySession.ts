@@ -4,7 +4,13 @@ import type { Characteristic } from '../../brain/characteristics'
 import type { AdventureDocument, PlayPhase, SessionState, HeroState } from '../types'
 import type { CreationPool } from '../engine/charCreation'
 import { rollCreationPool } from '../engine/charCreation'
-import { createSessionFromHero, navigate, listChoices, determinePhase, PE_PER_TRANSITION } from '../engine/sessionEngine'
+import {
+	createSessionFromHero,
+	navigate,
+	listChoices,
+	determinePhase,
+	PE_PER_TRANSITION,
+} from '../engine/sessionEngine'
 import { applyCaracUpgrade, applyMcUpgrade } from '../engine/actionEngine'
 import type { PnjGiftMutations, EquipMutations } from '../engine/actionEngine'
 import { saveSession, loadSession, clearSession } from '../utils/persist'
@@ -128,9 +134,7 @@ export function usePlaySession(adventure: AdventureDocument): UsePlaySessionResu
 			setSession((prev) => {
 				if (prev === null) return prev
 				const peAfterCombat =
-					opts.nextNodeId !== null
-						? Math.min(opts.updatedPe + PE_PER_TRANSITION, prev.hero.peMax)
-						: opts.updatedPe
+					opts.nextNodeId !== null ? Math.min(opts.updatedPe + PE_PER_TRANSITION, prev.hero.peMax) : opts.updatedPe
 				// Apply permanent session mutations from capacity hooks (maladie, liche, vol).
 				// V1 approximation: enMaxDelta (maladie −1 EN) reduces peMax only.
 				// Full EN carac mutation would also cascade to pvMax and fatigue thresholds; deferred.
@@ -138,11 +142,8 @@ export function usePlaySession(adventure: AdventureDocument): UsePlaySessionResu
 				const newPvMax = Math.max(1, prev.hero.pvMax + opts.pvMaxDelta)
 				// Vol: remove last inventory item (first minor object proxy for V1).
 				const inventoryAfterVol =
-					opts.volTriggered && prev.inventory.length > 0
-						? prev.inventory.slice(0, -1)
-						: prev.inventory
-				const newInventory =
-					opts.loot !== null ? [...inventoryAfterVol, opts.loot.id] : inventoryAfterVol
+					opts.volTriggered && prev.inventory.length > 0 ? prev.inventory.slice(0, -1) : prev.inventory
+				const newInventory = opts.loot !== null ? [...inventoryAfterVol, opts.loot.id] : inventoryAfterVol
 				const updatedHero: HeroState = {
 					...prev.hero,
 					pv: Math.min(opts.updatedPv, newPvMax),
@@ -250,9 +251,8 @@ export function usePlaySession(adventure: AdventureDocument): UsePlaySessionResu
 				const next: SessionState = {
 					...prev,
 					hero: { ...prev.hero, xp: prev.hero.xp + xp },
-					inventory: lostObjectIds.length > 0
-						? prev.inventory.filter((id) => !lostObjectIds.includes(id))
-						: prev.inventory,
+					inventory:
+						lostObjectIds.length > 0 ? prev.inventory.filter((id) => !lostObjectIds.includes(id)) : prev.inventory,
 					visitedNodes: newVisited,
 				}
 				saveSession(bookId, next)

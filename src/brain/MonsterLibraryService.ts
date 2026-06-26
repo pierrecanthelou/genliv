@@ -77,9 +77,7 @@ export function createMonsterLibraryService(local: PersistenceService): MonsterL
 				// Migration pass: update legacy free-text capacity → MonsterCapacityId for any
 				// existing bestiary entry whose capacity is not a valid registry key. Runs on
 				// every launch until all entries are migrated (self-limiting once all are valid).
-				const byTemplateId = new Map(
-					templates.filter((t) => t.templateId !== undefined).map((t) => [t.templateId!, t]),
-				)
+				const byTemplateId = new Map(templates.filter((t) => t.templateId !== undefined).map((t) => [t.templateId!, t]))
 				const migrated = cache.map((m) => {
 					if (m.config.templateId === undefined) return m
 					if (MONSTER_CAPACITIES[m.config.capacity as MonsterCapacityId] !== undefined) return m

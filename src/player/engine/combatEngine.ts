@@ -17,16 +17,8 @@ import { CREATURE_TYPES } from '../../brain/creatureTypes'
 import type { CreatureType, MonsterConfig } from '../../brain/types'
 import type { HeroState, SessionState } from '../types'
 import { CAPACITY_HOOKS } from './capacityEffects'
-import {
-	defaultEffectsState,
-} from './combatTypes'
-import type {
-	CombatState,
-	CombatOutcome,
-	CombatLogEntry,
-	MonsterInstance,
-	CombatEffectsState,
-} from './combatTypes'
+import { defaultEffectsState } from './combatTypes'
+import type { CombatState, CombatOutcome, CombatLogEntry, MonsterInstance, CombatEffectsState } from './combatTypes'
 
 // Re-export so existing importers (useCombat, tests) need no changes.
 export type { CombatState, CombatOutcome, CombatLogEntry, MonsterInstance, CombatEffectsState }
@@ -57,9 +49,7 @@ function heroMcEffective(hero: HeroState, state: CombatState, session: SessionSt
 }
 
 function monsterMcEffective(state: CombatState): number {
-	const fatigue = state.monster.immuneToFatigue
-		? 0
-		: enduranceMalus(state.monster.pe, state.monster.EN)
+	const fatigue = state.monster.immuneToFatigue ? 0 : enduranceMalus(state.monster.pe, state.monster.EN)
 	return state.monster.mc + state.gardeBonus.monster + fatigue
 }
 
@@ -103,7 +93,10 @@ function freeAssault(
 	const ecart = atMonster - atHero
 	const band = ecartBand(ecart)
 	const reduction = heroArmourEffective(session, state.heroArmorDegradation)
-	const damage = Math.max(0, Math.round(pfMonster(state.monster) * POSTURES['normale'].damageFactor * band.factor - reduction))
+	const damage = Math.max(
+		0,
+		Math.round(pfMonster(state.monster) * POSTURES['normale'].damageFactor * band.factor - reduction),
+	)
 	return { damage, degradeArmour: !!band.degradesArmour }
 }
 
@@ -263,15 +256,12 @@ export function resolveCombatRound(
 
 		// KR-136: silver weapon bypasses Loup-Garou armour
 		const monsterArmour =
-			workingState.monster.bypassedBySilver && session.activeSilverWeapon
-				? 0
-				: workingState.monster.armour
+			workingState.monster.bypassedBySilver && session.activeSilverWeapon ? 0 : workingState.monster.armour
 
 		let heroDamage = Math.max(0, Math.round(rawPf * damageFactor * band.factor - monsterArmour))
 
 		// Passive: intangible (max 1 dmg from non-magic weapon)
-		heroDamage =
-			hooks.modifyMonsterDamageReceived?.(heroDamage, workingState, hero, session) ?? heroDamage
+		heroDamage = hooks.modifyMonsterDamageReceived?.(heroDamage, workingState, hero, session) ?? heroDamage
 
 		let mon = { ...workingState.monster, pv: workingState.monster.pv - heroDamage }
 		if (band.degradesArmour) {
@@ -365,8 +355,7 @@ export function resolveCombatRound(
 
 		const baseReduction = heroArmourEffective(session, state.heroArmorDegradation)
 		// Passive: liche magie / rayon — hero armour provides no reduction
-		const reduction =
-			hooks.modifyHeroArmourReduction?.(baseReduction, workingState, hero, session) ?? baseReduction
+		const reduction = hooks.modifyHeroArmourReduction?.(baseReduction, workingState, hero, session) ?? baseReduction
 
 		const damage = Math.max(
 			0,

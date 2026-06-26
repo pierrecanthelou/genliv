@@ -21,9 +21,7 @@ export function ReinforcementPicker({
 	selectedId,
 	onSelect,
 }: ReinforcementPickerProps): JSX.Element | null {
-	const applicable = objects.filter(
-		(o) => inventory.includes(o.id) && (o.reinforcementBonus?.rollBonus ?? 0) > 0,
-	)
+	const applicable = objects.filter((o) => inventory.includes(o.id) && (o.reinforcementBonus?.rollBonus ?? 0) > 0)
 	if (applicable.length === 0) return null
 
 	return (
@@ -41,11 +39,7 @@ export function ReinforcementPicker({
 			</div>
 			<div role="list" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
 				<div role="listitem">
-					<button
-						type="button"
-						onClick={() => onSelect(null)}
-						style={selectedId === null ? selectedBtn : idleBtn}
-					>
+					<button type="button" onClick={() => onSelect(null)} style={selectedId === null ? selectedBtn : idleBtn}>
 						Aucun objet
 					</button>
 				</div>

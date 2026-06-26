@@ -265,9 +265,7 @@ describe('outline-view', () => {
 			await user.click(screen.getByRole('button', { name: /exporter le jeu/i }))
 
 			// After export the ghost prereq is surfaced: sommaire (edge.from) also gets a badge.
-			expect(screen.getAllByLabelText('Référence cassée').length).toBeGreaterThan(
-				badgesBeforeExport.length,
-			)
+			expect(screen.getAllByLabelText('Référence cassée').length).toBeGreaterThan(badgesBeforeExport.length)
 		})
 	})
 })

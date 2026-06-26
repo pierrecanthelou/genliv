@@ -6,7 +6,14 @@ describe('ObjectEditor', () => {
 	it('reinforcementBonus rollBonus is persisted via onChange (AC C5)', async () => {
 		const user = userEvent.setup()
 		let draft: ObjectDraft = { name: '', description: '' }
-		render(<ObjectEditor value={draft} onChange={(next) => { draft = next }} />)
+		render(
+			<ObjectEditor
+				value={draft}
+				onChange={(next) => {
+					draft = next
+				}}
+			/>,
+		)
 
 		const plusBtn = screen.getByRole('button', { name: /augmenter bonus de jet/i })
 
@@ -18,14 +25,28 @@ describe('ObjectEditor', () => {
 	it('scenario toggle sets scenario=true and clears to undefined when unchecked (KR-142)', async () => {
 		const user = userEvent.setup()
 		let draft: ObjectDraft = { name: '', description: '' }
-		const { rerender } = render(<ObjectEditor value={draft} onChange={(next) => { draft = next }} />)
+		const { rerender } = render(
+			<ObjectEditor
+				value={draft}
+				onChange={(next) => {
+					draft = next
+				}}
+			/>,
+		)
 
 		const toggle = screen.getByRole('switch', { name: /objet de scénario/i })
 		await user.click(toggle)
 		expect(draft.scenario).toBe(true)
 
 		// Re-render with updated draft to simulate controlled behaviour, then uncheck
-		rerender(<ObjectEditor value={draft} onChange={(next) => { draft = next }} />)
+		rerender(
+			<ObjectEditor
+				value={draft}
+				onChange={(next) => {
+					draft = next
+				}}
+			/>,
+		)
 		await user.click(toggle)
 		expect(draft.scenario).toBeUndefined()
 	})

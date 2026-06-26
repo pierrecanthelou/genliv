@@ -76,8 +76,8 @@ export function CloudSyncSettings({ onClose }: CloudSyncSettingsProps): JSX.Elem
 				onConfirm={handleDisable}
 			>
 				<p style={{ margin: 0, fontSize: 'var(--fs-sm)', color: 'var(--text-body)', lineHeight: 1.5 }}>
-					L'URL du worker et la clé de synchronisation seront effacées sur cet appareil. Vos données
-					cloud restent intactes — vous pourrez reconfigurer la sync à tout moment.
+					L'URL du worker et la clé de synchronisation seront effacées sur cet appareil. Vos données cloud restent
+					intactes — vous pourrez reconfigurer la sync à tout moment.
 				</p>
 			</Modal>
 		)
@@ -93,15 +93,12 @@ export function CloudSyncSettings({ onClose }: CloudSyncSettingsProps): JSX.Elem
 			confirmDisabled={!canSave}
 			onConfirm={handleSave}
 			destructive={
-				configured
-					? { label: 'Désactiver la synchronisation', onClick: () => setConfirmDisable(true) }
-					: undefined
+				configured ? { label: 'Désactiver la synchronisation', onClick: () => setConfirmDisable(true) } : undefined
 			}
 		>
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 				<p style={{ margin: 0, fontSize: 'var(--fs-sm)', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-					Déployez le worker genliv sur votre compte Cloudflare, puis renseignez son URL et une clé
-					secrète personnelle.
+					Déployez le worker genliv sur votre compte Cloudflare, puis renseignez son URL et une clé secrète personnelle.
 				</p>
 
 				<Field
@@ -135,8 +132,8 @@ export function CloudSyncSettings({ onClose }: CloudSyncSettingsProps): JSX.Elem
 				</div>
 
 				<p style={{ margin: 0, fontSize: 'var(--fs-xs)', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-					La clé sert à isoler vos données dans le KV Cloudflare. Conservez-la — vous en aurez besoin
-					sur chaque appareil.
+					La clé sert à isoler vos données dans le KV Cloudflare. Conservez-la — vous en aurez besoin sur chaque
+					appareil.
 				</p>
 			</div>
 		</Modal>

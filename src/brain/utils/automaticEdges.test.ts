@@ -94,20 +94,12 @@ describe('deriveMonsterEdges (layout hints from monster config)', () => {
 			monsterNode('combat', { victoryTarget: 'suite' }),
 			node('suite', 'choix'),
 		])
-		expect(deriveMonsterEdges(b)).toEqual([
-			{ id: 'auto-victory-combat', from: 'combat', to: 'suite', kind: 'relink' },
-		])
+		expect(deriveMonsterEdges(b)).toEqual([{ id: 'auto-victory-combat', from: 'combat', to: 'suite', kind: 'relink' }])
 	})
 
 	it('derives a flee edge for fleeTarget', () => {
-		const b = book([
-			node('root', 'sommaire'),
-			monsterNode('combat', { fleeTarget: 'fuite' }),
-			node('fuite', 'choix'),
-		])
-		expect(deriveMonsterEdges(b)).toEqual([
-			{ id: 'auto-flee-combat', from: 'combat', to: 'fuite', kind: 'flee' },
-		])
+		const b = book([node('root', 'sommaire'), monsterNode('combat', { fleeTarget: 'fuite' }), node('fuite', 'choix')])
+		expect(deriveMonsterEdges(b)).toEqual([{ id: 'auto-flee-combat', from: 'combat', to: 'fuite', kind: 'flee' }])
 	})
 
 	it('derives both edges when both targets are set', () => {

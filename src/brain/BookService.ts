@@ -103,7 +103,10 @@ export interface BookService {
 
 /** The author-editable surface of a node (everything else is structural). */
 export type NodePatch = Partial<
-	Pick<BookNode, 'text' | 'endVictory' | 'endFailure' | 'actionType' | 'decor' | 'pnj' | 'monster' | 'trap' | 'illustration'>
+	Pick<
+		BookNode,
+		'text' | 'endVictory' | 'endFailure' | 'actionType' | 'decor' | 'pnj' | 'monster' | 'trap' | 'illustration'
+	>
 >
 
 /**
@@ -316,11 +319,12 @@ export function createBookService(persistence: PersistenceService, events: Event
 			// - Sommaire (structural, not locked): text + illustration (the
 			//   illustration doubles as the book cover in the library and play header).
 			// - All other nodes: full patch.
-			const allowed: NodePatch = current.locked === true
-				? { text: patch.text }
-				: isStructural(current.kind)
-					? { text: patch.text, illustration: patch.illustration }
-					: patch
+			const allowed: NodePatch =
+				current.locked === true
+					? { text: patch.text }
+					: isStructural(current.kind)
+						? { text: patch.text, illustration: patch.illustration }
+						: patch
 			const updated: BookNode = { ...current }
 			for (const key of Object.keys(allowed) as (keyof NodePatch)[]) {
 				if (allowed[key] !== undefined) {

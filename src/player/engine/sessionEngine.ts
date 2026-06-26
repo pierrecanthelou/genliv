@@ -54,10 +54,7 @@ export function determinePhase(adventure: AdventureDocument, session: SessionSta
 }
 
 /** Create a session with an auto-rolled hero (used for quick starts; iter 1 default). */
-export function createSession(
-	adventure: AdventureDocument,
-	rng: () => number = Math.random,
-): SessionState {
+export function createSession(adventure: AdventureDocument, rng: () => number = Math.random): SessionState {
 	const hero = rollHero('Aventurier', rng)
 	return createSessionFromHero(adventure, hero)
 }

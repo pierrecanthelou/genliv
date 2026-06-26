@@ -20,11 +20,7 @@ describe('checkBookHealth', () => {
 	})
 
 	it('does not flag sommaire as a dead-end even when it has no outgoing edges', () => {
-		const book = makeBook([
-			node('s', 'sommaire'),
-			node('m', 'mort', { locked: true }),
-			node('c', 'choix'),
-		])
+		const book = makeBook([node('s', 'sommaire'), node('m', 'mort', { locked: true }), node('c', 'choix')])
 		const warnings = checkBookHealth(book)
 		expect(warnings.map((w) => w.nodeId)).not.toContain('s')
 	})
@@ -55,7 +51,9 @@ describe('checkBookHealth', () => {
 	it('does not flag a monstre node with a victoryTarget set', () => {
 		const book = makeBook([
 			node('s', 'sommaire'),
-			node('c', 'monstre', { monster: { name: 'Gobelin', pv: 10, outcomes: { reussite: 'ok', echec: 'non' }, victoryTarget: 'next' } }),
+			node('c', 'monstre', {
+				monster: { name: 'Gobelin', pv: 10, outcomes: { reussite: 'ok', echec: 'non' }, victoryTarget: 'next' },
+			}),
 			node('next', 'fin', { endVictory: true }),
 			node('m', 'mort', { locked: true }),
 		])
@@ -63,12 +61,17 @@ describe('checkBookHealth', () => {
 	})
 
 	it('does not flag a monstre node with only fleeTarget set', () => {
-		const book = makeBook([
-			node('s', 'sommaire'),
-			node('c', 'monstre', { monster: { name: 'Gobelin', pv: 10, outcomes: { reussite: 'ok', echec: 'non' }, fleeTarget: 'next' } }),
-			node('next', 'choix'),
-			node('m', 'mort', { locked: true }),
-		], [edge('e1', 'next', 's')])
+		const book = makeBook(
+			[
+				node('s', 'sommaire'),
+				node('c', 'monstre', {
+					monster: { name: 'Gobelin', pv: 10, outcomes: { reussite: 'ok', echec: 'non' }, fleeTarget: 'next' },
+				}),
+				node('next', 'choix'),
+				node('m', 'mort', { locked: true }),
+			],
+			[edge('e1', 'next', 's')],
+		)
 		expect(checkBookHealth(book).filter((w) => w.code === 'dead-end' && w.nodeId === 'c')).toHaveLength(0)
 	})
 
@@ -83,12 +86,22 @@ describe('checkBookHealth', () => {
 	})
 
 	it('does not flag a pnj node with a target set', () => {
-		const book = makeBook([
-			node('s', 'sommaire'),
-			node('p', 'pnj', { pnj: { name: 'Kael', dialogue: 'Bonjour', outcomes: { reussite: 'ok', echec: 'non' }, target: 'next' } as BookNode['pnj'] }),
-			node('next', 'choix'),
-			node('m', 'mort', { locked: true }),
-		], [edge('e1', 'next', 's')])
+		const book = makeBook(
+			[
+				node('s', 'sommaire'),
+				node('p', 'pnj', {
+					pnj: {
+						name: 'Kael',
+						dialogue: 'Bonjour',
+						outcomes: { reussite: 'ok', echec: 'non' },
+						target: 'next',
+					} as BookNode['pnj'],
+				}),
+				node('next', 'choix'),
+				node('m', 'mort', { locked: true }),
+			],
+			[edge('e1', 'next', 's')],
+		)
 		// 'next' has an outgoing edge so no dead-end; 'p' has target so no dead-end
 		expect(checkBookHealth(book).filter((w) => w.nodeId === 'p')).toHaveLength(0)
 	})
@@ -96,7 +109,10 @@ describe('checkBookHealth', () => {
 	it('does not flag a piege node with actionType=piege and trap.fatal=true', () => {
 		const book = makeBook([
 			node('s', 'sommaire'),
-			node('t', 'piege', { actionType: 'piege', trap: { description: 'Piège', fatal: true, outcomes: { reussite: 'ok', echec: 'non' } } }),
+			node('t', 'piege', {
+				actionType: 'piege',
+				trap: { description: 'Piège', fatal: true, outcomes: { reussite: 'ok', echec: 'non' } },
+			}),
 			node('m', 'mort', { locked: true }),
 		])
 		expect(checkBookHealth(book).filter((w) => w.code === 'dead-end' && w.nodeId === 't')).toHaveLength(0)
@@ -105,7 +121,10 @@ describe('checkBookHealth', () => {
 	it('does flag a piege node with trap.fatal=true but wrong actionType', () => {
 		const book = makeBook([
 			node('s', 'sommaire'),
-			node('t', 'piege', { actionType: 'decor', trap: { description: 'Piège', fatal: true, outcomes: { reussite: 'ok', echec: 'non' } } }),
+			node('t', 'piege', {
+				actionType: 'decor',
+				trap: { description: 'Piège', fatal: true, outcomes: { reussite: 'ok', echec: 'non' } },
+			}),
 			node('m', 'mort', { locked: true }),
 		])
 		expect(checkBookHealth(book).some((w) => w.code === 'dead-end' && w.nodeId === 't')).toBe(true)
@@ -125,7 +144,9 @@ describe('checkBookHealth', () => {
 		const book = makeBook(
 			[
 				node('s', 'sommaire'),
-				node('t', 'piege', { trap: { description: 'Piège', fatal: false, outcomes: { reussite: 'ok', echec: 'non' } } }),
+				node('t', 'piege', {
+					trap: { description: 'Piège', fatal: false, outcomes: { reussite: 'ok', echec: 'non' } },
+				}),
 				node('n', 'choix'),
 				node('m', 'mort', { locked: true }),
 			],
@@ -153,23 +174,19 @@ describe('checkBookHealth', () => {
 	it('does not flag a decor node whose takeable has a fatal roll (objectTrap branch)', () => {
 		const book = makeBook([
 			node('s', 'sommaire'),
-			node(
-				'd',
-				'decor',
-				{
-					actionType: 'decor',
-					decor: {
-						interaction: 'prendre',
-						objects: [
-							{
-								kind: 'utile',
-								roll: { trait: 'Agilite', fatal: true },
-								object: { id: 'o1', name: 'Fiole', description: 'desc' },
-							},
-						],
-					},
+			node('d', 'decor', {
+				actionType: 'decor',
+				decor: {
+					interaction: 'prendre',
+					objects: [
+						{
+							kind: 'utile',
+							roll: { trait: 'Agilite', fatal: true },
+							object: { id: 'o1', name: 'Fiole', description: 'desc' },
+						},
+					],
 				},
-			),
+			}),
 			node('m', 'mort', { locked: true }),
 		])
 		expect(checkBookHealth(book).filter((w) => w.code === 'dead-end' && w.nodeId === 'd')).toHaveLength(0)
@@ -236,12 +253,7 @@ describe('checkBookHealth', () => {
 
 	it('returns multiple warnings when there are multiple issues', () => {
 		const book = makeBook(
-			[
-				node('s', 'sommaire'),
-				node('c1', 'choix'),
-				node('c2', 'choix'),
-				node('m', 'mort', { locked: true }),
-			],
+			[node('s', 'sommaire'), node('c1', 'choix'), node('c2', 'choix'), node('m', 'mort', { locked: true })],
 			[{ id: 'e1', from: 's', to: 'ghost', kind: 'choice', label: 'Aller' }],
 		)
 		const warnings = checkBookHealth(book)

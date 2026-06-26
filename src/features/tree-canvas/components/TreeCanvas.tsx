@@ -86,10 +86,7 @@ export function TreeCanvas({ reveal, warnedNodeIds }: TreeCanvasProps = {}): JSX
 	// All story-path edges for LAYOUT: authored edges + monster-config-derived hints
 	// (victoryTarget / fleeTarget). Extracted here so both resolvePositions and
 	// collectSubtreeIds (drag-with-children) use the same edge set.
-	const allLayoutEdges = useMemo(
-		() => [...(book?.edges ?? []), ...deriveMonsterEdges(book)],
-		[book],
-	)
+	const allLayoutEdges = useMemo(() => [...(book?.edges ?? []), ...deriveMonsterEdges(book)], [book])
 	const positions = useMemo(
 		() => resolvePositions(book?.nodes ?? [], allLayoutEdges, positionOverrides, layoutSpacing),
 		[book, allLayoutEdges, positionOverrides, layoutSpacing],

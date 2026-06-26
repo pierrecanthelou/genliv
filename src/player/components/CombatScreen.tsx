@@ -13,12 +13,7 @@ interface CombatScreenProps {
 }
 
 export function CombatScreen({ config, hero, session, callbacks }: CombatScreenProps): JSX.Element {
-	const { combatState, canFlee, choosePosture, continueFight, flee } = useCombat(
-		config,
-		hero,
-		session,
-		callbacks,
-	)
+	const { combatState, canFlee, choosePosture, continueFight, flee } = useCombat(config, hero, session, callbacks)
 
 	const logEndRef = useRef<HTMLDivElement>(null)
 	useEffect(() => {
@@ -120,7 +115,9 @@ export function CombatScreen({ config, hero, session, callbacks }: CombatScreenP
 					}}
 				>
 					<span>Héros — {hero.name}</span>
-					<span>PV {heroPv} / {hero.pvMax}</span>
+					<span>
+						PV {heroPv} / {hero.pvMax}
+					</span>
 				</div>
 				<Bar pct={heroPvPct} color="var(--good)" label={`PV héros`} />
 				<div
@@ -132,7 +129,9 @@ export function CombatScreen({ config, hero, session, callbacks }: CombatScreenP
 						color: 'var(--text-muted)',
 					}}
 				>
-					<span>PE {heroPe} / {hero.peMax}</span>
+					<span>
+						PE {heroPe} / {hero.peMax}
+					</span>
 					{round > 0 && <span>Round {round}</span>}
 				</div>
 				<Bar pct={heroPePct} color="var(--accent)" label={`PE héros`} />
@@ -172,16 +171,10 @@ export function CombatScreen({ config, hero, session, callbacks }: CombatScreenP
 			)}
 
 			{/* Actions */}
-			{!isEnded && phase === 'choosing' && (
-				<PosturePanel onChoose={choosePosture} canFlee={canFlee} onFlee={flee} />
-			)}
+			{!isEnded && phase === 'choosing' && <PosturePanel onChoose={choosePosture} canFlee={canFlee} onFlee={flee} />}
 
 			{!isEnded && phase === 'resolved' && (
-				<button
-					type="button"
-					onClick={continueFight}
-					style={primaryBtn}
-				>
+				<button type="button" onClick={continueFight} style={primaryBtn}>
 					Prochain round →
 				</button>
 			)}
@@ -290,15 +283,7 @@ function PosturePanel({
 	)
 }
 
-function EndPanel({
-	outcome,
-	monster,
-	xp,
-}: {
-	outcome: string
-	monster: string
-	xp: number
-}): JSX.Element {
+function EndPanel({ outcome, monster, xp }: { outcome: string; monster: string; xp: number }): JSX.Element {
 	const isVictory = outcome === 'hero-victory' || outcome === 'monster-fled'
 	const isFled = outcome === 'hero-fled'
 	const isDead = outcome === 'hero-mort'

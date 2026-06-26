@@ -233,13 +233,7 @@ export function DecorEditor({ bookId, nodeId }: ActionEditorContext): JSX.Elemen
 				/>
 			)}
 
-			<Stepper
-				label="XP attribué"
-				value={decor.xp ?? 0}
-				min={0}
-				max={5}
-				onChange={(xp) => writeDecor({ xp })}
-			/>
+			<Stepper label="XP attribué" value={decor.xp ?? 0} min={0} max={5} onChange={(xp) => writeDecor({ xp })} />
 
 			{editing !== null && (
 				<ObjectEditModal

@@ -14,13 +14,7 @@ export function PlayerModal({ adventure, onClose }: PlayerModalProps): JSX.Eleme
 	return <PlayerModalInner adventure={adventure} onClose={onClose} />
 }
 
-function PlayerModalInner({
-	adventure,
-	onClose,
-}: {
-	adventure: AdventureDocument
-	onClose: () => void
-}): JSX.Element {
+function PlayerModalInner({ adventure, onClose }: { adventure: AdventureDocument; onClose: () => void }): JSX.Element {
 	const closeRef = useRef(onClose)
 	closeRef.current = onClose
 

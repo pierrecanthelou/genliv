@@ -217,9 +217,7 @@ export function PlayerRuntime({ adventure, onQuit }: PlayerRuntimeProps): JSX.El
 		const pnjNodeId = currentNode.id
 		const pnjConfig = currentNode.pnj
 		// Resolve a reused PNJ reference to the owner node's PNJ config.
-		const ownerPnj = pnjConfig.pnjRef
-			? adventure.nodes.find((n) => n.id === pnjConfig.pnjRef)?.pnj
-			: undefined
+		const ownerPnj = pnjConfig.pnjRef ? adventure.nodes.find((n) => n.id === pnjConfig.pnjRef)?.pnj : undefined
 		const resolvedPnj = pnjConfig.pnjRef ? (ownerPnj ?? null) : pnjConfig
 		if (!resolvedPnj) {
 			return (

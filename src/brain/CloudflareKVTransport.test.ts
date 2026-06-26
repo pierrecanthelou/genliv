@@ -57,9 +57,7 @@ describe('CloudflareKVTransport', () => {
 	it('push throws with status and body on non-ok response', async () => {
 		fetchMock.mockResolvedValue(stubResponse(400, undefined, 'Missing X-Sync-Key header'))
 		const transport = makeTransport()
-		await expect(transport.push(DATA_KEY, {})).rejects.toThrow(
-			'KV push failed: 400 — Missing X-Sync-Key header',
-		)
+		await expect(transport.push(DATA_KEY, {})).rejects.toThrow('KV push failed: 400 — Missing X-Sync-Key header')
 	})
 
 	it('push throws with status only when body is empty', async () => {
@@ -93,9 +91,7 @@ describe('CloudflareKVTransport', () => {
 	it('pull throws with body on non-404 error', async () => {
 		fetchMock.mockResolvedValue(stubResponse(500, undefined, 'Internal server error'))
 		const transport = makeTransport()
-		await expect(transport.pull!(DATA_KEY)).rejects.toThrow(
-			'KV pull failed: 500 — Internal server error',
-		)
+		await expect(transport.pull!(DATA_KEY)).rejects.toThrow('KV pull failed: 500 — Internal server error')
 	})
 
 	it('strips trailing slash from workerUrl', async () => {

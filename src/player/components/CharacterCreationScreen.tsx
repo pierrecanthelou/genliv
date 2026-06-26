@@ -32,9 +32,7 @@ export function CharacterCreationScreen({
 	const [name, setName] = useState('')
 	const [selectedPoolIdx, setSelectedPoolIdx] = useState<number | null>(null)
 
-	const assignedIndices = new Set(
-		CHARACTERISTIC_VALUES.map((c) => assignment.rollIndices[c]).filter((i) => i !== -1),
-	)
+	const assignedIndices = new Set(CHARACTERISTIC_VALUES.map((c) => assignment.rollIndices[c]).filter((i) => i !== -1))
 
 	const bonusUsed = CHARACTERISTIC_VALUES.reduce((s, c) => s + assignment.bonus[c], 0)
 	const bonusRemaining = pool.bonusPool - bonusUsed
@@ -181,9 +179,7 @@ export function CharacterCreationScreen({
 								width: 44,
 								height: 44,
 								borderRadius: 'var(--r-md)',
-								border: isSelected
-									? '2px solid var(--accent)'
-									: '1px solid var(--border-card)',
+								border: isSelected ? '2px solid var(--accent)' : '1px solid var(--border-card)',
 								background: isAssigned
 									? 'var(--surface-sunken)'
 									: isSelected
@@ -227,7 +223,10 @@ export function CharacterCreationScreen({
 							role="button"
 							tabIndex={0}
 							onKeyDown={(e) => {
-								if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCaracClick(c) }
+								if (e.key === 'Enter' || e.key === ' ') {
+									e.preventDefault()
+									handleCaracClick(c)
+								}
 							}}
 							aria-label={`${desc.label} — ${hasAssignment ? `${base}` : 'non assignée'}`}
 							style={{
@@ -252,9 +251,7 @@ export function CharacterCreationScreen({
 							>
 								{desc.abbr}
 							</span>
-							<span style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-body)' }}>
-								{desc.label}
-							</span>
+							<span style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-body)' }}>{desc.label}</span>
 							<div
 								style={{
 									display: 'flex',
@@ -267,19 +264,23 @@ export function CharacterCreationScreen({
 							>
 								<button
 									type="button"
-									onClick={(e) => { e.stopPropagation(); handleBonusChange(c, -1) }}
+									onClick={(e) => {
+										e.stopPropagation()
+										handleBonusChange(c, -1)
+									}}
 									disabled={!canRemoveBonus}
 									aria-label={`Retirer 1 bonus à ${desc.label}`}
 									style={stepperBtn}
 								>
 									−
 								</button>
-								<span style={{ minWidth: 20, textAlign: 'center', color: 'var(--text-label)' }}>
-									+{bonus}
-								</span>
+								<span style={{ minWidth: 20, textAlign: 'center', color: 'var(--text-label)' }}>+{bonus}</span>
 								<button
 									type="button"
-									onClick={(e) => { e.stopPropagation(); handleBonusChange(c, 1) }}
+									onClick={(e) => {
+										e.stopPropagation()
+										handleBonusChange(c, 1)
+									}}
 									disabled={!canAddBonus}
 									aria-label={`Ajouter 1 bonus à ${desc.label}`}
 									style={stepperBtn}
@@ -311,10 +312,10 @@ export function CharacterCreationScreen({
 					marginBottom: 'var(--space-8)',
 				}}
 			>
-				Bonus 1D4 : {bonusRemaining > 0
+				Bonus 1D4 :{' '}
+				{bonusRemaining > 0
 					? `${bonusRemaining} ${plural(bonusRemaining, 'point restant', 'points restants')}`
-					: '✓ tout distribué'
-				}
+					: '✓ tout distribué'}
 			</div>
 
 			<div style={{ display: 'flex', gap: 'var(--space-3)' }}>

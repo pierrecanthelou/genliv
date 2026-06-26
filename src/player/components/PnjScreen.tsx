@@ -40,7 +40,15 @@ export function PnjScreen({ pnj, hero, onFinish }: PnjScreenProps): JSX.Element 
 						src={pnj.portrait}
 						alt=""
 						aria-hidden
-						style={{ display: 'block', width: 80, height: 80, borderRadius: 'var(--r-full)', objectFit: 'cover', border: '2px solid var(--border-card)', marginBottom: 'var(--space-5)' }}
+						style={{
+							display: 'block',
+							width: 80,
+							height: 80,
+							borderRadius: 'var(--r-full)',
+							objectFit: 'cover',
+							border: '2px solid var(--border-card)',
+							marginBottom: 'var(--space-5)',
+						}}
 					/>
 				)}
 				<div
@@ -94,12 +102,8 @@ export function PnjScreen({ pnj, hero, onFinish }: PnjScreenProps): JSX.Element 
 					>
 						Don offert
 					</div>
-					<div style={{ fontWeight: 'var(--fw-semibold)', color: 'var(--text-strong)' }}>
-						{pnj.gift.object.name}
-					</div>
-					<div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}>
-						{pnj.gift.object.description}
-					</div>
+					<div style={{ fontWeight: 'var(--fw-semibold)', color: 'var(--text-strong)' }}>{pnj.gift.object.name}</div>
+					<div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}>{pnj.gift.object.description}</div>
 					{pnj.gift.effect !== 'scenario' && (
 						<div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-meta)', color: 'var(--text-body)' }}>
 							{pnj.gift.effect === 'pv' && `+${pnj.gift.value} PV`}

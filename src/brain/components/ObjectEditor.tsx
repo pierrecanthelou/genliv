@@ -126,9 +126,7 @@ export function ObjectEditor({ value, onChange }: ObjectEditorProps): JSX.Elemen
 				<Stepper
 					label="BONUS DE JET"
 					value={value.reinforcementBonus?.rollBonus ?? 0}
-					onChange={(v) =>
-						onChange({ ...value, reinforcementBonus: v > 0 ? { rollBonus: v } : undefined })
-					}
+					onChange={(v) => onChange({ ...value, reinforcementBonus: v > 0 ? { rollBonus: v } : undefined })}
 					min={0}
 					max={5}
 					prefix="+"

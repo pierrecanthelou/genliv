@@ -129,12 +129,7 @@ export function ImageUpload({ value, label, onChange }: ImageUploadProps): JSX.E
 							aria-modal="true"
 							aria-label={`Illustration agrandie : ${label}`}
 						>
-							<img
-								src={displayValue}
-								alt={label}
-								style={lightboxImg}
-								onClick={(e) => e.stopPropagation()}
-							/>
+							<img src={displayValue} alt={label} style={lightboxImg} onClick={(e) => e.stopPropagation()} />
 						</div>
 					)}
 				</div>

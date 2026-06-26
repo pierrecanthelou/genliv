@@ -153,7 +153,8 @@ export function TrapEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element
 						</option>
 						{catalogObjects.map((obj) => (
 							<option key={obj.id} value={obj.id}>
-								{obj.name}{obj.scenario ? ' (scénario)' : ''}
+								{obj.name}
+								{obj.scenario ? ' (scénario)' : ''}
 							</option>
 						))}
 					</select>

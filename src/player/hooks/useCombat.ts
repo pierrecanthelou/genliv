@@ -38,9 +38,7 @@ export function useCombat(
 	session: SessionState,
 	callbacks: UseCombatCallbacks,
 ): UseCombatResult {
-	const [combatState, setCombatState] = useState<CombatState>(() =>
-		startCombat(config, hero, session),
-	)
+	const [combatState, setCombatState] = useState<CombatState>(() => startCombat(config, hero, session))
 
 	// Stable refs so the useEffect doesn't re-fire when callbacks change identity
 	const cbRef = useRef(callbacks)
@@ -93,15 +91,12 @@ export function useCombat(
 	const sessionRef = useRef(session)
 	sessionRef.current = session
 
-	const choosePosture = useCallback(
-		(posture: Posture) => {
-			setCombatState((prev) => {
-				if (prev.phase !== 'choosing' || prev.outcome !== 'ongoing') return prev
-				return resolveCombatRound(prev, heroRef.current, sessionRef.current, posture)
-			})
-		},
-		[],
-	)
+	const choosePosture = useCallback((posture: Posture) => {
+		setCombatState((prev) => {
+			if (prev.phase !== 'choosing' || prev.outcome !== 'ongoing') return prev
+			return resolveCombatRound(prev, heroRef.current, sessionRef.current, posture)
+		})
+	}, [])
 
 	const continueFight = useCallback(() => {
 		setCombatState((prev) => {
@@ -118,7 +113,8 @@ export function useCombat(
 		})
 	}, [])
 
-	const canFlee = combatState.monster.fleeTarget !== null && combatState.phase === 'choosing' && combatState.outcome === 'ongoing'
+	const canFlee =
+		combatState.monster.fleeTarget !== null && combatState.phase === 'choosing' && combatState.outcome === 'ongoing'
 
 	return { combatState, canFlee, choosePosture, continueFight, flee }
 }

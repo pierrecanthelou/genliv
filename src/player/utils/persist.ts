@@ -11,7 +11,9 @@ function sessionKey(bookId: string): string {
 export function saveSession(bookId: string, state: SessionState): void {
 	try {
 		window.localStorage.setItem(sessionKey(bookId), JSON.stringify(state))
-	} catch { /* storage unavailable */ }
+	} catch {
+		/* storage unavailable */
+	}
 }
 
 export function loadSession(bookId: string): SessionState | null {
@@ -33,5 +35,7 @@ export function loadSession(bookId: string): SessionState | null {
 export function clearSession(bookId: string): void {
 	try {
 		window.localStorage.removeItem(sessionKey(bookId))
-	} catch { /* storage unavailable */ }
+	} catch {
+		/* storage unavailable */
+	}
 }

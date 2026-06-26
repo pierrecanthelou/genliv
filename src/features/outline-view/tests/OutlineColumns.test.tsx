@@ -124,5 +124,4 @@ describe('OutlineColumns', () => {
 		const colonnesBtn = screen.getByRole('radio', { name: /⦿ Colonnes/i })
 		expect(colonnesBtn).toHaveAttribute('aria-checked', 'true')
 	})
-
 })

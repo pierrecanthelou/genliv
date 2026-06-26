@@ -77,9 +77,7 @@ function ColumnEntryRow({ entry, isActive, isWarned, onNavigate }: ColumnEntryRo
 				) : null}
 				<span style={rowTitle}>
 					{title}
-					{isReference && firstSeenColumn !== undefined && (
-						<span style={refChip}>col. {firstSeenColumn + 1}</span>
-					)}
+					{isReference && firstSeenColumn !== undefined && <span style={refChip}>col. {firstSeenColumn + 1}</span>}
 					{isWarned && (
 						<span aria-label="Référence cassée" style={{ color: 'var(--bad)', marginLeft: 4 }}>
 							⚠

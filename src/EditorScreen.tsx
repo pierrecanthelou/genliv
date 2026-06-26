@@ -1,5 +1,14 @@
 import { useState, useMemo } from 'react'
-import { useBrain, useOpenBook, useBookViewMode, useBookHealth, useSelectedNode, EditorTopBar, type EditorViewMode, type PlayWarning } from './brain'
+import {
+	useBrain,
+	useOpenBook,
+	useBookViewMode,
+	useBookHealth,
+	useSelectedNode,
+	EditorTopBar,
+	type EditorViewMode,
+	type PlayWarning,
+} from './brain'
 import { buildAdventureDocument } from './brain'
 import { TreeCanvas, AutoLayoutButton, SpacingToggle, type RevealRequest } from './features/tree-canvas'
 import { OutlineView } from './features/outline-view'

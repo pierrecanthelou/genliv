@@ -225,7 +225,9 @@ describe('resolveCombatRound', () => {
 			if (result.outcome !== 'ongoing') break
 			result = resolveCombatRound(result, lowHpHero, baseSession, 'normale')
 		}
-		expect(['hero-mort', 'hero-survived-unconscious', 'hero-victory', 'monster-fled'].includes(result.outcome)).toBe(true)
+		expect(['hero-mort', 'hero-survived-unconscious', 'hero-victory', 'monster-fled'].includes(result.outcome)).toBe(
+			true,
+		)
 	})
 
 	it('garde aiguisee triggers after 3 consecutive defensive wins by hero', () => {

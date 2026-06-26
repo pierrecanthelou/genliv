@@ -4,7 +4,15 @@
  * Every function takes the inputs it needs and returns a typed result the calling
  * hook applies to session state.
  */
-import type { TrapConfig, TrapInventoryLoss, PnjGift, SkillRoll, DecorReveal, GameObject, RollOutcome } from '../../brain/types'
+import type {
+	TrapConfig,
+	TrapInventoryLoss,
+	PnjGift,
+	SkillRoll,
+	DecorReveal,
+	GameObject,
+	RollOutcome,
+} from '../../brain/types'
 import type { Characteristic } from '../../brain/characteristics'
 import { CHARACTERISTIC_MAX } from '../../brain/characteristics'
 import { resolveChallenge, rollTier, challengeTierValue, CHALLENGE_TIERS } from '../../brain/challenge'
@@ -55,7 +63,12 @@ export interface TrapResult {
  * `isLethal` is only true when the roll fails AND the trap has the fatal flag.
  * `rollBonus` (AC C5) adds to the hero's effective characteristic value for the roll.
  */
-export function resolveTrap(trap: TrapConfig, hero: HeroState, rng: () => number = Math.random, rollBonus = 0): TrapResult {
+export function resolveTrap(
+	trap: TrapConfig,
+	hero: HeroState,
+	rng: () => number = Math.random,
+	rollBonus = 0,
+): TrapResult {
 	if (!trap.roll) {
 		return {
 			outcome: 'echec',
@@ -127,7 +140,11 @@ export interface DecorRevealResult {
  * Resolve a décor reveal (écouter / fouiller). The reveal may be ungated (just text)
  * or gated by a skill roll — réussite/échec each carry their own text.
  */
-export function resolveDecorReveal(reveal: DecorReveal, hero: HeroState, rng: () => number = Math.random): DecorRevealResult {
+export function resolveDecorReveal(
+	reveal: DecorReveal,
+	hero: HeroState,
+	rng: () => number = Math.random,
+): DecorRevealResult {
 	if (!reveal.roll) {
 		return { hasRoll: false, revealText: reveal.text }
 	}
@@ -152,7 +169,12 @@ export interface TakeableRollResult {
  * Called only when `takeable.roll` is set; the caller checks that guard first.
  * `rollBonus` (AC C5) adds to the hero's effective characteristic value.
  */
-export function resolveTakeableRoll(roll: SkillRoll, hero: HeroState, rng: () => number = Math.random, rollBonus = 0): TakeableRollResult {
+export function resolveTakeableRoll(
+	roll: SkillRoll,
+	hero: HeroState,
+	rng: () => number = Math.random,
+	rollBonus = 0,
+): TakeableRollResult {
 	const { outcome, diceRoll, characteristicValue, margin, xp } = resolveRoll(roll, hero, rng, rollBonus)
 	return { outcome, diceRoll, characteristicValue, margin, xp, canTake: outcome === 'reussite' }
 }
@@ -177,7 +199,12 @@ export function applyPnjGift(gift: PnjGift, hero: HeroState): PnjGiftMutations {
 	switch (gift.effect) {
 		case 'pv':
 			// Capped at pvMax — the hook clamps using `Math.min(hero.pv + pvDelta, hero.pvMax)`.
-			return { pvDelta: Math.min(gift.value, hero.pvMax - hero.pv), mcBonusDelta: 0, armorBonusDelta: 0, inventoryAdd: [] }
+			return {
+				pvDelta: Math.min(gift.value, hero.pvMax - hero.pv),
+				mcBonusDelta: 0,
+				armorBonusDelta: 0,
+				inventoryAdd: [],
+			}
 		case 'attaque':
 			return { pvDelta: 0, mcBonusDelta: gift.value, armorBonusDelta: 0, inventoryAdd: [] }
 		case 'defense':
@@ -317,4 +344,3 @@ export function applyMcUpgrade(hero: HeroState): HeroState {
 		xp: hero.xp - (cost ?? 0),
 	}
 }
-

@@ -25,16 +25,10 @@ export function HeroStatusBar({ hero, onProgressionClick }: HeroStatusBarProps):
 				flexShrink: 0,
 			}}
 		>
-			<span style={{ fontWeight: 'var(--fw-semibold)', color: 'var(--text-strong)' }}>
-				{hero.name}
-			</span>
+			<span style={{ fontWeight: 'var(--fw-semibold)', color: 'var(--text-strong)' }}>{hero.name}</span>
 			<span style={{ width: 1, height: 14, background: 'var(--border-subtle)' }} />
 			<span>
-				PV{' '}
-				<span style={{ color: pvColor, fontWeight: 'var(--fw-semibold)' }}>
-					{hero.pv}
-				</span>
-				/{hero.pvMax}
+				PV <span style={{ color: pvColor, fontWeight: 'var(--fw-semibold)' }}>{hero.pv}</span>/{hero.pvMax}
 			</span>
 			<span>
 				PE{' '}

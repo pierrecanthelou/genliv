@@ -108,7 +108,13 @@ export { createLocalStorageTransport } from './LocalStorageTransport'
 export { createCloudflareKVTransport } from './CloudflareKVTransport'
 export { createCloudSettings, type CloudSettingsService } from './CloudSettingsService'
 export { createUIPreferencesService } from './UIPreferencesService'
-export type { UIPreferencesService, BookUIPrefs, Viewport, LayoutSpacing, OutlineDisplayMode } from './UIPreferencesService'
+export type {
+	UIPreferencesService,
+	BookUIPrefs,
+	Viewport,
+	LayoutSpacing,
+	OutlineDisplayMode,
+} from './UIPreferencesService'
 export { createMonsterLibraryService } from './MonsterLibraryService'
 export type { MonsterLibraryService, SavedMonster } from './MonsterLibraryService'
 export type { Router, Route } from './Router'

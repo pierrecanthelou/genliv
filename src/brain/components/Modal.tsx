@@ -26,8 +26,7 @@ export interface ModalProps {
 	onConfirm?: () => void
 }
 
-const FOCUSABLE =
-	'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
+const FOCUSABLE = 'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
 
 /** Dialog max width, and the square close (✕) button size. */
 const MODAL_MAX_WIDTH = 420
@@ -194,11 +193,7 @@ export function Modal({
 							style={{
 								fontSize: 'var(--fs-sm)',
 								color: 'var(--text-on-accent)',
-								background: confirmDisabled
-									? 'var(--ink-5)'
-									: confirmTone === 'error'
-										? 'var(--bad)'
-										: 'var(--accent)',
+								background: confirmDisabled ? 'var(--ink-5)' : confirmTone === 'error' ? 'var(--bad)' : 'var(--accent)',
 								border: 'none',
 								borderRadius: 'var(--r-lg)',
 								padding: '11px 18px',

@@ -270,9 +270,9 @@ describe('action-monster', () => {
 
 		// Picking it persists the victoryTarget.
 		await user.click(predecessorBtn)
-		expect(
-			brain.books.getBook(created.id)!.nodes.find((n) => n.id === combat.id)?.monster?.victoryTarget,
-		).toBe(predecessor.id)
+		expect(brain.books.getBook(created.id)!.nodes.find((n) => n.id === combat.id)?.monster?.victoryTarget).toBe(
+			predecessor.id,
+		)
 	})
 
 	it('instantiate keeps the node own targets and re-mints the loot id (KR-097/003)', async () => {

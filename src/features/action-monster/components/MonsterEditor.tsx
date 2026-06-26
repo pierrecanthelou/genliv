@@ -240,9 +240,7 @@ export function MonsterEditor({ bookId, nodeId }: ActionEditorContext): JSX.Elem
 						</option>
 					))}
 				</select>
-				{capacityId !== 'aucune' && (
-					<span style={capacityHint}>{MONSTER_CAPACITIES[capacityId].description}</span>
-				)}
+				{capacityId !== 'aucune' && <span style={capacityHint}>{MONSTER_CAPACITIES[capacityId].description}</span>}
 			</label>
 
 			<OutcomesEditor value={monster.outcomes} onChange={setOutcome} />

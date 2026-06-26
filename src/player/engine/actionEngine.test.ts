@@ -47,8 +47,8 @@ function makeSkillRoll(overrides: Partial<SkillRoll> = {}): SkillRoll {
 	return { trait: 'FO', tier: 'TC1', ...overrides }
 }
 
-const alwaysSucceed = () => 0   // dice total = 1 → ≤ any positive carac
-const alwaysFail = () => 0.999  // dice total = max sides → > any typical carac
+const alwaysSucceed = () => 0 // dice total = 1 → ≤ any positive carac
+const alwaysFail = () => 0.999 // dice total = max sides → > any typical carac
 
 // ─── resolveTrap ──────────────────────────────────────────────────────────────
 
@@ -191,7 +191,12 @@ describe('resolveTakeableRoll', () => {
 
 describe('computeInventoryLoss', () => {
 	const potion: GameObject = { id: 'potion', name: 'Potion', description: '' }
-	const sword: GameObject = { id: 'sword', name: 'Épée', description: '', equipment: { kind: 'arme', weapon: 'epee-1m' } }
+	const sword: GameObject = {
+		id: 'sword',
+		name: 'Épée',
+		description: '',
+		equipment: { kind: 'arme', weapon: 'epee-1m' },
+	}
 	const key: GameObject = { id: 'key', name: 'Clef', description: '', scenario: true }
 	const objects = [potion, sword, key]
 	const inventory = ['potion', 'sword', 'key']

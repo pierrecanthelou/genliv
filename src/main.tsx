@@ -1,11 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import {
-	createBrain,
-	BrainProvider,
-	createLocalStoragePersistence,
-	createCloudflareKVTransport,
-} from './brain'
+import { createBrain, BrainProvider, createLocalStoragePersistence, createCloudflareKVTransport } from './brain'
 import { CLOUDSYNC_WORKER_URL_KEY, CLOUDSYNC_KEY_KEY } from './brain/persistenceKeys'
 import { App } from './App'
 import './style.css'

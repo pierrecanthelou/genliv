@@ -14,15 +14,7 @@ function openPicker(label: string): void {
 describe('TargetPicker', () => {
 	it('calls onChange via onMouseDown on a candidate (regression: onClick alone was suppressed by ul.onMouseDown.preventDefault)', () => {
 		const onChange = jest.fn()
-		render(
-			<TargetPicker
-				label="Fuite vers"
-				nodes={nodes}
-				nodeId="n0"
-				target={undefined}
-				onChange={onChange}
-			/>,
-		)
+		render(<TargetPicker label="Fuite vers" nodes={nodes} nodeId="n0" target={undefined} onChange={onChange} />)
 
 		openPicker('Fuite vers')
 
@@ -57,15 +49,7 @@ describe('TargetPicker', () => {
 
 	it('closes the picker after mouseDown selection', () => {
 		const onChange = jest.fn()
-		render(
-			<TargetPicker
-				label="Cible"
-				nodes={nodes}
-				nodeId="n0"
-				target={undefined}
-				onChange={onChange}
-			/>,
-		)
+		render(<TargetPicker label="Cible" nodes={nodes} nodeId="n0" target={undefined} onChange={onChange} />)
 
 		openPicker('Cible')
 		expect(screen.getByRole('listbox')).toBeInTheDocument()
@@ -76,15 +60,7 @@ describe('TargetPicker', () => {
 	})
 
 	it('filters candidates by search text', () => {
-		render(
-			<TargetPicker
-				label="Cible"
-				nodes={nodes}
-				nodeId="n0"
-				target={undefined}
-				onChange={jest.fn()}
-			/>,
-		)
+		render(<TargetPicker label="Cible" nodes={nodes} nodeId="n0" target={undefined} onChange={jest.fn()} />)
 
 		const input = screen.getByRole('combobox', { name: 'Cible' })
 		fireEvent.focus(input)

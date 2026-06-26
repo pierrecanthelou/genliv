@@ -75,7 +75,19 @@ export function createBrain(options: CreateBrainOptions = {}): Brain {
 	monsterLibrary.seedDefaults(BESTIARY)
 	// Worker credentials — raw local, never synced (KR-114).
 	const cloudSettings = createCloudSettings(local)
-	return { events, persistence: sync, sync, router, books, selection, actions, slots, uiPreferences, monsterLibrary, cloudSettings }
+	return {
+		events,
+		persistence: sync,
+		sync,
+		router,
+		books,
+		selection,
+		actions,
+		slots,
+		uiPreferences,
+		monsterLibrary,
+		cloudSettings,
+	}
 }
 
 const BrainContext = createContext<Brain | null>(null)

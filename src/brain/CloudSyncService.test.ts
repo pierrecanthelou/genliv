@@ -244,7 +244,12 @@ describe('CloudSyncService', () => {
 
 		it('routes a real Book write to split keys (content + manifest), not the legacy bookKey', async () => {
 			const pushed: [string, unknown][] = []
-			const { sync } = setup({ push: (k, v) => { pushed.push([k, v]); return Promise.resolve() } })
+			const { sync } = setup({
+				push: (k, v) => {
+					pushed.push([k, v])
+					return Promise.resolve()
+				},
+			})
 
 			sync.set(bookKey('b1'), minBook('b1'))
 			await flush()
@@ -267,13 +272,23 @@ describe('CloudSyncService', () => {
 
 		it('extracts node illustration and pnj.portrait into separate image keys and strips them from content', async () => {
 			const pushed: [string, unknown][] = []
-			const { sync } = setup({ push: (k, v) => { pushed.push([k, v]); return Promise.resolve() } })
+			const { sync } = setup({
+				push: (k, v) => {
+					pushed.push([k, v])
+					return Promise.resolve()
+				},
+			})
 
 			const book = {
 				...minBook('b1'),
 				nodes: [
 					{ id: 'n1', kind: 'choix', illustration: 'data:image/png;base64,ILLUS', position: { x: 0, y: 0 } },
-					{ id: 'n2', kind: 'pnj', pnj: { name: 'Elrond', portrait: 'data:image/png;base64,PORT' }, position: { x: 0, y: 0 } },
+					{
+						id: 'n2',
+						kind: 'pnj',
+						pnj: { name: 'Elrond', portrait: 'data:image/png;base64,PORT' },
+						position: { x: 0, y: 0 },
+					},
 				],
 			} as unknown as Book
 
@@ -317,7 +332,9 @@ describe('CloudSyncService', () => {
 			local.set(bookKey('b1'), minBook('b1', '2026-01-01T00:00:00.000Z'))
 
 			let updatedId = ''
-			events.on('book:updated', ({ bookId }) => { updatedId = bookId })
+			events.on('book:updated', ({ bookId }) => {
+				updatedId = bookId
+			})
 			events.emit('book:opened', { bookId: 'b1' })
 			await flush()
 

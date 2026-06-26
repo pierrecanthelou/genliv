@@ -22,17 +22,14 @@ export function TrapScreen({ trap, hero, inventory, adventureObjects, onFinish }
 	// Resolve immediately if no roll (auto-échec — no bonus can help).
 	// When a roll exists, start in pick phase (result = null) so the player
 	// can choose a reinforcement object before the dice fall.
-	const [result, setResult] = useState<TrapResult | null>(() =>
-		trap.roll ? null : resolveTrap(trap, hero),
-	)
+	const [result, setResult] = useState<TrapResult | null>(() => (trap.roll ? null : resolveTrap(trap, hero)))
 
 	const traitLabel = trap.roll ? (CHARACTERISTICS[trap.roll.trait as Characteristic]?.abbr ?? trap.roll.trait) : null
 	const tierLabel = trap.roll ? CHALLENGE_TIERS[rollTier(trap.roll)].notation : null
 
 	// Pure derived state — no useEffect needed (KR-013).
-	const lostObjectIds = result !== null
-		? computeInventoryLoss(trap.inventoryLoss, result.outcome, inventory, adventureObjects)
-		: []
+	const lostObjectIds =
+		result !== null ? computeInventoryLoss(trap.inventoryLoss, result.outcome, inventory, adventureObjects) : []
 	const lostObjectNames = lostObjectIds.map((id) => adventureObjects.find((o) => o.id === id)?.name ?? id)
 
 	function handleFaceTrap(): void {
@@ -56,9 +53,7 @@ export function TrapScreen({ trap, hero, inventory, adventureObjects, onFinish }
 			}}
 		>
 			{/* Trap description */}
-			<div style={{ fontSize: 'var(--fs-body)', color: 'var(--text-body)', lineHeight: 1.7 }}>
-				{trap.description}
-			</div>
+			<div style={{ fontSize: 'var(--fs-body)', color: 'var(--text-body)', lineHeight: 1.7 }}>{trap.description}</div>
 
 			{/* Roll legend (always visible when a roll is authored) */}
 			{traitLabel !== null && tierLabel !== null && (
@@ -129,13 +124,9 @@ export function TrapScreen({ trap, hero, inventory, adventureObjects, onFinish }
 							}}
 						>
 							{result.outcome === 'reussite' ? 'Réussite' : 'Échec'}
-							{result.xp > 0 && (
-								<span style={{ marginLeft: 'var(--space-4)' }}>+{result.xp} XP</span>
-							)}
+							{result.xp > 0 && <span style={{ marginLeft: 'var(--space-4)' }}>+{result.xp} XP</span>}
 						</div>
-						<div style={{ fontSize: 'var(--fs-body)', color: 'var(--text-body)', lineHeight: 1.6 }}>
-							{result.text}
-						</div>
+						<div style={{ fontSize: 'var(--fs-body)', color: 'var(--text-body)', lineHeight: 1.6 }}>{result.text}</div>
 						{result.isLethal && (
 							<div
 								style={{

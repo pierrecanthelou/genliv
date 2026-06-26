@@ -36,7 +36,6 @@ export const WEAPONS: Record<WeaponId, WeaponDescriptor> = {
 export const WEAPON_VALUES = Object.keys(WEAPONS) as WeaponId[]
 export const DEFAULT_WEAPON: WeaponId = 'mains-nues'
 
-
 export type ProtectionId = 'cuir' | 'cotte' | 'plaque' | 'bouclier'
 
 export interface ProtectionDescriptor {

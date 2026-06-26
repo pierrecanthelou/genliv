@@ -42,7 +42,13 @@ export interface CapacityHooks {
 	/** Fires when the MONSTER lands a 'critique' quality hit on the hero. */
 	onHeroReceivedCrit?: StateFn
 	/** Fires after the HERO wins a round (deals damage to monster, mon.pv still > 0 or = 0). */
-	onHeroWon?: (state: CombatState, hero: HeroState, session: SessionState, rng: () => number, ecart: number) => CombatState
+	onHeroWon?: (
+		state: CombatState,
+		hero: HeroState,
+		session: SessionState,
+		rng: () => number,
+		ecart: number,
+	) => CombatState
 	/**
 	 * Passive modifier applied to the monster's damage factor (×2 for précise, ×1 for normale,
 	 * ×0 for défensive). Called before multiplying by rawPf. Insensible: précise → ×1.
@@ -147,10 +153,7 @@ export const CAPACITY_HOOKS: Record<MonsterCapacityId, CapacityHooks> = {
 				...state,
 				monster: { ...state.monster, pv: 1 },
 				effects: { ...state.effects, zombieRevived: true },
-				log: [
-					...state.log,
-					{ round: state.round, text: `Se relève — jet ${roll} : le zombie repasse à 1 PV !` },
-				],
+				log: [...state.log, { round: state.round, text: `Se relève — jet ${roll} : le zombie repasse à 1 PV !` }],
 			}
 		},
 	},
@@ -200,10 +203,7 @@ export const CAPACITY_HOOKS: Record<MonsterCapacityId, CapacityHooks> = {
 			return {
 				...state,
 				effects: { ...state.effects, poisonRoundsLeft: rounds, poisonDmgPerRound: 1 },
-				log: [
-					...state.log,
-					{ round: state.round, text: `Poison — ${rounds} rounds de −1 PV/round.` },
-				],
+				log: [...state.log, { round: state.round, text: `Poison — ${rounds} rounds de −1 PV/round.` }],
 			}
 		},
 		onAfterRound: applyDotRound,
@@ -216,10 +216,7 @@ export const CAPACITY_HOOKS: Record<MonsterCapacityId, CapacityHooks> = {
 			return {
 				...state,
 				effects: { ...state.effects, renversementMalus: 2 },
-				log: [
-					...state.log,
-					{ round: state.round, text: `Renversement — héros −2 AT au prochain round.` },
-				],
+				log: [...state.log, { round: state.round, text: `Renversement — héros −2 AT au prochain round.` }],
 			}
 		},
 	},
@@ -264,10 +261,7 @@ export const CAPACITY_HOOKS: Record<MonsterCapacityId, CapacityHooks> = {
 			return {
 				...state,
 				effects: { ...state.effects, poisonRoundsLeft: 3, poisonDmgPerRound: 2 },
-				log: [
-					...state.log,
-					{ round: state.round, text: `Venin — 3 rounds de −2 PV/round.` },
-				],
+				log: [...state.log, { round: state.round, text: `Venin — 3 rounds de −2 PV/round.` }],
 			}
 		},
 		onAfterRound: applyDotRound,
@@ -308,10 +302,7 @@ export const CAPACITY_HOOKS: Record<MonsterCapacityId, CapacityHooks> = {
 		onMonsterWon: (state, _hero, _session, _rng, _ecart, _quality, _damage) => ({
 			...state,
 			heroArmorDegradation: state.heroArmorDegradation + 1,
-			log: [
-				...state.log,
-				{ round: state.round, text: `Force écrasante — 1 pt d'armure du héros détruit.` },
-			],
+			log: [...state.log, { round: state.round, text: `Force écrasante — 1 pt d'armure du héros détruit.` }],
 		}),
 	},
 
@@ -358,10 +349,7 @@ export const CAPACITY_HOOKS: Record<MonsterCapacityId, CapacityHooks> = {
 				} else {
 					s = {
 						...s,
-						log: [
-							...s.log,
-							{ round: 0, text: `Piques ${i + 1}/${numPiques} — manqué (AT ${mantiAT} ≤ ${atHero}).` },
-						],
+						log: [...s.log, { round: 0, text: `Piques ${i + 1}/${numPiques} — manqué (AT ${mantiAT} ≤ ${atHero}).` }],
 					}
 				}
 			}
@@ -416,10 +404,7 @@ export const CAPACITY_HOOKS: Record<MonsterCapacityId, CapacityHooks> = {
 			if (result.success) {
 				return {
 					...state,
-					log: [
-						...state.log,
-						{ round: state.round, text: `Séisme — jet AG TC3 réussi : le héros reste debout.` },
-					],
+					log: [...state.log, { round: state.round, text: `Séisme — jet AG TC3 réussi : le héros reste debout.` }],
 				}
 			}
 			return {
@@ -444,10 +429,7 @@ export const CAPACITY_HOOKS: Record<MonsterCapacityId, CapacityHooks> = {
 			if (roll <= 2) {
 				return {
 					...state,
-					log: [
-						...state.log,
-						{ round: state.round, text: `Magie (Liche) — sort niveau ${roll} : effets normaux.` },
-					],
+					log: [...state.log, { round: state.round, text: `Magie (Liche) — sort niveau ${roll} : effets normaux.` }],
 				}
 			}
 			const drain = rollDice(1, 4, rng)
@@ -472,10 +454,7 @@ export const CAPACITY_HOOKS: Record<MonsterCapacityId, CapacityHooks> = {
 				const newState: CombatState = {
 					...state,
 					heroPv: newPv,
-					log: [
-						...state.log,
-						{ round: state.round, text: `Rayon (1) — +2 dégâts : −2 PV héros.` },
-					],
+					log: [...state.log, { round: state.round, text: `Rayon (1) — +2 dégâts : −2 PV héros.` }],
 				}
 				if (healthState(newPv, hero.caracs.CA) !== 'ok') {
 					return { ...newState, phase: 'ended', outcome: 'hero-mort' }
@@ -486,20 +465,14 @@ export const CAPACITY_HOOKS: Record<MonsterCapacityId, CapacityHooks> = {
 				return {
 					...state,
 					effects: { ...state.effects, renversementMalus: state.effects.renversementMalus + 2 },
-					log: [
-						...state.log,
-						{ round: state.round, text: `Rayon (2) — −2 AT héros au prochain round.` },
-					],
+					log: [...state.log, { round: state.round, text: `Rayon (2) — −2 AT héros au prochain round.` }],
 				}
 			}
 			if (roll === 3) {
 				return {
 					...state,
 					pendingEnMaxDelta: state.pendingEnMaxDelta - 2,
-					log: [
-						...state.log,
-						{ round: state.round, text: `Rayon (3) — −2 EN permanent.` },
-					],
+					log: [...state.log, { round: state.round, text: `Rayon (3) — −2 EN permanent.` }],
 				}
 			}
 			// roll === 4: mort instantanée (V1 simplification: −3 PV supplémentaires)
@@ -507,10 +480,7 @@ export const CAPACITY_HOOKS: Record<MonsterCapacityId, CapacityHooks> = {
 			const newState: CombatState = {
 				...state,
 				heroPv: newPv,
-				log: [
-					...state.log,
-					{ round: state.round, text: `Rayon (4) — rayon désintégrant : −3 PV héros.` },
-				],
+				log: [...state.log, { round: state.round, text: `Rayon (4) — rayon désintégrant : −3 PV héros.` }],
 			}
 			if (healthState(newPv, hero.caracs.CA) !== 'ok') {
 				return { ...newState, phase: 'ended', outcome: 'hero-mort' }
@@ -542,12 +512,7 @@ export const CAPACITY_HOOKS: Record<MonsterCapacityId, CapacityHooks> = {
 
 // ─── Shared DoT helper (poison + venin share identical onAfterRound logic) ───
 
-function applyDotRound(
-	state: CombatState,
-	hero: HeroState,
-	_session: SessionState,
-	_rng: () => number,
-): CombatState {
+function applyDotRound(state: CombatState, hero: HeroState, _session: SessionState, _rng: () => number): CombatState {
 	if (state.effects.poisonRoundsLeft <= 0) return state
 	const dmg = state.effects.poisonDmgPerRound
 	const newPv = state.heroPv - dmg

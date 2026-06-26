@@ -1,14 +1,5 @@
-import {
-	maxPV,
-	healthState,
-	enduranceMalus,
-} from './characteristics'
-import {
-	CHALLENGE_TIERS,
-	challengeTierValue,
-	rollTier,
-	resolveChallenge,
-} from './challenge'
+import { maxPV, healthState, enduranceMalus } from './characteristics'
+import { CHALLENGE_TIERS, challengeTierValue, rollTier, resolveChallenge } from './challenge'
 import { maitriseDesCoups, ecartBand, pfBase, resolveAssault } from './combat'
 import { tierOf, deltaBand, challengeXp, combatXp, characteristicUpgradeCost, mcUpgradeCost, canUpgradeMC } from './xp'
 import { BESTIARY, BESTIARY_BY_TEMPLATE } from './bestiary'

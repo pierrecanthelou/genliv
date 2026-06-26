@@ -8,8 +8,7 @@ interface NodePreviewModalProps {
 	onClose: () => void
 }
 
-const FOCUSABLE =
-	'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
+const FOCUSABLE = 'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
 
 export function NodePreviewModal({ node, choices, onClose }: NodePreviewModalProps): JSX.Element {
 	const closeRef = useRef(onClose)
@@ -69,13 +68,7 @@ export function NodePreviewModal({ node, choices, onClose }: NodePreviewModalPro
 			>
 				<header style={dialogHeader}>
 					<span style={dialogTitle}>Aperçu — {nodeTitle(node)}</span>
-					<button
-						ref={closeBtnRef}
-						type="button"
-						aria-label="Fermer l'aperçu"
-						onClick={onClose}
-						style={closeBtn}
-					>
+					<button ref={closeBtnRef} type="button" aria-label="Fermer l'aperçu" onClick={onClose} style={closeBtn}>
 						{'✕'}
 					</button>
 				</header>
@@ -87,7 +80,14 @@ export function NodePreviewModal({ node, choices, onClose }: NodePreviewModalPro
 							src={node.illustration}
 							alt=""
 							aria-hidden
-							style={{ display: 'block', width: '100%', maxHeight: 240, objectFit: 'cover', borderRadius: 'var(--r-lg)', flexShrink: 0 }}
+							style={{
+								display: 'block',
+								width: '100%',
+								maxHeight: 240,
+								objectFit: 'cover',
+								borderRadius: 'var(--r-lg)',
+								flexShrink: 0,
+							}}
 						/>
 					)}
 
@@ -95,19 +95,17 @@ export function NodePreviewModal({ node, choices, onClose }: NodePreviewModalPro
 					{node.text ? (
 						<div style={textBlock}>{node.text}</div>
 					) : (
-						<p style={{ margin: 0, color: 'var(--text-muted)', fontStyle: 'italic', fontSize: 'var(--fs-body)' }}>Pas de texte.</p>
+						<p style={{ margin: 0, color: 'var(--text-muted)', fontStyle: 'italic', fontSize: 'var(--fs-body)' }}>
+							Pas de texte.
+						</p>
 					)}
 
 					{/* Action section */}
-					{actionType === 'pnj' && node.pnj !== undefined && (
-						<PnjPreview pnj={node.pnj} onContinue={onClose} />
-					)}
+					{actionType === 'pnj' && node.pnj !== undefined && <PnjPreview pnj={node.pnj} onContinue={onClose} />}
 					{actionType === 'monstre' && node.monster !== undefined && (
 						<MonsterPreview monster={node.monster} onClose={onClose} />
 					)}
-					{actionType === 'piege' && node.trap !== undefined && (
-						<TrapPreview trap={node.trap} onClose={onClose} />
-					)}
+					{actionType === 'piege' && node.trap !== undefined && <TrapPreview trap={node.trap} onClose={onClose} />}
 					{actionType === 'decor' && node.decor !== undefined && (
 						<DecorPreview decor={node.decor} onContinue={onClose} />
 					)}
@@ -141,12 +139,29 @@ function PnjPreview({ pnj, onContinue }: { pnj: PnjConfig; onContinue: () => voi
 					src={pnj.portrait}
 					alt=""
 					aria-hidden
-					style={{ display: 'block', width: 80, height: 80, borderRadius: 'var(--r-full)', objectFit: 'cover', border: '2px solid var(--border-card)', alignSelf: 'flex-start' }}
+					style={{
+						display: 'block',
+						width: 80,
+						height: 80,
+						borderRadius: 'var(--r-full)',
+						objectFit: 'cover',
+						border: '2px solid var(--border-card)',
+						alignSelf: 'flex-start',
+					}}
 				/>
 			)}
 			<div>
 				<div style={eyebrowLabel}>{pnj.role ? `${pnj.name} — ${pnj.role}` : pnj.name}</div>
-				<div style={{ fontSize: 'var(--fs-body)', color: 'var(--text-body)', lineHeight: 1.7, fontStyle: 'italic', borderLeft: '3px solid var(--border-card)', paddingLeft: 'var(--space-6)' }}>
+				<div
+					style={{
+						fontSize: 'var(--fs-body)',
+						color: 'var(--text-body)',
+						lineHeight: 1.7,
+						fontStyle: 'italic',
+						borderLeft: '3px solid var(--border-card)',
+						paddingLeft: 'var(--space-6)',
+					}}
+				>
 					{pnj.dialogue || <span style={{ color: 'var(--text-muted)' }}>…</span>}
 				</div>
 			</div>
@@ -178,7 +193,14 @@ function MonsterPreview({ monster, onClose }: { monster: MonsterConfig; onClose:
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
 			<div style={infoCard}>
 				<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-					<span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-meta)', fontWeight: 'var(--fw-semibold)', color: 'var(--text-strong)' }}>
+					<span
+						style={{
+							fontFamily: 'var(--font-mono)',
+							fontSize: 'var(--fs-meta)',
+							fontWeight: 'var(--fw-semibold)',
+							color: 'var(--text-strong)',
+						}}
+					>
 						{monster.name}
 					</span>
 					<span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-meta)', color: 'var(--text-label)' }}>
@@ -208,9 +230,7 @@ function TrapPreview({ trap, onClose }: { trap: TrapConfig; onClose: () => void 
 	const tierLabel = trap.roll ? CHALLENGE_TIERS[rollTier(trap.roll)].notation : null
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
-			{trap.description && (
-				<div style={textBlock}>{trap.description}</div>
-			)}
+			{trap.description && <div style={textBlock}>{trap.description}</div>}
 			{traitLabel !== null && tierLabel !== null && (
 				<div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}>
 					Jet de {traitLabel} ({tierLabel})
@@ -230,9 +250,7 @@ function TrapPreview({ trap, onClose }: { trap: TrapConfig; onClose: () => void 
 
 function DecorPreview({ decor, onContinue }: { decor: DecorConfig; onContinue: () => void }): JSX.Element {
 	const interactionLabel =
-		decor.interaction === 'prendre' ? 'Objet à saisir'
-		: decor.interaction === 'ecouter' ? 'Écouter'
-		: 'Fouiller'
+		decor.interaction === 'prendre' ? 'Objet à saisir' : decor.interaction === 'ecouter' ? 'Écouter' : 'Fouiller'
 	const objects = decor.objects ?? []
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
@@ -253,12 +271,24 @@ function DecorPreview({ decor, onContinue }: { decor: DecorConfig; onContinue: (
 					})}
 				</div>
 			)}
-			<button type="button" onClick={onContinue} style={accentBtn}>Continuer</button>
+			<button type="button" onClick={onContinue} style={accentBtn}>
+				Continuer
+			</button>
 		</div>
 	)
 }
 
-function ChoiceButton({ label, hint, onClose, flex }: { label?: string; hint?: string; onClose: () => void; flex?: boolean }): JSX.Element {
+function ChoiceButton({
+	label,
+	hint,
+	onClose,
+	flex,
+}: {
+	label?: string
+	hint?: string
+	onClose: () => void
+	flex?: boolean
+}): JSX.Element {
 	const btnRef = useRef<HTMLButtonElement>(null)
 	return (
 		<button
@@ -267,10 +297,30 @@ function ChoiceButton({ label, hint, onClose, flex }: { label?: string; hint?: s
 			title={hint}
 			onClick={onClose}
 			style={{ ...choiceBtn, ...(flex ? { flex: 1, minWidth: 120, textAlign: 'center' } : {}) }}
-			onMouseEnter={() => { if (btnRef.current) { btnRef.current.style.borderColor = 'var(--accent)'; btnRef.current.style.background = 'var(--accent-bg)' } }}
-			onMouseLeave={() => { if (btnRef.current) { btnRef.current.style.borderColor = 'var(--border-card)'; btnRef.current.style.background = 'var(--surface-card)' } }}
-			onFocus={() => { if (btnRef.current) { btnRef.current.style.borderColor = 'var(--accent)'; btnRef.current.style.background = 'var(--accent-bg)' } }}
-			onBlur={() => { if (btnRef.current) { btnRef.current.style.borderColor = 'var(--border-card)'; btnRef.current.style.background = 'var(--surface-card)' } }}
+			onMouseEnter={() => {
+				if (btnRef.current) {
+					btnRef.current.style.borderColor = 'var(--accent)'
+					btnRef.current.style.background = 'var(--accent-bg)'
+				}
+			}}
+			onMouseLeave={() => {
+				if (btnRef.current) {
+					btnRef.current.style.borderColor = 'var(--border-card)'
+					btnRef.current.style.background = 'var(--surface-card)'
+				}
+			}}
+			onFocus={() => {
+				if (btnRef.current) {
+					btnRef.current.style.borderColor = 'var(--accent)'
+					btnRef.current.style.background = 'var(--accent-bg)'
+				}
+			}}
+			onBlur={() => {
+				if (btnRef.current) {
+					btnRef.current.style.borderColor = 'var(--border-card)'
+					btnRef.current.style.background = 'var(--surface-card)'
+				}
+			}}
 		>
 			{label || '→ (choix sans libellé)'}
 		</button>
@@ -286,64 +336,126 @@ const POSTURE_OPTIONS = [
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const backdrop: React.CSSProperties = {
-	position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.45)',
-	display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-9)',
+	position: 'fixed',
+	inset: 0,
+	zIndex: 200,
+	background: 'rgba(0,0,0,0.45)',
+	display: 'flex',
+	alignItems: 'center',
+	justifyContent: 'center',
+	padding: 'var(--space-9)',
 }
 const dialogShell: React.CSSProperties = {
-	width: '100%', maxWidth: 560, maxHeight: '85vh',
-	background: 'var(--surface-card)', borderRadius: 'var(--r-2xl)', border: '1px solid var(--border-card)',
-	display: 'flex', flexDirection: 'column', overflow: 'hidden',
+	width: '100%',
+	maxWidth: 560,
+	maxHeight: '85vh',
+	background: 'var(--surface-card)',
+	borderRadius: 'var(--r-2xl)',
+	border: '1px solid var(--border-card)',
+	display: 'flex',
+	flexDirection: 'column',
+	overflow: 'hidden',
 }
 const dialogHeader: React.CSSProperties = {
-	display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-	padding: 'var(--space-5) var(--space-7)', borderBottom: '1px solid var(--border-divider)', flexShrink: 0,
+	display: 'flex',
+	alignItems: 'center',
+	justifyContent: 'space-between',
+	padding: 'var(--space-5) var(--space-7)',
+	borderBottom: '1px solid var(--border-divider)',
+	flexShrink: 0,
 }
 const dialogTitle: React.CSSProperties = {
-	fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-meta)', color: 'var(--text-label)',
-	fontWeight: 'var(--fw-semibold)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+	fontFamily: 'var(--font-mono)',
+	fontSize: 'var(--fs-meta)',
+	color: 'var(--text-label)',
+	fontWeight: 'var(--fw-semibold)',
+	overflow: 'hidden',
+	textOverflow: 'ellipsis',
+	whiteSpace: 'nowrap',
 }
 const closeBtn: React.CSSProperties = {
-	width: 'var(--hit-target)', height: 'var(--hit-target)', border: 'none',
-	background: 'transparent', color: 'var(--text-disabled)', fontSize: 16, cursor: 'pointer', flexShrink: 0,
+	width: 'var(--hit-target)',
+	height: 'var(--hit-target)',
+	border: 'none',
+	background: 'transparent',
+	color: 'var(--text-disabled)',
+	fontSize: 16,
+	cursor: 'pointer',
+	flexShrink: 0,
 }
 const dialogBody: React.CSSProperties = {
-	overflowY: 'auto', display: 'flex', flexDirection: 'column',
-	gap: 'var(--space-8)', padding: 'var(--space-8) var(--space-9)',
+	overflowY: 'auto',
+	display: 'flex',
+	flexDirection: 'column',
+	gap: 'var(--space-8)',
+	padding: 'var(--space-8) var(--space-9)',
 }
 const textBlock: React.CSSProperties = {
-	fontSize: 'var(--fs-body)', color: 'var(--text-body)', lineHeight: 1.7, whiteSpace: 'pre-wrap', margin: 0,
+	fontSize: 'var(--fs-body)',
+	color: 'var(--text-body)',
+	lineHeight: 1.7,
+	whiteSpace: 'pre-wrap',
+	margin: 0,
 }
 const eyebrowLabel: React.CSSProperties = {
-	fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-meta)', color: 'var(--text-muted)',
-	textTransform: 'uppercase', letterSpacing: 'var(--track-eyebrow)', marginBottom: 'var(--space-1)',
+	fontFamily: 'var(--font-mono)',
+	fontSize: 'var(--fs-meta)',
+	color: 'var(--text-muted)',
+	textTransform: 'uppercase',
+	letterSpacing: 'var(--track-eyebrow)',
+	marginBottom: 'var(--space-1)',
 }
 const infoCard: React.CSSProperties = {
-	padding: 'var(--space-5) var(--space-6)', borderRadius: 'var(--r-md)',
-	border: '1px solid var(--border-card)', background: 'var(--surface-card)',
-	display: 'flex', flexDirection: 'column', gap: 'var(--space-2)',
+	padding: 'var(--space-5) var(--space-6)',
+	borderRadius: 'var(--r-md)',
+	border: '1px solid var(--border-card)',
+	background: 'var(--surface-card)',
+	display: 'flex',
+	flexDirection: 'column',
+	gap: 'var(--space-2)',
 }
 const accentBtn: React.CSSProperties = {
-	alignSelf: 'flex-start', padding: 'var(--space-4) var(--space-9)',
-	borderRadius: 'var(--r-md)', border: '1px solid var(--accent)',
-	background: 'var(--accent)', color: 'var(--text-on-accent)',
-	fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-meta)', fontWeight: 'var(--fw-semibold)',
-	cursor: 'pointer', minHeight: 'var(--hit-target)',
+	alignSelf: 'flex-start',
+	padding: 'var(--space-4) var(--space-9)',
+	borderRadius: 'var(--r-md)',
+	border: '1px solid var(--accent)',
+	background: 'var(--accent)',
+	color: 'var(--text-on-accent)',
+	fontFamily: 'var(--font-mono)',
+	fontSize: 'var(--fs-meta)',
+	fontWeight: 'var(--fw-semibold)',
+	cursor: 'pointer',
+	minHeight: 'var(--hit-target)',
 }
 const secondaryBtn: React.CSSProperties = {
-	alignSelf: 'flex-start', padding: 'var(--space-3) var(--space-4)',
-	borderRadius: 'var(--r-md)', border: '1px solid var(--border-card)',
-	background: 'transparent', color: 'var(--text-label)',
-	fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-meta)',
-	cursor: 'pointer', minHeight: 'var(--hit-target)',
+	alignSelf: 'flex-start',
+	padding: 'var(--space-3) var(--space-4)',
+	borderRadius: 'var(--r-md)',
+	border: '1px solid var(--border-card)',
+	background: 'transparent',
+	color: 'var(--text-label)',
+	fontFamily: 'var(--font-mono)',
+	fontSize: 'var(--fs-meta)',
+	cursor: 'pointer',
+	minHeight: 'var(--hit-target)',
 }
 const emptyChoices: React.CSSProperties = {
-	color: 'var(--text-muted)', fontStyle: 'italic',
-	fontSize: 'var(--fs-meta)', fontFamily: 'var(--font-mono)', margin: 0,
+	color: 'var(--text-muted)',
+	fontStyle: 'italic',
+	fontSize: 'var(--fs-meta)',
+	fontFamily: 'var(--font-mono)',
+	margin: 0,
 }
 const choiceBtn: React.CSSProperties = {
-	width: '100%', textAlign: 'left', padding: 'var(--space-5) var(--space-7)',
-	borderRadius: 'var(--r-md)', border: '1px solid var(--border-card)',
-	background: 'var(--surface-card)', color: 'var(--text-body)',
-	fontSize: 'var(--fs-body)', cursor: 'pointer', minHeight: 'var(--hit-target)',
+	width: '100%',
+	textAlign: 'left',
+	padding: 'var(--space-5) var(--space-7)',
+	borderRadius: 'var(--r-md)',
+	border: '1px solid var(--border-card)',
+	background: 'var(--surface-card)',
+	color: 'var(--text-body)',
+	fontSize: 'var(--fs-body)',
+	cursor: 'pointer',
+	minHeight: 'var(--hit-target)',
 	transition: 'border-color 0.1s, background 0.1s',
 }

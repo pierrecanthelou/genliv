@@ -104,10 +104,7 @@ describe('resolvePositions (top-down tree)', () => {
 
 	it('spacious spacing produces larger vertical and horizontal gaps than compact', () => {
 		const nodes = [node('root', 'sommaire'), node('a'), node('b')]
-		const edges = [
-			choice('e1', 'root', 'a'),
-			choice('e2', 'root', 'b'),
-		]
+		const edges = [choice('e1', 'root', 'a'), choice('e2', 'root', 'b')]
 		const compact = resolvePositions(nodes, edges, {}, 'compact')
 		const spacious = resolvePositions(nodes, edges, {}, 'spacious')
 
@@ -234,10 +231,7 @@ describe('collectSubtreeIds', () => {
 	})
 
 	it('traverses relink and flee edges', () => {
-		const ids = collectSubtreeIds('root', [
-			relink('e1', 'root', 'victory'),
-			flee('e2', 'root', 'escape'),
-		])
+		const ids = collectSubtreeIds('root', [relink('e1', 'root', 'victory'), flee('e2', 'root', 'escape')])
 		expect(ids).toEqual(new Set(['root', 'victory', 'escape']))
 	})
 })

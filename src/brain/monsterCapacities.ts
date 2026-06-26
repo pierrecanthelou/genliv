@@ -62,7 +62,7 @@ export const MONSTER_CAPACITIES: Record<MonsterCapacityId, MonsterCapacityDescri
 	venin: { label: 'Venin', description: '2 dégâts/round pendant 3 rounds sur Coup critique.' },
 	malediction: {
 		label: 'Malédiction',
-		description: "Round 1, le joueur lâche son arme sur 1D6 (1–3) et passe son tour.",
+		description: 'Round 1, le joueur lâche son arme sur 1D6 (1–3) et passe son tour.',
 	},
 	'regard-petrifiant': {
 		label: 'Regard pétrifiant',
@@ -78,7 +78,7 @@ export const MONSTER_CAPACITIES: Record<MonsterCapacityId, MonsterCapacityDescri
 	},
 	insensible: {
 		label: 'Insensible',
-		description: "Insensible aux attaques précises. Putréfaction (soins bloqués) sur Coup critique.",
+		description: 'Insensible aux attaques précises. Putréfaction (soins bloqués) sur Coup critique.',
 	},
 	piques: { label: 'Piques', description: 'Tire 1D3 piques (AT fixe 5, Dégâts 3) avant le corps-à-corps.' },
 	regeneration: { label: 'Régénération', description: '3 PV/round, stoppée par feu/acide.' },

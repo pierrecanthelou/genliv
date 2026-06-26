@@ -50,10 +50,7 @@ describe('cloud-sync — CloudSyncSettings', () => {
 	it('confirm button becomes enabled with valid URL and key', async () => {
 		const user = userEvent.setup()
 		renderSettings()
-		await user.type(
-			screen.getByLabelText(/url du worker/i),
-			'https://genliv.example.workers.dev',
-		)
+		await user.type(screen.getByLabelText(/url du worker/i), 'https://genliv.example.workers.dev')
 		await user.type(screen.getByLabelText(/clé de synchronisation/i), 'my-secret-key')
 		expect(screen.getByRole('button', { name: /activer et recharger/i })).not.toBeDisabled()
 	})
@@ -62,10 +59,7 @@ describe('cloud-sync — CloudSyncSettings', () => {
 		const user = userEvent.setup()
 		const { brain } = renderSettings()
 
-		await user.type(
-			screen.getByLabelText(/url du worker/i),
-			'https://genliv.example.workers.dev',
-		)
+		await user.type(screen.getByLabelText(/url du worker/i), 'https://genliv.example.workers.dev')
 		await user.type(screen.getByLabelText(/clé de synchronisation/i), 'my-secret-key')
 		await user.click(screen.getByRole('button', { name: /activer et recharger/i }))
 

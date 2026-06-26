@@ -4,3 +4,8 @@ coverage
 *.local
 .DS_Store
 .vite
+
+# Fichiers locaux hors-repo
+capture-ecran*.png
+scenario-genliv-complet*.json
+specifications-jeu/

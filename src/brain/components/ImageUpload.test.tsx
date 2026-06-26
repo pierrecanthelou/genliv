@@ -72,7 +72,9 @@ describe('ImageUpload', () => {
 			height = 900
 			onload: (() => void) | null = null
 			onerror: (() => void) | null = null
-			set src(_: string) { setTimeout(() => this.onload?.(), 0) }
+			set src(_: string) {
+				setTimeout(() => this.onload?.(), 0)
+			}
 		}
 
 		// Stub Canvas to return a known compressed URL.

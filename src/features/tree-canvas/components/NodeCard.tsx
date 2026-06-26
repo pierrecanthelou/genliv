@@ -26,7 +26,16 @@ export interface NodeCardProps {
 	onMove: (nodeId: string, position: Point) => void
 }
 
-export function NodeCard({ node, index, position, selected, zoom, warned, onSelect, onMove }: NodeCardProps): JSX.Element {
+export function NodeCard({
+	node,
+	index,
+	position,
+	selected,
+	zoom,
+	warned,
+	onSelect,
+	onMove,
+}: NodeCardProps): JSX.Element {
 	const view = nodeView(node)
 	const { delta, onPointerDown, consumeDragClick } = useNodeDrag(position, zoom, (next) => onMove(node.id, next))
 
