@@ -365,6 +365,11 @@
 			"id": "KR-149",
 			"feature": "cloud-sync",
 			"risk": "CLOUD SETTINGS ARE STORED IN THE RAW LOCAL STORE — NEVER SYNCED (KR-022/KR-114): `CLOUDSYNC_WORKER_URL_KEY` and `CLOUDSYNC_KEY_KEY` are written via `CloudSettingsService` which always uses the `local` (raw `PersistenceService`), never the `CloudSyncService` decorator. `createBrain` reads them via the same `local` instance before instantiating the transport. If credentials were stored in the sync layer, the sync transport would need to be initialised before the credentials are known — a circular boot dependency. Never route cloud credentials through `brain.persistence` (the sync decorator) or any feature's `set` call."
+		},
+		{
+			"id": "KR-150",
+			"feature": "cloud-sync",
+			"risk": "ORPHANED IMAGE KV KEYS ON NODE DELETION: when a node is deleted via `BookService.deleteNode`, the local store is cleaned atomically (KR-004), but the cloud KV entries for that node's images (`bookImageKey(bookId, nodeId, 'illustration')`, `bookImageKey(bookId, nodeId, 'portrait')`) and the manifest (`bookImagesManifestKey`) are NOT actively purged. They become orphaned entries in KV. The next `BookService.updateNode` or `BookService.addNode` does NOT re-push the manifest with the deleted node's keys removed — only the next full `set(bookKey)` call (which triggers `queueBookSplit`) corrects the manifest. Consequence: stale KV entries persist until the next full re-sync. This is accepted storage waste for now; a future cloud-sync iteration should `queueBookSplit` the full book after `deleteNode` or implement a dedicated image-cleanup step."
 		}
 	]
 }

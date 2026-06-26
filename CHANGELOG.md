@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.5.33 — fix : portrait PNJ manquant dans l'aperçu
+
+- **`src/features/node-editor/components/NodePreviewModal.tsx`** — `PnjPreview` affiche désormais `pnj.portrait` comme avatar circulaire (80 × 80 px) au-dessus du nom/rôle (BUG-024).
+- **`src/player/components/PnjScreen.tsx`** — même correctif appliqué en dehors du périmètre de l'erreur : `PnjScreen` affiche aussi `pnj.portrait` (même cause racine — champ présent dans `PnjConfig`, câblé dans l'éditeur, omis dans les deux vues de rendu).
+
+## 0.5.32 — feat(cloud-sync iter 5) + fix : KV payload splitting + suppression image/nœud
+
+- **`src/brain/CloudSyncService.ts`** — splitting KV : au push, `illustration` et `pnj.portrait` extraits dans des clés séparées (`bookImageKey`), manifest (`bookImagesManifestKey`) + contenu sans images (`bookContentKey`). Les données d'image ne transitent plus dans la clé contenu, éliminant les blobs de plusieurs Mo ; chaque clé image est adressable et remplaçable individuellement. Pull reconcile : essaie d'abord le format splitté (vérifie `nodes` array), retombe sur la clé legacy pour migration transparente.
+- **`src/brain/persistenceKeys.ts`** — 3 nouvelles fonctions : `bookContentKey`, `bookImageKey`, `bookImagesManifestKey`.
+- **`src/brain/BrainContext.tsx`** — `useBookPending` mis à jour pour matcher les clés splittées (`startsWith(bookKey+':')`).
+- **`src/brain/BookService.ts`** — correctif BUG-022 : `updateNode` accepte `undefined` comme signal de suppression de champ (`else if (key in patch)` → `delete`), de sorte que `patch({ illustration: undefined })` efface vraiment l'illustration. BUG-023 (critique) : garde `key in patch` plutôt que `else` nu — le filtre structurel injecte synthétiquement `illustration: undefined` pour le sommaire, la première tentative détruisait silencieusement la couverture à chaque frappe.
+- **`src/brain/BookService.ts`** — nouvelle méthode `deleteNode` : supprime un nœud non-structurel et tous ses liens entrants/sortants, émet `node:deleted` puis `edge:deleted`, rejette `sommaire` et `mort` (KR-055).
+- **`src/features/node-editor/components/DeleteNodeDialog.tsx`** (nouveau) — dialog de confirmation (règle action dangereuse : `confirmTone="error"`, chemin d'annulation).
+- **`src/features/node-editor/components/NodeEditorPanel.tsx`** — bouton 🗑 dans l'en-tête (invisible pour nœuds structurels), ouvre `DeleteNodeDialog`.
+
 ## 0.5.30 — fix : Missing X-Sync-Key header + TargetPicker clic souris
 
 - **`CloudflareKVTransport.ts`** — timeout AbortController 45 s sur push/pull, corps de réponse inclus dans les erreurs, objet `headers` unifié (pattern projetx).

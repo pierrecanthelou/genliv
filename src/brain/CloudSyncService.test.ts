@@ -2,8 +2,8 @@ import { createCloudSyncService, type CloudTransport } from './CloudSyncService'
 import { createEventBus } from './EventBus'
 import { createLocalStoragePersistence } from './PersistenceService'
 import { createLocalStorageTransport } from './LocalStorageTransport'
-import { bookKey } from './persistenceKeys'
-import type { SyncStatus } from './types'
+import { bookKey, bookContentKey, bookImageKey, bookImagesManifestKey } from './persistenceKeys'
+import type { SyncStatus, Book } from './types'
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
 
@@ -234,6 +234,120 @@ describe('CloudSyncService', () => {
 			sync.resolveConflict('b1', 'local')
 			expect(sync.conflicts()).toEqual([])
 			expect(sync.get<{ title: string }>(key)?.title).toBe('local') // local kept
+		})
+	})
+
+	describe('book payload splitting (iter 5)', () => {
+		function minBook(id: string, updatedAt = '2026-01-01T00:00:00.000Z'): Book {
+			return { id, title: 'Test', nodes: [], edges: [], createdAt: '2026-01-01T00:00:00.000Z', updatedAt }
+		}
+
+		it('routes a real Book write to split keys (content + manifest), not the legacy bookKey', async () => {
+			const pushed: [string, unknown][] = []
+			const { sync } = setup({ push: (k, v) => { pushed.push([k, v]); return Promise.resolve() } })
+
+			sync.set(bookKey('b1'), minBook('b1'))
+			await flush()
+
+			const keys = pushed.map(([k]) => k)
+			expect(keys).toContain(bookContentKey('b1'))
+			expect(keys).toContain(bookImagesManifestKey('b1'))
+			expect(keys).not.toContain(bookKey('b1'))
+		})
+
+		it('pendingKeys includes the split-format keys for a real Book write', () => {
+			const { sync } = setup({ push: () => new Promise<void>(() => {}) })
+
+			sync.set(bookKey('b1'), minBook('b1'))
+
+			const pending = sync.pendingKeys()
+			expect(pending.some((k) => k.startsWith(bookKey('b1') + ':'))).toBe(true)
+			expect(pending).not.toContain(bookKey('b1'))
+		})
+
+		it('extracts node illustration and pnj.portrait into separate image keys and strips them from content', async () => {
+			const pushed: [string, unknown][] = []
+			const { sync } = setup({ push: (k, v) => { pushed.push([k, v]); return Promise.resolve() } })
+
+			const book = {
+				...minBook('b1'),
+				nodes: [
+					{ id: 'n1', kind: 'choix', illustration: 'data:image/png;base64,ILLUS', position: { x: 0, y: 0 } },
+					{ id: 'n2', kind: 'pnj', pnj: { name: 'Elrond', portrait: 'data:image/png;base64,PORT' }, position: { x: 0, y: 0 } },
+				],
+			} as unknown as Book
+
+			sync.set(bookKey('b1'), book)
+			await flush()
+
+			const keys = pushed.map(([k]) => k)
+			expect(keys).toContain(bookImageKey('b1', 'n1', 'illustration'))
+			expect(keys).toContain(bookImageKey('b1', 'n2', 'portrait'))
+
+			const contentEntry = pushed.find(([k]) => k === bookContentKey('b1'))
+			expect(contentEntry).toBeDefined()
+			const contentStr = JSON.stringify(contentEntry![1])
+			expect(contentStr).not.toContain('ILLUS')
+			expect(contentStr).not.toContain('PORT')
+		})
+
+		it('reconcile reassembles a split-format cloud book with illustration and portrait from image keys', async () => {
+			const illusKey = bookImageKey('b1', 'n1', 'illustration')
+			const portraitKey = bookImageKey('b1', 'n2', 'portrait')
+			const cloudContent = {
+				...minBook('b1', '2026-06-01T00:00:00.000Z'),
+				nodes: [
+					{ id: 'n1', kind: 'choix', position: { x: 0, y: 0 } },
+					{ id: 'n2', kind: 'pnj', pnj: { name: 'Elrond' }, position: { x: 0, y: 0 } },
+				],
+			}
+
+			const transport: CloudTransport = {
+				push: () => Promise.resolve(),
+				pull: async (k: string) => {
+					if (k === bookContentKey('b1')) return cloudContent
+					if (k === bookImagesManifestKey('b1')) return [illusKey, portraitKey]
+					if (k === illusKey) return 'data:image/png;base64,ILLUS'
+					if (k === portraitKey) return 'data:image/png;base64,PORT'
+					return null
+				},
+			}
+
+			const { local, events } = setup(transport)
+			local.set(bookKey('b1'), minBook('b1', '2026-01-01T00:00:00.000Z'))
+
+			let updatedId = ''
+			events.on('book:updated', ({ bookId }) => { updatedId = bookId })
+			events.emit('book:opened', { bookId: 'b1' })
+			await flush()
+
+			expect(updatedId).toBe('b1')
+			type StoredBook = Book & { nodes: Array<{ illustration?: string; pnj?: { portrait?: string } }> }
+			const stored = local.get<StoredBook>(bookKey('b1'))
+			expect(stored?.nodes[0]?.illustration).toBe('data:image/png;base64,ILLUS')
+			expect(stored?.nodes[1]?.pnj?.portrait).toBe('data:image/png;base64,PORT')
+		})
+
+		it('resolveConflict("local") with a real Book queues split keys, not the legacy key', async () => {
+			const conflictTransport: CloudTransport = {
+				push: () => new Promise<void>(() => {}),
+				pull: async () => ({ ...minBook('b1', '2026-06-01T00:00:00.000Z') }),
+			}
+
+			const { sync, local, events } = setup(conflictTransport)
+			const localBook = minBook('b1', '2026-05-01T00:00:00.000Z')
+			local.set(bookKey('b1'), localBook)
+			sync.set(bookKey('b1'), localBook) // local edit → split keys queued
+			events.emit('book:opened', { bookId: 'b1' }) // reconcile → cloud newer → conflict
+			await flush()
+
+			expect(sync.conflicts()).toEqual(['b1'])
+
+			sync.resolveConflict('b1', 'local')
+
+			const pending = sync.pendingKeys()
+			expect(pending.some((k) => k.startsWith(bookKey('b1') + ':'))).toBe(true)
+			expect(pending).not.toContain(bookKey('b1'))
 		})
 	})
 })

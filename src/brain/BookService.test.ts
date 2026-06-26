@@ -598,3 +598,88 @@ describe('BookService.renameBook / duplicateBook (book-library)', () => {
 		expect(service.duplicateBook('book_missing')).toBeNull()
 	})
 })
+
+describe('BookService.deleteNode', () => {
+	beforeEach(() => {
+		window.localStorage.clear()
+	})
+
+	it('removes the node and all its edges, emits node:deleted then edge:deleted', () => {
+		const { service, events } = setup()
+		const book = service.createBook('Arbre')
+		const sommaire = book.nodes.find((n) => n.kind === 'sommaire')!
+		const { node, edge } = service.addChoiceBranch(book.id, sommaire.id)!
+
+		const deletedNodes: string[] = []
+		const deletedEdges: string[] = []
+		events.on('node:deleted', (p) => deletedNodes.push(p.nodeId))
+		events.on('edge:deleted', (p) => deletedEdges.push(p.edgeId))
+
+		expect(service.deleteNode(book.id, node.id)).toBe(true)
+		expect(deletedNodes).toEqual([node.id])
+		expect(deletedEdges).toEqual([edge.id])
+		const stored = service.getBook(book.id)!
+		expect(stored.nodes.some((n) => n.id === node.id)).toBe(false)
+		expect(stored.edges).toHaveLength(0)
+	})
+
+	it('rejects deletion of structural nodes (sommaire, mort)', () => {
+		const { service } = setup()
+		const book = service.createBook('Arbre')
+		const sommaire = book.nodes.find((n) => n.kind === 'sommaire')!
+		const mort = book.nodes.find((n) => n.kind === 'mort')!
+		expect(service.deleteNode(book.id, sommaire.id)).toBe(false)
+		expect(service.deleteNode(book.id, mort.id)).toBe(false)
+		expect(service.getBook(book.id)!.nodes).toHaveLength(2) // both untouched
+	})
+
+	it('returns false for a missing book or node', () => {
+		const { service } = setup()
+		const book = service.createBook('Arbre')
+		const node = service.addNode(book.id, 'choix')!
+		expect(service.deleteNode('book_missing', node.id)).toBe(false)
+		expect(service.deleteNode(book.id, 'node_missing')).toBe(false)
+	})
+})
+
+describe('BookService.updateNode illustration clear', () => {
+	beforeEach(() => {
+		window.localStorage.clear()
+	})
+
+	it('clears the illustration field when undefined is passed (Bug A regression)', () => {
+		const { service } = setup()
+		const book = service.createBook('Arbre')
+		const sommaire = book.nodes.find((n) => n.kind === 'sommaire')!
+		const node = service.addNode(book.id, 'choix')!
+
+		// Set the illustration then clear it.
+		service.updateNode(book.id, node.id, { illustration: 'data:image/jpeg;base64,abc' })
+		expect(service.getBook(book.id)!.nodes.find((n) => n.id === node.id)!.illustration).toBe(
+			'data:image/jpeg;base64,abc',
+		)
+
+		service.updateNode(book.id, node.id, { illustration: undefined })
+		const stored = service.getBook(book.id)!.nodes.find((n) => n.id === node.id)!
+		expect(stored.illustration).toBeUndefined()
+
+		// Sommaire also supports illustration clear.
+		service.updateNode(book.id, sommaire.id, { illustration: 'data:image/jpeg;base64,xyz' })
+		service.updateNode(book.id, sommaire.id, { illustration: undefined })
+		const storedSommaire = service.getBook(book.id)!.nodes.find((n) => n.id === sommaire.id)!
+		expect(storedSommaire.illustration).toBeUndefined()
+	})
+
+	it('text-only update on a sommaire does NOT destroy its existing illustration (regression for structural filter injection)', () => {
+		const { service } = setup()
+		const book = service.createBook('Arbre')
+		const sommaire = book.nodes.find((n) => n.kind === 'sommaire')!
+
+		// Set illustration, then patch text-only — illustration must survive.
+		service.updateNode(book.id, sommaire.id, { illustration: 'data:image/jpeg;base64,cover' })
+		service.updateNode(book.id, sommaire.id, { text: 'Bienvenue dans la caverne.' })
+		const stored = service.getBook(book.id)!.nodes.find((n) => n.id === sommaire.id)!
+		expect(stored.illustration).toBe('data:image/jpeg;base64,cover')
+		expect(stored.text).toBe('Bienvenue dans la caverne.')
+	})
+})

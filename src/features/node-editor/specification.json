@@ -185,6 +185,35 @@
 	},
 	"iterations_log_addendum": [
 		{
+			"id": 7,
+			"label": "bug-fix: portrait PNJ absent de l'aperçu (BUG-024)",
+			"completed_at": "2026-06-26",
+			"architecture_choices": [
+				"Fix direct (NodePreviewModal.tsx PnjPreview): portrait rendu comme <img> circulaire 80×80 avant le bloc nom/rôle.",
+				"Fix collatéral (player/components/PnjScreen.tsx): même champ pnj.portrait omis dans la vue joueur — corrigé en même temps conformément à la règle 'chercher au-delà du périmètre de l'erreur'."
+			],
+			"deviations_from_plan": [],
+			"test_coverage": { "e2e": "deferred" }
+		},
+		{
+			"id": 6,
+			"label": "bug-fix: deleteNode + illustration clear",
+			"completed_at": "2026-06-25",
+			"architecture_choices": [
+				"BookService.deleteNode (BUG-022): removes a non-structural node and all incident edges in one atomic persist, then emits node:deleted + edge:deleted per removed edge (KR-004). Guards: isStructural (KR-055) blocks sommaire + mort; missing book/node returns false.",
+				"BookService.updateNode illustration-clear fix (BUG-023): changed the skip-undefined guard to `else if (key in patch)` — undefined is an explicit 'clear this field' signal only when the caller's original patch included that key. The structural filter synthetically adds `illustration: patch.illustration` for sommaire; without the `in patch` check a text-only update on a sommaire that has a cover would silently delete the illustration.",
+				"DeleteNodeDialog added to node-editor (same pattern as DeleteBookDialog): Modal with confirmTone='error', cancel path, describes consequences. Delete button (🗑) shown in the NodeEditorPanel header for all non-structural nodes."
+			],
+			"deviations_from_plan": [
+				"deleteNode was not in the original 4-iteration plan; added at user request."
+			],
+			"test_coverage": {
+				"unit": "BookService.test.ts: 3 deleteNode tests (removes node+edges+events; rejects structural; missing book/node); 2 illustration-clear tests (explicit undefined clears; text-only sommaire update preserves illustration).",
+				"integration": "NodeEditorPanel: delete button visible for non-structural nodes, hidden for structural; dialog cancel/confirm flow.",
+				"e2e": "deferred"
+			}
+		},
+		{
 			"id": 5,
 			"label": "iteration-5 (aperçu modal)",
 			"completed_at": "2026-06-25",

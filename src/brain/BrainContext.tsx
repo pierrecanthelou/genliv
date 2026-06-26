@@ -128,7 +128,13 @@ export function useBookPending(bookId: string): boolean {
 	const { sync, events } = useBrain()
 	return useSyncExternalStore(
 		(onChange) => events.on('sync:status', onChange),
-		() => sync.pendingKeys().includes(bookKey(bookId)),
+		() => {
+			// Match both the legacy key (`genliv:book:{id}`) and any split-format keys
+			// (`genliv:book:{id}:content`, `genliv:book:{id}:img:…`, etc.) — all share
+			// the same bookKey prefix followed by either end-of-string or a colon.
+			const base = bookKey(bookId)
+			return sync.pendingKeys().some((k) => k === base || k.startsWith(`${base}:`))
+		},
 	)
 }
 

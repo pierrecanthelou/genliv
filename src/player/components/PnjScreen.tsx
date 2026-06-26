@@ -35,6 +35,14 @@ export function PnjScreen({ pnj, hero, onFinish }: PnjScreenProps): JSX.Element 
 		>
 			{/* PNJ identity */}
 			<div>
+				{pnj.portrait !== undefined && (
+					<img
+						src={pnj.portrait}
+						alt=""
+						aria-hidden
+						style={{ display: 'block', width: 80, height: 80, borderRadius: 'var(--r-full)', objectFit: 'cover', border: '2px solid var(--border-card)', marginBottom: 'var(--space-5)' }}
+					/>
+				)}
 				<div
 					style={{
 						fontFamily: 'var(--font-mono)',

@@ -252,6 +252,42 @@
 			"mitigation": "Regression test uses fireEvent.mouseDown (not click) to pin the exact event path.",
 			"regression_test": "src/brain/components/TargetPicker.test.tsx — calls onChange via onMouseDown on a candidate",
 			"severity": "major"
+		},
+		{
+			"id": "BUG-022",
+			"date": "2026-06-25",
+			"feature": "node-editor",
+			"discovered_at": "iteration-5",
+			"symptom": "Clicking 'Supprimer' in ImageUpload removed the image from the preview (optimistic localRemoved state) but the node's illustration field was not cleared in BookService — the stale data URL survived in local storage and was re-shown on next open.",
+			"root_cause": "BookService.updateNode guarded all patch keys with `if (allowed[key] !== undefined)`, silently skipping undefined values. ImageUpload calls onChange(undefined) to clear, which reached updateNode as { illustration: undefined }, but the guard made it a no-op.",
+			"fix": "Changed guard to `else if (key in patch)` so undefined is treated as 'clear this field' only when the caller explicitly included the key. BookService.ts:327–335.",
+			"mitigation": "Regression test: updateNode(node.id, { illustration: undefined }) asserts stored.illustration is undefined. Second regression test: updateNode(sommaire.id, { text: '...' }) after setting illustration asserts illustration is preserved (the structural-filter injection case).",
+			"regression_test": "src/brain/BookService.test.ts — BookService.updateNode illustration clear describe block",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-023",
+			"date": "2026-06-25",
+			"feature": "node-editor",
+			"discovered_at": "iteration-5",
+			"symptom": "The structural filter in updateNode synthetically adds `illustration: patch.illustration` for sommaire nodes. When the caller passes only `{ text: 'hello' }`, `patch.illustration` is undefined, so `allowed` becomes `{ text: 'hello', illustration: undefined }`. With the naive 'else delete' guard (first attempt at the BUG-022 fix), a sommaire text-only commit would silently delete its cover illustration — data destruction on every keystroke.",
+			"root_cause": "JavaScript Object.keys() includes own properties set to undefined. The first fix used `else { delete }` unconditionally; this fired on the synthetically-injected undefined key even when the caller never touched illustration.",
+			"fix": "Changed to `else if (key in patch)` — checks the ORIGINAL caller's patch object, not the filtered `allowed`. The structural filter adds illustration to `allowed` but not to `patch`, so the delete branch never fires for a text-only call. BookService.ts:330.",
+			"mitigation": "Regression test added: set sommaire illustration → call updateNode(sommaireId, { text: '...' }) → assert illustration unchanged. Tech-lead review caught this during the PR gate.",
+			"regression_test": "src/brain/BookService.test.ts — 'text-only update on a sommaire does NOT destroy its existing illustration'",
+			"severity": "critical"
+		},
+		{
+			"id": "BUG-024",
+			"date": "2026-06-26",
+			"feature": "node-editor",
+			"discovered_at": "iteration-5",
+			"symptom": "Uploading a PNJ portrait and then opening the Aperçu modal does not show the portrait image. PnjScreen.tsx (player runtime) also missing the portrait.",
+			"root_cause": "PnjPreview in NodePreviewModal.tsx rendered name/role/dialogue/gift/button but never rendered pnj.portrait. Same omission in player/components/PnjScreen.tsx. The field was added to PnjConfig and wired to PnjEditor ImageUpload but both display paths were missed.",
+			"fix": "Added conditional <img> for pnj.portrait above the name/role block in NodePreviewModal.tsx PnjPreview (line ~138) and PnjScreen.tsx (line ~37). Circular avatar style (80×80, border-radius 50%) to visually distinguish from the full-width node.illustration banner.",
+			"mitigation": "Per the 'fix beyond scope' rule: audited all image fields in types.ts (illustration + portrait only) and both display components together. No other image field is unrendered.",
+			"regression_test": "Visual — no automated snapshot test added; cover both PnjPreview and PnjScreen in a future E2E pass.",
+			"severity": "minor"
 		}
 	]
 }

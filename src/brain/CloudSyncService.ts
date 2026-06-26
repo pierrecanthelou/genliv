@@ -1,7 +1,14 @@
 import type { EventBus } from './EventBus'
 import type { PersistenceService } from './PersistenceService'
-import type { SyncStatus } from './types'
-import { bookKey, CLOUDSYNC_QUEUE_KEY } from './persistenceKeys'
+import type { Book, BookNode, SyncStatus } from './types'
+import {
+	bookKey,
+	BOOK_KEY_PREFIX,
+	bookContentKey,
+	bookImageKey,
+	bookImagesManifestKey,
+	CLOUDSYNC_QUEUE_KEY,
+} from './persistenceKeys'
 
 /**
  * The cloud side of persistence — a swappable transport that pushes/pulls a
@@ -42,6 +49,15 @@ export interface CloudSyncOptions {
  * flushed on reconnect (on the next write, on `retry()`, or on startup). A failed
  * push keeps the queue (status → `error`) and `pendingCount()` surfaces the
  * « N changements en attente » count alongside the status on `sync:status`.
+ *
+ * Iteration 5: Book PAYLOAD SPLITTING — illustrations and PNJ portraits are
+ * extracted from the book JSON before pushing to the cloud and stored as separate
+ * KV entries (bookImageKey). A manifest key (bookImagesManifestKey) tracks which
+ * image keys belong to the book. Each key is independently addressable; no full
+ * book blob is ever pushed. The local store still
+ * holds the full book (with images) at bookKey — splitting is a transport concern
+ * only. Legacy books (stored at the plain bookKey) are migrated transparently on
+ * first reconcile.
  */
 export interface CloudSyncService extends PersistenceService {
 	status(): SyncStatus
@@ -144,40 +160,177 @@ export function createCloudSyncService(
 		scheduleFlush()
 	}
 
-	/** Last-write-wins reconciliation of one book against the cloud (KR background). */
+	/** Queue several entries atomically and schedule a debounced flush. */
+	function queueMultiple(entries: Array<[string, unknown]>): void {
+		if (transport === undefined) return
+		for (const [k, v] of entries) queue.set(k, v)
+		persistQueue()
+		setStatus('syncing')
+		scheduleFlush()
+	}
+
+	// ── Book payload splitting (iter 5) ──────────────────────────────────────
+	// Book-awareness here is intentional: splitting images from content is a
+	// transport-layer optimisation so text edits don't re-push megabytes of
+	// unchanged image data. The local store is untouched (always full book).
+
+	function isBook(value: unknown): value is Book {
+		return (
+			typeof value === 'object' &&
+			value !== null &&
+			typeof (value as Record<string, unknown>).id === 'string' &&
+			Array.isArray((value as Record<string, unknown>).nodes)
+		)
+	}
+
+	/** True when `key` is the plain book key (not a split :content/:img:/:images key). */
+	function isRawBookKey(key: string): boolean {
+		if (!key.startsWith(BOOK_KEY_PREFIX)) return false
+		// After the prefix the plain key is just the bookId (a UUID with no colons).
+		// Split keys append :content, :img:…, or :images — all contain a colon.
+		return !key.slice(BOOK_KEY_PREFIX.length).includes(':')
+	}
+
+	/**
+	 * Strip illustration and pnj.portrait data URLs from a Book and return them
+	 * as a map of imageKey → dataUrl. The returned `content` Book has those fields
+	 * set to undefined (omitted from JSON.stringify), so the pushed payload is small.
+	 */
+	function splitBook(bookId: string, book: Book): { content: Book; images: Map<string, string> } {
+		const images = new Map<string, string>()
+		const nodes: BookNode[] = book.nodes.map((node) => {
+			const n: BookNode = { ...node }
+			if (typeof n.illustration === 'string') {
+				images.set(bookImageKey(bookId, n.id, 'illustration'), n.illustration)
+				n.illustration = undefined
+			}
+			if (n.pnj !== undefined && typeof n.pnj.portrait === 'string') {
+				images.set(bookImageKey(bookId, n.id, 'portrait'), n.pnj.portrait)
+				n.pnj = { ...n.pnj, portrait: undefined }
+			}
+			return n
+		})
+		return { content: { ...book, nodes }, images }
+	}
+
+	/** Reattach image data URLs into a content-only Book using the pull results. */
+	function reassembleBook(content: unknown, imageEntries: Array<[string, unknown]>): Book {
+		const book = JSON.parse(JSON.stringify(content)) as Book
+		for (const [imgKey, dataUrl] of imageEntries) {
+			if (typeof dataUrl !== 'string') continue
+			// Key shape: …:img:{nodeId}:{field}
+			const afterImg = imgKey.split(':img:')[1]
+			if (!afterImg) continue
+			const colonIdx = afterImg.indexOf(':')
+			if (colonIdx === -1) continue
+			const nodeId = afterImg.slice(0, colonIdx)
+			const field = afterImg.slice(colonIdx + 1)
+			const node = book.nodes.find((n) => n.id === nodeId)
+			if (!node) continue
+			if (field === 'illustration') {
+				node.illustration = dataUrl
+			} else if (field === 'portrait' && node.pnj !== undefined) {
+				node.pnj = { ...node.pnj, portrait: dataUrl }
+			}
+		}
+		return book
+	}
+
+	/** Remove all queue entries that belong to bookId (legacy + split keys). */
+	function clearBookFromQueue(bookId: string): void {
+		const prefix = bookKey(bookId) // 'genliv:book:{id}'
+		queue.delete(prefix)
+		for (const k of [...queue.keys()]) {
+			if (k.startsWith(prefix + ':')) queue.delete(k)
+		}
+	}
+
+	/** True if any queue entry belongs to this book (pending local changes). */
+	function hasPendingBookChanges(bookId: string): boolean {
+		const prefix = bookKey(bookId)
+		if (queue.has(prefix)) return true
+		for (const k of queue.keys()) {
+			if (k.startsWith(prefix + ':')) return true
+		}
+		return false
+	}
+
+	/** Push a book to the queue in split format (content + images + manifest). */
+	function queueBookSplit(bookId: string, book: Book): void {
+		const { content, images } = splitBook(bookId, book)
+		queueMultiple([
+			[bookContentKey(bookId), content],
+			[bookImagesManifestKey(bookId), [...images.keys()]],
+			...images.entries(),
+		])
+	}
+
+	// ──────────────────────────────────────────────────────────────────────────
+
+	/** Last-write-wins reconciliation of one book against the cloud. */
 	function reconcile(bookId: string): void {
 		if (transport?.pull === undefined) return
-		const key = bookKey(bookId)
-		transport
-			.pull(key)
-			.then((cloud) => {
-				const localValue = local.get<Timestamped>(key)
-				if (cloud === null) {
-					// Cloud has nothing yet: seed it with the local copy.
-					if (localValue !== null) queuePush(key, localValue)
-					return
+
+		const pull = transport.pull.bind(transport)
+		const legacyKey = bookKey(bookId)
+
+		async function run(): Promise<void> {
+			// Try the split content key first; fall back to the legacy monolithic key.
+			// The content key value is valid only when it carries a `nodes` array —
+			// otherwise the transport returned some other value (e.g. a legacy full
+			// book stored at a colliding key, or a test stub that returns the same
+			// object for all keys). Migration: first cloud push is always split; old
+			// books in KV were stored at the legacy key and are read via the fallback.
+			const cloudContent = await pull(bookContentKey(bookId))
+			let cloudBook: (Book & Timestamped) | null
+
+			if (cloudContent !== null && Array.isArray((cloudContent as Book).nodes)) {
+				// New split format: reassemble from content + manifest images.
+				const manifest = (await pull(bookImagesManifestKey(bookId))) as string[] | null
+				const imgKeys = Array.isArray(manifest) ? manifest : []
+				const imageEntries = await Promise.all(
+					imgKeys.map(async (imgKey) => [imgKey, await pull(imgKey)] as [string, unknown]),
+				)
+				cloudBook = reassembleBook(cloudContent, imageEntries) as Book & Timestamped
+			} else {
+				// Legacy format (pre-split) or no cloud data yet.
+				cloudBook = (await pull(legacyKey)) as (Book & Timestamped) | null
+			}
+
+			const localBook = local.get<Book & Timestamped>(legacyKey)
+
+			if (cloudBook === null) {
+				// Cloud has nothing yet: seed it with the local copy.
+				if (localBook !== null && isBook(localBook)) queueBookSplit(localBook.id, localBook)
+				return
+			}
+
+			const localAt = localBook?.updatedAt ?? ''
+			const cloudAt = cloudBook.updatedAt ?? ''
+
+			if (cloudAt > localAt) {
+				if (hasPendingBookChanges(bookId)) {
+					// CONFLICT (iter 3): local has UNPUSHED edits AND the cloud moved to a
+					// newer version — both diverged. Surface a resolution affordance.
+					conflictMap.set(bookId, cloudBook)
+					events.emit('sync:conflict', { bookId })
+				} else {
+					// Cloud is newer and local is clean: adopt it and notify views.
+					local.set(legacyKey, cloudBook)
+					events.emit('book:updated', { bookId })
 				}
-				const localAt = localValue?.updatedAt ?? ''
-				const cloudAt = (cloud as Timestamped).updatedAt ?? ''
-				if (cloudAt > localAt) {
-					if (queue.has(key)) {
-						// CONFLICT (iter 3): local has UNPUSHED edits (key still queued) AND the
-						// cloud moved to a newer version — both diverged. Do NOT silently LWW;
-						// stash the cloud copy and surface a resolution affordance instead.
-						conflictMap.set(bookId, cloud)
-						events.emit('sync:conflict', { bookId })
-					} else {
-						// Cloud is newer and local is clean (no unpushed edits): safe to adopt it
-						// locally (write underneath, do NOT re-push) and notify open views.
-						local.set(key, cloud)
-						events.emit('book:updated', { bookId })
-					}
-				} else if (localAt > cloudAt) {
-					// Local is newer: push it up.
-					queuePush(key, localValue)
+			} else if (localAt > cloudAt) {
+				// Local is newer: push it up. Split format for proper Books;
+				// fallback to the legacy key for any other value (type-narrowing safety).
+				if (isBook(localBook)) {
+					queueBookSplit(localBook.id, localBook)
+				} else if (localBook !== null) {
+					queuePush(legacyKey, localBook)
 				}
-			})
-			.catch(() => setStatus('error'))
+			}
+		}
+
+		run().catch(() => setStatus('error'))
 	}
 
 	if (transport !== undefined) {
@@ -195,7 +348,13 @@ export function createCloudSyncService(
 		},
 		set<T>(key: string, value: T): void {
 			local.set<T>(key, value) // local-first: persist synchronously before any cloud work
-			queuePush(key, value) // queue + debounced, batched background push
+			if (isRawBookKey(key) && isBook(value)) {
+				// Split book payload: push content without images + images separately.
+				// Each key is independently addressable; no N-MB monolith is ever pushed.
+				queueBookSplit(value.id, value)
+			} else {
+				queuePush(key, value) // all other keys pushed as-is
+			}
 		},
 		remove(key: string): void {
 			local.remove(key)
@@ -228,16 +387,16 @@ export function createCloudSyncService(
 			conflictMap.delete(bookId)
 			const key = bookKey(bookId)
 			if (choice === 'cloud') {
-				// Adopt the cloud version: overwrite local + discard the queued local edit
-				// (write underneath, never the decorated set — no echo loop).
+				// Adopt cloud: overwrite local (full book with images), clear ALL queued
+				// entries for this book (legacy + split keys), then notify views.
 				local.set(key, cloud)
-				queue.delete(key)
+				clearBookFromQueue(bookId)
 				persistQueue()
 				events.emit('book:updated', { bookId })
 			} else {
-				// Keep local: (re)queue the local copy so it pushes over the cloud.
-				const localValue = local.get(key)
-				if (localValue !== null) queuePush(key, localValue)
+				// Keep local: (re)push the local copy in split format.
+				const localValue = local.get<Book>(key)
+				if (localValue !== null && isBook(localValue)) queueBookSplit(localValue.id, localValue)
 			}
 			// Notify conflict subscribers to re-read (the book is no longer in conflict).
 			events.emit('sync:conflict', { bookId })

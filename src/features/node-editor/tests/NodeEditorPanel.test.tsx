@@ -187,4 +187,54 @@ describe('node-editor panel', () => {
 		await user.click(screen.getByRole('presentation'))
 		expect(screen.queryByRole('dialog', { name: /aperçu/i })).not.toBeInTheDocument()
 	})
+
+	it('shows the delete button only for non-structural nodes, not for sommaire or mort (KR-055)', async () => {
+		const user = userEvent.setup()
+		setup()
+
+		// Non-structural node (added via +Nœud, auto-selected).
+		await user.click(screen.getByRole('button', { name: 'Ajouter un nœud' }))
+		expect(screen.getByRole('button', { name: /supprimer ce nœud/i })).toBeInTheDocument()
+
+		// Sommaire (structural) — delete button must be absent.
+		await selectNode(user, /Nœud #1 — Sommaire/)
+		expect(screen.queryByRole('button', { name: /supprimer ce nœud/i })).not.toBeInTheDocument()
+
+		// Mort (structural) — delete button must be absent.
+		await selectNode(user, /Mort du personnage/)
+		expect(screen.queryByRole('button', { name: /supprimer ce nœud/i })).not.toBeInTheDocument()
+	})
+
+	it('delete button cancel: dialog closes, node still exists in the book', async () => {
+		const user = userEvent.setup()
+		const { brain, book } = setup()
+		const initialCount = brain.books.getBook(book.id)!.nodes.length
+
+		await user.click(screen.getByRole('button', { name: 'Ajouter un nœud' }))
+		await user.click(screen.getByRole('button', { name: /supprimer ce nœud/i }))
+		expect(screen.getByRole('dialog', { name: /supprimer le nœud/i })).toBeInTheDocument()
+
+		await user.click(screen.getByRole('button', { name: 'Annuler' }))
+		expect(screen.queryByRole('dialog', { name: /supprimer le nœud/i })).not.toBeInTheDocument()
+		expect(brain.books.getBook(book.id)!.nodes.length).toBe(initialCount + 1)
+	})
+
+	it('delete button confirm: node is removed and panel returns to empty state', async () => {
+		const user = userEvent.setup()
+		const { brain, book } = setup()
+		const initialCount = brain.books.getBook(book.id)!.nodes.length
+
+		// +Nœud adds a node and auto-selects it.
+		await user.click(screen.getByRole('button', { name: 'Ajouter un nœud' }))
+		const addedNodeId = brain.books.getBook(book.id)!.nodes.find((n) => n.kind === 'choix')!.id
+
+		await user.click(screen.getByRole('button', { name: /supprimer ce nœud/i }))
+		await user.click(screen.getByRole('button', { name: 'Supprimer' }))
+
+		// Panel should return to empty state (selection cleared).
+		expect(screen.getByText(/sélectionnez un nœud/i)).toBeInTheDocument()
+		// Node should be gone from the book.
+		expect(brain.books.getBook(book.id)!.nodes.length).toBe(initialCount)
+		expect(brain.books.getBook(book.id)!.nodes.find((n) => n.id === addedNodeId)).toBeUndefined()
+	})
 })

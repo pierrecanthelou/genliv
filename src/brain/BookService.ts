@@ -83,6 +83,14 @@ export interface BookService {
 	/** Remove an edge by id (never deletes its target node). Emits `edge:deleted`. */
 	removeEdge(bookId: string, edgeId: string): boolean
 	/**
+	 * Remove a non-structural node and all edges referencing it (both incoming
+	 * and outgoing). Structural screens (sommaire, mort) are permanent anchors
+	 * that cannot be deleted (KR-055). Emits `node:deleted`, then `edge:deleted`
+	 * for each removed edge (KR-004). Returns true if the node was removed,
+	 * false if the book/node is missing or the node is structural.
+	 */
+	deleteNode(bookId: string, nodeId: string): boolean
+	/**
 	 * Import a book from a ScenarioExport (book-export feature, KR-143). Validates
 	 * the format marker and node/edge kinds, then persists it with a fresh book id
 	 * and new timestamps. Internal node/edge ids are preserved (they are
@@ -317,6 +325,14 @@ export function createBookService(persistence: PersistenceService, events: Event
 			for (const key of Object.keys(allowed) as (keyof NodePatch)[]) {
 				if (allowed[key] !== undefined) {
 					Object.assign(updated, { [key]: allowed[key] })
+				} else if (key in patch) {
+					// undefined is an explicit "clear this field" signal ONLY when the
+					// caller actually passed the key (e.g. `patch({ illustration: undefined })`
+					// to remove a cover photo). The structural filter synthetically injects
+					// `illustration: patch.illustration` — if the caller's patch didn't
+					// include illustration, `key in patch` is false and we skip the delete,
+					// so a sommaire text-only update never destroys its cover image.
+					delete (updated as unknown as Record<string, unknown>)[key]
 				}
 			}
 			const next: Book = {
@@ -433,6 +449,30 @@ export function createBookService(persistence: PersistenceService, events: Event
 			}
 			persist(next)
 			events.emit('edge:deleted', { bookId, edgeId })
+			return true
+		},
+
+		deleteNode(bookId, nodeId) {
+			const book = loadBook(bookId)
+			if (book === null) return false
+			const node = getNode(book, nodeId)
+			if (node === null) return false
+			// Structural anchors (sommaire + mort) are permanent — never deletable (KR-055).
+			if (isStructural(node.kind)) return false
+			// Collect edges referencing this node BEFORE mutating the book.
+			const removedEdges = book.edges.filter((e) => e.from === nodeId || e.to === nodeId)
+			const next: Book = {
+				...book,
+				nodes: book.nodes.filter((n) => n.id !== nodeId),
+				edges: book.edges.filter((e) => e.from !== nodeId && e.to !== nodeId),
+				updatedAt: new Date().toISOString(),
+			}
+			persist(next)
+			// node:deleted first, then one edge:deleted per removed edge (KR-004).
+			events.emit('node:deleted', { bookId, nodeId })
+			for (const e of removedEdges) {
+				events.emit('edge:deleted', { bookId, edgeId: e.id })
+			}
 			return true
 		},
 

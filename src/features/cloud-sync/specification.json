@@ -170,7 +170,29 @@
 			}
 		],
 		"open_questions": [
-			"Queued DELETES / tombstones + cloud-only book list reconciliation need new CloudTransport capabilities (delete + list/enumerate) — deferred (shared with the book-library iter-3 deferral)."
+			"Queued DELETES / tombstones + cloud-only book list reconciliation need new CloudTransport capabilities (delete + list/enumerate) — deferred (shared with the book-library iter-3 deferral).",
+			"Orphaned image KV keys: when a node is deleted locally its image keys become orphaned in KV (the next push removes them from the manifest but does not DELETE the KV entries). Low-impact for now (wasted KV storage); a cleanup sweep needs CloudTransport.delete, deferred."
+		],
+		"iterations_log_addendum": [
+			{
+				"id": 5,
+				"label": "iteration-5 (KV payload splitting)",
+				"completed_at": "2026-06-25",
+				"architecture_choices": [
+					"Book payload splitting at the TRANSPORT layer only — local store is unchanged (full book at bookKey). On push, images (node.illustration, pnj.portrait) are extracted into separate KV entries (bookImageKey) and a manifest key (bookImagesManifestKey) tracks which image keys belong to the book. Each key is independently addressable; no full book blob is pushed. The manifest enables an efficient pull: pull content → pull manifest → pull all image keys in parallel → reassemble in memory before writing local.",
+					"isRawBookKey() detects the plain book key (no colon suffix after the bookId) so the decorated set() routes books into queueBookSplit() and everything else into queuePush().",
+					"Reconcile updated: tries bookContentKey first (validates Array.isArray(nodes) before treating as split format), falls back to legacy bookKey for pre-split books in KV. Legacy books are transparently migrated on the first save after reconcile.",
+					"hasPendingBookChanges() and clearBookFromQueue() handle both legacy and split-format queue entries, so conflict detection and resolveConflict() work correctly across both formats.",
+					"useBookPending in BrainContext updated to match split keys via startsWith(bookKey(id) + ':') — the check now covers both legacy and split-format pending entries (KR-095)."
+				],
+				"deviations_from_plan": [
+					"No new infrastructure or worker routes needed — existing PUT /kv/{key} handles any key shape."
+				],
+				"test_coverage": {
+					"unit": "CloudSyncService — 5 new tests in describe('book payload splitting'): routes real Book to split keys; pendingKeys includes split-format entries; extracts illustration+portrait into image keys and strips them from content; reconcile reassembles split-format cloud book with images; resolveConflict('local') with a real Book queues split keys not the legacy key. Plus existing 89 tests green.",
+					"e2e": "deferred (Playwright not set up)"
+				}
+			}
 		]
 	}
 }

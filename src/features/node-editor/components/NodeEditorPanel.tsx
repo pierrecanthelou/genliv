@@ -20,6 +20,7 @@ import { SectionLabel } from './SectionLabel'
 import { ActionSection } from './ActionSection'
 import { NodeDescription } from './NodeDescription'
 import { NodePreviewModal } from './NodePreviewModal'
+import { DeleteNodeDialog } from './DeleteNodeDialog'
 
 const PANEL_WIDTH = 372
 
@@ -38,6 +39,7 @@ export function NodeEditorPanel(): JSX.Element {
 	const book = useOpenBook(bookId)
 	const selectedId = useSelectedNode()
 	const [previewOpen, setPreviewOpen] = useState(false)
+	const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
 	const index = book !== null ? book.nodes.findIndex((n) => n.id === selectedId) : -1
 	const node = index >= 0 && book !== null ? book.nodes[index] : null
@@ -82,21 +84,25 @@ export function NodeEditorPanel(): JSX.Element {
 		events.emit('action:changed', { bookId: activeBookId, nodeId: activeNode.id, actionType })
 	}
 
+	function handleDeleteConfirmed(): void {
+		setDeleteConfirmOpen(false)
+		const deleted = books.deleteNode(activeBookId, activeNode.id)
+		if (deleted) selection.select(activeBookId, null)
+	}
+
 	return (
 		// key by node id: a fresh subtree per selection, no stale field state (KR-053).
 		<aside key={node.id} style={panelShell} aria-label="Éditeur de nœud">
-			{previewOpen && (
-				<NodePreviewModal
-					node={node}
-					choices={outgoingChoices}
-					onClose={() => setPreviewOpen(false)}
-				/>
+			{previewOpen && <NodePreviewModal node={node} choices={outgoingChoices} onClose={() => setPreviewOpen(false)} />}
+			{deleteConfirmOpen && (
+				<DeleteNodeDialog onCancel={() => setDeleteConfirmOpen(false)} onConfirm={handleDeleteConfirmed} />
 			)}
 			<header style={panelHeader}>
 				<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minWidth: 0 }}>
 					<NodeBadge kind={effectiveKind(node)} label={endLabel(node)} selected />
 					<span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-eyebrow)', color: 'var(--text-faint)' }}>
-						{'#'}{index + 1}
+						{'#'}
+						{index + 1}
 					</span>
 					<span
 						style={{
@@ -120,6 +126,16 @@ export function NodeEditorPanel(): JSX.Element {
 					>
 						Aperçu
 					</button>
+					{!structural && (
+						<button
+							type="button"
+							aria-label="Supprimer ce nœud"
+							onClick={() => setDeleteConfirmOpen(true)}
+							style={deleteButton}
+						>
+							{'🗑'}
+						</button>
+					)}
 					<button
 						type="button"
 						aria-label="Fermer l'éditeur"
@@ -167,7 +183,7 @@ export function NodeEditorPanel(): JSX.Element {
 								) : (
 									<>
 										<SectionLabel hint="— à venir (choice-linking)">Choix sortants</SectionLabel>
-										<div style={deferredBox}>Les branches sortantes se gèrent depuis l'arbre.</div>
+										<div style={deferredBox}>{"Les branches sortantes se gèrent depuis l'arbre."}</div>
 									</>
 								)}
 							</section>
@@ -254,6 +270,18 @@ const previewButton: React.CSSProperties = {
 	fontFamily: 'var(--font-mono)',
 	fontSize: 'var(--fs-meta)',
 	cursor: 'pointer',
+}
+
+const deleteButton: React.CSSProperties = {
+	width: 'var(--hit-target)',
+	height: 'var(--hit-target)',
+	border: 'none',
+	borderRadius: 'var(--r-full)',
+	background: 'transparent',
+	color: 'var(--bad)',
+	fontSize: 15,
+	cursor: 'pointer',
+	flex: 'none',
 }
 
 const closeButton: React.CSSProperties = {

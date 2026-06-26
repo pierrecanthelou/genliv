@@ -17,6 +17,28 @@ export function bookKey(bookId: string): string {
 }
 
 /**
+ * Cloud-split keys — book content WITHOUT image data URLs, individual image
+ * data URLs, and the manifest (list of image keys for this book).
+ * These keys only exist in the cloud transport (Cloudflare KV); local storage
+ * always holds the full book at bookKey(). The split avoids re-pushing megabytes
+ * of unchanged images on every text edit (see cloud-sync iter 5, KR-splitting).
+ *
+ * Key shapes:
+ *   genliv:book:{id}:content            — Book JSON, illustration/portrait stripped
+ *   genliv:book:{id}:img:{nodeId}:{field} — one data URL (field = illustration | portrait)
+ *   genliv:book:{id}:images             — string[] manifest of image keys for this book
+ */
+export function bookContentKey(bookId: string): string {
+	return `${BOOK_KEY_PREFIX}${bookId}:content`
+}
+export function bookImageKey(bookId: string, nodeId: string, field: string): string {
+	return `${BOOK_KEY_PREFIX}${bookId}:img:${nodeId}:${field}`
+}
+export function bookImagesManifestKey(bookId: string): string {
+	return `${BOOK_KEY_PREFIX}${bookId}:images`
+}
+
+/**
  * The cloud-sync OFFLINE QUEUE: writes pushed-but-not-yet-confirmed, persisted
  * LOCALLY (in the genliv namespace, not the transport's fake-remote namespace)
  * so pending changes survive a reload and flush on reconnect (cloud-sync iter 2).

@@ -136,6 +136,14 @@ export function NodePreviewModal({ node, choices, onClose }: NodePreviewModalPro
 function PnjPreview({ pnj, onContinue }: { pnj: PnjConfig; onContinue: () => void }): JSX.Element {
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+			{pnj.portrait !== undefined && (
+				<img
+					src={pnj.portrait}
+					alt=""
+					aria-hidden
+					style={{ display: 'block', width: 80, height: 80, borderRadius: 'var(--r-full)', objectFit: 'cover', border: '2px solid var(--border-card)', alignSelf: 'flex-start' }}
+				/>
+			)}
 			<div>
 				<div style={eyebrowLabel}>{pnj.role ? `${pnj.name} — ${pnj.role}` : pnj.name}</div>
 				<div style={{ fontSize: 'var(--fs-body)', color: 'var(--text-body)', lineHeight: 1.7, fontStyle: 'italic', borderLeft: '3px solid var(--border-card)', paddingLeft: 'var(--space-6)' }}>
