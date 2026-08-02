@@ -76,7 +76,7 @@ export function CloudSyncSettings({ onClose }: CloudSyncSettingsProps): JSX.Elem
 				onConfirm={handleDisable}
 			>
 				<p style={{ margin: 0, fontSize: 'var(--fs-sm)', color: 'var(--text-body)', lineHeight: 1.5 }}>
-					L'URL du worker et la clé de synchronisation seront effacées sur cet appareil. Vos données cloud restent
+					L&apos;URL du worker et la clé de synchronisation seront effacées sur cet appareil. Vos données cloud restent
 					intactes — vous pourrez reconfigurer la sync à tout moment.
 				</p>
 			</Modal>

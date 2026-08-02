@@ -18,6 +18,7 @@ export interface PostureDescriptor {
 	computeAT: (mc: number, opts: { shield: boolean; rng?: () => number }) => number
 }
 
+// Stryker disable StringLiteral: registre verrouille par rules.golden.test.ts
 export const POSTURES: Record<Posture, PostureDescriptor> = {
 	normale: {
 		label: 'Normale',
@@ -35,6 +36,7 @@ export const POSTURES: Record<Posture, PostureDescriptor> = {
 		computeAT: (mc, { shield, rng = Math.random }) => mc + rollDice(1, 4, rng) + (shield ? rollDice(1, 4, rng) : 0),
 	},
 }
+// Stryker restore StringLiteral
 
 export const POSTURE_VALUES = Object.keys(POSTURES) as Posture[]
 
@@ -107,6 +109,7 @@ export function resolveAssault(
 
 	if (atA === atD) return { winner: 'tie', atAttacker: atA, atDefender: atD, ecart: 0, band: 'rate', damage: 0 }
 
+	// Stryker disable next-line ConditionalExpression,EqualityOperator: egalite deja traitee l.110, le mutant >= est equivalent
 	const attackerWins = atA > atD
 	const winner = attackerWins ? attacker : defender
 	const loser = attackerWins ? defender : attacker

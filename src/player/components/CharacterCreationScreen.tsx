@@ -155,7 +155,7 @@ export function CharacterCreationScreen({
 					margin: '0 0 var(--space-3)',
 				}}
 			>
-				Sélectionne un lancer, puis clique une caractéristique pour l'assigner.
+				Sélectionne un lancer, puis clique une caractéristique pour l&apos;assigner.
 			</p>
 			<div
 				style={{

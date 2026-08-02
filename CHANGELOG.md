@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.5.34 — outillage : score de mutation sur les règles + 3 invariants dans ESLint
+
+Itération d'outillage — aucun comportement utilisateur, aucun contrat `brain/` modifié, aucune dépendance de production ajoutée.
+
+### Lot A — score de mutation (`outil-mutation`)
+
+- **`package.json`** — script `test:mutation` (`stryker run`), **hors** porte de commit : le hook `pre-commit-gate.sh` continue de n'exécuter que `tsc --noEmit` + `jest`. Deux devDependencies : `@stryker-mutator/core` et `@stryker-mutator/jest-runner` en `^9.6.1`.
+- **`stryker.config.json`** (nouveau) — périmètre muté restreint aux 4 fichiers de règles (`challenge.ts`, `combat.ts`, `xp.ts`, `characteristics.ts`) ; `enableFindRelatedTests: true` (run de 12 h ramené à ~46 s) ; `tempDirName: "stryker-tmp"` **sans point** (un segment de chemin commençant par un point rend `testMatch` aveugle et Stryker sort sur `No tests were executed`) ; `cleanTempDir: true` ; seuils posés sur une mesure, jamais arrondis à un chiffre rond.
+- **`jest.mutation.cjs`** (nouveau) — projet Jest dédié au run de mutation, restreint à la couche logique (`src/brain/**`, `src/player/**`). Les tests RTL de features en sont exclus : ils maquilleraient un trou d'arithmétique en mutant tué.
+- **`src/brain/rules.golden.test.ts`** (nouveau, 5 tests dans la **porte de commit**) — table dorée des registres : les 22 lignes du bestiaire champ à champ (11 champs), unicité des `templateId`, `CHALLENGE_TIERS` + `DEFAULT_CHALLENGE_TIER`, les 8 caractéristiques + `MONSTER_CHARACTERISTICS` + `CHARACTERISTIC_MAX`, les 3 postures et leurs facteurs de dégâts.
+- **`src/brain/challenge.ts`, `src/brain/characteristics.ts`, `src/brain/combat.ts`** — commentaires `// Stryker disable`/`restore` **par mutateur** (`StringLiteral,ObjectLiteral,ArrayDeclaration`) sur les seuls registres, et annotation d'équivalence sur `atA > atD` (l'égalité est déjà traitée au-dessus, le mutant `>=` est équivalent). Aucune ligne de logique modifiée : les `ArithmeticOperator` des postures restent générés. 69 mutants de données sortent d'un dénominateur qui mesurait une densité de littéraux, pas la qualité des tests — la contrepartie est la table dorée ci-dessus, qui, elle, tourne à chaque commit.
+- **`docs/WORKFLOW.md`** — le score hors porte, le cliquet du seuil (+5 par itération touchant les 4 fichiers, plafond 90, annotation obligatoire au-delà), le garde-fou « aucun fichier ne recule », la règle « zéro `RuntimeError` » (Stryker les exclut du dénominateur : ils rétrécissent la base en silence) et l'heuristique de revue de l'état dérivé (KR-013/113).
+- **`.gitignore`** — `stryker-tmp/`, `.stryker-tmp/`, `reports/`, `stryker-run.log`.
+- Mesure : score de mutation **66,67 % → 81,40 %** sur les 4 fichiers de règles (`challenge.ts` 63,33 → 86,84 ; `characteristics.ts` 44,59 → 94,12 ; `combat.ts` 59,49 → 62,50 ; `xp.ts` 87,72, stable). Seuil `break` posé à **80**. Aucun fichier n'a reculé, zéro `RuntimeError`.
+
+### Lot B — invariants d'architecture dans ESLint (`lint-invariants`)
+
+- **`.eslintrc.cjs`** — trois invariants de `CLAUDE.md` descendus dans ESLint, messages en français, sans aucune dépendance ajoutée : stockage brut interdit dans une feature (`no-restricted-globals` + `no-restricted-properties`, KR-011/111), import inter-features interdit (`no-restricted-imports` + `no-restricted-syntax` pour l'import dynamique), couleur en dur interdite (`no-restricted-syntax`, sélecteurs ancrés début-fin pour ne jamais viser une ancre `'#main'`). Les sélecteurs sont factorisés en constantes et _spreadés_ dans chaque bloc : les options d'une règle ne fusionnent pas entre la racine et un `overrides`.
+- **`src/styles/tokens/colors.css`** — nouveau token `--overlay-soft` à la valeur exacte d'origine (aucun changement visuel).
+- **`src/brain/components/Modal.tsx`**, **`src/features/node-editor/components/NodePreviewModal.tsx`** — les 2 couleurs en dur passent par un token.
+- **Base ESLint remise à zéro** — 12 erreurs préexistantes mécaniques corrigées (apostrophes non échappées, `prefer-const`, variable morte `_wD`, `@typescript-eslint/no-explicit-any` résolu en remplaçant `(global as any).Image` par `globalThis.Image`) dans `ObjectEditor.tsx`, `TrapEditor.tsx`, `CloudSyncSettings.tsx`, `CharacterCreationScreen.tsx`, `combatEngine.ts`, `ImageUpload.test.tsx`. La 13ᵉ (`react-hooks/exhaustive-deps` sur `CharacterCreationScreen.tsx`) passe en dette tracée : `overrides` ciblé sur ce seul fichier avec le motif en commentaire + entrée `bug_history.json` (BUG-025) — pas de `eslint-disable-next-line`, interdit par `CLAUDE.md`.
+- **`code-knowledge.json`** — KR-151 (zones d'import), KR-152 (stockage), KR-153 (heuristique d'état dérivé : pas de règle ESLint, l'AST voit une forme et pas une sémantique).
+
 ## 0.5.33 — fix : portrait PNJ manquant dans l'aperçu
 
 - **`src/features/node-editor/components/NodePreviewModal.tsx`** — `PnjPreview` affiche désormais `pnj.portrait` comme avatar circulaire (80 × 80 px) au-dessus du nom/rôle (BUG-024).

@@ -22,6 +22,7 @@ export interface ChallengeTierDescriptor {
 	baseXp: number
 }
 
+// Stryker disable StringLiteral,ObjectLiteral,ArrayDeclaration: registre verrouille par rules.golden.test.ts
 export const CHALLENGE_TIERS: Record<ChallengeTier, ChallengeTierDescriptor> = {
 	TC1: { label: 'Simple', difficulty: 'Simple', dice: { count: 1, sides: 6 }, notation: '1D6', baseXp: 1 },
 	TC2: { label: 'Dur', difficulty: 'Dur', dice: { count: 2, sides: 5 }, notation: '2D5', baseXp: 2 },
@@ -31,6 +32,7 @@ export const CHALLENGE_TIERS: Record<ChallengeTier, ChallengeTierDescriptor> = {
 
 export const CHALLENGE_TIER_VALUES = Object.keys(CHALLENGE_TIERS) as ChallengeTier[]
 export const DEFAULT_CHALLENGE_TIER: ChallengeTier = 'TC1'
+// Stryker restore StringLiteral,ObjectLiteral,ArrayDeclaration
 
 /** Numeric tier value (1..4) — used by the XP delta (§ 5). */
 export function challengeTierValue(t: ChallengeTier): 1 | 2 | 3 | 4 {

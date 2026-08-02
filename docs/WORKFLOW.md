@@ -144,6 +144,29 @@ When multiple elements can render the same text (e.g., a date shown on two entri
 
 Avoid apostrophes in `describe`/`it` label strings — they terminate JS template literals in some configurations. Use ASCII-safe labels.
 
+### Score de mutation — hors porte de commit
+
+`npm run test:mutation` (Stryker, `stryker.config.json`) mesure l'arithmétique des règles du jeu. Il ne fait **pas** partie de la porte de commit : le hook `.claude/hooks/pre-commit-gate.sh` n'exécute que `tsc --noEmit` + `jest`, et cela ne change pas. On lance le score **en fin d'itération**, dès qu'une itération a touché l'un des quatre fichiers mutés.
+
+**Périmètre muté (4 fichiers)** : `src/brain/challenge.ts`, `src/brain/combat.ts`, `src/brain/xp.ts`, `src/brain/characteristics.ts`. Le run n'exécute que la couche logique (`jest.mutation.cjs` : `src/brain/**` + `src/player/**`) — un mutant de règle que seul un test RTL de composant pouvait tuer est, par définition de cet instrument, un survivant. L'arithmétique s'épingle à l'unité, pas incidemment par un rendu.
+
+**Cliquet du seuil** — `thresholds.break` ne descend jamais.
+
+- Valeur posée le 2026-08-02 sur une mesure : score 81,40 % → `break: 80`, `low: 80`, `high: 90`.
+- Toute itération qui touche l'un des 4 fichiers relève `break` de **+5**, plafond **90**. Jamais desserré.
+- Le seuil s'écrit toujours `floor(score mesuré / 5) × 5` — aucun chiffre non mesuré dans la config.
+- Au-delà du plafond, tout survivant restant doit porter un `// Stryker disable next-line <Mutator>: <justification>`. Un survivant non annoté est un défaut de revue, pas un défaut de seuil.
+
+**Garde-fou par fichier** : recopier les 4 scores du reporter `clear-text` dans la revue d'itération. **Aucun fichier ne recule** — `combat.ts` et `challenge.ts` nommément suivis. Un score global qui monte pendant qu'un fichier descend est un échec, pas un progrès. Pas de script maison pour ça : une abstraction à un seul appelant est une dette.
+
+**Le score varie de ±1 mutant d'un run à l'autre — ne le lis pas à la décimale.** Mesuré sur 5 exécutions le 2026-08-02 : 81,40 % quatre fois, 81,01 % une fois. La cause est identifiée : le mutant `ObjectLiteral` de `combat.ts:107` remplace `{ shield: …, rng }` par `{}`, ce qui fait retomber `rng` sur son défaut `Math.random` non seedé — le test qui devrait le tuer dépend alors d'un tirage réel. Conséquences pratiques : comparer deux scores à moins d'un demi-point ne veut rien dire, et le garde-fou « aucun fichier ne recule » se lit **à ±1 mutant près**, sinon il produira de fausses alertes. Le correctif de fond est de passer un `rng` explicite dans ce test plutôt que de s'appuyer sur le défaut ; à traiter quand `outillage-2` touchera ce mutant.
+
+**`RuntimeError` : zéro toléré** sur les 4 fichiers de logique. Stryker les exclut du dénominateur : ils **rétrécissent la base en silence** et le score cesse d'être lisible tant qu'ils sont là. C'est une panne d'instrument, pas un résultat — on la répare, on ne la contourne pas.
+
+**Registres de données : neutraliser par mutateur, jamais un fichier entier.** Un registre (`CHALLENGE_TIERS`, `CHARACTERISTICS`, les libellés de `POSTURES`, le `BESTIARY`) ne produit que des mutants de littéraux : ils mesurent une densité de données, pas la qualité des tests. On les sort du dénominateur avec `// Stryker disable StringLiteral,ObjectLiteral,ArrayDeclaration: <motif>` + le `// Stryker restore` correspondant, posé au plus près — les `ArithmeticOperator` et `ConditionalExpression` du même fichier doivent continuer d'être générés, et un `restore` posé trop loin neutralise des valeurs de retour de fonction (le cas de `ecartBand` dans `combat.ts`). La contrepartie est **obligatoire et livrée dans le même lot** : `src/brain/rules.golden.test.ts` épingle valeur par valeur tout ce qui est neutralisé, et ce test-là tourne, lui, dans la porte de commit. Neutraliser sans épingler est un relâchement déguisé en durcissement.
+
+Deux réglages à ne pas « corriger » : `tempDirName: "stryker-tmp"` **sans point** (avec `.stryker-tmp`, le `testMatch` ancré sur `<rootDir>/src/**` ne traverse pas un segment commençant par un point, jest voit zéro test et Stryker sort sur `No tests were executed`) et `cleanTempDir: true` (seule protection de `npm run lint` contre le bac à sable). Artefacts produits : `reports/mutation/index.html` + `mutation.json`, gitignorés.
+
 ## Timer Safety in Hooks and Components
 
 Every `setTimeout` (and `setInterval`) that calls `setState` or any other side-effect must be tracked in a `useRef` and cancelled in a `useEffect` cleanup. A timer that fires after unmount will attempt to update state on a dead component — React 18 silently drops it in dev but it is still a logic bug that can cause flicker, memory leaks, or double-firing in tests.
@@ -289,6 +312,12 @@ We build the app as **horizontal slices** (see `docs/ROADMAP.md`): tier `0.1.x` 
 3. **Gate**: Prettier → `tsc --noEmit` → ESLint → `jest`. (The pre-commit hook enforces tsc+jest; never bypass it.) Refactor → re-gate.
 4. **Docs**: update `specification.json` (implementation log / iteration status), mirror new `known_risks` into `code-knowledge.json`, add a `CHANGELOG.md` line, update `features_history.json` and `README.md`.
 5. **Self review gate** (quick): `Severity | File:line | Principle/KR | Finding | Fix`. Fix ALL findings; log each to `bug_history.json`. Re-run `tsc` + `jest`.
+
+   **État dérivé (KR-013/113) — heuristique de revue ; il n'existe volontairement pas de règle ESLint pour ça.** L'AST voit une forme, pas une sémantique : le seul sélecteur plausible (« un `useEffect` dont le corps entier est un unique `setX(...)` ») remonte 0 site aujourd'hui et se tromperait demain sur des motifs légitimes (`setMounted(true)`, reset au changement de route) — une règle qui se trompe là-dessus est désactivée dans le mois et emporte les autres avec elle. À chaque auto-revue touchant un composant ou un hook :
+
+   1. Repérage : `rg -n -U --multiline-dotall "useEffect\(\(\) => \{[^}]{0,120}\bset[A-Z]\w*\(" src/`
+   2. Pour chaque site remonté, **une** question : « la valeur posée par ce `setX` est-elle calculable à partir des props / de l'état déjà présents au rendu ? » Si oui → `useMemo` ou calcul en ligne, l'effet part.
+   3. `react-hooks/exhaustive-deps` reste à `'error'` — il attrape la sous-classe des miroirs à dépendances mensongères. Toute exception est un `overrides` ciblé sur **un seul fichier**, motivé en commentaire et tracé dans `bug_history.json` ; `// eslint-disable-next-line react-hooks/exhaustive-deps` reste interdit.
 6. **Tech-lead review (the PR) — BEFORE the user sees it.** Stage the slice (`git add -A`, do NOT commit) and invoke the `tech-lead` subagent on the **uncommitted** staged diff against `main` (`git diff --staged`). Fix every must-fix (critical/major) **and** every accepted minor finding, logging each to `bug_history.json`; re-gate (`tsc` + `jest`) and re-review until the verdict is `APPROVE`. **The user never reviews a diff that still carries an open finding — the tech-lead PR is the pre-screen.**
 7. **User review (the commit gate) — STOP.** Present the still-uncommitted slice: the `tech-lead` `APPROVE` verdict, the acceptance-criteria table, and a one-line summary (files + intent). **Wait for the user to review and approve.** Do not commit before the user approves; address any change the user asks for, then re-gate and re-run the tech-lead PR (step 6) before re-presenting.
 8. **Ship (only once the USER approves)**: show the one-line summary and commit the slice **directly to `main`** (no feature branch) → bump `package.json` PATCH +1. Then do not start the next feature until the user gives the go.

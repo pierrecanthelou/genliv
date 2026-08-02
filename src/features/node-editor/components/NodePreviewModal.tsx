@@ -339,7 +339,7 @@ const backdrop: React.CSSProperties = {
 	position: 'fixed',
 	inset: 0,
 	zIndex: 200,
-	background: 'rgba(0,0,0,0.45)',
+	background: 'var(--overlay)',
 	display: 'flex',
 	alignItems: 'center',
 	justifyContent: 'center',

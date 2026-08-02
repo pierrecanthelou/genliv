@@ -179,8 +179,7 @@
 			"mitigation": "KR-147: in any flex-column shell with overflow: hidden, every scrollable child div MUST have `flex: 1, minHeight: 0` in addition to `overflowY: auto`. Without the flex/minHeight pair the overflow property has no effect.",
 			"regression_test": "Manual: select a piège node → scroll the NodeEditorPanel → OutgoingChoices + end toggles are visible and editable.",
 			"severity": "major"
-		}
-			,
+		},
 		{
 			"id": "BUG-016",
 			"date": "2026-06-25",
@@ -287,6 +286,42 @@
 			"fix": "Added conditional <img> for pnj.portrait above the name/role block in NodePreviewModal.tsx PnjPreview (line ~138) and PnjScreen.tsx (line ~37). Circular avatar style (80×80, border-radius 50%) to visually distinguish from the full-width node.illustration banner.",
 			"mitigation": "Per the 'fix beyond scope' rule: audited all image fields in types.ts (illustration + portrait only) and both display components together. No other image field is unrendered.",
 			"regression_test": "Visual — no automated snapshot test added; cover both PnjPreview and PnjScreen in a future E2E pass.",
+			"severity": "minor"
+		},
+		{
+			"id": "BUG-025",
+			"date": "2026-08-02",
+			"feature": "play-mode",
+			"discovered_at": "regression",
+			"symptom": "ESLint flags react-hooks/exhaustive-deps on CharacterCreationScreen.tsx:35 — the assignedIndices object literal is rebuilt every render, so the useCallback at line 46 that depends on it never has a stable dependency.",
+			"root_cause": "assignedIndices is constructed inline in the component body instead of being memoized, so its identity changes on every render even when its content is unchanged.",
+			"fix": "Not fixed in this lot (outillage-1, lot B lint-invariants): a code change to a lot-B configuration slice would touch play-mode runtime behaviour, which is out of scope for a tooling lot. Tracked as debt via a targeted .eslintrc.cjs override (files: ['src/player/components/CharacterCreationScreen.tsx'], react-hooks/exhaustive-deps: 'warn') instead of a repo-wide downgrade or a forbidden eslint-disable-next-line.",
+			"mitigation": "The rule stays 'error' everywhere else; only this one file is downgraded to 'warn', with the expected fix (wrap assignedIndices in useMemo) documented in a comment above the override in .eslintrc.cjs. Re-tighten to 'error' once the useMemo fix lands.",
+			"regression_test": "None yet — tracked as an open ESLint warning, not a behavioural regression; npm run lint must show exactly this one warning until fixed.",
+			"severity": "minor"
+		},
+		{
+			"id": "BUG-026",
+			"date": "2026-08-02",
+			"feature": "brain",
+			"discovered_at": "iteration-outillage-1",
+			"symptom": "src/brain/bestiary.ts:2 documents « the 23 canonical monsters » while ROWS contains 22 entries, and both gameSystem.test.ts and the new rules.golden.test.ts assert 22.",
+			"root_cause": "Stale header comment: a monster was removed (or never added) after the comment was written, and no instrument reads a comment, so nothing flagged the drift.",
+			"fix": "Not fixed — out of scope of outillage-1 (both lots are configuration/tooling). Logged here as the plan committed to, so the next iteration touching the bestiary corrects the count.",
+			"mitigation": "src/brain/rules.golden.test.ts now pins the table at exactly 22 rows x 11 fields and runs in the commit gate, so the code side of the count cannot drift silently again. Only the prose comment is wrong. Note the paired-triple rule in CLAUDE.md: any bestiary change must also update PROMPT_SCENE_IA.md and public/PROMPT_SCENE_IA.md.",
+			"regression_test": "src/brain/rules.golden.test.ts — la table du bestiaire est figee (22 lignes, tous champs)",
+			"severity": "minor"
+		},
+		{
+			"id": "BUG-027",
+			"date": "2026-08-02",
+			"feature": "brain",
+			"discovered_at": "iteration-outillage-1",
+			"symptom": "The hardcoded-colour ESLint rule misses a colour inside a template literal when it is not at the start of the quasi: `background: #abc123` passes the lint, while `#abc123` alone is caught.",
+			"root_cause": "The TemplateElement selector in .eslintrc.cjs anchors the pattern at the start of the quasi (^\\s*(#...|rgba?\\(|hsla?\\()) with no end anchor and no substring search, so a colour preceded by any text escapes it. The two Literal selectors are correctly anchored start-and-end and are unaffected.",
+			"fix": "Not fixed in outillage-1: found by the qa pass after both lots were green, and the corrective selector needs its own false-positive probes (a bare '#1' or a '#tag' in prose must not fail the lint). Deferred to outillage-2.",
+			"mitigation": "Zero occurrences of the pattern in the repo today (grep verified) — the project uses no CSS-in-JS template literals, so exploiting the gap would require a deliberate style change elsewhere. The two Literal selectors still cover every colour written as a plain string, which is how all current code writes them.",
+			"regression_test": "None yet — to be added with the fix in outillage-2: an eslint --stdin probe asserting that `background: #abc123` in a template literal fails, and that `Section #1` and `var(--accent)` do not.",
 			"severity": "minor"
 		}
 	]

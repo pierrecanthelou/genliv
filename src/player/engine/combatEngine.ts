@@ -183,7 +183,7 @@ export function pickMonsterPosture(state: CombatState, rng: () => number = Math.
 	const { monster } = state
 	const desc = monster.creatureType !== null ? CREATURE_TYPES[monster.creatureType] : null
 	const isLowHp = monster.pv / monster.pvMax < 0.25
-	const [wN, wP, _wD] = desc ? (isLowHp ? desc.lowHpPostureWeights : desc.postureWeights) : [60, 25, 15]
+	const [wN, wP] = desc ? (isLowHp ? desc.lowHpPostureWeights : desc.postureWeights) : [60, 25, 15]
 	const roll = randInt(1, 100, rng)
 	if (roll <= wN) return 'normale'
 	if (roll <= wN + wP) return 'precise'
@@ -281,8 +281,8 @@ export function resolveCombatRound(
 		}
 
 		// Garde aiguisée
-		let cdf = { ...state.consecutiveDefWins }
-		let gb = { ...state.gardeBonus }
+		const cdf = { ...state.consecutiveDefWins }
+		const gb = { ...state.gardeBonus }
 		if (effectivePosture === 'defensive') {
 			cdf.hero += 1
 			if (cdf.hero >= 3) {
@@ -380,8 +380,8 @@ export function resolveCombatRound(
 		}
 
 		// Garde aiguisée for monster
-		let cdf = { ...state.consecutiveDefWins }
-		let gb = { ...state.gardeBonus }
+		const cdf = { ...state.consecutiveDefWins }
+		const gb = { ...state.gardeBonus }
 		if (monsterPosture === 'defensive') {
 			cdf.monster += 1
 			if (cdf.monster >= 3) {

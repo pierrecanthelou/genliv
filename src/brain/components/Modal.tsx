@@ -86,7 +86,7 @@ export function Modal({
 			style={{
 				position: 'fixed',
 				inset: 0,
-				background: 'rgba(43, 43, 41, 0.32)',
+				background: 'var(--overlay-soft)',
 				display: 'flex',
 				alignItems: 'center',
 				justifyContent: 'center',

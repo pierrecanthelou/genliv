@@ -370,6 +370,21 @@
 			"id": "KR-150",
 			"feature": "cloud-sync",
 			"risk": "ORPHANED IMAGE KV KEYS ON NODE DELETION: when a node is deleted via `BookService.deleteNode`, the local store is cleaned atomically (KR-004), but the cloud KV entries for that node's images (`bookImageKey(bookId, nodeId, 'illustration')`, `bookImageKey(bookId, nodeId, 'portrait')`) and the manifest (`bookImagesManifestKey`) are NOT actively purged. They become orphaned entries in KV. The next `BookService.updateNode` or `BookService.addNode` does NOT re-push the manifest with the deleted node's keys removed — only the next full `set(bookKey)` call (which triggers `queueBookSplit`) corrects the manifest. Consequence: stale KV entries persist until the next full re-sync. This is accepted storage waste for now; a future cloud-sync iteration should `queueBookSplit` the full book after `deleteNode` or implement a dedicated image-cleanup step."
+		},
+		{
+			"id": "KR-151",
+			"feature": "global-config",
+			"risk": "CROSS-FEATURE IMPORT IS ESLINT-ENFORCED (outillage-1 lot B): .eslintrc.cjs restricts every file under src/features/**/*.ts(x) with no-restricted-imports (a patterns group of **/<feature> / **/<feature>/** globs, one per entry in FEATURE_DIRS) plus a no-restricted-syntax ImportExpression selector for the dynamic import() case ESLint 8's no-restricted-imports cannot see. player/ is deliberately NOT in FEATURE_DIRS: it is the extractible runtime (KR-134), not a feature, so features/play-mode importing player/types or player/components/PlayerRuntime stays legal. Known false-positive, accepted: a file inside feature X that imports itself via a climbing relative path ('../../X/…') would be flagged — zero occurrences today, and the fix at that call site is a short relative import anyway. Message (MSG_CROISE) points the author at brain/utils/ (KR-110), brain/components/ (KR-109), or a brain/ contract."
+		},
+		{
+			"id": "KR-152",
+			"feature": "global-config",
+			"risk": "RAW STORAGE IN A FEATURE IS ESLINT-ENFORCED (outillage-1 lot B): .eslintrc.cjs restricts src/features/**/*.ts(x) (tests excluded — a test legitimately calls window.localStorage.clear() to reset the real store) with BOTH no-restricted-globals (bare localStorage/sessionStorage identifiers) AND no-restricted-properties (window.localStorage, window.sessionStorage, globalThis.localStorage) — no-restricted-globals alone does not see window.localStorage because it is a MemberExpression, not a bare identifier reference; both rules are required together or the property-access form silently escapes the guard. brain/ (the implementations) and player/utils/persist.ts (KR-134, a deliberate documented exception — the runtime must stay extractible) are outside the rule's files glob, by design."
+		},
+		{
+			"id": "KR-153",
+			"feature": "global-config",
+			"risk": "NO ESLINT RULE FOR KR-013/113 (DERIVED-STATE useEffect) — DECIDED AND REPLACED BY A REVIEW HEURISTIC (outillage-1 lot B): the only plausible AST selector (a useEffect whose entire body is one setX(...) call) was checked against all 24 useEffect sites in the repo at the time — zero derived-state mirrors, all legitimate (subscriptions, DOM listeners, imperative focus, timer cleanup, feature registration) — so the rule would start at zero signal while its future false positives (useEffect(() => { setMounted(true) }, []), a reset-on-route-change) are common and legitimate; a rule that cries wolf gets disabled within a month and takes the other two invariants down with it. AST sees a FORM, not a semantics, and derived-vs-legitimate is a semantic question. Replacement — a non-blocking review heuristic run before any self-review touching a component/hook: rg -n -U --multiline-dotall \"useEffect\\(\\(\\) => \\{[^}]{0,120}\\bset[A-Z]\\w*\\(\" src/, then for each hit ask ONE question — is the value passed to setX computable from props/state already present at render? If yes, replace with useMemo/inline computation and drop the effect. react-hooks/exhaustive-deps stays 'error' (catches the lying-dependency subclass of the same bug); // eslint-disable-next-line react-hooks/exhaustive-deps remains forbidden by CLAUDE.md regardless of this heuristic."
 		}
 	]
 }

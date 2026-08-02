@@ -134,7 +134,7 @@ export function TrapEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element
 			<OutcomesEditor value={trap.outcomes} onChange={setOutcome} />
 
 			<div style={rollSection}>
-				<span style={sectionLabel}>Perte d'inventaire (sur échec)</span>
+				<span style={sectionLabel}>Perte d&apos;inventaire (sur échec)</span>
 				<SegmentedControl<TrapInventoryLossKind>
 					ariaLabel="Perte d'inventaire"
 					options={LOSS_OPTIONS}
@@ -168,7 +168,7 @@ export function TrapEditor({ bookId, nodeId }: ActionEditorContext): JSX.Element
 				<Toggle label="L'échec mène à la Mort" checked={trap.fatal} onChange={(fatal) => patchTrap({ fatal })} />
 				{trap.fatal && (
 					<p style={fatalNote}>
-						Lien automatique vers la Mort <span style={{ color: 'var(--text-faint)' }}>(tracé sur l'arbre)</span>
+						Lien automatique vers la Mort <span style={{ color: 'var(--text-faint)' }}>(tracé sur l&apos;arbre)</span>
 					</p>
 				)}
 			</div>

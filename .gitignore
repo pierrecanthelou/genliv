@@ -5,6 +5,12 @@ coverage
 .DS_Store
 .vite
 
+# Outillage de mutation (Stryker) — artefacts locaux
+stryker-tmp/
+.stryker-tmp/
+reports/
+stryker-run.log
+
 # Fichiers locaux hors-repo
 capture-ecran*.png
 scenario-genliv-complet*.json

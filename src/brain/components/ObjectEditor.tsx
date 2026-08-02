@@ -83,7 +83,7 @@ export function ObjectEditor({ value, onChange }: ObjectEditorProps): JSX.Elemen
 			/>
 
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-				<span style={sectionLabel}>Effet d'équipement</span>
+				<span style={sectionLabel}>Effet d&apos;équipement</span>
 				<SegmentedControl<EquipKind>
 					ariaLabel="Effet d'équipement"
 					options={EQUIP_OPTIONS}
@@ -122,7 +122,7 @@ export function ObjectEditor({ value, onChange }: ObjectEditorProps): JSX.Elemen
 			</div>
 
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-				<span style={sectionLabel}>Renforcement d'action</span>
+				<span style={sectionLabel}>Renforcement d&apos;action</span>
 				<Stepper
 					label="BONUS DE JET"
 					value={value.reinforcementBonus?.rollBonus ?? 0}

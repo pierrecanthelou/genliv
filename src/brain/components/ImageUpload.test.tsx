@@ -65,7 +65,7 @@ describe('ImageUpload', () => {
 		})
 
 		// Stub Image to fire onload asynchronously (JSDOM never loads images).
-		const origImage = (global as any).Image
+		const origImage = globalThis.Image
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		;(global as any).Image = class {
 			width = 1200

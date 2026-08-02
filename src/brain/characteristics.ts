@@ -25,6 +25,7 @@ export interface CharacteristicDescriptor {
 	describe: string
 }
 
+// Stryker disable StringLiteral,ObjectLiteral,ArrayDeclaration: registre verrouille par rules.golden.test.ts
 export const CHARACTERISTICS: Record<Characteristic, CharacteristicDescriptor> = {
 	FO: { label: 'Force', abbr: 'FO', describe: 'Puissance physique.' },
 	AG: { label: 'Agilité', abbr: 'AG', describe: 'Souplesse et vitesse.' },
@@ -48,6 +49,7 @@ export const CHARACTERISTIC_MAX = 12
 /** The 5 caracs a MONSTER carries (§ 4) — the hero's 8 minus IN, SE and CA. */
 export type MonsterCharacteristic = Extract<Characteristic, 'FO' | 'AG' | 'DX' | 'EN' | 'IG'>
 export const MONSTER_CHARACTERISTICS: MonsterCharacteristic[] = ['FO', 'AG', 'DX', 'EN', 'IG']
+// Stryker restore StringLiteral,ObjectLiteral,ArrayDeclaration
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PLAY MODE (deferred) — pure helpers, no state. Here so the authoring schema is

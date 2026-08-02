@@ -45,21 +45,23 @@ Treat these files as a **paired triple**: code change → prompt update → sync
 
 ## Architecture
 
-- Features are **isolated**: a feature talks to the rest **only through `brain/` contracts** (services, events, registries). Never import one feature from another.
+- Features are **isolated**: a feature talks to the rest **only through `brain/` contracts** (services, events, registries). Never import one feature from another. *Enforced by ESLint (`no-restricted-imports` + an `ImportExpression` selector for dynamic imports). `src/player/**` is the extractable runtime, not a feature — importing it is legal.*
 - **Single source of truth**: the book (nodes + edges) lives in `BookService`. Canvas / outline / preview are *views* — never hold a private copy.
 - The 4 `action-*` features **self-register with `ActionRegistry`**; `node-editor` mounts them without importing them.
 - Build order (walking skeleton first): `book-creation` → `tree-canvas` → `node-editor` → `choice-linking` → `book-library` → `outline-view` → `action-decor` (owns shared `ObjectEditor`) → `action-pnj` → `action-monster` → `action-trap` → `cloud-sync`.
 
 ## Cross-cutting engineering rules
 
-- **Persistence only via `PersistenceService` / `persistenceKeys.ts`** — no raw `localStorage` in feature code (KR-011/111).
-- **Derived state is computed inline**, not mirrored through `useEffect` (KR-013/113).
+> **Three of these are now wired into ESLint, not prompt guidance** — feature isolation, raw storage in features, and hardcoded colours fail `npm run lint` with a French message naming the fix. Don't re-derive them by hand; run the linter. The exception is **derived state (KR-013/113)**: there is deliberately **no rule** for it — the AST sees a shape, not a semantics — so it stays a review heuristic, written out in `docs/WORKFLOW.md` (Build Steps, step 5).
+
+- **Persistence only via `PersistenceService` / `persistenceKeys.ts`** — no raw `localStorage` in feature code (KR-011/111). *Enforced: `no-restricted-globals` + `no-restricted-properties` on `src/features/**` (tests excluded).*
+- **Derived state is computed inline**, not mirrored through `useEffect` (KR-013/113). *Not enforceable — review heuristic only.*
 - **Empty states**: every empty element/list/input shows an inviting placeholder (example value, write-here prompt, dashed « + Ajouter… »). Never a blank void.
 - Events to emit/observe (examples): `book:created|opened|deleted`, `node:created|updated|deleted|selected`, `edge:created|deleted`, `action:changed`, `object:granted`, `monster:savedToLibrary`, `sync:status`. Fire navigation/events only **after persistence resolves**, in order.
 
 ## Design fidelity rules
 
-- Render **only** from `styles.css` tokens + the `components/` primitives. Look up exact `--*` names in `tokens/*.css` — never hardcode the wireframe hex values.
+- Render **only** from `styles.css` tokens + the `components/` primitives. Look up exact `--*` names in `tokens/*.css` — never hardcode the wireframe hex values. *Enforced by ESLint (`no-restricted-syntax`) across `src/**/*.{ts,tsx}`: a literal that **is** a `#hex`, `rgb()`, `rgba()`, `hsl()` or `hsla()` fails the lint. Known gap: inside a template literal, only a colour at the **start** of the quasi is caught (BUG-027).*
 - Light theme only (token layer is structured for a later `[data-theme="dark"]`). ≥44px hit targets. Keyboard-operable. Borders + surface tints carry hierarchy, not shadows (shadows only on menus/modals).
 - Type: Hanken Grotesk (UI/body) + JetBrains Mono (labels/meta/badges). Accent blue = selection / primary action / active option only.
 - Swap Unicode glyph icons for a real icon set (Phosphor or Lucide) at the visual pass; node badges are CSS-drawn (see `components/primitives/NodeBadge`).
