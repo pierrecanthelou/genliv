@@ -1,11 +1,9 @@
-import { createContext, useContext, useMemo, useSyncExternalStore, type ReactNode } from 'react'
+import { createContext, useContext, useSyncExternalStore, type ReactNode } from 'react'
 import { createEventBus, type EventBus } from './EventBus'
 import { createLocalStoragePersistence, type PersistenceService } from './PersistenceService'
 import { createRouter, type Route, type Router } from './Router'
 import { createBookService, type BookService } from './BookService'
 import { createSelectionService, type SelectionService } from './SelectionService'
-import { createActionRegistry, type ActionRegistry } from './ActionRegistry'
-import { createSlotRegistry, type SlotRegistry } from './SlotRegistry'
 import { createCloudSyncService, type CloudSyncService, type CloudTransport } from './CloudSyncService'
 import { bookKey } from './persistenceKeys'
 import {
@@ -14,12 +12,10 @@ import {
 	type BookUIPrefs,
 	type Point,
 	type LayoutSpacing,
-	type OutlineDisplayMode,
 } from './UIPreferencesService'
 import { createMonsterLibraryService, type MonsterLibraryService, type SavedMonster } from './MonsterLibraryService'
 import { createCloudSettings, type CloudSettingsService } from './CloudSettingsService'
 import { BESTIARY } from './bestiary'
-import type { EditorViewMode } from './components/EditorTopBar'
 import type { SyncStatus } from './types'
 
 /**
@@ -36,9 +32,7 @@ export interface Brain {
 	router: Router
 	books: BookService
 	selection: SelectionService
-	actions: ActionRegistry
-	slots: SlotRegistry
-	/** Per-device, non-synced editor view state — pan/zoom, view-mode, dragged positions (KR-022). */
+	/** Per-device, non-synced editor view state — pan/zoom, spacing, dragged positions (KR-022). */
 	uiPreferences: UIPreferencesService
 	/** Cross-book library of reusable monsters (« la librairie du générateur »). */
 	monsterLibrary: MonsterLibraryService
@@ -63,15 +57,14 @@ export function createBrain(options: CreateBrainOptions = {}): Brain {
 	const router = createRouter(options.initialRoute)
 	const books = createBookService(sync, events)
 	const selection = createSelectionService(events)
-	const actions = createActionRegistry()
-	const slots = createSlotRegistry()
 	// UI preferences persist through the RAW local store, NOT the sync decorator,
-	// so per-device view state (pan/zoom, view-mode, positions) is never cloud-synced (KR-022).
+	// so per-device view state (pan/zoom, spacing, positions) is never cloud-synced (KR-022).
 	const uiPreferences = createUIPreferencesService(local)
 	// Cross-book reusable-monster library — persisted via the raw local store (not synced).
 	const monsterLibrary = createMonsterLibraryService(local)
-	// Seed the canonical bestiary (§ 4) once, so every author starts with the full
-	// list available to « Choisir dans la librairie » (idempotent, deletion-safe).
+	// Seed the canonical bestiary (§ 4) once (idempotent, deletion-safe, KR-132).
+	// No editor reads this library since the bascule removed action-monster; the
+	// registry of monsters is picked up again by roadmap n° 6 `dossier-registres`.
 	monsterLibrary.seedDefaults(BESTIARY)
 	// Worker credentials — raw local, never synced (KR-114).
 	const cloudSettings = createCloudSettings(local)
@@ -82,8 +75,6 @@ export function createBrain(options: CreateBrainOptions = {}): Brain {
 		router,
 		books,
 		selection,
-		actions,
-		slots,
 		uiPreferences,
 		monsterLibrary,
 		cloudSettings,
@@ -150,7 +141,7 @@ export function useBookPending(bookId: string): boolean {
 	)
 }
 
-/** The non-synced UI preferences service (pan/zoom, view-mode, dragged positions, KR-022). */
+/** The non-synced UI preferences service (pan/zoom, spacing, dragged positions, KR-022). */
 export function useUIPreferences(): UIPreferencesService {
 	return useBrain().uiPreferences
 }
@@ -167,12 +158,6 @@ export function useSyncConflict(bookId: string | null): boolean {
 /** Stable empty position map so the no-overrides snapshot keeps the SAME reference. */
 const EMPTY_POSITIONS: Record<string, Point> = Object.freeze({})
 
-/** Reactive read of a book's persisted canvas↔outline view-mode (external store, KR-013). */
-export function useBookViewMode(bookId: string): EditorViewMode {
-	const { uiPreferences } = useBrain()
-	return useSyncExternalStore(uiPreferences.subscribe, () => uiPreferences.getBookPrefs(bookId).viewMode ?? 'canvas')
-}
-
 /** Reactive read of a book's dragged node-position overrides (external store, KR-013). */
 export function useBookNodePositions(bookId: string): Record<string, Point> {
 	const { uiPreferences } = useBrain()
@@ -180,23 +165,6 @@ export function useBookNodePositions(bookId: string): Record<string, Point> {
 		uiPreferences.subscribe,
 		() => uiPreferences.getBookPrefs(bookId).positions ?? EMPTY_POSITIONS,
 	)
-}
-
-/** Stable empty array so the no-collapse snapshot keeps the SAME reference. */
-const EMPTY_COLLAPSED: readonly string[] = Object.freeze([])
-
-/**
- * Reactive read of the outline's collapsed node ids as a Set (external store,
- * KR-013). The stored array snapshot is stable between writes (cache-backed), so
- * the derived Set is memoised on it — no per-render new Set that would loop.
- */
-export function useBookOutlineCollapsed(bookId: string): ReadonlySet<string> {
-	const { uiPreferences } = useBrain()
-	const ids = useSyncExternalStore(
-		uiPreferences.subscribe,
-		() => uiPreferences.getBookPrefs(bookId).outlineCollapsed ?? EMPTY_COLLAPSED,
-	)
-	return useMemo(() => new Set(ids), [ids])
 }
 
 /** Reactive read of a book's canvas spacing mode (external store, KR-013). */
@@ -208,19 +176,10 @@ export function useBookLayoutSpacing(bookId: string): LayoutSpacing {
 	)
 }
 
-/** Reactive read of a book's outline display mode (list / columns) (external store, KR-013). */
-export function useBookOutlineDisplayMode(bookId: string): OutlineDisplayMode {
-	const { uiPreferences } = useBrain()
-	return useSyncExternalStore(
-		uiPreferences.subscribe,
-		() => uiPreferences.getBookPrefs(bookId).outlineDisplayMode ?? 'list',
-	)
-}
-
 /** The cross-book reusable-monster library service. */
 export function useMonsterLibrary(): SavedMonster[] {
 	const { monsterLibrary } = useBrain()
 	return useSyncExternalStore(monsterLibrary.subscribe, monsterLibrary.list)
 }
 
-export type { UIPreferencesService, BookUIPrefs, Point, OutlineDisplayMode }
+export type { UIPreferencesService, BookUIPrefs, Point }

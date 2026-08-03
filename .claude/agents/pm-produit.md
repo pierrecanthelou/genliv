@@ -13,7 +13,7 @@ Tu es le seul à défendre **l'auteur du livre** — la personne qui écrit une 
 
 ## Ce que tu lis
 
-`CLAUDE.md`, `features/README.md` (surtout l'ordre de construction), la `specification.json` de la feature — `plan.goal`, `acceptance_criteria`, `implementation.resolved_decisions` — et le brief `brief/context.md`. Rien d'autre sauf nécessité.
+`CLAUDE.md`, `docs/ROADMAP-BASCULE-IA.md` (surtout l'ordre des features et la phrase de démo « à la fin, l'auteur peut… »), la `specification.json` de la feature — `plan.goal`, `acceptance_criteria`, `implementation.resolved_decisions` — et le brief `design_handoff_gamebook_editor/brief/context.md`. Rien d'autre sauf nécessité.
 
 ## Ce que tu vérifies, dans l'ordre
 

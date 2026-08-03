@@ -1,8 +1,9 @@
 /**
  * BESTIARY (§ 4) — the 23 canonical monsters, as MonsterConfig templates that
- * SEED the cross-book MonsterLibraryService. The action-monster editor already
- * lets an author « Choisir dans la librairie » (COPY-ON-USE, KR-101); this just
- * pre-populates that library so every author starts with the full bestiary.
+ * SEED the cross-book MonsterLibraryService, so every author starts with the
+ * full bestiary available. Authoritative source: `docs/REGLES-DU-JEU.md`
+ * (KR-130). The editor that consumed this library is gone with the bascule;
+ * roadmap n° 6 `dossier-registres` branches the dossier's events back onto it.
  *
  * Pure data — no behaviour branch. Capacités are stored as CAPACITY IDs that
  * reference the MONSTER_CAPACITIES registry (KR-117/133); the editor resolves

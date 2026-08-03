@@ -7,41 +7,32 @@ import { uiPrefsKey, BOOK_KEY_PREFIX, CLOUDSYNC_QUEUE_KEY } from './persistenceK
 describe('UIPreferencesService', () => {
 	beforeEach(() => window.localStorage.clear())
 
-	it('stores and reads back per-book viewport, view-mode, and node positions', () => {
+	it('stores and reads back per-book viewport, spacing, and node positions', () => {
 		const prefs = createUIPreferencesService(createLocalStoragePersistence())
 		prefs.setViewport('b1', { x: 10, y: 20, zoom: 1.5 })
-		prefs.setViewMode('b1', 'outline')
+		prefs.setLayoutSpacing('b1', 'spacious')
 		prefs.setNodePosition('b1', 'n1', { x: 100, y: 200 })
 
 		const stored = prefs.getBookPrefs('b1')
 		expect(stored.viewport).toEqual({ x: 10, y: 20, zoom: 1.5 })
-		expect(stored.viewMode).toBe('outline')
+		expect(stored.layoutSpacing).toBe('spacious')
 		expect(stored.positions).toEqual({ n1: { x: 100, y: 200 } })
 	})
 
 	it('keeps prefs per book independent', () => {
 		const prefs = createUIPreferencesService(createLocalStoragePersistence())
-		prefs.setViewMode('b1', 'outline')
-		prefs.setViewMode('b2', 'canvas')
-		expect(prefs.getBookPrefs('b1').viewMode).toBe('outline')
-		expect(prefs.getBookPrefs('b2').viewMode).toBe('canvas')
+		prefs.setLayoutSpacing('b1', 'spacious')
+		prefs.setLayoutSpacing('b2', 'compact')
+		expect(prefs.getBookPrefs('b1').layoutSpacing).toBe('spacious')
+		expect(prefs.getBookPrefs('b2').layoutSpacing).toBe('compact')
 	})
 
 	it('returns a STABLE snapshot reference between writes (safe for useSyncExternalStore)', () => {
 		const prefs = createUIPreferencesService(createLocalStoragePersistence())
 		const first = prefs.getBookPrefs('b1')
 		expect(prefs.getBookPrefs('b1')).toBe(first) // same reference, no write
-		prefs.setViewMode('b1', 'outline')
+		prefs.setLayoutSpacing('b1', 'spacious')
 		expect(prefs.getBookPrefs('b1')).not.toBe(first) // a new object after a write
-	})
-
-	it('stores and replaces the outline collapsed-node set', () => {
-		const prefs = createUIPreferencesService(createLocalStoragePersistence())
-		prefs.setOutlineCollapsed('b1', ['n1', 'n2'])
-		expect(prefs.getBookPrefs('b1').outlineCollapsed).toEqual(['n1', 'n2'])
-		// A later write replaces the set wholesale (the view sends the full list).
-		prefs.setOutlineCollapsed('b1', ['n1'])
-		expect(prefs.getBookPrefs('b1').outlineCollapsed).toEqual(['n1'])
 	})
 
 	it('merges a second node position without dropping the first', () => {
@@ -58,10 +49,10 @@ describe('UIPreferencesService', () => {
 		prefs.clearNodePositions('b1')
 		expect(prefs.getBookPrefs('b1').positions).toBeUndefined()
 		// Other prefs for the same book are preserved.
-		prefs.setViewMode('b1', 'outline')
+		prefs.setLayoutSpacing('b1', 'spacious')
 		prefs.setNodePosition('b1', 'n3', { x: 3, y: 3 })
 		prefs.clearNodePositions('b1')
-		expect(prefs.getBookPrefs('b1').viewMode).toBe('outline')
+		expect(prefs.getBookPrefs('b1').layoutSpacing).toBe('spacious')
 		expect(prefs.getBookPrefs('b1').positions).toBeUndefined()
 	})
 
@@ -69,10 +60,10 @@ describe('UIPreferencesService', () => {
 		const prefs = createUIPreferencesService(createLocalStoragePersistence())
 		const listener = jest.fn()
 		const unsubscribe = prefs.subscribe(listener)
-		prefs.setViewMode('b1', 'outline')
+		prefs.setLayoutSpacing('b1', 'spacious')
 		expect(listener).toHaveBeenCalledTimes(1)
 		unsubscribe()
-		prefs.setViewMode('b1', 'canvas')
+		prefs.setLayoutSpacing('b1', 'compact')
 		expect(listener).toHaveBeenCalledTimes(1)
 	})
 
@@ -85,7 +76,7 @@ describe('UIPreferencesService', () => {
 
 	it('persists under the ui: namespace, never a book key (stays out of listBooks)', () => {
 		const prefs = createUIPreferencesService(createLocalStoragePersistence())
-		prefs.setViewMode('b1', 'outline')
+		prefs.setLayoutSpacing('b1', 'spacious')
 		expect(window.localStorage.getItem(uiPrefsKey('b1'))).not.toBeNull()
 		// The key must NOT match the book-list prefix, so listBooks() ignores it.
 		expect(uiPrefsKey('b1').startsWith(BOOK_KEY_PREFIX)).toBe(false)
@@ -93,7 +84,7 @@ describe('UIPreferencesService', () => {
 
 	it('setLayoutSpacing persists the spacing, notifies subscribers, and preserves other prefs', () => {
 		const prefs = createUIPreferencesService(createLocalStoragePersistence())
-		prefs.setViewMode('b1', 'outline')
+		prefs.setViewport('b1', { x: 3, y: 4, zoom: 1 })
 		const listener = jest.fn()
 		prefs.subscribe(listener)
 
@@ -101,30 +92,12 @@ describe('UIPreferencesService', () => {
 
 		expect(prefs.getBookPrefs('b1').layoutSpacing).toBe('spacious')
 		// Other prefs for the same book are preserved.
-		expect(prefs.getBookPrefs('b1').viewMode).toBe('outline')
+		expect(prefs.getBookPrefs('b1').viewport).toEqual({ x: 3, y: 4, zoom: 1 })
 		expect(listener).toHaveBeenCalledTimes(1)
 
 		// Toggle back to compact.
 		prefs.setLayoutSpacing('b1', 'compact')
 		expect(prefs.getBookPrefs('b1').layoutSpacing).toBe('compact')
-	})
-
-	it('setOutlineDisplayMode persists the mode, notifies subscribers, and preserves other prefs', () => {
-		const prefs = createUIPreferencesService(createLocalStoragePersistence())
-		prefs.setViewMode('b1', 'outline')
-		const listener = jest.fn()
-		prefs.subscribe(listener)
-
-		prefs.setOutlineDisplayMode('b1', 'columns')
-
-		expect(prefs.getBookPrefs('b1').outlineDisplayMode).toBe('columns')
-		// Other prefs preserved.
-		expect(prefs.getBookPrefs('b1').viewMode).toBe('outline')
-		expect(listener).toHaveBeenCalledTimes(1)
-
-		// Toggle back to list.
-		prefs.setOutlineDisplayMode('b1', 'list')
-		expect(prefs.getBookPrefs('b1').outlineDisplayMode).toBe('list')
 	})
 
 	it('is NEVER cloud-synced: prefs writes do not enter the cloud queue (KR-022/093)', () => {
@@ -133,7 +106,7 @@ describe('UIPreferencesService', () => {
 		const transport: CloudTransport = { push: () => new Promise<void>(() => {}) }
 		const brain = createBrain({ transport })
 		brain.uiPreferences.setViewport('b1', { x: 1, y: 2, zoom: 1.5 })
-		brain.uiPreferences.setViewMode('b1', 'outline')
+		brain.uiPreferences.setLayoutSpacing('b1', 'spacious')
 		brain.uiPreferences.setNodePosition('b1', 'n1', { x: 9, y: 9 })
 
 		// Nothing queued, nothing pushed: the writes went straight to the local store.

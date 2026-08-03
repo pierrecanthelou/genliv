@@ -13,7 +13,7 @@ import { type CSSProperties } from 'react'
  * pinning each entry to the descriptor shape — so adding a kind is ONE entry
  * (a missing field fails to compile; there is no separate union to keep in
  * sync, and no silent `Partial<Record>` gap). Same Open/Closed seam as the
- * ActionRegistry (KR-051), here for kind rendering + domain invariants.
+ * action registry (KR-051), removed by the bascule; here for kind rendering + domain invariants.
  */
 
 /** Identity factory: pins each value to `V` while inferring the key union `K`. */

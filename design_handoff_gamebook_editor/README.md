@@ -8,7 +8,7 @@ A complete starter package for building the gamebook (choose-your-own-adventure)
 
 The tool lets an author build a **« livre dont vous êtes le héros »** by editing a **tree of screens (nodes + edges)** — the central, persisted data structure of a book. The author builds that tree visually, edits each leaf, and models encounters, skill rolls, combat, traps, and hidden item prerequisites.
 
-Scope of this package = **authoring/editor mode only**. The **play / book-launch mode** (where a reader's hero is instantiated and the book is actually played) is a separate, deferred surface — see `features/README.md`.
+Scope of this package = **authoring/editor mode only**. The **play / book-launch mode** (where a reader's hero is instantiated and the book is actually played) is a separate surface — see `docs/ROADMAP-BASCULE-IA.md` § 3 (Temps 2).
 
 Everything here is in **French** (UI copy + domain terms). Keep it that way.
 
@@ -110,7 +110,7 @@ Each component ships three files: `.jsx` (reference implementation), `.d.ts` (th
 
 ## 6. The build plan (`features/`)
 
-`features/README.md` is the engineering plan. Key points:
+> **Périmé depuis la bascule IA du 2026-08-03.** Le plan d'ingénierie vivant est `docs/ROADMAP-BASCULE-IA.md` ; `features/README.md` a été supprimé avec les huit features que la bascule abandonne. Ce qui suit décrit l'éditeur d'arbre d'origine et n'est conservé que comme trace du contexte de ce handoff.
 
 - **Architecture**: each feature is **isolated** and talks to the rest **only through `brain/` contracts** (services, events, registries) — never by importing another feature. The 4 `action-*` features self-register with an `ActionRegistry`, so `node-editor` mounts them without importing them.
 - **Single source of truth**: the book (nodes + edges) lives in `BookService`. Canvas / outline / preview are views (KR-020).
@@ -130,7 +130,7 @@ Each component ships three files: `.jsx` (reference implementation), `.d.ts` (th
 
 1. Put `CLAUDE.md` at your repo root (it encodes the rules above so they're always in context).
 2. Open `Editeur Livre-Jeu - Wireframes.dc.html` in a browser and skim all six sections; click through `Editeur Prototype.dc.html`.
-3. Read `brief/context.md` (domain truth) and `features/README.md` (architecture + order).
+3. Read `brief/context.md` (the original domain brief) and `docs/ROADMAP-BASCULE-IA.md` (the live architecture + feature order).
 4. Stand up `styles.css` + tokens and the `components/` primitives in your stack first — they're the shared vocabulary every feature renders from.
 5. Build the **walking skeleton**: `book-creation` end-to-end (home → create dialog → seed Sommaire + isolated Mort → navigate to editor), wiring a minimal `BookService` through `brain/`.
 6. Then follow the build order, one feature at a time, checking each `specification.json`'s acceptance criteria.

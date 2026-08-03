@@ -15,7 +15,7 @@ Tu es le seul à défendre **la partie jouée** : ce que le joueur vit quand l'I
 
 ## Ce que tu lis
 
-`Plan Bascule IA - Générateur & Moteur` (le plan de bascule, référence contraignante), `REGLES-DU-JEU.md`, le `brain-runtime/` (challenge, combat, xp, bestiary, characteristics), le schéma du dossier d'aventure, et les prompts existants s'il y en a.
+`docs/ROADMAP-BASCULE-IA.md` (le plan exécutable, décisions D1/D2/D3 comprises) et `docs/PLAN-BASCULE-IA.dc.html` (le plan de cible, référence contraignante), `docs/REGLES-DU-JEU.md`, les règles dans `src/brain/` (challenge, combat, xp, bestiary, characteristics), le schéma du dossier d'aventure, et les prompts existants s'il y en a.
 
 ## L'invariant que tu ne laisses jamais passer
 

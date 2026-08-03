@@ -350,7 +350,7 @@
 			"id": "KR-146",
 			"feature": "outline-view",
 			"risk": "DISPATCH-DURING-RENDER (Miller columns external-selection sync): when a component must reconcile external state (e.g. a SelectionService selection) with local useReducer state WITHOUT a useEffect, the idiomatic React pattern is to dispatch during render â€” detect the stale condition inline (selectedId !== state.syncedId), compute the new state (BFS path resolution), and call dispatch() before returning JSX. React discards the partial render and immediately re-renders with the new state (one extra render per selection change, no flash, no stale-closure). This is KR-013 compliant because no useEffect is involved. Caveat: the dispatch must be unconditional enough that React does not see an infinite loop â€” always update the synced sentinel (syncedId) so the condition becomes false on the next render. Pair with: (a) key the component on the entity id (key={bookId}) for a clean state reset on entity switch â€” avoids a separate reset action and is cheaper than a conditional useEffect cleanup. (b) findChoicePath / any BFS for reconciliation MUST have a visited set (KR-080) so a cyclic choice graph cannot loop the render."
-				},
+		},
 		{
 			"id": "KR-147",
 			"feature": "node-editor",
@@ -385,6 +385,16 @@
 			"id": "KR-153",
 			"feature": "global-config",
 			"risk": "NO ESLINT RULE FOR KR-013/113 (DERIVED-STATE useEffect) — DECIDED AND REPLACED BY A REVIEW HEURISTIC (outillage-1 lot B): the only plausible AST selector (a useEffect whose entire body is one setX(...) call) was checked against all 24 useEffect sites in the repo at the time — zero derived-state mirrors, all legitimate (subscriptions, DOM listeners, imperative focus, timer cleanup, feature registration) — so the rule would start at zero signal while its future false positives (useEffect(() => { setMounted(true) }, []), a reset-on-route-change) are common and legitimate; a rule that cries wolf gets disabled within a month and takes the other two invariants down with it. AST sees a FORM, not a semantics, and derived-vs-legitimate is a semantic question. Replacement — a non-blocking review heuristic run before any self-review touching a component/hook: rg -n -U --multiline-dotall \"useEffect\\(\\(\\) => \\{[^}]{0,120}\\bset[A-Z]\\w*\\(\" src/, then for each hit ask ONE question — is the value passed to setX computable from props/state already present at render? If yes, replace with useMemo/inline computation and drop the effect. react-hooks/exhaustive-deps stays 'error' (catches the lying-dependency subclass of the same bug); // eslint-disable-next-line react-hooks/exhaustive-deps remains forbidden by CLAUDE.md regardless of this heuristic."
+		},
+		{
+			"id": "KR-154",
+			"feature": "global-config",
+			"risk": "BINDING REFERENCE DOCUMENTS MUST LIVE IN THE REPO, NEVER IN A GITIGNORED BUNDLE (found during the 2026-08-03 bascule tri). REGLES-DU-JEU.md — declared the SINGLE SOURCE OF TRUTH for every game mechanic by KR-130, and cited by the narratif-ia agent and the raffinage-iteration skill — existed only inside specifications-jeu/ and claude-design/, both listed in .gitignore; docs/ itself was ignored while docs/WORKFLOW.md is @-imported by CLAUDE.md every session. A delivery bundle is a transport, not a home: the moment a document inside one becomes binding, COPY IT INTO THE REPO (docs/) and cite the repo path everywhere, then delete the bundle. Before ignoring a directory, grep the repo for citations of the files inside it — an agent prompt or a skill that names a path git does not track will silently degrade for the next clone."
+		},
+		{
+			"id": "KR-155",
+			"feature": "global-config",
+			"risk": "WHEN A FORMAT IS ABANDONED, DELETE ITS WHOLE READ PATH, NOT JUST ITS UI (2026-08-03 bascule tri). Removing the book-export feature left BookService.importBook() + brain/utils/scenarioExport.ts reachable by type but unreachable by any user action: dead code that still type-checks, still runs in tests, and still looks like a supported entry point to the next reader. Same for the registries (ActionRegistry, SlotRegistry) once their only registrants were gone, and for the outline-era UIPreferencesService keys (viewMode/outlineCollapsed/outlineDisplayMode) once no view read them. Rule: after deleting a feature, grep every brain export it consumed and ask 'who registers/reads this now?' — zero answers means it goes in the same commit. The counter-rule that keeps this honest: do NOT delete what the NEXT feature is chartered to replace (brain/types.ts, kinds.ts, BookService are dossier-format's contract; playExport.ts is still load-bearing for src/player/types.ts) — deleting those early leaves nothing to compare the replacement against."
 		}
 	]
 }

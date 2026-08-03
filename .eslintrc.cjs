@@ -10,21 +10,7 @@ const MSG_COULEUR =
 
 // Every feature folder under src/features/ — kept as a flat list (not globbed from
 // disk) so a new feature must be added here deliberately.
-const FEATURE_DIRS = [
-	'action-decor',
-	'action-monster',
-	'action-pnj',
-	'action-trap',
-	'book-creation',
-	'book-export',
-	'book-library',
-	'choice-linking',
-	'cloud-sync',
-	'node-editor',
-	'outline-view',
-	'play-mode',
-	'tree-canvas',
-]
+const FEATURE_DIRS = ['book-creation', 'book-library', 'cloud-sync', 'play-mode', 'tree-canvas']
 
 // KNOWN LIMIT (documented, not fixed): a file inside feature X that imports itself
 // via a climbing relative path ('../../X/…') would be flagged as a false positive.
@@ -138,8 +124,7 @@ module.exports = {
 					'error',
 					...NO_HARDCODED_COLOR,
 					{
-						selector:
-							'ImportExpression[source.value=/(action-decor|action-monster|action-pnj|action-trap|book-creation|book-export|book-library|choice-linking|cloud-sync|node-editor|outline-view|play-mode|tree-canvas)/]',
+						selector: `ImportExpression[source.value=/(${FEATURE_DIRS.join('|')})/]`,
 						message: MSG_CROISE,
 					},
 				],

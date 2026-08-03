@@ -3,7 +3,7 @@ import { useBrain, useBookLayoutSpacing, type LayoutSpacing } from '../../../bra
 
 /**
  * Toggle between compact and spacious canvas layout. Persisted per book via
- * UIPreferencesService so it survives reload (same pattern as view-mode).
+ * UIPreferencesService so it survives reload (non-synced per-device, KR-022).
  */
 export function SpacingToggle({ bookId }: { bookId: string }): JSX.Element {
 	const { uiPreferences } = useBrain()

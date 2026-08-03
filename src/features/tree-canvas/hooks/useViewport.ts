@@ -12,7 +12,7 @@ import { useUIPreferences, type Viewport } from '../../../brain'
  * Local pan/zoom for the canvas. The live viewport is fast per-frame state, but
  * it is now SEEDED from and PERSISTED to UIPreferencesService per book — a
  * per-device, non-synced preference (KR-022), written on settle (drag-release,
- * each zoom step, a centre request) rather than every pan frame. The `Viewport`
+ * each zoom step) rather than every pan frame. The `Viewport`
  * shape is the brain one (UIPreferencesService), reused so the two can't drift.
  */
 export type { Viewport }
@@ -34,11 +34,6 @@ export interface UseViewport {
 	/** Pointer-drag panning on the canvas background. */
 	onBackgroundPointerDown: (e: ReactPointerEvent) => void
 	onWheel: (e: ReactWheelEvent) => void
-	/**
-	 * Pan so a canvas-space `point` sits at the centre of a viewport of size
-	 * `size`, keeping the current zoom (used by « Centrer dans l'arbre »).
-	 */
-	centerOn: (point: { x: number; y: number }, size: { w: number; h: number }) => void
 	/**
 	 * True if the last pointer interaction was a drag (so a click handler can
 	 * skip clearing selection on drag-release). Reset on each pointer down.
@@ -71,17 +66,6 @@ export function useViewport(bookId: string | null): UseViewport {
 	const zoomBy = useCallback(
 		(delta: number) => {
 			applyViewport({ ...viewportRef.current, zoom: clampZoom(viewportRef.current.zoom + delta) })
-			persistViewport()
-		},
-		[applyViewport, persistViewport],
-	)
-
-	const centerOn = useCallback(
-		(point: { x: number; y: number }, size: { w: number; h: number }) => {
-			// translate = container centre − scaled point (the transform is
-			// translate(x,y) scale(zoom) with origin 0,0, so point maps to x+point*zoom).
-			const v = viewportRef.current
-			applyViewport({ ...v, x: size.w / 2 - point.x * v.zoom, y: size.h / 2 - point.y * v.zoom })
 			persistViewport()
 		},
 		[applyViewport, persistViewport],
@@ -139,7 +123,6 @@ export function useViewport(bookId: string | null): UseViewport {
 		zoomOut: () => zoomBy(-ZOOM_STEP),
 		onBackgroundPointerDown,
 		onWheel,
-		centerOn,
 		didDragRef,
 	}
 }

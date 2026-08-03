@@ -1,29 +1,22 @@
 import { Badge } from './Badge'
-import { SegmentedControl } from './SegmentedControl'
 import { plural } from '../utils/plural'
-
-/** Which editor body is shown: the graph canvas or the indented outline. */
-export type EditorViewMode = 'canvas' | 'outline'
 
 /**
  * Editor top bar (wireframe § 02/03): « ← Mes livres », book title + node-count
- * badge, the canvas ↔ outline view-mode switch, « Aperçu du jeu ▷ » (play mode —
- * out of editor scope) and the accent « + Nœud » primary action. Shared chrome
- * above both the canvas and the outline (KR-109), so the switch and the title
- * live in one place rather than being duplicated per view.
+ * badge, « Aperçu du jeu ▷ » and the accent « + Nœud » primary action. Shared
+ * chrome above the editor body (KR-109), so the title and the actions live in
+ * one place rather than being duplicated per view.
  */
 export interface EditorTopBarProps {
 	title: string
 	nodeCount: number
-	viewMode: EditorViewMode
-	onViewModeChange: (mode: EditorViewMode) => void
 	onBack: () => void
 	onAddNode: () => void
 	/**
-	 * Composition-root injected feature actions (e.g. book-export's « Exporter le
-	 * jeu »), rendered in the right cluster before « Aperçu du jeu ». A generic
-	 * ReactNode slot keeps this shared chrome feature-agnostic (Open/Closed) — the
-	 * bar never imports a feature; the editor shell wires the node in.
+	 * Composition-root injected feature actions (today tree-canvas's spacing and
+	 * auto-layout toggles), rendered in the right cluster before « Aperçu du jeu ».
+	 * A generic ReactNode slot keeps this shared chrome feature-agnostic
+	 * (Open/Closed) — the bar never imports a feature; the shell wires the node in.
 	 */
 	actions?: React.ReactNode
 	/** Wired by EditorScreen once the play runtime exists (play-mode iter 0). */
@@ -42,16 +35,9 @@ const monoControl: React.CSSProperties = {
 	cursor: 'pointer',
 }
 
-const VIEW_OPTIONS: { value: EditorViewMode; label: string }[] = [
-	{ value: 'canvas', label: '⌗ Arbre' },
-	{ value: 'outline', label: '≣ Plan' },
-]
-
 export function EditorTopBar({
 	title,
 	nodeCount,
-	viewMode,
-	onViewModeChange,
 	onBack,
 	onAddNode,
 	actions,
@@ -99,12 +85,6 @@ export function EditorTopBar({
 			</div>
 
 			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-				<SegmentedControl
-					ariaLabel="Mode d’affichage"
-					options={VIEW_OPTIONS}
-					value={viewMode}
-					onChange={onViewModeChange}
-				/>
 				{actions}
 				<button
 					type="button"

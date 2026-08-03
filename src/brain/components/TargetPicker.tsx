@@ -5,8 +5,8 @@ import type { BookNode } from '../types'
 
 /**
  * TargetPicker — pick a node another node points at for a NON-choice screen
- * change (PNJ « mène à », monster victoire/fuite targets). Lives in brain because
- * more than one feature uses it (action-pnj + action-monster, KR-109). Structural
+ * change (PNJ « mène à », monster victoire/fuite targets). Lives in brain as a
+ * cross-feature primitive (KR-109); its consumers left with the bascule. Structural
  * screens are never authored targets so the Sommaire/Mort are excluded (KR-067,
  * the canBeTarget flag), and a target whose node was deleted is surfaced (⚠),
  * never silently broken (KR-021/063). Controlled: the chosen id lives on the

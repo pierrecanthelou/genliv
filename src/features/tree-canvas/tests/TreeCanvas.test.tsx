@@ -96,16 +96,16 @@ describe('tree-canvas', () => {
 		expect(selections).not.toContain(sommaireId)
 	})
 
-	it('persists the canvas/outline view-mode per book', async () => {
+	it('persists the canvas spacing mode per book', async () => {
 		const user = userEvent.setup()
 		const { brain, book } = setup()
-		expect(brain.uiPreferences.getBookPrefs(book.id).viewMode ?? 'canvas').toBe('canvas')
+		expect(brain.uiPreferences.getBookPrefs(book.id).layoutSpacing ?? 'compact').toBe('compact')
 
-		await user.click(screen.getByRole('radio', { name: /Plan/ }))
+		await user.click(screen.getByRole('button', { name: /Aérer/ }))
 
-		expect(brain.uiPreferences.getBookPrefs(book.id).viewMode).toBe('outline')
-		// A re-render reads the persisted mode: the outline body is shown.
-		expect(screen.getByRole('radio', { name: /Plan/ })).toHaveAttribute('aria-checked', 'true')
+		expect(brain.uiPreferences.getBookPrefs(book.id).layoutSpacing).toBe('spacious')
+		// A re-render reads the persisted mode: the toggle now offers the way back.
+		expect(screen.getByRole('button', { name: /Compacter/ })).toHaveAttribute('aria-pressed', 'true')
 	})
 
 	it('persists the canvas zoom per book', async () => {
@@ -117,61 +117,33 @@ describe('tree-canvas', () => {
 		expect(brain.uiPreferences.getBookPrefs(book.id).viewport?.zoom).toBeGreaterThan(1)
 	})
 
-	describe('warned-node highlighting after export', () => {
-		let createObjectURL: jest.Mock
-		let revokeObjectURL: jest.Mock
-		let realCreate: typeof URL.createObjectURL
-		let realRevoke: typeof URL.revokeObjectURL
+	it('marks a node card with the warning ring when the book health flags it (live, KR-145)', () => {
+		const brain = createBrain()
+		const book = brain.books.createBook('La Caverne')
+		const sommaire = brain.books.getBook(book.id)!.nodes.find((n) => n.kind === 'sommaire')!
+		// An unlabeled choice out of sommaire is a live structural warning — no export needed.
+		brain.books.addChoiceBranch(book.id, sommaire.id)
+		brain.router.navigate({ name: 'editor', bookId: book.id })
+		render(
+			<BrainProvider brain={brain}>
+				<App />
+			</BrainProvider>,
+		)
 
-		beforeEach(() => {
-			realCreate = URL.createObjectURL
-			realRevoke = URL.revokeObjectURL
-			createObjectURL = jest.fn(() => 'blob:fake')
-			revokeObjectURL = jest.fn()
-			URL.createObjectURL = createObjectURL
-			URL.revokeObjectURL = revokeObjectURL
-			jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
-		})
-
-		afterEach(() => {
-			URL.createObjectURL = realCreate
-			URL.revokeObjectURL = realRevoke
-			jest.restoreAllMocks()
-		})
-
-		it('adds warning styling to a node card after export reveals a dangling ref on its outgoing edge', async () => {
-			const user = userEvent.setup()
-			const brain = createBrain()
-			const book = brain.books.createBook('La Caverne')
-			const sommaire = brain.books.getBook(book.id)!.nodes.find((n) => n.kind === 'sommaire')!
-			const branch = brain.books.addChoiceBranch(book.id, sommaire.id)!
-			// Edge from sommaire has a missing prereq object → edgeId warning resolves to sommaire.
-			// Label it to avoid a live unlabeled-choice warning on sommaire before export.
-			brain.books.updateEdge(book.id, branch.edge.id, { prereq: { objectId: 'ghost' }, label: 'Entrer' })
-			brain.router.navigate({ name: 'editor', bookId: book.id })
-			render(
-				<BrainProvider brain={brain}>
-					<App />
-				</BrainProvider>,
-			)
-
-			const sommaireCard = screen.getByRole('button', { name: /Nœud #1 — Sommaire/ })
-			// Before export: no warning ring.
-			expect(sommaireCard.getAttribute('style') ?? '').not.toContain('var(--bad-line)')
-
-			await user.click(screen.getByRole('button', { name: /exporter le jeu/i }))
-
-			// Sommaire is the edge.from node — it should now carry the warning ring.
-			// (jsdom rejects the border shorthand with a CSS var, but box-shadow is preserved.)
-			expect(sommaireCard.getAttribute('style')).toContain('var(--bad-line)')
-		})
+		// (jsdom rejects the border shorthand with a CSS var, but box-shadow is preserved.)
+		const sommaireCard = screen.getByRole('button', { name: /Nœud #1 — Sommaire/ })
+		expect(sommaireCard.getAttribute('style')).toContain('var(--bad-line)')
+		// Negative control: the ring must be SELECTIVE, not painted on every card.
+		// Mort is terminal, so bookHealth never flags it as a dead-end.
+		const mortCard = screen.getByRole('button', { name: /Nœud #2 — Mort/ })
+		expect(mortCard.getAttribute('style') ?? '').not.toContain('var(--bad-line)')
 	})
 
 	it('restores persisted view state on reload (a fresh App over the same store)', () => {
-		// First "session": create a book and switch to the outline.
+		// First "session": create a book and switch the canvas to the spacious layout.
 		const first = createBrain()
 		const book = first.books.createBook('La Caverne')
-		first.uiPreferences.setViewMode(book.id, 'outline')
+		first.uiPreferences.setLayoutSpacing(book.id, 'spacious')
 		// "Reload": a brand-new brain (cold cache) over the same localStorage, opening
 		// straight onto the editor route.
 		const reloaded = createBrain({ initialRoute: { name: 'editor', bookId: book.id } })
@@ -180,7 +152,7 @@ describe('tree-canvas', () => {
 				<App />
 			</BrainProvider>,
 		)
-		// The persisted outline mode is read on mount (its radio is checked).
-		expect(screen.getByRole('radio', { name: /Plan/ })).toHaveAttribute('aria-checked', 'true')
+		// The persisted spacing is read on mount (the toggle is pressed).
+		expect(screen.getByRole('button', { name: /Compacter/ })).toHaveAttribute('aria-pressed', 'true')
 	})
 })

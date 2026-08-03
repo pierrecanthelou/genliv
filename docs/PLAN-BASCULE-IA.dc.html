@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; padding: 0; background: #ECECEA; }
+  * { box-sizing: border-box; }
+  a { color: #2F6BFF; text-decoration: none; }
+  a:hover { color: #1B4FD1; text-decoration: underline; }
+  ::selection { background: #DCE7FB; }
+</style>
+</helmet>
+<div style="min-height:100vh; background:#ECECEA; font-family:'Hanken Grotesk', system-ui, sans-serif; color:#4E4E4B; padding:40px 32px 96px; display:flex; justify-content:center;">
+<div style="width:100%; max-width:1180px; display:grid; grid-template-columns:214px minmax(0,1fr); gap:40px; align-items:start;">
+
+  <nav style="position:sticky; top:40px; display:flex; flex-direction:column; gap:4px; padding:16px; background:#FFFFFF; border:1px solid #D9D9D6; border-radius:12px;">
+    <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#9A9A96; padding:0 4px 8px;">Sommaire</div>
+    <a href="#principe" style="font-size:12.5px; padding:5px 8px; border-radius:6px; color:#4E4E4B;" style-hover="background:#F4F4F2; color:#2B2B29; text-decoration:none;">Ce qui change</a>
+    <div style="height:1px; background:#EEEEEB; margin:8px 4px;"></div>
+    <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#2F6BFF; padding:4px 4px 6px;">Temps 1 · Éditeur</div>
+    <a href="#t1-pivot" style="font-size:12.5px; padding:5px 8px; border-radius:6px; color:#4E4E4B;" style-hover="background:#F4F4F2; text-decoration:none;">1.1 Le pivot JSON</a>
+    <a href="#t1-sections" style="font-size:12.5px; padding:5px 8px; border-radius:6px; color:#4E4E4B;" style-hover="background:#F4F4F2; text-decoration:none;">1.2 Les 10 sections</a>
+    <a href="#t1-fiche" style="font-size:12.5px; padding:5px 8px; border-radius:6px; color:#4E4E4B;" style-hover="background:#F4F4F2; text-decoration:none;">1.3 Fiche &amp; camp × plan</a>
+    <a href="#t1-schema" style="font-size:12.5px; padding:5px 8px; border-radius:6px; color:#4E4E4B;" style-hover="background:#F4F4F2; text-decoration:none;">1.4 Le schéma</a>
+    <a href="#t1-arbre" style="font-size:12.5px; padding:5px 8px; border-radius:6px; color:#4E4E4B;" style-hover="background:#F4F4F2; text-decoration:none;">1.5 Sort de l'arbre</a>
+    <a href="#t1-lint" style="font-size:12.5px; padding:5px 8px; border-radius:6px; color:#4E4E4B;" style-hover="background:#F4F4F2; text-decoration:none;">1.6 Linter d'aventure</a>
+    <a href="#t1-copilote" style="font-size:12.5px; padding:5px 8px; border-radius:6px; color:#4E4E4B;" style-hover="background:#F4F4F2; text-decoration:none;">1.7 Copilote de rédaction</a>
+    <a href="#t1-iterations" style="font-size:12.5px; padding:5px 8px; border-radius:6px; color:#4E4E4B;" style-hover="background:#F4F4F2; text-decoration:none;">1.8 Itérations</a>
+    <div style="height:1px; background:#EEEEEB; margin:8px 4px;"></div>
+    <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#2F6BFF; padding:4px 4px 6px;">Temps 2 · Moteur</div>
+    <a href="#t2-boucle" style="font-size:12.5px; padding:5px 8px; border-radius:6px; color:#4E4E4B;" style-hover="background:#F4F4F2; text-decoration:none;">2.1 La boucle de jeu</a>
+    <a href="#t2-roles" style="font-size:12.5px; padding:5px 8px; border-radius:6px; color:#4E4E4B;" style-hover="background:#F4F4F2; text-decoration:none;">2.2 Les rôles IA</a>
+    <a href="#t2-frontiere" style="font-size:12.5px; padding:5px 8px; border-radius:6px; color:#4E4E4B;" style-hover="background:#F4F4F2; text-decoration:none;">2.3 Frontière code / IA</a>
+    <a href="#t2-session" style="font-size:12.5px; padding:5px 8px; border-radius:6px; color:#4E4E4B;" style-hover="background:#F4F4F2; text-decoration:none;">2.4 L'état de session</a>
+    <a href="#t2-contexte" style="font-size:12.5px; padding:5px 8px; border-radius:6px; color:#4E4E4B;" style-hover="background:#F4F4F2; text-decoration:none;">2.5 Contexte &amp; mémoire</a>
+    <a href="#t2-sousboucles" style="font-size:12.5px; padding:5px 8px; border-radius:6px; color:#4E4E4B;" style-hover="background:#F4F4F2; text-decoration:none;">2.6 Dés, combat, dialogue</a>
+    <a href="#t2-horloge" style="font-size:12.5px; padding:5px 8px; border-radius:6px; color:#4E4E4B;" style-hover="background:#F4F4F2; text-decoration:none;">2.7 Horloge des PNJ</a>
+    <a href="#t2-gardefous" style="font-size:12.5px; padding:5px 8px; border-radius:6px; color:#4E4E4B;" style-hover="background:#F4F4F2; text-decoration:none;">2.8 Garde-fous</a>
+    <a href="#t2-ecran" style="font-size:12.5px; padding:5px 8px; border-radius:6px; color:#4E4E4B;" style-hover="background:#F4F4F2; text-decoration:none;">2.9 L'écran de jeu</a>
+    <a href="#t2-iterations" style="font-size:12.5px; padding:5px 8px; border-radius:6px; color:#4E4E4B;" style-hover="background:#F4F4F2; text-decoration:none;">2.10 Itérations</a>
+    <a href="#t2-config" style="font-size:12.5px; padding:5px 8px; border-radius:6px; color:#4E4E4B;" style-hover="background:#F4F4F2; text-decoration:none;">2.11 Config &amp; routeur</a>
+    <div style="height:1px; background:#EEEEEB; margin:8px 4px;"></div>
+    <a href="#decisions" style="font-size:12.5px; padding:5px 8px; border-radius:6px; color:#4E4E4B;" style-hover="background:#F4F4F2; text-decoration:none;">Arbitrages retenus</a>
+  </nav>
+
+  <main style="display:flex; flex-direction:column; gap:24px; min-width:0;">
+
+    <header style="background:#FFFFFF; border:1px solid #D9D9D6; border-radius:12px; padding:32px 32px 28px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#2F6BFF;">Plan de bascule · genliv</div>
+      <h1 style="margin:10px 0 0; font-size:30px; line-height:1.2; letter-spacing:-0.02em; color:#2B2B29; font-weight:700;">De l'arbre de choix au maître du jeu IA</h1>
+      <p style="margin:12px 0 0; font-size:14px; line-height:1.5; color:#4E4E4B; max-width:70ch; text-wrap:pretty;">L'auteur ne dessine plus les chemins : il écrit un <strong style="color:#2B2B29;">dossier d'aventure</strong> — synopsis, objectifs, fiches de PNJ jouables par une IA, lieux, événements, climat. Le moteur, lui, orchestre une IA qui interprète les actions libres du joueur, tient les dialogues et fait tourner les règles existantes. Deux temps, un seul pivot : un fichier JSON.</p>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:20px;">
+        <span style="font-family:'JetBrains Mono',monospace; font-size:10.5px; padding:5px 10px; border-radius:999px; background:#F4F4F2; color:#4E4E4B; border:1px solid #E2E2DF;">Temps 1 — éditeur → JSON</span>
+        <span style="font-family:'JetBrains Mono',monospace; font-size:10.5px; padding:5px 10px; border-radius:999px; background:#F4F4F2; color:#4E4E4B; border:1px solid #E2E2DF;">Temps 2 — moteur → session</span>
+        <span style="font-family:'JetBrains Mono',monospace; font-size:10.5px; padding:5px 10px; border-radius:999px; background:#F4F8FF; color:#2F6BFF; border:1px solid #CFE0FF;">Règles conservées : REGLES-DU-JEU.md</span>
+      </div>
+    </header>
+
+    <section id="principe" style="background:#FFFFFF; border:1px solid #D9D9D6; border-radius:12px; padding:28px 32px 32px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#9A9A96;">00 — Cadrage</div>
+      <h2 style="margin:8px 0 0; font-size:20px; color:#2B2B29; letter-spacing:-0.01em; font-weight:600;">Ce qui change, ce qui reste</h2>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:16px; margin-top:20px;">
+        <div style="background:#FAFAF9; border:1px solid #E6E6E3; border-radius:8px; padding:16px;">
+          <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.08em; text-transform:uppercase; color:#3E9E5E;">On garde</div>
+          <ul style="margin:10px 0 0; padding-left:16px; font-size:12.5px; line-height:1.55;">
+            <li>Les 8 caractéristiques, PV/PE, TC1–4, combat, XP, bestiaire — le <em>brain-runtime</em> est déjà écrit.</li>
+            <li>Le vocabulaire éditeur : fiches, objets à nom interne / description joueur.</li>
+            <li>L'arbre, réduit à des <strong style="color:#2B2B29;">jalons</strong> facultatifs (§ 1.5).</li>
+          </ul>
+        </div>
+        <div style="background:#FAFAF9; border:1px solid #E6E6E3; border-radius:8px; padding:16px;">
+          <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.08em; text-transform:uppercase; color:#C0654A;">On abandonne</div>
+          <ul style="margin:10px 0 0; padding-left:16px; font-size:12.5px; line-height:1.55;">
+            <li>L'obligation de câbler chaque écran et chaque choix à la main.</li>
+            <li>Les textes « si réussite / si échec » écrits un par un : l'IA les improvise depuis la fiche.</li>
+            <li>Les fins énumérées : on décrit des <strong style="color:#2B2B29;">conditions</strong> de fin, pas des feuilles.</li>
+          </ul>
+        </div>
+        <div style="background:#F4F8FF; border:1px solid #CFE0FF; border-radius:8px; padding:16px;">
+          <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.08em; text-transform:uppercase; color:#2F6BFF;">Invariant</div>
+          <p style="margin:10px 0 0; font-size:12.5px; line-height:1.55;">L'IA <strong style="color:#2B2B29;">ne lance jamais les dés</strong> et ne modifie jamais une statistique. Elle <em>demande</em> un jet, le moteur le résout et lui renvoie le résultat à raconter. Le hasard, les PV, l'inventaire et l'XP restent du code déterministe, testable, rejouable.</p>
+        </div>
+      </div>
+    </section>
+
+    <div style="display:flex; align-items:center; gap:12px; margin-top:12px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:0.14em; text-transform:uppercase; color:#FFFFFF; background:#2B2B29; padding:6px 12px; border-radius:999px;">Temps 1</div>
+      <div style="font-size:15px; color:#2B2B29; font-weight:600;">Transformer l'éditeur en fabrique de dossier d'aventure JSON</div>
+      <div style="flex:1; height:1px; background:#D2D2CE;"></div>
+    </div>
+
+    <section id="t1-pivot" style="background:#FFFFFF; border:1px solid #D9D9D6; border-radius:12px; padding:28px 32px 32px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#9A9A96;">1.1</div>
+      <h2 style="margin:8px 0 0; font-size:20px; color:#2B2B29; letter-spacing:-0.01em; font-weight:600;">Le pivot : un fichier, trois couches</h2>
+      <p style="margin:12px 0 0; font-size:13.5px; line-height:1.55; max-width:76ch; text-wrap:pretty;">Un livre n'est plus un arbre de nœuds mais un <strong style="color:#2B2B29;">dossier</strong> — ce que le moteur donnera à lire à l'IA. Trois couches, séparées parce qu'elles ne servent pas au même moment de la partie.</p>
+      <div style="display:flex; flex-direction:column; gap:10px; margin-top:20px;">
+        <div style="display:grid; grid-template-columns:150px minmax(0,1fr); gap:16px; padding:14px 16px; background:#FAFAF9; border:1px solid #E6E6E3; border-radius:8px;">
+          <div><div style="font-family:'JetBrains Mono',monospace; font-size:10.5px; color:#2F6BFF;">A · CANON</div><div style="font-size:11px; color:#8A8A86; margin-top:2px;">chargé en entier</div></div>
+          <div style="font-size:12.5px; line-height:1.55;">Vérité immuable de l'histoire : synopsis, enjeu, objectifs des camps, ton, interdits. Court, tenu sous ~600 mots. C'est le seul bloc toujours présent dans le contexte de l'IA.</div>
+        </div>
+        <div style="display:grid; grid-template-columns:150px minmax(0,1fr); gap:16px; padding:14px 16px; background:#FAFAF9; border:1px solid #E6E6E3; border-radius:8px;">
+          <div><div style="font-family:'JetBrains Mono',monospace; font-size:10.5px; color:#2F6BFF;">B · ACTEURS &amp; MONDE</div><div style="font-size:11px; color:#8A8A86; margin-top:2px;">chargé à la demande</div></div>
+          <div style="font-size:12.5px; line-height:1.55;">Fiches (protagonistes 1er / 2nd plan, antagonistes), lieux, événements liés et libres, climat &amp; conditions. Indexé par identifiant : le moteur n'injecte que les entités présentes dans la scène.</div>
+        </div>
+        <div style="display:grid; grid-template-columns:150px minmax(0,1fr); gap:16px; padding:14px 16px; background:#FAFAF9; border:1px solid #E6E6E3; border-radius:8px;">
+          <div><div style="font-family:'JetBrains Mono',monospace; font-size:10.5px; color:#2F6BFF;">C · CHARPENTE</div><div style="font-size:11px; color:#8A8A86; margin-top:2px;">lu par le moteur, pas par l'IA</div></div>
+          <div style="font-size:12.5px; line-height:1.55;">Scène d'ouverture, jalons (ex-arbre), conditions de fin, horloges, règles de progression. Du code s'appuie dessus pour arbitrer ; l'IA n'en voit que ce qui est pertinent.</div>
+        </div>
+      </div>
+      <p style="margin:20px 0 0; font-size:12.5px; line-height:1.55; color:#6E6E6A; padding:12px 14px; background:#F7F7F5; border-left:2px solid #D2D2CE; border-radius:0 6px 6px 0;">Un identifiant stable partout (<code style="font-family:'JetBrains Mono',monospace; font-size:11.5px; color:#2B2B29;">pnj.aldur</code>, <code style="font-family:'JetBrains Mono',monospace; font-size:11.5px; color:#2B2B29;">lieu.caverne-basse</code>, <code style="font-family:'JetBrains Mono',monospace; font-size:11.5px; color:#2B2B29;">indice.sceau-brise</code>). Toute relation, condition ou révélation pointe un identifiant, jamais un nom libre — c'est ce qui rend le lint (§ 1.6) et la validation des sorties IA (§ 2.8) possibles.</p>
+    </section>
+
+    <section id="t1-sections" style="background:#FFFFFF; border:1px solid #D9D9D6; border-radius:12px; padding:28px 32px 32px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#9A9A96;">1.2</div>
+      <h2 style="margin:8px 0 0; font-size:20px; color:#2B2B29; letter-spacing:-0.01em; font-weight:600;">Les 10 sections de l'éditeur</h2>
+      <p style="margin:12px 0 0; font-size:13.5px; line-height:1.55; max-width:76ch;">La navigation latérale actuelle (arbre / sommaire) devient une <strong style="color:#2B2B29;">liste de sections</strong> avec compteur de fiches et état de complétion. Chaque section est une liste de fiches + un éditeur à droite : la mécanique d'édition existante est réutilisée telle quelle.</p>
+      <div style="display:flex; flex-direction:column; margin-top:20px; border:1px solid #E2E2DF; border-radius:8px; overflow:hidden;">
+        <sc-for list="{{ sections }}" as="s" hint-placeholder-count="10">
+          <div style="display:grid; grid-template-columns:26px 190px minmax(0,1fr); gap:14px; padding:13px 16px; border-bottom:1px solid #EEEEEB; align-items:start; background:#FFFFFF;">
+            <div style="font-family:'JetBrains Mono',monospace; font-size:10.5px; color:#B0B0AB; padding-top:2px;">{{ s.num }}</div>
+            <div>
+              <div style="font-size:13.5px; color:#2B2B29; font-weight:600;">{{ s.titre }}</div>
+              <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#8A8A86; margin-top:3px;">{{ s.cle }}</div>
+            </div>
+            <div style="font-size:12.5px; line-height:1.55; color:#4E4E4B;">{{ s.contenu }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section id="t1-fiche" style="background:#FFFFFF; border:1px solid #D9D9D6; border-radius:12px; padding:28px 32px 32px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#9A9A96;">1.3</div>
+      <h2 style="margin:8px 0 0; font-size:20px; color:#2B2B29; letter-spacing:-0.01em; font-weight:600;">Anatomie d'une fiche de personnage</h2>
+      <p style="margin:12px 0 0; font-size:13.5px; line-height:1.55; max-width:76ch;">C'est <strong style="color:#2B2B29;">l'écran le plus important du produit</strong> : tout ce que l'IA saura jouer d'un PNJ est là. Huit blocs, un accordéon, <strong style="color:#2B2B29;">un seul formulaire pour tous les personnages</strong> — deux champs suffisent à les différencier.</p>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px; margin-top:20px;">
+        <sc-for list="{{ matrice }}" as="m" hint-placeholder-count="4">
+          <div style="border:1px solid #E6E6E3; border-radius:8px; padding:14px 16px;">
+            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+              <span style="font-size:13px; color:#2B2B29; font-weight:600;">{{ m.camp }}</span>
+              <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.06em; text-transform:uppercase; color:#6E6E6A; border:1px solid #E2E2DF; border-radius:999px; padding:3px 7px;">{{ m.plan }}</span>
+            </div>
+            <p style="margin:7px 0 0; font-size:12.5px; line-height:1.55;">{{ m.corps }}</p>
+            <div style="font-family:'JetBrains Mono',monospace; font-size:10.5px; color:#6E6E6A; margin-top:9px; padding-top:9px; border-top:1px solid #EEEEEB;">{{ m.extra }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <p style="margin:16px 0 0; font-size:12.5px; line-height:1.6; color:#6E6E6A; padding:12px 14px; background:#F7F7F5; border-left:2px solid #D2D2CE; border-radius:0 6px 6px 0;">Deux axes indépendants : <code style="font-family:'JetBrains Mono',monospace; font-size:11.5px; color:#2B2B29;">camp</code> (protagoniste / antagoniste) décide du comportement en jeu, <code style="font-family:'JetBrains Mono',monospace; font-size:11.5px; color:#2B2B29;">plan</code> (premier / second) décide de <em>ce que le personnage peut faire bouger</em>. Le moteur s'en sert comme d'une règle dure : un plan de second plan ne peut pas cocher un jalon du canon, et le linter refuse un indice principal détenu seulement par du second plan.</p>
+      <div style="display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:14px; margin-top:20px;">
+        <sc-for list="{{ blocs }}" as="b" hint-placeholder-count="8">
+          <div style="background:#FAFAF9; border:1px solid #E6E6E3; border-radius:8px; padding:16px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.08em; text-transform:uppercase; color:#2F6BFF;">{{ b.eyebrow }}</span>
+              <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; color:#B0B0AB;">{{ b.badge }}</span>
+            </div>
+            <div style="font-size:13.5px; color:#2B2B29; font-weight:600; margin-top:6px;">{{ b.titre }}</div>
+            <div style="font-size:12.5px; line-height:1.55; margin-top:6px;">{{ b.corps }}</div>
+            <div style="font-family:'JetBrains Mono',monospace; font-size:11px; color:#6E6E6A; margin-top:10px; padding-top:10px; border-top:1px solid #EEEEEB;">{{ b.champs }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="margin-top:20px; padding:16px 18px; background:#F4F8FF; border:1px solid #CFE0FF; border-radius:8px;">
+        <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.08em; text-transform:uppercase; color:#2F6BFF;">Le bloc qui décide de tout</div>
+        <p style="margin:8px 0 0; font-size:12.5px; line-height:1.6;">« Caractère exploitable par l'IA » ne peut pas être une zone de texte libre, sinon l'IA jouera tous les PNJ de la même voix. On le structure en <strong style="color:#2B2B29;">curseurs</strong> (méfiance, franchise, courage, cupidité, loyauté, verve — 0 à 10, mappés sur CA / IN / IG), plus trois champs courts : <em>manière de parler</em> (2 exemples de répliques), <em>ce qu'il ne fera jamais</em>, <em>ce qui le fait céder</em>. Un curseur = un levier concret dans le prompt de dialogue (§ 2.6).</p>
+      </div>
+    </section>
+
+    <sc-if value="{{ showSchemas }}" hint-placeholder-val="{{ true }}">
+    <section id="t1-schema" style="background:#FFFFFF; border:1px solid #D9D9D6; border-radius:12px; padding:28px 32px 32px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#9A9A96;">1.4</div>
+      <h2 style="margin:8px 0 0; font-size:20px; color:#2B2B29; letter-spacing:-0.01em; font-weight:600;">Le schéma du dossier (abrégé)</h2>
+      <p style="margin:12px 0 0; font-size:13.5px; line-height:1.55; max-width:76ch;">Versionné dès le premier jour (<code style="font-family:'JetBrains Mono',monospace; font-size:12px;">schema: 1</code>) et validé à l'import comme à l'export. Ce qui suit est le contrat entre les deux temps.</p>
+      <pre style="margin:20px 0 0; padding:18px; background:#FAFAF9; border:1px solid #E6E6E3; border-radius:8px; font-family:'JetBrains Mono',monospace; font-size:11.5px; line-height:1.6; color:#2B2B29; overflow-x:auto; white-space:pre;">{
+  "schema": 1,
+  "meta": { "titre", "auteur", "ton", "public", "duree_visee" },
+
+  "canon": {
+    "synopsis_mj",            // la vérité, y compris ce que le joueur ignore
+    "accroche_joueur",        // ce que le joueur sait au départ
+    "enjeu",                  // ce qui se passe si personne n'agit
+    "objectifs": [ { "id", "camp": "protagonistes|antagonistes|joueur",
+                     "libelle", "reussi_si", "echoue_si" } ],
+    "interdits": []           // ce que l'IA ne doit jamais introduire
+  },
+
+  "personnages": [ {
+    "id",
+    "camp": "protagoniste|antagoniste",   // comportement en jeu
+    "plan": "premier|second",             // portée : intrigue vs quête secondaire
+    "rattachement": { "objectif_id" }     // si plan=premier
+                   | { "quete_id" },      // si plan=second
+    "fiche":   { "nom", "apparence", "fonction", "description_joueur" },
+    "stats":   { "FO","AG","DX","EN","IN","IG","SE","CA", "pv", "tier" },
+    "caractere": { "curseurs": { "mefiance":0-10, "franchise":0-10,
+                     "courage":0-10, "cupidite":0-10, "loyaute":0-10, "verve":0-10 },
+                   "parler": ["réplique type", "réplique type"],
+                   "jamais", "cede_si" },
+    "objectif": { "libelle", "pourquoi", "echeance" },
+    "plan": [ { "etape", "action", "declencheur", "duree", "si_bloque" } ],
+    "savoirs": [ { "indice_id", "certitude": "sait|croit|soupconne",
+                   "revele_si": { "confiance>=", "jet": {"carac","tc"},
+                                  "contrepartie", "apres_indice_id" },
+                   "revele_comment" } ],
+    "relations": [ { "cible_id", "lien", "intensite": -3..3, "secret": bool } ],
+    "contre_mesures": [ { "action", "declencheur", "delai", "portee" } ],  // camp=antagoniste
+    "presence": [ { "lieu_id", "quand" } ]
+  } ],
+
+  "quetes": [ { "id", "titre", "donneur_id", "objectif", "etapes": [ … ],
+                "recompense": { "objet_id"|"indice_id"|"xp" },
+                "echeance", "lie_au_canon": false } ],
+
+  "indices": [ { "id", "portee": "canon|quete", "verite",
+                 "formulation_joueur", "mene_a": [ids] } ],
+
+  "lieux": [ { "id", "nom", "description", "ambiance", "acces": [lieu_ids],
+               "personnages": [ids], "objets": [ids], "indices": [ids],
+               "evenements": [ids], "dangers" } ],
+
+  "evenements": [ { "id", "lie_a_histoire": bool, "nature": "monstre|scene|obstacle",
+                    "monstre_ref", "declencheur": { "lieu_id","apres","proba" },
+                    "resolutions": [ { "resultat", "consequence" } ] } ],
+
+  "conditions": { "climat": [ { "id","libelle","effets_regles","duree" } ],
+                  "contraintes": [ "faim","froid","poursuite" ] },
+
+  "depart": { "lieu_id", "date_fiction", "texte_ouverture",
+              "personnage_joueur": { "prete": bool, "contraintes" },
+              "inventaire_initial": [ids] },
+
+  "jalons": [ { "id", "declencheur", "effet", "obligatoire": bool } ],
+  "fins":   [ { "id", "condition", "texte" } ]
+}</pre>
+    </section>
+    </sc-if>
+
+    <section id="t1-arbre" style="background:#FFFFFF; border:1px solid #D9D9D6; border-radius:12px; padding:28px 32px 32px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#9A9A96;">1.5</div>
+      <h2 style="margin:8px 0 0; font-size:20px; color:#2B2B29; letter-spacing:-0.01em; font-weight:600;">Ce que devient l'arbre de choix</h2>
+      <p style="margin:12px 0 0; font-size:13.5px; line-height:1.55; max-width:76ch;">On le garde, mais il change de nature : d'ossature obligatoire il devient <strong style="color:#2B2B29;">filet de sécurité narratif</strong>. Trois usages seulement.</p>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:14px; margin-top:20px;">
+        <div style="border:1px solid #E6E6E3; border-radius:8px; padding:16px;">
+          <div style="width:12px; height:12px; background:#2B2B29; border-radius:2px;"></div>
+          <div style="font-size:13.5px; color:#2B2B29; font-weight:600; margin-top:10px;">Jalons</div>
+          <p style="margin:6px 0 0; font-size:12.5px; line-height:1.55;">Points de passage que l'histoire doit atteindre (« le sceau est brisé », « l'antagoniste sait que le joueur enquête »). Le moteur les coche ; l'IA reçoit « voici où on en est ».</p>
+        </div>
+        <div style="border:1px solid #E6E6E3; border-radius:8px; padding:16px;">
+          <div style="width:12px; height:12px; border:1.5px solid #2B2B29; border-radius:2px;"></div>
+          <div style="font-size:13.5px; color:#2B2B29; font-weight:600; margin-top:10px;">Scènes écrites</div>
+          <p style="margin:6px 0 0; font-size:12.5px; line-height:1.55;">L'auteur peut figer une scène clé mot pour mot (ouverture, révélation, fin). L'IA la joue telle quelle plutôt que de l'improviser.</p>
+        </div>
+        <div style="border:1px solid #E6E6E3; border-radius:8px; padding:16px;">
+          <div style="width:12px; height:12px; border:1.5px dashed #2B2B29; border-radius:2px;"></div>
+          <div style="font-size:13.5px; color:#2B2B29; font-weight:600; margin-top:10px;">Fins conditionnelles</div>
+          <p style="margin:6px 0 0; font-size:12.5px; line-height:1.55;">Une fin = une condition sur l'état (objectif rempli, PV ≤ -CA, échéance dépassée), plus un texte. « Mort du personnage » reste la fin obligatoire déjà spécifiée.</p>
+        </div>
+      </div>
+      <p style="margin:18px 0 0; font-size:12.5px; line-height:1.55; color:#6E6E6A;">La vue canevas existante reste utile : elle affiche désormais un <strong style="color:#2B2B29;">graphe de relations et d'indices</strong> (qui connaît quoi, qui mène à qui) au lieu d'un graphe d'écrans. Même composant, autre source de données.</p>
+    </section>
+
+    <section id="t1-lint" style="background:#FFFFFF; border:1px solid #D9D9D6; border-radius:12px; padding:28px 32px 32px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#9A9A96;">1.6</div>
+      <h2 style="margin:8px 0 0; font-size:20px; color:#2B2B29; letter-spacing:-0.01em; font-weight:600;">Le linter d'aventure</h2>
+      <p style="margin:12px 0 0; font-size:13.5px; line-height:1.55; max-width:76ch;">Sans arbre, plus de « chemin cassé » visible à l'œil : c'est le linter qui garantit qu'une aventure est jouable. Il tourne en continu et alimente un badge d'état par section.</p>
+      <div style="display:flex; flex-direction:column; gap:8px; margin-top:20px;">
+        <sc-for list="{{ lints }}" as="l" hint-placeholder-count="7">
+          <div style="display:grid; grid-template-columns:72px minmax(0,1fr); gap:14px; align-items:start; padding:12px 14px; background:#FAFAF9; border:1px solid #E6E6E3; border-radius:8px;">
+            <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.06em; text-transform:uppercase; color:{{ l.couleur }}; border:1px solid {{ l.bordure }}; border-radius:999px; padding:3px 7px; text-align:center;">{{ l.niveau }}</span>
+            <div style="font-size:12.5px; line-height:1.55;"><strong style="color:#2B2B29;">{{ l.regle }}</strong> — {{ l.detail }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section id="t1-copilote" style="background:#FFFFFF; border:1px solid #D9D9D6; border-radius:12px; padding:28px 32px 32px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#9A9A96;">1.7</div>
+      <h2 style="margin:8px 0 0; font-size:20px; color:#2B2B29; letter-spacing:-0.01em; font-weight:600;">Le copilote de rédaction</h2>
+      <p style="margin:12px 0 0; font-size:13.5px; line-height:1.55; max-width:76ch;">Une IA aide aussi à <em>écrire</em> le dossier — mais toujours en proposition, jamais en écriture directe : chaque suggestion arrive dans un panneau de diff que l'auteur accepte champ par champ.</p>
+      <div style="display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; margin-top:20px;">
+        <div style="padding:14px 16px; border:1px solid #E6E6E3; border-radius:8px;"><div style="font-size:13px; color:#2B2B29; font-weight:600;">Éclater le synopsis</div><p style="margin:5px 0 0; font-size:12.5px; line-height:1.5;">Depuis le synopsis + les objectifs : propose la distribution (3 premiers plans, 4 seconds, 2 antagonistes) avec objectifs et une phrase de caractère.</p></div>
+        <div style="padding:14px 16px; border:1px solid #E6E6E3; border-radius:8px;"><div style="font-size:13px; color:#2B2B29; font-weight:600;">Compléter une fiche</div><p style="margin:5px 0 0; font-size:12.5px; line-height:1.5;">Propose curseurs, répliques types, plan d'actions en 4 étapes et relations plausibles avec les fiches déjà écrites.</p></div>
+        <div style="padding:14px 16px; border:1px solid #E6E6E3; border-radius:8px;"><div style="font-size:13px; color:#2B2B29; font-weight:600;">Tisser les indices</div><p style="margin:5px 0 0; font-size:12.5px; line-height:1.5;">Vérifie que chaque indice a au moins deux détenteurs ou sources, et propose qui d'autre pourrait le connaître, et à quelle condition.</p></div>
+        <div style="padding:14px 16px; border:1px solid #E6E6E3; border-radius:8px;"><div style="font-size:13px; color:#2B2B29; font-weight:600;">Répétition à blanc</div><p style="margin:5px 0 0; font-size:12.5px; line-height:1.5;">Simule 20 tours joués par un joueur synthétique et rapporte les blocages, les PNJ jamais rencontrés, les indices inatteignables.</p></div>
+      </div>
+    </section>
+
+    <sc-if value="{{ showIterations }}" hint-placeholder-val="{{ true }}">
+    <section id="t1-iterations" style="background:#FFFFFF; border:1px solid #D9D9D6; border-radius:12px; padding:28px 32px 32px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#9A9A96;">1.8</div>
+      <h2 style="margin:8px 0 0; font-size:20px; color:#2B2B29; letter-spacing:-0.01em; font-weight:600;">Itérations — Temps 1</h2>
+      <div style="display:flex; flex-direction:column; gap:10px; margin-top:20px;">
+        <sc-for list="{{ iterEditeur }}" as="i" hint-placeholder-count="5">
+          <div style="display:grid; grid-template-columns:44px minmax(0,1fr) 132px; gap:14px; align-items:start; padding:14px 16px; border:1px solid #E6E6E3; border-radius:8px;">
+            <div style="font-family:'JetBrains Mono',monospace; font-size:11px; color:#2F6BFF; padding-top:2px;">{{ i.num }}</div>
+            <div>
+              <div style="font-size:13.5px; color:#2B2B29; font-weight:600;">{{ i.titre }}</div>
+              <div style="font-size:12.5px; line-height:1.55; margin-top:4px;">{{ i.corps }}</div>
+            </div>
+            <div style="font-family:'JetBrains Mono',monospace; font-size:10px; line-height:1.5; color:#8A8A86;">{{ i.sortie }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+    </sc-if>
+
+    <div style="display:flex; align-items:center; gap:12px; margin-top:12px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:0.14em; text-transform:uppercase; color:#FFFFFF; background:#2B2B29; padding:6px 12px; border-radius:999px;">Temps 2</div>
+      <div style="font-size:15px; color:#2B2B29; font-weight:600;">Le moteur : jouer un dossier JSON avec un personnage qui évolue</div>
+      <div style="flex:1; height:1px; background:#D2D2CE;"></div>
+    </div>
+
+    <section id="t2-boucle" style="background:#FFFFFF; border:1px solid #D9D9D6; border-radius:12px; padding:28px 32px 32px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#9A9A96;">2.1</div>
+      <h2 style="margin:8px 0 0; font-size:20px; color:#2B2B29; letter-spacing:-0.01em; font-weight:600;">La boucle de jeu</h2>
+      <p style="margin:12px 0 0; font-size:13.5px; line-height:1.55; max-width:76ch;">Un tour = une intention du joueur, résolue en sept étapes. Le moteur est une machine à états : chaque étape est une fonction pure ou un appel IA typé, ce qui rend le tour rejouable et testable.</p>
+      <div style="display:flex; flex-direction:column; gap:0; margin-top:20px;">
+        <sc-for list="{{ etapes }}" as="e" hint-placeholder-count="7">
+          <div style="display:grid; grid-template-columns:34px minmax(0,1fr); gap:14px;">
+            <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+              <div style="width:26px; height:26px; border-radius:999px; background:{{ e.pastille }}; color:#FFFFFF; font-family:'JetBrains Mono',monospace; font-size:11px; display:flex; align-items:center; justify-content:center;">{{ e.num }}</div>
+              <div style="flex:1; width:1px; background:#E2E2DF;"></div>
+            </div>
+            <div style="padding-bottom:18px;">
+              <div style="display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;">
+                <div style="font-size:13.5px; color:#2B2B29; font-weight:600;">{{ e.titre }}</div>
+                <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.06em; text-transform:uppercase; color:{{ e.tonCouleur }};">{{ e.acteur }}</span>
+              </div>
+              <div style="font-size:12.5px; line-height:1.55; margin-top:5px; max-width:74ch;">{{ e.corps }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section id="t2-roles" style="background:#FFFFFF; border:1px solid #D9D9D6; border-radius:12px; padding:28px 32px 32px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#9A9A96;">2.2</div>
+      <h2 style="margin:8px 0 0; font-size:20px; color:#2B2B29; letter-spacing:-0.01em; font-weight:600;">Quatre rôles IA, pas un chatbot</h2>
+      <p style="margin:12px 0 0; font-size:13.5px; line-height:1.55; max-width:76ch;">Un seul prompt géant dérive vite. On découpe en rôles aux contrats étroits — chacun reçoit le minimum de contexte et rend une <strong style="color:#2B2B29;">sortie structurée</strong>. Ils peuvent tourner sur le même modèle ; un rôle bon marché suffit pour l'interprète.</p>
+      <div style="display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:14px; margin-top:20px;">
+        <sc-for list="{{ roles }}" as="r" hint-placeholder-count="4">
+          <div style="background:#FAFAF9; border:1px solid #E6E6E3; border-radius:8px; padding:16px;">
+            <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.08em; text-transform:uppercase; color:#2F6BFF;">{{ r.cle }}</div>
+            <div style="font-size:14px; color:#2B2B29; font-weight:600; margin-top:6px;">{{ r.titre }}</div>
+            <div style="font-size:12.5px; line-height:1.55; margin-top:6px;">{{ r.corps }}</div>
+            <div style="margin-top:10px; padding-top:10px; border-top:1px solid #EEEEEB; font-family:'JetBrains Mono',monospace; font-size:10.5px; line-height:1.55; color:#6E6E6A;">entrée · {{ r.entree }}<br />sortie · {{ r.sortie }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section id="t2-frontiere" style="background:#FFFFFF; border:1px solid #D9D9D6; border-radius:12px; padding:28px 32px 32px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#9A9A96;">2.3</div>
+      <h2 style="margin:8px 0 0; font-size:20px; color:#2B2B29; letter-spacing:-0.01em; font-weight:600;">La frontière dure : code / IA</h2>
+      <div style="display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:16px; margin-top:20px;">
+        <div style="border:1px solid #E6E6E3; border-radius:8px; overflow:hidden;">
+          <div style="padding:10px 14px; background:#F7F7F5; border-bottom:1px solid #E6E6E3; font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.08em; text-transform:uppercase; color:#2B2B29;">Toujours le code</div>
+          <div style="padding:14px; font-size:12.5px; line-height:1.7;">Lancer les dés (1D6, 2D5, 3D4, 4D4, Rand)<br />Comparer au seuil, marge de réussite<br />PV, PE, malus d'épuisement, seuils critiques<br />Résolution d'assaut, postures, PF, armures<br />XP, coûts de progression, plafonds<br />Inventaire, équipement, effets d'objets<br />Horloge, déplacements, déclencheurs<br />Conditions de fin<br />Validation de tout delta d'état</div>
+        </div>
+        <div style="border:1px solid #CFE0FF; border-radius:8px; overflow:hidden;">
+          <div style="padding:10px 14px; background:#F4F8FF; border-bottom:1px solid #CFE0FF; font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.08em; text-transform:uppercase; color:#2F6BFF;">Toujours l'IA</div>
+          <div style="padding:14px; font-size:12.5px; line-height:1.7;">Comprendre une intention écrite en langage libre<br />Demander une précision quand c'est ambigu<br />Choisir <em>quelle</em> caractéristique et <em>quel</em> TC<br />Décider si une action mérite un jet ou passe seule<br />Raconter le résultat, en tenant le ton<br />Parler au nom d'un PNJ, avec son caractère<br />Décider ce qu'un PNJ révèle et comment<br />Proposer les conséquences (soumises à validation)</div>
+        </div>
+      </div>
+      <p style="margin:18px 0 0; font-size:12.5px; line-height:1.6; color:#6E6E6A; padding:12px 14px; background:#F7F7F5; border-left:2px solid #D2D2CE; border-radius:0 6px 6px 0;">Conséquence pratique : l'IA <strong style="color:#2B2B29;">annonce</strong> le jet (« Sens, TC2 »), le moteur le lance, puis un second appel raconte l'issue avec le résultat en entrée. Deux appels, mais un hasard incontestable et un journal auditable — indispensable pour rejouer un bug de partie.</p>
+    </section>
+
+    <sc-if value="{{ showSchemas }}" hint-placeholder-val="{{ true }}">
+    <section id="t2-session" style="background:#FFFFFF; border:1px solid #D9D9D6; border-radius:12px; padding:28px 32px 32px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#9A9A96;">2.4</div>
+      <h2 style="margin:8px 0 0; font-size:20px; color:#2B2B29; letter-spacing:-0.01em; font-weight:600;">L'état de session</h2>
+      <p style="margin:12px 0 0; font-size:13.5px; line-height:1.55; max-width:76ch;">Le dossier est en lecture seule pendant la partie. Tout ce qui bouge vit dans un second JSON — sauvegarde, reprise et rejeu passent par lui.</p>
+      <pre style="margin:20px 0 0; padding:18px; background:#FAFAF9; border:1px solid #E6E6E3; border-radius:8px; font-family:'JetBrains Mono',monospace; font-size:11.5px; line-height:1.6; color:#2B2B29; overflow-x:auto; white-space:pre;">{
+  "schema": 1, "dossier_id", "graine_alea",     // rejeu déterministe
+  "horloge": { "tour", "minutes_ecoulees", "moment", "climat_actif" },
+  "heros": {
+    "nom", "carac": { "FO":…, "CA":… }, "pv", "pv_max", "pe",
+    "xp", "xp_depense", "mc_bonus",
+    "inventaire": [ { "objet_id", "etat" } ], "equipe": { "arme","protection" },
+    "etats": [ "blesse","affame","poursuivi" ]
+  },
+  "monde": {
+    "lieu_courant", "lieux_visites": [ids],
+    "pnj": { "<id>": { "etape_plan", "confiance": -3..3, "vivant",
+                       "lieu", "sait": [indice_ids], "a_dit": [indice_ids] } },
+    "indices_connus": [ { "indice_id", "source_id", "tour" } ],
+    "jalons_atteints": [ids], "evenements_consommes": [ids]
+  },
+  "journal": [ { "tour", "role", "texte", "jets": [ { "carac","tc","des",
+                 "resultat","marge","issue" } ], "deltas": [ … ] } ],
+  "memoire": { "resume_long", "resume_recent", "faits_etablis": [ … ] },
+  "combat": null | { "monstre", "pv","round","parades","posture_joueur" },
+  "attente": null | { "type": "clarification|jet|posture|choix", "payload" }
+}</pre>
+      <p style="margin:16px 0 0; font-size:12.5px; line-height:1.6; color:#6E6E6A;"><strong style="color:#2B2B29;">graine_alea</strong> + journal = une partie entièrement reproductible : on peut rejouer une session bug pour bug, ce qui est la seule façon raisonnable de déboguer un système où une IA décide.</p>
+    </section>
+    </sc-if>
+
+    <section id="t2-contexte" style="background:#FFFFFF; border:1px solid #D9D9D6; border-radius:12px; padding:28px 32px 32px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#9A9A96;">2.5</div>
+      <h2 style="margin:8px 0 0; font-size:20px; color:#2B2B29; letter-spacing:-0.01em; font-weight:600;">Contexte &amp; mémoire</h2>
+      <p style="margin:12px 0 0; font-size:13.5px; line-height:1.55; max-width:76ch;">Le problème central du moteur n'est pas la qualité de l'IA, c'est <strong style="color:#2B2B29;">ce qu'on lui montre</strong>. Un dossier complet ne rentre pas — et surtout ne <em>doit</em> pas rentrer : un PNJ ne peut pas jouer un secret qu'il ignore.</p>
+      <div style="display:flex; flex-direction:column; gap:12px; margin-top:20px;">
+        <div style="padding:14px 16px; background:#FAFAF9; border:1px solid #E6E6E3; border-radius:8px;"><div style="font-size:13px; color:#2B2B29; font-weight:600;">Cadrage par la scène</div><p style="margin:5px 0 0; font-size:12.5px; line-height:1.55;">Le moteur assemble le contexte à partir de l'état : canon (toujours) + lieu courant + PNJ présents + indices déjà connus du joueur + événements armés ici + climat actif. Rien d'autre.</p></div>
+        <div style="padding:14px 16px; background:#FAFAF9; border:1px solid #E6E6E3; border-radius:8px;"><div style="font-size:13px; color:#2B2B29; font-weight:600;">Cadrage par le point de vue</div><p style="margin:5px 0 0; font-size:12.5px; line-height:1.55;">Pour un dialogue, on envoie la fiche du PNJ et <em>ses</em> savoirs, jamais le synopsis MJ complet. C'est la protection contre le PNJ omniscient, plus fiable qu'une consigne « ne révèle pas ».</p></div>
+        <div style="padding:14px 16px; background:#FAFAF9; border:1px solid #E6E6E3; border-radius:8px;"><div style="font-size:13px; color:#2B2B29; font-weight:600;">Mémoire à trois niveaux</div><p style="margin:5px 0 0; font-size:12.5px; line-height:1.55;">Les 5 derniers tours en intégral · un résumé glissant réécrit tous les 10 tours · une liste de <strong style="color:#2B2B29;">faits établis</strong> (phrases courtes, jamais résumées) que l'IA doit produire à chaque tour où le monde change. Les faits établis sont le garde-fou anti-contradiction.</p></div>
+      </div>
+    </section>
+
+    <section id="t2-sousboucles" style="background:#FFFFFF; border:1px solid #D9D9D6; border-radius:12px; padding:28px 32px 32px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#9A9A96;">2.6</div>
+      <h2 style="margin:8px 0 0; font-size:20px; color:#2B2B29; letter-spacing:-0.01em; font-weight:600;">Les trois sous-boucles</h2>
+      <div style="display:flex; flex-direction:column; gap:14px; margin-top:20px;">
+        <div style="border:1px solid #E6E6E3; border-radius:8px; padding:16px 18px;">
+          <div style="display:flex; align-items:center; gap:8px;"><span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.08em; text-transform:uppercase; color:#2F6BFF;">Sous-boucle A</span><span style="font-size:14px; color:#2B2B29; font-weight:600;">Le jet de dé</span></div>
+          <p style="margin:8px 0 0; font-size:12.5px; line-height:1.6;">L'arbitre renvoie <code style="font-family:'JetBrains Mono',monospace; font-size:11.5px;">{ carac, tc, pourquoi, enjeu_reussite, enjeu_echec }</code>. Le joueur voit la demande (« Sens · Dur · repérer le fil tendu »), clique, le moteur lance et affiche les dés. Le narrateur reçoit <code style="font-family:'JetBrains Mono',monospace; font-size:11.5px;">{ issue, marge }</code> et raconte : marge ≥ 3 = franc succès, marge 0–2 = succès de justesse (l'IA doit ajouter un coût). L'XP est calculée par le code (ΔT).</p>
+        </div>
+        <div style="border:1px solid #E6E6E3; border-radius:8px; padding:16px 18px;">
+          <div style="display:flex; align-items:center; gap:8px;"><span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.08em; text-transform:uppercase; color:#2F6BFF;">Sous-boucle B</span><span style="font-size:14px; color:#2B2B29; font-weight:600;">Le combat</span></div>
+          <p style="margin:8px 0 0; font-size:12.5px; line-height:1.6;">Le moteur passe en mode combat : à chaque round il demande une posture au joueur (normale / précise / défensive), choisit celle du monstre selon sa capacité et son IG, résout l'assaut, applique les dégâts et le coût de PE. L'IA n'arbitre rien — elle <strong style="color:#2B2B29;">commente</strong> chaque round (2–3 phrases) à partir du log d'assaut, et gère la sortie de combat (fuite, reddition, butin). Une capacité spéciale de monstre est du code, jamais une consigne de prompt.</p>
+        </div>
+        <div style="border:1px solid #E6E6E3; border-radius:8px; padding:16px 18px;">
+          <div style="display:flex; align-items:center; gap:8px;"><span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.08em; text-transform:uppercase; color:#2F6BFF;">Sous-boucle C</span><span style="font-size:14px; color:#2B2B29; font-weight:600;">Le dialogue</span></div>
+          <p style="margin:8px 0 0; font-size:12.5px; line-height:1.6;">L'acteur reçoit la fiche, les curseurs, les répliques types, la confiance courante, les savoirs du PNJ avec leurs conditions de révélation, et l'historique de la conversation. Il rend <code style="font-family:'JetBrains Mono',monospace; font-size:11.5px;">{ replique, indices_reveles, delta_confiance, jet_demande?, intention_suivante }</code>. Si une révélation exige un jet (persuasion en CA, intimidation en FO, lecture en SE), on repasse par la sous-boucle A. L'IN et l'IG du PNJ pilotent explicitement sa capacité à mentir, à recouper une info ou à négocier — c'est écrit dans le prompt comme une contrainte de jeu, pas comme une couleur.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="t2-horloge" style="background:#FFFFFF; border:1px solid #D9D9D6; border-radius:12px; padding:28px 32px 32px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#9A9A96;">2.7</div>
+      <h2 style="margin:8px 0 0; font-size:20px; color:#2B2B29; letter-spacing:-0.01em; font-weight:600;">L'horloge : un monde qui avance sans le joueur</h2>
+      <p style="margin:12px 0 0; font-size:13.5px; line-height:1.55; max-width:76ch;">C'est ce qui distingue ce moteur d'un simple générateur de texte. Après chaque action, le moteur consomme du temps de fiction (une conversation ≈ 5 min, fouiller ≈ 15, traverser ≈ 30) puis fait avancer les plans.</p>
+      <div style="display:flex; flex-direction:column; gap:8px; margin-top:18px;">
+        <div style="display:grid; grid-template-columns:22px 1fr; gap:12px; font-size:12.5px; line-height:1.6;"><span style="font-family:'JetBrains Mono',monospace; color:#B0B0AB;">1</span><div>Pour chaque PNJ vivant : son étape de plan est-elle échue ou son déclencheur rempli ? Si oui, il progresse d'un cran — <strong style="color:#2B2B29;">sans texte généré</strong>, c'est un simple avancement d'état.</div></div>
+        <div style="display:grid; grid-template-columns:22px 1fr; gap:12px; font-size:12.5px; line-height:1.6;"><span style="font-family:'JetBrains Mono',monospace; color:#B0B0AB;">2</span><div>Deux PNJ dans le même lieu, avec un indice que l'un connaît et l'autre pas, et une relation d'intensité ≥ 1 : le moteur transfère l'indice (échange hors caméra) et le note au journal.</div></div>
+        <div style="display:grid; grid-template-columns:22px 1fr; gap:12px; font-size:12.5px; line-height:1.6;"><span style="font-family:'JetBrains Mono',monospace; color:#B0B0AB;">3</span><div>Les contre-mesures des antagonistes s'arment selon ce que le joueur a déclenché (jalons atteints, PNJ interrogés) : une aventure qui traîne devient plus dure.</div></div>
+        <div style="display:grid; grid-template-columns:22px 1fr; gap:12px; font-size:12.5px; line-height:1.6;"><span style="font-family:'JetBrains Mono',monospace; color:#B0B0AB;">4</span><div>Climat et conditions s'appliquent : froid, faim, poursuite — modificateurs de PE ou de jets, exactement comme un objet.</div></div>
+        <div style="display:grid; grid-template-columns:22px 1fr; gap:12px; font-size:12.5px; line-height:1.6;"><span style="font-family:'JetBrains Mono',monospace; color:#B0B0AB;">5</span><div>Le narrateur reçoit un résumé de ces avancements <em>perceptibles</em> (« au loin, des torches se rassemblent ») et n'en dit que ce que le joueur pourrait constater.</div></div>
+      </div>
+    </section>
+
+    <section id="t2-gardefous" style="background:#FFFFFF; border:1px solid #D9D9D6; border-radius:12px; padding:28px 32px 32px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#9A9A96;">2.8</div>
+      <h2 style="margin:8px 0 0; font-size:20px; color:#2B2B29; letter-spacing:-0.01em; font-weight:600;">Garde-fous anti-dérive</h2>
+      <div style="display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; margin-top:20px;">
+        <sc-for list="{{ gardefous }}" as="g" hint-placeholder-count="6">
+          <div style="padding:14px 16px; border:1px solid #E6E6E3; border-radius:8px;">
+            <div style="font-size:13px; color:#2B2B29; font-weight:600;">{{ g.titre }}</div>
+            <p style="margin:5px 0 0; font-size:12.5px; line-height:1.55;">{{ g.corps }}</p>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section id="t2-ecran" style="background:#FFFFFF; border:1px solid #D9D9D6; border-radius:12px; padding:28px 32px 32px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#9A9A96;">2.9</div>
+      <h2 style="margin:8px 0 0; font-size:20px; color:#2B2B29; letter-spacing:-0.01em; font-weight:600;">L'écran de jeu</h2>
+      <p style="margin:12px 0 0; font-size:13.5px; line-height:1.55; max-width:76ch;">On part du prototype existant (<code style="font-family:'JetBrains Mono',monospace; font-size:12px;">Mode Jeu - Prototype</code>) : récit central, fiche à droite. Ce qui change, c'est le bas de l'écran — la liste de boutons de choix cède la place à un champ libre, et la fiche gagne un onglet « ce que je sais ».</p>
+      <div style="display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; margin-top:20px;">
+        <div style="padding:14px 16px; background:#FAFAF9; border:1px solid #E6E6E3; border-radius:8px;"><div style="font-size:13px; color:#2B2B29; font-weight:600;">Saisie libre + suggestions</div><p style="margin:5px 0 0; font-size:12.5px; line-height:1.5;">Un champ « que faites-vous ? » avec 3 suggestions générées, cliquables. La page blanche est le vrai risque d'adoption ; les suggestions restent des raccourcis, jamais des rails.</p></div>
+        <div style="padding:14px 16px; background:#FAFAF9; border:1px solid #E6E6E3; border-radius:8px;"><div style="font-size:13px; color:#2B2B29; font-weight:600;">Panneau de dés</div><p style="margin:5px 0 0; font-size:12.5px; line-height:1.5;">La demande de jet s'affiche comme une carte : caractéristique, TC, enjeu, bouton « lancer ». Les dés sont montrés, le seuil aussi. Le joueur doit voir qu'il n'est pas arbitré à l'humeur.</p></div>
+        <div style="padding:14px 16px; background:#FAFAF9; border:1px solid #E6E6E3; border-radius:8px;"><div style="font-size:13px; color:#2B2B29; font-weight:600;">Carnet d'indices</div><p style="margin:5px 0 0; font-size:12.5px; line-height:1.5;">Ce que le joueur sait, de qui il le tient, à quel tour. Alimenté uniquement par les deltas validés — donc jamais un indice halluciné.</p></div>
+        <div style="padding:14px 16px; background:#FAFAF9; border:1px solid #E6E6E3; border-radius:8px;"><div style="font-size:13px; color:#2B2B29; font-weight:600;">Bandeau d'horloge</div><p style="margin:5px 0 0; font-size:12.5px; line-height:1.5;">Moment de la journée, climat, états (affamé, blessé, poursuivi). Rend lisible le fait que le temps coûte quelque chose.</p></div>
+      </div>
+      <p style="margin:18px 0 0; font-size:12.5px; line-height:1.6; color:#6E6E6A; padding:12px 14px; background:#F4F8FF; border-left:2px solid #B9CDFB; border-radius:0 6px 6px 0;">Le bouton « lancer le test » de l'éditeur branche le moteur sur le dossier en cours de rédaction, sans export : c'est l'exigence déjà posée dans <code style="font-family:'JetBrains Mono',monospace; font-size:11.5px;">EXIGENCE-LANCER-TEST.md</code>, et elle devient la boucle de travail principale de l'auteur.</p>
+    </section>
+
+    <sc-if value="{{ showIterations }}" hint-placeholder-val="{{ true }}">
+    <section id="t2-iterations" style="background:#FFFFFF; border:1px solid #D9D9D6; border-radius:12px; padding:28px 32px 32px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#9A9A96;">2.10</div>
+      <h2 style="margin:8px 0 0; font-size:20px; color:#2B2B29; letter-spacing:-0.01em; font-weight:600;">Itérations — Temps 2</h2>
+      <div style="display:flex; flex-direction:column; gap:10px; margin-top:20px;">
+        <sc-for list="{{ iterMoteur }}" as="i" hint-placeholder-count="6">
+          <div style="display:grid; grid-template-columns:44px minmax(0,1fr) 132px; gap:14px; align-items:start; padding:14px 16px; border:1px solid #E6E6E3; border-radius:8px;">
+            <div style="font-family:'JetBrains Mono',monospace; font-size:11px; color:#2F6BFF; padding-top:2px;">{{ i.num }}</div>
+            <div>
+              <div style="font-size:13.5px; color:#2B2B29; font-weight:600;">{{ i.titre }}</div>
+              <div style="font-size:12.5px; line-height:1.55; margin-top:4px;">{{ i.corps }}</div>
+            </div>
+            <div style="font-family:'JetBrains Mono',monospace; font-size:10px; line-height:1.5; color:#8A8A86;">{{ i.sortie }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+    </sc-if>
+
+    <section id="t2-config" style="background:#FFFFFF; border:1px solid #D9D9D6; border-radius:12px; padding:28px 32px 32px;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#9A9A96;">2.11</div>
+      <h2 style="margin:8px 0 0; font-size:20px; color:#2B2B29; letter-spacing:-0.01em; font-weight:600;">Configuration &amp; routeur de modèle</h2>
+      <p style="margin:12px 0 0; font-size:13.5px; line-height:1.55; max-width:76ch;">On démarre avec <strong style="color:#2B2B29;">un seul modèle et un seul niveau d'effort</strong> — mais derrière une indirection, pour que passer à plusieurs ne coûte qu'une table.</p>
+      <pre style="margin:20px 0 0; padding:18px; background:#FAFAF9; border:1px solid #E6E6E3; border-radius:8px; font-family:'JetBrains Mono',monospace; font-size:11.5px; line-height:1.6; color:#2B2B29; overflow-x:auto; white-space:pre;">// ia/routeur.js — point de passage unique de TOUS les appels
+router(role, tache, enjeu) → { modele, effort, max_jetons, temperature }
+
+// v1 (aujourd'hui) : une seule route, tout passe par le même modèle
+const TABLE = { "*": { modele: MODELE_UNIQUE, effort: "normal",
+                       max_jetons: 900, temperature: 0.7 } };
+
+// v2 (plus tard) : on ajoute des lignes, on ne touche pas au moteur
+//   "interprete/*"        → modèle rapide, effort minimal, 200 jetons
+//   "acteur/revelation"   → effort élevé, température 0.8
+//   "narrateur/combat"    → 300 jetons, ton sec
+//   "horloge/*"           → pas d'IA du tout (code seul)</pre>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:12px; margin-top:16px;">
+        <div style="padding:14px 16px; border:1px solid #E6E6E3; border-radius:8px;"><div style="font-size:13px; color:#2B2B29; font-weight:600;">Un fichier de réglages</div><p style="margin:5px 0 0; font-size:12.5px; line-height:1.5;">Modèle, plafonds, coûts de temps de fiction, seuils du linter, ton par défaut. Rien en dur dans le moteur.</p></div>
+        <div style="padding:14px 16px; border:1px solid #E6E6E3; border-radius:8px;"><div style="font-size:13px; color:#2B2B29; font-weight:600;">Prompts en fichiers</div><p style="margin:5px 0 0; font-size:12.5px; line-height:1.5;">Un gabarit texte par rôle, avec ses variables. On les relit et on les corrige sans toucher au code — c'est là que se joue la qualité de jeu.</p></div>
+        <div style="padding:14px 16px; border:1px solid #E6E6E3; border-radius:8px;"><div style="font-size:13px; color:#2B2B29; font-weight:600;">Un adaptateur de fournisseur</div><p style="margin:5px 0 0; font-size:12.5px; line-height:1.5;">Une interface <code style="font-family:'JetBrains Mono',monospace; font-size:11.5px;">appeler(prompt, schema, options)</code> ; l'appel direct d'aujourd'hui et le proxy serveur de demain sont deux implémentations.</p></div>
+      </div>
+    </section>
+
+    <section id="decisions" style="background:#2B2B29; border-radius:12px; padding:28px 32px 32px; color:#ECECEA;">
+      <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#9A9A96;">Tranché</div>
+      <h2 style="margin:8px 0 0; font-size:20px; color:#FFFFFF; letter-spacing:-0.01em; font-weight:600;">Cinq arbitrages retenus</h2>
+      <div style="display:flex; flex-direction:column; gap:14px; margin-top:20px;">
+        <sc-for list="{{ arbitrages }}" as="a" hint-placeholder-count="5">
+          <div style="display:grid; grid-template-columns:20px 1fr; gap:12px;">
+            <span style="font-family:'JetBrains Mono',monospace; font-size:11px; color:#8A8A86; padding-top:3px;">{{ a.num }}</span>
+            <div>
+              <div style="font-size:13.5px; color:#FFFFFF; font-weight:600;">{{ a.titre }}</div>
+              <p style="margin:4px 0 0; font-size:13px; line-height:1.6; color:#ECECEA;">{{ a.corps }}</p>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+  </main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showSchemas&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Contenu&quot;},&quot;showIterations&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Contenu&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      showSchemas: this.props.showSchemas ?? true,
+      showIterations: this.props.showIterations ?? true,
+
+      sections: [
+        { num: "01", titre: "Synopsis & canon", cle: "canon", contenu: "Deux textes distincts : le synopsis MJ (la vérité complète, y compris ce que le joueur ne doit pas apprendre trop vite) et l'accroche joueur. Plus le ton, l'enjeu, et la liste des interdits que l'IA ne franchira pas." },
+        { num: "02", titre: "Objectifs des camps", cle: "canon.objectifs", contenu: "Un objectif par camp (protagonistes, antagonistes) et un pour le personnage joueur. Chacun avec ses conditions de réussite et d'échec exprimées en langage lisible — c'est ce qui permettra au moteur de conclure une partie." },
+        { num: "03", titre: "Personnages — premier plan", cle: "personnages[plan=premier]", contenu: "Protagonistes et antagonistes qui font avancer l'aventure principale. Fiche complète : identité, caractéristiques, caractère structuré, savoirs et conditions de révélation, relations, plan d'actions vers leur objectif. Leur plan est rattaché à un objectif du canon." },
+        { num: "04", titre: "Personnages — second plan", cle: "personnages[plan=second]", contenu: "Protagonistes et antagonistes de quêtes secondaires. Même fiche, mais leur plan est rattaché à une quête secondaire, jamais à un objectif du canon : ils ne peuvent pas débloquer ni bloquer l'intrigue principale." },
+        { num: "05", titre: "Quêtes secondaires", cle: "quetes", contenu: "Un registre de mini-quêtes autonomes : donneur, objectif, étapes, récompense, échéance. Chaque personnage de second plan en lance ou en dépend. Une quête peut offrir un indice principal en récompense — c'est le seul pont autorisé vers l'intrigue." },
+        { num: "06", titre: "Indices", cle: "indices", contenu: "Un registre à part, pas un champ de fiche. Chaque indice a une vérité (pour le MJ), une formulation joueur, et ce vers quoi il mène. Les fiches y font référence par identifiant — un indice peut donc avoir plusieurs détenteurs." },
+        { num: "07", titre: "Lieux", cle: "lieux", contenu: "Description, ambiance, accès vers d'autres lieux, personnages présents et à quel moment, objets et indices trouvables, événements possibles, dangers permanents." },
+        { num: "08", titre: "Événements & monstres", cle: "evenements", contenu: "Deux listes dans un même écran, séparées par un interrupteur « lié à l'histoire ». Les liés portent des conséquences narratives selon leur résolution ; les libres sont de la texture (rencontre, obstacle, monstre), rattachables à un PNJ." },
+        { num: "09", titre: "Climat & conditions", cle: "conditions", contenu: "Froid, chaleur, famine, tempête, poursuite : un libellé, des effets chiffrés sur les règles (PE, malus de jet), une durée ou un déclencheur. Ce sont les seuls modificateurs globaux du moteur." },
+        { num: "10", titre: "Point de départ", cle: "depart", contenu: "Lieu, date de fiction, texte d'ouverture lu au joueur, inventaire initial, et si le personnage est prétiré ou créé par le joueur (2D4 + 1D4 réparti, selon les règles existantes)." }
+      ],
+
+      blocs: [
+        { eyebrow: "Bloc 1", badge: "commun", titre: "Fiche d'identité", corps: "Ce que le joueur peut voir et entendre. Nom, fonction, apparence, une description écrite pour le joueur — pas pour l'auteur.", champs: "nom · fonction · apparence · description_joueur" },
+        { eyebrow: "Bloc 2", badge: "commun", titre: "Caractéristiques", corps: "Les 8 caracs existantes + PV et Tier, réutilisées telles quelles. Elles servent aux jets opposés et calibrent l'intelligence du PNJ en dialogue.", champs: "FO AG DX EN IN IG SE CA · pv · tier" },
+        { eyebrow: "Bloc 3", badge: "clé", titre: "Caractère exploitable", corps: "Six curseurs + manière de parler + lignes rouges + point de rupture. Traduit directement en contraintes de prompt.", champs: "curseurs[6] · parler[2] · jamais · cede_si" },
+        { eyebrow: "Bloc 4", badge: "commun", titre: "Objectif & motivation", corps: "Ce qu'il veut, pourquoi, et pour quand. Sans échéance, un PNJ n'avance pas : l'horloge n'a rien à faire tourner.", champs: "libelle · pourquoi · echeance" },
+        { eyebrow: "Bloc 5", badge: "clé", titre: "Plan d'actions", corps: "Une suite d'étapes ordonnées vers l'objectif, chacune avec un déclencheur, une durée et une porte de sortie si le joueur bloque le PNJ.", champs: "etape · action · declencheur · duree · si_bloque" },
+        { eyebrow: "Bloc 6", badge: "clé", titre: "Savoirs & révélations", corps: "Quels indices il connaît, avec quelle certitude (sait / croit / soupçonne), et à quelle condition il les lâche : confiance atteinte, jet réussi, contrepartie, ou un autre indice déjà su.", champs: "indice_id · certitude · revele_si · revele_comment" },
+        { eyebrow: "Bloc 7", badge: "commun", titre: "Relations", corps: "Liens typés vers d'autres fiches, avec une intensité de -3 à +3 et un drapeau « secret ». C'est ce qui autorise les échanges d'informations entre PNJ hors caméra.", champs: "cible_id · lien · intensite · secret" },
+        { eyebrow: "Bloc 8", badge: "variable", titre: "Présence & disponibilité", corps: "Où le trouver et quand. Un PNJ sans présence n'est jamais rencontré — le linter le signale.", champs: "lieu_id · quand" }
+      ],
+
+      matrice: [
+        { camp: "Protagoniste", plan: "Premier plan", corps: "Allié, témoin ou rival bienveillant dont le plan pousse l'intrigue principale. Détient les indices du canon.", extra: "plan → objectif du canon", accent: true },
+        { camp: "Antagoniste", plan: "Premier plan", corps: "L'opposition réelle. Même fiche + contre-mesures : actions armées en réaction à ce que le joueur déclenche.", extra: "plan → objectif du canon · contre_mesures[]", accent: true },
+        { camp: "Protagoniste", plan: "Second plan", corps: "Donneur de quête secondaire, artisan, informateur. Peut offrir un indice principal en récompense, pas le donner d'emblée.", extra: "plan → quete_id", accent: false },
+        { camp: "Antagoniste", plan: "Second plan", corps: "Nuisance locale : voleur, contremaître, bête tenue par quelqu'un. Gêne une quête secondaire, jamais l'intrigue.", extra: "plan → quete_id · contre_mesures[] (portée : quête)", accent: false }
+      ],
+
+      lints: [
+        { niveau: "bloquant", couleur: "#C0654A", bordure: "#EBD3CC", regle: "Objectif sans chemin", detail: "un objectif du canon dont aucune condition de réussite n'est atteignable par les indices et lieux décrits." },
+        { niveau: "bloquant", couleur: "#C0654A", bordure: "#EBD3CC", regle: "Indice orphelin", detail: "un indice qu'aucun PNJ, lieu ou événement ne détient : le joueur ne peut jamais l'obtenir." },
+        { niveau: "bloquant", couleur: "#C0654A", bordure: "#EBD3CC", regle: "Départ incomplet", detail: "pas de lieu de départ, pas de texte d'ouverture, ou aucun PNJ présent dans le lieu initial." },
+        { niveau: "alerte", couleur: "#2B2B29", bordure: "#D9D9D6", regle: "Goulot d'étranglement", detail: "un indice détenu par un seul PNJ, sans source alternative : si le joueur le rate ou le tue, l'aventure casse." },
+        { niveau: "alerte", couleur: "#2B2B29", bordure: "#D9D9D6", regle: "PNJ inatteignable", detail: "une fiche sans présence dans aucun lieu, ou dans un lieu non relié au départ." },
+        { niveau: "alerte", couleur: "#2B2B29", bordure: "#D9D9D6", regle: "Caractère plat", detail: "curseurs tous au milieu, ou pas de réplique type : l'IA jouera ce PNJ sans voix propre." },
+        { niveau: "bloquant", couleur: "#C0654A", bordure: "#EBD3CC", regle: "Intrigue en second plan", detail: "un indice de portée « canon » détenu uniquement par des personnages de second plan, ou un plan de second plan qui prétend cocher un jalon principal." },
+        { niveau: "info", couleur: "#8A8A86", bordure: "#E2E2DF", regle: "Difficulté non calibrée", detail: "les monstres et TC du dossier comparés au Tier du personnage de départ — signale une aventure ingagnable ou triviale." }
+      ],
+
+      arbitrages: [
+        { num: "1", titre: "Tout ce qui est réglable vit dans un seul fichier", corps: "On commence simple : un module de configuration unique — modèle, température, plafonds de jetons, coûts de temps de fiction, seuils du linter, gabarits de prompt. Aucune de ces valeurs n'est écrite en dur dans le moteur ; les prompts sont des fichiers texte à variables, pas des chaînes concaténées dans le code." },
+        { num: "2", titre: "Un routeur de modèle dès le premier jour, avec une seule route", corps: "Tous les appels passent par une fonction unique — elle reçoit le rôle, la tâche et l'enjeu, et rend { modèle, effort, plafond, température }. L'implémentation de départ rend toujours la même réponse. Ajouter un modèle rapide pour l'interprète ou un effort élevé pour une révélation majeure devient alors un changement de table, pas de refonte." },
+        { num: "3", titre: "Pas de migration", corps: "Aucun livre existant : le format d'arbre n'est pas maintenu en parallèle. Le dossier JSON est le seul format persisté, et l'éditeur d'arbre est réduit aux jalons dès la première itération." },
+        { num: "4", titre: "Un seul retour en arrière par partie", corps: "Tracé au journal et visible du joueur. Rejouer un tour recharge l'état d'avant et rejoue avec la même graine décalée d'un cran — pas de reroll silencieux, l'enjeu reste réel." },
+        { num: "5", titre: "Le seuil de jouabilité = les règles bloquantes du linter", corps: "Pas de quota arbitraire de fiches : une aventure est jouable quand aucune règle bloquante ne remonte (§ 1.6). Concrètement, le minimum atteignable est un canon avec un objectif, un lieu de départ peuplé, deux détenteurs par indice principal, et un antagoniste de premier plan doté d'un plan." }
+      ],
+
+      etapes: [
+        { num: "1", pastille: "#2B2B29", acteur: "joueur", tonCouleur: "#8A8A86", titre: "Le joueur écrit son intention", corps: "Texte libre : ce qu'il fait, ce qu'il dit et à qui. Aucune liste de choix imposée ; trois suggestions contextuelles sont offertes pour éviter la page blanche." },
+        { num: "2", pastille: "#2F6BFF", acteur: "IA · interprète", tonCouleur: "#2F6BFF", titre: "Cadrage de l'intention", corps: "L'IA rend une intention typée : cible, verbe, moyen, objet utilisé. Si une pièce manque ou si l'action est ambiguë, elle rend une demande de précision et le tour s'arrête là — sans consommer de temps de fiction." },
+        { num: "3", pastille: "#2F6BFF", acteur: "IA · arbitre", tonCouleur: "#2F6BFF", titre: "Arbitrage", corps: "Action gratuite, jet requis, dialogue, combat, ou déplacement ? Si jet : quelle caractéristique, quel Tier de Challenge, quel bonus d'objet ou d'équipement, quel enjeu en cas d'échec." },
+        { num: "4", pastille: "#2B2B29", acteur: "moteur", tonCouleur: "#8A8A86", titre: "Résolution mécanique", corps: "Le code lance les dés selon le TC, calcule la marge, applique les coûts de PE, les dégâts, l'XP, les changements d'inventaire. Rien de tout cela n'est laissé à l'IA." },
+        { num: "5", pastille: "#2B2B29", acteur: "moteur", tonCouleur: "#8A8A86", titre: "Avancement du monde", corps: "L'horloge consomme le temps de l'action, les plans des PNJ progressent, les contre-mesures s'arment, les échanges d'informations entre PNJ s'effectuent (§ 2.7)." },
+        { num: "6", pastille: "#2F6BFF", acteur: "IA · narrateur / acteur", tonCouleur: "#2F6BFF", titre: "Restitution", corps: "Le résultat est raconté : narration de scène, ou réplique en voix du PNJ. L'IA reçoit l'issue du jet et les faits nouveaux ; elle ne peut ni contredire ni inventer d'entité." },
+        { num: "7", pastille: "#2B2B29", acteur: "moteur", tonCouleur: "#8A8A86", titre: "Validation & journal", corps: "Les deltas proposés sont vérifiés contre le dossier (identifiants connus, conditions remplies), appliqués, écrits au journal. Puis on teste les conditions de fin et on rend la main au joueur." }
+      ],
+
+      roles: [
+        { cle: "R1 · interprète", titre: "Comprendre l'intention", corps: "Traduit le texte libre en intention structurée, ou demande la précision manquante. Rôle bavard, contexte minimal, modèle rapide.", entree: "texte joueur, scène, cibles possibles", sortie: "{ intention } | { clarification }" },
+        { cle: "R2 · arbitre", titre: "Décider de la mécanique", corps: "Choisit le type de résolution, la caractéristique, le TC, les enjeux. Ne raconte rien. Voit les règles, pas la fiction.", entree: "intention, état du héros, règles, difficulté visée", sortie: "{ type, carac, tc, enjeux, deltas_proposes }" },
+        { cle: "R3 · narrateur", titre: "Raconter", corps: "Écrit 2 à 6 phrases, à la deuxième personne, au présent — le registre déjà défini pour les textes joueur. Reçoit les résultats, jamais le pouvoir de les changer.", entree: "issue, faits nouveaux, ambiance du lieu, ton", sortie: "{ recit, faits_etablis, suggestions[3] }" },
+        { cle: "R4 · acteur", titre: "Incarner un PNJ", corps: "Un appel par PNJ qui parle. Ne reçoit que ce que ce PNJ sait et croit : c'est structurellement impossible pour lui de révéler un secret hors de sa fiche.", entree: "fiche, curseurs, savoirs filtrés, confiance, dialogue", sortie: "{ replique, indices_reveles, delta_confiance }" }
+      ],
+
+      gardefous: [
+        { titre: "Sortie structurée obligatoire", corps: "Chaque rôle rend un objet typé, validé par schéma. Une sortie non conforme est rejouée une fois, puis dégradée en action gratuite avec un texte neutre — jamais un état corrompu." },
+        { titre: "Aucune création d'entité", corps: "L'IA ne peut référencer que des identifiants existants du dossier. Un PNJ, un lieu ou un objet inventé est refusé à la validation et retiré du récit." },
+        { titre: "Deltas sous contrat", corps: "Les modifications d'état proposées passent par une liste blanche d'opérations (révéler un indice, changer un lieu, ajuster la confiance, consommer un objet). Pas d'écriture directe sur les PV ou l'XP." },
+        { titre: "Faits établis", corps: "Le récit alimente une liste courte de faits, jamais résumée, réinjectée à chaque tour. C'est le rempart contre le PNJ qui change de nom ou la porte qui redevient fermée." },
+        { titre: "Anti-complaisance", corps: "Sans contrainte, l'IA accorde tout. On impose : un échec doit avoir une conséquence, un succès de justesse (marge < 3) doit avoir un coût, et un PNJ méfiant ne cède pas sans jet." },
+        { titre: "Budget par tour", corps: "Un plafond d'appels et de jetons par tour, affiché en mode auteur. Au-delà, on dégrade (pas de suggestions, narration courte) plutôt que d'allonger indéfiniment le temps de réponse." }
+      ],
+
+      iterEditeur: [
+        { num: "I1", titre: "Le format d'abord", corps: "Écrire le schéma, le validateur et un dossier d'exemple complet à la main (une aventure courte, 6 PNJ, 5 lieux). Import / export JSON dans l'éditeur, sans nouvel écran.", sortie: "schema.json + validateur + dossier de référence" },
+        { num: "I2", titre: "Canon, départ, lieux", corps: "Les trois sections les plus simples, en réutilisant les composants de fiche existants. La navigation passe de l'arbre à la liste de sections.", sortie: "sections 01·02·07·10 éditables" },
+        { num: "I3", titre: "La fiche de personnage", corps: "Le gros morceau : les 8 blocs, les deux axes camp × plan, les curseurs de caractère, l'éditeur de plan d'actions, l'éditeur de savoirs avec conditions de révélation, le sélecteur de relations.", sortie: "sections 03·04" },
+        { num: "I4", titre: "Quêtes, indices, événements, climat", corps: "Le registre de quêtes secondaires, celui des indices et son graphe, les deux listes d'événements branchées sur le bestiaire existant, les conditions climatiques et leurs effets chiffrés.", sortie: "sections 05·06·08·09" },
+        { num: "I5", titre: "Linter & copilote", corps: "Les règles de lint avec badges par section, puis les quatre assistants de rédaction en mode proposition.", sortie: "aventure certifiée jouable" }
+      ],
+
+      iterMoteur: [
+        { num: "J1", titre: "Boucle sèche, sans IA", corps: "Machine à états, session JSON, horloge, journal, application des deltas — pilotés par une console de commandes typées. Aucune génération de texte : on valide la mécanique seule.", sortie: "moteur déterministe testable" },
+        { num: "J2", titre: "Interprète + narrateur", corps: "Les deux premiers rôles branchés, avec cadrage de contexte et mémoire à trois niveaux. Le joueur écrit, le monde répond. Pas encore de jets ni de PNJ.", sortie: "première partie jouable" },
+        { num: "J3", titre: "Arbitre & jets", corps: "Les jets demandés par l'IA, résolus par le code, racontés avec la marge. Branchement sur challenge.ts et xp.ts existants. Panneau de dés dans l'UI.", sortie: "progression du personnage réelle" },
+        { num: "J4", titre: "Acteurs & indices", corps: "Dialogue en voix de PNJ, savoirs filtrés, conditions de révélation, confiance, carnet d'indices. C'est ici que l'aventure devient une enquête plutôt qu'une visite.", sortie: "dialogues et révélations" },
+        { num: "J5", titre: "Combat & horloge vivante", corps: "Mode combat piloté par combat.ts et commenté par l'IA ; avancement des plans PNJ, échanges hors caméra, contre-mesures des antagonistes, climat.", sortie: "monde qui réagit" },
+        { num: "J6", titre: "Fins, sauvegarde, rejeu", corps: "Conditions de fin, mort du personnage, reprise de partie, rejeu par graine pour le débogage, et le bouton « lancer le test » depuis l'éditeur.", sortie: "boucle complète auteur → joueur" }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

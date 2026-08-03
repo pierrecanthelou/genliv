@@ -12,7 +12,13 @@ The on-demand **design system** (tokens, primitives, wireframe fidelity, asset g
 
 ## What we're building
 
-An **authoring tool** for « livres dont vous êtes le héros » (gamebooks). A **book = a tree of nodes + edges**, and *that tree is the thing that persists*. The editor lets an author build the tree visually, edit each leaf, and model encounters, skill rolls, combat, traps, and hidden item prerequisites. Scope = **editor/authoring mode only**; play mode is deferred.
+> ### ⚠ Bascule IA en cours — lire `docs/ROADMAP-BASCULE-IA.md` avant tout travail neuf
+>
+> The product is moving from **« a book = a tree of nodes + edges »** to **« an adventure dossier played by an AI »**. The three blocking decisions (D1 condition language, D2 where the AI calls live, D3 the fate of the existing features) were settled on **2026-08-03**, and the deletion they commanded is **done**: eight features are gone, five survive to be repointed (roadmap § 1 bis / § 1 ter).
+>
+> Consequences for the rules below: the **Domain rules** section still describes the tree model, which is what the surviving code implements *today* — it holds until feature n° 1 `dossier-format` replaces `brain/types.ts` + `BookService`, and it is that feature's job to rewrite this section. Do not extrapolate the dossier format from it, and do not delete the tree model ahead of n° 1.
+
+An **authoring tool** for « livres dont vous êtes le héros » (gamebooks). The editor lets an author build an adventure, edit each screen, and model encounters, skill rolls, combat, traps, and hidden item prerequisites. Scope = **editor/authoring mode only** in Temps 1; the play engine is Temps 2.
 
 **Language: French throughout** (UI copy + domain terms). Do not translate to English.
 
@@ -20,17 +26,11 @@ An **authoring tool** for « livres dont vous êtes le héros » (gamebooks). A 
 
 The `.dc.html` files are **HTML design references** (look + behaviour). Recreate them in this codebase's stack and patterns — do not ship the HTML. `Editeur Livre-Jeu - Wireframes.dc.html` is the **binding visual reference**; `Editeur Prototype.dc.html` shows the interactions. Fidelity is **low-fi wireframe**: structure/layout/component-anatomy/token-names are binding; the specific greys, the blue, and the Unicode-glyph icons are a placeholder visual pass to be reskinned later.
 
-## AI Scenario Prompt — PROMPT_SCENE_IA.md (always-on rule)
+## Game rules — `docs/REGLES-DU-JEU.md` is the source of truth (always-on rule)
 
-`PROMPT_SCENE_IA.md` (repo root + `public/PROMPT_SCENE_IA.md`) is a ready-to-use AI prompt for generating a Genliv scenario. It embeds the **game rules, the full bestiary, and the JSON scenario format**. The editor ships a « Prompt IA » download button that serves this file.
+`docs/REGLES-DU-JEU.md` is the **single source of truth for every game mechanic** (KR-130): characteristics, challenge tiers, combat arithmetic, XP. Never settle a rule ambiguity from the code — go back to that file, correct it there, then propagate to `src/brain/`. `docs/REGLES-PLAY.md` is its orchestration complement for play mode.
 
-**MANDATORY**: any change to the following MUST be reflected in both `PROMPT_SCENE_IA.md` AND `public/PROMPT_SCENE_IA.md` (they are identical copies — keep them in sync):
-- The bestiary (`src/brain/bestiary.ts`) — adding/removing monsters, changing stats or capacities
-- The combat or skill-roll rules (`src/brain/combat.ts`, `src/brain/challenge.ts`)
-- The `ScenarioExport` JSON format (`src/brain/utils/scenarioExport.ts`, `src/brain/types.ts` node/edge fields)
-- The characteristics registry (`src/brain/characteristics.ts`)
-
-Treat these files as a **paired triple**: code change → prompt update → sync to public/. Do not commit a bestiary or format change without updating the prompt.
+The rules layer (`challenge.ts`, `combat.ts`, `xp.ts`, `characteristics.ts`) is held by the mutation score: any iteration touching one of those four runs `npm run test:mutation` above `break: 80`, and `src/brain/rules.golden.test.ts` pins value by value everything the mutation config neutralises.
 
 ## Domain rules (non-negotiable)
 
@@ -46,9 +46,9 @@ Treat these files as a **paired triple**: code change → prompt update → sync
 ## Architecture
 
 - Features are **isolated**: a feature talks to the rest **only through `brain/` contracts** (services, events, registries). Never import one feature from another. *Enforced by ESLint (`no-restricted-imports` + an `ImportExpression` selector for dynamic imports). `src/player/**` is the extractable runtime, not a feature — importing it is legal.*
-- **Single source of truth**: the book (nodes + edges) lives in `BookService`. Canvas / outline / preview are *views* — never hold a private copy.
-- The 4 `action-*` features **self-register with `ActionRegistry`**; `node-editor` mounts them without importing them.
-- Build order (walking skeleton first): `book-creation` → `tree-canvas` → `node-editor` → `choice-linking` → `book-library` → `outline-view` → `action-decor` (owns shared `ObjectEditor`) → `action-pnj` → `action-monster` → `action-trap` → `cloud-sync`.
+- **Single source of truth**: the book lives in `BookService`. Canvas and preview are *views* — never hold a private copy.
+- Surviving features: `tree-canvas`, `book-library`, `cloud-sync`, `book-creation`, `play-mode`. All five are **repointed** by the bascule, none is finished as-is.
+- Build order = the order of `docs/ROADMAP-BASCULE-IA.md` (n° 1 `dossier-format` first — it is the contract between the two temps). One feature at a time, never two in parallel.
 
 ## Cross-cutting engineering rules
 
@@ -57,7 +57,7 @@ Treat these files as a **paired triple**: code change → prompt update → sync
 - **Persistence only via `PersistenceService` / `persistenceKeys.ts`** — no raw `localStorage` in feature code (KR-011/111). *Enforced: `no-restricted-globals` + `no-restricted-properties` on `src/features/**` (tests excluded).*
 - **Derived state is computed inline**, not mirrored through `useEffect` (KR-013/113). *Not enforceable — review heuristic only.*
 - **Empty states**: every empty element/list/input shows an inviting placeholder (example value, write-here prompt, dashed « + Ajouter… »). Never a blank void.
-- Events to emit/observe (examples): `book:created|opened|deleted`, `node:created|updated|deleted|selected`, `edge:created|deleted`, `action:changed`, `object:granted`, `monster:savedToLibrary`, `sync:status`. Fire navigation/events only **after persistence resolves**, in order.
+- Events to emit/observe — the list is `AppEvents` in `brain/EventBus.ts`, which is authoritative; keep this line aligned with it: `book:created|opened|updated|deleted`, `node:created|updated|deleted|selected`, `edge:created|updated|deleted`, `sync:status`, `sync:conflict`. Fire navigation/events only **after persistence resolves**, in order.
 
 ## Design fidelity rules
 
@@ -68,7 +68,9 @@ Treat these files as a **paired triple**: code change → prompt update → sync
 
 ## Where to look
 
-- `brief/context.md` — the original product brief (domain truth).
-- `features/README.md` — architecture, build order, brain contracts.
-- `features/<feature>/specification.json` — per-feature plan, acceptance criteria, iterations, known risks.
-- `DESIGN-SYSTEM.md` + `styles.css` + `tokens/` + `components/` — the design system.
+- `docs/ROADMAP-BASCULE-IA.md` — **the live plan**: the settled decisions, the feature order, what was deleted and why.
+- `docs/PLAN-BASCULE-IA.dc.html` — the target plan this roadmap translates (design reference, not production code).
+- `docs/REGLES-DU-JEU.md` + `docs/REGLES-PLAY.md` — the game rules (source of truth) and their play-mode orchestration.
+- `docs/EXIGENCE-APERCU-DU-JEU.md` — the « Aperçu du jeu » CTA and the **extractable-runtime** constraint on `src/player/`.
+- `src/features/<feature>/specification.json` — per-feature plan, acceptance criteria, iterations, known risks.
+- `design_handoff_gamebook_editor/` — `DESIGN-SYSTEM.md` + `styles.css` + `tokens/` + `components/` + the wireframes, plus `brief/context.md` (the original product brief).

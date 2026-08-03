@@ -5,7 +5,6 @@ import { bookKey, BOOK_KEY_PREFIX } from './persistenceKeys'
 import { createId } from './utils/id'
 import { isNodeKind, isEdgeKind, isStructural, canHaveOutgoing, canBeTarget } from './kinds'
 import { getNode, getEdge } from './utils/book'
-import { isScenarioExport } from './utils/scenarioExport'
 
 /**
  * BookService — the API nœud. Single source of truth for the book tree
@@ -90,15 +89,6 @@ export interface BookService {
 	 * false if the book/node is missing or the node is structural.
 	 */
 	deleteNode(bookId: string, nodeId: string): boolean
-	/**
-	 * Import a book from a ScenarioExport (book-export feature, KR-143). Validates
-	 * the format marker and node/edge kinds, then persists it with a fresh book id
-	 * and new timestamps. Internal node/edge ids are preserved (they are
-	 * book-local, no cross-book collision risk). Returns null if the payload fails
-	 * validation (unknown format, bad kind, or missing required structure).
-	 * Emits `book:created` after persisting (KR-004).
-	 */
-	importBook(data: unknown): Book | null
 }
 
 /** The author-editable surface of a node (everything else is structural). */
@@ -478,16 +468,6 @@ export function createBookService(persistence: PersistenceService, events: Event
 				events.emit('edge:deleted', { bookId, edgeId: e.id })
 			}
 			return true
-		},
-
-		importBook(data) {
-			if (!isScenarioExport(data)) return null
-			if (!hasOnlyKnownKinds(data.book)) return null
-			const now = new Date().toISOString()
-			const book: Book = { ...data.book, id: createId('book'), createdAt: now, updatedAt: now }
-			persist(book)
-			events.emit('book:created', { bookId: book.id })
-			return book
 		},
 	}
 }

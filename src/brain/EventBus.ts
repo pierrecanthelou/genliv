@@ -3,7 +3,7 @@
  * Features never import each other; they emit/observe events here.
  * Typed by AppEvents so payloads stay honest at compile time.
  */
-import type { NodeKind, NodeActionType, EdgeKind, SyncStatus } from './types'
+import type { NodeKind, EdgeKind, SyncStatus } from './types'
 
 export interface AppEvents {
 	'book:created': { bookId: string }
@@ -17,10 +17,6 @@ export interface AppEvents {
 	'edge:created': { bookId: string; edgeId: string; from: string; to: string; kind: EdgeKind }
 	'edge:updated': { bookId: string; edgeId: string }
 	'edge:deleted': { bookId: string; edgeId: string }
-	'action:changed': { bookId: string; nodeId: string; actionType: NodeActionType }
-	'monster:savedToLibrary': { bookId: string; nodeId: string }
-	/** A book was exported to a play file (book-export); `warnings` counts surfaced dangling refs. */
-	'book:exported': { bookId: string; warnings: number }
 	'sync:status': { status: SyncStatus; pending: number }
 	/** A book diverged on both sides (local unpushed edits + a newer cloud copy) — awaiting resolution. */
 	'sync:conflict': { bookId: string }

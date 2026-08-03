@@ -12,11 +12,11 @@ Une **itération** au sens du projet : une entrée de `features/<feature>/specif
 ## Sources de vérité (à lire avant de parler, dans cet ordre)
 
 1. `CLAUDE.md` — les règles toujours actives
-2. `features/README.md` — architecture, ordre de construction, contrats brain
-3. `features/<feature>/specification.json` — le plan, les critères, les `known_risks` (KR-xxx), l'`implementation.resolved_decisions`
+2. `docs/ROADMAP-BASCULE-IA.md` — décisions tranchées, ordre des features, ce qui a été supprimé et ce qui attend son remplaçant
+3. `src/features/<feature>/specification.json` — le plan, les critères, les `known_risks` (KR-xxx), l'`implementation.resolved_decisions`
 4. Les **3 à 6 fichiers de code** que l'itération touche réellement — pas plus. Le comité travaille sur les specs, pas sur le repo entier.
 5. `DESIGN-SYSTEM.md` + `tokens/*.css` + `components/` (rôle UX en priorité)
-6. Le plan de bascule + `REGLES-DU-JEU.md` + `brain-runtime/` (rôle Narratif & IA uniquement)
+6. `docs/ROADMAP-BASCULE-IA.md` + `docs/PLAN-BASCULE-IA.dc.html` + `docs/REGLES-DU-JEU.md` + les règles de `src/brain/` (rôle Narratif & IA uniquement)
 
 Le comité est **en lecture seule**. Un seul acteur écrit : l'orchestrateur de `/raffiner`.
 
@@ -109,7 +109,7 @@ C'est la règle la plus importante de cette skill. Une itération qui gonfle co�
 
 **Une itération est une tranche verticale** : elle traverse l'interface, le service `brain/` et la persistance pour livrer **un comportement démontrable en une phrase** — « à la fin, l'auteur peut ___ », sans « et » dans la phrase. Jamais une couche horizontale (« tous les services », « toute l'UI du panneau ») : une couche seule ne se démontre pas et ne se vérifie pas.
 
-**Squelette d'abord.** La première itération d'une feature est la tranche la **plus fine** qui traverse tout de bout en bout, câblée à travers `brain/` : pas de validation fine, pas d'animation, pas de hors-ligne, pas de cas limites. Le durcissement, la persistance robuste et le polish sont les itérations suivantes, dans cet ordre. L'ordre de construction de `features/README.md` fait foi.
+**Squelette d'abord.** La première itération d'une feature est la tranche la **plus fine** qui traverse tout de bout en bout, câblée à travers `brain/` : pas de validation fine, pas d'animation, pas de hors-ligne, pas de cas limites. Le durcissement, la persistance robuste et le polish sont les itérations suivantes, dans cet ordre. L'ordre des features de `docs/ROADMAP-BASCULE-IA.md` fait foi.
 
 **Signaux de coupe.** Un seul suffit — l'itération doit être découpée avant d'être raffinée :
 

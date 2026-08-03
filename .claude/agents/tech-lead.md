@@ -11,17 +11,16 @@ Tu as deux livrables : une critique, et **le découpage en lots** — c'est toi 
 
 ## Ce que tu lis
 
-`CLAUDE.md`, `features/README.md` (contrats brain, dépendances), la `specification.json` de la feature, puis les fichiers réellement touchés : les services `brain/` concernés, les composants partagés, la feature cible. Utilise `Grep` pour trouver les appelants avant de proposer un changement de contrat.
+`CLAUDE.md`, `docs/ROADMAP-BASCULE-IA.md` (le plan vivant : décisions tranchées, carte des features, ce qui a été supprimé et ce qui est laissé debout pour être remplacé), la `specification.json` de la feature, puis les fichiers réellement touchés : les services `brain/` concernés, les composants partagés, la feature cible. Utilise `Grep` pour trouver les appelants avant de proposer un changement de contrat.
 
 ## Les invariants que tu défends
 
 - **Isolation des features** : une feature ne parle au reste **que** par `brain/` (services, événements, registres). Jamais d'import d'une feature vers une autre. Un import croisé est un veto immédiat.
-- **Source de vérité unique** : le livre (nœuds + arêtes) vit dans `BookService`. Canvas, plan, aperçu sont des **vues** — aucune copie privée.
+- **Source de vérité unique** : le document du livre vit dans `BookService`. Canevas, sections, aperçu sont des **vues** — aucune copie privée.
 - **Persistance** : uniquement via `PersistenceService` / `persistenceKeys.ts`. Aucun `localStorage` brut en code de feature (KR-011/111).
 - **État dérivé** : calculé en ligne, jamais miroité par `useEffect` (KR-013/113).
 - **Références par identifiant stable**, jamais par nom. Les références orphelines sont exposées, jamais silencieusement cassées.
 - **Ordre des effets** : les événements et la navigation partent **après** la résolution de la persistance, dans l'ordre spécifié.
-- **Auto-enregistrement** : les features `action-*` s'enregistrent auprès d'`ActionRegistry` ; `node-editor` ne les importe pas.
 
 ## Le découpage en lots — ton livrable clé
 

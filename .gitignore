@@ -11,7 +11,9 @@ stryker-tmp/
 reports/
 stryker-run.log
 
-# Fichiers locaux hors-repo
+# Captures d'écran de travail
 capture-ecran*.png
-scenario-genliv-complet*.json
-specifications-jeu/
+
+# Bundle de handoff Claude Design — re-téléchargeable, jamais la source de vérité.
+# Ce qui y est contraignant est promu dans docs/ (voir docs/PLAN-BASCULE-IA.dc.html).
+claude-design/

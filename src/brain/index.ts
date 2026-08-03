@@ -108,22 +108,13 @@ export { createLocalStorageTransport } from './LocalStorageTransport'
 export { createCloudflareKVTransport } from './CloudflareKVTransport'
 export { createCloudSettings, type CloudSettingsService } from './CloudSettingsService'
 export { createUIPreferencesService } from './UIPreferencesService'
-export type {
-	UIPreferencesService,
-	BookUIPrefs,
-	Viewport,
-	LayoutSpacing,
-	OutlineDisplayMode,
-} from './UIPreferencesService'
+export type { UIPreferencesService, BookUIPrefs, Viewport, LayoutSpacing } from './UIPreferencesService'
 export { createMonsterLibraryService } from './MonsterLibraryService'
 export type { MonsterLibraryService, SavedMonster } from './MonsterLibraryService'
 export type { Router, Route } from './Router'
 export type { BookService, NodePatch } from './BookService'
 export { autoSlot } from './BookService'
 export type { SelectionService } from './SelectionService'
-export type { ActionRegistry, ActionEditor, ActionEditorContext } from './ActionRegistry'
-export type { SlotRegistry, SlotRenderer, SlotContext } from './SlotRegistry'
-export { SLOT_NODE_EDITOR_CHOICES } from './SlotRegistry'
 export { effectiveKind, endLabel } from './utils/nodeKind'
 export { nodeTitle, textLines } from './utils/nodeView'
 export { plural } from './utils/plural'
@@ -149,7 +140,6 @@ export {
 	type PlayWarning,
 } from './utils/playExport'
 export { downloadJson, downloadText, slugifyFilename } from './utils/download'
-export { exportScenario, isScenarioExport, type ScenarioExport } from './utils/scenarioExport'
 export { buildAdventureDocument } from './utils/buildAdventureDocument'
 export type { NodeKindDescriptor, EdgeKindDescriptor, BadgeMark } from './kinds'
 export { useOpenBook, useBooks, useBookHealth } from './hooks'
@@ -166,11 +156,8 @@ export {
 	useBookPending,
 	useSyncConflict,
 	useUIPreferences,
-	useBookViewMode,
 	useBookNodePositions,
-	useBookOutlineCollapsed,
 	useBookLayoutSpacing,
-	useBookOutlineDisplayMode,
 	useMonsterLibrary,
 	type Brain,
 	type CreateBrainOptions,

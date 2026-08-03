@@ -26,19 +26,8 @@ import { NodeCard } from './NodeCard'
 import { EdgeLayer } from './EdgeLayer'
 import { ZoomControls } from './ZoomControls'
 
-/**
- * A request to centre the canvas on a node, raised by « Centrer dans l'arbre »
- * (outline-view) and wired through the editor shell. `seq` makes each request
- * distinct so revealing the same node twice re-centres.
- */
-export interface RevealRequest {
-	nodeId: string
-	seq: number
-}
-
 export interface TreeCanvasProps {
-	reveal?: RevealRequest
-	/** Node ids with dangling references after export — rendered with a red border. */
+	/** Node ids flagged by the live structural health check — rendered with a red border (KR-145). */
 	warnedNodeIds?: ReadonlySet<string>
 }
 
@@ -54,9 +43,9 @@ const HINT_GAP = 28
  * book as node cards + labelled edges on a dot-grid canvas, owns single-select
  * (broadcast via node:selected, KR-024), and adds free-floating nodes through
  * BookService. A VIEW over BookService that never mutates locally (KR-020). The
- * surrounding chrome (top bar, view-mode switch, panel) is the editor shell's.
+ * surrounding chrome (top bar) is the editor shell's.
  */
-export function TreeCanvas({ reveal, warnedNodeIds }: TreeCanvasProps = {}): JSX.Element {
+export function TreeCanvas({ warnedNodeIds }: TreeCanvasProps = {}): JSX.Element {
 	const { books, selection, uiPreferences } = useBrain()
 	const route = useRoute()
 	const bookId = route.name === 'editor' ? route.bookId : null
@@ -64,10 +53,8 @@ export function TreeCanvas({ reveal, warnedNodeIds }: TreeCanvasProps = {}): JSX
 	const selectedId = useSelectedNode()
 	const positionOverrides = useBookNodePositions(bookId ?? '')
 	const layoutSpacing = useBookLayoutSpacing(bookId ?? '')
-	const { viewport, zoomIn, zoomOut, onBackgroundPointerDown, onWheel, centerOn, didDragRef } = useViewport(bookId)
+	const { viewport, zoomIn, zoomOut, onBackgroundPointerDown, onWheel, didDragRef } = useViewport(bookId)
 	const surfaceRef = useRef<HTMLDivElement>(null)
-	/** The last reveal `seq` already centred — so we act once per request. */
-	const centredSeqRef = useRef<number>(-1)
 	// Measured surface size for off-screen culling (iter 4). {0,0} until measured →
 	// no culling (render all), so an unmeasured env (jsdom, first paint) is unaffected.
 	const [surfaceSize, setSurfaceSize] = useState({ w: 0, h: 0 })
@@ -109,20 +96,6 @@ export function TreeCanvas({ reveal, warnedNodeIds }: TreeCanvasProps = {}): JSX
 		() => (cullRect === null ? edges : edges.filter((e) => edgeInView(e, cullRect))),
 		[edges, cullRect],
 	)
-
-	// « Centrer dans l'arbre »: centre on the revealed node once per request. The
-	// seq guard means an unrelated re-render (a book edit changing `positions`)
-	// never re-centres — only a new request does. Runs on mount too, so revealing
-	// from the outline (which remounts the canvas) lands centred (KR-013 ok:
-	// imperative viewport sync to an external request, not a derived-state mirror).
-	useEffect(() => {
-		if (reveal === undefined || reveal.seq === centredSeqRef.current) return
-		const pos = positions.get(reveal.nodeId)
-		const el = surfaceRef.current
-		if (pos === undefined || el === null) return
-		centredSeqRef.current = reveal.seq
-		centerOn({ x: pos.x + NODE_W / 2, y: pos.y + NODE_H / 2 }, { w: el.clientWidth, h: el.clientHeight })
-	}, [reveal, positions, centerOn])
 
 	if (book === null) {
 		return <div style={{ padding: 'var(--space-9)', color: 'var(--text-muted)' }}>Livre introuvable.</div>

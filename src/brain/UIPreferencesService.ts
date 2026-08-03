@@ -1,12 +1,11 @@
 import type { PersistenceService } from './PersistenceService'
-import type { EditorViewMode } from './components/EditorTopBar'
 import { uiPrefsKey } from './persistenceKeys'
 
 /**
- * Per-book UI preferences — the canvas viewport (pan/zoom), the canvas↔outline
- * view-mode, and dragged node positions. This is PER-DEVICE view state, NOT the
- * synced book document (KR-022): the service is wired over the RAW local store
- * (never the CloudSyncService decorator), so writes never enter the cloud queue.
+ * Per-book UI preferences — the canvas viewport (pan/zoom), its spacing mode,
+ * and dragged node positions. This is PER-DEVICE view state, NOT the synced book
+ * document (KR-022): the service is wired over the RAW local store (never the
+ * CloudSyncService decorator), so writes never enter the cloud queue.
  */
 export interface Viewport {
 	x: number
@@ -20,20 +19,14 @@ export interface Point {
 }
 
 export type LayoutSpacing = 'compact' | 'spacious'
-export type OutlineDisplayMode = 'list' | 'columns'
 
 /** Everything we remember for one book's editor view (all optional — absent = default). */
 export interface BookUIPrefs {
 	viewport?: Viewport
-	viewMode?: EditorViewMode
 	/** Manually dragged node positions, by node id; a stored position overrides the auto-layout slot. */
 	positions?: Record<string, Point>
-	/** Node ids collapsed in the outline view (a stale id for a deleted node is harmless). */
-	outlineCollapsed?: string[]
 	/** Canvas node spacing: 'compact' (default) or 'spacious' (generous gaps). */
 	layoutSpacing?: LayoutSpacing
-	/** Outline display mode: 'list' (default, indented DFS) or 'columns' (Miller columns). */
-	outlineDisplayMode?: OutlineDisplayMode
 }
 
 /**
@@ -47,17 +40,12 @@ export interface UIPreferencesService {
 	/** The book's current prefs (a stable cached reference until the next write). */
 	getBookPrefs(bookId: string): BookUIPrefs
 	setViewport(bookId: string, viewport: Viewport): void
-	setViewMode(bookId: string, viewMode: EditorViewMode): void
 	/** Persist a dragged node's position (overrides its computed layout slot). */
 	setNodePosition(bookId: string, nodeId: string, position: Point): void
 	/** Clear all dragged-position overrides for a book, restoring the auto-layout. */
 	clearNodePositions(bookId: string): void
-	/** Persist the set of node ids collapsed in the outline view. */
-	setOutlineCollapsed(bookId: string, nodeIds: string[]): void
 	/** Persist the canvas spacing mode (compact / spacious). */
 	setLayoutSpacing(bookId: string, spacing: LayoutSpacing): void
-	/** Persist the outline display mode (list / columns). */
-	setOutlineDisplayMode(bookId: string, mode: OutlineDisplayMode): void
 	/** Subscribe to any prefs change (for useSyncExternalStore). Returns an unsubscribe. */
 	subscribe(listener: () => void): () => void
 }
@@ -93,9 +81,6 @@ export function createUIPreferencesService(local: PersistenceService): UIPrefere
 		setViewport(bookId, viewport) {
 			commit(bookId, { ...load(bookId), viewport })
 		},
-		setViewMode(bookId, viewMode) {
-			commit(bookId, { ...load(bookId), viewMode })
-		},
 		setNodePosition(bookId, nodeId, position) {
 			const current = load(bookId)
 			commit(bookId, { ...current, positions: { ...current.positions, [nodeId]: position } })
@@ -104,14 +89,8 @@ export function createUIPreferencesService(local: PersistenceService): UIPrefere
 			const current = load(bookId)
 			commit(bookId, { ...current, positions: undefined })
 		},
-		setOutlineCollapsed(bookId, nodeIds) {
-			commit(bookId, { ...load(bookId), outlineCollapsed: nodeIds })
-		},
 		setLayoutSpacing(bookId, spacing) {
 			commit(bookId, { ...load(bookId), layoutSpacing: spacing })
-		},
-		setOutlineDisplayMode(bookId, mode) {
-			commit(bookId, { ...load(bookId), outlineDisplayMode: mode })
 		},
 		subscribe(listener) {
 			listeners.add(listener)

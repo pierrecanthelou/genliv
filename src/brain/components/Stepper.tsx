@@ -3,9 +3,10 @@ import { HIT_TARGET_MIN } from '../ui'
 
 /**
  * Stepper — a labelled − N + numeric stepper (wireframe § 04: gift bonus,
- * monster stats). Clamps to [min, max] on each step. Lives in brain because
- * more than one feature uses it (action-pnj gift value + action-monster stats,
- * KR-109) — same extraction rule as ObjectEditor/OutcomesEditor. Controlled:
+ * monster stats). Clamps to [min, max] on each step. Lives in brain as a
+ * cross-feature primitive (KR-109) — same extraction rule as ObjectEditor /
+ * OutcomesEditor. Its consumers left with the bascule; the dossier forms
+ * (roadmap n° 3 to 6) are the next ones. Controlled:
  * the owner persists `onChange`. The +/− buttons name themselves from `label`
  * so several steppers on one screen keep distinct accessible names.
  */

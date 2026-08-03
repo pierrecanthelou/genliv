@@ -1,5 +1,53 @@
 # Changelog
 
+## 0.6.0 — bascule IA : décisions D1/D2/D3 tranchées, tri du dépôt exécuté
+
+Ouverture du **Temps 1** (`0.6.x` = l'éditeur produit un dossier d'aventure). Aucune fonctionnalité neuve : cette version **enregistre les trois décisions bloquantes** et **exécute le tri** qu'elles commandent. Plan de référence : `docs/ROADMAP-BASCULE-IA.md`.
+
+### Décisions
+
+- **D1 — langage de conditions : un champ pour chaque.** Les sept familles de conditions du schéma portent désormais **deux champs** : `…_texte` (français, pour l'IA, toujours rédigé) et `…_expr` (évaluable, pour le moteur, facultatif). Le moteur ne lit jamais le texte pour décider, l'IA ne lit jamais l'expression pour raconter. La grammaire de `…_expr` — prédicats sur identifiants stables + `et`/`ou`/`non`, registre extensible, pas de langage généraliste — est fixée par la feature n° 1 `dossier-format`.
+- **D2 — appels IA : tous par le worker.** Position par défaut confirmée. Clé d'API jamais côté client, une route par rôle IA, SSE pour la narration, checklist **Worker Route Parity** pour chaque route neuve. Le routeur de modèle et d'effort reste un point d'extension nommé, pas une abstraction livrée. Pas de hors-ligne en v1.
+- **D3 — carte des features + versionnement.** Carte conservée/repointée/supprimée en § 1 bis de la roadmap. Le modèle en paliers horizontaux est **retiré** : `0.6.x` = Temps 1, `0.7.x` = Temps 2, PATCH +1 par itération livrée.
+
+### Supprimé — code (~9 500 lignes dans `src/features/`)
+
+- **Huit features** avec leurs tests et leurs `specification.json` : `outline-view`, `action-decor`, `node-editor`, `choice-linking`, `action-pnj`, `action-monster`, `book-export`, `action-trap`. Toutes câblées sur des types de nœuds, des choix ou des formats d'export que la bascule abandonne (décision n° 1 : pas de migration).
+- **`brain/ActionRegistry.ts`** et **`brain/SlotRegistry.ts`** — registres sans plus aucun inscrivant, retirés de `BrainContext` et du baril.
+- **`brain/utils/scenarioExport.ts`** + **`BookService.importBook()`** — seul chemin de lecture du format scénario, devenu inatteignable.
+- **`UIPreferencesService`** — préférences de l'ancienne vue plan (`viewMode`, `outlineCollapsed`, `outlineDisplayMode`) et les trois hooks correspondants ; le sélecteur arbre ↔ plan de `EditorTopBar` part avec.
+- `App.tsx` et `EditorScreen.tsx` ramenés à une coquille : barre supérieure + canevas d'arbre, sans panneau d'édition. Elle tient jusqu'à la n° 2 `bascule-editeur`.
+
+### Supprimé — documents
+
+`PROMPT_SCENE_IA.md` + sa copie `public/` (prompt du format scénario abandonné — **la règle « triplet lié » de `CLAUDE.md` tombe avec**) · `docs/ROADMAP.md` (périmé) · les bundles de livraison déjà appliqués (`claude-design/`, `livraison/`, `specifications-jeu/`) · les copies périmées de `design_handoff_gamebook_editor/` (`features/`, `CLAUDE.md`, `code-knowledge.json`) · les artefacts locaux (`dist/`, `reports/`, captures, exports de scénario).
+
+### Promu dans le dépôt
+
+Quatre documents contraignants ne vivaient que dans des dossiers ignorés par git — dont la **source de vérité des règles du jeu** (KR-130) : `docs/REGLES-DU-JEU.md`, `docs/REGLES-PLAY.md`, `docs/EXIGENCE-APERCU-DU-JEU.md`, `docs/PLAN-BASCULE-IA.dc.html`. `.gitignore` ne masque plus `docs/` ; seul le bundle `claude-design/`, re-téléchargeable, reste ignoré.
+
+### Documents mis à jour
+
+`docs/ROADMAP-BASCULE-IA.md` (§ 1 décisions, § 1 bis carte D3, § 1 ter journal de bascule) · `docs/WORKFLOW.md` (versionnement et build steps) · `CLAUDE.md` (bandeau de bascule, la règle du prompt scénario remplacée par la règle « `REGLES-DU-JEU.md` fait foi », ordre de construction, où regarder) · `README.md` · `.claude/agents/narratif-ia.md` + `.claude/skills/raffinage-iteration/SKILL.md` (chemins des documents promus) · `code-knowledge.json` (**KR-154** documents de référence hors dépôt, **KR-155** supprimer le chemin de lecture entier d'un format abandonné).
+
+### Revue tech-lead — `REQUEST_CHANGES` puis `APPROVE`
+
+La revue de PR a remonté cinq must-fix, tous corrigés (BUG-028 à BUG-033 dans `bug_history.json`) :
+
+- **Chemin mort dans une feature vivante** — `tree-canvas` gardait tout le chemin « Centrer dans l'arbre » (`RevealRequest` exporté dans son API publique, prop `reveal`, `useEffect` de recentrage, `useViewport.centerOn`) alors que son unique producteur, `outline-view`, était supprimé. L'effet ne pouvait plus jamais s'exécuter.
+- **Trois événements de `EventBus` sans émetteur ni observateur** (`action:changed`, `monster:savedToLibrary`, `book:exported`) — un nom d'événement est un contrat à deux extrémités, il survit à la suppression des deux parce qu'aucun import de fichier ne le porte.
+- **Consigne périmée dans la porte de commit** — `rules.golden.test.ts` demandait encore de répercuter toute évolution du bestiaire dans `PROMPT_SCENE_IA.md`, supprimé par ce même lot. Repointé sur `docs/REGLES-DU-JEU.md`.
+- **§ 1 ter incomplet** — trois modules survivaient sans consommateur et sans être nommés (`brain/utils/download.ts`, `MonsterLibraryService` + son `seedDefaults` producteur-sans-lecteur, les huit primitives de `brain/components/`). Nommés, avec leur repreneur.
+- **Test recentré devenu creux** — l'anneau d'avertissement d'une carte avait perdu son contrôle négatif : il n'affirmait plus que sa présence, donc il serait passé même si l'anneau était peint sur toutes les cartes. Contrôle négatif rétabli sur le nœud `mort`.
+
+Un second tour a fermé un dernier blocage : **`CLAUDE.md` annonçait comme contrats vivants trois événements inexistants** — deux supprimés par ce lot même, et `object:granted`, qui n'a jamais été déclaré dans `AppEvents`. La ligne est alignée sur `brain/EventBus.ts` et se déclare désormais dérivée de lui plutôt que de prétendre être une énumération autonome (BUG-034).
+
+Et un défaut de même nature trouvé en élargissant la recherche : **`.eslintrc.cjs` listait encore les treize features** (dont huit supprimées) et **quatre fichiers de `.claude/` pointaient `features/README.md`** — `/cadrer` demandait même d'y mettre à jour un tableau, ce qui aurait fait échouer la commande suivante. `FEATURE_DIRS` réduit aux cinq survivants et le sélecteur d'import dynamique construit depuis cette liste (fin de la duplication) ; les trois règles d'isolation re-testées par sonde `eslint --stdin` (import dynamique bloqué, import statique bloqué, import `brain/` accepté).
+
+### Porte
+
+`tsc --noEmit` propre · ESLint 0 erreur (1 avertissement pré-existant sur `CharacterCreationScreen`, non touché) · **485 tests verts sur 39 suites**, contre 55 fichiers de test avant le tri : les 16 suites parties couvraient les huit features supprimées. Aucun test survivant n'a été affaibli ; trois ont été **reciblés** sur ce qui subsiste — la persistance des préférences porte désormais sur l'espacement du canevas, et l'anneau d'avertissement d'une carte est vérifié sur la santé structurelle vive plutôt qu'au retour d'un export.
+
 ## 0.5.34 — outillage : score de mutation sur les règles + 3 invariants dans ESLint
 
 Itération d'outillage — aucun comportement utilisateur, aucun contrat `brain/` modifié, aucune dépendance de production ajoutée.

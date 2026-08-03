@@ -14,8 +14,8 @@
  * table dorée vont ensemble — l'une sans l'autre serait un relâchement.
  *
  * Règle : ces tables sont figées à la main. Une évolution volontaire du
- * bestiaire ou d'un registre se répercute ICI, puis dans `PROMPT_SCENE_IA.md`
- * et `public/PROMPT_SCENE_IA.md` (règle « triplet lié » de CLAUDE.md).
+ * bestiaire ou d'un registre part de `docs/REGLES-DU-JEU.md`, qui fait foi sur
+ * toute mécanique (KR-130), puis se répercute ICI, puis dans le code.
  */
 import { BESTIARY } from './bestiary'
 import { CHALLENGE_TIERS, DEFAULT_CHALLENGE_TIER, type ChallengeTier } from './challenge'

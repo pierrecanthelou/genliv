@@ -5,8 +5,8 @@ import type { Book } from './types'
 import { checkBookHealth, type StructuralWarning } from './utils/bookHealth'
 
 /**
- * Shared brain hooks. Views (tree-canvas, node-editor, outline-view) read the
- * open book live from BookService — the single source of truth — by
+ * Shared brain hooks. Views (tree-canvas, and the dossier sections to come) read
+ * the open book live from BookService — the single source of truth — by
  * subscribing to the event bus, NOT by mirroring props through useEffect
  * (KR-013/113). Each view stays a VIEW, holding no private copy (KR-020).
  */

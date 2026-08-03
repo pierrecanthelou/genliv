@@ -258,17 +258,16 @@ actions: Action[]
 - Lazy-load images below the fold with `loading="lazy"`.
 - Vite code-splits by route automatically — keep route chunks focused.
 
-## Versioning — horizontal slices (MVP → V1 → V2 …)
+## Versioning — les deux temps de la bascule IA
 
-We build **breadth-first**: every MINOR is a *runnable slice across all features* at a given depth. See `docs/ROADMAP.md` for the live plan.
+The horizontal-slice model (MINOR = a capability tier crossing *every* feature) was **retired on 2026-08-03** by decision D3: it does not survive sixteen new features arriving at skeleton stage while the surviving ones sit at iteration 4. See `docs/ROADMAP-BASCULE-IA.md` for the live plan.
 
 `package.json` follows **0.MINOR.PATCH**:
 
-- **MINOR = capability tier.** `0.1.x` = MVP (every feature has a walking skeleton). `0.2.x` = V1 (iteration 1 of every feature). `0.3.x` = V2 (iteration 2). `0.4.x` = V3, etc. Iteration counts are ragged (per-feature `n` is 3–4), so later tiers include fewer features.
-- **PATCH = one feature advanced within the current tier.** Each feature's slice (skeleton in `0.1.x`, or iteration *K* in the `0.(K+1).x` tier) committed to `main` → PATCH +1.
-- Within a tier, advance features in the documented **build order** (dependencies first).
+- **MINOR = one of the two temps.** `0.6.x` = **Temps 1** (the editor produces an adventure dossier, features n° 1–8). `0.7.x` = **Temps 2** (the engine plays the dossier, features n° 9–16).
+- **PATCH = one feature iteration shipped**, in the order of `docs/ROADMAP-BASCULE-IA.md`. Each iteration committed to `main` → PATCH +1.
+- Advance features in the documented order (dependencies first); never two features in parallel.
 - Bug fixes do not bump the version on their own — they fold into the feature/iteration that introduced them.
-- A feature whose iteration *K* was already banked in a prior (depth-first) pass is **skipped** in that tier (no-op, no bump).
 
 Apply the bump immediately after the slice is committed to `main`.
 
@@ -301,14 +300,14 @@ Do not form a hypothesis from the code alone before cross-referencing the spec. 
 
 **Visual bug fix checklist**: after writing the fix, verify it matches ALL visual properties of structurally similar rows in the same component — padding (`px`, `py`), `borderRadius`, hover state, font. A fix that restores the missing element but breaks alignment is not complete.
 
-## Build Steps — breadth-first slices, one feature at a time
+## Build Steps — one feature iteration at a time
 
-We build the app as **horizontal slices** (see `docs/ROADMAP.md`): tier `0.1.x` gives every feature a walking skeleton (MVP); tier `0.(K+1).x` gives every feature its iteration `K` (V`K`). Within a tier, advance features in the documented build order. **Build exactly one feature's slice, then STOP** — never chain features in a single run.
+We build the app one feature at a time, in the order of `docs/ROADMAP-BASCULE-IA.md`: `0.6.x` for Temps 1 (n° 1–8), `0.7.x` for Temps 2 (n° 9–16). Each feature is scoped with `/cadrer`, then each of its iterations goes `/raffiner` → `/essaim`. **Build exactly one iteration, then STOP** — never chain features in a single run.
 
 ### The per-feature unit (one PATCH bump, one stop)
 
 1. **Read first.** The feature's `specification.json` (`acceptance_criteria`, `known_risks`, `implementation` log, iteration statuses), `code-knowledge.json` (in full), `bug_history.json`, `features_history.json`, and the relevant sibling specs. If the spec is inconsistent (e.g. iterations without acceptance criteria), propose a fix first. Before coding a **planned** iteration, read the current code — it may already be done; if so mark it `done` and move on (no bump).
-2. **Build the slice** — skeleton in `0.1.x`, or iteration `K` in the `0.(K+1).x` tier. Minimal, no decoration. Brain contracts only; consider the whole architecture, side effects and risks.
+2. **Build the slice** — the iteration as signed off by the raffinage committee. Minimal, no decoration. Brain contracts only; consider the whole architecture, side effects and risks.
 3. **Gate**: Prettier → `tsc --noEmit` → ESLint → `jest`. (The pre-commit hook enforces tsc+jest; never bypass it.) Refactor → re-gate.
 4. **Docs**: update `specification.json` (implementation log / iteration status), mirror new `known_risks` into `code-knowledge.json`, add a `CHANGELOG.md` line, update `features_history.json` and `README.md`.
 5. **Self review gate** (quick): `Severity | File:line | Principle/KR | Finding | Fix`. Fix ALL findings; log each to `bug_history.json`. Re-run `tsc` + `jest`.
@@ -322,7 +321,7 @@ We build the app as **horizontal slices** (see `docs/ROADMAP.md`): tier `0.1.x` 
 7. **User review (the commit gate) — STOP.** Present the still-uncommitted slice: the `tech-lead` `APPROVE` verdict, the acceptance-criteria table, and a one-line summary (files + intent). **Wait for the user to review and approve.** Do not commit before the user approves; address any change the user asks for, then re-gate and re-run the tech-lead PR (step 6) before re-presenting.
 8. **Ship (only once the USER approves)**: show the one-line summary and commit the slice **directly to `main`** (no feature branch) → bump `package.json` PATCH +1. Then do not start the next feature until the user gives the go.
 
-When a tier's last feature ships, the app is runnable at that depth across all features; the next tier begins only on user go.
+When the last feature of a temps ships, the app is runnable end to end at that depth; the next temps begins only on user go.
 
 ## Design Patch Processing
 

@@ -19,7 +19,7 @@ import type { MonsterCharacteristic } from './characteristics'
 import type { WeaponId, ProtectionId } from './equipment'
 export type { NodeKind, EdgeKind }
 
-/** Required-action slot on a node; concrete editors come from the ActionRegistry. */
+/** Required-action slot on a node (its editors left with the bascule, roadmap D3). */
 export type NodeActionType = 'aucune' | 'pnj' | 'decor' | 'piege' | 'monstre'
 
 /** Cloud-sync state of the local-first store (cloud-sync). `offline` = local-only (no transport). */
