@@ -1,0 +1,197 @@
+{
+	"feature": "dossier-format",
+	"created_at": "2026-08-03",
+	"status": "planned",
+	"design_reference": "docs/PLAN-BASCULE-IA.dc.html § 1.2 (les trois couches A canon / B acteurs & monde / C charpente) et § 1.5 (le schéma du dossier). Aucun écran neuf : la seule surface est l'affordance d'import injectée dans le slot LibraryScreen.importEntry, déjà ouvert et non câblé depuis la suppression de book-export. La navigation par sections est la feature n° 2 bascule-editeur.",
+	"plan": {
+		"goal": "Figer le dossier d'aventure comme unique format persisté — un schéma versionné, un validateur qui refuse en français ce qui n'est pas jouable, et un import/export — pour que les quinze features suivantes, éditeur comme moteur, aient un contrat stable à consommer.",
+		"design_contract": {
+			"surface": "Une seule : ImportDossierButton injecté dans le slot LibraryScreen.importEntry (prop ReactNode déjà existante) depuis la RACINE DE COMPOSITION, jamais depuis le code de book-library — son isolation est préservée jusqu'à son propre repointage en n° 2. Carte pointillée accent, glyphe ⇪ (jamais +, déjà pris par « + Nouveau livre »), libellé « Importer un dossier ».",
+			"modale": "Modal (brain) title=« Importer un dossier », cancelLabel=« Annuler », confirmLabel=« Importer », confirmTone=accent (non destructif : crée, n'écrase rien), confirmDisabled tant que la validation n'a pas réussi. Corps vide = dropzone pointillée façon ImageUpload, texte « ⬚ Cliquer pour choisir un fichier .json », input file masqué déclenché par un <button> (Entrée/Espace natifs).",
+			"rapport_erreurs": "C'est une surface de rédaction, pas une trace technique. Anatomie par anomalie : OÙ (entité résolue par NOM — « Personnage « Aldûr le Sage » », repli « Personnage n°4 (sans nom) » — l'id stable en mono/--text-faint entre parenthèses, le chemin JSON jamais seul) · QUOI (phrase française, registre auteur factuel, jamais de nom de type TypeScript) · QUOI FAIRE (précédé de ↪, « Corrigez ce champ dans le fichier, puis réimportez-le. »). Ce contrat est ce que bascule-editeur (n° 2) consommera : le figer ici évite qu'un futur écran doive re-dériver le nom depuis l'id ou reformuler des messages techniques a posteriori.",
+			"registres_de_langue": "Règle systématique de nommage des champs : tout champ de prose LUE OU ENTENDUE PAR LE JOUEUR porte le suffixe _joueur (accroche_joueur, formulation_joueur, description_joueur, texte_ouverture_joueur) ; le défaut non suffixé est auteur/MJ (synopsis_mj, verite). Exception locale : sous canon, le regroupement mj/partage porte déjà la distinction, ses feuilles n'ont pas besoin du suffixe. Les champs …_texte de D1 ne sont NI l'un NI l'autre : phrase factuelle déclarative destinée au contexte IA (« Le sceau du Gouffre est brisé »), jamais de la fiction lue par le joueur (« Vous brisez le sceau ») — à documenter dans le schéma pour qu'aucun formulaire ne les traite comme des champs _joueur.",
+			"absent_vs_vide": "Le schéma distingue ABSENT (clé omise, champ optionnel = non applicable / pas de déclenchement automatique → état informationnel calme, jamais une alerte) de VIDE (chaîne vide sur un champ obligatoire, ou tableau vide là où du contenu est attendu = incomplet → placeholder d'exemple ou affordance pointillée « + Ajouter… »). Le validateur les traite différemment : un obligatoire vide est bloquant, un optionnel absent n'apparaît jamais au rapport. C'est aussi ce qui rend alertable « un …_texte sans …_expr » sans faux positif.",
+			"bornes_de_longueur": "Extension de Field (maxLength, showCounter) plutôt qu'un composant maison : compteur mono aligné à droite, --text-faint sous 90 % de la borne, --bad au-delà, TEXTE SEUL — jamais de bordure ni de fond rouge sur le champ, le rouge et le vert restent réservés à réussite/échec de jet. Advisory en rédaction, bloquant au contrôle (n° 7).",
+			"expr_jamais_saisie": "Aucun Field des features n° 3/6/7 ne se lie à une syntaxe d'expression. L'auteur compose toujours par widgets — Select alimenté par PREDICATES[].label, TargetPicker filtré par PREDICATES[].refKinds (il porte déjà « ⚠ cible supprimée »), Field pour la valeur — et le registre pilote le rendu. C'est la contrepartie du choix de stocker ExprNode en arbre.",
+			"composants": "Réutilisés : Modal, Field, Badge, Card, IconButton, Select, TargetPicker (tous dans brain/components/). Patron de dropzone repris d'ImageUpload (accept .json), patron de carte pointillée accent repris de NewBookButton, résolution nom+id reprise de TargetPicker. AUCUNE primitive nouvelle dans brain/components/ : un seul consommateur pour l'instant."
+		},
+		"acceptance_criteria": [
+			"Étant donné le dossier de référence conforme, quand on appelle validateDossier, alors elle retourne ok:true, errors vide, et le dossier typé — sans exception.",
+			"Étant donné un document dont schema n'est pas exactement 1 (absent, non numérique, 0, 2), quand on l'importe, alors il est refusé avec le code schema-inconnu, distinct d'une erreur de contenu, et jamais coercé silencieusement à 1.",
+			"Étant donné une racine obligatoire manquante ou un champ obligatoire vide, quand on valide, alors une erreur bloquante nomme la racine ou le champ ; un champ optionnel absent ne produit aucune entrée au rapport.",
+			"Étant donné une entrée de la matrice de rejet, quand le validateur produit un DossierIssue, alors code appartient à un Record fermé (KR-117), path est stable (contrat consommé par n° 7), location résout l'entité par son nom, et message est un texte français rédigé — un test interdit les sous-chaînes « expected », « undefined » et « is not a function » dans tout message.",
+			"Étant donné une condition dont …_expr référence un identifiant absent du dossier, quand on valide, alors erreur BLOQUANTE nommant le champ porteur et l'identifiant fautif ; étant donné une fin ou un objectif portant …_texte sans …_expr, alors AVERTISSEMENT non bloquant (les deux règles tranchées par D1).",
+			"Étant donné le registre des prédicats et celui des deltas, quand on les inspecte, alors chaque entrée vient d'un Record unique (KR-117) — aucune branche if/switch sur un identifiant de prédicat ou de delta nulle part dans brain/.",
+			"Étant donné une référence par identifiant du dossier (personnage, lieu, objet, indice, quête, objectif, jalon, monstre_ref vers le bestiaire), quand elle pointe vers rien, alors erreur bloquante nommant le champ porteur et l'identifiant.",
+			"Étant donné le dossier de référence lu depuis un FICHIER réel du disque, quand on l'importe puis l'exporte par les fonctions publiques, alors le document réimporté est deep-equal à l'export et reste valide (le round-trip est la preuve de bout en bout, en l'absence d'écran).",
+			"Étant donné la checklist de suffisance du dossier de référence, quand on l'exécute, alors chaque branche listée (antagoniste, portee=second, relation secrète, jalon non obligatoire, fin avec …_expr, savoir avec porte apresIndice, événement non lié à l'histoire, scène figée, delta sur chaque cible) est non vide — le test échoue par NOM de branche absente, jamais par un contrôle à l'œil.",
+			"Étant donné un dossier importé et validé, quand on tente une mutation imbriquée, alors elle échoue (Object.isFrozen vrai à chaque niveau testé) — le dossier est en lecture seule dès l'import (décision n° 7).",
+			"Étant donné un document dossier écrit via set(), quand CloudSyncService choisit sa route de poussée et arme reconcile(), alors elle reconnaît explicitement la forme dossier (schema:1) et s'arme sur dossier:opened comme sur book:opened — jamais un repli silencieux en poussée monolithique sans réconciliation (KR-163).",
+			"Étant donné les onze critères ci-dessus, quand on cherche leur preuve, alors chacun est constaté par un test brain/ qui ne monte aucun composant React ; l'affordance d'import existe mais n'est l'instrument de preuve d'aucun critère. (Les deux critères qui suivent portent sur la porte et le lint, pas sur le format : ils se constatent par la porte, pas par un test brain/.)",
+			"Étant donné les cinq features survivantes et src/player/, quand la porte tourne après chaque itération, alors tsc --noEmit et la suite jest COMPLÈTE sont verts, sans autre changement que les 26 lignes d'import de la scission types.ts → tree.ts (21 dans src/brain/, 5 dans src/player/, ZÉRO dans src/features/) — décompte mesuré, à remesurer et non à recopier (KR-159).",
+			"Étant donné le nouveau code, quand npm run lint tourne, alors zéro erreur : aucun localStorage brut, aucune couleur en dur, aucun import inter-features, et FEATURE_DIRS contient dossier-format avec le test readdirSync('src/features') ⊆ FEATURE_DIRS en place."
+		],
+		"brain_contracts": [
+			{
+				"type": "type",
+				"name": "brain/dossier/types.ts — Dossier (schema 1, treize racines en trois groupes canon/monde/charpente)",
+				"direction": "provides"
+			},
+			{
+				"type": "type",
+				"name": "brain/tree.ts — Book, BookNode, Edge et le modèle d'arbre, extraits de types.ts (condamnés : n° 2 puis n° 9)",
+				"direction": "provides"
+			},
+			{
+				"type": "service",
+				"name": "brain/dossier/validate.ts — validateDossier(input: unknown): DossierValidation { ok, dossier, errors, warnings }",
+				"direction": "provides"
+			},
+			{
+				"type": "registry",
+				"name": "brain/dossier/predicates.ts — PREDICATES (Record fermé, KR-117 : label, arity, refKinds)",
+				"direction": "provides"
+			},
+			{
+				"type": "type",
+				"name": "brain/dossier/expr.ts — ExprNode (arbre persisté ; validateExpr + collectRefs, AUCUN parseur)",
+				"direction": "provides"
+			},
+			{
+				"type": "registry",
+				"name": "brain/dossier/deltas.ts — DELTAS (Record fermé : label, cible, refKinds)",
+				"direction": "provides"
+			},
+			{
+				"type": "service",
+				"name": "brain/DossierService.ts — create/get/list/open/rename/duplicate/delete/update/import/export",
+				"direction": "provides"
+			},
+			{
+				"type": "event",
+				"name": "dossier:created",
+				"direction": "emits",
+				"payload": {
+					"dossierId": "string"
+				}
+			},
+			{
+				"type": "event",
+				"name": "dossier:opened",
+				"direction": "emits",
+				"payload": {
+					"dossierId": "string"
+				}
+			},
+			{
+				"type": "event",
+				"name": "dossier:updated",
+				"direction": "emits",
+				"payload": {
+					"dossierId": "string"
+				}
+			},
+			{
+				"type": "event",
+				"name": "dossier:deleted",
+				"direction": "emits",
+				"payload": {
+					"dossierId": "string"
+				}
+			},
+			{
+				"type": "hook",
+				"name": "useOpenDossier(id) / useDossiers() — useSyncExternalStore sur les quatre événements, jamais un miroir useEffect (KR-013/113)",
+				"direction": "provides"
+			},
+			{
+				"type": "service",
+				"name": "PersistenceService / CloudSyncService (dossierKey, isDossier, reconcile sur dossier:opened)",
+				"direction": "consumes"
+			},
+			{
+				"type": "registry",
+				"name": "CHARACTERISTICS / CHALLENGE_TIERS / BESTIARY — consommés tels quels par le schéma (stats, portes de révélation, monstre_ref)",
+				"direction": "consumes"
+			},
+			{
+				"type": "util",
+				"name": "brain/utils/download.ts — downloadJson / slugifyFilename, réutilisés sans changement de signature",
+				"direction": "consumes"
+			}
+		],
+		"walking_skeleton": "Itération 1 : la FORME complète du dossier (treize racines groupées en canon / monde / charpente) est déclarée en types TS, un validateur structurel la vérifie et refuse en français, le document se persiste par PersistenceService sous ses propres clés — additivement, le Book existant n'est ni lu ni écrit —, s'exporte et se réimporte à l'identique, et une affordance « Importer un dossier » injectée dans le slot LibraryScreen.importEntry depuis la racine de composition donne à l'auteur le dépôt de fichier et le rapport d'anomalies. La sémantique des conditions (it2), celle des effets (it3) et le dossier de référence complet (it4) viennent ensuite.",
+		"n": 5,
+		"iterations": [
+			{
+				"id": 1,
+				"goal": "L'auteur peut importer un dossier d'aventure dans sa bibliotheque. Squelette qui traverse de bout en bout : scission types.ts vers regles / tree.ts, les trois racines canon / monde / charpente avec un SOUS-ENSEMBLE MINIMAL de champs, la validation structurelle, la garde schema different de 1, le contrat DossierIssue, la persistance additive avec KR-163, l'import/export et l'affordance d'import cablee sur le slot LibraryScreen.importEntry.",
+				"status": "planned"
+			},
+			{
+				"id": 2,
+				"goal": "L'auteur peut decrire tout son monde dans un dossier. Porte la forme COMPLETE des treize racines — les huit blocs de personnage, quetes, indices, lieux, objets, evenements, conditions, jalons, fins, scenes — avec les sept corrections irreversibles tranchees au cadrage, et etend la validation structurelle a l'ensemble.",
+				"status": "planned"
+			},
+			{
+				"id": 3,
+				"goal": "L'auteur peut voir refusee une condition qui pointe une entite inexistante. Livre ExprNode et son registre PREDICATES, validateExpr et collectRefs, le type Revelation a portes, et l'integrite referentielle des six familles de conditions.",
+				"status": "planned"
+			},
+			{
+				"id": 4,
+				"goal": "L'auteur peut voir refuse un effet qui pointe une entite inexistante. Etoffe le registre DELTAS depuis l'inventaire des operations deja presentes dans le runtime joueur, et etend l'integrite referentielle au reste du document (relations, presences, acces, mene_a, monstre_ref).",
+				"status": "planned"
+			},
+			{
+				"id": 5,
+				"goal": "L'auteur peut partir d'un dossier de reference complet plutot que d'une page blanche. Livre le dossier de reference a six personnages et cinq lieux, comme fichier reel, avec sa checklist de suffisance nommee par branche.",
+				"status": "planned"
+			}
+		],
+		"known_risks": [
+			"KR-156 : cette feature ne livre aucun écran d'édition (n° 2 seulement). Chaque critère doit être observable par un test jest à l'échelle brain/ lisant le FICHIER fixture réel du dossier de référence, jamais un littéral inline. C'est le substitut de preuve de tranche quand il n'y a pas d'écran — et l'affordance d'import, qui existe, n'est l'instrument de preuve d'aucun critère.",
+			"KR-157 : le dossier de référence sert à la fois de fixture et de démonstration ; son critère de suffisance est une checklist nommée PAR BRANCHE qui échoue par nom de branche absente, jamais une vérification à l'œil.",
+			"KR-158 : la matrice de rejet du validateur est écrite dans cette spec AVANT le code, au raffinage — sinon les cas de test sont rédigés après coup pour coller à ce que le validateur fait déjà.",
+			"KR-159 : la n° 1 CRÉE, elle ne détruit pas. brain/types.ts ne porte pas que le modèle d'arbre — GameObject, SkillRoll, MonsterConfig, CreatureType y vivent et sont importés par douze fichiers de src/player/, couche déclarée conservée et intouchée. Un remplacement littéral emporte le combat et la création de personnage. RAYON RÉEL DE LA SCISSION types.ts → tree.ts, mesuré le 2026-08-04 : 26 fichiers, une ligne d'import chacun — 21 dans src/brain/ (index.ts, BookService et son test, CloudSyncService et son test, hooks.ts, bookHealth.test.ts, TargetPicker et son test, les onze modules et tests de utils/) et 5 dans src/player/ (ChoiceList, NodeScreen, usePlaySession, sessionEngine et son test — Edge seul), ZÉRO dans src/features/, qui consomment toutes par le baril brain/index.ts. Les douze fichiers de src/player/ cités plus haut sont ceux des types de RÈGLES qui ne bougent pas : ne pas confondre les deux décomptes. Ne jamais réénoncer ce chiffre sans le remesurer — grep des six types déplacés (Book, BookNode, Edge, ChoicePrereq, ChoiceCountdown, NodeActionType) sur les chemins './types', '../types' et '../../brain/types'. La démolition se répartit : moitié arbre de BookService + kinds.ts en n° 2, playExport + Book/Edge en n° 9. Critère de fini à chaque itération : tsc --noEmit + jest COMPLET verts.",
+			"KR-160 : la migration schema 1 → 2 n'est pas testable avant qu'un schéma 2 existe. Le seul critère recevable est le REJET de toute valeur de schema autre que 1 exactement, avec un code distinct d'une erreur de contenu. Ne pas livrer de fonction migrateDossier : sans v2 elle n'a ni test ni appelant.",
+			"KR-161 : le score de mutation ne s'applique pas à cette feature — elle ne touche aucun des quatre fichiers mutés. Les registres de prédicats et de deltas sont de la logique sur identifiants, pas de l'arithmétique de règles ; ne pas les ajouter à stryker.config.json sans faire jouer le cliquet break de docs/WORKFLOW.md.",
+			"KR-162 : tout test recentré sur le nouveau format conserve au moins une assertion négative ou discriminante (leçon BUG-031), et chaque test existant touché est explicitement classé PORTÉ ou SUPPRIMÉ dans le journal d'itération — jamais silencieusement absent du diff.",
+			"KR-163 : CloudSyncService.isBook() teste Array.isArray(value.nodes). Un dossier n'a pas de nodes : il retomberait en poussée monolithique, et reconcile() n'étant armé que par book:opened, il n'y aurait AUCUNE réconciliation cloud sur un dossier — sans qu'un seul test rougisse. Le prédicat doit reconnaître la forme dossier (schema:1) et reconcile() s'armer sur dossier:opened. Test rouge avant correctif, itération 1.",
+			"KR-164 : DossierIssue est un registre fermé par code (KR-117) ; message est toujours un texte français rédigé, jamais une erreur runtime sérialisée ; location résout l'entité par son NOM ; path est le contrat que dossier-controles (n° 7) consomme pour badger une section.",
+			"KR-165 : toute borne de longueur ou de nombre du schéma est une constante NOMMÉE, testée à la limite et à limite+1 — jamais un nombre en dur au site de validation. Une borne non outillée n'existe pas, et le budget de contexte de l'IA en dépend.",
+			"KR-166 : un dossier importé et validé est gelé en profondeur ; toute écriture ultérieure clone avant de muter. Sans ce gel, une écriture du Temps 2 sur le dossier passerait inaperçue et la reproductibilité par graine tomberait sans bruit (décision n° 7).",
+			"KR-167 : aucune fonction ne convertit un Book en Dossier ni l'inverse, dans aucun sens — vérifié par grep au critère de fini. Un chemin de compatibilité serait une seconde source de vérité que personne n'oserait couper en n° 9 ; et un arbre converti ferait entrer des données en forme de choix dans le contexte du modèle.",
+			"KR-168 : la forme persistée de …_expr est un ARBRE (ExprNode), et il n'existe aucun parseur. Qui rajoutera un parseExpr réintroduira une seconde source de vérité de la condition, plus une grammaire à spécifier, versionner et tester, plus la question de la syntaxe montrée à l'auteur — que le registre PREDICATES résout en pilotant le rendu par widgets."
+		]
+	},
+	"implementation": {
+		"iterations_log": [],
+		"resolved_decisions": [
+			"D1 porte sur SIX familles de conditions, pas sept : canon.objectifs[].reussi_si et .echoue_si, fins[].condition, jalons[].declencheur, evenements[].declencheur, personnages[].plan_actions[].declencheur, contre_mesures[].declencheur. savoirs[].revele_si en SORT et devient un type à part (Revelation à portes fermées : confianceMin, jet {carac, tc}, contrepartie, apresIndiceId). Motif : un jet n'évalue pas, il ÉMET une demande qui change le tour ; aplati en prédicat booléen il forcerait l'évaluateur à lancer le dé — ce que la décision n° 4 interdit — et le moteur perdrait le routage vers le protocole à deux appels de la n° 11.",
+			"…_expr est un nœud JSON structuré (ExprNode : et / ou / non / pred), jamais une chaîne, et il n'existe AUCUN parseur — seulement validateExpr (validation de forme à la frontière de confiance, comme isNodeKind, KR-116) et collectRefs. REJETÉ : parseExpr(src: string). Motif : supprime la grammaire à spécifier, versionner et tester, supprime toute la classe des erreurs de syntaxe, et rend PREDICATES porteur du rendu (label → Select, refKinds → TargetPicker, arity → slots) au lieu d'un éditeur d'expression maison en n° 3/6/7.",
+			"Le dossier a TREIZE racines, pas douze : objets[] s'ajoute au schéma du plan de cible. Motif : objet_id y est référencé quatre fois sans table, CLAUDE.md en fait une règle de domaine, et l'intégrité référentielle de l'itération 3 n'a pas de cible sans lui.",
+			"Les treize racines sont groupées en TROIS : canon (mj / partage / objectifs / interdits_ton), monde (personnages, lieux, objets, indices, quetes, evenements, conditions), charpente (depart, jalons, fins). REJETÉ : douze clés à plat plus une convention plus un test d'énumération. Motif : le regroupement est ce qui rend Pick<Dossier, 'canon' | 'monde'> sûr par construction — une fuite de charpente vers le contexte IA devient une erreur de compilation, pas un test d'exécution ; sans lui il faudrait un Omit qui dérive à chaque racine ajoutée. Coût mesuré : zéro type nouveau, trois accolades.",
+			"canon.mj est séparé de canon.partage. Motif : le plan de cible met synopsis_mj — « la vérité, y compris ce que le joueur ignore » — dans le seul bloc toujours chargé, ce qui rend le PNJ omniscient par construction, l'inverse exact de ce que le rôle acteur promet. Aucun prompt ne rattrape ça, et c'est la seule scission non migrable du schéma : on ne coupe pas de la prose déjà rédigée par script.",
+			"jalons[].effet, evenements[].resolutions[].consequence, quetes[].recompense et conditions.climat[].effetsRegles sont des listes de deltas TYPÉS, jamais de la prose. La FORME arrive en itération 1 (irréversible : prose → delta n'est pas parsable), le registre DELTAS s'étoffe en itération 3. Motif : laisser de la prose dans schema 1 programme un schema 2 que la décision n° 1 interdit d'avoir à migrer, et le seul composant capable de lire de la prose est le modèle — la frontière code/IA bougerait sans que personne l'ait décidé. Le contenu du registre s'inventorie dans actionEngine.ts, sessionEngine.ts et xp.ts : c'est un relevé, pas une conception.",
+			"REJETÉ : ajouter meta.voix. La deuxième personne au présent est une constante du runtime, pas un réglage d'aventure ; meta.ton module le registre, jamais la personne ni le temps. Ajouter un réglage est facile, retirer un réglage dont des dossiers dépendent ne l'est pas.",
+			"La collision de clé plan dans personnages (énuméré premier|second ET tableau d'étapes) est tranchée : portee: 'premier' | 'second' et plan_actions[]. Incohérence relevée en § 5 de la roadmap ; non tranchée, chaque consommateur devinerait.",
+			"evenements[].monstre_ref pointe le bestiaire par bestiaire.<templateId> — second espace de noms, résolu contre BESTIARY. Une référence pendante est bloquante à l'import ET au démarrage de session, sinon un combat s'ouvre sans monstre.",
+			"canon.interdits[] est renommé interdits_ton[]. Motif : les interdits sont une consigne INJECTÉE (ton, contenu, anachronismes) ; le garde-fou « aucune création d'entité » est une VALIDATION par résolution d'identifiant. Deux mécanismes, deux noms — fusionnés, la n° 10 croirait le second déjà livré.",
+			"L'affordance d'import est câblée dans le slot LibraryScreen.importEntry depuis la RACINE DE COMPOSITION, jamais depuis le code de book-library : son isolation est préservée jusqu'à son propre repointage en n° 2. REJETÉ : « aucun composant React n'existe » comme critère d'acceptation — une absence n'est pas observable et présuppose un arbitrage de périmètre. Remplacé par la propriété positive : aucun critère de cette feature n'est prouvé par un écran ; l'écran est un consommateur du même validateur, jamais une seconde source de vérité non testée.",
+			"REJETÉ : livrer evaluate(state, expr) ici. L'évaluation part en n° 9, ajoutée comme CHAMP du descripteur de prédicat, jamais un switch sur PredicateId (KR-117) — même traitement que DELTAS.appliquer. Condition nommée maintenant : en n° 9, un expr dont le prédicat n'est pas implémenté est un échec DUR au démarrage de session, jamais un repli vers « demander au modèle ».",
+			"REJETÉ : livrer construireContexte(dossier, etat, role) et le test « aucune clé de charpente dans un payload ». Aucun assembleur de payload n'existe avant la n° 10, donc aucun instrument — et à la n° 10 le compilateur le prouvera par la signature Pick<Dossier, 'canon' | 'monde'>. Ce que l'itération 1 lui doit, c'est que cette signature soit possible, ce que les trois racines garantissent.",
+			"La scission brain/types.ts → règles (survivent, consommées par src/player/) et brain/tree.ts (condamné) appartient à l'itération 1. Coût RÉELLEMENT mesuré le 2026-08-04 : 26 fichiers, une ligne d'import chacun — 21 dans src/brain/, 5 dans src/player/ (Edge seul), zéro dans src/features/ — zéro changement de comportement, aucun fichier muté par Stryker touché. Le « neuf fichiers de src/player/ » écrit au cadrage était une estimation jamais mesurée, qui confondait le rayon de la scission avec les fichiers de src/player/ important les types de règles ; corrigé sur relevé au raffinage (désaccord 2 du plan it1). Ce n'est pas cosmétique : c'est la barrière physique qui rend KR-167 vérifiable — tant que Dossier et BookNode partagent un fichier, le premier qui écrit objets: GameObject[] a TakeableObject sous les yeux et le convertisseur apparaît.",
+			"TRANCHÉ le 2026-08-04 (question ouverte au cadrage, arbitrée par l'auteur du produit) : depart.personnage_joueur.contraintes est SUPPRIMÉ du schéma. Il n'y a pas de contrainte de création de personnage propre à une aventure — la règle est une constante du runtime. REJETÉ : le typer (plafonds, caractéristique imposée, prétiré complet), qui aurait créé un second endroit où la règle de création vit alors que src/player/engine/charCreation.ts l'applique déjà (2D4 + 1D4 réparti) ; REJETÉ aussi le garder en prose, que le code ne peut pas appliquer. La suppression ne crée aucun nouvel endroit : c'est la seule des trois options à coût nul. Conséquence : aucun champ contraintes dans le schéma 1, aucune validation à écrire, et une aventure ne peut pas modifier la création de personnage — si ce besoin revient, il revient comme une décision de règles du jeu dans docs/REGLES-DU-JEU.md, pas comme un champ de dossier.",
+			"Le decoupage passe de 4 a 5 iterations au raffinage du 2026-08-03, sur controle de taille. L'iteration 1 telle que le cadrage l'avait ecrite demandait QUATRE lots dont TROIS de type contrat, qui nommaient tous src/brain/index.ts — collision de propriete, et trois lots « premiers » est une contradiction ; elle portait neuf criteres pour un plafond de huit. Cause identifiee : au tour 3 du cadrage j'avais fusionne le it1 du Tech Lead (types + validateur) avec son it4 (service + persistance + import) pour satisfaire l'exigence du PM qu'une premiere iteration ait une demo auteur — ce qui revenait a decouper PAR COUCHE (forme, validation, service, ecran), la coupe horizontale que la skill interdit. Le bon axe est la PROFONDEUR DU SCHEMA : it1 porte les trois racines avec un sous-ensemble minimal de champs et traverse jusqu'a la persistance, it2 porte la forme complete des treize racines. REJETE : l'objection selon laquelle les sept corrections irreversibles devraient toutes etre en it1 — tant que dossier-format n'est pas close, rien n'est publie et aucun auteur n'a ecrit de dossier (decision n° 1) ; l'irreversibilite mord a la FERMETURE DE LA FEATURE, pas a la fin d'une iteration. Ces sept points doivent etre livres avant la n° 3 dossier-canon, ce que l'iteration 2 garantit."
+		],
+		"open_questions": [
+			"REPORTÉ n° 10 — les scènes figées : le format porte un texte et un drapeau (itération 1), mais la propriété qui les définit est un CHEMIN DE CODE — une scène verbatim est ÉMISE par le moteur, jamais demandée au modèle. Idem texte_ouverture_joueur. À spécifier avec le narrateur.",
+			"REPORTÉ n° 7 — les détenteurs inverses d'un indice (« qui sait quoi ») se CALCULENT par balayage de personnages[].savoirs[], lieux[].indices[] et evenements[] ; jamais stockés (KR-013). C'est ce qui rendra calculables « indice orphelin » et « goulot d'étranglement ».",
+			"REPORTÉ n° 12 — l'échelle de confiance : bornes, valeur initiale, amplitude d'un delta. Le schéma pose personnages[].confiance_initiale (défaut 0) parce qu'un 0 posé par le code serait une règle que l'auteur ne peut pas écrire ; la mécanique reste à définir.",
+			"REPORTÉ n° 4 — le mapping des six curseurs de caractère sur CA / IN / IG. Le schéma porte les curseurs ; leur traduction en contraintes de prompt et en jets opposés est le travail de dossier-fiches.",
+			"OUVERT — l'orientation de lieux[].acces : arête bidirectionnelle ou non, et condition de passage. Une arête implicitement bidirectionnelle se dédouble par script (donc rattrapable), mais « PNJ inatteignable » et « départ incomplet » ne sont pas calculables tant que le sens n'est pas écrit. À trancher au raffinage de l'itération 3, au plus tard avant la n° 7.",
+			"OUVERT — le découpage de clés de persistance (KV splitting, cloud-sync itération 5) n'est pas repris ici : l'invariant posé à l'itération 1 est qu'AUCUN champ du dossier ne porte de data URL. dossierContentKey / dossierImageKey arriveront avec le premier porteur d'image — illustration en n° 3, portraits en n° 4."
+		]
+	}
+}

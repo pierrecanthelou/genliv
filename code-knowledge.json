@@ -395,6 +395,71 @@
 			"id": "KR-155",
 			"feature": "global-config",
 			"risk": "WHEN A FORMAT IS ABANDONED, DELETE ITS WHOLE READ PATH, NOT JUST ITS UI (2026-08-03 bascule tri). Removing the book-export feature left BookService.importBook() + brain/utils/scenarioExport.ts reachable by type but unreachable by any user action: dead code that still type-checks, still runs in tests, and still looks like a supported entry point to the next reader. Same for the registries (ActionRegistry, SlotRegistry) once their only registrants were gone, and for the outline-era UIPreferencesService keys (viewMode/outlineCollapsed/outlineDisplayMode) once no view read them. Rule: after deleting a feature, grep every brain export it consumed and ask 'who registers/reads this now?' — zero answers means it goes in the same commit. The counter-rule that keeps this honest: do NOT delete what the NEXT feature is chartered to replace (brain/types.ts, kinds.ts, BookService are dossier-format's contract; playExport.ts is still load-bearing for src/player/types.ts) — deleting those early leaves nothing to compare the replacement against."
+		},
+		{
+			"id": "KR-156",
+			"feature": "dossier-format",
+			"risk": "cette feature ne livre aucun écran d'édition (n° 2 seulement). Chaque critère doit être observable par un test jest à l'échelle brain/ lisant le FICHIER fixture réel du dossier de référence, jamais un littéral inline. C'est le substitut de preuve de tranche quand il n'y a pas d'écran — et l'affordance d'import, qui existe, n'est l'instrument de preuve d'aucun critère."
+		},
+		{
+			"id": "KR-157",
+			"feature": "dossier-format",
+			"risk": "le dossier de référence sert à la fois de fixture et de démonstration ; son critère de suffisance est une checklist nommée PAR BRANCHE qui échoue par nom de branche absente, jamais une vérification à l'œil."
+		},
+		{
+			"id": "KR-158",
+			"feature": "dossier-format",
+			"risk": "la matrice de rejet du validateur est écrite dans cette spec AVANT le code, au raffinage — sinon les cas de test sont rédigés après coup pour coller à ce que le validateur fait déjà."
+		},
+		{
+			"id": "KR-159",
+			"feature": "dossier-format",
+			"risk": "la n° 1 CRÉE, elle ne détruit pas. brain/types.ts ne porte pas que le modèle d'arbre — GameObject, SkillRoll, MonsterConfig, CreatureType y vivent et sont importés par douze fichiers de src/player/, couche déclarée conservée et intouchée. Un remplacement littéral emporte le combat et la création de personnage. RAYON RÉEL DE LA SCISSION types.ts → tree.ts, mesuré le 2026-08-04 : 26 fichiers, une ligne d'import chacun — 21 dans src/brain/ (index.ts, BookService et son test, CloudSyncService et son test, hooks.ts, bookHealth.test.ts, TargetPicker et son test, les onze modules et tests de utils/) et 5 dans src/player/ (ChoiceList, NodeScreen, usePlaySession, sessionEngine et son test — Edge seul), ZÉRO dans src/features/, qui consomment toutes par le baril brain/index.ts. Les douze fichiers de src/player/ cités plus haut sont ceux des types de RÈGLES qui ne bougent pas : ne pas confondre les deux décomptes. Ne jamais réénoncer ce chiffre sans le remesurer — grep des six types déplacés (Book, BookNode, Edge, ChoicePrereq, ChoiceCountdown, NodeActionType) sur les chemins './types', '../types' et '../../brain/types'. La démolition se répartit : moitié arbre de BookService + kinds.ts en n° 2, playExport + Book/Edge en n° 9. Critère de fini à chaque itération : tsc --noEmit + jest COMPLET verts."
+		},
+		{
+			"id": "KR-160",
+			"feature": "dossier-format",
+			"risk": "la migration schema 1 → 2 n'est pas testable avant qu'un schéma 2 existe. Le seul critère recevable est le REJET de toute valeur de schema autre que 1 exactement, avec un code distinct d'une erreur de contenu. Ne pas livrer de fonction migrateDossier : sans v2 elle n'a ni test ni appelant."
+		},
+		{
+			"id": "KR-161",
+			"feature": "dossier-format",
+			"risk": "le score de mutation ne s'applique pas à cette feature — elle ne touche aucun des quatre fichiers mutés. Les registres de prédicats et de deltas sont de la logique sur identifiants, pas de l'arithmétique de règles ; ne pas les ajouter à stryker.config.json sans faire jouer le cliquet break de docs/WORKFLOW.md."
+		},
+		{
+			"id": "KR-162",
+			"feature": "dossier-format",
+			"risk": "tout test recentré sur le nouveau format conserve au moins une assertion négative ou discriminante (leçon BUG-031), et chaque test existant touché est explicitement classé PORTÉ ou SUPPRIMÉ dans le journal d'itération — jamais silencieusement absent du diff."
+		},
+		{
+			"id": "KR-163",
+			"feature": "dossier-format",
+			"risk": "CloudSyncService.isBook() teste Array.isArray(value.nodes). Un dossier n'a pas de nodes : il retomberait en poussée monolithique, et reconcile() n'étant armé que par book:opened, il n'y aurait AUCUNE réconciliation cloud sur un dossier — sans qu'un seul test rougisse. Le prédicat doit reconnaître la forme dossier (schema:1) et reconcile() s'armer sur dossier:opened. Test rouge avant correctif, itération 1."
+		},
+		{
+			"id": "KR-164",
+			"feature": "dossier-format",
+			"risk": "DossierIssue est un registre fermé par code (KR-117) ; message est toujours un texte français rédigé, jamais une erreur runtime sérialisée ; location résout l'entité par son NOM ; path est le contrat que dossier-controles (n° 7) consomme pour badger une section."
+		},
+		{
+			"id": "KR-165",
+			"feature": "dossier-format",
+			"risk": "toute borne de longueur ou de nombre du schéma est une constante NOMMÉE, testée à la limite et à limite+1 — jamais un nombre en dur au site de validation. Une borne non outillée n'existe pas, et le budget de contexte de l'IA en dépend."
+		},
+		{
+			"id": "KR-166",
+			"feature": "dossier-format",
+			"risk": "un dossier importé et validé est gelé en profondeur ; toute écriture ultérieure clone avant de muter. Sans ce gel, une écriture du Temps 2 sur le dossier passerait inaperçue et la reproductibilité par graine tomberait sans bruit (décision n° 7)."
+		},
+		{
+			"id": "KR-167",
+			"feature": "dossier-format",
+			"risk": "aucune fonction ne convertit un Book en Dossier ni l'inverse, dans aucun sens — vérifié par grep au critère de fini. Un chemin de compatibilité serait une seconde source de vérité que personne n'oserait couper en n° 9 ; et un arbre converti ferait entrer des données en forme de choix dans le contexte du modèle."
+		},
+		{
+			"id": "KR-168",
+			"feature": "dossier-format",
+			"risk": "la forme persistée de …_expr est un ARBRE (ExprNode), et il n'existe aucun parseur. Qui rajoutera un parseExpr réintroduira une seconde source de vérité de la condition, plus une grammaire à spécifier, versionner et tester, plus la question de la syntaxe montrée à l'auteur — que le registre PREDICATES résout en pilotant le rendu par widgets."
 		}
 	]
 }

@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.6.1 — cadrage et raffinage de `dossier-format`, décomptes remesurés
+
+Aucun code d'application. Cette version pose le **plan de la feature n° 1** et **corrige trois chiffres** que `0.6.0` avait écrits sans les mesurer. Rien n'est déployé de neuf : c'est de la documentation exécutable par `/essaim`.
+
+### Ajouté
+
+- `src/features/dossier-format/specification.json` — le cadrage de la feature n° 1 : cinq itérations découpées **par profondeur de schéma** (et non par couche), quatorze critères d'acceptation, treize risques connus (KR-156 → KR-168), seize décisions arbitrées.
+- `.claude/raffinage/dossier-format-it1.plan.md` — le plan signé de l'itération 1 par le comité à cinq rôles : deux lots à propriété disjointe, huit critères, quinze désaccords tranchés.
+- **KR-156 → KR-168** mirrorés dans `code-knowledge.json`.
+
+### Corrigé — trois décomptes énoncés sans mesure
+
+- **Le rayon de la scission `brain/types.ts` → `brain/tree.ts`.** La roadmap annonçait « neuf lignes d'import à déplacer dans `src/player/` ». Relevé du 2026-08-04 : **26 fichiers**, une ligne d'import chacun — **21 dans `src/brain/`**, **5 dans `src/player/`** (`Edge` seul), **zéro dans `src/features/`**, qui consomment toutes par le baril `brain/index.ts`. Le « neuf » confondait le rayon de la scission avec les **douze** fichiers de `src/player/` important les types de **règles** — lesquels, eux, ne bougent pas. Corrigé dans `docs/ROADMAP-BASCULE-IA.md`, **KR-159** (`code-knowledge.json` + spec), le critère d'acceptation n° 13 et la décision de scission de la spec.
+- **Le nombre de familles de conditions de D1** : **six**, pas sept. `savoirs[].revele_si` en sort et devient un type à part (`Revelation` à portes fermées) — un jet n'évalue pas, il **émet** une demande qui change le tour, et l'aplatir en prédicat booléen forcerait l'évaluateur à lancer le dé, ce que la décision n° 4 interdit.
+- **Le critère d'acceptation n° 12 de `dossier-format`** disait « les treize critères ci-dessus » là où **onze** le précèdent.
+
+> Leçon portée dans KR-159 : **un décompte se remesure, il ne se recopie pas.** Le grep qui le produit est écrit dans le risque.
+
+### Modifié — `docs/ROADMAP-BASCULE-IA.md`
+
+- `…_expr` est **un arbre JSON, jamais une chaîne**, et **il n'existe aucun parseur** : supprime la grammaire à spécifier, versionner et tester, et toute la classe des erreurs de syntaxe. Le registre `PREDICATES` pilote le rendu des formulaires — l'auteur ne saisit jamais d'expression.
+- La n° 1 **crée, elle ne détruit pas** : elle livre le format en parallèle et scinde `types.ts` ; la démolition se répartit en n° 2 et n° 9. Invariant : **aucune fonction ne convertit un `Book` en `Dossier` ni l'inverse** (KR-167).
+- `dossier-format` passe de **3 à 5 itérations**.
+- Quatre trous du plan de cible tranchés au cadrage : la racine `objets[]` (le dossier a **treize** racines), `evenements[].monstre_ref` en `bestiaire.<templateId>`, la collision de clé `plan` (→ `portee` + `plan_actions[]`), et le groupement de `jalons`/`fins` sous `charpente`.
+
+### Tranché — question ouverte fermée
+
+- **`depart.personnage_joueur.contraintes` est supprimé du schéma.** Pas de contrainte de création de personnage propre à une aventure : la règle est une constante du runtime, déjà appliquée par `src/player/engine/charCreation.ts`. Le typer aurait créé un second endroit où la règle vit ; le garder en prose laissait du texte que le code ne peut pas appliquer. La suppression est la seule des trois options à coût nul.
+
 ## 0.6.0 — bascule IA : décisions D1/D2/D3 tranchées, tri du dépôt exécuté
 
 Ouverture du **Temps 1** (`0.6.x` = l'éditeur produit un dossier d'aventure). Aucune fonctionnalité neuve : cette version **enregistre les trois décisions bloquantes** et **exécute le tri** qu'elles commandent. Plan de référence : `docs/ROADMAP-BASCULE-IA.md`.

@@ -43,9 +43,9 @@ Elles étaient courtes à trancher et coûteuses à repousser, parce qu'elles at
 
 ### D1 — Le langage de conditions → **un champ pour chaque**
 
-Le schéma compte sept familles de conditions : `canon.objectifs[].reussi_si` / `.echoue_si`, `savoirs[].revele_si`, `fins[].condition`, `jalons[].declencheur`, `evenements[].declencheur`, `personnages[].plan[].declencheur`, `contre_mesures[].declencheur`. « Langage lisible » seul ne suffisait pas : « tester les conditions de fin » est dans la colonne **code** du plan (§ 2.1 étape 7), et le linter doit décider si un objectif est **atteignable**, ce qui exige du calculable.
+Le schéma compte **six** familles de conditions : `canon.objectifs[].reussi_si` / `.echoue_si`, `fins[].condition`, `jalons[].declencheur`, `evenements[].declencheur`, `personnages[].plan_actions[].declencheur`, `contre_mesures[].declencheur`. *(Le plan de cible en comptait sept ; le cadrage du 2026-08-03 a fait sortir `savoirs[].revele_si` — un `jet` n'évalue pas, il **émet** une demande qui change le tour. Aplati en prédicat booléen, il forcerait l'évaluateur à lancer le dé, ce que la décision n° 4 interdit. C'est un type à part, `Revelation` à portes fermées.)* « Langage lisible » seul ne suffisait pas : « tester les conditions de fin » est dans la colonne **code** du plan (§ 2.1 étape 7), et le linter doit décider si un objectif est **atteignable**, ce qui exige du calculable.
 
-**Décision** : chacune des sept familles porte **deux champs**, pas un.
+**Décision** : chacune des six familles porte **deux champs**, pas un.
 
 | Champ | Pour qui | Rôle |
 |---|---|---|
@@ -55,7 +55,7 @@ Le schéma compte sept familles de conditions : `canon.objectifs[].reussi_si` / 
 Conséquences à tenir au cadrage de `dossier-format` :
 
 - **Le moteur ne lit jamais `…_texte` pour décider**, l'IA ne lit jamais `…_expr` pour raconter. C'est la même frontière que la décision n° 4 (l'IA ne lance pas les dés) appliquée aux conditions.
-- La grammaire de `…_expr` est **la plus bête qui marche** (décision n° 3) : prédicats sur identifiants stables + `et` / `ou` / `non`, pas de langage d'expression généraliste. Elle est fixée et versionnée dans `dossier-format` ; l'ensemble des prédicats est un registre extensible, pas une grammaire ouverte.
+- `…_expr` est **un arbre JSON, jamais une chaîne**, et **il n'existe aucun parseur** (cadrage du 2026-08-03) : `{ op: 'et' | 'ou' | 'non' | 'pred' }`, prédicats sur identifiants stables tirés d'un registre fermé. Supprimer la chaîne supprime la grammaire à spécifier, versionner et tester, toute la classe des erreurs de syntaxe, et la question de la syntaxe montrée à l'auteur — le registre `PREDICATES` pilote directement le rendu des formulaires (`label` → `Select`, `refKinds` → `TargetPicker`). L'auteur ne saisit jamais d'expression.
 - Un `…_expr` présent référençant un identifiant inconnu est une **erreur bloquante** du linter (n° 7), pas un avertissement — c'est ce que D1 achète.
 - Un `…_texte` sans `…_expr` sur une **fin** ou un **objectif** est une **alerte** du linter : l'aventure reste jouable, mais rien ne la terminera automatiquement.
 
@@ -142,7 +142,7 @@ Huit features. Une phrase de démo par feature, sans « et » : c'est le test de
 
 | # | Feature | « À la fin, l'auteur peut… » | Itér. | Comité | Dépend de |
 |---|---|---|---|---|---|
-| 1 | `dossier-format` | …importer un dossier d'aventure validé contre un schéma versionné | 3 | 5 rôles | — |
+| 1 | `dossier-format` | …importer un dossier d'aventure validé contre un schéma versionné | **5** | 5 rôles | — |
 | 2 | `bascule-editeur` | …naviguer dans son aventure par une liste de sections | 3 | 4 rôles | 1 |
 | 3 | `dossier-canon` | …rédiger la vérité immuable de son histoire | 3 | 4 rôles | 2 |
 | 4 | `dossier-fiches` | …écrire une fiche de personnage exploitable par l'IA | 5 | 5 rôles | 3 |
@@ -151,7 +151,7 @@ Huit features. Une phrase de démo par feature, sans « et » : c'est le test de
 | 7 | `dossier-controles` | …voir pourquoi son aventure n'est pas encore jouable | 3 | 5 rôles | 6 |
 | 8 | `dossier-copilote` | …faire proposer un texte par l'IA, champ par champ | 3 | 5 rôles | 6 |
 
-**1 · `dossier-format`** — schéma `schema: 1`, validateur, dossier de référence écrit à la main (6 PNJ, 5 lieux), import/export JSON. Aucun écran neuf. C'est **le contrat entre les deux temps** : tout le reste en dépend. Y atterrissent la grammaire `…_expr` de D1 et son registre de prédicats, le registre `objets[]` manquant, et les entités que le plan met au schéma sans leur donner de section (`jalons`, `fins`, `meta`). Y atterrit aussi le **remplacement** de `brain/types.ts` + `kinds.ts` + `BookService`, laissés debout par le tri du 2026-08-03 précisément pour être remplacés ici (§ 1 ter).
+**1 · `dossier-format`** — schéma `schema: 1`, validateur, dossier de référence écrit à la main (6 PNJ, 5 lieux), import/export JSON. Aucun écran neuf. C'est **le contrat entre les deux temps** : tout le reste en dépend. Y atterrissent la grammaire `…_expr` de D1 et son registre de prédicats, le registre `objets[]` manquant, et les entités que le plan met au schéma sans leur donner de section (`jalons`, `fins`, `meta`). **Correction du cadrage (2026-08-03) : la n° 1 crée, elle ne détruit pas.** J'avais écrit ici qu'elle remplaçait `brain/types.ts` + `kinds.ts` + `BookService` — c'est faux : `types.ts` ne porte pas que le modèle d'arbre, il porte aussi `GameObject`, `SkillRoll`, `MonsterConfig`, `CreatureType`, importés par douze fichiers de `src/player/`, couche déclarée conservée et intouchée en § 0 bis. Un remplacement littéral emporte le combat et la création de personnage. La n° 1 livre le format **en parallèle**, sous ses propres clés, et **scinde** `types.ts` en règles (survivent) / `tree.ts` (condamné). Rayon de cette scission, **mesuré le 2026-08-04** : **26 fichiers**, une ligne d'import chacun — **21 dans `src/brain/`**, **5 dans `src/player/`** (`Edge` seul), et **zéro dans `src/features/`**, qui consomment toutes par le baril `brain/index.ts`. *(J'avais écrit ici « neuf lignes d'import à déplacer dans `src/player/` » : une estimation jamais mesurée, qui confondait le rayon de la scission avec les douze fichiers de `src/player/` important les types de règles — lesquels, eux, ne bougent pas. Le décompte se remesure, il ne se recopie pas.)* La démolition se répartit : la moitié arbre de `BookService` + `kinds.ts` en **n° 2**, `playExport` + `Book`/`Edge` en **n° 9**. Invariant du cadrage : **aucune fonction ne convertit un `Book` en `Dossier` ni l'inverse**, dans aucun sens (KR-167).
 
 > **À porter au cadrage de cette feature** (remonté par la revue du 2026-08-03) : `FEATURE_DIRS` dans `.eslintrc.cjs` était un sur-ensemble tolérant, il est désormais exact — cinq entrées pour cinq dossiers. Seize features neuves arrivent, et **la première créée sous `src/features/` sans être ajoutée à cette liste sera silencieusement exemptée des deux règles d'isolation** : ni erreur, ni avertissement, juste une garde qui ne s'applique pas. Le commentaire porte l'intention, rien ne la vérifie. Un test unique — `readdirSync('src/features')` inclus dans `FEATURE_DIRS` — ferme la boucle. Hors périmètre d'un lot de démolition, à livrer avec la première feature neuve.
 
@@ -225,22 +225,22 @@ Relevés en lecture intégrale. Chacun est affecté à la feature qui doit le tr
 
 | Trou | À traiter dans |
 |---|---|
-| Aucun registre `objets[]` racine, alors que `objet_id` est référencé 4 fois | n° 5 (et le schéma en n° 1) |
+| ~~Aucun registre `objets[]` racine~~ → **tranché au cadrage** : le dossier a **treize** racines, `objets[]` comprise — sans elle l'intégrité référentielle de l'itération 3 n'a pas de cible | n° 1 (la racine) · n° 5 (son éditeur) |
 | ~~Grammaire des conditions non définie~~ → **D1 tranchée** : deux champs par famille (`…_texte` pour l'IA, `…_expr` pour le moteur) | n° 1 (grammaire + registre de prédicats) |
-| `jalons`, `fins`, `meta` au schéma sans section ni écran | n° 1 · n° 2 |
-| « Scènes écrites » décrites sans aucun champ correspondant au schéma | n° 1 · n° 2 |
+| `jalons`, `fins`, `meta` au schéma sans section ni écran — `jalons` et `fins` sont désormais groupées sous la racine `charpente`, lue par le moteur et **jamais** injectée à l'IA | n° 1 (la forme) · n° 2 (les écrans) |
+| « Scènes écrites » : le format porte un texte et un drapeau (n° 1), mais leur propriété définissante est un **chemin de code** — une scène verbatim est **émise** par le moteur, jamais demandée au modèle | n° 1 (le champ) · n° 10 (l'émission) |
 | Mapping des 6 curseurs sur CA / IN / IG non donné | n° 4 |
 | Atteignabilité d'un objectif, calibration de difficulté : aucune formule | n° 7 |
 | Échelle de confiance : bornes, valeur initiale, amplitude d'un delta | n° 12 |
 | `ΔT` invoqué pour le calcul d'XP, jamais défini | n° 11 |
 | Choix de posture du monstre « selon sa capacité et son IG » non spécifié | n° 13 — vérifier `combatEngine.ts`, c'est peut-être déjà fait |
-| Format de `evenements[].monstre_ref` vers le bestiaire | n° 6 |
+| ~~Format de `evenements[].monstre_ref`~~ → **tranché au cadrage** : `bestiaire.<templateId>`, second espace de noms résolu contre `BESTIARY` ; référence pendante = bloquante à l'import **et** au démarrage de session | n° 1 |
 | ~~Fournisseur, modèle, clé, coût, latence, hors-ligne~~ → **D2 tranchée** : tout par le worker, clé jamais côté client, une route par rôle, SSE pour la narration, pas de hors-ligne en v1 | n° 10 (modèle et budget concrets) |
 | Persistance du dossier, bibliothèque multi-livres, `cloud-sync` | n° 1 (forme persistée) · n° 2 (bibliothèque) |
 | Migration `schema: 1` → `schema: 2` | n° 1 |
 | Champs laissés en `[ … ]` : `quetes[].etapes`, `journal[].deltas`, `memoire.faits_etablis` | n° 1 · n° 9 |
 
-**Incohérences internes du plan de cible**, à corriger et non à propager : I2 annonce « les trois sections les plus simples » pour quatre sections ; le compteur de règles de lint dit 7 pour 8 règles définies ; la clé `plan` est utilisée deux fois dans l'objet `personnages` (énuméré `premier|second` **et** tableau d'étapes) — il en faut deux noms distincts ; le préfixe d'identifiant `pnj.` cohabite avec la collection `personnages`.
+**Incohérences internes du plan de cible**, à corriger et non à propager : I2 annonce « les trois sections les plus simples » pour quatre sections ; le compteur de règles de lint dit 7 pour 8 règles définies ; la clé `plan` est utilisée deux fois dans l'objet `personnages` — **tranché au cadrage du 2026-08-03** : `portee: 'premier' | 'second'` et `plan_actions[]` ; le préfixe d'identifiant `pnj.` cohabite avec la collection `personnages`.
 
 ---
 
