@@ -3,6 +3,7 @@ import { createEventBus, type EventBus } from './EventBus'
 import { createLocalStoragePersistence, type PersistenceService } from './PersistenceService'
 import { createRouter, type Route, type Router } from './Router'
 import { createBookService, type BookService } from './BookService'
+import { createDossierService, type DossierService } from './DossierService'
 import { createSelectionService, type SelectionService } from './SelectionService'
 import { createCloudSyncService, type CloudSyncService, type CloudTransport } from './CloudSyncService'
 import { bookKey } from './persistenceKeys'
@@ -31,6 +32,12 @@ export interface Brain {
 	sync: CloudSyncService
 	router: Router
 	books: BookService
+	/**
+	 * Le dossier d'aventure (feature n° 1) — ADDITIF : `books` reste jusqu'à la
+	 * n° 2, qui repointera la bibliothèque. Les deux cohabitent sous des espaces
+	 * de clés disjoints et ne se convertissent jamais l'un dans l'autre (KR-167).
+	 */
+	dossiers: DossierService
 	selection: SelectionService
 	/** Per-device, non-synced editor view state — pan/zoom, spacing, dragged positions (KR-022). */
 	uiPreferences: UIPreferencesService
@@ -56,6 +63,10 @@ export function createBrain(options: CreateBrainOptions = {}): Brain {
 	const sync = createCloudSyncService(local, events, options.transport, { debounceMs: options.syncDebounceMs })
 	const router = createRouter(options.initialRoute)
 	const books = createBookService(sync, events)
+	// Le dossier passe par le MÊME décorateur de synchronisation que le livre : il
+	// entre donc dans la file d'attente hors ligne et se réconcilie sur
+	// `dossier:opened` comme le livre sur `book:opened` (KR-163).
+	const dossiers = createDossierService(sync, events)
 	const selection = createSelectionService(events)
 	// UI preferences persist through the RAW local store, NOT the sync decorator,
 	// so per-device view state (pan/zoom, spacing, positions) is never cloud-synced (KR-022).
@@ -74,6 +85,7 @@ export function createBrain(options: CreateBrainOptions = {}): Brain {
 		sync,
 		router,
 		books,
+		dossiers,
 		selection,
 		uiPreferences,
 		monsterLibrary,

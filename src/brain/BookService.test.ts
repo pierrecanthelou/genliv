@@ -2,7 +2,7 @@ import { createBookService } from './BookService'
 import { createEventBus, type AppEventName } from './EventBus'
 import { createLocalStoragePersistence } from './PersistenceService'
 import { bookKey } from './persistenceKeys'
-import type { Book } from './types'
+import type { Book } from './tree'
 
 function setup() {
 	const persistence = createLocalStoragePersistence()

@@ -407,6 +407,126 @@
 			"mitigation": "Une liste recopiee dans un document doit nommer sa source et se declarer derivee. KR-154 etendu : avant de supprimer une cle de contrat (evenement, registre, cle de stockage), grep les documents toujours-actifs (CLAUDE.md, docs/WORKFLOW.md, .claude/) pour son nom, pas seulement le code.",
 			"regression_test": "aucun (document) ; la source de verite reste couverte par tsc sur AppEvents",
 			"severity": "major"
+		},
+		{
+			"id": "BUG-035",
+			"date": "2026-08-04",
+			"feature": "dossier-format",
+			"discovered_at": "iteration-1",
+			"symptom": "src/features/.../ImageUpload.tsx:185 utilise var(--surface-raised), un token qui n existe dans AUCUN fichier de src/styles/tokens/. La declaration ne resout vers rien : la surface retombe sur la valeur heritee, en silence.",
+			"root_cause": "Aucun instrument ne detecte un var(--nom) qui ne resout vers aucun token. La regle ESLint des couleurs attrape un litteral #hex/rgb()/hsl(), pas une variable CSS inexistante — un nom de token mal orthographie ou supprime passe la porte sans un mot.",
+			"fix": "Aucun sur ImageUpload.tsx : defaut preexistant, hors des deux lots de cette iteration, non corrige ici pour ne pas elargir le perimetre. L iteration a en revanche INTERDIT ce token dans son propre code (plan section 3.2) et utilise var(--surface-sunken).",
+			"mitigation": "Interdiction nommee dans le plan d iteration + relecture manuelle des 26 tokens du lot 2, verifiee par l orchestrateur puis par la QA. Ce controle manuel ne tiendra pas sur seize features : le vrai correctif est une regle qui croise les var(--*) du code avec les tokens declares dans src/styles/tokens/*.css — candidat outillage-2.",
+			"regression_test": "aucun — c est precisement le trou : rien ne peut le tester aujourd hui",
+			"severity": "minor"
+		},
+		{
+			"id": "BUG-036",
+			"date": "2026-08-04",
+			"feature": "dossier-format",
+			"discovered_at": "iteration-1",
+			"symptom": "FEATURE_DIRS de .eslintrc.cjs n est pas lisible par un test via require() : ajouter une propriete FEATURE_DIRS au module.exports fait echouer ESLint 8 avec « Unexpected top-level property FEATURE_DIRS ». Le test qui doit garantir que toute feature neuve est declaree ne peut donc pas importer la liste.",
+			"root_cause": "ESLint 8 valide le schema de son fichier de configuration et rejette toute cle de premier niveau inconnue. La liste vit donc a l interieur du fichier sans pouvoir en sortir par le chemin normal.",
+			"fix": "featureDirs.test.ts lit .eslintrc.cjs COMME TEXTE et extrait le litteral par expression reguliere — meme source que celle qu ESLint execute reellement, sans ajouter d export interdit.",
+			"mitigation": "Le test compare readdirSync(src/features) a FEATURE_DIRS et echoue par NOM de dossier absent. Sans lui, la premiere feature creee sous src/features/ sans etre ajoutee a la liste serait silencieusement exemptee des deux regles d isolation : ni erreur, ni avertissement, juste une garde qui ne s applique pas. Seize features neuves arrivent.",
+			"regression_test": "src/features/dossier-format/tests/featureDirs.test.ts — « tout dossier de src/features est declare dans FEATURE_DIRS »",
+			"severity": "minor"
+		},
+		{
+			"id": "BUG-037",
+			"date": "2026-08-04",
+			"feature": "dossier-format",
+			"discovered_at": "iteration-1",
+			"symptom": "Le critere d acceptation n° 4 exige qu AUCUN message de DossierIssue ne contienne « expected », « undefined » ou « is not a function ». validate.test.ts balayait 7 des 8 codes et deleguait le 8e (dossier-deja-importe, produit par le magasin et non par le validateur) a DossierService.test.ts par un commentaire — qui ne portait en realite aucune assertion negative sur ce message. La promesse ecrite dans un fichier n etait pas tenue dans l autre.",
+			"root_cause": "Une delegation ecrite en COMMENTAIRE n a aucun destinataire qui la verifie. Le code du critere etait couvert a 7/8 tout en se presentant comme exhaustif.",
+			"fix": "DossierService.test.ts balaie desormais FUITES_TECHNIQUES sur le message de dossier-deja-importe, et verifie que location et path ne sont pas vides.",
+			"mitigation": "Consigne de QA generalisee : un commentaire qui delegue une verification a un autre fichier se lit en OUVRANT cet autre fichier. Aucun grep ne trouve une promesse non tenue — seule la lecture des deux bouts la detecte. C est la QA mode B en contexte neuf qui l a vue, ni l ouvrier ni l integrateur.",
+			"regression_test": "src/brain/DossierService.test.ts — « deux imports du meme contenu : le second est refuse »",
+			"severity": "minor"
+		},
+		{
+			"id": "BUG-038",
+			"date": "2026-08-04",
+			"feature": "dossier-format",
+			"discovered_at": "iteration-1",
+			"symptom": "validateDossier s'annonce PURE dans sa docstring, dans le plan et dans le CHANGELOG, et gelait en realite l'OBJET PASSE PAR L'APPELANT, en place — et seulement quand la validation reussit. Effet de bord conditionnel et invisible : en n° 2 / n° 3, valider un brouillon pour l'afficher l'aurait rendu immuable, et la mutation suivante aurait JETE (module ESM = mode strict).",
+			"root_cause": "deepFreeze(input as Dossier) : le gel exige par KR-166 a ete applique a l'argument au lieu d'une copie. Aucun test ne disait dans quel sens cela devait marcher, donc les deux lectures etaient vertes.",
+			"fix": "deepFreeze(JSON.parse(JSON.stringify(input))). Le clone par JSON n'est pas un pis-aller : un dossier est PAR CONTRAT un document JSON, donc cloner par JSON rend exactement ce qui sera persiste, sans qu'une valeur non serialisable survive a la validation en attendant de disparaitre a l'ecriture. structuredClone n'existe pas dans l'environnement jsdom des tests.",
+			"mitigation": "Test qui verifie que l'argument reste REELLEMENT mutable (mutation effective), pas seulement non marque par Object.isFrozen. Lecon generale, valable au-dela de ce bug : quand une docstring affirme une propriete (pur, total, seul site), cette propriete doit avoir un test — sinon c'est une intention, pas un contrat. Trois des quatre majeurs de cette revue de PR sont de cette forme.",
+			"regression_test": "src/brain/dossier/validate.test.ts — « gele une copie et rend l argument INTACT »",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-039",
+			"date": "2026-08-04",
+			"feature": "dossier-format",
+			"discovered_at": "iteration-1",
+			"symptom": "L'identifiant racine d'un dossier vient du FICHIER IMPORTE, n'etait contraint que par « chaine non vide », et devient tel quel une cle de stockage via dossierKey(id). Or « : » est le separateur reserve du decoupage de cles : un id valant « x:content » entrerait en collision par construction avec la future cle de contenu de « x » (dossierContentKey / dossierImageKey, n° 3 / n° 4). Les espaces de bord et la casse creaient en outre deux entrees de stockage pour un seul dossier aux yeux de l'auteur, que dossier-deja-importe ne rapprochait donc pas.",
+			"root_cause": "Asymetrie non vue : chaque identifiant d'ENTITE du document passe par FORME_IDENTIFIANT, mais l'id de la racine — le seul qui sorte du document pour devenir une cle d'infrastructure — n'avait aucune forme. Une entree non fiable choisissait la forme de nos cles.",
+			"fix": "FORME_ID_DOSSIER = ^[a-z0-9][a-z0-9-]*$ verifiee dans validateDossier, code identifiant-invalide avec un message ecrit pour l'id de dossier. Le caractere « : » est declare reserve dans la docstring de dossierKey, qui nomme la validation comme sa garde.",
+			"mitigation": "9 tests : 7 formes refusees (deux-points, espace interne, espace de bord, majuscule, tiret en tete, barre oblique, point), les formes legitimes acceptees, et « un id vide reste champ-requis-vide » — une seule cause ne produit qu'une seule anomalie. Regle generale : toute valeur venue d'un fichier utilisateur qui devient une cle d'infrastructure doit avoir une FORME validee, pas seulement un test de non-vacuite.",
+			"regression_test": "src/brain/dossier/validate.test.ts — describe « validateDossier, identifiant de dossier »",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-040",
+			"date": "2026-08-04",
+			"feature": "dossier-format",
+			"discovered_at": "iteration-1",
+			"symptom": "dossierIssueRemediation est exporte du baril brain/ et n'avait AUCUNE assertion ; tout l'etat invalid de la modale — l'anatomie a trois lignes du § 3.3, le badge pluralise, le bouton de reprise — n'etait monte par aucun test. « Voir en francais ce qui empeche son dossier d'etre jouable » est la moitie de la demo de l'iteration, et c'est le contrat de redaction que dossier-controles (n° 7) reutilisera tel quel.",
+			"root_cause": "Le critere d'acceptation n° 8 ne nommait que le chemin NOMINAL (fichier valide vers confirmation). Le chemin d'echec, qui porte pourtant toute la valeur de la feature, n'avait pas de critere — donc pas de test.",
+			"fix": "3 tests unitaires sur la remediation (marqueur {racine} resolu par path et non par location, libelle sans marqueur laisse intact, les huit codes prefixes et sans marqueur residuel) + 2 tests RTL montant l'etat invalid : OU par nom, identifiant entre parentheses, QUOI, QUOI FAIRE resolu, chemin JSON jamais affiche seul, accord singulier/pluriel du badge.",
+			"mitigation": "Regle de redaction des criteres : quand une feature a un chemin d'ECHEC qui porte de la valeur pour l'utilisateur, ce chemin merite son propre critere d'acceptation. Un critere qui ne decrit que le succes laisse la moitie de la surface sans instrument.",
+			"regression_test": "src/features/dossier-format/tests/importDossier.test.tsx — « un dossier invalide affiche l anatomie a trois lignes de chaque anomalie » et « le badge d anomalie accorde le singulier » ; src/brain/dossier/validate.test.ts — describe « dossierIssueRemediation »",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-041",
+			"date": "2026-08-04",
+			"feature": "dossier-format",
+			"discovered_at": "iteration-1",
+			"symptom": "Le schema est ecrit DEUX FOIS — une fois comme types (types.ts), une fois comme tables declaratives (RACINES, CHAMPS_REQUIS dans validate.ts) — sans aucun lien d'exhaustivite entre les deux. L'iteration 2 ajoute des racines : une cle typee mais oubliee dans la table devient SILENCIEUSEMENT optionnelle, et aucun test ne rougit. C'est exactement le trou que KR-117 interdit ailleurs dans ce meme module. Meme forme pour l'asymetrie types.ts / tree.ts, propriete centrale de l'iteration : elle n'etait portee que par un commentaire.",
+			"root_cause": "Le choix — bon — de piloter la validation par des tables plutot que par des cascades de if cree une SECONDE declaration du schema. Sans instrument, deux declarations divergent toujours.",
+			"fix": "Test d'exhaustivite qui casse chaque cle de la fixture une par une et exige qu'une cle non couverte par une regle soit NOMMEE dans une liste de dispenses explicites ; il echoue par nom de cle, jamais par un compte. Verifie discriminant : retirer canon.ton de CHAMPS_REQUIS le fait rougir en nommant canon.ton. Plus un test-grep de l'asymetrie types.ts / tree.ts, dans les deux sens.",
+			"mitigation": "Quand une propriete ne peut pas etre portee par le typage, elle est portee par un test qui LIT la source ou eprouve le comportement — jamais par un commentaire. Meme famille d'instrument que les tests-grep du gel, deja presents dans ce module.",
+			"regression_test": "src/brain/dossier/validate.test.ts — « toute cle de la fixture est couverte par une regle, ou explicitement dispensee » ; src/brain/dossier/roundtrip.test.ts — describe « scission types.ts / tree.ts »",
+			"severity": "minor"
+		},
+		{
+			"id": "BUG-042",
+			"date": "2026-08-04",
+			"feature": "dossier-format",
+			"discovered_at": "iteration-1",
+			"symptom": "La remediation du code dossier-deja-importe disait « Supprimez-le avant de le reimporter » — or la suppression d'un dossier N'EXISTE PAS en iteration 1 : DossierService a quatre methodes sans remove, et la bibliotheque n'affiche pas encore les dossiers. La consigne mettait l'auteur dans une impasse. Trois affirmations documentaires etaient par ailleurs fausses ou perimees : « Object.freeze n'apparait qu'en un seul endroit DU DEPOT » (il y en a trois ; le test, lui, dit correctement « du module dossier »), « la FORME de Delta[] arrive en iteration 1 » (reporte en it2 au raffinage), et « meta.ton module le registre » alors que meta n'existe pas au schema 1.",
+			"root_cause": "Meme classe que BUG-034 et BUG-037 : un texte recopie, ou ecrit avant l'arbitrage, que rien ne re-lit apres. Une consigne d'interface se redige en imaginant l'auteur qui la suit — celle-ci n'avait jamais ete confrontee a ce que le produit permet reellement de faire.",
+			"fix": "Remediation reformulee sur ce que l'auteur peut faire AUJOURD'HUI (changer le champ id du fichier). Les trois affirmations qualifiees ou amendees en nommant l'amendement et sa date, sans reecrire l'histoire. KR-159, qui n'avait ete reformule que dans code-knowledge.json, recopie dans la specification.",
+			"mitigation": "Pour toute chaine de type QUOI FAIRE : verifier que l'action conseillee EXISTE dans le produit a la version ou la chaine est livree. Et une regle deja apprise deux fois : un document qui recopie une valeur d'un autre doit nommer sa source — ici la specification et code-knowledge.json portaient le meme KR et ont diverge en une seule revue.",
+			"regression_test": "aucun (textes et documents) ; la remediation est en revanche desormais couverte par le test des huit codes de dossierIssueRemediation",
+			"severity": "minor"
+		},
+		{
+			"id": "BUG-043",
+			"date": "2026-08-04",
+			"feature": "dossier-format",
+			"discovered_at": "iteration-1",
+			"symptom": "Le correctif de BUG-038 (cloner avant de geler) a casse la TOTALITE que la docstring de validateDossier continuait de promettre : « rien ne leve, jamais ». JSON.stringify leve sur une structure cyclique et sur un BigInt, donc deux classes d'entree atteignent desormais la sortie avec ok===true et font lever. Effet de bord amusant et revelateur : la garde a WeakSet de freeze.ts, ecrite precisement pour que le gel reste total, est devenue inatteignable — la levee s'est deplacee d'un cran en amont. Second volet : la validation lit `input` mais ce qui est rendu et persiste est le clone, donc un appelant qui construirait son document EN MEMOIRE (toJSON, undefined, NaN) verrait diverger le document valide du document rendu.",
+			"root_cause": "Un correctif juge sur ce qu'il repare, pas sur ce qu'il deplace. Le clone JSON etait la bonne reponse a BUG-038 — il rend exactement ce qui sera persiste — mais il introduit une precondition de PROVENANCE (l'entree doit venir d'un JSON.parse) la ou la docstring n'annoncait qu'une absence de precondition de FORME.",
+			"fix": "Docstring qualifiee : « TOTAL SUR TOUT DOCUMENT ISSU D'UN JSON.parse », avec la precondition nommee, les deux appelants qui la satisfont (DossierService et inspectDossierFile), et l'echeance ou elle devra etre close — la n° 2, qui validera un brouillon construit en memoire. REJETE pour l'instant : cloner d'abord puis valider le clone, qui ferait retomber la levee sur une entree jamais validee ; c'est la closure forte, elle appartient a la n° 2 avec son appelant reel.",
+			"mitigation": "KR-169 s'applique a lui-meme : une propriete affirmee (« total ») doit etre soit testee, soit qualifiee par sa precondition. La qualifier maintenant vaut mieux que la promettre a tort — quand la n° 2 arrivera, elle devra CLORE ce point, pas le decouvrir.",
+			"regression_test": "aucun (docstring) ; la propriete de purete, elle, est couverte par « gele une copie et rend l argument INTACT »",
+			"severity": "minor"
+		},
+		{
+			"id": "BUG-044",
+			"date": "2026-08-04",
+			"feature": "dossier-format",
+			"discovered_at": "iteration-1",
+			"symptom": "Le test d'exhaustivite ajoute pour BUG-041 portait une liste DISPENSES de douze entrees dont AUCUNE n'etait vivante : chacune nommait une cle deja couverte par une regle de RACINES. Le filtre ne retirait donc rien — mais il aurait ABSORBE SILENCIEUSEMENT la disparition de n'importe laquelle de ces douze regles. C'est exactement le mode de defaillance que la docstring du test annonce interdire, reintroduit par le test cense l'interdire.",
+			"root_cause": "La liste a ete ecrite par precaution, a priori, sans verifier lesquelles de ses entrees etaient reellement necessaires. Une liste d'exceptions non verifiee est un trou par construction : elle ne dit pas ce qu'elle dispense, elle dit ce qu'elle a cesse de surveiller.",
+			"fix": "DISPENSES videe (au schema 1, toute cle de la fixture est reellement couverte) et gardee sous une assertion de disjonction : une dispense qui nomme une cle DEJA couverte fait rougir le test en se nommant. Verifie discriminant : reintroduire canon.ton en dispense fait echouer le test en nommant canon.ton.",
+			"mitigation": "Regle generale pour toute liste d'exceptions dans un test ou un lint : elle doit etre AUTO-NETTOYANTE — une exception devenue inutile echoue, elle ne dort pas. Sinon la liste survit a la raison qui l'a creee, et l'iteration suivante (ici it2, qui etend le schema aux treize racines) l'agrandit sans savoir ce qu'elle neutralise.",
+			"regression_test": "src/brain/dossier/validate.test.ts — « toute cle de la fixture est couverte par une regle, ou explicitement dispensee » (assertion de disjonction DISPENSES x couverts)",
+			"severity": "minor"
 		}
 	]
 }

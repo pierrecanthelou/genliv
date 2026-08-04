@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import type { Edge } from '../../brain/types'
+import type { Edge } from '../../brain/tree'
 
 interface CountdownChoiceProps {
 	edge: Edge

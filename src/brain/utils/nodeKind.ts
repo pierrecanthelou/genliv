@@ -1,4 +1,5 @@
-import type { BookNode, NodeKind } from '../types'
+import type { NodeKind } from '../types'
+import type { BookNode } from '../tree'
 import { isStructural } from '../kinds'
 
 /**

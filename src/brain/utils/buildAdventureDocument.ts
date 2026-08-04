@@ -1,4 +1,4 @@
-import type { Book } from '../types'
+import type { Book } from '../tree'
 import type { PlayExport } from './playExport'
 import { exportBookForPlay } from './playExport'
 

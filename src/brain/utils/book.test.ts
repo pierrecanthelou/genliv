@@ -1,5 +1,5 @@
 import { getNode, getEdge } from './book'
-import type { Book } from '../types'
+import type { Book } from '../tree'
 
 const book: Book = {
 	id: 'b',

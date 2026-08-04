@@ -1,5 +1,6 @@
 import { collectObjects, collectLineageObjects, findObject } from './objects'
-import type { Book, BookNode, Edge, GameObject, MonsterConfig } from '../types'
+import type { GameObject, MonsterConfig } from '../types'
+import type { Book, BookNode, Edge } from '../tree'
 
 const obj = (id: string, name = id): GameObject => ({ id, name, description: '' })
 

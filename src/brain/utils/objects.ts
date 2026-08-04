@@ -1,4 +1,5 @@
-import type { Book, GameObject } from '../types'
+import type { GameObject } from '../types'
+import type { Book } from '../tree'
 
 /**
  * The book's ACQUIRABLE-OBJECT CATALOG — a pure VIEW over the book (KR-020), not

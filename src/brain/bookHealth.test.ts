@@ -1,5 +1,5 @@
 import { checkBookHealth } from './utils/bookHealth'
-import type { Book, BookNode, Edge } from './types'
+import type { Book, BookNode, Edge } from './tree'
 
 function makeBook(nodes: BookNode[], edges: Edge[] = []): Book {
 	return { id: 'b1', title: 'Test', nodes, edges, createdAt: '2026-01-01', updatedAt: '2026-01-01' }

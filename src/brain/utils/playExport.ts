@@ -1,4 +1,5 @@
-import type { Book, BookNode, Edge, GameObject } from '../types'
+import type { GameObject } from '../types'
+import type { Book, BookNode, Edge } from '../tree'
 import { deriveAutomaticEdges } from './automaticEdges'
 import { collectObjects } from './objects'
 import { getNode } from './book'

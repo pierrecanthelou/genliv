@@ -1,4 +1,4 @@
-import type { Book, Edge } from '../types'
+import type { Book, Edge } from '../tree'
 
 /**
  * Automatic edges DERIVED from node configs — the « dedicated combat/trap path »

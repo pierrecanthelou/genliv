@@ -1,4 +1,4 @@
-import type { BookNode } from '../types'
+import type { BookNode } from '../tree'
 import { NODE_KINDS } from '../kinds'
 
 /**

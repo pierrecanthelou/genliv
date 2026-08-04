@@ -4,6 +4,7 @@ import { CreateBookEntry } from './features/book-creation'
 import { LibraryScreen } from './features/book-library'
 import { EditorScreen } from './EditorScreen'
 import { SyncIndicator, ConflictDialog } from './features/cloud-sync'
+import { ImportDossierButton } from './features/dossier-format'
 
 /**
  * True when `route` is the editor showing `bookId` — the one screen a delete
@@ -39,7 +40,7 @@ export function App(): JSX.Element {
 			// seed-once viewport from the new book's persisted prefs (KR-013).
 			<EditorScreen key={route.bookId} bookId={route.bookId} />
 		) : (
-			<LibraryScreen createEntry={<CreateBookEntry />} />
+			<LibraryScreen createEntry={<CreateBookEntry />} importEntry={<ImportDossierButton />} />
 		)
 	// SyncIndicator overlays both routes (composition root mounts it once).
 	return (

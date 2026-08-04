@@ -1,6 +1,7 @@
 import type { EventBus } from './EventBus'
 import type { PersistenceService } from './PersistenceService'
-import type { Book, BookNode, NodeKind, Edge, EdgeKind, ChoicePrereq, ChoiceCountdown } from './types'
+import type { NodeKind, EdgeKind } from './types'
+import type { Book, BookNode, Edge, ChoicePrereq, ChoiceCountdown } from './tree'
 import { bookKey, BOOK_KEY_PREFIX } from './persistenceKeys'
 import { createId } from './utils/id'
 import { isNodeKind, isEdgeKind, isStructural, canHaveOutgoing, canBeTarget } from './kinds'

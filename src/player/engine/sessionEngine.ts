@@ -1,4 +1,4 @@
-import type { Edge } from '../../brain/types'
+import type { Edge } from '../../brain/tree'
 import type { AdventureDocument, PlayPhase, PlayNode, SessionState, SessionEquipmentState } from '../types'
 import type { HeroState } from '../types'
 import { DEFAULT_WEAPON } from '../../brain/equipment'

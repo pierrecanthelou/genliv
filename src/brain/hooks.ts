@@ -1,7 +1,7 @@
 import { useMemo, useSyncExternalStore } from 'react'
 import { useBrain } from './BrainContext'
 import type { AppEventName } from './EventBus'
-import type { Book } from './types'
+import type { Book } from './tree'
 import { checkBookHealth, type StructuralWarning } from './utils/bookHealth'
 
 /**

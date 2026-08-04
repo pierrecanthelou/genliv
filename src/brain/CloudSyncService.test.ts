@@ -2,10 +2,50 @@ import { createCloudSyncService, type CloudTransport } from './CloudSyncService'
 import { createEventBus } from './EventBus'
 import { createLocalStoragePersistence } from './PersistenceService'
 import { createLocalStorageTransport } from './LocalStorageTransport'
-import { bookKey, bookContentKey, bookImageKey, bookImagesManifestKey } from './persistenceKeys'
-import type { SyncStatus, Book } from './types'
+import { bookKey, bookContentKey, bookImageKey, bookImagesManifestKey, dossierKey } from './persistenceKeys'
+import type { SyncStatus } from './types'
+import type { Book } from './tree'
+import { DOSSIER_SCHEMA } from './dossier/types'
+import { createDossierService } from './DossierService'
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+/**
+ * Un dossier minimal CONFORME au schéma 1 — la forme que `isDossier` doit
+ * reconnaître. Volontairement construit à la main plutôt que lu de la fixture :
+ * ce test-ci porte sur la route de poussée et l'armement de la réconciliation,
+ * pas sur le validateur.
+ */
+function minDossier(id: string, updatedAt = '2026-01-01T00:00:00.000Z') {
+	return {
+		schema: DOSSIER_SCHEMA,
+		id,
+		titre: 'Dossier de test',
+		createdAt: '2026-01-01T00:00:00.000Z',
+		updatedAt,
+		canon: {
+			mj: { synopsis_mj: 'La vérité.' },
+			partage: { accroche_joueur: 'Vous arrivez.' },
+			ton: 'sobre',
+			interdits_ton: [],
+			objectifs: [],
+		},
+		monde: {
+			personnages: [],
+			lieux: [{ id: 'lieu.seuil', nom: 'Le seuil' }],
+			objets: [],
+			indices: [],
+			quetes: [],
+			evenements: [],
+			conditions: {},
+		},
+		charpente: {
+			depart: { lieu_id: 'lieu.seuil', texte_ouverture_joueur: 'La porte est ouverte.' },
+			jalons: [],
+			fins: [],
+		},
+	}
+}
 
 function setup(transport?: CloudTransport) {
 	const events = createEventBus()
@@ -345,6 +385,22 @@ describe('CloudSyncService', () => {
 			expect(stored?.nodes[1]?.pnj?.portrait).toBe('data:image/png;base64,PORT')
 		})
 
+		it('routes a dossier write WHOLE, never through the book split (aucune data URL au schéma 1)', async () => {
+			const pushed: [string, unknown][] = []
+			const { sync } = setup({
+				push: (k, v) => {
+					pushed.push([k, v])
+					return Promise.resolve()
+				},
+			})
+
+			sync.set(dossierKey('d1'), minDossier('d1'))
+			await flush()
+
+			expect(pushed.map(([k]) => k)).toEqual([dossierKey('d1')]) // une seule clé, entière
+			expect(pushed[0][1]).toEqual(minDossier('d1'))
+		})
+
 		it('resolveConflict("local") with a real Book queues split keys, not the legacy key', async () => {
 			const conflictTransport: CloudTransport = {
 				push: () => new Promise<void>(() => {}),
@@ -365,6 +421,98 @@ describe('CloudSyncService', () => {
 			const pending = sync.pendingKeys()
 			expect(pending.some((k) => k.startsWith(bookKey('b1') + ':'))).toBe(true)
 			expect(pending).not.toContain(bookKey('b1'))
+		})
+	})
+
+	describe('reconnaissance du dossier (KR-163)', () => {
+		const key = dossierKey('d1')
+
+		it('un dossier est reconnu et reconcile s’arme sur dossier:opened', async () => {
+			// Le cloud porte une copie PLUS RÉCENTE ; le local est propre (aucune écriture
+			// en attente). Dernier écrit gagne : la copie cloud doit être adoptée et les
+			// vues notifiées. Sans armement sur `dossier:opened`, RIEN ne se passe — et
+			// c'est précisément le défaut que KR-163 décrit : aucun test ne rougissait.
+			const cloud = { ...minDossier('d1', '2026-06-01T00:00:00.000Z'), titre: 'Titre du cloud' }
+			const transport: CloudTransport = {
+				push: () => Promise.resolve(),
+				pull: async (k: string) => (k === key ? cloud : null),
+			}
+			const { local, events } = setup(transport)
+			local.set(key, minDossier('d1', '2026-01-01T00:00:00.000Z'))
+
+			const updated: string[] = []
+			events.on('dossier:updated', ({ dossierId }) => updated.push(dossierId))
+
+			events.emit('dossier:opened', { dossierId: 'd1' })
+			await flush()
+
+			expect(local.get<{ titre: string }>(key)?.titre).toBe('Titre du cloud')
+			expect(updated).toEqual(['d1'])
+		})
+
+		it('une copie locale plus recente est poussee, jamais ecrasee par un cloud plus ancien', async () => {
+			const pushed: [string, unknown][] = []
+			const transport: CloudTransport = {
+				push: (k, v) => {
+					pushed.push([k, v])
+					return Promise.resolve()
+				},
+				pull: async (k: string) => (k === key ? minDossier('d1', '2026-01-01T00:00:00.000Z') : null),
+			}
+			const { local, events } = setup(transport)
+			local.set(key, { ...minDossier('d1', '2026-06-01T00:00:00.000Z'), titre: 'Titre local' })
+
+			events.emit('dossier:opened', { dossierId: 'd1' })
+			await flush() // le pull résout → local plus récent → poussée programmée
+			await flush() // la poussée groupée résout
+
+			expect(local.get<{ titre: string }>(key)?.titre).toBe('Titre local') // jamais écrasé
+			expect(pushed.map(([k]) => k)).toEqual([key])
+		})
+
+		it('un dossier adopte par reconcile est gele avant d’etre expose', async () => {
+			// Le gel n'a PAS lieu dans le décorateur (`deepFreeze` n'a qu'un site
+			// d'appel, KR-166) : il a lieu à la LECTURE, parce que `DossierService.get`
+			// re-valide et ne rend jamais le brut du magasin. C'est ce qui fait que
+			// l'adoption cloud — qui écrit derrière le service — ne peut pas introduire
+			// un document ni gelé ni validé dans l'application.
+			const cloud = { ...minDossier('d1', '2026-06-01T00:00:00.000Z'), titre: 'Titre du cloud' }
+			const transport: CloudTransport = {
+				push: () => Promise.resolve(),
+				pull: async (k: string) => (k === key ? cloud : null),
+			}
+			const { sync, local, events } = setup(transport)
+			local.set(key, minDossier('d1', '2026-01-01T00:00:00.000Z'))
+			const dossiers = createDossierService(sync, events)
+
+			events.emit('dossier:opened', { dossierId: 'd1' })
+			await flush()
+
+			const expose = dossiers.get('d1')
+			expect(expose?.titre).toBe('Titre du cloud') // bien la copie adoptée
+			expect(Object.isFrozen(expose)).toBe(true)
+			expect(Object.isFrozen(expose?.monde)).toBe(true)
+			expect(Object.isFrozen(expose?.monde.lieux[0])).toBe(true)
+		})
+
+		it('une valeur cloud qui n est pas un dossier ne remplace jamais la copie locale', async () => {
+			// Discriminant : `isDossier` doit REFUSER une forme livre (elle porte `nodes`,
+			// pas `schema: 1`), sinon un livre pêché sur la clé dossier écraserait le dossier.
+			const transport: CloudTransport = {
+				push: () => Promise.resolve(),
+				pull: async () => ({ id: 'd1', nodes: [], edges: [], updatedAt: '2026-12-01T00:00:00.000Z' }),
+			}
+			const { local, events } = setup(transport)
+			local.set(key, minDossier('d1', '2026-01-01T00:00:00.000Z'))
+
+			const updated: string[] = []
+			events.on('dossier:updated', ({ dossierId }) => updated.push(dossierId))
+
+			events.emit('dossier:opened', { dossierId: 'd1' })
+			await flush()
+
+			expect(local.get<{ titre: string }>(key)?.titre).toBe('Dossier de test') // intact
+			expect(updated).toEqual([]) // aucune adoption silencieuse
 		})
 	})
 })

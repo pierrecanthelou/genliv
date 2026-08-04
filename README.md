@@ -32,7 +32,10 @@ src/
   style.css         # reset + design-system tokens (styles/)
   styles/           # design system: styles.css + tokens/*.css (colors, type, spacing, fonts)
   brain/            # core engine — feature-agnostic, never imports features/
-    types.ts            # domain model (Book, BookNode, Edge, NodeKind, EdgeKind)
+    types.ts            # rules types (GameObject, SkillRoll, MonsterConfig, …) — consumed by player/
+    tree.ts             # the tree model (Book, BookNode, Edge) — condemned: n° 2 then n° 9
+    dossier/            # n° 1 — the adventure dossier: schema 1, validator, issues, deep freeze
+    DossierService.ts   # get / open / importDossier / exportDossier (get re-validates, never raw)
     EventBus.ts         # Observer: typed cross-feature events
     Router.ts           # navigation contract
     PersistenceService.ts + persistenceKeys.ts   # the only storage gateway (KR-011/111)
@@ -41,6 +44,7 @@ src/
     components/         # cross-feature presentational primitives (KR-109)
     utils/              # cross-feature utilities (KR-110), e.g. stable id generation
   features/         # isolated feature modules; talk to the rest only through brain/
+    dossier-format/     # n° 1 — import an adventure dossier + read its rejection report
     book-creation/      # name a book, seed the starting document, open the editor
     book-library/       # home screen: list / open / delete books
     tree-canvas/        # § 02 graph view (repointed onto the dossier graph in n° 2)
@@ -65,7 +69,15 @@ Node kinds: `sommaire` (root) · `choix` · `pnj` · `decor` · `piege` · `mons
 
 ## Features
 
-Huit features ont été supprimées le 2026-08-03 par la décision D3 (`outline-view`, `node-editor`, `choice-linking`, `book-export`, et les quatre `action-*`) : elles étaient câblées sur des types de nœuds, des choix et des formats d'export que la bascule abandonne. Leur code est dans l'historique git. **Cinq survivent**, toutes destinées à être repointées :
+Huit features ont été supprimées le 2026-08-03 par la décision D3 (`outline-view`, `node-editor`, `choice-linking`, `book-export`, et les quatre `action-*`) : elles étaient câblées sur des types de nœuds, des choix et des formats d'export que la bascule abandonne. Leur code est dans l'historique git.
+
+**Une feature neuve** a commencé — la n° 1, le contrat entre les deux temps :
+
+| Feature | État | Résumé |
+| --- | --- | --- |
+| `dossier-format` | iter 1 / 5 ✅ | Le **dossier d'aventure** : `schema: 1` en trois racines (`canon` / `monde` / `charpente`), validateur qui refuse **en français rédigé** (8 codes, l'entité nommée, pas un chemin JSON), gel en profondeur dès l'import, round-trip import/export, et l'affordance « ⬚ Importer un dossier » dans la bibliothèque. it2 = forme complète des treize racines · it3 = `ExprNode` + `PREDICATES` · it4 = `DELTAS` · it5 = dossier de référence 6 PNJ / 5 lieux. |
+
+Et **cinq survivent** à la bascule, toutes destinées à être repointées :
 
 | Feature | État | Repointée en | Résumé |
 | --- | --- | --- | --- |

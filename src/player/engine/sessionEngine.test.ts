@@ -8,7 +8,7 @@ import {
 	navigate,
 } from './sessionEngine'
 import type { AdventureDocument, SessionState } from '../types'
-import type { Edge } from '../../brain/types'
+import type { Edge } from '../../brain/tree'
 
 function makeAdventure(overrides: Partial<AdventureDocument> = {}): AdventureDocument {
 	return {

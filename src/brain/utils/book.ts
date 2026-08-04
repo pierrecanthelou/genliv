@@ -1,4 +1,4 @@
-import type { Book, BookNode, Edge } from '../types'
+import type { Book, BookNode, Edge } from '../tree'
 
 /**
  * Lookups that hide the book's internal shape: callers ask « give me node/edge X »

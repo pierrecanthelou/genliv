@@ -1,14 +1,17 @@
 import type { EventBus } from './EventBus'
 import type { PersistenceService } from './PersistenceService'
-import type { Book, BookNode, SyncStatus } from './types'
+import type { SyncStatus } from './types'
+import type { Book, BookNode } from './tree'
 import {
 	bookKey,
 	BOOK_KEY_PREFIX,
 	bookContentKey,
 	bookImageKey,
 	bookImagesManifestKey,
+	dossierKey,
 	CLOUDSYNC_QUEUE_KEY,
 } from './persistenceKeys'
+import { DOSSIER_SCHEMA, type Dossier } from './dossier/types'
 
 /**
  * The cloud side of persistence — a swappable transport that pushes/pulls a
@@ -183,6 +186,23 @@ export function createCloudSyncService(
 		)
 	}
 
+	/**
+	 * Reconnaissance de la forme DOSSIER (KR-163). Un dossier n'a pas de `nodes` :
+	 * sans ce prédicat il retomberait en poussée monolithique par DÉFAUT — ce qui
+	 * est la bonne route (aucun champ ne porte de data URL au schéma 1, donc aucun
+	 * découpage de clés), mais par accident et non par décision, et surtout
+	 * `reconcile()` n'étant armé que par `book:opened`, AUCUNE réconciliation cloud
+	 * n'aurait lieu sur un dossier sans qu'un seul test rougisse.
+	 */
+	function isDossier(value: unknown): value is Dossier & Timestamped {
+		return (
+			typeof value === 'object' &&
+			value !== null &&
+			(value as Record<string, unknown>).schema === DOSSIER_SCHEMA &&
+			typeof (value as Record<string, unknown>).id === 'string'
+		)
+	}
+
 	/** True when `key` is the plain book key (not a split :content/:img:/:images key). */
 	function isRawBookKey(key: string): boolean {
 		if (!key.startsWith(BOOK_KEY_PREFIX)) return false
@@ -333,8 +353,54 @@ export function createCloudSyncService(
 		run().catch(() => setStatus('error'))
 	}
 
+	/**
+	 * Réconciliation dernier-écrit-gagne d'un DOSSIER, sur `updatedAt` (KR-163).
+	 * Le dossier se pousse et se tire ENTIER, sous sa propre clé : pas de découpage
+	 * (aucun champ ne porte de data URL au schéma 1), donc pas de manifeste ni de
+	 * clés d'image à recomposer.
+	 *
+	 * Le gel n'a PAS lieu ici : `deepFreeze` n'a qu'un seul site d'appel, la sortie
+	 * de `validateDossier` (KR-166). Un dossier adopté ici entre dans le magasin
+	 * local et ressort GELÉ par `DossierService.get`, qui le re-valide (désaccord 6) —
+	 * jamais brut. L'écriture cloud d'un document non validé reste ouverte et
+	 * traitée en n° 9 (seconde porte au démarrage de session).
+	 */
+	function reconcileDossier(dossierId: string): void {
+		if (transport?.pull === undefined) return
+
+		const pull = transport.pull.bind(transport)
+		const key = dossierKey(dossierId)
+
+		async function run(): Promise<void> {
+			const cloudValue = await pull(key)
+			const localDossier = local.get<Dossier & Timestamped>(key)
+
+			if (!isDossier(cloudValue)) {
+				// Rien en face, ou une valeur qui n'est PAS un dossier : on ne l'adopte
+				// jamais (elle écraserait le local). Cloud vide → on l'ensemence.
+				if (isDossier(localDossier)) queuePush(key, localDossier)
+				return
+			}
+
+			const localAt = localDossier?.updatedAt ?? ''
+			const cloudAt = cloudValue.updatedAt ?? ''
+
+			if (cloudAt > localAt) {
+				// Écrit sous le magasin LOCAL, jamais par le `set` décoré : sinon la copie
+				// qu'on vient de tirer repartirait aussitôt en poussée (boucle d'écho).
+				local.set(key, cloudValue)
+				events.emit('dossier:updated', { dossierId })
+			} else if (localAt > cloudAt && isDossier(localDossier)) {
+				queuePush(key, localDossier)
+			}
+		}
+
+		run().catch(() => setStatus('error'))
+	}
+
 	if (transport !== undefined) {
 		events.on('book:opened', ({ bookId }) => reconcile(bookId))
+		events.on('dossier:opened', ({ dossierId }) => reconcileDossier(dossierId))
 		// A backlog persisted from a previous session: flush it on (re)start.
 		if (queue.size > 0) {
 			setStatus('syncing')

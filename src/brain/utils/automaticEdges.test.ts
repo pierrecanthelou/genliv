@@ -1,5 +1,6 @@
 import { deriveAutomaticEdges, deriveMonsterEdges } from './automaticEdges'
-import type { Book, BookNode, MonsterConfig, TrapConfig } from '../types'
+import type { MonsterConfig, TrapConfig } from '../types'
+import type { Book, BookNode } from '../tree'
 
 function node(id: string, kind: BookNode['kind'], extra: Partial<BookNode> = {}): BookNode {
 	return { id, kind, text: '', ...extra }

@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.6.2 — `dossier-format` itération 1 : importer un dossier d'aventure
+
+**L'auteur peut importer un dossier d'aventure dans sa bibliothèque** — déposer un fichier `.json`, voir en français ce qui l'empêche d'être jouable, et confirmer. Première itération de la feature n° 1, **le contrat entre les deux temps**. Revue complète : `.claude/raffinage/dossier-format-it1.revue.md`.
+
+### Ajouté — le format
+
+- **`brain/dossier/`** — `Dossier` (`schema: 1`) en **trois racines** : `canon` (avec `mj` et `partage` **séparés**), `monde`, `charpente`. Le regroupement n'est pas cosmétique : il rend `Pick<Dossier, 'canon' | 'monde'>` sûr **par construction**, donc une fuite de charpente vers le contexte IA sera une erreur de compilation en n° 10, pas un test d'exécution.
+- **`validateDossier(input: unknown)`** — pur, ignorant du magasin, refuse **en français rédigé**. Huit codes d'anomalie dans une union fermée, chacun avec son OÙ (l'entité résolue **par son nom**, jamais le chemin JSON seul), son QUOI et son QUOI FAIRE. Le budget de canon (`BUDGET_MOTS_CANON = 600`) produit un **avertissement**, jamais un blocage.
+- **`inspectDossierFile`** — le `JSON.parse` vit dans `brain/`, pas dans le composant : « fichier vide » et « JSON malformé » deviennent observables sous la porte au lieu de rester hors instrument.
+- **`DossierService`** — **quatre** méthodes (`get`, `open`, `importDossier`, `exportDossier`). `get()` **re-valide** et ne rend jamais le document brut du magasin.
+- **Gel en profondeur** dès l'import : `Object.freeze` n'apparaît qu'en **un seul endroit du module dossier** (`freeze.ts`), et deux tests épinglent cette unicité — le dépôt en porte deux autres, sans rapport, dans `BrainContext` et `UIPreferencesService`. `validateDossier` gèle une **copie** : l'argument de l'appelant ressort intact, et un test le prouve.
+- **`CloudSyncService` reconnaît la forme dossier** et arme sa réconciliation sur `dossier:opened` — sans quoi un dossier serait retombé en poussée monolithique **sans aucune réconciliation cloud, et sans qu'un seul test rougisse**. Le test a été constaté **rouge avant correctif**, puis re-vérifié deux fois indépendamment.
+
+### Ajouté — l'écran
+
+- **« ⬚ Importer un dossier »** dans la bibliothèque, et une modale à cinq états (vide, validation, fichier illisible, anomalies, valide). Injectée depuis `App.tsx`, la racine de composition : **`book-library` n'est pas touché**, son isolation tient jusqu'à son repointage en n° 2.
+- Les cinq états se **dérivent** du discriminant de l'inspection au rendu — aucun miroir `useEffect` (KR-013).
+
+### Modifié — la scission `brain/types.ts`
+
+`Book`, `BookNode`, `Edge`, `ChoicePrereq`, `ChoiceCountdown`, `NodeActionType` partent dans **`brain/tree.ts`** (condamné : n° 2 puis n° 9). `types.ts` **survit** avec les types de règles que `src/player/` consomme. `tree.ts` importe depuis `./types`, **jamais** l'inverse — c'est cette asymétrie qui rend vérifiable l'invariant **aucune conversion `Book` ↔ `Dossier`, dans aucun sens** (KR-167).
+
+**26 fichiers** voient leur ligne d'import changer (21 `src/brain/`, 5 `src/player/`, **0 `src/features/`** — le baril ré-exporte sous les mêmes noms). Mesuré trois fois. 23 ne changent **que** cela ; les 3 autres portent aussi du contenu contractuel neuf — nuance désormais écrite dans KR-159, parce que « 26 fichiers, une ligne d'import chacun » était exact et pourtant trompeur.
+
+### Corrigé
+
+- **BUG-037** — `validate.test.ts` déléguait par commentaire la couverture du 8e code d'anomalie à `DossierService.test.ts`, qui ne la portait pas. Une promesse écrite dans un fichier n'était pas tenue dans l'autre : **aucun grep ne trouve ça**, seule la QA en contexte neuf l'a vue.
+- **BUG-035** (journalisé, non corrigé — hors périmètre) — `ImageUpload.tsx:185` utilise `var(--surface-raised)`, un token qui n'existe nulle part. Rien ne détecte un `var(--nom)` qui ne résout vers rien ; trois relectures manuelles ont contourné le trou ici, ça ne tiendra pas sur seize features.
+- **BUG-036** — `FEATURE_DIRS` n'est pas lisible par `require()` (ESLint 8 rejette toute clé de premier niveau inconnue). Le test la lit comme texte : sans lui, la première feature créée sans être déclarée serait **silencieusement exemptée** des règles d'isolation.
+
+### Porte
+
+`tsc` propre · lint **0 erreur** · **46 suites / 559 tests verts** (39 / 485 avant) — +7 suites, +74 tests. Score de mutation **sans objet** : aucun des quatre fichiers de règles n'est touché (KR-161).
+
 ## 0.6.1 — cadrage et raffinage de `dossier-format`, décomptes remesurés
 
 Aucun code d'application. Cette version pose le **plan de la feature n° 1** et **corrige trois chiffres** que `0.6.0` avait écrits sans les mesurer. Rien n'est déployé de neuf : c'est de la documentation exécutable par `/essaim`.

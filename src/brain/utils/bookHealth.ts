@@ -1,4 +1,4 @@
-import type { Book, BookNode } from '../types'
+import type { Book, BookNode } from '../tree'
 import { nodeTitle } from './nodeView'
 
 export type StructuralWarningCode = 'dead-end' | 'dangling-edge-target' | 'unlabeled-choice'

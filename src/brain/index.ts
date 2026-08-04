@@ -3,7 +3,11 @@
  * communication (Event Bus), and service wiring (Service Locator + DI).
  * Feature-agnostic: never imports from features/.
  */
-export type { Book, BookNode, Edge, ChoicePrereq, ChoiceCountdown, NodeKind, EdgeKind, NodeActionType } from './types'
+// Le modèle d'arbre vit dans `./tree` depuis la scission de la n° 1 `dossier-format` ;
+// il est ré-exporté ici SOUS LES MÊMES NOMS, de sorte qu'aucune ligne des features
+// survivantes ne bouge (KR-159). Les types de règles restent dans `./types`.
+export type { Book, BookNode, Edge, ChoicePrereq, ChoiceCountdown, NodeActionType } from './tree'
+export type { NodeKind, EdgeKind } from './types'
 export type {
 	GameObject,
 	DecorConfig,
@@ -114,6 +118,20 @@ export type { MonsterLibraryService, SavedMonster } from './MonsterLibraryServic
 export type { Router, Route } from './Router'
 export type { BookService, NodePatch } from './BookService'
 export { autoSlot } from './BookService'
+// ── Le DOSSIER D'AVENTURE (feature n° 1 `dossier-format`) ────────────────────
+// Le contrat entre les deux temps. `deepFreeze` et `collectIds` ne sont
+// DÉLIBÉRÉMENT pas ré-exportés ici : le premier n'a qu'un site d'appel légitime
+// (la sortie de `validateDossier`, KR-166) et l'exposer inviterait le second ;
+// le second n'a d'appelant que le validateur.
+export { DOSSIER_SCHEMA, BUDGET_MOTS_CANON } from './dossier/types'
+export type { Dossier, Canon, CanonMj, CanonPartage, Monde, Charpente, Depart, Entite } from './dossier/types'
+export { DOSSIER_ISSUE_LABELS, dossierIssueRemediation } from './dossier/issues'
+export type { DossierIssue, DossierIssueCode, DossierIssueSeverity } from './dossier/issues'
+export { ESPACES_DE_NOMS, FORME_IDENTIFIANT, estIdentifiantBienForme } from './dossier/identifiers'
+export type { EspaceDeNoms, EspaceDeNomsDescripteur } from './dossier/identifiers'
+export { validateDossier, type DossierValidation } from './dossier/validate'
+export { inspectDossierFile, type DossierInspection, type FileReadErrorCode } from './dossier/read'
+export type { DossierService } from './DossierService'
 export type { SelectionService } from './SelectionService'
 export { effectiveKind, endLabel } from './utils/nodeKind'
 export { nodeTitle, textLines } from './utils/nodeView'

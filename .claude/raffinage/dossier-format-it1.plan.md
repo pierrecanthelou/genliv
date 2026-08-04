@@ -1,6 +1,6 @@
 # Plan d'itération — `dossier-format` · itération `1`
 
-> Statut : `porte 1 verte, en attente de validation`
+> Statut : `validé` — porte 2 (humaine) franchie le 2026-08-04
 > Produit par : pm-produit · tech-lead · ux-designer · qa · narratif-ia — le 2026-08-03
 > Composition : `5 rôles` — motif : l'itération fixe le document que l'IA lira au Temps 2 ; la frontière code/IA, le budget de contexte et les identifiants stables s'y décident une fois pour toutes.
 > Exécution : `séquentielle` (2 lots, sans worktree)

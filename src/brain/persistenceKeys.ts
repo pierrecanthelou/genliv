@@ -39,6 +39,34 @@ export function bookImagesManifestKey(bookId: string): string {
 }
 
 /**
+ * Le DOSSIER D'AVENTURE (feature n° 1 `dossier-format`) — le format que l'IA lira
+ * au Temps 2. Son espace de clés est DISTINCT de celui du livre : `genliv:dossier:`
+ * ne croise jamais `keys(BOOK_KEY_PREFIX)`, donc `listBooks` ne voit aucun dossier
+ * et la persistance du dossier est purement ADDITIVE (KR-159 : la n° 1 crée, elle
+ * ne détruit pas).
+ *
+ * AUCUN DÉCOUPAGE DE CLÉS ici, et c'est un invariant du schéma 1, pas un oubli :
+ * aucun champ du dossier ne porte de data URL en itération 1. `dossierContentKey` /
+ * `dossierImageKey` arriveront avec le premier porteur d'image (illustration en
+ * n° 3, portraits en n° 4).
+ */
+export const DOSSIER_KEY_PREFIX = `${PERSISTENCE_PREFIX}:dossier:`
+
+/**
+ * Storage key for a single dossier, keyed by its stable id (never its titre).
+ *
+ * `:` EST RÉSERVÉ dans cet espace de clés — c'est le séparateur du découpage à
+ * venir (`dossierContentKey` / `dossierImageKey`, n° 3 / n° 4). Le `dossierId`
+ * passé ici ne doit donc jamais en contenir. Ce n'est pas une convention
+ * d'usage : `validateDossier` refuse par `identifiant-invalide` tout `id` racine
+ * hors de `^[a-z0-9][a-z0-9-]*$`, précisément parce que cette valeur vient d'un
+ * fichier écrit à la main et finit ici sans intermédiaire.
+ */
+export function dossierKey(dossierId: string): string {
+	return `${DOSSIER_KEY_PREFIX}${dossierId}`
+}
+
+/**
  * The cloud-sync OFFLINE QUEUE: writes pushed-but-not-yet-confirmed, persisted
  * LOCALLY (in the genliv namespace, not the transport's fake-remote namespace)
  * so pending changes survive a reload and flush on reconnect (cloud-sync iter 2).

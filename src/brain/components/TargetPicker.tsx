@@ -1,7 +1,7 @@
 import { useId, useRef, useState } from 'react'
 import { nodeTitle } from '../utils/nodeView'
 import { canBeTarget } from '../kinds'
-import type { BookNode } from '../types'
+import type { BookNode } from '../tree'
 
 /**
  * TargetPicker — pick a node another node points at for a NON-choice screen

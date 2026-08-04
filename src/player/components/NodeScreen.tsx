@@ -1,4 +1,4 @@
-import type { Edge } from '../../brain/types'
+import type { Edge } from '../../brain/tree'
 import type { PlayNode } from '../types'
 import { ChoiceList } from './ChoiceList'
 

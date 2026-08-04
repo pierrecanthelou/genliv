@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { TargetPicker } from './TargetPicker'
-import type { BookNode } from '../types'
+import type { BookNode } from '../tree'
 
 const nodes: BookNode[] = [
 	{ id: 'n1', kind: 'choix', text: 'Ecran A' },

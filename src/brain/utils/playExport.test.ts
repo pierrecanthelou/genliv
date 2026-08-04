@@ -1,5 +1,6 @@
 import { exportBookForPlay, PLAY_EXPORT_FORMAT, PLAY_EXPORT_VERSION } from './playExport'
-import type { Book, BookNode, Edge, GameObject } from '../types'
+import type { GameObject } from '../types'
+import type { Book, BookNode, Edge } from '../tree'
 
 const obj = (id: string, name = id): GameObject => ({ id, name, description: '' })
 

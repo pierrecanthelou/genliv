@@ -1,0 +1,35 @@
+{
+	"schema": 1,
+	"id": "dossier-minimal",
+	"titre": "Le sceau du Gouffre",
+	"createdAt": "2026-08-04T09:00:00.000Z",
+	"updatedAt": "2026-08-04T09:00:00.000Z",
+	"canon": {
+		"mj": {
+			"synopsis_mj": "Le sceau du Gouffre est brisé depuis trois lunes. Le bourg de Val-Cendre l'ignore encore, et Aldûr le Sage le sait sans oser le dire."
+		},
+		"partage": {
+			"accroche_joueur": "Val-Cendre vous accueille sous une pluie de cendres tièdes."
+		},
+		"ton": "sombre et feutré",
+		"interdits_ton": ["aucun anachronisme", "aucune vulgarité"],
+		"objectifs": [{ "id": "objectif.refermer-le-sceau", "nom": "Refermer le sceau du Gouffre" }]
+	},
+	"monde": {
+		"personnages": [{ "id": "pnj.aldur-le-sage", "nom": "Aldûr le Sage" }],
+		"lieux": [{ "id": "lieu.val-cendre", "nom": "Val-Cendre" }],
+		"objets": [{ "id": "objet.clef-de-basalte", "nom": "Clef de basalte" }],
+		"indices": [{ "id": "indice.cendres-tiedes", "nom": "Des cendres encore tièdes" }],
+		"quetes": [{ "id": "quete.retrouver-la-clef", "nom": "Retrouver la clef de basalte" }],
+		"evenements": [],
+		"conditions": {}
+	},
+	"charpente": {
+		"depart": {
+			"lieu_id": "lieu.val-cendre",
+			"texte_ouverture_joueur": "Vous poussez la porte de l'auberge du Fanal ; la salle se tait."
+		},
+		"jalons": [{ "id": "jalon.premiere-nuit", "nom": "La première nuit à Val-Cendre" }],
+		"fins": [{ "id": "fin.sceau-referme", "nom": "Le sceau refermé" }]
+	}
+}

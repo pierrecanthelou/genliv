@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
-import type { Edge, GameObject } from '../../brain/types'
+import type { GameObject } from '../../brain/types'
+import type { Edge } from '../../brain/tree'
 import type { Characteristic } from '../../brain/characteristics'
 import type { AdventureDocument, PlayPhase, SessionState, HeroState } from '../types'
 import type { CreationPool } from '../engine/charCreation'
