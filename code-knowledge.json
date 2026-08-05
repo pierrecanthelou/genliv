@@ -475,6 +475,16 @@
 			"id": "KR-171",
 			"feature": "dossier-format",
 			"risk": "UN CHEMIN D'ECHEC QUI PORTE DE LA VALEUR MERITE SON PROPRE CRITERE D'ACCEPTATION (BUG-040). Le critere n° 8 ne nommait que le chemin nominal (fichier valide -> confirmation) ; tout l'etat « invalid » — l'anatomie a trois lignes, le badge pluralise, la remediation a marqueur resolu — n'etait monte par aucun test, alors que « voir en francais ce qui empeche son dossier d'etre jouable » est la moitie de la demo ET le contrat que dossier-controles (n° 7) reutilisera. Corollaire : une chaine de type QUOI FAIRE se verifie contre ce que le produit permet reellement A LA VERSION OU ELLE EST LIVREE — celle de dossier-deja-importe conseillait une suppression qui n'existe pas (BUG-042)."
+		},
+		{
+			"id": "KR-172",
+			"feature": "global-config",
+			"risk": "DEUX AGENTS NE TRAVAILLENT JAMAIS EN PARALLELE SUR LE MEME ARBRE NON COMMITE des que l'un d'eux mute des fichiers (BUG-045). L'orchestrateur a lance l'integrateur et la QA mode B en meme temps sur une tranche non commitee ; la casse-restaure de la QA — instrument legitime, c'est lui qui prouve qu'un test rougit quand le code est faux — a efface par git checkout les 409 lignes du fichier que l'integrateur etait en train de relire. Diagnostic possible seulement parce que le revert etait EXACT (hash du blob HEAD, un seul fichier touche). Regles : integrateur et QA en SEQUENCE, ou en worktree separe ; et pour une casse-restaure, preferer une sauvegarde de fichier a git checkout, qui touche l'index partage. Le mode « sans worktree » — legitime pour un lot unique — n'offre aucune protection contre l'ecriture concurrente : c'est le prix a connaitre quand on le choisit."
+		},
+		{
+			"id": "KR-173",
+			"feature": "dossier-format",
+			"risk": "QUAND UNE FONCTION DE TRAVERSEE ABANDONNE SILENCIEUSEMENT UNE BRANCHE POUR RESTER TOTALE, CE QU'ELLE CESSE DE VISITER DOIT AVOIR SA PROPRE TABLE (BUG-049). `sitesDe` fait `if (!Array.isArray(valeur)) continue` sur un segment `[]` : trois listes NON optionnelles de types.ts passaient absentes, ok:true, et le dossier gele promettait des tableaux valant undefined. Aucun compilateur ne relie une liste non optionnelle de types.ts a l'absence de sa regle de validation. DEUX corollaires de revue, generalisables : (1) se mefier de toute phrase de documentation qui dit « c'est le SEUL endroit ou… » — celle-ci etait fausse d'un facteur quatre, et c'est la revue de PR, pas l'ouvrier ni la QA, qui l'a mesuree ; (2) quand un instrument de couverture change de critere (ici suppression -> corruption), ecrire explicitement CE QU'IL CESSE DE COUVRIR : la corruption ne teste que les FEUILLES, jamais les conteneurs, et c'est exactement l'angle mort qui a laisse passer ce defaut."
 		}
 	]
 }

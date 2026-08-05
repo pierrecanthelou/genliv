@@ -37,7 +37,10 @@ function minDossier(id: string, updatedAt = '2026-01-01T00:00:00.000Z') {
 			indices: [],
 			quetes: [],
 			evenements: [],
-			conditions: {},
+			// `climat` est une liste OBLIGATOIRE depuis l'itération 2 (vide accepté,
+			// absente refusée) : sans elle le dossier gelé promettrait un tableau
+			// valant `undefined`.
+			conditions: { climat: [] },
 		},
 		charpente: {
 			depart: { lieu_id: 'lieu.seuil', texte_ouverture_joueur: 'La porte est ouverte.' },

@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.6.3 — `dossier-format` itération 2 : les corrections irréversibles du schéma
+
+**L'auteur peut voir refusé un dossier dont une donnée mécanique est mal formée** — une référence de monstre qui ne résout pas, une valeur hors énumération, un effet écrit en prose, une porte de révélation inconnue. Revue : `.claude/raffinage/dossier-format-it2.revue.md`.
+
+### Décidé — deux arbitrages qui changent le plan
+
+- **La forme complète des racines quitte la n° 1.** Mesure faite sur le schéma cible : **~100 champs terminaux**, soit bien plus que 8 critères et 4 lots. Chaque racine reçoit désormais sa forme complète **dans la feature qui l'édite** — `canon` en n° 3, `personnages` en n° 4, `lieux`/`objets`/`indices` en n° 5, `quetes`/`evenements`/`conditions` en n° 6. La n° 1 ne pose que ce qui est **irréversible**. Même règle que celle qui avait déjà fait reporter `Delta[]` et sortir `list`/`remove` du service : une forme sans producteur ni consommateur est de la dette.
+- **`charpente` n'est plus « jamais vue par l'IA » mais « jamais vue entière ».** L'ancienne formulation était contredite par le code à venir ; la nouvelle est plus honnête et plus étroite. Une projection nommée en portera **une** feuille — l'**énoncé des jalons déjà atteints** (`enonce_texte`, champ neuf) — et jamais les déclencheurs ni les conditions de fin : ceux-là sont la même règle en français, et un narrateur qui les lit conduit le joueur au jalon ou à la fin. La projection elle-même part en n° 9, car elle dépend de l'état de session.
+
+### Ajouté — le schéma
+
+`personnages[].portee` + `plan_actions[]` (la collision de clé `plan` du plan de cible, tranchée) · `savoirs[].certitude` **obligatoire** — sans elle une rumeur entre au carnet d'indices comme un fait établi · `Revelation` à **quatre portes fermées**, dont `contrepartie` **structurée** (le moteur ne peut pas constater qu'un serment a été tenu : ce n'est pas une porte, c'est une intention) · les **quatre emplacements de deltas typés**, jamais de la prose · `monstre_ref` résolu contre le bestiaire · `jalons[].enonce_texte` · `evenement` et `climat` comme espaces de noms.
+
+### Ajouté — quatre codes d'anomalie
+
+`valeur-hors-enumeration` (sans lui, une `portee` valant « troisieme » passait **en silence**), `delta-en-prose`, `porte-inconnue`, `revelation-sans-porte` (avertissement, jamais bloquant). Et `reference-pendante` est **généralisé** : son QUOI FAIRE était câblé en dur sur `depart.lieu_id`, `monstre_ref` en aurait hérité une consigne trompeuse — même famille que BUG-042.
+
+### Ajouté — `DESTINATION_DES_CHAMPS`
+
+Un registre `chemin → ia | moteur | auteur`, sous test d'exhaustivité. Il existe parce que `Pick<Dossier,'canon'|'monde'>` **ne confine rien dans `monde`** — et cette itération y fait justement entrer des deltas et une référence qui résout vers les points de vie d'un monstre. Chaque feature qui ajoutera un champ devra déclarer son audience, sinon la porte rougit.
+
+### Corrigé
+
+- **BUG-047** — la branche « chemin de delta **absent** » n'était exercée par aucun test. L'instrument de couverture était passé de la suppression à la **corruption** : juste pour les champs optionnels, faux pour les obligatoires. Une bascule d'instrument doit nommer **ce qu'elle cesse de couvrir**.
+- **BUG-045** (processus, journalisé) — deux agents lancés en parallèle sur le même arbre non commité : la casse-restaure de l'un a effacé le fichier que l'autre relisait. Aucune perte, mais la règle est écrite (KR-172).
+- **BUG-049** — **quatre** listes non optionnelles du type étaient acceptées absentes, pas une seule : le dossier gelé promettait des tableaux valant `undefined`. La revue affirmait qu'il n'y avait qu'un cas ; se méfier de toute phrase qui dit « c'est le seul endroit où ».
+- **BUG-046** — le budget de mots du jalon réutilisait le code `canon-trop-long` : renommé `texte-trop-long` **pendant que la fenêtre est ouverte**, aucun consommateur ne branchant encore dessus.
+- **BUG-048** (journalisé, propriétaire n° 2) — la garantie « un import n'écrase jamais un dossier existant » est fausse dès qu'un document stocké devient invalide, ce que ce durcissement de schéma vient de rendre possible.
+
+### Porte
+
+`tsc` propre · lint **0 erreur** · **47 suites / 603 tests verts** (46 / 559 avant). L'instrument d'exhaustivité d'it1 est **remplacé** : il s'arrêtait à deux niveaux et n'entrait pas dans les tableaux — où vivent tous les champs de cette itération. Il serait resté vert sur du code faux.
+
 ## 0.6.2 — `dossier-format` itération 1 : importer un dossier d'aventure
 
 **L'auteur peut importer un dossier d'aventure dans sa bibliothèque** — déposer un fichier `.json`, voir en français ce qui l'empêche d'être jouable, et confirmer. Première itération de la feature n° 1, **le contrat entre les deux temps**. Revue complète : `.claude/raffinage/dossier-format-it1.revue.md`.

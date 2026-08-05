@@ -38,10 +38,17 @@ export const ESPACES_DE_NOMS = defineEspaces<EspaceDeNomsDescripteur>()({
 	jalon: { label: 'Jalon' },
 	fin: { label: 'Fin' },
 	/**
+	 * Le OÙ d'une anomalie portée par `monde.evenements[].monstre_ref` : l'entité
+	 * résolue est l'ÉVÉNEMENT, jamais le monstre — celui-ci n'existe pas dans le
+	 * dossier, il vit dans le bestiaire du jeu.
+	 */
+	evenement: { label: 'Événement' },
+	climat: { label: 'Climat' },
+	/**
 	 * Second espace de noms, résolu contre le BESTIARY et non contre une
 	 * collection du dossier : `evenements[].monstre_ref` pointe
-	 * `bestiaire.<templateId>`. Déclaré ici dès l'itération 1 pour que la forme
-	 * soit fermée ; sa résolution arrive avec `evenements` (itération 2/4).
+	 * `bestiaire.<templateId>`. Il n'a donc PAS de ligne dans
+	 * `COLLECTIONS_IDENTIFIEES` — rien ne le porte dans le document.
 	 */
 	bestiaire: { label: 'Monstre' },
 })
@@ -72,8 +79,13 @@ export function estIdentifiantBienForme(id: string, espace: EspaceDeNoms): boole
  * de noms ses entrées doivent porter. Table DÉCLARATIVE — ajouter une collection
  * en itération 2 est une ligne, pas une branche de plus dans le validateur.
  *
- * `monde.evenements` et `monde.conditions` n'y figurent pas : leur forme n'est
- * pas arbitrée à l'itération 1 et aucun espace de noms ne leur correspond.
+ * Elle sert DEUX lectures : le relevé des identifiants (`collectIds`) et, dans le
+ * validateur, la résolution du OÙ de toute anomalie portée par un champ vivant
+ * SOUS l'une de ces collections — un `savoirs[].indice_id` vide est signalé sur
+ * « Personnage « Aldûr le Sage » », parce que `monde.personnages` est ici.
+ *
+ * `bestiaire` n'y figure pas : c'est un espace de noms de RÉFÉRENCE, résolu
+ * contre le bestiaire du jeu, et aucune collection du dossier ne le porte.
  */
 export interface CollectionIdentifiee {
 	/** Chemin JSON de la collection, depuis la racine du dossier. */
@@ -88,6 +100,8 @@ export const COLLECTIONS_IDENTIFIEES: readonly CollectionIdentifiee[] = [
 	{ path: 'monde.objets', espace: 'objet' },
 	{ path: 'monde.indices', espace: 'indice' },
 	{ path: 'monde.quetes', espace: 'quete' },
+	{ path: 'monde.evenements', espace: 'evenement' },
+	{ path: 'monde.conditions.climat', espace: 'climat' },
 	{ path: 'charpente.jalons', espace: 'jalon' },
 	{ path: 'charpente.fins', espace: 'fin' },
 ]
@@ -110,6 +124,23 @@ export interface IdentifiantCollecte {
  */
 export function estObjet(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/**
+ * La FEUILLE d'un chemin pointé — ce que le message d'anomalie appelle « le
+ * champ », et ce que `{champ}` résout dans la ligne QUOI FAIRE.
+ *
+ * L'indice de tableau est retiré : `monde.evenements[3].monstre_ref` donne
+ * `monstre_ref`, `charpente.jalons[0]` donne `jalons`. Sans cela, la consigne
+ * « Corrigez « {champ} » » nommerait un rang plutôt qu'un champ.
+ *
+ * Elle vit ICI, dans le module bas, et non dans le validateur : `issues.ts` en a
+ * besoin, et `validate.ts` importe déjà `issues.ts` — l'y laisser serait un cycle.
+ */
+export function feuilleDe(path: string): string {
+	const dernier = path.lastIndexOf('.')
+	const feuille = dernier === -1 ? path : path.slice(dernier + 1)
+	return feuille.replace(/\[\d+\]$/, '')
 }
 
 /** Descend un chemin pointé dans une valeur non fiable, sans jamais lever. */

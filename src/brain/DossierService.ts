@@ -78,8 +78,22 @@ export function createDossierService(persistence: PersistenceService, events: Ev
 
 			const existant = get(inspection.dossier.id)
 			if (existant !== null) {
-				// Un import ne se substitue jamais à un dossier déjà présent : le
-				// remplacement silencieux perdrait le travail de l'auteur sans un mot.
+				// Un import ne se substitue jamais à un dossier déjà présent et LISIBLE :
+				// le remplacement silencieux perdrait le travail de l'auteur sans un mot.
+				//
+				// ⚠ PORTÉE EXACTE DE CETTE GARANTIE, relevée à la revue de PR d'it2 : la
+				// présence est constatée par `get()`, qui RE-VALIDE. Un document rangé
+				// sous cette clé mais devenu invalide — ce qu'it2 vient de rendre
+				// possible en durcissant le schéma 1 SANS changer son numéro — rend
+				// `null` ici, et l'import l'écrase. Aujourd'hui le rayon est nul (rien
+				// n'est publié, aucun dossier n'existe hors des tests) ; il devient réel
+				// à la n° 2, premier endroit où un dossier stocké devient visible, et
+				// chaque resserrement de schéma 1 en n° 3 à n° 6 réarme le même piège.
+				// Le correctif tient en une ligne — constater la présence par la CLÉ
+				// (`persistence.get(dossierKey(id)) !== null`) plutôt que par la validité
+				// — mais il demande un second message (« un dossier illisible occupe déjà
+				// cet identifiant »), donc un arbitrage de rédaction : il appartient à la
+				// n° 2, avec l'écran qui le montrera (BUG-048).
 				return { statut: 'invalid', errors: [anomalieDejaImporte(existant)], warnings: inspection.warnings }
 			}
 

@@ -119,12 +119,38 @@ export type { Router, Route } from './Router'
 export type { BookService, NodePatch } from './BookService'
 export { autoSlot } from './BookService'
 // ── Le DOSSIER D'AVENTURE (feature n° 1 `dossier-format`) ────────────────────
-// Le contrat entre les deux temps. `deepFreeze` et `collectIds` ne sont
-// DÉLIBÉRÉMENT pas ré-exportés ici : le premier n'a qu'un site d'appel légitime
-// (la sortie de `validateDossier`, KR-166) et l'exposer inviterait le second ;
-// le second n'a d'appelant que le validateur.
-export { DOSSIER_SCHEMA, BUDGET_MOTS_CANON } from './dossier/types'
-export type { Dossier, Canon, CanonMj, CanonPartage, Monde, Charpente, Depart, Entite } from './dossier/types'
+// Le contrat entre les deux temps. `deepFreeze`, `collectIds` et `feuilleDe` ne
+// sont DÉLIBÉRÉMENT pas ré-exportés ici : le premier n'a qu'un site d'appel
+// légitime (la sortie de `validateDossier`, KR-166) et l'exposer inviterait les
+// autres ; les deux suivants n'ont d'appelants que le validateur et le registre
+// d'anomalies. `DESTINATION_DES_CHAMPS` non plus : aucun consommateur hors de
+// `brain/dossier/` avant la n° 10, qui bâtira son contexte à partir d'elle.
+export { DOSSIER_SCHEMA, BUDGET_MOTS_CANON, BUDGET_MOTS_JALON, CONFIANCE_MIN, CONFIANCE_MAX } from './dossier/types'
+export { PORTEES, CERTITUDES } from './dossier/types'
+export type {
+	Dossier,
+	Canon,
+	CanonMj,
+	CanonPartage,
+	Monde,
+	Charpente,
+	Depart,
+	Entite,
+	DeltaBrut,
+	Portee,
+	Certitude,
+	PlanAction,
+	Revelation,
+	Savoir,
+	Personnage,
+	Resolution,
+	Evenement,
+	Quete,
+	Climat,
+	Conditions,
+	Jalon,
+	Fin,
+} from './dossier/types'
 export { DOSSIER_ISSUE_LABELS, dossierIssueRemediation } from './dossier/issues'
 export type { DossierIssue, DossierIssueCode, DossierIssueSeverity } from './dossier/issues'
 export { ESPACES_DE_NOMS, FORME_IDENTIFIANT, estIdentifiantBienForme } from './dossier/identifiers'

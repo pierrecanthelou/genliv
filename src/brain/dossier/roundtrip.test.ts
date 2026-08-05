@@ -44,6 +44,53 @@ describe('roundtrip', () => {
 		expect(validateDossier(JSON.parse(JSON.stringify(exporte))).ok).toBe(true)
 	})
 
+	it('toutes les formes neuves survivent import puis export', () => {
+		// Le round-trip global ci-dessus prouve l'égalité PROFONDE ; celui-ci nomme
+		// les formes de l'itération 2 une par une, pour qu'une clé perdue en route
+		// échoue en se nommant plutôt qu'en produisant un diff d'objet illisible.
+		const { dossiers } = setup()
+		dossiers.importDossier(texteFixture())
+
+		const exporte = dossiers.exportDossier('dossier-minimal')
+
+		expect(exporte).not.toBeNull()
+		if (exporte === null) return
+
+		const personnage = exporte.monde.personnages[0]
+		expect(personnage.portee).toBe('premier')
+		expect(personnage.plan_actions[0].etape).toBe(1)
+		expect(personnage.plan_actions[0].action.length).toBeGreaterThan(0)
+
+		const savoir = personnage.savoirs[0]
+		expect(savoir.indice_id).toBe('indice.sceau-brise')
+		expect(savoir.certitude).toBe('sait')
+		expect(savoir.revele_comment?.length).toBeGreaterThan(0)
+		expect(savoir.revele_si?.confiance_min).toBe(1)
+		expect(savoir.revele_si?.jet).toEqual({ carac: 'CA', tc: 'TC2' })
+		expect(savoir.revele_si?.contrepartie).toEqual({ objet_id: 'objet.clef-de-basalte', consomme: false })
+		expect(savoir.revele_si?.apres_indice_id).toBe('indice.cendres-tiedes')
+
+		const evenement = exporte.monde.evenements[0]
+		expect(evenement.monstre_ref).toBe('bestiaire.gobelin')
+		expect(evenement.resolutions[0].resultat.length).toBeGreaterThan(0)
+		expect(evenement.resolutions[0].consequence).toEqual([{}])
+
+		expect(exporte.monde.quetes[0].recompense).toEqual([{}])
+		expect(exporte.monde.conditions.climat[0].effets_regles).toEqual([{}])
+
+		const jalon = exporte.charpente.jalons[0]
+		expect(jalon.enonce_texte.length).toBeGreaterThan(0)
+		expect(jalon.declencheur_texte.length).toBeGreaterThan(0)
+		expect(jalon.effet).toEqual([{}])
+		expect(exporte.charpente.fins[0].condition_texte.length).toBeGreaterThan(0)
+
+		// Le document exporté reste RE-VALIDABLE et GELÉ jusqu'aux formes profondes.
+		expect(validateDossier(JSON.parse(JSON.stringify(exporte))).ok).toBe(true)
+		expect(Object.isFrozen(savoir.revele_si)).toBe(true)
+		expect(Object.isFrozen(savoir.revele_si?.contrepartie)).toBe(true)
+		expect(Object.isFrozen(evenement.resolutions[0].consequence[0])).toBe(true)
+	})
+
 	it('le document est gele quel que soit le chemin d obtention', () => {
 		const { dossiers } = setup()
 

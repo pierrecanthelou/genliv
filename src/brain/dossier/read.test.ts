@@ -65,6 +65,6 @@ describe('read', () => {
 
 		expect(inspection.statut).toBe('valid')
 		if (inspection.statut !== 'valid') return
-		expect(inspection.warnings.map((w) => w.code)).toEqual(['canon-trop-long'])
+		expect(inspection.warnings.map((w) => w.code)).toEqual(['texte-trop-long'])
 	})
 })

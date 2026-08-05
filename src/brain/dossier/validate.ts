@@ -1,7 +1,29 @@
-import { BUDGET_MOTS_CANON, DOSSIER_SCHEMA, type Dossier } from './types'
+import {
+	BUDGET_MOTS_CANON,
+	BUDGET_MOTS_JALON,
+	CERTITUDES,
+	CONFIANCE_MAX,
+	CONFIANCE_MIN,
+	DOSSIER_SCHEMA,
+	PORTEES,
+	type Dossier,
+} from './types'
 import type { DossierIssue, DossierIssueCode, DossierIssueSeverity } from './issues'
-import { collectIds, estIdentifiantBienForme, estObjet, identifiantsDupliques, resoudreChemin } from './identifiers'
+import {
+	COLLECTIONS_IDENTIFIEES,
+	collectIds,
+	estIdentifiantBienForme,
+	estObjet,
+	feuilleDe,
+	identifiantsDupliques,
+	localiserEntite,
+	resoudreChemin,
+	type EspaceDeNoms,
+} from './identifiers'
 import { deepFreeze } from './freeze'
+import { BESTIARY_BY_TEMPLATE } from '../bestiary'
+import { CHARACTERISTIC_VALUES } from '../characteristics'
+import { CHALLENGE_TIER_VALUES } from '../challenge'
 
 /**
  * Le VALIDATEUR du dossier — la frontière de confiance entre un fichier écrit à
@@ -25,8 +47,9 @@ import { deepFreeze } from './freeze'
  *    seul site d'appel de `deepFreeze` du module dossier.
  *
  * Les règles ne sont pas des cascades de `if` : les racines, les champs
- * obligatoires et les blocs de canon vivent dans trois TABLES déclaratives.
- * Étendre le schéma à l'itération 2, c'est ajouter des lignes, pas des branches.
+ * obligatoires, les énumérations fermées, les emplacements de deltas et les
+ * budgets de mots vivent dans des TABLES déclaratives, toutes lues par le même
+ * expanseur de chemins. Étendre le schéma, c'est ajouter des LIGNES.
  */
 export interface DossierValidation {
 	/** Vrai si et seulement si `errors` est vide. Un avertissement ne bloque jamais. */
@@ -51,6 +74,10 @@ interface RacineObligatoire {
 /**
  * Les treize racines du schéma 1, plus les trois conteneurs de groupe qui les
  * portent. Absente ou du mauvais genre → `racine-manquante`, bloquant.
+ *
+ * `monde.conditions.climat` n'y figure pas — non parce qu'elle serait
+ * facultative, mais parce que sa règle est ailleurs : `LISTES_REQUISES` exige un
+ * TABLEAU (vide accepté) là où `RACINES` exigerait une section peuplée.
  */
 const RACINES: readonly RacineObligatoire[] = [
 	{ path: 'canon', genre: 'objet', location: 'Canon' },
@@ -73,7 +100,13 @@ const RACINES: readonly RacineObligatoire[] = [
 ]
 
 interface ChampRequis {
+	/**
+	 * Chemin depuis la racine. Un segment suffixé `[]` est une LISTE : la règle
+	 * s'applique alors à chacun de ses éléments, et le OÙ de l'anomalie est
+	 * l'entité identifiée la plus proche.
+	 */
 	path: string
+	/** OÙ de repli, quand aucune entité identifiée ne porte le champ. */
 	location: string
 }
 
@@ -92,9 +125,121 @@ const CHAMPS_REQUIS: readonly ChampRequis[] = [
 	{ path: 'canon.mj.synopsis_mj', location: 'Canon (MJ)' },
 	{ path: 'canon.partage.accroche_joueur', location: 'Canon (partagé)' },
 	{ path: 'canon.ton', location: 'Canon' },
+	{ path: 'monde.personnages[].plan_actions[].action', location: 'Personnages' },
+	{ path: 'monde.personnages[].savoirs[].indice_id', location: 'Personnages' },
+	{ path: 'monde.personnages[].savoirs[].revele_si.contrepartie.objet_id', location: 'Personnages' },
+	{ path: 'monde.evenements[].resolutions[].resultat', location: 'Événements' },
 	{ path: 'charpente.depart.lieu_id', location: 'Point de départ' },
 	{ path: 'charpente.depart.texte_ouverture_joueur', location: 'Point de départ' },
+	{ path: 'charpente.jalons[].enonce_texte', location: 'Jalons' },
+	{ path: 'charpente.jalons[].declencheur_texte', location: 'Jalons' },
+	{ path: 'charpente.fins[].condition_texte', location: 'Fins' },
 ]
+
+interface EnumereFerme extends ChampRequis {
+	/** L'ensemble FERMÉ des valeurs acceptées — la source du libellé « attendu : … ». */
+	valeurs: readonly unknown[]
+	/** Faux quand le champ est optionnel : absent alors, il ne dit rien. */
+	requis: boolean
+}
+
+/**
+ * Les valeurs de confiance acceptables, DÉRIVÉES des deux bornes nommées : la
+ * borne ne se réécrit jamais en dur au site de validation (KR-165).
+ */
+const CONFIANCES: readonly number[] = Array.from(
+	{ length: CONFIANCE_MAX - CONFIANCE_MIN + 1 },
+	(_, rang) => CONFIANCE_MIN + rang,
+)
+
+/**
+ * Les ensembles FERMÉS du schéma. Chaque ligne cite le registre qui porte ses
+ * valeurs — jamais une liste recopiée (KR-117) : `portee` et `certitude` viennent
+ * de `types.ts`, le jet de révélation des registres de règles, et les bornes de
+ * confiance des deux constantes nommées.
+ */
+const ENUMERES_FERMES: readonly EnumereFerme[] = [
+	{ path: 'monde.personnages[].portee', location: 'Personnages', valeurs: PORTEES, requis: true },
+	{ path: 'monde.personnages[].savoirs[].certitude', location: 'Personnages', valeurs: CERTITUDES, requis: true },
+	{
+		path: 'monde.personnages[].savoirs[].revele_si.confiance_min',
+		location: 'Personnages',
+		valeurs: CONFIANCES,
+		requis: false,
+	},
+	{
+		path: 'monde.personnages[].savoirs[].revele_si.jet.carac',
+		location: 'Personnages',
+		valeurs: CHARACTERISTIC_VALUES,
+		requis: true,
+	},
+	{
+		path: 'monde.personnages[].savoirs[].revele_si.jet.tc',
+		location: 'Personnages',
+		valeurs: CHALLENGE_TIER_VALUES,
+		requis: true,
+	},
+	{
+		path: 'monde.personnages[].savoirs[].revele_si.contrepartie.consomme',
+		location: 'Personnages',
+		valeurs: [true, false],
+		requis: true,
+	},
+]
+
+/**
+ * Les LISTES OBLIGATOIRES — celles que `types.ts` déclare NON optionnelles et
+ * que `sitesDe` laisserait passer absentes.
+ *
+ * Pourquoi une table à part plutôt qu'une ligne de `CHAMPS_REQUIS` : ce dernier
+ * exige une CHAÎNE non vide, alors qu'ici on exige un TABLEAU — vide accepté,
+ * un personnage sans savoir est légitime. Ce qui ne l'est pas, c'est la clé
+ * absente : le dossier gelé promettrait alors un tableau valant `undefined`, et
+ * la n° 4 comme la n° 12 l'itéreraient en confiance du typage.
+ *
+ * Relevé à la revue de PR d'it2 : on croyait `conditions.climat` seul dans ce
+ * cas, il y en avait QUATRE. Toute liste ajoutée non optionnelle à `types.ts`
+ * doit gagner sa ligne ici — le compilateur ne relie pas les deux.
+ */
+const LISTES_REQUISES: readonly ChampRequis[] = [
+	{ path: 'monde.personnages[].plan_actions', location: 'Personnages' },
+	{ path: 'monde.personnages[].savoirs', location: 'Personnages' },
+	{ path: 'monde.evenements[].resolutions', location: 'Événements' },
+	{ path: 'monde.conditions.climat', location: 'Conditions' },
+]
+
+/**
+ * Les QUATRE emplacements d'effets de règle. Leur contenu attend le registre
+ * `DELTAS` (itération 4) ; ce qui se ferme ICI est la FORME — une liste d'objets,
+ * jamais de la prose. C'est le point irréversible : de la prose ne se parse pas
+ * en delta, alors qu'un objet dont les clés se précisent est une extension.
+ */
+const CHEMINS_DE_DELTAS: readonly ChampRequis[] = [
+	{ path: 'monde.quetes[].recompense', location: 'Quêtes' },
+	{ path: 'monde.evenements[].resolutions[].consequence', location: 'Événements' },
+	{ path: 'monde.conditions.climat[].effets_regles', location: 'Climat' },
+	{ path: 'charpente.jalons[].effet', location: 'Jalons' },
+]
+
+/** Le chemin des savoirs — le seul porteur de portes de révélation du schéma 1. */
+const CHEMIN_SAVOIRS = 'monde.personnages[].savoirs[]'
+
+/**
+ * Les QUATRE portes de révélation reconnues. Toute autre clé sous `revele_si` est
+ * bloquante : un `revele_si: { toujours: true }` qui passerait en silence serait
+ * un savoir que rien ne révèle jamais, et l'auteur ne le saurait qu'en jouant.
+ *
+ * Les deux libellés français de ces portes sont ARBITRÉS au § 3.2 du plan et
+ * DIFFÈRENT l'un de l'autre (« confiance minimale » dans `porte-inconnue`,
+ * « confiance » dans `revelation-sans-porte`) : ils ne se dérivent donc pas d'une
+ * source unique, ils sont recopiés verbatim ci-dessous et épinglés par les tests.
+ */
+const PORTES_DE_REVELATION = ['confiance_min', 'jet', 'contrepartie', 'apres_indice_id'] as const
+
+/** L'unique référence du schéma 1 qui résout HORS du dossier, contre le bestiaire. */
+const CHEMIN_MONSTRE_REF = 'monde.evenements[].monstre_ref'
+const ESPACE_BESTIAIRE: EspaceDeNoms = 'bestiaire'
+const PREFIXE_BESTIAIRE = `${ESPACE_BESTIAIRE}.`
 
 /**
  * La forme de l'IDENTIFIANT DE DOSSIER — la racine `id`, distincte des
@@ -110,11 +255,31 @@ const CHAMPS_REQUIS: readonly ChampRequis[] = [
  */
 const FORME_ID_DOSSIER = /^[a-z0-9][a-z0-9-]*$/
 
-/** Les blocs de canon soumis au budget de mots (avertissement, jamais blocage). */
-const BLOCS_DE_CANON: readonly ChampRequis[] = [
-	{ path: 'canon.mj', location: 'Canon (MJ)' },
-	{ path: 'canon.partage', location: 'Canon (partagé)' },
+interface BudgetDeMots extends ChampRequis {
+	budget: number
+	/** Le SUJET de la phrase d'avertissement, article compris. */
+	sujet: string
+}
+
+/**
+ * Les textes soumis à un budget de mots (avertissement, jamais blocage). La borne
+ * est toujours une constante NOMMÉE, et son NOM ne fuit jamais dans le message.
+ */
+const BUDGETS_DE_MOTS: readonly BudgetDeMots[] = [
+	{ path: 'canon.mj', location: 'Canon (MJ)', budget: BUDGET_MOTS_CANON, sujet: 'Le canon' },
+	{ path: 'canon.partage', location: 'Canon (partagé)', budget: BUDGET_MOTS_CANON, sujet: 'Le canon' },
+	{
+		path: 'charpente.jalons[].enonce_texte',
+		location: 'Jalons',
+		budget: BUDGET_MOTS_JALON,
+		sujet: "L'énoncé de ce jalon",
+	},
 ]
+
+/** L'espace de noms attendu par collection — dérivé, jamais re-listé. */
+const ESPACE_PAR_COLLECTION: Record<string, EspaceDeNoms> = Object.fromEntries(
+	COLLECTIONS_IDENTIFIEES.map((collection) => [collection.path, collection.espace]),
+)
 
 function anomalie(
 	code: DossierIssueCode,
@@ -135,10 +300,89 @@ function parentDe(path: string): string {
 	return dernier === -1 ? '' : path.slice(0, dernier)
 }
 
-/** La feuille d'un chemin pointé — ce que le message appelle « le champ ». */
-function feuilleDe(path: string): string {
-	const dernier = path.lastIndexOf('.')
-	return dernier === -1 ? path : path.slice(dernier + 1)
+/** Un emplacement CONCRET désigné par un chemin de table, avec son OÙ résolu. */
+interface Site {
+	/** Chemin réel, indices compris — le `path` de l'anomalie. */
+	path: string
+	valeur: unknown
+	/** OÙ — l'entité identifiée la plus proche, ou le repli de la table. */
+	location: string
+}
+
+/**
+ * L'EXPANSEUR de chemins : il traduit un chemin de table
+ * (`monde.personnages[].savoirs[].indice_id`) en tous ses emplacements réels
+ * (`monde.personnages[0].savoirs[2].indice_id`, …).
+ *
+ * Il est le seul endroit du validateur qui descende dans les tableaux, et il
+ * résout au passage le OÙ : chaque fois qu'il entre dans une collection
+ * identifiée, le libellé devient celui de l'entité traversée. C'est ce qui fait
+ * qu'un `savoirs[].indice_id` vide est signalé sur « Personnage « Aldûr le Sage » »
+ * sans qu'aucune table n'ait à le dire.
+ *
+ * Total sur une entrée non fiable : ce qui n'est pas là ne produit aucun site.
+ */
+function sitesDe(racine: unknown, chemin: string, repli: string): Site[] {
+	let sites: (Site & { normalise: string })[] = [{ path: '', normalise: '', valeur: racine, location: repli }]
+	for (const segment of chemin.split('.')) {
+		const estListe = segment.endsWith('[]')
+		const cle = estListe ? segment.slice(0, -2) : segment
+		const suivants: (Site & { normalise: string })[] = []
+		for (const site of sites) {
+			if (!estObjet(site.valeur)) continue
+			const valeur = site.valeur[cle]
+			const path = site.path === '' ? cle : `${site.path}.${cle}`
+			const normalise = site.normalise === '' ? cle : `${site.normalise}.${cle}`
+			if (!estListe) {
+				suivants.push({ path, normalise, valeur, location: site.location })
+				continue
+			}
+			if (!Array.isArray(valeur)) continue
+			const espace = ESPACE_PAR_COLLECTION[normalise]
+			valeur.forEach((element, index) => {
+				suivants.push({
+					path: `${path}[${index}]`,
+					normalise: `${normalise}[]`,
+					valeur: element,
+					location: espace === undefined ? site.location : localiserEntite(espace, element, index),
+				})
+			})
+		}
+		sites = suivants
+	}
+	return sites
+}
+
+/**
+ * Une valeur non fiable, rendue lisible dans une phrase française. Jamais
+ * `String(valeur)` nu : sur un champ absent il écrirait « undefined » dans le
+ * message, ce que KR-164 interdit.
+ */
+function decrireValeur(valeur: unknown): string {
+	if (typeof valeur === 'string') return valeur.trim() === '' ? 'vide' : valeur
+	if (typeof valeur === 'number' || typeof valeur === 'boolean') return String(valeur)
+	if (Array.isArray(valeur)) return 'une liste'
+	if (estObjet(valeur)) return 'un objet'
+	return 'vide'
+}
+
+/** « a, b ou c » — la liste des valeurs attendues, sans jamais un nom de type. */
+function enumererEnFrancais(valeurs: readonly unknown[]): string {
+	const textes = valeurs.map((valeur) => decrireValeur(valeur))
+	if (textes.length < 2) return textes.join('')
+	return `${textes.slice(0, -1).join(', ')} ou ${textes[textes.length - 1]}`
+}
+
+/**
+ * Comment nommer un savoir dans une phrase : par l'indice qu'il porte, puisqu'un
+ * savoir n'a pas de nom à lui. Le repli indexé garde le message lisible quand
+ * l'indice manque, plutôt que d'y laisser passer un « undefined ».
+ */
+function designerSavoir(savoir: Record<string, unknown>, path: string): string {
+	const indiceId = savoir.indice_id
+	if (typeof indiceId === 'string' && indiceId.trim() !== '') return indiceId.trim()
+	const rang = /\[(\d+)\]$/.exec(path)
+	return rang === null ? path : `n°${Number(rang[1]) + 1}`
 }
 
 function compterMots(texte: string): number {
@@ -201,17 +445,18 @@ export function validateDossier(input: unknown): DossierValidation {
 	for (const champ of CHAMPS_REQUIS) {
 		const parent = parentDe(champ.path)
 		if (parent !== '' && racinesManquantes.has(parent)) continue
-		const valeur = resoudreChemin(input, champ.path)
-		if (typeof valeur === 'string' && valeur.trim() !== '') continue
-		errors.push(
-			anomalie(
-				'champ-requis-vide',
-				'error',
-				`Le champ « ${feuilleDe(champ.path)} » est vide alors qu'il est obligatoire.`,
-				champ.location,
-				champ.path,
-			),
-		)
+		for (const site of sitesDe(input, champ.path, champ.location)) {
+			if (typeof site.valeur === 'string' && site.valeur.trim() !== '') continue
+			errors.push(
+				anomalie(
+					'champ-requis-vide',
+					'error',
+					`Le champ « ${feuilleDe(champ.path)} » est vide alors qu'il est obligatoire.`,
+					site.location,
+					site.path,
+				),
+			)
+		}
 	}
 
 	// 3 bis — L'IDENTIFIANT DE DOSSIER, contraint à part des identifiants d'entité.
@@ -284,9 +529,10 @@ export function validateDossier(input: unknown): DossierValidation {
 		}
 	}
 
-	// 5 — L'UNIQUE référence de l'itération 1 : `charpente.depart.lieu_id` doit
-	// résoudre vers un `monde.lieux[].id`. Une référence orpheline est exposée, pas
-	// silencieuse (KR-021). Le reste de l'intégrité référentielle arrive en it3/it4.
+	// 5 — Les RÉFÉRENCES du schéma 1. Une référence orpheline est exposée, pas
+	// silencieuse (KR-021) ; le reste de l'intégrité référentielle arrive en it3/it4.
+	//
+	// 5a — `charpente.depart.lieu_id` résout DANS le dossier.
 	const lieuIdManquant = racinesManquantes.has('charpente.depart') || racinesManquantes.has('monde.lieux')
 	const lieuId = resoudreChemin(input, 'charpente.depart.lieu_id')
 	if (!lieuIdManquant && typeof lieuId === 'string' && lieuId.trim() !== '') {
@@ -306,22 +552,149 @@ export function validateDossier(input: unknown): DossierValidation {
 		}
 	}
 
-	// 6 — Le budget de mots du canon : un AVERTISSEMENT. Il ne dégrade rien, ne
-	// bloque rien, et `ok` reste vrai. La borne est la constante nommée, jamais un
-	// nombre en dur ici (KR-165), et son NOM ne fuit jamais dans le texte.
-	for (const bloc of BLOCS_DE_CANON) {
-		if (racinesManquantes.has(bloc.path)) continue
-		const mots = compterMotsDe(resoudreChemin(input, bloc.path))
-		if (mots <= BUDGET_MOTS_CANON) continue
-		warnings.push(
+	// 5b — `evenements[].monstre_ref` résout HORS du dossier, contre le bestiaire du
+	// jeu. Le OÙ reste l'ÉVÉNEMENT : le monstre, lui, n'existe pas dans le document.
+	for (const site of sitesDe(input, CHEMIN_MONSTRE_REF, 'Événements')) {
+		if (site.valeur === undefined) continue
+		const reference = typeof site.valeur === 'string' ? site.valeur : ''
+		const templateId = reference.startsWith(PREFIXE_BESTIAIRE) ? reference.slice(PREFIXE_BESTIAIRE.length) : ''
+		if (templateId !== '' && BESTIARY_BY_TEMPLATE[templateId] !== undefined) continue
+		errors.push(
 			anomalie(
-				'canon-trop-long',
-				'warning',
-				`Le canon compte ${mots} mots ; le budget conseillé est de ${BUDGET_MOTS_CANON}.`,
-				bloc.location,
-				bloc.path,
+				'reference-pendante',
+				'error',
+				`Le monstre « ${decrireValeur(site.valeur)} » n'existe pas dans le bestiaire du jeu.`,
+				site.location,
+				site.path,
+				typeof site.valeur === 'string' ? site.valeur : undefined,
 			),
 		)
+	}
+
+	// 6 — Les ENSEMBLES FERMÉS. Sans cette règle, une `portee` valant « troisieme »
+	// passerait en silence et le moteur découvrirait la valeur à l'exécution.
+	for (const enumere of ENUMERES_FERMES) {
+		for (const site of sitesDe(input, enumere.path, enumere.location)) {
+			if (site.valeur === undefined && !enumere.requis) continue
+			if (enumere.valeurs.includes(site.valeur)) continue
+			errors.push(
+				anomalie(
+					'valeur-hors-enumeration',
+					'error',
+					`Le champ « ${feuilleDe(enumere.path)} » vaut « ${decrireValeur(site.valeur)} », qui n'est pas une valeur reconnue (attendu : ${enumererEnFrancais(enumere.valeurs)}).`,
+					site.location,
+					site.path,
+				),
+			)
+		}
+	}
+
+	// 6 bis — Les LISTES OBLIGATOIRES.
+	//
+	// `sitesDe` abandonne un segment `[]` dont la valeur n'est pas un tableau :
+	// c'est ce qui lui permet de traverser un document non fiable sans lever, mais
+	// ça rend AUSSI muettes les règles portées par les descendants d'une liste
+	// absente. Sans cette table, `plan_actions`, `savoirs` et `resolutions` —
+	// pourtant NON optionnels dans `types.ts` — passeraient absents, `ok: true`,
+	// et le dossier gelé promettrait trois tableaux valant `undefined`. Le contrat
+	// entre les deux temps mentirait à quinze features.
+	for (const liste of LISTES_REQUISES) {
+		for (const site of sitesDe(input, liste.path, liste.location)) {
+			if (Array.isArray(site.valeur)) continue
+			errors.push(
+				anomalie(
+					'champ-requis-vide',
+					'error',
+					`Le champ « ${feuilleDe(liste.path)} » est vide alors qu'il est obligatoire.`,
+					site.location,
+					site.path,
+				),
+			)
+		}
+	}
+
+	// 7 — Les EFFETS DE RÈGLE : une liste d'objets, jamais de la prose.
+	for (const chemin of CHEMINS_DE_DELTAS) {
+		for (const site of sitesDe(input, chemin.path, chemin.location)) {
+			if (site.valeur === undefined) {
+				errors.push(
+					anomalie(
+						'champ-requis-vide',
+						'error',
+						`Le champ « ${feuilleDe(chemin.path)} » est vide alors qu'il est obligatoire.`,
+						site.location,
+						site.path,
+					),
+				)
+				continue
+			}
+			if (Array.isArray(site.valeur) && site.valeur.every((effet) => estObjet(effet))) continue
+			errors.push(
+				anomalie(
+					'delta-en-prose',
+					'error',
+					`Le champ « ${feuilleDe(chemin.path)} » attend une liste d'effets structurés ; il contient du texte libre.`,
+					site.location,
+					site.path,
+				),
+			)
+		}
+	}
+
+	// 8 — Les PORTES DE RÉVÉLATION. Une clé inconnue est bloquante ; l'absence des
+	// quatre portes n'est qu'un avertissement — c'est peut-être un savoir que
+	// l'auteur ne veut jamais voir se révéler de lui-même.
+	for (const site of sitesDe(input, CHEMIN_SAVOIRS, 'Personnages')) {
+		const savoir = site.valeur
+		if (!estObjet(savoir)) continue
+		const designation = designerSavoir(savoir, site.path)
+		const revele = savoir.revele_si
+		if (estObjet(revele)) {
+			for (const cle of Object.keys(revele)) {
+				if ((PORTES_DE_REVELATION as readonly string[]).includes(cle)) continue
+				errors.push(
+					anomalie(
+						'porte-inconnue',
+						'error',
+						`Le savoir « ${designation} » porte une condition de révélation « ${cle} » qui n'existe pas dans le format (attendu : confiance minimale, jet, contrepartie, ou indice préalable).`,
+						site.location,
+						`${site.path}.revele_si.${cle}`,
+					),
+				)
+			}
+		}
+		const posee = estObjet(revele) && PORTES_DE_REVELATION.some((porte) => revele[porte] !== undefined)
+		if (!posee) {
+			warnings.push(
+				anomalie(
+					'revelation-sans-porte',
+					'warning',
+					`Le savoir « ${designation} » n'a aucune condition de révélation (ni confiance, ni jet, ni contrepartie, ni indice préalable) : il ne sera jamais dévoilé automatiquement.`,
+					site.location,
+					`${site.path}.revele_si`,
+				),
+			)
+		}
+	}
+
+	// 9 — Les BUDGETS DE MOTS : des AVERTISSEMENTS. Ils ne dégradent rien, ne
+	// bloquent rien, et `ok` reste vrai. La borne est une constante nommée, jamais
+	// un nombre en dur ici (KR-165), et son NOM ne fuit jamais dans le texte.
+	for (const budget of BUDGETS_DE_MOTS) {
+		if (racinesManquantes.has(budget.path)) continue
+		for (const site of sitesDe(input, budget.path, budget.location)) {
+			const mots = compterMotsDe(site.valeur)
+			if (mots <= budget.budget) continue
+			warnings.push(
+				anomalie(
+					'texte-trop-long',
+					'warning',
+					`${budget.sujet} compte ${mots} mots ; le budget conseillé est de ${budget.budget}.`,
+					site.location,
+					site.path,
+				),
+			)
+		}
 	}
 
 	const ok = errors.length === 0

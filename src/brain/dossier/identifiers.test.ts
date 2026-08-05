@@ -3,8 +3,10 @@ import path from 'node:path'
 import { validateDossier } from './validate'
 import {
 	collectIds,
+	COLLECTIONS_IDENTIFIEES,
 	ESPACES_DE_NOMS,
 	estIdentifiantBienForme,
+	feuilleDe,
 	FORME_IDENTIFIANT,
 	identifiantsDupliques,
 } from './identifiers'
@@ -22,9 +24,13 @@ const obj = (value: unknown): Doc => value as Doc
 const arr = (value: unknown): Doc[] => value as Doc[]
 
 describe('identifiers', () => {
-	it('les espaces de noms forment un ensemble ferme de neuf', () => {
+	it('evenement et climat sont des espaces de noms', () => {
+		// Sans eux, une anomalie portée par un événement ou un climat n'aurait aucun
+		// OÙ à résoudre, et l'intégrité référentielle d'it4 n'aurait pas de cible.
 		expect(Object.keys(ESPACES_DE_NOMS).sort()).toEqual([
 			'bestiaire',
+			'climat',
+			'evenement',
 			'fin',
 			'indice',
 			'jalon',
@@ -35,6 +41,27 @@ describe('identifiers', () => {
 			'quete',
 		])
 		expect(ESPACES_DE_NOMS.pnj.label).toBe('Personnage')
+		expect(ESPACES_DE_NOMS.evenement.label).toBe('Événement')
+		expect(ESPACES_DE_NOMS.climat.label).toBe('Climat')
+	})
+
+	it('chaque collection identifiee porte un espace de noms declare', () => {
+		expect(COLLECTIONS_IDENTIFIEES).toHaveLength(10)
+		for (const collection of COLLECTIONS_IDENTIFIEES) {
+			expect(ESPACES_DE_NOMS[collection.espace]).toBeDefined()
+		}
+		expect(COLLECTIONS_IDENTIFIEES.map((c) => c.path)).toContain('monde.evenements')
+		expect(COLLECTIONS_IDENTIFIEES.map((c) => c.path)).toContain('monde.conditions.climat')
+		// `bestiaire` est un espace de RÉFÉRENCE : aucune collection du dossier ne le
+		// porte, il résout contre le bestiaire du jeu.
+		expect(COLLECTIONS_IDENTIFIEES.map((c) => c.espace)).not.toContain('bestiaire')
+	})
+
+	it('feuilleDe retire l indice de tableau', () => {
+		expect(feuilleDe('monde.evenements[3].monstre_ref')).toBe('monstre_ref')
+		expect(feuilleDe('charpente.depart.lieu_id')).toBe('lieu_id')
+		expect(feuilleDe('charpente.jalons[0]')).toBe('jalons')
+		expect(feuilleDe('id')).toBe('id')
 	})
 
 	it('la forme accepte un prefixe connu suivi de minuscules chiffres et tirets', () => {
@@ -57,11 +84,18 @@ describe('identifiers', () => {
 	it('collectIds releve chaque entite avec son chemin et son nom', () => {
 		const collectes = collectIds(fixture())
 
-		expect(collectes).toHaveLength(8) // 1 objectif + 5 collections du monde + 1 jalon + 1 fin
+		// 1 objectif + 1 pnj + 1 lieu + 1 objet + 2 indices + 1 quête + 1 événement
+		// + 1 climat + 1 jalon + 1 fin.
+		expect(collectes).toHaveLength(11)
 		const personnage = collectes.find((c) => c.espace === 'pnj')
 		expect(personnage?.id).toBe('pnj.aldur-le-sage')
 		expect(personnage?.path).toBe('monde.personnages[0].id')
 		expect(personnage?.location).toBe('Personnage « Aldûr le Sage »')
+		// Les deux collections neuves sont relevées comme les autres.
+		const climat = collectes.find((c) => c.espace === 'climat')
+		expect(climat?.id).toBe('climat.pluie-de-cendres')
+		expect(climat?.path).toBe('monde.conditions.climat[0].id')
+		expect(collectes.find((c) => c.espace === 'evenement')?.location).toBe("Événement « L'embuscade du Fanal »")
 	})
 
 	it('collectIds reste total sur une entree non fiable', () => {
