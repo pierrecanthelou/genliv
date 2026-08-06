@@ -165,6 +165,8 @@ Avoid apostrophes in `describe`/`it` label strings — they terminate JS templat
 
 **Registres de données : neutraliser par mutateur, jamais un fichier entier.** Un registre (`CHALLENGE_TIERS`, `CHARACTERISTICS`, les libellés de `POSTURES`, le `BESTIARY`) ne produit que des mutants de littéraux : ils mesurent une densité de données, pas la qualité des tests. On les sort du dénominateur avec `// Stryker disable StringLiteral,ObjectLiteral,ArrayDeclaration: <motif>` + le `// Stryker restore` correspondant, posé au plus près — les `ArithmeticOperator` et `ConditionalExpression` du même fichier doivent continuer d'être générés, et un `restore` posé trop loin neutralise des valeurs de retour de fonction (le cas de `ecartBand` dans `combat.ts`). La contrepartie est **obligatoire et livrée dans le même lot** : `src/brain/rules.golden.test.ts` épingle valeur par valeur tout ce qui est neutralisé, et ce test-là tourne, lui, dans la porte de commit. Neutraliser sans épingler est un relâchement déguisé en durcissement.
 
+**Sens d'écriture d'une valeur de registre : `docs/REGLES-DU-JEU.md` → `rules.golden.test.ts` → le code.** Cette règle est permanente et vaut pour **toute entrée ajoutée ou modifiée** dans un registre couvert par la table dorée (`BESTIARY`, `CHALLENGE_TIERS`, `CHARACTERISTICS`, libellés de `POSTURES`) — un monstre de plus au bestiaire la déclenche autant que la mise en place initiale. On ouvre la section de la doc des règles, qui fait foi (KR-130), on écrit la valeur dorée depuis elle, et la revue d'itération **cite la section d'où vient la valeur**. Une valeur recopiée depuis le code — ou depuis le `received` qu'affiche un test rouge — rend la table verte et fausse : elle **fige le défaut au lieu de le verrouiller** — seul mode de panne que cet instrument ne peut pas voir, le vert étant ce qu'il produit. Valeur absente de la doc : on corrige la doc, jamais l'inverse.
+
 Deux réglages à ne pas « corriger » : `tempDirName: "stryker-tmp"` **sans point** (avec `.stryker-tmp`, le `testMatch` ancré sur `<rootDir>/src/**` ne traverse pas un segment commençant par un point, jest voit zéro test et Stryker sort sur `No tests were executed`) et `cleanTempDir: true` (seule protection de `npm run lint` contre le bac à sable). Artefacts produits : `reports/mutation/index.html` + `mutation.json`, gitignorés.
 
 ## Timer Safety in Hooks and Components
@@ -286,6 +288,41 @@ Apply the bump immediately after the slice is committed to `main`.
 
 - Append the same entries to `code-knowledge.json` with the next sequential `id` (KR-NNN).
 
+## Budget de contexte
+
+Trois strates de lecture obligatoire, chacune avec son coût :
+
+- **toujours chargé**, chaque session : `CLAUDE.md` + `docs/WORKFLOW.md` ;
+- **lu en entier avant d'écrire du code** : `code-knowledge.json` ;
+- **lu à l'ouverture d'une itération** : le `specification.json` de la feature, `bug_history.json`, `features_history.json`.
+
+Charger par référence plutôt que tout charger est ce qui évite le contexte monolithique — KR dans la spec de leur feature, lecture du comité bornée à 3–6 fichiers, canon narratif injecté par identifiant. Ce dispositif n'a **aucun garde-fou automatique** : ces fichiers n'ont que des écrivains, jamais de compacteur, et le seul moment où l'un d'eux rétrécit est celui où quelqu'un décide de le faire. C'est le seul endroit du dispositif où la discipline peut se relâcher **sans bruit** — d'où un plafond chiffré plutôt qu'une intention.
+
+**Mesure d'abord, plafond ensuite**, même doctrine que le score de mutation. Formule posée avant la mesure : `plafond = ceil(mesure ÷ 5 kio) × 5 kio`, plus **une marche de 5 kio** pour les seuls fichiers dont grossir est le fonctionnement normal (un journal append-only grossit par contrat ; le couple toujours chargé, non — sa croissance est un défaut). Une marche ≈ une itération de marge : assez pour ne pas crier à chaque lot, trop peu pour laisser dériver. Mesure du **2026-08-06** (`wc -c`, 1 kio = 1024 o) :
+
+| Fichier | Croissance | Mesuré | Plafond | Marge |
+| --- | --- | ---: | ---: | ---: |
+| `CLAUDE.md` + `docs/WORKFLOW.md` (couple) | défaut | 46 047 o | **45 kio** (46 080) | < 0,1 kio |
+| `code-knowledge.json` | normale | 70 876 o | **75 kio** (76 800) | ~5,8 kio |
+| `bug_history.json` | normale | 67 700 o | **75 kio** (76 800) | ~8,9 kio |
+| `features_history.json` | normale | 66 133 o | **70 kio** (71 680) | ~5,4 kio |
+| `specification.json`, **par feature** | normale | 60 937 o (max : `dossier-format`) | **65 kio** (66 560) | ~5,5 kio |
+
+**Le plafond ne monte jamais** — cliquet inversé de celui du score de mutation. Après une compaction il se **re-dérive vers le bas** sur la nouvelle mesure ; il ne se desserre pas parce qu'une itération avait beaucoup à dire. Le franchir ne bloque pas la livraison : il déclenche une compaction **dans le même lot que la doc** (Build Steps, étape 4). Reporter la compaction au lot suivant, c'est ne jamais la faire.
+
+Relevé — pas de script maison, une abstraction à un seul appelant est une dette :
+
+```
+wc -c CLAUDE.md docs/WORKFLOW.md code-knowledge.json bug_history.json features_history.json src/features/*/specification.json
+```
+
+Compacter n'est jamais « supprimer de l'information » : c'est la déplacer là où elle est lue au bon moment.
+
+- **`code-knowledge.json`** — le moins cher : un KR dont l'invariant est **passé en règle ESLint** (KR-011/111, imports inter-features, couleurs en dur) renvoie à la règle et à son message, il ne redécrit ni le risque ni la parade. Un invariant câblé est une ligne — le linter le rappellera mieux que le fichier.
+- **`specification.json`** — boucle de mémoire de la skill `raffinage-iteration` : une décision livrée se réduit à sa phrase d'arbitrage + le renvoi à `.claude/raffinage/<feature>-it<N>.revue.md`, qui porte déjà le raisonnement. La revue est le dossier, la spec en est l'index.
+- **`bug_history.json`, `features_history.json`** — append-only par contrat : ils ne se compactent pas, ils **se scindent par temps** (`bug_history.0.6.json`), seul le fichier courant restant en lecture obligatoire. Pas avant le plafond : scinder tôt coûte une indirection pour rien.
+- **`CLAUDE.md` + `docs/WORKFLOW.md`** — **déjà à saturation**, délibérément : une règle qui entre ici **en remplace une**, ou part dans la spec de sa feature / le prompt de l'agent qui l'applique. Transverse et stable, elle a sa place ; propre à une feature, jamais. Un invariant câblé s'y écrit **en une ligne qui nomme l'outil**, sans re-lister ce que l'outil vérifie.
+
 ## Bug Investigation
 
 Before diagnosing any bug or answering "is this a bug?" questions:
@@ -309,7 +346,7 @@ We build the app one feature at a time, in the order of `docs/ROADMAP-BASCULE-IA
 1. **Read first.** The feature's `specification.json` (`acceptance_criteria`, `known_risks`, `implementation` log, iteration statuses), `code-knowledge.json` (in full), `bug_history.json`, `features_history.json`, and the relevant sibling specs. If the spec is inconsistent (e.g. iterations without acceptance criteria), propose a fix first. Before coding a **planned** iteration, read the current code — it may already be done; if so mark it `done` and move on (no bump).
 2. **Build the slice** — the iteration as signed off by the raffinage committee. Minimal, no decoration. Brain contracts only; consider the whole architecture, side effects and risks.
 3. **Gate**: Prettier → `tsc --noEmit` → ESLint → `jest`. (The pre-commit hook enforces tsc+jest; never bypass it.) Refactor → re-gate.
-4. **Docs**: update `specification.json` (implementation log / iteration status), mirror new `known_risks` into `code-knowledge.json`, add a `CHANGELOG.md` line, update `features_history.json` and `README.md`.
+4. **Docs**: update `specification.json` (implementation log / iteration status), mirror new `known_risks` into `code-knowledge.json`, add a `CHANGELOG.md` line, update `features_history.json` and `README.md`. Puis **relève le budget de contexte** (section « Budget de contexte » ci-dessus) : c'est ici, et nulle part ailleurs, que ces fichiers grossissent — la seule étape du cycle qui les écrit tous. Un fichier au-dessus de son plafond se compacte **dans ce lot-ci**, pas au suivant.
 5. **Self review gate** (quick): `Severity | File:line | Principle/KR | Finding | Fix`. Fix ALL findings; log each to `bug_history.json`. Re-run `tsc` + `jest`.
 
    **État dérivé (KR-013/113) — heuristique de revue ; il n'existe volontairement pas de règle ESLint pour ça.** L'AST voit une forme, pas une sémantique : le seul sélecteur plausible (« un `useEffect` dont le corps entier est un unique `setX(...)` ») remonte 0 site aujourd'hui et se tromperait demain sur des motifs légitimes (`setMounted(true)`, reset au changement de route) — une règle qui se trompe là-dessus est désactivée dans le mois et emporte les autres avec elle. À chaque auto-revue touchant un composant ou un hook :

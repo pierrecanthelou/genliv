@@ -141,7 +141,7 @@ Le dépôt tourne sur **jest + jsdom + Testing Library**.
 | Invariants greppables (`localStorage` en feature, import inter-features, hex en dur) | règles de lint | **en place** — dans `npm run lint`, messages en français |
 | `useEffect` d'état dérivé (KR-013/113) | *aucun* — heuristique de revue | **arbitré : pas de règle.** L'AST voit une forme, pas une sémantique ; procédure dans `docs/WORKFLOW.md` (Build Steps, étape 5) |
 | Règles de jeu (`src/brain/` : challenge, combat, xp, characteristics) | **score de mutation**, jamais la couverture de lignes | **en place** — `npm run test:mutation`, hors porte de commit, en fin d'itération si l'itération y a touché. Cliquet `break: 80`, plafond 90 |
-| Registres de données (`BESTIARY`, `CHALLENGE_TIERS`, `CHARACTERISTICS`, libellés de `POSTURES`) | **table dorée** `src/brain/rules.golden.test.ts` | **en place** — dans la porte de commit. Contrepartie obligatoire de leur neutralisation dans le score |
+| Registres de données (`BESTIARY`, `CHALLENGE_TIERS`, `CHARACTERISTICS`, libellés de `POSTURES`) | **table dorée** `src/brain/rules.golden.test.ts` | **en place** — dans la porte de commit. Contrepartie obligatoire de leur neutralisation dans le score. **Sens d'écriture permanent : `docs/REGLES-DU-JEU.md` → table dorée → code** — une valeur recopiée depuis le code fige le défaut au lieu de le verrouiller ; tout critère touchant un registre nomme sa section source |
 | Canevas (pan/zoom/glisser, disposition dagre), boucle de session du mode jeu | specs navigateur | **différé** — à ouvrir quand `tree-canvas` ou le mode jeu arrive |
 
 Le score de mutation est le seul instrument qui voit un test vert sur une arithmétique fausse. Comme tout le dispositif repose sur « l'IA ne lance jamais les dés, le code les lance », un mutant survivant dans `combat.ts` ou `xp.ts` est le défaut le plus cher du projet.
@@ -158,3 +158,11 @@ L'orchestrateur reporte, dès que la porte de plan est verte, dans `features/<fe
 - les `REPORTÉ` dans `implementation.open_questions`.
 
 Le comité de l'itération suivante lit ce fichier : il ne rejoue pas les débats déjà tranchés.
+
+**Ce report est un ajout à chaque itération — donc le fichier ne fait que grossir, et c'est ce qui rend cette boucle lisible par le comité suivant qui la rend coûteuse.** Le `specification.json` d'une feature a un plafond (`docs/WORKFLOW.md`, § Budget de contexte). Quand le report le franchit, l'orchestrateur **compacte dans le même geste**, il ne reporte pas :
+
+- une `resolved_decisions` dont le code est livré **et** dont la revue d'itération porte le raisonnement se réduit à sa phrase d'arbitrage + le renvoi `<feature>-it<N>.revue.md` — la revue est le dossier, la spec n'en est que l'index ;
+- une entrée `iterations_log` d'itération close garde ses `architecture_choices` et ses `deviations_from_plan`, pas le récit ;
+- une `open_questions` tranchée **part** : elle est devenue une décision ou un KR, la garder ouverte est un mensonge d'état.
+
+Ce qui ne se compacte jamais : un arbitrage encore structurant pour une itération non livrée, et un `REPORTÉ` dont personne n'a encore repris la charge.

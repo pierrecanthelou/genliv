@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.6.4 — outillage : la valeur de registre relue à la source, et un budget de contexte chiffré
+
+Lot de process — aucun fichier de `src/`, aucun comportement utilisateur, aucun contrat `brain/` modifié. Deux angles morts fermés, tous deux à l'endroit où un dispositif par ailleurs sain peut se relâcher **sans bruit**.
+
+### Le sens d'écriture d'une valeur de registre devient permanent
+
+`/outillage` avait identifié le bon risque — « une table dorée qui recopie une valeur fausse fige le défaut au lieu de le verrouiller » — mais cette commande est **à usage unique** : la règle disparaissait avec elle. Elle vaut désormais pour **toute entrée ajoutée ou modifiée** dans un registre couvert par la table dorée (`BESTIARY`, `CHALLENGE_TIERS`, `CHARACTERISTICS`, libellés de `POSTURES`) — un monstre de plus au bestiaire la déclenche autant que la mise en place initiale. Sens d'écriture : **`docs/REGLES-DU-JEU.md` → `rules.golden.test.ts` → le code**, jamais l'inverse.
+
+- **`docs/WORKFLOW.md`** (§ score de mutation) — la règle, son motif, et le cas d'absence : valeur que la doc ne porte pas ⇒ on corrige la doc, jamais l'inverse (KR-130).
+- **`.claude/agents/dev-contrat.md`** — règle dure 4 ter : la valeur se lit dans la doc, `BLOCAGE — règle absente de REGLES-DU-JEU.md` sinon. Le compte rendu **cite la section source de chaque entrée** — sans cette liste, la QA ne peut que constater que tout est vert.
+- **`.claude/agents/qa.md`** — mode A : un critère touchant un registre **nomme sa section source**, sinon veto (« le monstre X est au bestiaire » n'est pas observable, « les stats de X sont celles du § 4, tier 2 » l'est). Mode B, étape 2 bis : confrontation champ à champ contre la doc, jamais contre le code ni contre le compte rendu de l'ouvrier. Une table dorée verte ne prouve **rien** si elle a été écrite depuis la sortie du code — le vert est ce qu'elle produit dans les deux cas.
+- **`.claude/skills/raffinage-iteration/SKILL.md`** — le sens d'écriture entre au tableau des instruments, ligne « table dorée ».
+
+### Budget de contexte — un plafond chiffré plutôt qu'une intention
+
+Charger par référence (KR dans la spec de leur feature, lecture du comité bornée à 3–6 fichiers, canon narratif injecté par identifiant) est ce qui évite le contexte monolithique. Mais ces fichiers n'ont **que des écrivains, jamais de compacteur** : le seul moment où l'un rétrécit est celui où quelqu'un le décide.
+
+- **`docs/WORKFLOW.md`** (§ Budget de contexte, nouveau) — trois strates de lecture obligatoire, formule `plafond = ceil(mesure ÷ 5 kio) × 5 kio` posée avant la mesure, plus **une marche de 5 kio** pour les seuls fichiers dont grossir est le fonctionnement normal — le couple toujours chargé n'y a pas droit, sa croissance est un défaut. **Cliquet inversé** de celui du score de mutation : le plafond ne monte jamais, il se re-dérive vers le bas après compaction. Le franchir ne bloque pas la livraison — il déclenche la compaction **dans le lot de doc lui-même** (Build Steps, étape 4), la reporter au lot suivant c'est ne jamais la faire. Ce que « compacter » veut dire est écrit fichier par fichier.
+- Mesure du 2026-08-06 (`wc -c`) : couple `CLAUDE.md` + `docs/WORKFLOW.md` **46 047 o → plafond 45 kio** ; `code-knowledge.json` 70 876 → 75 kio ; `bug_history.json` 67 700 → 75 kio ; `features_history.json` 66 133 → 70 kio ; `specification.json` par feature 60 937 (max `dossier-format`) → 65 kio.
+- **Le couple toujours chargé est livré à saturation, délibérément** : cette section a elle-même dû être resserrée deux fois pour tenir sous son propre plafond. C'est le comportement attendu — une règle qui entre ici en remplace une.
+- **`.claude/skills/raffinage-iteration/SKILL.md`** — la boucle de mémoire écrit dans la spec à chaque itération, donc c'est elle qui la fait grossir : la compaction se fait dans le même geste que le report. Une décision livrée se réduit à sa phrase d'arbitrage + le renvoi à sa revue ; une `open_questions` tranchée **part** — la garder ouverte est un mensonge d'état. Ce qui ne se compacte jamais : un arbitrage encore structurant pour une itération non livrée, un `REPORTÉ` sans repreneur.
+
 ## 0.6.3 — `dossier-format` itération 2 : les corrections irréversibles du schéma
 
 **L'auteur peut voir refusé un dossier dont une donnée mécanique est mal formée** — une référence de monstre qui ne résout pas, une valeur hors énumération, un effet écrit en prose, une porte de révélation inconnue. Revue : `.claude/raffinage/dossier-format-it2.revue.md`.
