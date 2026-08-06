@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.6 — la table dorée cesse d'être un exemple et devient une méthode
+
+La doctrine de la table dorée était écrite (pourquoi, quand, sens d'écriture) ; **sa construction ne l'était nulle part**. Elle n'existait que sous deux formes non réutilisables : une instance qui marche (`src/brain/rules.golden.test.ts`) et un récit dans `outillage-it1.revue.md`. Un agent à qui on demande d'en poser une n'avait aucune méthode — et `/outillage`, qui portait le raisonnement, est à usage unique.
+
+- **`.claude/skills/table-doree/SKILL.md`** (nouveau) — recette extraite de l'instance en place, pas inventée. Arbre de décision (calcul → mutation ; donnée neutralisée → table obligatoire ; donnée sans source → rien), structure en cinq assertions, cinq anti-patrons, le seul chemin d'évolution autorisé, liste de contrôle de revue. Skill **à la demande** : elle ne sert qu'à qui en écrit une, elle n'a rien à faire dans le toujours-chargé.
+- **Deux règles qui étaient enfouies deviennent explicites.** (1) *La couverture doit égaler exactement la surface neutralisée, libellés compris* — c'était une ligne de tableau de revue, et c'est le piège cher : sans l'extension aux libellés, **31 `StringLiteral`** (24 de `CHARACTERISTICS`, 4 de tiers, 3 de postures) sortaient du dénominateur **et** de tout test, le score montant pendant que la couverture réelle baissait. (2) *La sonde* — modifier une valeur, vérifier que le test rougit **et nomme le champ**, restaurer par copie vérifiée par empreinte. Jamais `git checkout` (KR-172). Le précédent à imiter est daté et chiffré : `outillage-it1.revue.md` § 3, `b0b6273e…` avant et après.
+- **Câblage** — `dev-contrat` (règle 4 ter), `qa` (mode B, étape 2 bis : la sonde a-t-elle été exécutée), le tableau des instruments de `raffinage-iteration`, et un renvoi d'une ligne dans `docs/WORKFLOW.md`. Couple toujours chargé : **45 992 o** sous 46 080.
+
 ## 0.6.5 — le roadmap porte le statut, et la parité worker cesse de décrire un autre projet
 
 Suite du lot de process — toujours aucun fichier de `src/`. Le budget de contexte posé en 0.6.4 a été appliqué à lui-même dès sa première utilisation : les trois ajouts ci-dessous ont dû être payés par une compaction, pas par un desserrage du plafond.
