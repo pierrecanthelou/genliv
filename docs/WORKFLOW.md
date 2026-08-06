@@ -94,13 +94,6 @@ Features are isolated: a feature must not import directly from another feature. 
 
 **When refactoring**, identify bad smells first (dead code, long functions, feature envy, shotgun surgery, duplicated logic, primitive obsession), then propose a refactoring plan before touching code. Common techniques: Extract Function/Method, Move Function, Replace Conditional with Polymorphism, Introduce Parameter Object, Replace Magic Number with Symbolic Constant.
 
-## Architecture Vocabulary
-
-Use these terms consistently in code, comments, specs, and conversation. Do not invent synonyms.
-
-| Term | Definition |
-| ---- | ---------- |
-
 ## Dangerous Actions
 
 A **dangerous action** is any user-triggered operation that is destructive (deletes or permanently removes data), irreversible or hard to reverse (no undo available), or high-consequence (disconnects a service, wipes a configuration, or causes data to diverge).
@@ -197,23 +190,7 @@ Every `setTimeout` (and `setInterval`) that calls `setState` or any other side-e
 
 ### Hover-reveal row actions
 
-Reveal action buttons on row hover via CSS only — no `isHovered` JS state:
-
-```tsx
-// Parent ListItem
-sx={{
-  position: 'relative',
-  '&:hover': { bgcolor: 'action.hover' },
-  '&:hover .hover-action': { opacity: 1 },
-}}
-
-// Each hover-only button
-<IconButton className="hover-action" sx={{ opacity: 0, transition: 'opacity 0.15s' }}>
-  <SomeIcon />
-</IconButton>
-```
-
-This is the canonical pattern for all hover-only row actions in `XItem` and any future list row.
+Les actions d'une ligne se révèlent au survol **en CSS seul**, jamais par un état `isHovered` : `.hover-action { opacity: 0 }` et `.row:hover .hover-action { opacity: 1 }`, dans le module CSS de la ligne, avec les tokens du design system. (L'ancienne version de cette section donnait un extrait MUI `sx` / `IconButton` : il n'y a **pas** de MUI dans ce dépôt, la règle valait, l'exemple non.)
 
 ### Cross-feature UI action registration
 
@@ -294,7 +271,7 @@ Trois strates de lecture obligatoire, chacune avec son coût :
 
 - **toujours chargé**, chaque session : `CLAUDE.md` + `docs/WORKFLOW.md` ;
 - **lu en entier avant d'écrire du code** : `code-knowledge.json` ;
-- **lu à l'ouverture d'une itération** : le `specification.json` de la feature, `bug_history.json`, `features_history.json`.
+- **lu à l'ouverture d'une itération** : le `specification.json` de la feature, `bug_history.json`, `features_history.json`, et `docs/ROADMAP-BASCULE-IA.md` — relu par 3 rôles à chaque tour de raffinage, donc chargé plus souvent que tous les autres.
 
 Charger par référence plutôt que tout charger est ce qui évite le contexte monolithique — KR dans la spec de leur feature, lecture du comité bornée à 3–6 fichiers, canon narratif injecté par identifiant. Ce dispositif n'a **aucun garde-fou automatique** : ces fichiers n'ont que des écrivains, jamais de compacteur, et le seul moment où l'un d'eux rétrécit est celui où quelqu'un décide de le faire. C'est le seul endroit du dispositif où la discipline peut se relâcher **sans bruit** — d'où un plafond chiffré plutôt qu'une intention.
 
@@ -302,11 +279,14 @@ Charger par référence plutôt que tout charger est ce qui évite le contexte m
 
 | Fichier | Croissance | Mesuré | Plafond | Marge |
 | --- | --- | ---: | ---: | ---: |
-| `CLAUDE.md` + `docs/WORKFLOW.md` (couple) | défaut | 46 047 o | **45 kio** (46 080) | < 0,1 kio |
+| `CLAUDE.md` + `docs/WORKFLOW.md` (couple) | défaut | 45 830 o | **45 kio** (46 080) | < 0,3 kio |
 | `code-knowledge.json` | normale | 70 876 o | **75 kio** (76 800) | ~5,8 kio |
 | `bug_history.json` | normale | 67 700 o | **75 kio** (76 800) | ~8,9 kio |
 | `features_history.json` | normale | 66 133 o | **70 kio** (71 680) | ~5,4 kio |
 | `specification.json`, **par feature** | normale | 60 937 o (max : `dossier-format`) | **65 kio** (66 560) | ~5,5 kio |
+| `docs/ROADMAP-BASCULE-IA.md` | **défaut** | 32 911 o | **35 kio** (35 840) | ~2,9 kio |
+
+Le roadmap est un **index**, pas un journal : sa croissance est un défaut, donc pas de marche. Il mélange aujourd'hui l'index (les tableaux § 2/§ 3) et une archive (§ 1 ter, les lignes barrées du § 5, les paragraphes de correction de cadrage) — c'est cette moitié-là qui part dans les `specification.json` quand le plafond tombe, jamais la colonne `Statut`.
 
 **Le plafond ne monte jamais** — cliquet inversé de celui du score de mutation. Après une compaction il se **re-dérive vers le bas** sur la nouvelle mesure ; il ne se desserre pas parce qu'une itération avait beaucoup à dire. Le franchir ne bloque pas la livraison : il déclenche une compaction **dans le même lot que la doc** (Build Steps, étape 4). Reporter la compaction au lot suivant, c'est ne jamais la faire.
 
@@ -346,7 +326,7 @@ We build the app one feature at a time, in the order of `docs/ROADMAP-BASCULE-IA
 1. **Read first.** The feature's `specification.json` (`acceptance_criteria`, `known_risks`, `implementation` log, iteration statuses), `code-knowledge.json` (in full), `bug_history.json`, `features_history.json`, and the relevant sibling specs. If the spec is inconsistent (e.g. iterations without acceptance criteria), propose a fix first. Before coding a **planned** iteration, read the current code — it may already be done; if so mark it `done` and move on (no bump).
 2. **Build the slice** — the iteration as signed off by the raffinage committee. Minimal, no decoration. Brain contracts only; consider the whole architecture, side effects and risks.
 3. **Gate**: Prettier → `tsc --noEmit` → ESLint → `jest`. (The pre-commit hook enforces tsc+jest; never bypass it.) Refactor → re-gate.
-4. **Docs**: update `specification.json` (implementation log / iteration status), mirror new `known_risks` into `code-knowledge.json`, add a `CHANGELOG.md` line, update `features_history.json` and `README.md`. Puis **relève le budget de contexte** (section « Budget de contexte » ci-dessus) : c'est ici, et nulle part ailleurs, que ces fichiers grossissent — la seule étape du cycle qui les écrit tous. Un fichier au-dessus de son plafond se compacte **dans ce lot-ci**, pas au suivant.
+4. **Docs**: update `specification.json` (implementation log / iteration status), mirror new `known_risks` into `code-knowledge.json`, add a `CHANGELOG.md` line, update `features_history.json` and `README.md`. Puis **relève le budget de contexte** (section « Budget de contexte » ci-dessus) : c'est ici, et nulle part ailleurs, que ces fichiers grossissent — la seule étape du cycle qui les écrit tous. Un fichier au-dessus de son plafond se compacte **dans ce lot-ci**, pas au suivant. Puis **répercute le statut** dans la colonne `Statut` du § 2 / § 3 de `docs/ROADMAP-BASCULE-IA.md` (`k/n` itérations livrées) : la spec est la source, le roadmap la projection — jamais de saisie en second.
 5. **Self review gate** (quick): `Severity | File:line | Principle/KR | Finding | Fix`. Fix ALL findings; log each to `bug_history.json`. Re-run `tsc` + `jest`.
 
    **État dérivé (KR-013/113) — heuristique de revue ; il n'existe volontairement pas de règle ESLint pour ça.** L'AST voit une forme, pas une sémantique : le seul sélecteur plausible (« un `useEffect` dont le corps entier est un unique `setX(...)` ») remonte 0 site aujourd'hui et se tromperait demain sur des motifs légitimes (`setMounted(true)`, reset au changement de route) — une règle qui se trompe là-dessus est désactivée dans le mois et emporte les autres avec elle. À chaque auto-revue touchant un composant ou un hook :
@@ -362,46 +342,25 @@ When the last feature of a temps ships, the app is runnable end to end at that d
 
 ## Design Patch Processing
 
-When `.patch` files are present in `genliv_changes/`, process them in filename order (alphabetical) before any other work:
+Procédure dormante — `genliv_changes/` n'existe pas aujourd'hui ; elle se réveille seule le jour où des `.patch` y sont déposés. Traiter alors **avant tout autre travail**, dans l'ordre alphabétique des noms de fichier : dépouiller l'enveloppe mbox (à partir du premier `diff --git`) et passer le reste à `git apply` — **jamais `git am`**, qui committe tout seul ; puis, patch par patch, la boucle qualité des Build Steps (auto-revue, corrections toutes portées à `bug_history.json`, `tsc --noEmit` + tests), commit, suppression du `.patch` traité, patch suivant. Tout traité → **stop, validation humaine**.
 
-1. List all `.patch` files in `genliv_changes/` sorted by filename.
-2. For each patch in order:
-   a. **Apply**: strip the mbox envelope (find the first `diff --git` line in the file) and pipe the remainder to `git apply`. Never use `git am` (it auto-commits).
-   b. **Quality loop** (same as Build Steps): - **Review gate**: auto-review as code expert. Produce a structured report (same format as Build Steps quality loop). Always consider side effects and risks. - Fix ALL findings. Append each to `bug_history.json`. - Run full test suite (unit + E2E) **and** `tsc --noEmit`. - If all findings fixed and tests pass: proceed automatically.
-   c. Type-check (`tsc --noEmit`) → run tests → if passing: show summary and commit automatically.
-   d. **Delete the patch file** from `genliv_changes/`.
-   e. Move to the next patch.
-3. After all patches processed: **Stop and ask for user validation**.
-
-**Patch apply failure**: if `git apply` rejects a hunk, do not force-apply. Instead report the conflict to the user, show the offending hunk and the current file state, and wait for instructions before proceeding.
+**Hunk rejeté** : jamais de forçage. Rapporter le conflit, montrer le hunk et l'état du fichier, attendre les instructions.
 
 ## Worker Route Parity
 
-Every `Cloudflare*Service.ts` file in `src/` that calls a worker URL **must** have a corresponding handler in `worker/index.ts`. Missing routes produce silent 404s in production.
+Tout appel `fetch` vers le worker depuis `src/` doit avoir son gestionnaire dans `worker/index.ts` — une route manquante est un 404 silencieux en production. **État réel du dépôt** (à ne pas confondre avec la version générique de cette règle, écrite pour un worker qui n'est pas celui-ci) : le worker fait 111 lignes et n'expose **qu'une famille de routes**, `/kv/:key` en GET/PUT/DELETE, reconnue par `url.pathname.match(/^\/kv\/(.+)$/)` — pas par `pathname === '...'`. Son unique appelant est `brain/CloudflareKVTransport.ts`, qui construit `` `${base}/kv/…` ``. Ni `ROUTE_LIMITS`, ni limiteur de débit, ni route SSE, ni réponse JSON d'IA n'existent ici.
 
-**MANDATORY — in the quality loop Review gate**: grep for all `fetch(\`\${workerUrl}/`calls across`src/`and confirm each path has a matching`url.pathname === '/...'`handler in`worker/index.ts`.
-
-Checklist for every new worker route:
-
-1. Handler added: `if (method === 'POST' && url.pathname === '/my-route')`
-2. Entry in `ROUTE_LIMITS`: `'/my-route': N` (characters — pick a sensible cap)
-3. Rate limit check: `const rateLimited = await checkRateLimit(env.KV, encodedKey)`
-4. Body size guard: reject with 413 if `rawBody.length > ROUTE_LIMITS['/my-route']`
-5. Response shape matches the brain service interface (`brain/XxxService.ts`)
-6. For SSE routes: stream `data: ...\n\n` lines ending with `data: [DONE]\n\n`
-7. For JSON routes: parse AI output defensively; return 502 on invalid JSON
-
-**Scan command** (run from repo root before every worker-touching commit):
+Conséquence pour le relevé : chercher `Cloudflare*Service.ts` ou `workerUrl}/` **manque le seul appelant réel**. Le relevé qui marche :
 
 ```
-grep -rE 'workerUrl\}/[a-z]' src/ --include='*.ts' | grep -oP '(?<=workerUrl\}/)[\w/-]+'
+grep -rn 'fetch(`\${' src/ --include='*.ts'
 ```
 
-Every path listed must have a `url.pathname === '/...'` branch in `worker/index.ts`.
+D2 fera arriver les routes IA (une par rôle, SSE pour la narration) : c'est **à ce moment-là** qu'on écrit la vraie liste de contrôle — plafond de corps, garde 413, forme de réponse — mesurée sur le worker qu'on aura, pas recopiée d'un autre projet.
 
 ## Failure Paths
 
-- **Worker route missing (404)**: a `Cloudflare*Service` calls a URL that has no handler in the worker — client gets a 404 at runtime. Fix: add the handler, `ROUTE_LIMITS` entry, and all guards per the Worker Route Parity checklist above. Log as critical in `bug_history.json`. Past occurrences: BUG-065 (`/top-three-suggest-day`, `/top-three-suggest-week`), BUG-066 (`/ai/recall/stream`).
+- **Worker route missing (404)**: un appelant vise une URL sans gestionnaire — 404 au runtime. Corriger le gestionnaire dans `worker/index.ts`, journaliser en `critical` dans `bug_history.json`.
 - **Test suite fails before commit**: do not commit. Fix failing tests first. If the failure reveals a scope problem, update `specification.json` and re-plan with the user before proceeding.
 - **Tech-lead PR review requires significant rework**: keep the slice uncommitted, fix it in place (or `git restore` and redo the affected part), re-gate, and re-run the tech-lead PR from scratch before it reaches the user.
 - **E2E regression on a previously passing flow**: log it in `bug_history.json` immediately, block the commit, and fix before the slice reaches the user.

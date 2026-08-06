@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.6.5 — le roadmap porte le statut, et la parité worker cesse de décrire un autre projet
+
+Suite du lot de process — toujours aucun fichier de `src/`. Le budget de contexte posé en 0.6.4 a été appliqué à lui-même dès sa première utilisation : les trois ajouts ci-dessous ont dû être payés par une compaction, pas par un desserrage du plafond.
+
+### Le statut d'une feature devient lisible d'un coup d'œil
+
+Constat : l'état réel de `dossier-format` — deux itérations livrées sur cinq, une troisième en raffinage — n'était écrit **nulle part en un seul endroit**. Il se reconstituait depuis quatre sources dont aucune ne fait autorité (`plan.iterations[].status`, la version `package.json`, l'entête du CHANGELOG, et un dossier `.claude/raffinage/` non commité). Les tableaux § 2 / § 3 du roadmap portaient l'ordre, la taille et le comité — jamais l'état.
+
+- **`docs/ROADMAP-BASCULE-IA.md`** — colonne **`Statut`** aux deux tableaux (`k/n` itérations livrées, `—` si pas commencée), **projetée** depuis `plan.iterations[].status` : elle se recopie, elle ne se décide pas là. Réparé au passage : une ligne vide coupait le tableau du § 2 en deux, la n° 1 d'un côté et les n° 2 à 8 de l'autre — Markdown en rendait deux tableaux distincts.
+- **`docs/WORKFLOW.md`** (Build Steps, étape 4) — la répercussion s'accroche à l'étape qui écrit déjà spec + CHANGELOG + `features_history.json`, **pas à `/cadrer`** : `/cadrer` tourne une fois par feature, le statut bouge à chaque itération.
+- **Vocabulaire de statut inchangé** — `planned | in-progress | done` reste tel quel. Un `next` serait de l'état dérivé mis en miroir (c'est la plus petite feature non `done` dans l'ordre du § 2, déjà verrouillé par « une feature à la fois »), et un `hold` n'a aucune instance à couvrir.
+
+### La parité worker décrivait un worker qui n'est pas le nôtre
+
+- **`docs/WORKFLOW.md`** (§ Worker Route Parity, § Failure Paths) — la règle était vivante mais **tous ses crochets mécaniques rataient le seul appelant réel** : le motif `Cloudflare*Service.ts` et la commande de scan `workerUrl}/` ne voient pas `brain/CloudflareKVTransport.ts`, qui construit `` `${base}/kv/…` ``. Le worker de ce dépôt fait 111 lignes, une seule famille de routes `/kv/:key` reconnue par regex — ni `ROUTE_LIMITS`, ni limiteur de débit, ni SSE, ni réponse JSON d'IA. La liste de contrôle en sept points et les occurrences BUG-065/066 venaient d'ailleurs. Remplacées par l'état mesuré, un relevé qui marche, et le renvoi à D2 pour écrire la vraie liste **sur le worker qu'on aura**.
+
+### Compaction — la place a été payée, pas empruntée
+
+- **`docs/ROADMAP-BASCULE-IA.md`** entre à la table du budget : 32 911 o, plafond **35 kio**, **sans marche** — un index n'a pas vocation à grossir. C'est le document non-toujours-chargé le plus lu du rituel (3 rôles × 2 tours par raffinage) et il n'avait aucun plafond. Ce qui en sortira quand il tombera est nommé : l'archive (§ 1 ter, lignes barrées du § 5, paragraphes de correction), jamais la colonne `Statut`.
+- **`docs/WORKFLOW.md`** — *Architecture Vocabulary* supprimée (un tableau **vide** sous une consigne d'usage). *Hover-reveal row actions* : la règle garde sa valeur, son exemple était en MUI `sx` / `IconButton` — il n'y a pas de MUI dans ce dépôt, l'exemple apprenait une stack qui n'existe pas. *Design Patch Processing* condensée en deux phrases : procédure dormante (`genliv_changes/` n'existe pas), elle garde sa capacité et perd sa cérémonie.
+- Couple toujours chargé : **45 830 o** sous un plafond de 46 080 — resté sous la barre en libérant plus que ce que les trois ajouts coûtaient.
+
 ## 0.6.4 — outillage : la valeur de registre relue à la source, et un budget de contexte chiffré
 
 Lot de process — aucun fichier de `src/`, aucun comportement utilisateur, aucun contrat `brain/` modifié. Deux angles morts fermés, tous deux à l'endroit où un dispositif par ailleurs sain peut se relâcher **sans bruit**.

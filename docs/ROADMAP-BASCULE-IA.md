@@ -140,17 +140,18 @@ Le tri commandé par D3, exécuté. À lire avant de cadrer `dossier-format` : p
 
 Huit features. Une phrase de démo par feature, sans « et » : c'est le test de dimensionnement.
 
-| # | Feature | « À la fin, l'auteur peut… » | Itér. | Comité | Dépend de |
-|---|---|---|---|---|---|
-| 1 | `dossier-format` | …importer un dossier d'aventure validé contre un schéma versionné | **5** | 5 rôles | — |
+| # | Feature | « À la fin, l'auteur peut… » | Itér. | Statut | Comité | Dépend de |
+|---|---|---|---|---|---|---|
+| 1 | `dossier-format` | …importer un dossier d'aventure validé contre un schéma versionné | **5** | **2/5** | 5 rôles | — |
+| 2 | `bascule-editeur` | …naviguer dans son aventure par une liste de sections | 3 | — | 4 rôles | 1 |
+| 3 | `dossier-canon` | …rédiger la vérité immuable de son histoire | 3 | — | 4 rôles | 2 |
+| 4 | `dossier-fiches` | …écrire une fiche de personnage exploitable par l'IA | 5 | — | 5 rôles | 3 |
+| 5 | `dossier-objets` | …tenir le registre des objets de son aventure | 2 | — | 4 rôles | 1 |
+| 6 | `dossier-registres` | …tenir les quêtes, les indices, les événements de son aventure | 4 | — | 4 rôles | 4 · 5 |
+| 7 | `dossier-controles` | …voir pourquoi son aventure n'est pas encore jouable | 3 | — | 5 rôles | 6 |
+| 8 | `dossier-copilote` | …faire proposer un texte par l'IA, champ par champ | 3 | — | 5 rôles | 6 |
 
-| 2 | `bascule-editeur` | …naviguer dans son aventure par une liste de sections | 3 | 4 rôles | 1 |
-| 3 | `dossier-canon` | …rédiger la vérité immuable de son histoire | 3 | 4 rôles | 2 |
-| 4 | `dossier-fiches` | …écrire une fiche de personnage exploitable par l'IA | 5 | 5 rôles | 3 |
-| 5 | `dossier-objets` | …tenir le registre des objets de son aventure | 2 | 4 rôles | 1 |
-| 6 | `dossier-registres` | …tenir les quêtes, les indices, les événements de son aventure | 4 | 4 rôles | 4 · 5 |
-| 7 | `dossier-controles` | …voir pourquoi son aventure n'est pas encore jouable | 3 | 5 rôles | 6 |
-| 8 | `dossier-copilote` | …faire proposer un texte par l'IA, champ par champ | 3 | 5 rôles | 6 |
+**Colonne `Statut`** — itérations **livrées / prévues**, *projetées* depuis `plan.iterations[].status` du `specification.json` de la feature : elle se recopie, elle ne se décide pas ici (source unique, mise à jour à l'étape 4 de `docs/WORKFLOW.md` § Build Steps). `—` = pas commencée. Ce tableau ne dit rien d'un raffinage en cours : `2/5` signifie deux itérations **livrées**, pas « rien d'ouvert ».
 
 > **Décision A du 2026-08-04 — la forme complète des racines n'est plus portée par la n° 1.** Mesure faite sur le schéma cible § 1.4 : **~100 champs terminaux**, soit plus de 8 critères et plus de 4 lots — l'itération 2 telle qu'elle était cadrée ne passait pas le contrôle de taille. Chaque racine reçoit donc sa **forme complète dans la feature qui l'édite** : `canon` en **n° 3**, `personnages` (9 blocs) en **n° 4**, `lieux`/`objets`/`indices` en **n° 5**, `quetes`/`evenements`/`conditions` en **n° 6**. La n° 1 ne pose que ce qui est **irréversible** — ce qu'aucune migration ne rattrape. Motif : une forme sans producteur ni consommateur est la dette qui a déjà fait reporter `Delta[]` et sortir `list`/`remove` du service ; même règle, appliquée pareil. Conséquence à tenir : **`dossier-format` reste à cinq itérations**, et le contrat n'est pleinement figé qu'à la n° 6 — sans conséquence, le Temps 2 arrivant après. Corollaire non négociable (veto tech-lead) : `brain/dossier/types.ts`, `destinations.ts` et `validate.ts` ne sont **jamais** dans un lot de type `feature` — toute feature qui ajoute un champ au schéma ouvre un lot `contrat`, seul et en premier.
 
@@ -176,16 +177,16 @@ Huit features. Une phrase de démo par feature, sans « et » : c'est le test de
 
 ## 3 — Temps 2 · le moteur joue le dossier
 
-| # | Feature | « À la fin, le joueur peut… » | Itér. | Comité | Dépend de |
-|---|---|---|---|---|---|
-| 9 | `moteur-dossier` | …jouer une session pilotée par un dossier, sans IA | 4 | 5 rôles | 1 |
-| 10 | `moteur-interprete` | …écrire ce qu'il veut faire en langage libre | 4 | 5 rôles | 9 |
-| 11 | `moteur-arbitre` | …voir le code lancer le dé que l'IA a demandé | 3 | 5 rôles | 10 |
-| 12 | `moteur-acteurs` | …parler à un PNJ qui ne révèle que ce qu'il sait | 4 | 5 rôles | 11 · 4 |
-| 13 | `moteur-combat` | …lire un combat raconté que l'IA n'arbitre pas | 2 | 5 rôles | 11 |
-| 14 | `moteur-horloge` | …découvrir que le monde a avancé sans lui | 3 | 5 rôles | 12 |
-| 15 | `moteur-fins` | …reprendre sa partie là où il l'a laissée | 3 | 5 rôles | 14 |
-| 16 | `dossier-repetition` | *(auteur)* …faire jouer son aventure par un joueur synthétique | 2 | 5 rôles | 10 · 7 |
+| # | Feature | « À la fin, le joueur peut… » | Itér. | Statut | Comité | Dépend de |
+|---|---|---|---|---|---|---|
+| 9 | `moteur-dossier` | …jouer une session pilotée par un dossier, sans IA | 4 | — | 5 rôles | 1 |
+| 10 | `moteur-interprete` | …écrire ce qu'il veut faire en langage libre | 4 | — | 5 rôles | 9 |
+| 11 | `moteur-arbitre` | …voir le code lancer le dé que l'IA a demandé | 3 | — | 5 rôles | 10 |
+| 12 | `moteur-acteurs` | …parler à un PNJ qui ne révèle que ce qu'il sait | 4 | — | 5 rôles | 11 · 4 |
+| 13 | `moteur-combat` | …lire un combat raconté que l'IA n'arbitre pas | 2 | — | 5 rôles | 11 |
+| 14 | `moteur-horloge` | …découvrir que le monde a avancé sans lui | 3 | — | 5 rôles | 12 |
+| 15 | `moteur-fins` | …reprendre sa partie là où il l'a laissée | 3 | — | 5 rôles | 14 |
+| 16 | `dossier-repetition` | *(auteur)* …faire jouer son aventure par un joueur synthétique | 2 | — | 5 rôles | 10 · 7 |
 
 **9 · `moteur-dossier`** — machine à états, JSON de session (10 clés racine), horloge, journal, application des deltas, console de commandes typées. Aucune génération de texte : on valide la mécanique seule. **Beaucoup plus petit que ce que le plan laisse croire** : `sessionEngine`, `actionEngine`, `usePlaySession` et `PlayerRuntime` existent — c'est un repointage de la source, pas une écriture.
 
