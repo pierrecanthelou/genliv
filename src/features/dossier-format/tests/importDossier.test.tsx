@@ -88,9 +88,9 @@ describe('importDossier', () => {
 
 		await ouvrirLaModale(user)
 
-		// Deux anomalies, de deux familles différentes : une sur une entité NOMMÉE
-		// (pour éprouver le OÙ) et une sur une racine (pour éprouver le marqueur
-		// {racine} de la ligne QUOI FAIRE).
+		// Deux anomalies POSÉES, de deux familles différentes : une sur une entité
+		// NOMMÉE (pour éprouver le OÙ) et une sur une racine (pour éprouver le
+		// marqueur {racine} de la ligne QUOI FAIRE).
 		const document_ = JSON.parse(texteFixture()) as Record<string, unknown>
 		const monde = document_.monde as Record<string, unknown>
 		;(monde.personnages as Record<string, unknown>[])[0].id = 'PNJ.Aldûr'
@@ -99,8 +99,12 @@ describe('importDossier', () => {
 		const fichier = new File([JSON.stringify(document_)], 'casse.json', { type: 'application/json' })
 		await user.upload(screen.getByLabelText(/choisir un fichier de dossier/i), fichier)
 
-		// Le badge compte et accorde.
-		expect(await screen.findByText('2 anomalies')).toBeInTheDocument()
+		// Le badge compte et accorde. TROIS depuis l'itération 3, et la troisième est
+		// la démo de cette itération-là rendue par l'affordance existante : casser
+		// l'identifiant du personnage rend PENDANTE la condition qui le référence
+		// (`canon.objectifs[0].echoue_si_expr`). Cascade VOULUE et déjà établie —
+		// `charpente.depart.lieu_id` se comporte pareil depuis l'itération 1.
+		expect(await screen.findByText('3 anomalies')).toBeInTheDocument()
 
 		// OÙ : l'entité résolue par son NOM, avec son identifiant entre parenthèses.
 		expect(screen.getByText(/Personnage « Aldûr le Sage »/)).toBeInTheDocument()

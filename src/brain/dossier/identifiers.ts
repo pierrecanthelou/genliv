@@ -127,6 +127,26 @@ export function estObjet(value: unknown): value is Record<string, unknown> {
 }
 
 /**
+ * L'appartenance PROPRE à un registre — jamais l'opérateur `in`, qui remonte la
+ * CHAÎNE DE PROTOTYPES.
+ *
+ * Le défaut que cette fonction existe pour interdire (BUG-053) : tout registre
+ * écrit comme un littéral d'objet ou construit par `Object.fromEntries` hérite
+ * d'`Object.prototype`, donc `'toString' in PREDICATES` vaut `true` et le
+ * descripteur qu'on en tire est une FONCTION. Le garde laissait passer, puis le
+ * code d'après lisait `.refKinds` ou appelait `.includes` sur elle — et un
+ * validateur qui se promet TOTAL levait une exception, sur une valeur venue tout
+ * droit du fichier de l'auteur.
+ *
+ * Elle vit ici, avec `estObjet`, parce que c'est la même famille : un lecteur
+ * défensif d'un document que personne n'a encore validé (KR-116). Tout registre
+ * indexé par une valeur non fiable doit passer par elle.
+ */
+export function estCleDe(registre: object, cle: string): boolean {
+	return Object.prototype.hasOwnProperty.call(registre, cle)
+}
+
+/**
  * La FEUILLE d'un chemin pointé — ce que le message d'anomalie appelle « le
  * champ », et ce que `{champ}` résout dans la ligne QUOI FAIRE.
  *

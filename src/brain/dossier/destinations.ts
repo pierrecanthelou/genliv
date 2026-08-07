@@ -69,6 +69,15 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	// description ») et il est déjà le OÙ du rapport d'anomalie. L'injecter
 	// poserait le précédent que le nom de toute entité est injectable.
 	'canon.objectifs[].nom': 'auteur',
+	// D1 — les DIX lignes des cinq familles de conditions, et ZÉRO ajoutée à
+	// l'ensemble injecté. Un `…_expr` est la seule autorité sur ce qui se déclenche
+	// (moteur) ; son jumeau `…_texte` est la MÊME règle en français — injecté, il
+	// apprendrait au modèle à FAIRE RÉUSSIR l'objectif, ou pire, à conduire à son
+	// échec. Le champ est auteur (et linter n° 7), jamais `ia`.
+	'canon.objectifs[].reussi_si_expr': 'moteur',
+	'canon.objectifs[].reussi_si_texte': 'auteur',
+	'canon.objectifs[].echoue_si_expr': 'moteur',
+	'canon.objectifs[].echoue_si_texte': 'auteur',
 
 	// ── monde.personnages ─────────────────────────────────────────────────────
 	'monde.personnages[].id': 'moteur',
@@ -77,8 +86,13 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	'monde.personnages[].portee': 'moteur',
 	'monde.personnages[].plan_actions[].etape': 'moteur',
 	// L'intention du personnage à cette étape — c'est ce que le rôle acteur joue,
-	// et la seule raison d'être d'un plan d'actions.
+	// et la seule raison d'être d'un plan d'actions. SEULE clé `ia` de la famille :
+	// l'avancement d'étape, lui, est du code (n° 14).
 	'monde.personnages[].plan_actions[].action': 'ia',
+	'monde.personnages[].plan_actions[].declencheur_expr': 'moteur',
+	// À ne pas confondre avec `action` ci-dessus : celle-ci est jouée, celui-là
+	// décrit la condition de passage — une note de rédaction, jamais du contexte.
+	'monde.personnages[].plan_actions[].declencheur_texte': 'auteur',
 	// Le protocole de révélation (reporté n° 9-12, décision déjà écrite) injecte le
 	// savoir sous la forme `{ indice_id, certitude, vérité }` et la sortie du modèle
 	// renvoie `indices_reveles: string[]` : cet identifiant-là traverse le contexte.
@@ -119,6 +133,10 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	// Résolu, `monstre_ref` rend `pv`, `armour`, `weaponMultiplier`, `capacity` et
 	// les stats. Le narrateur reçoit le NOM du monstre et le log d'assaut, point.
 	'monde.evenements[].monstre_ref': 'moteur',
+	'monde.evenements[].declencheur_expr': 'moteur',
+	// Injecté, le narrateur ne laisserait pas l'embuscade SURVENIR : il la
+	// provoquerait, ce qui est exactement la frontière que D1 trace.
+	'monde.evenements[].declencheur_texte': 'auteur',
 	// L'issue en français — ce que le narrateur joue quand la résolution survient.
 	'monde.evenements[].resolutions[].resultat': 'ia',
 	'monde.evenements[].resolutions[].consequence[]': 'moteur',
@@ -143,9 +161,28 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	// prompt, et apprendrait au modèle à PROVOQUER le jalon. La n° 7 la lit pour
 	// son linter, personne d'autre.
 	'charpente.jalons[].declencheur_texte': 'auteur',
+	// Jumeau structuré du précédent : même audience de moteur que les effets.
+	'charpente.jalons[].declencheur_expr': 'moteur',
 	'charpente.jalons[].effet[]': 'moteur',
 	'charpente.fins[].id': 'moteur',
 	'charpente.fins[].nom': 'auteur',
 	// Un narrateur qui connaît les conditions de fin y conduit.
 	'charpente.fins[].condition_texte': 'auteur',
+	'charpente.fins[].condition_expr': 'moteur',
 }
+
+// ── RÉSERVÉ n° 4 `dossier-fiches` — DÉJÀ ARBITRÉ, à ne PAS re-dériver ─────────
+// La sixième famille de conditions, `personnages[].contre_mesures[]`, n'a au
+// schéma 1 ni type, ni racine, ni feature éditrice : la créer ici serait la
+// « forme sans producteur ni consommateur » que la décision A interdit — et une
+// ligne de table sans instance dans la fixture ferait rougir le balayage de
+// couverture, par construction. Ses destinations sont pourtant tranchées ; elles
+// vivent donc en COMMENTAIRE, jamais en lignes :
+//   `…contre_mesures[].action`           → 'ia'      (seule de la famille, même
+//                                                     raison que plan_actions[].action)
+//   `…contre_mesures[].declencheur_expr` → 'moteur'
+//   `…contre_mesures[].declencheur_texte`→ 'auteur'
+//   `…contre_mesures[].delai`            → 'moteur'
+//   `…contre_mesures[].portee`           → 'moteur'
+// Aucun espace de noms à créer : le OÙ du rapport est le PERSONNAGE porteur,
+// exactement comme `savoirs[]` et `plan_actions[]` aujourd'hui.

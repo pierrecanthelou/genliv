@@ -49,12 +49,12 @@ Le schéma compte **six** familles de conditions : `canon.objectifs[].reussi_si`
 
 | Champ | Pour qui | Rôle |
 |---|---|---|
-| `…_texte` | l'IA | phrase en français, injectée telle quelle dans le contexte. Toujours rédigée ; c'est ce que l'auteur écrit en premier. |
+| `…_texte` | l'auteur | phrase en français, écrite en premier et relue par l'auteur (et par le linter n° 7). **Jamais injectée** — corrigé par la décision B et par `destinations.ts` : c'est `…_expr` en français, et l'injecter met la même règle dans le code **et** dans le prompt. |
 | `…_expr` | le moteur | expression évaluable, seule autorité sur ce qui se déclenche. Facultative — absente, la condition n'est jamais déclenchée automatiquement (elle reste une intention narrative). |
 
 Conséquences à tenir au cadrage de `dossier-format` :
 
-- **Le moteur ne lit jamais `…_texte` pour décider**, l'IA ne lit jamais `…_expr` pour raconter. C'est la même frontière que la décision n° 4 (l'IA ne lance pas les dés) appliquée aux conditions.
+- **Le moteur ne lit jamais `…_texte` pour décider**, et **le modèle ne le lit pas non plus** : les deux champs du couple restent hors du contexte injecté (réciproque posée par la décision B, tenue par `destinations.ts`). C'est la même frontière que la décision n° 4 (l'IA ne lance pas les dés) appliquée aux conditions.
 - `…_expr` est **un arbre JSON, jamais une chaîne**, et **il n'existe aucun parseur** (cadrage du 2026-08-03) : `{ op: 'et' | 'ou' | 'non' | 'pred' }`, prédicats sur identifiants stables tirés d'un registre fermé. Supprimer la chaîne supprime la grammaire à spécifier, versionner et tester, toute la classe des erreurs de syntaxe, et la question de la syntaxe montrée à l'auteur — le registre `PREDICATES` pilote directement le rendu des formulaires (`label` → `Select`, `refKinds` → `TargetPicker`). L'auteur ne saisit jamais d'expression.
 - Un `…_expr` présent référençant un identifiant inconnu est une **erreur bloquante** du linter (n° 7), pas un avertissement — c'est ce que D1 achète.
 - Un `…_texte` sans `…_expr` sur une **fin** ou un **objectif** est une **alerte** du linter : l'aventure reste jouable, mais rien ne la terminera automatiquement.
@@ -142,7 +142,7 @@ Huit features. Une phrase de démo par feature, sans « et » : c'est le test de
 
 | # | Feature | « À la fin, l'auteur peut… » | Itér. | Statut | Comité | Dépend de |
 |---|---|---|---|---|---|---|
-| 1 | `dossier-format` | …importer un dossier d'aventure validé contre un schéma versionné | **5** | **2/5** | 5 rôles | — |
+| 1 | `dossier-format` | …importer un dossier d'aventure validé contre un schéma versionné | **5** | **3/5** | 5 rôles | — |
 | 2 | `bascule-editeur` | …naviguer dans son aventure par une liste de sections | 3 | — | 4 rôles | 1 |
 | 3 | `dossier-canon` | …rédiger la vérité immuable de son histoire | 3 | — | 4 rôles | 2 |
 | 4 | `dossier-fiches` | …écrire une fiche de personnage exploitable par l'IA | 5 | — | 5 rôles | 3 |
@@ -230,7 +230,7 @@ Relevés en lecture intégrale. Chacun est affecté à la feature qui doit le tr
 | Trou | À traiter dans |
 |---|---|
 | ~~Aucun registre `objets[]` racine~~ → **tranché au cadrage** : le dossier a **treize** racines, `objets[]` comprise — sans elle l'intégrité référentielle de l'itération 3 n'a pas de cible | n° 1 (la racine) · n° 5 (son éditeur) |
-| ~~Grammaire des conditions non définie~~ → **D1 tranchée** : deux champs par famille (`…_texte` pour l'IA, `…_expr` pour le moteur) | n° 1 (grammaire + registre de prédicats) |
+| ~~Grammaire des conditions non définie~~ → **D1 tranchée** : deux champs par famille (`…_texte` pour l'**auteur**, jamais injecté ; `…_expr` pour le moteur) | n° 1 (grammaire + registre de prédicats) |
 | `jalons`, `fins`, `meta` au schéma sans section ni écran — `jalons` et `fins` sont groupées sous `charpente` ; `meta` n'est **pas** une racine (tranché le 2026-08-04). `charpente` n'est plus « **jamais** injectée » mais « **jamais injectée ENTIÈRE** » : une projection nommée en porte **une** feuille — l'`enonce_texte` des jalons **déjà atteints** —, jamais les déclencheurs ni les conditions de fin, qui sont la même règle en français et apprendraient au modèle à provoquer le jalon ou à conduire à la fin | n° 1 (la forme + `enonce_texte`) · n° 2 (les écrans) · n° 9 (la projection) |
 | « Scènes écrites » : le format porte un texte et un drapeau (n° 1), mais leur propriété définissante est un **chemin de code** — une scène verbatim est **émise** par le moteur, jamais demandée au modèle | n° 1 (le champ) · n° 10 (l'émission) |
 | Mapping des 6 curseurs sur CA / IN / IG non donné | n° 4 |

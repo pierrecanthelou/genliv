@@ -485,6 +485,16 @@
 			"id": "KR-173",
 			"feature": "dossier-format",
 			"risk": "QUAND UNE FONCTION DE TRAVERSEE ABANDONNE SILENCIEUSEMENT UNE BRANCHE POUR RESTER TOTALE, CE QU'ELLE CESSE DE VISITER DOIT AVOIR SA PROPRE TABLE (BUG-049). `sitesDe` fait `if (!Array.isArray(valeur)) continue` sur un segment `[]` : trois listes NON optionnelles de types.ts passaient absentes, ok:true, et le dossier gele promettait des tableaux valant undefined. Aucun compilateur ne relie une liste non optionnelle de types.ts a l'absence de sa regle de validation. DEUX corollaires de revue, generalisables : (1) se mefier de toute phrase de documentation qui dit « c'est le SEUL endroit ou… » — celle-ci etait fausse d'un facteur quatre, et c'est la revue de PR, pas l'ouvrier ni la QA, qui l'a mesuree ; (2) quand un instrument de couverture change de critere (ici suppression -> corruption), ecrire explicitement CE QU'IL CESSE DE COUVRIR : la corruption ne teste que les FEUILLES, jamais les conteneurs, et c'est exactement l'angle mort qui a laisse passer ce defaut."
+		},
+		{
+			"id": "KR-174",
+			"feature": "dossier-format",
+			"risk": "UN CRITERE QUI PROTEGE UNE MOITIE DE COUPLE DOIT NOMMER L AUTRE (BUG-051). Le critere d it3 de dossier-format exigeait « tout …_expr a une destination valant moteur » et laissait les …_texte jumeaux sans garde de VALEUR : basculer reussi_si_texte de auteur a ia laissait 168 tests verts — alors que c est le …_texte qui porte le risque nomme par le veto (un …_expr injecte est du bruit pour le modele, un …_texte injecte lui APPREND la regle). REGLE : quand une decision distingue deux champs jumeaux par leur AUDIENCE, le critere qui l epingle porte sur LES DEUX, et les deux assertions se DERIVENT de la meme table — deux listes de chemins divergeraient en silence. Corollaire general, valable hors de ce cas : une assertion d EXISTENCE (« ce champ a une destination ») n est JAMAIS une assertion de VALEUR (« et elle vaut ceci »), et une table d audiences ne vaut que par la seconde. Le defaut etait dans le PLAN avant d etre dans le code : c est au raffinage qu il se previent."
+		},
+		{
+			"id": "KR-175",
+			"feature": "dossier-format",
+			"risk": "UN REGISTRE INDEXE PAR UNE VALEUR NON FIABLE PASSE PAR UNE APPARTENANCE PROPRE, JAMAIS PAR `in` NI PAR UN TEST D'INDEX (BUG-053). Tout objet litteral et tout Object.fromEntries herite d'Object.prototype : 'toString' in REGISTRE vaut true et REGISTRE['toString'] rend une FONCTION. Un garde ecrit avec `in` laisse donc passer une cle que personne n'a mise, et le code d'apres appelle .includes ou lit .length sur une fonction — un validateur qui se promet TOTAL leve alors une exception sur une valeur venue du fichier de l'utilisateur. Parade : Object.prototype.hasOwnProperty.call. DEUX corollaires generalisables. (1) Un `as` pose sur une valeur non fiable est l'endroit exact ou le compilateur CESSE de proteger : il affirme ce que le garde etait cense verifier, et c'est pour cela que tsc ne voit rien. Tout cast qui suit un garde merite qu'on relise le garde. (2) Une liste de BRUIT dans un test de totalite ne se remplit pas en cherchant des valeurs absurdes, mais en se demandant par quelle porte le code peut repondre oui a ce qu'il devrait refuser — ici, aucune des 16 entrees de bruit n'etait une cle heritee, et le test etait vert sur une fonction qui jetait."
 		}
 	]
 }

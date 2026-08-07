@@ -2,10 +2,20 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { validateDossier } from './validate'
 import { DESTINATION_DES_CHAMPS } from './destinations'
+import {
+	BUDGETS_DE_MOTS,
+	CHAMPS_REQUIS,
+	CHEMINS_DE_DELTAS,
+	ENUMERES_FERMES,
+	FAMILLES_DE_CONDITIONS,
+	LISTES_REQUISES,
+	RACINES,
+} from './tables'
+import { PREDICATES } from './predicates'
 
 /**
  * LE SCHÉMA EST ÉCRIT TROIS FOIS — une fois comme types (`types.ts`), une fois
- * comme tables déclaratives (`validate.ts`), une fois comme audiences
+ * comme tables déclaratives (`tables.ts`), une fois comme audiences
  * (`destinations.ts`) — et rien ne relie les trois. Les fondre produirait un DSL
  * de schéma à spécifier, versionner et tester : pire que la dérive qu'il corrige.
  * Ce qui doit être unique n'est pas la table, c'est le GARDE — ce fichier.
@@ -25,9 +35,31 @@ import { DESTINATION_DES_CHAMPS } from './destinations'
  *    valeur du MAUVAIS TYPE — subsume la suppression et vaut pour les optionnels
  *    contraints.
  *
- * UN SEUL walker, exporté, réutilisé par les trois assertions : deux balayeurs de
- * profondeurs différentes sur la même fixture divergeraient en silence — c'est
+ * UN SEUL walker, exporté, réutilisé par toutes les assertions de ce fichier : deux balayeurs
+ * de profondeurs différentes sur la même fixture divergeraient en silence — c'est
  * précisément le mode de défaillance que ce test existe pour interdire.
+ *
+ * ── CE QUE LE BALAYAGE NE COUVRE PAS ─────────────────────────────────────────
+ * Nommé ici plutôt que découvert plus tard : un instrument de couverture qui
+ * change de critère doit dire ce qu'il CESSE de couvrir (KR-173).
+ *  · LES CONTENEURS INTERMÉDIAIRES. La corruption ne remplace que des FEUILLES ;
+ *    un objet ou un tableau porteur n'est jamais remplacé par une valeur du
+ *    mauvais type. C'est l'angle mort qui a laissé passer BUG-049 (quatre listes
+ *    non optionnelles acceptées absentes), aujourd'hui recouvert par une table
+ *    dédiée — `LISTES_REQUISES` — et non par ce balayage.
+ *  · LES ÉLÉMENTS DE LISTE NON-OBJET. Un `savoirs: ["du texte"]` traverse le
+ *    validateur, `ok:true` : les deux traversées abandonnent la branche pour
+ *    rester totales. Défaut réel, journalisé BUG-050, corrigé en itération 4 par
+ *    une table dédiée. Ce balayage ne peut pas le voir — il corrompt une feuille
+ *    EXISTANTE, il n'en change jamais le porteur.
+ *  · L'INTÉRIEUR DES ARBRES D'EXPRESSION. Le balayage S'ARRÊTE sur chaque
+ *    `…_expr` (voir `CHEMINS_D_ARRET`), et l'ensemble de ces points d'arrêt est
+ *    DÉRIVÉ de `FAMILLES_DE_CONDITIONS`, jamais re-listé. Motif : un arbre peuplé
+ *    produit des chemins qui VARIENT avec sa forme, donc une table de
+ *    destinations qui ne pourrait jamais être exhaustive. La contrepartie est
+ *    portée par `validateExpr`, qui refuse TOUTE clé inconnue sur un nœud — sans
+ *    elle, l'opacité deviendrait une cachette où un champ de prose échapperait
+ *    au balayage des destinations.
  */
 
 const CHEMIN_FIXTURE = path.join(__dirname, '__fixtures__', 'dossier-minimal.json')
@@ -49,10 +81,20 @@ export interface FeuilleDeFixture {
 }
 
 /**
+ * Les chemins où le balayage S'ARRÊTE — DÉRIVÉS de `FAMILLES_DE_CONDITIONS`, la
+ * seule liste de chemins d'expression du dépôt. Une seconde liste, fût-elle
+ * identique le jour où elle est écrite, divergerait en silence : une famille
+ * ajoutée à la table et pas ici ferait descendre le balayage DANS son arbre, et
+ * la table des destinations cesserait de pouvoir être exhaustive.
+ */
+const CHEMINS_D_ARRET = new Set(FAMILLES_DE_CONDITIONS.map((famille) => famille.expr))
+
+/**
  * Toutes les feuilles terminales d'un document, en pleine profondeur, tableaux
  * inclus. Une feuille est ce qui ne se descend plus : une valeur scalaire, mais
  * aussi un objet ou un tableau VIDE — sinon `effet: [{}]` disparaîtrait du
- * balayage, et c'est exactement le champ que l'itération 2 fige.
+ * balayage, et c'est exactement le champ que l'itération 2 fige. Un arbre
+ * d'expression est une feuille ENTIÈRE, par arrêt dérivé (voir `CHEMINS_D_ARRET`).
  *
  * Les indices sont NORMALISÉS : sans cela, ajouter un second personnage
  * doublerait les chemins et le test échouerait par cardinalité au lieu d'échouer
@@ -61,6 +103,7 @@ export interface FeuilleDeFixture {
  * passerait sinon pour exhaustive.
  */
 export function feuillesDeLaFixture(valeur: unknown, normalise = '', concret = ''): FeuilleDeFixture[] {
+	if (CHEMINS_D_ARRET.has(normalise)) return [{ normalise, concret, valeur }]
 	if (Array.isArray(valeur) && valeur.length > 0) {
 		return valeur.flatMap((element, index) => feuillesDeLaFixture(element, `${normalise}[]`, `${concret}[${index}]`))
 	}
@@ -74,6 +117,39 @@ export function feuillesDeLaFixture(valeur: unknown, normalise = '', concret = '
 		)
 	}
 	return [{ normalise, concret, valeur }]
+}
+
+/**
+ * Les chemins de TOUTES les tables, avec le nom de leur table — le test échoue
+ * en NOMMANT la table et le chemin, jamais par un compte (KR-159).
+ */
+function cheminsDesTables(): ReadonlyArray<readonly [string, string]> {
+	return [
+		...RACINES.map((r) => ['RACINES', r.path] as const),
+		...CHAMPS_REQUIS.map((c) => ['CHAMPS_REQUIS', c.path] as const),
+		...ENUMERES_FERMES.map((e) => ['ENUMERES_FERMES', e.path] as const),
+		...LISTES_REQUISES.map((l) => ['LISTES_REQUISES', l.path] as const),
+		...CHEMINS_DE_DELTAS.map((d) => ['CHEMINS_DE_DELTAS', d.path] as const),
+		...BUDGETS_DE_MOTS.map((b) => ['BUDGETS_DE_MOTS', b.path] as const),
+		...FAMILLES_DE_CONDITIONS.map((f) => ['FAMILLES_DE_CONDITIONS', f.expr] as const),
+		...FAMILLES_DE_CONDITIONS.map((f) => ['FAMILLES_DE_CONDITIONS', f.texte] as const),
+	]
+}
+
+/**
+ * Un chemin de table est INSTANCIÉ dans la fixture quand une feuille lui est
+ * égale, ou DESCEND de lui. Le préfixe est indispensable et n'est pas un
+ * relâchement : `monde.personnages[].savoirs` (LISTES_REQUISES), `canon.mj`
+ * (BUDGETS_DE_MOTS) ou `monde.quetes[].recompense` (CHEMINS_DE_DELTAS) sont des
+ * CONTENEURS — aucune feuille ne leur est jamais égale. Le préfixe est normalisé
+ * sur un séparateur (`.` ou `[`) pour que `plan_actions` ne couvre pas
+ * `plan_actions_bis`.
+ */
+function estInstancie(cheminDeTable: string, feuilles: readonly string[]): boolean {
+	return feuilles.some(
+		(feuille) =>
+			feuille === cheminDeTable || feuille.startsWith(`${cheminDeTable}.`) || feuille.startsWith(`${cheminDeTable}[`),
+	)
 }
 
 function estObjetSimple(valeur: unknown): valeur is Doc {
@@ -107,6 +183,17 @@ const NOM_LIBRE =
 	"« nom » est OPTIONNEL et libre : une valeur non textuelle retombe sur le repli « {Type} n°{index} (sans nom) », jamais sur une anomalie. C'est la doctrine absent ≠ vide de l'itération 1."
 
 /**
+ * Le motif partagé des QUATRE `…_texte` de l'itération 3 — optionnels et non
+ * contraints : leur ABSENCE est calme (D1), leur présence n'est arbitrée par
+ * aucune règle de forme, donc leur corruption ne fait rien rougir. Ils tombent
+ * sous la question ouverte DÉJÀ POSSÉDÉE par la n° 2 (« un champ présent doit
+ * être une chaîne »), la même qui porte les neuf dispenses `nom`. Inventer ici
+ * une table de textes optionnels trancherait à la place de son propriétaire.
+ */
+const TEXTE_OPTIONNEL_LIBRE =
+	"jumeau prose OPTIONNEL d'une condition : son absence est calme par D1, et aucune règle du schéma 1 ne contraint sa forme quand il est présent. Même question ouverte que les dispenses « nom », propriétaire n° 2 bascule-editeur : une table « présent → doit être une chaîne », ou une garde à l'affichage."
+
+/**
  * Les feuilles dont la corruption ne fait PAS échouer la validation, chacune
  * avec son motif. Toute entrée devenue inutile fait rougir le test de disjonction
  * plus bas : une liste d'exceptions doit être AUTO-NETTOYANTE (BUG-044).
@@ -115,6 +202,10 @@ const LIBRES: Record<string, string> = {
 	'canon.interdits_ton[]':
 		"consigne de ton libre : la RACINE est vérifiée comme liste (itération 1), le contenu de ses éléments n'est arbitré par aucune règle du schéma 1.",
 	'canon.objectifs[].nom': NOM_LIBRE,
+	'canon.objectifs[].reussi_si_texte': TEXTE_OPTIONNEL_LIBRE,
+	'canon.objectifs[].echoue_si_texte': TEXTE_OPTIONNEL_LIBRE,
+	'monde.personnages[].plan_actions[].declencheur_texte': TEXTE_OPTIONNEL_LIBRE,
+	'monde.evenements[].declencheur_texte': TEXTE_OPTIONNEL_LIBRE,
 	'monde.personnages[].nom': NOM_LIBRE,
 	'monde.personnages[].plan_actions[].etape':
 		"l'ordre d'une étape : aucune règle d'ordonnancement (unicité, continuité, départ à 1) n'est arbitrée au schéma 1 — les déclencheurs arrivent en itération 3.",
@@ -211,6 +302,112 @@ describe('couverture', () => {
 			.filter((nom) => fs.readFileSync(path.join(MODULE_DOSSIER, nom), 'utf8').includes(SIGNATURE))
 
 		expect(porteurs).toEqual(['couverture.test.ts'])
+	})
+
+	it('4e assertion : tout chemin de table a une instance dans la fixture, par prefixe normalise', () => {
+		// Le dernier chemin de contournement du garde de DESTINATION_DES_CHAMPS : un
+		// champ ajouté aux types ET aux tables mais PAS à la fixture restait invisible
+		// aux trois assertions précédentes, qui partent toutes de la fixture.
+		const feuilles = cheminsDeLaFixture()
+
+		const orphelins = cheminsDesTables()
+			.filter(([, chemin]) => !estInstancie(chemin, feuilles))
+			.map(([table, chemin]) => `${table} → ${chemin}`)
+
+		expect(orphelins).toEqual([])
+	})
+
+	it('la 4e assertion rougit sur un chemin de table absent de la fixture', () => {
+		// Discriminant de l'instrument : sans lui, `estInstancie` pourrait rendre vrai
+		// pour tout et l'assertion ci-dessus serait une constante.
+		const feuilles = cheminsDeLaFixture()
+
+		expect(estInstancie('monde.personnages[].contre_mesures', feuilles)).toBe(false)
+		// Et le préfixe se normalise sur un séparateur : un préfixe de NOM ne compte pas.
+		expect(estInstancie('monde.personnages[].plan', feuilles)).toBe(false)
+		expect(estInstancie('monde.personnages[].plan_actions', feuilles)).toBe(true)
+	})
+
+	it('tout chemin finissant par _expr a une destination valant moteur', () => {
+		// D1 : `…_expr` est la seule autorité sur ce qui se déclenche, et il n'entre
+		// dans aucun contexte de modèle. Une ligne `ia` ici serait exactement la fuite
+		// que la table des destinations existe pour rendre impossible.
+		const suffixe = ['_ex', 'pr'].join('')
+
+		const cheminsExpr = cheminsDeLaFixture().filter((chemin) => chemin.endsWith(suffixe))
+
+		expect(cheminsExpr).toHaveLength(FAMILLES_DE_CONDITIONS.length)
+		for (const chemin of cheminsExpr) {
+			expect(`${chemin} → ${DESTINATION_DES_CHAMPS[chemin]}`).toBe(`${chemin} → moteur`)
+		}
+	})
+
+	it('tout jumeau prose d une condition a une destination valant auteur', () => {
+		// Le SYMÉTRIQUE de l'assertion ci-dessus, et il est le plus important des deux.
+		// Un `…_texte` est le `…_expr` EN FRANÇAIS : injecté, il met la même règle dans
+		// le code ET dans le prompt, et il apprend au modèle à PROVOQUER le jalon ou à
+		// conduire à la fin. C'est le veto qui a fait corriger le § D1 du roadmap.
+		//
+		// Il manquait (BUG-051) : la règle `…_expr → moteur` ne dit RIEN des jumeaux, et
+		// basculer `reussi_si_texte` de `auteur` à `ia` laissait la suite entièrement
+		// verte. Dérivé de la même table que son symétrique — deux listes de chemins
+		// divergeraient en silence, c'est précisément ce qu'on refuse ailleurs.
+		const cheminsTexte = FAMILLES_DE_CONDITIONS.map((famille) => famille.texte)
+
+		for (const chemin of cheminsTexte) {
+			expect(`${chemin} → ${DESTINATION_DES_CHAMPS[chemin]}`).toBe(`${chemin} → auteur`)
+		}
+		// Discriminant : la table doit réellement porter ces chemins. Sans cette ligne,
+		// l'assertion passerait aussi sur `undefined → undefined` si une ligne tombait.
+		expect(cheminsTexte.filter((chemin) => DESTINATION_DES_CHAMPS[chemin] === undefined)).toEqual([])
+	})
+
+	it('chaque entree de PREDICATES a au moins une instance dans la fixture', () => {
+		// La fixture est le seul document dont on sait qu'il est complet : c'est elle
+		// qui ferme la boucle. Un prédicat sans instance n'est jamais éprouvé de bout
+		// en bout — ni sa résolution, ni son arité, ni son libellé.
+		const texte = fs.readFileSync(CHEMIN_FIXTURE, 'utf8')
+
+		const absents = Object.keys(PREDICATES).filter((id) => !texte.includes(`"predicat": "${id}"`))
+
+		expect(absents).toEqual([])
+	})
+
+	it('l arret du balayage est derive de FAMILLES_DE_CONDITIONS', () => {
+		// (a) COMPORTEMENT — le balayage ne descend JAMAIS dans un arbre de condition,
+		// et chaque `…_expr` de la fixture y apparaît comme une feuille ENTIÈRE. Une
+		// famille ajoutée à la table sans l'être au point d'arrêt ferait apparaître des
+		// chemins internes (« ….op », « ….enfants[].predicat ») et ce test rougirait.
+		const suffixe = ['_ex', 'pr'].join('')
+		const chemins = cheminsDeLaFixture()
+
+		expect(chemins.filter((chemin) => chemin.includes(`${suffixe}.`))).toEqual([])
+		expect(chemins.filter((chemin) => chemin.endsWith(suffixe)).sort()).toEqual(
+			FAMILLES_DE_CONDITIONS.map((famille) => famille.expr).sort(),
+		)
+
+		// (b) SOURCE — aucune SECONDE liste de chemins de condition dans ce fichier :
+		// pas un seul littéral de chemin se terminant par le suffixe, les assertions
+		// elles-mêmes passant par la table. Deux listes divergeraient en silence.
+		const source = fs.readFileSync(path.join(MODULE_DOSSIER, 'couverture.test.ts'), 'utf8')
+		const litteraux = source.match(new RegExp(`['"\`][a-z0-9_.[\\]]*${suffixe}['"\`]`, 'g')) ?? []
+
+		expect(litteraux).toEqual([])
+		expect(source).toContain('FAMILLES_DE_CONDITIONS.map((famille) => famille.expr)')
+	})
+
+	it('la docstring nomme ce que le balayage ne couvre PAS', () => {
+		// KR-173 : quand une traversée abandonne une branche pour rester totale, ce
+		// qu'elle cesse de visiter doit être ÉCRIT — et l'écrit doit être sous test,
+		// sinon il se périme comme n'importe quel commentaire.
+		const source = fs.readFileSync(path.join(MODULE_DOSSIER, 'couverture.test.ts'), 'utf8')
+		const entete = source.slice(0, source.indexOf('const CHEMIN_FIXTURE'))
+
+		expect(entete).toContain('CE QUE LE BALAYAGE NE COUVRE PAS')
+		expect(entete).toContain('LES CONTENEURS INTERMÉDIAIRES')
+		expect(entete).toContain('LES ÉLÉMENTS DE LISTE NON-OBJET')
+		expect(entete).toContain('BUG-050')
+		expect(entete).toContain("L'INTÉRIEUR DES ARBRES D'EXPRESSION")
 	})
 
 	it('le balayage entre reellement dans les tableaux et normalise les indices', () => {

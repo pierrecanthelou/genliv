@@ -6,7 +6,7 @@ import { feuilleDe } from './identifiers'
  * badger une section, et que la modale d'import rend dès l'itération 1.
  *
  * Trois invariants tiennent ce contrat (KR-164) :
- *  · `code` appartient à une union FERMÉE de douze valeurs, doublée d'un `Record`
+ *  · `code` appartient à une union FERMÉE de seize valeurs, doublée d'un `Record`
  *    de libellés (KR-117) — jamais un `if (code === …)` en cascade chez le
  *    consommateur, jamais un `Partial<Record>` à trou silencieux ;
  *  · `message` est TOUJOURS une phrase française rédigée, jamais une erreur
@@ -17,7 +17,16 @@ import { feuilleDe } from './identifiers'
  *    mais n'est JAMAIS affiché seul — il sert à pointer, pas à expliquer.
  */
 
-/** Les douze anomalies que le schéma 1 sait produire. Union FERMÉE. */
+/**
+ * Les seize anomalies que le schéma 1 sait produire. Union FERMÉE.
+ *
+ * Les QUATRE derniers sont les conditions (itération 3). Aucun code neuf pour les
+ * RÉFÉRENCES d'une cible : une cible mal formée ou de mauvais espace de noms est
+ * le même défaut qu'un identifiant d'entité mal formé (`identifiant-invalide`),
+ * une cible bien formée qu'aucune entité ne porte est le même défaut qu'une
+ * référence pendante (`reference-pendante`). Les deux existent depuis it1 — un
+ * code par CAUSE, pas un code par emplacement.
+ */
 export type DossierIssueCode =
 	| 'schema-inconnu'
 	| 'racine-manquante'
@@ -31,6 +40,10 @@ export type DossierIssueCode =
 	| 'delta-en-prose'
 	| 'porte-inconnue'
 	| 'revelation-sans-porte'
+	| 'expr-malformee'
+	| 'predicat-inconnu'
+	| 'arite-invalide'
+	| 'condition-sans-expr'
 
 /**
  * Le canal de l'anomalie. `error` bloque l'import ; `warning` ne le bloque
@@ -60,7 +73,7 @@ export interface DossierIssue {
  * par le `path` entier, et `{champ}`, résolu par sa FEUILLE. Tous deux se
  * résolvent par `dossierIssueRemediation`, jamais à la main chez le consommateur.
  * Les marqueurs des colonnes QUOI (`{valeur}`, `{nom}`, `{liste attendue}`) sont
- * interpolés au site d'appel, dans `validate.ts` : ils ne transitent jamais par
+ * interpolés au site d'appel (`validate.ts`, `expr.ts` depuis l'itération 3) : ils ne transitent jamais par
  * ce registre.
  */
 export const DOSSIER_ISSUE_LABELS: Record<DossierIssueCode, string> = {
@@ -85,6 +98,16 @@ export const DOSSIER_ISSUE_LABELS: Record<DossierIssueCode, string> = {
 	'porte-inconnue': "↪ Supprimez cette clé ou remplacez-la par l'une des quatre portes reconnues, puis réimportez-le.",
 	'revelation-sans-porte':
 		'↪ Ajoutez au moins une porte, ou laissez tel quel si ce savoir ne doit jamais se révéler de lui-même.',
+	// Les QUATRE consignes des conditions disent quatre GESTES distincts — c'est ce
+	// qui rend quatre codes moins chers qu'un seul : un test asserte `issue.code`,
+	// jamais une sous-chaîne française, fragile à toute reformulation.
+	'expr-malformee':
+		'↪ Corrigez la forme de « {champ} » dans le fichier (opérateur, clé ou imbrication), puis réimportez-le.',
+	'predicat-inconnu':
+		'↪ Remplacez le prédicat de « {champ} » par l’un de ceux que le moteur reconnaît, puis réimportez-le.',
+	'arite-invalide': '↪ Ajustez le nombre de cibles ou de conditions de « {champ} », puis réimportez-le.',
+	'condition-sans-expr':
+		'↪ Ajoutez la condition structurée correspondante si le moteur doit la vérifier, ou laissez tel quel si elle reste une intention d’auteur.',
 }
 
 /**

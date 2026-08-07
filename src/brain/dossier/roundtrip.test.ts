@@ -91,6 +91,53 @@ describe('roundtrip', () => {
 		expect(Object.isFrozen(evenement.resolutions[0].consequence[0])).toBe(true)
 	})
 
+	it('un arbre a 3 niveaux traverse import puis export intact', () => {
+		// La preuve de bout en bout de l'itération 3, en l'absence d'écran (KR-156) :
+		// un arbre de condition part d'un FICHIER RÉEL, traverse la validation, le gel,
+		// la persistance et l'export sans qu'un niveau soit aplati ni une clé perdue.
+		const { dossiers } = setup()
+		dossiers.importDossier(texteFixture())
+
+		const exporte = dossiers.exportDossier('dossier-minimal')
+
+		expect(exporte).not.toBeNull()
+		if (exporte === null) return
+
+		const reussi = exporte.canon.objectifs[0].reussi_si_expr
+		expect(reussi).toEqual({
+			op: 'et',
+			enfants: [
+				{ op: 'predicat', predicat: 'jalon_atteint', cibles: ['jalon.premiere-nuit'] },
+				{
+					op: 'non',
+					enfant: { op: 'predicat', predicat: 'evenement_consomme', cibles: ['evenement.embuscade-du-fanal'] },
+				},
+			],
+		})
+
+		// Les SIX `…_expr` et les QUATRE `…_texte` neufs, nommés un par un : une clé
+		// perdue en route échoue en se nommant, jamais par un diff d'objet illisible.
+		expect(exporte.canon.objectifs[0].reussi_si_texte?.length).toBeGreaterThan(0)
+		expect(exporte.canon.objectifs[0].echoue_si_expr?.op).toBe('ou')
+		expect(exporte.canon.objectifs[0].echoue_si_texte?.length).toBeGreaterThan(0)
+		expect(exporte.charpente.fins[0].condition_expr?.op).toBe('et')
+		expect(exporte.charpente.jalons[0].declencheur_expr?.op).toBe('predicat')
+		expect(exporte.monde.evenements[0].declencheur_expr?.op).toBe('predicat')
+		expect(exporte.monde.evenements[0].declencheur_texte?.length).toBeGreaterThan(0)
+		expect(exporte.monde.personnages[0].plan_actions[0].declencheur_expr?.op).toBe('predicat')
+		expect(exporte.monde.personnages[0].plan_actions[0].declencheur_texte?.length).toBeGreaterThan(0)
+
+		// Le document exporté reste RE-VALIDABLE, et l'arbre est GELÉ jusqu'à sa feuille.
+		expect(validateDossier(JSON.parse(JSON.stringify(exporte))).ok).toBe(true)
+		expect(Object.isFrozen(reussi)).toBe(true)
+		if (reussi === undefined || reussi.op !== 'et') return
+		expect(Object.isFrozen(reussi.enfants)).toBe(true)
+		const nie = reussi.enfants[1]
+		expect(Object.isFrozen(nie)).toBe(true)
+		if (nie.op !== 'non') return
+		expect(Object.isFrozen(nie.enfant)).toBe(true)
+	})
+
 	it('le document est gele quel que soit le chemin d obtention', () => {
 		const { dossiers } = setup()
 

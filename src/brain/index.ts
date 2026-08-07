@@ -125,6 +125,12 @@ export { autoSlot } from './BookService'
 // autres ; les deux suivants n'ont d'appelants que le validateur et le registre
 // d'anomalies. `DESTINATION_DES_CHAMPS` non plus : aucun consommateur hors de
 // `brain/dossier/` avant la n° 10, qui bâtira son contexte à partir d'elle.
+// MÊME RÈGLE pour l'itération 3 : les TYPES des conditions sortent (`ExprNode`,
+// `Objectif`, `PredicatId` — la n° 3 en aura besoin pour typer ses formulaires),
+// les VALEURS restent (`PREDICATES`, `validateExpr`, `collectRefs`,
+// `FAMILLES_DE_CONDITIONS`) : aucun consommateur hors de `brain/dossier/` avant
+// les n° 3/6/7, et un registre exporté trop tôt se fait lire par des branches
+// `if (predicat === …)` avant d'avoir son `Select`.
 export { DOSSIER_SCHEMA, BUDGET_MOTS_CANON, BUDGET_MOTS_JALON, CONFIANCE_MIN, CONFIANCE_MAX } from './dossier/types'
 export { PORTEES, CERTITUDES } from './dossier/types'
 export type {
@@ -150,7 +156,10 @@ export type {
 	Conditions,
 	Jalon,
 	Fin,
+	Objectif,
 } from './dossier/types'
+export type { ExprNode } from './dossier/expr'
+export type { PredicatId } from './dossier/predicates'
 export { DOSSIER_ISSUE_LABELS, dossierIssueRemediation } from './dossier/issues'
 export type { DossierIssue, DossierIssueCode, DossierIssueSeverity } from './dossier/issues'
 export { ESPACES_DE_NOMS, FORME_IDENTIFIANT, estIdentifiantBienForme } from './dossier/identifiers'

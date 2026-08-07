@@ -10,6 +10,7 @@ import {
 	type DeltaBrut,
 } from './types'
 import { DOSSIER_ISSUE_LABELS, dossierIssueRemediation, type DossierIssue, type DossierIssueCode } from './issues'
+import { FAMILLES_DE_CONDITIONS } from './tables'
 
 const CHEMIN_FIXTURE = path.join(__dirname, '__fixtures__', 'dossier-minimal.json')
 
@@ -166,9 +167,10 @@ describe('validateDossier', () => {
 	it('chaque anomalie a un code ferme et un message redige', () => {
 		const documents: Doc[] = []
 
-		// Un document par famille d'anomalie, pour que les ONZE codes que le
-		// validateur sait produire soient TOUS observés (le douzième,
-		// `dossier-deja-importe`, appartient au magasin — voir DossierService).
+		// Un document par famille d'anomalie, pour que les ONZE codes de l'itération 2
+		// soient TOUS observés. Les QUATRE de l'itération 3 le sont par « les quatre
+		// codes neufs sont tous observables » ; `dossier-deja-importe` appartient au
+		// magasin (voir DossierService). Un décompte énonce son prédicat (KR-159).
 		const mauvaisSchema = fixture()
 		mauvaisSchema.schema = 2
 		documents.push(mauvaisSchema)
@@ -275,6 +277,60 @@ describe('validateDossier', () => {
 		expect(pendante?.path).toBe('charpente.depart.lieu_id')
 		expect(pendante?.entityId).toBe('lieu.nulle-part')
 		expect(pendante?.location).toBe('Point de départ')
+	})
+
+	it('validateDossier reste TOTAL sur une cle de prototype dans un …_expr', () => {
+		// BUG-053, le chemin qui compte : `inspectDossierFile` n'entoure pas
+		// `validateDossier` d'un try, et son appelant l'invoque dans `reader.onload`.
+		// Une exception y laissait la modale bloquée sur « lecture » — sans anomalie,
+		// sans message, sans sortie — sur le SEUL écran de la feature, à partir d'un
+		// fichier écrit à la main. Un validateur qui se promet total doit le rester sur
+		// une valeur qu'un auteur peut taper.
+		for (const heritee of ['toString', 'constructor', '__proto__', 'hasOwnProperty']) {
+			const doc = fixture()
+			arr(obj(doc.charpente).fins)[0].condition_expr = { op: heritee }
+
+			expect(() => validateDossier(doc)).not.toThrow()
+
+			const resultat = validateDossier(doc)
+
+			expect(resultat.ok).toBe(false)
+			expect(resultat.errors.map((e) => e.code)).toContain('expr-malformee')
+			for (const issue of resultat.errors) {
+				for (const fuite of ['expected', 'undefined', 'is not a function']) {
+					expect(issue.message).not.toContain(fuite)
+				}
+			}
+		}
+
+		// Même porte du côté du prédicat, où le descripteur hérité faisait sauter
+		// `.refKinds.length` avant même que le message soit rédigé.
+		const parPredicat = fixture()
+		arr(obj(parPredicat.charpente).fins)[0].condition_expr = { op: 'predicat', predicat: 'toString', cibles: [] }
+
+		expect(() => validateDossier(parPredicat)).not.toThrow()
+		expect(validateDossier(parPredicat).errors.map((e) => e.code)).toContain('predicat-inconnu')
+	})
+
+	it('monstre_ref pointant une cle de prototype est refuse comme pendant', () => {
+		// BUG-053, second site de la même cause racine : `BESTIARY_BY_TEMPLATE` est
+		// construit par `Object.fromEntries`, donc un test d'index rendait la FONCTION
+		// héritée `Object.prototype.toString` et « bestiaire.toString » passait pour un
+		// monstre existant — dossier gelé `ok:true`, combat ouvert en n° 13 sur une
+		// fonction.
+		for (const heritee of ['bestiaire.toString', 'bestiaire.constructor', 'bestiaire.valueOf']) {
+			const doc = fixture()
+			evenement(doc).monstre_ref = heritee
+
+			const resultat = validateDossier(doc)
+
+			expect(resultat.ok).toBe(false)
+			expect(resultat.errors.map((e) => e.code)).toContain('reference-pendante')
+		}
+
+		// Discriminant : un templateId RÉELLEMENT présent au bestiaire reste accepté.
+		const valide = fixture()
+		expect(validateDossier(valide).ok).toBe(true)
 	})
 
 	it('monstre_ref pendant nomme l evenement, pas le monstre', () => {
@@ -824,10 +880,10 @@ describe('issues', () => {
 		return { code, severity: 'error', message: 'peu importe', location: 'Monde', path }
 	}
 
-	it('les douze codes sont prefixes et sans marqueur residuel', () => {
+	it('les seize codes sont prefixes et sans marqueur residuel', () => {
 		const tous = Object.keys(DOSSIER_ISSUE_LABELS) as DossierIssueCode[]
 
-		expect(tous).toHaveLength(12)
+		expect(tous).toHaveLength(16)
 		for (const code of tous) {
 			const rendu = dossierIssueRemediation(anomalieDe(code, 'monde.personnages'))
 
@@ -884,6 +940,291 @@ describe('issues', () => {
 		)
 		expect(DOSSIER_ISSUE_LABELS['revelation-sans-porte']).toBe(
 			'↪ Ajoutez au moins une porte, ou laissez tel quel si ce savoir ne doit jamais se révéler de lui-même.',
+		)
+	})
+})
+
+/**
+ * L'INTÉGRITÉ RÉFÉRENTIELLE DES CONDITIONS — le but de l'itération, énoncé en une
+ * phrase : l'auteur peut voir refusée une condition qui référence une entité
+ * inexistante.
+ *
+ * Un test PAR FAMILLE, dérivé de `FAMILLES_DE_CONDITIONS` et échouant par NOM de
+ * famille absente : un compte se contenterait de « cinq familles », et une famille
+ * ajoutée à la table sans son poseur passerait sans bruit.
+ */
+describe('validateDossier, les conditions', () => {
+	const objectif = (doc: Doc): Doc => arr(obj(doc.canon).objectifs)[0]
+	const fin = (doc: Doc): Doc => arr(obj(doc.charpente).fins)[0]
+	const etape = (doc: Doc): Doc => arr(personnage(doc).plan_actions)[0]
+
+	/** Un prédicat dont la cible est BIEN FORMÉE mais que rien ne porte. */
+	const PENDANTE = { op: 'predicat', predicat: 'jalon_atteint', cibles: ['jalon.nulle-part'] }
+
+	/** Où poser un `…_expr` et où lire son jumeau, par famille. */
+	interface PoseurDeFamille {
+		poser: (doc: Doc, expr: unknown) => void
+		retirer: (doc: Doc) => void
+		/** Le chemin CONCRET du champ porteur, tel que le rapport doit le nommer. */
+		chemin: string
+		/** Le OÙ attendu : l'entité PORTEUSE, jamais le nœud ni l'étape. */
+		location: string
+	}
+
+	const POSEURS: Record<string, PoseurDeFamille> = {
+		'canon.objectifs[].reussi_si_expr': {
+			poser: (doc, expr) => {
+				objectif(doc).reussi_si_expr = expr
+			},
+			retirer: (doc) => delete objectif(doc).reussi_si_expr,
+			chemin: 'canon.objectifs[0].reussi_si_expr',
+			location: 'Objectif « Refermer le sceau du Gouffre »',
+		},
+		'canon.objectifs[].echoue_si_expr': {
+			poser: (doc, expr) => {
+				objectif(doc).echoue_si_expr = expr
+			},
+			retirer: (doc) => delete objectif(doc).echoue_si_expr,
+			chemin: 'canon.objectifs[0].echoue_si_expr',
+			location: 'Objectif « Refermer le sceau du Gouffre »',
+		},
+		'charpente.fins[].condition_expr': {
+			poser: (doc, expr) => {
+				fin(doc).condition_expr = expr
+			},
+			retirer: (doc) => delete fin(doc).condition_expr,
+			chemin: 'charpente.fins[0].condition_expr',
+			location: 'Fin « Le sceau refermé »',
+		},
+		'charpente.jalons[].declencheur_expr': {
+			poser: (doc, expr) => {
+				jalon(doc).declencheur_expr = expr
+			},
+			retirer: (doc) => delete jalon(doc).declencheur_expr,
+			chemin: 'charpente.jalons[0].declencheur_expr',
+			location: 'Jalon « La première nuit à Val-Cendre »',
+		},
+		'monde.evenements[].declencheur_expr': {
+			poser: (doc, expr) => {
+				evenement(doc).declencheur_expr = expr
+			},
+			retirer: (doc) => delete evenement(doc).declencheur_expr,
+			chemin: 'monde.evenements[0].declencheur_expr',
+			location: "Événement « L'embuscade du Fanal »",
+		},
+		'monde.personnages[].plan_actions[].declencheur_expr': {
+			poser: (doc, expr) => {
+				etape(doc).declencheur_expr = expr
+			},
+			retirer: (doc) => delete etape(doc).declencheur_expr,
+			chemin: 'monde.personnages[0].plan_actions[0].declencheur_expr',
+			location: 'Personnage « Aldûr le Sage »',
+		},
+	}
+
+	it('les familles de conditions ont toutes leur poseur, aucune de plus', () => {
+		// C'est CE test qui fait échouer les suivants par NOM : une famille ajoutée à
+		// la table sans son cas d'épreuve se nomme ici, elle ne disparaît pas.
+		expect(Object.keys(POSEURS).sort()).toEqual(FAMILLES_DE_CONDITIONS.map((famille) => famille.expr).sort())
+	})
+
+	for (const famille of FAMILLES_DE_CONDITIONS) {
+		const poseur = POSEURS[famille.expr]
+
+		it(`famille ${famille.expr} : une reference absente est bloquante et nomme le champ porteur`, () => {
+			const doc = fixture()
+			poseur.poser(doc, PENDANTE)
+
+			const resultat = validateDossier(doc)
+			const pendante = resultat.errors.find((e) => e.code === 'reference-pendante')
+
+			expect(resultat.ok).toBe(false)
+			expect(pendante?.path).toBe(poseur.chemin)
+			expect(pendante?.entityId).toBe('jalon.nulle-part')
+			expect(pendante?.location).toBe(poseur.location)
+			// Le message nomme le prédicat par son LIBELLÉ, le champ porteur et l'id.
+			expect(pendante?.message).toContain('le jalon est atteint')
+			expect(pendante?.message).toContain(`« ${famille.expr.split('.').pop() as string} »`)
+			expect(pendante?.message).toContain('jalon.nulle-part')
+			for (const fuite of FUITES_TECHNIQUES) {
+				expect(pendante?.message.toLowerCase()).not.toContain(fuite)
+			}
+		})
+
+		it(`famille ${famille.expr} : une reference PRESENTE reste calme`, () => {
+			// Discriminant : c'est bien la RÉSOLUTION qui parle, pas la simple présence
+			// d'un prédicat dans le champ.
+			const doc = fixture()
+			poseur.poser(doc, { op: 'predicat', predicat: 'jalon_atteint', cibles: ['jalon.premiere-nuit'] })
+
+			expect(codes(validateDossier(doc).errors)).not.toContain('reference-pendante')
+		})
+
+		it(`famille ${famille.expr} : une expression MAL FORMEE sort avant toute resolution`, () => {
+			// Deux anomalies pour une seule cause seraient du bruit : `collectRefs` n'est
+			// appelée que si `validateExpr` s'est tue.
+			const doc = fixture()
+			poseur.poser(doc, { op: 'xor', enfants: [PENDANTE, PENDANTE] })
+
+			const resultat = validateDossier(doc)
+
+			expect(codes(resultat.errors)).toContain('expr-malformee')
+			expect(codes(resultat.errors)).not.toContain('reference-pendante')
+			expect(resultat.errors.find((e) => e.code === 'expr-malformee')?.path).toBe(poseur.chemin)
+		})
+	}
+
+	it('la location d une anomalie de plan_actions nomme le PERSONNAGE, jamais l etape', () => {
+		// Une étape n'a ni nom ni identifiant : le OÙ remonte au porteur nommé, comme
+		// pour `savoirs[]`. Sans cela, le rapport dirait « n°1 » sans dire de qui.
+		const doc = fixture()
+		etape(doc).declencheur_expr = PENDANTE
+
+		const pendante = validateDossier(doc).errors.find((e) => e.code === 'reference-pendante')
+
+		expect(pendante?.location).toBe('Personnage « Aldûr le Sage »')
+		expect(pendante?.location).not.toContain('étape')
+		expect(pendante?.location).not.toContain('n°')
+	})
+
+	it('un predicat inconnu dans un dossier est bloquant et nomme le champ porteur', () => {
+		const doc = fixture()
+		fin(doc).condition_expr = { op: 'predicat', predicat: 'quete_achevee', cibles: ['quete.retrouver-la-clef'] }
+
+		const resultat = validateDossier(doc)
+		const anomalie = resultat.errors.find((e) => e.code === 'predicat-inconnu')
+
+		expect(resultat.ok).toBe(false)
+		expect(anomalie?.path).toBe('charpente.fins[0].condition_expr')
+		expect(anomalie?.location).toBe('Fin « Le sceau refermé »')
+		expect(anomalie?.message).toContain('« quete_achevee »')
+	})
+
+	it('une cible de mauvais espace est identifiant-invalide, distinct de reference-pendante', () => {
+		// L'ENTITÉ EXISTE, mais pas dans l'espace attendu : c'est un défaut de FORME,
+		// que `validateExpr` tranche, et il ne se confond pas avec une référence que
+		// rien ne porte.
+		const doc = fixture()
+		fin(doc).condition_expr = { op: 'predicat', predicat: 'possede_objet', cibles: ['lieu.val-cendre'] }
+
+		const resultat = validateDossier(doc)
+		const anomalie = resultat.errors.find((e) => e.path === 'charpente.fins[0].condition_expr')
+
+		expect(resultat.ok).toBe(false)
+		expect(anomalie?.code).toBe('identifiant-invalide')
+		expect(anomalie?.message).toContain('« Objet »')
+		expect(codes(resultat.errors)).not.toContain('reference-pendante')
+	})
+
+	it('un …_texte sans …_expr avertit sans bloquer, pilote par alerteSansExpr', () => {
+		// La règle est LUE dans la table, jamais recopiée : les familles qui alertent
+		// et celles qui restent calmes viennent du même endroit que le validateur.
+		for (const famille of FAMILLES_DE_CONDITIONS) {
+			const doc = fixture()
+			POSEURS[famille.expr].retirer(doc)
+
+			const resultat = validateDossier(doc)
+			const alertes = resultat.warnings.filter((w) => w.code === 'condition-sans-expr')
+
+			expect(resultat.errors).toEqual([])
+			expect(resultat.ok).toBe(true) // un avertissement ne bloque JAMAIS
+			expect(alertes).toHaveLength(famille.alerteSansExpr ? 1 : 0)
+			if (!famille.alerteSansExpr) continue
+
+			const feuilleTexte = famille.texte.split('.').pop() as string
+			expect(alertes[0].severity).toBe('warning')
+			expect(alertes[0].message).toContain(`« ${feuilleTexte} »`)
+			expect(alertes[0].path.endsWith(feuilleTexte)).toBe(true)
+			expect(dossierIssueRemediation(alertes[0])).toBe(DOSSIER_ISSUE_LABELS['condition-sans-expr'])
+		}
+	})
+
+	it('jalon, evenement et etape de plan restent calmes sans …_expr — assertion discriminante', () => {
+		// Les TROIS familles à `alerteSansExpr: false` d'un seul coup : leur prose sans
+		// jumeau structuré est un déclenchement laissé au narrateur, pas un oubli.
+		const doc = fixture()
+		delete jalon(doc).declencheur_expr
+		delete evenement(doc).declencheur_expr
+		delete etape(doc).declencheur_expr
+
+		const resultat = validateDossier(doc)
+
+		expect(resultat.warnings).toEqual([])
+		expect(resultat.errors).toEqual([])
+		expect(resultat.ok).toBe(true)
+	})
+
+	it('un …_expr sans son …_texte ne dit rien du tout', () => {
+		// C8 rejetée : les `…_texte` sont auteur et ne sont injectés dans AUCUN cas,
+		// donc « l'IA n'a pas la phrase » ne distingue rien. Ce qui reste est un trou
+		// de documentation, affaire du linter n° 7 — pas du validateur.
+		const doc = fixture()
+		delete objectif(doc).reussi_si_texte
+		delete fin(doc).condition_texte
+
+		const resultat = validateDossier(doc)
+
+		// `condition_texte` reste REQUIS depuis it2 : c'est lui qui parle, pas D1.
+		expect(codes(resultat.errors)).toEqual(['champ-requis-vide'])
+		expect(resultat.errors[0].path).toBe('charpente.fins[0].condition_texte')
+		expect(codes(resultat.warnings)).not.toContain('condition-sans-expr')
+	})
+
+	it('un texte VIDE ne declenche pas l alerte : absent et vide ne se confondent pas', () => {
+		const doc = fixture()
+		delete objectif(doc).reussi_si_expr
+		objectif(doc).reussi_si_texte = '   '
+
+		expect(codes(validateDossier(doc).warnings)).not.toContain('condition-sans-expr')
+	})
+
+	it('les quatre codes neufs sont tous observables, et leur QUOI FAIRE est prefixe', () => {
+		const malFormee = fixture()
+		fin(malFormee).condition_expr = { op: 'xor' }
+		const predicatInconnu = fixture()
+		fin(predicatInconnu).condition_expr = { op: 'predicat', predicat: 'jet_reussi', cibles: [] }
+		const ariteInvalide = fixture()
+		fin(ariteInvalide).condition_expr = { op: 'et', enfants: [] }
+		const sansExpr = fixture()
+		delete objectif(sansExpr).reussi_si_expr
+
+		const observes = new Set<DossierIssueCode>()
+		for (const doc of [malFormee, predicatInconnu, ariteInvalide, sansExpr]) {
+			const resultat = validateDossier(doc)
+			for (const anomalie of [...resultat.errors, ...resultat.warnings]) {
+				observes.add(anomalie.code)
+				expect(DOSSIER_ISSUE_LABELS[anomalie.code]).toBeDefined()
+				expect(dossierIssueRemediation(anomalie)).toMatch(/^↪ /)
+				expect(dossierIssueRemediation(anomalie)).not.toMatch(/\{[a-z_]+\}/)
+				for (const fuite of FUITES_TECHNIQUES) {
+					expect(anomalie.message.toLowerCase()).not.toContain(fuite)
+				}
+			}
+		}
+
+		expect([...observes].sort()).toEqual([
+			'arite-invalide',
+			'condition-sans-expr',
+			'expr-malformee',
+			'predicat-inconnu',
+		])
+	})
+
+	it('les QUOI FAIRE des quatre codes neufs sont asserts VERBATIM', () => {
+		// Aucun écran ne les rend avant la n° 2 : c'est ici, et nulle part ailleurs,
+		// que la rédaction arbitrée est tenue. Quatre GESTES distincts, pas quatre fois
+		// la même ligne — c'est ce qui rend quatre codes moins chers qu'un seul.
+		expect(DOSSIER_ISSUE_LABELS['expr-malformee']).toBe(
+			'↪ Corrigez la forme de « {champ} » dans le fichier (opérateur, clé ou imbrication), puis réimportez-le.',
+		)
+		expect(DOSSIER_ISSUE_LABELS['predicat-inconnu']).toBe(
+			'↪ Remplacez le prédicat de « {champ} » par l’un de ceux que le moteur reconnaît, puis réimportez-le.',
+		)
+		expect(DOSSIER_ISSUE_LABELS['arite-invalide']).toBe(
+			'↪ Ajustez le nombre de cibles ou de conditions de « {champ} », puis réimportez-le.',
+		)
+		expect(DOSSIER_ISSUE_LABELS['condition-sans-expr']).toBe(
+			'↪ Ajoutez la condition structurée correspondante si le moteur doit la vérifier, ou laissez tel quel si elle reste une intention d’auteur.',
 		)
 	})
 })

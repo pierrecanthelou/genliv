@@ -13,7 +13,39 @@
 		},
 		"ton": "sombre et feutré",
 		"interdits_ton": ["aucun anachronisme", "aucune vulgarité"],
-		"objectifs": [{ "id": "objectif.refermer-le-sceau", "nom": "Refermer le sceau du Gouffre" }]
+		"objectifs": [
+			{
+				"id": "objectif.refermer-le-sceau",
+				"nom": "Refermer le sceau du Gouffre",
+				"reussi_si_texte": "La première nuit est passée à Val-Cendre et l'embuscade du Fanal n'a jamais eu lieu.",
+				"reussi_si_expr": {
+					"op": "et",
+					"enfants": [
+						{ "op": "predicat", "predicat": "jalon_atteint", "cibles": ["jalon.premiere-nuit"] },
+						{
+							"op": "non",
+							"enfant": {
+								"op": "predicat",
+								"predicat": "evenement_consomme",
+								"cibles": ["evenement.embuscade-du-fanal"]
+							}
+						}
+					]
+				},
+				"echoue_si_texte": "L'embuscade du Fanal a eu lieu, ou Aldûr a livré le secret du sceau.",
+				"echoue_si_expr": {
+					"op": "ou",
+					"enfants": [
+						{ "op": "predicat", "predicat": "evenement_consomme", "cibles": ["evenement.embuscade-du-fanal"] },
+						{
+							"op": "predicat",
+							"predicat": "pnj_a_revele",
+							"cibles": ["pnj.aldur-le-sage", "indice.sceau-brise"]
+						}
+					]
+				}
+			}
+		]
 	},
 	"monde": {
 		"personnages": [
@@ -21,7 +53,14 @@
 				"id": "pnj.aldur-le-sage",
 				"nom": "Aldûr le Sage",
 				"portee": "premier",
-				"plan_actions": [{ "etape": 1, "action": "Détourner la conversation dès qu'il est question du Gouffre." }],
+				"plan_actions": [
+					{
+						"etape": 1,
+						"action": "Détourner la conversation dès qu'il est question du Gouffre.",
+						"declencheur_texte": "Le joueur sait déjà que le sceau est brisé.",
+						"declencheur_expr": { "op": "predicat", "predicat": "indice_connu", "cibles": ["indice.sceau-brise"] }
+					}
+				],
 				"savoirs": [
 					{
 						"indice_id": "indice.sceau-brise",
@@ -49,6 +88,8 @@
 				"id": "evenement.embuscade-du-fanal",
 				"nom": "L'embuscade du Fanal",
 				"monstre_ref": "bestiaire.gobelin",
+				"declencheur_texte": "Le joueur revient à Val-Cendre après la tempête.",
+				"declencheur_expr": { "op": "predicat", "predicat": "lieu_courant_est", "cibles": ["lieu.val-cendre"] },
 				"resolutions": [{ "resultat": "Les gobelins sont mis en fuite.", "consequence": [{}] }]
 			}
 		],
@@ -67,6 +108,7 @@
 				"nom": "La première nuit à Val-Cendre",
 				"enonce_texte": "La première nuit à Val-Cendre est passée ; le bourg a entendu le Gouffre.",
 				"declencheur_texte": "Le joueur dort une nuit entière à l'auberge du Fanal.",
+				"declencheur_expr": { "op": "predicat", "predicat": "lieu_visite", "cibles": ["lieu.val-cendre"] },
 				"effet": [{}]
 			}
 		],
@@ -74,7 +116,17 @@
 			{
 				"id": "fin.sceau-referme",
 				"nom": "Le sceau refermé",
-				"condition_texte": "Le héros a refermé le sceau du Gouffre et quitté Val-Cendre."
+				"condition_texte": "Le héros a refermé le sceau du Gouffre et quitté Val-Cendre.",
+				"condition_expr": {
+					"op": "et",
+					"enfants": [
+						{ "op": "predicat", "predicat": "possede_objet", "cibles": ["objet.clef-de-basalte"] },
+						{
+							"op": "non",
+							"enfant": { "op": "predicat", "predicat": "lieu_courant_est", "cibles": ["lieu.val-cendre"] }
+						}
+					]
+				}
 			}
 		]
 	}

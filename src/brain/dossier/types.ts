@@ -23,7 +23,9 @@
  * ne pose ici que les corrections IRRÉVERSIBLES — celles qu'aucune migration ne
  * rattrape : la collision de clé `plan`, les portes de révélation fermées, les
  * quatre emplacements de deltas TYPÉS, `monstre_ref`, et `jalons[].enonce_texte`.
- * `…_expr` arrive à l'itération 3, le registre `DELTAS` à l'itération 4.
+ * L'itération 3 y ajoute les DIX champs des cinq familles de conditions (D1) —
+ * six `…_expr` moteur, quatre `…_texte` auteur, tous optionnels ; le registre
+ * `DELTAS` reste à l'itération 4.
  *
  * QUI LIT QUOI : ce fichier dit la FORME, il ne dit pas l'AUDIENCE. L'audience
  * de chaque champ terminal vit dans `destinations.ts`, sous le balayage de
@@ -36,6 +38,7 @@
  */
 import type { Characteristic } from '../characteristics'
 import type { ChallengeTier } from '../challenge'
+import type { ExprNode } from './expr'
 
 /**
  * La version du schéma. Comparée au NOMBRE 1, strictement : ni `'1'`, ni `0`, ni
@@ -120,6 +123,13 @@ export interface PlanAction {
 	etape: number
 	/** L'intention du personnage à cette étape — ce que le rôle acteur joue. */
 	action: string
+	/** AUTEUR — ce qui fait passer le personnage à cette étape, en français. À ne
+	 *  pas confondre avec `action`, qui est la seule clé IA de la famille.
+	 *  Exemple : declencheur_texte: 'Le joueur mentionne le sceau brisé devant lui.' */
+	declencheur_texte?: string
+	/** MOTEUR — l'avancement d'étape est du code (n° 14), jamais une intention.
+	 *  Exemple : declencheur_expr: { op: 'predicat', predicat: 'indice_connu', cibles: ['indice.sceau-brise'] } */
+	declencheur_expr?: ExprNode
 }
 
 /**
@@ -185,6 +195,14 @@ export interface Evenement extends Entite {
 	 * BLOQUANTE à l'import : sinon un combat s'ouvre sans monstre.
 	 */
 	monstre_ref?: string
+	/** DEUX optionnels, PAIRÉS — un événement peut rester déclenché par la seule main
+	 *  du narrateur, sans condition formalisée : c'est calme, jamais une alerte.
+	 *  Exemple : declencheur_texte: 'Le joueur revient à Val-Cendre après la tempête.' */
+	declencheur_texte?: string
+	/** MOTEUR — jamais injecté : un narrateur qui connaît le déclencheur PROVOQUE
+	 *  l'embuscade au lieu de la laisser survenir.
+	 *  Exemple : declencheur_expr: { op: 'predicat', predicat: 'lieu_visite', cibles: ['lieu.val-cendre'] } */
+	declencheur_expr?: ExprNode
 	resolutions: Resolution[]
 }
 
@@ -211,6 +229,25 @@ export interface Conditions {
 	climat: Climat[]
 }
 
+/**
+ * Un objectif de l'aventure. `reussi_si_expr` / `echoue_si_expr` sont MOTEUR —
+ * jamais injectés. `reussi_si_texte` / `echoue_si_texte` sont AUTEUR : la même
+ * règle en français, pour que l'auteur qui relit le JSON sache ce qu'il déclenche.
+ *
+ * Les quatre sont OPTIONNELS et il n'existe AUCUNE règle de symétrie
+ * `…_expr` ⇒ `…_texte` : un `…_texte` sans son `…_expr` avertit (D1), l'inverse
+ * est un trou de documentation d'auteur, affaire du linter n° 7.
+ *
+ * Exemple : reussi_si_expr: { op: 'predicat', predicat: 'jalon_atteint', cibles: ['jalon.premiere-nuit'] }
+ * Exemple : reussi_si_texte: 'Le héros a atteint le fond du Gouffre scellé.'
+ */
+export interface Objectif extends Entite {
+	reussi_si_texte?: string
+	reussi_si_expr?: ExprNode
+	echoue_si_texte?: string
+	echoue_si_expr?: ExprNode
+}
+
 /** Ce qui est vrai de l'histoire, et les consignes de registre injectées au modèle. */
 export interface Canon {
 	mj: CanonMj
@@ -223,7 +260,7 @@ export interface Canon {
 	 * d'entité », qui est une VALIDATION par résolution d'identifiant (n° 10).
 	 */
 	interdits_ton: string[]
-	objectifs: Entite[]
+	objectifs: Objectif[]
 }
 
 /** Le bloc du canon réservé au MJ — la vérité, y compris ce que le joueur ignore. */
@@ -265,6 +302,12 @@ export interface Jalon extends Entite {
 	 *  declencheur_expr en prose). La n° 7 la lit pour son linter.
 	 *  Exemple : « Le joueur porte le sceau brisé devant l'Archiviste. » */
 	declencheur_texte: string
+	/** MOTEUR — jumeau structuré de `declencheur_texte`, OPTIONNEL là où celui-ci
+	 *  est requis : un jalon peut rester coché à la main par le moteur d'un
+	 *  événement. Absent, la condition n'est jamais vérifiée automatiquement, et
+	 *  c'est calme — un jalon n'est pas une fin.
+	 *  Exemple : declencheur_expr: { op: 'predicat', predicat: 'lieu_visite', cibles: ['lieu.val-cendre'] } */
+	declencheur_expr?: ExprNode
 	effet: DeltaBrut[]
 }
 
@@ -274,6 +317,12 @@ export interface Fin extends Entite {
 	 *  qui la connaît y conduit).
 	 *  Exemple : « Le héros a vaincu le Gardien ET porte la Clé d'Aldûr. » */
 	condition_texte: string
+	/** MOTEUR — jumeau structuré de `condition_texte`. Jamais injecté : un narrateur
+	 *  qui connaît la condition de fin y conduit.
+	 *  Exemple : condition_expr: { op: 'et', enfants: [
+	 *    { op: 'predicat', predicat: 'possede_objet', cibles: ['objet.clef-de-basalte'] },
+	 *    { op: 'predicat', predicat: 'jalon_atteint', cibles: ['jalon.premiere-nuit'] } ] } */
+	condition_expr?: ExprNode
 }
 
 /**

@@ -1,17 +1,9 @@
-import {
-	BUDGET_MOTS_CANON,
-	BUDGET_MOTS_JALON,
-	CERTITUDES,
-	CONFIANCE_MAX,
-	CONFIANCE_MIN,
-	DOSSIER_SCHEMA,
-	PORTEES,
-	type Dossier,
-} from './types'
+import { DOSSIER_SCHEMA, type Dossier } from './types'
 import type { DossierIssue, DossierIssueCode, DossierIssueSeverity } from './issues'
 import {
 	COLLECTIONS_IDENTIFIEES,
 	collectIds,
+	estCleDe,
 	estIdentifiantBienForme,
 	estObjet,
 	feuilleDe,
@@ -20,10 +12,19 @@ import {
 	resoudreChemin,
 	type EspaceDeNoms,
 } from './identifiers'
+import {
+	BUDGETS_DE_MOTS,
+	CHAMPS_REQUIS,
+	CHEMINS_DE_DELTAS,
+	ENUMERES_FERMES,
+	FAMILLES_DE_CONDITIONS,
+	LISTES_REQUISES,
+	RACINES,
+} from './tables'
+import { collectRefs, validateExpr } from './expr'
+import { PREDICATES } from './predicates'
 import { deepFreeze } from './freeze'
 import { BESTIARY_BY_TEMPLATE } from '../bestiary'
-import { CHARACTERISTIC_VALUES } from '../characteristics'
-import { CHALLENGE_TIER_VALUES } from '../challenge'
 
 /**
  * Le VALIDATEUR du dossier — la frontière de confiance entre un fichier écrit à
@@ -47,9 +48,14 @@ import { CHALLENGE_TIER_VALUES } from '../challenge'
  *    seul site d'appel de `deepFreeze` du module dossier.
  *
  * Les règles ne sont pas des cascades de `if` : les racines, les champs
- * obligatoires, les énumérations fermées, les emplacements de deltas et les
- * budgets de mots vivent dans des TABLES déclaratives, toutes lues par le même
- * expanseur de chemins. Étendre le schéma, c'est ajouter des LIGNES.
+ * obligatoires, les énumérations fermées, les emplacements de deltas, les budgets
+ * de mots et les familles de conditions vivent dans des TABLES déclaratives
+ * (`tables.ts`), toutes lues par le même expanseur de chemins. Étendre le schéma,
+ * c'est ajouter des LIGNES.
+ *
+ * Ce fichier garde les DONNÉES qui ne sont pas des chemins de table — les portes
+ * de révélation, la forme de l'identifiant de dossier — et surtout le LECTEUR,
+ * `sitesDe`, dont la grammaire est FIGÉE : segments pointés et `[]`, rien d'autre.
  */
 export interface DossierValidation {
 	/** Vrai si et seulement si `errors` est vide. Un avertissement ne bloque jamais. */
@@ -59,167 +65,6 @@ export interface DossierValidation {
 	errors: DossierIssue[]
 	warnings: DossierIssue[]
 }
-
-/** Ce qu'une racine obligatoire doit être : un objet, ou une liste. */
-type GenreDeRacine = 'objet' | 'liste'
-
-interface RacineObligatoire {
-	/** Chemin JSON depuis la racine du dossier — c'est lui que le message nomme. */
-	path: string
-	genre: GenreDeRacine
-	/** OÙ : le nom lisible de la section, jamais le chemin seul. */
-	location: string
-}
-
-/**
- * Les treize racines du schéma 1, plus les trois conteneurs de groupe qui les
- * portent. Absente ou du mauvais genre → `racine-manquante`, bloquant.
- *
- * `monde.conditions.climat` n'y figure pas — non parce qu'elle serait
- * facultative, mais parce que sa règle est ailleurs : `LISTES_REQUISES` exige un
- * TABLEAU (vide accepté) là où `RACINES` exigerait une section peuplée.
- */
-const RACINES: readonly RacineObligatoire[] = [
-	{ path: 'canon', genre: 'objet', location: 'Canon' },
-	{ path: 'canon.mj', genre: 'objet', location: 'Canon (MJ)' },
-	{ path: 'canon.partage', genre: 'objet', location: 'Canon (partagé)' },
-	{ path: 'canon.interdits_ton', genre: 'liste', location: 'Interdits de ton' },
-	{ path: 'canon.objectifs', genre: 'liste', location: 'Objectifs' },
-	{ path: 'monde', genre: 'objet', location: 'Monde' },
-	{ path: 'monde.personnages', genre: 'liste', location: 'Personnages' },
-	{ path: 'monde.lieux', genre: 'liste', location: 'Lieux' },
-	{ path: 'monde.objets', genre: 'liste', location: 'Objets' },
-	{ path: 'monde.indices', genre: 'liste', location: 'Indices' },
-	{ path: 'monde.quetes', genre: 'liste', location: 'Quêtes' },
-	{ path: 'monde.evenements', genre: 'liste', location: 'Événements' },
-	{ path: 'monde.conditions', genre: 'objet', location: 'Conditions' },
-	{ path: 'charpente', genre: 'objet', location: 'Charpente' },
-	{ path: 'charpente.depart', genre: 'objet', location: 'Point de départ' },
-	{ path: 'charpente.jalons', genre: 'liste', location: 'Jalons' },
-	{ path: 'charpente.fins', genre: 'liste', location: 'Fins' },
-]
-
-interface ChampRequis {
-	/**
-	 * Chemin depuis la racine. Un segment suffixé `[]` est une LISTE : la règle
-	 * s'applique alors à chacun de ses éléments, et le OÙ de l'anomalie est
-	 * l'entité identifiée la plus proche.
-	 */
-	path: string
-	/** OÙ de repli, quand aucune entité identifiée ne porte le champ. */
-	location: string
-}
-
-/**
- * Les champs de texte OBLIGATOIRES. Absent, non textuel ou vide → bloquant.
- * Tout ce qui n'est pas dans cette table est OPTIONNEL : un optionnel absent est
- * un état informationnel calme, il n'apparaît ni dans `errors` ni dans
- * `warnings`. C'est le cas du `nom` d'une entité, que le repli
- * « {Type} n°{index} (sans nom) » rend lisible sans jamais alerter.
- */
-const CHAMPS_REQUIS: readonly ChampRequis[] = [
-	{ path: 'id', location: 'Dossier' },
-	{ path: 'titre', location: 'Dossier' },
-	{ path: 'createdAt', location: 'Dossier' },
-	{ path: 'updatedAt', location: 'Dossier' },
-	{ path: 'canon.mj.synopsis_mj', location: 'Canon (MJ)' },
-	{ path: 'canon.partage.accroche_joueur', location: 'Canon (partagé)' },
-	{ path: 'canon.ton', location: 'Canon' },
-	{ path: 'monde.personnages[].plan_actions[].action', location: 'Personnages' },
-	{ path: 'monde.personnages[].savoirs[].indice_id', location: 'Personnages' },
-	{ path: 'monde.personnages[].savoirs[].revele_si.contrepartie.objet_id', location: 'Personnages' },
-	{ path: 'monde.evenements[].resolutions[].resultat', location: 'Événements' },
-	{ path: 'charpente.depart.lieu_id', location: 'Point de départ' },
-	{ path: 'charpente.depart.texte_ouverture_joueur', location: 'Point de départ' },
-	{ path: 'charpente.jalons[].enonce_texte', location: 'Jalons' },
-	{ path: 'charpente.jalons[].declencheur_texte', location: 'Jalons' },
-	{ path: 'charpente.fins[].condition_texte', location: 'Fins' },
-]
-
-interface EnumereFerme extends ChampRequis {
-	/** L'ensemble FERMÉ des valeurs acceptées — la source du libellé « attendu : … ». */
-	valeurs: readonly unknown[]
-	/** Faux quand le champ est optionnel : absent alors, il ne dit rien. */
-	requis: boolean
-}
-
-/**
- * Les valeurs de confiance acceptables, DÉRIVÉES des deux bornes nommées : la
- * borne ne se réécrit jamais en dur au site de validation (KR-165).
- */
-const CONFIANCES: readonly number[] = Array.from(
-	{ length: CONFIANCE_MAX - CONFIANCE_MIN + 1 },
-	(_, rang) => CONFIANCE_MIN + rang,
-)
-
-/**
- * Les ensembles FERMÉS du schéma. Chaque ligne cite le registre qui porte ses
- * valeurs — jamais une liste recopiée (KR-117) : `portee` et `certitude` viennent
- * de `types.ts`, le jet de révélation des registres de règles, et les bornes de
- * confiance des deux constantes nommées.
- */
-const ENUMERES_FERMES: readonly EnumereFerme[] = [
-	{ path: 'monde.personnages[].portee', location: 'Personnages', valeurs: PORTEES, requis: true },
-	{ path: 'monde.personnages[].savoirs[].certitude', location: 'Personnages', valeurs: CERTITUDES, requis: true },
-	{
-		path: 'monde.personnages[].savoirs[].revele_si.confiance_min',
-		location: 'Personnages',
-		valeurs: CONFIANCES,
-		requis: false,
-	},
-	{
-		path: 'monde.personnages[].savoirs[].revele_si.jet.carac',
-		location: 'Personnages',
-		valeurs: CHARACTERISTIC_VALUES,
-		requis: true,
-	},
-	{
-		path: 'monde.personnages[].savoirs[].revele_si.jet.tc',
-		location: 'Personnages',
-		valeurs: CHALLENGE_TIER_VALUES,
-		requis: true,
-	},
-	{
-		path: 'monde.personnages[].savoirs[].revele_si.contrepartie.consomme',
-		location: 'Personnages',
-		valeurs: [true, false],
-		requis: true,
-	},
-]
-
-/**
- * Les LISTES OBLIGATOIRES — celles que `types.ts` déclare NON optionnelles et
- * que `sitesDe` laisserait passer absentes.
- *
- * Pourquoi une table à part plutôt qu'une ligne de `CHAMPS_REQUIS` : ce dernier
- * exige une CHAÎNE non vide, alors qu'ici on exige un TABLEAU — vide accepté,
- * un personnage sans savoir est légitime. Ce qui ne l'est pas, c'est la clé
- * absente : le dossier gelé promettrait alors un tableau valant `undefined`, et
- * la n° 4 comme la n° 12 l'itéreraient en confiance du typage.
- *
- * Relevé à la revue de PR d'it2 : on croyait `conditions.climat` seul dans ce
- * cas, il y en avait QUATRE. Toute liste ajoutée non optionnelle à `types.ts`
- * doit gagner sa ligne ici — le compilateur ne relie pas les deux.
- */
-const LISTES_REQUISES: readonly ChampRequis[] = [
-	{ path: 'monde.personnages[].plan_actions', location: 'Personnages' },
-	{ path: 'monde.personnages[].savoirs', location: 'Personnages' },
-	{ path: 'monde.evenements[].resolutions', location: 'Événements' },
-	{ path: 'monde.conditions.climat', location: 'Conditions' },
-]
-
-/**
- * Les QUATRE emplacements d'effets de règle. Leur contenu attend le registre
- * `DELTAS` (itération 4) ; ce qui se ferme ICI est la FORME — une liste d'objets,
- * jamais de la prose. C'est le point irréversible : de la prose ne se parse pas
- * en delta, alors qu'un objet dont les clés se précisent est une extension.
- */
-const CHEMINS_DE_DELTAS: readonly ChampRequis[] = [
-	{ path: 'monde.quetes[].recompense', location: 'Quêtes' },
-	{ path: 'monde.evenements[].resolutions[].consequence', location: 'Événements' },
-	{ path: 'monde.conditions.climat[].effets_regles', location: 'Climat' },
-	{ path: 'charpente.jalons[].effet', location: 'Jalons' },
-]
 
 /** Le chemin des savoirs — le seul porteur de portes de révélation du schéma 1. */
 const CHEMIN_SAVOIRS = 'monde.personnages[].savoirs[]'
@@ -254,27 +99,6 @@ const PREFIXE_BESTIAIRE = `${ESPACE_BESTIAIRE}.`
  * l'auteur, et `dossier-deja-importe` ne les rapprocherait pas.
  */
 const FORME_ID_DOSSIER = /^[a-z0-9][a-z0-9-]*$/
-
-interface BudgetDeMots extends ChampRequis {
-	budget: number
-	/** Le SUJET de la phrase d'avertissement, article compris. */
-	sujet: string
-}
-
-/**
- * Les textes soumis à un budget de mots (avertissement, jamais blocage). La borne
- * est toujours une constante NOMMÉE, et son NOM ne fuit jamais dans le message.
- */
-const BUDGETS_DE_MOTS: readonly BudgetDeMots[] = [
-	{ path: 'canon.mj', location: 'Canon (MJ)', budget: BUDGET_MOTS_CANON, sujet: 'Le canon' },
-	{ path: 'canon.partage', location: 'Canon (partagé)', budget: BUDGET_MOTS_CANON, sujet: 'Le canon' },
-	{
-		path: 'charpente.jalons[].enonce_texte',
-		location: 'Jalons',
-		budget: BUDGET_MOTS_JALON,
-		sujet: "L'énoncé de ce jalon",
-	},
-]
 
 /** L'espace de noms attendu par collection — dérivé, jamais re-listé. */
 const ESPACE_PAR_COLLECTION: Record<string, EspaceDeNoms> = Object.fromEntries(
@@ -558,7 +382,11 @@ export function validateDossier(input: unknown): DossierValidation {
 		if (site.valeur === undefined) continue
 		const reference = typeof site.valeur === 'string' ? site.valeur : ''
 		const templateId = reference.startsWith(PREFIXE_BESTIAIRE) ? reference.slice(PREFIXE_BESTIAIRE.length) : ''
-		if (templateId !== '' && BESTIARY_BY_TEMPLATE[templateId] !== undefined) continue
+		// `estCleDe`, jamais un test d'index : `BESTIARY_BY_TEMPLATE` est construit par
+		// `Object.fromEntries`, donc `BESTIARY_BY_TEMPLATE['toString']` rend une
+		// FONCTION héritée d'`Object.prototype` — et « bestiaire.toString » passait pour
+		// un monstre existant (BUG-053, même cause racine que le site des prédicats).
+		if (templateId !== '' && estCleDe(BESTIARY_BY_TEMPLATE, templateId)) continue
 		errors.push(
 			anomalie(
 				'reference-pendante',
@@ -674,6 +502,62 @@ export function validateDossier(input: unknown): DossierValidation {
 					`${site.path}.revele_si`,
 				),
 			)
+		}
+	}
+
+	// 8 bis — LES CINQ FAMILLES DE CONDITIONS (D1), en deux temps disjoints.
+	//
+	// La FORME appartient à `validateExpr` — opérateur, clés, arité, profondeur, et
+	// jusqu'à la bonne forme d'une cible, préfixe d'espace de noms compris. Ce qui
+	// reste ICI est la seule RÉSOLUTION : `collectRefs` n'étant appelée que si
+	// `validateExpr` est muette, elle ne rend que des identifiants BIEN FORMÉS, et
+	// résoudre se réduit à une appartenance à l'ensemble des identifiants portés
+	// par le dossier. Deux anomalies pour une seule cause seraient du bruit.
+	const idsPortes = new Set(collectes.flatMap((collecte) => (collecte.id === null ? [] : [collecte.id])))
+	for (const famille of FAMILLES_DE_CONDITIONS) {
+		// Le jumeau prose, retrouvé par le PORTEUR commun (`charpente.fins[0]`) : les
+		// deux chemins ne diffèrent que par leur feuille.
+		const textes = new Map<string, unknown>()
+		for (const site of sitesDe(input, famille.texte, famille.location)) textes.set(parentDe(site.path), site.valeur)
+
+		for (const site of sitesDe(input, famille.expr, famille.location)) {
+			if (site.valeur === undefined) {
+				const texte = textes.get(parentDe(site.path))
+				// D1 : une condition en prose sans son jumeau structuré AVERTIT — sur une
+				// FIN et un OBJECTIF seulement. Ailleurs (jalon, événement, étape de plan),
+				// un déclenchement laissé à la main du narrateur est légitime et calme.
+				if (!famille.alerteSansExpr || typeof texte !== 'string' || texte.trim() === '') continue
+				warnings.push(
+					anomalie(
+						'condition-sans-expr',
+						'warning',
+						`Le champ « ${feuilleDe(famille.texte)} » décrit une condition en prose, mais aucune condition structurée correspondante n'est posée : elle ne sera jamais vérifiée automatiquement.`,
+						site.location,
+						`${parentDe(site.path)}.${feuilleDe(famille.texte)}`,
+					),
+				)
+				continue
+			}
+
+			const malFormee = validateExpr(site.valeur, { path: site.path, location: site.location })
+			if (malFormee.length > 0) {
+				errors.push(...malFormee)
+				continue
+			}
+
+			for (const ref of collectRefs(site.valeur)) {
+				if (idsPortes.has(ref.id)) continue
+				errors.push(
+					anomalie(
+						'reference-pendante',
+						'error',
+						`Le prédicat « ${PREDICATES[ref.predicat].label} » de « ${feuilleDe(site.path)} » pointe « ${ref.id} », qui n'existe pas dans ce dossier.`,
+						site.location,
+						site.path,
+						ref.id,
+					),
+				)
+			}
 		}
 	}
 
