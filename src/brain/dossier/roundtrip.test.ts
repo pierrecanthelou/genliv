@@ -73,15 +73,10 @@ describe('roundtrip', () => {
 		const evenement = exporte.monde.evenements[0]
 		expect(evenement.monstre_ref).toBe('bestiaire.gobelin')
 		expect(evenement.resolutions[0].resultat.length).toBeGreaterThan(0)
-		expect(evenement.resolutions[0].consequence).toEqual([{}])
-
-		expect(exporte.monde.quetes[0].recompense).toEqual([{}])
-		expect(exporte.monde.conditions.climat[0].effets_regles).toEqual([{}])
 
 		const jalon = exporte.charpente.jalons[0]
 		expect(jalon.enonce_texte.length).toBeGreaterThan(0)
 		expect(jalon.declencheur_texte.length).toBeGreaterThan(0)
-		expect(jalon.effet).toEqual([{}])
 		expect(exporte.charpente.fins[0].condition_texte.length).toBeGreaterThan(0)
 
 		// Le document exporté reste RE-VALIDABLE et GELÉ jusqu'aux formes profondes.
@@ -89,6 +84,42 @@ describe('roundtrip', () => {
 		expect(Object.isFrozen(savoir.revele_si)).toBe(true)
 		expect(Object.isFrozen(savoir.revele_si?.contrepartie)).toBe(true)
 		expect(Object.isFrozen(evenement.resolutions[0].consequence[0])).toBe(true)
+	})
+
+	it('un dossier portant de vrais effets traverse import puis export intact', () => {
+		// La preuve de bout en bout de l'itération 4, en l'absence d'écran (KR-156) : des
+		// effets STRUCTURÉS partent d'un FICHIER RÉEL, traversent la validation, le gel,
+		// la persistance et l'export sans qu'une clé soit perdue ni une cible aplatie.
+		// Chaque emplacement est nommé un par un — un diff d'objet global dirait « ça a
+		// changé » sans dire où.
+		const { dossiers } = setup()
+		dossiers.importDossier(texteFixture())
+
+		const exporte = dossiers.exportDossier('dossier-minimal')
+
+		expect(exporte).not.toBeNull()
+		if (exporte === null) return
+
+		expect(exporte.monde.quetes[0].recompense).toEqual([{ delta: 'donner_objet', cibles: ['objet.clef-de-basalte'] }])
+		// DEUX effets dans une même liste : l'ordre est du contenu, pas un détail — un
+		// export qui les réordonnerait changerait ce que le moteur appliquera.
+		expect(exporte.monde.evenements[0].resolutions[0].consequence).toEqual([
+			{ delta: 'atteindre_jalon', cibles: ['jalon.premiere-nuit'] },
+			{ delta: 'reveler_indice', cibles: ['indice.cendres-tiedes'] },
+		])
+		expect(exporte.monde.evenements[0].resolutions[1].consequence).toEqual([
+			{ delta: 'retirer_objet', cibles: ['objet.clef-de-basalte'] },
+		])
+		// La liste VIDE du climat survit comme une liste vide, jamais comme un absent :
+		// c'est exactement la distinction que `LISTES_REQUISES` protège.
+		expect(exporte.monde.conditions.climat[0].effets_regles).toEqual([])
+		expect(exporte.charpente.jalons[0].effet).toEqual([{ delta: 'reveler_indice', cibles: ['indice.sceau-brise'] }])
+
+		// Le document exporté reste RE-VALIDABLE, et l'effet est GELÉ jusqu'à sa cible.
+		expect(validateDossier(JSON.parse(JSON.stringify(exporte))).ok).toBe(true)
+		expect(Object.isFrozen(exporte.charpente.jalons[0].effet)).toBe(true)
+		expect(Object.isFrozen(exporte.charpente.jalons[0].effet[0])).toBe(true)
+		expect(Object.isFrozen(exporte.charpente.jalons[0].effet[0].cibles)).toBe(true)
 	})
 
 	it('un arbre a 3 niveaux traverse import puis export intact', () => {

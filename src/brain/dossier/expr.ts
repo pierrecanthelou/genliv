@@ -1,6 +1,7 @@
 import type { DossierIssue, DossierIssueCode } from './issues'
 import {
 	ESPACES_DE_NOMS,
+	decrireValeur,
 	estCleDe,
 	estIdentifiantBienForme,
 	estObjet,
@@ -79,22 +80,6 @@ const OPERATEURS = Object.keys(CLES_PAR_OPERATEUR) as Operateur[]
 /** Le nombre minimal d'enfants d'un `et` ou d'un `ou`. */
 const ENFANTS_MIN = 2
 
-/**
- * Une valeur non fiable, rendue lisible dans une phrase française. Jamais
- * `String(valeur)` nu : sur une clé absente il écrirait « undefined » dans le
- * message, ce que KR-164 interdit. Jumelle de celle de `validate.ts`, et recopiée
- * pour une raison qui tient : `validate.ts` est EN AVAL de ce module, l'importer
- * serait un cycle. (`feuille` avait la même copie sans le même motif — l'arête
- * vers `identifiers.ts` existait déjà : elle a été supprimée à la revue de PR.)
- */
-function decrire(valeur: unknown): string {
-	if (typeof valeur === 'string') return valeur.trim() === '' ? 'vide' : valeur
-	if (typeof valeur === 'number' || typeof valeur === 'boolean') return String(valeur)
-	if (Array.isArray(valeur)) return 'une liste'
-	if (estObjet(valeur)) return 'un objet'
-	return 'vide'
-}
-
 /** « et, ou, non ou predicat » — la liste des opérateurs, DÉRIVÉE du registre de clés. */
 function enumererOperateurs(): string {
 	return `${OPERATEURS.slice(0, -1).join(', ')} ou ${OPERATEURS[OPERATEURS.length - 1]}`
@@ -127,7 +112,7 @@ function visiter(noeud: unknown, site: SiteExpr, profondeur: number, issues: Dos
 		issues.push(
 			anomalieExpr(
 				'expr-malformee',
-				`Le champ « ${feuilleDe(site.path)} » utilise l'opérateur « ${decrire(op)} », qui n'existe pas (attendu : ${enumererOperateurs()}).`,
+				`Le champ « ${feuilleDe(site.path)} » utilise l'opérateur « ${decrireValeur(op)} », qui n'existe pas (attendu : ${enumererOperateurs()}).`,
 				site,
 			),
 		)
@@ -190,7 +175,7 @@ function visiter(noeud: unknown, site: SiteExpr, profondeur: number, issues: Dos
 		issues.push(
 			anomalieExpr(
 				'predicat-inconnu',
-				`Le champ « ${feuilleDe(site.path)} » utilise le prédicat « ${decrire(predicat)} », qui n'existe pas dans le registre des conditions.`,
+				`Le champ « ${feuilleDe(site.path)} » utilise le prédicat « ${decrireValeur(predicat)} », qui n'existe pas dans le registre des conditions.`,
 				site,
 			),
 		)
@@ -219,7 +204,7 @@ function visiter(noeud: unknown, site: SiteExpr, profondeur: number, issues: Dos
 		issues.push(
 			anomalieExpr(
 				'identifiant-invalide',
-				`Le champ « ${feuilleDe(site.path)} » fournit « ${decrire(cible)} » au prédicat « ${descripteur.label} », qui attend une référence de type « ${ESPACES_DE_NOMS[espace].label} ».`,
+				`Le champ « ${feuilleDe(site.path)} » fournit « ${decrireValeur(cible)} » au prédicat « ${descripteur.label} », qui attend une référence de type « ${ESPACES_DE_NOMS[espace].label} ».`,
 				site,
 				typeof cible === 'string' ? cible : undefined,
 			),

@@ -142,7 +142,7 @@ Huit features. Une phrase de démo par feature, sans « et » : c'est le test de
 
 | # | Feature | « À la fin, l'auteur peut… » | Itér. | Statut | Comité | Dépend de |
 |---|---|---|---|---|---|---|
-| 1 | `dossier-format` | …importer un dossier d'aventure validé contre un schéma versionné | **5** | **3/5** | 5 rôles | — |
+| 1 | `dossier-format` | …importer un dossier d'aventure validé contre un schéma versionné | **5** | **4/5** | 5 rôles | — |
 | 2 | `bascule-editeur` | …naviguer dans son aventure par une liste de sections | 3 | — | 4 rôles | 1 |
 | 3 | `dossier-canon` | …rédiger la vérité immuable de son histoire | 3 | — | 4 rôles | 2 |
 | 4 | `dossier-fiches` | …écrire une fiche de personnage exploitable par l'IA | 5 | — | 5 rôles | 3 |

@@ -1,16 +1,11 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { validateDossier } from './validate'
-import {
-	BUDGET_MOTS_CANON,
-	BUDGET_MOTS_JALON,
-	CONFIANCE_MAX,
-	CONFIANCE_MIN,
-	DOSSIER_SCHEMA,
-	type DeltaBrut,
-} from './types'
+import { BUDGET_MOTS_CANON, BUDGET_MOTS_JALON, CONFIANCE_MAX, CONFIANCE_MIN, DOSSIER_SCHEMA } from './types'
 import { DOSSIER_ISSUE_LABELS, dossierIssueRemediation, type DossierIssue, type DossierIssueCode } from './issues'
-import { FAMILLES_DE_CONDITIONS } from './tables'
+import { FAMILLES_DE_CONDITIONS, LISTES_A_ELEMENTS_STRUCTURES, REFERENCES_SIMPLES } from './tables'
+import { DELTAS, type Delta } from './deltas'
+import { feuilleDe } from './identifiers'
 
 const CHEMIN_FIXTURE = path.join(__dirname, '__fixtures__', 'dossier-minimal.json')
 
@@ -56,8 +51,13 @@ describe('validateDossier', () => {
 		expect(resultat.dossier?.monde.personnages[0].portee).toBe('premier')
 		expect(resultat.dossier?.monde.personnages[0].savoirs[0].certitude).toBe('sait')
 		expect(resultat.dossier?.monde.evenements[0].monstre_ref).toBe('bestiaire.gobelin')
-		expect(resultat.dossier?.monde.conditions.climat[0].effets_regles).toEqual([{}])
 		expect(resultat.dossier?.charpente.jalons[0].enonce_texte.length).toBeGreaterThan(0)
+		// Les effets de l'itération 4 sont TYPÉS, pas seulement traversés — et la liste
+		// VIDE du climat est légitime : aucun des quatre effets admis n'est ambiant.
+		expect(resultat.dossier?.monde.conditions.climat[0].effets_regles).toEqual([])
+		expect(resultat.dossier?.charpente.jalons[0].effet).toEqual([
+			{ delta: 'reveler_indice', cibles: ['indice.sceau-brise'] },
+		])
 	})
 
 	it('schema absent / chaine / 0 / 2 est refuse', () => {
@@ -431,7 +431,7 @@ describe('validateDossier', () => {
 		expect(anomalies[1].message).toContain('TC4')
 	})
 
-	const CHEMINS_DE_DELTAS: ReadonlyArray<readonly [string, (doc: Doc) => void, string]> = [
+	const CAS_DE_DELTAS: ReadonlyArray<readonly [string, (doc: Doc) => void, string]> = [
 		[
 			'quetes recompense',
 			(doc) => {
@@ -462,7 +462,7 @@ describe('validateDossier', () => {
 		],
 	]
 
-	for (const [nom, casser, chemin] of CHEMINS_DE_DELTAS) {
+	for (const [nom, casser, chemin] of CAS_DE_DELTAS) {
 		it(`une chaine au chemin de delta ${nom} est refusee`, () => {
 			const doc = fixture()
 			casser(doc)
@@ -485,7 +485,7 @@ describe('validateDossier', () => {
 	 * `champ-requis-vide` de la boucle des deltas laissait les 85 tests du module
 	 * verts.
 	 */
-	for (const [nom, , chemin] of CHEMINS_DE_DELTAS) {
+	for (const [nom, , chemin] of CAS_DE_DELTAS) {
 		it(`un chemin de delta ${nom} absent est bloquant`, () => {
 			const doc = fixture()
 			const segments = chemin.split('.')
@@ -516,14 +516,14 @@ describe('validateDossier', () => {
 	 * il y en avait QUATRE. Un tableau vide est légitime (un personnage sans
 	 * savoir existe) ; c'est la clé ABSENTE qui ment au typage.
 	 */
-	const LISTES_REQUISES: ReadonlyArray<readonly [string, (doc: Doc) => void, string]> = [
+	const CAS_DE_LISTES_REQUISES: ReadonlyArray<readonly [string, (doc: Doc) => void, string]> = [
 		['plan_actions', (doc) => delete personnage(doc).plan_actions, 'monde.personnages[0].plan_actions'],
 		['savoirs', (doc) => delete personnage(doc).savoirs, 'monde.personnages[0].savoirs'],
 		['resolutions', (doc) => delete evenement(doc).resolutions, 'monde.evenements[0].resolutions'],
 		['climat', (doc) => delete obj(obj(doc.monde).conditions).climat, 'monde.conditions.climat'],
 	]
 
-	for (const [nom, casser, chemin] of LISTES_REQUISES) {
+	for (const [nom, casser, chemin] of CAS_DE_LISTES_REQUISES) {
 		it(`une liste obligatoire ${nom} absente est bloquante`, () => {
 			const doc = fixture()
 			casser(doc)
@@ -551,20 +551,38 @@ describe('validateDossier', () => {
 		})
 	}
 
-	it('une liste contenant de la prose est refusee comme la prose nue', () => {
-		// La règle porte sur CHAQUE élément : `["gagner 3 PV"]` est une liste, mais
-		// pas une liste d'effets structurés.
+	it('un element non-objet d une liste de deltas est delta-malforme, jamais element-non-objet', () => {
+		// LA SCISSION du § 3.2, et c'est elle qui interdit de confondre deux frontières.
+		// CAUSE EXACTE, corrigée à la revue de PR : la dérivation ne lit JAMAIS
+		// `CHEMINS_DE_DELTAS` — elle filtre `LISTES_REQUISES`, et aucun chemin de delta
+		// n'y figure. L'exclusion est donc INCIDENTE, pas mécanique ; c'est
+		// l'assertion de disjonction de `couverture.test.ts` qui la rend mécanique.
+		// (Énoncer une cause fausse pour un fait vrai est exactement la classe que
+		// KR-176 vient de poser.) Ce que l'auteur doit corriger n'est pas « mettre un
+		// objet » mais « écrire un effet reconnu ».
 		const doc = fixture()
 		jalon(doc).effet = ['le bourg se réveille']
 
-		expect(codes(validateDossier(doc).errors)).toContain('delta-en-prose')
+		const resultat = validateDossier(doc)
+		const anomalie = resultat.errors.find((e) => e.path === 'charpente.jalons[0].effet[0]')
+
+		expect(resultat.ok).toBe(false)
+		expect(anomalie?.code).toBe('delta-malforme')
+		expect(anomalie?.location).toBe('Jalon « La première nuit à Val-Cendre »')
+		expect(anomalie?.message).toContain('le bourg se réveille')
+		expect(codes(resultat.errors)).not.toContain('element-non-objet')
+		// Discriminant : la LISTE ELLE-MÊME remplacée par de la prose reste
+		// `delta-en-prose` — la valeur n'est alors même pas une liste.
+		expect(codes(resultat.errors)).not.toContain('delta-en-prose')
 	})
 
-	it('un objet aux quatre chemins de delta passe', () => {
+	it('un objet quelconque aux quatre chemins de delta est desormais refuse', () => {
+		// INVERSION ASSUMÉE du test d'it2 (« un objet aux quatre chemins passe »). L'it2
+		// ne fermait que la FORME — un objet, jamais de la prose —, en laissant les clés
+		// libres parce que leur vocabulaire n'existait pas encore. L'it4 le ferme : une
+		// clé neutre n'est plus un effet, c'est un effet malformé.
 		const doc = fixture()
-		// La FORME est un objet ; le VOCABULAIRE des clés est le périmètre de
-		// l'itération 4 (registre DELTAS), d'où une clé volontairement neutre.
-		const delta: DeltaBrut[] = [{ cle: 'valeur libre' }]
+		const delta = [{ cle: 'valeur libre' }]
 		arr(obj(doc.monde).quetes)[0].recompense = delta
 		arr(evenement(doc).resolutions)[0].consequence = delta
 		arr(obj(obj(doc.monde).conditions).climat)[0].effets_regles = delta
@@ -572,9 +590,184 @@ describe('validateDossier', () => {
 
 		const resultat = validateDossier(doc)
 
-		expect(codes(resultat.errors)).not.toContain('delta-en-prose')
-		expect(resultat.errors).toEqual([])
-		expect(resultat.ok).toBe(true)
+		expect(resultat.ok).toBe(false)
+		expect(codes(resultat.errors).filter((code) => code === 'delta-malforme')).toHaveLength(8)
+		// DEUX anomalies par emplacement, et ce sont deux causes distinctes : la clé
+		// inconnue, puis la clé `delta` absente.
+		expect(resultat.errors.filter((e) => e.message.includes('« cle »'))).toHaveLength(4)
+		// LA SCISSION, éprouvée sur les QUATRE chemins et non sur un seul : un
+		// emplacement de delta ne produit JAMAIS `element-non-objet`, quel qu'il soit.
+		expect(codes(resultat.errors)).not.toContain('element-non-objet')
+	})
+
+	it('un element NON-OBJET aux quatre chemins de delta reste delta-malforme, jamais element-non-objet', () => {
+		// La scission ne portait que sur `jalons[].effet` ; la propriété qu'elle annonce
+		// vaut pour les quatre. Relevé à la revue de PR : une assertion qui ne couvre
+		// qu'un chemin ne porte pas la propriété qu'elle nomme.
+		const doc = fixture()
+		const brut = ['du texte a la place']
+		arr(obj(doc.monde).quetes)[0].recompense = brut
+		arr(evenement(doc).resolutions)[0].consequence = brut
+		arr(obj(obj(doc.monde).conditions).climat)[0].effets_regles = brut
+		jalon(doc).effet = brut
+
+		const resultat = validateDossier(doc)
+
+		expect(resultat.ok).toBe(false)
+		expect(codes(resultat.errors).filter((code) => code === 'delta-malforme')).toHaveLength(4)
+		expect(codes(resultat.errors)).not.toContain('element-non-objet')
+	})
+
+	it('un delta inconnu nomme l entite porteuse et la valeur', () => {
+		const doc = fixture()
+		jalon(doc).effet = [{ delta: 'gagner_xp', cibles: ['objet.clef-de-basalte'] }]
+
+		const resultat = validateDossier(doc)
+		const anomalie = resultat.errors.find((e) => e.code === 'delta-inconnu')
+
+		expect(resultat.ok).toBe(false)
+		expect(anomalie?.path).toBe('charpente.jalons[0].effet[0]')
+		expect(anomalie?.location).toBe('Jalon « La première nuit à Val-Cendre »')
+		expect(anomalie?.message).toContain('« gagner_xp »')
+		expect(anomalie?.message).toContain('« effet »')
+		// Le QUOI FAIRE nomme le CHAMP, jamais le chemin entier ni le rang.
+		expect(dossierIssueRemediation(anomalie as DossierIssue)).toContain('« effet »')
+		for (const fuite of FUITES_TECHNIQUES) {
+			expect(anomalie?.message.toLowerCase()).not.toContain(fuite)
+		}
+	})
+
+	it('une cible d effet mal formee est identifiant-invalide, une cible non portee est reference-pendante', () => {
+		// Deux causes DISTINCTES, deux codes réutilisés d'it1 — un code par CAUSE, pas
+		// un code par emplacement. La forme est tranchée par `validateDelta`, la
+		// résolution par le validateur, et la seconde n'est consultée que si la
+		// première s'est tue.
+		const malFormee = fixture()
+		jalon(malFormee).effet = [{ delta: 'donner_objet', cibles: ['lieu.val-cendre'] }]
+
+		const surLaForme = validateDossier(malFormee)
+		const invalide = surLaForme.errors.find((e) => e.path === 'charpente.jalons[0].effet[0]')
+
+		expect(surLaForme.ok).toBe(false)
+		expect(invalide?.code).toBe('identifiant-invalide')
+		expect(invalide?.entityId).toBe('lieu.val-cendre')
+		expect(invalide?.message).toContain(DELTAS.donner_objet.label)
+		expect(codes(surLaForme.errors)).not.toContain('reference-pendante')
+
+		const pendante = fixture()
+		jalon(pendante).effet = [{ delta: 'donner_objet', cibles: ['objet.nulle-part'] }]
+
+		const surLaResolution = validateDossier(pendante)
+		const orpheline = surLaResolution.errors.find((e) => e.path === 'charpente.jalons[0].effet[0]')
+
+		expect(surLaResolution.ok).toBe(false)
+		expect(orpheline?.code).toBe('reference-pendante')
+		expect(orpheline?.entityId).toBe('objet.nulle-part')
+		expect(orpheline?.location).toBe('Jalon « La première nuit à Val-Cendre »')
+		// Le message nomme l'effet par son LIBELLÉ, le champ porteur et l'id fautif.
+		expect(orpheline?.message).toContain(DELTAS.donner_objet.label)
+		expect(orpheline?.message).toContain('« effet »')
+		expect(orpheline?.message).toContain('objet.nulle-part')
+	})
+
+	it('les quatre chemins de delta resolvent leurs cibles, pas seulement le premier', () => {
+		// DISCRIMINANCE : une boucle qui ne contrôlerait qu'un emplacement passerait
+		// pour exhaustive. Chaque chemin reçoit la MÊME cible pendante, chacun doit la
+		// signaler à son propre `path`.
+		const casser: ReadonlyArray<readonly [(doc: Doc, effet: unknown) => void, string]> = [
+			[(doc, effet) => (arr(obj(doc.monde).quetes)[0].recompense = effet), 'monde.quetes[0].recompense[0]'],
+			[
+				(doc, effet) => (arr(evenement(doc).resolutions)[0].consequence = effet),
+				'monde.evenements[0].resolutions[0].consequence[0]',
+			],
+			[
+				(doc, effet) => (arr(obj(obj(doc.monde).conditions).climat)[0].effets_regles = effet),
+				'monde.conditions.climat[0].effets_regles[0]',
+			],
+			[(doc, effet) => (jalon(doc).effet = effet), 'charpente.jalons[0].effet[0]'],
+		]
+
+		for (const [poser, chemin] of casser) {
+			const doc = fixture()
+			poser(doc, [{ delta: 'reveler_indice', cibles: ['indice.nulle-part'] }])
+
+			const anomalie = validateDossier(doc).errors.find((e) => e.path === chemin)
+
+			expect(`${chemin} → ${anomalie?.code ?? 'aucune anomalie'}`).toBe(`${chemin} → reference-pendante`)
+		}
+	})
+
+	/**
+	 * BUG-050 — l'élément de liste non-objet, ouvert depuis l'itération 1. La table
+	 * est DÉRIVÉE (`LISTES_REQUISES` moins `COLLECTIONS_IDENTIFIEES`), et le cas
+	 * d'épreuve l'est aussi : une liste ajoutée à la dérivation sans son poseur se
+	 * NOMME ici, elle ne disparaît pas du diff.
+	 */
+	const POSEURS_DE_LISTE: Record<string, (doc: Doc, valeur: unknown[]) => void> = {
+		'monde.personnages[].plan_actions': (doc, valeur) => {
+			personnage(doc).plan_actions = valeur
+		},
+		'monde.personnages[].savoirs': (doc, valeur) => {
+			personnage(doc).savoirs = valeur
+		},
+		'monde.evenements[].resolutions': (doc, valeur) => {
+			evenement(doc).resolutions = valeur
+		},
+	}
+
+	it('les listes a elements structures ont toutes leur poseur, aucune de plus', () => {
+		expect(Object.keys(POSEURS_DE_LISTE).sort()).toEqual(LISTES_A_ELEMENTS_STRUCTURES.map((l) => l.path).sort())
+	})
+
+	for (const liste of LISTES_A_ELEMENTS_STRUCTURES) {
+		it(`un element non-objet de ${liste.path} est element-non-objet`, () => {
+			// Le défaut réel : `savoirs: ["du texte"]` sortait `ok:true`, et le dossier
+			// gelé promettait un `Savoir` là où il y a une chaîne — le savoir disparaissait
+			// SILENCIEUSEMENT du personnage, qui aurait été assemblé au contexte avec
+			// moins de savoirs que l'auteur n'en a écrits.
+			const doc = fixture()
+			POSEURS_DE_LISTE[liste.path](doc, ['du texte'])
+
+			const resultat = validateDossier(doc)
+			const anomalie = resultat.errors.find((e) => e.code === 'element-non-objet')
+
+			expect(resultat.ok).toBe(false)
+			expect(anomalie?.message).toContain(`« ${feuilleDe(liste.path)} »`)
+			expect(anomalie?.message).toContain('du texte')
+			// Le OÙ nomme l'ENTITÉ PORTEUSE, et le `path` porte l'INDEX fautif.
+			expect(anomalie?.location).not.toBe(liste.location)
+			expect(anomalie?.path.endsWith('[0]')).toBe(true)
+			for (const fuite of FUITES_TECHNIQUES) {
+				expect(anomalie?.message.toLowerCase()).not.toContain(fuite)
+			}
+		})
+
+		it(`une liste ${liste.path} VIDE ne declenche pas element-non-objet`, () => {
+			// Discriminant : c'est l'ÉLÉMENT qui est contrôlé, jamais la liste — un
+			// personnage sans savoir reste légitime. Le cas « élément objet » est tenu par
+			// la fixture elle-même, qui passe sans anomalie.
+			const doc = fixture()
+			POSEURS_DE_LISTE[liste.path](doc, [])
+
+			expect(codes(validateDossier(doc).errors)).not.toContain('element-non-objet')
+		})
+	}
+
+	it('un element non-objet d une collection identifiee reste champ-requis-vide', () => {
+		// C'est la RAISON de la dérivation : les collections identifiées sont DÉJÀ
+		// gardées — un élément non-objet y donne `id: null` dans `collectIds`, donc
+		// `champ-requis-vide`, bloquant depuis l'itération 1. Les inclure produirait
+		// deux anomalies pour une seule cause, et c'est pourquoi une cinquième table
+		// aurait été le seul endroit du module où l'oubli passerait inaperçu.
+		const doc = fixture()
+		arr(obj(doc.monde).lieux).push('un lieu en prose' as unknown as Doc)
+
+		const resultat = validateDossier(doc)
+		const anomalie = resultat.errors.find((e) => e.path === 'monde.lieux[1].id')
+
+		expect(resultat.ok).toBe(false)
+		expect(anomalie?.code).toBe('champ-requis-vide')
+		expect(codes(resultat.errors)).not.toContain('element-non-objet')
 	})
 
 	it('une porte inconnue dans revele_si est bloquante', () => {
@@ -880,10 +1073,10 @@ describe('issues', () => {
 		return { code, severity: 'error', message: 'peu importe', location: 'Monde', path }
 	}
 
-	it('les seize codes sont prefixes et sans marqueur residuel', () => {
+	it('les dix-neuf codes sont prefixes et sans marqueur residuel', () => {
 		const tous = Object.keys(DOSSIER_ISSUE_LABELS) as DossierIssueCode[]
 
-		expect(tous).toHaveLength(16)
+		expect(tous).toHaveLength(19)
 		for (const code of tous) {
 			const rendu = dossierIssueRemediation(anomalieDe(code, 'monde.personnages'))
 
@@ -940,6 +1133,85 @@ describe('issues', () => {
 		)
 		expect(DOSSIER_ISSUE_LABELS['revelation-sans-porte']).toBe(
 			'↪ Ajoutez au moins une porte, ou laissez tel quel si ce savoir ne doit jamais se révéler de lui-même.',
+		)
+	})
+
+	it('les trois codes neufs sont tous observables, et leur QUOI FAIRE est prefixe', () => {
+		const deltaInconnu = fixture()
+		jalon(deltaInconnu).effet = [{ delta: 'gagner_xp', cibles: [] }]
+		const deltaMalforme = fixture()
+		jalon(deltaMalforme).effet = ['le bourg se réveille']
+		const elementNonObjet = fixture()
+		personnage(elementNonObjet).savoirs = ['du texte']
+
+		const observes = new Set<DossierIssueCode>()
+		for (const doc of [deltaInconnu, deltaMalforme, elementNonObjet]) {
+			const resultat = validateDossier(doc)
+			expect(resultat.ok).toBe(false)
+			for (const anomalie of [...resultat.errors, ...resultat.warnings]) {
+				observes.add(anomalie.code)
+				expect(DOSSIER_ISSUE_LABELS[anomalie.code]).toBeDefined()
+				expect(dossierIssueRemediation(anomalie)).toMatch(/^↪ /)
+				expect(dossierIssueRemediation(anomalie)).not.toMatch(/\{[a-z_]+\}/)
+				for (const fuite of FUITES_TECHNIQUES) {
+					expect(anomalie.message.toLowerCase()).not.toContain(fuite)
+				}
+			}
+		}
+
+		expect([...observes].sort()).toEqual(['delta-inconnu', 'delta-malforme', 'element-non-objet'])
+	})
+
+	it('les cinq QUOI des effets et des elements sont asserts VERBATIM', () => {
+		// Même doctrine que pour les codes d'it2 et d'it3 : aucun écran ne rend ces
+		// phrases avant la n° 2, donc c'est ICI, et nulle part ailleurs, que la
+		// rédaction arbitrée est tenue. Jamais « non vide » — l'égalité exacte.
+		const trouver = (doc: Doc, code: DossierIssueCode): DossierIssue | undefined =>
+			validateDossier(doc).errors.find((issue) => issue.code === code)
+
+		const inconnu = fixture()
+		jalon(inconnu).effet = [{ delta: 'gagner_xp', cibles: [] }]
+		expect(trouver(inconnu, 'delta-inconnu')?.message).toBe(
+			"Le champ « effet » utilise l'effet « gagner_xp », qui n'existe pas dans le registre des effets.",
+		)
+
+		const malforme = fixture()
+		jalon(malforme).effet = ['le bourg se réveille']
+		expect(trouver(malforme, 'delta-malforme')?.message).toBe(
+			'Le champ « effet » attend un effet structuré reconnu (une clé « delta », puis ses cibles) ; il contient « le bourg se réveille ».',
+		)
+
+		const nonObjet = fixture()
+		personnage(nonObjet).savoirs = ['du texte']
+		expect(trouver(nonObjet, 'element-non-objet')?.message).toBe(
+			"Le champ « savoirs » attend une liste d'objets ; l'un de ses éléments n'en est pas un (« du texte »).",
+		)
+
+		const pendante = fixture()
+		jalon(pendante).effet = [{ delta: 'donner_objet', cibles: ['objet.nulle-part'] }]
+		expect(trouver(pendante, 'reference-pendante')?.message).toBe(
+			"L'effet « donne l'objet » de « effet » pointe « objet.nulle-part », qui n'existe pas dans ce dossier.",
+		)
+
+		const mauvaisEspace = fixture()
+		jalon(mauvaisEspace).effet = [{ delta: 'donner_objet', cibles: ['lieu.val-cendre'] }]
+		expect(trouver(mauvaisEspace, 'identifiant-invalide')?.message).toBe(
+			"L'effet « donne l'objet » de « effet » fournit « lieu.val-cendre », qui n'est pas un identifiant valide.",
+		)
+	})
+
+	it('les QUOI FAIRE des trois codes neufs sont asserts VERBATIM', () => {
+		// Aucun écran ne les rend avant la n° 2 : c'est ici, et nulle part ailleurs, que
+		// la rédaction arbitrée est tenue. Trois GESTES distincts — remplacer l'effet,
+		// corriger la forme, remplacer l'élément.
+		expect(DOSSIER_ISSUE_LABELS['delta-inconnu']).toBe(
+			'↪ Remplacez l’effet de « {champ} » par l’un de ceux que le moteur reconnaît, puis réimportez-le.',
+		)
+		expect(DOSSIER_ISSUE_LABELS['delta-malforme']).toBe(
+			'↪ Corrigez la forme de « {champ} » dans le fichier (clé « delta » et ses cibles), puis réimportez-le.',
+		)
+		expect(DOSSIER_ISSUE_LABELS['element-non-objet']).toBe(
+			'↪ Remplacez cet élément de « {champ} » par un objet, puis réimportez-le.',
 		)
 	})
 })
@@ -1229,18 +1501,169 @@ describe('validateDossier, les conditions', () => {
 	})
 })
 
+/**
+ * LES RÉFÉRENCES SIMPLES — un test PAR CHAMP, dérivé de `REFERENCES_SIMPLES` et
+ * échouant par NOM de chemin absent. Un compte se contenterait de « quatre
+ * références », et une ligne ajoutée à la table sans son cas d'épreuve passerait
+ * sans bruit.
+ */
+describe('validateDossier, les references simples', () => {
+	/** Où poser une référence, et le OÙ que le rapport doit nommer. */
+	interface PoseurDeReference {
+		poser: (doc: Doc, id: string) => void
+		/** Le chemin CONCRET du champ porteur. */
+		chemin: string
+		/** Le OÙ attendu : l'entité PORTEUSE, jamais le savoir, qui n'a pas de nom. */
+		location: string
+	}
+
+	const POSEURS: Record<string, PoseurDeReference> = {
+		'charpente.depart.lieu_id': {
+			poser: (doc, id) => {
+				obj(obj(doc.charpente).depart).lieu_id = id
+			},
+			chemin: 'charpente.depart.lieu_id',
+			location: 'Point de départ',
+		},
+		'monde.personnages[].savoirs[].indice_id': {
+			poser: (doc, id) => {
+				savoir(doc).indice_id = id
+			},
+			chemin: 'monde.personnages[0].savoirs[0].indice_id',
+			location: 'Personnage « Aldûr le Sage »',
+		},
+		'monde.personnages[].savoirs[].revele_si.contrepartie.objet_id': {
+			poser: (doc, id) => {
+				obj(revele(doc).contrepartie).objet_id = id
+			},
+			chemin: 'monde.personnages[0].savoirs[0].revele_si.contrepartie.objet_id',
+			location: 'Personnage « Aldûr le Sage »',
+		},
+		'monde.personnages[].savoirs[].revele_si.apres_indice_id': {
+			poser: (doc, id) => {
+				revele(doc).apres_indice_id = id
+			},
+			chemin: 'monde.personnages[0].savoirs[0].revele_si.apres_indice_id',
+			location: 'Personnage « Aldûr le Sage »',
+		},
+	}
+
+	it('depart.lieu_id reste signale quand monde.lieux est une racine ABSENTE', () => {
+		// CHANGEMENT DE COMPORTEMENT NOMMÉ au plan (C7), et jusqu'ici éprouvé par
+		// personne. Le § 5a supprimait la référence pendante quand `monde.lieux`
+		// manquait ; la boucle générique de REFERENCES_SIMPLES ne le fait pas. Ce
+		// n'est pas une régression : c'est ce que la section des conditions fait déjà
+		// depuis l'itération 3, et la migration rend le module COHÉRENT plutôt que
+		// partagé entre deux doctrines. La cascade est donc VOULUE, et ce test est ce
+		// qui empêche de la « corriger » par mégarde en la prenant pour un doublon.
+		const doc = fixture()
+		delete (obj(doc.monde) as Record<string, unknown>).lieux
+
+		const resultat = validateDossier(doc)
+		const codesEmis = resultat.errors.map((e) => e.code)
+
+		expect(resultat.ok).toBe(false)
+		expect(resultat.errors.some((e) => e.code === 'racine-manquante' && e.path === 'monde.lieux')).toBe(true)
+		expect(resultat.errors.some((e) => e.code === 'reference-pendante' && e.path === 'charpente.depart.lieu_id')).toBe(
+			true,
+		)
+		// Discriminant : la cascade n'invente pas d'anomalie d'un troisième genre.
+		expect(new Set(codesEmis).has('identifiant-invalide')).toBe(false)
+	})
+
+	it('les references simples ont toutes leur poseur, aucune de plus', () => {
+		expect(Object.keys(POSEURS).sort()).toEqual(REFERENCES_SIMPLES.map((reference) => reference.path).sort())
+	})
+
+	for (const reference of REFERENCES_SIMPLES) {
+		const poseur = POSEURS[reference.path]
+
+		it(`reference ${reference.path} : une cible absente du dossier est bloquante`, () => {
+			const doc = fixture()
+			poseur.poser(doc, `${reference.espace}.nulle-part`)
+
+			const resultat = validateDossier(doc)
+			const pendante = resultat.errors.find((e) => e.path === poseur.chemin)
+
+			expect(resultat.ok).toBe(false)
+			expect(pendante?.code).toBe('reference-pendante')
+			expect(pendante?.entityId).toBe(`${reference.espace}.nulle-part`)
+			// Le OÙ nomme le PERSONNAGE porteur, jamais le savoir — qui n'a pas de nom.
+			expect(pendante?.location).toBe(poseur.location)
+			expect(pendante?.message).toContain(`${reference.espace}.nulle-part`)
+			expect(dossierIssueRemediation(pendante as DossierIssue)).toContain(`« ${feuilleDe(reference.path)} »`)
+			for (const fuite of FUITES_TECHNIQUES) {
+				expect(pendante?.message.toLowerCase()).not.toContain(fuite)
+			}
+		})
+
+		it(`reference ${reference.path} : une cible PRESENTE reste calme`, () => {
+			// Discriminant : c'est bien la RÉSOLUTION qui parle, pas la présence du champ.
+			const doc = fixture()
+			poseur.poser(doc, `${reference.espace}.nulle-part`)
+			expect(validateDossier(doc).ok).toBe(false)
+
+			expect(validateDossier(fixture()).errors.filter((e) => e.path === poseur.chemin)).toEqual([])
+		})
+	}
+
+	it('une reference simple du MAUVAIS ESPACE est identifiant-invalide, jamais silencieuse', () => {
+		// C'est ce que le champ `espace` de la table achète, et sans lui la ligne serait
+		// morte : `pnj.aldur-le-sage` EXISTE dans le dossier, donc la seule résolution
+		// par appartenance l'aurait accepté dans `depart.lieu_id`. L'entité existe —
+		// mais pas là. Même frontière que pour une cible de condition (BUG-052).
+		const doc = fixture()
+		obj(obj(doc.charpente).depart).lieu_id = 'pnj.aldur-le-sage'
+
+		const resultat = validateDossier(doc)
+		const anomalie = resultat.errors.find((e) => e.path === 'charpente.depart.lieu_id')
+
+		expect(resultat.ok).toBe(false)
+		expect(anomalie?.code).toBe('identifiant-invalide')
+		expect(anomalie?.message).toContain('« Lieu »')
+		// Deux causes distinctes ne partagent pas un code : la forme n'est pas la
+		// résolution, et une seule anomalie sort.
+		expect(codes(resultat.errors)).not.toContain('reference-pendante')
+	})
+
+	it('le sujet de la phrase du point de depart est conserve verbatim', () => {
+		// La table porte un `sujet` justement parce que « Le champ « lieu_id » » aurait
+		// remplacé une phrase que l'auteur lit déjà depuis l'itération 1. Les trois
+		// autres n'en ont pas et retombent sur le repli dérivé du champ.
+		const doc = fixture()
+		obj(obj(doc.charpente).depart).lieu_id = 'lieu.nulle-part'
+
+		const pendante = validateDossier(doc).errors.find((e) => e.path === 'charpente.depart.lieu_id')
+
+		expect(pendante?.message).toBe("Le point de départ pointe « lieu.nulle-part », qui n'existe pas dans ce dossier.")
+
+		const surLIndice = fixture()
+		savoir(surLIndice).indice_id = 'indice.nulle-part'
+
+		expect(
+			validateDossier(surLIndice).errors.find((e) => e.path === 'monde.personnages[0].savoirs[0].indice_id')?.message,
+		).toBe("Le champ « indice_id » pointe « indice.nulle-part », qui n'existe pas dans ce dossier.")
+	})
+})
+
 describe('types', () => {
-	it('DeltaBrut refuse une chaine a la compilation', () => {
-		// @ts-expect-error — un delta est un OBJET, jamais de la prose. C'est le point
-		// IRRÉVERSIBLE de l'itération 2 : de la prose ne se parse pas en delta, alors
-		// qu'un objet dont les clés se précisent est une extension. Si le type
-		// s'élargissait, `tsc` signalerait cette directive comme inutile et rougirait.
-		const enProse: DeltaBrut = 'le heros gagne 3 points de vie'
-		// Le type ne dit RIEN du contenu, et c'est voulu : le vocabulaire des clés
-		// est le registre DELTAS de l'itération 4.
-		const structure: DeltaBrut = { cle: 'valeur libre' }
+	it('Delta refuse une chaine et une cle inconnue a la compilation', () => {
+		// @ts-expect-error — un delta est un OBJET, jamais de la prose. C'était le point
+		// IRRÉVERSIBLE de l'itération 2, et il tient toujours : de la prose ne se parse
+		// pas en delta. Si le type s'élargissait, `tsc` signalerait cette directive
+		// comme inutile et rougirait.
+		const enProse: Delta = 'le heros gagne 3 points de vie'
+		// @ts-expect-error — l'itération 4 ferme le VOCABULAIRE : une clé libre n'est
+		// plus un effet. C'est la contrepartie typée de l'inversion du test d'it2.
+		const cleLibre: Delta = { cle: 'valeur libre' }
+		// @ts-expect-error — et `delta` appartient à l'union DÉRIVÉE du registre : un
+		// effet écarté ne se glisse pas dans un dossier typé.
+		const ecarte: Delta = { delta: 'gagner_xp', cibles: [] }
+		const structure: Delta = { delta: 'donner_objet', cibles: ['objet.clef-de-basalte'] }
 
 		expect(typeof enProse).toBe('string')
-		expect(structure.cle).toBe('valeur libre')
+		expect(cleLibre).toBeDefined()
+		expect(ecarte).toBeDefined()
+		expect(DELTAS[structure.delta].label).toBe("donne l'objet")
 	})
 })

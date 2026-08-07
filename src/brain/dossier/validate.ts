@@ -2,7 +2,9 @@ import { DOSSIER_SCHEMA, type Dossier } from './types'
 import type { DossierIssue, DossierIssueCode, DossierIssueSeverity } from './issues'
 import {
 	COLLECTIONS_IDENTIFIEES,
+	ESPACES_DE_NOMS,
 	collectIds,
+	decrireValeur,
 	estCleDe,
 	estIdentifiantBienForme,
 	estObjet,
@@ -18,10 +20,13 @@ import {
 	CHEMINS_DE_DELTAS,
 	ENUMERES_FERMES,
 	FAMILLES_DE_CONDITIONS,
+	LISTES_A_ELEMENTS_STRUCTURES,
 	LISTES_REQUISES,
 	RACINES,
+	REFERENCES_SIMPLES,
 } from './tables'
 import { collectRefs, validateExpr } from './expr'
+import { DELTAS, collectDeltaRefs, validateDelta } from './deltas'
 import { PREDICATES } from './predicates'
 import { deepFreeze } from './freeze'
 import { BESTIARY_BY_TEMPLATE } from '../bestiary'
@@ -175,19 +180,6 @@ function sitesDe(racine: unknown, chemin: string, repli: string): Site[] {
 		sites = suivants
 	}
 	return sites
-}
-
-/**
- * Une valeur non fiable, rendue lisible dans une phrase française. Jamais
- * `String(valeur)` nu : sur un champ absent il écrirait « undefined » dans le
- * message, ce que KR-164 interdit.
- */
-function decrireValeur(valeur: unknown): string {
-	if (typeof valeur === 'string') return valeur.trim() === '' ? 'vide' : valeur
-	if (typeof valeur === 'number' || typeof valeur === 'boolean') return String(valeur)
-	if (Array.isArray(valeur)) return 'une liste'
-	if (estObjet(valeur)) return 'un objet'
-	return 'vide'
 }
 
 /** « a, b ou c » — la liste des valeurs attendues, sans jamais un nom de type. */
@@ -353,24 +345,50 @@ export function validateDossier(input: unknown): DossierValidation {
 		}
 	}
 
-	// 5 — Les RÉFÉRENCES du schéma 1. Une référence orpheline est exposée, pas
-	// silencieuse (KR-021) ; le reste de l'intégrité référentielle arrive en it3/it4.
+	// L'ensemble des identifiants réellement PORTÉS par le dossier — la seule
+	// question que pose une résolution de référence, quel qu'en soit le porteur :
+	// champ simple, cible de condition ou cible d'effet.
+	const idsPortes = new Set(collectes.flatMap((collecte) => (collecte.id === null ? [] : [collecte.id])))
+
+	// 5 — Les RÉFÉRENCES SIMPLES : un champ textuel qui pointe une entité, hors de
+	// tout arbre et hors de tout effet. Une référence orpheline est EXPOSÉE, jamais
+	// silencieuse (KR-021).
 	//
-	// 5a — `charpente.depart.lieu_id` résout DANS le dossier.
-	const lieuIdManquant = racinesManquantes.has('charpente.depart') || racinesManquantes.has('monde.lieux')
-	const lieuId = resoudreChemin(input, 'charpente.depart.lieu_id')
-	if (!lieuIdManquant && typeof lieuId === 'string' && lieuId.trim() !== '') {
-		const lieux = resoudreChemin(input, 'monde.lieux')
-		const resout = Array.isArray(lieux) && lieux.some((lieu) => estObjet(lieu) && lieu.id === lieuId)
-		if (!resout) {
+	// La table a remplacé une branche câblée en dur sur `charpente.depart.lieu_id`
+	// (KR-117). CHANGEMENT DE COMPORTEMENT ASSUMÉ : cette branche se taisait quand
+	// `monde.lieux` manquait, la boucle générique ne le fait pas — cohérent avec les
+	// conditions, qui signalent déjà leurs cibles pendantes sans regarder si la
+	// collection porteuse existe.
+	for (const reference of REFERENCES_SIMPLES) {
+		for (const site of sitesDe(input, reference.path, reference.location)) {
+			if (typeof site.valeur !== 'string' || site.valeur.trim() === '') continue
+			const sujet = reference.sujet ?? `Le champ « ${feuilleDe(reference.path)} »`
+			// FORME d'abord, RÉSOLUTION ensuite — même frontière que pour une cible de
+			// condition ou d'effet, et deux causes distinctes ne partagent pas un code.
+			// Sans le contrôle d'ESPACE, un `pnj.aldur-le-sage` rangé dans
+			// `depart.lieu_id` RÉSOUDRAIT : l'identifiant existe, mais pas là.
+			if (!estIdentifiantBienForme(site.valeur, reference.espace)) {
+				errors.push(
+					anomalie(
+						'identifiant-invalide',
+						'error',
+						`${sujet} fournit « ${site.valeur} », qui n'est pas une référence valide de type « ${ESPACES_DE_NOMS[reference.espace].label} ».`,
+						site.location,
+						site.path,
+						site.valeur,
+					),
+				)
+				continue
+			}
+			if (idsPortes.has(site.valeur)) continue
 			errors.push(
 				anomalie(
 					'reference-pendante',
 					'error',
-					"Le point de départ pointe un lieu qui n'existe pas dans ce dossier.",
-					'Point de départ',
-					'charpente.depart.lieu_id',
-					lieuId,
+					`${sujet} pointe « ${site.valeur} », qui n'existe pas dans ce dossier.`,
+					site.location,
+					site.path,
+					site.valeur,
 				),
 			)
 		}
@@ -441,7 +459,36 @@ export function validateDossier(input: unknown): DossierValidation {
 		}
 	}
 
-	// 7 — Les EFFETS DE RÈGLE : une liste d'objets, jamais de la prose.
+	// 6 ter — Les ÉLÉMENTS de liste (BUG-050). La table est DÉRIVÉE, jamais une
+	// cinquième table : les collections identifiées sont déjà gardées ailleurs, un
+	// élément non-objet y donnant `id: null` puis `champ-requis-vide`.
+	for (const liste of LISTES_A_ELEMENTS_STRUCTURES) {
+		for (const site of sitesDe(input, liste.path, liste.location)) {
+			if (!Array.isArray(site.valeur)) continue
+			site.valeur.forEach((element, index) => {
+				if (estObjet(element)) return
+				errors.push(
+					anomalie(
+						'element-non-objet',
+						'error',
+						`Le champ « ${feuilleDe(liste.path)} » attend une liste d'objets ; l'un de ses éléments n'en est pas un (« ${decrireValeur(element)} »).`,
+						site.location,
+						`${site.path}[${index}]`,
+					),
+				)
+			})
+		}
+	}
+
+	// 7 — Les EFFETS DE RÈGLE, en deux temps disjoints, exactement comme les
+	// conditions : `validateDelta` tient la FORME (clé `delta`, clés inconnues,
+	// arité, bonne forme d'une cible), `collectDeltaRefs` n'est appelée que si elle
+	// s'est tue, et il ne reste ici que la RÉSOLUTION.
+	//
+	// L'élément non-objet d'un de ces quatre chemins est `delta-malforme`, PAS
+	// `element-non-objet` : ces chemins sont exclus de la dérivation ci-dessus, et
+	// ce que l'auteur doit corriger n'est pas « mettre un objet » mais « écrire un
+	// effet reconnu ». Deux frontières, deux codes, deux consignes.
 	for (const chemin of CHEMINS_DE_DELTAS) {
 		for (const site of sitesDe(input, chemin.path, chemin.location)) {
 			if (site.valeur === undefined) {
@@ -456,16 +503,39 @@ export function validateDossier(input: unknown): DossierValidation {
 				)
 				continue
 			}
-			if (Array.isArray(site.valeur) && site.valeur.every((effet) => estObjet(effet))) continue
-			errors.push(
-				anomalie(
-					'delta-en-prose',
-					'error',
-					`Le champ « ${feuilleDe(chemin.path)} » attend une liste d'effets structurés ; il contient du texte libre.`,
-					site.location,
-					site.path,
-				),
-			)
+			if (!Array.isArray(site.valeur)) {
+				errors.push(
+					anomalie(
+						'delta-en-prose',
+						'error',
+						`Le champ « ${feuilleDe(chemin.path)} » attend une liste d'effets structurés ; il contient du texte libre.`,
+						site.location,
+						site.path,
+					),
+				)
+				continue
+			}
+			site.valeur.forEach((effet, index) => {
+				const siteEffet = { path: `${site.path}[${index}]`, location: site.location }
+				const malForme = validateDelta(effet, siteEffet)
+				if (malForme.length > 0) {
+					errors.push(...malForme)
+					return
+				}
+				for (const ref of collectDeltaRefs(effet)) {
+					if (idsPortes.has(ref.id)) continue
+					errors.push(
+						anomalie(
+							'reference-pendante',
+							'error',
+							`L'effet « ${DELTAS[ref.delta].label} » de « ${feuilleDe(chemin.path)} » pointe « ${ref.id} », qui n'existe pas dans ce dossier.`,
+							site.location,
+							siteEffet.path,
+							ref.id,
+						),
+					)
+				}
+			})
 		}
 	}
 
@@ -512,8 +582,8 @@ export function validateDossier(input: unknown): DossierValidation {
 	// reste ICI est la seule RÉSOLUTION : `collectRefs` n'étant appelée que si
 	// `validateExpr` est muette, elle ne rend que des identifiants BIEN FORMÉS, et
 	// résoudre se réduit à une appartenance à l'ensemble des identifiants portés
-	// par le dossier. Deux anomalies pour une seule cause seraient du bruit.
-	const idsPortes = new Set(collectes.flatMap((collecte) => (collecte.id === null ? [] : [collecte.id])))
+	// par le dossier (`idsPortes`, relevé au § 5). Deux anomalies pour une seule
+	// cause seraient du bruit.
 	for (const famille of FAMILLES_DE_CONDITIONS) {
 		// Le jumeau prose, retrouvé par le PORTEUR commun (`charpente.fins[0]`) : les
 		// deux chemins ne diffèrent que par leur feuille.

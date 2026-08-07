@@ -24,8 +24,10 @@
  * rattrape : la collision de clé `plan`, les portes de révélation fermées, les
  * quatre emplacements de deltas TYPÉS, `monstre_ref`, et `jalons[].enonce_texte`.
  * L'itération 3 y ajoute les DIX champs des cinq familles de conditions (D1) —
- * six `…_expr` moteur, quatre `…_texte` auteur, tous optionnels ; le registre
- * `DELTAS` reste à l'itération 4.
+ * six `…_expr` moteur, quatre `…_texte` auteur, tous optionnels. L'itération 4
+ * ferme le VOCABULAIRE des quatre emplacements d'effets : `DeltaBrut`
+ * (`Record<string, unknown>`, la seule FORME que l'it2 pouvait figer) laisse la
+ * place à `Delta`, dont la clé `delta` est un identifiant du registre `DELTAS`.
  *
  * QUI LIT QUOI : ce fichier dit la FORME, il ne dit pas l'AUDIENCE. L'audience
  * de chaque champ terminal vit dans `destinations.ts`, sous le balayage de
@@ -39,6 +41,7 @@
 import type { Characteristic } from '../characteristics'
 import type { ChallengeTier } from '../challenge'
 import type { ExprNode } from './expr'
+import type { Delta } from './deltas'
 
 /**
  * La version du schéma. Comparée au NOMBRE 1, strictement : ni `'1'`, ni `0`, ni
@@ -72,16 +75,6 @@ export const BUDGET_MOTS_JALON = 20
  */
 export const CONFIANCE_MIN = -3
 export const CONFIANCE_MAX = 3
-
-/**
- * Un EFFET DE RÈGLE encore non typé : un objet, JAMAIS une chaîne. C'est tout ce
- * que l'itération 2 fige, et c'est le point irréversible — de la prose ne se
- * parse pas en delta, alors qu'un objet dont les clés se précisent est une
- * extension. Le vocabulaire des clés est le registre `DELTAS` de l'itération 4,
- * qui s'inventorie dans `actionEngine.ts` / `sessionEngine.ts` / `xp.ts` ; le nom
- * `Delta` lui reste libre.
- */
-export type DeltaBrut = Record<string, unknown>
 
 /**
  * Toute entité nommée et référencée du dossier. `id` porte son espace de noms
@@ -184,7 +177,7 @@ export interface Personnage extends Entite {
 export interface Resolution {
 	/** L'issue, en français — ce que le narrateur joue quand elle survient. */
 	resultat: string
-	consequence: DeltaBrut[]
+	consequence: Delta[]
 }
 
 /** Un événement du monde, éventuellement adossé à une créature du bestiaire. */
@@ -208,12 +201,12 @@ export interface Evenement extends Entite {
 
 /** Une quête, et ce qu'elle rapporte. */
 export interface Quete extends Entite {
-	recompense: DeltaBrut[]
+	recompense: Delta[]
 }
 
 /** Un climat : une condition ambiante qui modifie les règles. */
 export interface Climat extends Entite {
-	effets_regles: DeltaBrut[]
+	effets_regles: Delta[]
 }
 
 /**
@@ -308,7 +301,7 @@ export interface Jalon extends Entite {
 	 *  c'est calme — un jalon n'est pas une fin.
 	 *  Exemple : declencheur_expr: { op: 'predicat', predicat: 'lieu_visite', cibles: ['lieu.val-cendre'] } */
 	declencheur_expr?: ExprNode
-	effet: DeltaBrut[]
+	effet: Delta[]
 }
 
 /** Une fin possible de l'aventure. */

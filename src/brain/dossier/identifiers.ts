@@ -13,8 +13,17 @@
  * donc il n'existe pas d'union parallèle à tenir en phase.
  */
 
-/** Identity factory: pins each value to `V` while inferring the key union `K`. */
-const defineEspaces =
+/**
+ * Factory d'IDENTITÉ — elle épingle chaque valeur à `V` tout en INFÉRANT l'union
+ * des clés `K`, de sorte que l'union dérivée par `keyof typeof` n'est jamais une
+ * seconde liste à tenir en phase (KR-117).
+ *
+ * TROISIÈME APPELANT (`ESPACES_DE_NOMS`, `PREDICATES`, `DELTAS`) : elle était
+ * recopiée dans `predicates.ts`, dont la docstring avait elle-même écrit
+ * « Extraction au troisième ». C'est maintenant. Elle vit ICI, dans le module
+ * bas, parce que c'est le seul que les trois registres importent déjà.
+ */
+export const defineRegistre =
 	<V>() =>
 	<K extends string>(map: Record<K, V>): Record<K, V> =>
 		map
@@ -28,7 +37,7 @@ export interface EspaceDeNomsDescripteur {
 	label: string
 }
 
-export const ESPACES_DE_NOMS = defineEspaces<EspaceDeNomsDescripteur>()({
+export const ESPACES_DE_NOMS = defineRegistre<EspaceDeNomsDescripteur>()({
 	pnj: { label: 'Personnage' },
 	lieu: { label: 'Lieu' },
 	objet: { label: 'Objet' },
@@ -144,6 +153,25 @@ export function estObjet(value: unknown): value is Record<string, unknown> {
  */
 export function estCleDe(registre: object, cle: string): boolean {
 	return Object.prototype.hasOwnProperty.call(registre, cle)
+}
+
+/**
+ * Une valeur non fiable, rendue LISIBLE dans une phrase française. Jamais
+ * `String(valeur)` nu : sur un champ absent il écrirait « undefined » dans le
+ * message, ce que KR-164 interdit.
+ *
+ * TROISIÈME APPELANT (`validate.ts`, `expr.ts`, `deltas.ts`) — même seuil, même
+ * geste que `defineRegistre` : elle était recopiée dans `expr.ts`, avec un motif
+ * qui tenait tant qu'il n'y avait que deux copies (`validate.ts` est EN AVAL,
+ * l'importer serait un cycle). Le troisième registre annule ce motif : l'arête
+ * vers `identifiers.ts` existe déjà partout.
+ */
+export function decrireValeur(valeur: unknown): string {
+	if (typeof valeur === 'string') return valeur.trim() === '' ? 'vide' : valeur
+	if (typeof valeur === 'number' || typeof valeur === 'boolean') return String(valeur)
+	if (Array.isArray(valeur)) return 'une liste'
+	if (estObjet(valeur)) return 'un objet'
+	return 'vide'
 }
 
 /**

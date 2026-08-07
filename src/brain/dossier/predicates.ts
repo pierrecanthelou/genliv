@@ -1,4 +1,4 @@
-import type { EspaceDeNoms } from './identifiers'
+import { defineRegistre, type EspaceDeNoms } from './identifiers'
 
 /**
  * LE REGISTRE DES PRÉDICATS — le vocabulaire FERMÉ des conditions du dossier.
@@ -39,18 +39,13 @@ export interface PredicatDescripteur {
 }
 
 /**
- * Factory d'identité LOCALE, jumelle de `defineEspaces` (`identifiers.ts`) —
- * recopiée et non extraite : deux appelants, trois lignes. Extraction au
- * troisième. Elle épingle chaque valeur à `PredicatDescripteur` tout en
- * INFÉRANT l'union des clés, de sorte que `PredicatId` n'est pas une seconde
- * liste à tenir en phase (KR-117).
+ * La factory d'identité est PARTAGÉE depuis `identifiers.ts` (`defineRegistre`) :
+ * la copie locale a été extraite au TROISIÈME appelant, comme cette docstring
+ * l'avait elle-même annoncé. Elle épingle chaque valeur à `PredicatDescripteur`
+ * tout en INFÉRANT l'union des clés, de sorte que `PredicatId` n'est pas une
+ * seconde liste à tenir en phase (KR-117).
  */
-const definePredicats =
-	<V>() =>
-	<K extends string>(map: Record<K, V>): Record<K, V> =>
-		map
-
-export const PREDICATES = definePredicats<PredicatDescripteur>()({
+export const PREDICATES = defineRegistre<PredicatDescripteur>()({
 	/** Y répond : l'inventaire de session — déjà lu par `sessionEngine.filterChoicesByPrereq`. */
 	possede_objet: { label: "possède l'objet", refKinds: ['objet'] },
 	/** Y répond : `monde.indices_connus[]`, alimenté par la sortie R4 du protocole de révélation. */

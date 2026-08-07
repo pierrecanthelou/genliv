@@ -1,4 +1,5 @@
 import { BUDGET_MOTS_CANON, BUDGET_MOTS_JALON, CERTITUDES, CONFIANCE_MAX, CONFIANCE_MIN, PORTEES } from './types'
+import { COLLECTIONS_IDENTIFIEES, type EspaceDeNoms } from './identifiers'
 import { CHARACTERISTIC_VALUES } from '../characteristics'
 import { CHALLENGE_TIER_VALUES } from '../challenge'
 
@@ -168,10 +169,71 @@ export const LISTES_REQUISES: readonly ChampRequis[] = [
 ]
 
 /**
- * Les QUATRE emplacements d'effets de règle. Leur contenu attend le registre
- * `DELTAS` (itération 4) ; ce qui se ferme ICI est la FORME — une liste d'objets,
- * jamais de la prose. C'est le point irréversible : de la prose ne se parse pas
- * en delta, alors qu'un objet dont les clés se précisent est une extension.
+ * BUG-050 — les listes dont chaque ÉLÉMENT doit être un objet. DÉRIVÉE, jamais
+ * une cinquième table.
+ *
+ * `LISTES_REQUISES` exige que la liste SOIT un tableau, jamais que ses éléments
+ * soient des objets : un `savoirs: ["du texte"]` traversait le validateur en
+ * silence, `ok:true`, et le dossier gelé promettait un `Savoir` là où il y a une
+ * chaîne — le savoir disparaissait du personnage sans que rien ne le dise.
+ *
+ * Pourquoi une DÉRIVATION plutôt qu'une table dédiée : les collections
+ * identifiées sont DÉJÀ gardées — un élément non-objet y donne `id: null` dans
+ * `collectIds`, donc `champ-requis-vide`, bloquant depuis l'itération 1 — donc
+ * les inclure produirait deux anomalies pour une seule cause. Et les deux tables
+ * lues ici sont chacune un point de passage obligé pour d'autres raisons, alors
+ * qu'une cinquième table serait le seul endroit du module où un oubli passerait
+ * inaperçu.
+ *
+ * Vaut TROIS chemins aujourd'hui ; le nombre est à REMESURER, jamais à recopier
+ * d'ici (KR-159), et il est épinglé par `couverture.test.ts`.
+ */
+export const LISTES_A_ELEMENTS_STRUCTURES: readonly ChampRequis[] = LISTES_REQUISES.filter(
+	(liste) => !COLLECTIONS_IDENTIFIEES.some((collection) => collection.path === liste.path),
+)
+
+/**
+ * Une RÉFÉRENCE SIMPLE : un champ textuel qui pointe une entité du dossier par
+ * son identifiant, hors de tout arbre et hors de tout effet.
+ *
+ * Elle existe pour qu'aucune référence ne soit plus résolue par une branche
+ * câblée en dur dans le validateur (KR-117) : `charpente.depart.lieu_id` en était
+ * une, et les trois champs de `savoirs[]` en auraient été trois de plus.
+ */
+export interface ReferenceSimple {
+	path: string
+	espace: EspaceDeNoms
+	location: string
+	/** Sujet de la phrase quand il ne se dérive pas du champ. Repli : « Le champ « {feuille} » ». */
+	sujet?: string
+}
+
+/**
+ * Les QUATRE références simples du schéma 1. Toutes bloquantes quand elles ne
+ * résolvent pas : une référence orpheline est EXPOSÉE, jamais silencieuse
+ * (KR-021).
+ *
+ * Les trois de `savoirs[]` nomment le PERSONNAGE porteur — c'est `sitesDe` qui
+ * le résout en traversant `monde.personnages`, sans qu'aucune ligne ait à le
+ * dire : un savoir n'a pas de nom à lui.
+ */
+export const REFERENCES_SIMPLES: readonly ReferenceSimple[] = [
+	{ path: 'charpente.depart.lieu_id', espace: 'lieu', location: 'Point de départ', sujet: 'Le point de départ' },
+	{ path: 'monde.personnages[].savoirs[].indice_id', espace: 'indice', location: 'Personnages' },
+	{ path: 'monde.personnages[].savoirs[].revele_si.contrepartie.objet_id', espace: 'objet', location: 'Personnages' },
+	{ path: 'monde.personnages[].savoirs[].revele_si.apres_indice_id', espace: 'indice', location: 'Personnages' },
+]
+
+/**
+ * Les QUATRE emplacements d'effets de règle. L'itération 2 y a fermé la FORME —
+ * une liste d'objets, jamais de la prose, point irréversible du schéma —, et
+ * l'itération 4 y ferme le VOCABULAIRE : chaque élément passe par `validateDelta`
+ * et ses cibles se résolvent comme celles d'une condition.
+ *
+ * Cette table a DEUX lecteurs, et c'est ce qui interdit de re-lister ses chemins
+ * ailleurs : le validateur, et l'ARRÊT du balayage de couverture, qui en est
+ * DÉRIVÉ — chaque chemin SUFFIXÉ `[]`, de sorte que l'arrêt tombe sur l'ÉLÉMENT
+ * et non sur le tableau.
  */
 export const CHEMINS_DE_DELTAS: readonly ChampRequis[] = [
 	{ path: 'monde.quetes[].recompense', location: 'Quêtes' },

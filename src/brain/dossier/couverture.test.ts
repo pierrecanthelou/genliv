@@ -8,10 +8,14 @@ import {
 	CHEMINS_DE_DELTAS,
 	ENUMERES_FERMES,
 	FAMILLES_DE_CONDITIONS,
+	LISTES_A_ELEMENTS_STRUCTURES,
 	LISTES_REQUISES,
 	RACINES,
+	REFERENCES_SIMPLES,
 } from './tables'
+import { COLLECTIONS_IDENTIFIEES } from './identifiers'
 import { PREDICATES } from './predicates'
+import { DELTAS } from './deltas'
 
 /**
  * LE SCHÉMA EST ÉCRIT TROIS FOIS — une fois comme types (`types.ts`), une fois
@@ -47,19 +51,23 @@ import { PREDICATES } from './predicates'
  *    mauvais type. C'est l'angle mort qui a laissé passer BUG-049 (quatre listes
  *    non optionnelles acceptées absentes), aujourd'hui recouvert par une table
  *    dédiée — `LISTES_REQUISES` — et non par ce balayage.
- *  · LES ÉLÉMENTS DE LISTE NON-OBJET. Un `savoirs: ["du texte"]` traverse le
+ *  · LES ÉLÉMENTS DE LISTE NON-OBJET. Un `savoirs: ["du texte"]` traversait le
  *    validateur, `ok:true` : les deux traversées abandonnent la branche pour
- *    rester totales. Défaut réel, journalisé BUG-050, corrigé en itération 4 par
- *    une table dédiée. Ce balayage ne peut pas le voir — il corrompt une feuille
- *    EXISTANTE, il n'en change jamais le porteur.
- *  · L'INTÉRIEUR DES ARBRES D'EXPRESSION. Le balayage S'ARRÊTE sur chaque
- *    `…_expr` (voir `CHEMINS_D_ARRET`), et l'ensemble de ces points d'arrêt est
- *    DÉRIVÉ de `FAMILLES_DE_CONDITIONS`, jamais re-listé. Motif : un arbre peuplé
- *    produit des chemins qui VARIENT avec sa forme, donc une table de
- *    destinations qui ne pourrait jamais être exhaustive. La contrepartie est
- *    portée par `validateExpr`, qui refuse TOUTE clé inconnue sur un nœud — sans
- *    elle, l'opacité deviendrait une cachette où un champ de prose échapperait
- *    au balayage des destinations.
+ *    rester totales. Défaut réel, journalisé BUG-050, corrigé en itération 4 —
+ *    non pas ici mais par `LISTES_A_ELEMENTS_STRUCTURES`, DÉRIVÉE de
+ *    `LISTES_REQUISES` moins `COLLECTIONS_IDENTIFIEES`. Ce balayage ne peut
+ *    toujours pas le voir : il corrompt une feuille EXISTANTE, il n'en change
+ *    jamais le porteur.
+ *  · L'INTÉRIEUR DES ARBRES D'EXPRESSION ET DES EFFETS DE RÈGLE. Le balayage
+ *    S'ARRÊTE sur chaque `…_expr` et sur chaque ÉLÉMENT d'un chemin de delta
+ *    (voir `CHEMINS_D_ARRET`), et l'ensemble de ces points d'arrêt est DÉRIVÉ de
+ *    `FAMILLES_DE_CONDITIONS` et de `CHEMINS_DE_DELTAS`, jamais re-listé. Motif :
+ *    un arbre peuplé produit des chemins qui VARIENT avec sa forme, donc une
+ *    table de destinations qui ne pourrait jamais être exhaustive ; un effet, lui,
+ *    est une feuille de fait — sa `cibles[]` n'a pas d'audience propre. La
+ *    contrepartie est portée par `validateExpr` ET `validateDelta`, qui refusent
+ *    TOUTE clé inconnue — sans elles, l'opacité deviendrait une cachette où un
+ *    champ de prose échapperait au balayage des destinations.
  */
 
 const CHEMIN_FIXTURE = path.join(__dirname, '__fixtures__', 'dossier-minimal.json')
@@ -87,7 +95,17 @@ export interface FeuilleDeFixture {
  * ajoutée à la table et pas ici ferait descendre le balayage DANS son arbre, et
  * la table des destinations cesserait de pouvoir être exhaustive.
  */
-const CHEMINS_D_ARRET = new Set(FAMILLES_DE_CONDITIONS.map((famille) => famille.expr))
+const CHEMINS_D_ARRET = new Set([
+	...FAMILLES_DE_CONDITIONS.map((famille) => famille.expr),
+	// Le suffixe `[]` n'est PAS cosmétique, et la sonde l'a établi plutôt que le
+	// raisonnement : sans lui l'arrêt tombe sur le TABLEAU, les lignes `…[]` de
+	// DESTINATION_DES_CHAMPS deviennent MORTES (trois, mesurées — la quatrième, le
+	// climat, porte une liste vide et n'a donc jamais eu de suffixe), et la
+	// corruption cesse d'être PAR ÉLÉMENT. Avec le suffixe, l'arrêt tombe sur
+	// l'ÉLÉMENT : les destinations existantes survivent, et deux effets dans une
+	// même liste restent deux occasions de rougir.
+	...CHEMINS_DE_DELTAS.map((chemin) => `${chemin.path}[]`),
+])
 
 /**
  * Toutes les feuilles terminales d'un document, en pleine profondeur, tableaux
@@ -130,6 +148,7 @@ function cheminsDesTables(): ReadonlyArray<readonly [string, string]> {
 		...ENUMERES_FERMES.map((e) => ['ENUMERES_FERMES', e.path] as const),
 		...LISTES_REQUISES.map((l) => ['LISTES_REQUISES', l.path] as const),
 		...CHEMINS_DE_DELTAS.map((d) => ['CHEMINS_DE_DELTAS', d.path] as const),
+		...REFERENCES_SIMPLES.map((r) => ['REFERENCES_SIMPLES', r.path] as const),
 		...BUDGETS_DE_MOTS.map((b) => ['BUDGETS_DE_MOTS', b.path] as const),
 		...FAMILLES_DE_CONDITIONS.map((f) => ['FAMILLES_DE_CONDITIONS', f.expr] as const),
 		...FAMILLES_DE_CONDITIONS.map((f) => ['FAMILLES_DE_CONDITIONS', f.texte] as const),
@@ -211,8 +230,14 @@ const LIBRES: Record<string, string> = {
 		"l'ordre d'une étape : aucune règle d'ordonnancement (unicité, continuité, départ à 1) n'est arbitrée au schéma 1 — les déclencheurs arrivent en itération 3.",
 	'monde.personnages[].savoirs[].revele_comment':
 		'didascalie OPTIONNELLE et libre : son absence est calme, et aucune règle ne contraint sa forme.',
+	// MOTIF RÉÉCRIT en itération 4 : l'ancien annonçait que la résolution arriverait
+	// et rendrait la dispense caduque. Elle est arrivée (`REFERENCES_SIMPLES`), et la
+	// dispense TIENT QUAND MÊME — parce que la corruption remplace la chaîne par un
+	// NOMBRE, et qu'une porte OPTIONNELLE présente mais non textuelle n'est arbitrée
+	// par aucune règle du schéma 1. Ce qui reste ouvert n'est donc pas la résolution
+	// mais la même question que les dispenses `nom` et `…_texte`.
 	'monde.personnages[].savoirs[].revele_si.apres_indice_id':
-		"porte optionnelle : sa RÉSOLUTION vers monde.indices est l'intégrité référentielle de l'itération 3 ; l'itération 2 ne ferme que la LISTE des portes reconnues.",
+		"porte OPTIONNELLE : sa résolution vers monde.indices est vivante depuis l'itération 4 (REFERENCES_SIMPLES), mais elle ne parle que d'une CHAÎNE — une valeur présente et non textuelle tombe sous la question ouverte déjà possédée par la n° 2, la même qui porte les dispenses « nom ».",
 	'monde.lieux[].nom': NOM_LIBRE,
 	'monde.objets[].nom': NOM_LIBRE,
 	'monde.indices[].nom': NOM_LIBRE,
@@ -408,6 +433,121 @@ describe('couverture', () => {
 		expect(entete).toContain('LES ÉLÉMENTS DE LISTE NON-OBJET')
 		expect(entete).toContain('BUG-050')
 		expect(entete).toContain("L'INTÉRIEUR DES ARBRES D'EXPRESSION")
+		// Ce que l'itération 4 lui fait CESSER de couvrir en plus : l'intérieur d'un
+		// effet, et le nom de la table qui reprend le trou de BUG-050.
+		expect(entete).toContain('DES EFFETS DE RÈGLE')
+		expect(entete).toContain('LISTES_A_ELEMENTS_STRUCTURES')
+	})
+
+	it('tout chemin de CHEMINS_DE_DELTAS a une destination valant moteur', () => {
+		// Un delta est APPLIQUÉ par le moteur. Injecté, il apprendrait au modèle à
+		// distribuer lui-même les récompenses et à cocher lui-même les jalons. Une
+		// ligne `ia` ici serait exactement la fuite que la table existe pour rendre
+		// impossible — et l'assertion porte sur la VALEUR, jamais sur l'existence
+		// seule (KR-174, leçon de BUG-051).
+		const chemins = cheminsDeLaFixture()
+
+		const sousDelta = chemins.filter((chemin) =>
+			CHEMINS_DE_DELTAS.some((delta) => chemin === delta.path || chemin.startsWith(`${delta.path}[`)),
+		)
+
+		// Discriminant : les QUATRE emplacements sont réellement représentés — sans
+		// cette ligne, la boucle passerait sur une liste vide.
+		expect(new Set(sousDelta).size).toBe(CHEMINS_DE_DELTAS.length)
+		for (const chemin of sousDelta) {
+			expect(`${chemin} → ${DESTINATION_DES_CHAMPS[chemin]}`).toBe(`${chemin} → moteur`)
+		}
+	})
+
+	it('aucune feuille ne descend dans un effet, et aucune seconde liste de chemins de delta', () => {
+		// (a) COMPORTEMENT — un effet est une feuille ENTIÈRE. Une clé `delta` ou une
+		// `cibles[]` apparaissant comme chemin signerait un arrêt tombé sur le TABLEAU
+		// au lieu de l'ÉLÉMENT, ou pas d'arrêt du tout.
+		const chemins = cheminsDeLaFixture()
+
+		for (const delta of CHEMINS_DE_DELTAS) {
+			expect(chemins.filter((chemin) => chemin.startsWith(`${delta.path}[].`))).toEqual([])
+		}
+
+		// (b) SOURCE — l'arrêt est DÉRIVÉ, et aucun chemin de delta n'est écrit en
+		// littéral dans ce fichier. Deux listes divergeraient en silence : une famille
+		// d'effets ajoutée à la table sans l'être ici ferait descendre le balayage DANS
+		// son effet. Construit par morceaux pour que la présence de CE littéral ne
+		// suffise pas à faire passer le test.
+		const source = fs.readFileSync(path.join(MODULE_DOSSIER, 'couverture.test.ts'), 'utf8')
+		const DERIVATION = ['CHEMINS_DE_DELTAS.map((chemin) => ', '`${chemin.path}[]`', ')'].join('')
+
+		expect(source).toContain(DERIVATION)
+		expect(CHEMINS_DE_DELTAS.filter((delta) => source.includes(`'${delta.path}`))).toEqual([])
+	})
+
+	it('chaque entree de DELTAS a au moins une instance dans la fixture', () => {
+		// Même clôture que pour `PREDICATES` : la fixture est le seul document dont on
+		// sait qu'il est complet. Un effet sans instance n'est jamais éprouvé de bout en
+		// bout — ni sa résolution, ni son arité, ni son libellé.
+		const texte = fs.readFileSync(CHEMIN_FIXTURE, 'utf8')
+
+		const absents = Object.keys(DELTAS).filter((id) => !texte.includes(`"delta": "${id}"`))
+
+		expect(absents).toEqual([])
+	})
+
+	it('aucune liste a elements structures n est un chemin de delta', () => {
+		// La propriete que le § 3.2 annonce — un emplacement de delta ne produit jamais
+		// `element-non-objet` — etait INCIDENTE : la derivation filtre LISTES_REQUISES et
+		// ne lit jamais CHEMINS_DE_DELTAS, donc rien n empechait un chemin de delta d y
+		// entrer un jour. Assertee ici, elle devient MECANIQUE. Relevee a la revue de PR :
+		// un fait vrai dont la cause enoncee est fausse reste vrai par accident (KR-176).
+		const chemins = new Set(CHEMINS_DE_DELTAS.map((chemin) => chemin.path))
+
+		expect(LISTES_A_ELEMENTS_STRUCTURES.filter((liste) => chemins.has(liste.path))).toEqual([])
+		// Discriminant : les deux ensembles sont non vides, sans quoi la disjonction
+		// serait vraie parce qu il n y a rien a comparer.
+		expect(LISTES_A_ELEMENTS_STRUCTURES.length).toBeGreaterThan(0)
+		expect(chemins.size).toBeGreaterThan(0)
+	})
+
+	it('retirer une entree de COLLECTIONS_IDENTIFIEES fait rougir la derivation', () => {
+		// DISCRIMINANCE de la dérivation (désaccord C5) : sans elle, `LISTES_REQUISES`
+		// tout entier passerait pour « la bonne réponse » et la soustraction ne
+		// mesurerait rien. La dérivation est REJOUÉE sur une table amputée — jamais
+		// une seconde liste de résultats, que la première assertion épingle sur la
+		// valeur réelle.
+		const deriver = (collections: readonly { path: string }[]): string[] =>
+			LISTES_REQUISES.filter((liste) => !collections.some((collection) => collection.path === liste.path)).map(
+				(liste) => liste.path,
+			)
+
+		expect(deriver(COLLECTIONS_IDENTIFIEES)).toEqual(LISTES_A_ELEMENTS_STRUCTURES.map((liste) => liste.path))
+		// Le trou réel vaut TROIS chemins — remesuré ici, jamais recopié (KR-159).
+		expect(LISTES_A_ELEMENTS_STRUCTURES).toHaveLength(3)
+		expect(LISTES_A_ELEMENTS_STRUCTURES.map((liste) => liste.path)).toEqual([
+			'monde.personnages[].plan_actions',
+			'monde.personnages[].savoirs',
+			'monde.evenements[].resolutions',
+		])
+
+		// Sans sa ligne dans `COLLECTIONS_IDENTIFIEES`, le climat RENTRERAIT dans la
+		// dérivation : c'est ce qui rend l'oubli d'une collection visible ici plutôt
+		// qu'invisible dans une cinquième table.
+		const sansClimat = COLLECTIONS_IDENTIFIEES.filter((collection) => collection.path !== 'monde.conditions.climat')
+
+		expect(deriver(sansClimat)).toContain('monde.conditions.climat')
+		expect(deriver(sansClimat)).toHaveLength(LISTES_A_ELEMENTS_STRUCTURES.length + 1)
+	})
+
+	it('la derivation lit les deux tables, jamais un litteral des trois chemins', () => {
+		// KR-169 : « DÉRIVÉE, jamais une cinquième table » est une propriété affirmée en
+		// docstring. Elle ne se porte pas par le typage — une table écrite à la main
+		// aurait exactement le même type —, donc elle se lit dans la SOURCE.
+		const source = fs.readFileSync(path.join(MODULE_DOSSIER, 'tables.ts'), 'utf8')
+		const declaration = source.slice(source.indexOf('export const LISTES_A_ELEMENTS_STRUCTURES'))
+
+		expect(declaration).toContain('LISTES_REQUISES.filter')
+		expect(declaration).toContain('COLLECTIONS_IDENTIFIEES.some')
+		for (const liste of LISTES_A_ELEMENTS_STRUCTURES) {
+			expect(declaration.slice(0, declaration.indexOf('\n)')).includes(liste.path)).toBe(false)
+		}
 	})
 
 	it('le balayage entre reellement dans les tableaux et normalise les indices', () => {
@@ -416,8 +556,12 @@ describe('couverture', () => {
 		const chemins = cheminsDeLaFixture()
 
 		expect(chemins).toContain('monde.personnages[].savoirs[].revele_si.jet.carac')
-		expect(chemins).toContain('monde.evenements[].resolutions[].consequence[]')
 		expect(chemins).toContain('charpente.jalons[].enonce_texte')
+		// Un chemin d'effet à DEUX niveaux de tableau, DÉRIVÉ de la table plutôt que
+		// re-listé : une seconde liste de chemins de delta divergerait en silence.
+		const imbriques = CHEMINS_DE_DELTAS.filter((delta) => delta.path.split('[]').length - 1 >= 2)
+		expect(imbriques.length).toBeGreaterThan(0)
+		for (const delta of imbriques) expect(chemins).toContain(`${delta.path}[]`)
 		// Normalisation : les deux indices de la fixture donnent UN chemin, pas deux.
 		expect(chemins.filter((chemin) => chemin === 'monde.indices[].id')).toHaveLength(1)
 	})

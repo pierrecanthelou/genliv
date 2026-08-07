@@ -82,7 +82,13 @@
 			{ "id": "indice.cendres-tiedes", "nom": "Des cendres encore tièdes" },
 			{ "id": "indice.sceau-brise", "nom": "Le sceau du Gouffre est brisé" }
 		],
-		"quetes": [{ "id": "quete.retrouver-la-clef", "nom": "Retrouver la clef de basalte", "recompense": [{}] }],
+		"quetes": [
+			{
+				"id": "quete.retrouver-la-clef",
+				"nom": "Retrouver la clef de basalte",
+				"recompense": [{ "delta": "donner_objet", "cibles": ["objet.clef-de-basalte"] }]
+			}
+		],
 		"evenements": [
 			{
 				"id": "evenement.embuscade-du-fanal",
@@ -90,11 +96,23 @@
 				"monstre_ref": "bestiaire.gobelin",
 				"declencheur_texte": "Le joueur revient à Val-Cendre après la tempête.",
 				"declencheur_expr": { "op": "predicat", "predicat": "lieu_courant_est", "cibles": ["lieu.val-cendre"] },
-				"resolutions": [{ "resultat": "Les gobelins sont mis en fuite.", "consequence": [{}] }]
+				"resolutions": [
+					{
+						"resultat": "Les gobelins sont mis en fuite.",
+						"consequence": [
+							{ "delta": "atteindre_jalon", "cibles": ["jalon.premiere-nuit"] },
+							{ "delta": "reveler_indice", "cibles": ["indice.cendres-tiedes"] }
+						]
+					},
+					{
+						"resultat": "Les gobelins emportent la clef de basalte dans leur fuite.",
+						"consequence": [{ "delta": "retirer_objet", "cibles": ["objet.clef-de-basalte"] }]
+					}
+				]
 			}
 		],
 		"conditions": {
-			"climat": [{ "id": "climat.pluie-de-cendres", "nom": "Pluie de cendres", "effets_regles": [{}] }]
+			"climat": [{ "id": "climat.pluie-de-cendres", "nom": "Pluie de cendres", "effets_regles": [] }]
 		}
 	},
 	"charpente": {
@@ -109,7 +127,7 @@
 				"enonce_texte": "La première nuit à Val-Cendre est passée ; le bourg a entendu le Gouffre.",
 				"declencheur_texte": "Le joueur dort une nuit entière à l'auberge du Fanal.",
 				"declencheur_expr": { "op": "predicat", "predicat": "lieu_visite", "cibles": ["lieu.val-cendre"] },
-				"effet": [{}]
+				"effet": [{ "delta": "reveler_indice", "cibles": ["indice.sceau-brise"] }]
 			}
 		],
 		"fins": [

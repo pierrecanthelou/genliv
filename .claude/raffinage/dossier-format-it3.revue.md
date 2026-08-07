@@ -11,7 +11,7 @@
 | grandeur | avant | après |
 |---|---:|---:|
 | suites / tests | 47 / 603 | **48 / 662** |
-| `src/brain/dossier/validate.ts` | 723 l. | **602 l.** (plafond 650) |
+| `src/brain/dossier/validate.ts` | 723 l. | **607 l.** |
 | `DossierIssueCode` | 12 | **16** |
 | `DESTINATION_DES_CHAMPS` | 52 l. | **62 l.** |
 | `PREDICATES` | — | **7** |
@@ -116,3 +116,12 @@ C'est la liste qui compte le plus : un diff vert ne la dit pas.
 4. **Une liste de bruit ne se remplit pas en cherchant des valeurs absurdes.** Le test de totalité de `validateExpr` existait, comptait seize entrées de bruit, et était **vert sur une fonction qui jetait** — parce qu'aucune de ses seize entrées n'était une clé de prototype. La bonne question en écrivant une telle liste n'est pas « cette valeur est-elle absurde ? » mais « **par quelle porte le code peut-il répondre oui à ce qu'il devrait refuser ?** ». Corollaire du même défaut : un `as` posé sur une valeur non fiable est l'endroit exact où le compilateur cesse de protéger — il affirme ce que le garde était censé vérifier. Tout cast qui suit un garde mérite qu'on relise le garde. (KR-175)
 5. **Trois instruments, trois défauts, aucun redondant.** La QA mode B a trouvé un trou de *valeur* (BUG-051), la revue de PR un trou de *totalité* (BUG-053) que la QA n'avait pas vu, et l'ouvrier lui-même un test *relatif à sa constante* pendant sa propre sonde. Aucun des trois n'aurait trouvé les deux autres. C'est l'argument pour garder la séquence complète même quand la porte est verte depuis le début — elle l'était.
 6. **La sonde qui survit est un résultat, pas un incident.** L'ouvrier a éprouvé la borne de profondeur et l'a vue **survivre** : ses assertions étaient écrites *relativement* à la constante et n'épinglaient que le `>` du garde. Épinglé par `expect(PROFONDEUR_MAX_EXPR).toBe(8)`. C'est le mode de panne exact que la table dorée existe pour nommer — un test vert sur une valeur fausse — rencontré ici hors de son périmètre.
+
+---
+
+## Correction portée au raffinage d'it4 (2026-08-07)
+
+Deux chiffres de cette revue étaient faux, et le second l'était d'une manière qui mérite d'être nommée.
+
+1. **`validate.ts` fait 607 lignes, pas 602.** Les deux valeurs ont été vraies : 602 à la mesure, 607 après les correctifs de la revue de PR — que **personne n'a re-mesurés**. Mode de panne de KR-159 dans sa forme la plus discrète : un nombre vrai à l'instant où il est pris, cité plus tard sans être repris.
+2. **Le « plafond de 650 » n'a jamais existé.** Vérifié à it4 : il n'apparaît que dans les trois documents du raffinage d'it3. Il est né d'une phrase de comité, a été promu **critère contraignant** du plan par l'orchestrateur, puis reporté ici comme « (plafond 650) » — c'est-à-dire comme une règle du projet. La seule règle réelle est KR-112 (400 = signal, 800 = bloqueur). Chaque copie était fidèle à la précédente, aucune n'était fautive isolément : c'est la **répétition** qui a créé l'autorité. **KR-176** est posé pour ça.

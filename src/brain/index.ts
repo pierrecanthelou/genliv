@@ -131,6 +131,12 @@ export { autoSlot } from './BookService'
 // `FAMILLES_DE_CONDITIONS`) : aucun consommateur hors de `brain/dossier/` avant
 // les n° 3/6/7, et un registre exporté trop tôt se fait lire par des branches
 // `if (predicat === …)` avant d'avoir son `Select`.
+// MÊME RÈGLE pour l'itération 4 : `Delta` et `DeltaId` sortent (la n° 6 en aura
+// besoin pour typer l'éditeur de récompenses), `DELTAS`, `validateDelta` et
+// `collectDeltaRefs` restent — propriété tenue par un test-grep de
+// `deltas.test.ts`, de sorte que le jour où la n° 11 voudra câbler le registre
+// dans un schéma de sortie, elle devra SUPPRIMER un test, c'est-à-dire prendre la
+// décision au lieu de la subir. `DeltaBrut` disparaît, remplacé par `Delta`.
 export { DOSSIER_SCHEMA, BUDGET_MOTS_CANON, BUDGET_MOTS_JALON, CONFIANCE_MIN, CONFIANCE_MAX } from './dossier/types'
 export { PORTEES, CERTITUDES } from './dossier/types'
 export type {
@@ -142,7 +148,6 @@ export type {
 	Charpente,
 	Depart,
 	Entite,
-	DeltaBrut,
 	Portee,
 	Certitude,
 	PlanAction,
@@ -160,6 +165,7 @@ export type {
 } from './dossier/types'
 export type { ExprNode } from './dossier/expr'
 export type { PredicatId } from './dossier/predicates'
+export type { Delta, DeltaId } from './dossier/deltas'
 export { DOSSIER_ISSUE_LABELS, dossierIssueRemediation } from './dossier/issues'
 export type { DossierIssue, DossierIssueCode, DossierIssueSeverity } from './dossier/issues'
 export { ESPACES_DE_NOMS, FORME_IDENTIFIANT, estIdentifiantBienForme } from './dossier/identifiers'

@@ -144,7 +144,14 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	// ── monde.conditions ──────────────────────────────────────────────────────
 	'monde.conditions.climat[].id': 'moteur',
 	'monde.conditions.climat[].nom': 'auteur',
-	'monde.conditions.climat[].effets_regles[]': 'moteur',
+	// SANS `[]` final, et ce n'est pas une coquille : la fixture porte ici une liste
+	// VIDE, et une liste vide est une feuille — le balayage n'entre pas dedans, donc
+	// il n'existe aucune feuille `…effets_regles[]` dont cette ligne déclarerait
+	// l'audience. Un climat « modifie les règles » : sa nature est un opérande
+	// ENTIER, que la règle d'admission de `DELTAS` n'accepte pas, et aucun des
+	// quatre effets admis n'a de sens ambiant. Les trois autres emplacements, eux,
+	// portent de vrais effets et gardent leur suffixe.
+	'monde.conditions.climat[].effets_regles': 'moteur',
 
 	// ── charpente — jamais vue ENTIÈRE ────────────────────────────────────────
 	'charpente.depart.lieu_id': 'moteur',

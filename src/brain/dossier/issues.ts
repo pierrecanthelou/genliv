@@ -6,7 +6,7 @@ import { feuilleDe } from './identifiers'
  * badger une section, et que la modale d'import rend dès l'itération 1.
  *
  * Trois invariants tiennent ce contrat (KR-164) :
- *  · `code` appartient à une union FERMÉE de seize valeurs, doublée d'un `Record`
+ *  · `code` appartient à une union FERMÉE de dix-neuf valeurs, doublée d'un `Record`
  *    de libellés (KR-117) — jamais un `if (code === …)` en cascade chez le
  *    consommateur, jamais un `Partial<Record>` à trou silencieux ;
  *  · `message` est TOUJOURS une phrase française rédigée, jamais une erreur
@@ -18,14 +18,16 @@ import { feuilleDe } from './identifiers'
  */
 
 /**
- * Les seize anomalies que le schéma 1 sait produire. Union FERMÉE.
+ * Les dix-neuf anomalies que le schéma 1 sait produire. Union FERMÉE.
  *
- * Les QUATRE derniers sont les conditions (itération 3). Aucun code neuf pour les
- * RÉFÉRENCES d'une cible : une cible mal formée ou de mauvais espace de noms est
- * le même défaut qu'un identifiant d'entité mal formé (`identifiant-invalide`),
- * une cible bien formée qu'aucune entité ne porte est le même défaut qu'une
- * référence pendante (`reference-pendante`). Les deux existent depuis it1 — un
- * code par CAUSE, pas un code par emplacement.
+ * Les QUATRE de la sixième ligne sont les conditions (itération 3), les TROIS
+ * dernières les effets de règle et les éléments de liste (itération 4). Aucun
+ * code neuf pour les RÉFÉRENCES d'une cible, de condition comme d'effet : une
+ * cible mal formée ou de mauvais espace de noms est le même défaut qu'un
+ * identifiant d'entité mal formé (`identifiant-invalide`), une cible bien formée
+ * qu'aucune entité ne porte est le même défaut qu'une référence pendante
+ * (`reference-pendante`). Les deux existent depuis it1 — un code par CAUSE, pas
+ * un code par emplacement.
  */
 export type DossierIssueCode =
 	| 'schema-inconnu'
@@ -44,6 +46,9 @@ export type DossierIssueCode =
 	| 'predicat-inconnu'
 	| 'arite-invalide'
 	| 'condition-sans-expr'
+	| 'delta-inconnu'
+	| 'delta-malforme'
+	| 'element-non-objet'
 
 /**
  * Le canal de l'anomalie. `error` bloque l'import ; `warning` ne le bloque
@@ -108,6 +113,13 @@ export const DOSSIER_ISSUE_LABELS: Record<DossierIssueCode, string> = {
 	'arite-invalide': '↪ Ajustez le nombre de cibles ou de conditions de « {champ} », puis réimportez-le.',
 	'condition-sans-expr':
 		'↪ Ajoutez la condition structurée correspondante si le moteur doit la vérifier, ou laissez tel quel si elle reste une intention d’auteur.',
+	// Les TROIS consignes de l'itération 4, mêmes principes que les quatre
+	// précédentes : trois GESTES distincts, et jamais une sous-chaîne française
+	// asserte par un test — le test asserte `issue.code`.
+	'delta-inconnu': '↪ Remplacez l’effet de « {champ} » par l’un de ceux que le moteur reconnaît, puis réimportez-le.',
+	'delta-malforme':
+		'↪ Corrigez la forme de « {champ} » dans le fichier (clé « delta » et ses cibles), puis réimportez-le.',
+	'element-non-objet': '↪ Remplacez cet élément de « {champ} » par un objet, puis réimportez-le.',
 }
 
 /**

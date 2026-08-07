@@ -4,6 +4,8 @@ import { validateDossier } from './validate'
 import {
 	collectIds,
 	COLLECTIONS_IDENTIFIEES,
+	decrireValeur,
+	defineRegistre,
 	ESPACES_DE_NOMS,
 	estIdentifiantBienForme,
 	feuilleDe,
@@ -55,6 +57,38 @@ describe('identifiers', () => {
 		// `bestiaire` est un espace de RÉFÉRENCE : aucune collection du dossier ne le
 		// porte, il résout contre le bestiaire du jeu.
 		expect(COLLECTIONS_IDENTIFIEES.map((c) => c.espace)).not.toContain('bestiaire')
+	})
+
+	it('decrireValeur ne laisse jamais fuir undefined dans une phrase', () => {
+		// La propriété que sa docstring affirme, et la raison pour laquelle elle existe
+		// plutôt qu'un `String(valeur)` nu (KR-164/KR-169) : un champ absent doit se
+		// dire « vide », jamais « undefined ». Elle a TROIS appelants depuis
+		// l'itération 4 (`validate.ts`, `expr.ts`, `deltas.ts`), d'où son domicile ici.
+		expect(decrireValeur(undefined)).toBe('vide')
+		expect(decrireValeur(null)).toBe('vide')
+		expect(decrireValeur('   ')).toBe('vide')
+		expect(decrireValeur('du texte')).toBe('du texte')
+		expect(decrireValeur(42)).toBe('42')
+		expect(decrireValeur(false)).toBe('false')
+		expect(decrireValeur([1, 2])).toBe('une liste')
+		expect(decrireValeur({ a: 1 })).toBe('un objet')
+	})
+
+	it('defineRegistre rend la table INTACTE et infere ses cles', () => {
+		// Factory d'IDENTITÉ : elle n'existe que pour son effet de TYPE — épingler la
+		// valeur, inférer l'union des clés — et ne doit rien transformer au passage.
+		// Ses trois appelants (`ESPACES_DE_NOMS`, `PREDICATES`, `DELTAS`) dérivent leur
+		// union par `keyof typeof`, donc une copie ou un gel silencieux se verrait ici.
+		const table = { a: { label: 'A' }, b: { label: 'B' } }
+
+		const registre = defineRegistre<{ label: string }>()(table)
+
+		expect(registre).toBe(table)
+		expect(Object.keys(registre)).toEqual(['a', 'b'])
+		// L'union des clés est bien INFÉRÉE (`'a' | 'b'`) et non élargie à `string` :
+		// une clé absente ne compile pas.
+		// @ts-expect-error — `c` n'est pas une clé de la table passée.
+		expect(registre.c).toBeUndefined()
 	})
 
 	it('feuilleDe retire l indice de tableau', () => {
