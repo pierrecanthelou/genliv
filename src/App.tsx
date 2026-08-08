@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
 import { useBrain, useRoute, type Route } from './brain'
-import { CreateBookEntry } from './features/book-creation'
 import { LibraryScreen } from './features/book-library'
 import { EditorScreen } from './EditorScreen'
 import { SyncIndicator, ConflictDialog } from './features/cloud-sync'
@@ -19,8 +18,13 @@ function isEditingBook(route: Route, bookId: string): boolean {
  * App shell — routes between the home (book-library) and the editor, and is
  * the composition root: features are wired together here so they never import
  * each other. The home composes book-library's LibraryScreen with
- * book-creation's create affordance; the editor route delegates to the
+ * dossier-format's import affordance; the editor route delegates to the
  * EditorScreen shell. Features communicate only through brain.
+ *
+ * `createEntry` is deliberately NOT passed to `LibraryScreen` this iteration:
+ * book-creation still builds `Book`s, which would be invisible in a library
+ * that now only lists `Dossier`s. book-creation is repointed onto dossiers
+ * in itération 2.
  */
 export function App(): JSX.Element {
 	const { events, router } = useBrain()
@@ -40,7 +44,7 @@ export function App(): JSX.Element {
 			// seed-once viewport from the new book's persisted prefs (KR-013).
 			<EditorScreen key={route.bookId} bookId={route.bookId} />
 		) : (
-			<LibraryScreen createEntry={<CreateBookEntry />} importEntry={<ImportDossierButton />} />
+			<LibraryScreen importEntry={<ImportDossierButton />} />
 		)
 	// SyncIndicator overlays both routes (composition root mounts it once).
 	return (

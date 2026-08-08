@@ -10,9 +10,14 @@ describe('slugifyFilename', () => {
 		expect(slugifyFilename('  « Le Donjon ! »  ')).toBe('le-donjon')
 	})
 
-	it('falls back to livre when nothing usable remains', () => {
-		expect(slugifyFilename('')).toBe('livre')
-		expect(slugifyFilename('!!!')).toBe('livre')
+	// Le repli nomme ce que le fichier contient RÉELLEMENT à la version où il est
+	// livré : un dossier d'aventure, pas un livre. Assertion négative gardée
+	// exprès (KR-162) — sans elle, un repli resté à « livre » passerait pour peu
+	// qu'il ne soit plus asserté du tout.
+	it('falls back to dossier when nothing usable remains', () => {
+		expect(slugifyFilename('')).toBe('dossier')
+		expect(slugifyFilename('!!!')).toBe('dossier')
+		expect(slugifyFilename('')).not.toBe('livre')
 	})
 })
 

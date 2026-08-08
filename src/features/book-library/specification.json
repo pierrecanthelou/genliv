@@ -3,6 +3,7 @@
 	"created_at": "2026-06-16",
 	"status": "in-progress",
 	"design_reference": "Editeur Livre-Jeu - Wireframes.dc.html § 01 step 1 « ACCUEIL DE L'APP » : « Mes livres » + a grid of book cards, the dashed accent card creating a book. Component anatomy + tokens from the design system (styles.css): card = surfaces/Card, delete = forms/IconButton (danger), confirmation = surfaces/Modal over a scrim with an error-toned confirm. Low-fi wireframe fidelity, light theme only.",
+	"superseded_note": "REPOINTÉE par bascule-editeur itération 1 (2026-08-08, .claude/raffinage/bascule-editeur-it1.revue.md) : plan.goal, plan.acceptance_criteria, plan.walking_skeleton et plan.brain_contracts ci-dessous décrivent le Book-era code (grille de Book, BookService, useBooks, BookCard) — REMPLACÉ dans son intégralité par une bibliothèque de Dossier (DossierService.list/remove, DossierResume, DossierCard). Source de vérité de l'état RÉEL : src/features/bascule-editeur/specification.json (implementation.iterations_log id 1). Ce bloc plan/implementation N'EST PAS réécrit (c'est l'archive du walking-skeleton au 3ᵉ itération Book-era) — c'est un renvoi, pas une correction.",
 	"plan": {
 		"goal": "Let an author see all their books on the home screen and open or delete any of them, so the library is the entry point to every existing book (not just freshly created ones).",
 		"acceptance_criteria": [

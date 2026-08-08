@@ -172,7 +172,7 @@ export { ESPACES_DE_NOMS, FORME_IDENTIFIANT, estIdentifiantBienForme } from './d
 export type { EspaceDeNoms, EspaceDeNomsDescripteur } from './dossier/identifiers'
 export { validateDossier, type DossierValidation } from './dossier/validate'
 export { inspectDossierFile, type DossierInspection, type FileReadErrorCode } from './dossier/read'
-export type { DossierService } from './DossierService'
+export type { DossierService, DossierResume } from './DossierService'
 export type { SelectionService } from './SelectionService'
 export { effectiveKind, endLabel } from './utils/nodeKind'
 export { nodeTitle, textLines } from './utils/nodeView'
@@ -201,7 +201,7 @@ export {
 export { downloadJson, downloadText, slugifyFilename } from './utils/download'
 export { buildAdventureDocument } from './utils/buildAdventureDocument'
 export type { NodeKindDescriptor, EdgeKindDescriptor, BadgeMark } from './kinds'
-export { useOpenBook, useBooks, useBookHealth } from './hooks'
+export { useOpenBook, useBooks, useBookHealth, useDossiers } from './hooks'
 export { type StructuralWarning, type StructuralWarningCode } from './utils/bookHealth'
 export { HIT_TARGET_MIN } from './ui'
 export {

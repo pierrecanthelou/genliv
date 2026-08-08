@@ -19,16 +19,19 @@ export interface AppEvents {
 	'edge:deleted': { bookId: string; edgeId: string }
 	/**
 	 * Le DOSSIER D'AVENTURE (feature n° 1 `dossier-format`). Comme pour le livre,
-	 * ces trois événements ne partent qu'APRÈS résolution de la persistance, dans
-	 * l'ordre (KR-004) : un abonné observe toujours un dossier déjà persisté.
+	 * ces quatre événements ne partent qu'APRÈS résolution de la persistance, dans
+	 * l'ordre (KR-004) : un abonné observe toujours un magasin déjà à jour.
 	 * `dossier:created` est émis par `DossierService.importDossier`, `dossier:opened`
 	 * par `DossierService.open`, `dossier:updated` par l'adoption cloud de
-	 * `CloudSyncService.reconcileDossier`. Pas de `dossier:deleted` : aucun émetteur
-	 * avant la n° 2, et un événement sans émetteur est de la dette, pas un contrat.
+	 * `CloudSyncService.reconcileDossier`, et `dossier:deleted` par
+	 * `DossierService.remove` — son émetteur arrive avec la bibliothèque repointée
+	 * (n° 2 `bascule-editeur`, itération 1), pas avant : un événement sans émetteur
+	 * serait de la dette, pas un contrat. `useDossiers` les observe pour re-lire.
 	 */
 	'dossier:created': { dossierId: string }
 	'dossier:opened': { dossierId: string }
 	'dossier:updated': { dossierId: string }
+	'dossier:deleted': { dossierId: string }
 	'sync:status': { status: SyncStatus; pending: number }
 	/** A book diverged on both sides (local unpushed edits + a newer cloud copy) — awaiting resolution. */
 	'sync:conflict': { bookId: string }

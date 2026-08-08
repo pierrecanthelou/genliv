@@ -48,9 +48,16 @@ export function downloadText(filename: string, content: string): void {
 }
 
 /**
- * Slugify a book title into a safe file base name — lowercase ASCII words joined
- * by hyphens, accents stripped, punctuation dropped. Falls back to `livre` when
+ * Slugify a title into a safe file base name — lowercase ASCII words joined by
+ * hyphens, accents stripped, punctuation dropped. Falls back to `dossier` when
  * the title has no usable characters, so the download always has a name.
+ *
+ * Le repli disait `livre` tant que le seul téléchargement du produit était celui
+ * d'un `Book` ; il devient `dossier` avec son PREMIER APPELANT RÉEL, le bouton
+ * « Télécharger le fichier » de la bibliothèque de dossiers (n° 2, itération 1).
+ * Un fichier nommé `livre.json` sortant d'un dossier d'aventure mentirait sur ce
+ * qu'il contient, et c'est le seul nom que l'auteur verra si son titre ne porte
+ * aucun caractère utilisable.
  */
 export function slugifyFilename(title: string): string {
 	const slug = title
@@ -59,5 +66,5 @@ export function slugifyFilename(title: string): string {
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, '-')
 		.replace(/^-+|-+$/g, '')
-	return slug === '' ? 'livre' : slug
+	return slug === '' ? 'dossier' : slug
 }

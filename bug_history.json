@@ -247,9 +247,9 @@
 			"discovered_at": "iteration-2",
 			"symptom": "La docstring de DossierService.importDossier garantit qu'« un import ne se substitue jamais a un dossier deja present ». La garantie est FAUSSE depuis it2 : la presence est constatee par get(), qui RE-VALIDE, et it2 a durci le schema 1 (enonce_texte, declencheur_texte, condition_texte, portee, certitude, les quatre deltas devenus obligatoires) SANS changer son numero. Un document range sous cette cle mais devenu invalide rend null, donc aucun dossier-deja-importe n'est emis, donc persistence.set ECRASE. Le test « le second import est refuse » ne peut pas le voir : il reimporte le meme contenu, donc toujours valide.",
 			"root_cause": "Confondre « present » et « lisible ». Le veto du tech-lead d'it1 — get() re-valide et ne rend jamais le magasin brut — est juste pour la LECTURE ; l'utiliser comme test de PRESENCE lie deux proprietes qui divergent des que le schema se resserre sans changer de numero.",
-			"fix": "Aucun code en it2 : le correctif tient en une ligne (constater la presence par la CLE, persistence.get(dossierKey(id)) !== null) mais demande un SECOND message (« un dossier illisible occupe deja cet identifiant »), donc un arbitrage de redaction. La docstring est corrigee pour cesser d'affirmer une propriete fausse et pour nommer exactement la portee de la garantie, son rayon d'aujourd'hui (nul) et son proprietaire.",
-			"mitigation": "Rayon nul aujourd'hui (rien n'est publie, aucun dossier n'existe hors des tests) ; reel a partir de la n° 2, premier endroit ou un dossier stocke devient visible. Et chaque resserrement de schema 1 en n° 3 a n° 6 REARME le meme piege : a fermer en n° 2, avec l'ecran qui montrera le second message. Porte en open_questions avec son proprietaire nomme.",
-			"regression_test": "aucun en it2 — le cas exige un document stocke invalide, que seule la n° 2 saura produire et montrer",
+			"fix": "FERME EN ITERATION 1 de bascule-editeur (2026-08-08) : DossierService.importDossier constate desormais la presence par un predicat de CLE (cleOccupee, persistence.keys().includes), jamais par get() qui re-valide. Le SECOND message existe (« un dossier illisible occupe deja cet identifiant »), distinct du message nommant le titre d'un occupant lisible — un seul code dossier-deja-importe, deux messages selon la lisibilite de l'occupant.",
+			"mitigation": "Chaque resserrement de schema 1 en n° 3 a n° 6 aurait reactive ce piege : ferme structurellement, plus une question de rayon.",
+			"regression_test": "src/brain/DossierService.test.ts — import refuse sur une cle occupee par un document invalide, document en place non ecrase",
 			"severity": "major"
 		},
 		{
@@ -371,6 +371,18 @@
 			"mitigation": "Corollaire a ajouter a KR-175 pour la prochaine relecture : tout cast trouve en revue de PR doit etre RE-VERIFIE en le retirant reellement (tsc --noEmit), jamais suppose superflu sur la seule lecture — cette revue a failli journaliser un correctif casse.",
 			"regression_test": "tsc --noEmit (porte de commit) — la regression se manifeste a la compilation, aucun test dedie necessaire",
 			"severity": "minor"
+		},
+		{
+			"id": "BUG-059",
+			"date": "2026-08-08",
+			"feature": "bascule-editeur",
+			"discovered_at": "iteration-1",
+			"symptom": "(a) FEATURE_DIRS incomplet, featureDirs.test.ts rouge. (b) critere titre+date sans assertion. (c) revue de PR tech-lead : 8 findings, docs (specs/README/bug_history) affirmant un etat du code inexistant.",
+			"root_cause": "(a) /cadrer omet FEATURE_DIRS. (b) compte-rendu citait le tri seul. (c) doc ecrite sans relecture croisee avant la revue de PR.",
+			"fix": "(a) .eslintrc.cjs:13. (b) assertion ajoutee. (c) 8 findings corriges.",
+			"mitigation": "FEATURE_DIRS a declarer des la creation du dossier ; une assertion par affirmation (KR-174) ; (c) 3e iteration d'affilee avec ce defaut (BUG-055 puis ici) — patron, pas accident : relire les docs contre le code avant la PR.",
+			"regression_test": "featureDirs.test.ts, dossierLibrary.test.tsx",
+			"severity": "major"
 		}
 	],
 	"_about": "Les défauts du TEMPS COURANT — bascule IA, versions 0.6.x, depuis le 2026-08-03. Les défauts antérieurs (BUG-001 à BUG-027, l'éditeur d'arbre) sont dans bug_history.0.5.json, qui n'est PAS en lecture obligatoire. Ce fichier-ci l'est. La numérotation des BUG-xxx reste GLOBALE et continue à travers la scission : un identifiant ne se réemploie jamais."

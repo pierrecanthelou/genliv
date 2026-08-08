@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.10 — la bibliothèque retrouve un dossier plutôt qu'un livre
+
+`bascule-editeur` itération 1/3. La bibliothèque (`book-library`) cesse de lister des `Book` et liste des dossiers d'aventure : `DossierService` gagne `list()`/`remove()`, et un dossier devenu illisible n'y bloque plus rien — il s'affiche nommément, se télécharge (s'il est encore lisible) ou se supprime pour libérer son identifiant.
+
+- **BUG-048 fermé pour de bon** : l'import constate la présence d'un identifiant occupé par sa CLÉ, plus jamais par un `get()` qui re-valide — un document devenu invalide n'écrase plus silencieusement, il refuse l'import avec un message dédié.
+- **`DossierResume` est une union discriminée** (`{lisible:true,titre,updatedAt}` | `{lisible:false}`), zéro compteur : afficher un nombre d'entités aurait exigé une re-validation complète de chaque dossier à chaque rendu de l'accueil.
+- **« + Nouveau livre » retiré de l'accueil** pour cette itération — `book-creation` n'est repointée sur `Dossier` qu'à l'itération 2, et créer un `Book` que la bibliothèque n'affiche plus aurait été un bouton mort. Un avis nommé apparaît si des livres existent encore mais qu'aucun dossier n'est importé, tant que `BookService` n'est pas démonté (n° 9).
+- **`tree-canvas` mis en sommeil**, pas détruit : son repointage sur un vrai graphe de relations et d'indices n'a pas de données avant la n° 6 `dossier-registres` — correction actée dans `docs/ROADMAP-BASCULE-IA.md`.
+- 50 suites / 730 tests. Score de mutation sans objet (aucun des 4 fichiers mutés touché).
+
 ## 0.6.9 — le dossier de référence remplace la page blanche
 
 `dossier-format` itération 5, **dernière de la feature (5/5)**. Un second fichier réel, `dossier-reference.json` (six personnages, cinq lieux), prouve par une construction narrative réelle — jamais un littéral inline — que le schéma livré en it1-it4 porte assez pour un dossier complet.

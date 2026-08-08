@@ -1,6 +1,7 @@
 import { useMemo, useSyncExternalStore } from 'react'
 import { useBrain } from './BrainContext'
 import type { AppEventName } from './EventBus'
+import type { DossierResume } from './DossierService'
 import type { Book } from './tree'
 import { checkBookHealth, type StructuralWarning } from './utils/bookHealth'
 
@@ -26,6 +27,15 @@ const BOOK_MUTATION_EVENTS: AppEventName[] = [
 
 /** List membership/content changes on create, delete, or a rename (book:updated). */
 const BOOK_LIST_EVENTS: AppEventName[] = ['book:created', 'book:updated', 'book:deleted']
+
+/**
+ * Les trois événements qui changent la LISTE des dossiers : un import
+ * (`dossier:created`), une suppression (`dossier:deleted`), et l'adoption d'une
+ * copie cloud plus récente (`dossier:updated`) — cette dernière change le titre
+ * ou la date d'une carte, donc la liste rendue. `dossier:opened` n'y est pas :
+ * ouvrir ne change rien à ce que l'accueil montre.
+ */
+const DOSSIER_LIST_EVENTS: AppEventName[] = ['dossier:created', 'dossier:updated', 'dossier:deleted']
 
 export function useOpenBook(bookId: string | null): Book | null {
 	const { books, events } = useBrain()
@@ -88,6 +98,39 @@ export function useBooks(): Book[] {
 			getSnapshot: (): Book[] => snapshot,
 		}
 	}, [books, events])
+
+	return useSyncExternalStore(store.subscribe, store.getSnapshot)
+}
+
+/**
+ * Live list of every persisted dossier (bibliothèque). Calque exact de `useBooks`
+ * sur `DossierService.list()` : l'instantané est CACHÉ en clôture et n'est
+ * recalculé que sur les trois événements de liste, de sorte que
+ * `useSyncExternalStore` reçoive une référence STABLE entre deux mutations — une
+ * liste fraîche à chaque appel de `getSnapshot` reboucle le rendu à l'infini.
+ * La vue reste une pure lecture de la source de vérité (KR-020/013) : aucun
+ * miroir `useEffect`, aucune copie privée. Filtrer ou trier cet instantané se
+ * fait sur une COPIE — muter le tableau rendu casserait la stabilité de la
+ * référence (KR-071).
+ */
+export function useDossiers(): DossierResume[] {
+	const { dossiers, events } = useBrain()
+
+	const store = useMemo(() => {
+		let snapshot: DossierResume[] = dossiers.list()
+		return {
+			subscribe(onChange: () => void): () => void {
+				const offs = DOSSIER_LIST_EVENTS.map((name) =>
+					events.on(name, () => {
+						snapshot = dossiers.list()
+						onChange()
+					}),
+				)
+				return () => offs.forEach((off) => off())
+			},
+			getSnapshot: (): DossierResume[] => snapshot,
+		}
+	}, [dossiers, events])
 
 	return useSyncExternalStore(store.subscribe, store.getSnapshot)
 }

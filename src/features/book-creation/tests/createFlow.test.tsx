@@ -1,16 +1,24 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createBrain, BrainProvider, type AppEventName, type CloudTransport } from '../../../brain'
-import { App } from '../../../App'
+import { CreateBookEntry } from '../components/CreateBookEntry'
 
-function renderApp() {
+/**
+ * Mounts the create affordance ON ITS OWN, not via `<App/>`: since bascule-editeur
+ * it1 (n° 2 `bibliotheque-dossiers`), App.tsx no longer composes book-creation
+ * into the home screen (a Book created there would be invisible in a
+ * Dossier-only library). The flow itself — dialog, BookService, event order —
+ * is unchanged and still worth its own component-level coverage; it lands on
+ * a Dossier route again once book-creation is repointed in itération 2.
+ */
+function renderEntry() {
 	const brain = createBrain()
 	const order: AppEventName[] = []
 	brain.events.on('book:created', () => order.push('book:created'))
 	brain.events.on('book:opened', () => order.push('book:opened'))
 	render(
 		<BrainProvider brain={brain}>
-			<App />
+			<CreateBookEntry />
 		</BrainProvider>,
 	)
 	return { brain, order }
@@ -21,34 +29,29 @@ describe('book-creation flow', () => {
 		window.localStorage.clear()
 	})
 
-	it('creates a book from the home screen and navigates to its editor', async () => {
+	it('creates a book from its own entry point, persisting it and firing events in order', async () => {
 		const user = userEvent.setup()
-		const { brain, order } = renderApp()
+		const { brain, order } = renderEntry()
 
 		await user.click(screen.getByRole('button', { name: /nouveau livre/i }))
 		await user.type(screen.getByLabelText(/titre/i), "La Caverne d'Aldûr")
 		await user.click(screen.getByRole('button', { name: 'Créer' }))
 
-		// Landed in the editor: the new book title is shown as the heading.
-		expect(screen.getByRole('heading', { name: "La Caverne d'Aldûr" })).toBeInTheDocument()
-		// Editor shows the seeded Sommaire placeholder (empty-state rule).
-		expect(screen.getByText(/écrivez ici le texte d'introduction/i)).toBeInTheDocument()
-
-		// Exactly one book persisted, events fired in order.
+		// No editor route to land in outside App: assert through BookService directly.
 		expect(brain.books.listBooks()).toHaveLength(1)
+		expect(brain.books.listBooks()[0].title).toBe("La Caverne d'Aldûr")
 		expect(order).toEqual(['book:created', 'book:opened'])
 	})
 
 	it('does not create a book when the dialog is cancelled', async () => {
 		const user = userEvent.setup()
-		const { brain } = renderApp()
+		const { brain } = renderEntry()
 
 		await user.click(screen.getByRole('button', { name: /nouveau livre/i }))
 		await user.type(screen.getByLabelText(/titre/i), 'Abandonné')
 		await user.click(screen.getByRole('button', { name: 'Annuler' }))
 
 		expect(brain.books.listBooks()).toHaveLength(0)
-		expect(screen.getByRole('heading', { name: /mes livres-jeux/i })).toBeInTheDocument()
 	})
 })
 

@@ -91,12 +91,15 @@ export const DOSSIER_ISSUE_LABELS: Record<DossierIssueCode, string> = {
 	// et `monstre_ref` en aurait hérité une consigne trompeuse (même famille que
 	// BUG-042). Le marqueur nomme désormais le champ réellement fautif.
 	'reference-pendante': "↪ Corrigez « {champ} » ou ajoutez l'élément correspondant, puis réimportez-le.",
-	// Pas « ↪ Supprimez-le avant de le réimporter » : la suppression d'un dossier
-	// n'existe pas en itération 1 (`DossierService` a quatre méthodes, la
-	// bibliothèque n'affiche pas encore les dossiers), et une consigne
-	// inapplicable met l'auteur dans une impasse. Ce qu'il peut faire AUJOURD'HUI,
-	// c'est changer l'identifiant de son fichier.
-	'dossier-deja-importe': '↪ Changez le champ « id » du fichier pour en importer une copie distincte.',
+	// UNE remédiation pour les DEUX messages de ce code (`DossierService`) : la
+	// cause est « cet identifiant est occupé », et les deux gestes qui le libèrent
+	// valent que l'occupant soit lisible ou non. La suppression est nommée ici
+	// depuis la n° 2 (`bascule-editeur`, itération 1), qui livre `DossierService.remove`
+	// ET la carte qui l'actionne — jusque-là elle était tue, parce qu'une consigne
+	// que le produit ne permet pas met l'auteur dans une impasse (BUG-042/KR-171 :
+	// une ligne QUOI FAIRE se vérifie contre la version où elle est livrée).
+	'dossier-deja-importe':
+		'↪ Supprimez-le depuis la bibliothèque, ou changez le champ « id » du fichier pour en importer une copie distincte.',
 	'texte-trop-long': "↪ Resserrez le texte si possible ; l'import n'est pas bloqué.",
 	'valeur-hors-enumeration': "↪ Remplacez cette valeur par l'une de celles attendues, puis réimportez-le.",
 	'delta-en-prose': "↪ Remplacez ce texte par une liste d'effets, puis réimportez-le.",

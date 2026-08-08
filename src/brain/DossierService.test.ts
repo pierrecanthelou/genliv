@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { createDossierService } from './DossierService'
+import { createCloudSyncService, type CloudTransport } from './CloudSyncService'
 import { createEventBus } from './EventBus'
 import { createLocalStoragePersistence } from './PersistenceService'
 import { dossierKey, DOSSIER_KEY_PREFIX } from './persistenceKeys'
@@ -15,6 +16,32 @@ const FUITES_TECHNIQUES = ['expected', 'undefined', 'is not a function']
 function texteFixture(): string {
 	return fs.readFileSync(CHEMIN_FIXTURE, 'utf8')
 }
+
+/**
+ * Une VARIANTE du fichier réel — trois champs de racine réécrits sur le document
+ * de la fixture, jamais un dossier littéral inline (KR-156) : lister exige
+ * plusieurs dossiers, et un littéral dériverait du format que le validateur
+ * accepte réellement dès le prochain resserrement de schéma.
+ */
+function texteVariante(id: string, titre: string, updatedAt: string): string {
+	const document = JSON.parse(texteFixture()) as Record<string, unknown>
+	document.id = id
+	document.titre = titre
+	document.updatedAt = updatedAt
+	return JSON.stringify(document)
+}
+
+/**
+ * Un document rangé sous une clé de dossier et que le validateur REFUSE — ce que
+ * produit un resserrement de schéma 1 sans changement de numéro (BUG-048), et ce
+ * qu'écrit l'adoption cloud derrière le service.
+ */
+function documentIllisible(id: string): Record<string, unknown> {
+	return { schema: 2, id, titre: 'Version devenue illisible' }
+}
+
+/** Le prochain macrotask — la fenêtre de poussée à `debounceMs: 0` s'y résout. */
+const attendreLaPoussee = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 /**
  * Le VRAI magasin (comme `BookService.test.ts`) : il sérialise réellement, donc
@@ -167,5 +194,178 @@ describe('DossierService', () => {
 		expect(exporte).not.toBeNull()
 		expect(exporte?.schema).toBe(1)
 		expect(Object.isFrozen(exporte)).toBe(true)
+	})
+
+	it('list liste par cle, illisibles en tete, et ignore les cles reservees', () => {
+		const { dossiers, persistence } = setup()
+
+		dossiers.importDossier(texteVariante('recent', 'Le plus récent', '2026-08-06T10:00:00.000Z'))
+		dossiers.importDossier(texteVariante('ancien', 'Le plus ancien', '2026-01-02T10:00:00.000Z'))
+		// Écrit DERRIÈRE le service, comme l'adoption cloud : présent, illisible.
+		persistence.set(dossierKey('illisible'), documentIllisible('illisible'))
+		// La FORME des clés de découpage à venir : `dossierContentKey` et
+		// `dossierImageKey` n'existent pas encore (`persistenceKeys.ts` les annonce
+		// pour la n° 3 / n° 4), donc on sème ce qui les distingue — le `:` réservé
+		// après le préfixe. Sans le filtre, elles rendraient des cartes fantômes.
+		persistence.set(`${dossierKey('recent')}:content`, { schema: 1, id: 'recent' })
+		persistence.set(`${dossierKey('recent')}:img:illustration`, 'data:image/png;base64,xxx')
+
+		// Le tableau ENTIER, pas un décompte : il épingle d'un coup l'exhaustivité
+		// (aucune clé omise), l'ordre, et la FORME de chaque branche de l'union —
+		// `toEqual` échoue sur une propriété en trop, donc un `titre` posé par
+		// mégarde sur une branche `lisible: false` rougirait ici.
+		expect(dossiers.list()).toEqual([
+			{ id: 'illisible', lisible: false },
+			{ id: 'recent', lisible: true, titre: 'Le plus récent', updatedAt: '2026-08-06T10:00:00.000Z' },
+			{ id: 'ancien', lisible: true, titre: 'Le plus ancien', updatedAt: '2026-01-02T10:00:00.000Z' },
+		])
+	})
+
+	it('list rend une liste vide quand rien n est importe', () => {
+		const { dossiers } = setup()
+		expect(dossiers.list()).toEqual([])
+	})
+
+	it('list departage une egalite de updatedAt par id', () => {
+		const { dossiers } = setup()
+		const memeInstant = '2026-08-06T10:00:00.000Z'
+
+		// Semés dans l'ordre inverse de l'ordre attendu : sans départage, la liste
+		// sortirait dans l'ordre des clés du magasin.
+		dossiers.importDossier(texteVariante('beta', 'Bêta', memeInstant))
+		dossiers.importDossier(texteVariante('alpha', 'Alpha', memeInstant))
+
+		expect(dossiers.list().map((resume) => resume.id)).toEqual(['alpha', 'beta'])
+	})
+
+	it('un import sur une cle occupee par un document illisible est refuse', () => {
+		const { dossiers, persistence, events } = setup()
+		const crees: string[] = []
+		events.on('dossier:created', ({ dossierId }) => crees.push(dossierId))
+		const occupant = documentIllisible('dossier-minimal')
+		persistence.set(dossierKey('dossier-minimal'), occupant)
+
+		const refus = dossiers.importDossier(texteFixture())
+
+		expect(refus.statut).toBe('invalid')
+		if (refus.statut !== 'invalid') return
+		expect(refus.errors.map((e) => e.code)).toEqual(['dossier-deja-importe'])
+		// Le SECOND message du code — celui que la lisibilité de l'occupant décide.
+		expect(refus.errors[0].message).toBe('Un dossier illisible occupe déjà cet identifiant.')
+		for (const fuite of FUITES_TECHNIQUES) {
+			expect(refus.errors[0].message.toLowerCase()).not.toContain(fuite)
+		}
+		// OÙ : l'occupant n'a pas de titre lisible, il est nommé par son identifiant.
+		expect(refus.errors[0].location).toContain('dossier-minimal')
+		expect(refus.errors[0].path).not.toBe('')
+		// Le document EN PLACE n'est pas écrasé, et aucun événement ne part.
+		expect(persistence.get(dossierKey('dossier-minimal'))).toEqual(occupant)
+		expect(crees).toEqual([])
+		// DISCRIMINANT de BUG-048 : tant que la présence se constatait par `get()`,
+		// qui re-valide, cet occupant rendait `null` et l'import l'écrasait — le
+		// dossier serait alors LISIBLE ici, et cette assertion rougirait.
+		expect(dossiers.get('dossier-minimal')).toBeNull()
+	})
+
+	it('remove retire la cle AVANT d emettre dossier:deleted', () => {
+		const { dossiers, events, persistence } = setup()
+		dossiers.importDossier(texteFixture())
+		let vuDansLeMagasin: unknown = 'sentinelle jamais lue'
+		const supprimes: string[] = []
+		events.on('dossier:deleted', ({ dossierId }) => {
+			// L'abonné lit le magasin AU MOMENT de la notification : la clé doit déjà
+			// en être partie (KR-004), sinon la bibliothèque re-lirait la carte qu'elle
+			// vient de supprimer.
+			vuDansLeMagasin = persistence.get(dossierKey(dossierId))
+			supprimes.push(dossierId)
+		})
+
+		expect(dossiers.remove('dossier-minimal')).toBe(true)
+
+		expect(vuDansLeMagasin).toBeNull()
+		expect(supprimes).toEqual(['dossier-minimal'])
+		expect(dossiers.list()).toEqual([])
+	})
+
+	it('remove fonctionne sur un dossier illisible', () => {
+		const { dossiers, persistence, events } = setup()
+		const supprimes: string[] = []
+		events.on('dossier:deleted', ({ dossierId }) => supprimes.push(dossierId))
+		persistence.set(dossierKey('illisible'), documentIllisible('illisible'))
+		// Discriminant : il est bien PRÉSENT et bien ILLISIBLE avant le geste.
+		expect(dossiers.get('illisible')).toBeNull()
+		expect(dossiers.list()).toEqual([{ id: 'illisible', lisible: false }])
+
+		// Un illisible non supprimable enfermerait l'auteur : son identifiant reste
+		// occupé, donc l'import du fichier corrigé serait refusé à jamais.
+		expect(dossiers.remove('illisible')).toBe(true)
+
+		expect(persistence.get(dossierKey('illisible'))).toBeNull()
+		expect(dossiers.list()).toEqual([])
+		expect(supprimes).toEqual(['illisible'])
+	})
+
+	it('une cle au contenu non-JSON reste listee ET supprimable', () => {
+		const { dossiers } = setup()
+		// Écrit dans le magasin BRUT : `PersistenceService.get` rend `null` sur un
+		// contenu que `JSON.parse` refuse. « Valeur absente » et « clé absente » ne
+		// sont donc pas la même question — c'est la CLÉ qui fait foi, sans quoi
+		// cette entrée serait listée sans jamais pouvoir être supprimée.
+		window.localStorage.setItem(dossierKey('tronque'), '{ tronqué')
+
+		expect(dossiers.list()).toEqual([{ id: 'tronque', lisible: false }])
+		expect(dossiers.remove('tronque')).toBe(true)
+		expect(dossiers.list()).toEqual([])
+	})
+
+	it('remove rend false sans rien emettre sur un identifiant absent ou deja supprime', () => {
+		const { dossiers, events } = setup()
+		const supprimes: string[] = []
+		events.on('dossier:deleted', ({ dossierId }) => supprimes.push(dossierId))
+
+		expect(dossiers.remove('jamais-vu')).toBe(false)
+
+		dossiers.importDossier(texteFixture())
+		expect(dossiers.remove('dossier-minimal')).toBe(true)
+		// Double confirmation (double clic sur « Supprimer ») : le second passage ne
+		// ré-émet rien, donc aucun abonné ne voit deux suppressions du même dossier.
+		expect(dossiers.remove('dossier-minimal')).toBe(false)
+
+		expect(supprimes).toEqual(['dossier-minimal'])
+	})
+
+	it('remove n efface pas la cle distante — epinglage du comportement ACTUEL (KR-182)', async () => {
+		const events = createEventBus()
+		const local = createLocalStoragePersistence()
+		const pousses: string[] = []
+		const transport: CloudTransport = {
+			push: async (key) => {
+				pousses.push(key)
+			},
+		}
+		// `debounceMs: 0` → le lot part au macrotask suivant (`attendreLaPoussee`).
+		const sync = createCloudSyncService(local, events, transport, { debounceMs: 0 })
+		const dossiers = createDossierService(sync, events)
+
+		dossiers.importDossier(texteFixture())
+		expect(dossiers.remove('dossier-minimal')).toBe(true)
+
+		// Le magasin local est bien nettoyé…
+		expect(sync.get(dossierKey('dossier-minimal'))).toBeNull()
+		// …mais la poussée reste EN FILE : `CloudSyncService.remove()` ne fait que
+		// `local.remove(key)` — il ne retire rien de la file et n'efface aucune clé
+		// distante.
+		expect(sync.pendingKeys()).toContain(dossierKey('dossier-minimal'))
+
+		await attendreLaPoussee()
+
+		// ÉPINGLAGE, pas un souhait : le document SUPPRIMÉ vient d'être publié au
+		// distant, et aucune suppression ne l'y suivra. Dette héritée, identique
+		// pour `BookService.deleteBook` depuis toujours, hors périmètre de cette
+		// itération (KR-182). Le jour où une suppression cloud existera, ce test
+		// devra changer — c'est-à-dire que quelqu'un aura pris la décision, au lieu
+		// de découvrir le silence.
+		expect(pousses).toEqual([dossierKey('dossier-minimal')])
+		expect(sync.pendingKeys()).toEqual([])
 	})
 })

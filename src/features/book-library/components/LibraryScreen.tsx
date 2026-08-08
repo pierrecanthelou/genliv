@@ -1,17 +1,20 @@
 import { useState, type ReactNode } from 'react'
-import { Field, SegmentedControl, type Book, type SegmentedOption } from '../../../brain'
-import { useLibrary } from '../hooks/useLibrary'
-import { selectVisibleBooks, type SortMode } from '../utils/selectVisibleBooks'
-import { BookCard } from './BookCard'
-import { DeleteBookDialog } from './DeleteBookDialog'
+import { Field, SegmentedControl, type DossierResume, type SegmentedOption } from '../../../brain'
+import { useDossierLibrary } from '../hooks/useDossierLibrary'
+import { selectVisibleDossiers, type SortMode } from '../utils/selectVisibleDossiers'
+import { DossierCard } from './DossierCard'
+import { DeleteDossierDialog } from './DeleteDossierDialog'
 
 export interface LibraryScreenProps {
 	/**
-	 * The « + Nouveau livre » create affordance, injected by the composition
-	 * root (book-creation) so the two features never import each other.
+	 * The « + Nouveau livre » create affordance. Kept OPTIONAL (not removed)
+	 * so book-creation's contract with this screen does not move — but unused
+	 * this iteration: App.tsx no longer passes it. book-creation is repointed
+	 * at dossiers only in itération 2; a Book created here today would be
+	 * invisible in a Dossier-only list.
 	 */
-	createEntry: ReactNode
-	/** Optional « Importer un scénario » affordance injected by the composition root. */
+	createEntry?: ReactNode
+	/** « Importer un dossier », injected by the composition root (App.tsx). */
 	importEntry?: ReactNode
 }
 
@@ -21,16 +24,17 @@ const SORT_OPTIONS: SegmentedOption<SortMode>[] = [
 ]
 
 /**
- * Home screen and book list: lists every persisted book as a grid of cards
- * (click to open, ✕ to delete), with the create affordance composed in as
- * the last cell. The list is a live VIEW over BookService via useLibrary;
+ * Home screen and dossier list: lists every persisted dossier as a grid of
+ * cards (download / ✕ to delete — nothing to open yet, no editor route
+ * before itération 2), with the import affordance composed in as the last
+ * cell. The list is a live VIEW over DossierService via useDossierLibrary;
  * deletion is a dangerous action gated behind a confirmation dialog. The
  * pending-deletion target, search query, and sort mode are local UI state,
  * never useEffect-mirrored — the filtered/sorted list is derived inline (KR-013).
  */
 export function LibraryScreen({ createEntry, importEntry }: LibraryScreenProps): JSX.Element {
-	const { books, open, rename, duplicate, remove } = useLibrary()
-	const [pendingDelete, setPendingDelete] = useState<Book | null>(null)
+	const { dossiers, livresHerites, download, remove } = useDossierLibrary()
+	const [pendingDelete, setPendingDelete] = useState<DossierResume | null>(null)
 	const [query, setQuery] = useState('')
 	const [sort, setSort] = useState<SortMode>('recent')
 
@@ -41,55 +45,55 @@ export function LibraryScreen({ createEntry, importEntry }: LibraryScreenProps):
 	}
 
 	// Filtered + sorted view of the live list, derived inline via a pure helper
-	// (KR-013); selectVisibleBooks never mutates the useBooks snapshot.
-	const visible = selectVisibleBooks(books, query, sort)
+	// (KR-013); selectVisibleDossiers never mutates the useDossiers snapshot.
+	const visible = selectVisibleDossiers(dossiers, query, sort)
 
 	return (
 		<main style={page}>
-			<h1 style={heading}>Mes livres-jeux</h1>
-			<p style={intro}>Composez un « livre dont vous êtes le héros » : un arbre d’écrans à explorer.</p>
+			<h1 style={heading}>Mes dossiers d&apos;aventure</h1>
+			<p style={intro}>Retrouvez un dossier déjà importé, téléchargez-le ou supprimez-le.</p>
 
-			{books.length > 0 && (
+			{dossiers.length > 0 && (
 				<div style={toolbar}>
 					<div style={{ flex: 1 }}>
 						<Field
-							ariaLabel="Rechercher un livre"
+							ariaLabel="Rechercher un dossier"
 							value={query}
-							placeholder="Rechercher un livre…"
+							placeholder="Rechercher un dossier…"
 							onChange={(e) => setQuery(e.target.value)}
 						/>
 					</div>
-					<SegmentedControl ariaLabel="Trier les livres" options={SORT_OPTIONS} value={sort} onChange={setSort} />
+					<SegmentedControl ariaLabel="Trier les dossiers" options={SORT_OPTIONS} value={sort} onChange={setSort} />
 				</div>
 			)}
 
-			{books.length === 0 && (
+			{dossiers.length === 0 && (
 				<div style={emptyState} role="note">
 					<span style={emptyGlyph} aria-hidden="true">
 						❏
 					</span>
 					<p style={emptyText}>
-						Votre bibliothèque est vide. Créez votre premier livre-jeu pour commencer à bâtir son arbre d’écrans.
+						{livresHerites > 0 ? (
+							<>
+								Aucun dossier d&apos;aventure ici pour l&apos;instant : vos anciens livres restent stockés, mais ne
+								s&apos;affichent plus pendant la bascule. Importez un dossier pour commencer.
+							</>
+						) : (
+							<>Votre bibliothèque est vide. Importez un dossier d&apos;aventure pour commencer.</>
+						)}
 					</p>
 				</div>
 			)}
 
-			{books.length > 0 && visible.length === 0 && (
+			{dossiers.length > 0 && visible.length === 0 && (
 				<p style={noMatch} role="status">
-					Aucun livre ne correspond à « {query.trim()} ».
+					Aucun dossier ne correspond à « {query.trim()} ».
 				</p>
 			)}
 
 			<div style={grid}>
-				{visible.map((book) => (
-					<BookCard
-						key={book.id}
-						book={book}
-						onOpen={open}
-						onRename={rename}
-						onDuplicate={duplicate}
-						onRequestDelete={setPendingDelete}
-					/>
+				{visible.map((dossier) => (
+					<DossierCard key={dossier.id} dossier={dossier} onDownload={download} onRequestDelete={setPendingDelete} />
 				))}
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
 					{createEntry}
@@ -98,8 +102,8 @@ export function LibraryScreen({ createEntry, importEntry }: LibraryScreenProps):
 			</div>
 
 			{pendingDelete !== null && (
-				<DeleteBookDialog
-					book={pendingDelete}
+				<DeleteDossierDialog
+					dossier={pendingDelete}
 					onCancel={() => setPendingDelete(null)}
 					onConfirm={handleConfirmDelete}
 				/>

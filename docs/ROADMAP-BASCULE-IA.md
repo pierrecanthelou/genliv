@@ -84,7 +84,7 @@ Treize features au départ. **Cinq survivent**, huit sont supprimées. La colonn
 
 | Feature | Lignes | Sort | Pourquoi |
 |---|---|---|---|
-| `tree-canvas` | 1 703 | **repointée** (n° 2) | Décision n° 5 : même composant, autre source. Le graphe passe de nœuds + arêtes à relations + indices. |
+| `tree-canvas` | 1 703 | **repointée** (n° 6) | Décision n° 5 : même composant, autre source. Le graphe passe de nœuds + arêtes à relations + indices. CORRECTION (cadrage `bascule-editeur`, 2026-08-08) : déplacée de n° 2 à n° 6 — mesuré au cadrage, `Monde.lieux/objets/indices` sont `Entite={id, nom?}` nus et `Personnage` n'a pas de `relations[]` avant n° 4 ; n° 6 est la première feature où les trois sources du graphe (relations n° 4, `lieux[].acces` n° 5, indices + chaînage n° 6) existent. `tree-canvas` reste sur disque, intact, démonté par n° 2 (« en sommeil »), pas détruit. |
 | `book-library` | 842 | **repointée** (n° 2) | La bibliothèque liste désormais des dossiers d'aventure. Vignette = illustration du canon, plus la couverture du `sommaire`. |
 | `cloud-sync` | 598 | **repointée** (n° 1) | Le transport, la file hors-ligne et la résolution de conflit sont agnostiques du document. Seule la forme persistée change. |
 | `book-creation` | 346 | **repointée** (n° 2) | Créer un dossier vide au lieu d'amorcer un arbre à deux nœuds. |
@@ -143,7 +143,7 @@ Huit features. Une phrase de démo par feature, sans « et » : c'est le test de
 | # | Feature | « À la fin, l'auteur peut… » | Itér. | Statut | Comité | Dépend de |
 |---|---|---|---|---|---|---|
 | 1 | `dossier-format` | …importer un dossier d'aventure validé contre un schéma versionné | **5** | **5/5 — terminée** | 5 rôles | — |
-| 2 | `bascule-editeur` | …naviguer dans son aventure par une liste de sections | 3 | — | 4 rôles | 1 |
+| 2 | `bascule-editeur` | …naviguer dans son aventure par une liste de sections | 3 | **1/3** | 4 rôles | 1 |
 | 3 | `dossier-canon` | …rédiger la vérité immuable de son histoire | 3 | — | 4 rôles | 2 |
 | 4 | `dossier-fiches` | …écrire une fiche de personnage exploitable par l'IA | 5 | — | 5 rôles | 3 |
 | 5 | `dossier-objets` | …tenir le registre des objets de son aventure | 2 | — | 4 rôles | 1 |
@@ -159,7 +159,7 @@ Huit features. Une phrase de démo par feature, sans « et » : c'est le test de
 
 > **À porter au cadrage de cette feature** (remonté par la revue du 2026-08-03) : `FEATURE_DIRS` dans `.eslintrc.cjs` était un sur-ensemble tolérant, il est désormais exact — cinq entrées pour cinq dossiers. Seize features neuves arrivent, et **la première créée sous `src/features/` sans être ajoutée à cette liste sera silencieusement exemptée des deux règles d'isolation** : ni erreur, ni avertissement, juste une garde qui ne s'applique pas. Le commentaire porte l'intention, rien ne la vérifie. Un test unique — `readdirSync('src/features')` inclus dans `FEATURE_DIRS` — ferme la boucle. Hors périmètre d'un lot de démolition, à livrer avec la première feature neuve.
 
-**2 · `bascule-editeur`** — la navigation latérale passe de l'arbre à une liste de sections avec compteur de fiches. L'arbre devient jalons + scènes écrites + fins conditionnelles. Le canevas est repointé sur le graphe de relations et d'indices. La démolition prévue ici a **déjà eu lieu** (§ 1 ter) : il ne reste que la construction, plus le repointage de `tree-canvas`, `book-library` et `book-creation`.
+**2 · `bascule-editeur`** — la navigation latérale passe de l'arbre à une liste de sections avec compteur de fiches. L'arbre devient jalons + scènes écrites + fins conditionnelles (jalons/fins en LECTURE SEULE dans la liste ; leur écran d'édition, qui engage le registre `DELTAS`, part avec n° 6 — voir § 5). La démolition prévue ici a **déjà eu lieu** (§ 1 ter) : il ne reste que la construction, plus le repointage de `book-library` et `book-creation`. **CORRECTION (cadrage `bascule-editeur`, 2026-08-08)** : le repointage de `tree-canvas` sur le graphe de relations et d'indices n'a pas de données à afficher à ce stade (§ 1 bis) — il est reporté à n° 6 ; `tree-canvas` est démonté (« en sommeil »), pas repointé, par cette feature.
 
 **3 · `dossier-canon`** — sections 01 synopsis & canon (synopsis MJ vs accroche joueur), 02 objectifs des camps, 07 lieux, 10 point de départ.
 
@@ -231,7 +231,7 @@ Relevés en lecture intégrale. Chacun est affecté à la feature qui doit le tr
 |---|---|
 | ~~Aucun registre `objets[]` racine~~ → **tranché au cadrage** : le dossier a **treize** racines, `objets[]` comprise — sans elle l'intégrité référentielle de l'itération 3 n'a pas de cible | n° 1 (la racine) · n° 5 (son éditeur) |
 | ~~Grammaire des conditions non définie~~ → **D1 tranchée** : deux champs par famille (`…_texte` pour l'**auteur**, jamais injecté ; `…_expr` pour le moteur) | n° 1 (grammaire + registre de prédicats) |
-| `jalons`, `fins`, `meta` au schéma sans section ni écran — `jalons` et `fins` sont groupées sous `charpente` ; `meta` n'est **pas** une racine (tranché le 2026-08-04). `charpente` n'est plus « **jamais** injectée » mais « **jamais injectée ENTIÈRE** » : une projection nommée en porte **une** feuille — l'`enonce_texte` des jalons **déjà atteints** —, jamais les déclencheurs ni les conditions de fin, qui sont la même règle en français et apprendraient au modèle à provoquer le jalon ou à conduire à la fin | n° 1 (la forme + `enonce_texte`) · n° 2 (les écrans) · n° 9 (la projection) |
+| `jalons`, `fins`, `meta` au schéma sans section ni écran — `jalons` et `fins` sont groupées sous `charpente` ; `meta` n'est **pas** une racine (tranché le 2026-08-04). `charpente` n'est plus « **jamais** injectée » mais « **jamais injectée ENTIÈRE** » : une projection nommée en porte **une** feuille — l'`enonce_texte` des jalons **déjà atteints** —, jamais les déclencheurs ni les conditions de fin, qui sont la même règle en français et apprendraient au modèle à provoquer le jalon ou à conduire à la fin | n° 1 (la forme + `enonce_texte`) · n° 2 (la section dans la liste, lecture seule — CORRECTION cadrage `bascule-editeur` 2026-08-08 : l'écran d'édition dépend du registre `DELTAS`, réservé à n° 6) · n° 6 (l'écran d'édition) · n° 9 (la projection) |
 | « Scènes écrites » : le format porte un texte et un drapeau (n° 1), mais leur propriété définissante est un **chemin de code** — une scène verbatim est **émise** par le moteur, jamais demandée au modèle | n° 1 (le champ) · n° 10 (l'émission) |
 | Mapping des 6 curseurs sur CA / IN / IG non donné | n° 4 |
 | Atteignabilité d'un objectif, calibration de difficulté : aucune formule | n° 7 |

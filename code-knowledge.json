@@ -500,6 +500,36 @@
 			"id": "KR-176",
 			"feature": "dossier-format",
 			"risk": "UN SEUIL CHIFFRE CITE DANS UN PLAN DOIT NOMMER SA SOURCE, SINON IL N EXISTE PAS. Cas mesure : « validate.ts <= 650 lignes » est apparu dans une note de comite au raffinage d it3, a ete promu CRITERE CONTRAIGNANT du plan par l orchestrateur, puis reporte par la revue d iteration sous la forme « 602 l. (plafond 650) » — c est-a-dire comme une regle du projet. Verification faite a it4 : ce nombre n existe NULLE PART dans le depot ; la seule regle reelle est KR-112 (400 = signal de scission, 800 = bloqueur de fusion), ecrite pour un composant ou un hook. Chaque copie etait fidele a la precedente et aucune n etait fautive prise isolement : c est la REPETITION qui a cree l autorite. VARIANTE DE KR-159 — la, un decompte dont le predicat etait faux ; ici, un seuil SANS SOURCE. PARADE : tout nombre qui contraint (plafond, borne, cardinalite) cite le fichier et la ligne d ou il vient, ou se declare explicitement comme une consigne locale a l iteration, revocable et non generalisable. Corollaire independant, meme incident : un decompte publie doit etre RE-MESURE apres le dernier changement du fichier — la revue d it3 annoncait 602 lignes, vrai a la mesure, faux apres les correctifs de la revue de PR, que personne n a repris."
+		},
+		{
+			"id": "KR-177",
+			"feature": "bascule-editeur",
+			"risk": "createId() generique produit un `_` que FORME_ID_DOSSIER (/^[a-z0-9][a-z0-9-]*$/) refuse. Tout id racine soumis a une forme validee a besoin d'un frappeur DEDIE, teste a la creation ET a la duplication."
+		},
+		{
+			"id": "KR-178",
+			"feature": "bascule-editeur",
+			"risk": "Un document 'vide' cree par du code n'est pas litteralement vide des qu'un validateur impose des champs obligatoires qui se resolvent entre eux (ex. depart.lieu_id doit resoudre contre monde.lieux[]). Le seed minimal doit satisfaire le validateur, pas une supposition de ce qu'il accepterait."
+		},
+		{
+			"id": "KR-179",
+			"feature": "bascule-editeur",
+			"risk": "BUG-048 rouvert : get() qui RE-VALIDE laisse un document stocke devenu invalide passer pour absent, et un import l'ecrase. La presence se constate par keys(prefix).includes(key), jamais par get()!==null (rend aussi null sur une cle au contenu non-JSON) ni par la validite."
+		},
+		{
+			"id": "KR-180",
+			"feature": "bascule-editeur",
+			"risk": "Un critere ne peut pas nommer une visualisation (ex. graphe de relations) tant que le schema qui la porterait n'existe pas — verifier le TYPE reel avant d'ecrire un critere. Repointer un composant sur des donnees quasi-vides est une fausse economie : le geler/demonter et differer son repointage vaut mieux."
+		},
+		{
+			"id": "KR-181",
+			"feature": "bascule-editeur",
+			"risk": "Demolir un module sans mesurer son rayon reel (grep les importeurs) casse des briques laissees debout pour des features futures ou des couches qu'on croyait mortes. Preuve suffisante d'extinction : un test-grep sur la racine de composition, PAS la suppression physique — celle-ci attend le dernier appelant reel."
+		},
+		{
+			"id": "KR-182",
+			"feature": "bascule-editeur",
+			"risk": "CloudSyncService.remove() ne retire que la cle LOCALE, jamais la distante (dette identique a deleteBook, jamais corrigee). Des qu'un nouvel appelant le rend visible, EPINGLER ce comportement par un test plutot que de le laisser silencieux ou de le corriger hors perimetre."
 		}
 	]
 }
