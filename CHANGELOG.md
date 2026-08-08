@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.9 — le dossier de référence remplace la page blanche
+
+`dossier-format` itération 5, **dernière de la feature (5/5)**. Un second fichier réel, `dossier-reference.json` (six personnages, cinq lieux), prouve par une construction narrative réelle — jamais un littéral inline — que le schéma livré en it1-it4 porte assez pour un dossier complet.
+
+- **Une checklist à sept branches nommées**, `src/brain/dossier/suffisance.test.ts` : `portee=second` · une fin avec `condition_expr` · un savoir avec porte `apres_indice` · un jalon sans `declencheur_expr` mais atteignable par un delta `atteindre_jalon` **porté ailleurs** (la récompense d'une quête) · un événement sans `declencheur_texte` ni `declencheur_expr` · une certitude non-`sait` (`croit`/`soupçonne`) · un delta sur chaque cible **admissible** de `CHEMINS_DE_DELTAS` (les trois emplacements réels — `climat[].effets_regles` reste structurellement sans delta admissible, décision d'it4). Chaque échec se nomme par branche, jamais par un contrôle à l'œil.
+- **`dossier-minimal.json` reste intouchée** — sept suites de tests existantes la lisent. Le dossier de référence est un second fichier, lu par une seule suite neuve ; une garde mécanique (`aucune cle en trop face a dossier-minimal`) vérifie que ses clés JSON profondes n'introduisent aucune surface de schéma que la fixture minimale ne porte déjà.
+- **`ok:true, errors:[], warnings:[]`** — aucun avertissement caché : chaque `Savoir.revele_si` du dossier porte au moins une porte posée, et les budgets de mots (`canon.mj` + `canon.partage` ≤ 600 mots, chaque `jalons[].enonce_texte` ≤ 20 mots) sont mesurés, pas supposés.
+- **Round-trip prouvé** par les fonctions publiques de `DossierService` (`importDossier` / `exportDossier`) — import puis export deep-equal à la lecture disque, aucun écran nécessaire (KR-156).
+- **Aucun fichier de production `src/brain/dossier/*.ts` touché** — un consommateur pur des cinq contrats déjà stables (`validateDossier`, `DELTAS`/`CHEMINS_DE_DELTAS`, `CERTITUDES`/`PORTEES`, `Dossier`/`DossierValidation`).
+- **50 suites / 728 tests** (49 / 716 avant). `specification.json` a franchi son plafond au report (69 553 o) et a été **compacté dans le même geste** : onze décisions déjà closes, dont le raisonnement vit dans une revue d'itération ou une docstring de production (`deltas.ts`, `predicates.ts`, `tables.ts`), réduites à leur phrase d'arbitrage + renvoi — **66 346 o**, sous le plafond de 66 560 o.
+- `docs/ROADMAP-BASCULE-IA.md` — `dossier-format` passe à **5/5, terminée** : la feature n° 1 (le contrat entre les deux temps) est close.
+- **`features_history.json` scindé par temps** (même patron que `bug_history.json` le 2026-08-06) : les 14 features de l'ère 0.5 partent dans `features_history.0.5.json`, hors lecture obligatoire ; le fichier courant ne garde que `dossier-format`. Plafond de budget de contexte re-dérivé vers le bas (`docs/WORKFLOW.md` § Budget de contexte).
+
 ## 0.6.8 — un effet qui pointe une entité inexistante est refusé par son nom
 
 `dossier-format` itération 4. Les **effets de règle** deviennent un registre fermé `DELTAS` — quatre entrées, **slots de référence uniquement** — avec son validateur de forme, la résolution de ses cibles, celle des trois derniers champs de `savoirs[]`, et le garde d'éléments de liste que BUG-050 réclamait depuis it3.

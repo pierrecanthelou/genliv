@@ -323,6 +323,54 @@
 			"mitigation": "Aucune aujourd hui, hors le fait que la bibliotheque de monstres de l editeur ne propose que des valeurs du registre. Le rayon s ouvre des qu un document ancien, importe ou edite a la main atteint le moteur de combat. A traiter quand play-mode sera repointe (n° 13).",
 			"regression_test": "aucun — defaut journalise et non corrige ; le test s ecrira avec le correctif",
 			"severity": "major"
+		},
+		{
+			"id": "BUG-055",
+			"date": "2026-08-08",
+			"feature": "dossier-format",
+			"discovered_at": "iteration-5",
+			"symptom": "plan.brain_contracts de specification.json affirmait trois contrats faux au moment ou la feature passe done : DossierService liste create/list/rename/duplicate/delete/update (le service n a que get/open/importDossier/exportDossier), un hook useOpenDossier/useDossiers (0 occurrence dans src/), et brain/utils/download.ts en consumes (0 consommateur).",
+			"root_cause": "Le cadrage du 2026-08-03 anticipait la surface complete du service et l export ; aucune iteration (it1-it4) n a corrige ces trois entrees quand la portee reelle a ete tranchee plus etroite (DossierService a QUATRE methodes par design, le hook et le telechargement reportes n2). Trouve par la revue de PR tech-lead d it5, au moment ou la feature se fige a done — l artefact que la n2 lira.",
+			"fix": "DossierService corrige aux 4 methodes reelles avec la raison du retrait des autres ; hook marque NON LIVRE avec renvoi n2 ; entree download.ts retiree.",
+			"mitigation": "Revue de PR tech-lead sur le diff stage avant que l utilisateur ne le voie (Build Steps etape 6) — c est cette porte qui a trouve le defaut, pas un instrument automatique : un contrat brain/ decrit en texte libre n a pas de garde mecanique.",
+			"regression_test": "aucun test automatique possible sur du texte descriptif ; verification humaine a la prochaine relecture de la spec par le comite de raffinage de n2",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-056",
+			"date": "2026-08-08",
+			"feature": "dossier-format",
+			"discovered_at": "iteration-5",
+			"symptom": "La checklist de suffisance a sept branches (suffisance.test.ts) n avait aucune preuve committee que chaque predicat sait aussi rendre false. Les 8 tests l affirmaient tous a true sur le dossier de reference ; la preuve de discriminance avait ete faite par une sonde jetable, executee puis supprimee avant livraison (mentionnee dans la revue, absente du depot).",
+			"root_cause": "KR-162 exige une assertion negative ou discriminante par test touche, mais rien ne l applique mecaniquement a un test NEUF : la doctrine est une heuristique de revue, pas une regle outillee. Le meme patron a deja motive KR-169 (une propriete affirmee sans test est une intention, pas un contrat) — la sonde manuelle de l ouvrier etait exactement ce patron, une fois de plus.",
+			"fix": "Test committe ajoute () qui execute les 7 predicats contre dossier-minimal.json et epingle la liste exacte des 4 branches qui y manquent — preuve permanente que les 4 rendent bien false quand leur contenu est absent, et que les 3 autres (deja vraies sur la fixture minimale) le sont par construction du schema, pas par accident du test.",
+			"mitigation": "Revue de PR tech-lead. Aucun garde automatique ne verifie qu une checklist de suffisance committee un discriminant — a rappeler dans le contrat de sortie d un futur plan qui ecrit une checklist similaire.",
+			"regression_test": "src/brain/dossier/suffisance.test.ts — describe suffisance du dossier de reference / it les branches sont DISCRIMINANTES : la fixture minimale en manque exactement quatre",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-057",
+			"date": "2026-08-08",
+			"feature": "dossier-format",
+			"discovered_at": "iteration-5",
+			"symptom": "docs/WORKFLOW.md Budget de contexte listait toujours features_history.json a 66 133 o / plafond 70 kio apres que le lot d it5 l ait scinde a 6 220 o — la ligne du tableau et le bullet de doctrine (sans phrase FAIT pour ce split) etaient devenus faux en silence.",
+			"root_cause": "Le plan d it5 prescrivait la compaction/scission de features_history.json mais pas explicitement la mise a jour du tableau de docs/WORKFLOW.md qui la mesure — l ouvrier a fait le split (fidele, verifie par l integrateur) sans remonter au tableau qui le documente. Meme classe que KR-159/KR-176 : un chiffre cite ailleurs qui n est pas remesure des que sa source change.",
+			"fix": "Ligne features_history.json remesuree et replafonnee (15 kio, formule ceil(6220/5120)*5120 + marche 5 kio pour fichier append-only) ; bullet de doctrine complete avec la phrase FAIT le 2026-08-08 ; CHANGELOG.md 0.6.9 gagne une puce nommant le split, comme le precedent de 0.6.7 sur bug_history.json.",
+			"mitigation": "Aucun garde automatique sur la fraicheur de ce tableau — c est un relevé manuel (doctrine deja ecrite : mesure d abord, plafond ensuite, aucun script maison). A rappeler dans la definition de fini de tout plan qui touche un fichier suivi par ce tableau.",
+			"regression_test": "aucun — donnee documentaire, verifiee par lecture humaine (wc -c) a chaque relecture",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-058",
+			"date": "2026-08-08",
+			"feature": "dossier-format",
+			"discovered_at": "iteration-5",
+			"symptom": "suffisance.test.ts:130 portait un cast (CERTITUDES_NON_SAIT as readonly string[]).includes(savoir.certitude) — repere par la revue de PR comme suspect (patron BUG-053/KR-175, un cast qui suit un garde). Une premiere tentative de le supprimer purement et simplement a fait echouer tsc --noEmit : le cast etait reellement porteur.",
+			"root_cause": "CERTITUDES.filter(c => c !== 'sait') est inferee par TypeScript comme (croit|soupconne)[], plus etroite que Certitude — narrowing automatique du callback de filter. .includes(savoir.certitude: Certitude) refuse alors l argument, plus large que le type inferedu tableau. Le cast vers string[] etait une echappatoire valide mais imprecise (elargit au-dela du necessaire) plutot que la cause du probleme.",
+			"fix": "CERTITUDES_NON_SAIT annotee explicitement Certitude[] au lieu de laisser l inference etroite s appliquer : includes(savoir.certitude) type-check nativement, sans aucun cast.",
+			"mitigation": "Corollaire a ajouter a KR-175 pour la prochaine relecture : tout cast trouve en revue de PR doit etre RE-VERIFIE en le retirant reellement (tsc --noEmit), jamais suppose superflu sur la seule lecture — cette revue a failli journaliser un correctif casse.",
+			"regression_test": "tsc --noEmit (porte de commit) — la regression se manifeste a la compilation, aucun test dedie necessaire",
+			"severity": "minor"
 		}
 	],
 	"_about": "Les défauts du TEMPS COURANT — bascule IA, versions 0.6.x, depuis le 2026-08-03. Les défauts antérieurs (BUG-001 à BUG-027, l'éditeur d'arbre) sont dans bug_history.0.5.json, qui n'est PAS en lecture obligatoire. Ce fichier-ci l'est. La numérotation des BUG-xxx reste GLOBALE et continue à travers la scission : un identifiant ne se réemploie jamais."

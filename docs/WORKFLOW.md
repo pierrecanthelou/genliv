@@ -279,11 +279,11 @@ Charger par référence plutôt que tout charger est ce qui évite le contexte m
 
 | Fichier | Croissance | Mesuré | Plafond | Marge |
 | --- | --- | ---: | ---: | ---: |
-| `CLAUDE.md` + `docs/WORKFLOW.md` (couple) | défaut | 46 022 o | **45 kio** (46 080) | < 0,1 kio |
+| `CLAUDE.md` + `docs/WORKFLOW.md` (couple) | défaut | 46 070 o | **45 kio** (46 080) | < 0,1 kio |
 | `code-knowledge.json` | normale | 73 199 o | **75 kio** (76 800) | ~3,5 kio |
 | `bug_history.json` | normale | 46 223 o | **55 kio** (56 320) | ~9,9 kio |
-| `features_history.json` | normale | 66 133 o | **70 kio** (71 680) | ~5,4 kio |
-| `specification.json`, **par feature** | normale | 66 351 o (max : `dossier-format`) | **65 kio** (66 560) | ~0,2 kio |
+| `features_history.json` | normale | 6 220 o | **15 kio** (15 360) | ~8,9 kio |
+| `specification.json`, **par feature** | normale | 66 346 o (max : `dossier-format`) | **65 kio** (66 560) | ~0,2 kio |
 | `docs/ROADMAP-BASCULE-IA.md` | **défaut** | 33 214 o | **35 kio** (35 840) | ~2,6 kio |
 
 Le roadmap est un **index**, pas un journal : sa croissance est un défaut, donc pas de marche. Il mélange index (tableaux § 2/§ 3) et archive (§ 1 ter, lignes barrées du § 5, corrections de cadrage) — c'est cette moitié-là qui part dans les `specification.json` au franchissement, jamais la colonne `Statut`.
@@ -300,7 +300,7 @@ Compacter n'est jamais « supprimer de l'information » : c'est la déplacer là
 
 - **`code-knowledge.json`** — le moins cher : un KR dont l'invariant est **passé en règle ESLint** (KR-011/111, imports inter-features, couleurs en dur) renvoie à la règle et à son message, il ne redécrit ni le risque ni la parade. Un invariant câblé est une ligne — le linter le rappellera mieux que le fichier.
 - **`specification.json`** — boucle de mémoire de la skill `raffinage-iteration` : une décision livrée se réduit à sa phrase d'arbitrage + le renvoi à `.claude/raffinage/<feature>-it<N>.revue.md`, qui porte déjà le raisonnement. La revue est le dossier, la spec en est l'index.
-- **`bug_history.json`, `features_history.json`** — append-only par contrat : ils ne se compactent pas, ils **se scindent par temps**, seul le fichier courant restant en lecture obligatoire. FAIT le 2026-08-06 sur `bug_history.json` au franchissement : BUG-001 à 027 (l'ère arbre) sont partis dans `bug_history.0.5.json`, hors lecture obligatoire ; la numérotation reste globale. Pas avant le plafond : scinder tôt coûte une indirection pour rien.
+- **`bug_history.json`, `features_history.json`** — append-only par contrat : ils ne se compactent pas, ils **se scindent par temps**, seul le fichier courant restant en lecture obligatoire. FAIT le 2026-08-06 sur `bug_history.json` (BUG-001-027, ère arbre) et le 2026-08-08 sur `features_history.json` (ère 0.5, dossier-format it5) : l'antérieur part dans `<fichier>.0.5.json`, hors lecture obligatoire ; numérotation globale. Pas avant le plafond : scinder tôt coûte une indirection pour rien.
 - **`CLAUDE.md` + `docs/WORKFLOW.md`** — **déjà à saturation**, délibérément : une règle qui entre ici **en remplace une**, ou part dans la spec de sa feature / le prompt de l'agent qui l'applique. Transverse et stable, elle a sa place ; propre à une feature, jamais. Un invariant câblé s'y écrit **en une ligne qui nomme l'outil**, sans re-lister ce que l'outil vérifie.
 
 ## Bug Investigation

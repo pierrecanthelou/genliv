@@ -1,0 +1,599 @@
+{
+	"_about": "ARCHIVE — les features livrées AVANT la bascule IA du 2026-08-03 (l'éditeur d'arbre : play-mode, book-creation, tree-canvas, node-editor, choice-linking, book-library, outline-view, action-decor, action-pnj, action-monster, action-trap, cloud-sync, book-export, game-system). Huit d'entre elles ont depuis été SUPPRIMÉES par la décision D3 (node-editor, choice-linking, outline-view, action-decor, action-pnj, action-monster, action-trap, book-export) ; leur code est dans l'historique git. Scindé de features_history.json le 2026-08-08 quand celui-ci a franchi son plafond de contexte : un journal append-only ne se compacte pas, il se scinde par temps (docs/WORKFLOW.md, § Budget de contexte). CE FICHIER N'EST PAS EN LECTURE OBLIGATOIRE — seul features_history.json l'est.",
+	"features": [
+		{
+			"feature": "play-mode",
+			"completed_at": "2026-06-23",
+			"goal": "Isolated play runtime: load a book → start prompt → node traversal → +5 PE per transition → auto-save/load → end screens (victory/failure/mort) → full combat + capacity registry → full action resolution (décor/PNJ/piège/XP shop, choice prereq/countdown) → object reinforcement (AC C5, KR-141).",
+			"key_architecture_choices": [
+				"src/player/ is a hard isolation boundary — zero imports from src/features/ or brain/ services; only pure brain functions (characteristics, challenge, combat, xp, equipment, monsterCapacities). Extractible to another webapp/mobile app by bundling src/player/ + pure brain modules.",
+				"AdventureDocument = PlayExport (type alias); buildAdventureDocument(book) in brain/utils/ is a pass-through over exportBookForPlay — no new type invented.",
+				"Session persistence in player/utils/persist.ts uses window.localStorage directly (not PersistenceService) for extractibility; key prefix matches persistenceKeys.ts for auditability (KR-134).",
+				"sessionEngine.ts is a pure state machine (no React, no side effects); usePlaySession hook owns React state and auto-save.",
+				"PlayerModal lives in features/play-mode/ (editor integration); EditorScreen is the composition root.",
+				"combatTypes.ts extracted as shared type file to break circular dependency between combatEngine and capacityEffects.",
+				"CAPACITY_HOOKS: Record<MonsterCapacityId, CapacityHooks> dispatches all 23 monster capacity behaviours as pure lifecycle hooks (KR-133) — no if/switch on union strings.",
+				"actionEngine.ts is a pure function layer (no React, no state) for all action-screen resolution: traps, décor reveals, takeable rolls, PNJ gifts, autoEquip, carac/MC XP spend.",
+				"Lazy useState initializer pattern used in TrapScreen/DecorScreen to fix a random roll exactly once on mount without useEffect — avoids re-rolling on parent re-render.",
+				"CountdownChoice uses stable onChoiceRef + primitive dep array (KR-139) to avoid stale-closure bugs while respecting the ESLint exhaustive-deps rule.",
+				"KR-141 — object reinforcement (AC C5): ReinforcementBonus.rollBonus on GameObject adds to effective carac value for skill rolls. rollBonus is the 4th param (default 0) on resolveTrap/resolveTakeableRoll — all existing test signatures unchanged. TrapScreen starts in pick phase (result=null) when trap has a roll; ReinforcementPicker is a new reusable component that returns null when no applicable inventory objects, so callers need no guard."
+			],
+			"brain_contracts_added": [
+				{
+					"type": "util",
+					"name": "buildAdventureDocument"
+				}
+			],
+			"lessons_learned": [
+				"Isolation boundary is straightforward to enforce when player/ is outside src/features/ — TypeScript import paths make violations visible immediately.",
+				"Combining walking-skeleton + iter 1 was the right call: the two were identical in scope (sommaire, traversal, save/load, end screens).",
+				"Tech-lead caught: role='listitem' redundant on <button> inside <div role='list'>; snapshot useState pattern needs a comment to avoid mis-copying.",
+				"Circular dependencies between two engine files that share types are best resolved by extracting the types into a third file (combatTypes.ts), not by restructuring the callers.",
+				"Every derived maximum (pvMax, peMax) must be updated together whenever any of its contributing caracs is mutated — failing to do so creates silent drift that only surfaces during gameplay (BUG-013, KR-140).",
+				"When using lazy useState initializers for random results, React 18 Strict Mode calls them twice in dev — this is acceptable for game logic since both calls produce valid game state.",
+				"Design token discipline matters: always verify a token name exists in tokens/*.css before using it in a component. Non-existent tokens silently fall through to browser defaults (e.g. --fs-heading → undefined).",
+				"The ESLint rule react-hooks/exhaustive-deps must never be disabled; instead extract primitive values from objects and use them as dep array items (as in CountdownChoice)."
+			],
+			"bugs_encountered": ["BUG-011", "BUG-012", "BUG-013", "BUG-014"]
+		},
+		{
+			"feature": "book-creation",
+			"completed_at": "2026-06-16",
+			"goal": "Create a new book — name it, seed Sommaire + isolated Mort, and land in the editor.",
+			"key_architecture_choices": [
+				"BookService owns the single atomic seed factory (exactly Sommaire + isolated locked Mort, 0 edges) — KR-001/KR-002.",
+				"Create flow orchestrated by useCreateBook through brain only: createBook (persist + book:created) -> openBook (book:opened) -> Router.navigate, guaranteeing listeners see a persisted book (KR-004).",
+				"BookService emits domain events (the mutation owner) so features never emit domain events directly.",
+				"Modal primitive owns scrim/Esc dismiss + focus capture/restore + focus trap, shared by all future dialogs.",
+				"Validation computed inline in NewBookDialog (no useEffect derived state, KR-013)."
+			],
+			"brain_contracts_added": [
+				{
+					"type": "service",
+					"name": "BookService"
+				},
+				{
+					"type": "service",
+					"name": "Router"
+				},
+				{
+					"type": "service",
+					"name": "PersistenceService"
+				},
+				{
+					"type": "event",
+					"name": "book:created"
+				},
+				{
+					"type": "event",
+					"name": "book:opened"
+				}
+			],
+			"lessons_learned": [
+				"react/no-unescaped-entities flags raw apostrophes in JSX text — use the typographic apostrophe in French copy.",
+				"Iteration 3 (cloud-first offline queue) blocked on the cloud-sync feature / CloudSyncService not yet existing; left planned.",
+				"iter 3: when the named mechanics of an iteration are already satisfied transparently by infrastructure landed later (the CloudSyncService decorator made createBook local-first + offline-queued + restore-on-reload for free), the honest slice is to SURFACE the behaviour to the user + LOCK it with integration tests, not to re-plumb persistence — the decorator boundary already did the work (KR-093).",
+				"iter 3: a per-state UI string varying over a closed union (SyncStatus) is a Record<Union,string> (KR-117), never an if/ternary ladder — even two distinct messages across five states go in the Record so adding a state is one entry.",
+				"iter 3: reading useSyncStatus made the dialog require a BrainProvider — a bare-render unit test (no provider) then throws; wrap the dialog test in a provider (createBrain() is offline by default, which also exercises the offline hint copy).",
+				"iter 3: keep an author-facing copy string in the feature that owns it (the create-dialog hint), not brain — KR-109 only promotes a SHARED concern, and this Record is distinct from SyncIndicator's badge-label Record despite both keying on SyncStatus."
+			],
+			"bugs_encountered": []
+		},
+		{
+			"feature": "tree-canvas",
+			"completed_at": "2026-06-16",
+			"goal": "Render the open book as a navigable graph of node cards + labelled edges on a dot-grid canvas, with single-select and the « + Nœud » entry point — the primary editor surface (wireframe § 02).",
+			"key_architecture_choices": [
+				"The canvas is a pure VIEW over BookService (KR-020): useOpenBook subscribes to the brain event bus and re-reads the persisted book via useSyncExternalStore — an external-store subscription, not a useEffect-synced mirror (KR-013).",
+				"Node mutation lives in BookService (the SSOT): addNode creates a free-floating node with a deterministic auto-layout slot (autoSlot, KR-023), persists, then emits node:created carrying the kind.",
+				"Selection is owned by the canvas (single source of truth, KR-024) and broadcast via node:selected{nodeId|null}; node-editor will react to it.",
+				"Pure, testable geometry (resolvePositions/resolveEdges): position-less nodes fall back to autoSlot; orphaned edges are dropped, never drawn to nowhere (KR-021).",
+				"node:created payload extended with a typed kind on the brain EventBus — a core domain event emitted by BookService, kept in brain (emitter-owned)."
+			],
+			"brain_contracts_added": [
+				{
+					"type": "service",
+					"name": "BookService.addNode"
+				},
+				{
+					"type": "event",
+					"name": "node:created (payload + kind)"
+				},
+				{
+					"type": "event",
+					"name": "node:selected"
+				},
+				{
+					"type": "service",
+					"name": "UIPreferencesService (brain) + useUIPreferences/useBookViewMode/useBookNodePositions"
+				}
+			],
+			"lessons_learned": [
+				"Inheriting code-knowledge.json from another project left foreign KR ids (KR-001 = cloud-import-options) that collide with the gamebook's own KR namespace — the cross-project knowledge base needs a reset/namespacing before appending gamebook KRs.",
+				"Local pan/zoom is shippable without UIPreferencesService; only its PERSISTENCE must wait — split iteration 3 so the canvas is usable now (mirrors book-creation iter 3 deferring on CloudSyncService).",
+				"Canvas event flow: node cards / controls must stopPropagation on pointerdown+click so background pan/clear-selection only fire on true empty-canvas interactions.",
+				"iter 3: a feature's blocked DEPENDENCY that is a brain SERVICE (not a build-order feature) is built by its first consumer — UIPreferencesService landed inside the tree-canvas iter-3 slice, like SelectionService/SlotRegistry were built within their consuming features. No separate ui-preferences feature.",
+				"iter 3: non-synced view state must persist through the RAW local store, NOT the CloudSyncService decorator (KR-022/025) — wire UIPreferencesService over `local`, not `sync`, in createBrain, so pan/zoom/positions can never enter the cloud queue. A `ui:` key namespace keeps it out of listBooks.",
+				"iter 3: dragged node positions are a UI PREFERENCE, not synced node.position — persist them in UIPreferencesService and let resolvePositions OVERRIDE the computed slot (only for nodes still in the book, so a deleted node's stale override leaves no ghost). Layout is a view concern; keeping it off the synced document avoids spurious sync conflicts.",
+				"iter 3: a useSyncExternalStore snapshot must be a STABLE reference between writes — serve reads from an in-memory cache (new object only on write) and return a single frozen EMPTY constant for the no-prefs case, or the getSnapshot infinite-loops.",
+				"iter 3: persist the live viewport ON SETTLE (drag-release, zoom step, centre), not every pan frame — keep the fast pan in local useState (seeded lazily from the service) and write to localStorage only when the gesture ends, so 60fps panning doesn't thrash storage.",
+				"iter 3: jsdom defines no PointerEvent, so fireEvent.pointerMove drops clientX/clientY — dispatch coordinate-carrying MouseEvents typed as pointer events (via fireEvent, which act-wraps) to drive a window-pointer drag in tests; production keeps real pointer events.",
+				"iter 4: virtualization/culling is a pure VIEW FILTER, not a layout change — measure the surface (ResizeObserver), map it back to canvas space through the inverse transform (viewportRect), and filter the existing resolvePositions/resolveEdges output with box-intersection predicates. Keep it null-safe (unmeasured → render all) so jsdom/first-paint is unaffected; unit-test the pure predicates (the DOM-measured render is impractical in jsdom)."
+			],
+			"bugs_encountered": ["BUG-001"]
+		},
+		{
+			"feature": "node-editor",
+			"completed_at": "2026-06-16",
+			"goal": "Edit a single leaf in a side panel beside the tree — description + end toggles now, with action/inventory/choices delegated to other features via brain seams.",
+			"key_architecture_choices": [
+				"Promoted node selection to a brain SelectionService (single source of truth, KR-024): canvas + panel read via useSelectedNode and write via selection.select; the service is the sole node:selected emitter and clears on book:opened. This resolved the two-writer problem (panel ✕ deselect) that local canvas state could not.",
+				"node-editor is a HOST shell (KR-050) mounting action editors from a brain ActionRegistry (Open/Closed, KR-051) — adding an action type needs zero changes here; SegmentedControl options derive from the registry.",
+				"Fields bind directly to BookService.updateNode with no local mirror, and the panel subtree is keyed by node id, so selection swaps can't leak stale field state (KR-053/013).",
+				"End flags live on the node; effectiveKind/endLabel derive the FIN badge so canvas + panel reflect it from one source via node:updated (KR-054).",
+				"Shared view logic (useOpenBook, nodeTitle) and DS primitives (Toggle, SegmentedControl) promoted to brain (KR-109/110); the app shell composes canvas + panel without the features importing each other."
+			],
+			"brain_contracts_added": [
+				{
+					"type": "service",
+					"name": "SelectionService"
+				},
+				{
+					"type": "service",
+					"name": "ActionRegistry"
+				},
+				{
+					"type": "service",
+					"name": "BookService.updateNode"
+				},
+				{
+					"type": "event",
+					"name": "action:changed"
+				},
+				{
+					"type": "hook",
+					"name": "useDebouncedText (node-editor) + Field.onBlur (iter 4)"
+				}
+			],
+			"lessons_learned": [
+				"A second writer of selection (the panel ✕) is the signal to promote selection from feature-local state to a brain SSOT — event-only broadcast is insufficient when two features both set it.",
+				"In RTL, drive selection through the UI (click a canvas card / + Nœud) rather than calling brain.selection.select directly — direct service mutations outside act() don't flush to the DOM before the next query.",
+				"Libellé du choix belongs on the incoming edge, not duplicated on the node — confirmed with the user to avoid a desync trap (KR-053-adjacent).",
+				"iter 4: a debounced field needs a flush on BOTH blur and unmount — the keyed-by-id panel (KR-053) unmounts on a selection swap, so without an unmount-flush the last typed characters (within the debounce window) are silently lost. Track the timer in a ref + clear on unmount (timer-safety), hold commit in a ref (latest, KR-004), and extract the hook into a child component so it stays unconditional past the panel's empty-state early-return."
+			],
+			"bugs_encountered": []
+		},
+		{
+			"feature": "choice-linking",
+			"completed_at": "2026-06-16",
+			"goal": "Manage a node's outgoing choices — create a new child branch, relink to an existing node (cycles/convergence), and (later) per-choice hidden-prereq + countdown rules.",
+			"key_architecture_choices": [
+				"New brain SlotRegistry (KR-066): node-editor reserves SLOT_NODE_EDITOR_CHOICES and renders the registered renderer (placeholder fallback); choice-linking registers its OutgoingChoices renderer at the composition root (App). Generalises the ActionRegistry OCP seam to arbitrary panel regions — neither feature imports the other.",
+				"Edge mutation in BookService (SSOT, KR-060): addChoiceBranch (child + choice edge, node:created then edge:created), addEdge (relink, cycles allowed, no node created), removeEdge (edge only, target node survives). edge:created payload extended with from/to + typed EdgeKind.",
+				"Mort's no-outgoing invariant enforced at the SSOT (KR-055/060), not just by hiding the UI section.",
+				"OutgoingChoices is a live VIEW via useOpenBook; the relink picker is local UI state (not derived-from-props, KR-013)."
+			],
+			"brain_contracts_added": [
+				{
+					"type": "service",
+					"name": "SlotRegistry"
+				},
+				{
+					"type": "service",
+					"name": "BookService.addChoiceBranch / addEdge / removeEdge"
+				},
+				{
+					"type": "event",
+					"name": "edge:created (payload + from/to/EdgeKind)"
+				}
+			],
+			"lessons_learned": [
+				"When one feature must render inside another's panel, reach for a brain slot registry (host reserves, provider registers at the composition root) rather than a cross-feature import — mirrors ActionRegistry.",
+				"A slot renderer registered in a useEffect won't force the host to re-render (the registry has no subscribe); it works because the host re-renders for another reason (selection change) before the slot is needed — fine here, but a notify-on-register would be needed if a slot must appear without any other state change.",
+				"Pre-seed test fixtures BEFORE render() — a brain mutation after render (e.g. addChoiceBranch) updates subscribed views outside act() and triggers warnings.",
+				"iter 1: the libellé belongs on the EDGE (Edge.label), not the node — added BookService.updateEdge + an edge:updated event wired into useOpenBook's mutation list; the canvas already rendered edge.label ?? canvasLabel, so the new event made the canvas reflect labels live for free. A property that already exists on the model + a view that already reads it means the iteration is just the SSOT mutation path + its event.",
+				"iter 2: degenerate-edge guards (self-link, duplicate) belong at the SSOT (addEdge returns null + emits nothing), with the picker mirroring them only as a convenience — never UI-only, or a programmatic/API caller bypasses the invariant (the KR-067 pattern again). Edge IDENTITY for the duplicate guard is from+to+kind (not from+to): a relink and the future automatic flee to the same target are distinct legitimate convergence, so collapsing on from+to would forbid a valid future edge.",
+				"iter 2: a search filter over a live list is pure derived state — needle.toLowerCase() + Array.filter computed inline each render (KR-013), never a useEffect-synced mirror; reset the query on popover open/close/commit so a stale needle can't leak into the next open.",
+				"iter 3: a deferred « catalog service » dependency (KR-062) was best realised as a DERIVED VIEW, not a new owned brain service — brain collectObjects(book) unions the objects already authored on nodes (décor takeables + PNJ gift + monster loot) by stable id. Objects stay owned where authored (no desync, KR-020); the by-id reference holds, so a future owned catalog could replace collectObjects transparently. Same instinct as deriveAutomaticEdges: prefer a pure view over a stored mirror.",
+				"iter 3: a per-choice rule (hidden prereq) rides the EDGE (Edge.prereq), persisted via the SAME updateEdge as the label — extend EdgePatch with `prereq: T | null` (null = clear, omitted = untouched) so independent fields never clobber each other; the SSOT stores intent, the VIEW validates the id against the live catalog and surfaces ⊘ (resolves) vs ⚠ (dangling), never silently 'met' (KR-062/021).",
+				"iter 3: extract the per-row rule UI to its own component (ChoicePrereqEditor) the moment the host row crosses the 400-line split signal (KR-112) — OutgoingChoices was already ~285 lines.",
+				"iter 4: the countdown reused the iter-3 prereq pattern wholesale — a per-choice rule on the EDGE via the SAME updateEdge (EdgePatch field: T | null), a ChoiceCountdownEditor mirroring ChoicePrereqEditor, and the shared brain Stepper (clamp) + TargetPicker (fallback, dangling-safe). The row's referential-integrity sweep validates BOTH rules against the live book. When a feature's two iterations are the same shape (prereq, countdown), the second is mostly composition of brain primitives.",
+				"This closes the 0.5.x / V4 tier — iteration 4 of every n>=4 feature. ALL eleven features are now at their full iteration depth; the editor (authoring-mode) scope is complete. The next natural step (out of the current ragged-iteration plan) would be PLAY MODE, where the captured rules (prereq gating, countdown ticking, combat resolution, gift effects) finally execute.",
+				"refinement (KR-118): an object-ownership gate must be scoped to what the player could ACTUALLY own at that screen — its LINEAGE (node + ancestors), not the whole-book catalog. Built as a second pure brain view collectLineageObjects (reverse-reachability over edges) layered on collectObjects, mirroring the iter-3 'prefer a derived view' instinct — the OFFER set narrows while the full catalog still RESOLVES an existing reference, so narrowing never silently drops an authored rule (out-of-lineage stays selectable + flagged « hors lignée », distinct from a deleted « introuvable »). Lesson: when you narrow a picker, split 'what to offer' from 'how to resolve what's already chosen' — gating both on the narrowed set would erase valid existing data."
+			],
+			"brain_contracts_added_iter3": [
+				{
+					"type": "util",
+					"name": "collectObjects / findObject (brain/utils/objects.ts)"
+				},
+				{
+					"type": "type",
+					"name": "ChoicePrereq + Edge.prereq"
+				}
+			],
+			"bugs_encountered": []
+		},
+		{
+			"feature": "book-library",
+			"completed_at": "2026-06-16",
+			"goal": "List every persisted book on the home screen and open or delete any of them — the entry point to existing books, not just freshly created ones.",
+			"key_architecture_choices": [
+				"New brain useBooks() view hook: a cached snapshot recomputed only on book:created/book:deleted via useSyncExternalStore (mirrors useOpenBook) — a live VIEW over BookService, never a useEffect mirror (KR-020/013/071).",
+				"BookService.deleteBook persists the removal before emitting book:deleted (KR-004/070), so the list re-reads a store without the book.",
+				"Composition-root seam (KR-072): LibraryScreen (book-library) owns the home chrome + list and receives the create affordance as a prop; App passes <CreateBookEntry/> (book-creation). Neither feature imports the other — same OCP pattern as ActionRegistry/SlotRegistry, applied to a sibling screen.",
+				"Deletion gated behind a confirmation dialog (dangerous action); shared Modal extended with confirmTone='error'. Pending-deletion target is local UI state, not derived from props (KR-013)."
+			],
+			"brain_contracts_added": [
+				{
+					"type": "service",
+					"name": "BookService.deleteBook"
+				},
+				{
+					"type": "hook",
+					"name": "useBooks"
+				},
+				{
+					"type": "event",
+					"name": "book:deleted (now emitted)"
+				},
+				{
+					"type": "service",
+					"name": "CloudSyncService.pendingKeys() (iter 3)"
+				},
+				{
+					"type": "hook",
+					"name": "useBookPending(bookId) (iter 3)"
+				}
+			],
+			"lessons_learned": [
+				"When two sibling features must share a screen (list + create), compose at the app root by passing one's affordance as a prop — same isolation seam as the panel registries, no slot registry needed for a single static injection.",
+				"A getByRole regex like /Title/ also matches a delete button whose accessible name contains the title (« Supprimer « Title » ») — anchor the open-button query (/^Title/) to disambiguate.",
+				"book:deleted already existed on the EventBus before any emitter; wiring the emitter (deleteBook) closed the loop without a contract change.",
+				"iter 1: a rename needs a list-membership-agnostic refresh event — added book:updated to BOTH useBooks (BOOK_LIST_EVENTS) and useOpenBook (BOOK_MUTATION_EVENTS), since a rename changes list CONTENT (not membership) and an open editor's title. Enter-then-blur does NOT double-commit: React doesn't fire onBlur when the input unmounts on setEditing(false), so the inline-rename commit path is single regardless of Enter/blur/Esc.",
+				"iter 1: per-test localStorage.clear() must be added to every new describe block — a new BookService describe without its own beforeEach leaks prior tests' books into a listBooks() assertion.",
+				"iter 1: a 'deep copy' must deep-clone nested sub-objects, not shallow-spread the top level (BUG-002) — structuredClone is NOT defined in the jsdom jest env, so a JSON round-trip is the portable deep clone (and exact here, since the book is JSON-persisted anyway).",
+				"iter 2: filter+sort over the live useBooks snapshot must sort a COPY ([...books].sort) — the snapshot is the cached useSyncExternalStore reference, and mutating it in place breaks reference stability. Search/sort/sort-mode are local UI state, all derived inline (KR-013), no useEffect.",
+				"iter 2: a cross-route safety net (navigate home when the open book is deleted, KR-071) belongs at the COMPOSITION ROOT (App), not the feature — App subscribes to book:deleted and reads router.current() FRESH in the handler (no route dependency, no stale closure). Keeps cross-route navigation out of any single feature.",
+				"iter 2: SyncIndicator already uses role=status, so a second role=status (the search no-match line) makes getByRole('status') ambiguous — query the no-match copy by text, and reserve role=note for the empty state. A title span concatenated with a meta-count span has NO separator in textContent ('Zebra2 écrans…'), so extract a title with /^[^0-9]+/, not /\\w+/.",
+				"iter 2: order-dependent sort tests need deterministic timestamps — drive updatedAt with jest.useFakeTimers()+setSystemTime around each createBook, then useRealTimers() before rendering/userEvent (createBrain is offline by default, so no transport timers to fight).",
+				"iter 3: per-book sync status reads a GENERIC pendingKeys() and maps bookKey(id) in a brain hook (useBookPending), keeping the CloudSyncService decorator book-agnostic (KR-094) — a service must not grow book-aware methods just because a view wants a per-book slice; expose the generic primitive and map in brain.",
+				"iter 3: a per-card chip whose copy overlaps the global SyncIndicator (« … en attente ») makes a bare getByText(/en attente/) match TWO elements — scope the test to the card's exact glyph text (« ⏳ en attente », « ✓ à jour ») to disambiguate. Same family as the iter-2 role=status collision.",
+				"iter 3: a slice gated on infra you don't own (CloudTransport list/delete) ships the part you DO own (the view chip over the existing queue) and defers the transport-capability work to the owning feature (cloud-sync) with a clear note — don't bolt a half-built list-reconcile/delete-queue onto the library."
+			],
+			"bugs_encountered": ["BUG-002", "BUG-003"]
+		},
+		{
+			"feature": "outline-view",
+			"completed_at": "2026-06-16",
+			"goal": "Show the open book as an indented outline, switchable from the canvas, with selection shared so any row opens the node editor.",
+			"key_architecture_choices": [
+				"buildOutline is a pure, view-agnostic DFS: choice edges nest; relink/flee, convergences and cycle back-edges become ↪ reference rows (visited set), never recursed, so a cyclic book can't loop (KR-080/061); unreachable nodes listed flat (KR-020).",
+				"Hoisted the shared editor top bar to brain/components/EditorTopBar (KR-109) and added a canvas ↔ outline SegmentedControl; a new src/EditorScreen shell owns the non-synced view-mode (KR-022) and swaps the body — tree-canvas became the canvas body only, CanvasTopBar removed.",
+				"Selection shared through the brain SelectionService (KR-024): the outline reads useSelectedNode and writes selection.select, so canvas + outline + panel never desync.",
+				"Outline derived inline with useMemo from the live book (KR-013/020); row badges/labels read the kind registry (KR-068); dangling targets flagged ⚠ (KR-021)."
+			],
+			"brain_contracts_added": [
+				{
+					"type": "component",
+					"name": "EditorTopBar (brain/components)"
+				},
+				{
+					"type": "type",
+					"name": "EditorViewMode"
+				}
+			],
+			"lessons_learned": [
+				"Hoisting shared chrome (the top bar) out of the first feature that owned it into brain/components is the clean way to let a second view reuse it — the editor shell composes both views + the panel, features still don't import each other.",
+				"A cycle/convergence-safe traversal needs a visited set + reference rows BEFORE building any outline UI — bake it into the pure builder so the recursion guard is unit-tested, not discovered in the browser.",
+				"Hoisting the top bar kept every existing editor test green because EditorTopBar preserved the same roles/labels (heading title, « Ajouter un nœud », « N nœuds »); preserve accessible names when moving chrome.",
+				"iter 1: expand/collapse over a flat pre-order list is a pure helper (computeVisibleRows) — hide every later row deeper than a collapsed node until depth resumes; unit-test it, don't discover it in the browser (KR-080 spirit).",
+				"iter 1: adding a sibling disclosure button broke existing /Sommaire/ row queries (the disclosure aria-label « Replier « Sommaire » » also matched) — anchor row queries (/Sommaire$/) when a new button shares the node title, and remember KR-067 forbids relinking INTO the Sommaire/Mort (relink A→B between two children instead).",
+				"iter 2: a cross-view imperative action (« Centrer dans l'arbre » = outline asks the canvas to switch+centre) must be wired at the composition root with a shell-owned {nodeId, seq} prop, NOT an event bus — the canvas is unmounted while the outline shows, so an event fires before the target exists and is lost. A shell prop is read on the target's mount, surviving the view switch; a seq + consumed-seq ref makes repeats distinct yet ignores unrelated re-renders (KR-081).",
+				"iter 2: the inspector previews the FOCUSED/hovered row (local inspectedId), not the selection — so « Éditer » has a real job (commit the previewed node to selection) and row-click selection (the iter-1 contract + tests) stays intact. To test « Éditer » distinctly, hover a second row to preview-without-selecting, then assert the click changes selection.",
+				"iter 2: viewport centring is pure geometry given the transform (translate(x,y) scale(zoom), origin 0,0): x = W/2 − pointX·zoom. Read the container size from a ref in the effect (available after mount/paint); centre on the node's middle (pos + NODE_W/2, NODE_H/2).",
+				"iter 3: half of the iteration was already done — the view-mode persistence landed in tree-canvas iter 3 (the first UIPreferencesService consumer), so this slice was only the outline expand-state half. Always re-read the actual code before building a planned iteration: a shared dependency built for one feature can quietly satisfy part of another's plan.",
+				"iter 3: a useSyncExternalStore hook that must return a Set (or any derived object) keeps the SNAPSHOT a cache-stable primitive/array and memoises the Set on it (useMemo([ids])) — returning a fresh new Set() from getSnapshot each call would tear/loop. Same stability rule as useBookNodePositions' frozen EMPTY constant.",
+				"iter 3: persisting collapsed node ids needs no cleanup for deleted nodes — computeVisibleRows just never matches a stale id (KR-021 spirit), same as dragged positions ignoring deleted nodes; don't add a reconciliation pass for harmless stale view-state.",
+				"iter 4 (Miller columns): dispatch-during-render is the KR-013-safe way to reconcile an external selection (SelectionService) with local useReducer state — detect the stale condition inline (selectedId !== state.syncedId), call dispatch() before returning JSX, and always update the sentinel so the condition becomes false on re-render. React re-renders atomically from the new state; no useEffect, no stale closure. Documented as KR-146.",
+				"iter 4: key={entityId} on a stateful child is the cleanest inter-entity reset — when the book changes, OutlineColumns remounts from scratch (initializer runs fresh) without any 'reset' action or useEffect cleanup. Cheaper than a manual reset and more correct than diffing old/new props.",
+				"iter 4: a preview panel duplicating content already shown elsewhere (here: a ColumnNodePreview showing node text when the node-editor panel always shows the same) should be removed — redundant panels add cognitive load and maintenance surface. Validate component scope against the full editor layout before shipping."
+			],
+			"bugs_encountered": []
+		},
+		{
+			"feature": "action-decor",
+			"completed_at": "2026-06-16",
+			"goal": "Configure a node's « Décor » action (prendre / écouter / fouiller) with, for « prendre », a takeable object — mounted into node-editor through the ActionRegistry without coupling the features.",
+			"key_architecture_choices": [
+				"First real action-* feature: self-registers an ActionEditor with the brain ActionRegistry at the App composition root (registerActionDecor), proving the Open/Closed seam end-to-end — node-editor offers/mounts « Décor » with zero changes and no import (KR-050/051).",
+				"The shared ObjectEditor lives in brain/components (KR-052/109): décor « prendre » is its first consumer; PNJ/monster reuse it later without a cross-feature import. Controlled component — the owner persists onChange via BookService.",
+				"DecorEditor is a VIEW over BookService (KR-020): reads node.decor via useOpenBook, writes via updateNode; the takeable object carries a stable id minted lazily with createId (KR-003).",
+				"Domain model gained node.decor (DecorConfig) + GameObject; NodePatch carries decor so updateNode's text-only guard keeps it off structural screens (KR-055/090). createId is now exported from brain for feature id minting."
+			],
+			"brain_contracts_added": [
+				{
+					"type": "component",
+					"name": "ObjectEditor (brain/components)"
+				},
+				{
+					"type": "type",
+					"name": "GameObject / DecorConfig / DecorInteraction"
+				},
+				{
+					"type": "util",
+					"name": "createId (exported from brain)"
+				}
+			],
+			"lessons_learned": [
+				"The ActionRegistry seam built in node-editor's skeleton paid off: the first real action feature needed only a register call + an editor component, no node-editor change — validate a registry seam with its first real consumer.",
+				"A component shared by future siblings belongs in brain/components from its FIRST use (ObjectEditor), even when only one feature consumes it yet — putting it in the feature would force a cross-feature import later (KR-052/109).",
+				"Action config persists on the node document (node.decor) and rides the existing updateNode text-only guard for free — no new structural-screen handling needed (KR-055/090).",
+				"iter 1: when a skeleton field becomes a list (decor.object → decor.objects[]), migrate on read with a pure helper (takeablesOf) and canonicalise on the next write — never lose an old persisted shape (KR-090/116 spirit), and keep the deprecated field in the type with an @deprecated note.",
+				"iter 1: a per-item editor in a Modal wants DRAFT commit/cancel semantics (local state, keyed by item id, Enregistrer commits / Annuler discards) — distinct from the app's usual live-persist inline fields, but the right call for a modal so a cancelled NEW item never lands. Not a KR-013 violation: a one-shot draft init from props is legitimate editing state, not a useEffect-synced mirror.",
+				"iter 2: écouter/fouiller reuse the trap roll pattern wholesale — CHARACTERISTIQUE + DIFFICULTÉ + the shared brain OutcomesEditor — proving the réussite/échec rows were correctly extracted to brain (KR-109/091). The third consumer (after monster, trap) needed zero new shared code: a RevealEditor that just composes them. When a third feature reuses a brain primitive unchanged, the extraction was right.",
+				"iter 2: as a config grows facets (interaction + objects + reveal), collapse the writers into ONE writeDecor(patch) that re-emits the full canonical shape — per-facet writers that each spell out a partial object will eventually drop a sibling facet (here: editing objects must not lose reveal). One canonical writer + Partial patch is the safe shape.",
+				"iter 2: per-variant UI COPY (the écouter/fouiller reveal-field label + placeholder) belongs in the same closed-set Record as the variant's label (DECOR_INTERACTIONS extended from { label } to add revealLabel/revealPlaceholder), not a second `interaction === 'ecouter' ? …` ladder (KR-117).",
+				"iter 3: « reuse by id » is a REFERENCE, not a copy — a TakeableObject became own { object } | ref { objectRef }; the ref resolves live via the derived collectObjects catalog (findObject), so the object stays single-sourced on its authoring node (no desync, KR-020) and collectObjects skips refs (no phantom entry). A same-id copy would diverge under one id (collectObjects de-dups first-wins) — a latent bug avoided by referencing.",
+				"iter 3: making a previously-required field optional (TakeableObject.object) ripples to every consumer (tsc surfaces them all) — add small helpers (takeableId / resolveTakeableObject) so call sites ask the question instead of touching the optional field, and give the one editor that needs the non-optional shape (ObjectEditModal, own-only) a defensive fallback rather than a non-null assertion.",
+				"iter 3: a deferred « owned catalog service » (KR-090's predicted promotion) was satisfied by the DERIVED catalog already built for choice-linking iter 3 — re-read what already exists before building the heavyweight version a spec literally names; the by-id reference held, so the décor authoring side was just a picker + a ref variant."
+			],
+			"bugs_encountered": []
+		},
+		{
+			"feature": "action-pnj",
+			"completed_at": "2026-06-16",
+			"goal": "Configure a node's « PNJ » action — name + dialogue and an optional gift object — mounted into node-editor via the ActionRegistry, reusing the shared ObjectEditor.",
+			"key_architecture_choices": [
+				"Second action-* feature: self-registers with the brain ActionRegistry at the App composition root (registerActionPnj) — the seam now mounts two editors (« Décor » + « PNJ ») with zero node-editor changes (KR-050/051).",
+				"Reuses the shared brain ObjectEditor for « donne un objet » (KR-052/109) — its SECOND consumer, imported from brain with no cross-feature import; validates the decision to place ObjectEditor in brain at its first use.",
+				"PnjEditor is a VIEW over BookService (KR-020): reads node.pnj via useOpenBook, normalises it once (DEFAULT_PNJ + destructure, mirroring the cleaned DecorEditor), writes via updateNode; the gift's stable id is minted lazily and preserved (KR-003).",
+				"Domain model gained node.pnj (PnjConfig); NodePatch carries pnj so updateNode's text-only guard keeps it off structural screens (KR-055/090). The gift toggle-off persists pnj without a gift (JSON drops the undefined value)."
+			],
+			"brain_contracts_added": [
+				{
+					"type": "type",
+					"name": "PnjConfig"
+				}
+			],
+			"lessons_learned": [
+				"A shared brain primitive proves its worth at the SECOND consumer: action-pnj reused ObjectEditor with a single brain import — the cross-feature-violation trap (importing a sibling feature's component) never materialised because it was placed in brain from the start.",
+				"Patch semantics: updateNode skips top-level undefined keys, but a nested undefined (pnj.gift) is fine — it reads as absent in memory and is dropped by JSON on persist, so a toggle-off cleanly removes a sub-object without a dedicated unset API.",
+				"Normalising the config once (DEFAULT_PNJ + destructure) from the start avoided the scattered-default smell DecorEditor had to be refactored out of — apply the cleaned pattern to each new action editor.",
+				"iter 1: a config node-reference (« mène à » → pnj.target) is the right skeleton for a non-choice screen change the canvas can't draw yet — capture the id + surface dangling (KR-021/063), defer the rendered edge to the dedicated action-edge path (KR-067), mirroring action-trap's deferred échec→Mort edge.",
+				"iter 1: a node-title shown both in a config picker AND on a canvas card collides in RTL `getByRole` — the card name is « Nœud #N — Title » so use an EXACT picker-button name (not /Title/) to disambiguate (cf. the outline /Sommaire$/ lesson).",
+				"iter 2: when a spec goal collides with a project-wide rule (« portrait upload » vs the no-image-scope deferral), deliver the achievable part (a deferred dropzone affordance + the richer-identity `role` field) and record the deviation — don't fake the unsupported capability. Match the existing deferral pattern (node-editor's disabled illustration dropzone).",
+				"iter 2: a deferred « bientôt disponible » placeholder must not reuse another component's exact copy — node-editor's illustration dropzone and the PNJ portrait both render in the panel, so identical text breaks getByText. Give each deferred affordance distinct copy (« Portrait du PNJ — … »).",
+				"iter 3: when an entity to reuse has no id of its own (a PNJ is a node's action config, not a standalone object), the OWNER NODE id is the natural stable id — no new id field, no minting, no migration. This is simpler than the action-decor object reuse (objects already had ids); recognise when an existing id can serve as the reference key.",
+				"iter 3: the derived-reference pattern generalised cleanly from objects (action-decor) to PNJs (collectPnjs/resolvePnj mirror collectObjects/findObject; PnjPicker mirrors ReuseObjectPicker; ref rows read-only with « réutilisé » + dangling ⚠). When a second feature needs « reuse X by id », copy the shape, not the code — the two entity types differ enough that a shared abstraction would be premature.",
+				"iter 3: refs must NOT chain — resolvePnj treats a reference whose owner is itself a reference as dangling, so a book can't build a resolution cycle; guard this in the resolver (like the outline DFS visited set), unit-tested."
+			],
+			"bugs_encountered": []
+		},
+		{
+			"feature": "action-monster",
+			"completed_at": "2026-06-17",
+			"goal": "Configure a node's « Monstre » action — name + a player-facing reveal text per réussite/échec outcome — via the ActionRegistry, with a stub to save the monster to a reusable library.",
+			"key_architecture_choices": [
+				"Third action-* feature: self-registers with the brain ActionRegistry at the App composition root (registerActionMonster) — the seam mounts three editors with zero node-editor changes (KR-050/051).",
+				"réussite/échec — the only semantic outcomes/colours — modelled as a brain ROLL_OUTCOMES registry (Record<RollOutcome,{label,tone}>, KR-117/091), placed in brain because trap/skill-roll editors will reuse it (KR-109, the ObjectEditor lesson applied pre-emptively to a domain concept). MonsterEditor derives both outcome rows from it.",
+				"MonsterEditor is a VIEW over BookService (KR-020), normalised once; monster config lives on node.monster, NodePatch carries it (text-only guard keeps it off structural screens, KR-055/090).",
+				"Monster library stubbed via a new monster:savedToLibrary EventBus event (wired, unconsumed) — like book:deleted existed before its emitter. Added ariaLabel to the shared Field so Badge-captioned fields keep an accessible name."
+			],
+			"brain_contracts_added": [
+				{
+					"type": "type",
+					"name": "MonsterConfig / RollOutcome"
+				},
+				{
+					"type": "registry",
+					"name": "ROLL_OUTCOMES (brain/outcomes.ts)"
+				},
+				{
+					"type": "event",
+					"name": "monster:savedToLibrary"
+				},
+				{
+					"type": "service",
+					"name": "MonsterLibraryService (brain) + useMonsterLibrary (iter 3)"
+				}
+			],
+			"lessons_learned": [
+				"Applied the ObjectEditor placement lesson to a DOMAIN CONCEPT, not just a component: réussite/échec is domain-wide, so its registry went straight to brain — future trap/skill-roll editors reuse it with no cross-feature import.",
+				"When a Badge captions a field (semantic colour) the input loses its accessible name — add an ariaLabel rather than leaning on the placeholder; caught in self-review by making the outcome fields queryable.",
+				"A closed-set Record (KR-117) doubles as the loop source for the UI: mapping ROLL_OUTCOMES keys renders both outcome rows, so adding an outcome would be one entry — no second edit site.",
+				"iter 1: the 'extract to brain at the 2nd consumer' rule fired twice more — the value Stepper and the TargetPicker moved to brain/components when action-monster became their second consumer (after action-pnj), refactoring pnj in the SAME slice (behaviour-preserving, tests stay green). Same trigger as ObjectEditor/OutcomesEditor (KR-109).",
+				"iter 1: a shared brain component needs its feature-specific copy parameterised — TargetPicker gained label/emptyLabel props so PNJ « mène à » and monster victoire/fuite reuse one component; bumping per-stepper aria-labels off the `label` prop keeps several Steppers on one screen distinct (and required updating the pnj test queries).",
+				"iter 2: ObjectEditor's FOURTH reuse (monster loot, after décor/pnj/the gift) needed only a toggle + a blankLoot id-minter — a brain primitive that survives four consumers unchanged is correctly placed (KR-109). Loot is live-edited (no modal): décor's per-row modal exists only to discard a cancelled NEW object; a toggle-gated single object has no such need, so the simpler shape is right.",
+				"iter 2: when an iteration bundles a self-contained feature (loot) with one that needs deferred infrastructure (combat reinforced by an inventory object = the by-id hidden-prereq reference, KR-062, needs ObjectCatalogService), ship the self-contained half and pair the dependent half with the catalog — do NOT introduce a by-NAME object reference as a stopgap (KR-062 forbids it and it would have to be untangled later). Same call as deferring choice-linking's hidden prereq.",
+				"iter 3: a CROSS-BOOK reusable library is a different beast from within-book references — different books can't share a live reference, so it's a persisted owned store (MonsterLibraryService) and reuse INSTANTIATES a COPY (strip node-specific targets on save, fresh sub-object ids on instantiate). Within-book = live reference (KR-062/096); cross-book = copy from a library (KR-097).",
+				"iter 3: an event wired-but-unconsumed since an earlier iteration (monster:savedToLibrary) is the seam to build the consumer on — the save button now persists to the library AND keeps emitting the event, so any later listener still works."
+			],
+			"bugs_encountered": []
+		},
+		{
+			"feature": "action-trap",
+			"completed_at": "2026-06-17",
+			"goal": "Configure a node's « Piège » action — description + réussite/échec reveal texts + whether failure is lethal — via the ActionRegistry, reusing the shared outcome editor.",
+			"key_architecture_choices": [
+				"Fourth and final action-* feature: self-registers with the brain ActionRegistry (registerActionTrap) — node-editor now offers all four action types with zero changes (KR-050/051), validating the seam end-to-end.",
+				"Extracted a shared brain OutcomesEditor (KR-109) at the SECOND consumer of the réussite/échec rows (monster→trap): both editors render outcomes from one component derived from ROLL_OUTCOMES (KR-117/091); MonsterEditor refactored to use it. Same trigger as the ObjectEditor extraction.",
+				"TrapEditor is a VIEW over BookService (KR-020), normalised once; trap config on node.trap, NodePatch carries it (text-only guard, KR-055/090).",
+				"The « échec sanctionné » variant is a fatal boolean capturing intent; the automatic échec→Mort edge is deferred to the dedicated combat/trap path, not the manual edge API (KR-067/092)."
+			],
+			"brain_contracts_added": [
+				{
+					"type": "type",
+					"name": "TrapConfig"
+				},
+				{
+					"type": "component",
+					"name": "OutcomesEditor (brain/components)"
+				}
+			],
+			"lessons_learned": [
+				"The 'extract to brain at the 2nd consumer' rule now has two confirmations (ObjectEditor, OutcomesEditor) — when a second feature needs the same rows, refactor the first to the shared component in the same slice; behaviour-preserving and the tests stay green.",
+				"All four action editors landed by composing the SAME seams (ActionRegistry + BookService VIEW + shared brain primitives) — the skeleton's investment in node-editor's host seam + brain registries paid back four times with near-zero node-editor churn.",
+				"A boolean flag (trap.fatal) is the right skeleton stand-in for a deferred structural mechanic (the automatic →Mort edge): capture intent on the node now, wire the edge when the dedicated path is built (KR-067).",
+				"iter 1: a DOMAIN closed set goes straight to brain as a registry — CHARACTERISTICS joined ROLL_OUTCOMES in brain (KR-117) at the trap skill roll, fulfilling the décor-iter-1 note that the caractéristique catalog extracts at the 2nd consumer; the select derives from it.",
+				"iter 1: widen a shared type rather than fork it — making SkillRoll.failureText optional let trap (réussite/échec via outcomes) and décor (échec via failureText) share ONE roll shape instead of two near-duplicates; the additive optional field broke nothing in décor.",
+				"iter 1: don't bundle a product change into an unrelated slice — switching décor's free-text caractéristique to the new closed select changes décor UX, so it was deferred to a décor iteration (registry left brain-ready) rather than smuggled into the trap slice.",
+				"iter 2: the long-deferred « automatic →Mort edge » (KR-067) is best built as a VIEW-DERIVED edge, not a stored one — a pure brain deriveAutomaticEdges(book) emits synthetic edges from config (trap.fatal → Mort, kind 'fatal'), the canvas resolves [...book.edges, ...derived]. Deriving sidesteps both traps at once: the manual addEdge guard (which rejects a Mort target) and the stored-mirror desync (KR-020/013) — the config stays the SSOT and the link is automatically present iff fatal.",
+				"iter 2: gate a config-derived edge on actionType, NOT node.kind — the action config (node.trap) is keyed by actionType, so a 'choix' node with « Piège » as its required action carries the live trap; checking node.kind === 'piege' would miss it (and a stale node.trap under a different actionType must be ignored).",
+				"iter 2: a new edge kind is one EDGE_KINDS entry (KR-068) and breaks no exhaustive consumer because they all read the registry; EdgeLayer already dashes every non-choice kind, so a derived 'fatal' edge renders dashed with its « ✕ Mort » canvasLabel for free.",
+				"iter 3: « trap-on-object » needed NO new mechanism — the shared brain SkillRoll gained one `fatal` flag and deriveAutomaticEdges gained a second fatal SOURCE (a décor fatal takeable roll) folding into the same one-edge-per-node output. When two features must share behaviour, share the brain MODEL (SkillRoll) + the brain DERIVATION (deriveAutomaticEdges), and put the toggle in whichever feature already owns the editor (décor's ObjectEditModal) — neither imports the other.",
+				"iter 4: a discriminated TrapInventoryLoss type with 'aucune' as the absence-sentinel avoids migrations — absent field = 'aucune' behaviour; only 'specifique' can target scenario objects explicitly (giving authors full MacGuffin control). Keeping computeInventoryLoss as a separate pure function (not inside resolveTrap) left all existing resolveTrap signatures unchanged and let TrapScreen call it independently as pure derived state (KR-013)."
+			],
+			"bugs_encountered": []
+		},
+		{
+			"feature": "cloud-sync",
+			"completed_at": "2026-06-25",
+			"goal": "Make the app local-first and sync-aware: every write persists locally first, optionally pushes to a cloud transport in the background, and a status pill reflects the sync state.",
+			"key_architecture_choices": [
+				"CloudSyncService is a Decorator over PersistenceService (Liskov, KR-011/093): createBrain wraps the local store with it and feeds it to BookService, so every feature is sync-aware with ZERO changes — the cleanest demonstration of the interface-first persistence boundary.",
+				"Local-first (KR-004): set writes local synchronously, then pushes in the background (idle→syncing→synced/error); a failed push keeps the local write. With no transport the store is offline (local-only) and emits sync:status only on a real change — so wrapping is transparent and the existing 99 tests needed no edits.",
+				"useSyncStatus is an external-store subscription over the new sync:status event (KR-013); the cloud-sync feature's SyncIndicator is a VIEW deriving label/tone from a SyncStatus Record (KR-117), mounted once by App over both routes.",
+				"SyncStatus is a brain type and CloudTransport keeps the real backend swappable; the Cloudflare worker client + offline queue + reconciliation are deferred to iterations 1–3."
+			],
+			"brain_contracts_added": [
+				{
+					"type": "service",
+					"name": "CloudSyncService (brain) + CloudTransport"
+				},
+				{
+					"type": "type",
+					"name": "SyncStatus"
+				},
+				{
+					"type": "event",
+					"name": "sync:status"
+				},
+				{
+					"type": "hook",
+					"name": "useSyncStatus"
+				},
+				{
+					"type": "event",
+					"name": "sync:conflict + CloudSyncService.conflicts()/resolveConflict + useSyncConflict (iter 3)"
+				}
+			],
+			"lessons_learned": [
+				"An interface-first persistence boundary pays off exactly when a decorator is introduced: wrapping local with CloudSyncService changed one line in createBrain and nothing in any feature — the Liskov contract held.",
+				"Default-inert infrastructure keeps a big change safe: with no transport the wrapper is a transparent synchronous pass-through (no async, no events), so 99 existing tests stayed green without touching them — design the default so the new layer is invisible until opted into.",
+				"This closes the 0.1.x MVP tier: all eleven features have a walking skeleton; the next tier (0.2.x / V1) is iteration 1 of each, in build order.",
+				"iter 1: the cloud transport is chosen by BUILD/PRODUCTION TARGET at the composition root (main.tsx) — the local build wires a localStorage-backed LocalStorageTransport (fake remote) so the full machinery runs serverless; Cloudflare swaps a worker-backed one via the same interface later. Keeping createBrain transport-optional kept every existing test transparent (offline).",
+				"iter 1: a sync decorator that adopts a pulled value must write the UNDERLYING store, never its own decorated set — otherwise it re-pushes what it just pulled (echo loop). LWW reconciliation on book:opened emits book:updated so open views re-read (KR-094).",
+				"iter 1: debouncing the push changed set()'s timing (push is no longer synchronous), so the CloudSyncService tests moved to a debounceMs:0 + macrotask-flush pattern; status 'syncing' is still set synchronously on write so the UI feels instant.",
+				"This closes the 0.2.x / V1 tier: every feature has its iteration 1; the next tier (0.3.x / V2) is iteration 2 of each, in build order.",
+				"iter 2: an offline write queue must be PERSISTED (a local key loaded at startup) and a failed push must KEEP the batch — the iter-1 code cleared `pending` BEFORE pushing, which lost it on error. Dequeue only the entries actually pushed (compare the queued value to the pushed one) so a newer write during the in-flight push isn't dropped; a `flushing` flag prevents a double-push.",
+				"iter 2: surfacing a derived COUNT through an external store needs the event to fire when the count changes — but emitting on every pending delta re-broadcasts an online burst (broke the 'one syncing per burst' test). Keep emits status-change-only: offline the status toggles syncing↔error per write (so the count stays live), and the count rides every emit for useSyncPending to re-read. Status-change dedup + a count-carrying payload beats a (status,count) dedup.",
+				"This closes the 0.3.x / V2 tier: every feature has its iteration 2 (tree-canvas iter-2 banked depth-first); the next tier (0.4.x / V3) is iteration 3 of each feature that has one, in build order. The offline queue unblocks book-creation iter 3.",
+				"iter 3: conflict detection needs no version vector — local-pending (unpushed edits in the queue) + cloud-newer (cloudAt > localAt) IS the divergence signal; a clean local + newer cloud is still safe LWW (no edits to lose). Surface the choice (ConflictDialog) instead of silently overwriting; resolveConflict writes the cloud UNDER the local store (never the decorated set, no echo) and drops/keeps the queued edit accordingly.",
+				"This closes the 0.4.x / V3 tier — iteration 3 of every feature that has one (node-editor iter 3 superseded). The next tier (0.5.x / V4) is iteration 4 of the features whose n>=4: node-editor (debounced commits) and tree-canvas (robustness at scale).",
+				"iter 4 (Cloudflare KV transport): the transport is selected at the composition root (main.tsx) by reading CLOUDSYNC_WORKER_URL_KEY and CLOUDSYNC_KEY_KEY from raw local storage BEFORE createBrain — this avoids a circular boot dependency (CloudSyncService would otherwise need to self-configure before brain exists). The selected transport is injected into createBrain exactly as iters 1-3 expected; no change to any other feature (KR-022, KR-149).",
+				"iter 4: the sync key acts as BOTH auth credential and KV namespace prefix (base64-encoded) — the worker prepends `encodeKey(syncKey):{dataKey}` so multiple users share one KV namespace safely with no server-side user management. This collapses auth + sharding into a single header (KR-148).",
+				"iter 4: credentials (worker URL, sync key) must live in the RAW local store (PersistenceService backed by localStorage), never cloud-synced — syncing them would create an echo loop where the credential needed to push is itself being pushed. Register with SENSITIVE marker in persistenceKeys.ts for auditing (KR-114, KR-149).",
+				"iter 4: jsdom does not define globalThis.fetch or the Response constructor — CloudflareKVTransport tests must assign fetchMock directly to globalThis.fetch (not jest.spyOn) and use plain object stubs { ok, status, json } instead of new Response(), and delete globalThis.fetch in afterEach to avoid cross-test contamination.",
+				"iter 4: dangerous-action rule (Désactiver clears credentials + reloads) requires a two-step confirmation Modal — a single button click must not wipe credentials; show a second modal naming the consequences before executing. This is the cloud-sync implementation of the project-wide dangerous-action guard."
+			],
+			"bugs_encountered": []
+		},
+		{
+			"feature": "book-export",
+			"completed_at": "2026-06-20",
+			"goal": "Export the authored book to a self-contained, versioned play-ready file (download) for the deferred play runtime.",
+			"key_architecture_choices": [
+				"exportBookForPlay is a PURE brain transform over the book SSOT that REUSES the existing derivations rather than recomputing: deriveAutomaticEdges (fatal→Mort, KR-067) folded into the edge list + collectObjects (catalog, KR-062) as the resolved objects, so the export can never disagree with the canvas/outline views. Nodes drop the editor-only position (KR-022/023).",
+				"Export is non-blocking (user decision): collectWarnings validates every by-id reference the domain carries (edge targets, prereq objects, countdown fallbacks, monster/PNJ targets, décor objectRef) into structured warnings + a count, surfaced never blocked (KR-021).",
+				"The download is a separate browser side-effect util (downloadJson): Blob + object URL + synthetic anchor click, the URL ALWAYS revoked in a finally (no leak), no-op without a document — so the pure transform stays trivially testable and the side-effect is isolated.",
+				"EditorTopBar got a generic `actions` ReactNode slot (KR-120) the editor shell fills with <ExportGameButton>; the bar never imports the feature (Open/Closed; mirrors SlotRegistry KR-066 + cross-feature-primitive KR-109)."
+			],
+			"brain_contracts_added": [
+				{
+					"type": "util",
+					"name": "exportBookForPlay + PlayExport/PlayWarning (brain/utils/playExport.ts)"
+				},
+				{
+					"type": "util",
+					"name": "downloadJson / slugifyFilename (brain/utils/download.ts)"
+				},
+				{
+					"type": "event",
+					"name": "book:exported"
+				},
+				{
+					"type": "component",
+					"name": "EditorTopBar.actions slot (KR-120)"
+				}
+			],
+			"lessons_learned": [
+				"An export feature is mostly a PURE transform + an isolated I/O util: keep the document builder side-effect-free (testable in isolation, reuses brain derivations so it can't desync) and put the Blob/anchor/objectURL dance in a thin download util that always revokes. The UI is then a thin button + a ref-tracked transient status.",
+				"When a feature must add a control to shared brain chrome, add a generic `actions` ReactNode slot rather than threading feature-specific callbacks through the chrome — same Open/Closed seam as the SlotRegistry, and the composition root does the wiring so neither imports the other.",
+				"New capability outside the ragged-iteration plan (n=0 walking skeleton), like the choice-linking lineage refinement — bump PATCH, keep play mode deferred; this only produces the file the runtime will later consume (versioned so the schema can evolve)."
+			],
+			"bugs_encountered": []
+		},
+		{
+			"feature": "game-system",
+			"completed_at": "2026-06-22",
+			"goal": "Replace the 3-trait placeholder with the full genliv game system: 7 caractéristiques, 4 Tiers de Challenge, WEAPONS/PROTECTIONS registries, a 23-monster canonical bestiary, and pure play-mode helpers — all surfaced in the editor via updated SegmentedControl pickers and a full monster stat block UI.",
+			"key_architecture_choices": [
+				"All new registries follow KR-117 (a single Record<Union, Descriptor>); editors derive options from the registry, never hardcode lists or branch on union values. The same pattern was applied to CHARACTERISTICS (7 entries with abbr), CHALLENGE_TIERS (4 tiers with notation), WEAPONS (8 entries with multiplier), PROTECTIONS (4 entries with reduction), POSTURES (3 entries), and BESTIARY (23 monsters mapped via toConfig()).",
+				"AUTHORING vs PLAY split (KR-131): editor components import only type/registry parts (CHARACTERISTICS, CHALLENGE_TIERS, WEAPONS); pure play helpers (resolveChallenge, resolveAssault, combatXp) live in separate brain modules as injectable-RNG functions and are unit-tested without a play runtime.",
+				"SegmentedControl is constrained to T extends string; MonsterTier (1|2|3|4 number) is bridged via MonsterTierKey ('T1'|'T2'|'T3'|'T4') helper pair (tierToKey/keyToTier) in MonsterEditor — avoids changing the component API.",
+				"seedDefaults() on MonsterLibraryService: one-time bestiary seeding guarded by MONSTER_LIBRARY_SEEDED_KEY, deletion-safe (the flag is set before the commit so a crash between the two does not re-seed). Test suites suppress the seed in beforeEach to keep library assertions deterministic (KR-132).",
+				"RevealEditor (Écouter/Fouiller) deliberately NOT migrated to tier SegmentedControl in this pack — it still uses a legacy difficulty Stepper. The `difficulty?: number` type change required a `?? DEFAULT_DIFFICULTY` fallback to satisfy the Stepper's `value: number` prop. Deferred to a future iteration to keep the pack focused."
+			],
+			"brain_contracts_added": [
+				{
+					"type": "module",
+					"name": "brain/characteristics.ts — 7 caracs + CHARACTERISTIC_MAX + MONSTER_CHARACTERISTICS + pure helpers (maxPV, healthState, enduranceMalus)"
+				},
+				{
+					"type": "module",
+					"name": "brain/challenge.ts — CHALLENGE_TIERS (TC1–TC4) + rollTier + pure dice helpers (resolveChallenge)"
+				},
+				{
+					"type": "module",
+					"name": "brain/equipment.ts — WEAPONS (8 entries) + PROTECTIONS (4 entries) + EquipmentEffect type"
+				},
+				{
+					"type": "module",
+					"name": "brain/combat.ts — POSTURES + maitriseDesCoups + pfBase + resolveAssault"
+				},
+				{
+					"type": "module",
+					"name": "brain/xp.ts — tierOf + deltaBand + challengeXp + combatXp + characteristicUpgradeCost + mcUpgradeCost"
+				},
+				{
+					"type": "module",
+					"name": "brain/bestiary.ts — BESTIARY (23 MonsterConfig) + BESTIARY_BY_TEMPLATE"
+				},
+				{
+					"type": "method",
+					"name": "MonsterLibraryService.seedDefaults(templates) — one-time idempotent bestiary seeding"
+				},
+				{
+					"type": "type",
+					"name": "MonsterStatBlock (brain/types.ts) — full § 4 stat block on MonsterConfig"
+				},
+				{
+					"type": "type",
+					"name": "EquipmentEffect (brain/types.ts) — arme | protection on GameObject"
+				},
+				{
+					"type": "key",
+					"name": "MONSTER_LIBRARY_SEEDED_KEY (brain/persistenceKeys.ts)"
+				}
+			],
+			"lessons_learned": [
+				"SegmentedControl<T extends string> is the constraint that forces the MonsterTierKey bridge pattern — when a registry value is a number, introduce a string-keyed type and convert at the two write/read sites rather than widening the component constraint.",
+				"The one-time seed guard (MONSTER_LIBRARY_SEEDED_KEY) must be set BEFORE the commit so a crash between the flag write and the data write does not re-seed on the next launch (crash-safe ordering).",
+				"Test seed suppression belongs in beforeEach, not in individual tests — adding `localStorage.setItem(MONSTER_LIBRARY_SEEDED_KEY, 'true')` once in the monster.test.tsx beforeEach block keeps every test independent and prevents 23 auto-seeded monsters from polluting library-count assertions.",
+				"A deprecated optional field (SkillRoll.difficulty?, MonsterConfig.attack?, .defense?) requires `?? fallback` at every consumer that passes the field to a required-value prop (Stepper.value: number). A type-only change surfaces all consumers via tsc, making the migration safe and exhaustive.",
+				"The RevealEditor (Écouter/Fouiller) was intentionally left on legacy difficulty to keep the pack focused — the key lesson is that a partial migration is fine when you fix the type incompatibility (the ?? fallback) and the tests still pass; a future iteration completes the migration."
+			],
+			"bugs_encountered": []
+		}
+	]
+}

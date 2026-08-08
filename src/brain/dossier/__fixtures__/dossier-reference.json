@@ -1,0 +1,268 @@
+{
+	"schema": 1,
+	"id": "dossier-reference",
+	"titre": "La Vigie de Cendre",
+	"createdAt": "2026-08-08T09:00:00.000Z",
+	"updatedAt": "2026-08-08T09:00:00.000Z",
+	"canon": {
+		"mj": {
+			"synopsis_mj": "Le Foyer du Guet croit son beffroi muet depuis la chute de la Vigie du Nord, dix ans plus tôt. Il ne l'est pas : Sélène, dernière descendante des guetteurs, entretient en secret le mécanisme dans la tour effondrée, et c'est elle qui a rallumé le signal que le village a pris pour un feu errant. Mira la guérisseuse le soupçonne sans oser le dire à quiconque, encore moins à Corvin, dont elle craint qu'il ne monnaie le secret. Si le sceau de cendre qui scelle l'ancien passage sous la crypte se rouvre, ce n'est pas un fantôme qui en sortira, mais la mémoire exacte de ce que le village a choisi d'oublier."
+		},
+		"partage": {
+			"accroche_joueur": "Un feu s'est rallumé sur la tour effondrée du Foyer du Guet, et personne au village ne veut dire qui l'a allumé."
+		},
+		"ton": "sec et méfiant",
+		"interdits_ton": ["aucun anachronisme", "aucune vulgarité"],
+		"objectifs": [
+			{
+				"id": "objectif.reveler-la-vigie",
+				"nom": "Révéler qui veille sur la tour",
+				"reussi_si_texte": "Le héros a atteint la vigie du nord et appris que Sélène veille encore sur le signal.",
+				"reussi_si_expr": {
+					"op": "et",
+					"enfants": [
+						{ "op": "predicat", "predicat": "lieu_visite", "cibles": ["lieu.vigie-du-nord"] },
+						{ "op": "predicat", "predicat": "jalon_atteint", "cibles": ["jalon.premiere-vigie"] }
+					]
+				},
+				"echoue_si_texte": "Sélène a fui le Foyer du Guet avant d'être trouvée.",
+				"echoue_si_expr": {
+					"op": "predicat",
+					"predicat": "evenement_consomme",
+					"cibles": ["evenement.embuscade-a-la-tour"]
+				}
+			},
+			{
+				"id": "objectif.proteger-le-sceau",
+				"nom": "Empêcher l'ouverture du sceau de cendre",
+				"reussi_si_texte": "Le héros possède le sceau de cendre à la fin de l'aventure.",
+				"reussi_si_expr": { "op": "predicat", "predicat": "possede_objet", "cibles": ["objet.sceau-de-cendre"] },
+				"echoue_si_texte": "Le sceau de cendre a été perdu ou cédé.",
+				"echoue_si_expr": {
+					"op": "non",
+					"enfant": { "op": "predicat", "predicat": "possede_objet", "cibles": ["objet.sceau-de-cendre"] }
+				}
+			}
+		]
+	},
+	"monde": {
+		"personnages": [
+			{
+				"id": "pnj.selene-la-vigie",
+				"nom": "Sélène la Vigie",
+				"portee": "second",
+				"plan_actions": [
+					{
+						"etape": 1,
+						"action": "Entretenir le mécanisme du beffroi sans être vue.",
+						"declencheur_texte": "Aucun visiteur n'est encore monté à la tour effondrée."
+					}
+				],
+				"savoirs": [
+					{
+						"indice_id": "indice.lettre-de-la-vigie",
+						"certitude": "sait",
+						"revele_comment": "Elle sort la lettre d'une poche cousue dans sa cape, sans un mot.",
+						"revele_si": { "jet": { "carac": "CA", "tc": "TC2" } }
+					}
+				]
+			},
+			{
+				"id": "pnj.corvin-le-marchand",
+				"nom": "Corvin le Marchand",
+				"portee": "premier",
+				"plan_actions": [
+					{
+						"etape": 1,
+						"action": "Proposer au héros d'acheter son silence sur la tour.",
+						"declencheur_texte": "Le joueur mentionne la tour effondrée devant lui.",
+						"declencheur_expr": { "op": "predicat", "predicat": "lieu_visite", "cibles": ["lieu.tour-effondree"] }
+					}
+				],
+				"savoirs": []
+			},
+			{
+				"id": "pnj.mira-la-guerisseuse",
+				"nom": "Mira la Guérisseuse",
+				"portee": "premier",
+				"plan_actions": [
+					{
+						"etape": 1,
+						"action": "Détourner la conversation dès que le sceau de cendre est mentionné.",
+						"declencheur_texte": "Le joueur sait déjà que le sceau de cendre existe.",
+						"declencheur_expr": {
+							"op": "predicat",
+							"predicat": "indice_connu",
+							"cibles": ["indice.sceau-brise-a-nouveau"]
+						}
+					}
+				],
+				"savoirs": [
+					{
+						"indice_id": "indice.sceau-brise-a-nouveau",
+						"certitude": "soupconne",
+						"revele_comment": "Elle hésite longuement, puis chuchote en évitant votre regard.",
+						"revele_si": {
+							"confiance_min": 1,
+							"apres_indice_id": "indice.pas-dans-la-cendre"
+						}
+					}
+				]
+			},
+			{
+				"id": "pnj.tobin-le-gamin",
+				"nom": "Tobin le Gamin",
+				"portee": "second",
+				"plan_actions": [
+					{
+						"etape": 1,
+						"action": "Suivre le héros à distance pour voir où il va.",
+						"declencheur_texte": "Le joueur quitte le marché des cendres."
+					}
+				],
+				"savoirs": [
+					{
+						"indice_id": "indice.trace-du-guet",
+						"certitude": "croit",
+						"revele_comment": "Il désigne du doigt les cendres, très sûr de lui, sans doute à tort.",
+						"revele_si": { "contrepartie": { "objet_id": "objet.lanterne-de-corvin", "consomme": true } }
+					}
+				]
+			},
+			{
+				"id": "pnj.harek-le-forgeron",
+				"nom": "Harek le Forgeron",
+				"portee": "premier",
+				"plan_actions": [],
+				"savoirs": [
+					{
+						"indice_id": "indice.pas-dans-la-cendre",
+						"certitude": "sait",
+						"revele_comment": "Il pointe l'enclume, comme si la réponse allait de soi.",
+						"revele_si": { "jet": { "carac": "IN", "tc": "TC1" } }
+					}
+				]
+			},
+			{
+				"id": "pnj.aubry-l-intendant",
+				"nom": "Aubry l'Intendant",
+				"portee": "premier",
+				"plan_actions": [
+					{
+						"etape": 1,
+						"action": "Consigner par écrit tout ce que le héros demande.",
+						"declencheur_texte": "Le joueur pose une question sur le sceau de cendre."
+					}
+				],
+				"savoirs": []
+			}
+		],
+		"lieux": [
+			{ "id": "lieu.foyer-du-guet", "nom": "Le Foyer du Guet" },
+			{ "id": "lieu.marche-des-cendres", "nom": "Le marché des cendres" },
+			{ "id": "lieu.tour-effondree", "nom": "La tour effondrée" },
+			{ "id": "lieu.crypte-scellee", "nom": "La crypte scellée" },
+			{ "id": "lieu.vigie-du-nord", "nom": "La vigie du nord" }
+		],
+		"objets": [
+			{ "id": "objet.sceau-de-cendre", "nom": "Le sceau de cendre" },
+			{ "id": "objet.lanterne-de-corvin", "nom": "La lanterne de Corvin" },
+			{ "id": "objet.amulette-scellee", "nom": "Une amulette scellée" }
+		],
+		"indices": [
+			{ "id": "indice.pas-dans-la-cendre", "nom": "Des pas frais dans la cendre" },
+			{ "id": "indice.sceau-brise-a-nouveau", "nom": "Le sceau de cendre est de nouveau fendu" },
+			{ "id": "indice.lettre-de-la-vigie", "nom": "Une lettre signée de la Vigie" },
+			{ "id": "indice.trace-du-guet", "nom": "Une trace laissée près du beffroi" }
+		],
+		"quetes": [
+			{
+				"id": "quete.retrouver-la-vigie",
+				"nom": "Retrouver la Vigie",
+				"recompense": [
+					{ "delta": "atteindre_jalon", "cibles": ["jalon.second-guet"] },
+					{ "delta": "donner_objet", "cibles": ["objet.amulette-scellee"] }
+				]
+			}
+		],
+		"evenements": [
+			{
+				"id": "evenement.embuscade-a-la-tour",
+				"nom": "L'embuscade de la tour effondrée",
+				"monstre_ref": "bestiaire.squelette",
+				"declencheur_texte": "Le joueur monte seul à la tour effondrée après la tombée du jour.",
+				"declencheur_expr": { "op": "predicat", "predicat": "lieu_visite", "cibles": ["lieu.tour-effondree"] },
+				"resolutions": [
+					{
+						"resultat": "Le squelette s'effondre en cendres devant la tour.",
+						"consequence": [{ "delta": "reveler_indice", "cibles": ["indice.trace-du-guet"] }]
+					},
+					{
+						"resultat": "Le héros bat en retraite, la lanterne éteinte.",
+						"consequence": [{ "delta": "retirer_objet", "cibles": ["objet.lanterne-de-corvin"] }]
+					}
+				]
+			},
+			{
+				"id": "evenement.rumeur-sans-origine",
+				"nom": "Une rumeur sans origine",
+				"resolutions": []
+			}
+		],
+		"conditions": {
+			"climat": [{ "id": "climat.cendres-tenaces", "nom": "Cendres tenaces", "effets_regles": [] }]
+		}
+	},
+	"charpente": {
+		"depart": {
+			"lieu_id": "lieu.foyer-du-guet",
+			"texte_ouverture_joueur": "Le beffroi du Foyer du Guet brille d'un feu que personne n'a allumé, et le village entier fait semblant de ne pas le voir."
+		},
+		"jalons": [
+			{
+				"id": "jalon.premiere-vigie",
+				"nom": "La première vigie",
+				"enonce_texte": "Le héros a atteint la tour et vu le feu du guet de ses propres yeux.",
+				"declencheur_texte": "Le joueur monte à la vigie du nord et découvre le mécanisme entretenu.",
+				"declencheur_expr": { "op": "predicat", "predicat": "lieu_visite", "cibles": ["lieu.vigie-du-nord"] },
+				"effet": [{ "delta": "reveler_indice", "cibles": ["indice.pas-dans-la-cendre"] }]
+			},
+			{
+				"id": "jalon.second-guet",
+				"nom": "Le second guet",
+				"enonce_texte": "Le héros est revenu au Foyer du Guet après avoir affronté la tour.",
+				"declencheur_texte": "Le joueur revient au Foyer du Guet après avoir quitté la tour effondrée.",
+				"effet": []
+			}
+		],
+		"fins": [
+			{
+				"id": "fin.vigie-sauvee",
+				"nom": "La vigie sauvée",
+				"condition_texte": "Le héros possède le sceau de cendre et a atteint le second guet.",
+				"condition_expr": {
+					"op": "et",
+					"enfants": [
+						{ "op": "predicat", "predicat": "possede_objet", "cibles": ["objet.sceau-de-cendre"] },
+						{ "op": "predicat", "predicat": "jalon_atteint", "cibles": ["jalon.second-guet"] }
+					]
+				}
+			},
+			{
+				"id": "fin.vigie-abandonnee",
+				"nom": "La vigie abandonnée",
+				"condition_texte": "L'embuscade de la tour effondrée a eu lieu et le héros n'a jamais visité la vigie du nord.",
+				"condition_expr": {
+					"op": "et",
+					"enfants": [
+						{ "op": "predicat", "predicat": "evenement_consomme", "cibles": ["evenement.embuscade-a-la-tour"] },
+						{
+							"op": "non",
+							"enfant": { "op": "predicat", "predicat": "lieu_visite", "cibles": ["lieu.vigie-du-nord"] }
+						}
+					]
+				}
+			}
+		]
+	}
+}

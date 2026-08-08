@@ -128,7 +128,7 @@ Le tri commandé par D3, exécuté. À lire avant de cadrer `dossier-format` : p
 
 - `brain/types.ts` + `kinds.ts` + `BookService` — tout le modèle d'arbre. C'est **l'objet du contrat de la n° 1** ; le démonter avant d'avoir le format cible ne laisserait rien à quoi comparer.
 - `brain/utils/playExport.ts` — `src/player/types.ts` en dépend pour son `AdventureDocument`. Il tombe quand la n° 9 repointe le runtime sur le dossier.
-- `brain/utils/download.ts` (`downloadJson` / `downloadText` / `slugifyFilename`) — plus aucun appelant depuis la disparition de `book-export`. Repris par la n° 1, qui livre l'import/export JSON du dossier.
+- `brain/utils/download.ts` (`downloadJson` / `downloadText` / `slugifyFilename`) — plus aucun appelant depuis la disparition de `book-export`. La n° 1 livre `exportDossier` au contrat (testé, sans écran) mais **aucune affordance de téléchargement** — décision close en it5 (`resolved_decisions`), reportée à la n° 2, seule feature dont une surface (`LibraryScreen`) pourrait lister des dossiers. `download.ts` reste donc sans appelant jusque-là.
 - `brain/MonsterLibraryService.ts` + le `seedDefaults(BESTIARY)` de `createBrain()` — **producteur sans lecteur** : le bestiaire s'écrit une fois dans le stockage local (garde KR-132, pas de ré-injection) pour une librairie qu'aucun écran n'ouvre plus. Repris par la n° 6, dont les événements se branchent sur ce même bestiaire.
 - `brain/components/` — huit primitives sans consommateur (`ObjectEditor`, `OutcomesEditor`, `Stepper`, `TargetPicker`, `ImageUpload`, `Toggle`, `Select`, `Card`). Ce sont les briques des formulaires du dossier (n° 3 à 6) ; `ObjectEditor` est nommément la graine de la n° 5.
 - Les clés de préférences de l'ancienne vue plan déjà écrites chez un développeur (`viewMode`, `outlineCollapsed`, `outlineDisplayMode`) ne sont plus lues, mais `UIPreferencesService.commit()` les **recopie à chaque écriture** puisqu'il étale l'objet chargé. Aucune migration due (décision n° 1 : aucun livre existant) ; pas de routine de nettoyage non plus — une abstraction à un seul appelant est une dette. C'est la n° 2 qui réécrit `BookUIPrefs` et les fera disparaître.
@@ -142,7 +142,7 @@ Huit features. Une phrase de démo par feature, sans « et » : c'est le test de
 
 | # | Feature | « À la fin, l'auteur peut… » | Itér. | Statut | Comité | Dépend de |
 |---|---|---|---|---|---|---|
-| 1 | `dossier-format` | …importer un dossier d'aventure validé contre un schéma versionné | **5** | **4/5** | 5 rôles | — |
+| 1 | `dossier-format` | …importer un dossier d'aventure validé contre un schéma versionné | **5** | **5/5 — terminée** | 5 rôles | — |
 | 2 | `bascule-editeur` | …naviguer dans son aventure par une liste de sections | 3 | — | 4 rôles | 1 |
 | 3 | `dossier-canon` | …rédiger la vérité immuable de son histoire | 3 | — | 4 rôles | 2 |
 | 4 | `dossier-fiches` | …écrire une fiche de personnage exploitable par l'IA | 5 | — | 5 rôles | 3 |
