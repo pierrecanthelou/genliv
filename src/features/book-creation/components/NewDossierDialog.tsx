@@ -1,7 +1,7 @@
 import { useState, type CSSProperties, type KeyboardEvent } from 'react'
 import { Field, Modal, useSyncStatus, type SyncStatus } from '../../../brain'
 
-export interface NewBookDialogProps {
+export interface NewDossierDialogProps {
 	onCancel: () => void
 	onCreate: (title: string) => void
 }
@@ -10,10 +10,11 @@ const PLACEHOLDER = "La Caverne d'Aldûr"
 
 /**
  * Cloud-first reassurance for the « Créer » action, derived per sync state from
- * one closed-set Record rather than branching on the status (KR-117): the book
- * is always written to this device first (local-first, KR-093), so creating
- * offline is expected — when there is no connection the copy promises a later
- * sync instead of an immediate one.
+ * one closed-set Record rather than branching on the status (KR-117): the
+ * dossier is always written to this device first (local-first, KR-093), so
+ * creating offline is expected — when there is no connection the copy promises
+ * a later sync instead of an immediate one. Copy already agnostic of « livre »
+ * vs « dossier » — carried over unchanged from NewBookDialog (book-creation).
  */
 const CLOUD_FIRST_HINT: Record<SyncStatus, string> = {
 	idle: 'Enregistré sur cet appareil, puis synchronisé dans le cloud.',
@@ -28,10 +29,10 @@ const CLOUD_FIRST_HINT: Record<SyncStatus, string> = {
  * « Créer » is disabled while the trimmed title is empty (computed inline,
  * no useEffect derived state — KR-013). Enter submits; trims on submit. A
  * cloud-first hint (sync-aware via the brain useSyncStatus external store)
- * tells the author the book is saved on this device first, so « Créer » works
- * offline and the book syncs later (book-creation iter 3 / KR-093).
+ * tells the author the dossier is saved on this device first, so « Créer »
+ * works offline and the dossier syncs later.
  */
-export function NewBookDialog({ onCancel, onCreate }: NewBookDialogProps): JSX.Element {
+export function NewDossierDialog({ onCancel, onCreate }: NewDossierDialogProps): JSX.Element {
 	const [title, setTitle] = useState('')
 	const syncStatus = useSyncStatus()
 	const canCreate = title.trim().length > 0
@@ -50,7 +51,7 @@ export function NewBookDialog({ onCancel, onCreate }: NewBookDialogProps): JSX.E
 
 	return (
 		<Modal
-			title="Nouveau livre"
+			title="Nouveau dossier"
 			cancelLabel="Annuler"
 			confirmLabel="Créer"
 			confirmDisabled={!canCreate}
@@ -59,7 +60,7 @@ export function NewBookDialog({ onCancel, onCreate }: NewBookDialogProps): JSX.E
 			onConfirm={handleCreate}
 		>
 			<Field
-				id="new-book-title"
+				id="new-dossier-title"
 				label="TITRE"
 				value={title}
 				placeholder={PLACEHOLDER}

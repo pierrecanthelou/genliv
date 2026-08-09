@@ -5,6 +5,8 @@ import type { Dossier } from './dossier/types'
 import type { DossierIssue } from './dossier/issues'
 import { inspectDossierFile, type DossierInspection } from './dossier/read'
 import { validateDossier } from './dossier/validate'
+import { construireAmorce } from './dossier/amorce'
+import { randomToken } from './utils/id'
 
 /**
  * Le RÉSUMÉ de bibliothèque d'un dossier — ce que l'accueil affiche par carte,
@@ -23,11 +25,11 @@ export type DossierResume =
 
 /**
  * DossierService — le seul point d'entrée du dossier d'aventure dans
- * l'application. SIX méthodes : les quatre de la n° 1, plus `list` et `remove`
- * que la bibliothèque repointée câble ici (n° 2, itération 1). `create`,
- * `rename`, `duplicate` et `update` restent dehors tant que personne ne les
- * appelle — un service dont la moitié des méthodes n'est exercée par personne
- * est de la dette, pas un contrat.
+ * l'application. SEPT méthodes : les quatre de la n° 1, `list` et `remove` que la
+ * bibliothèque repointée câble (n° 2, itération 1), et `create` que la création
+ * repointée appelle (n° 2, itération 2). `rename`, `duplicate` et `update`
+ * restent dehors tant que personne ne les appelle — un service dont la moitié des
+ * méthodes n'est exercée par personne est de la dette, pas un contrat.
  *
  * Il est ADDITIF : il vit sous ses propres clés (`genliv:dossier:`), ne lit ni
  * n'écrit aucun `Book`, et AUCUNE de ses fonctions ne convertit un `Book` en
@@ -47,6 +49,21 @@ export type DossierResume =
  *    dans le magasin, un abonné à `dossier:deleted` ne l'y trouve déjà plus.
  */
 export interface DossierService {
+	/**
+	 * Sème un dossier VALIDE au sens de `validateDossier` — jamais un document que
+	 * le validateur refuserait lui-même à la relecture (KR-178) : sa forme vient de
+	 * `construireAmorce` (`dossier/amorce.ts`), dérivée des tables du validateur.
+	 *
+	 * Le titre est `trim()`é ; vide, il retombe sur `TITRE_PAR_DEFAUT` — le service
+	 * ne dépend pas de la garde du dialogue de création, qui vit dans une feature
+	 * et pourrait disparaître avec elle.
+	 *
+	 * Persiste PUIS émet `dossier:created` (KR-004). N'OUVRE PAS et NE NAVIGUE PAS :
+	 * `dossier:opened` appartient à `open()`, et c'est l'appelant qui enchaîne les
+	 * deux, dans l'ordre — un `create` qui ouvrirait empêcherait de semer un dossier
+	 * sans y aller.
+	 */
+	create(titre: string): Dossier
 	/** Le dossier persisté, RE-VALIDÉ et gelé — `null` si absent ou non conforme. */
 	get(id: string): Dossier | null
 	/**
@@ -77,6 +94,21 @@ export interface DossierService {
 	 */
 	remove(id: string): boolean
 }
+
+/**
+ * Le titre d'un dossier semé sans titre. Il ne peut pas être vide : `titre` est un
+ * CHAMP_REQUIS (`dossier/tables.ts`), donc un dossier titré `''` serait refusé par
+ * le validateur à la première relecture.
+ *
+ * ⚠ VALEUR NON ARBITRÉE par le comité de raffinage : le plan d'itération NOMME
+ * cette constante (§ 4) mais n'en écrit jamais le texte — le contrat de design (§ 3)
+ * ne couvre que la copie du dialogue de création. Elle est INATTEIGNABLE depuis
+ * l'interface de cette itération (« Créer » reste désactivé tant que le titre trimé
+ * est vide) : c'est une garde de TOTALITÉ du service, pas une copie d'écran. Elle
+ * est écrite ici, privée et à un seul appelant, pour qu'une décision d'UX se réduise
+ * à changer cette ligne.
+ */
+const TITRE_PAR_DEFAUT = 'Dossier sans titre'
 
 /**
  * L'anomalie de MAGASIN — la seule que le validateur ne peut pas produire, parce
@@ -115,6 +147,21 @@ function anomalieDejaImporte(id: string, occupant: Dossier | null): DossierIssue
  * son ordre à la tête de liste : deux illisibles n'ont pas de date à comparer,
  * et deux rendus successifs doivent montrer la même liste.
  */
+/**
+ * Le FRAPPEUR d'identifiant de dossier — privé, jamais exporté, un seul appelant
+ * (`create`). Exporté, il inviterait un second site de frappe, et deux frappeurs
+ * pour un même espace de clés finissent toujours par diverger.
+ *
+ * `randomToken()` et jamais `createId()` : le préfixe et son séparateur `_` du
+ * second sont refusés par `FORME_ID_DOSSIER` (`dossier/validate.ts`) — un
+ * identifiant de dossier n'est pas un identifiant d'entité, il devient TEL QUEL
+ * une clé de stockage via `dossierKey()`, d'où sa forme plus stricte (minuscules,
+ * chiffres, tirets).
+ */
+function createDossierId(): string {
+	return randomToken()
+}
+
 function comparerResumes(a: DossierResume, b: DossierResume): number {
 	if (a.lisible !== b.lisible) return a.lisible ? 1 : -1
 	if (a.lisible && b.lisible) {
@@ -159,6 +206,23 @@ export function createDossierService(persistence: PersistenceService, events: Ev
 	}
 
 	return {
+		create(titre: string): Dossier {
+			const now = new Date().toISOString()
+			const propre = titre.trim()
+			// Le titre vide ne peut PAS traverser : `titre` est un CHAMP_REQUIS, un
+			// dossier semé sans titre serait refusé par le validateur à la relecture.
+			const dossier = construireAmorce(createDossierId(), propre === '' ? TITRE_PAR_DEFAUT : propre, now)
+			// La persistance d'abord, l'événement ensuite (KR-004) : un abonné à
+			// `dossier:created` trouve le dossier DÉJÀ dans le magasin — c'est ce qui
+			// permet à l'appelant d'enchaîner `open()` sans fenêtre de course.
+			persistence.set(dossierKey(dossier.id), dossier)
+			events.emit('dossier:created', { dossierId: dossier.id })
+			// Le document tel que semé, non gelé : le gel en profondeur n'a qu'un seul
+			// site d'appel légitime, la sortie de `validateDossier` (KR-166), et c'est
+			// par là que passe la relecture (`get`).
+			return dossier
+		},
+
 		get,
 
 		list(): DossierResume[] {

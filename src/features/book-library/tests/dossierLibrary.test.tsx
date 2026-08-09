@@ -107,9 +107,12 @@ describe('book-library — dossiers', () => {
 		expect(screen.getByText('Le sceau du Gouffre')).toBeInTheDocument()
 	})
 
-	it('n affiche plus « + Nouveau livre », seul « Importer un dossier » reste comme entree', () => {
+	it('n affiche plus « + Nouveau livre » ; « + Nouveau dossier » et « Importer un dossier » restent les entrees', () => {
 		renderLibrary()
 		expect(screen.queryByRole('button', { name: /nouveau livre/i })).not.toBeInTheDocument()
+		// Repointe depuis bascule-editeur it2 (lot 2) : book-creation seme desormais
+		// des Dossier, l'affordance de creation reapparait donc a cote de l'import.
+		expect(screen.getByRole('button', { name: /nouveau dossier/i })).toBeInTheDocument()
 		expect(screen.getByRole('button', { name: /importer un dossier/i })).toBeInTheDocument()
 	})
 
@@ -136,5 +139,51 @@ describe('book-library — dossiers', () => {
 
 		expect(screen.getByText(/aucun dossier ne correspond à « zzz »/i)).toBeInTheDocument()
 		expect(screen.queryByText('Le sceau du Gouffre')).not.toBeInTheDocument()
+	})
+
+	it('clic sur le titre d une carte lisible ouvre le dossier', async () => {
+		const user = userEvent.setup()
+		const ordre: string[] = []
+		const { brain } = renderLibrary((b) => {
+			b.dossiers.importDossier(texteFixture())
+		})
+		brain.events.on('dossier:opened', () => ordre.push('dossier:opened'))
+		brain.router.subscribe((route) => {
+			if (route.name === 'dossier') ordre.push('navigate')
+		})
+
+		await user.click(screen.getByRole('button', { name: 'Le sceau du Gouffre' }))
+
+		// dossier:opened part AVANT la navigation (KR-004).
+		expect(ordre).toEqual(['dossier:opened', 'navigate'])
+		expect(brain.router.current()).toEqual({ name: 'dossier', dossierId: 'dossier-minimal' })
+	})
+
+	it('carte illisible : aucune affordance de clic sur le titre', async () => {
+		const user = userEvent.setup()
+		const { brain } = renderLibrary((b) => {
+			b.persistence.set(dossierKey('brise'), { schema: 2, id: 'brise', titre: 'Version devenue illisible' })
+		})
+
+		expect(screen.getByText('⚠ Dossier illisible')).toBeInTheDocument()
+		// La branche lisible:false ne rend jamais de <button> de titre — interdit
+		// par le TYPE de l'union discriminée, pas une convention de rendu. Nom EXACT
+		// (pas une regex) pour ne pas confondre avec « Supprimer « brise » », qui
+		// contient bien la sous-chaîne mais reste une action de suppression.
+		expect(screen.queryByRole('button', { name: 'brise' })).toBeNull()
+
+		const avantRoute = brain.router.current()
+		await user.keyboard('{Enter}')
+		expect(brain.router.current()).toEqual(avantRoute)
+	})
+
+	it('non-regression : le compte de boutons Telecharger le fichier reste stable', () => {
+		renderLibrary((b) => {
+			b.dossiers.importDossier(texteFixture())
+		})
+
+		// Le nouveau bouton-titre porte un NOM DIFFERENT (le titre du dossier) :
+		// il n elargit pas cette requete par nom exact.
+		expect(screen.getAllByRole('button', { name: 'Télécharger le fichier' })).toHaveLength(1)
 	})
 })

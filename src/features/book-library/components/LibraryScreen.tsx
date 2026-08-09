@@ -7,11 +7,10 @@ import { DeleteDossierDialog } from './DeleteDossierDialog'
 
 export interface LibraryScreenProps {
 	/**
-	 * The « + Nouveau livre » create affordance. Kept OPTIONAL (not removed)
-	 * so book-creation's contract with this screen does not move — but unused
-	 * this iteration: App.tsx no longer passes it. book-creation is repointed
-	 * at dossiers only in itération 2; a Book created here today would be
-	 * invisible in a Dossier-only list.
+	 * The « + Nouveau dossier » create affordance (book-creation's
+	 * CreateDossierEntry, mounted by App.tsx since bascule-editeur it2). Kept
+	 * OPTIONAL rather than required so book-creation's contract with this
+	 * screen never has to move again if a future context needs to omit it.
 	 */
 	createEntry?: ReactNode
 	/** « Importer un dossier », injected by the composition root (App.tsx). */
@@ -25,15 +24,16 @@ const SORT_OPTIONS: SegmentedOption<SortMode>[] = [
 
 /**
  * Home screen and dossier list: lists every persisted dossier as a grid of
- * cards (download / ✕ to delete — nothing to open yet, no editor route
- * before itération 2), with the import affordance composed in as the last
- * cell. The list is a live VIEW over DossierService via useDossierLibrary;
+ * cards (download / ✕ to delete / click the title to open, since bascule-editeur
+ * it2 — a `lisible:false` card offers none of the three), with the create and
+ * import affordances composed in as the last cell. The list is a live VIEW
+ * over DossierService via useDossierLibrary;
  * deletion is a dangerous action gated behind a confirmation dialog. The
  * pending-deletion target, search query, and sort mode are local UI state,
  * never useEffect-mirrored — the filtered/sorted list is derived inline (KR-013).
  */
 export function LibraryScreen({ createEntry, importEntry }: LibraryScreenProps): JSX.Element {
-	const { dossiers, livresHerites, download, remove } = useDossierLibrary()
+	const { dossiers, livresHerites, download, remove, open } = useDossierLibrary()
 	const [pendingDelete, setPendingDelete] = useState<DossierResume | null>(null)
 	const [query, setQuery] = useState('')
 	const [sort, setSort] = useState<SortMode>('recent')
@@ -93,7 +93,13 @@ export function LibraryScreen({ createEntry, importEntry }: LibraryScreenProps):
 
 			<div style={grid}>
 				{visible.map((dossier) => (
-					<DossierCard key={dossier.id} dossier={dossier} onDownload={download} onRequestDelete={setPendingDelete} />
+					<DossierCard
+						key={dossier.id}
+						dossier={dossier}
+						onDownload={download}
+						onRequestDelete={setPendingDelete}
+						onOpen={open}
+					/>
 				))}
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
 					{createEntry}

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.11 — un dossier vide vaut mieux qu'une page blanche
+
+`bascule-editeur` itération 2/3. L'auteur crée un dossier d'aventure valide depuis sa bibliothèque et atterrit sur l'écran d'édition minimal qui s'ouvre dessus ; il peut y revenir à tout moment en rouvrant, depuis la bibliothèque, ce dossier ou tout autre déjà présent.
+
+- **`DossierService.create(titre)`** sème un dossier qui passe le validateur sans erreur NI avertissement — canon, un lieu (`lieu.amorce`, sans `nom`), un point de départ qui y résout. L'id est conforme à `FORME_ID_DOSSIER` via un frappeur privé (`randomToken()`, extrait de `brain/utils/id.ts` et partagé avec `createId()`) — jamais le générique qui préfixe `_`.
+- **Les quatre textes de prose du seed portent `⟨à écrire⟩`** (`src/brain/dossier/amorce.ts`) : un dossier « valide » n'est pas un dossier « jouable », et cette marque — unique dans tout `src/` — empêche qu'une amorce non rédigée soit jouée ou lue au joueur sans que rien ne le signale. `charpente.depart.texte_ouverture_joueur` est le champ le plus exposé : le moteur l'émettra un jour verbatim, sans jamais passer par le modèle.
+- **« + Nouveau dossier » de retour dans la bibliothèque**, repointé sur `Dossier` (`book-creation`) ; l'écran d'édition (`DossierEditorScreen`, fichier neuf de `bascule-editeur`, `EditorScreen.tsx` historique non touché) affiche le titre du dossier et « Aperçu du jeu » visible mais désactivé, avec l'explication nommée renvoyant à la feature n° 9.
+- **Rouvrir un dossier** : le titre d'une carte lisible devient cliquable (jamais une carte illisible — interdit par le type de `DossierResume`, pas une convention de rendu) et ramène l'auteur sur ce même écran.
+- **Garde morte retirée** : `src/App.tsx` ne s'abonne plus à `book:deleted` (KR-071, inarmable depuis qu'`it1` a repointé la suppression sur `dossier:deleted`) — épinglé par un test-grep, faute de chemin fonctionnel atteignable.
+- 54 suites / 765 tests. Score de mutation sans objet (aucun des 4 fichiers mutés touché).
+
 ## 0.6.10 — la bibliothèque retrouve un dossier plutôt qu'un livre
 
 `bascule-editeur` itération 1/3. La bibliothèque (`book-library`) cesse de lister des `Book` et liste des dossiers d'aventure : `DossierService` gagne `list()`/`remove()`, et un dossier devenu illisible n'y bloque plus rien — il s'affiche nommément, se télécharge (s'il est encore lisible) ou se supprime pour libérer son identifiant.

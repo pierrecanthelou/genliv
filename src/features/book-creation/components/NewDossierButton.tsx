@@ -1,13 +1,14 @@
 /**
- * « + Nouveau livre » affordance — the dashed accent card from the
- * wireframe (1.5px dashed accent, accent « + », r-md). Owned here for the
- * walking skeleton; later hosted by book-library.
+ * « + Nouveau dossier » affordance — the dashed accent card from the
+ * wireframe (1.5px dashed accent, accent « + », r-md). Same visual as the
+ * retired NewBookButton (book-creation it0/it1); text repointed onto the
+ * Dossier vocabulary (bascule-editeur it2).
  */
-export interface NewBookButtonProps {
+export interface NewDossierButtonProps {
 	onClick: () => void
 }
 
-export function NewBookButton({ onClick }: NewBookButtonProps): JSX.Element {
+export function NewDossierButton({ onClick }: NewDossierButtonProps): JSX.Element {
 	return (
 		<button
 			type="button"
@@ -29,7 +30,7 @@ export function NewBookButton({ onClick }: NewBookButtonProps): JSX.Element {
 			}}
 		>
 			<span style={{ fontSize: 18, lineHeight: 1 }}>+</span>
-			Nouveau livre
+			Nouveau dossier
 		</button>
 	)
 }

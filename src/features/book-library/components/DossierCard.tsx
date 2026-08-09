@@ -8,23 +8,37 @@ export interface DossierCardProps {
 	onDownload: (id: string) => void
 	/** Request the dangerous delete confirmation; the dialog itself lives in LibraryScreen. */
 	onRequestDelete: (dossier: DossierResume) => void
+	/**
+	 * Open the dossier's editor — wired to the TITLE only, never called when
+	 * `lisible` is false (no button rendered, no affordance at all on that
+	 * branch: interdit by the union's type, not a rendering convention).
+	 */
+	onOpen: (id: string) => void
 }
 
 /**
- * One dossier in the library grid — an inert `<article>` (nothing to open
- * before the editor route lands in it2): title + date when readable, a named
- * failure otherwise. Reads the `lisible` discriminant FIRST: `dossier.titre`
+ * One dossier in the library grid — an `<article>` whose title (readable
+ * branch only, since bascule-editeur it2) is the affordance to reopen it in
+ * the editor: title + date when readable, a named failure otherwise. Reads
+ * the `lisible` discriminant FIRST: `dossier.titre`
  * is never accessed on the `lisible: false` branch — the union type itself
  * refuses it, so a stray access is a compile error, not a runtime accident.
  */
-export function DossierCard({ dossier, onDownload, onRequestDelete }: DossierCardProps): JSX.Element {
+export function DossierCard({ dossier, onDownload, onRequestDelete, onOpen }: DossierCardProps): JSX.Element {
 	const displayName = dossier.lisible ? dossier.titre : dossier.id
 
 	return (
 		<article className="dossier-card" style={cardSurface}>
 			{dossier.lisible ? (
 				<>
-					<span style={cardTitle}>{dossier.titre}</span>
+					<button
+						type="button"
+						className="dossier-card__title"
+						onClick={() => onOpen(dossier.id)}
+						style={cardTitleButtonStyle}
+					>
+						{dossier.titre}
+					</button>
 					<span style={cardDate}>Modifié le {formatDate(dossier.updatedAt)}</span>
 				</>
 			) : (
@@ -69,8 +83,19 @@ const cardSurface: CSSProperties = {
 	paddingRight: 'calc(var(--space-3) + var(--hit-target) + var(--space-3))',
 }
 
-const cardTitle: CSSProperties = {
-	display: 'block',
+// Const LOCALE, jamais importée (même discipline que telechargerButtonStyle
+// ci-dessous) : le titre devient l'affordance d'ouverture (branche `lisible`
+// seulement) — reprend les trois déclarations de l'ancien `cardTitle`
+// (fs-title, fw-semibold, text-strong) et ajoute un reset de bouton. `font:
+// inherit` est déclaré AVANT fontSize/fontWeight : la propriété raccourcie
+// réinitialiserait sinon les deux longhands déclarés après elle.
+const cardTitleButtonStyle: CSSProperties = {
+	border: 'none',
+	background: 'none',
+	padding: 0,
+	font: 'inherit',
+	textAlign: 'left',
+	cursor: 'pointer',
 	fontSize: 'var(--fs-title)',
 	fontWeight: 'var(--fw-semibold)',
 	color: 'var(--text-strong)',

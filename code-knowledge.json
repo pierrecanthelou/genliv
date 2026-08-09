@@ -504,7 +504,7 @@
 		{
 			"id": "KR-177",
 			"feature": "bascule-editeur",
-			"risk": "createId() generique produit un `_` que FORME_ID_DOSSIER (/^[a-z0-9][a-z0-9-]*$/) refuse. Tout id racine soumis a une forme validee a besoin d'un frappeur DEDIE, teste a la creation ET a la duplication."
+			"risk": "createId() generique produit un `_` que FORME_ID_DOSSIER (/^[a-z0-9][a-z0-9-]*$/) refuse. Un id racine soumis a une forme validee a besoin d'un frappeur DEDIE (peut rester prive, un seul appelant : conformite prouvee par round-trip du validateur, pas par export). Teste a la creation seule tant que duplicate() n'a pas de proprietaire."
 		},
 		{
 			"id": "KR-178",

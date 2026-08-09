@@ -5,6 +5,7 @@ import { createCloudSyncService, type CloudTransport } from './CloudSyncService'
 import { createEventBus } from './EventBus'
 import { createLocalStoragePersistence } from './PersistenceService'
 import { dossierKey, DOSSIER_KEY_PREFIX } from './persistenceKeys'
+import { validateDossier } from './dossier/validate'
 
 const CHEMIN_FIXTURE = path.join(__dirname, 'dossier', '__fixtures__', 'dossier-minimal.json')
 
@@ -57,6 +58,78 @@ function setup() {
 
 describe('DossierService', () => {
 	beforeEach(() => window.localStorage.clear())
+
+	it('create seme un dossier que le validateur accepte sans erreur ni avertissement', () => {
+		const { dossiers, persistence } = setup()
+
+		const dossier = dossiers.create('La Caverne')
+
+		// Le ROUND-TRIP complet plutôt qu'un test de la regex de l'identifiant : cette
+		// égalité au tableau VIDE est strictement plus forte, et elle n'exige d'exporter
+		// ni `FORME_ID_DOSSIER` ni la forme du seed. Un identifiant mal frappé
+		// (le `_` de `createId`, KR-177) sortirait ici en `identifiant-invalide`.
+		const validation = validateDossier(dossier)
+		expect(validation.errors).toEqual([])
+		// Les DEUX tableaux : un dossier neuf qui s'ouvre déjà sur un avertissement
+		// demanderait à l'auteur de corriger ce que le logiciel vient d'écrire.
+		expect(validation.warnings).toEqual([])
+		expect(validation.ok).toBe(true)
+
+		// Persisté sous SA clé, et relisible par le chemin normal — donc re-validé.
+		expect(persistence.keys(DOSSIER_KEY_PREFIX)).toEqual([dossierKey(dossier.id)])
+		expect(dossiers.get(dossier.id)?.titre).toBe('La Caverne')
+	})
+
+	it('create emet dossier:created seul, APRES la resolution de la persistance', () => {
+		const { dossiers, events, persistence } = setup()
+		const journal: string[] = []
+		let vuDansLeMagasin: unknown = null
+		events.on('dossier:created', ({ dossierId }) => {
+			journal.push('created')
+			// L'abonné lit le magasin AU MOMENT de la notification (KR-004) : c'est ce
+			// qui permet à l'appelant d'enchaîner `open()` sans fenêtre de course.
+			vuDansLeMagasin = persistence.get(dossierKey(dossierId))
+		})
+		events.on('dossier:opened', () => journal.push('opened'))
+
+		const dossier = dossiers.create('Ordre')
+
+		// `create` N'OUVRE PAS : l'enchaînement des deux événements appartient à
+		// l'appelant, sans quoi on ne pourrait plus semer un dossier sans y aller.
+		expect(journal).toEqual(['created'])
+		expect((vuDansLeMagasin as { id: string } | null)?.id).toBe(dossier.id)
+	})
+
+	it('create trime le titre et ne laisse jamais passer un titre vide', () => {
+		const { dossiers } = setup()
+
+		expect(dossiers.create('  Mon dossier  ').titre).toBe('Mon dossier')
+
+		const anonyme = dossiers.create('   ')
+
+		// La VALEUR du repli n'est pas épinglée ici — le comité l'a nommée
+		// (`TITRE_PAR_DEFAUT`) sans l'écrire, et c'est une constante privée du service.
+		// Ce qui est un CONTRAT, c'est qu'un titre vide ne traverse pas : `titre` est
+		// un champ requis, un dossier titré « » serait refusé à la relecture.
+		expect(anonyme.titre.trim()).not.toBe('')
+		expect(validateDossier(anonyme).errors).toEqual([])
+		expect(dossiers.get(anonyme.id)).not.toBeNull()
+	})
+
+	it('cinquante create : des ids tous distincts, tous conformes, tous listes', () => {
+		const { dossiers } = setup()
+
+		const semes = Array.from({ length: 50 }, (_, rang) => dossiers.create(`Dossier ${rang}`))
+
+		// Aucune collision : deux dossiers qui partageraient un identifiant
+		// partageraient une CLÉ DE STOCKAGE, donc le second écraserait le premier.
+		expect(new Set(semes.map((dossier) => dossier.id)).size).toBe(50)
+		for (const dossier of semes) {
+			expect(`${dossier.id} → ${JSON.stringify(validateDossier(dossier).errors)}`).toBe(`${dossier.id} → []`)
+		}
+		// Le constat par la bibliothèque : cinquante clés distinctes réellement écrites.
+		expect(dossiers.list()).toHaveLength(50)
+	})
 
 	it('importDossier persiste un dossier conforme et le rend valide', () => {
 		const { dossiers, persistence } = setup()

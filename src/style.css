@@ -49,3 +49,10 @@ button {
 .dossier-card:focus-within .dossier-card__actions {
 	opacity: 1;
 }
+
+/* Clickable card title (bascule-editeur it2 lot 3): underline on hover only,
+   never a colour change toward accent (reserved for selection/primary
+   action/active option). Same module as the sibling rule above. */
+.dossier-card__title:hover {
+	text-decoration: underline;
+}

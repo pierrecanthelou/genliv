@@ -15,6 +15,14 @@ export interface DossierLibrary {
 	download: (id: string) => void
 	/** Permanently delete a dossier — readable or not — through DossierService (emits dossier:deleted). */
 	remove: (id: string) => void
+	/**
+	 * Open an already-persisted dossier and navigate to its editor: signals the
+	 * opening through DossierService (emits `dossier:opened`, arms cloud
+	 * reconciliation, KR-163) THEN navigates — strictly in that order, only
+	 * after the signal resolves (KR-004). Called only from a readable card's
+	 * title (bascule-editeur it2 lot 3) — never from the `lisible: false` branch.
+	 */
+	open: (id: string) => void
 }
 
 /**
@@ -25,7 +33,7 @@ export interface DossierLibrary {
  * `BookService.listBooks().length` for the transitional empty state.
  */
 export function useDossierLibrary(): DossierLibrary {
-	const { dossiers: dossierService } = useBrain()
+	const { dossiers: dossierService, router } = useBrain()
 	const dossiers = useDossiers()
 	const livresHerites = useBooks().length
 
@@ -41,5 +49,15 @@ export function useDossierLibrary(): DossierLibrary {
 
 	const remove = useCallback((id: string) => dossierService.remove(id), [dossierService])
 
-	return { dossiers, livresHerites, download, remove }
+	const open = useCallback(
+		(id: string) => {
+			// dossiers.open() d'abord (émet dossier:opened), la navigation ensuite —
+			// dans cet ordre, après résolution du signal (KR-004).
+			dossierService.open(id)
+			router.navigate({ name: 'dossier', dossierId: id })
+		},
+		[dossierService, router],
+	)
+
+	return { dossiers, livresHerites, download, remove, open }
 }

@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createBrain, BrainProvider } from '../../../brain'
-import { NewBookDialog } from '../components/NewBookDialog'
+import { NewDossierDialog } from '../components/NewDossierDialog'
 
 function renderDialog() {
 	const onCreate = jest.fn()
@@ -11,13 +11,13 @@ function renderDialog() {
 	const brain = createBrain()
 	render(
 		<BrainProvider brain={brain}>
-			<NewBookDialog onCancel={onCancel} onCreate={onCreate} />
+			<NewDossierDialog onCancel={onCancel} onCreate={onCreate} />
 		</BrainProvider>,
 	)
 	return { onCreate, onCancel }
 }
 
-describe('NewBookDialog', () => {
+describe('NewDossierDialog', () => {
 	it('focuses the title field when opened', () => {
 		renderDialog()
 		expect(screen.getByLabelText(/titre/i)).toHaveFocus()

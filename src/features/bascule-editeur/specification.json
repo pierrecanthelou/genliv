@@ -30,19 +30,74 @@
 			"À l'issue de l'itération 3, tree-canvas n'est monté nulle part dans l'écran d'édition : un test-grep sur src/App.tsx et src/EditorScreen.tsx ne trouve aucune occurrence de `TreeCanvas`, `books.` ou `BookService`. Les suites de tests existantes de tree-canvas restent vertes SANS modification (compte de suites/tests figé avant/après, consigné dans la revue) et sa specification.json porte la mention « en sommeil depuis n° 2, repointage hérité par n° 6 »."
 		],
 		"brain_contracts": [
-			{ "type": "service", "name": "DossierService.list(): DossierResume[] — énumère par CLÉ, jamais par validité", "direction": "provides" },
-			{ "type": "service", "name": "DossierService.remove(id: string): boolean — par clé, à travers le décorateur de sync existant", "direction": "provides" },
-			{ "type": "service", "name": "DossierService.create(titre: string): Dossier — sème un document VALIDE (lieu + depart)", "direction": "provides" },
-			{ "type": "service", "name": "DossierService.createDossierId(): string — conforme à FORME_ID_DOSSIER, jamais createId() générique", "direction": "provides" },
-			{ "type": "type", "name": "DossierResume — { id, lisible: true, titre, updatedAt } | { id, lisible: false } (union discriminee, AUCUN champ derive du contenu)", "direction": "provides" },
-			{ "type": "event", "name": "dossier:deleted", "direction": "emits", "payload": { "dossierId": "string" } },
-			{ "type": "event", "name": "dossier:created / dossier:opened — déjà émis par dossier-format, consommés ici pour l'ordre KR-004 du flux de création", "direction": "consumes" },
-			{ "type": "service", "name": "Router — Route gagne { name: 'dossier'; dossierId: string }", "direction": "provides" },
-			{ "type": "registry", "name": "brain/dossier/sections.ts — SECTIONS: readonly SectionDescripteur[] (10 entrées, num/id/titre/cle/compte(dossier))", "direction": "provides" },
-			{ "type": "hook", "name": "useDossiers() — premier consommateur réel du service au-delà des tests", "direction": "provides" },
-			{ "type": "component", "name": "brain/components/ListRow — porté depuis design_handoff_gamebook_editor, motif dans resolved_decisions", "direction": "provides" },
-			{ "type": "service", "name": "PersistenceService / CloudSyncService (dossierKey, isDossier, reconcile sur dossier:opened — déjà livrés par dossier-format KR-163)", "direction": "consumes" },
-			{ "type": "registry", "name": "brain/dossier/tables.ts — CHAMPS_REQUIS, consommé pour valider le seed de create()", "direction": "consumes" }
+			{
+				"type": "service",
+				"name": "DossierService.list(): DossierResume[] — énumère par CLÉ, jamais par validité",
+				"direction": "provides"
+			},
+			{
+				"type": "service",
+				"name": "DossierService.remove(id: string): boolean — par clé, à travers le décorateur de sync existant",
+				"direction": "provides"
+			},
+			{
+				"type": "service",
+				"name": "DossierService.create(titre: string): Dossier — sème un document VALIDE (lieu + depart)",
+				"direction": "provides"
+			},
+			{
+				"type": "service",
+				"name": "DossierService.createDossierId(): string — conforme à FORME_ID_DOSSIER, jamais createId() générique",
+				"direction": "provides"
+			},
+			{
+				"type": "type",
+				"name": "DossierResume — { id, lisible: true, titre, updatedAt } | { id, lisible: false } (union discriminee, AUCUN champ derive du contenu)",
+				"direction": "provides"
+			},
+			{
+				"type": "event",
+				"name": "dossier:deleted",
+				"direction": "emits",
+				"payload": {
+					"dossierId": "string"
+				}
+			},
+			{
+				"type": "event",
+				"name": "dossier:created / dossier:opened — déjà émis par dossier-format, consommés ici pour l'ordre KR-004 du flux de création",
+				"direction": "consumes"
+			},
+			{
+				"type": "service",
+				"name": "Router — Route gagne { name: 'dossier'; dossierId: string }",
+				"direction": "provides"
+			},
+			{
+				"type": "registry",
+				"name": "brain/dossier/sections.ts — SECTIONS: readonly SectionDescripteur[] (10 entrées, num/id/titre/cle/compte(dossier))",
+				"direction": "provides"
+			},
+			{
+				"type": "hook",
+				"name": "useDossiers() — premier consommateur réel du service au-delà des tests",
+				"direction": "provides"
+			},
+			{
+				"type": "component",
+				"name": "brain/components/ListRow — porté depuis design_handoff_gamebook_editor, motif dans resolved_decisions",
+				"direction": "provides"
+			},
+			{
+				"type": "service",
+				"name": "PersistenceService / CloudSyncService (dossierKey, isDossier, reconcile sur dossier:opened — déjà livrés par dossier-format KR-163)",
+				"direction": "consumes"
+			},
+			{
+				"type": "registry",
+				"name": "brain/dossier/tables.ts — CHAMPS_REQUIS, consommé pour valider le seed de create()",
+				"direction": "consumes"
+			}
 		],
 		"walking_skeleton": "Itération 1 : book-library liste, télécharge et supprime un dossier déjà importé — aucune écriture nouvelle, DossierService gagne list()/remove(). Itération 2 : book-creation sème un dossier valide minimal (un lieu + un point de départ) via create(), et atterrit sur un écran d'édition minimal ouvert sur ce dossier ; « Aperçu du jeu » se désactive avec une explication nommée. Itération 3 : la feature bascule-editeur monte la vraie nav à deux colonnes (dix sections + compteurs + état vide nommé par section) dans l'écran d'édition ; tree-canvas est démonté, pas détruit.",
 		"n": 3,
@@ -54,8 +109,8 @@
 			},
 			{
 				"id": 2,
-				"goal": "L'auteur crée un dossier d'aventure valide et atterrit sur l'écran d'édition qui s'ouvre dessus. book-creation repointée sur Dossier (create, seed valide avec lieu + départ, id conforme à FORME_ID_DOSSIER), écran d'édition minimal, « Aperçu du jeu » visible mais désactivé avec message renvoyant à la feature n° 9.",
-				"status": "planned"
+				"goal": "Raffiné le 2026-08-09 (.claude/raffinage/bascule-editeur-it2.plan.md) : l'auteur sème un dossier d'aventure valide depuis sa bibliothèque (un titre suffit) et atterrit sur l'écran d'édition minimal (DossierEditorScreen, fichier neuf de bascule-editeur, EditorScreen.tsx historique non touché) qui s'ouvre dessus ; il peut y revenir à tout moment en rouvrant, depuis la bibliothèque, ce dossier ou tout autre déjà présent (clic sur le titre d'une carte lisible — extension retenue en comité au tour 2, hors du goal brut initial, motif : sans elle un dossier créé puis quitté devient définitivement injoignable). book-creation repointée sur Dossier (DossierService.create, seed valide via brain/dossier/amorce.ts, id conforme à FORME_ID_DOSSIER via un frappeur privé randomToken() partagé avec createId()) ; EditorTopBar étendu par des props optionnelles (jamais remplacé, écran Book intact) pour porter « Aperçu du jeu » visible mais désactivé avec message nommé renvoyant à la feature n° 9 ; garde morte KR-071 retirée d'App.tsx, prouvée par un test-grep. Renommer/dupliquer un dossier restent hors périmètre.",
+				"status": "done"
 			},
 			{
 				"id": 3,
@@ -64,8 +119,8 @@
 			}
 		],
 		"known_risks": [
-			"KR-177 : DossierService.createId() générique (brain/utils/id.ts) produit un identifiant préfixé par `_` (`${prefix}_${uuid}`) que FORME_ID_DOSSIER (/^[a-z0-9][a-z0-9-]*$/, brain/dossier/validate.ts:106) refuse — confirmé en code, pas théorique. create()/duplicate() doivent utiliser un frappeur d'id dédié (createDossierId), testé à la création ET à la duplication, jamais le générique.",
-			"KR-178 : un dossier créé par DossierService.create() n'est pas littéralement vide — CHAMPS_REQUIS (brain/dossier/tables.ts) impose 5 champs non vides, dont charpente.depart.lieu_id qui doit RÉSOUDRE contre une entrée de monde.lieux[]. Le seed minimal porte donc au moins un lieu (repli « Lieu n°1 (sans nom) » si l'auteur n'a rien nommé, cohérent avec Entite.nom optionnel) et un texte_ouverture_joueur — jamais un document que le validateur refuserait à la relecture.",
+			"KR-177 (corrigé au raffinage it2, 2026-08-09) : DossierService.createId() générique (brain/utils/id.ts) produit un identifiant préfixé par `_` (`${prefix}_${uuid}`) que FORME_ID_DOSSIER (/^[a-z0-9][a-z0-9-]*$/, brain/dossier/validate.ts:106) refuse — confirmé en code, pas théorique. create() utilise un frappeur d'id dédié (createDossierId, privé à DossierService.ts, un seul appelant), testé à la création uniquement — duplicate() n'a de propriétaire dans aucune itération planifiée (open_questions), la clause « et à la duplication » est donc retirée.",
+			"KR-178 (corrigé au raffinage it2, 2026-08-09) : un dossier créé par DossierService.create() n'est pas littéralement vide — CHAMPS_REQUIS (brain/dossier/tables.ts) impose 5 champs non vides, dont charpente.depart.lieu_id qui doit RÉSOUDRE contre une entrée de monde.lieux[]. Le seed minimal porte donc au moins un lieu semé (id: 'lieu.amorce', SANS nom) et un texte_ouverture_joueur — jamais un document que le validateur refuserait à la relecture. CORRECTION : la version initiale de ce risque citait le repli « Lieu n°1 (sans nom) » comme une valeur à écrire dans monde.lieux[0].nom — c'est FAUX, cette chaîne est une sortie de localiserEntite() (brain/dossier/identifiers.ts) calculée au moment du RAPPORT d'anomalie, jamais une valeur à semer ; nom est de destination auteur (brain/dossier/destinations.ts) et reste omis, l'absence étant un état calme (Entite.nom optionnel), pas une alerte.",
 			"KR-179 : BUG-048 (dossier-format, rouvert par cette feature, FERMÉ en it1) — DossierService.importDossier constatait la présence d'un dossier déjà importé via get(), qui RE-VALIDE ; un document stocké devenu invalide (resserrement de schéma) rend get() null et l'import l'écrase silencieusement. La présence se constate par la CLÉ — persistence.keys(prefix).includes(key), JAMAIS persistence.get(key) !== null, qui rend aussi null sur une clé au contenu non-JSON (BUG-048 rouvrirait pour ce cas précis) — avec un second message rédigé (« un dossier illisible occupe déjà cet identifiant »). Cette feature est le premier endroit où un dossier stocké devient visible à l'auteur.",
 			"KR-180 : aucun critère d'acceptation de cette feature ne peut nommer un « graphe de relations » ou un « graphe d'indices » pour tree-canvas — veto unanime du comité (tour 2). Mesuré dans src/brain/dossier/types.ts : Monde.lieux/objets/indices sont Entite={id, nom?} nus, Personnage n'a pas de relations[] avant n° 4. tree-canvas reste sur disque, intact, démonté (0 fichier dans le périmètre des lots de cette feature) ; son repointage réel est hérité par n° 6 dossier-registres (première feature où les trois sources — relations n° 4, lieux[].acces n° 5, indices+chaînage n° 6 — existent).",
 			"KR-181 : la démolition physique de brain/BookService.ts, brain/kinds.ts et brain/tree.ts n'est PAS portée par cette feature — rayon mesuré : kinds.ts est importé par brain/components/TargetPicker.tsx et NodeBadge.tsx (briques laissées debout pour les formulaires n° 3 à 6), tree.ts est importé par 5 fichiers de src/player/ pour le seul type Edge. Cette feature prouve seulement la CESSATION D'APPEL depuis la racine de composition (test-grep sur src/App.tsx et src/EditorScreen.tsx : zéro occurrence de `books.`/`BookService`/`TreeCanvas` à l'issue de l'itération 3) ; la suppression physique des fichiers est reportée à la feature n° 9 moteur-dossier, qui repointe aussi playExport et src/player/.",
@@ -80,8 +135,20 @@
 				"completed_at": "2026-08-08",
 				"goal_livre": "L'auteur gere depuis sa bibliotheque les dossiers d'aventure deja importes -- les retrouver, les telecharger, les supprimer, y compris un dossier devenu illisible.",
 				"lots": [
-					{ "id": 1, "nom": "contrat-dossier-liste", "type": "contrat", "ouvrier": "dev-contrat", "fichiers": 8 },
-					{ "id": 2, "nom": "bibliotheque-dossiers", "type": "feature", "ouvrier": "dev-lot", "fichiers": 16 }
+					{
+						"id": 1,
+						"nom": "contrat-dossier-liste",
+						"type": "contrat",
+						"ouvrier": "dev-contrat",
+						"fichiers": 8
+					},
+					{
+						"id": 2,
+						"nom": "bibliotheque-dossiers",
+						"type": "feature",
+						"ouvrier": "dev-lot",
+						"fichiers": 16
+					}
 				],
 				"architecture_choices": [
 					"DossierResume est une UNION DISCRIMINEE stricte ({lisible:true,titre,updatedAt}|{lisible:false}), zero champ derive du contenu : compter des entites aurait impose un get() par carte, donc une re-validation complete de chaque dossier a chaque rendu de l'accueil.",
@@ -105,6 +172,60 @@
 					"qa_mode_b": "RECEVABLE SOUS RESERVE puis RECEVABLE -- 3 reserves (assertion de date manquante, revue non ecrite, ROADMAP hors-lot non documente), toutes trois fermees avant cette revue"
 				},
 				"revue": ".claude/raffinage/bascule-editeur-it1.revue.md"
+			},
+			{
+				"id": 2,
+				"label": "iteration-2",
+				"completed_at": "2026-08-09",
+				"goal_livre": "L'auteur seme un dossier d'aventure valide depuis sa bibliotheque et atterrit sur l'ecran d'edition minimal qui s'ouvre dessus, ou rouvre n'importe quel dossier deja present en cliquant son titre.",
+				"lots": [
+					{
+						"id": 1,
+						"nom": "contrat-dossier-create",
+						"type": "contrat",
+						"ouvrier": "dev-contrat",
+						"fichiers": 9
+					},
+					{
+						"id": 2,
+						"nom": "creation-et-ecran-dossier",
+						"type": "feature",
+						"ouvrier": "dev-lot",
+						"fichiers": 17
+					},
+					{
+						"id": 3,
+						"nom": "ouvrir-un-dossier-depuis-la-bibliotheque",
+						"type": "feature",
+						"ouvrier": "dev-lot",
+						"fichiers": 4
+					}
+				],
+				"architecture_choices": [
+					"DossierService.create() n'ouvre pas et n'emet que dossier:created ; l'enchainement create -> open -> navigate (dossier:opened puis Router) est porte par le hook de la feature (useCreateDossier), pas par le service -- meme doctrine que BookService/useCreateBook.",
+					"createDossierId() reste une fonction PRIVEE de DossierService.ts (un seul appelant) -- corrige la ligne brain_contracts heritee d'it1 qui l'annoncait comme methode publique. La forme de l'id (KR-177) est garantie par un round-trip validateDossier() dans le test, jamais par une regex exportee.",
+					"randomToken() extrait dans brain/utils/id.ts, partage par createId() ET createDossierId() -- deduplication a deux appelants reels, pas une abstraction prematuree ; sa branche de repli (sans crypto.randomUUID) est desormais testee pour la premiere fois.",
+					"Le seed sort de src/brain/dossier/amorce.ts (construireAmorce), un fichier neuf de brain/dossier/, jamais un litteral dans DossierService.ts -- MARQUEUR_A_ECRIRE ('a ecrire') marque les 4 textes de prose du seed pour qu'ils ne soient jamais pris pour de la prose jouable ; non re-exporte depuis brain/index.ts (aucun consommateur de feature en it2).",
+					"Le lieu seme porte l'id lieu.amorce et OMET nom : regle transverse actee au raffinage -- un identifiant d'entite semee ne decrit jamais un rang ni un role (candidats rejetes : lieu.premier-lieu, lieu.point-de-depart), seulement une origine immuable ; nom est de destination auteur, jamais peuple par le logiciel.",
+					"EditorTopBar (brain/components) etendu par 4 props OPTIONNELLES (nodeCount/onAddNode passent de requises a optionnelles ; backLabel/previewDisabledReason sont nouvelles) plutot que remplace : zero prop requise changee, l'ecran Book existant (EditorScreen.tsx) reste intact et non touche par aucun lot.",
+					"DossierEditorScreen vit dans un fichier NEUF (src/features/bascule-editeur/components/), jamais une branche ajoutee a EditorScreen.tsx (Book, condamne a la demolition n 9) -- zero touche au fichier historique.",
+					"Seul le TITRE d'une carte de dossier lisible devient l'affordance d'ouverture (bouton texte, jamais la carte entiere) -- la branche lisible:false reste un span inerte, interdit par le TYPE de l'union discriminee DossierResume, pas par une convention de rendu."
+				],
+				"deviations_from_plan": [
+					"src/style.css modifie en integration (regle .dossier-card__title:hover), hors de la liste de fichiers des 3 lots du plan -- le lot 3 avait besoin d'une regle de survol coherente avec le patron hover-reveal deja utilise par .dossier-card__actions dans ce meme fichier ; le worker avait d'abord contourne avec un <style> scope inline dans LibraryScreen.tsx (ecart documente), corrige par l'integrateur avec autorisation explicite de l'orchestrateur. RETOUR-COMITE : un plan qui fait naitre une interaction hover sur un composant deja dote d'une regle CSS globale soeur doit inclure ce fichier de style dans la liste du lot.",
+					"TITRE_PAR_DEFAUT ('Dossier sans titre') pose par le lot contrat sans arbitrage UX ecrit (le plan nommait la constante sans lui donner de valeur) -- verifie INATTEIGNABLE depuis l'UI de cette iteration (bouton Créer et clavier Entree gardes tant que le titre trime est vide), confirme independamment par l'integrateur et la QA. A confirmer par l'UX avant le commit, changement d'une ligne si necessaire."
+				],
+				"test_coverage": {
+					"unit": "54 suites / 765 tests verts (50/730 avant it2 -- net : +4 suites, +35 tests)",
+					"e2e": "sans objet a ce stade",
+					"mutation": "sans objet -- confirme par grep, aucun des 4 fichiers mutes ni aucun registre de la table doree touche"
+				},
+				"verdicts": {
+					"integrateur": "CONFORME, 1 correctif d'integration (deplacement de la regle CSS de survol vers style.css)",
+					"qa_mode_b": "RECEVABLE SOUS RESERVE -- 2 reserves de process (style.css hors liste de lot, TITRE_PAR_DEFAUT non arbitre), aucune de code ; les 8 criteres sont VERIFIES avec preuve",
+					"tech_lead": "APPROVE, 0 critique/majeur, 7 mineurs (6 corriges avant presentation, 1 tranche sans changement de code -- hit-target du bouton-titre, decision projet deja actee)"
+				},
+				"revue": ".claude/raffinage/bascule-editeur-it2.revue.md"
 			}
 		],
 		"resolved_decisions": [
@@ -130,7 +251,17 @@
 			"RAFFINAGE it1 — le bouton de téléchargement (texte exact « Télécharger le fichier », contrat posé à dossier-format-it5.plan.md § 3) ne PEUT PAS importer retryButtonStyle : cette const est privée à dossier-format/components/ImportDossierDialog.tsx. « Suivre le contrat » veut dire recréer les MÊMES VALEURS dans une const locale à DossierCard.tsx (telechargerButtonStyle) — jamais un import inter-fichier de détail privé.",
 			"RAFFINAGE it1 — un CINQUIÈME critère est ajouté, hors du goal brut du cadrage mais à coût nul (zéro nouveau lot, zéro méthode brain/ neuve, useBooks() déjà exporté) : si des Book existent encore en stockage et qu'aucun Dossier n'est listé, l'état vide de la bibliothèque le nomme explicitement (texte exact dans le plan d'itération). Trois conditions posées par le tech-lead : le message n'offre AUCUNE action qu'il ne peut honorer (pas de bouton « restaurer ») ; il a un PROPRIÉTAIRE D'EXTINCTION nommé (voir open_questions, n° 9) ; useBooks() reste légalement vivant dans book-library le temps de cette itération, sans conflit avec le test-grep de l'itération 3 (qui ne vise que App.tsx/EditorScreen.tsx).",
 			"RAFFINAGE it1 — CloudSyncService.remove() ne propage pas la suppression au KV distant (dette héritée, partagée avec BookService.deleteBook). ÉPINGLÉE par un test dans cette itération (KR-182), PAS corrigée : une suppression cloud serait un contrat neuf, hors périmètre d'une bibliothèque qui ne fait que repointer sa source de lecture.",
-			"REPORTÉ / propriétaire corrigé — l'open_question de dossier-format sur `nom` non textuel (`nom: 42` passe le validateur) ne matérialise PAS dans cette feature : la nav de n° 2 affiche des COMPTEURS, jamais un nom d'entité individuelle. Le risque reste ouvert ; son propriétaire réel est la première feature (n° 3 à n° 6) qui rend une liste de noms d'entités."
+			"REPORTÉ / propriétaire corrigé — l'open_question de dossier-format sur `nom` non textuel (`nom: 42` passe le validateur) ne matérialise PAS dans cette feature : la nav de n° 2 affiche des COMPTEURS, jamais un nom d'entité individuelle. Le risque reste ouvert ; son propriétaire réel est la première feature (n° 3 à n° 6) qui rend une liste de noms d'entités.",
+			"RAFFINAGE it2, 2026-08-09 — Le clic pour ROUVRIR un dossier déjà existant (carte lisible → titre-bouton → DossierEditorScreen) est RETENU dans l'itération 2 (lot 3, détachable à coût nul), alors que le goal brut n'en parlait pas : it1 avait reporté « la navigation carte→éditeur » en la conditionnant explicitement à l'inexistence de la route dossier (.claude/raffinage/bascule-editeur-it1/tour1-tech-lead.md, annexe D) ; it2 crée cette route, ce qui lève la condition du report plutôt que de rouvrir la décision. Sans ce clic, un dossier créé puis quitté devient définitivement injoignable — seul le titre de la carte devient l'affordance (jamais la carte entière, qui porte déjà deux boutons), jamais sur la branche lisible:false (interdit par le TYPE de l'union discriminée).",
+			"RAFFINAGE it2 — Règle transverse pour toute entité semée par du code (n° 2 à n° 6, pas seulement cette feature) : un identifiant ne décrit jamais un rang, un rôle, ni un nom — seulement une origine immuable. Le lieu semé par create() porte donc lieu.amorce (jamais lieu.premier-lieu, qui décrit un rang faux dès réordonnancement, ni lieu.point-de-depart, qui décrit un rôle faux dès que l'auteur déplace son départ), et OMET nom (destination auteur, jamais peuplé par le logiciel — le repli d'affichage « Lieu n°1 (sans nom) » de localiserEntite() est une sortie de rapport, jamais une valeur écrite ; voir KR-178 corrigé).",
+			"RAFFINAGE it2 — Un dossier « valide » (validateDossier: errors:[]) n'est pas un dossier « jouable » : aucun code d'anomalie ne connaît la notion de texte-modèle. Les quatre champs de prose du seed (canon.mj.synopsis_mj, canon.partage.accroche_joueur, canon.ton, charpente.depart.texte_ouverture_joueur) portent donc MARQUEUR_A_ECRIRE ('⟨à écrire⟩', src/brain/dossier/amorce.ts, exporté — 2 appelants dans le lot contrat : le seed et son test, jamais ré-exporté depuis brain/index.ts). texte_ouverture_joueur est le plus exposé des quatre : destinations.ts le classe 'moteur', pas 'ia' — il est lu VERBATIM au joueur, sans jamais passer par le modèle. La détection d'une amorce non rédigée (n° 7) et le refus d'ouvrir une partie dessus (n° 9) sont des features futures, nommées ici, non construites (voir open_questions).",
+			"RAFFINAGE it2 — REJETÉ : exporter un prédicat estTexteDeSeed() aux côtés de MARQUEUR_A_ECRIRE. Zéro appelant aujourd'hui, et ses deux lecteurs futurs (n° 7 : balayage de DESTINATION_DES_CHAMPS produisant des DossierIssue[] ; n° 9 : porte booléenne sur un seul champ) n'ont pas le même besoin — l'écrire ici choisirait une signature à l'aveugle. Précédent : brain/index.ts retient déjà PREDICATES/DELTAS hors du baril tant qu'aucun consommateur réel n'existe.",
+			"RAFFINAGE it2 — createDossierId() reste une fonction PRIVÉE de DossierService.ts (un seul appelant, create()), contrairement à la ligne brain_contracts héritée d'it1 qui l'annonçait comme méthode publique du service — la ligne est corrigée par CET arbitrage plutôt que republiée. La forme de l'id (KR-177) est garantie par un round-trip validateDossier() dans le test (expect(errors).toEqual([]), strictement plus fort qu'un test de regex ciblé), jamais par une regex exportée/dupliquée. brain/utils/id.ts gagne randomToken() (l'entropie seule), extrait et partagé par createId() ET createDossierId() — deux appelants réels, une déduplication, pas une abstraction prématurée ; sa branche de repli (sans crypto.randomUUID) devient testée pour la première fois.",
+			"RAFFINAGE it2 — EditorTopBar (brain/components) est étendu par 4 props OPTIONNELLES (nodeCount, onAddNode — étaient requises ; backLabel, previewDisabledReason — nouvelles) plutôt que remplacé : zéro prop requise changée, l'écran Book (mort, démolition n° 9) reste intact à l'identique. previewDisabledReason porte le texte exact « … feature n° 9 » côté écran dossier ; le défaut inchangé côté écran Book est pinné par un test séparé, pour qu'aucun des deux textes ne fuite sur l'autre écran sans qu'un test ne le voie.",
+			"RAFFINAGE it2 — KR-071 (garde book:deleted→accueil dans App.tsx, héritée de book-library, cf. open_question DÉSORMAIS RÉSOLUE ci-dessous) : retirée SANS remplacement par une garde dossier:deleted. remove() n'a d'affordance que depuis l'accueil ; depuis la route dossier elle est inatteignable, donc un test fonctionnel « supprimer pendant que l'écran est ouvert » n'exercerait aucun chemin réel. Le repli dossier===null de DossierEditorScreen (« Dossier introuvable. » + retour accueil) couvre tous les cas réels, y compris un dossier devenu illisible sans qu'aucun événement ne le signale. Le retrait de code mort est prouvé par un test-grep sur App.tsx (absence de 'book:deleted' ET de l'identifiant isEditingBook), même patron que dossier-format/tests/featureDirs.test.ts.",
+			"RAFFINAGE it2 — Le critère hérité « id testé à la création ET à la duplication » (KR-177) est corrigé en « testé à la création uniquement » : duplicate() n'a de propriétaire dans aucune itération planifiée (open_questions).",
+			"RAFFINAGE it2 — Le design_contract.registres_de_langue de la feature (« aucun champ ici n'est lu par le joueur ») est clarifié, pas contredit, par le seed de cette itération : il couvre la copie d'INTERFACE fabriquée par bascule-editeur (nav, sous-titres, états vides), pas le CONTENU de dossier que DossierService.create() sème — un objet de données, jamais une chaîne rendue par un composant de la feature. C'est ce point aveugle que le dispositif d'amorce marquée (décision ci-dessus) comble.",
+			"RAFFINAGE it2 — DossierEditorScreen vit dans un FICHIER NEUF (src/features/bascule-editeur/components/), jamais une branche ajoutée à src/EditorScreen.tsx (Book, condamné à la démolition n° 9) : zéro touche au fichier historique, plus strict que la clause « au-delà du strict nécessaire » du design_contract sans la contredire."
 		],
 		"open_questions": [
 			"OUVERT — PROPRIÉTAIRE : n° 3 à n° 6. Le nom d'entité non textuel (nom: 42 passe le validateur) matérialise à la première liste de noms d'entités individuels rendue à l'écran — pas cette feature, qui n'affiche que des compteurs.",
@@ -138,7 +269,8 @@
 			"REPORTÉ n° 9 — démolition physique de brain/BookService.ts, brain/kinds.ts, brain/tree.ts, brain/utils/playExport.ts, buildAdventureDocument, src/player/, src/features/play-mode/, src/features/tree-canvas/. Cette feature ne fait que prouver la cessation d'appel depuis la racine de composition (KR-181).",
 			"REPORTÉ n° 6 — repointage réel de tree-canvas sur un graphe de données (relations n° 4 + lieux[].acces n° 5 + indices/chaînage n° 6). L'instrument de test navigateur pour le canevas (skill raffinage-iteration, différé) reste différé tant que ce repointage n'a pas commencé.",
 			"REPORTÉ itération 2 (raffinage it1, 2026-08-08) — la garde de src/App.tsx qui navigue vers l'accueil sur book:deleted (KR-071, héritée de book-library) perd son déclencheur dès que la suppression passe par dossier:deleted plutôt que book:deleted, mais le CODE de la garde reste en place, désormais inarmable. Le test-grep de l'itération 3 (books./BookService/TreeCanvas) NE LA DÉTECTERA PAS — elle ne contient aucune de ces trois chaînes. Nettoyage nommément assigné à l'itération 2, qui touche déjà App.tsx (repointage de book-creation).",
-			"REPORTÉ n° 9 (raffinage it1) — l'avis « vos anciens livres restent stockés mais ne s'affichent plus » (résolu ci-dessus, resolved_decisions) n'a pas de condition d'extinction automatique : il reste vrai tant que useBooks()/BookService existent. Son propriétaire d'extinction est la démolition physique de BookService (KR-181, n° 9) — c'est CE lot-là qui doit retirer la ligne d'avis en même temps que son unique donnée source, sous peine de laisser une cicatrice permanente dans une bibliothèque qui n'aura plus jamais connu de Book."
+			"REPORTÉ n° 9 (raffinage it1) — l'avis « vos anciens livres restent stockés mais ne s'affichent plus » (résolu ci-dessus, resolved_decisions) n'a pas de condition d'extinction automatique : il reste vrai tant que useBooks()/BookService existent. Son propriétaire d'extinction est la démolition physique de BookService (KR-181, n° 9) — c'est CE lot-là qui doit retirer la ligne d'avis en même temps que son unique donnée source, sous peine de laisser une cicatrice permanente dans une bibliothèque qui n'aura plus jamais connu de Book.",
+			"REPORTÉ n° 7 / n° 9 (raffinage it2, 2026-08-09) — la détection d'une amorce (MARQUEUR_A_ECRIRE, brain/dossier/amorce.ts) non rédigée est un linter (n° 7, alerte) et un refus d'ouverture de partie sur charpente.depart.texte_ouverture_joueur encore marqué (n° 9, blocage) : la constante et les quatre textes existent depuis it2, les deux comportements de lecture n'existent pas encore."
 		]
 	}
 }

@@ -6,12 +6,30 @@ import { plural } from '../utils/plural'
  * badge, « Aperçu du jeu ▷ » and the accent « + Nœud » primary action. Shared
  * chrome above the editor body (KR-109), so the title and the actions live in
  * one place rather than being duplicated per view.
+ *
+ * ÉLARGIE par la n° 2 `bascule-editeur` (itération 2) pour porter AUSSI l'écran
+ * d'édition d'un dossier d'aventure, qui n'a ni nœud ni « + Nœud ». Quatre props
+ * OPTIONNELLES portent l'écart, et ZÉRO prop requise change : l'écran Book
+ * (`src/EditorScreen.tsx`, chemin mort jusqu'à la démolition n° 9) garde tous ses
+ * défauts actuels à l'identique, sans une ligne à modifier.
  */
 export interface EditorTopBarProps {
 	title: string
-	nodeCount: number
 	onBack: () => void
-	onAddNode: () => void
+	/**
+	 * Le compteur de nœuds et son action d'ajout — un COUPLE, jamais l'un sans
+	 * l'autre. Les deux fournis : le badge et « + Nœud » se rendent. Aucun des deux :
+	 * ni badge, ni bouton — pas un fantôme désactivé. Un dossier n'a pas de nœuds ;
+	 * ce ne sont pas des listes vides à garnir d'un placeholder, ce sont des
+	 * affordances sans objet dans ce contexte.
+	 */
+	nodeCount?: number
+	onAddNode?: () => void
+	/**
+	 * Le libellé du retour, après la flèche. Défaut `'Mes livres'` = comportement
+	 * actuel de l'écran Book ; l'écran dossier passe `'Mes dossiers'`.
+	 */
+	backLabel?: string
 	/**
 	 * Composition-root injected feature actions (today tree-canvas's spacing and
 	 * auto-layout toggles), rendered in the right cluster before « Aperçu du jeu ».
@@ -21,6 +39,13 @@ export interface EditorTopBarProps {
 	actions?: React.ReactNode
 	/** Wired by EditorScreen once the play runtime exists (play-mode iter 0). */
 	onPreview?: () => void
+	/**
+	 * Le `title` natif du bouton « Aperçu du jeu » quand `onPreview` est absent —
+	 * autrement dit la RAISON de la désactivation, qui n'est pas la même d'un écran
+	 * à l'autre : hors éditeur pour le livre, feature non livrée pour le dossier.
+	 * Le défaut préserve mot pour mot le texte de l'écran Book.
+	 */
+	previewDisabledReason?: string
 }
 
 const monoControl: React.CSSProperties = {
@@ -37,12 +62,19 @@ const monoControl: React.CSSProperties = {
 
 export function EditorTopBar({
 	title,
-	nodeCount,
 	onBack,
+	nodeCount,
 	onAddNode,
+	backLabel = 'Mes livres',
 	actions,
 	onPreview,
+	previewDisabledReason = 'Aperçu du jeu — mode lecture (hors éditeur)',
 }: EditorTopBarProps): JSX.Element {
+	// Le compteur et son action sont un couple : le badge sans le bouton laisserait
+	// un décompte qu'on ne peut pas faire varier, le bouton sans le badge une action
+	// dont on ne voit pas l'effet.
+	const noeudsEditables = nodeCount !== undefined && onAddNode !== undefined
+
 	return (
 		<header
 			style={{
@@ -65,7 +97,7 @@ export function EditorTopBar({
 						background: 'transparent',
 					}}
 				>
-					<span aria-hidden="true">←</span> Mes livres
+					<span aria-hidden="true">←</span> {backLabel}
 				</button>
 				<span style={{ width: 1, height: 16, background: 'var(--border-subtle)' }} />
 				<h1
@@ -79,9 +111,11 @@ export function EditorTopBar({
 				>
 					{title}
 				</h1>
-				<Badge tone="muted">
-					{nodeCount} {plural(nodeCount, 'nœud')}
-				</Badge>
+				{noeudsEditables && (
+					<Badge tone="muted">
+						{nodeCount} {plural(nodeCount, 'nœud')}
+					</Badge>
+				)}
 			</div>
 
 			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
@@ -90,7 +124,7 @@ export function EditorTopBar({
 					type="button"
 					onClick={onPreview}
 					disabled={!onPreview}
-					title={onPreview ? 'Aperçu du jeu' : 'Aperçu du jeu — mode lecture (hors éditeur)'}
+					title={onPreview ? 'Aperçu du jeu' : previewDisabledReason}
 					style={{
 						...monoControl,
 						color: onPreview ? 'var(--text-body)' : 'var(--text-muted)',
@@ -101,20 +135,22 @@ export function EditorTopBar({
 				>
 					Aperçu du jeu <span aria-hidden="true">▷</span>
 				</button>
-				<button
-					type="button"
-					onClick={onAddNode}
-					aria-label="Ajouter un nœud"
-					style={{
-						...monoControl,
-						color: 'var(--text-on-accent)',
-						border: '1px solid var(--accent)',
-						background: 'var(--accent)',
-						fontWeight: 'var(--fw-semibold)',
-					}}
-				>
-					<span aria-hidden="true">+</span> Nœud
-				</button>
+				{noeudsEditables && (
+					<button
+						type="button"
+						onClick={onAddNode}
+						aria-label="Ajouter un nœud"
+						style={{
+							...monoControl,
+							color: 'var(--text-on-accent)',
+							border: '1px solid var(--accent)',
+							background: 'var(--accent)',
+							fontWeight: 'var(--fw-semibold)',
+						}}
+					>
+						<span aria-hidden="true">+</span> Nœud
+					</button>
+				)}
 			</div>
 		</header>
 	)

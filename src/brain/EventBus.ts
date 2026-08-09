@@ -21,7 +21,7 @@ export interface AppEvents {
 	 * Le DOSSIER D'AVENTURE (feature n° 1 `dossier-format`). Comme pour le livre,
 	 * ces quatre événements ne partent qu'APRÈS résolution de la persistance, dans
 	 * l'ordre (KR-004) : un abonné observe toujours un magasin déjà à jour.
-	 * `dossier:created` est émis par `DossierService.importDossier`, `dossier:opened`
+	 * `dossier:created` est émis par `DossierService.create` et `DossierService.importDossier`, `dossier:opened`
 	 * par `DossierService.open`, `dossier:updated` par l'adoption cloud de
 	 * `CloudSyncService.reconcileDossier`, et `dossier:deleted` par
 	 * `DossierService.remove` — son émetteur arrive avec la bibliothèque repointée
