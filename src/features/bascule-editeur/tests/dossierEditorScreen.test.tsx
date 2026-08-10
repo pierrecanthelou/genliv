@@ -19,6 +19,18 @@ function SondePanneauCanon(): JSX.Element {
 	return <textarea aria-label="Synopsis MJ" value={SONDE_CANON} readOnly />
 }
 
+/**
+ * Même sonde, pour la section Départ (`dossier-canon` it2) : le MÉCANISME du slot
+ * `panneaux` sur une SECONDE section — que la table n'était pas câblée sur la
+ * seule première. Le contenu réel de `PanneauDepart` (Select sans brouillon,
+ * texte d'ouverture au blur) est éprouvé par
+ * `dossier-canon/tests/panneauDepart.test.tsx`.
+ */
+const SONDE_DEPART = 'Sonde du panneau Départ (test bascule-editeur)'
+function SondePanneauDepart(): JSX.Element {
+	return <textarea aria-label="Texte d ouverture" value={SONDE_DEPART} readOnly />
+}
+
 function renderScreen(brain: Brain, dossierId: string, panneaux?: DossierEditorScreenProps['panneaux']) {
 	render(
 		<BrainProvider brain={brain}>
@@ -191,7 +203,7 @@ describe('DossierEditorScreen', () => {
 				const user = userEvent.setup()
 				const brain = createBrain()
 				const dossier = brain.dossiers.create('Un dossier')
-				renderScreen(brain, dossier.id, { canon: <SondePanneauCanon /> })
+				renderScreen(brain, dossier.id, { canon: <SondePanneauCanon />, depart: <SondePanneauDepart /> })
 
 				const nav = screen.getByRole('navigation', { name: 'Sections du dossier' })
 				const ligne = within(nav).getAllByRole('button')[index]
@@ -202,6 +214,11 @@ describe('DossierEditorScreen', () => {
 					// Canon (n° 3, dossier-canon it1) : le panneau injecte remplace l'etat vide.
 					expect(screen.getByRole('textbox', { name: /synopsis/i })).toHaveValue(SONDE_CANON)
 					expect(screen.queryByText(texteEtatVide(0))).toBeNull()
+				} else if (index === 1) {
+					// Depart (n° 3, dossier-canon it2) : meme mecanique, seconde section.
+					// L'etat vide generique de cette section n'est plus rendu (KR-187).
+					expect(screen.getByRole('textbox', { name: /texte d ouverture/i })).toHaveValue(SONDE_DEPART)
+					expect(screen.queryByText(texteEtatVide(1))).toBeNull()
 				} else {
 					expect(screen.getByText(texteEtatVide(index))).toBeInTheDocument()
 					expect(screen.getByText(GLYPHES[index], { selector: '[aria-hidden="true"]' })).toBeInTheDocument()
@@ -272,11 +289,15 @@ describe('racine de composition', () => {
 	 * dépôt et un import de `dossier-canon` ici serait légitime (racine de
 	 * composition), mais un rendu complet sort du périmètre de ce fichier.
 	 */
-	it('App.tsx cable PanneauCanon sur le slot canon de DossierEditorScreen', () => {
+	it('App.tsx cable PanneauCanon et PanneauDepart sur les slots canon et depart', () => {
 		const cheminAppTsx = path.join(__dirname, '..', '..', '..', 'App.tsx')
 		const source = fs.readFileSync(cheminAppTsx, 'utf8')
 
 		expect(source).toContain('PanneauCanon')
 		expect(source).toMatch(/panneaux=\{\{\s*canon:\s*<PanneauCanon/)
+		// Le slot `depart` gagne son panneau reel (dossier-canon it2) : sans cette
+		// ligne, la sonde ci-dessus prouverait un mecanisme que rien n'utilise.
+		expect(source).toContain('PanneauDepart')
+		expect(source).toMatch(/panneaux=\{\{[\s\S]*?depart:\s*<PanneauDepart/)
 	})
 })

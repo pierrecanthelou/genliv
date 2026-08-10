@@ -77,8 +77,8 @@
 			},
 			{
 				"id": 2,
-				"goal": "L'auteur peut fixer le point de départ de son aventure : choisir le lieu de départ parmi ceux existants et rédiger le texte d'ouverture lu au joueur. Généralise le Select existant plutôt que TargetPicker (encore câblé sur le modèle d'arbre condamné) ; exporte localiserEntite() pour libeller un lieu sans nom.",
-				"status": "planned"
+				"goal": "Raffine le 2026-08-10 (.claude/raffinage/dossier-canon-it2.plan.md) : l'auteur ouvre un dossier, selectionne la section Depart et y trouve un vrai formulaire (et non plus l'etat vide generique) : un Select qui liste les lieux existants (libelles par localiserEntite(), y compris le repli « Lieu n°N (sans nom) ») et commit IMMEDIATEMENT au changement - sans brouillon local, une reference n'a pas de mi-chemin editable - et un champ de texte d'ouverture, brouillon local classique, committe au blur. PanneauDepart est le premier consommateur reel de Select (brain/components/Select.tsx), deja generique mais sans appelant jusqu'ici - cette iteration ne le generalise pas, elle l'utilise pour la premiere fois ; TargetPicker reste hors perimetre (KR-185 confirme). Aucun chemin d'avertissement sur ce panneau (aucun budget de mots ne porte sur charpente.depart). 1 seul lot, marque contrat (touche brain/index.ts pour exporter localiserEntite), execute par dev-contrat sans essaim parallele - le decoupage initial a 2 lots a ete reduit apres mesure : le lot contrat ne pese qu'une ligne d'export.",
+				"status": "done"
 			},
 			{
 				"id": 3,
@@ -107,8 +107,20 @@
 				"completed_at": "2026-08-10",
 				"goal_livre": "L'auteur peut reecrire le canon de son histoire (synopsis MJ, accroche joueur, ton, interdits de ton) dans un formulaire qui remplace l'etat vide de la section Canon, a travers DossierService.update(), le premier chemin d'ecriture reel du dossier.",
 				"lots": [
-					{ "id": 1, "nom": "contrat-update-dossier", "type": "contrat", "ouvrier": "dev-contrat", "fichiers": 11 },
-					{ "id": 2, "nom": "formulaire-canon", "type": "feature", "ouvrier": "dev-lot", "fichiers": 7 }
+					{
+						"id": 1,
+						"nom": "contrat-update-dossier",
+						"type": "contrat",
+						"ouvrier": "dev-contrat",
+						"fichiers": 11
+					},
+					{
+						"id": 2,
+						"nom": "formulaire-canon",
+						"type": "feature",
+						"ouvrier": "dev-lot",
+						"fichiers": 7
+					}
 				],
 				"architecture_choices": [
 					"update() recompose l'enveloppe CHAMP PAR CHAMP (schema/id/titre/createdAt du document stocke, updatedAt frappe par le service) plutot qu'un spread de la recette - une recette qui renvoie des cles en trop ne peut pas les faire fuiter dans le document persiste.",
@@ -133,6 +145,42 @@
 					"tech_lead": "APPROVE au tour 3, apres REQUEST_CHANGES aux tours 1 et 2. Tour 1 : 2 majeurs (BUG-055 - commit() ecrasait tout le canon depuis un brouillon perime ; compaction de code-knowledge.json reportee contre la regle) + 3 mineurs (App.tsx non teste, libelle de test inexact, seuil visuel perime dans la spec) - tous fermes dans le meme lot. Tour 2 : 1 defaut neuf introduit par le correctif du tour 1 (BUG-056 - le bandeau de refus s'effacait sur un succes touchant un AUTRE champ) - ferme dans le meme lot, nouveau test dedie. Tour 3 : verifie la table de verite du correctif, confirme la couverture des deux sens par le test, releve 3 observations non bloquantes pour it2+ (branche absent jamais atteinte, PanneauCanon.tsx a 381 lignes -19 du signal KR-112, refus sur deux champs a des moments differents ne garde que le dernier)."
 				},
 				"revue": ".claude/raffinage/dossier-canon-it1.revue.md"
+			},
+			{
+				"id": 2,
+				"label": "iteration-2",
+				"completed_at": "2026-08-10",
+				"goal_livre": "L'auteur fixe le point de depart de son aventure : un Select qui liste les lieux existants (libelle par localiserEntite(), repli 'Lieu n°N (sans nom)') committant immediatement au changement, sans brouillon local, et un texte d'ouverture au patron brouillon+blur herite de PanneauCanon. Aucun chemin d'avertissement sur ce panneau.",
+				"lots": [
+					{
+						"id": 1,
+						"nom": "panneau-depart",
+						"type": "contrat",
+						"ouvrier": "dev-contrat",
+						"fichiers": 6
+					}
+				],
+				"architecture_choices": [
+					"charpente.depart.lieu_id est lu EN LIGNE depuis le dossier ouvert (useOpenDossier), jamais un brouillon local : un Select n'a pas de blur, donc un brouillon de reference deviendrait une seconde source de verite (adoption cloud retirant le lieu choisi -> selectedIndex=-1 -> ecrasement silencieux). Commit immediat au onChange. Seul texte_ouverture_joueur garde le patron brouillon+blur de PanneauCanon.",
+					"localiserEntite() exportee depuis brain/index.ts (jusque-la privee a dossier/identifiers.ts, corps inchange) plutot que redupliquer la regle de repli sans-nom cote feature -- PanneauDepart est son premier appelant hors de brain/.",
+					"PanneauDepart est le PREMIER consommateur reel de Select (brain/components/Select.tsx) : le composant etait deja generique sur {value,label} mais sans appelant. Select.tsx reste intouche a l'octet pres -- ce lot ne le generalise pas, il l'utilise.",
+					"Decoupage reduit de 2 lots (contrat separe + feature) a 1 lot unique marque contrat, execute par dev-contrat seul sans essaim : le lot contrat mesure ne pesait qu'une ligne d'export sans test dedie, un worktree/fusion separe n'aurait produit aucun parallelisme reel."
+				],
+				"deviations_from_plan": [
+					"Le plan (section 3) citait le texte de la legende a une seule option entre guillemets francais « … » a l'interieur du span de code ('texte exact'). L'implementeur puis la QA puis le tech-lead ont converge independamment sur une lecture 'notation de citation en prose', pas un contenu litteral a rendre : aucun precedent du depot ne rend une phrase entiere encadree de « » (localiserEntite() n'encadre que le NOM cite, jamais la phrase), et les deux autres textes exacts du meme paragraphe delimitent par des guillemets droits. La legende est rendue SANS guillemets francais. Precedent pose pour la lecture future de ce paragraphe du plan (section 1).",
+					"Deux tests ajoutes au-dela des 8 nommes au plan (section 7) : le chemin nominal de commit reussi sur texte_ouverture_joueur (critere #3), et le rendu de la legende a une seule option (critere #6) -- le plan declarait ces criteres couverts par le lot sans leur nommer de test dedie."
+				],
+				"test_coverage": {
+					"unit": "61 suites / 835 tests verts (60/826 apres it1 -- cf. dossier-canon-it1.revue.md:82, valeur mesuree post-revue-de-PR, pas le 823 fige en cours de revue au tableau de la revue d'it1 et au CHANGELOG 0.6.13) ; +1 suite panneauDepart.test.tsx, +9 tests. dossierEditorScreen.test.tsx est etendu (sonde + branche index===1 + grep App.tsx) sans nouveau cas de test.",
+					"e2e": "sans objet a ce stade",
+					"mutation": "sans objet (KR-161) -- confirme par git diff --stat, aucun des 4 fichiers mutes touche"
+				},
+				"verdicts": {
+					"integrateur": "conforme, zero correctif, propriete des fichiers exacte, 6 fichiers exclus verifies intouches a l'octet pres",
+					"qa_mode_b": "RECEVABLE SOUS RESERVE au moment de la verification, les deux reserves levees dans ce meme lot : (1) lecture des guillemets de la legende confirmee par le tech-lead (voir deviations_from_plan), (2) dossier de revue ecrit dans ce lot",
+					"tech_lead": "REQUEST_CHANGES au tour 1 (1 majeur : etape Docs des Build Steps absente du lot -- iterations_log/CHANGELOG/roadmap/README pas mis a jour ; 1 mineur : duplication non actee du couple Refus/commit entre PanneauCanon et PanneauDepart) -- code approuve sans aucun correctif de code demande, les deux points fermes dans ce meme lot (docs completees, note ajoutee a open_questions). APPROVE au tour 2."
+				},
+				"revue": ".claude/raffinage/dossier-canon-it2.revue.md"
 			}
 		],
 		"resolved_decisions": [
@@ -149,7 +197,13 @@
 			"RAFFINAGE it1 — role=\"status\" est réservé au bandeau de refus ; le compteur de mots porte data-etat=\"normal\"|\"avertissement\" (pas de rôle ARIA) — un sélecteur stable par état, jamais deux régions concurrentes. Décision de testabilité, pas d'accessibilité (hors cadre du projet, roadmap § 6).",
 			"RAFFINAGE it1 — IssueList (rapport d'erreurs OÙ/QUOI/QUOI-FAIRE) est promu de src/features/dossier-format/components/ vers src/brain/components/, dossier-canon en étant le 2e consommateur réel (même règle que la promotion de ListRow par bascule-editeur) — déplacement à l'identique, ImportDossierDialog.tsx (dossier-format) repointé sur brain/, zéro changement de comportement.",
 			"RAFFINAGE it1 — BUDGET_MOTS_CANON (compteur de mots) est DANS le périmètre d'it1, pas différé : c'est la seule itération de la feature qui retouche canon.mj/canon.partage, et le critère d'acceptation #3 de la feature (avertissement rendu à l'écran) deviendrait invérifiable sinon.",
-			"RAFFINAGE it1 — mécanisme d'injection du panneau Canon : DossierEditorScreenProps (bascule-editeur) gagne une prop optionnelle panneaux?: Partial<Record<SectionId,ReactNode>>, câblée uniquement depuis App.tsx (racine de composition) — précédent ImportDossierButton→LibraryScreen.importEntry, aucun import direct dossier-canon↔bascule-editeur. PanneauSection.tsx et PANNEAU_PAR_SECTION restent intouchés ; depart et lieux gardent leur état vide jusqu'à leurs propres itérations."
+			"RAFFINAGE it1 — mécanisme d'injection du panneau Canon : DossierEditorScreenProps (bascule-editeur) gagne une prop optionnelle panneaux?: Partial<Record<SectionId,ReactNode>>, câblée uniquement depuis App.tsx (racine de composition) — précédent ImportDossierButton→LibraryScreen.importEntry, aucun import direct dossier-canon↔bascule-editeur. PanneauSection.tsx et PANNEAU_PAR_SECTION restent intouchés ; depart et lieux gardent leur état vide jusqu'à leurs propres itérations.",
+			"RAFFINAGE it2, 2026-08-10 — PanneauDepart est le PREMIER consommateur réel de Select (brain/components/Select.tsx), pas une généralisation : le composant était déjà générique sur {value,label} depuis sa création mais sans appelant. Select.tsx reste inchangé à l'octet près ; TargetPicker générique attend toujours son vrai volume en n° 5 (KR-185 reconfirmé).",
+			"RAFFINAGE it2 — un champ RÉFÉRENCE (charpente.depart.lieu_id, choisi via Select) ne porte JAMAIS de brouillon local : lu en ligne depuis le dossier ouvert, commit immédiat au change. Motif (tech-lead) : un Select n'a pas de blur, donc un brouillon de référence deviendrait une seconde source de vérité (adoption cloud retirant l'option choisie → selectedIndex=-1 → écrasement silencieux au commit suivant). Seuls les champs de PROSE (texte_ouverture_joueur, comme les 4 champs de Canon) gardent le patron brouillon+blur de it1 — précédent pour toute future section combinant Select de référence + Field de prose (it4 Lieux notamment).",
+			"RAFFINAGE it2 — aucun chemin d'avertissement n'existe pour la section Départ : ni charpente.depart.lieu_id ni charpente.depart.texte_ouverture_joueur ne figurent dans BUDGETS_DE_MOTS (tables.ts). KR-183 (warnings rendus à l'écran) ne s'applique donc qu'à Canon parmi les itérations livrées à ce jour — écrit explicitement en critère d'acceptation plutôt que laissé comme un trou de couverture silencieux.",
+			"RAFFINAGE it2 — découpage en 1 lot unique marqué contrat (au lieu de 2 : contrat séparé + feature), exécuté par dev-contrat seul, sans essaim. Motif (tech-lead, tour 2) : le lot contrat mesuré ne pèse qu'une ligne d'export du baril (localiserEntite) sans test dédié — un worktree/fusion séparé pour une ligne dont tout le reste dépend n'aurait produit aucun parallélisme réel. Précédent méthodologique : mesurer le poids réel du lot contrat avant de le séparer, pas le séparer par principe.",
+			"RAFFINAGE it2 — REJETÉ un test dédié (identifiers.test.ts) à la seule joignabilité de l'export localiserEntite depuis brain/index.ts. Motif : le repli de localiserEntite() est déjà épinglé par validate.test.ts:146 ; la résolution du module est garantie par tsc (gate de commit) au moment où un consommateur l'importe, et son comportement réel est couvert par le test du libellé rendu dans le consommateur. Précédent pour tout futur export de baril déjà comportementalement épinglé ailleurs.",
+			"RAFFINAGE it2 — technique de test pour peupler un dossier à ≥2 lieux (nécessaire tant que la création de lieux, it4, n'existe pas dans l'éditeur) : passer par le chemin PUBLIC DossierService.update(), jamais une écriture directe persistence.set + events.emit (réservée à la simulation d'adoption cloud, hors sujet ici). Précédent pour tout test de dossier-canon qui doit peupler une collection avant it4/it5/it6."
 		],
 		"open_questions": [
 			"REPORTÉ (propriétaire non assigné) — un éventuel éditeur structuré de reussi_si_expr/echoue_si_expr pour canon.objectifs[] (Select PREDICATES + TargetPicker par position d'opérande). Écarté de cette feature faute d'un second appelant réel (n° 6 en aura trois : fins, jalons, événements). À rouvrir si n° 7 (linter d'atteignabilité) juge qu'un objectif texte-seul est insuffisant pour calculer si un objectif est atteignable, ou comme lot initial d'une itération n° 5 optionnelle de cette feature si le besoin apparaît avant n° 6.",
@@ -158,7 +212,8 @@
 			"OUVERT — le mapping exact des 6 fichiers touchés par un champ de schéma ajouté (KR-186) est une estimation du cadrage sur l'historique de dossier-format, PAS une mesure sur ce module précis : à remesurer au raffinage d'it3 (camp) et d'it4 (Lieu), jamais recopier (KR-159).",
 			"OUVERT — PROPRIÉTAIRE : la première itération (de dossier-canon ou d'une autre feature) qui a un 2e appelant réel pour un compteur de mots borné. Field.maxLength/showCounter (extension générique de brain/components/Field.tsx) est différée depuis it1 — le compteur y reste local à PanneauCanon, seule compterMots est exportée (raffinage it1, 2026-08-10).",
 			"RÉSOLU (revue de PR tech-lead, 2026-08-10) — code-knowledge.json compacté DANS ce lot plutôt que reporté : KR-011/KR-111 (redondants avec KR-152, déjà la version compactée du même invariant ESLint-enforced) réduits à un renvoi, dégageant la marge pour KR-183/186/187 sans franchir le plafond de 75 KiB. KR-184/185 délibérément non mirroités (redondants avec KR-151 et le précédent ListRow/IssueList).",
-			"OUVERT — PROPRIÉTAIRE : non assigné, limite mineure relevée par le tech-lead au tour 3 de la revue de PR, non bloquante. `Refus` (PanneauCanon.tsx) ne porte qu'un seul jeu de champs à la fois : un refus sur `synopsis_mj` suivi d'un refus sur `ton` remplace le premier, et un succès ultérieur sur `ton` lève le bandeau en laissant `synopsis_mj` toujours non enregistré sans signal. Pas une régression de BUG-056 (l'ancien code faisait le même remplacement, en pire) — juste jamais rendu multi-champ. Forme complète si besoin : `Partial<Record<keyof Brouillon, DossierIssue[]>>` fusionné par champ."
+			"OUVERT — PROPRIÉTAIRE : non assigné, limite mineure relevée par le tech-lead au tour 3 de la revue de PR, non bloquante. `Refus` (PanneauCanon.tsx) ne porte qu'un seul jeu de champs à la fois : un refus sur `synopsis_mj` suivi d'un refus sur `ton` remplace le premier, et un succès ultérieur sur `ton` lève le bandeau en laissant `synopsis_mj` toujours non enregistré sans signal. Pas une régression de BUG-056 (l'ancien code faisait le même remplacement, en pire) — juste jamais rendu multi-champ. Forme complète si besoin : `Partial<Record<keyof Brouillon, DossierIssue[]>>` fusionné par champ.",
+			"OUVERT -- PROPRIETAIRE : la premiere iteration qui ouvre un TROISIEME panneau a commit() propre -- it3 (Objectifs) si ses cartes vivent hors de PanneauCanon, sinon it4 (Lieux) au plus tard. Le couple 'Refus'/'commit' (interface Refus{champs,issues}, fermeture de commit() qui compare precedent.champs aux champs du nouveau patch) est desormais duplique a l'identique entre PanneauCanon (it1) et PanneauDepart (it2). Ne pas extraire avant un 3e appelant reel (regle du troisieme appelant, identifiers.ts defineRegistre) -- si it3 en fait trois, l'extraction vit dans features/dossier-canon/hooks/, jamais dans brain/ (les trois appelants restent dans la meme feature)."
 		]
 	}
 }

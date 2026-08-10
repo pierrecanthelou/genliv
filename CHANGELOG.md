@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.14 — un lieu se choisit, il ne se retape pas
+
+`dossier-canon` itération 2/4. L'auteur fixe le point de départ de son aventure : un `Select` qui liste les lieux existants et une ouverture rédigée pour le joueur.
+
+- **`PanneauDepart`** : premier consommateur réel de `Select` (`brain/components/Select.tsx`, générique depuis toujours mais sans appelant) — `charpente.depart.lieu_id` se lit en ligne depuis le dossier ouvert et commit **immédiatement** au changement, sans brouillon local : une référence n'a pas de mi-chemin éditable. Le texte d'ouverture garde le patron brouillon+blur de `PanneauCanon` (refus sans revert, bandeau nommé).
+- **`localiserEntite()`** exportée depuis `brain/index.ts` (jusqu'ici privée à `dossier/identifiers.ts`) pour libeller un lieu sans nom (« Lieu n°1 (sans nom) ») dans les options du `Select`, plutôt que dupliquer la règle de repli côté feature.
+- Aucun chemin d'avertissement sur ce panneau — ni `lieu_id` ni `texte_ouverture_joueur` ne figurent dans `BUDGETS_DE_MOTS` — contrairement au Canon.
+- 1 seul lot, marqué contrat (une ligne d'export du baril), exécuté par `dev-contrat` sans essaim parallèle après mesure de son poids réel.
+- 61 suites / 835 tests. Score de mutation sans objet (aucun des 4 fichiers mutés touché).
+
 ## 0.6.13 — le canon cesse d'être un JSON tapé à la main
 
 `dossier-canon` itération 1/4. L'auteur réécrit le canon de son histoire — synopsis MJ, accroche joueur, ton, interdits de ton — dans un vrai formulaire, à travers le premier chemin d'écriture réel du dossier.
@@ -8,7 +18,7 @@
 - **`PanneauCanon`** tient un brouillon local (seedé une fois, jamais resynchronisé) : un refus ne réinitialise jamais le champ — l'auteur garde ce qu'il a tapé, un bandeau nomme l'anomalie. Le compteur de mots (`BUDGET_MOTS_CANON`, 600) reste local au panneau — pas une extension générique de `Field`, faute d'un second appelant réel.
 - **`IssueList`** et **`compterMots`** promus dans `brain/` (2e consommateur réel, même règle que `ListRow`) ; `dossier-format` en reste le premier appelant, repointé sans changement de comportement.
 - Slot d'injection `panneaux` sur `DossierEditorScreen` (précédent `LibraryScreen.importEntry`) : `App.tsx` câble `PanneauCanon` pour la section Canon, sans aucun import direct entre les deux features. Départ et Lieux gardent leur état vide jusqu'à leurs propres itérations (2 et 4).
-- 60 suites / 823 tests. Score de mutation sans objet (aucun des 4 fichiers mutés touché).
+- 60 suites / 826 tests. Score de mutation sans objet (aucun des 4 fichiers mutés touché).
 
 ## 0.6.12 — dix sections remplacent le canevas, qui s'endort intact
 

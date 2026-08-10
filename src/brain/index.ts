@@ -168,7 +168,13 @@ export type { PredicatId } from './dossier/predicates'
 export type { Delta, DeltaId } from './dossier/deltas'
 export { DOSSIER_ISSUE_LABELS, dossierIssueRemediation } from './dossier/issues'
 export type { DossierIssue, DossierIssueCode, DossierIssueSeverity } from './dossier/issues'
-export { ESPACES_DE_NOMS, FORME_IDENTIFIANT, estIdentifiantBienForme } from './dossier/identifiers'
+// `localiserEntite` SORT à l'itération 2 de la n° 3 (`dossier-canon`), qui en est
+// le premier consommateur hors de `brain/` : le `Select` du point de départ
+// libelle chaque lieu, y compris le lieu SANS `nom` que porte tout dossier neuf,
+// par le MÊME repli que le rapport d'anomalies. Réimplémenter « Lieu n°N (sans
+// nom) » côté feature en ferait une seconde règle d'affichage, qui dériverait en
+// silence de celle qui fait foi. Son corps ne change pas.
+export { ESPACES_DE_NOMS, FORME_IDENTIFIANT, estIdentifiantBienForme, localiserEntite } from './dossier/identifiers'
 export type { EspaceDeNoms, EspaceDeNomsDescripteur } from './dossier/identifiers'
 // `compterMots` sort à la n° 3 (`dossier-canon`), qui en est le SECOND appelant
 // réel : le compteur « n/BUDGET mots » rendu sous les champs de canon. Un compteur
