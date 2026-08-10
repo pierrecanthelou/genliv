@@ -275,16 +275,16 @@ Trois strates de lecture obligatoire, chacune avec son coût :
 
 Charger par référence plutôt que tout charger est ce qui évite le contexte monolithique — KR dans la spec de leur feature, lecture du comité bornée à 3–6 fichiers, canon narratif injecté par identifiant. Ce dispositif n'a **aucun garde-fou automatique** : ces fichiers n'ont que des écrivains, et l'un d'eux ne rétrécit que si quelqu'un le décide. La discipline peut donc s'y relâcher **sans bruit** — d'où un plafond chiffré plutôt qu'une intention.
 
-**Mesure d'abord, plafond ensuite**, même doctrine que le score de mutation. Formule posée avant la mesure : `plafond = ceil(mesure ÷ 5 kio) × 5 kio`, plus **une marche de 5 kio** pour les seuls fichiers dont grossir est le fonctionnement normal (un journal append-only grossit par contrat ; le couple toujours chargé, non — sa croissance est un défaut). Une marche ≈ une itération de marge : assez pour ne pas crier à chaque lot, trop peu pour laisser dériver. Mesure du **2026-08-06** (`wc -c`, 1 kio = 1024 o) :
+**Mesure d'abord, plafond ensuite**, même doctrine que le score de mutation. Formule posée avant la mesure : `plafond = ceil(mesure ÷ 5 kio) × 5 kio`, plus **une marche de 5 kio** pour les seuls fichiers dont grossir est le fonctionnement normal (un journal append-only grossit par contrat ; le couple toujours chargé, non — sa croissance est un défaut). Une marche ≈ une itération de marge : assez pour ne pas crier à chaque lot, trop peu pour laisser dériver. Mesure du **2026-08-10** (`wc -c`, 1 kio = 1024 o) :
 
 | Fichier | Croissance | Mesuré | Plafond | Marge |
 | --- | --- | ---: | ---: | ---: |
-| `CLAUDE.md` + `docs/WORKFLOW.md` (couple) | défaut | 46 070 o | **45 kio** (46 080) | < 0,1 kio |
-| `code-knowledge.json` | normale | 73 199 o | **75 kio** (76 800) | ~3,5 kio |
-| `bug_history.json` | normale | 46 223 o | **55 kio** (56 320) | ~9,9 kio |
-| `features_history.json` | normale | 6 220 o | **15 kio** (15 360) | ~8,9 kio |
-| `specification.json`, **par feature** | normale | 66 346 o (max : `dossier-format`) | **65 kio** (66 560) | ~0,2 kio |
-| `docs/ROADMAP-BASCULE-IA.md` | **défaut** | 33 214 o | **35 kio** (35 840) | ~2,6 kio |
+| `CLAUDE.md` + `docs/WORKFLOW.md` (couple) | défaut | 46 054 o | **45 kio** (46 080) | < 0,1 kio |
+| `code-knowledge.json` | normale | 76 245 o | **75 kio** (76 800) | ~0,5 kio |
+| `bug_history.json` | normale | 9 588 o | **15 kio** (15 360) | ~5,6 kio |
+| `features_history.json` | normale | 12 075 o | **15 kio** (15 360) | ~3,2 kio |
+| `specification.json`, **par feature** | normale | 66 324 o (max : `dossier-format`) | **65 kio** (66 560) | ~0,2 kio |
+| `docs/ROADMAP-BASCULE-IA.md` | **défaut** | 34 735 o | **35 kio** (35 840) | ~1,1 kio |
 
 Le roadmap est un **index**, pas un journal : sa croissance est un défaut, donc pas de marche. Il mélange index (tableaux § 2/§ 3) et archive (§ 1 ter, lignes barrées du § 5, corrections de cadrage) — c'est cette moitié-là qui part dans les `specification.json` au franchissement, jamais la colonne `Statut`.
 
@@ -300,7 +300,7 @@ Compacter n'est jamais « supprimer de l'information » : c'est la déplacer là
 
 - **`code-knowledge.json`** — le moins cher : un KR dont l'invariant est **passé en règle ESLint** (KR-011/111, imports inter-features, couleurs en dur) renvoie à la règle et à son message, il ne redécrit ni le risque ni la parade. Un invariant câblé est une ligne — le linter le rappellera mieux que le fichier.
 - **`specification.json`** — boucle de mémoire de la skill `raffinage-iteration` : une décision livrée se réduit à sa phrase d'arbitrage + le renvoi à `.claude/raffinage/<feature>-it<N>.revue.md`, qui porte déjà le raisonnement. La revue est le dossier, la spec en est l'index.
-- **`bug_history.json`, `features_history.json`** — append-only par contrat : ils ne se compactent pas, ils **se scindent par temps**, seul le fichier courant restant en lecture obligatoire. FAIT le 2026-08-06 sur `bug_history.json` (BUG-001-027, ère arbre) et le 2026-08-08 sur `features_history.json` (ère 0.5, dossier-format it5) : l'antérieur part dans `<fichier>.0.5.json`, hors lecture obligatoire ; numérotation globale. Pas avant le plafond : scinder tôt coûte une indirection pour rien.
+- **`bug_history.json`, `features_history.json`** — append-only : ils ne se compactent pas, ils **se scindent** — par temps ou par feature passée `done` —, seul le fichier courant en lecture obligatoire. FAIT : 2026-08-06/08 par temps (ère arbre → `.0.5.json`) ; 2026-08-10 par feature (`dossier-format`/`bascule-editeur`/`tree-canvas` done → `bug_history.features-terminees.json`). Numérotation globale. Pas avant le plafond : scinder tôt coûte une indirection pour rien.
 - **`CLAUDE.md` + `docs/WORKFLOW.md`** — **déjà à saturation**, délibérément : une règle qui entre ici **en remplace une**, ou part dans la spec de sa feature / le prompt de l'agent qui l'applique. Transverse et stable, elle a sa place ; propre à une feature, jamais. Un invariant câblé s'y écrit **en une ligne qui nomme l'outil**, sans re-lister ce que l'outil vérifie.
 
 ## Bug Investigation

@@ -2,6 +2,7 @@ import { useMemo, useSyncExternalStore } from 'react'
 import { useBrain } from './BrainContext'
 import type { AppEventName } from './EventBus'
 import type { DossierResume } from './DossierService'
+import type { Dossier } from './dossier/types'
 import type { Book } from './tree'
 import { checkBookHealth, type StructuralWarning } from './utils/bookHealth'
 
@@ -36,6 +37,19 @@ const BOOK_LIST_EVENTS: AppEventName[] = ['book:created', 'book:updated', 'book:
  * ouvrir ne change rien à ce que l'accueil montre.
  */
 const DOSSIER_LIST_EVENTS: AppEventName[] = ['dossier:created', 'dossier:updated', 'dossier:deleted']
+
+/**
+ * Les deux événements qui changent le DOSSIER OUVERT sous les yeux de l'auteur.
+ * `dossier:updated` est aujourd'hui émis par la seule adoption cloud
+ * (`CloudSyncService.reconcileDossier`, qui écrit le magasin local PUIS émet) ;
+ * `dossier:deleted` fait retomber la vue à `null` plutôt que de laisser un
+ * document fantôme à l'écran. `dossier:created` n'y est PAS : semer un dossier
+ * ne change rien à celui qui est ouvert — c'est une affaire de LISTE
+ * (`DOSSIER_LIST_EVENTS`). Le jour où l'édition d'une fiche écrira dans le
+ * dossier (n° 3 et suivantes), son événement s'ajoute ICI, et toutes les vues en
+ * profitent d'un coup.
+ */
+const DOSSIER_MUTATION_EVENTS: AppEventName[] = ['dossier:updated', 'dossier:deleted']
 
 export function useOpenBook(bookId: string | null): Book | null {
 	const { books, events } = useBrain()
@@ -131,6 +145,45 @@ export function useDossiers(): DossierResume[] {
 			getSnapshot: (): DossierResume[] => snapshot,
 		}
 	}, [dossiers, events])
+
+	return useSyncExternalStore(store.subscribe, store.getSnapshot)
+}
+
+/**
+ * Le DOSSIER OUVERT, lu en direct depuis `DossierService` — jumeau de
+ * `useOpenBook`, sur les événements du dossier. C'est ce qui rend l'écran
+ * d'édition sensible à une adoption cloud survenue PENDANT qu'il est ouvert :
+ * le titre et les dix compteurs de sections se remettent à jour sans remontage
+ * (report explicite de l'itération 2 de `bascule-editeur`).
+ *
+ * L'instantané est CACHÉ en clôture et n'est recalculé que sur événement : c'est
+ * l'exigence de `useSyncExternalStore` (KR-071/013). `DossierService.get()`
+ * re-valide et GÈLE, donc il rend un objet NEUF à chaque appel — l'appeler
+ * depuis `getSnapshot` reboucherait le rendu sur lui-même, sans fin.
+ *
+ * Aucun filtrage sur l'identifiant porté par l'événement, exactement comme
+ * `useOpenBook` : la re-lecture est idempotente, et un filtre ferait de ce hook
+ * un cousin du sien plutôt qu'un jumeau — deux règles d'abonnement à tenir
+ * alignées à la main.
+ */
+export function useOpenDossier(dossierId: string | null): Dossier | null {
+	const { dossiers, events } = useBrain()
+
+	const store = useMemo(() => {
+		let snapshot: Dossier | null = dossierId !== null ? dossiers.get(dossierId) : null
+		return {
+			subscribe(onChange: () => void): () => void {
+				const offs = DOSSIER_MUTATION_EVENTS.map((name) =>
+					events.on(name, () => {
+						snapshot = dossierId !== null ? dossiers.get(dossierId) : null
+						onChange()
+					}),
+				)
+				return () => offs.forEach((off) => off())
+			},
+			getSnapshot: (): Dossier | null => snapshot,
+		}
+	}, [dossiers, events, dossierId])
 
 	return useSyncExternalStore(store.subscribe, store.getSnapshot)
 }

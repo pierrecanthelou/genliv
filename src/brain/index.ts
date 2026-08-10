@@ -172,6 +172,12 @@ export { ESPACES_DE_NOMS, FORME_IDENTIFIANT, estIdentifiantBienForme } from './d
 export type { EspaceDeNoms, EspaceDeNomsDescripteur } from './dossier/identifiers'
 export { validateDossier, type DossierValidation } from './dossier/validate'
 export { inspectDossierFile, type DossierInspection, type FileReadErrorCode } from './dossier/read'
+// MÊME RÈGLE pour l'itération 3 de la n° 2 : `SECTIONS` sort — la nav de l'écran
+// d'édition la rend et n'a PAS le droit de re-lister les dix sections chez elle —
+// et avec elle ses deux types, qui ont chacun un consommateur réel : `SectionId`
+// indexe les tables de la feature (glyphe, feature propriétaire de l'écran
+// d'édition), `SectionDescripteur` type la ligne rendue.
+export { SECTIONS, type SectionDescripteur, type SectionId } from './dossier/sections'
 export type { DossierService, DossierResume } from './DossierService'
 export type { SelectionService } from './SelectionService'
 export { effectiveKind, endLabel } from './utils/nodeKind'
@@ -201,7 +207,7 @@ export {
 export { downloadJson, downloadText, slugifyFilename } from './utils/download'
 export { buildAdventureDocument } from './utils/buildAdventureDocument'
 export type { NodeKindDescriptor, EdgeKindDescriptor, BadgeMark } from './kinds'
-export { useOpenBook, useBooks, useBookHealth, useDossiers } from './hooks'
+export { useOpenBook, useBooks, useBookHealth, useDossiers, useOpenDossier } from './hooks'
 export { type StructuralWarning, type StructuralWarningCode } from './utils/bookHealth'
 export { HIT_TARGET_MIN } from './ui'
 export {

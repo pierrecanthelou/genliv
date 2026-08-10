@@ -374,12 +374,12 @@
 		{
 			"id": "KR-151",
 			"feature": "global-config",
-			"risk": "CROSS-FEATURE IMPORT IS ESLINT-ENFORCED (outillage-1 lot B): .eslintrc.cjs restricts every file under src/features/**/*.ts(x) with no-restricted-imports (a patterns group of **/<feature> / **/<feature>/** globs, one per entry in FEATURE_DIRS) plus a no-restricted-syntax ImportExpression selector for the dynamic import() case ESLint 8's no-restricted-imports cannot see. player/ is deliberately NOT in FEATURE_DIRS: it is the extractible runtime (KR-134), not a feature, so features/play-mode importing player/types or player/components/PlayerRuntime stays legal. Known false-positive, accepted: a file inside feature X that imports itself via a climbing relative path ('../../X/…') would be flagged — zero occurrences today, and the fix at that call site is a short relative import anyway. Message (MSG_CROISE) points the author at brain/utils/ (KR-110), brain/components/ (KR-109), or a brain/ contract."
+			"risk": "CROSS-FEATURE IMPORT IS ESLINT-ENFORCED (outillage-1 lot B, .eslintrc.cjs, no-restricted-imports + an ImportExpression selector for dynamic import(), message MSG_CROISE) — the rule and its message are the source, not this entry. player/ is deliberately exempt (extractible runtime, KR-134, not a feature)."
 		},
 		{
 			"id": "KR-152",
 			"feature": "global-config",
-			"risk": "RAW STORAGE IN A FEATURE IS ESLINT-ENFORCED (outillage-1 lot B): .eslintrc.cjs restricts src/features/**/*.ts(x) (tests excluded — a test legitimately calls window.localStorage.clear() to reset the real store) with BOTH no-restricted-globals (bare localStorage/sessionStorage identifiers) AND no-restricted-properties (window.localStorage, window.sessionStorage, globalThis.localStorage) — no-restricted-globals alone does not see window.localStorage because it is a MemberExpression, not a bare identifier reference; both rules are required together or the property-access form silently escapes the guard. brain/ (the implementations) and player/utils/persist.ts (KR-134, a deliberate documented exception — the runtime must stay extractible) are outside the rule's files glob, by design."
+			"risk": "RAW STORAGE IN A FEATURE IS ESLINT-ENFORCED (outillage-1 lot B, .eslintrc.cjs, no-restricted-globals + no-restricted-properties TOGETHER — the latter alone misses window.localStorage) — the rule is the source, not this entry. brain/ and player/utils/persist.ts (KR-134) are exempt by design."
 		},
 		{
 			"id": "KR-153",
@@ -524,7 +524,7 @@
 		{
 			"id": "KR-181",
 			"feature": "bascule-editeur",
-			"risk": "Demolir un module sans mesurer son rayon reel (grep les importeurs) casse des briques laissees debout pour des features futures ou des couches qu'on croyait mortes. Preuve suffisante d'extinction : un test-grep sur la racine de composition, PAS la suppression physique — celle-ci attend le dernier appelant reel."
+			"risk": "Demolir un module sans mesurer son rayon reel (grep les importeurs) casse des briques laissees debout pour des features futures ou des couches qu'on croyait mortes. Preuve suffisante d'extinction : un test-grep sur la racine de composition, PAS la suppression physique — celle-ci attend le dernier appelant reel. CORRIGE (bascule-editeur it3) : 'racine de composition' ne suffit pas seul — un fichier inatteignable depuis l'UI peut rester le sujet direct d'assertions dans la suite de tests d'une AUTRE feature (ex. TreeCanvas.test.tsx montait <App/> sur une route morte et assertait le rendu de l'ecran qu'elle ouvrait). Verifier le graphe de tests reel avant de figer un critere de grep sur le CONTENU d'un tel fichier ; preferer un verrou sur l'ATTEIGNABILITE (aucun appel de production ne navigue vers la route) a un grep de contenu quand un autre feature's tests visent ce fichier directement."
 		},
 		{
 			"id": "KR-182",

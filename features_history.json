@@ -75,6 +75,42 @@
 				"BUG-052",
 				"BUG-053"
 			]
+		},
+		{
+			"feature": "bascule-editeur",
+			"completed_at": "2026-08-10",
+			"goal": "Move the library and editor screen from the Book/tree model to the Dossier model, in three vertical slices: retrieve, download, and delete an already-imported dossier (it1); seed and open a new one, landing on a minimal editor screen (it2); navigate an open dossier via a ten-section list with fiche counters, in a two-column layout, with tree-canvas demounted from the editor (it3) — without building any content-editing form (n 3-6) or relational graph (n 6).",
+			"key_architecture_choices": [
+				"DossierResume is a strict discriminated union ({id, lisible:true, titre, updatedAt} | {id, lisible:false}) with zero content-derived field: counting entities would force a get()-and-revalidate per card on every library render (it1).",
+				"BUG-048 closed by two distinct fixes, not one: list() surfaces lisible:false (visibility) AND importDossier constates presence by KEY (persistence.keys(prefix).includes(key)), never get() !== null, which re-validates and can silently overwrite a stored-but-now-invalid dossier (it1).",
+				"createDossierId stays a private, single-caller function on DossierService.ts; randomToken() (entropy only, no separator) is extracted from brain/utils/id.ts and shared with the generic createId() — the id form (KR-177, FORME_ID_DOSSIER rejects the generic underscore separator) is proven by a validateDossier() round-trip in the test, never an exported/duplicated regex (it2).",
+				"Seed content (construireAmorce, brain/dossier/amorce.ts) marks its four prose fields with MARQUEUR_A_ECRIRE — a schema-valid dossier is not a playable one, and this marker is the only signal of that gap until n7 linter and n9 play-time gate exist (it2). A seeded entity id encodes only its immutable origin (lieu.amorce), never a rank or role that goes stale the moment an author reorders or relocates things.",
+				"DossierEditorScreen lives in a brand-new file (bascule-editeur/components/) for its entire life across all three iterations — never a branch grafted onto the doomed src/EditorScreen.tsx (Book, condemned demolition n9). EditorTopBar (brain/components) is extended by optional props instead, so the Book screen stays byte-for-byte untouched (it2).",
+				"SECTIONS (brain/dossier/sections.ts) carries no glyph and no feature-number: brain/ does not own a feature display copy (same doctrine as EditorTopBar.previewDisabledReason). Those two tables live feature-side, confined to their sole consumer, exhaustive at compile time via a TS Record<SectionId, ...> (it3). compte(dossier): string always returns text, never a number — Canon/Depart (not collections) return a constant em-dash rather than force a numeric branch that would be dead code, once raffinage measured that Depart configure branch was structurally unreachable (charpente.depart.lieu_id is a validator-blocking required field).",
+				"src/EditorScreen.tsx, src/App.tsx and the Route type editor variant stayed completely untouched across all three iterations, including the one (it3) whose inherited acceptance criterion literally asked for a content-grep on EditorScreen.tsx: raffinage discovered — by actually reading tree-canvas own integration test, not just grepping its imports — that TreeCanvas.test.tsx mounts App on that route and asserts EditorScreen rendered composition. The exit proof became an unreachability lock (no production code navigates to the editor route) rather than a file-content grep."
+			],
+			"brain_contracts_added": [
+				{ "type": "service", "name": "DossierService.list/remove/create/createDossierId (private)" },
+				{ "type": "type", "name": "DossierResume — discriminated union, no content-derived field" },
+				{ "type": "event", "name": "dossier:deleted" },
+				{ "type": "registry", "name": "brain/dossier/sections.ts — SECTIONS (10 entries)" },
+				{ "type": "registry", "name": "brain/dossier/amorce.ts — MARQUEUR_A_ECRIRE, construireAmorce" },
+				{ "type": "component", "name": "brain/components/ListRow" },
+				{ "type": "hook", "name": "brain/hooks.ts — useOpenDossier" },
+				{ "type": "component", "name": "brain/components/EditorTopBar — extended by optional props (backLabel, previewDisabledReason)" },
+				{ "type": "type", "name": "Route — gains { name: 'dossier'; dossierId: string }" }
+			],
+			"lessons_learned": [
+				"Unreachable from the UI is not the same claim as unreachable from another feature's tests — a file with zero live navigation path can still be the direct subject of another feature's integration-test assertions. Measure the real test dependency graph before locking a content-grep exit criterion on such a file (it3, BUG-060/KR-181 correction).",
+				"An acceptance criterion that names two explicit test levels (contract + component) is two distinct obligations, not one shared implicitly across two lots that never talk to each other — a lot-based split can leave one level silently uncovered even when both lots report green. Only QA mode B literal grep for the expected event name caught it (it3, BUG-060).",
+				"A schema-valid document is not a playable one: validateDossier errors:[]/warnings:[] proves conformance, never that placeholder prose was actually rewritten. A marker string, not a code path, is the only invariant that closes this gap until later features build the real check (it2, KR-178 correction).",
+				"Reopening a resolved_decision mid-feature is legitimate when a later iteration measures something the earlier arbitration could not have known — but it must be written explicitly as a reopening with its own motif, never silently overwritten (it3: Depart counter, configure/dash to constant dash, once configure was shown to be a dead, always-true branch)."
+			],
+			"bugs_encountered": [
+				"BUG-048",
+				"BUG-059",
+				"BUG-060"
+			]
 		}
 	]
 }

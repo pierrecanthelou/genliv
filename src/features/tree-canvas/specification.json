@@ -114,7 +114,8 @@
 			"KR-011 — No raw window.localStorage; positions/view-state persist only through PersistenceService/UIPreferencesService.",
 			"KR-013 — Derive layout/selection state inline or via an external-store subscription, not via useEffect-synced mirrors of props.",
 			"Perf — large books must cull off-screen rendering and keep pan/zoom at 60fps; SVG edge count is the usual bottleneck.",
-			"A11y — node cards are keyboard-focusable and selectable; the canvas is not a keyboard trap."
+			"A11y — node cards are keyboard-focusable and selectable; the canvas is not a keyboard trap.",
+			"KR-181 — en sommeil depuis n°2 (bascule-editeur it1 a retire l'atteinte production de la route 'editor'), repointage herite par n°6 (dossier-registres) : le graphe passe de noeuds+aretes a relations+indices une fois ce schema disponible (roadmap paragraphe 2, decision n°5). Non atteignable depuis la composition de production ; verrouille par un test-grep (bascule-editeur/tests/demontageArbre.test.ts). Ne pas repointer ni demolir avant la n°6 (KR-180/181)."
 		]
 	},
 	"implementation": {

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.12 — dix sections remplacent le canevas, qui s'endort intact
+
+`bascule-editeur` itération 3/3 (dernière de la feature). L'auteur navigue dans son dossier ouvert par une liste de dix sections avec compteur de fiches ; le canevas d'arbre cesse d'être atteint depuis l'écran d'édition.
+
+- **Nav à deux colonnes** dans `DossierEditorScreen` : dix `ListRow` (Canon, Départ, Personnages, Lieux, Objets, Indices, Quêtes, Événements, Conditions, Jalons & fins), dans l'ordre du schéma Dossier, chacune avec un compteur lu depuis le registre `SECTIONS` (`brain/dossier/sections.ts`) — jamais recalculé localement. Canon et Départ affichent `—` (ni l'un ni l'autre n'est une collection de fiches) ; les sept sections-listes affichent `N fiche(s)` ; Jalons & fins affiche `N jalon(s) · N fin(s)`. Aucun badge de complétion coloré — réservé au futur linter n° 7.
+- **`ListRow`** (`brain/components`, portée depuis le design système) sans sa poignée de glisser source — sans appelant réel cette itération, la n° 5 l'ajoutera avec son vrai câblage.
+- **État vide honnête par section** : le panneau droit affiche « {Section} — l'écran d'édition arrive avec la feature n°{X}. », jamais le gabarit générique « Aucun·e {section} » qui mentait pour Canon/Départ/Lieux, déjà peuplées par `DossierService.create()`.
+- **`useOpenDossier`** (`brain/hooks.ts`) rafraîchit le titre et les dix compteurs en direct sur `dossier:updated` (réconciliation cloud), sans remontage — honore un report de l'itération précédente.
+- **`src/EditorScreen.tsx`, `src/App.tsx` et le type `Route` restent intouchés** : le raffinage a mesuré que les vider ou les supprimer casserait dix tests d'intégration de `tree-canvas`, hors périmètre. La preuve de sortie devient un verrou anti-régression (aucun code de production ne navigue plus vers l'écran Book) plutôt qu'un grep de contenu de fichier ; `tree-canvas` reste sur disque, intact, marqué « en sommeil depuis n° 2, repointage hérité par n° 6 ».
+- 58 suites / 804 tests. Score de mutation sans objet (aucun des 4 fichiers mutés touché).
+
 ## 0.6.11 — un dossier vide vaut mieux qu'une page blanche
 
 `bascule-editeur` itération 2/3. L'auteur crée un dossier d'aventure valide depuis sa bibliothèque et atterrit sur l'écran d'édition minimal qui s'ouvre dessus ; il peut y revenir à tout moment en rouvrant, depuis la bibliothèque, ce dossier ou tout autre déjà présent.

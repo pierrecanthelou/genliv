@@ -1,5 +1,7 @@
-import type { CSSProperties } from 'react'
-import { useBrain, EditorTopBar } from '../../../brain'
+import { useState, type CSSProperties } from 'react'
+import { useBrain, useOpenDossier, EditorTopBar, SECTIONS, type SectionId } from '../../../brain'
+import { SectionNav } from './SectionNav'
+import { PanneauSection } from './PanneauSection'
 
 export interface DossierEditorScreenProps {
 	dossierId: string
@@ -9,19 +11,25 @@ const RAISON_APERCU_DESACTIVE =
 	'Aperçu du jeu — disponible quand le mode jeu sera repointé sur le dossier (feature n° 9)'
 
 /**
- * Écran d'édition minimal d'un dossier d'aventure — fichier NEUF de
- * bascule-editeur, jamais une branche ajoutée à `src/EditorScreen.tsx` (chemin
- * Book, condamné à la démolition n° 9).
+ * Écran d'édition d'un dossier d'aventure — fichier NEUF de bascule-editeur,
+ * jamais une branche ajoutée à `src/EditorScreen.tsx` (chemin Book, condamné
+ * à la démolition n° 9).
  *
- * Lit `dossiers.get(dossierId)` directement au rendu (pas de hook dédié — un
- * seul appelant) : aucune vue live n'est nécessaire cette itération, rien ici
- * ne peut encore modifier le dossier. Le rafraîchissement en direct du titre
- * si `dossier:updated` survient pendant que l'écran est ouvert est reporté à
- * l'itération 3 (propriétaire de la vraie nav de sections).
+ * Lit le dossier ouvert via `useOpenDossier` (`brain/hooks.ts`, lot contrat de
+ * l'itération 3) plutôt qu'un `dossiers.get(dossierId)` direct : la vue se
+ * remet à jour SANS remontage si `dossier:updated` survient pendant qu'elle
+ * est ouverte (adoption cloud) — report explicite de l'itération 2, honoré ici
+ * (critère #6).
+ *
+ * La section sélectionnée est un état LOCAL à cet écran, pas une propriété du
+ * dossier : elle ne survit pas à une navigation. Défaut : la première section
+ * du registre (`SECTIONS[0]`, Canon) — un choix raisonnable non écrit par le
+ * plan d'itération, documenté ici plutôt qu'inventé en silence.
  */
 export function DossierEditorScreen({ dossierId }: DossierEditorScreenProps): JSX.Element {
-	const { dossiers, router } = useBrain()
-	const dossier = dossiers.get(dossierId)
+	const { router } = useBrain()
+	const dossier = useOpenDossier(dossierId)
+	const [selectedId, setSelectedId] = useState<SectionId>(SECTIONS[0].id)
 
 	if (dossier === null) {
 		return (
@@ -42,51 +50,16 @@ export function DossierEditorScreen({ dossierId }: DossierEditorScreenProps): JS
 				onBack={() => router.navigate({ name: 'home' })}
 				previewDisabledReason={RAISON_APERCU_DESACTIVE}
 			/>
-			<main style={page}>
-				<div style={emptyState}>
-					<span style={emptyGlyph} aria-hidden="true">
-						❏
-					</span>
-					<p style={emptyText}>
-						Aucune section pour l&apos;instant. La navigation de ce dossier arrive avec une prochaine mise à jour de
-						l&apos;éditeur.
-					</p>
-				</div>
+			<main style={body}>
+				<SectionNav dossier={dossier} selectedId={selectedId} onSelect={setSelectedId} />
+				<PanneauSection sectionId={selectedId} />
 			</main>
 		</div>
 	)
 }
 
-const page: CSSProperties = {
+const body: CSSProperties = {
 	flex: 1,
 	minHeight: 0,
 	display: 'flex',
-	alignItems: 'center',
-	justifyContent: 'center',
-	padding: 'var(--space-12)',
-}
-
-const emptyState: CSSProperties = {
-	display: 'flex',
-	flexDirection: 'column',
-	alignItems: 'center',
-	textAlign: 'center',
-	gap: 'var(--space-3)',
-	border: '1.5px dashed var(--border-field)',
-	borderRadius: 'var(--r-xl)',
-	background: 'var(--paper-1)',
-	padding: 'var(--space-10) var(--space-8)',
-	maxWidth: 480,
-}
-
-const emptyGlyph: CSSProperties = {
-	fontSize: 'var(--fs-h1)',
-	color: 'var(--text-faint)',
-	lineHeight: 1,
-}
-
-const emptyText: CSSProperties = {
-	margin: 0,
-	color: 'var(--text-muted)',
-	lineHeight: 'var(--lh-body)',
 }
