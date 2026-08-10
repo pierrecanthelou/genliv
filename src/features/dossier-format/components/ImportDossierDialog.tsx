@@ -1,7 +1,8 @@
 import { useEffect, useRef, type ChangeEvent, type CSSProperties } from 'react'
-import { Modal, Badge, plural } from '../../../brain'
+// `IssueList` a été promu dans `brain/components/` (KR-109) : `dossier-canon`
+// (n° 3) en est le second consommateur réel, pour le bandeau de refus d'écriture.
+import { Modal, Badge, plural, IssueList } from '../../../brain'
 import { useImportDossier } from '../hooks/useImportDossier'
-import { IssueList } from './IssueList'
 import {
 	DROPZONE_LABEL,
 	FILE_ERROR_BADGE_LABEL,

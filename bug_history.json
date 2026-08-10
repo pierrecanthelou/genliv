@@ -71,6 +71,30 @@
 			"mitigation": "Aucune aujourd hui, hors le fait que la bibliotheque de monstres de l editeur ne propose que des valeurs du registre. Le rayon s ouvre des qu un document ancien, importe ou edite a la main atteint le moteur de combat. A traiter quand play-mode sera repointe (n° 13).",
 			"regression_test": "aucun — defaut journalise et non corrige ; le test s ecrira avec le correctif",
 			"severity": "major"
+		},
+		{
+			"id": "BUG-055",
+			"date": "2026-08-10",
+			"feature": "dossier-canon",
+			"discovered_at": "iteration-1",
+			"symptom": "PanneauCanon.commit() ecrivait les QUATRE champs du canon a chaque blur, depuis un brouillon seme UNE FOIS au montage. Si une reconciliation cloud adoptait un canon plus recent apres le montage (dossier:opened arme le pull, sans garde d identifiant cote useOpenDossier), le PREMIER blur suivant — meme sur un champ non touche — ecrasait silencieusement les champs adoptes avec les copies perimees du brouillon.",
+			"root_cause": "Le plan d iteration justifiait l absence de resynchronisation du brouillon par « la meme garde que useOpenDossier applique deja contre un echo de reconciliation cloud » — garde qui n existe pas : brain/hooks.ts relit inconditionnellement a chaque dossier:updated, sans filtre sur l identifiant ni l origine. Le comite a signe sur un precedent verifie faux, trouve par la revue de PR (tech-lead) plutot qu au raffinage.",
+			"fix": "commit() prend un PATCH ETROIT (Partial<Brouillon>) au lieu du brouillon complet ; les champs non patches viennent du canon PERSISTE au moment de l ecriture (d.canon dans la recette), jamais du brouillon local. La decision deja arbitree (aucun revert du champ edite apres un refus) n a pas ete rouverte.",
+			"mitigation": "Residu assume, documente en commentaire au site de commit() : si LE CHAMP EDITE lui-meme change a distance pendant la frappe, ce commit ecrase encore l adoption sur ce champ — dernier-ecrit-gagne, le comportement attendu d une edition, pas un bug.",
+			"regression_test": "src/features/dossier-canon/tests/panneauCanon.test.tsx — « blur sur un champ ne reecrit pas un autre champ adopte entre-temps (MAJEUR 1, revue de PR) »",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-056",
+			"date": "2026-08-10",
+			"feature": "dossier-canon",
+			"discovered_at": "iteration-1",
+			"symptom": "Introduit par le correctif de BUG-055 lui-meme, trouve au tour 2 de la revue de PR (avant tout commit) : apres le passage au patch etroit, setRefus(statut==='refuse' ? errors : null) effacait le bandeau de refus des qu UN commit reussissait, meme sur un champ DIFFERENT de celui refuse. Vider le synopsis (refus, bandeau affiche) puis simplement traverser le formulaire au Tab (blur sur ton, qui reussit) faisait disparaitre le bandeau alors que le synopsis restait vide et non enregistre — plus aucun signal.",
+			"root_cause": "La regle « ecrit efface le refus precedent » datait du commit-brouillon-complet (ou un succes voulait dire les quatre champs acceptes) et n a pas ete revue en meme temps que le patch etroit de BUG-055 - un correctif qui change la granularite d une ecriture doit revoir tout ce qui raisonne sur son resultat, pas seulement son propre chemin.",
+			"fix": "Le refus est desormais indexe sur les champs du patch qui l a produit (type Refus = {champs, issues}). Un commit reussi n efface le bandeau que s il touche au moins un des champs deja en cause.",
+			"mitigation": "Nouveau test explicite : refus sur synopsis_mj, commit reussi sur ton (bandeau doit rester), puis commit reussi sur synopsis_mj (bandeau doit disparaitre).",
+			"regression_test": "src/features/dossier-canon/tests/panneauCanon.test.tsx — « le bandeau de refus sur un champ survit a un commit reussi sur un AUTRE champ (revue de PR, tour 2) »",
+			"severity": "major"
 		}
 	],
 	"_about": "Les défauts du TEMPS COURANT — bascule IA, versions 0.6.x, depuis le 2026-08-03, pour les features PAS ENCORE done. Les défauts antérieurs (BUG-001 à BUG-027, l'éditeur d'arbre) sont dans bug_history.0.5.json ; ceux des features déjà done de cette ère (tree-canvas, dossier-format, bascule-editeur) sont dans bug_history.features-terminees.json, scindé le 2026-08-10 — aucun des deux n'est en lecture obligatoire, seul ce fichier-ci l'est. La numérotation des BUG-xxx reste GLOBALE à travers les trois fichiers : un identifiant ne se réemploie jamais."

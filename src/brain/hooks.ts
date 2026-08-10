@@ -40,14 +40,15 @@ const DOSSIER_LIST_EVENTS: AppEventName[] = ['dossier:created', 'dossier:updated
 
 /**
  * Les deux événements qui changent le DOSSIER OUVERT sous les yeux de l'auteur.
- * `dossier:updated` est aujourd'hui émis par la seule adoption cloud
- * (`CloudSyncService.reconcileDossier`, qui écrit le magasin local PUIS émet) ;
+ * `dossier:updated` a DEUX émetteurs depuis la n° 3 : l'adoption cloud
+ * (`CloudSyncService.reconcileDossier`, qui écrit le magasin local PUIS émet) et
+ * `DossierService.update`, le premier chemin d'écriture de l'éditeur — l'édition
+ * d'une fiche n'a donc demandé AUCUNE ligne ici, et toutes les vues abonnées en
+ * profitent d'un coup, ce qui était exactement le pari de cette liste.
  * `dossier:deleted` fait retomber la vue à `null` plutôt que de laisser un
  * document fantôme à l'écran. `dossier:created` n'y est PAS : semer un dossier
  * ne change rien à celui qui est ouvert — c'est une affaire de LISTE
- * (`DOSSIER_LIST_EVENTS`). Le jour où l'édition d'une fiche écrira dans le
- * dossier (n° 3 et suivantes), son événement s'ajoute ICI, et toutes les vues en
- * profitent d'un coup.
+ * (`DOSSIER_LIST_EVENTS`).
  */
 const DOSSIER_MUTATION_EVENTS: AppEventName[] = ['dossier:updated', 'dossier:deleted']
 

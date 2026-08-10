@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import { dossierIssueRemediation, type DossierIssue } from '../../../brain'
+import { dossierIssueRemediation, type DossierIssue } from '../dossier/issues'
 
 export interface IssueListProps {
 	issues: DossierIssue[]

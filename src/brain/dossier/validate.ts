@@ -201,7 +201,16 @@ function designerSavoir(savoir: Record<string, unknown>, path: string): string {
 	return rang === null ? path : `n°${Number(rang[1]) + 1}`
 }
 
-function compterMots(texte: string): number {
+/**
+ * Le COMPTEUR DE MOTS du dossier — un seul, pour que l'avertissement du validateur
+ * et le compteur affiché sous un champ de saisie comptent la MÊME chose.
+ *
+ * Exporté depuis la n° 3 (`dossier-canon`), qui en est le second appelant réel :
+ * le compteur « n/BUDGET mots » du formulaire de canon. Réimplémenté à l'écran, il
+ * dériverait en silence de la borne qui décide réellement de l'avertissement, et
+ * l'auteur verrait un compteur calme sur un texte que l'import signale.
+ */
+export function compterMots(texte: string): number {
 	const nettoye = texte.trim()
 	return nettoye === '' ? 0 : nettoye.split(/\s+/).length
 }

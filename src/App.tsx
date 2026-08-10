@@ -5,6 +5,7 @@ import { SyncIndicator, ConflictDialog } from './features/cloud-sync'
 import { ImportDossierButton } from './features/dossier-format'
 import { CreateDossierEntry } from './features/book-creation'
 import { DossierEditorScreen } from './features/bascule-editeur'
+import { PanneauCanon } from './features/dossier-canon'
 
 /**
  * App shell — routes between the home (book-library), the Book editor
@@ -23,8 +24,14 @@ export function App(): JSX.Element {
 			// seed-once viewport from the new book's persisted prefs (KR-013).
 			<EditorScreen key={route.bookId} bookId={route.bookId} />
 		) : route.name === 'dossier' ? (
-			// Key by dossierId so a dossier→dossier switch remounts the screen.
-			<DossierEditorScreen key={route.dossierId} dossierId={route.dossierId} />
+			// Key by dossierId so a dossier→dossier switch remounts the screen. The
+			// Canon panel is injected HERE, from the composition root: bascule-editeur
+			// never imports dossier-canon, and vice versa (KR-184).
+			<DossierEditorScreen
+				key={route.dossierId}
+				dossierId={route.dossierId}
+				panneaux={{ canon: <PanneauCanon dossierId={route.dossierId} /> }}
+			/>
 		) : (
 			<LibraryScreen createEntry={<CreateDossierEntry />} importEntry={<ImportDossierButton />} />
 		)

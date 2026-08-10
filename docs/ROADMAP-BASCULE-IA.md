@@ -144,7 +144,7 @@ Huit features. Une phrase de démo par feature, sans « et » : c'est le test de
 |---|---|---|---|---|---|---|
 | 1 | `dossier-format` | …importer un dossier d'aventure validé contre un schéma versionné | **5** | **5/5 — terminée** | 5 rôles | — |
 | 2 | `bascule-editeur` | …naviguer dans son aventure par une liste de sections | 3 | **3/3 — terminée** | 5 rôles | 1 |
-| 3 | `dossier-canon` | …rédiger la vérité immuable de son histoire | 3 | — | 4 rôles | 2 |
+| 3 | `dossier-canon` | …rédiger la vérité immuable de son histoire | 4 | **1/4** | 4 rôles | 2 |
 | 4 | `dossier-fiches` | …écrire une fiche de personnage exploitable par l'IA | 5 | — | 5 rôles | 3 |
 | 5 | `dossier-objets` | …tenir le registre des objets de son aventure | 2 | — | 4 rôles | 1 |
 | 6 | `dossier-registres` | …tenir les quêtes, les indices, les événements de son aventure | 4 | — | 4 rôles | 4 · 5 |
@@ -161,7 +161,7 @@ Huit features. Une phrase de démo par feature, sans « et » : c'est le test de
 
 **2 · `bascule-editeur`** — la navigation latérale passe de l'arbre à une liste de sections avec compteur de fiches. L'arbre devient jalons + scènes écrites + fins conditionnelles (jalons/fins en LECTURE SEULE dans la liste ; leur écran d'édition, qui engage le registre `DELTAS`, part avec n° 6 — voir § 5). La démolition prévue ici a **déjà eu lieu** (§ 1 ter) : il ne reste que la construction, plus le repointage de `book-library` et `book-creation`. **CORRECTION (cadrage `bascule-editeur`, 2026-08-08)** : le repointage de `tree-canvas` sur le graphe de relations et d'indices n'a pas de données à afficher à ce stade (§ 1 bis) — il est reporté à n° 6 ; `tree-canvas` est démonté (« en sommeil »), pas repointé, par cette feature.
 
-**3 · `dossier-canon`** — sections 01 synopsis & canon (synopsis MJ vs accroche joueur), 02 objectifs des camps, 07 lieux, 10 point de départ.
+**3 · `dossier-canon`** — sections 01 synopsis & canon (synopsis MJ vs accroche joueur), 02 objectifs des camps, 07 lieux, 10 point de départ. **CORRECTION (cadrage dossier-canon, 2026-08-10)** : passe de 3 à 4 itérations (Canon · Départ · Objectifs · Lieux) — Objectifs et Lieux ouvrent chacun un lot contrat de schéma disjoint (`camp` sur `Objectif` ; création du type `Lieu`), qui ne cohabitent jamais dans une même itération.
 
 **4 · `dossier-fiches`** — sections 03 et 04. **Le gros morceau**, et le plan de cible le dit deux fois : « l'écran le plus important du produit ». 8 blocs, deux axes `camp` × `plan`, 6 curseurs de caractère, l'éditeur de plan d'actions (5 champs par étape), l'éditeur de savoirs avec `revele_si` à 4 conditions, le sélecteur de relations à intensité signée. Un seul formulaire pour tous les personnages. **5 itérations, pas moins.** Le bloc 3 (« caractère exploitable ») est décrit comme « le bloc qui décide de tout » — d'où `narratif-ia` au comité, et le mapping des 6 curseurs sur CA/IN/IG, aujourd'hui indéfini, est à produire ici.
 

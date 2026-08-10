@@ -24,12 +24,49 @@ export type DossierResume =
 	| { id: string; lisible: false }
 
 /**
+ * Le CORPS d'un dossier — les TROIS racines de contenu, et rien d'autre. C'est ce
+ * qu'une recette d'écriture rend à `update()`.
+ *
+ * Son étroitesse EST le contrat : `schema`, `id`, `createdAt` et `titre` n'en font
+ * pas partie, donc une recette ne peut pas prétendre les changer, et `updatedAt`
+ * non plus — il est frappé par le service. Une recette qui les renverrait quand
+ * même (par un `as`) les verrait ignorés : l'enveloppe est recomposée CHAMP PAR
+ * CHAMP depuis le document stocké, jamais par un étalement de la recette.
+ */
+export type CorpsDossier = Pick<Dossier, 'canon' | 'monde' | 'charpente'>
+
+/**
+ * L'ISSUE d'une écriture — union DISCRIMINÉE sur `statut`, de sorte qu'aucun
+ * appelant ne puisse lire un dossier qui n'a pas été écrit ni des `errors` sur une
+ * écriture réussie : c'est le typage qui l'interdit, pas une convention de rendu.
+ *
+ * TROIS branches, et pas une de plus :
+ *  · `absent` — rien de LISIBLE sous cet identifiant. Ce n'est pas une anomalie de
+ *    CONTENU : le registre `DossierIssue` est fermé par CAUSE (KR-164) et « ce
+ *    dossier n'existe pas » est une cause de MAGASIN, que le validateur ne peut pas
+ *    produire. La recette n'est alors JAMAIS appelée.
+ *  · `refuse` — le candidat porte des `errors` : rien n'est persisté, rien n'est
+ *    émis. Les `warnings` accompagnent quand même le refus — sinon l'auteur
+ *    corrigerait son erreur pour découvrir l'avertissement au coup d'après.
+ *  · `ecrit` — le dossier persisté (le clone GELÉ rendu par le validateur) et ses
+ *    `warnings`, qui ne bloquent JAMAIS (KR-165) mais que l'appelant doit RENDRE :
+ *    un avertissement que personne n'affiche est la même panne qu'un no-op muet,
+ *    juste plus tardive.
+ */
+export type EcritureDossier =
+	| { statut: 'absent' }
+	| { statut: 'refuse'; errors: DossierIssue[]; warnings: DossierIssue[] }
+	| { statut: 'ecrit'; dossier: Dossier; warnings: DossierIssue[] }
+
+/**
  * DossierService — le seul point d'entrée du dossier d'aventure dans
- * l'application. SEPT méthodes : les quatre de la n° 1, `list` et `remove` que la
- * bibliothèque repointée câble (n° 2, itération 1), et `create` que la création
- * repointée appelle (n° 2, itération 2). `rename`, `duplicate` et `update`
- * restent dehors tant que personne ne les appelle — un service dont la moitié des
- * méthodes n'est exercée par personne est de la dette, pas un contrat.
+ * l'application. HUIT méthodes : les quatre de la n° 1, `list` et `remove` que la
+ * bibliothèque repointée câble (n° 2, itération 1), `create` que la création
+ * repointée appelle (n° 2, itération 2), et `update` — le premier chemin
+ * d'ÉCRITURE du dossier — que le formulaire de canon appelle (n° 3, itération 1).
+ * `rename` et `duplicate` restent dehors tant que personne ne les appelle — un
+ * service dont la moitié des méthodes n'est exercée par personne est de la dette,
+ * pas un contrat.
  *
  * Il est ADDITIF : il vit sous ses propres clés (`genliv:dossier:`), ne lit ni
  * n'écrit aucun `Book`, et AUCUNE de ses fonctions ne convertit un `Book` en
@@ -66,6 +103,34 @@ export interface DossierService {
 	create(titre: string): Dossier
 	/** Le dossier persisté, RE-VALIDÉ et gelé — `null` si absent ou non conforme. */
 	get(id: string): Dossier | null
+	/**
+	 * Le PREMIER chemin d'écriture du dossier. CINQ temps, dans cet ordre, et
+	 * l'ordre EST le contrat :
+	 *
+	 *  1. `get(id)` — le document RE-VALIDÉ et gelé, jamais le brut du magasin
+	 *     (KR-116). Rien de lisible sous cet identifiant ⇒ `{statut:'absent'}`, et
+	 *     la `recette` n'est PAS appelée : elle recevrait un dossier qui n'existe
+	 *     pas.
+	 *  2. `recette(dossier)` — l'appelant rend les trois racines de contenu, à
+	 *     partir du dossier GELÉ qu'il reçoit : il clone, il ne mute pas (KR-166).
+	 *  3. la recomposition de l'ENVELOPPE, champ par champ : `schema`, `id`,
+	 *     `createdAt` et `titre` viennent du document STOCKÉ, `updatedAt` est frappé
+	 *     ici. Jamais un étalement de la recette — c'est ce qui rend impossible
+	 *     qu'un appelant réécrive l'identité du dossier, ou antidate `updatedAt`,
+	 *     qui est le champ de comparaison de la réconciliation cloud (dernier écrit
+	 *     gagne) : une écriture antidatée se ferait écraser par une copie distante
+	 *     plus ancienne, sans qu'une seule anomalie soit levée.
+	 *  4. `validateDossier(candidat)` AVANT toute écriture. `errors` non vide ⇒
+	 *     `{statut:'refuse'}` : RIEN n'est persisté, RIEN n'est émis.
+	 *  5. persiste le CLONE GELÉ rendu par le validateur — jamais l'objet recomposé
+	 *     ici — PUIS émet `dossier:updated` (KR-004).
+	 *
+	 * Ce que l'auteur voit à l'écran n'est PAS ramené à la valeur persistée en cas
+	 * de refus : le service ne rend aucune consigne de revert, il rend les
+	 * anomalies. La divergence écran/dossier est alors explicite (l'appelant la
+	 * montre) plutôt que silencieuse.
+	 */
+	update(id: string, recette: (dossier: Dossier) => CorpsDossier): EcritureDossier
 	/**
 	 * Tous les dossiers persistés, énumérés par CLÉ et jamais par validité : un
 	 * document devenu illisible reste LISTÉ (`lisible: false`), pour que l'auteur
@@ -224,6 +289,52 @@ export function createDossierService(persistence: PersistenceService, events: Ev
 		},
 
 		get,
+
+		update(id: string, recette: (dossier: Dossier) => CorpsDossier): EcritureDossier {
+			const actuel = get(id)
+			// Rien de lisible : la recette n'est même pas appelée. Elle recevrait un
+			// dossier qui n'existe pas, et l'appelant recomposerait un document neuf
+			// sous une clé libre — un `update` ne CRÉE jamais (c'est `create`).
+			if (actuel === null) return { statut: 'absent' }
+
+			const corps = recette(actuel)
+
+			// L'ENVELOPPE, champ par champ. JAMAIS `{ ...corps }` ni `{ ...actuel, ...corps }` :
+			// le premier laisserait une recette réécrire l'identité du dossier, le second
+			// laisserait passer TOUTE clé surnuméraire qu'elle rendrait. Ici, ce que la
+			// recette ne peut pas nommer n'entre pas, et ce qu'elle nomme quand même
+			// (par un `as`) n'est simplement pas lu.
+			const candidat: Dossier = {
+				schema: actuel.schema,
+				id: actuel.id,
+				titre: actuel.titre,
+				createdAt: actuel.createdAt,
+				// Frappé par le SERVICE, jamais par l'appelant : c'est le champ que la
+				// réconciliation cloud compare (dernier écrit gagne).
+				updatedAt: new Date().toISOString(),
+				canon: corps.canon,
+				monde: corps.monde,
+				charpente: corps.charpente,
+			}
+
+			const validation = validateDossier(candidat)
+			// `dossier` est non nul SI ET SEULEMENT SI `errors` est vide (contrat de
+			// `DossierValidation`) : le tester LUI dit la même chose que tester la
+			// longueur du tableau, et le dit aussi au compilateur — aucun `as` ne vient
+			// affirmer ce que le garde était censé vérifier (KR-175).
+			if (validation.dossier === null) {
+				return { statut: 'refuse', errors: validation.errors, warnings: validation.warnings }
+			}
+
+			// On persiste le CLONE GELÉ du validateur, jamais `candidat` : `deepFreeze`
+			// garde son site d'appel unique (KR-166), et « ce document a-t-il été
+			// validé ? » reste décidable — un objet gelé ailleurs rendrait la question
+			// indécidable. La persistance d'abord, l'événement ensuite (KR-004) : un
+			// abonné à `dossier:updated` relit un magasin DÉJÀ à jour.
+			persistence.set(dossierKey(id), validation.dossier)
+			events.emit('dossier:updated', { dossierId: id })
+			return { statut: 'ecrit', dossier: validation.dossier, warnings: validation.warnings }
+		},
 
 		list(): DossierResume[] {
 			return (

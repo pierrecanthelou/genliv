@@ -22,11 +22,17 @@ export interface AppEvents {
 	 * ces quatre événements ne partent qu'APRÈS résolution de la persistance, dans
 	 * l'ordre (KR-004) : un abonné observe toujours un magasin déjà à jour.
 	 * `dossier:created` est émis par `DossierService.create` et `DossierService.importDossier`, `dossier:opened`
-	 * par `DossierService.open`, `dossier:updated` par l'adoption cloud de
-	 * `CloudSyncService.reconcileDossier`, et `dossier:deleted` par
-	 * `DossierService.remove` — son émetteur arrive avec la bibliothèque repointée
-	 * (n° 2 `bascule-editeur`, itération 1), pas avant : un événement sans émetteur
-	 * serait de la dette, pas un contrat. `useDossiers` les observe pour re-lire.
+	 * par `DossierService.open`, et `dossier:deleted` par `DossierService.remove` —
+	 * son émetteur arrive avec la bibliothèque repointée (n° 2 `bascule-editeur`,
+	 * itération 1), pas avant : un événement sans émetteur serait de la dette, pas
+	 * un contrat. `useDossiers` les observe pour re-lire.
+	 *
+	 * `dossier:updated` a DEUX émetteurs depuis la n° 3 (`dossier-canon`,
+	 * itération 1) : l'adoption cloud de `CloudSyncService.reconcileDossier`, et
+	 * `DossierService.update`, le premier chemin d'écriture de l'ÉDITEUR. Aucun
+	 * événement neuf n'a été ajouté pour l'édition — « ce dossier a changé » est la
+	 * même nouvelle, quelle que soit la main qui l'a changé, et un second nom aurait
+	 * obligé chaque vue abonnée à s'abonner deux fois.
 	 */
 	'dossier:created': { dossierId: string }
 	'dossier:opened': { dossierId: string }

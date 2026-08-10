@@ -4,12 +4,25 @@ import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createBrain, BrainProvider, type Brain, type Dossier } from '../../../brain'
 import { dossierKey } from '../../../brain/persistenceKeys'
-import { DossierEditorScreen } from '../components/DossierEditorScreen'
+import { DossierEditorScreen, type DossierEditorScreenProps } from '../components/DossierEditorScreen'
 
-function renderScreen(brain: Brain, dossierId: string) {
+/**
+ * Sonde locale pour la section Canon — jamais le vrai `PanneauCanon`
+ * (`dossier-canon`) : un test de `bascule-editeur` n'a pas plus le droit
+ * d'importer une feature sœur que le code source (KR-184, `no-restricted-imports`).
+ * Elle ne prouve que le MÉCANISME du slot d'injection `panneaux` (§3 du plan
+ * d'itération 1 de dossier-canon) — le contenu réel de `PanneauCanon` est
+ * éprouvé par `dossier-canon/tests/panneauCanon.test.tsx`.
+ */
+const SONDE_CANON = 'Sonde du panneau Canon (test bascule-editeur)'
+function SondePanneauCanon(): JSX.Element {
+	return <textarea aria-label="Synopsis MJ" value={SONDE_CANON} readOnly />
+}
+
+function renderScreen(brain: Brain, dossierId: string, panneaux?: DossierEditorScreenProps['panneaux']) {
 	render(
 		<BrainProvider brain={brain}>
-			<DossierEditorScreen dossierId={dossierId} />
+			<DossierEditorScreen dossierId={dossierId} panneaux={panneaux} />
 		</BrainProvider>,
 	)
 }
@@ -56,7 +69,7 @@ describe('DossierEditorScreen', () => {
 	it('rendu de base: titre, retour, Apercu du jeu desactive, etat vide de la premiere section', () => {
 		const brain = createBrain()
 		const dossier = brain.dossiers.create("La Caverne d'Aldûr")
-		renderScreen(brain, dossier.id)
+		renderScreen(brain, dossier.id, { canon: <SondePanneauCanon /> })
 
 		expect(screen.getByRole('heading', { name: "La Caverne d'Aldûr" })).toBeInTheDocument()
 		expect(screen.getByRole('button', { name: 'Mes dossiers' })).toBeInTheDocument()
@@ -73,8 +86,11 @@ describe('DossierEditorScreen', () => {
 		expect(screen.queryByRole('button', { name: /nœud/i })).toBeNull()
 		expect(screen.queryByText(/nœud/i)).toBeNull()
 
-		// Defaut documente : la premiere section du registre (Canon) est selectionnee.
-		expect(screen.getByText(texteEtatVide(0))).toBeInTheDocument()
+		// Defaut documente : la premiere section du registre (Canon) est selectionnee,
+		// et affiche desormais le panneau REEL injecte via `panneaux` (slot d'injection,
+		// §3 du plan d'iteration 1 de dossier-canon) au lieu de l'etat vide generique.
+		expect(screen.getByRole('textbox', { name: /synopsis/i })).toHaveValue(SONDE_CANON)
+		expect(screen.queryByText(texteEtatVide(0))).toBeNull()
 	})
 
 	it('dossierId inconnu: Dossier introuvable et retour a l accueil', async () => {
@@ -175,15 +191,21 @@ describe('DossierEditorScreen', () => {
 				const user = userEvent.setup()
 				const brain = createBrain()
 				const dossier = brain.dossiers.create('Un dossier')
-				renderScreen(brain, dossier.id)
+				renderScreen(brain, dossier.id, { canon: <SondePanneauCanon /> })
 
 				const nav = screen.getByRole('navigation', { name: 'Sections du dossier' })
 				const ligne = within(nav).getAllByRole('button')[index]
 				await user.click(ligne)
 
 				expect(ligne).toHaveAttribute('aria-current', 'true')
-				expect(screen.getByText(texteEtatVide(index))).toBeInTheDocument()
-				expect(screen.getByText(GLYPHES[index], { selector: '[aria-hidden="true"]' })).toBeInTheDocument()
+				if (index === 0) {
+					// Canon (n° 3, dossier-canon it1) : le panneau injecte remplace l'etat vide.
+					expect(screen.getByRole('textbox', { name: /synopsis/i })).toHaveValue(SONDE_CANON)
+					expect(screen.queryByText(texteEtatVide(0))).toBeNull()
+				} else {
+					expect(screen.getByText(texteEtatVide(index))).toBeInTheDocument()
+					expect(screen.getByText(GLYPHES[index], { selector: '[aria-hidden="true"]' })).toBeInTheDocument()
+				}
 			})
 		})
 	})
@@ -239,5 +261,22 @@ describe('racine de composition', () => {
 
 		expect(source).not.toContain('book:deleted')
 		expect(source).not.toContain('isEditingBook')
+	})
+
+	/**
+	 * Complément à la sonde locale ci-dessus (mineur m1, revue de PR tech-lead) :
+	 * la sonde prouve le MÉCANISME du slot `panneaux`, mais aucun test ne
+	 * constatait le câblage RÉEL de la section `canon` vers `PanneauCanon` dans
+	 * `App.tsx` — dont dépend toute la valeur utilisateur de cette itération.
+	 * Test-grep, pas un rendu : `App.tsx` n'a pas de suite de tests dans ce
+	 * dépôt et un import de `dossier-canon` ici serait légitime (racine de
+	 * composition), mais un rendu complet sort du périmètre de ce fichier.
+	 */
+	it('App.tsx cable PanneauCanon sur le slot canon de DossierEditorScreen', () => {
+		const cheminAppTsx = path.join(__dirname, '..', '..', '..', 'App.tsx')
+		const source = fs.readFileSync(cheminAppTsx, 'utf8')
+
+		expect(source).toContain('PanneauCanon')
+		expect(source).toMatch(/panneaux=\{\{\s*canon:\s*<PanneauCanon/)
 	})
 })

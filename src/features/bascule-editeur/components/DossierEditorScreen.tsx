@@ -1,10 +1,17 @@
-import { useState, type CSSProperties } from 'react'
+import { useState, type CSSProperties, type ReactNode } from 'react'
 import { useBrain, useOpenDossier, EditorTopBar, SECTIONS, type SectionId } from '../../../brain'
 import { SectionNav } from './SectionNav'
 import { PanneauSection } from './PanneauSection'
 
 export interface DossierEditorScreenProps {
 	dossierId: string
+	/**
+	 * Panneaux d'édition RÉELS, injectés par la racine de composition (`App.tsx`)
+	 * — jamais importés depuis une autre feature (KR-184, précédent
+	 * `ImportDossierButton` → `LibraryScreen.importEntry`). Une section absente
+	 * de la table retombe sur l'état vide `PanneauSection`.
+	 */
+	panneaux?: Partial<Record<SectionId, ReactNode>>
 }
 
 const RAISON_APERCU_DESACTIVE =
@@ -26,7 +33,7 @@ const RAISON_APERCU_DESACTIVE =
  * du registre (`SECTIONS[0]`, Canon) — un choix raisonnable non écrit par le
  * plan d'itération, documenté ici plutôt qu'inventé en silence.
  */
-export function DossierEditorScreen({ dossierId }: DossierEditorScreenProps): JSX.Element {
+export function DossierEditorScreen({ dossierId, panneaux }: DossierEditorScreenProps): JSX.Element {
 	const { router } = useBrain()
 	const dossier = useOpenDossier(dossierId)
 	const [selectedId, setSelectedId] = useState<SectionId>(SECTIONS[0].id)
@@ -52,7 +59,7 @@ export function DossierEditorScreen({ dossierId }: DossierEditorScreenProps): JS
 			/>
 			<main style={body}>
 				<SectionNav dossier={dossier} selectedId={selectedId} onSelect={setSelectedId} />
-				<PanneauSection sectionId={selectedId} />
+				{panneaux?.[selectedId] ?? <PanneauSection sectionId={selectedId} />}
 			</main>
 		</div>
 	)

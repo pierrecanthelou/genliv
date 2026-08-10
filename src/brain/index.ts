@@ -170,7 +170,11 @@ export { DOSSIER_ISSUE_LABELS, dossierIssueRemediation } from './dossier/issues'
 export type { DossierIssue, DossierIssueCode, DossierIssueSeverity } from './dossier/issues'
 export { ESPACES_DE_NOMS, FORME_IDENTIFIANT, estIdentifiantBienForme } from './dossier/identifiers'
 export type { EspaceDeNoms, EspaceDeNomsDescripteur } from './dossier/identifiers'
-export { validateDossier, type DossierValidation } from './dossier/validate'
+// `compterMots` sort à la n° 3 (`dossier-canon`), qui en est le SECOND appelant
+// réel : le compteur « n/BUDGET mots » rendu sous les champs de canon. Un compteur
+// d'écran réimplémenté dériverait en silence de la borne qui décide réellement de
+// l'avertissement `texte-trop-long`.
+export { validateDossier, compterMots, type DossierValidation } from './dossier/validate'
 export { inspectDossierFile, type DossierInspection, type FileReadErrorCode } from './dossier/read'
 // MÊME RÈGLE pour l'itération 3 de la n° 2 : `SECTIONS` sort — la nav de l'écran
 // d'édition la rend et n'a PAS le droit de re-lister les dix sections chez elle —
@@ -178,7 +182,7 @@ export { inspectDossierFile, type DossierInspection, type FileReadErrorCode } fr
 // indexe les tables de la feature (glyphe, feature propriétaire de l'écran
 // d'édition), `SectionDescripteur` type la ligne rendue.
 export { SECTIONS, type SectionDescripteur, type SectionId } from './dossier/sections'
-export type { DossierService, DossierResume } from './DossierService'
+export type { DossierService, DossierResume, CorpsDossier, EcritureDossier } from './DossierService'
 export type { SelectionService } from './SelectionService'
 export { effectiveKind, endLabel } from './utils/nodeKind'
 export { nodeTitle, textLines } from './utils/nodeView'

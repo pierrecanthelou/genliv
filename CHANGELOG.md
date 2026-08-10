@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.13 — le canon cesse d'être un JSON tapé à la main
+
+`dossier-canon` itération 1/4. L'auteur réécrit le canon de son histoire — synopsis MJ, accroche joueur, ton, interdits de ton — dans un vrai formulaire, à travers le premier chemin d'écriture réel du dossier.
+
+- **`DossierService.update(id, recette)`** : `get` re-validé → recette → enveloppe recomposée par le service (`updatedAt` jamais depuis l'appelant) → `validateDossier` → un candidat invalide n'écrit rien (`{statut:'refuse'}`), un candidat valide persiste même avec des avertissements (`{statut:'ecrit', warnings}`) puis émet `dossier:updated`.
+- **`PanneauCanon`** tient un brouillon local (seedé une fois, jamais resynchronisé) : un refus ne réinitialise jamais le champ — l'auteur garde ce qu'il a tapé, un bandeau nomme l'anomalie. Le compteur de mots (`BUDGET_MOTS_CANON`, 600) reste local au panneau — pas une extension générique de `Field`, faute d'un second appelant réel.
+- **`IssueList`** et **`compterMots`** promus dans `brain/` (2e consommateur réel, même règle que `ListRow`) ; `dossier-format` en reste le premier appelant, repointé sans changement de comportement.
+- Slot d'injection `panneaux` sur `DossierEditorScreen` (précédent `LibraryScreen.importEntry`) : `App.tsx` câble `PanneauCanon` pour la section Canon, sans aucun import direct entre les deux features. Départ et Lieux gardent leur état vide jusqu'à leurs propres itérations (2 et 4).
+- 60 suites / 823 tests. Score de mutation sans objet (aucun des 4 fichiers mutés touché).
+
 ## 0.6.12 — dix sections remplacent le canevas, qui s'endort intact
 
 `bascule-editeur` itération 3/3 (dernière de la feature). L'auteur navigue dans son dossier ouvert par une liste de dix sections avec compteur de fiches ; le canevas d'arbre cesse d'être atteint depuis l'écran d'édition.

@@ -24,7 +24,7 @@
 		{
 			"id": "KR-011",
 			"feature": "cross-cutting",
-			"risk": "No raw window.localStorage in feature files; persist only via PersistenceService and the key builders in persistenceKeys.ts. Feature-level facet of global KR-111."
+			"risk": "No raw window.localStorage in feature files - see KR-152 (ESLint-enforced)."
 		},
 		{
 			"id": "KR-013",
@@ -219,7 +219,7 @@
 		{
 			"id": "KR-111",
 			"feature": "global-config",
-			"risk": "No raw window.localStorage in feature files â€” use PersistenceService for the book document and useUIPreferences()/UIPreferencesService (via brain/) for non-synced UI state. Single auditable storage surface."
+			"risk": "No raw window.localStorage in feature files - ESLint-enforced, see KR-152. brain/ and player/utils/persist.ts (KR-134) exempt by design."
 		},
 		{
 			"id": "KR-112",
@@ -530,6 +530,21 @@
 			"id": "KR-182",
 			"feature": "bascule-editeur",
 			"risk": "CloudSyncService.remove() ne retire que la cle LOCALE, jamais la distante (dette identique a deleteBook, jamais corrigee). Des qu'un nouvel appelant le rend visible, EPINGLER ce comportement par un test plutot que de le laisser silencieux ou de le corriger hors perimetre."
+		},
+		{
+			"id": "KR-183",
+			"feature": "dossier-canon",
+			"risk": "DossierService.update(id, recette): EcritureDossier (absent|refuse|ecrit) - refus n'ecrit RIEN, warnings sur ecriture reussie DOIVENT etre rendus a l'ecran, pas seulement retournes."
+		},
+		{
+			"id": "KR-186",
+			"feature": "dossier-canon",
+			"risk": "Un champ ajoute a un registre du dossier touche ~6 fichiers dans LE MEME lot contrat (types, destinations, tables, 2 fixtures, couverture.test.ts) - a remesurer, jamais recopier (KR-159)."
+		},
+		{
+			"id": "KR-187",
+			"feature": "dossier-canon",
+			"risk": "Un test qui epingle l'etat vide d'une nav a sections partagee se reecrit DANS le lot qui construit le vrai panneau, jamais a part."
 		}
 	]
 }

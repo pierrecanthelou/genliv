@@ -10,7 +10,16 @@ const MSG_COULEUR =
 
 // Every feature folder under src/features/ — kept as a flat list (not globbed from
 // disk) so a new feature must be added here deliberately.
-const FEATURE_DIRS = ['bascule-editeur', 'book-creation', 'book-library', 'cloud-sync', 'dossier-format', 'play-mode', 'tree-canvas']
+const FEATURE_DIRS = [
+	'bascule-editeur',
+	'book-creation',
+	'book-library',
+	'cloud-sync',
+	'dossier-canon',
+	'dossier-format',
+	'play-mode',
+	'tree-canvas',
+]
 
 // KNOWN LIMIT (documented, not fixed): a file inside feature X that imports itself
 // via a climbing relative path ('../../X/…') would be flagged as a false positive.

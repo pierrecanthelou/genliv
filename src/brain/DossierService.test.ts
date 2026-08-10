@@ -1,11 +1,12 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { createDossierService } from './DossierService'
+import { createDossierService, type CorpsDossier } from './DossierService'
 import { createCloudSyncService, type CloudTransport } from './CloudSyncService'
 import { createEventBus } from './EventBus'
 import { createLocalStoragePersistence } from './PersistenceService'
 import { dossierKey, DOSSIER_KEY_PREFIX } from './persistenceKeys'
-import { validateDossier } from './dossier/validate'
+import { compterMots, validateDossier } from './dossier/validate'
+import { BUDGET_MOTS_CANON, DOSSIER_SCHEMA, type Dossier } from './dossier/types'
 
 const CHEMIN_FIXTURE = path.join(__dirname, 'dossier', '__fixtures__', 'dossier-minimal.json')
 
@@ -440,5 +441,265 @@ describe('DossierService', () => {
 		// de découvrir le silence.
 		expect(pousses).toEqual([dossierKey('dossier-minimal')])
 		expect(sync.pendingKeys()).toEqual([])
+	})
+})
+
+/**
+ * Un texte de `mots` mots exactement — la seule façon d'éprouver une borne de mots
+ * à la BORNE et à BORNE+1 (KR-165) sans recopier six cents mots dans ce fichier.
+ * Les mots sont numérotés, donc tous distincts : un compteur qui dédoublonnerait
+ * par erreur ne pourrait pas se cacher derrière une répétition.
+ */
+function texteDe(mots: number): string {
+	return Array.from({ length: mots }, (_, rang) => `mot${rang}`).join(' ')
+}
+
+/**
+ * La recette IDIOMATIQUE : TROIS racines nommées, jamais un étalement du dossier.
+ * C'est la forme que le formulaire de canon (n° 3) écrit, et l'écrire ici aussi
+ * évite qu'un test prouve un contrat sur une forme que personne n'utilise.
+ */
+function corpsAvecCanon(dossier: Dossier, canon: Partial<Dossier['canon']>): CorpsDossier {
+	return {
+		canon: { ...dossier.canon, ...canon },
+		monde: dossier.monde,
+		charpente: dossier.charpente,
+	}
+}
+
+/**
+ * `DossierService.update` — le PREMIER chemin d'écriture du dossier, et le premier
+ * endroit du projet où un patch d'auteur peut être REFUSÉ.
+ *
+ * Cinq propriétés portent tout le reste, et chacune a son test : la recette n'est
+ * pas appelée sur un dossier absent ; un candidat invalide n'écrit ni n'émet rien ;
+ * une écriture propre persiste PUIS émet (KR-004) ; un avertissement ne bloque
+ * jamais (KR-165) ; l'enveloppe est recomposée par le service, pas par l'appelant.
+ */
+describe('DossierService.update', () => {
+	beforeEach(() => window.localStorage.clear())
+	// L'horloge du service est mockée dans UN seul test ; la rendre sans condition
+	// évite qu'un échec d'assertion laisse les timers figés pour les suivants.
+	afterEach(() => jest.useRealTimers())
+
+	it('sur un dossier absent : statut absent, recette jamais appelee, rien persiste', () => {
+		const { dossiers, persistence, events } = setup()
+		const emis: string[] = []
+		events.on('dossier:updated', ({ dossierId }) => emis.push(dossierId))
+		const recette = jest.fn((dossier: Dossier) => corpsAvecCanon(dossier, { ton: 'grave' }))
+
+		expect(dossiers.update('jamais-vu', recette)).toEqual({ statut: 'absent' })
+
+		// La recette recevrait un dossier qui n'existe pas : elle n'est PAS appelée —
+		// sans quoi un appelant pourrait recomposer un document neuf sous une clé
+		// libre, et `update` créerait au lieu d'écrire.
+		expect(recette).not.toHaveBeenCalled()
+		expect(persistence.keys(DOSSIER_KEY_PREFIX)).toEqual([])
+		expect(emis).toEqual([])
+
+		// DISCRIMINANT : une clé OCCUPÉE par un document illisible est `absent` pour
+		// `update` aussi — on ne peut pas patcher ce qu'on ne sait pas relire, et la
+		// recette ne recevrait rien à cloner. Le document en place n'est pas écrasé.
+		const occupant = documentIllisible('illisible')
+		persistence.set(dossierKey('illisible'), occupant)
+
+		expect(dossiers.update('illisible', recette)).toEqual({ statut: 'absent' })
+
+		expect(recette).not.toHaveBeenCalled()
+		expect(persistence.get(dossierKey('illisible'))).toEqual(occupant)
+		expect(emis).toEqual([])
+	})
+
+	it('refuse un candidat invalide : rien persiste, aucun evenement', () => {
+		const { dossiers, persistence, events } = setup()
+		const dossier = dossiers.create('Le Sceau')
+		const avant = JSON.stringify(persistence.get(dossierKey(dossier.id)))
+		const emis: string[] = []
+		events.on('dossier:updated', ({ dossierId }) => emis.push(dossierId))
+
+		// La seule anomalie bloquante qu'un formulaire de canon puisse produire :
+		// vider un champ obligatoire (`CHAMPS_REQUIS`, `dossier/tables.ts`).
+		const refus = dossiers.update(dossier.id, (d) => corpsAvecCanon(d, { mj: { synopsis_mj: '' } }))
+
+		expect(refus.statut).toBe('refuse')
+		if (refus.statut !== 'refuse') return
+		expect(refus.errors.map((anomalie) => anomalie.code)).toEqual(['champ-requis-vide'])
+		// Le `path` est le contrat que la n° 7 consomme pour badger une section
+		// (KR-164) : c'est lui qui dit à l'écran QUEL champ refuser.
+		expect(refus.errors[0].path).toBe('canon.mj.synopsis_mj')
+		expect(refus.warnings).toEqual([])
+		// Le magasin est inchangé À L'OCTET : ni le champ vidé, ni un `updatedAt` neuf.
+		expect(JSON.stringify(persistence.get(dossierKey(dossier.id)))).toBe(avant)
+		expect(dossiers.get(dossier.id)?.canon.mj.synopsis_mj).toBe(dossier.canon.mj.synopsis_mj)
+		expect(emis).toEqual([])
+	})
+
+	it('ecrit sans avertissement et emet dossier:updated APRES la persistance', () => {
+		const { dossiers, persistence, events } = setup()
+		const dossier = dossiers.create('Le Sceau')
+		const TON = 'Grave, laconique, sans ironie.'
+		const journal: string[] = []
+		let vuDansLeMagasin: unknown = null
+		events.on('dossier:updated', ({ dossierId }) => {
+			journal.push('updated')
+			// L'abonné lit le magasin AU MOMENT de la notification (KR-004) : il doit
+			// déjà y trouver le NOUVEAU texte, sinon toute vue qui se relit sur cet
+			// événement afficherait l'ancien.
+			vuDansLeMagasin = persistence.get(dossierKey(dossierId))
+		})
+
+		const ecriture = dossiers.update(dossier.id, (d) => corpsAvecCanon(d, { ton: TON }))
+
+		expect(ecriture.statut).toBe('ecrit')
+		if (ecriture.statut !== 'ecrit') return
+		// Les DEUX tableaux : une écriture propre n'ouvre pas sur un avertissement.
+		expect(ecriture.warnings).toEqual([])
+		expect(ecriture.dossier.canon.ton).toBe(TON)
+		// Relu par le chemin normal, donc RE-VALIDÉ : ce qui a été écrit est relisible.
+		expect(dossiers.get(dossier.id)?.canon.ton).toBe(TON)
+		expect(journal).toEqual(['updated'])
+		expect((vuDansLeMagasin as Dossier | null)?.canon.ton).toBe(TON)
+	})
+
+	it('ecrit quand meme un texte au-dela du budget de mots, avec son avertissement', () => {
+		const { dossiers } = setup()
+		const dossier = dossiers.create('Le Sceau')
+		const tropLong = texteDe(BUDGET_MOTS_CANON + 1)
+
+		const ecriture = dossiers.update(dossier.id, (d) => corpsAvecCanon(d, { mj: { synopsis_mj: tropLong } }))
+
+		expect(ecriture.statut).toBe('ecrit')
+		if (ecriture.statut !== 'ecrit') return
+		expect(ecriture.warnings.map((avertissement) => avertissement.code)).toEqual(['texte-trop-long'])
+		// NON BLOQUANT (KR-165) : le texte est bien dans le magasin, et il en ressort.
+		// Un avertissement qui refuserait l'écriture serait une erreur déguisée.
+		expect(dossiers.get(dossier.id)?.canon.mj.synopsis_mj).toBe(tropLong)
+	})
+
+	it('ignore titre, id, schema et createdAt rendus par la recette, et frappe updatedAt lui-meme', () => {
+		const { dossiers } = setup()
+		// Semé à l'horloge RÉELLE, puis l'horloge du service est déplacée : sans cet
+		// écart, `updatedAt === createdAt` et l'assertion ne distinguerait pas « frappé
+		// par le service » de « recopié du document stocké ».
+		const dossier = dossiers.create('Le Sceau')
+		const HORLOGE = '2027-03-04T05:06:07.000Z'
+		jest.useFakeTimers().setSystemTime(new Date(HORLOGE))
+
+		const ecriture = dossiers.update(
+			dossier.id,
+			(d) =>
+				({
+					...corpsAvecCanon(d, { ton: 'Grave.' }),
+					// Tout ce que `CorpsDossier` interdit de nommer, nommé quand même par un
+					// `as` — la seule façon pour un appelant de tenter l'enveloppe.
+					schema: 2,
+					id: 'pirate',
+					titre: 'titre pirate',
+					createdAt: '2000-01-01T00:00:00.000Z',
+					updatedAt: '2000-01-01T00:00:00.000Z',
+				}) as unknown as CorpsDossier,
+		)
+
+		expect(ecriture.statut).toBe('ecrit')
+		if (ecriture.statut !== 'ecrit') return
+		expect(ecriture.dossier.id).toBe(dossier.id)
+		expect(ecriture.dossier.titre).toBe('Le Sceau')
+		expect(ecriture.dossier.createdAt).toBe(dossier.createdAt)
+		// `schema: 2` aurait été refusé par la garde de version : c'est bien celui du
+		// document stocké qui traverse, pas celui de la recette.
+		expect(ecriture.dossier.schema).toBe(DOSSIER_SCHEMA)
+		// L'horloge du SERVICE, jamais la valeur antidatée de la recette : `updatedAt`
+		// est le champ que la réconciliation cloud compare (dernier écrit gagne), et
+		// une écriture antidatée se ferait écraser par une copie distante plus
+		// ancienne sans qu'une seule anomalie soit levée.
+		expect(ecriture.dossier.updatedAt).toBe(HORLOGE)
+		expect(dossiers.get(dossier.id)?.updatedAt).toBe(HORLOGE)
+		// Le contenu, lui, est bien celui de la recette.
+		expect(ecriture.dossier.canon.ton).toBe('Grave.')
+	})
+
+	it('n introduit aucun second site de gel dans DossierService.ts', () => {
+		const source = fs.readFileSync(path.join(__dirname, 'DossierService.ts'), 'utf8')
+
+		// KR-166 : `deepFreeze` n'a QU'UN site d'appel, la sortie de `validateDossier`.
+		// `dossier/roundtrip.test.ts` tient cette propriété pour le module `dossier/` —
+		// et ce fichier-ci est HORS de ce module, donc hors de ce balayage : ce qui
+		// écrit le magasin n'y était couvert par rien. Un objet gelé reconstruit ici
+		// rendrait indécidable « ce document a-t-il été validé ? ».
+		//
+		// On cherche la forme APPELÉE (`nom(`) et l'IMPORT, comme le fait
+		// `roundtrip.test.ts` : la prose des commentaires nomme légitimement `deepFreeze`
+		// pour dire qu'on ne l'appelle pas, et un test qui refuserait jusqu'à son nom
+		// interdirait d'expliquer la règle à l'endroit où elle s'applique.
+		expect(source).not.toMatch(/deepFreeze\(/)
+		expect(source).not.toMatch(/Object\.(freeze|seal)\(/)
+		expect(source).not.toMatch(/from\s+['"]\.\/dossier\/freeze['"]/)
+		// Discriminant du motif : sans cette ligne, les trois assertions passeraient
+		// aussi sur un fichier vide ou mal lu.
+		expect(source).toMatch(/validateDossier\(/)
+	})
+
+	it('rend un dossier gele en profondeur, et jamais l objet recompose', () => {
+		const { dossiers } = setup()
+		const dossier = dossiers.create('Le Sceau')
+		let mondeRendu: unknown = null
+
+		const ecriture = dossiers.update(dossier.id, (d) => {
+			mondeRendu = d.monde
+			return corpsAvecCanon(d, { interdits_ton: ['Pas d’anachronismes modernes.'] })
+		})
+
+		expect(ecriture.statut).toBe('ecrit')
+		if (ecriture.statut !== 'ecrit') return
+		expect(Object.isFrozen(ecriture.dossier)).toBe(true)
+		expect(Object.isFrozen(ecriture.dossier.canon)).toBe(true)
+		expect(Object.isFrozen(ecriture.dossier.canon.interdits_ton)).toBe(true)
+		expect(Object.isFrozen(ecriture.dossier.monde.lieux[0])).toBe(true)
+		// DISCRIMINANT : c'est bien le CLONE du validateur qui ressort et qui est
+		// persisté, pas la structure que la recette a passée en l'état — sans quoi le
+		// gel porterait sur un objet que l'appelant tient encore par référence.
+		expect(mondeRendu).not.toBeNull()
+		expect(ecriture.dossier.monde).not.toBe(mondeRendu)
+	})
+})
+
+/**
+ * `compterMots` — la fonction que l'avertissement du validateur et le compteur
+ * affiché sous un champ de saisie (n° 3) partagent. Elle est éprouvée ICI plutôt
+ * que dans `dossier/validate.test.ts` : le plan d'itération réserve ce fichier-là
+ * à un autre lot, et l'ACCORD qu'on veut prouver — même compte des deux côtés —
+ * passe de toute façon par `update`.
+ */
+describe('compterMots, le compteur partage', () => {
+	beforeEach(() => window.localStorage.clear())
+
+	it('rend 0 sur une chaine vide et s accorde avec le seuil d avertissement', () => {
+		expect(compterMots('')).toBe(0)
+		// Une suite d'espaces n'est pas un mot — sinon le compteur d'écran afficherait
+		// « 1/600 » sur un champ que le validateur tient pour vide.
+		expect(compterMots('   \n\t ')).toBe(0)
+		expect(compterMots('un')).toBe(1)
+		expect(compterMots('  deux   mots  ')).toBe(2)
+
+		const aLaBorne = texteDe(BUDGET_MOTS_CANON)
+		const unDeTrop = texteDe(BUDGET_MOTS_CANON + 1)
+		expect(compterMots(aLaBorne)).toBe(BUDGET_MOTS_CANON)
+		expect(compterMots(unDeTrop)).toBe(BUDGET_MOTS_CANON + 1)
+
+		// L'ACCORD, éprouvé aux DEUX bornes (KR-165) : ce que le compteur affiche et
+		// ce qui déclenche `texte-trop-long` sont le même décompte. Réimplémenté à
+		// l'écran, le compteur dériverait en silence de la borne qui décide.
+		const { dossiers } = setup()
+		const dossier = dossiers.create('Le Sceau')
+
+		const juste = dossiers.update(dossier.id, (d) => corpsAvecCanon(d, { mj: { synopsis_mj: aLaBorne } }))
+		expect(juste.statut).toBe('ecrit')
+		if (juste.statut !== 'ecrit') return
+		expect(juste.warnings).toEqual([])
+
+		const trop = dossiers.update(dossier.id, (d) => corpsAvecCanon(d, { mj: { synopsis_mj: unDeTrop } }))
+		expect(trop.statut).toBe('ecrit')
+		if (trop.statut !== 'ecrit') return
+		expect(trop.warnings.map((avertissement) => avertissement.code)).toEqual(['texte-trop-long'])
 	})
 })

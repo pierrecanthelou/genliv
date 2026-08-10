@@ -19,3 +19,7 @@ export { TargetPicker, type TargetPickerProps } from './TargetPicker'
 export { Select, type SelectProps, type SelectOption } from './Select'
 export { ImageUpload, type ImageUploadProps } from './ImageUpload'
 export { ListRow, type ListRowProps } from './ListRow'
+// Promu depuis `features/dossier-format/components/` à son SECOND consommateur
+// réel (KR-109) : le rapport d'anomalies de l'import (n° 1) et le bandeau de refus
+// d'écriture du formulaire de canon (n° 3) rendent la même anatomie à trois lignes.
+export { IssueList, type IssueListProps } from './IssueList'

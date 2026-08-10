@@ -1,0 +1,9 @@
+# Tour 2 — PM — `dossier-canon` it1
+
+RISQUE — Le vrai risque produit est ailleurs que le compteur : un refus d'`update()` qui **réinitialise** le `<textarea>` à la valeur persistée détruit du texte que l'auteur vient de taper, sur le tout premier écran d'écriture de toute la feature. C'est le risque que je porte (défense de l'auteur), pas une question d'ARIA.
+
+OBJECTION — Je **retire** mon « polish différé » du tour 1 sur `BUDGET_MOTS_CANON`. J'ai objecté sans avoir confronté `specification.json` déjà validé : le critère d'acceptation #3 (« … l'avertissement est rendu à l'écran par au moins un test composant — jamais retourné par le service puis silencieusement jeté ») et `design_contract.bornes_de_longueur` sont écrits, actés, et portent précisément sur `canon.mj`/`canon.partage` — les deux champs qu'aucune des 3 autres itérations ne retouchera. Différer le compteur rendrait ce critère invérifiable pour toute la feature, pas seulement pour it1 : c'est exactement la réouverture d'une décision close que je signale d'habitude chez les autres rôles (CLAUDE.md, point 7). Je me l'applique à moi-même.
+
+PROPOSITION — Compteur `BUDGET_MOTS_CANON` **dans le périmètre d'it1**, sur les deux champs nommés par le contrat, texte seul (`--bad` au-delà, jamais de bordure — déjà écrit). Sur le refus : je penche pour la position UX (rien n'est réinitialisé, le `Field` garde ce que l'auteur a tapé) — un revert silencieux est une perte de travail, et le critère #2 ne contraint que le document relu, jamais le contenu du champ à l'écran ; c'est un objet, pas un veto, tech-lead tranche l'implémentation. Sur `role="status"` : le critère #3 exige « rendu à l'écran », pas un rôle ARIA précis — QA doit tester ce qui est écrit, pas une préférence non actée ; à confirmer par UX avant que QA fige ses 8 tests nommés.
+
+VERDICT — recevable.
