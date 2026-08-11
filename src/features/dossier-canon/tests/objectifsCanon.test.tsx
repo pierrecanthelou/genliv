@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createBrain, BrainProvider, type Brain, type Dossier, type Objectif } from '../../../brain'
+import { createBrain, BrainProvider, type Brain, type Dossier, type Objectif, type Personnage } from '../../../brain'
 import { ObjectifsCanon } from '../components/ObjectifsCanon'
 import { PanneauCanon } from '../components/PanneauCanon'
 
@@ -9,9 +9,12 @@ import { PanneauCanon } from '../components/PanneauCanon'
  * distingue des panneaux Canon/Départ et que ces tests éprouvent : DEUX régimes
  * d'édition dans la MÊME carte (`camp` sans brouillon, comme `lieu_id` en it2 ;
  * `nom`/`…_texte` en brouillon indexé par `objectif.id`, comme le canon en it1) ;
- * AUCUN état de refus (structurellement inatteignable depuis cette UI) ; et un
- * avertissement DÉRIVÉ (`useMemo` sur `dossier`), visible aussi bien au montage
- * d'un dossier déjà non conforme qu'après une édition de session (KR-183).
+ * un avertissement DÉRIVÉ (`useMemo` sur `dossier`), visible aussi bien au
+ * montage d'un dossier déjà non conforme qu'après une édition de session
+ * (KR-183) ; et, depuis le lot 3 de l'itération 1 de `dossier-fiches`, un état
+ * de refus RÉEL : `monde.personnages[].objectif_id` est une entrée de
+ * `REFERENCES_SIMPLES`, donc retirer un objectif encore référencé par un
+ * personnage est bloqué au SSOT — la carte doit rendre ce refus, pas l'avaler.
  */
 
 function renderPanel(brain: Brain, dossierId: string) {
@@ -32,6 +35,21 @@ function semerObjectif(brain: Brain, dossierId: string, objectif: Objectif): Dos
 	const ecriture = brain.dossiers.update(dossierId, (d) => ({
 		canon: { ...d.canon, objectifs: [...d.canon.objectifs, objectif] },
 		monde: d.monde,
+		charpente: d.charpente,
+	}))
+	if (ecriture.statut !== 'ecrit') throw new Error(`Seed refuse par le validateur : ${ecriture.statut}`)
+	return ecriture.dossier
+}
+
+/**
+ * Sème un personnage par le CHEMIN PUBLIC d'écriture, même précédent que
+ * `semerObjectif` (repris de `panneauPersonnages.test.tsx`, lot 2) : c'est le
+ * seul chemin qui fait passer la fixture par le validateur.
+ */
+function semerPersonnage(brain: Brain, dossierId: string, personnage: Personnage): Dossier {
+	const ecriture = brain.dossiers.update(dossierId, (d) => ({
+		canon: d.canon,
+		monde: { ...d.monde, personnages: [...d.monde.personnages, personnage] },
 		charpente: d.charpente,
 	}))
 	if (ecriture.statut !== 'ecrit') throw new Error(`Seed refuse par le validateur : ${ecriture.statut}`)
@@ -155,6 +173,109 @@ describe('ObjectifsCanon', () => {
 		expect(lire(brain, dossier.id).canon.objectifs).toHaveLength(0)
 		expect(screen.queryByRole('dialog')).toBeNull()
 		expect(screen.queryByRole('textbox', { name: /nom de l.objectif/i })).toBeNull()
+	})
+
+	it('retirer un objectif reference par un personnage est refuse: objectif conserve, bandeau de refus role status', async () => {
+		// Critere #6 du plan : trois assertions comptent — un test qui ne verifie
+		// que le bandeau laisserait passer une suppression optimiste de la liste
+		// locale (KR-183, forme du refus epinglee par validate.test.ts).
+		const user = userEvent.setup()
+		const brain = createBrain()
+		const dossier = brain.dossiers.create('Un dossier')
+		semerObjectif(brain, dossier.id, OBJECTIF_VIDE)
+		semerPersonnage(brain, dossier.id, {
+			id: 'pnj.aldur-le-sage',
+			nom: 'Aldûr le Sage',
+			portee: 'premier',
+			plan_actions: [],
+			savoirs: [],
+			objectif_id: OBJECTIF_VIDE.id,
+		})
+		renderPanel(brain, dossier.id)
+
+		await user.click(screen.getByRole('button', { name: "Retirer l'objectif n°1" }))
+
+		// (1) l'ecriture est refusee : rien n'est persiste.
+		expect(lire(brain, dossier.id).canon.objectifs).toHaveLength(1)
+		// (2) l'objectif reste dans la liste rendue.
+		expect(screen.getByRole('textbox', { name: /nom de l.objectif/i })).toBeInTheDocument()
+		// (3) le bandeau de refus l'affiche, region role="status" distincte.
+		const bandeau = screen.getByRole('status')
+		expect(bandeau).toHaveTextContent("CE CHANGEMENT N'A PAS ÉTÉ ENREGISTRÉ")
+		expect(bandeau).toHaveTextContent('Aldûr le Sage')
+		expect(bandeau).toHaveTextContent(/objectif_id/)
+	})
+
+	it('un succes sur un AUTRE objectif ne fait pas disparaitre un refus non resolu (BUG-061)', async () => {
+		// DISCRIMINANT : seul un etat de refus INDEXE par objectif distingue ce cas
+		// d'un etat global — refus sur A (objectif.gouffre, reference par un
+		// personnage), succes sur B (objectif.second, sans rapport) : A doit rester
+		// refuse et visible. Meme famille que BUG-061 (PanneauLieux/RefusEnCours) et
+		// BUG-056 (PanneauCanon) : un succes sur une AUTRE entite ne doit jamais
+		// effacer un refus non resolu.
+		const user = userEvent.setup()
+		const brain = createBrain()
+		const dossier = brain.dossiers.create('Un dossier')
+		semerObjectif(brain, dossier.id, OBJECTIF_VIDE)
+		semerObjectif(brain, dossier.id, { ...OBJECTIF_VIDE, id: 'objectif.second' })
+		semerPersonnage(brain, dossier.id, {
+			id: 'pnj.aldur-le-sage',
+			nom: 'Aldûr le Sage',
+			portee: 'premier',
+			plan_actions: [],
+			savoirs: [],
+			objectif_id: OBJECTIF_VIDE.id,
+		})
+		renderPanel(brain, dossier.id)
+
+		// Echec sur A (n°1, objectif.gouffre) : refuse, bandeau affiche.
+		await user.click(screen.getByRole('button', { name: "Retirer l'objectif n°1" }))
+		expect(screen.getByRole('status')).toHaveTextContent("CE CHANGEMENT N'A PAS ÉTÉ ENREGISTRÉ")
+
+		// Succes sur B (n°2, objectif.second) : une saisie de nom committe sans etre refusee.
+		const champsNom = screen.getAllByRole('textbox', { name: /nom de l.objectif/i })
+		fireEvent.change(champsNom[1], { target: { value: 'Objectif second renomme' } })
+		fireEvent.blur(champsNom[1])
+
+		expect(lire(brain, dossier.id).canon.objectifs.find((o) => o.id === 'objectif.second')?.nom).toBe(
+			'Objectif second renomme',
+		)
+		// Le refus sur A n'est PAS resolu par ce succes : il reste affiche.
+		expect(lire(brain, dossier.id).canon.objectifs).toHaveLength(2)
+		const bandeau = screen.getByRole('status')
+		expect(bandeau).toHaveTextContent("CE CHANGEMENT N'A PAS ÉTÉ ENREGISTRÉ")
+		expect(bandeau).toHaveTextContent('Aldûr le Sage')
+	})
+
+	it('un succes sur le MEME objectif refuse efface le bandeau (echec puis succes)', async () => {
+		// Symetrique du test precedent : sans lui, un etat qui n'efface JAMAIS
+		// passerait aussi. Les deux ensemble sont discriminants, ni l'un ni
+		// l'autre seul (KR-183, motif BUG-056/BUG-061).
+		const user = userEvent.setup()
+		const brain = createBrain()
+		const dossier = brain.dossiers.create('Un dossier')
+		semerObjectif(brain, dossier.id, OBJECTIF_VIDE)
+		semerPersonnage(brain, dossier.id, {
+			id: 'pnj.aldur-le-sage',
+			nom: 'Aldûr le Sage',
+			portee: 'premier',
+			plan_actions: [],
+			savoirs: [],
+			objectif_id: OBJECTIF_VIDE.id,
+		})
+		renderPanel(brain, dossier.id)
+
+		// Echec : le retrait de l'objectif reference est refuse, le bandeau s'allume.
+		await user.click(screen.getByRole('button', { name: "Retirer l'objectif n°1" }))
+		expect(screen.getByRole('status')).toHaveTextContent("CE CHANGEMENT N'A PAS ÉTÉ ENREGISTRÉ")
+
+		// Succes : une saisie de nom sur ce meme objectif committe sans etre refusee.
+		const champNom = screen.getByRole('textbox', { name: /nom de l.objectif/i })
+		fireEvent.change(champNom, { target: { value: 'Objectif corrige' } })
+		fireEvent.blur(champNom)
+
+		expect(lire(brain, dossier.id).canon.objectifs[0].nom).toBe('Objectif corrige')
+		expect(screen.queryByRole('status')).toBeNull()
 	})
 
 	it('un objectif deja non conforme (texte sans expr jumeau) affiche l avertissement des le montage, sans edition', () => {

@@ -1,0 +1,77 @@
+﻿{
+	"_about": "Les defauts de la feature dossier-canon (roadmap n° 3), terminee le 2026-08-11 en 0.6.16 (4/4). Scindee de bug_history.json au franchissement du plafond de contexte, lors de dossier-fiches it1 (0.6.17) -- et dans SON PROPRE fichier plutot que dans bug_history.features-terminees.json, parce que ses BUG-055 a BUG-058 entrent en collision d'identifiant avec ceux de dossier-format deja archives la-bas (collision pre-existante, journalisee en BUG-062, non corrigee : renumeroter casserait des citations deja livrees). PROCHAIN ID LIBRE = max(BUG-xxx) des QUATRE fichiers bug_history*.json (bug_history.json, bug_history.features-terminees.json, bug_history.dossier-canon.json, bug_history.0.5.json), jamais le max du seul fichier qu'on edite -- a verifier par grep des quatre, pas par memoire (BUG-062).",
+	"bugs": [
+		{
+			"id": "BUG-055",
+			"date": "2026-08-10",
+			"feature": "dossier-canon",
+			"discovered_at": "iteration-1",
+			"symptom": "PanneauCanon.commit() ecrivait les QUATRE champs du canon a chaque blur, depuis un brouillon seme UNE FOIS au montage. Si une reconciliation cloud adoptait un canon plus recent apres le montage (dossier:opened arme le pull, sans garde d identifiant cote useOpenDossier), le PREMIER blur suivant — meme sur un champ non touche — ecrasait silencieusement les champs adoptes avec les copies perimees du brouillon.",
+			"root_cause": "Le plan d iteration justifiait l absence de resynchronisation du brouillon par « la meme garde que useOpenDossier applique deja contre un echo de reconciliation cloud » — garde qui n existe pas : brain/hooks.ts relit inconditionnellement a chaque dossier:updated, sans filtre sur l identifiant ni l origine. Le comite a signe sur un precedent verifie faux, trouve par la revue de PR (tech-lead) plutot qu au raffinage.",
+			"fix": "commit() prend un PATCH ETROIT (Partial<Brouillon>) au lieu du brouillon complet ; les champs non patches viennent du canon PERSISTE au moment de l ecriture (d.canon dans la recette), jamais du brouillon local. La decision deja arbitree (aucun revert du champ edite apres un refus) n a pas ete rouverte.",
+			"mitigation": "Residu assume, documente en commentaire au site de commit() : si LE CHAMP EDITE lui-meme change a distance pendant la frappe, ce commit ecrase encore l adoption sur ce champ — dernier-ecrit-gagne, le comportement attendu d une edition, pas un bug.",
+			"regression_test": "src/features/dossier-canon/tests/panneauCanon.test.tsx — « blur sur un champ ne reecrit pas un autre champ adopte entre-temps (MAJEUR 1, revue de PR) »",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-056",
+			"date": "2026-08-10",
+			"feature": "dossier-canon",
+			"discovered_at": "iteration-1",
+			"symptom": "Introduit par le correctif de BUG-055 lui-meme, trouve au tour 2 de la revue de PR (avant tout commit) : apres le passage au patch etroit, setRefus(statut==='refuse' ? errors : null) effacait le bandeau de refus des qu UN commit reussissait, meme sur un champ DIFFERENT de celui refuse. Vider le synopsis (refus, bandeau affiche) puis simplement traverser le formulaire au Tab (blur sur ton, qui reussit) faisait disparaitre le bandeau alors que le synopsis restait vide et non enregistre — plus aucun signal.",
+			"root_cause": "La regle « ecrit efface le refus precedent » datait du commit-brouillon-complet (ou un succes voulait dire les quatre champs acceptes) et n a pas ete revue en meme temps que le patch etroit de BUG-055 - un correctif qui change la granularite d une ecriture doit revoir tout ce qui raisonne sur son resultat, pas seulement son propre chemin.",
+			"fix": "Le refus est desormais indexe sur les champs du patch qui l a produit (type Refus = {champs, issues}). Un commit reussi n efface le bandeau que s il touche au moins un des champs deja en cause.",
+			"mitigation": "Nouveau test explicite : refus sur synopsis_mj, commit reussi sur ton (bandeau doit rester), puis commit reussi sur synopsis_mj (bandeau doit disparaitre).",
+			"regression_test": "src/features/dossier-canon/tests/panneauCanon.test.tsx — « le bandeau de refus sur un champ survit a un commit reussi sur un AUTRE champ (revue de PR, tour 2) »",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-057",
+			"date": "2026-08-10",
+			"feature": "dossier-canon",
+			"discovered_at": "iteration-3",
+			"symptom": "La compaction de code-knowledge.json (plafond 75 KiB franchi apres ajout de KR-188/189) a reduit 28 KR de features supprimees a un rappel d'une ligne 'code inexistant, ce risque n'a plus d'objet' -- faux pour 16 d'entre elles, dont l'invariant vit toujours au SSOT (BookService.ts, kinds.ts, tree.ts, ObjectEditor.tsx...) et que CLAUDE.md cite nommement (KR-055, KR-067) comme regles non negociables.",
+			"root_cause": "Selection de compaction faite sur le label feature seul (feature supprimee = risque compactable) sans grep prealable des citations du KR dans src/**.",
+			"fix": "Texte original restaure pour les 16 KR encore cites en code vivant ou motif generique reutilisable, chacun complete d'un pointeur vers son SSOT actuel. Les 13 sans citation gardent la forme compactee.",
+			"mitigation": "KR-155 etendu : toute compaction fondee sur une feature supprimee grep d'abord l'id du KR dans src/**, jamais le label feature seul.",
+			"regression_test": "aucun (doc) -- verifie par grep manuel (tech-lead PR review) et re-mesure wc -c",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-058",
+			"date": "2026-08-10",
+			"feature": "dossier-canon",
+			"discovered_at": "iteration-3",
+			"symptom": "ObjectifsCanon.tsx, handleChangeChamp spreadait prev[id] sans garde d'absence -- si un objectif existe dans dossier.canon.objectifs sans entree de brouillon correspondante, les deux autres champs du brouillon deviennent undefined (Field controle -> non controle), risque de perte de prose deja enregistree au blur suivant.",
+			"root_cause": "Le chemin de rendu etait deja garde (brouillons[id] ?? brouillonDe(objectif)), le chemin de mutation ne l'etait pas -- une seule moitie du meme etat local protegee.",
+			"fix": "handleChangeChamp reconstruit un brouillon complet via brouillonDe(objectif) quand prev[id] est absent, avant d'y appliquer le champ edite.",
+			"mitigation": "Tout etat local derive d'une collection externe doit porter la meme garde d'absence sur lecture ET mutation.",
+			"regression_test": "aucun test dedie -- non atteignable par les flux livres cette iteration (tout objectif nait via handleAjouter, brouillon seme en synchrone) ; dette assumee.",
+			"severity": "minor"
+		},
+		{
+			"id": "BUG-061",
+			"date": "2026-08-11",
+			"feature": "dossier-canon",
+			"discovered_at": "iteration-4",
+			"symptom": "PanneauLieux.commit() posait un refus GLOBAL au panneau (setRefus({issues}) sans lieuId), rendu inconditionnellement sous la fiche du lieu SELECTIONNE. Sequence : retirer le lieu de charpente.depart.lieu_id (refuse, bandeau affiche sous sa fiche) puis selectionner un AUTRE lieu (simple changement de selection, aucun commit) laissait le bandeau CE CHANGEMENT N A PAS ETE ENREGISTRE affiche sous la fiche du second lieu, qui n avait rien vu refuser.",
+			"root_cause": "Meme famille que BUG-056 (dossier-canon it1) : un etat de refus non indexe survit a un evenement qui ne devrait pas le concerner. Ici l evenement fautif n est meme pas une ECRITURE (BUG-056 : un commit reussi sur un autre champ) mais un simple changement de SELECTION locale, qui ne passe jamais par commit() et ne pouvait donc pas etre intercepte par la regle deja posee a it1/it2 (effacer sur ecriture reussie). Trouve au tour 2 de la revue de PR : le correctif du tour 1 (filtrage a l affichage) laissait un second angle mort symetrique -- un commit REUSSI sur un AUTRE lieu effacait encore le refus non resolu, l invalidation etant restee globale pendant que l affichage devenait indexe.",
+			"fix": "Le refus est desormais { lieuId, issues }, pose par commit(lieux, lieuId) avec l id du lieu dont l ecriture a echoue. Au rendu, refusAffiche ne vaut { issues } que si refus.lieuId === lieuAffiche.id -- filtrage fait dans PanneauLieux.tsx, FicheLieu.tsx reste un composant de rendu pur qui ne compare jamais d id lui-meme. Deuxieme moitie (tour 2) : setRefus prend desormais la forme fonctionnelle et ne remet a null sur un succes QUE si le lieu du commit reussi est celui deja en cause -- un succes sur un lieu different laisse le refus non resolu intact, meme lorsqu il n est pas affiche.",
+			"mitigation": "Trouve par la revue de PR (tech-lead) avant tout commit, sur le diff stage, en deux tours. Tout futur panneau combinant une liste selectionnable ET un etat de refus doit indexer ce refus par l entite qui l a produit A LA FOIS a l affichage ET a l invalidation -- les deux angles morts sont symetriques et doivent etre corriges ensemble, pas l un a un tour de revue de retard sur l autre.",
+			"regression_test": "src/features/dossier-canon/tests/panneauLieux.test.tsx - le bandeau de refus ne suit pas une autre fiche apres un changement de selection (BUG-061) ; un commit reussi sur un AUTRE lieu ne fait pas disparaitre le refus non resolu (BUG-061, meme famille que BUG-056)",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-063",
+			"date": "2026-08-11",
+			"feature": "dossier-canon",
+			"discovered_at": "regression",
+			"symptom": "Dans ObjectifsCanon.tsx, le bandeau de refus disparaissait au premier commit REUSSI venu, meme sur un objectif sans rapport avec celui qui avait ete refuse. Sequence : le retrait de l objectif A (referenced par le objectif_id d un personnage) est refuse, bandeau affiche ; l auteur edite ensuite le nom de l objectif B ; le bandeau part alors que A n a toujours pas ete retire et que plus rien ne le signale. Trouve par la QA en mode B (verification post-essaim), par une sonde a deux objectifs distincts -- constate empiriquement, pas deduit du code.",
+			"root_cause": "L etat de refus etait un DossierIssue[] | null GLOBAL a la carte, non indexe par objectif, justifie en commentaire par 'cette carte n a pas de selection par element'. Ce raisonnement est vrai pour l AFFICHAGE (le bandeau se montre au niveau de la carte, il nomme deja le personnage porteur et le champ fautif) et FAUX pour l INVALIDATION, qui ne parle pas de selection mais de 'quelle ecriture effacee quel refus'. Troisieme occurrence de la meme classe : BUG-056 (PanneauCanon, invalidation par champ) puis BUG-061 (PanneauLieux, les deux indexations, par lieuId).",
+			"fix": "src/features/dossier-canon/components/ObjectifsCanon.tsx : refus devient RefusEnCours { objectifId, issues } indexe, patron repris de PanneauLieux.tsx (BUG-061). commit(objectifs, objectifId) prend l objectif EN CAUSE en second parametre, nomme par chacun de ses quatre appelants (handleAjouter passe le nouvel objectif, handleRetirer/handleChangeCamp/handleBlurChamp passent l objectif touche). Un succes n efface le refus que si refusPrecedent.objectifId === objectifId. L affichage reste au niveau de la carte -- seule l invalidation est indexee.",
+			"mitigation": "KR-197 ajoute a code-knowledge.json : tout etat de refus porte l identifiant de l entite en cause, et le test qui le prouve exige DEUX entites distinctes. Un test mono-entite (refus sur A puis succes sur A) ne distingue pas un correctif d une regression -- c est precisement ce que le premier test livre par le lot 3 faisait, d ou une reserve QA sur un lot deja vert.",
+			"regression_test": "src/features/dossier-canon/tests/objectifsCanon.test.tsx -- it('un succes sur un AUTRE objectif ne fait pas disparaitre un refus non resolu (BUG-061)') ET it('un succes sur le MEME objectif refuse efface le bandeau (echec puis succes)'). Discriminance prouvee : la reintroduction de l effacement global fait rougir le premier seul (1 rouge sur 14), le second restant vert.",
+			"severity": "major"
+		}
+	]
+}

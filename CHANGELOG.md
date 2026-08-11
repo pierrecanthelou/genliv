@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.6.17 — un personnage se situe avant de parler
+
+`dossier-fiches` itération 1/5 (**première itération de la feature**, roadmap n° 4 — « l'écran le plus important du produit »). L'auteur crée un personnage, lui donne un nom, choisit son camp et son plan, et le rattache optionnellement à un objectif du canon. La section Personnages n'est plus un état vide.
+
+- **`Personnage` étendu** : `camp?: CampPersonnage` et `objectif_id?: string`, tous deux optionnels et destination `'moteur'`. `CAMPS_PERSONNAGE` (`protagoniste`/`antagoniste`) est un registre **distinct** de `CAMPS`/`Camp` (les objectifs du canon) et ne fusionnera pas : `joueur` est un camp d'objectif, et le joueur n'est pas une entrée de `monde.personnages[]`.
+- **`camp` optionnel, jamais requis** (KR-191) — contrairement à `Objectif.camp` : `monde.personnages[]` existe depuis `dossier-format` et `schema: 1` n'a aucun chemin de migration, donc un champ requis invaliderait rétroactivement tout dossier déjà persisté.
+- **`validate.ts` n'a pas été touché** : les deux entrées neuves sont des lignes de `ENUMERES_FERMES` et `REFERENCES_SIMPLES`, balayées par des boucles génériques. Une entrée de schéma est une ligne de table, plus une branche de code.
+- **`PanneauPersonnages` + `FichePersonnage` + `Accordion`** (composant local, un seul consommateur, jamais promu à `brain/` — KR-109) : accordéon à 8 emplacements dont le premier est rempli, les 7 autres nommant l'itération qui les livrera. Le retour au bloc 1 au changement de personnage passe par `key={personnage.id}`, jamais par un `useEffect`.
+- **`SegmentedControl<T>.value` élargi à `T | undefined`** — additif, `onChange` inchangé : `undefined` réutilise l'état inactif natif, zéro CSS neuf, les deux appelants existants compilent sans changement.
+- **Absence de clé, jamais chaîne vide** : « aucun objectif » supprime `objectif_id` au lieu d'écrire `''`, et un camp non choisi n'écrit rien. Le validateur ignore silencieusement une référence vide — seul un test dédié attrape la faute, il est écrit des deux côtés.
+- **BUG-063** (trouvé par la QA en mode B, sur un lot déjà vert) : dans `ObjectifsCanon.tsx`, le bandeau de refus s'effaçait au premier commit réussi venu, même sur un objectif sans rapport. Troisième occurrence de la même classe après BUG-056 et BUG-061 — d'où **KR-197** : un bandeau de refus porte **deux** indexations, l'affichage et l'invalidation, et le test qui le prouve exige **deux entités distinctes**.
+- **Scission de `bug_history.json`** au franchissement du plafond de contexte : les défauts de `dossier-canon` (terminée) partent dans `bug_history.dossier-canon.json` — un fichier **propre à la feature** plutôt que l'archive commune, parce que ses BUG-055 à 058 y auraient collisionné avec ceux de `dossier-format` (BUG-062). Prochain id libre = max des **quatre** fichiers.
+- **`KR-198` — `objectif_id` n'est pas l'identifiant du bloc `objectif`** : le but propre du personnage arrive à it3 sous la clé **`but`**, jamais `objectif`. Décision prise ici et non différée, parce que `schema: 1` n'a aucun chemin de migration : `objectif_id` part en persistance dès ce commit, la clé d'it3 est encore libre. Deux clés `objectif*` voisines auraient rejoué la collision `plan` / `plan_actions`, classée correction irréversible.
+- **`code-knowledge.json`** : le cadrage de la feature y a compacté ~4,2 kio (KR-062, 063, 067, 090 raccourcis) en même temps qu'il ajoutait 8 KR neufs — d'où un net de +535 o seulement. Consigné ici parce que rien ne le disait, et que l'écart entre les deux chiffres se relit comme une erreur de mesure.
+- 65 suites / 887 tests. Score de mutation sans objet (aucun des 4 fichiers mutés touché).
+
 ## 0.6.16 — un lieu existe avant qu'on le choisisse
 
 `dossier-canon` itération 4/4 (**dernière itération de la feature**). L'auteur consigne les lieux de son aventure — nom, description, ambiance, dangers — dans une liste de fiches à gauche du panneau, en crée, en modifie, en retire.

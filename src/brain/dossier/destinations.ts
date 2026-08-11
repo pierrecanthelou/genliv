@@ -88,6 +88,18 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	'monde.personnages[].nom': 'auteur',
 	// Premier ou second plan : une classification de profondeur de simulation.
 	'monde.personnages[].portee': 'moteur',
+	// De quel côté ce personnage joue. `moteur`, et la question s'est posée contre
+	// `ia` : le camp d'un PNJ est un SPOILER, pas du décor. Un narrateur qui sait
+	// qu'un personnage est antagoniste le joue hostile avant que la scène ne l'ait
+	// révélé — exactement ce que `canon.objectifs[].camp` cache déjà pour la même
+	// raison. Ce que le modèle doit savoir d'un antagoniste, ce sont ses moyens
+	// (`plan_actions[].action`), jamais son étiquette.
+	'monde.personnages[].camp': 'moteur',
+	// Un identifiant est un HANDLE technique : il est résolu par le code, jamais
+	// injecté tel quel — même règle que tous les `.id` et que
+	// `charpente.depart.lieu_id`. Ce que l'assembleur n° 10 en tirera est le CONTENU
+	// de l'objectif rattaché, sous l'audience de l'objectif, pas cette clé.
+	'monde.personnages[].objectif_id': 'moteur',
 	'monde.personnages[].plan_actions[].etape': 'moteur',
 	// L'intention du personnage à cette étape — c'est ce que le rôle acteur joue,
 	// et la seule raison d'être d'un plan d'actions. SEULE clé `ia` de la famille :

@@ -104,12 +104,12 @@
 		{
 			"id": "KR-062",
 			"feature": "choice-linking",
-			"risk": "Hidden prerequisite references an acquirable object by STABLE id, not by name; a dangling reference (the object was deleted, or none is chosen yet) must be DETECTED and surfaced, never silently treated as true/false. IMPLEMENTED (choice-linking iter 3) against a DERIVED catalog, not an owned store: brain/utils/objects.ts `collectObjects(book)` is a pure VIEW (KR-020) that unions every acquirable object already authored on a node (dÃ©cor Â« prendre Â» takeables incl. the deprecated single `object`, the PNJ gift, the monster loot), de-duped by id â€” objects stay owned where they are authored (no separate ObjectCatalogService to desync), and the catalog is recomputed inline (KR-013). The rule lives on the choice EDGE as `Edge.prereq?: { objectId }` (`'' ` = chosen-but-unconfigured), persisted via BookService.updateEdge (EdgePatch `prereq: ChoicePrereq | null`, where null CLEARS the rule and an omitted key leaves it untouched â€” mirrors the label-drop pattern). The SSOT stores intent only; the VIEW validates the id against `collectObjects` / `findObject` and shows âŠ˜ when it resolves, âš  when it dangles. A future owned catalog (if objects ever need reuse independent of a node) can replace `collectObjects` transparently since everything already references by id. Feature choice-linking supprimee le 2026-08-03 ; l invariant vit au SSOT (src/brain/BookService.ts, src/brain/tree.ts, src/brain/utils/objects.ts), conserve jusqu a sa demolition prevue en n9."
+			"risk": "Hidden prerequisite references an acquirable object by STABLE id, never by name; a dangling reference must be surfaced, never silently true/false. Resolved against a DERIVED catalog (collectObjects(book), pure VIEW, KR-020), never an owned store. Feature choice-linking supprimee le 2026-08-03 ; l'invariant vit au SSOT (src/brain/BookService.ts, src/brain/tree.ts, src/brain/utils/objects.ts), conserve jusqu'a sa demolition prevue en n9. Detail historique (Edge.prereq, EdgePatch, resolution âš /âŠ˜) : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant la suppression."
 		},
 		{
 			"id": "KR-063",
 			"feature": "choice-linking",
-			"risk": "Countdown fallback + relink targets are node references that can dangle if the target is deleted; run a referential-integrity check and surface broken targets rather than crashing the reader later (re-asserts KR-021). IMPLEMENTED (choice-linking iter 4): the countdown rides Edge.countdown { delay (clamped 5â€“60s via the shared Stepper, default 15), fallback (node id) } via updateEdge (EdgePatch countdown: T | null, independent of label/prereq). ChoiceCountdownEditor mirrors ChoicePrereqEditor and reuses the brain TargetPicker for the fallback (structural/self excluded KR-067, deleted target surfaced). The row runs the referential-integrity sweep over BOTH rules against the LIVE book: prereq vs collectObjects (âŠ˜/âš ), countdown.fallback vs getNode (â± Ns / â± Â« repli manquant Â» for  or deleted). A choice may hold both (KR-065); the play-mode ticking/expiry is out of editor scope. Feature choice-linking supprimee le 2026-08-03 ; l invariant vit au SSOT (src/brain/tree.ts), conserve jusqu a sa demolition prevue en n9."
+			"risk": "Countdown fallback + relink targets are node references that can dangle if the target is deleted; a referential-integrity check surfaces broken targets rather than crashing the reader later (re-asserts KR-021). Feature choice-linking supprimee le 2026-08-03 ; l'invariant vit au SSOT (src/brain/tree.ts), conserve jusqu'a sa demolition prevue en n9. Detail historique (Edge.countdown, ChoiceCountdownEditor, TargetPicker) : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant la suppression."
 		},
 		{
 			"id": "KR-064",
@@ -129,7 +129,7 @@
 		{
 			"id": "KR-067",
 			"feature": "choice-linking",
-			"risk": "Structural screens are never authored choice targets: the Sommaire root has no incoming choices and the Mort leaf is reached ONLY automatically at the end of a combat, never via a choice/relink. Enforce at the SSOT (BookService.addEdge rejects a target whose kind is sommaire/mort) AND in the relink picker (exclude them from candidates), not just one. The automatic combatâ†’Mort link uses a DEDICATED path, not the manual edge API â€” IMPLEMENTED (action-trap iter 2) as a VIEW-DERIVED edge: brain/deriveAutomaticEdges(book) emits a synthetic { kind: 'fatal' } edge from each fatal-trap node (actionType === 'piege' && trap.fatal) to the Mort leaf; the canvas renders authored + derived edges together (resolveEdges([...book.edges, ...derived])). Derived, NEVER stored â€” the config stays the SSOT so the link can't desync and never touches addEdge (KR-020/013). Gate on actionType (the action config key), not node.kind. The same helper generalises to the other deferred outcome targets (monster victoire/fuite/dÃ©faite, PNJ Â« mÃ¨ne Ã  Â»). EXTENDED (action-trap iter 3): deriveAutomaticEdges now has a SECOND fatal source â€” a dÃ©cor Â« prendre Â» takeable whose jet requis is fatal (SkillRoll.fatal) derives the same auto-fatal-<node>â†’Mort edge (trap-on-object). One edge per node (a node has one actionType, so the piÃ¨ge/dÃ©cor branches never both fire); the helper stays brain-side and reads node.decor.objects inline (no action-decor import). The shared roll model is brain SkillRoll; the Â« Variante piÃ¨ge : Ã©chec â†’ mort Â» toggle lives in action-decor ObjectEditModal â€” the two features share only SkillRoll + deriveAutomaticEdges, never import each other. Feature choice-linking supprimee le 2026-08-03 ; l invariant vit au SSOT (src/brain/BookService.ts, src/brain/kinds.ts, src/brain/utils/automaticEdges.ts, src/brain/utils/bookHealth.ts, src/brain/utils/playExport.ts, src/brain/components/TargetPicker.tsx) et reste cite par CLAUDE.md comme regle de domaine non negociable jusqu a la demolition en n9."
+			"risk": "Structural screens are never authored choice targets: the Sommaire root has no incoming choices and the Mort leaf is reached ONLY automatically at the end of a combat, never via a choice/relink. Enforced at the SSOT (BookService.addEdge rejects a sommaire/mort target) and in the relink picker. Feature choice-linking supprimee le 2026-08-03 ; l'invariant vit au SSOT (src/brain/BookService.ts, src/brain/kinds.ts, src/brain/utils/automaticEdges.ts, src/brain/utils/bookHealth.ts, src/brain/utils/playExport.ts, src/brain/components/TargetPicker.tsx) et reste cite par CLAUDE.md comme regle de domaine non negociable jusqu'a la demolition en n9. Detail historique (deriveAutomaticEdges, fatal trap/decor -> Mort) : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant la suppression."
 		},
 		{
 			"id": "KR-068",
@@ -164,7 +164,7 @@
 		{
 			"id": "KR-090",
 			"feature": "action-decor",
-			"risk": "An action-* feature self-registers its editor with the brain ActionRegistry at the composition root (registerActionDecor) and persists its config ON THE NODE document via BookService.updateNode â€” never feature-local state, never a node-editor import (KR-050/051/020). DÃ©cor config lives at node.decor (DecorConfig); NodePatch carries it so updateNode's text-only guard keeps it off structural screens (sommaire/mort, KR-055). The takeable object is captured via the shared brain ObjectEditor (name internal + player-facing description, KR-052) with a stable id minted once via createId (KR-003); embedding it on the node is the skeleton. REUSE-BY-ID across nodes (dÃ©cor iter 3) landed NOT as an owned ObjectCatalogService but as a DERIVED REFERENCE (user decision, the same call as KR-062's derived catalog): a TakeableObject is EITHER Â« own Â» ({ object }) OR a Â« ref Â» ({ objectRef }) reusing an existing catalog object by stable id; `object` is now OPTIONAL on the type, exactly one of object/objectRef set. takeables.ts helpers takeableId / isRefTakeable / resolveTakeableObject(book, t) (own â†’ inline object; ref â†’ findObject(book, objectRef), null = dangling âš  KR-021) keep callers off the optional field. collectObjects SKIPS refs (a ref is not an authoring source â€” its object lives on the owner node), so no phantom catalog entry and no desync (the object stays single-sourced, KR-020). Â« Prendre dans la liste Â» (ReuseObjectPicker) lists collectObjects minus already-present ids and adds a ref; a ref row is READ-ONLY in the dÃ©cor editor (edit the object on its origin node). The ObjectEditModal only ever edits an own takeable. A future owned catalog could still swap in transparently since everything references by id. Feature action-decor supprimee le 2026-08-03 ; le composant qu il documentait (ObjectEditor) vit dans src/brain/components/, designe par le roadmap comme la graine de dossier-objets (n5, 1 ter)."
+			"risk": "Un composant action-* s'enregistrait aupres de brain ActionRegistry a la racine de composition ; feature action-decor supprimee le 2026-08-03. Le composant qu'il documentait, ObjectEditor (nom interne + description joueur, KR-052), vit dans src/brain/components/, designe par la roadmap comme la graine de dossier-objets (n5, § 1 ter). Detail historique (ref/own takeable, reuse-by-id, ReuseObjectPicker) : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant la suppression."
 		},
 		{
 			"id": "KR-091",
@@ -555,6 +555,51 @@
 			"id": "KR-189",
 			"feature": "dossier-canon",
 			"risk": "Un champ portant un avertissement D1 (…_texte sans …_expr, alerteSansExpr:true dans FAMILLES_DE_CONDITIONS) se rend par une lecture DERIVEE - useMemo(() => validateDossier(dossier).warnings.filter(w => w.path.startsWith(<prefixe>)), [dossier]) - jamais un etat seme une fois depuis le resultat de commit() : seule la lecture derivee couvre a la fois le montage (dossier reouvert/importe deja non conforme, aucune edition de session) et l'edition, sans useEffect de resynchronisation (KR-013/113). Rendu dans une region role=\"status\" distincte de tout bandeau de refus - les deux peuvent coexister a l'ecran, donc tout test doit utiliser getAllByRole('status'), jamais getByRole nu. Precedent pose par dossier-canon it3 (ObjectifsCanon.tsx) ; s'applique a toute future carte d'entite portant un champ D1 (dossier-fiches n4 : plan_actions[].declencheur ; dossier-registres n6 : jalons/fins/evenements)."
+		},
+		{
+			"id": "KR-190",
+			"feature": "dossier-fiches",
+			"risk": "Tout ajout au schema personnage touche les MEMES 8 fichiers du lot contrat (types.ts, tables.ts, destinations.ts, validate.ts, __fixtures__/dossier-minimal.json, __fixtures__/dossier-reference.json, couverture.test.ts, validate.test.ts) + brain/index.ts si un symbole nouveau est exporte - deux lots contrat ne peuvent jamais coexister dans une iteration. Les 5 iterations de dossier-fiches sont donc STRICTEMENT SERIELLES : jamais deux dev-contrat en parallele sur des iterations differentes, et un seul lot contrat (seul, en premier) par iteration."
+		},
+		{
+			"id": "KR-191",
+			"feature": "dossier-fiches",
+			"risk": "Personnage.camp (CampPersonnage) est OPTIONNEL, contrairement au precedent Objectif.camp (requis). Motif : monde.personnages[] existe depuis dossier-format n1 (schema 1, aucun chemin de migration) ; un camp requis invaliderait retroactivement tout dossier deja persiste. Distinct de l'exemption KR-188 (aucune UI n'a jamais permis de creer l'entite) - ici l'entite personnage existe deja, seul son editeur est neuf."
+		},
+		{
+			"id": "KR-192",
+			"feature": "dossier-fiches",
+			"risk": "Personnage.stats ne porte NI pv NI tier. pv reste derive a l'affichage via maxPV(FO,AG,EN) (brain/characteristics.ts, KR-130) - jamais stocke, pour ne pas dupliquer une regle de jeu en deux endroits. tier n'a aucun consommateur avant n13 moteur-combat - forme sans producteur (decision A) - reporte, proprietaire n13."
+		},
+		{
+			"id": "KR-193",
+			"feature": "dossier-fiches",
+			"risk": "Le registre brain/dossier/curseurs.ts (CURSEURS) est une donnee de PRESENTATION, pas une regle de jeu - test decisif : si CURSEURS disparait, un jet change-t-il de resultat ? Non, seule une prose change. Donc HORS du score de mutation et HORS de la doctrine table-doree : aucune section de docs/REGLES-DU-JEU.md a citer, un test KR-117 classique (exhaustivite, bornes) suffit. Bascule en regle reelle (migre vers characteristics.ts, sous mutation, sous table doree) le jour ou un code calcule un modificateur numerique depuis le champ affinite - zero import entre curseurs.ts et challenge/combat/xp/characteristics tant que ce jour n'est pas venu."
+		},
+		{
+			"id": "KR-194",
+			"feature": "dossier-fiches",
+			"risk": "relations[].cible_id est la premiere reference AUTO-REFERENTIELLE du schema (un personnage peut se referencer lui-meme) - toleree au SSOT sans garde nouvelle, aucun code ne l'interdit ni ne le filtre au selecteur. A revisiter seulement si un besoin produit reel emerge (aucun aujourd'hui)."
+		},
+		{
+			"id": "KR-195",
+			"feature": "dossier-fiches",
+			"risk": "La destination de Entite.nom (actuellement 'auteur' pour les 8 collections identifiees, personnages compris) n'est PAS rouverte par dossier-fiches malgre le besoin reel qu'un narrateur puisse prononcer le nom d'un personnage a voix haute. Question TRANSVERSE a toutes les entites nommees du dossier (lieux, objectifs, indices, quetes, evenements, jalons, fins), propriete de l'assembleur n10 moteur-interprete - la basculer pour les seuls personnages casserait la symetrie sans decision transverse."
+		},
+		{
+			"id": "KR-196",
+			"feature": "dossier-fiches",
+			"risk": "contre_mesures[] (6e famille de conditions D1) se rend comme une SECTION INTERNE de BlocPlanActions, gated camp==='antagoniste' - jamais un emplacement d'accordeon separe. Un protagoniste ne doit voir ni un etat vide qui ne se remplira jamais, ni une carte manquante cassant la regularite de la grille a 8 entrees. Ses destinations sont deja arbitrees en commentaire dans destinations.ts (fin de fichier) - a materialiser en lignes de table dans le lot contrat d'it3, jamais a redebattre."
+		},
+		{
+			"id": "KR-197",
+			"feature": "dossier-canon",
+			"risk": "Un bandeau de refus porte DEUX indexations distinctes, et les oublier est deux defauts differents sur le meme etat : (a) l'AFFICHAGE - sous quelle entite le bandeau se montre ; (b) l'INVALIDATION - quelle ecriture reussie l'efface. Corriger l'un ne corrige pas l'autre. Meme forme trois fois de suite : BUG-056 (PanneauCanon, invalidation par champ), BUG-061 (PanneauLieux, les deux, par lieuId), BUG-063 (ObjectifsCanon, invalidation par objectifId). Le motif d'erreur est toujours le meme raisonnement : 'cette carte n'a pas de selection par element, donc un etat global suffit' - vrai pour l'affichage, FAUX pour l'invalidation, qui ne parle pas de selection mais de 'quelle ecriture efface quel refus'. Regle : tout etat de refus porte l'identifiant de l'entite en cause ({entiteId, issues}), et un commit reussi n'efface que si sa propre entite est celle en cause. Le test qui le prouve exige DEUX entites distinctes - refus sur A puis succes sur B, le bandeau reste ; un test mono-entite ne distingue pas un correctif d'une regression."
+		},
+		{
+			"id": "KR-198",
+			"feature": "dossier-fiches",
+			"risk": "Personnage.objectif_id (it1, MOTEUR, reference vers canon.objectifs[].id) n'est PAS l'identifiant du but propre du personnage. Ce but arrive a it3 et se nomme `but` {libelle, pourquoi?, echeance?}, JAMAIS `objectif` : deux cles objectif* voisines sur le meme objet rejoueraient la collision plan (l'enumere) / plan_actions (la liste), classee correction IRREVERSIBLE dans l'en-tete de types.ts. Le piege est de COMPREHENSION, pas de mecanique -- les deux chemins sont distincts, rien ne rougira ; il ne se paierait qu'a la n° 10, quand un champ moteur partirait dans un contexte de modele parce qu'un lecteur aurait suppose que les deux objectif* vont ensemble. Decision prise a it1 et non differee a it3, parce que schema:1 n'a aucun chemin de migration (KR-160) : objectif_id est ecrit dans des documents persistes des ce commit et ne se renomme plus, tandis que la cle d'it3 est encore libre."
 		}
 	]
 }

@@ -16,6 +16,7 @@ const FEATURE_DIRS = [
 	'book-library',
 	'cloud-sync',
 	'dossier-canon',
+	'dossier-fiches',
 	'dossier-format',
 	'play-mode',
 	'tree-canvas',

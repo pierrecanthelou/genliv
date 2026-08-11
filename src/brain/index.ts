@@ -143,7 +143,15 @@ export { DOSSIER_SCHEMA, BUDGET_MOTS_CANON, BUDGET_MOTS_JALON, CONFIANCE_MIN, CO
 // seconde source que le validateur ne connaîtrait pas (KR-117). Les LIBELLÉS
 // français, eux, restent côté feature — un seul consommateur réel, précédent
 // `sections.ts` (le glyphe et la feature propriétaire n'ont jamais migré ici).
-export { PORTEES, CERTITUDES, CAMPS } from './dossier/types'
+// `CAMPS_PERSONNAGE` et `PORTEE_INITIALE` sortent à l'itération 1 de la n° 4 :
+// le premier arme le `SegmentedControl` du camp d'une fiche (re-lister
+// « protagoniste / antagoniste » côté feature en ferait une seconde source que le
+// validateur ne connaîtrait pas, KR-117) ; la seconde est écrite dans le document
+// à la création d'un personnage, et une feature qui prendrait `PORTEES[0]` à sa
+// place lierait le plancher du schéma à un ordre d'affichage. Les LIBELLÉS
+// français des deux registres restent côté feature — un seul consommateur réel,
+// précédent `CAMPS` ci-dessus.
+export { PORTEES, PORTEE_INITIALE, CERTITUDES, CAMPS, CAMPS_PERSONNAGE } from './dossier/types'
 export type {
 	Dossier,
 	Canon,
@@ -156,6 +164,7 @@ export type {
 	Portee,
 	Certitude,
 	Camp,
+	CampPersonnage,
 	PlanAction,
 	Revelation,
 	Savoir,

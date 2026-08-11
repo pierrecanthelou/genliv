@@ -11,7 +11,22 @@ export interface SegmentedOption<T extends string> {
 
 export interface SegmentedControlProps<T extends string> {
 	options: SegmentedOption<T>[]
-	value: T
+	/**
+	 * `undefined` = AUCUN segment actif — l'état d'un champ que l'auteur n'a pas
+	 * encore tranché (`Personnage.camp`, optionnel par contrat, KR-191). Élargi à
+	 * l'itération 1 de la n° 4, et de manière purement ADDITIVE : rien ne change
+	 * quand la valeur est définie, et aucune règle de style n'est ajoutée — le
+	 * rendu retombe sur l'état inactif que les segments non sélectionnés portent
+	 * déjà.
+	 */
+	value: T | undefined
+	/**
+	 * Ne peut JAMAIS émettre `undefined`, et cette asymétrie est le contrat : un
+	 * segment cliqué écrit une valeur, il n'en retire pas. Un retour à « non
+	 * renseigné » passerait par une action « effacer » dédiée à côté du contrôle,
+	 * jamais par un troisième segment « Aucun » — celui-ci écrirait dans le
+	 * document une valeur que l'auteur croit avoir effacée.
+	 */
 	onChange: (value: T) => void
 	ariaLabel?: string
 }

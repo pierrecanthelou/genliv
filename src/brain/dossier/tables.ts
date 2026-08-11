@@ -1,4 +1,13 @@
-import { BUDGET_MOTS_CANON, BUDGET_MOTS_JALON, CAMPS, CERTITUDES, CONFIANCE_MAX, CONFIANCE_MIN, PORTEES } from './types'
+import {
+	BUDGET_MOTS_CANON,
+	BUDGET_MOTS_JALON,
+	CAMPS,
+	CAMPS_PERSONNAGE,
+	CERTITUDES,
+	CONFIANCE_MAX,
+	CONFIANCE_MIN,
+	PORTEES,
+} from './types'
 import { COLLECTIONS_IDENTIFIEES, type EspaceDeNoms } from './identifiers'
 import { CHARACTERISTIC_VALUES } from '../characteristics'
 import { CHALLENGE_TIER_VALUES } from '../challenge'
@@ -114,13 +123,21 @@ export const CONFIANCES: readonly number[] = Array.from(
 
 /**
  * Les ensembles FERMÉS du schéma. Chaque ligne cite le registre qui porte ses
- * valeurs — jamais une liste recopiée (KR-117) : `camp`, `portee` et `certitude`
- * viennent de `types.ts`, le jet de révélation des registres de règles, et les
- * bornes de confiance des deux constantes nommées.
+ * valeurs — jamais une liste recopiée (KR-117) : les deux `camp`, `portee` et
+ * `certitude` viennent de `types.ts`, le jet de révélation des registres de
+ * règles, et les bornes de confiance des deux constantes nommées.
+ *
+ * LES DEUX `camp` NE PARTAGENT PAS LEUR REGISTRE, et la table est l'endroit où
+ * cela se voit : celui d'un OBJECTIF lit `CAMPS` (à qui la victoire appartient,
+ * `'joueur'` compris) et il est REQUIS ; celui d'un PERSONNAGE lit
+ * `CAMPS_PERSONNAGE` (de quel côté cet acteur joue) et il est OPTIONNEL — un camp
+ * requis sur `monde.personnages[]` invaliderait rétroactivement tout dossier déjà
+ * persisté, le schéma restant 1 sans chemin de migration (KR-191).
  */
 export const ENUMERES_FERMES: readonly EnumereFerme[] = [
 	{ path: 'canon.objectifs[].camp', location: 'Objectifs', valeurs: CAMPS, requis: true },
 	{ path: 'monde.personnages[].portee', location: 'Personnages', valeurs: PORTEES, requis: true },
+	{ path: 'monde.personnages[].camp', location: 'Personnages', valeurs: CAMPS_PERSONNAGE, requis: false },
 	{ path: 'monde.personnages[].savoirs[].certitude', location: 'Personnages', valeurs: CERTITUDES, requis: true },
 	{
 		path: 'monde.personnages[].savoirs[].revele_si.confiance_min',
@@ -210,19 +227,31 @@ export interface ReferenceSimple {
 }
 
 /**
- * Les QUATRE références simples du schéma 1. Toutes bloquantes quand elles ne
- * résolvent pas : une référence orpheline est EXPOSÉE, jamais silencieuse
- * (KR-021).
+ * Les CINQ références simples du schéma 1 — quatre posées par la n° 1, la
+ * cinquième (`personnages[].objectif_id`) par l'itération 1 de la n° 4. Toutes
+ * bloquantes quand elles ne résolvent pas : une référence orpheline est EXPOSÉE,
+ * jamais silencieuse (KR-021).
  *
- * Les trois de `savoirs[]` nomment le PERSONNAGE porteur — c'est `sitesDe` qui
- * le résout en traversant `monde.personnages`, sans qu'aucune ligne ait à le
- * dire : un savoir n'a pas de nom à lui.
+ * Les trois de `savoirs[]` — et la cinquième, portée directement par la fiche —
+ * nomment le PERSONNAGE porteur : c'est `sitesDe` qui le résout en traversant
+ * `monde.personnages`, sans qu'aucune ligne ait à le dire.
+ *
+ * CONSÉQUENCE DE LA CINQUIÈME, à ne pas découvrir en aval : un objectif du canon
+ * cité par un personnage ne peut plus être retiré tant que le rattachement tient.
+ * Ce n'est pas un effet de bord, c'est la définition d'une référence — l'écran qui
+ * retire l'objectif doit RENDRE le refus, jamais l'avaler (KR-183).
  */
 export const REFERENCES_SIMPLES: readonly ReferenceSimple[] = [
 	{ path: 'charpente.depart.lieu_id', espace: 'lieu', location: 'Point de départ', sujet: 'Le point de départ' },
 	{ path: 'monde.personnages[].savoirs[].indice_id', espace: 'indice', location: 'Personnages' },
 	{ path: 'monde.personnages[].savoirs[].revele_si.contrepartie.objet_id', espace: 'objet', location: 'Personnages' },
 	{ path: 'monde.personnages[].savoirs[].revele_si.apres_indice_id', espace: 'indice', location: 'Personnages' },
+	{
+		path: 'monde.personnages[].objectif_id',
+		espace: 'objectif',
+		location: 'Personnages',
+		sujet: 'Le rattachement de ce personnage',
+	},
 ]
 
 /**

@@ -71,6 +71,14 @@ import { DELTAS } from './deltas'
  */
 
 const CHEMIN_FIXTURE = path.join(__dirname, '__fixtures__', 'dossier-minimal.json')
+/**
+ * La SECONDE fixture. Ce fichier balaie la MINIMALE — c'est elle qui porte le
+ * garde d'exhaustivité — mais un champ neuf doit être instancié dans les DEUX, et
+ * la raison n'est pas symétrique : la minimale ferme la boucle des tables et des
+ * destinations, la référence prouve qu'une aventure réelle sait s'en servir. Elle
+ * n'est lue ici que par l'assertion qui l'exige.
+ */
+const CHEMIN_REFERENCE = path.join(__dirname, '__fixtures__', 'dossier-reference.json')
 const MODULE_DOSSIER = __dirname
 
 type Doc = Record<string, unknown>
@@ -254,6 +262,15 @@ const LIBRES: Record<string, string> = {
 	// mais la même question que les dispenses `nom` et `…_texte`.
 	'monde.personnages[].savoirs[].revele_si.apres_indice_id':
 		"porte OPTIONNELLE : sa résolution vers monde.indices est vivante depuis l'itération 4 (REFERENCES_SIMPLES), mais elle ne parle que d'une CHAÎNE — une valeur présente et non textuelle tombe sous la question ouverte déjà possédée par la n° 2, la même qui porte les dispenses « nom ».",
+	// MÊME MOTIF, MÊME FORME que la porte ci-dessus, et c'est ce qui le rend
+	// recevable : `objectif_id` est une RÉFÉRENCE SIMPLE résolue depuis l'itération 1
+	// de la n° 4, mais la boucle de `REFERENCES_SIMPLES` ne parle que d'une CHAÎNE
+	// (`typeof site.valeur !== 'string' → continue`), et la corruption remplace ici la
+	// chaîne par un NOMBRE. Une cible pendante, elle, EST bloquante — c'est le test
+	// nommé de `validate.test.ts`, pas cette dispense. Rien de neuf n'est arbitré :
+	// même question ouverte, même propriétaire.
+	'monde.personnages[].objectif_id':
+		"rattachement OPTIONNEL : sa résolution vers canon.objectifs est vivante (REFERENCES_SIMPLES), mais elle ne parle que d'une CHAÎNE — une valeur présente et non textuelle tombe sous la question ouverte déjà possédée par la n° 2, la même qui porte les dispenses « nom » et la porte apres_indice_id.",
 	'monde.lieux[].nom': NOM_LIBRE,
 	'monde.lieux[].description': PROSE_D_ENTITE_LIBRE,
 	'monde.lieux[].ambiance': PROSE_D_ENTITE_LIBRE,
@@ -428,6 +445,31 @@ describe('couverture', () => {
 			// livrée sans sa fixture ne déclare l'audience de rien, et la déclaration
 			// serait morte le jour même où elle est écrite.
 			expect(feuilles).toContain(chemin)
+		}
+	})
+
+	it('le camp et le rattachement d un personnage sont moteur, et instancies dans les DEUX fixtures', () => {
+		// Même construction que les trois proses de `Lieu` juste au-dessus, et pour la
+		// même raison (KR-174) : « toute feuille a une destination » ne dit rien de la
+		// VALEUR, « aucune ligne morte » ne dit rien de l'audience. Les deux moitiés
+		// nommées ensemble épinglent l'arbitrage — `moteur` et non `ia` : le camp d'un
+		// PNJ est un spoiler, et un identifiant de rattachement est un handle.
+		//
+		// L'INSTANCE DANS LA FIXTURE DE RÉFÉRENCE est dans le MÊME test, et ce n'est pas
+		// une redondance du garde d'exhaustivité : celui-ci balaie la fixture MINIMALE,
+		// donc un champ instancié là mais absent d'une aventure réelle resterait vert
+		// partout. Un champ que la référence n'exerce pas n'est pas un champ qu'on sait
+		// utiliser.
+		const CHAMPS_DE_SITUATION = ['monde.personnages[].camp', 'monde.personnages[].objectif_id']
+		const feuilles = cheminsDeLaFixture()
+		const feuillesDeLaReference = feuillesDeLaFixture(JSON.parse(fs.readFileSync(CHEMIN_REFERENCE, 'utf8')) as Doc).map(
+			(feuille) => feuille.normalise,
+		)
+
+		for (const chemin of CHAMPS_DE_SITUATION) {
+			expect(`${chemin} → ${DESTINATION_DES_CHAMPS[chemin]}`).toBe(`${chemin} → moteur`)
+			expect(feuilles).toContain(chemin)
+			expect(feuillesDeLaReference).toContain(chemin)
 		}
 	})
 

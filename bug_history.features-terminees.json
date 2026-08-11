@@ -1,4 +1,4 @@
-{
+﻿{
 	"bugs": [
 		{
 			"id": "BUG-028",
@@ -385,5 +385,5 @@
 			"severity": "major"
 		}
 	],
-	"_about": "ARCHIVE — les défauts des features PASSÉES DONE de l'ère bascule IA (tree-canvas, dossier-format, bascule-editeur) ET ceux de discovered_at='iteration-bascule-0' (démolition ponctuelle du 2026-08-03, aucune feature vivante) — 3ᵉ axe de scission, ajouté le 2026-08-11. Scindés de bug_history.json le 2026-08-10 (par temps/feature-done) puis le 2026-08-11 (par ce 3ᵉ axe) : un journal append-only ne se compacte pas, il se scinde — par temps, par feature passée done, ou par étape ponctuelle sans feature vivante (docs/WORKFLOW.md, § Budget de contexte). CE FICHIER N'EST PAS EN LECTURE OBLIGATOIRE — seul bug_history.json l'est. On y revient pour une question précise sur un défaut d'une feature déjà terminée ou de la démolition initiale. Numérotation globale et continue avec bug_history.json et bug_history.0.5.json : un identifiant ne se réemploie jamais. Prochain id libre = max(BUG-xxx) des TROIS fichiers, jamais du seul fichier en cours d'édition (BUG-062, 2026-08-11 : 055-058 dupliqués entre ce fichier et bug_history.json faute de cette règle explicite)."
+	"_about": "ARCHIVE — les défauts des features PASSÉES DONE de l'ère bascule IA (tree-canvas, dossier-format, bascule-editeur) ET ceux de discovered_at='iteration-bascule-0' (démolition ponctuelle du 2026-08-03, aucune feature vivante) — 3ᵉ axe de scission, ajouté le 2026-08-11. Scindés de bug_history.json le 2026-08-10 (par temps/feature-done) puis le 2026-08-11 (par ce 3ᵉ axe) : un journal append-only ne se compacte pas, il se scinde — par temps, par feature passée done, ou par étape ponctuelle sans feature vivante (docs/WORKFLOW.md, § Budget de contexte). CE FICHIER N'EST PAS EN LECTURE OBLIGATOIRE — seul bug_history.json l'est. On y revient pour une question précise sur un défaut d'une feature déjà terminée ou de la démolition initiale. Numérotation globale et continue avec bug_history.json, bug_history.dossier-canon.json et bug_history.0.5.json : un identifiant ne se réemploie jamais. Prochain id libre = max(BUG-xxx) des QUATRE fichiers, jamais du seul fichier en cours d'édition (BUG-062, 2026-08-11 : 055-058 dupliqués entre ce fichier et bug_history.json faute de cette règle explicite)."
 }

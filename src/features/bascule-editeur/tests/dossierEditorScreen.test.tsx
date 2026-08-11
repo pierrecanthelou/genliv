@@ -43,6 +43,20 @@ function SondePanneauLieux(): JSX.Element {
 }
 
 /**
+ * Même sonde, pour la section Personnages (`dossier-fiches` it1) : le
+ * MÉCANISME du slot `panneaux` sur une QUATRIÈME section — jamais le vrai
+ * `PanneauPersonnages` (`dossier-fiches`), qu'un test de `bascule-editeur` n'a
+ * pas plus le droit d'importer que le code source (KR-184, KR-187). Le
+ * contenu réel de `PanneauPersonnages` (liste + fiche, accordéon à 8
+ * emplacements) est éprouvé par
+ * `dossier-fiches/tests/panneauPersonnages.test.tsx`.
+ */
+const SONDE_PERSONNAGES = 'Sonde du panneau Personnages (test bascule-editeur)'
+function SondePanneauPersonnages(): JSX.Element {
+	return <textarea aria-label="Nom du personnage" value={SONDE_PERSONNAGES} readOnly />
+}
+
+/**
  * Sonde d'ÉCRITURE pour la section Lieux — distincte de `SondePanneauLieux`
  * (lecture seule) ci-dessus. Le vrai `PanneauLieux` ne peut pas être importé
  * dans ce fichier : `no-restricted-imports` (KR-184, `.eslintrc.cjs`) interdit
@@ -285,6 +299,7 @@ describe('DossierEditorScreen', () => {
 				renderScreen(brain, dossier.id, {
 					canon: <SondePanneauCanon />,
 					depart: <SondePanneauDepart />,
+					personnages: <SondePanneauPersonnages />,
 					lieux: <SondePanneauLieux />,
 				})
 
@@ -302,6 +317,11 @@ describe('DossierEditorScreen', () => {
 					// L'etat vide generique de cette section n'est plus rendu (KR-187).
 					expect(screen.getByRole('textbox', { name: /texte d ouverture/i })).toHaveValue(SONDE_DEPART)
 					expect(screen.queryByText(texteEtatVide(1))).toBeNull()
+				} else if (index === 2) {
+					// Personnages (n° 4, dossier-fiches it1) : meme mecanique, quatrieme
+					// section. L'etat vide generique de cette section n'est plus rendu (KR-187).
+					expect(screen.getByRole('textbox', { name: /nom du personnage/i })).toHaveValue(SONDE_PERSONNAGES)
+					expect(screen.queryByText(texteEtatVide(2))).toBeNull()
 				} else if (index === 3) {
 					// Lieux (n° 3, dossier-canon it4) : meme mecanique, troisieme section.
 					// L'etat vide generique de cette section n'est plus rendu (KR-187).
@@ -387,6 +407,9 @@ describe('racine de composition', () => {
 		// ligne, la sonde ci-dessus prouverait un mecanisme que rien n'utilise.
 		expect(source).toContain('PanneauDepart')
 		expect(source).toMatch(/panneaux=\{\{[\s\S]*?depart:\s*<PanneauDepart/)
+		// Le slot `personnages` gagne son panneau reel (dossier-fiches it1), meme garde.
+		expect(source).toContain('PanneauPersonnages')
+		expect(source).toMatch(/panneaux=\{\{[\s\S]*?personnages:\s*<PanneauPersonnages/)
 		// Le slot `lieux` gagne son panneau reel (dossier-canon it4), meme garde.
 		expect(source).toContain('PanneauLieux')
 		expect(source).toMatch(/panneaux=\{\{[\s\S]*?lieux:\s*<PanneauLieux/)

@@ -1,4 +1,4 @@
-{
+﻿{
 	"bugs": [
 		{
 			"id": "BUG-054",
@@ -10,66 +10,6 @@
 			"fix": "NON CORRIGE dans l iteration 3 de dossier-format, deliberement : le code appartient a play-mode / src/player/, intouche par ce lot, et la parade correcte n y est PAS estCleDe (appartenance propre) mais un repli — CAPACITY_HOOKS[id] ?? CAPACITY_HOOKS.aucune — ou un garde de frontiere a la isNodeKind (KR-116). Ce choix appartient au proprietaire de la feature. Trouve par la revue de PR d it3, en appliquant KR-175 au-dela du module ou il a ete ecrit : c est sa premiere application.",
 			"mitigation": "Aucune aujourd hui, hors le fait que la bibliotheque de monstres de l editeur ne propose que des valeurs du registre. Le rayon s ouvre des qu un document ancien, importe ou edite a la main atteint le moteur de combat. A traiter quand play-mode sera repointe (n° 13).",
 			"regression_test": "aucun — defaut journalise et non corrige ; le test s ecrira avec le correctif",
-			"severity": "major"
-		},
-		{
-			"id": "BUG-055",
-			"date": "2026-08-10",
-			"feature": "dossier-canon",
-			"discovered_at": "iteration-1",
-			"symptom": "PanneauCanon.commit() ecrivait les QUATRE champs du canon a chaque blur, depuis un brouillon seme UNE FOIS au montage. Si une reconciliation cloud adoptait un canon plus recent apres le montage (dossier:opened arme le pull, sans garde d identifiant cote useOpenDossier), le PREMIER blur suivant — meme sur un champ non touche — ecrasait silencieusement les champs adoptes avec les copies perimees du brouillon.",
-			"root_cause": "Le plan d iteration justifiait l absence de resynchronisation du brouillon par « la meme garde que useOpenDossier applique deja contre un echo de reconciliation cloud » — garde qui n existe pas : brain/hooks.ts relit inconditionnellement a chaque dossier:updated, sans filtre sur l identifiant ni l origine. Le comite a signe sur un precedent verifie faux, trouve par la revue de PR (tech-lead) plutot qu au raffinage.",
-			"fix": "commit() prend un PATCH ETROIT (Partial<Brouillon>) au lieu du brouillon complet ; les champs non patches viennent du canon PERSISTE au moment de l ecriture (d.canon dans la recette), jamais du brouillon local. La decision deja arbitree (aucun revert du champ edite apres un refus) n a pas ete rouverte.",
-			"mitigation": "Residu assume, documente en commentaire au site de commit() : si LE CHAMP EDITE lui-meme change a distance pendant la frappe, ce commit ecrase encore l adoption sur ce champ — dernier-ecrit-gagne, le comportement attendu d une edition, pas un bug.",
-			"regression_test": "src/features/dossier-canon/tests/panneauCanon.test.tsx — « blur sur un champ ne reecrit pas un autre champ adopte entre-temps (MAJEUR 1, revue de PR) »",
-			"severity": "major"
-		},
-		{
-			"id": "BUG-056",
-			"date": "2026-08-10",
-			"feature": "dossier-canon",
-			"discovered_at": "iteration-1",
-			"symptom": "Introduit par le correctif de BUG-055 lui-meme, trouve au tour 2 de la revue de PR (avant tout commit) : apres le passage au patch etroit, setRefus(statut==='refuse' ? errors : null) effacait le bandeau de refus des qu UN commit reussissait, meme sur un champ DIFFERENT de celui refuse. Vider le synopsis (refus, bandeau affiche) puis simplement traverser le formulaire au Tab (blur sur ton, qui reussit) faisait disparaitre le bandeau alors que le synopsis restait vide et non enregistre — plus aucun signal.",
-			"root_cause": "La regle « ecrit efface le refus precedent » datait du commit-brouillon-complet (ou un succes voulait dire les quatre champs acceptes) et n a pas ete revue en meme temps que le patch etroit de BUG-055 - un correctif qui change la granularite d une ecriture doit revoir tout ce qui raisonne sur son resultat, pas seulement son propre chemin.",
-			"fix": "Le refus est desormais indexe sur les champs du patch qui l a produit (type Refus = {champs, issues}). Un commit reussi n efface le bandeau que s il touche au moins un des champs deja en cause.",
-			"mitigation": "Nouveau test explicite : refus sur synopsis_mj, commit reussi sur ton (bandeau doit rester), puis commit reussi sur synopsis_mj (bandeau doit disparaitre).",
-			"regression_test": "src/features/dossier-canon/tests/panneauCanon.test.tsx — « le bandeau de refus sur un champ survit a un commit reussi sur un AUTRE champ (revue de PR, tour 2) »",
-			"severity": "major"
-		},
-		{
-			"id": "BUG-057",
-			"date": "2026-08-10",
-			"feature": "dossier-canon",
-			"discovered_at": "iteration-3",
-			"symptom": "La compaction de code-knowledge.json (plafond 75 KiB franchi apres ajout de KR-188/189) a reduit 28 KR de features supprimees a un rappel d'une ligne 'code inexistant, ce risque n'a plus d'objet' -- faux pour 16 d'entre elles, dont l'invariant vit toujours au SSOT (BookService.ts, kinds.ts, tree.ts, ObjectEditor.tsx...) et que CLAUDE.md cite nommement (KR-055, KR-067) comme regles non negociables.",
-			"root_cause": "Selection de compaction faite sur le label feature seul (feature supprimee = risque compactable) sans grep prealable des citations du KR dans src/**.",
-			"fix": "Texte original restaure pour les 16 KR encore cites en code vivant ou motif generique reutilisable, chacun complete d'un pointeur vers son SSOT actuel. Les 13 sans citation gardent la forme compactee.",
-			"mitigation": "KR-155 etendu : toute compaction fondee sur une feature supprimee grep d'abord l'id du KR dans src/**, jamais le label feature seul.",
-			"regression_test": "aucun (doc) -- verifie par grep manuel (tech-lead PR review) et re-mesure wc -c",
-			"severity": "major"
-		},
-		{
-			"id": "BUG-058",
-			"date": "2026-08-10",
-			"feature": "dossier-canon",
-			"discovered_at": "iteration-3",
-			"symptom": "ObjectifsCanon.tsx, handleChangeChamp spreadait prev[id] sans garde d'absence -- si un objectif existe dans dossier.canon.objectifs sans entree de brouillon correspondante, les deux autres champs du brouillon deviennent undefined (Field controle -> non controle), risque de perte de prose deja enregistree au blur suivant.",
-			"root_cause": "Le chemin de rendu etait deja garde (brouillons[id] ?? brouillonDe(objectif)), le chemin de mutation ne l'etait pas -- une seule moitie du meme etat local protegee.",
-			"fix": "handleChangeChamp reconstruit un brouillon complet via brouillonDe(objectif) quand prev[id] est absent, avant d'y appliquer le champ edite.",
-			"mitigation": "Tout etat local derive d'une collection externe doit porter la meme garde d'absence sur lecture ET mutation.",
-			"regression_test": "aucun test dedie -- non atteignable par les flux livres cette iteration (tout objectif nait via handleAjouter, brouillon seme en synchrone) ; dette assumee.",
-			"severity": "minor"
-		},
-		{
-			"id": "BUG-061",
-			"date": "2026-08-11",
-			"feature": "dossier-canon",
-			"discovered_at": "iteration-4",
-			"symptom": "PanneauLieux.commit() posait un refus GLOBAL au panneau (setRefus({issues}) sans lieuId), rendu inconditionnellement sous la fiche du lieu SELECTIONNE. Sequence : retirer le lieu de charpente.depart.lieu_id (refuse, bandeau affiche sous sa fiche) puis selectionner un AUTRE lieu (simple changement de selection, aucun commit) laissait le bandeau CE CHANGEMENT N A PAS ETE ENREGISTRE affiche sous la fiche du second lieu, qui n avait rien vu refuser.",
-			"root_cause": "Meme famille que BUG-056 (dossier-canon it1) : un etat de refus non indexe survit a un evenement qui ne devrait pas le concerner. Ici l evenement fautif n est meme pas une ECRITURE (BUG-056 : un commit reussi sur un autre champ) mais un simple changement de SELECTION locale, qui ne passe jamais par commit() et ne pouvait donc pas etre intercepte par la regle deja posee a it1/it2 (effacer sur ecriture reussie). Trouve au tour 2 de la revue de PR : le correctif du tour 1 (filtrage a l affichage) laissait un second angle mort symetrique -- un commit REUSSI sur un AUTRE lieu effacait encore le refus non resolu, l invalidation etant restee globale pendant que l affichage devenait indexe.",
-			"fix": "Le refus est desormais { lieuId, issues }, pose par commit(lieux, lieuId) avec l id du lieu dont l ecriture a echoue. Au rendu, refusAffiche ne vaut { issues } que si refus.lieuId === lieuAffiche.id -- filtrage fait dans PanneauLieux.tsx, FicheLieu.tsx reste un composant de rendu pur qui ne compare jamais d id lui-meme. Deuxieme moitie (tour 2) : setRefus prend desormais la forme fonctionnelle et ne remet a null sur un succes QUE si le lieu du commit reussi est celui deja en cause -- un succes sur un lieu different laisse le refus non resolu intact, meme lorsqu il n est pas affiche.",
-			"mitigation": "Trouve par la revue de PR (tech-lead) avant tout commit, sur le diff stage, en deux tours. Tout futur panneau combinant une liste selectionnable ET un etat de refus doit indexer ce refus par l entite qui l a produit A LA FOIS a l affichage ET a l invalidation -- les deux angles morts sont symetriques et doivent etre corriges ensemble, pas l un a un tour de revue de retard sur l autre.",
-			"regression_test": "src/features/dossier-canon/tests/panneauLieux.test.tsx - le bandeau de refus ne suit pas une autre fiche apres un changement de selection (BUG-061) ; un commit reussi sur un AUTRE lieu ne fait pas disparaitre le refus non resolu (BUG-061, meme famille que BUG-056)",
 			"severity": "major"
 		},
 		{
@@ -85,5 +25,5 @@
 			"severity": "minor"
 		}
 	],
-	"_about": "Les défauts du TEMPS COURANT — bascule IA, versions 0.6.x, depuis le 2026-08-03, pour les features PAS ENCORE done. Les défauts antérieurs (BUG-001 à BUG-027, l'éditeur d'arbre) sont dans bug_history.0.5.json ; ceux des features déjà done de cette ère (tree-canvas, dossier-format, bascule-editeur) OU discovered_at='iteration-bascule-0' (démolition ponctuelle du 2026-08-03, n'appartenant à aucune feature vivante) sont dans bug_history.features-terminees.json — 3ᵉ axe de scission ajouté le 2026-08-11 (docs/WORKFLOW.md, § Budget de contexte), à côté de temps/feature-done. Aucun des deux fichiers n'est en lecture obligatoire, seul ce fichier-ci l'est. La numérotation des BUG-xxx reste GLOBALE à travers les trois fichiers : un identifiant ne se réemploie jamais. Prochain id libre = max(BUG-xxx) des TROIS fichiers (bug_history.json, bug_history.features-terminees.json, bug_history.0.5.json), jamais du seul fichier en cours d'édition (BUG-062, 2026-08-11 : 055-058 dupliqués entre ce fichier et l'archive faute de cette règle explicite)."
+	"_about": "Les défauts du TEMPS COURANT — bascule IA, versions 0.6.x, depuis le 2026-08-03, pour les features PAS ENCORE done. Les défauts antérieurs (BUG-001 à BUG-027, l'éditeur d'arbre) sont dans bug_history.0.5.json ; ceux des features déjà done de cette ère (tree-canvas, dossier-format, bascule-editeur) OU discovered_at='iteration-bascule-0' (démolition ponctuelle du 2026-08-03, n'appartenant à aucune feature vivante) sont dans bug_history.features-terminees.json ; ceux de dossier-canon (done le 2026-08-11, 4/4) sont dans bug_history.dossier-canon.json — scission du 2026-08-11 (dossier-fiches it1) au franchissement du plafond, dans un fichier PROPRE à la feature et non dans l'archive commune, parce que ses BUG-055 à BUG-058 y auraient collisionné avec ceux de dossier-format (BUG-062). Aucun des trois autres fichiers n'est en lecture obligatoire, seul ce fichier-ci l'est. La numérotation des BUG-xxx reste GLOBALE à travers les quatre fichiers : un identifiant ne se réemploie jamais. Prochain id libre = max(BUG-xxx) des QUATRE fichiers (bug_history.json, bug_history.features-terminees.json, bug_history.dossier-canon.json, bug_history.0.5.json), jamais du seul fichier en cours d'édition (BUG-062, 2026-08-11 : 055-058 dupliqués faute de cette règle explicite)."
 }

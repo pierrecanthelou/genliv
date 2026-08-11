@@ -1,7 +1,15 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { validateDossier } from './validate'
-import { BUDGET_MOTS_CANON, BUDGET_MOTS_JALON, CAMPS, CONFIANCE_MAX, CONFIANCE_MIN, DOSSIER_SCHEMA } from './types'
+import {
+	BUDGET_MOTS_CANON,
+	BUDGET_MOTS_JALON,
+	CAMPS,
+	CAMPS_PERSONNAGE,
+	CONFIANCE_MAX,
+	CONFIANCE_MIN,
+	DOSSIER_SCHEMA,
+} from './types'
 import { DOSSIER_ISSUE_LABELS, dossierIssueRemediation, type DossierIssue, type DossierIssueCode } from './issues'
 import { ENUMERES_FERMES, FAMILLES_DE_CONDITIONS, LISTES_A_ELEMENTS_STRUCTURES, REFERENCES_SIMPLES } from './tables'
 import { DELTAS, type Delta } from './deltas'
@@ -51,6 +59,11 @@ describe('validateDossier', () => {
 		// Les formes de l'itération 2 sont TYPÉES, pas seulement traversées.
 		expect(resultat.dossier?.monde.personnages[0].portee).toBe('premier')
 		expect(resultat.dossier?.monde.personnages[0].savoirs[0].certitude).toBe('sait')
+		// La situation du personnage (itération 1 de la n° 4) est TYPÉE, pas seulement
+		// traversée : deux champs OPTIONNELS, tous deux instanciés dans la fixture pour
+		// que le balayage de couverture ait une feuille à voir.
+		expect(resultat.dossier?.monde.personnages[0].camp).toBe('protagoniste')
+		expect(resultat.dossier?.monde.personnages[0].objectif_id).toBe('objectif.refermer-le-sceau')
 		expect(resultat.dossier?.monde.evenements[0].monstre_ref).toBe('bestiaire.gobelin')
 		expect(resultat.dossier?.charpente.jalons[0].enonce_texte.length).toBeGreaterThan(0)
 		// Les effets de l'itération 4 sont TYPÉS, pas seulement traversés — et la liste
@@ -473,6 +486,79 @@ describe('validateDossier', () => {
 		const refuses = CAMPS.filter((camp) => {
 			const doc = fixture()
 			objectif(doc).camp = camp
+			return !validateDossier(doc).ok
+		})
+
+		expect(refuses).toEqual([])
+	})
+
+	it('le camp d un PERSONNAGE lit CAMPS_PERSONNAGE, un registre DISTINCT de CAMPS', () => {
+		// Deux registres, jamais fondus (KR-117 + arbitrage du cadrage) : `CAMPS` dit à
+		// QUI appartient une victoire (`'joueur'` compris — le joueur n'est pas une
+		// entrée de `monde.personnages[]`), celui-ci dit de quel côté un acteur joue.
+		// `toBe` et non `toEqual` : une copie des deux valeurs, qui dériverait en
+		// silence du `SegmentedControl` de l'écran, fait rougir ce test.
+		const ligne = ENUMERES_FERMES.find((e) => e.path === 'monde.personnages[].camp')
+
+		expect(ligne).toBeDefined()
+		expect(ligne?.valeurs).toBe(CAMPS_PERSONNAGE)
+		expect(ligne?.location).toBe('Personnages')
+		expect(CAMPS_PERSONNAGE).toEqual(['protagoniste', 'antagoniste'])
+		// Discriminant de la NON-FUSION : aucune valeur n'est commune aux deux
+		// registres. Le jour où quelqu'un ferait pointer l'une des deux lignes sur
+		// l'autre table, ce test le dirait — un simple `not.toBe` ne l'aurait pas fait.
+		const communes = (CAMPS_PERSONNAGE as readonly string[]).filter((camp) =>
+			(CAMPS as readonly string[]).includes(camp),
+		)
+		expect(communes).toEqual([])
+	})
+
+	it('camp de personnage ABSENT est calme : ni erreur ni avertissement', () => {
+		// KR-191 — c'est la propriété la plus importante de cette ligne de table, et
+		// celle qu'un `requis: true` recopié du précédent `Objectif.camp` casserait :
+		// `monde.personnages[]` existe depuis la n° 1 sans ce champ, et `schema: 1` n'a
+		// aucun chemin de migration. Un camp requis rendrait ILLISIBLE en bibliothèque
+		// tout dossier déjà persisté — un défaut qu'aucun test d'écran ne verrait.
+		const doc = fixture()
+		delete personnage(doc).camp
+
+		const resultat = validateDossier(doc)
+
+		expect(resultat.errors).toEqual([])
+		expect(resultat.warnings).toEqual([])
+		expect(resultat.ok).toBe(true)
+		// La ligne de table PORTE cette optionalité, elle n'en dépend pas d'un hasard.
+		expect(ENUMERES_FERMES.find((e) => e.path === 'monde.personnages[].camp')?.requis).toBe(false)
+	})
+
+	it('camp de personnage hors enumeration est bloquant et nomme le personnage', () => {
+		// Optionnel ne veut pas dire libre : absent est calme, PRÉSENT est contrôlé.
+		const doc = fixture()
+		personnage(doc).camp = 'neutre'
+
+		const resultat = validateDossier(doc)
+		const anomalie = resultat.errors.find((e) => e.code === 'valeur-hors-enumeration')
+
+		expect(resultat.ok).toBe(false)
+		expect(anomalie?.path).toBe('monde.personnages[0].camp')
+		expect(anomalie?.location).toBe('Personnage « Aldûr le Sage »')
+		expect(anomalie?.message).toContain('« camp »')
+		expect(anomalie?.message).toContain('« neutre »')
+		expect(anomalie?.message).toContain('protagoniste ou antagoniste')
+		// Le vocabulaire de l'AUTRE registre ne fuit pas dans le message : un auteur à
+		// qui l'on propose « joueur » sur une fiche de PNJ cherchera longtemps.
+		expect(anomalie?.message).not.toContain('joueur')
+		for (const fuite of FUITES_TECHNIQUES) {
+			expect(anomalie?.message.toLowerCase()).not.toContain(fuite)
+		}
+	})
+
+	it('chacun des deux camps de personnage est accepte', () => {
+		// Discriminant du refus ci-dessus : ce n'est pas « tout camp est refusé ».
+		// Dérivé du registre — une valeur ajoutée demain est éprouvée sans qu'on y pense.
+		const refuses = CAMPS_PERSONNAGE.filter((camp) => {
+			const doc = fixture()
+			personnage(doc).camp = camp
 			return !validateDossier(doc).ok
 		})
 
@@ -1610,6 +1696,14 @@ describe('validateDossier, les references simples', () => {
 			chemin: 'monde.personnages[0].savoirs[0].revele_si.apres_indice_id',
 			location: 'Personnage « Aldûr le Sage »',
 		},
+		'monde.personnages[].objectif_id': {
+			poser: (doc, id) => {
+				personnage(doc).objectif_id = id
+			},
+			chemin: 'monde.personnages[0].objectif_id',
+			// Le OÙ est le personnage lui-même : c'est lui qui porte le champ.
+			location: 'Personnage « Aldûr le Sage »',
+		},
 	}
 
 	it('depart.lieu_id reste signale quand monde.lieux est une racine ABSENTE', () => {
@@ -1688,6 +1782,59 @@ describe('validateDossier, les references simples', () => {
 		// Deux causes distinctes ne partagent pas un code : la forme n'est pas la
 		// résolution, et une seule anomalie sort.
 		expect(codes(resultat.errors)).not.toContain('reference-pendante')
+	})
+
+	it('objectif_id du MAUVAIS ESPACE (pnj.…) est identifiant-invalide, jamais pendante', () => {
+		// Le cas est réaliste et pas théorique : le rattachement d'un personnage se
+		// choisit à l'écran dans une liste d'objectifs, et un identifiant de PERSONNAGE
+		// rangé là RÉSOUDRAIT par simple appartenance — l'entité existe, mais pas là.
+		// C'est ce que le champ `espace` de la ligne de table achète, et sans lui la
+		// ligne serait à moitié morte (BUG-052).
+		const doc = fixture()
+		personnage(doc).objectif_id = 'pnj.aldur-le-sage'
+
+		const resultat = validateDossier(doc)
+		const anomalie = resultat.errors.find((e) => e.path === 'monde.personnages[0].objectif_id')
+
+		expect(resultat.ok).toBe(false)
+		expect(anomalie?.code).toBe('identifiant-invalide')
+		expect(anomalie?.message).toContain('« Objectif »')
+		// Deux causes distinctes ne partagent pas un code : la forme n'est pas la
+		// résolution, et une seule anomalie sort.
+		expect(codes(resultat.errors)).not.toContain('reference-pendante')
+	})
+
+	it('le sujet du rattachement d un personnage est conserve verbatim', () => {
+		// La ligne porte un `sujet` — « Le rattachement de ce personnage » — parce que
+		// le repli dérivé aurait écrit « Le champ « objectif_id » », qui nomme une clé
+		// JSON là où l'auteur lit une phrase. Assertion de VALEUR, pas d'existence
+		// (KR-174) : un `sujet` retiré de la table laisserait le repli passer.
+		const doc = fixture()
+		personnage(doc).objectif_id = 'objectif.nulle-part'
+
+		const pendante = validateDossier(doc).errors.find((e) => e.path === 'monde.personnages[0].objectif_id')
+
+		expect(pendante?.code).toBe('reference-pendante')
+		expect(pendante?.message).toBe(
+			"Le rattachement de ce personnage pointe « objectif.nulle-part », qui n'existe pas dans ce dossier.",
+		)
+	})
+
+	it('un objectif reference par un personnage ne peut plus etre retire en silence', () => {
+		// LA RÉGRESSION QUE CE CONTRAT INTRODUIT, épinglée au SSOT plutôt que découverte
+		// à l'écran : retirer de `canon.objectifs` un objectif encore cité par un
+		// `objectif_id` produit une erreur BLOQUANTE. L'écran qui retire l'objectif doit
+		// donc RENDRE le refus de `DossierService.update()`, jamais l'avaler (KR-183).
+		const doc = fixture()
+		obj(doc.canon).objectifs = []
+
+		const resultat = validateDossier(doc)
+		const pendante = resultat.errors.find((e) => e.path === 'monde.personnages[0].objectif_id')
+
+		expect(resultat.ok).toBe(false)
+		expect(pendante?.code).toBe('reference-pendante')
+		expect(pendante?.entityId).toBe('objectif.refermer-le-sceau')
+		expect(pendante?.location).toBe('Personnage « Aldûr le Sage »')
 	})
 
 	it('le sujet de la phrase du point de depart est conserve verbatim', () => {

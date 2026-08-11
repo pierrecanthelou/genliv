@@ -31,6 +31,10 @@
  * ferme le VOCABULAIRE des quatre emplacements d'effets : `DeltaBrut`
  * (`Record<string, unknown>`, la seule FORME que l'it2 pouvait figer) laisse la
  * place à `Delta`, dont la clé `delta` est un identifiant du registre `DELTAS`.
+ * La n° 4 `dossier-fiches` ouvre ensuite la fiche de personnage, une TRANCHE DE
+ * SCHÉMA par itération (KR-190) : l'itération 1 y pose `camp` et `objectif_id`,
+ * tous deux OPTIONNELS — le schéma reste 1, et rien de ce qui est déjà persisté ne
+ * devient invalide (KR-191).
  *
  * QUI LIT QUOI : ce fichier dit la FORME, il ne dit pas l'AUDIENCE. L'audience
  * de chaque champ terminal vit dans `destinations.ts`, sous le balayage de
@@ -105,6 +109,25 @@ export const PORTEES = ['premier', 'second'] as const
 export type Portee = (typeof PORTEES)[number]
 
 /**
+ * La portée POSÉE À LA CRÉATION d'un personnage par l'éditeur — le PLANCHER DU
+ * SCHÉMA, jamais une intention d'auteur.
+ *
+ * `monde.personnages[].portee` est structurellement REQUISE (`LISTES_REQUISES` /
+ * `ENUMERES_FERMES` depuis la n° 1) : un personnage créé nu, à la manière d'un
+ * `Lieu`, serait refusé par le validateur à l'instant même de sa création. Il faut
+ * donc écrire une valeur, et `'premier'` est celle qu'on écrit.
+ *
+ * CE QU'ELLE NE DIT PAS : que l'auteur a CHOISI le premier plan. Une portée encore
+ * à `PORTEE_INITIALE` est un champ que personne n'a tranché — la n° 12
+ * `moteur-acteurs` ne doit pas la lire comme une décision narrative délibérée de
+ * simuler ce personnage en détail.
+ *
+ * Constante NOMMÉE, jamais `PORTEES[0]` : l'ordre du registre est un ordre
+ * d'affichage, et le jour où il change, le plancher ne doit pas changer avec lui.
+ */
+export const PORTEE_INITIALE: Portee = 'premier'
+
+/**
  * Le degré de CERTITUDE d'un savoir. OBLIGATOIRE, sans défaut implicite : un
  * `croit` est une information fausse ou incertaine, et sans ce champ une rumeur
  * entrerait au carnet d'indices comme un fait établi — le garde-fou « faits
@@ -126,6 +149,29 @@ export type Certitude = (typeof CERTITUDES)[number]
  */
 export const CAMPS = ['protagonistes', 'antagonistes', 'joueur'] as const
 export type Camp = (typeof CAMPS)[number]
+
+/**
+ * Le CAMP d'un PERSONNAGE : de quel côté cet acteur joue.
+ *
+ * REGISTRE DISTINCT de `CAMPS` / `Camp` ci-dessus, qui est le camp d'un OBJECTIF,
+ * et les deux ne fusionnent JAMAIS. Deux raisons, aucune cosmétique :
+ *  · `CAMPS` porte `'joueur'`, qui n'est pas un camp de personnage — le joueur
+ *    n'est pas une entrée de `monde.personnages[]`. Fondre les deux tables
+ *    obligerait à offrir « joueur » dans le sélecteur d'une fiche de PNJ ;
+ *  · `CAMPS` est au PLURIEL (« à qui appartient cette victoire »), celui-ci au
+ *    SINGULIER (« ce personnage est un protagoniste »). Une table commune devrait
+ *    coercer l'un des deux vocabulaires, donc en abîmer un.
+ * Aucune valeur n'est commune aux deux listes, et c'est ce qui rend une fusion
+ * accidentelle visible plutôt que silencieuse.
+ *
+ * OPTIONNEL sur `Personnage`, contrairement à `Objectif.camp` qui est requis
+ * (KR-191) : `monde.personnages[]` existe depuis la n° 1 sans ce champ et
+ * `schema: 1` n'a aucun chemin de migration (KR-160) — le rendre obligatoire
+ * invaliderait RÉTROACTIVEMENT tout dossier déjà persisté ou déjà exporté. Un camp
+ * absent est un état informationnel calme, jamais une alerte.
+ */
+export const CAMPS_PERSONNAGE = ['protagoniste', 'antagoniste'] as const
+export type CampPersonnage = (typeof CAMPS_PERSONNAGE)[number]
 
 /** Une étape du plan d'actions d'un personnage. */
 export interface PlanAction {
@@ -183,11 +229,34 @@ export interface Savoir {
 	revele_si?: Revelation
 }
 
-/** Un acteur du monde : sa portée, son plan, et ce qu'il sait. */
+/**
+ * Un acteur du monde : sa portée, son plan, ce qu'il sait — et, depuis
+ * l'itération 1 de la n° 4, où il se situe dans l'histoire (son camp et
+ * l'objectif auquel il se rattache).
+ *
+ * Les deux champs de situation sont OPTIONNELS et posés À PLAT, au même niveau
+ * que `portee` : aucun sous-objet `rattachement`, et aucune union discriminée
+ * `objectif_id | quete_id` — `monde.quetes[]` n'a pas de forme complète avant la
+ * n° 6, et une référence CONDITIONNELLE serait une première dans le schéma.
+ */
 export interface Personnage extends Entite {
 	portee: Portee
 	plan_actions: PlanAction[]
 	savoirs: Savoir[]
+	/** MOTEUR — de quel côté ce personnage joue. Injecté, il apprendrait au
+	 *  narrateur que ce PNJ lui est hostile : c'est un spoiler, pas du décor.
+	 *  OPTIONNEL par contrat (KR-191) — absent ≠ vide. */
+	camp?: CampPersonnage
+	/** Référence vers `canon.objectifs[].id` — l'objectif auquel ce personnage se
+	 *  rattache. MOTEUR : un identifiant est un HANDLE, jamais injecté tel quel.
+	 *  Une référence orpheline est EXPOSÉE, jamais silencieuse (KR-021).
+	 *
+	 *  CE N'EST PAS l'identifiant du but propre du personnage (KR-198) : ce
+	 *  dernier arrive à l'itération 3 sous la clé `but`, PAS `objectif`, et il est
+	 *  destination `ia` là où celui-ci est `moteur`. Deux clés `objectif*`
+	 *  voisines auraient rejoué la collision `plan` / `plan_actions` que
+	 *  l'en-tête de ce fichier compte parmi ses corrections irréversibles. */
+	objectif_id?: string
 }
 
 /**

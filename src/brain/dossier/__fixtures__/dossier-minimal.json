@@ -54,6 +54,8 @@
 				"id": "pnj.aldur-le-sage",
 				"nom": "Aldûr le Sage",
 				"portee": "premier",
+				"camp": "protagoniste",
+				"objectif_id": "objectif.refermer-le-sceau",
 				"plan_actions": [
 					{
 						"etape": 1,

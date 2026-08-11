@@ -53,6 +53,8 @@
 				"id": "pnj.selene-la-vigie",
 				"nom": "Sélène la Vigie",
 				"portee": "second",
+				"camp": "protagoniste",
+				"objectif_id": "objectif.proteger-le-sceau",
 				"plan_actions": [
 					{
 						"etape": 1,

@@ -12,10 +12,23 @@ import {
 	HIT_TARGET_MIN,
 	type Camp,
 	type Objectif,
+	type DossierIssue,
+	type EcritureDossier,
 } from '../../../brain'
 
 export interface ObjectifsCanonProps {
 	dossierId: string
+}
+
+/**
+ * Le refus en cours, indexé par l'objectif dont l'écriture l'a produit — même
+ * motif que `RefusEnCours` dans `PanneauLieux.tsx` (BUG-061) : sans cet index,
+ * un succès sur un AUTRE objectif de la carte effacerait un refus toujours
+ * actif, sans que l'auteur n'ait rien corrigé.
+ */
+interface RefusEnCours {
+	objectifId: string
+	issues: DossierIssue[]
 }
 
 /**
@@ -41,6 +54,7 @@ const OPTIONS_CAMPS = CAMPS.map((camp) => ({ value: camp, label: LIBELLES_CAMPS[
 
 const EYEBROW_SECTION = 'OBJECTIFS DES CAMPS — interne, jamais injecté au modèle'
 const EYEBROW_AVERTISSEMENT_OBJECTIFS = 'ENREGISTRÉ, AVEC AVERTISSEMENT'
+const EYEBROW_REFUS = "CE CHANGEMENT N'A PAS ÉTÉ ENREGISTRÉ"
 
 const PLACEHOLDER_NOM = 'Percer le secret du Gouffre scellé'
 const PLACEHOLDER_REUSSITE = 'Le héros a atteint le fond du Gouffre scellé.'
@@ -83,10 +97,25 @@ function brouillonDe(objectif: Objectif): BrouillonObjectif {
  *  · `camp` — AUCUN brouillon. Lu EN LIGNE depuis le dossier ouvert, le
  *    `change` du `Select` committe immédiatement.
  *
- * AUCUN bandeau de refus ici (§5 du plan) : `statut: 'refuse'` est
- * structurellement inatteignable depuis cette carte — id frappé bien formé,
- * `camp` fermé par le `Select`, `nom`/`…_texte` libres. Construire un état
- * `Refus` qui ne peut jamais s'allumer serait du code non testable.
+ * BANDEAU DE REFUS (lot 3 de l'itération 1 de `dossier-fiches`, §5/§6 du
+ * plan) : depuis que `monde.personnages[].objectif_id` est une entrée de
+ * `REFERENCES_SIMPLES` (lot 1 du même plan), retirer un objectif encore
+ * référencé par un personnage est RÉELLEMENT refusé au SSOT
+ * (`reference-pendante`, erreur bloquante). `commit()` ne jette donc plus la
+ * valeur de retour de `dossiers.update()` : elle rend l'`EcritureDossier` et
+ * chaque appelant décide.
+ *
+ * L'AFFICHAGE reste au niveau de la carte (pas de bandeau par ligne : cette
+ * carte n'a pas de sélection par élément). L'INVALIDATION, elle, n'a rien à
+ * voir avec la sélection — c'est une question distincte de « quelle écriture
+ * efface quel refus », et c'est là que la carte reprend le patron de
+ * `PanneauLieux.tsx`/`RefusEnCours` (BUG-061) : `refus` est INDEXÉ par
+ * `objectifId`, et un commit qui RÉUSSIT n'efface le refus que s'il touche le
+ * MÊME objectif que celui déjà en cause — un succès sur un AUTRE objectif
+ * laisse un refus non résolu intact. Un état global (non indexé) effacerait un
+ * refus toujours actif au premier succès venu, sur n'importe quelle autre
+ * entité de la carte (même famille que BUG-056 : PanneauCanon effaçait un
+ * refus au premier succès, quel que soit le champ touché).
  *
  * L'AVERTISSEMENT D1 (`condition-sans-expr`), lui, est ATTEIGNABLE dès la
  * première saisie d'un `…_texte` sans son `…_expr` jumeau (hors périmètre de
@@ -105,6 +134,9 @@ export function ObjectifsCanon({ dossierId }: ObjectifsCanonProps): JSX.Element 
 			? {}
 			: Object.fromEntries(dossier.canon.objectifs.map((objectif) => [objectif.id, brouillonDe(objectif)])),
 	)
+	// Indexé par `objectifId` (BUG-061) : voir le commentaire de `RefusEnCours`
+	// et le raisonnement au-dessus du composant.
+	const [refus, setRefus] = useState<RefusEnCours | null>(null)
 	// Recalculé à CHAQUE rendu où `dossier` a une nouvelle identité — donc dès
 	// l'ouverture d'un dossier importé déjà non conforme, PAS seulement après un
 	// commit de cette session (§5 du plan, critère #5).
@@ -127,27 +159,45 @@ export function ObjectifsCanon({ dossierId }: ObjectifsCanonProps): JSX.Element 
 	/**
 	 * L'idiome d'écriture prescrit (§5 du plan) : TROIS racines nommées, jamais
 	 * un spread de `dossier` — seul `canon.objectifs` change, `monde`/`charpente`
-	 * traversent intacts.
+	 * traversent intacts. `objectifId` est l'objectif EN CAUSE dans cette
+	 * écriture (celui qu'on retire/modifie, ou le nouvel objectif à l'ajout) —
+	 * chaque appelant le nomme explicitement, jamais un identifiant vide ou
+	 * approximatif.
 	 */
-	function commit(objectifs: Objectif[]): void {
-		dossiers.update(dossierId, (d) => ({
+	function commit(objectifs: Objectif[], objectifId: string): EcritureDossier {
+		const resultat = dossiers.update(dossierId, (d) => ({
 			canon: { ...d.canon, objectifs },
 			monde: d.monde,
 			charpente: d.charpente,
 		}))
+		setRefus((refusPrecedent) => {
+			if (resultat.statut === 'refuse') return { objectifId, issues: resultat.errors }
+			// Un commit réussi n'efface le refus que s'il touche le MÊME objectif
+			// que celui déjà en cause (BUG-056/BUG-061) : un succès sur un AUTRE
+			// objectif ne doit jamais faire disparaître un refus non résolu.
+			return refusPrecedent !== null && refusPrecedent.objectifId !== objectifId ? refusPrecedent : null
+		})
+		return resultat
 	}
 
 	// Ajout/retrait : committent IMMÉDIATEMENT, sans attendre un blur — la carte
-	// apparaît ou disparaît déjà persistée.
+	// apparaît ou disparaît déjà persistée, SAUF si le SSOT refuse l'écriture
+	// (retrait d'un objectif encore référencé par un personnage, KR-183) : dans
+	// ce cas rien n'est persisté et le brouillon local ne bouge pas non plus.
 	function handleAjouter(): void {
 		const id = frapperIdentifiant('objectif')
 		const nouveau: Objectif = { id, camp: CAMP_INITIAL, nom: '', reussi_si_texte: '', echoue_si_texte: '' }
-		commit([...dossierActuel.canon.objectifs, nouveau])
+		const resultat = commit([...dossierActuel.canon.objectifs, nouveau], id)
+		if (resultat.statut !== 'ecrit') return
 		setBrouillons((prev) => ({ ...prev, [id]: brouillonDe(nouveau) }))
 	}
 
 	function handleRetirer(id: string): void {
-		commit(dossierActuel.canon.objectifs.filter((objectif) => objectif.id !== id))
+		const resultat = commit(
+			dossierActuel.canon.objectifs.filter((objectif) => objectif.id !== id),
+			id,
+		)
+		if (resultat.statut !== 'ecrit') return
 		setBrouillons((prev) => {
 			const suivant = { ...prev }
 			delete suivant[id]
@@ -156,7 +206,10 @@ export function ObjectifsCanon({ dossierId }: ObjectifsCanonProps): JSX.Element 
 	}
 
 	function handleChangeCamp(id: string, camp: Camp): void {
-		commit(dossierActuel.canon.objectifs.map((objectif) => (objectif.id === id ? { ...objectif, camp } : objectif)))
+		commit(
+			dossierActuel.canon.objectifs.map((objectif) => (objectif.id === id ? { ...objectif, camp } : objectif)),
+			id,
+		)
 	}
 
 	// `prev[id]` peut être absent d'un brouillon né hors de `handleAjouter` (ex.
@@ -179,6 +232,7 @@ export function ObjectifsCanon({ dossierId }: ObjectifsCanonProps): JSX.Element 
 			dossierActuel.canon.objectifs.map((objectif) =>
 				objectif.id === id ? { ...objectif, [champ]: valeur } : objectif,
 			),
+			id,
 		)
 	}
 
@@ -260,6 +314,13 @@ export function ObjectifsCanon({ dossierId }: ObjectifsCanonProps): JSX.Element 
 				</div>
 			</div>
 
+			{refus !== null && (
+				<div role="status" style={bandeauRefusStyle}>
+					<p style={eyebrowRefusStyle}>{EYEBROW_REFUS}</p>
+					<IssueList issues={refus.issues} />
+				</div>
+			)}
+
 			{avertissementsObjectifs.length > 0 && (
 				<div role="status" style={bandeauAvertissementStyle}>
 					<p style={eyebrowAvertissementStyle}>{EYEBROW_AVERTISSEMENT_OBJECTIFS}</p>
@@ -321,6 +382,20 @@ const boutonAjouterStyle: CSSProperties = {
 	fontFamily: 'var(--font-ui)',
 	fontSize: 'var(--fs-body)',
 	cursor: 'pointer',
+}
+
+const bandeauRefusStyle: CSSProperties = {
+	display: 'flex',
+	flexDirection: 'column',
+	gap: 'var(--space-3)',
+}
+
+const eyebrowRefusStyle: CSSProperties = {
+	margin: 0,
+	fontFamily: 'var(--font-mono)',
+	fontSize: 'var(--fs-eyebrow)',
+	color: 'var(--bad)',
+	letterSpacing: 'var(--track-eyebrow)',
 }
 
 const bandeauAvertissementStyle: CSSProperties = {
