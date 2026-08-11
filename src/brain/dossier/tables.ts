@@ -1,4 +1,4 @@
-import { BUDGET_MOTS_CANON, BUDGET_MOTS_JALON, CERTITUDES, CONFIANCE_MAX, CONFIANCE_MIN, PORTEES } from './types'
+import { BUDGET_MOTS_CANON, BUDGET_MOTS_JALON, CAMPS, CERTITUDES, CONFIANCE_MAX, CONFIANCE_MIN, PORTEES } from './types'
 import { COLLECTIONS_IDENTIFIEES, type EspaceDeNoms } from './identifiers'
 import { CHARACTERISTIC_VALUES } from '../characteristics'
 import { CHALLENGE_TIER_VALUES } from '../challenge'
@@ -114,11 +114,12 @@ export const CONFIANCES: readonly number[] = Array.from(
 
 /**
  * Les ensembles FERMÉS du schéma. Chaque ligne cite le registre qui porte ses
- * valeurs — jamais une liste recopiée (KR-117) : `portee` et `certitude` viennent
- * de `types.ts`, le jet de révélation des registres de règles, et les bornes de
- * confiance des deux constantes nommées.
+ * valeurs — jamais une liste recopiée (KR-117) : `camp`, `portee` et `certitude`
+ * viennent de `types.ts`, le jet de révélation des registres de règles, et les
+ * bornes de confiance des deux constantes nommées.
  */
 export const ENUMERES_FERMES: readonly EnumereFerme[] = [
+	{ path: 'canon.objectifs[].camp', location: 'Objectifs', valeurs: CAMPS, requis: true },
 	{ path: 'monde.personnages[].portee', location: 'Personnages', valeurs: PORTEES, requis: true },
 	{ path: 'monde.personnages[].savoirs[].certitude', location: 'Personnages', valeurs: CERTITUDES, requis: true },
 	{

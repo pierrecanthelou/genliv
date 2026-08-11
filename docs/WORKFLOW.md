@@ -280,8 +280,8 @@ Charger par référence plutôt que tout charger est ce qui évite le contexte m
 | Fichier | Croissance | Mesuré | Plafond | Marge |
 | --- | --- | ---: | ---: | ---: |
 | `CLAUDE.md` + `docs/WORKFLOW.md` (couple) | défaut | 46 054 o | **45 kio** (46 080) | < 0,1 kio |
-| `code-knowledge.json` | normale | 76 245 o | **75 kio** (76 800) | ~0,5 kio |
-| `bug_history.json` | normale | 9 588 o | **15 kio** (15 360) | ~5,6 kio |
+| `code-knowledge.json` | normale | 74 717 o | **75 kio** (76 800) | ~2,0 kio |
+| `bug_history.json` | normale | 15 317 o | **15 kio** (15 360) | ~0,04 kio |
 | `features_history.json` | normale | 12 075 o | **15 kio** (15 360) | ~3,2 kio |
 | `specification.json`, **par feature** | normale | 66 324 o (max : `dossier-format`) | **65 kio** (66 560) | ~0,2 kio |
 | `docs/ROADMAP-BASCULE-IA.md` | **défaut** | 34 735 o | **35 kio** (35 840) | ~1,1 kio |

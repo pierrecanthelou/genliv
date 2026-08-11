@@ -1,9 +1,9 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { validateDossier } from './validate'
-import { BUDGET_MOTS_CANON, BUDGET_MOTS_JALON, CONFIANCE_MAX, CONFIANCE_MIN, DOSSIER_SCHEMA } from './types'
+import { BUDGET_MOTS_CANON, BUDGET_MOTS_JALON, CAMPS, CONFIANCE_MAX, CONFIANCE_MIN, DOSSIER_SCHEMA } from './types'
 import { DOSSIER_ISSUE_LABELS, dossierIssueRemediation, type DossierIssue, type DossierIssueCode } from './issues'
-import { FAMILLES_DE_CONDITIONS, LISTES_A_ELEMENTS_STRUCTURES, REFERENCES_SIMPLES } from './tables'
+import { ENUMERES_FERMES, FAMILLES_DE_CONDITIONS, LISTES_A_ELEMENTS_STRUCTURES, REFERENCES_SIMPLES } from './tables'
 import { DELTAS, type Delta } from './deltas'
 import { feuilleDe } from './identifiers'
 
@@ -23,12 +23,13 @@ function fixture(): Doc {
 const obj = (value: unknown): Doc => value as Doc
 const arr = (value: unknown): Doc[] => value as Doc[]
 
-/** Les cinq accès profonds de la fixture, nommés une fois. */
+/** Les six accès profonds de la fixture, nommés une fois. */
 const personnage = (doc: Doc): Doc => arr(obj(doc.monde).personnages)[0]
 const savoir = (doc: Doc): Doc => arr(personnage(doc).savoirs)[0]
 const revele = (doc: Doc): Doc => obj(savoir(doc).revele_si)
 const evenement = (doc: Doc): Doc => arr(obj(doc.monde).evenements)[0]
 const jalon = (doc: Doc): Doc => arr(obj(doc.charpente).jalons)[0]
+const objectif = (doc: Doc): Doc => arr(obj(doc.canon).objectifs)[0]
 
 /** Les sous-chaînes qui trahissent une erreur runtime sérialisée (KR-164). */
 const FUITES_TECHNIQUES = ['expected', 'undefined', 'is not a function']
@@ -412,6 +413,70 @@ describe('validateDossier', () => {
 		expect(anomalie?.path).toBe('monde.personnages[0].savoirs[0].certitude')
 		expect(anomalie?.message).toContain('« devine »')
 		expect(anomalie?.message).toContain('sait, croit ou soupconne')
+	})
+
+	it('le camp d un objectif est un enumere FERME, derive du registre CAMPS', () => {
+		// La ligne de table cite le REGISTRE, jamais une liste recopiée (KR-117) :
+		// `toBe` et non `toEqual`, pour qu'une copie des trois valeurs — qui dériverait
+		// en silence du `Select` de l'écran — fasse rougir ce test.
+		const ligne = ENUMERES_FERMES.find((e) => e.path === 'canon.objectifs[].camp')
+
+		expect(ligne).toBeDefined()
+		expect(ligne?.valeurs).toBe(CAMPS)
+		expect(ligne?.requis).toBe(true)
+		expect(ligne?.location).toBe('Objectifs')
+		// Les trois camps, dans l'ordre arbitré (§ 3 du plan d'itération, repris du
+		// § « Objectifs des camps » de docs/PLAN-BASCULE-IA.dc.html).
+		expect(CAMPS).toEqual(['protagonistes', 'antagonistes', 'joueur'])
+	})
+
+	it('camp hors enumeration est bloquant et nomme le champ', () => {
+		const doc = fixture()
+		objectif(doc).camp = 'neutres'
+
+		const resultat = validateDossier(doc)
+		const anomalie = resultat.errors.find((e) => e.code === 'valeur-hors-enumeration')
+
+		expect(resultat.ok).toBe(false)
+		expect(anomalie?.path).toBe('canon.objectifs[0].camp')
+		// Le OÙ est l'OBJECTIF porteur, résolu par `sitesDe` sans qu'aucune table le dise.
+		expect(anomalie?.location).toBe('Objectif « Refermer le sceau du Gouffre »')
+		expect(anomalie?.message).toContain('« camp »')
+		expect(anomalie?.message).toContain('« neutres »')
+		expect(anomalie?.message).toContain('protagonistes, antagonistes ou joueur')
+	})
+
+	it('camp absent est bloquant : le champ est obligatoire', () => {
+		// `requis: true` — un objectif sans camp n'appartient à personne, et le moteur
+		// qui conclut la partie ne saurait pas de quel côté elle s'est jouée. Le message
+		// dit « vide » et jamais « undefined » (KR-164).
+		const doc = fixture()
+		delete objectif(doc).camp
+
+		const resultat = validateDossier(doc)
+		const anomalie = resultat.errors.find((e) => e.code === 'valeur-hors-enumeration')
+
+		expect(resultat.ok).toBe(false)
+		expect(anomalie?.path).toBe('canon.objectifs[0].camp')
+		expect(anomalie?.location).toBe('Objectif « Refermer le sceau du Gouffre »')
+		expect(anomalie?.message).toContain('« vide »')
+		expect(anomalie?.message).toContain('protagonistes, antagonistes ou joueur')
+		for (const fuite of FUITES_TECHNIQUES) {
+			expect(anomalie?.message.toLowerCase()).not.toContain(fuite)
+		}
+	})
+
+	it('chacun des trois camps est accepte', () => {
+		// Discriminant des deux refus ci-dessus : ce n'est pas « toute valeur de camp
+		// est refusée ». Dérivé du registre — une valeur ajoutée demain est éprouvée
+		// sans qu'on y pense.
+		const refuses = CAMPS.filter((camp) => {
+			const doc = fixture()
+			objectif(doc).camp = camp
+			return !validateDossier(doc).ok
+		})
+
+		expect(refuses).toEqual([])
 	})
 
 	it('une carac ou un TC de jet hors registre est bloquant', () => {
@@ -1226,7 +1291,6 @@ describe('issues', () => {
  * ajoutée à la table sans son poseur passerait sans bruit.
  */
 describe('validateDossier, les conditions', () => {
-	const objectif = (doc: Doc): Doc => arr(obj(doc.canon).objectifs)[0]
 	const fin = (doc: Doc): Doc => arr(obj(doc.charpente).fins)[0]
 	const etape = (doc: Doc): Doc => arr(personnage(doc).plan_actions)[0]
 

@@ -10,7 +10,9 @@ import {
 	estIdentifiantBienForme,
 	feuilleDe,
 	FORME_IDENTIFIANT,
+	frapperIdentifiant,
 	identifiantsDupliques,
+	type EspaceDeNoms,
 } from './identifiers'
 
 const CHEMIN_FIXTURE = path.join(__dirname, '__fixtures__', 'dossier-minimal.json')
@@ -113,6 +115,35 @@ describe('identifiers', () => {
 	it('un identifiant range dans le mauvais espace de noms est mal forme', () => {
 		expect(estIdentifiantBienForme('lieu.val-cendre', 'lieu')).toBe(true)
 		expect(estIdentifiantBienForme('lieu.val-cendre', 'pnj')).toBe(false)
+	})
+
+	it('une frappe est bien formee dans CHAQUE espace de noms du registre', () => {
+		// PROPRIÉTÉ, pas un exemple : la liste des espaces est DÉRIVÉE du registre, de
+		// sorte qu'un espace ajouté demain est éprouvé sans qu'on y pense. L'échec se
+		// NOMME par l'espace fautif (KR-157), jamais par un compte.
+		const espaces = Object.keys(ESPACES_DE_NOMS) as EspaceDeNoms[]
+
+		const malFormes = espaces.filter((espace) => !estIdentifiantBienForme(frapperIdentifiant(espace), espace))
+
+		expect(malFormes).toEqual([])
+		expect(espaces.length).toBeGreaterThan(0) // discriminant : la boucle a bien tourné
+		// La frappe est LIÉE à son espace : celle d'un objectif n'est pas un lieu. Sans
+		// cette ligne, un préfixe constant passerait la boucle ci-dessus pour un espace.
+		expect(estIdentifiantBienForme(frapperIdentifiant('objectif'), 'lieu')).toBe(false)
+		// Et jamais le `_` de `createId` — refusé par `FORME_IDENTIFIANT`, donc refusé
+		// par le validateur à la relecture du dossier.
+		expect(frapperIdentifiant('objectif')).not.toContain('_')
+	})
+
+	it('deux frappes successives ne collisionnent pas', () => {
+		const premiere = frapperIdentifiant('objectif')
+		const seconde = frapperIdentifiant('objectif')
+
+		expect(premiere).not.toBe(seconde)
+		// Une source constante se verrait immédiatement sur une poignée de tirages ; la
+		// forme, elle, est déjà tenue par le test ci-dessus.
+		const frappes = Array.from({ length: 50 }, () => frapperIdentifiant('objectif'))
+		expect(new Set(frappes).size).toBe(frappes.length)
 	})
 
 	it('collectIds releve chaque entite avec son chemin et son nom', () => {

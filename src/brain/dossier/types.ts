@@ -110,6 +110,20 @@ export type Portee = (typeof PORTEES)[number]
 export const CERTITUDES = ['sait', 'croit', 'soupconne'] as const
 export type Certitude = (typeof CERTITUDES)[number]
 
+/**
+ * Le CAMP d'un objectif : À QUI cette victoire appartient. Le tableau est la
+ * source unique — l'union en est dérivée, et le validateur lit le tableau plutôt
+ * que de re-lister les littéraux (KR-117).
+ *
+ * OBLIGATOIRE, sans défaut implicite, pour la même raison que `certitude` : un
+ * objectif sans camp n'appartient à personne, et le moteur qui conclut une partie
+ * ne saurait pas de QUEL côté elle s'est jouée. « Un objectif par camp » reste
+ * DESCRIPTIF : aucune règle n'exige de couvrir les trois, ni n'en interdit deux du
+ * même camp.
+ */
+export const CAMPS = ['protagonistes', 'antagonistes', 'joueur'] as const
+export type Camp = (typeof CAMPS)[number]
+
 /** Une étape du plan d'actions d'un personnage. */
 export interface PlanAction {
 	/** L'ordre de l'étape dans le plan. */
@@ -231,10 +245,15 @@ export interface Conditions {
  * `…_expr` ⇒ `…_texte` : un `…_texte` sans son `…_expr` avertit (D1), l'inverse
  * est un trou de documentation d'auteur, affaire du linter n° 7.
  *
+ * `camp`, lui, est REQUIS — la seule clé non optionnelle de la fiche après `id`.
+ *
  * Exemple : reussi_si_expr: { op: 'predicat', predicat: 'jalon_atteint', cibles: ['jalon.premiere-nuit'] }
  * Exemple : reussi_si_texte: 'Le héros a atteint le fond du Gouffre scellé.'
  */
 export interface Objectif extends Entite {
+	/** À qui appartient cette victoire. MOTEUR : jamais injecté au modèle — un
+	 *  narrateur qui sait quel camp doit l'emporter y conduit. */
+	camp: Camp
 	reussi_si_texte?: string
 	reussi_si_expr?: ExprNode
 	echoue_si_texte?: string

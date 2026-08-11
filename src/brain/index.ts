@@ -138,7 +138,12 @@ export { autoSlot } from './BookService'
 // dans un schéma de sortie, elle devra SUPPRIMER un test, c'est-à-dire prendre la
 // décision au lieu de la subir. `DeltaBrut` disparaît, remplacé par `Delta`.
 export { DOSSIER_SCHEMA, BUDGET_MOTS_CANON, BUDGET_MOTS_JALON, CONFIANCE_MIN, CONFIANCE_MAX } from './dossier/types'
-export { PORTEES, CERTITUDES } from './dossier/types'
+// `CAMPS` sort à l'itération 3 de la n° 3 : la carte d'objectif rend un `Select`
+// FERMÉ sur ses trois valeurs, et re-lister les camps côté feature en ferait une
+// seconde source que le validateur ne connaîtrait pas (KR-117). Les LIBELLÉS
+// français, eux, restent côté feature — un seul consommateur réel, précédent
+// `sections.ts` (le glyphe et la feature propriétaire n'ont jamais migré ici).
+export { PORTEES, CERTITUDES, CAMPS } from './dossier/types'
 export type {
 	Dossier,
 	Canon,
@@ -150,6 +155,7 @@ export type {
 	Entite,
 	Portee,
 	Certitude,
+	Camp,
 	PlanAction,
 	Revelation,
 	Savoir,
@@ -174,7 +180,19 @@ export type { DossierIssue, DossierIssueCode, DossierIssueSeverity } from './dos
 // par le MÊME repli que le rapport d'anomalies. Réimplémenter « Lieu n°N (sans
 // nom) » côté feature en ferait une seconde règle d'affichage, qui dériverait en
 // silence de celle qui fait foi. Son corps ne change pas.
-export { ESPACES_DE_NOMS, FORME_IDENTIFIANT, estIdentifiantBienForme, localiserEntite } from './dossier/identifiers'
+// `frapperIdentifiant` SORT à l'itération 3 de la n° 3, qui frappe l'identifiant
+// d'un objectif créé à l'écran. Elle n'est pas restée privée à la feature parce
+// que son second appelant réel est déjà nommé (la section Lieux, itération
+// suivante) : même seuil que `localiserEntite` et `compterMots`. Une frappe
+// réimplémentée côté feature retomberait sur `createId()`, dont le `_` est refusé
+// par `FORME_IDENTIFIANT` — l'auteur ne l'apprendrait qu'à la relecture du dossier.
+export {
+	ESPACES_DE_NOMS,
+	FORME_IDENTIFIANT,
+	estIdentifiantBienForme,
+	frapperIdentifiant,
+	localiserEntite,
+} from './dossier/identifiers'
 export type { EspaceDeNoms, EspaceDeNomsDescripteur } from './dossier/identifiers'
 // `compterMots` sort à la n° 3 (`dossier-canon`), qui en est le SECOND appelant
 // réel : le compteur « n/BUDGET mots » rendu sous les champs de canon. Un compteur

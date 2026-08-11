@@ -69,6 +69,10 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	// description ») et il est déjà le OÙ du rapport d'anomalie. L'injecter
 	// poserait le précédent que le nom de toute entité est injectable.
 	'canon.objectifs[].nom': 'auteur',
+	// À QUI appartient la victoire : une classification de moteur, même famille que
+	// `personnages[].portee`. Injectée, elle apprendrait au narrateur quel camp doit
+	// l'emporter — exactement ce que les conditions de réussite lui cachent déjà.
+	'canon.objectifs[].camp': 'moteur',
 	// D1 — les DIX lignes des cinq familles de conditions, et ZÉRO ajoutée à
 	// l'ensemble injecté. Un `…_expr` est la seule autorité sur ce qui se déclenche
 	// (moteur) ; son jumeau `…_texte` est la MÊME règle en français — injecté, il

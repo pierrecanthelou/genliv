@@ -17,6 +17,7 @@
 			{
 				"id": "objectif.reveler-la-vigie",
 				"nom": "Révéler qui veille sur la tour",
+				"camp": "joueur",
 				"reussi_si_texte": "Le héros a atteint la vigie du nord et appris que Sélène veille encore sur le signal.",
 				"reussi_si_expr": {
 					"op": "et",
@@ -35,6 +36,7 @@
 			{
 				"id": "objectif.proteger-le-sceau",
 				"nom": "Empêcher l'ouverture du sceau de cendre",
+				"camp": "protagonistes",
 				"reussi_si_texte": "Le héros possède le sceau de cendre à la fin de l'aventure.",
 				"reussi_si_expr": { "op": "predicat", "predicat": "possede_objet", "cibles": ["objet.sceau-de-cendre"] },
 				"echoue_si_texte": "Le sceau de cendre a été perdu ou cédé.",

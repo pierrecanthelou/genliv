@@ -17,6 +17,7 @@
 			{
 				"id": "objectif.refermer-le-sceau",
 				"nom": "Refermer le sceau du Gouffre",
+				"camp": "protagonistes",
 				"reussi_si_texte": "La première nuit est passée à Val-Cendre et l'embuscade du Fanal n'a jamais eu lieu.",
 				"reussi_si_expr": {
 					"op": "et",

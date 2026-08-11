@@ -1,0 +1,9 @@
+**Réponses nommées (périmètre / valeur / ordre) :**
+
+1. **Tech Lead, OBJECTION 1** (cardinalité vs description) — je tranche : **descriptif**. « un objectif par camp » = typiquement un par camp, pas une règle imposée. Liste libre `Objectif[]`, add/retrait comme `interdits_ton`, `camp` taggé par Select, **aucune validation d'unicité ni de complétude par camp**. À écrire tel quel en `resolved_decision` d'it3. **Ma propre OBJECTION de tour 1 : RETIRÉE** (motif : lecture convergente du tech-lead + défaut `'protagonistes'` de l'UX confirment la même interprétation — plus d'ambiguïté à porter, la clarification demandée est maintenant actée).
+
+2. **Tech Lead, OBJECTION 2** (critère #7/8 restreint à it4) — **confirmé**, et c'est plus qu'une contrainte technique : `SECTIONS[0]` (canon) n'a jamais été une section comptable, c'est un formulaire, pas un inventaire — un compte d'objectifs dans la nav n'aurait de toute façon aucun sens produit à côté de synopsis/ton/interdits. Restreindre à Lieux ne retire rien à l'auteur, ça corrige un critère mal placé écrit avant que les frontières de section soient connues. Approuvé, à corriger dans `plan.acceptance_criteria` (pas seulement noté).
+
+3. **Tension QA veto / lot contrat unique** — pas de tension réelle : rendre `condition-sans-expr` via `IssueList` est le même mécanisme que le compteur de mots d'it1 (affichage d'un warning déjà calculé, rien de neuf à construire), donc reste dans le lot 2 (feature) déjà annoncé — aucun 3ᵉ lot. Je rejoins QA : **il faut un critère d'acceptation nommé, texte exact du warning, testé en RTL** — sans lui je durcis en veto, c'est un chemin nominal, pas un cas limite.
+
+4. `camp: requis:true` (risque tech-lead) — hors mon tranchage, mais côté valeur auteur : aucun dossier réel n'a pu porter d'objectif avant cette itération (pas d'UI existante) — risque théorique, à écrire en décision, pas à bloquer.

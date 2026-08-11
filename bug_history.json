@@ -95,6 +95,30 @@
 			"mitigation": "Nouveau test explicite : refus sur synopsis_mj, commit reussi sur ton (bandeau doit rester), puis commit reussi sur synopsis_mj (bandeau doit disparaitre).",
 			"regression_test": "src/features/dossier-canon/tests/panneauCanon.test.tsx — « le bandeau de refus sur un champ survit a un commit reussi sur un AUTRE champ (revue de PR, tour 2) »",
 			"severity": "major"
+		},
+		{
+			"id": "BUG-057",
+			"date": "2026-08-10",
+			"feature": "dossier-canon",
+			"discovered_at": "iteration-3",
+			"symptom": "La compaction de code-knowledge.json (plafond 75 KiB franchi apres ajout de KR-188/189) a reduit 28 KR de features supprimees a un rappel d'une ligne 'code inexistant, ce risque n'a plus d'objet' -- faux pour 16 d'entre elles, dont l'invariant vit toujours au SSOT (BookService.ts, kinds.ts, tree.ts, ObjectEditor.tsx...) et que CLAUDE.md cite nommement (KR-055, KR-067) comme regles non negociables.",
+			"root_cause": "Selection de compaction faite sur le label feature seul (feature supprimee = risque compactable) sans grep prealable des citations du KR dans src/**.",
+			"fix": "Texte original restaure pour les 16 KR encore cites en code vivant ou motif generique reutilisable, chacun complete d'un pointeur vers son SSOT actuel. Les 13 sans citation gardent la forme compactee.",
+			"mitigation": "KR-155 etendu : toute compaction fondee sur une feature supprimee grep d'abord l'id du KR dans src/**, jamais le label feature seul.",
+			"regression_test": "aucun (doc) -- verifie par grep manuel (tech-lead PR review) et re-mesure wc -c",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-058",
+			"date": "2026-08-10",
+			"feature": "dossier-canon",
+			"discovered_at": "iteration-3",
+			"symptom": "ObjectifsCanon.tsx, handleChangeChamp spreadait prev[id] sans garde d'absence -- si un objectif existe dans dossier.canon.objectifs sans entree de brouillon correspondante, les deux autres champs du brouillon deviennent undefined (Field controle -> non controle), risque de perte de prose deja enregistree au blur suivant.",
+			"root_cause": "Le chemin de rendu etait deja garde (brouillons[id] ?? brouillonDe(objectif)), le chemin de mutation ne l'etait pas -- une seule moitie du meme etat local protegee.",
+			"fix": "handleChangeChamp reconstruit un brouillon complet via brouillonDe(objectif) quand prev[id] est absent, avant d'y appliquer le champ edite.",
+			"mitigation": "Tout etat local derive d'une collection externe doit porter la meme garde d'absence sur lecture ET mutation.",
+			"regression_test": "aucun test dedie -- non atteignable par les flux livres cette iteration (tout objectif nait via handleAjouter, brouillon seme en synchrone) ; dette assumee.",
+			"severity": "minor"
 		}
 	],
 	"_about": "Les défauts du TEMPS COURANT — bascule IA, versions 0.6.x, depuis le 2026-08-03, pour les features PAS ENCORE done. Les défauts antérieurs (BUG-001 à BUG-027, l'éditeur d'arbre) sont dans bug_history.0.5.json ; ceux des features déjà done de cette ère (tree-canvas, dossier-format, bascule-editeur) sont dans bug_history.features-terminees.json, scindé le 2026-08-10 — aucun des deux n'est en lecture obligatoire, seul ce fichier-ci l'est. La numérotation des BUG-xxx reste GLOBALE à travers les trois fichiers : un identifiant ne se réemploie jamais."

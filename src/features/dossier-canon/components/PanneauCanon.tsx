@@ -12,6 +12,7 @@ import {
 	type Canon,
 	type DossierIssue,
 } from '../../../brain'
+import { ObjectifsCanon } from './ObjectifsCanon'
 
 export interface PanneauCanonProps {
 	dossierId: string
@@ -274,6 +275,8 @@ export function PanneauCanon({ dossierId }: PanneauCanonProps): JSX.Element | nu
 							</button>
 						</div>
 					</div>
+
+					<ObjectifsCanon dossierId={dossierId} />
 
 					{refus !== null && (
 						<div role="status" style={bandeauStyle}>

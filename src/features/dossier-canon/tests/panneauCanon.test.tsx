@@ -46,6 +46,10 @@ describe('PanneauCanon', () => {
 		expect(screen.getByRole('textbox', { name: /synopsis/i })).toHaveValue(dossier.canon.mj.synopsis_mj)
 		expect(screen.getByRole('textbox', { name: /accroche/i })).toHaveValue(dossier.canon.partage.accroche_joueur)
 		expect(screen.getByRole('textbox', { name: /^ton/i })).toHaveValue(dossier.canon.ton)
+		// Le bloc Objectifs (`ObjectifsCanon`, lot 2 de l'itération 3) est monte comme
+		// cinquieme enfant du panneau — sa presence, rien de plus : ses propres
+		// comportements sont eprouves par `objectifsCanon.test.tsx`.
+		expect(screen.getByText('OBJECTIFS DES CAMPS — interne, jamais injecté au modèle')).toBeInTheDocument()
 	})
 
 	it('sauvegarde d un champ au blur persiste et survit a une relecture, update appele une seule fois', async () => {

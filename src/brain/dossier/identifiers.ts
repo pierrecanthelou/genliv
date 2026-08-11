@@ -12,6 +12,7 @@
  * le rapport d'anomalie. L'union `EspaceDeNoms` en est dérivée par `keyof typeof`,
  * donc il n'existe pas d'union parallèle à tenir en phase.
  */
+import { randomToken } from '../utils/id'
 
 /**
  * Factory d'IDENTITÉ — elle épingle chaque valeur à `V` tout en INFÉRANT l'union
@@ -81,6 +82,25 @@ export const FORME_IDENTIFIANT = new RegExp(`^(${ESPACES.join('|')})\\.[a-z0-9-]
  */
 export function estIdentifiantBienForme(id: string, espace: EspaceDeNoms): boolean {
 	return FORME_IDENTIFIANT.test(id) && id.startsWith(`${espace}.`)
+}
+
+/**
+ * FRAPPER un identifiant neuf dans un espace de noms : le préfixe, un point, et
+ * l'entropie de `randomToken()`. La sortie satisfait `estIdentifiantBienForme` par
+ * construction, sur les DEUX branches de `randomToken` — l'UUID et son repli
+ * respectent la même forme `[a-z0-9-]+`.
+ *
+ * Ni `createId()`, dont le séparateur `_` est refusé par `FORME_IDENTIFIANT`, ni
+ * un identifiant dérivé du `nom` : renommer une entité casserait alors toutes les
+ * références qui la pointent, et deux homonymes se marcheraient dessus (KR-003).
+ *
+ * Elle vit ICI plutôt que dans la feature qui la frappe la première (n° 3, la
+ * carte d'objectif) parce que son SECOND appelant réel est déjà nommé — la section
+ * Lieux, itération suivante de la même feature. Même seuil que `localiserEntite`
+ * et `compterMots`, promus au deuxième appelant identifié, jamais avant.
+ */
+export function frapperIdentifiant(espace: EspaceDeNoms): string {
+	return `${espace}.${randomToken()}`
 }
 
 /**

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.15 — un camp sans objectif ne gagne rien
+
+`dossier-canon` itération 3/4. L'auteur rédige les objectifs de victoire de son histoire dans la section Canon — nom, camp (protagonistes/antagonistes/joueur), condition de réussite, condition d'échec en prose factuelle.
+
+- **`Objectif.camp: Camp`** (registre fermé `CAMPS`, à côté de `PORTEES`/`CERTITUDES`) — champ non optionnel, ajouté au schéma dans le lot contrat (9 fichiers mesurés, pas ~6 : types/tables/destinations/identifiers/index, deux fixtures, deux tests de contrat).
+- **`frapperIdentifiant(espace)`** promu à `brain/dossier/identifiers.ts` et exporté du baril — premier frappeur d'identifiant d'entité côté feature, motif : le 2e appelant réel (Lieux, it4) est déjà nommé.
+- **`ObjectifsCanon`**, composant séparé de `PanneauCanon` (qui reste sous le signal de découpe KR-112) : liste libre d'objectifs, camp commité immédiatement (sans brouillon, comme `lieu_id`), nom/conditions en brouillon+blur. Aucun éditeur d'expression structurée — D1 reste texte-seul pour cette feature.
+- **Avertissement D1** (`condition-sans-expr`) rendu par une lecture dérivée (`useMemo` sur `validateDossier`), jamais un état semé depuis `commit()` — visible dès le montage d'un dossier déjà non conforme, pas seulement après une saisie.
+- 62 suites / 852 tests. Score de mutation sans objet (aucun des 4 fichiers mutés touché).
+
 ## 0.6.14 — un lieu se choisit, il ne se retape pas
 
 `dossier-canon` itération 2/4. L'auteur fixe le point de départ de son aventure : un `Select` qui liste les lieux existants et une ouverture rédigée pour le joueur.
