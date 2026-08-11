@@ -5,3 +5,4 @@
  */
 export { PanneauCanon } from './components/PanneauCanon'
 export { PanneauDepart } from './components/PanneauDepart'
+export { PanneauLieux } from './components/PanneauLieux'

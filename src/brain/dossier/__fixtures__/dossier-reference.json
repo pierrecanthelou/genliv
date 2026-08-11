@@ -160,9 +160,21 @@
 			}
 		],
 		"lieux": [
-			{ "id": "lieu.foyer-du-guet", "nom": "Le Foyer du Guet" },
+			{
+				"id": "lieu.foyer-du-guet",
+				"nom": "Le Foyer du Guet",
+				"description": "Le village serré autour de son beffroi éteint : un marché de cendres, une forge, la maison de la guérisseuse, et la route du nord qui monte vers la tour.",
+				"ambiance": "On y parle bas du feu de la tour, et personne ne lève les yeux vers le beffroi.",
+				"dangers": "Rien n'y menace le corps : Corvin surveille les allées et venues et monnaie ce qu'il apprend."
+			},
 			{ "id": "lieu.marche-des-cendres", "nom": "Le marché des cendres" },
-			{ "id": "lieu.tour-effondree", "nom": "La tour effondrée" },
+			{
+				"id": "lieu.tour-effondree",
+				"nom": "La tour effondrée",
+				"description": "La tour de guet écroulée au nord du village, dont le mécanisme du beffroi tourne encore sous les gravats.",
+				"ambiance": "Le vent siffle dans les poutres noircies ; la cendre crisse à chaque pas.",
+				"dangers": "Un squelette veille dans les décombres et surgit quand on monte seul après la tombée du jour."
+			},
 			{ "id": "lieu.crypte-scellee", "nom": "La crypte scellée" },
 			{ "id": "lieu.vigie-du-nord", "nom": "La vigie du nord" }
 		],

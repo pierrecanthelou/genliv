@@ -323,7 +323,67 @@
 			"mitigation": "QA mode B (contexte neuf, essaim etape 5) a grepe litteralement dossier:updated/.emit( dans le fichier de test avant de compter le critere comme couvert — c'est cette discipline qui a trouve le trou, pas une lecture du resume des ouvriers. A rappeler pour tout futur critere ecrit avec plusieurs niveaux explicites (contrat + composant, ou unitaire + contrat) dans un plan a plusieurs lots : le decoupage en lots ne garantit pas que chaque niveau ait un proprietaire.",
 			"regression_test": "src/features/bascule-editeur/tests/dossierEditorScreen.test.tsx — dossier:updated apres montage: le trailing de Personnages se met a jour sans remontage",
 			"severity": "minor"
+		},
+		{
+			"id": "BUG-029",
+			"date": "2026-08-03",
+			"feature": "brain",
+			"discovered_at": "iteration-bascule-0",
+			"symptom": "Trois evenements de brain/EventBus.ts (action:changed, monster:savedToLibrary, book:exported) sans aucun emetteur ni observateur apres le tri. Le commentaire de book:exported nommait « book-export », feature supprimee, et un format que la decision n° 1 abandonne.",
+			"root_cause": "Meme cause que BUG-028 appliquee au bus : le contrat d'evenement survit a ses deux extremites parce qu'il n'est reference que par un type, jamais par un import de fichier. Le CHANGELOG affirmait pourtant que les registres sans inscrivant etaient partis.",
+			"fix": "Suppression des trois entrees de AppEvents et de l'import NodeActionType devenu inutile (src/brain/EventBus.ts).",
+			"mitigation": "Meme garde que BUG-028 (KR-155), etendue explicitement aux cles de AppEvents : un nom d'evenement est un contrat a deux extremites, il se verifie par grep sur `emit(` ET sur `.on(`.",
+			"regression_test": "aucun (suppression de types morts ; tsc --noEmit propre, 485 tests verts)",
+			"severity": "minor"
+		},
+		{
+			"id": "BUG-030",
+			"date": "2026-08-03",
+			"feature": "brain",
+			"discovered_at": "iteration-bascule-0",
+			"symptom": "src/brain/rules.golden.test.ts — qui tourne dans la porte de commit et fait autorite sur les registres de regles — instruisait le lecteur de repercuter toute evolution du bestiaire « dans PROMPT_SCENE_IA.md et public/PROMPT_SCENE_IA.md (regle triplet lie de CLAUDE.md) ». Les deux fichiers et la regle ont ete supprimes par le meme lot.",
+			"root_cause": "La regle « triplet lie » a ete retiree de CLAUDE.md sans grep de ses citations. Une consigne perimee dans un fichier de la porte de commit est le pire endroit possible : c'est celui que le prochain contributeur croira.",
+			"fix": "Commentaire repointe sur docs/REGLES-DU-JEU.md, source de verite des mecaniques (KR-130).",
+			"mitigation": "KR-154 — avant de supprimer un document contraignant ou la regle qui le cite, grep le depot entier pour ses citations, code et commentaires compris.",
+			"regression_test": "aucun (commentaire)",
+			"severity": "minor"
+		},
+		{
+			"id": "BUG-032",
+			"date": "2026-08-03",
+			"feature": "global-config",
+			"discovered_at": "iteration-bascule-0",
+			"symptom": "Apres le tri, .eslintrc.cjs listait toujours les treize dossiers de features dans FEATURE_DIRS (dont huit supprimes), et le selecteur ImportExpression repetait la meme liste en dur dans une chaine. Quatre fichiers de .claude/ (commande /cadrer, skill de raffinage, agents pm-produit et tech-lead) pointaient encore features/README.md, supprime — /cadrer demandait meme d'y mettre a jour un tableau.",
+			"root_cause": "Le tri a porte sur src/ et sur les documents racine, sans balayer la configuration d'outillage ni les prompts d'agents. Ces fichiers ne compilent pas et ne sont pas testes : rien ne signale qu'ils decrivent un depot qui n'existe plus. La commande suivante (/cadrer dossier-format) aurait echoue sur un chemin absent.",
+			"fix": "FEATURE_DIRS reduit aux cinq survivants et le selecteur ImportExpression construit depuis cette meme liste (plus de duplication) ; .claude/commands/cadrer.md, .claude/skills/raffinage-iteration/SKILL.md, .claude/agents/pm-produit.md et tech-lead.md repointes sur docs/ROADMAP-BASCULE-IA.md ; l'invariant ActionRegistry retire de tech-lead.md.",
+			"mitigation": "Apres toute suppression de feature, grep .claude/, .eslintrc.cjs, jest et stryker pour le nom supprime — l'outillage et les prompts d'agents sont du code non type qui pourrit en silence. Les trois regles d'isolation ont ete re-testees par sonde eslint --stdin (import dynamique bloque, import statique bloque, import brain accepte).",
+			"regression_test": "sonde manuelle eslint --stdin sur src/features/book-library/probe.ts (3 cas)",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-033",
+			"date": "2026-08-03",
+			"feature": "brain",
+			"discovered_at": "iteration-bascule-0",
+			"symptom": "Une dizaine de commentaires decrivaient du code supprime par le meme lot : persistenceKeys.ts et BrainContext.tsx parlaient du canvas-outline view-mode retire, bestiary.ts et BrainContext.tsx de l'affordance « Choisir dans la librairie » d'action-monster, Stepper.tsx et TargetPicker.tsx justifiaient leur place dans brain/components par « action-pnj + action-monster l'utilisent », EditorTopBar.tsx documentait sa prop actions par l'exemple de book-export, hooks.ts listait node-editor et outline-view comme vues.",
+			"root_cause": "Les commentaires d'un fichier modifie ne sont pas relus quand la modification est une suppression ailleurs. Ils decrivent alors un depot disparu, et coutent d'autant plus cher que ce lot laisse volontairement debout du code sans appelant : sans commentaire a jour, on ne distingue plus le sursis delibere de l'oubli.",
+			"fix": "Commentaires reecrits sur l'etat d'arrivee, en nommant le repreneur quand la roadmap en designe un (n° 6 pour le bestiaire, n° 3 a 6 pour les primitives de formulaire).",
+			"mitigation": "Lors d'une suppression, relire les commentaires de chaque fichier modifie, pas seulement son code.",
+			"regression_test": "aucun (commentaires)",
+			"severity": "minor"
+		},
+		{
+			"id": "BUG-034",
+			"date": "2026-08-03",
+			"feature": "global-config",
+			"discovered_at": "iteration-bascule-0",
+			"symptom": "CLAUDE.md — le fichier de regles importe a chaque session — annoncait comme contrats vivants trois evenements inexistants : action:changed et monster:savedToLibrary, supprimes d'AppEvents par ce lot meme (BUG-029), et object:granted, qui n'a JAMAIS ete declare dans brain/EventBus.ts.",
+			"root_cause": "La section Architecture de CLAUDE.md a ete corrigee par ce lot pendant que la ligne des evenements, trois sections plus bas, ne l'etait pas : une correction guidee par le diff du code au lieu d'un grep du nom supprime. Le cas object:granted montre que la liste avait deja derive avant la bascule — elle etait recopiee a la main sans source.",
+			"fix": "Liste alignee sur AppEvents et rendue explicitement derivee : la ligne nomme desormais brain/EventBus.ts comme faisant autorite, au lieu de pretendre etre une enumeration autonome.",
+			"mitigation": "Une liste recopiee dans un document doit nommer sa source et se declarer derivee. KR-154 etendu : avant de supprimer une cle de contrat (evenement, registre, cle de stockage), grep les documents toujours-actifs (CLAUDE.md, docs/WORKFLOW.md, .claude/) pour son nom, pas seulement le code.",
+			"regression_test": "aucun (document) ; la source de verite reste couverte par tsc sur AppEvents",
+			"severity": "major"
 		}
 	],
-	"_about": "ARCHIVE — les défauts des features PASSÉES DONE de l'ère bascule IA (tree-canvas, dossier-format, bascule-editeur), scindés de bug_history.json le 2026-08-10 quand celui-ci a franchi son plafond de contexte (docs/WORKFLOW.md, § Budget de contexte) : un journal append-only ne se compacte pas, il se scinde — par temps ou par feature passée done. CE FICHIER N'EST PAS EN LECTURE OBLIGATOIRE — seul bug_history.json l'est. On y revient pour une question précise sur un défaut d'une feature déjà terminée. Numérotation globale et continue avec bug_history.json et bug_history.0.5.json : un identifiant ne se réemploie jamais."
+	"_about": "ARCHIVE — les défauts des features PASSÉES DONE de l'ère bascule IA (tree-canvas, dossier-format, bascule-editeur) ET ceux de discovered_at='iteration-bascule-0' (démolition ponctuelle du 2026-08-03, aucune feature vivante) — 3ᵉ axe de scission, ajouté le 2026-08-11. Scindés de bug_history.json le 2026-08-10 (par temps/feature-done) puis le 2026-08-11 (par ce 3ᵉ axe) : un journal append-only ne se compacte pas, il se scinde — par temps, par feature passée done, ou par étape ponctuelle sans feature vivante (docs/WORKFLOW.md, § Budget de contexte). CE FICHIER N'EST PAS EN LECTURE OBLIGATOIRE — seul bug_history.json l'est. On y revient pour une question précise sur un défaut d'une feature déjà terminée ou de la démolition initiale. Numérotation globale et continue avec bug_history.json et bug_history.0.5.json : un identifiant ne se réemploie jamais. Prochain id libre = max(BUG-xxx) des TROIS fichiers, jamais du seul fichier en cours d'édition (BUG-062, 2026-08-11 : 055-058 dupliqués entre ce fichier et bug_history.json faute de cette règle explicite)."
 }

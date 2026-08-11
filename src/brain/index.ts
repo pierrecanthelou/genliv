@@ -160,6 +160,7 @@ export type {
 	Revelation,
 	Savoir,
 	Personnage,
+	Lieu,
 	Resolution,
 	Evenement,
 	Quete,

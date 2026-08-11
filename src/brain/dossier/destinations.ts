@@ -121,6 +121,17 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	// ── monde — les collections nommées ───────────────────────────────────────
 	'monde.lieux[].id': 'moteur',
 	'monde.lieux[].nom': 'auteur',
+	// LES TROIS PROSES D'UN LIEU sont `ia`, et la question s'est réellement posée
+	// contre `auteur` : `auteur` est réservé à ce qui n'est PAS de la donnée de jeu
+	// — une note de rédaction (`nom`, un jumeau `…_texte`). Un piège tendu près d'un
+	// autel, une odeur de cendre froide, un prédateur qui rôde : le narrateur du
+	// Temps 2 doit les LIRE pour raconter le lieu, au même titre qu'un
+	// `plan_actions[].action`. Injectées, jamais émises verbatim — la seule prose
+	// que le joueur lit mot pour mot est `charpente.depart.texte_ouverture_joueur`,
+	// et elle est `moteur` pour cette raison exacte.
+	'monde.lieux[].description': 'ia',
+	'monde.lieux[].ambiance': 'ia',
+	'monde.lieux[].dangers': 'ia',
 	'monde.objets[].id': 'moteur',
 	'monde.objets[].nom': 'auteur',
 	'monde.indices[].id': 'moteur',

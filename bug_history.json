@@ -1,66 +1,6 @@
 {
 	"bugs": [
 		{
-			"id": "BUG-029",
-			"date": "2026-08-03",
-			"feature": "brain",
-			"discovered_at": "iteration-bascule-0",
-			"symptom": "Trois evenements de brain/EventBus.ts (action:changed, monster:savedToLibrary, book:exported) sans aucun emetteur ni observateur apres le tri. Le commentaire de book:exported nommait « book-export », feature supprimee, et un format que la decision n° 1 abandonne.",
-			"root_cause": "Meme cause que BUG-028 appliquee au bus : le contrat d'evenement survit a ses deux extremites parce qu'il n'est reference que par un type, jamais par un import de fichier. Le CHANGELOG affirmait pourtant que les registres sans inscrivant etaient partis.",
-			"fix": "Suppression des trois entrees de AppEvents et de l'import NodeActionType devenu inutile (src/brain/EventBus.ts).",
-			"mitigation": "Meme garde que BUG-028 (KR-155), etendue explicitement aux cles de AppEvents : un nom d'evenement est un contrat a deux extremites, il se verifie par grep sur `emit(` ET sur `.on(`.",
-			"regression_test": "aucun (suppression de types morts ; tsc --noEmit propre, 485 tests verts)",
-			"severity": "minor"
-		},
-		{
-			"id": "BUG-030",
-			"date": "2026-08-03",
-			"feature": "brain",
-			"discovered_at": "iteration-bascule-0",
-			"symptom": "src/brain/rules.golden.test.ts — qui tourne dans la porte de commit et fait autorite sur les registres de regles — instruisait le lecteur de repercuter toute evolution du bestiaire « dans PROMPT_SCENE_IA.md et public/PROMPT_SCENE_IA.md (regle triplet lie de CLAUDE.md) ». Les deux fichiers et la regle ont ete supprimes par le meme lot.",
-			"root_cause": "La regle « triplet lie » a ete retiree de CLAUDE.md sans grep de ses citations. Une consigne perimee dans un fichier de la porte de commit est le pire endroit possible : c'est celui que le prochain contributeur croira.",
-			"fix": "Commentaire repointe sur docs/REGLES-DU-JEU.md, source de verite des mecaniques (KR-130).",
-			"mitigation": "KR-154 — avant de supprimer un document contraignant ou la regle qui le cite, grep le depot entier pour ses citations, code et commentaires compris.",
-			"regression_test": "aucun (commentaire)",
-			"severity": "minor"
-		},
-		{
-			"id": "BUG-032",
-			"date": "2026-08-03",
-			"feature": "global-config",
-			"discovered_at": "iteration-bascule-0",
-			"symptom": "Apres le tri, .eslintrc.cjs listait toujours les treize dossiers de features dans FEATURE_DIRS (dont huit supprimes), et le selecteur ImportExpression repetait la meme liste en dur dans une chaine. Quatre fichiers de .claude/ (commande /cadrer, skill de raffinage, agents pm-produit et tech-lead) pointaient encore features/README.md, supprime — /cadrer demandait meme d'y mettre a jour un tableau.",
-			"root_cause": "Le tri a porte sur src/ et sur les documents racine, sans balayer la configuration d'outillage ni les prompts d'agents. Ces fichiers ne compilent pas et ne sont pas testes : rien ne signale qu'ils decrivent un depot qui n'existe plus. La commande suivante (/cadrer dossier-format) aurait echoue sur un chemin absent.",
-			"fix": "FEATURE_DIRS reduit aux cinq survivants et le selecteur ImportExpression construit depuis cette meme liste (plus de duplication) ; .claude/commands/cadrer.md, .claude/skills/raffinage-iteration/SKILL.md, .claude/agents/pm-produit.md et tech-lead.md repointes sur docs/ROADMAP-BASCULE-IA.md ; l'invariant ActionRegistry retire de tech-lead.md.",
-			"mitigation": "Apres toute suppression de feature, grep .claude/, .eslintrc.cjs, jest et stryker pour le nom supprime — l'outillage et les prompts d'agents sont du code non type qui pourrit en silence. Les trois regles d'isolation ont ete re-testees par sonde eslint --stdin (import dynamique bloque, import statique bloque, import brain accepte).",
-			"regression_test": "sonde manuelle eslint --stdin sur src/features/book-library/probe.ts (3 cas)",
-			"severity": "major"
-		},
-		{
-			"id": "BUG-033",
-			"date": "2026-08-03",
-			"feature": "brain",
-			"discovered_at": "iteration-bascule-0",
-			"symptom": "Une dizaine de commentaires decrivaient du code supprime par le meme lot : persistenceKeys.ts et BrainContext.tsx parlaient du canvas-outline view-mode retire, bestiary.ts et BrainContext.tsx de l'affordance « Choisir dans la librairie » d'action-monster, Stepper.tsx et TargetPicker.tsx justifiaient leur place dans brain/components par « action-pnj + action-monster l'utilisent », EditorTopBar.tsx documentait sa prop actions par l'exemple de book-export, hooks.ts listait node-editor et outline-view comme vues.",
-			"root_cause": "Les commentaires d'un fichier modifie ne sont pas relus quand la modification est une suppression ailleurs. Ils decrivent alors un depot disparu, et coutent d'autant plus cher que ce lot laisse volontairement debout du code sans appelant : sans commentaire a jour, on ne distingue plus le sursis delibere de l'oubli.",
-			"fix": "Commentaires reecrits sur l'etat d'arrivee, en nommant le repreneur quand la roadmap en designe un (n° 6 pour le bestiaire, n° 3 a 6 pour les primitives de formulaire).",
-			"mitigation": "Lors d'une suppression, relire les commentaires de chaque fichier modifie, pas seulement son code.",
-			"regression_test": "aucun (commentaires)",
-			"severity": "minor"
-		},
-		{
-			"id": "BUG-034",
-			"date": "2026-08-03",
-			"feature": "global-config",
-			"discovered_at": "iteration-bascule-0",
-			"symptom": "CLAUDE.md — le fichier de regles importe a chaque session — annoncait comme contrats vivants trois evenements inexistants : action:changed et monster:savedToLibrary, supprimes d'AppEvents par ce lot meme (BUG-029), et object:granted, qui n'a JAMAIS ete declare dans brain/EventBus.ts.",
-			"root_cause": "La section Architecture de CLAUDE.md a ete corrigee par ce lot pendant que la ligne des evenements, trois sections plus bas, ne l'etait pas : une correction guidee par le diff du code au lieu d'un grep du nom supprime. Le cas object:granted montre que la liste avait deja derive avant la bascule — elle etait recopiee a la main sans source.",
-			"fix": "Liste alignee sur AppEvents et rendue explicitement derivee : la ligne nomme desormais brain/EventBus.ts comme faisant autorite, au lieu de pretendre etre une enumeration autonome.",
-			"mitigation": "Une liste recopiee dans un document doit nommer sa source et se declarer derivee. KR-154 etendu : avant de supprimer une cle de contrat (evenement, registre, cle de stockage), grep les documents toujours-actifs (CLAUDE.md, docs/WORKFLOW.md, .claude/) pour son nom, pas seulement le code.",
-			"regression_test": "aucun (document) ; la source de verite reste couverte par tsc sur AppEvents",
-			"severity": "major"
-		},
-		{
 			"id": "BUG-054",
 			"date": "2026-08-06",
 			"feature": "play-mode",
@@ -119,7 +59,31 @@
 			"mitigation": "Tout etat local derive d'une collection externe doit porter la meme garde d'absence sur lecture ET mutation.",
 			"regression_test": "aucun test dedie -- non atteignable par les flux livres cette iteration (tout objectif nait via handleAjouter, brouillon seme en synchrone) ; dette assumee.",
 			"severity": "minor"
+		},
+		{
+			"id": "BUG-061",
+			"date": "2026-08-11",
+			"feature": "dossier-canon",
+			"discovered_at": "iteration-4",
+			"symptom": "PanneauLieux.commit() posait un refus GLOBAL au panneau (setRefus({issues}) sans lieuId), rendu inconditionnellement sous la fiche du lieu SELECTIONNE. Sequence : retirer le lieu de charpente.depart.lieu_id (refuse, bandeau affiche sous sa fiche) puis selectionner un AUTRE lieu (simple changement de selection, aucun commit) laissait le bandeau CE CHANGEMENT N A PAS ETE ENREGISTRE affiche sous la fiche du second lieu, qui n avait rien vu refuser.",
+			"root_cause": "Meme famille que BUG-056 (dossier-canon it1) : un etat de refus non indexe survit a un evenement qui ne devrait pas le concerner. Ici l evenement fautif n est meme pas une ECRITURE (BUG-056 : un commit reussi sur un autre champ) mais un simple changement de SELECTION locale, qui ne passe jamais par commit() et ne pouvait donc pas etre intercepte par la regle deja posee a it1/it2 (effacer sur ecriture reussie). Trouve au tour 2 de la revue de PR : le correctif du tour 1 (filtrage a l affichage) laissait un second angle mort symetrique -- un commit REUSSI sur un AUTRE lieu effacait encore le refus non resolu, l invalidation etant restee globale pendant que l affichage devenait indexe.",
+			"fix": "Le refus est desormais { lieuId, issues }, pose par commit(lieux, lieuId) avec l id du lieu dont l ecriture a echoue. Au rendu, refusAffiche ne vaut { issues } que si refus.lieuId === lieuAffiche.id -- filtrage fait dans PanneauLieux.tsx, FicheLieu.tsx reste un composant de rendu pur qui ne compare jamais d id lui-meme. Deuxieme moitie (tour 2) : setRefus prend desormais la forme fonctionnelle et ne remet a null sur un succes QUE si le lieu du commit reussi est celui deja en cause -- un succes sur un lieu different laisse le refus non resolu intact, meme lorsqu il n est pas affiche.",
+			"mitigation": "Trouve par la revue de PR (tech-lead) avant tout commit, sur le diff stage, en deux tours. Tout futur panneau combinant une liste selectionnable ET un etat de refus doit indexer ce refus par l entite qui l a produit A LA FOIS a l affichage ET a l invalidation -- les deux angles morts sont symetriques et doivent etre corriges ensemble, pas l un a un tour de revue de retard sur l autre.",
+			"regression_test": "src/features/dossier-canon/tests/panneauLieux.test.tsx - le bandeau de refus ne suit pas une autre fiche apres un changement de selection (BUG-061) ; un commit reussi sur un AUTRE lieu ne fait pas disparaitre le refus non resolu (BUG-061, meme famille que BUG-056)",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-062",
+			"date": "2026-08-11",
+			"feature": "global-config",
+			"discovered_at": "iteration-4",
+			"symptom": "Les identifiants BUG-055 a BUG-058 existent EN DOUBLE : une fois dans bug_history.json (dossier-canon it1/it3), une fois dans bug_history.features-terminees.json (bascule-editeur/dossier-format), alors que le _about des deux fichiers affirme une numerotation GLOBALE sans reemploi. Trouve en tentant de journaliser BUG-059 (ce meme lot) : deja pris dans l archive (bascule-editeur it1, 2026-08-08), cite par features_history.json -- la vraie prochaine valeur libre etait BUG-061, pas BUG-059.",
+			"root_cause": "Le scindage du 2026-08-10 (creation de bug_history.features-terminees.json) a laisse chaque fichier reprendre sa PROPRE numerotation locale a partir du max de son seul contenu courant, au lieu du max des DEUX fichiers deja existants a ce moment-la -- une regle ecrite en toutes lettres dans le _about mais jamais verifiee par un instrument.",
+			"fix": "NON CORRIGE : renumeroter 055-058 casserait des citations deja livrees (specification.json, commentaires de code, revues .claude/raffinage/*.revue.md, CHANGELOG) pour un gain purement cosmetique -- le risque de casse depasse la valeur du correctif. BUG-059 (ce lot) a ete renumerote en BUG-061 avant tout commit, donc n a jamais ete cite ailleurs : aucun cout de renumerotation pour celui-la.",
+			"mitigation": "_about des deux fichiers durci : la prochaine valeur libre est desormais definie explicitement comme le max des identifiants des TROIS fichiers (bug_history.json, bug_history.features-terminees.json, bug_history.0.5.json), jamais le max du seul fichier qu on est en train d editer. A verifier par grep des trois fichiers avant toute nouvelle entree, pas par memoire.",
+			"regression_test": "aucun (defaut de donnees dans un journal, pas de code) -- verifie par grep manuel (tech-lead PR review, tour 2) des trois fichiers bug_history*.json",
+			"severity": "minor"
 		}
 	],
-	"_about": "Les défauts du TEMPS COURANT — bascule IA, versions 0.6.x, depuis le 2026-08-03, pour les features PAS ENCORE done. Les défauts antérieurs (BUG-001 à BUG-027, l'éditeur d'arbre) sont dans bug_history.0.5.json ; ceux des features déjà done de cette ère (tree-canvas, dossier-format, bascule-editeur) sont dans bug_history.features-terminees.json, scindé le 2026-08-10 — aucun des deux n'est en lecture obligatoire, seul ce fichier-ci l'est. La numérotation des BUG-xxx reste GLOBALE à travers les trois fichiers : un identifiant ne se réemploie jamais."
+	"_about": "Les défauts du TEMPS COURANT — bascule IA, versions 0.6.x, depuis le 2026-08-03, pour les features PAS ENCORE done. Les défauts antérieurs (BUG-001 à BUG-027, l'éditeur d'arbre) sont dans bug_history.0.5.json ; ceux des features déjà done de cette ère (tree-canvas, dossier-format, bascule-editeur) OU discovered_at='iteration-bascule-0' (démolition ponctuelle du 2026-08-03, n'appartenant à aucune feature vivante) sont dans bug_history.features-terminees.json — 3ᵉ axe de scission ajouté le 2026-08-11 (docs/WORKFLOW.md, § Budget de contexte), à côté de temps/feature-done. Aucun des deux fichiers n'est en lecture obligatoire, seul ce fichier-ci l'est. La numérotation des BUG-xxx reste GLOBALE à travers les trois fichiers : un identifiant ne se réemploie jamais. Prochain id libre = max(BUG-xxx) des TROIS fichiers (bug_history.json, bug_history.features-terminees.json, bug_history.0.5.json), jamais du seul fichier en cours d'édition (BUG-062, 2026-08-11 : 055-058 dupliqués entre ce fichier et l'archive faute de cette règle explicite)."
 }

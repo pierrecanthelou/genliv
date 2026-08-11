@@ -213,6 +213,22 @@ const TEXTE_OPTIONNEL_LIBRE =
 	"jumeau prose OPTIONNEL d'une condition : son absence est calme par D1, et aucune règle du schéma 1 ne contraint sa forme quand il est présent. Même question ouverte que les dispenses « nom », propriétaire n° 2 bascule-editeur : une table « présent → doit être une chaîne », ou une garde à l'affichage."
 
 /**
+ * Le motif partagé des TROIS proses de `Lieu` (itération 4 de la n° 3). Il est
+ * DISTINCT de `TEXTE_OPTIONNEL_LIBRE`, et pas par style : celui-là dispense le
+ * jumeau prose d'une CONDITION, dont l'absence est calme PAR D1 et dont la
+ * présence sans `…_expr` déclenche un avertissement. Ces trois-là n'ont aucun
+ * jumeau `…_expr`, aucune famille dans `FAMILLES_DE_CONDITIONS`, et donc aucun
+ * avertissement possible — les fondre ferait porter à l'un le motif de l'autre,
+ * et la dispense cesserait de dire POURQUOI elle existe.
+ *
+ * Ce qui reste vrai des deux : la corruption remplace la chaîne par un NOMBRE, et
+ * aucune règle du schéma 1 n'arbitre un champ optionnel présent mais non textuel.
+ * Même question ouverte, même propriétaire.
+ */
+const PROSE_D_ENTITE_LIBRE =
+	"prose OPTIONNELLE d'une entité, sans jumeau structuré : son absence est un état calme (doctrine « absent ≠ vide » de l'itération 1, comme « nom »), et aucune règle du schéma 1 ne contraint sa forme quand elle est présente — ni longueur (aucun BUDGETS_DE_MOTS sur monde.lieux[]), ni vocabulaire. Même question ouverte que les dispenses « nom », propriétaire n° 2 bascule-editeur : une table « présent → doit être une chaîne », ou une garde à l'affichage."
+
+/**
  * Les feuilles dont la corruption ne fait PAS échouer la validation, chacune
  * avec son motif. Toute entrée devenue inutile fait rougir le test de disjonction
  * plus bas : une liste d'exceptions doit être AUTO-NETTOYANTE (BUG-044).
@@ -239,6 +255,9 @@ const LIBRES: Record<string, string> = {
 	'monde.personnages[].savoirs[].revele_si.apres_indice_id':
 		"porte OPTIONNELLE : sa résolution vers monde.indices est vivante depuis l'itération 4 (REFERENCES_SIMPLES), mais elle ne parle que d'une CHAÎNE — une valeur présente et non textuelle tombe sous la question ouverte déjà possédée par la n° 2, la même qui porte les dispenses « nom ».",
 	'monde.lieux[].nom': NOM_LIBRE,
+	'monde.lieux[].description': PROSE_D_ENTITE_LIBRE,
+	'monde.lieux[].ambiance': PROSE_D_ENTITE_LIBRE,
+	'monde.lieux[].dangers': PROSE_D_ENTITE_LIBRE,
 	'monde.objets[].nom': NOM_LIBRE,
 	'monde.indices[].nom': NOM_LIBRE,
 	'monde.quetes[].nom': NOM_LIBRE,
@@ -385,6 +404,31 @@ describe('couverture', () => {
 		// Discriminant : la table doit réellement porter ces chemins. Sans cette ligne,
 		// l'assertion passerait aussi sur `undefined → undefined` si une ligne tombait.
 		expect(cheminsTexte.filter((chemin) => DESTINATION_DES_CHAMPS[chemin] === undefined)).toEqual([])
+	})
+
+	it('les trois proses de Lieu portent la destination ia et une instance dans la fixture', () => {
+		// Les deux assertions générales ci-dessus couvrent DÉJÀ ces trois chemins —
+		// mais chacune par une moitié seulement : « toute feuille a une destination »
+		// ne dit rien de la VALEUR (KR-174, leçon de BUG-051), et « aucune ligne morte »
+		// ne dit rien de l'audience. Nommées ici ensemble, elles épinglent l'arbitrage
+		// du raffinage (désaccord #3, `ia` et non `auteur`) : une prose de lieu est de
+		// la donnée de jeu que le narrateur du Temps 2 lit, pas une note de rédaction.
+		//
+		// Les trois chemins sont écrits en littéral, et c'est assumé : aucune table du
+		// dépôt ne liste les proses d'une entité (la dérivation existe pour les
+		// conditions, qui ont `FAMILLES_DE_CONDITIONS`, pas ici). Le garde contre la
+		// divergence n'est donc pas la dérivation mais les deux assertions générales,
+		// qui rougissent si l'un des trois chemins quitte la fixture ou la table.
+		const PROSES_DE_LIEU = ['monde.lieux[].description', 'monde.lieux[].ambiance', 'monde.lieux[].dangers']
+		const feuilles = cheminsDeLaFixture()
+
+		for (const chemin of PROSES_DE_LIEU) {
+			expect(`${chemin} → ${DESTINATION_DES_CHAMPS[chemin]}`).toBe(`${chemin} → ia`)
+			// L'INSTANCE, dans le même test que l'audience : une ligne de destination
+			// livrée sans sa fixture ne déclare l'audience de rien, et la déclaration
+			// serait morte le jour même où elle est écrite.
+			expect(feuilles).toContain(chemin)
+		}
 	})
 
 	it('chaque entree de PREDICATES a au moins une instance dans la fixture', () => {

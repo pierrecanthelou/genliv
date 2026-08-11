@@ -19,7 +19,10 @@
  * PÉRIMÈTRE — décision A du 2026-08-04 : la forme COMPLÈTE des treize racines
  * n'appartient plus à cette feature. Chaque racine reçoit la sienne dans la
  * feature qui l'ÉDITE (`canon` en n° 3, `personnages` en n° 4, `lieux`/`objets`/
- * `indices` en n° 5, `quetes`/`evenements`/`conditions` en n° 6). L'itération 2
+ * `indices` en n° 5, `quetes`/`evenements`/`conditions` en n° 6) — à une exception
+ * DATÉE : la section 07 lieux est passée à la n° 3 au cadrage du 2026-08-10
+ * (`docs/ROADMAP-BASCULE-IA.md` § 3), qui y pose la PROSE de `Lieu` ; `acces` et
+ * les références croisées de `Lieu` restent aux n° 4/5/6. L'itération 2
  * ne pose ici que les corrections IRRÉVERSIBLES — celles qu'aucune migration ne
  * rattrape : la collision de clé `plan`, les portes de révélation fermées, les
  * quatre emplacements de deltas TYPÉS, `monstre_ref`, et `jalons[].enonce_texte`.
@@ -187,6 +190,42 @@ export interface Personnage extends Entite {
 	savoirs: Savoir[]
 }
 
+/**
+ * Un LIEU du monde — le décor où la partie se joue.
+ *
+ * Les TROIS champs sont OPTIONNELS et de la prose LIBRE : un lieu en cours de
+ * rédaction (celui que tout dossier neuf porte, `lieu.amorce`) n'en porte aucun,
+ * et leur absence est un état calme, jamais une alerte — même doctrine
+ * « absent ≠ vide » que le `nom` d'`Entite`.
+ *
+ * Leur audience est `ia` (`destinations.ts`), et c'est ce qui les sépare du
+ * `nom`, qui est `auteur` : un piège tendu près d'un autel ou l'odeur d'une
+ * grotte sont de la DONNÉE DE JEU que le narrateur du Temps 2 devra lire pour
+ * raconter le lieu, pas des notes de rédaction. Injectés, jamais émis verbatim :
+ * le joueur ne lit aucun des trois tel quel — c'est `texte_ouverture_joueur` qui
+ * porte la seule prose émise mot pour mot.
+ *
+ * `acces` et toute référence croisée (personnages, objets, indices, événements
+ * présents) appartiennent aux features qui possèdent ces collections (n° 4/5/6)
+ * — décision A du 2026-08-04, aucune forme anticipée ici.
+ */
+export interface Lieu extends Entite {
+	/** IA — ce qu'est le lieu, ce qu'on y voit, où il se situe.
+	 *  Exemple : « Une grotte basse aux parois calcaires, à une heure de marche au
+	 *  nord de Val-Cendre ; l'entrée est dissimulée par un rideau de lierre. » */
+	description?: string
+	/** IA — le registre sensoriel du lieu : ce qui s'y entend, s'y sent, s'y pressent.
+	 *  Exemple : « Air humide, écho des gouttes, une odeur de cendre froide. » */
+	ambiance?: string
+	/** IA — ce qui y menace le héros. De la PROSE, jamais une règle : un piège
+	 *  formalisé est un `evenement` avec son `declencheur_expr`, et un monstre se
+	 *  résout par `monstre_ref`. Ce champ dit ce que le narrateur doit savoir du
+	 *  risque, il ne le déclenche pas.
+	 *  Exemple : « Un piège à lanière tendu près de l'autel ; les échos attirent
+	 *  parfois un loup des cendres. » */
+	dangers?: string
+}
+
 /** Une issue possible d'un événement, et ce qu'elle change. */
 export interface Resolution {
 	/** L'issue, en français — ce que le narrateur joue quand elle survient. */
@@ -288,7 +327,7 @@ export interface CanonPartage {
 /** Les acteurs et le décor — la couche que le modèle lit pour raconter. */
 export interface Monde {
 	personnages: Personnage[]
-	lieux: Entite[]
+	lieux: Lieu[]
 	objets: Entite[]
 	indices: Entite[]
 	quetes: Quete[]

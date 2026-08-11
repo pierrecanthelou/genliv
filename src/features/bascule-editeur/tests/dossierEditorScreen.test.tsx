@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createBrain, BrainProvider, type Brain, type Dossier } from '../../../brain'
+import { createBrain, BrainProvider, useBrain, frapperIdentifiant, type Brain, type Dossier } from '../../../brain'
 import { dossierKey } from '../../../brain/persistenceKeys'
 import { DossierEditorScreen, type DossierEditorScreenProps } from '../components/DossierEditorScreen'
 
@@ -29,6 +29,51 @@ function SondePanneauCanon(): JSX.Element {
 const SONDE_DEPART = 'Sonde du panneau Départ (test bascule-editeur)'
 function SondePanneauDepart(): JSX.Element {
 	return <textarea aria-label="Texte d ouverture" value={SONDE_DEPART} readOnly />
+}
+
+/**
+ * Même sonde, pour la section Lieux (`dossier-canon` it4) : le MÉCANISME du
+ * slot `panneaux` sur une TROISIÈME section. Le contenu réel de `PanneauLieux`
+ * (liste + fiche, ajout/édition/retrait) est éprouvé par
+ * `dossier-canon/tests/panneauLieux.test.tsx`.
+ */
+const SONDE_LIEUX = 'Sonde du panneau Lieux (test bascule-editeur)'
+function SondePanneauLieux(): JSX.Element {
+	return <textarea aria-label="Nom du lieu" value={SONDE_LIEUX} readOnly />
+}
+
+/**
+ * Sonde d'ÉCRITURE pour la section Lieux — distincte de `SondePanneauLieux`
+ * (lecture seule) ci-dessus. Le vrai `PanneauLieux` ne peut pas être importé
+ * dans ce fichier : `no-restricted-imports` (KR-184, `.eslintrc.cjs`) interdit
+ * tout import inter-features et ne fait AUCUNE exception pour `tests/**` sur
+ * cette règle précise (contrairement à la règle de stockage brut) — un test de
+ * `bascule-editeur` n'a donc pas plus le droit d'importer `dossier-canon` que
+ * le code source. Cette sonde rejoue le SEUL geste que
+ * `PanneauLieux.handleAjouter` effectue réellement : le même `dossiers.update()`
+ * (via `useBrain()`), avec la même forme de patch (`canon`/`charpente`
+ * traversent intacts, seul `monde.lieux` change) et le même
+ * `frapperIdentifiant('lieu')` — tous deux des contrats `brain/`, donc
+ * légitimement importables ici. Elle ferme le critère #7 du plan d'itération 4
+ * de `dossier-canon` (compteur nav) sans dupliquer ce que
+ * `dossier-canon/tests/panneauLieux.test.tsx` prouve déjà côté rendu réel du
+ * bouton (focus, brouillon, retrait, refus).
+ */
+function SondePanneauLieuxEcriture({ dossierId }: { dossierId: string }): JSX.Element {
+	const { dossiers } = useBrain()
+	function handleAjouter(): void {
+		const id = frapperIdentifiant('lieu')
+		dossiers.update(dossierId, (d) => ({
+			canon: d.canon,
+			monde: { ...d.monde, lieux: [...d.monde.lieux, { id }] },
+			charpente: d.charpente,
+		}))
+	}
+	return (
+		<button type="button" onClick={handleAjouter}>
+			+ Ajouter un lieu…
+		</button>
+	)
 }
 
 function renderScreen(brain: Brain, dossierId: string, panneaux?: DossierEditorScreenProps['panneaux']) {
@@ -195,6 +240,40 @@ describe('DossierEditorScreen', () => {
 			expect(within(ligneApres).getByText('1 fiche')).toBeInTheDocument()
 			expect(within(ligneApres).queryByText('0 fiche')).toBeNull()
 		})
+
+		/**
+		 * Critère #7 du plan d'itération 4 de `dossier-canon` (« quand un lieu
+		 * est ajouté ou retiré avec succès, le compteur de la nav
+		 * [SECTIONS[3].compte(), déjà câblé sur monde.lieux.length] se met à
+		 * jour sans qu'aucune vue de cette feature ne recalcule elle-même une
+		 * longueur ») — relevé NON VÉRIFIÉ en revue QA : le test ci-dessus
+		 * prouve le mécanisme pour Personnages par une écriture directe de
+		 * test, jamais rejoué pour Lieux ni depuis un geste UTILISATEUR (clic).
+		 * `SondePanneauLieuxEcriture` appelle le MÊME `dossiers.update()` que
+		 * `PanneauLieux.handleAjouter` (même patch étroit, même
+		 * `frapperIdentifiant('lieu')`) — aucun compteur mocké, seul le vrai
+		 * `dossier:updated` émis PAR LE SERVICE fait avancer le trailing.
+		 */
+		it('ajout d un lieu via le bouton reel: le trailing de Lieux passe de 1 fiche a 2 fiches sans recalcul de vue', async () => {
+			const user = userEvent.setup()
+			const brain = createBrain()
+			const dossier = brain.dossiers.create('Un dossier')
+			renderScreen(brain, dossier.id, { lieux: <SondePanneauLieuxEcriture dossierId={dossier.id} /> })
+
+			const nav = screen.getByRole('navigation', { name: 'Sections du dossier' })
+			const ligneLieux = within(nav).getAllByRole('button')[3]
+			expect(ligneLieux).toHaveTextContent('Lieux')
+			// Dossier neuf : `monde.lieux` porte deja `lieu.amorce` (KR-178).
+			expect(within(ligneLieux).getByText('1 fiche')).toBeInTheDocument()
+
+			await user.click(ligneLieux)
+			expect(ligneLieux).toHaveAttribute('aria-current', 'true')
+
+			await user.click(screen.getByRole('button', { name: '+ Ajouter un lieu…' }))
+
+			expect(within(ligneLieux).getByText('2 fiches')).toBeInTheDocument()
+			expect(within(ligneLieux).queryByText('1 fiche')).toBeNull()
+		})
 	})
 
 	describe('selection d une section: etat vide au mot pres', () => {
@@ -203,7 +282,11 @@ describe('DossierEditorScreen', () => {
 				const user = userEvent.setup()
 				const brain = createBrain()
 				const dossier = brain.dossiers.create('Un dossier')
-				renderScreen(brain, dossier.id, { canon: <SondePanneauCanon />, depart: <SondePanneauDepart /> })
+				renderScreen(brain, dossier.id, {
+					canon: <SondePanneauCanon />,
+					depart: <SondePanneauDepart />,
+					lieux: <SondePanneauLieux />,
+				})
 
 				const nav = screen.getByRole('navigation', { name: 'Sections du dossier' })
 				const ligne = within(nav).getAllByRole('button')[index]
@@ -219,6 +302,11 @@ describe('DossierEditorScreen', () => {
 					// L'etat vide generique de cette section n'est plus rendu (KR-187).
 					expect(screen.getByRole('textbox', { name: /texte d ouverture/i })).toHaveValue(SONDE_DEPART)
 					expect(screen.queryByText(texteEtatVide(1))).toBeNull()
+				} else if (index === 3) {
+					// Lieux (n° 3, dossier-canon it4) : meme mecanique, troisieme section.
+					// L'etat vide generique de cette section n'est plus rendu (KR-187).
+					expect(screen.getByRole('textbox', { name: /nom du lieu/i })).toHaveValue(SONDE_LIEUX)
+					expect(screen.queryByText(texteEtatVide(3))).toBeNull()
 				} else {
 					expect(screen.getByText(texteEtatVide(index))).toBeInTheDocument()
 					expect(screen.getByText(GLYPHES[index], { selector: '[aria-hidden="true"]' })).toBeInTheDocument()
@@ -289,7 +377,7 @@ describe('racine de composition', () => {
 	 * dépôt et un import de `dossier-canon` ici serait légitime (racine de
 	 * composition), mais un rendu complet sort du périmètre de ce fichier.
 	 */
-	it('App.tsx cable PanneauCanon et PanneauDepart sur les slots canon et depart', () => {
+	it('App.tsx cable PanneauCanon, PanneauDepart et PanneauLieux sur les slots canon, depart et lieux', () => {
 		const cheminAppTsx = path.join(__dirname, '..', '..', '..', 'App.tsx')
 		const source = fs.readFileSync(cheminAppTsx, 'utf8')
 
@@ -299,5 +387,8 @@ describe('racine de composition', () => {
 		// ligne, la sonde ci-dessus prouverait un mecanisme que rien n'utilise.
 		expect(source).toContain('PanneauDepart')
 		expect(source).toMatch(/panneaux=\{\{[\s\S]*?depart:\s*<PanneauDepart/)
+		// Le slot `lieux` gagne son panneau reel (dossier-canon it4), meme garde.
+		expect(source).toContain('PanneauLieux')
+		expect(source).toMatch(/panneaux=\{\{[\s\S]*?lieux:\s*<PanneauLieux/)
 	})
 })
