@@ -273,4 +273,85 @@ describe('PanneauPersonnages', () => {
 		expect(screen.getByRole('button', { name: NOM_DU_BLOC_1 })).toHaveAttribute('aria-expanded', 'true')
 		expect(screen.getByRole('button', { name: 'Identité' })).toHaveAttribute('aria-expanded', 'false')
 	})
+
+	/**
+	 * BUG-064 — le SENS DE LECTURE, et son INDEXATION. Aucun des 9 tests ci-dessus
+	 * n'assertait une valeur VENUE DU DOCUMENT : ceux qui touchent le bloc 1
+	 * cliquent avant de vérifier — ils prouvent que l'écriture atteint le
+	 * document, jamais que le document revient à l'écran —, et les trois autres
+	 * assertent un rendu sans donnée (liste vide, Select sans canon, placeholders).
+	 * L'idiome de relecture
+	 * existait pourtant dans ce fichier même (le test `nom` démonte et remonte) ;
+	 * il n'avait simplement pas été étendu aux TROIS widgets fermés à commit
+	 * immédiat, dont l'assertion sur le document donne l'illusion de la preuve.
+	 *
+	 * Deux propriétés distinctes, et il faut les deux — la seconde est celle que
+	 * ce dépôt rate en boucle (KR-197, BUG-056/061/063) :
+	 *
+	 * 1. LECTURE — chaque champ rendu porte la valeur du document. Éprouvé sur
+	 *    des valeurs que le composant NE PEUT PAS produire par défaut : ni le
+	 *    plancher du schéma (`PORTEE_INITIALE = 'premier'`), ni le premier
+	 *    élément d'un registre RÉEL (d'où DEUX objectifs semés, le rattachement
+	 *    portant le second), ni l'option synthétique « Aucun ».
+	 * 2. INDEXATION — la fiche suit la ligne SÉLECTIONNÉE, et aucune valeur ne
+	 *    fuit d'un personnage vers l'autre. C'est le scénario réellement signalé :
+	 *    une liste de six, un clic sur l'un d'eux. Un test mono-personnage ne
+	 *    peut structurellement pas le voir — `brouillonNom` figé sur
+	 *    `personnages[0]` survivait aux dix tests précédents.
+	 */
+	it('lecture au montage et apres selection: deux personnages opposes, aucune valeur ne fuit de l un a l autre (BUG-064)', async () => {
+		const user = userEvent.setup()
+		const brain = createBrain()
+		const dossier = brain.dossiers.create('Un dossier')
+		// DEUX objectifs : le rattachement porte le SECOND, sinon une lecture
+		// figee sur `objectifsCanon[0]` passerait encore.
+		semerObjectif(brain, dossier.id, { id: 'objectif.sceau', camp: 'protagonistes', nom: 'Refermer le Sceau' })
+		semerObjectif(brain, dossier.id, { id: 'objectif.gouffre', camp: 'antagonistes', nom: 'Percer le Gouffre' })
+		semerPersonnage(brain, dossier.id, {
+			id: 'pnj.aldur',
+			nom: 'Aldûr le Sage',
+			portee: 'premier',
+			plan_actions: [],
+			savoirs: [],
+		})
+		semerPersonnage(brain, dossier.id, {
+			id: 'pnj.selene',
+			nom: 'Sélène la Vigie',
+			portee: 'second',
+			plan_actions: [],
+			savoirs: [],
+			camp: 'antagoniste',
+			objectif_id: 'objectif.gouffre',
+		})
+		renderPanel(brain, dossier.id)
+
+		const champNom = () => screen.getByRole('textbox', { name: /nom du personnage/i })
+		const segment = (nom: string) => screen.getByRole('radio', { name: nom })
+		const selectObjectif = () => screen.getByRole('combobox', { name: /objectif rattaché/i })
+
+		// AU MONTAGE, sans aucun clic : c'est le PREMIER personnage qui est
+		// affiche, et rien du second n'a fuite jusqu'a lui.
+		expect(champNom()).toHaveValue('Aldûr le Sage')
+		expect(segment('Premier plan')).toHaveAttribute('aria-checked', 'true')
+		expect(segment('Second plan')).toHaveAttribute('aria-checked', 'false')
+		expect(segment('Protagoniste')).toHaveAttribute('aria-checked', 'false')
+		expect(segment('Antagoniste')).toHaveAttribute('aria-checked', 'false')
+		expect(selectObjectif()).toHaveValue('')
+
+		// APRES SELECTION : les quatre champs suivent la ligne selectionnee.
+		await user.click(laLigne('pnj.selene'))
+		expect(champNom()).toHaveValue('Sélène la Vigie')
+		expect(segment('Second plan')).toHaveAttribute('aria-checked', 'true')
+		expect(segment('Premier plan')).toHaveAttribute('aria-checked', 'false')
+		expect(segment('Antagoniste')).toHaveAttribute('aria-checked', 'true')
+		expect(segment('Protagoniste')).toHaveAttribute('aria-checked', 'false')
+		expect(selectObjectif()).toHaveValue('objectif.gouffre')
+
+		// Les badges sont le SECOND site de lecture, independant du premier — et
+		// chaque ligne porte les siens, pas ceux de sa voisine.
+		expect(within(laLigne('pnj.selene')).getByText('Antagoniste')).toBeInTheDocument()
+		expect(within(laLigne('pnj.selene')).getByText('Second plan')).toBeInTheDocument()
+		expect(within(laLigne('pnj.aldur')).getByText('Premier plan')).toBeInTheDocument()
+		expect(within(laLigne('pnj.aldur')).queryByText(/Protagoniste|Antagoniste/)).toBeNull()
+	})
 })
