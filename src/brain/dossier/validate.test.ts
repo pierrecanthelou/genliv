@@ -14,6 +14,7 @@ import {
 } from './types'
 import { DOSSIER_ISSUE_LABELS, dossierIssueRemediation, type DossierIssue, type DossierIssueCode } from './issues'
 import {
+	CHAMPS_ENTIERS,
 	ENUMERES_FERMES,
 	FAMILLES_DE_CONDITIONS,
 	LISTES_A_ELEMENTS_STRUCTURES,
@@ -25,6 +26,7 @@ import { DELTAS, type Delta } from './deltas'
 import { feuilleDe } from './identifiers'
 
 const CHEMIN_FIXTURE = path.join(__dirname, '__fixtures__', 'dossier-minimal.json')
+const CHEMIN_REFERENCE = path.join(__dirname, '__fixtures__', 'dossier-reference.json')
 
 type Doc = Record<string, unknown>
 
@@ -40,10 +42,12 @@ function fixture(): Doc {
 const obj = (value: unknown): Doc => value as Doc
 const arr = (value: unknown): Doc[] => value as Doc[]
 
-/** Les six accès profonds de la fixture, nommés une fois. */
+/** Les huit accès profonds de la fixture, nommés une fois. */
 const personnage = (doc: Doc): Doc => arr(obj(doc.monde).personnages)[0]
 const savoir = (doc: Doc): Doc => arr(personnage(doc).savoirs)[0]
 const revele = (doc: Doc): Doc => obj(savoir(doc).revele_si)
+const etape = (doc: Doc): Doc => arr(personnage(doc).plan_actions)[0]
+const contreMesure = (doc: Doc): Doc => arr(personnage(doc).contre_mesures)[0]
 const evenement = (doc: Doc): Doc => arr(obj(doc.monde).evenements)[0]
 const jalon = (doc: Doc): Doc => arr(obj(doc.charpente).jalons)[0]
 const objectif = (doc: Doc): Doc => arr(obj(doc.canon).objectifs)[0]
@@ -733,6 +737,191 @@ describe('validateDossier', () => {
 		expect(resultat.ok).toBe(true)
 	})
 
+	it('un but sans libelle est bloquant, un personnage SANS but reste calme', () => {
+		// MÊME CONTRAT QUE `stats` — optionnel EN BLOC, requis DEDANS — et par le même
+		// mécanisme : `sitesDe` ne produit aucun site sous un bloc absent, donc le
+		// « optionnel en bloc » ne coûte pas une ligne à `validate.ts`.
+		//
+		// LES DEUX MOITIÉS SONT ASSERTÉES ENSEMBLE, et le nom du test les porte toutes
+		// les deux (KR-199) : la moitié « calme » est celle qui protège tout dossier
+		// déjà persisté d'une invalidation rétroactive (KR-160/KR-191), et un test qui
+		// ne prouverait que le refus la laisserait sans garde.
+		const sansBut = fixture()
+		delete personnage(sansBut).but
+
+		const calme = validateDossier(sansBut)
+
+		expect(calme.errors).toEqual([])
+		expect(calme.warnings).toEqual([])
+		expect(calme.ok).toBe(true)
+
+		const sansLibelle = fixture()
+		personnage(sansLibelle).but = { pourquoi: "Il porte la faute d'avoir laissé le sceau se briser." }
+
+		const resultat = validateDossier(sansLibelle)
+		const anomalie = resultat.errors.find((e) => e.path === 'monde.personnages[0].but.libelle')
+
+		expect(resultat.ok).toBe(false)
+		expect(anomalie?.code).toBe('champ-requis-vide')
+		expect(anomalie?.location).toBe('Personnage « Aldûr le Sage »')
+		expect(anomalie?.message).toContain('« libelle »')
+
+		// Discriminant : un bloc VIDE est refusé lui aussi — sans cette ligne,
+		// « présent » se réduirait à « porte au moins une clé ».
+		const butVide = fixture()
+		personnage(butVide).but = {}
+
+		expect(codes(validateDossier(butVide).errors)).toContain('champ-requis-vide')
+	})
+
+	it('une contre-mesure sans action est bloquante, une liste contre_mesures ABSENTE reste calme', () => {
+		// Même forme que le test du `but` ci-dessus, sur l'autre porteur optionnel de
+		// l'itération : une LISTE au lieu d'un bloc. Les deux moitiés, encore, parce que
+		// `contre_mesures` arrive sur une collection qui existe depuis la n° 1 — un
+		// dossier déjà persisté n'en porte aucune, et cela doit rester silencieux.
+		const sansListe = fixture()
+		delete personnage(sansListe).contre_mesures
+
+		const calme = validateDossier(sansListe)
+
+		expect(calme.errors).toEqual([])
+		expect(calme.warnings).toEqual([])
+		expect(calme.ok).toBe(true)
+
+		const sansAction = fixture()
+		delete contreMesure(sansAction).action
+
+		const resultat = validateDossier(sansAction)
+		const anomalie = resultat.errors.find((e) => e.path === 'monde.personnages[0].contre_mesures[0].action')
+
+		expect(resultat.ok).toBe(false)
+		expect(anomalie?.code).toBe('champ-requis-vide')
+		expect(anomalie?.location).toBe('Personnage « Aldûr le Sage »')
+	})
+
+	/**
+	 * Où poser une valeur de champ ENTIER, par chemin de `CHAMPS_ENTIERS`. Un chemin
+	 * ajouté à la table sans son poseur se NOMME dans le test juste en dessous, il ne
+	 * disparaît pas du diff.
+	 */
+	const POSEURS_D_ENTIER: Record<string, (doc: Doc, valeur: unknown) => void> = {
+		'monde.personnages[].plan_actions[].duree': (doc, valeur) => {
+			etape(doc).duree = valeur
+		},
+		'monde.personnages[].contre_mesures[].delai': (doc, valeur) => {
+			contreMesure(doc).delai = valeur
+		},
+	}
+
+	it('les champs entiers ont tous leur poseur, aucun de plus', () => {
+		expect(Object.keys(POSEURS_D_ENTIER).sort()).toEqual(CHAMPS_ENTIERS.map((champ) => champ.path).sort())
+	})
+
+	for (const champ of CHAMPS_ENTIERS) {
+		it(`champ entier ${champ.path} : sous DUREE_MIN, non entier ou non numerique, refuse`, () => {
+			// La borne est LUE dans la table, jamais recopiée ici (KR-165) : `DUREE_MIN`
+			// décide à la fois du refus à l'import et du `min` du widget de saisie.
+			//
+			// L'ÉNUMÉRATION DES REFUS remplace ce que l'appartenance disait pour les
+			// caractéristiques : faute de borne haute, aucune liste ne peut décrire
+			// l'ensemble admis, donc « nombre, entier, au moins min » doit être éprouvé
+			// morceau par morceau — sous la borne, non entier, textuel, booléen, nul.
+			const REFUSES: unknown[] = [champ.min - 1, -3, 2.5, `${champ.min}`, true, null]
+
+			for (const valeur of REFUSES) {
+				const doc = fixture()
+				POSEURS_D_ENTIER[champ.path](doc, valeur)
+
+				const resultat = validateDossier(doc)
+				const anomalie = resultat.errors.find((e) => e.path.endsWith(feuilleDe(champ.path)))
+
+				expect(`${String(valeur)} → ${anomalie?.code ?? 'aucune anomalie'}`).toBe(
+					`${String(valeur)} → valeur-hors-enumeration`,
+				)
+				expect(anomalie?.message).toContain(`« ${feuilleDe(champ.path)} »`)
+				expect(anomalie?.message).toContain(`supérieur ou égal à ${champ.min}`)
+				expect(anomalie?.location).toBe('Personnage « Aldûr le Sage »')
+				expect(resultat.ok).toBe(false)
+				for (const fuite of FUITES_TECHNIQUES) {
+					expect(anomalie?.message.toLowerCase()).not.toContain(fuite)
+				}
+			}
+
+			// Discriminant (a) : la borne ELLE-MÊME passe, et une valeur bien au-dessus
+			// aussi — sans ces deux lignes, « tout est refusé » satisferait la boucle.
+			for (const valeur of [champ.min, champ.min + 41]) {
+				const doc = fixture()
+				POSEURS_D_ENTIER[champ.path](doc, valeur)
+
+				expect(`${valeur} → ${validateDossier(doc).ok}`).toBe(`${valeur} → true`)
+			}
+
+			// Discriminant (b) : l'ABSENCE n'est pas une erreur — les deux champs sont
+			// optionnels, et une étape que rien ne périme est légitime. (Elle peut, elle,
+			// déclencher l'avertissement `si_bloque`, qui ne touche pas `errors`.)
+			const absent = fixture()
+			POSEURS_D_ENTIER[champ.path](absent, undefined)
+
+			expect(validateDossier(absent).errors).toEqual([])
+			expect(validateDossier(absent).ok).toBe(true)
+		})
+	}
+
+	it('si_bloque sans duree avertit sans bloquer, sur DEUX personnages distincts', () => {
+		// CONTRÔLE ISOLÉ, hors `FAMILLES_DE_CONDITIONS` : `si_bloque` n'a aucun jumeau
+		// `…_expr`, et ce qui lui manque n'est pas une expression mais l'HORLOGE qui
+		// rend le blocage constatable. Même statut que `caractere.cede_si`.
+		//
+		// DEUX PERSONNAGES, parce que c'est le `path` INDEXÉ qui est le contrat : la
+		// fiche filtrera ces avertissements par préfixe de chemin pour n'afficher que
+		// ceux du personnage sélectionné. Un test mono-personnage ne distinguerait pas
+		// un chemin indexé d'un chemin de table.
+		const doc = fixture()
+		const second = JSON.parse(JSON.stringify(personnage(doc))) as Doc
+		second.id = 'pnj.brise-fer'
+		second.nom = 'Brise-Fer'
+		arr(obj(doc.monde).personnages).push(second)
+		for (const fiche of arr(obj(doc.monde).personnages)) delete arr(fiche.plan_actions)[0].duree
+
+		const resultat = validateDossier(doc)
+		const alertes = resultat.warnings.filter((w) => w.code === 'condition-sans-expr')
+
+		expect(resultat.errors).toEqual([])
+		expect(resultat.ok).toBe(true) // un avertissement ne bloque JAMAIS
+		expect(alertes.map((a) => `${a.location} → ${a.path}`)).toEqual([
+			'Personnage « Aldûr le Sage » → monde.personnages[0].plan_actions[0].si_bloque',
+			'Personnage « Brise-Fer » → monde.personnages[1].plan_actions[0].si_bloque',
+		])
+		expect(alertes[0].severity).toBe('warning')
+		expect(alertes[0].message).toContain('si_bloque')
+		expect(dossierIssueRemediation(alertes[0])).toBe(DOSSIER_ISSUE_LABELS['condition-sans-expr'])
+		for (const fuite of FUITES_TECHNIQUES) {
+			expect(alertes[0].message.toLowerCase()).not.toContain(fuite)
+		}
+	})
+
+	it('une etape sans duree ET sans si_bloque reste calme — discriminant du controle isole', () => {
+		// La moitié qui dit que c'est bien `si_bloque` qui parle : une étape sans
+		// échéance est parfaitement légitime, et l'avertissement ne doit surgir que
+		// lorsqu'une porte de sortie a été ÉCRITE sans horloge pour l'ouvrir.
+		const doc = fixture()
+		delete etape(doc).duree
+		delete etape(doc).si_bloque
+
+		const resultat = validateDossier(doc)
+
+		expect(resultat.warnings).toEqual([])
+		expect(resultat.errors).toEqual([])
+		expect(resultat.ok).toBe(true)
+
+		// Et l'autre sens : une durée SANS porte de sortie ne dit rien non plus — la
+		// durée seule est une échéance d'étape, elle n'appelle aucune réplique.
+		const sansSortie = fixture()
+		delete etape(sansSortie).si_bloque
+
+		expect(validateDossier(sansSortie).warnings).toEqual([])
+	})
+
 	it('une carac ou un TC de jet hors registre est bloquant', () => {
 		// Les deux ensembles viennent des registres de règles, pas d'une liste
 		// recopiée : un jet de révélation est un challenge ORDINAIRE.
@@ -1018,9 +1207,13 @@ describe('validateDossier', () => {
 
 	/**
 	 * BUG-050 — l'élément de liste non-objet, ouvert depuis l'itération 1. La table
-	 * est DÉRIVÉE (`LISTES_REQUISES` moins `COLLECTIONS_IDENTIFIEES`), et le cas
-	 * d'épreuve l'est aussi : une liste ajoutée à la dérivation sans son poseur se
-	 * NOMME ici, elle ne disparaît pas du diff.
+	 * a DEUX moitiés (la requise DÉRIVÉE, l'optionnelle déclarée), et le cas
+	 * d'épreuve est dérivé de leur SOMME : une liste ajoutée à l'une ou à l'autre
+	 * sans son poseur se NOMME ici, elle ne disparaît pas du diff.
+	 *
+	 * La quatrième ligne ferme le TROU RÉSIDUEL : la dérivation ne lisait que
+	 * `LISTES_REQUISES`, donc AUCUNE liste optionnelle n'était contrôlée élément par
+	 * élément — `contre_mesures: ["une chaîne"]` sortait `ok:true`.
 	 */
 	const POSEURS_DE_LISTE: Record<string, (doc: Doc, valeur: unknown[]) => void> = {
 		'monde.personnages[].plan_actions': (doc, valeur) => {
@@ -1031,6 +1224,9 @@ describe('validateDossier', () => {
 		},
 		'monde.evenements[].resolutions': (doc, valeur) => {
 			evenement(doc).resolutions = valeur
+		},
+		'monde.personnages[].contre_mesures': (doc, valeur) => {
+			personnage(doc).contre_mesures = valeur
 		},
 	}
 
@@ -1071,6 +1267,32 @@ describe('validateDossier', () => {
 			expect(codes(validateDossier(doc).errors)).not.toContain('element-non-objet')
 		})
 	}
+
+	it('le dossier de reference (6 personnages) reste accepte SANS REGRESSION quand une contre-mesure y est corrompue, et SEULE cette anomalie remonte', () => {
+		// Critere #8 du plan d iteration 4 : les deux moities du critere — « le
+		// dossier de reference reste accepte sans regression sur les champs hors lot »
+		// (couverture.test.ts:379, sur le document INTACT) et « une liste malformee
+		// est refusee » (le test genere ci-dessus, sur dossier-minimal.json, UN SEUL
+		// personnage) — n etaient jamais prouvees ENSEMBLE, sur le MEME document. Une
+		// regression qui n apparaitrait qu a la 6e entite d une liste, ou qu en
+		// presence des cinq autres personnages, aurait pu passer les deux tests
+		// separement sans jamais etre vue.
+		const doc = JSON.parse(fs.readFileSync(CHEMIN_REFERENCE, 'utf8')) as Doc
+		const corvin = arr(obj(doc.monde).personnages)[1]
+		expect(corvin.nom).toBe('Corvin le Marchand')
+		arr(corvin.contre_mesures)[0] = 'du texte a la place' as unknown as Doc
+
+		const resultat = validateDossier(doc)
+
+		expect(resultat.ok).toBe(false)
+		// SEULE l anomalie attendue : rien d autre, dans les six personnages et le
+		// reste du dossier, n a regresse a cause de cette corruption.
+		expect(codes(resultat.errors)).toEqual(['element-non-objet'])
+		expect(resultat.warnings).toEqual([])
+		const anomalie = resultat.errors[0]
+		expect(anomalie.path).toBe('monde.personnages[1].contre_mesures[0]')
+		expect(anomalie.location).toBe('Personnage « Corvin le Marchand »')
+	})
 
 	it('un element non-objet d une collection identifiee reste champ-requis-vide', () => {
 		// C'est la RAISON de la dérivation : les collections identifiées sont DÉJÀ
@@ -1541,12 +1763,12 @@ describe('issues', () => {
  * inexistante.
  *
  * Un test PAR FAMILLE, dérivé de `FAMILLES_DE_CONDITIONS` et échouant par NOM de
- * famille absente : un compte se contenterait de « cinq familles », et une famille
+ * famille absente : un compte se contenterait d'un NOMBRE de familles — qui se
+ * périme à chaque itération, et ne dit pas laquelle manque —, et une famille
  * ajoutée à la table sans son poseur passerait sans bruit.
  */
 describe('validateDossier, les conditions', () => {
 	const fin = (doc: Doc): Doc => arr(obj(doc.charpente).fins)[0]
-	const etape = (doc: Doc): Doc => arr(personnage(doc).plan_actions)[0]
 
 	/** Un prédicat dont la cible est BIEN FORMÉE mais que rien ne porte. */
 	const PENDANTE = { op: 'predicat', predicat: 'jalon_atteint', cibles: ['jalon.nulle-part'] }
@@ -1608,6 +1830,16 @@ describe('validateDossier, les conditions', () => {
 			},
 			retirer: (doc) => delete etape(doc).declencheur_expr,
 			chemin: 'monde.personnages[0].plan_actions[0].declencheur_expr',
+			location: 'Personnage « Aldûr le Sage »',
+		},
+		'monde.personnages[].contre_mesures[].declencheur_expr': {
+			poser: (doc, expr) => {
+				contreMesure(doc).declencheur_expr = expr
+			},
+			retirer: (doc) => delete contreMesure(doc).declencheur_expr,
+			chemin: 'monde.personnages[0].contre_mesures[0].declencheur_expr',
+			// Le MÊME OÙ que l'étape ci-dessus : une contre-mesure n'a ni nom ni
+			// identifiant, le rapport remonte au personnage porteur.
 			location: 'Personnage « Aldûr le Sage »',
 		},
 	}
@@ -1729,7 +1961,7 @@ describe('validateDossier, les conditions', () => {
 		}
 	})
 
-	it('jalon, evenement et etape de plan restent calmes sans …_expr — assertion discriminante', () => {
+	it('jalon, evenement et etape restent calmes sans …_expr, la CONTRE-MESURE avertit', () => {
 		// Les TROIS familles à `alerteSansExpr: false` d'un seul coup : leur prose sans
 		// jumeau structuré est un déclenchement laissé au narrateur, pas un oubli.
 		const doc = fixture()
@@ -1742,6 +1974,24 @@ describe('validateDossier, les conditions', () => {
 		expect(resultat.warnings).toEqual([])
 		expect(resultat.errors).toEqual([])
 		expect(resultat.ok).toBe(true)
+
+		// LE CONTRASTE, dans le MÊME test et sur le MÊME document — c'est lui qui rend
+		// l'assertion ci-dessus discriminante plutôt que complaisante. Sans lui, un
+		// `alerteSansExpr` neutralisé pour TOUTES les familles laisserait ce test vert.
+		//
+		// Les deux moitiés du contraste sont portées par le MÊME personnage, sous deux
+		// clés de MÊME NOM (`declencheur_texte`), à deux étages du même bloc d'écran :
+		// l'ÉTAPE se tait, parce qu'un narrateur peut légitimement faire avancer un
+		// plan à la main ; la RIPOSTE ARMÉE avertit, parce que rien ne l'armera jamais.
+		delete contreMesure(doc).declencheur_expr
+
+		const contraste = validateDossier(doc)
+		const alertes = contraste.warnings.filter((w) => w.code === 'condition-sans-expr')
+
+		expect(alertes.map((a) => a.path)).toEqual(['monde.personnages[0].contre_mesures[0].declencheur_texte'])
+		expect(alertes[0].location).toBe('Personnage « Aldûr le Sage »')
+		expect(contraste.errors).toEqual([])
+		expect(contraste.ok).toBe(true) // un avertissement ne bloque JAMAIS
 	})
 
 	it('un …_expr sans son …_texte ne dit rien du tout', () => {

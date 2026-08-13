@@ -55,11 +55,18 @@
 				"portee": "second",
 				"camp": "protagoniste",
 				"objectif_id": "objectif.proteger-le-sceau",
+				"but": {
+					"libelle": "Tenir le signal allumé jusqu'à ce que quelqu'un du village accepte de reprendre le guet.",
+					"pourquoi": "Elle est la dernière des guetteurs, et personne ne sait encore que la lignée ne s'est pas éteinte.",
+					"echeance": "Avant que la crypte ne se rouvre."
+				},
 				"plan_actions": [
 					{
 						"etape": 1,
 						"action": "Entretenir le mécanisme du beffroi sans être vue.",
-						"declencheur_texte": "Aucun visiteur n'est encore monté à la tour effondrée."
+						"declencheur_texte": "Aucun visiteur n'est encore monté à la tour effondrée.",
+						"duree": 4,
+						"si_bloque": "Elle laisse le feu s'éteindre une nuit entière et se tient à distance, pour voir qui vient constater."
 					}
 				],
 				"savoirs": [
@@ -75,6 +82,7 @@
 				"id": "pnj.corvin-le-marchand",
 				"nom": "Corvin le Marchand",
 				"portee": "premier",
+				"camp": "antagoniste",
 				"fonction": "Marchand du marché des cendres, et prêteur sur gage à ses heures : il vend du sel et des lanternes, mais il monnaie surtout ce qu'il entend.",
 				"apparence": "Un homme sec au manteau trop large, une lanterne toujours allumée à la ceinture, qui compte ses pièces en vous parlant sans jamais lever les yeux.",
 				"description_joueur": "Tout le Foyer du Guet lui achète quelque chose, et tout le Foyer du Guet se méfie de ce qu'il répète ailleurs.",
@@ -93,7 +101,22 @@
 						"etape": 1,
 						"action": "Proposer au héros d'acheter son silence sur la tour.",
 						"declencheur_texte": "Le joueur mentionne la tour effondrée devant lui.",
-						"declencheur_expr": { "op": "predicat", "predicat": "lieu_visite", "cibles": ["lieu.tour-effondree"] }
+						"declencheur_expr": { "op": "predicat", "predicat": "lieu_visite", "cibles": ["lieu.tour-effondree"] },
+						"duree": 2,
+						"si_bloque": "Il double son prix et laisse entendre qu'un autre acheteur attend déjà la même histoire."
+					}
+				],
+				"contre_mesures": [
+					{
+						"action": "Colporter au marché que le feu de la tour est l'œuvre du héros.",
+						"declencheur_texte": "Le joueur a lu la lettre de la Vigie sans lui en avoir rien dit.",
+						"declencheur_expr": {
+							"op": "predicat",
+							"predicat": "indice_connu",
+							"cibles": ["indice.lettre-de-la-vigie"]
+						},
+						"delai": 1,
+						"portee": "groupe"
 					}
 				],
 				"savoirs": []

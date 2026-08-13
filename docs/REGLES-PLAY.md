@@ -173,6 +173,12 @@ Les 23 capacités sont aujourd'hui du **texte**. Pour le moteur, chacune doit de
 
 ---
 
+## J. Horloge de session (dossier d'aventure)
+
+**J1. Unité du pas d'horloge.** `monde.personnages[].plan_actions[].duree` et `contre_mesures[].delai` comptent des **pas d'horloge de session** — des entiers ≥ `DUREE_MIN`, dont le contrat et les motifs vivent dans la docstring de `DUREE_MIN` (`src/brain/dossier/types.ts`). ✍️ *Ce que vaut UN pas n'est pas tranché ici : propriété de la feature n° 9 `moteur-dossier` (n° 14 pour son avancement). Le mot « tour » reste réservé au round de combat par `REGLES-DU-JEU.md`.*
+
+---
+
 ## Priorité de cadrage
 1. **H** (capacités) — sans ça, les monstres ne « font » rien de spécial.
 2. **D3, D5, E1, E2** — IA monstre, fuite, inconscience, potions : indispensables au combat jouable.

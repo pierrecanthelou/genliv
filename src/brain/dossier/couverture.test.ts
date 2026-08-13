@@ -5,11 +5,13 @@ import type { DossierIssue } from './issues'
 import { DESTINATION_DES_CHAMPS } from './destinations'
 import {
 	BUDGETS_DE_MOTS,
+	CHAMPS_ENTIERS,
 	CHAMPS_REQUIS,
 	CHEMINS_DE_DELTAS,
 	ENUMERES_FERMES,
 	FAMILLES_DE_CONDITIONS,
 	LISTES_A_ELEMENTS_STRUCTURES,
+	LISTES_OPTIONNELLES_STRUCTUREES,
 	LISTES_REQUISES,
 	RACINES,
 	REFERENCES_SIMPLES,
@@ -55,11 +57,13 @@ import { CHARACTERISTIC_VALUES } from '../characteristics'
  *    dédiée — `LISTES_REQUISES` — et non par ce balayage.
  *  · LES ÉLÉMENTS DE LISTE NON-OBJET. Un `savoirs: ["du texte"]` traversait le
  *    validateur, `ok:true` : les deux traversées abandonnent la branche pour
- *    rester totales. Défaut réel, journalisé BUG-050, corrigé en itération 4 —
- *    non pas ici mais par `LISTES_A_ELEMENTS_STRUCTURES`, DÉRIVÉE de
- *    `LISTES_REQUISES` moins `COLLECTIONS_IDENTIFIEES`. Ce balayage ne peut
- *    toujours pas le voir : il corrompt une feuille EXISTANTE, il n'en change
- *    jamais le porteur.
+ *    rester totales. Défaut réel, journalisé BUG-050 — non pas couvert ici mais
+ *    par `LISTES_A_ELEMENTS_STRUCTURES`, dont la moitié requise est DÉRIVÉE de
+ *    `LISTES_REQUISES` moins `COLLECTIONS_IDENTIFIEES` (itération 4 de la n° 1) et
+ *    la moitié optionnelle DÉCLARÉE dans `LISTES_OPTIONNELLES_STRUCTUREES`
+ *    (itération 4 de la n° 4, trou résiduel : la dérivation ne pouvait par
+ *    construction voir aucune liste OPTIONNELLE). Ce balayage ne peut toujours pas
+ *    le voir : il corrompt une feuille EXISTANTE, il n'en change jamais le porteur.
  *  · L'INTÉRIEUR DES ARBRES D'EXPRESSION ET DES EFFETS DE RÈGLE. Le balayage
  *    S'ARRÊTE sur chaque `…_expr` et sur chaque ÉLÉMENT d'un chemin de delta
  *    (voir `CHEMINS_D_ARRET`), et l'ensemble de ces points d'arrêt est DÉRIVÉ de
@@ -170,7 +174,9 @@ function cheminsDesTables(): ReadonlyArray<readonly [string, string]> {
 		...RACINES.map((r) => ['RACINES', r.path] as const),
 		...CHAMPS_REQUIS.map((c) => ['CHAMPS_REQUIS', c.path] as const),
 		...ENUMERES_FERMES.map((e) => ['ENUMERES_FERMES', e.path] as const),
+		...CHAMPS_ENTIERS.map((c) => ['CHAMPS_ENTIERS', c.path] as const),
 		...LISTES_REQUISES.map((l) => ['LISTES_REQUISES', l.path] as const),
+		...LISTES_OPTIONNELLES_STRUCTUREES.map((l) => ['LISTES_OPTIONNELLES_STRUCTUREES', l.path] as const),
 		...CHEMINS_DE_DELTAS.map((d) => ['CHEMINS_DE_DELTAS', d.path] as const),
 		...REFERENCES_SIMPLES.map((r) => ['REFERENCES_SIMPLES', r.path] as const),
 		...BUDGETS_DE_MOTS.map((b) => ['BUDGETS_DE_MOTS', b.path] as const),
@@ -237,8 +243,11 @@ const TEXTE_OPTIONNEL_LIBRE =
 	"jumeau prose OPTIONNEL d'une condition : son absence est calme par D1, et aucune règle du schéma 1 ne contraint sa forme quand il est présent. Même question ouverte que les dispenses « nom », propriétaire n° 2 bascule-editeur : une table « présent → doit être une chaîne », ou une garde à l'affichage."
 
 /**
- * Le motif partagé des SIX proses d'entité : les TROIS de `Lieu` (itération 4 de
- * la n° 3) et les TROIS d'identité d'un `Personnage` (itération 2 de la n° 4). Il
+ * Le motif partagé des proses d'entité — HUIT aujourd'hui, remesuré et jamais
+ * recopié (KR-159) : les TROIS de `Lieu` (itération 4 de la n° 3), les TROIS
+ * d'identité d'un `Personnage` (itération 2 de la n° 4) et les DEUX proses libres
+ * de son `but` (itération 4 de la n° 4 : `pourquoi` et `echeance` — `libelle`, lui,
+ * est REQUIS dans son bloc, donc couvert par la corruption). Il
  * est DISTINCT de `TEXTE_OPTIONNEL_LIBRE`, et pas par style : celui-là dispense le
  * jumeau prose d'une CONDITION, dont l'absence est calme PAR D1 et dont la
  * présence sans `…_expr` déclenche un avertissement. Ces six-là n'ont aucun
@@ -272,12 +281,26 @@ const LIBRES: Record<string, string> = {
 	'canon.objectifs[].reussi_si_texte': TEXTE_OPTIONNEL_LIBRE,
 	'canon.objectifs[].echoue_si_texte': TEXTE_OPTIONNEL_LIBRE,
 	'monde.personnages[].plan_actions[].declencheur_texte': TEXTE_OPTIONNEL_LIBRE,
+	// MÊME MOTIF que son voisin ci-dessus, alors même que les deux familles se
+	// comportent à l'OPPOSÉ sur l'ABSENCE du jumeau `…_expr` (l'étape se tait, la
+	// contre-mesure avertit) : la dispense ne parle pas de l'absence du jumeau mais
+	// de la CORRUPTION du texte en NOMBRE, que la règle D1 ne regarde ni dans un cas
+	// ni dans l'autre (`typeof texte !== 'string' → continue`).
+	'monde.personnages[].contre_mesures[].declencheur_texte': TEXTE_OPTIONNEL_LIBRE,
 	'monde.evenements[].declencheur_texte': TEXTE_OPTIONNEL_LIBRE,
 	'monde.personnages[].nom': NOM_LIBRE,
 	'monde.personnages[].plan_actions[].etape':
 		"l'ordre d'une étape : aucune règle d'ordonnancement (unicité, continuité, départ à 1) n'est arbitrée au schéma 1 — les déclencheurs arrivent en itération 3.",
 	'monde.personnages[].savoirs[].revele_comment':
 		'didascalie OPTIONNELLE et libre : son absence est calme, et aucune règle ne contraint sa forme.',
+	// MÊME NATURE que `revele_comment` ci-dessus — une didascalie, pas une condition
+	// — et la dispense tient MALGRÉ le contrôle isolé livré par l'itération 4 : celui
+	// -ci parle de la PRÉSENCE de la porte de sortie sans sa `duree`, jamais de sa
+	// FORME, et il produit un AVERTISSEMENT là où la corruption exige un refus. Les
+	// deux instruments ne se recouvrent pas ; les confondre laisserait croire la
+	// forme gardée.
+	'monde.personnages[].plan_actions[].si_bloque':
+		"didascalie de sortie OPTIONNELLE : le contrôle isolé de l'itération 4 exige une `duree` quand elle est PRÉSENTE — un avertissement, pas un refus — et ne dit rien de sa forme. Même question ouverte que les dispenses « nom », propriétaire n° 2 bascule-editeur.",
 	// MOTIF RÉÉCRIT en itération 4 : l'ancien annonçait que la résolution arriverait
 	// et rendrait la dispense caduque. Elle est arrivée (`REFERENCES_SIMPLES`), et la
 	// dispense TIENT QUAND MÊME — parce que la corruption remplace la chaîne par un
@@ -302,6 +325,12 @@ const LIBRES: Record<string, string> = {
 	'monde.personnages[].fonction': PROSE_D_ENTITE_LIBRE,
 	'monde.personnages[].apparence': PROSE_D_ENTITE_LIBRE,
 	'monde.personnages[].description_joueur': PROSE_D_ENTITE_LIBRE,
+	// Les DEUX proses libres du `but` (it4). `libelle` n'est PAS ici, et c'est le
+	// point de contrat qui se voit le mieux à cet endroit : il est requis DANS son
+	// bloc, donc sa corruption est refusée et une dispense à son nom serait morte —
+	// le test « une dispense nommant une feuille deja couverte est morte » le dirait.
+	'monde.personnages[].but.pourquoi': PROSE_D_ENTITE_LIBRE,
+	'monde.personnages[].but.echeance': PROSE_D_ENTITE_LIBRE,
 	'monde.lieux[].nom': NOM_LIBRE,
 	'monde.lieux[].description': PROSE_D_ENTITE_LIBRE,
 	'monde.lieux[].ambiance': PROSE_D_ENTITE_LIBRE,
@@ -437,9 +466,17 @@ describe('couverture', () => {
 	it('la 4e assertion rougit sur un chemin de table absent de la fixture', () => {
 		// Discriminant de l'instrument : sans lui, `estInstancie` pourrait rendre vrai
 		// pour tout et l'assertion ci-dessus serait une constante.
+		//
+		// LA SONDE A CHANGÉ DE CHEMIN À L'ITÉRATION 4 : c'était `contre_mesures`, qui
+		// est désormais instanciée — et c'est bien la preuve que cette sonde mesure
+		// quelque chose. Elle vise maintenant `relations`, tranche de schéma de
+		// l'itération 5. Le jour où celle-là arrive, la sonde se déplace encore.
 		const feuilles = cheminsDeLaFixture()
 
-		expect(estInstancie('monde.personnages[].contre_mesures', feuilles)).toBe(false)
+		expect(estInstancie('monde.personnages[].relations', feuilles)).toBe(false)
+		// Et l'inverse, sur le chemin que l'itération 4 vient d'instancier — sans cette
+		// ligne, la sonde ne dirait pas qu'elle sait aussi rendre `true` sur du neuf.
+		expect(estInstancie('monde.personnages[].contre_mesures', feuilles)).toBe(true)
 		// Et le préfixe se normalise sur un séparateur : un préfixe de NOM ne compte pas.
 		expect(estInstancie('monde.personnages[].plan', feuilles)).toBe(false)
 		expect(estInstancie('monde.personnages[].plan_actions', feuilles)).toBe(true)
@@ -606,6 +643,66 @@ describe('couverture', () => {
 		expect(DESTINATION_DES_CHAMPS['monde.personnages[].stats']).toBeUndefined()
 	})
 
+	it('les DIX champs du plan d action portent leur destination exacte, dans les DEUX fixtures', () => {
+		// Même construction que les quatre tests ci-dessus, et pour la même raison
+		// (KR-174, leçon de BUG-051) : « toute feuille a une destination » ne dit rien
+		// de la VALEUR, « aucune ligne morte » ne dit rien de l'audience. Nommées
+		// ensemble, les deux moitiés épinglent les arbitrages de l'itération, et
+		// notamment les DEUX que le comité a le plus disputés :
+		//
+		//  · `but.echeance` → `auteur`, CONTRE la cohérence de voisinage avec ses deux
+		//    sœurs `ia` du même bloc : une échéance en prose reste une donnée d'horloge,
+		//    et le précédent le plus proche est celui des `…_texte`. La bascule que ce
+		//    test doit faire rougir est « les trois champs de `but` sont `ia` » ;
+		//  · `si_bloque` → `ia` alors que `duree`, dans la MÊME étape, est `moteur` :
+		//    l'IA joue la sortie, le moteur constate le blocage. La bascule à faire
+		//    rougir est « tout ce qui touche à l'horloge est moteur ».
+		//
+		// Les chemins sont écrits en littéral, et c'est assumé — aucune table du dépôt
+		// ne liste les champs d'un bloc d'écran ; le garde contre la divergence est
+		// l'assertion d'instanciation ci-dessous, plus les deux assertions générales.
+		const AUDIENCES: ReadonlyArray<readonly [string, string]> = [
+			['monde.personnages[].but.libelle', 'ia'],
+			['monde.personnages[].but.pourquoi', 'ia'],
+			['monde.personnages[].but.echeance', 'auteur'],
+			['monde.personnages[].plan_actions[].duree', 'moteur'],
+			['monde.personnages[].plan_actions[].si_bloque', 'ia'],
+			['monde.personnages[].contre_mesures[].action', 'ia'],
+			['monde.personnages[].contre_mesures[].declencheur_texte', 'auteur'],
+			['monde.personnages[].contre_mesures[].delai', 'moteur'],
+			['monde.personnages[].contre_mesures[].portee', 'moteur'],
+		]
+		const feuilles = cheminsDeLaFixture()
+		const feuillesDeLaReference = feuillesDeLaFixture(documentDeReference()).map((feuille) => feuille.normalise)
+
+		for (const [chemin, audience] of AUDIENCES) {
+			expect(`${chemin} → ${DESTINATION_DES_CHAMPS[chemin]}`).toBe(`${chemin} → ${audience}`)
+			// L'INSTANCE DANS LES DEUX FIXTURES, dans le même test : le garde
+			// d'exhaustivité ne balaie que la MINIMALE, donc un champ instancié là mais
+			// absent d'une aventure réelle resterait vert partout.
+			expect(`${chemin} dans la minimale → ${feuilles.includes(chemin)}`).toBe(`${chemin} dans la minimale → true`)
+			expect(`${chemin} dans la reference → ${feuillesDeLaReference.includes(chemin)}`).toBe(
+				`${chemin} dans la reference → true`,
+			)
+		}
+
+		// LE DIXIÈME champ — la condition structurée de la contre-mesure — n'est PAS
+		// dans la liste ci-dessus, et ce n'est pas un oubli : son audience est déjà
+		// épinglée PAR LA TABLE, dans « tout chemin finissant par …_expr a une
+		// destination valant moteur ». L'écrire ici ferait une SECONDE liste de chemins
+		// d'expression dans ce fichier — exactement ce que le test de dérivation de
+		// l'arrêt interdit, et il vient de le prouver en rougissant sur ce commentaire.
+		// Ce qui reste à vérifier ici est donc son instance dans l'AUTRE fixture, que
+		// le test dérivé ne regarde pas.
+		const CHEMIN_EXPR = FAMILLES_DE_CONDITIONS.map((famille) => famille.expr).filter((expr) =>
+			expr.includes('contre_mesures'),
+		)
+
+		expect(CHEMIN_EXPR).toHaveLength(1)
+		expect(feuillesDeLaReference).toContain(CHEMIN_EXPR[0])
+		expect(feuilles).toContain(CHEMIN_EXPR[0])
+	})
+
 	it('chaque entree de PREDICATES a au moins une instance dans la fixture', () => {
 		// La fixture est le seul document dont on sait qu'il est complet : c'est elle
 		// qui ferme la boucle. Un prédicat sans instance n'est jamais éprouvé de bout
@@ -737,14 +834,29 @@ describe('couverture', () => {
 				(liste) => liste.path,
 			)
 
-		expect(deriver(COLLECTIONS_IDENTIFIEES)).toEqual(LISTES_A_ELEMENTS_STRUCTURES.map((liste) => liste.path))
-		// Le trou réel vaut TROIS chemins — remesuré ici, jamais recopié (KR-159).
-		expect(LISTES_A_ELEMENTS_STRUCTURES).toHaveLength(3)
+		// LA MOITIÉ DÉRIVÉE, isolée par soustraction de la moitié DÉCLARÉE — sans cette
+		// séparation, l'assertion comparerait la dérivation à une table qui contient en
+		// plus des lignes qu'aucune dérivation ne peut produire, et il faudrait la
+		// relâcher au lieu de la rendre plus précise.
+		const moitieDerivee = LISTES_A_ELEMENTS_STRUCTURES.filter(
+			(liste) => !LISTES_OPTIONNELLES_STRUCTUREES.some((optionnelle) => optionnelle.path === liste.path),
+		).map((liste) => liste.path)
+
+		expect(deriver(COLLECTIONS_IDENTIFIEES)).toEqual(moitieDerivee)
+		// Le trou vaut QUATRE chemins depuis l'itération 4 — REMESURÉ ici, jamais
+		// recopié (KR-159) : trois requis dérivés, plus la première liste OPTIONNELLE
+		// structurée, que la dérivation ne pouvait pas voir (trou résiduel de BUG-050).
+		expect(LISTES_A_ELEMENTS_STRUCTURES).toHaveLength(4)
 		expect(LISTES_A_ELEMENTS_STRUCTURES.map((liste) => liste.path)).toEqual([
 			'monde.personnages[].plan_actions',
 			'monde.personnages[].savoirs',
 			'monde.evenements[].resolutions',
+			'monde.personnages[].contre_mesures',
 		])
+		// Discriminant du TROU RÉSIDUEL : la dérivation seule ne rend PAS la liste
+		// optionnelle. Sans cette ligne, on ne saurait pas dire si la quatrième entrée
+		// vient de la déclaration ou d'un effet de bord de la soustraction.
+		expect(deriver(COLLECTIONS_IDENTIFIEES)).not.toContain('monde.personnages[].contre_mesures')
 
 		// Sans sa ligne dans `COLLECTIONS_IDENTIFIEES`, le climat RENTRERAIT dans la
 		// dérivation : c'est ce qui rend l'oubli d'une collection visible ici plutôt
@@ -752,20 +864,27 @@ describe('couverture', () => {
 		const sansClimat = COLLECTIONS_IDENTIFIEES.filter((collection) => collection.path !== 'monde.conditions.climat')
 
 		expect(deriver(sansClimat)).toContain('monde.conditions.climat')
-		expect(deriver(sansClimat)).toHaveLength(LISTES_A_ELEMENTS_STRUCTURES.length + 1)
+		expect(deriver(sansClimat)).toHaveLength(moitieDerivee.length + 1)
 	})
 
-	it('la derivation lit les deux tables, jamais un litteral des trois chemins', () => {
-		// KR-169 : « DÉRIVÉE, jamais une cinquième table » est une propriété affirmée en
+	it('la derivation lit les deux tables, jamais un litteral de chemin', () => {
+		// KR-169 : « DÉRIVÉE, jamais une table recopiée » est une propriété affirmée en
 		// docstring. Elle ne se porte pas par le typage — une table écrite à la main
 		// aurait exactement le même type —, donc elle se lit dans la SOURCE.
+		//
+		// Depuis l'itération 4, la déclaration a DEUX moitiés, et la propriété porte sur
+		// le CORPS entier : les deux moitiés y sont des RÉFÉRENCES DE TABLE, aucune
+		// n'est un chemin réécrit — y compris la moitié optionnelle, dont les chemins
+		// vivent dans `LISTES_OPTIONNELLES_STRUCTUREES` et nulle part ailleurs.
 		const source = fs.readFileSync(path.join(MODULE_DOSSIER, 'tables.ts'), 'utf8')
 		const declaration = source.slice(source.indexOf('export const LISTES_A_ELEMENTS_STRUCTURES'))
+		const corps = declaration.slice(0, declaration.indexOf('\n]'))
 
-		expect(declaration).toContain('LISTES_REQUISES.filter')
-		expect(declaration).toContain('COLLECTIONS_IDENTIFIEES.some')
+		expect(corps).toContain('LISTES_REQUISES.filter')
+		expect(corps).toContain('COLLECTIONS_IDENTIFIEES.some')
+		expect(corps).toContain('LISTES_OPTIONNELLES_STRUCTUREES')
 		for (const liste of LISTES_A_ELEMENTS_STRUCTURES) {
-			expect(declaration.slice(0, declaration.indexOf('\n)')).includes(liste.path)).toBe(false)
+			expect(`${liste.path} dans le corps → ${corps.includes(liste.path)}`).toBe(`${liste.path} dans le corps → false`)
 		}
 	})
 

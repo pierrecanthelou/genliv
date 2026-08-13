@@ -69,12 +69,28 @@
 					"SE": 6,
 					"CA": 9
 				},
+				"but": {
+					"libelle": "Refermer le sceau du Gouffre avant que le bourg n'apprenne qu'il est brisé.",
+					"pourquoi": "Il porte la faute de l'avoir laissé se briser, cinquante ans plus tôt.",
+					"echeance": "Avant la pleine lune prochaine."
+				},
 				"plan_actions": [
 					{
 						"etape": 1,
 						"action": "Détourner la conversation dès qu'il est question du Gouffre.",
 						"declencheur_texte": "Le joueur sait déjà que le sceau est brisé.",
-						"declencheur_expr": { "op": "predicat", "predicat": "indice_connu", "cibles": ["indice.sceau-brise"] }
+						"declencheur_expr": { "op": "predicat", "predicat": "indice_connu", "cibles": ["indice.sceau-brise"] },
+						"duree": 3,
+						"si_bloque": "Il coupe court, se lève et va remuer les braises jusqu'à ce qu'on parle d'autre chose."
+					}
+				],
+				"contre_mesures": [
+					{
+						"action": "Fermer sa porte et ne recevoir personne avant l'aube.",
+						"declencheur_texte": "Le joueur a répété devant quelqu'un d'autre que le sceau est brisé.",
+						"declencheur_expr": { "op": "predicat", "predicat": "indice_connu", "cibles": ["indice.sceau-brise"] },
+						"delai": 2,
+						"portee": "personnage"
 					}
 				],
 				"savoirs": [

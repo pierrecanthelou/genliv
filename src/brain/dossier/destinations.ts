@@ -98,8 +98,10 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	// `personnages[].portee`. Injectée, elle apprendrait au narrateur quel camp doit
 	// l'emporter — exactement ce que les conditions de réussite lui cachent déjà.
 	'canon.objectifs[].camp': 'moteur',
-	// D1 — les DIX lignes des cinq familles de conditions, et ZÉRO ajoutée à
-	// l'ensemble injecté. Un `…_expr` est la seule autorité sur ce qui se déclenche
+	// D1 — les DIX lignes posées par l'itération 3 de la n° 1 (cinq familles à
+	// l'époque ; la sixième, `contre_mesures[]`, est arrivée avec la fiche de
+	// personnage en n° 4 et vit dans la section du personnage plus bas), et ZÉRO
+	// ajoutée à l'ensemble injecté. Un `…_expr` est la seule autorité sur ce qui se déclenche
 	// (moteur) ; son jumeau `…_texte` est la MÊME règle en français — injecté, il
 	// apprendrait au modèle à FAIRE RÉUSSIR l'objectif, ou pire, à conduire à son
 	// échec. Le champ est auteur (et linter n° 7), jamais `ia`.
@@ -146,6 +148,24 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	// du personnage, plutôt que réunies en bas : l'ordre de la table est celui du
 	// document, et c'est ce qui la rend relisible à côté de `types.ts`.
 	...DESTINATION_DES_CARACTERISTIQUES,
+	// LE BUT PROPRE DU PERSONNAGE (clé `but`, jamais `objectif` — KR-198). Deux
+	// audiences dans un même bloc de trois champs, et la coupure est délibérée.
+	//
+	// `libelle` et `pourquoi` sont `ia` : ce sont des didascalies de jeu d'acteur —
+	// ce que le personnage veut, et ce qui le pousse. C'est exactement ce qu'un rôle
+	// acteur doit LIRE pour l'incarner, même famille que `plan_actions[].action`.
+	'monde.personnages[].but.libelle': 'ia',
+	'monde.personnages[].but.pourquoi': 'ia',
+	// `echeance` est `auteur`, CONTRE la cohérence de voisinage avec ses deux sœurs,
+	// et l'arbitrage mérite d'être écrit ici plutôt que redécouvert à la n° 10 : une
+	// échéance en prose reste une DONNÉE D'HORLOGE. Le précédent le plus proche n'est
+	// pas le bloc qui la porte, ce sont les `…_texte` (`evenements[]`, `jalons[]`),
+	// tous `auteur` sous le motif « le narrateur ne doit pas provoquer ni improviser
+	// ce que le moteur n'a pas constaté » — un narrateur qui lit « avant la pleine
+	// lune » fait tomber l'échéance quand la scène s'y prête, pendant qu'aucune
+	// horloge n'a tourné. Se desserre vers `ia` sans coût le jour où la n° 10 livre un
+	// libellé d'écoulement DÉRIVÉ PAR LE CODE et sa propre ligne d'audience.
+	'monde.personnages[].but.echeance': 'auteur',
 	'monde.personnages[].plan_actions[].etape': 'moteur',
 	// L'intention du personnage à cette étape — c'est ce que le rôle acteur joue,
 	// et la seule raison d'être d'un plan d'actions. SEULE clé `ia` de la famille :
@@ -155,6 +175,37 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	// À ne pas confondre avec `action` ci-dessus : celle-ci est jouée, celui-là
 	// décrit la condition de passage — une note de rédaction, jamais du contexte.
 	'monde.personnages[].plan_actions[].declencheur_texte': 'auteur',
+	// Un COMPTE DE PAS D'HORLOGE : c'est le moteur qui compte, et lui seul. Injecté,
+	// il apprendrait au narrateur combien de temps il reste — il jouerait l'urgence
+	// que le moteur n'a pas encore constatée, ou la dirait au joueur. Le libellé
+	// d'écoulement qui remplacera un jour ce chiffre côté prose n'existe pas : il
+	// appartient à la n° 10, avec sa propre ligne d'audience (même doctrine que les
+	// caractéristiques ci-dessus — aucune paraphrase en attendant).
+	'monde.personnages[].plan_actions[].duree': 'moteur',
+	// La DIDASCALIE DE SORTIE — `ia`, mais SOUS CONDITION D'ÉTAT, et c'est le seul
+	// champ du schéma dont l'injection dépend d'un fait de session : elle n'entre
+	// dans le contexte QUE si le moteur a déclaré l'étape bloquée. Livrée avec le
+	// reste de l'étape, elle apprendrait au narrateur la porte de sortie avant que le
+	// joueur n'ait rien bloqué — il la jouerait d'avance. La table dit l'AUDIENCE ;
+	// le MOMENT est la charge de l'assembleur n° 10, qui trouvera la promesse écrite
+	// ici et au JSDoc du champ.
+	'monde.personnages[].plan_actions[].si_bloque': 'ia',
+	// ── LES CINQ LIGNES DE `contre_mesures[]` — DÉJÀ ARBITRÉES, jamais redébattues
+	// (KR-196). Elles vivaient en COMMENTAIRE en fin de ce fichier depuis
+	// l'itération 3 de la n° 1, faute de type et de fixture pour les porter ; elles
+	// sont ici mot pour mot, à leur place dans la section du personnage.
+	//
+	// `action` est la SEULE clé `ia` de la famille, même raison que
+	// `plan_actions[].action` : c'est ce que le rôle acteur joue.
+	'monde.personnages[].contre_mesures[].action': 'ia',
+	'monde.personnages[].contre_mesures[].declencheur_expr': 'moteur',
+	// Même veto que partout ailleurs : un narrateur qui connaît la condition
+	// d'armement PROVOQUE la riposte au lieu de la laisser survenir.
+	'monde.personnages[].contre_mesures[].declencheur_texte': 'auteur',
+	// Même famille que `plan_actions[].duree` : un compte de pas d'horloge.
+	'monde.personnages[].contre_mesures[].delai': 'moteur',
+	// Une classification de portée d'effet, même famille que `portee` ci-dessus.
+	'monde.personnages[].contre_mesures[].portee': 'moteur',
 	// Le protocole de révélation (reporté n° 9-12, décision déjà écrite) injecte le
 	// savoir sous la forme `{ indice_id, certitude, vérité }` et la sortie du modèle
 	// renvoie `indices_reveles: string[]` : cet identifiant-là traverse le contexte.
@@ -251,18 +302,12 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	'charpente.fins[].condition_expr': 'moteur',
 }
 
-// ── RÉSERVÉ n° 4 `dossier-fiches` — DÉJÀ ARBITRÉ, à ne PAS re-dériver ─────────
-// La sixième famille de conditions, `personnages[].contre_mesures[]`, n'a au
-// schéma 1 ni type, ni racine, ni feature éditrice : la créer ici serait la
-// « forme sans producteur ni consommateur » que la décision A interdit — et une
-// ligne de table sans instance dans la fixture ferait rougir le balayage de
-// couverture, par construction. Ses destinations sont pourtant tranchées ; elles
-// vivent donc en COMMENTAIRE, jamais en lignes :
-//   `…contre_mesures[].action`           → 'ia'      (seule de la famille, même
-//                                                     raison que plan_actions[].action)
-//   `…contre_mesures[].declencheur_expr` → 'moteur'
-//   `…contre_mesures[].declencheur_texte`→ 'auteur'
-//   `…contre_mesures[].delai`            → 'moteur'
-//   `…contre_mesures[].portee`           → 'moteur'
-// Aucun espace de noms à créer : le OÙ du rapport est le PERSONNAGE porteur,
-// exactement comme `savoirs[]` et `plan_actions[]` aujourd'hui.
+// ── LA RÉSERVE DE LA n° 4 EST LEVÉE ──────────────────────────────────────────
+// Les cinq destinations de `personnages[].contre_mesures[]`, tenues en commentaire
+// ici depuis l'itération 3 de la n° 1 faute de type, de racine et de fixture pour
+// les porter, sont LIGNES DE TABLE depuis l'itération 4 de la n° 4 — dans la
+// section du personnage, à leur place dans l'ordre du document. Les valeurs sont
+// celles qui étaient écrites, sans une modification (KR-196).
+//
+// Aucun espace de noms n'a été créé pour elles : le OÙ du rapport est le
+// PERSONNAGE porteur, exactement comme `savoirs[]` et `plan_actions[]`.

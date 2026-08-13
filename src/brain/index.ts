@@ -149,6 +149,13 @@ export { autoSlot } from './BookService'
 // chemin de LECTURE est interdit — voir sa docstring. `VALEURS_DE_CARACTERISTIQUE`
 // reste dedans, comme `CONFIANCES` : c'est une table de validation, aucun écran ne
 // choisit une caractéristique dans une liste.
+// MÊME RÈGLE pour l'itération 4 : `DUREE_MIN` sort parce qu'elle est le `min` du
+// `Stepper` de durée d'une étape de plan. La borne basse écrite en dur à l'écran
+// dériverait de celle qui décide réellement du refus à l'import (KR-165) — et il
+// n'y a ici AUCUNE borne haute à mettre en face, ce qui rend la borne basse
+// d'autant moins devinable côté feature. Sa jumelle de table, `CHAMPS_ENTIERS`,
+// reste dedans, comme `VALEURS_DE_CARACTERISTIQUE` : c'est une table de
+// validation, aucun écran ne l'interroge.
 export {
 	DOSSIER_SCHEMA,
 	BUDGET_MOTS_CANON,
@@ -157,6 +164,7 @@ export {
 	CONFIANCE_MAX,
 	CARACTERISTIQUE_MIN,
 	STATS_INITIALES,
+	DUREE_MIN,
 } from './dossier/types'
 // `CAMPS` sort à l'itération 3 de la n° 3 : la carte d'objectif rend un `Select`
 // FERMÉ sur ses trois valeurs, et re-lister les camps côté feature en ferait une
@@ -186,6 +194,19 @@ export type {
 	Camp,
 	CampPersonnage,
 	PlanAction,
+	// LES TROIS TYPES DE L'ITÉRATION 4. `But` et `ContreMesure` ont chacun un
+	// consommateur réel côté feature — le bloc « Objectif & plan d'actions » écrit
+	// l'un et l'autre par `DossierService.update()`, et les typer sur place
+	// reconstruirait deux formes que le validateur ne connaîtrait pas.
+	// `PorteeContreMesure` sort AVEC `ContreMesure` et non pour lui-même : il est un
+	// membre de sa forme publique, et une feature qui doit l'annoter n'aurait aucun
+	// autre moyen de le NOMMER. Le registre `PORTEES_CONTRE_MESURE` qui le porte,
+	// lui, reste dedans — aucun écran n'offre ce choix dans cette itération (le champ
+	// est `moteur` et n'est rendu nulle part), donc l'exporter serait une affordance
+	// sans surface.
+	But,
+	ContreMesure,
+	PorteeContreMesure,
 	Revelation,
 	Savoir,
 	Personnage,

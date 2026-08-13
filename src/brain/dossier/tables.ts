@@ -7,7 +7,9 @@ import {
 	CERTITUDES,
 	CONFIANCE_MAX,
 	CONFIANCE_MIN,
+	DUREE_MIN,
 	PORTEES,
+	PORTEES_CONTRE_MESURE,
 } from './types'
 import { COLLECTIONS_IDENTIFIEES, type EspaceDeNoms } from './identifiers'
 import { CHARACTERISTIC_MAX, CHARACTERISTIC_VALUES } from '../characteristics'
@@ -96,6 +98,15 @@ export const CHAMPS_REQUIS: readonly ChampRequis[] = [
 	{ path: 'canon.partage.accroche_joueur', location: 'Canon (partagé)' },
 	{ path: 'canon.ton', location: 'Canon' },
 	{ path: 'monde.personnages[].plan_actions[].action', location: 'Personnages' },
+	// REQUIS DANS SON BLOC, comme les huit `stats` : `sitesDe` ne produit AUCUN site
+	// sous un `but` absent (le `if (!estObjet(site.valeur)) continue` coupe), donc un
+	// personnage sans but reste calme, tandis qu'un `but` posé sans `libelle` est
+	// bloquant. Un but qui ne dit pas ce que le personnage veut n'est pas un but.
+	{ path: 'monde.personnages[].but.libelle', location: 'Personnages' },
+	// MÊME FORME que `plan_actions[].action` juste au-dessus, et pour la même raison :
+	// une contre-mesure sans intention n'a rien à jouer. La liste, elle, reste
+	// OPTIONNELLE — c'est l'ÉLÉMENT qui est contraint.
+	{ path: 'monde.personnages[].contre_mesures[].action', location: 'Personnages' },
 	{ path: 'monde.personnages[].savoirs[].indice_id', location: 'Personnages' },
 	{ path: 'monde.personnages[].savoirs[].revele_si.contrepartie.objet_id', location: 'Personnages' },
 	{ path: 'monde.evenements[].resolutions[].resultat', location: 'Événements' },
@@ -170,6 +181,17 @@ export const ENUMERES_FERMES: readonly EnumereFerme[] = [
 	{ path: 'canon.objectifs[].camp', location: 'Objectifs', valeurs: CAMPS, requis: true },
 	{ path: 'monde.personnages[].portee', location: 'Personnages', valeurs: PORTEES, requis: true },
 	{ path: 'monde.personnages[].camp', location: 'Personnages', valeurs: CAMPS_PERSONNAGE, requis: false },
+	// TROISIÈME registre à porter le mot « portée », et le seul dont la clé soit
+	// homonyme d'un autre : `monde.personnages[].portee` juste au-dessus dit la
+	// PROFONDEUR DE SIMULATION, celle-ci dit CE QU'UNE RIPOSTE ATTEINT. Deux
+	// registres, deux types (`Portee` / `PorteeContreMesure`), aucune valeur commune
+	// — c'est ce qui rend une confusion visible plutôt que silencieuse.
+	{
+		path: 'monde.personnages[].contre_mesures[].portee',
+		location: 'Personnages',
+		valeurs: PORTEES_CONTRE_MESURE,
+		requis: false,
+	},
 	{ path: 'monde.personnages[].savoirs[].certitude', location: 'Personnages', valeurs: CERTITUDES, requis: true },
 	{
 		path: 'monde.personnages[].savoirs[].revele_si.confiance_min',
@@ -229,29 +251,88 @@ export const LISTES_REQUISES: readonly ChampRequis[] = [
 	{ path: 'monde.conditions.climat', location: 'Conditions' },
 ]
 
+export interface ChampEntier extends ChampRequis {
+	/** La borne BASSE, INCLUSE — toujours une constante nommée, jamais un nombre en
+	 *  dur ici (KR-165). */
+	min: number
+}
+
 /**
- * BUG-050 — les listes dont chaque ÉLÉMENT doit être un objet. DÉRIVÉE, jamais
- * une cinquième table.
+ * Les champs ENTIERS BORNÉS PAR LE BAS — ceux qu'aucune énumération ne peut
+ * décrire, faute de borne haute.
+ *
+ * POURQUOI UNE TABLE À PART DE `ENUMERES_FERMES` : les caractéristiques sont
+ * bornées des DEUX côtés, donc `VALEURS_DE_CARACTERISTIQUE` peut les énumérer, et
+ * l'appartenance à cette liste refuse d'un coup `2.5`, `"3"`, `0` et `13`. Ici il
+ * n'y a pas de borne haute (aucune règle ne tranche la durée d'une aventure) :
+ * l'ensemble admis est infini, et il faut donc dire en toutes lettres ce que
+ * l'appartenance disait — un NOMBRE, ENTIER, au moins `min`.
+ *
+ * DEUX CHEMINS, ET DEUX SEULEMENT. `plan_actions[].etape` n'y est PAS, et c'est un
+ * arbitrage, pas un oubli : c'est un champ DÉJÀ EXISTANT et déjà valide depuis la
+ * n° 1, dont aucune règle d'ordonnancement (unicité, continuité, départ à 1) n'a
+ * jamais été arbitrée — le contraindre ici serait décider en passant ce que
+ * personne n'a décidé, et invalider rétroactivement des documents déjà persistés
+ * (KR-160). KR-190 borne le pire cas d'un lot contrat, il ne prescrit pas sa liste.
+ */
+export const CHAMPS_ENTIERS: readonly ChampEntier[] = [
+	{ path: 'monde.personnages[].plan_actions[].duree', location: 'Personnages', min: DUREE_MIN },
+	{ path: 'monde.personnages[].contre_mesures[].delai', location: 'Personnages', min: DUREE_MIN },
+]
+
+/**
+ * Les listes OPTIONNELLES dont chaque élément doit être un objet — la moitié que
+ * la dérivation ci-dessous ne peut pas produire.
+ *
+ * FERMETURE DU TROU RÉSIDUEL DE BUG-050. `LISTES_A_ELEMENTS_STRUCTURES` était
+ * dérivée de `LISTES_REQUISES` SEULE, qui ne porte par construction que des listes
+ * NON optionnelles : aucune liste optionnelle n'était donc contrôlée élément par
+ * élément, et un `contre_mesures: ["une chaîne"]` traversait `validateDossier` en
+ * `ok: true` — le dossier gelé promettait une `ContreMesure` là où il y a une
+ * chaîne, et l'acteur perdait sa riposte sans que rien ne le dise. Exactement le
+ * défaut que BUG-050 avait fermé pour les listes requises, resté ouvert sur
+ * l'autre moitié parce que le schéma 1 n'avait aucune liste optionnelle.
+ *
+ * Elle ne se dérive de rien : une liste optionnelle n'a, par définition, aucune
+ * autre table qui la nomme. Toute liste optionnelle STRUCTURÉE ajoutée à
+ * `types.ts` gagne sa ligne ici — le compilateur ne relie pas les deux. La n° 4
+ * en ajoutera deux à l'itération 5 (`relations[]`, `presence[]`).
+ */
+export const LISTES_OPTIONNELLES_STRUCTUREES: readonly ChampRequis[] = [
+	{ path: 'monde.personnages[].contre_mesures', location: 'Personnages' },
+]
+
+/**
+ * BUG-050 — les listes dont chaque ÉLÉMENT doit être un objet. DEUX MOITIÉS : la
+ * requise, DÉRIVÉE et jamais recopiée ; l'optionnelle, déclarée, faute d'une table
+ * dont elle pourrait se dériver.
  *
  * `LISTES_REQUISES` exige que la liste SOIT un tableau, jamais que ses éléments
  * soient des objets : un `savoirs: ["du texte"]` traversait le validateur en
  * silence, `ok:true`, et le dossier gelé promettait un `Savoir` là où il y a une
  * chaîne — le savoir disparaissait du personnage sans que rien ne le dise.
  *
- * Pourquoi une DÉRIVATION plutôt qu'une table dédiée : les collections
- * identifiées sont DÉJÀ gardées — un élément non-objet y donne `id: null` dans
- * `collectIds`, donc `champ-requis-vide`, bloquant depuis l'itération 1 — donc
- * les inclure produirait deux anomalies pour une seule cause. Et les deux tables
- * lues ici sont chacune un point de passage obligé pour d'autres raisons, alors
- * qu'une cinquième table serait le seul endroit du module où un oubli passerait
- * inaperçu.
+ * Pourquoi la moitié requise est une DÉRIVATION plutôt qu'une table dédiée : les
+ * collections identifiées sont DÉJÀ gardées — un élément non-objet y donne
+ * `id: null` dans `collectIds`, donc `champ-requis-vide`, bloquant depuis
+ * l'itération 1 — donc les inclure produirait deux anomalies pour une seule cause.
+ * Et les deux tables lues là sont chacune un point de passage obligé pour d'autres
+ * raisons, alors qu'une table recopiée serait le seul endroit du module où un
+ * oubli passerait inaperçu.
  *
- * Vaut TROIS chemins aujourd'hui ; le nombre est à REMESURER, jamais à recopier
- * d'ici (KR-159), et il est épinglé par `couverture.test.ts`.
+ * Pourquoi la moitié optionnelle ne l'est PAS : il n'existe aucune table dont une
+ * liste optionnelle serait déjà membre. Le prix est nommé — c'est une déclaration,
+ * donc un oubli possible — et il est payé par le garde : `couverture.test.ts`
+ * exige une instance en fixture pour chaque chemin, et `validate.test.ts` un
+ * poseur par ligne.
+ *
+ * Le nombre de chemins est à REMESURER, jamais à recopier d'ici (KR-159), et il
+ * est épinglé par `couverture.test.ts`.
  */
-export const LISTES_A_ELEMENTS_STRUCTURES: readonly ChampRequis[] = LISTES_REQUISES.filter(
-	(liste) => !COLLECTIONS_IDENTIFIEES.some((collection) => collection.path === liste.path),
-)
+export const LISTES_A_ELEMENTS_STRUCTURES: readonly ChampRequis[] = [
+	...LISTES_REQUISES.filter((liste) => !COLLECTIONS_IDENTIFIEES.some((collection) => collection.path === liste.path)),
+	...LISTES_OPTIONNELLES_STRUCTUREES,
+]
 
 /**
  * Une RÉFÉRENCE SIMPLE : un champ textuel qui pointe une entité du dossier par
@@ -348,12 +429,14 @@ export interface FamilleDeCondition {
 	texte: string
 	/** OÙ de repli, quand aucune entité identifiée ne porte le champ. */
 	location: string
-	/** D1 : un `…_texte` sans `…_expr` AVERTIT — sur une FIN et un OBJECTIF seulement. */
+	/** D1 : un `…_texte` sans `…_expr` AVERTIT — sur une FIN, un OBJECTIF et une
+	 *  CONTRE-MESURE. Il reste CALME sur un jalon, un événement et une étape de
+	 *  plan, où le déclenchement à la main du narrateur est légitime. */
 	alerteSansExpr: boolean
 }
 
 /**
- * CINQ FAMILLES, SIX COUPLES : `canon.objectifs` en porte deux (`reussi_si` et
+ * SIX FAMILLES, SEPT COUPLES : `canon.objectifs` en porte deux (`reussi_si` et
  * `echoue_si`). Cette table a TROIS lecteurs, et c'est ce qui interdit de
  * re-lister ses chemins ailleurs :
  *  · le validateur, qui contrôle la forme puis résout les références ;
@@ -402,8 +485,23 @@ export const FAMILLES_DE_CONDITIONS: readonly FamilleDeCondition[] = [
 		location: 'Personnages',
 		alerteSansExpr: false,
 	},
+	// LA SIXIÈME FAMILLE, arrivée avec sa racine à l'itération 4 de la n° 4. Elle est
+	// le CONTRASTE de la ligne juste au-dessus, et le contraste est le contenu de
+	// l'arbitrage : deux champs de même NOM (`declencheur_texte`), portés par le même
+	// personnage, à deux étages du même bloc d'écran, et qui se comportent à l'opposé.
+	//
+	// Une ÉTAPE de plan sans condition structurée reste CALME (arbitrage d'it1) : le
+	// narrateur peut légitimement faire avancer un personnage à la main, et alerter
+	// là ferait du bruit sur tous les plans écrits en prose.
+	//
+	// Une CONTRE-MESURE sans condition structurée AVERTIT : c'est une riposte ARMÉE,
+	// dont toute la raison d'être est de partir quand le joueur déclenche quelque
+	// chose. Sans son `…_expr`, rien ne l'arme jamais — l'auteur a écrit une menace
+	// qui ne se produira pas, et il ne l'apprendrait qu'en jouant.
+	{
+		expr: 'monde.personnages[].contre_mesures[].declencheur_expr',
+		texte: 'monde.personnages[].contre_mesures[].declencheur_texte',
+		location: 'Personnages',
+		alerteSansExpr: true,
+	},
 ]
-// SIXIÈME famille `contre_mesures[]` : absente du schéma 1. Elle vit SOUS
-// `personnages[]` et arrive avec sa racine en n° 4 `dossier-fiches` — quatre
-// lignes. Ne PAS l'anticiper ici : une ligne sans instance dans la fixture fait
-// rougir le balayage de couverture, par construction.

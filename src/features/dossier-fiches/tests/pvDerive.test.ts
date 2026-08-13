@@ -14,11 +14,14 @@ import path from 'node:path'
  *     trois clés du héros (voir `SOMME_A_LA_MAIN` plus bas) ;
  *  2. aucun fichier ne fait retomber une LECTURE de `stats` sur
  *     `STATS_INITIALES` (désaccord n° 9 du plan — ce repli n'est légitime
- *     qu'à l'ÉCRITURE, dans `PanneauPersonnages.handleReglerCaracteristiques`).
+ *     qu'à l'ÉCRITURE, dans `useEcriturePersonnages.handleReglerCaracteristiques`
+ *     — extrait de `PanneauPersonnages` à it4, KR-112).
  *
- * DISCRIMINANT (KR-169) : `FichePersonnage.tsx` importe `maxPV` — sans quoi
+ * DISCRIMINANT (KR-169) : `BlocCaracteristiques.tsx` importe `maxPV` — sans quoi
  * l'absence du motif 1 ne prouverait rien (elle resterait vraie même si
- * personne n'affichait jamais le PV).
+ * personne n'affichait jamais le PV). Retargeté depuis `FichePersonnage.tsx`
+ * à it4 : l'extraction KR-112 (dette datée par it3) a déplacé le bloc
+ * caractéristiques, PV compris, dans son propre fichier.
  */
 
 const RACINE_SRC = path.join(__dirname, '..', '..', '..')
@@ -62,8 +65,8 @@ describe('la somme FO+AG+EN n est ecrite qu une fois, dans brain', () => {
 		expect(porteurs).toEqual([])
 	})
 
-	it('DISCRIMINANT : FichePersonnage.tsx importe maxPV (sinon les deux gardes ci dessus ne prouvent rien)', () => {
-		const chemin = path.join(RACINE_SRC, 'features', 'dossier-fiches', 'components', 'FichePersonnage.tsx')
+	it('DISCRIMINANT : BlocCaracteristiques.tsx importe maxPV (sinon les deux gardes ci dessus ne prouvent rien)', () => {
+		const chemin = path.join(RACINE_SRC, 'features', 'dossier-fiches', 'components', 'BlocCaracteristiques.tsx')
 		const source = fs.readFileSync(chemin, 'utf8')
 
 		expect(/\bmaxPV\b/.test(source)).toBe(true)

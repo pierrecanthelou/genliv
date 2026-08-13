@@ -145,7 +145,7 @@ Huit features. Une phrase de démo par feature, sans « et » : c'est le test de
 | 1 | `dossier-format` | …importer un dossier d'aventure validé contre un schéma versionné | **5** | **5/5 — terminée** | 5 rôles | — |
 | 2 | `bascule-editeur` | …naviguer dans son aventure par une liste de sections | 3 | **3/3 — terminée** | 5 rôles | 1 |
 | 3 | `dossier-canon` | …rédiger la vérité immuable de son histoire | 4 | **4/4 — terminée** | 4 rôles | 2 |
-| 4 | `dossier-fiches` | …écrire une fiche de personnage exploitable par l'IA | 6 | **3/6** | 5 rôles | 3 |
+| 4 | `dossier-fiches` | …écrire une fiche de personnage exploitable par l'IA | 6 | **4/6** | 5 rôles | 3 |
 | 5 | `dossier-objets` | …tenir le registre des objets de son aventure | 2 | — | 4 rôles | 1 |
 | 6 | `dossier-registres` | …tenir les quêtes, les indices, les événements de son aventure | 4 | — | 4 rôles | 4 · 5 |
 | 7 | `dossier-controles` | …voir pourquoi son aventure n'est pas encore jouable | 3 | — | 5 rôles | 6 |

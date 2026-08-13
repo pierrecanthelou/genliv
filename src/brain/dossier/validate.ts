@@ -16,6 +16,7 @@ import {
 } from './identifiers'
 import {
 	BUDGETS_DE_MOTS,
+	CHAMPS_ENTIERS,
 	CHAMPS_REQUIS,
 	CHEMINS_DE_DELTAS,
 	ENUMERES_FERMES,
@@ -53,10 +54,16 @@ import { BESTIARY_BY_TEMPLATE } from '../bestiary'
  *    seul site d'appel de `deepFreeze` du module dossier.
  *
  * Les règles ne sont pas des cascades de `if` : les racines, les champs
- * obligatoires, les énumérations fermées, les emplacements de deltas, les budgets
- * de mots et les familles de conditions vivent dans des TABLES déclaratives
- * (`tables.ts`), toutes lues par le même expanseur de chemins. Étendre le schéma,
- * c'est ajouter des LIGNES.
+ * obligatoires, les énumérations fermées, les champs entiers, les emplacements de
+ * deltas, les budgets de mots et les familles de conditions vivent dans des TABLES
+ * déclaratives (`tables.ts`), toutes lues par le même expanseur de chemins.
+ * Étendre le schéma, c'est ajouter des LIGNES.
+ *
+ * DEUX contrôles seulement échappent à une table, et chacun dit pourquoi au-dessus
+ * de sa boucle : les PORTES DE RÉVÉLATION (un ensemble de clés, pas un chemin) et
+ * `si_bloque` SANS `duree` (un couple dont les deux moitiés n'ont ni la même
+ * nature ni la même audience — l'y forcer aurait faussé une table à trois
+ * lecteurs).
  *
  * Ce fichier garde les DONNÉES qui ne sont pas des chemins de table — les portes
  * de révélation, la forme de l'identifiant de dossier — et surtout le LECTEUR,
@@ -73,6 +80,12 @@ export interface DossierValidation {
 
 /** Le chemin des savoirs — le seul porteur de portes de révélation du schéma 1. */
 const CHEMIN_SAVOIRS = 'monde.personnages[].savoirs[]'
+
+/**
+ * Le chemin des ÉTAPES DE PLAN — porteur du seul couple du schéma qui ne soit ni
+ * une famille de conditions, ni une porte : `si_bloque` et sa `duree`.
+ */
+const CHEMIN_ETAPES = 'monde.personnages[].plan_actions[]'
 
 /**
  * Les QUATRE portes de révélation reconnues. Toute autre clé sous `revele_si` est
@@ -444,7 +457,38 @@ export function validateDossier(input: unknown): DossierValidation {
 		}
 	}
 
-	// 6 bis — Les LISTES OBLIGATOIRES.
+	// 6 bis — Les CHAMPS ENTIERS BORNÉS PAR LE BAS. Une table à part des ensembles
+	// fermés, faute de borne haute : `VALEURS_DE_CARACTERISTIQUE` peut énumérer une
+	// échelle 1..12, et l'appartenance refuse alors `2.5`, `"3"`, `0` et `13` sans
+	// qu'aucune règle de forme n'ait à être écrite. Ici l'ensemble admis est infini,
+	// donc ce que l'appartenance disait doit se dire en toutes lettres — un NOMBRE,
+	// ENTIER, au moins `min`.
+	//
+	// MÊME CODE que l'ensemble fermé, et c'est voulu : la CAUSE est la même (« cette
+	// valeur n'est pas dans le domaine admis »), et le rapport d'anomalie porte un
+	// code par cause, jamais par emplacement (KR-164). Seule la description du
+	// domaine change dans la phrase.
+	//
+	// Un champ ABSENT ne dit rien : les deux sont optionnels, et l'absence d'une
+	// durée est un état calme — une étape sans échéance est une étape que rien ne
+	// périme.
+	for (const champ of CHAMPS_ENTIERS) {
+		for (const site of sitesDe(input, champ.path, champ.location)) {
+			if (site.valeur === undefined) continue
+			if (typeof site.valeur === 'number' && Number.isInteger(site.valeur) && site.valeur >= champ.min) continue
+			errors.push(
+				anomalie(
+					'valeur-hors-enumeration',
+					'error',
+					`Le champ « ${feuilleDe(champ.path)} » vaut « ${decrireValeur(site.valeur)} », qui n'est pas une valeur reconnue (attendu : un nombre entier supérieur ou égal à ${champ.min}).`,
+					site.location,
+					site.path,
+				),
+			)
+		}
+	}
+
+	// 6 ter — Les LISTES OBLIGATOIRES.
 	//
 	// `sitesDe` abandonne un segment `[]` dont la valeur n'est pas un tableau :
 	// c'est ce qui lui permet de traverser un document non fiable sans lever, mais
@@ -468,9 +512,16 @@ export function validateDossier(input: unknown): DossierValidation {
 		}
 	}
 
-	// 6 ter — Les ÉLÉMENTS de liste (BUG-050). La table est DÉRIVÉE, jamais une
-	// cinquième table : les collections identifiées sont déjà gardées ailleurs, un
-	// élément non-objet y donnant `id: null` puis `champ-requis-vide`.
+	// 6 quater — Les ÉLÉMENTS de liste (BUG-050), REQUISES ET OPTIONNELLES. La
+	// moitié requise est DÉRIVÉE, jamais recopiée : les collections identifiées sont
+	// déjà gardées ailleurs, un élément non-objet y donnant `id: null` puis
+	// `champ-requis-vide`.
+	//
+	// La moitié OPTIONNELLE (`LISTES_OPTIONNELLES_STRUCTUREES`) ferme le trou
+	// résiduel : la dérivation ne lisait que `LISTES_REQUISES`, qui ne porte par
+	// construction aucune liste optionnelle, si bien qu'un `contre_mesures:
+	// ["une chaîne"]` traversait ce validateur en `ok: true`. Cette boucle n'a pas
+	// changé d'une ligne — c'est la table qu'elle lit qui a gagné sa seconde moitié.
 	for (const liste of LISTES_A_ELEMENTS_STRUCTURES) {
 		for (const site of sitesDe(input, liste.path, liste.location)) {
 			if (!Array.isArray(site.valeur)) continue
@@ -584,7 +635,37 @@ export function validateDossier(input: unknown): DossierValidation {
 		}
 	}
 
-	// 8 bis — LES CINQ FAMILLES DE CONDITIONS (D1), en deux temps disjoints.
+	// 8 bis — `si_bloque` SANS `duree` : un AVERTISSEMENT, jamais un refus.
+	//
+	// CONTRÔLE ISOLÉ, ET SURTOUT PAS UNE LIGNE DE `FAMILLES_DE_CONDITIONS` : ce
+	// couple n'en est pas un. `si_bloque` n'a pas de jumeau `…_expr` — ce n'est pas
+	// une condition mais une RÉPLIQUE DE REPLI, même statut que `caractere.cede_si` —
+	// et ce qui lui manque n'est pas une expression, c'est l'HORLOGE qui rend le
+	// blocage constatable. L'y ranger aurait fait porter à la table un couple dont
+	// les deux moitiés ne sont ni de même nature ni de même audience (`si_bloque` est
+	// `ia`, `duree` est `moteur`), et ses trois lecteurs auraient hérité du
+	// contresens.
+	//
+	// AVERTISSEMENT ET NON ERREUR : la porte de sortie reste une intention d'auteur
+	// lisible, et un document déjà persisté ne doit pas devenir illisible parce que
+	// l'itération 4 a inventé l'horloge qui le complète (KR-160/KR-188).
+	for (const site of sitesDe(input, CHEMIN_ETAPES, 'Personnages')) {
+		const etape = site.valeur
+		if (!estObjet(etape)) continue
+		if (typeof etape.si_bloque !== 'string' || etape.si_bloque.trim() === '') continue
+		if (etape.duree !== undefined) continue
+		warnings.push(
+			anomalie(
+				'condition-sans-expr',
+				'warning',
+				`Le champ « si_bloque » dit ce que joue le personnage si l'étape est bloquée, mais aucune durée n'est posée : le moteur ne pourra jamais constater le blocage, et cette sortie ne sera jamais jouée.`,
+				site.location,
+				`${site.path}.si_bloque`,
+			),
+		)
+	}
+
+	// 8 ter — LES SIX FAMILLES DE CONDITIONS (D1), en deux temps disjoints.
 	//
 	// La FORME appartient à `validateExpr` — opérateur, clés, arité, profondeur, et
 	// jusqu'à la bonne forme d'une cible, préfixe d'espace de noms compris. Ce qui
@@ -603,8 +684,11 @@ export function validateDossier(input: unknown): DossierValidation {
 			if (site.valeur === undefined) {
 				const texte = textes.get(parentDe(site.path))
 				// D1 : une condition en prose sans son jumeau structuré AVERTIT — sur une
-				// FIN et un OBJECTIF seulement. Ailleurs (jalon, événement, étape de plan),
-				// un déclenchement laissé à la main du narrateur est légitime et calme.
+				// FIN, un OBJECTIF et une CONTRE-MESURE. Ailleurs (jalon, événement, étape
+				// de plan), un déclenchement laissé à la main du narrateur est légitime et
+				// calme. Le contraste le plus serré est entre les deux `declencheur_texte`
+				// d'un même personnage : celui d'une ÉTAPE se tait, celui d'une riposte
+				// ARMÉE avertit, parce qu'une riposte que rien n'arme ne partira jamais.
 				if (!famille.alerteSansExpr || typeof texte !== 'string' || texte.trim() === '') continue
 				warnings.push(
 					anomalie(

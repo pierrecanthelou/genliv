@@ -38,6 +38,11 @@
  * `fonction`, `apparence`, `description_joueur` —, optionnelles elles aussi et
  * toutes trois d'audience `ia`. L'itération 3 y ajoute `stats` — les HUIT
  * caractéristiques, optionnelles EN BLOC et TOTALES quand le bloc est là.
+ * L'itération 4 y pose le PLAN D'ACTION COMPLET : `but` (optionnel en bloc,
+ * `libelle` requis dedans — même contrat que `stats`), deux champs de plus sur
+ * `PlanAction` (`duree` moteur, `si_bloque` ia) et `contre_mesures[]`, SIXIÈME
+ * famille de conditions D1 et première liste OPTIONNELLE dont les éléments sont
+ * contrôlés (fermeture du trou résiduel de BUG-050).
  *
  * QUI LIT QUOI : ce fichier dit la FORME, il ne dit pas l'AUDIENCE. L'audience
  * de chaque champ terminal vit dans `destinations.ts`, sous le balayage de
@@ -123,6 +128,28 @@ export const CARACTERISTIQUE_MIN = 1
 export const STATS_INITIALES: Record<Characteristic, number> = Object.fromEntries(
 	CHARACTERISTIC_VALUES.map((carac) => [carac, CARACTERISTIQUE_MIN]),
 ) as Record<Characteristic, number>
+
+/**
+ * Le PLANCHER d'une DURÉE du plan d'actions — la borne basse commune à
+ * `plan_actions[].duree` et à `contre_mesures[].delai`, les deux seuls champs
+ * ENTIERS du schéma 1 hors caractéristiques (`CHAMPS_ENTIERS`, `tables.ts`).
+ * Constante NOMMÉE, jamais un `1` en dur au site de validation ni au `min` du
+ * widget de saisie (KR-165).
+ *
+ * L'UNITÉ N'EST PAS DÉCIDÉE ICI, ET C'EST DÉLIBÉRÉ. Ce nombre compte des PAS
+ * D'HORLOGE DE SESSION, dont la longueur appartient à la n° 9 `moteur-dossier`
+ * (renvoi dans `docs/REGLES-PLAY.md`, § J). Le mot « tour » est RÉSERVÉ au round
+ * de combat par `docs/REGLES-DU-JEU.md` et ne doit pas servir à nommer ce pas —
+ * c'est pourquoi le libellé de saisie dit « DURÉE » nu.
+ *
+ * POURQUOI UNE BORNE BASSE ET AUCUNE BORNE HAUTE : `0` voudrait dire « échéance
+ * déjà écoulée à l'instant où l'étape s'ouvre », c'est-à-dire une étape qui naît
+ * bloquée — un état qu'aucun auteur n'écrit volontairement, et que le moteur
+ * devrait arbitrer sans rien pour le faire. Une borne HAUTE, elle, trancherait la
+ * durée d'une aventure : aucune règle ne le fait, et ce n'est pas au schéma de
+ * commencer.
+ */
+export const DUREE_MIN = 1
 
 /**
  * Toute entité nommée et référencée du dossier. `id` porte son espace de noms
@@ -227,6 +254,138 @@ export interface PlanAction {
 	/** MOTEUR — l'avancement d'étape est du code (n° 14), jamais une intention.
 	 *  Exemple : declencheur_expr: { op: 'predicat', predicat: 'indice_connu', cibles: ['indice.sceau-brise'] } */
 	declencheur_expr?: ExprNode
+	/** MOTEUR — le nombre de PAS D'HORLOGE DE SESSION avant l'échéance de cette
+	 *  étape. Un ENTIER ≥ `DUREE_MIN`, jamais de la prose : un moteur ne compte pas
+	 *  sur du texte libre, et `delai` était déjà promis `moteur` par KR-196.
+	 *
+	 *  L'UNITÉ DU PAS N'EST PAS DÉCIDÉE ICI — elle appartient à la n° 9
+	 *  `moteur-dossier` (voir `DUREE_MIN` et `docs/REGLES-PLAY.md` § J). Le mot
+	 *  « tour » reste RÉSERVÉ au round de combat par `docs/REGLES-DU-JEU.md`.
+	 *
+	 *  C'est le SEUL champ qui rend `si_bloque` atteignable : sans lui, rien ne
+	 *  permet au moteur de CONSTATER qu'une étape est bloquée — d'où l'avertissement
+	 *  non bloquant que `validateDossier` émet sur un `si_bloque` orphelin. */
+	duree?: number
+	/** IA — la DIDASCALIE de sortie : ce que le personnage joue quand le moteur a
+	 *  déclaré l'étape bloquée (durée écoulée sans que le déclencheur suivant soit
+	 *  survenu). Injectée SEULEMENT dans ce cas, jamais avec le reste de l'étape :
+	 *  livrée d'avance, elle apprendrait au narrateur la porte de sortie avant que le
+	 *  joueur n'ait rien bloqué.
+	 *
+	 *  PAS DE JUMEAU `…_expr` ET AUCUNE LIGNE DANS `FAMILLES_DE_CONDITIONS` : ce
+	 *  n'est pas une condition mais une réplique de repli — même statut que
+	 *  `caractere.cede_si`. L'IA ne compte pas les pas d'horloge et ne décide pas
+	 *  qu'une étape est bloquée : le moteur constate, l'IA joue.
+	 *  Exemple : « Il change d'approche : au lieu du sanctuaire, il tente sa chance
+	 *  auprès du forgeron. » */
+	si_bloque?: string
+}
+
+/**
+ * Le BUT PROPRE d'un personnage — ce qu'il veut, pourquoi, et pour quand.
+ *
+ * LA CLÉ EST `but`, JAMAIS `objectif` (KR-198), et la divergence entre le concept
+ * français (« objectif ») et la clé de schéma est DÉLIBÉRÉE, pas une faute à
+ * réparer : `Personnage.objectif_id` est une RÉFÉRENCE vers `canon.objectifs[]`,
+ * destination `moteur` ; ceci est la PROSE du personnage, destination `ia`. Deux
+ * clés `objectif*` voisines sur le même objet auraient rejoué la collision
+ * `plan` / `plan_actions` que l'en-tête de ce fichier compte parmi ses corrections
+ * IRRÉVERSIBLES — et le piège serait de COMPRÉHENSION, pas de mécanique : rien ne
+ * rougirait, et la n° 10 enverrait un jour un champ moteur dans un contexte de
+ * modèle parce qu'un lecteur aurait supposé que les deux `objectif*` vont ensemble.
+ *
+ * OPTIONNEL EN BLOC, `libelle` REQUIS QUAND LE BLOC EST LÀ — même contrat que
+ * `stats`, et par le même mécanisme : `sitesDe` ne produit aucun site sous un bloc
+ * absent, donc un personnage sans `but` est un état calme (« absent ≠ vide »,
+ * KR-191), tandis qu'un `but: {}` ou un `but: { pourquoi }` sans `libelle` est une
+ * anomalie bloquante. Un but qui ne dit pas ce qu'il veut n'est pas un but.
+ */
+export interface But {
+	/** IA — ce que le personnage veut, en prose de jeu d'acteur. Jamais lu tel quel
+	 *  par le joueur : c'est une consigne d'incarnation, pas une réplique.
+	 *  Exemple : « Retrouver le sceau brisé et le remettre en place avant que la
+	 *  brume ne revienne. » */
+	libelle: string
+	/** IA — la motivation, quand elle mérite d'être dite. À ne pas confondre avec
+	 *  `libelle` : celui-ci dit CE QU'IL VEUT, celle-là POURQUOI il le veut.
+	 *  Exemple : « Il porte la faute d'avoir laissé le sceau se briser, cinquante
+	 *  ans plus tôt. » */
+	pourquoi?: string
+	/** AUTEUR — pour quand, en français. `auteur` et NON `ia`, contre la cohérence
+	 *  de voisinage avec ses deux sœurs : une échéance en prose reste une DONNÉE
+	 *  D'HORLOGE, et le précédent direct du dépôt est celui des `…_texte`
+	 *  (`evenements[].declencheur_texte`, `jalons[].declencheur_texte`, tous deux
+	 *  `auteur`) — le narrateur ne doit pas provoquer ni improviser ce que le moteur
+	 *  n'a pas constaté. Se desserre vers `ia` sans coût le jour où la n° 10 livre un
+	 *  libellé d'écoulement DÉRIVÉ PAR LE CODE, et sa propre ligne d'audience.
+	 *  Exemple : « Avant la pleine lune prochaine. » */
+	echeance?: string
+}
+
+/**
+ * CE QU'UNE CONTRE-MESURE ATTEINT — un personnage, un groupe, ou un lieu.
+ *
+ * REGISTRE DISTINCT de `PORTEES` / `Portee` ci-dessus, qui est la profondeur de
+ * SIMULATION d'un personnage (premier / second plan), et les deux ne fusionnent
+ * jamais : aucune valeur ne leur est commune, et une table partagée devrait
+ * coercer l'un des deux vocabulaires. Seule la CLÉ de schéma est homonyme
+ * (`contre_mesures[].portee`), et elle ne change pas — c'est un désaccord de TYPE,
+ * pas de destination (KR-196, non redébattue). Même précédent que
+ * `CAMPS_PERSONNAGE` / `CampPersonnage` face à `CAMPS` / `Camp`.
+ *
+ * ⚠ VALEURS POSÉES PAR LE LOT CONTRAT D'IT4, PAS PAR UN RÔLE DU COMITÉ — angle
+ * mort assumé du raffinage, tracé en `open_questions`. Le champ est `moteur`, il
+ * n'est rendu à l'auteur par AUCUN écran de cette itération, et il n'a aucun
+ * consommateur avant le Temps 2 : rien n'est irréversible ici, et cette liste se
+ * révise sans coût le jour où la n° 12 dira ce qu'elle sait armer. Aucune section
+ * de `docs/REGLES-PLAY.md` ne la fixe (§ D7 nomme les GROUPES, § A les LIEUX,
+ * rien ne nomme la portée d'une riposte) — les trois valeurs reprennent donc le
+ * vocabulaire du dossier lui-même.
+ *
+ * Elle dit CE QUE la contre-mesure atteint, jamais LEQUEL : une cible désignée
+ * serait une RÉFÉRENCE, donc un champ `…_id` résolu par `REFERENCES_SIMPLES`, pas
+ * un énuméré.
+ */
+export const PORTEES_CONTRE_MESURE = ['personnage', 'groupe', 'lieu'] as const
+export type PorteeContreMesure = (typeof PORTEES_CONTRE_MESURE)[number]
+
+/**
+ * Une CONTRE-MESURE : ce qu'un personnage a d'armé en réaction à ce que le joueur
+ * déclenche. SIXIÈME famille de conditions D1 (septième couple), et la seule que
+ * le schéma 1 n'avait pas — elle vit SOUS `personnages[]`, donc elle arrive avec
+ * la fiche de personnage plutôt qu'avec le format.
+ *
+ * ELLE N'EST PAS RÉSERVÉE AUX ANTAGONISTES PAR LE SCHÉMA : le `camp` ne garde que
+ * l'ÉDITEUR (la section ne se rend que pour un antagoniste, KR-196), le validateur
+ * n'en sait rien et n'a pas à en savoir. Rendre la liste dépendante de `camp`
+ * ferait d'un changement de camp une invalidation rétroactive de document, ce que
+ * `schema: 1` sans chemin de migration interdit (KR-160/KR-191).
+ *
+ * SON `declencheur_texte` AVERTIT SANS SON JUMEAU `…_expr`, là où celui d'une
+ * étape de plan reste CALME (`alerteSansExpr`, `FAMILLES_DE_CONDITIONS`) : une
+ * étape peut légitimement rester avancée à la main par le narrateur, une riposte
+ * armée que rien ne déclenche ne se déclenchera jamais.
+ */
+export interface ContreMesure {
+	/** IA — l'intention jouée quand la contre-mesure est armée. SEULE clé `ia` de
+	 *  la famille, même raison que `plan_actions[].action`. Jamais lue telle quelle
+	 *  par le joueur. */
+	action: string
+	/** AUTEUR — la condition qui arme cette contre-mesure, en français. Injectée,
+	 *  elle apprendrait au narrateur à PROVOQUER la riposte au lieu de la laisser
+	 *  survenir : exactement la frontière que D1 trace.
+	 *  Exemple : declencheur_texte: 'Le joueur a parlé du sceau à quelqu'un d'autre.' */
+	declencheur_texte?: string
+	/** MOTEUR — jumeau structuré du précédent, seule autorité sur l'armement.
+	 *  Exemple : declencheur_expr: { op: 'predicat', predicat: 'indice_connu', cibles: ['indice.sceau-brise'] } */
+	declencheur_expr?: ExprNode
+	/** MOTEUR — le nombre de PAS D'HORLOGE entre l'armement et la riposte. Même
+	 *  contrat que `plan_actions[].duree` : un ENTIER ≥ `DUREE_MIN`, jamais de la
+	 *  prose, et l'unité du pas appartient à la n° 9. */
+	delai?: number
+	/** MOTEUR — ce que la riposte atteint. Voir `PORTEES_CONTRE_MESURE` : valeurs
+	 *  posées par le lot contrat, révisables tant qu'aucun consommateur n'existe. */
+	portee?: PorteeContreMesure
 }
 
 /**
@@ -367,6 +526,17 @@ export interface Personnage extends Entite {
 	 *  chiffre côté prose existe déjà et est écrit par l'auteur : `apparence` et
 	 *  `fonction`, dont le JSDoc dit qu'elles DÉCRIVENT sans chiffrer. */
 	stats?: Record<Characteristic, number>
+	/** Le BUT PROPRE du personnage — voir `But`. OPTIONNEL EN BLOC, `libelle`
+	 *  requis quand le bloc est là. Clé `but`, JAMAIS `objectif` (KR-198) : la
+	 *  clé voisine `objectif_id` est une RÉFÉRENCE `moteur` vers le canon, celle-ci
+	 *  est la prose `ia` du personnage. */
+	but?: But
+	/** Ce que ce personnage a d'ARMÉ en réaction au joueur — voir `ContreMesure`.
+	 *  OPTIONNEL, et jamais gardée par `camp` AU SCHÉMA : le camp ne garde que
+	 *  l'éditeur (KR-196). Liste STRUCTURÉE, contrôlée élément par élément
+	 *  (`LISTES_OPTIONNELLES_STRUCTUREES`) — une chaîne rangée là serait un acteur
+	 *  qui perd sa riposte en silence, c'est le trou résiduel de BUG-050. */
+	contre_mesures?: ContreMesure[]
 }
 
 /**

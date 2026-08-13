@@ -216,7 +216,7 @@ describe('PanneauPersonnages', () => {
 		expect(lire(brain, dossier.id).monde.personnages[0]).not.toHaveProperty('objectif_id')
 	})
 
-	it('cinq placeholders recales: compte exact = 5 (pas 4 ni 6), textes distincts par iteration cible, titres exacts dans l ordre', () => {
+	it('quatre placeholders recales: compte exact = 4 (pas 3 ni 5), textes distincts par iteration cible, titres exacts dans l ordre', () => {
 		const brain = createBrain()
 		const dossier = brain.dossiers.create('Un dossier')
 		semerPersonnage(brain, dossier.id, { id: 'pnj.aldur', portee: 'premier', plan_actions: [], savoirs: [] })
@@ -236,13 +236,13 @@ describe('PanneauPersonnages', () => {
 			expect(screen.getByRole('button', { name: titre })).toBeInTheDocument()
 		})
 
-		// « Caractéristiques » a quitte la table des placeholders a it3 : sans
-		// stats, son bloc porte desormais le CTA « + Regler... », plus un
-		// placeholder generique « Pas encore renseigné — ».
+		// « Caractéristiques » a quitte la table des placeholders a it3, « Objectif
+		// & plan d'actions » a it4 : sans but/plan_actions renseignes, ce bloc porte
+		// desormais son propre contenu (CE QU'IL VEUT, + Ajouter une etape...), plus
+		// un placeholder generique « Pas encore renseigné — ».
 		const placeholders = screen.getAllByText(/Pas encore renseigné — /)
-		expect(placeholders).toHaveLength(5)
+		expect(placeholders).toHaveLength(4)
 
-		expect(screen.getAllByText(`Pas encore renseigné — ${TEXTE_ITERATION(4)}.`)).toHaveLength(1) // Objectif & plan d'actions
 		expect(screen.getAllByText(`Pas encore renseigné — ${TEXTE_ITERATION(5)}.`)).toHaveLength(3) // Savoirs, Relations, Présence
 		expect(screen.getAllByText(`Pas encore renseigné — ${TEXTE_ITERATION(6)}.`)).toHaveLength(1) // Caractère exploitable
 	})
@@ -441,9 +441,9 @@ describe('PanneauPersonnages', () => {
 	/**
 	 * KR-197 (4e occurrence) — SONDE OBLIGATOIRE (§7 du plan d'itération 2) :
 	 * muter `personnageAffiche.id` en `personnages[0].id` dans un des
-	 * gestionnaires câblés par `PanneauPersonnages` (ex. `onBlurChamp`) DOIT
-	 * faire rougir CE test précis. Exécutée à la main, restaurée ensuite —
-	 * voir le compte rendu du lot.
+	 * gestionnaires exposés par `useEcriturePersonnages` (ex. `handleBlurChamp`
+	 * — extrait de `PanneauPersonnages` à it4, KR-112) DOIT faire rougir CE test
+	 * précis. Exécutée à la main, restaurée ensuite — voir le compte rendu du lot.
 	 */
 	it('ecriture sur DEUX personnages, aucune fuite d indexation', async () => {
 		const user = userEvent.setup()

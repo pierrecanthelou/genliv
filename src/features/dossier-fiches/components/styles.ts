@@ -31,3 +31,38 @@ export const boutonPointilleStyle: CSSProperties = {
 	fontSize: 'var(--fs-body)',
 	cursor: 'pointer',
 }
+
+/**
+ * L'eyebrow mono majuscules — label de sous-section (« CAMP », « PV »,
+ * « ÉTAPE {n} », « OBJECTIF PERSONNEL »…). Partagé depuis l'itération 4 par
+ * `BlocCaracteristiques.tsx` et `BlocPlanActions.tsx` (deux appelants réels en
+ * plus de `FichePersonnage.tsx` lui-même) — auparavant local à ce dernier.
+ */
+export const eyebrowStyle: CSSProperties = {
+	display: 'block',
+	fontFamily: 'var(--font-mono)',
+	fontSize: 'var(--fs-eyebrow)',
+	color: 'var(--text-label)',
+	letterSpacing: 'var(--track-eyebrow)',
+	marginBottom: 5,
+}
+
+/** La légende mono discrète sous un groupe de champs (« Caractéristiques —
+ *  jamais lues par le narrateur. », le hint d'un `Stepper` qui n'a pas de prop
+ *  `hint`…). Même raison de partage que `eyebrowStyle`. */
+export const legendeStyle: CSSProperties = {
+	margin: 0,
+	marginTop: 'var(--space-2)',
+	fontFamily: 'var(--font-mono)',
+	fontSize: 'var(--fs-meta)',
+	color: 'var(--text-faint)',
+}
+
+/** Le séparateur horizontal au-dessus d'une sous-section qui prolonge un bloc
+ *  (la ligne PV du bloc 3, la section Contre-mesures du bloc 4 — « Séparateur
+ *  identique à la ligne PV du bloc 3 », §3.C du plan d'itération 4). */
+export const separateurStyle: CSSProperties = {
+	marginTop: 'var(--space-2)',
+	paddingTop: 'var(--space-5)',
+	borderTop: '1px solid var(--border-divider)',
+}
