@@ -25,7 +25,7 @@
 			"Étant donné la section Lieux, quand l'auteur crée un nouveau lieu, alors il apparaît dans la liste (ListRow, repli « Lieu n°{index} (sans nom) » si sans nom) et sa fiche (nom, description, ambiance, dangers) est éditable — sans champ acces ni référence à des personnages/objets/indices/evenements (hors périmètre, différé n° 5/6).",
 			"Étant donné les 3 sections livrées, quand un lieu ou un objectif est ajouté ou supprimé, alors le compteur de la nav (SECTIONS.compte()) se met à jour sans qu'aucune vue de cette feature ne recalcule elle-même une longueur (KR-013, non-régression du critère de bascule-editeur it3).",
 			"Étant donné les 7 sections encore non livrées (personnages, objets, indices, quetes, evenements, conditions, jalons-fins), quand l'écran d'édition se rend, alors elles affichent toujours l'état vide honnête de PanneauSection (bascule-editeur), intact et non modifié par cette feature (test-grep de non-régression, KR-187).",
-			"Étant donné le nouveau code, quand npm run lint et tsc --noEmit tournent, alors zéro erreur : aucun import direct entre dossier-canon et bascule-editeur, aucune couleur en dur, FEATURE_DIRS contient dossier-canon avec le test readdirSync('src/features') ⊆ FEATURE_DIRS toujours vert."
+			"Étant donné le nouveau code, quand npm run lint et tsc --noEmit tournent, alors zéro erreur : aucun import direct entre dossier-canon et bascule-editeur, aucune couleur en dur, la règle de lint refuse un import croisé depuis dossier-canon. MISE À JOUR 2026-08-13 : clause CADUQUE (liste dérivée du disque ; featureDirs.test.ts → lintIsolation.test.ts). Voir CHANGELOG 0.6.19.."
 		],
 		"brain_contracts": [
 			{

@@ -45,7 +45,7 @@ The rules layer (`challenge.ts`, `combat.ts`, `xp.ts`, `characteristics.ts`) is 
 
 ## Architecture
 
-- Features are **isolated**: a feature talks to the rest **only through `brain/` contracts** (services, events, registries). Never import one feature from another. *Enforced by ESLint (`no-restricted-imports` + an `ImportExpression` selector for dynamic imports). `src/player/**` is the extractable runtime, not a feature — importing it is legal.*
+- Features are **isolated**: a feature talks to the rest **only through `brain/` contracts** (services, events, registries). Never import one feature from another. *Enforced by ESLint dans les **trois** sens — feature→feature, `brain/`→feature, `player/`→feature — sur une liste dérivée du disque ; preuve : `lintIsolation.test.ts`. Importer `src/player/**` reste légal.*
 - **Single source of truth**: the book lives in `BookService`. Canvas and preview are *views* — never hold a private copy.
 - Surviving features: `tree-canvas`, `book-library`, `cloud-sync`, `book-creation`, `play-mode`. All five are **repointed** by the bascule, none is finished as-is.
 - Build order = the order of `docs/ROADMAP-BASCULE-IA.md` (n° 1 `dossier-format` first — it is the contract between the two temps). One feature at a time, never two in parallel.
@@ -61,7 +61,7 @@ The rules layer (`challenge.ts`, `combat.ts`, `xp.ts`, `characteristics.ts`) is 
 
 ## Design fidelity rules
 
-- Render **only** from `styles.css` tokens + the `components/` primitives. Look up exact `--*` names in `tokens/*.css` — never hardcode the wireframe hex values. *Enforced by ESLint (`no-restricted-syntax`) across `src/**/*.{ts,tsx}`: a literal that **is** a `#hex`, `rgb()`, `rgba()`, `hsl()` or `hsla()` fails the lint. Known gap: inside a template literal, only a colour at the **start** of the quasi is caught (BUG-027).*
+- Render **only** from `styles.css` tokens + the `components/` primitives. Look up exact `--*` names in `tokens/*.css` — never hardcode the wireframe hex values. *Enforced by ESLint (`no-restricted-syntax`) across `src/**/*.{ts,tsx}`: `rgb()`/`hsl()` cherchés **partout** (chaîne ou gabarit), repli `var(--x, …)` masqué ; `#hex` ancré début-et-fin. Faux positif épinglé par `lintIsolation.test.ts` : `` `Section #123` `` rougit — écris `n°123`.*
 - Light theme only (token layer is structured for a later `[data-theme="dark"]`). ≥44px hit targets. Keyboard-operable. Borders + surface tints carry hierarchy, not shadows (shadows only on menus/modals).
 - Type: Hanken Grotesk (UI/body) + JetBrains Mono (labels/meta/badges). Accent blue = selection / primary action / active option only.
 - Swap Unicode glyph icons for a real icon set (Phosphor or Lucide) at the visual pass; node badges are CSS-drawn (see `components/primitives/NodeBadge`).

@@ -424,7 +424,7 @@
 		{
 			"id": "KR-161",
 			"feature": "dossier-format",
-			"risk": "le score de mutation ne s'applique pas à cette feature — elle ne touche aucun des quatre fichiers mutés. Les registres de prédicats et de deltas sont de la logique sur identifiants, pas de l'arithmétique de règles ; ne pas les ajouter à stryker.config.json sans faire jouer le cliquet break de docs/WORKFLOW.md."
+			"risk": "le score de mutation ne s'applique pas à cette feature — elle ne touche aucun des quatre fichiers mutés. Les registres de prédicats et de deltas sont de la logique sur identifiants, pas de l'arithmétique de règles ; ne pas les ajouter à stryker.config.mjs (ex-.json) sans faire jouer le cliquet break de docs/WORKFLOW.md."
 		},
 		{
 			"id": "KR-162",

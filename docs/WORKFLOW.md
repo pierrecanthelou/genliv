@@ -139,7 +139,7 @@ Avoid apostrophes in `describe`/`it` label strings — they terminate JS templat
 
 ### Score de mutation — hors porte de commit
 
-`npm run test:mutation` (Stryker, `stryker.config.json`) mesure l'arithmétique des règles du jeu. Il ne fait **pas** partie de la porte de commit : le hook `.claude/hooks/pre-commit-gate.sh` n'exécute que `tsc --noEmit` + `jest`, et cela ne change pas. On lance le score **en fin d'itération**, dès qu'une itération a touché l'un des quatre fichiers mutés.
+`npm run test:mutation` (Stryker, `stryker.config.mjs`, rationale par fichier incluse) mesure l'arithmétique des règles du jeu. Il ne fait **pas** partie de la porte de commit : le hook `.claude/hooks/pre-commit-gate.sh` n'exécute que `tsc --noEmit` + `jest`, et cela ne change pas. On lance le score **en fin d'itération**, dès qu'une itération a touché l'un des quatre fichiers mutés.
 
 **Périmètre muté (4 fichiers)** : `src/brain/challenge.ts`, `src/brain/combat.ts`, `src/brain/xp.ts`, `src/brain/characteristics.ts`. Le run n'exécute que la couche logique (`jest.mutation.cjs` : `src/brain/**` + `src/player/**`) — un mutant de règle que seul un test RTL de composant pouvait tuer est, par définition de cet instrument, un survivant. L'arithmétique s'épingle à l'unité, pas incidemment par un rendu.
 
@@ -275,16 +275,16 @@ Trois strates de lecture obligatoire, chacune avec son coût :
 
 Charger par référence plutôt que tout charger est ce qui évite le contexte monolithique — KR dans la spec de leur feature, lecture du comité bornée à 3–6 fichiers, canon narratif injecté par identifiant. Ce dispositif n'a **aucun garde-fou automatique** : ces fichiers n'ont que des écrivains, et l'un d'eux ne rétrécit que si quelqu'un le décide. La discipline peut donc s'y relâcher **sans bruit** — d'où un plafond chiffré plutôt qu'une intention.
 
-**Mesure d'abord, plafond ensuite**, même doctrine que le score de mutation. Formule posée avant la mesure : `plafond = ceil(mesure ÷ 5 kio) × 5 kio`. **L'arrondi EST la marche — il n'y en a pas d'autre**, et aucune ligne de la table n'en a jamais ajouté une : n'ajoute jamais 5 kio « parce que ce fichier-là grossit normalement », ce serait re-desserrer un plafond que le cliquet inversé vient de resserrer. Mesure du **2026-08-11** (`wc -c`, 1 kio = 1024 o) :
+**Mesure d'abord, plafond ensuite**, même doctrine que le score de mutation. Formule posée avant la mesure : `plafond = ceil(mesure ÷ 5 kio) × 5 kio`. **L'arrondi EST la marche — il n'y en a pas d'autre**, et aucune ligne de la table n'en a jamais ajouté une : n'ajoute jamais 5 kio « parce que ce fichier-là grossit normalement », ce serait re-desserrer un plafond que le cliquet inversé vient de resserrer. Mesure du **2026-08-13** (`wc -c`, 1 kio = 1024 o) :
 
 | Fichier | Croissance | Mesuré | Plafond | Marge |
 | --- | --- | ---: | ---: | ---: |
-| `CLAUDE.md` + `docs/WORKFLOW.md` (couple) | défaut | 45 868 o | **45 kio** (46 080) | ~0,21 kio |
-| `code-knowledge.json` | normale | 76 356 o | **75 kio** (76 800) | ~0,43 kio |
-| `bug_history.json` | normale | 5 600 o | **10 kio** (10 240) | ~4,5 kio |
+| `CLAUDE.md` + `docs/WORKFLOW.md` (couple) | défaut | 45 994 o | **45 kio** (46 080) | **86 o** |
+| `code-knowledge.json` | normale | 76 411 o | **75 kio** (76 800) | ~0,38 kio |
+| `bug_history.json` | normale | 10 234 o | **10 kio** (10 240) | **6 o** |
 | `features_history.json` | normale | 15 344 o | **15 kio** (15 360) | ~0,02 kio |
-| `specification.json`, **par feature** | normale | 66 324 o (max : `dossier-format`) | **65 kio** (66 560) | ~0,2 kio |
-| `docs/ROADMAP-BASCULE-IA.md` | **défaut** | 35 105 o | **35 kio** (35 840) | ~0,7 kio |
+| `specification.json`, **par feature** | normale | 66 436 o (max : `dossier-format`) | **65 kio** (66 560) | ~0,12 kio |
+| `docs/ROADMAP-BASCULE-IA.md` | **défaut** | 35 050 o | **35 kio** (35 840) | ~0,77 kio |
 
 Le roadmap est un **index**, pas un journal : sa croissance est un défaut, pas un fonctionnement normal. Il mélange index (tableaux § 2/§ 3) et archive (§ 1 ter, lignes barrées du § 5, corrections de cadrage) — c'est cette moitié-là qui part dans les `specification.json` au franchissement, jamais la colonne `Statut`.
 
@@ -420,6 +420,7 @@ Two-phase document. `plan` is written when the slice begins. `implementation` is
     "test_coverage": { "unit": "85%", "e2e": "extended flows covered" }
    }
   ],
+  "resolved_decisions": [],
   "open_questions": []
  }
 }
