@@ -100,6 +100,22 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	// `charpente.depart.lieu_id`. Ce que l'assembleur n° 10 en tirera est le CONTENU
 	// de l'objectif rattaché, sous l'audience de l'objectif, pas cette clé.
 	'monde.personnages[].objectif_id': 'moteur',
+	// LES TROIS PROSES D'IDENTITÉ sont `ia`, par le MÊME arbitrage que les trois
+	// proses de `monde.lieux[]` ci-dessous : `auteur` est réservé à ce qui n'est PAS
+	// de la donnée de jeu (le `nom`, un jumeau `…_texte`). Le métier d'un PNJ, sa
+	// voix, ce que le bourg raconte de lui : le narrateur du Temps 2 doit les LIRE
+	// pour l'INCARNER, exactement comme il lit l'odeur d'une grotte pour la décrire.
+	// Ce ne sont pas des notes de rédaction.
+	//
+	// LE SUFFIXE `_joueur` DÉSIGNE L'AUDIENCE, JAMAIS LE RÉGIME — et les deux régimes
+	// coexistent DÉJÀ sous ce suffixe, ce qui interdit d'en déduire quoi que ce soit :
+	// `canon.partage.accroche_joueur` est `ia`, `charpente.depart.texte_ouverture_joueur`
+	// est `moteur`. `description_joueur` est INJECTÉE au modèle, jamais émise verbatim :
+	// la seule prose que le joueur lit mot pour mot reste `texte_ouverture_joueur`, et
+	// c'est précisément ce qui la rend `moteur`.
+	'monde.personnages[].fonction': 'ia',
+	'monde.personnages[].apparence': 'ia',
+	'monde.personnages[].description_joueur': 'ia',
 	'monde.personnages[].plan_actions[].etape': 'moteur',
 	// L'intention du personnage à cette étape — c'est ce que le rôle acteur joue,
 	// et la seule raison d'être d'un plan d'actions. SEULE clé `ia` de la famille :

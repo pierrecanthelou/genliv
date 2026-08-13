@@ -392,4 +392,121 @@ describe('ObjectifsCanon', () => {
 		expect(apres.charpente).toEqual(avant.charpente)
 		expect(apres.canon.objectifs[0].nom).toBe('Objectif modifie')
 	})
+
+	/**
+	 * Revue de PR (dossier-fiches it2, élargissement) — `commit()` ne traitait
+	 * QUE `'refuse'` explicitement ; `'absent'` (dossier supprimé ailleurs
+	 * pendant l'édition) tombait dans la branche succès et EFFAÇAIT tout refus
+	 * en silence au lieu de le signaler. SANS MOCK du service : un second
+	 * `createBrain()` sur le MÊME stockage (`window.localStorage` partagé)
+	 * supprime le dossier, le premier brain — encore monté — le découvre au
+	 * premier `commit()` suivant.
+	 */
+	it('dossier supprime pendant l edition: bandeau, jamais efface silencieusement par la branche succes', () => {
+		const brain = createBrain()
+		const dossier = brain.dossiers.create('Un dossier')
+		semerObjectif(brain, dossier.id, OBJECTIF_VIDE)
+		renderPanel(brain, dossier.id)
+
+		const autreBrain = createBrain()
+		expect(autreBrain.dossiers.remove(dossier.id)).toBe(true)
+
+		const champNom = screen.getByRole('textbox', { name: /nom de l.objectif/i })
+		fireEvent.change(champNom, { target: { value: 'Un nom quelconque' } })
+		fireEvent.blur(champNom)
+
+		const bandeau = screen.getByRole('status')
+		expect(bandeau).toHaveTextContent("CE CHANGEMENT N'A PAS ÉTÉ ENREGISTRÉ")
+		expect(bandeau).toHaveTextContent("Ce dossier n'existe plus")
+	})
+
+	/**
+	 * Revue de PR — même défaut que `PanneauPersonnages.handleAjouter`/
+	 * `PanneauLieux.handleAjouter` (dossier-fiches it2) : `commit()` indexait
+	 * l'ajout raté sur l'identifiant TOUT JUSTE FRAPPÉ, qui n'entre jamais dans
+	 * le document si l'écriture échoue. Cette carte est PLATE (pas de fiche
+	 * sélectionnée, le bandeau se rend sans filtre par id) : le texte de
+	 * `{statut:'absent'}` étant un message GÉNÉRIQUE fixe, il est identique
+	 * quel que soit l'objectif tagué — un test qui ne lirait que le TEXTE du
+	 * bandeau après l'ajout raté ne verrait donc PAS le défaut. Ce qu'il faut
+	 * prouver est plus profond : un identifiant fantôme (celui de l'ajout, qui
+	 * n'entre jamais dans le document) ne peut plus jamais être atteint par un
+	 * succès ultérieur, donc le bandeau resterait bloqué pour toujours même
+	 * après correction. La preuve va jusqu'à CE pas : restaurer le dossier
+	 * (chemin public d'import, même montage que `dossier-fiches`) puis vérifier
+	 * qu'une écriture RÉUSSIE sur l'objectif réellement en cause efface encore
+	 * le bandeau. Aucun mock du service.
+	 */
+	it('bandeau de refus: un refus sur un objectif survit a un ajout qui echoue', () => {
+		const brain = createBrain()
+		const dossier = brain.dossiers.create('Un dossier')
+		semerObjectif(brain, dossier.id, OBJECTIF_VIDE)
+		// Capture AVANT suppression : le document tel qu'il faudra le restaurer.
+		const avant = JSON.stringify(lire(brain, dossier.id))
+		renderPanel(brain, dossier.id)
+
+		const autreBrain = createBrain()
+		expect(autreBrain.dossiers.remove(dossier.id)).toBe(true)
+
+		// Refus sur le PREMIER (et seul) objectif, l ancre de handleAjouter.
+		const champNom = screen.getByRole('textbox', { name: /nom de l.objectif/i })
+		fireEvent.change(champNom, { target: { value: 'Un nom quelconque' } })
+		fireEvent.blur(champNom)
+		expect(screen.getByRole('status')).toHaveTextContent("Ce dossier n'existe plus")
+
+		// L ajout echoue aussi (meme dossier absent) : le bandeau ne doit ni
+		// disparaitre, ni un objectif etre ajoute pour autant.
+		fireEvent.click(screen.getByRole('button', { name: '+ Ajouter un objectif…' }))
+		expect(screen.getByRole('status')).toHaveTextContent("Ce dossier n'existe plus")
+		expect(screen.getAllByRole('textbox', { name: /nom de l.objectif/i })).toHaveLength(1)
+
+		// Restaure le dossier : une ecriture reussie sur l objectif REELLEMENT
+		// en cause doit encore pouvoir effacer le refus -- preuve que l ajout
+		// rate ne l a pas corrompu vers un identifiant fantome inatteignable.
+		const restauration = autreBrain.dossiers.importDossier(avant)
+		expect(restauration.statut).toBe('valid')
+		fireEvent.change(champNom, { target: { value: 'Objectif corrige' } })
+		fireEvent.blur(champNom)
+		expect(screen.queryByRole('status')).toBeNull()
+	})
+
+	/**
+	 * Revue de PR — RÉGRESSION introduite par le correctif précédent (symptôme
+	 * de BUG-063) : indexer l'ajout raté sur `objectifAncre` (pour que le refus
+	 * survive à un ajout qui ÉCHOUE) a un effet de bord non voulu quand l'ajout
+	 * RÉUSSIT — la garde d'invalidation de `commit()` voit alors le MÊME
+	 * identifiant que le refus déjà en cause et l'efface, alors qu'un ajout ne
+	 * résout rien. `resout: false` sur le chemin de création ferme cette
+	 * régression. Séquence reproductible directement montable (retrait refusé
+	 * par le SSOT, `reference-pendante`) : `handleRetirer('objectif.gouffre')`
+	 * refusé, puis « + Ajouter… » — `objectifAncre` vaut `objectif.gouffre`
+	 * (premier de la carte), et l'ajout RÉUSSIT réellement (aucun besoin de
+	 * simuler un dossier absent).
+	 */
+	it('bandeau de refus: un ajout reussi ne resout pas un refus non resolu', async () => {
+		const user = userEvent.setup()
+		const brain = createBrain()
+		const dossier = brain.dossiers.create('Un dossier')
+		semerObjectif(brain, dossier.id, OBJECTIF_VIDE)
+		semerPersonnage(brain, dossier.id, {
+			id: 'pnj.aldur-le-sage',
+			nom: 'Aldûr le Sage',
+			portee: 'premier',
+			plan_actions: [],
+			savoirs: [],
+			objectif_id: OBJECTIF_VIDE.id,
+		})
+		renderPanel(brain, dossier.id)
+
+		// Retrait refuse (reference-pendante, un personnage le reference) :
+		// bandeau visible.
+		await user.click(screen.getByRole('button', { name: "Retirer l'objectif n°1" }))
+		expect(screen.getByRole('status')).toHaveTextContent("CE CHANGEMENT N'A PAS ÉTÉ ENREGISTRÉ")
+
+		// L ajout REUSSIT (indexe sur objectifAncre = OBJECTIF_VIDE, l objectif
+		// deja en cause) : il ne doit PAS resoudre le refus non resolu.
+		await user.click(screen.getByRole('button', { name: '+ Ajouter un objectif…' }))
+		expect(lire(brain, dossier.id).canon.objectifs).toHaveLength(2)
+		expect(screen.getByRole('status')).toHaveTextContent("CE CHANGEMENT N'A PAS ÉTÉ ENREGISTRÉ")
+	})
 })

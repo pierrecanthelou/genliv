@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { validateDossier } from './validate'
+import type { DossierIssue } from './issues'
 import { DESTINATION_DES_CHAMPS } from './destinations'
 import {
 	BUDGETS_DE_MOTS,
@@ -76,7 +77,7 @@ const CHEMIN_FIXTURE = path.join(__dirname, '__fixtures__', 'dossier-minimal.jso
  * garde d'exhaustivité — mais un champ neuf doit être instancié dans les DEUX, et
  * la raison n'est pas symétrique : la minimale ferme la boucle des tables et des
  * destinations, la référence prouve qu'une aventure réelle sait s'en servir. Elle
- * n'est lue ici que par l'assertion qui l'exige.
+ * n'est lue ici que par les assertions qui l'exigent.
  */
 const CHEMIN_REFERENCE = path.join(__dirname, '__fixtures__', 'dossier-reference.json')
 const MODULE_DOSSIER = __dirname
@@ -86,6 +87,20 @@ type Doc = Record<string, unknown>
 /** La fixture, LUE DU DISQUE à chaque appel (KR-156) — jamais un littéral inline. */
 function fixture(): Doc {
 	return JSON.parse(fs.readFileSync(CHEMIN_FIXTURE, 'utf8')) as Doc
+}
+
+/** Le dossier de RÉFÉRENCE, lu du disque au même titre (KR-156). Écrit UNE fois :
+ *  trois assertions le lisent désormais, et trois lectures inline de la même
+ *  constante finiraient par diverger sur le `as` ou sur l'encodage. */
+function documentDeReference(): Doc {
+	return JSON.parse(fs.readFileSync(CHEMIN_REFERENCE, 'utf8')) as Doc
+}
+
+/** Une anomalie rendue LISIBLE pour un message d'échec : le code, le chemin, et le
+ *  OÙ résolu par nom. Jamais un `toHaveLength(0)` — compter n'est pas lire, et le
+ *  jour où l'assertion rougit, c'est l'avertissement REÇU qu'on veut au rapport. */
+function lisible(issue: DossierIssue): string {
+	return `${issue.code} → ${issue.path} — ${issue.location}`
 }
 
 export interface FeuilleDeFixture {
@@ -221,10 +236,11 @@ const TEXTE_OPTIONNEL_LIBRE =
 	"jumeau prose OPTIONNEL d'une condition : son absence est calme par D1, et aucune règle du schéma 1 ne contraint sa forme quand il est présent. Même question ouverte que les dispenses « nom », propriétaire n° 2 bascule-editeur : une table « présent → doit être une chaîne », ou une garde à l'affichage."
 
 /**
- * Le motif partagé des TROIS proses de `Lieu` (itération 4 de la n° 3). Il est
- * DISTINCT de `TEXTE_OPTIONNEL_LIBRE`, et pas par style : celui-là dispense le
+ * Le motif partagé des SIX proses d'entité : les TROIS de `Lieu` (itération 4 de
+ * la n° 3) et les TROIS d'identité d'un `Personnage` (itération 2 de la n° 4). Il
+ * est DISTINCT de `TEXTE_OPTIONNEL_LIBRE`, et pas par style : celui-là dispense le
  * jumeau prose d'une CONDITION, dont l'absence est calme PAR D1 et dont la
- * présence sans `…_expr` déclenche un avertissement. Ces trois-là n'ont aucun
+ * présence sans `…_expr` déclenche un avertissement. Ces six-là n'ont aucun
  * jumeau `…_expr`, aucune famille dans `FAMILLES_DE_CONDITIONS`, et donc aucun
  * avertissement possible — les fondre ferait porter à l'un le motif de l'autre,
  * et la dispense cesserait de dire POURQUOI elle existe.
@@ -232,9 +248,16 @@ const TEXTE_OPTIONNEL_LIBRE =
  * Ce qui reste vrai des deux : la corruption remplace la chaîne par un NOMBRE, et
  * aucune règle du schéma 1 n'arbitre un champ optionnel présent mais non textuel.
  * Même question ouverte, même propriétaire.
+ *
+ * Le motif ne dit plus RIEN de `BUDGETS_DE_MOTS` (arbitrage d'it2 de la n° 4) : la
+ * dispense tient par la corruption chaîne → nombre non arbitrée au schéma 1, la
+ * longueur n'y est pour rien. Affirmer en passant l'état d'une AUTRE table n'est
+ * vérifié par rien ici — ni par le compilateur, ni par le garde d'auto-nettoyage,
+ * qui ne porte que sur la corruption — et la porter à six clés doublerait la
+ * surface d'une phrase qui deviendrait fausse en silence.
  */
 const PROSE_D_ENTITE_LIBRE =
-	"prose OPTIONNELLE d'une entité, sans jumeau structuré : son absence est un état calme (doctrine « absent ≠ vide » de l'itération 1, comme « nom »), et aucune règle du schéma 1 ne contraint sa forme quand elle est présente — ni longueur (aucun BUDGETS_DE_MOTS sur monde.lieux[]), ni vocabulaire. Même question ouverte que les dispenses « nom », propriétaire n° 2 bascule-editeur : une table « présent → doit être une chaîne », ou une garde à l'affichage."
+	"prose OPTIONNELLE d'une entité, sans jumeau structuré : son absence est un état calme (doctrine « absent ≠ vide » de l'itération 1, comme « nom »), et aucune règle du schéma 1 ne contraint sa forme quand elle est présente — ni longueur, ni vocabulaire. Même question ouverte que les dispenses « nom », propriétaire n° 2 bascule-editeur : une table « présent → doit être une chaîne », ou une garde à l'affichage."
 
 /**
  * Les feuilles dont la corruption ne fait PAS échouer la validation, chacune
@@ -271,6 +294,13 @@ const LIBRES: Record<string, string> = {
 	// même question ouverte, même propriétaire.
 	'monde.personnages[].objectif_id':
 		"rattachement OPTIONNEL : sa résolution vers canon.objectifs est vivante (REFERENCES_SIMPLES), mais elle ne parle que d'une CHAÎNE — une valeur présente et non textuelle tombe sous la question ouverte déjà possédée par la n° 2, la même qui porte les dispenses « nom » et la porte apres_indice_id.",
+	// Les TROIS proses d'identité (it2 de la n° 4) : même motif, mot pour mot, que
+	// les trois proses de `Lieu` — une prose d'entité sans jumeau structuré, dont la
+	// corruption remplace la chaîne par un NOMBRE. Une SECONDE constante au texte
+	// voisin divergerait en silence : une seule, six clés.
+	'monde.personnages[].fonction': PROSE_D_ENTITE_LIBRE,
+	'monde.personnages[].apparence': PROSE_D_ENTITE_LIBRE,
+	'monde.personnages[].description_joueur': PROSE_D_ENTITE_LIBRE,
 	'monde.lieux[].nom': NOM_LIBRE,
 	'monde.lieux[].description': PROSE_D_ENTITE_LIBRE,
 	'monde.lieux[].ambiance': PROSE_D_ENTITE_LIBRE,
@@ -313,6 +343,31 @@ describe('couverture', () => {
 
 		expect(resultat.errors).toEqual([])
 		expect(resultat.warnings).toEqual([])
+		expect(resultat.ok).toBe(true)
+	})
+
+	it('le dossier de reference ne produit ni erreur ni avertissement', () => {
+		// Le critère d'itération porte DEUX moitiés — « les six personnages restent
+		// ACCEPTÉS » et « SANS avertissement neuf » — et une seule était tenue. La
+		// première l'est ailleurs, par construction : `suffisance.test.ts` jette au
+		// chargement si la référence ne valide pas. La seconde ne l'était par AUCUN test
+		// nommé : l'assertion de tête ci-dessus ne parle que de la fixture MINIMALE, et
+		// la référence est justement le document où une prose ajoutée par une itération
+		// future franchira un budget en premier — elle porte six personnages et un
+		// synopsis MJ long, la minimale un personnage et trois lignes.
+		//
+		// Un avertissement ne bloque PAS l'import (`severity: 'warning'`) : sans cette
+		// assertion, la référence pourrait se mettre à en produire un et rester verte
+		// partout, y compris dans la suite de suffisance qui ne regarde que `ok`.
+		//
+		// Les anomalies sont projetées en TEXTE avant comparaison : le jour où ce test
+		// rougit, on veut LIRE le code, le chemin et le OÙ de l'avertissement reçu —
+		// `toHaveLength(0)` ferait compter, et un objet brut noierait le nom dans la
+		// sérialisation.
+		const resultat = validateDossier(documentDeReference())
+
+		expect(resultat.warnings.map(lisible)).toEqual([])
+		expect(resultat.errors.map(lisible)).toEqual([])
 		expect(resultat.ok).toBe(true)
 	})
 
@@ -462,12 +517,43 @@ describe('couverture', () => {
 		// utiliser.
 		const CHAMPS_DE_SITUATION = ['monde.personnages[].camp', 'monde.personnages[].objectif_id']
 		const feuilles = cheminsDeLaFixture()
-		const feuillesDeLaReference = feuillesDeLaFixture(JSON.parse(fs.readFileSync(CHEMIN_REFERENCE, 'utf8')) as Doc).map(
-			(feuille) => feuille.normalise,
-		)
+		const feuillesDeLaReference = feuillesDeLaFixture(documentDeReference()).map((feuille) => feuille.normalise)
 
 		for (const chemin of CHAMPS_DE_SITUATION) {
 			expect(`${chemin} → ${DESTINATION_DES_CHAMPS[chemin]}`).toBe(`${chemin} → moteur`)
+			expect(feuilles).toContain(chemin)
+			expect(feuillesDeLaReference).toContain(chemin)
+		}
+	})
+
+	it('les trois proses d identite sont ia et instanciees dans les DEUX fixtures', () => {
+		// Modelé sur le test du camp et du rattachement juste au-dessus — LES DEUX
+		// fixtures, pas seulement la minimale — et pour la même raison (KR-174) :
+		// « toute feuille a une destination » ne dit rien de la VALEUR, « aucune ligne
+		// morte » ne dit rien de l'audience. Nommées ensemble, les deux moitiés
+		// épinglent l'arbitrage : `ia` et non `auteur`, parce qu'un métier, une voix et
+		// une réputation sont ce que le narrateur du Temps 2 LIT pour incarner le
+		// personnage — pas des notes de rédaction.
+		//
+		// La bascule que ce test doit faire rougir : passer `description_joueur` à
+		// `moteur` en croyant que le suffixe `_joueur` désigne une prose émise verbatim.
+		// Il désigne l'AUDIENCE, jamais le RÉGIME (voir le commentaire de la table) :
+		// ces trois-là sont INJECTÉES.
+		//
+		// L'INSTANCE DANS LA RÉFÉRENCE est dans le MÊME test : le garde d'exhaustivité
+		// balaie la fixture MINIMALE, donc un champ instancié là mais absent d'une
+		// aventure réelle resterait vert partout. Un champ que la référence n'exerce pas
+		// n'est pas un champ qu'on sait utiliser.
+		const PROSES_D_IDENTITE = [
+			'monde.personnages[].fonction',
+			'monde.personnages[].apparence',
+			'monde.personnages[].description_joueur',
+		]
+		const feuilles = cheminsDeLaFixture()
+		const feuillesDeLaReference = feuillesDeLaFixture(documentDeReference()).map((feuille) => feuille.normalise)
+
+		for (const chemin of PROSES_D_IDENTITE) {
+			expect(`${chemin} → ${DESTINATION_DES_CHAMPS[chemin]}`).toBe(`${chemin} → ia`)
 			expect(feuilles).toContain(chemin)
 			expect(feuillesDeLaReference).toContain(chemin)
 		}

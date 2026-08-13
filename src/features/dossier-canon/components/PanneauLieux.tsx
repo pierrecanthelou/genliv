@@ -16,11 +16,20 @@ import { FicheLieu, type BrouillonLieu } from './FicheLieu'
  * index, changer de sélection après un refus laisse le bandeau affiché sous
  * la fiche d'un AUTRE lieu, qui n'a rien vu refuser (revue de PR, tour 1,
  * même famille que BUG-056, dossier-canon it1). `FicheLieu` ne connaît que
- * `{ issues }` : le filtrage par id reste ici, seul endroit qui connaît la
- * sélection courante.
+ * `{ statut, issues }` : le filtrage par id reste ici, seul endroit qui
+ * connaît la sélection courante.
+ *
+ * `statut` (revue de PR, dossier-fiches it2) — AVANT, seul `'refuse'` posait
+ * un refus explicite ; `'absent'` (dossier supprimé ailleurs pendant
+ * l'édition) tombait dans la branche succès de `commit()` et EFFAÇAIT tout
+ * refus non résolu au lieu de le signaler : le même no-op muet que KR-183/197
+ * ferme ailleurs. `FicheLieu.tsx` rend désormais les DEUX statuts (même
+ * patron que `FichePersonnage.tsx`) — un seul bandeau, jamais trois formes du
+ * même objet (revue de PR, second tour).
  */
 interface RefusEnCours {
 	lieuId: string
+	statut: 'absent' | 'refuse'
 	issues: DossierIssue[]
 }
 
@@ -97,19 +106,45 @@ export function PanneauLieux({ dossierId }: PanneauLieuxProps): JSX.Element | nu
 	// non nulle une fois évite un `as`/`!` répété dans chaque gestionnaire.
 	const dossierActuel: typeof dossier = dossier
 
+	// Calculé EN LIGNE, jamais resynchronisé par effet (KR-013/113) : résout la
+	// sélection courante, retombe sur le premier lieu tant qu'aucune sélection
+	// explicite n'a été posée — `undefined` seulement quand la liste est vide.
+	// HISSÉ ici, AU-DESSUS du retour anticipé « liste vide » (même correctif
+	// que `PanneauPersonnages.tsx`, dossier-fiches it2, revue de PR) : c'est ce
+	// qui permet à `handleAjouter` d'indexer un refus d'ajout raté sur le lieu
+	// RÉELLEMENT affiché plutôt que sur l'identifiant tout juste frappé — ce
+	// dernier n'entre dans le document QUE si l'écriture réussit, l'indexer
+	// avant succès rendrait le refus inaffichable tout en ÉVINÇANT en silence
+	// un refus déjà affiché sur un autre lieu.
+	const lieuAffiche = dossierActuel.monde.lieux.find((lieu) => lieu.id === selection) ?? dossierActuel.monde.lieux[0]
+
 	/**
 	 * L'idiome d'écriture prescrit (§5 du plan) : TROIS racines nommées, jamais
 	 * un spread de `dossier` — seul `monde.lieux` change, `canon`/`charpente`
 	 * traversent intacts.
+	 *
+	 * `resout` (revue de PR — régression du correctif `handleAjouter`, symptôme
+	 * de BUG-063) : `lieuId` porte DEUX RÔLES distincts — l'AFFICHAGE (sous
+	 * quelle fiche le refus se montre, TOUJOURS actif) et l'INVALIDATION (quel
+	 * succès l'efface, actif SEULEMENT si `resout`). `handleAjouter` indexe son
+	 * refus d'ajout raté sur le lieu AFFICHÉ pour l'affichage, mais un AJOUT NE
+	 * RÉSOUT JAMAIS un refus — même quand il réussit et que l'entité affichée
+	 * coïncide avec l'entité déjà en cause : ajouter un lieu ne corrige rien
+	 * sur un AUTRE lieu. Les chemins d'ÉDITION (blur, retrait) gardent
+	 * `resout: true` (défaut) : eux RÉSOLVENT légitimement.
 	 */
-	function commit(lieux: Lieu[], lieuId: string): EcritureDossier {
+	function commit(lieux: Lieu[], lieuId: string, { resout }: { resout: boolean } = { resout: true }): EcritureDossier {
 		const resultat = dossiers.update(dossierId, (d) => ({
 			canon: d.canon,
 			monde: { ...d.monde, lieux },
 			charpente: d.charpente,
 		}))
 		setRefus((refusPrecedent) => {
-			if (resultat.statut === 'refuse') return { lieuId, issues: resultat.errors }
+			if (resultat.statut === 'refuse') return { lieuId, statut: 'refuse', issues: resultat.errors }
+			if (resultat.statut === 'absent') return { lieuId, statut: 'absent', issues: [] }
+			// Écriture réussie. Un AJOUT (`resout: false`) ne résout JAMAIS un
+			// refus, quelle que soit l'entité qu'il touche pour l'affichage.
+			if (!resout) return refusPrecedent
 			// Un commit réussi n'efface le bandeau que s'il touche le MÊME lieu que
 			// celui déjà en cause (BUG-056, dossier-canon it1) : un succès sur un
 			// AUTRE lieu ne doit jamais faire disparaître un refus non résolu.
@@ -121,7 +156,13 @@ export function PanneauLieux({ dossierId }: PanneauLieuxProps): JSX.Element | nu
 	function handleAjouter(): void {
 		const id = frapperIdentifiant('lieu')
 		const nouveau: Lieu = { id }
-		const resultat = commit([...dossierActuel.monde.lieux, nouveau], id)
+		/**
+		 * Le refus d'un ajout raté s'indexe sur le lieu AFFICHÉ
+		 * (`lieuAffiche?.id`), JAMAIS sur `id` — l'identifiant tout juste frappé
+		 * n'entre dans le document QUE si l'écriture réussit. `resout: false` :
+		 * un ajout, réussi ou non, ne résout JAMAIS un refus (voir `commit`).
+		 */
+		const resultat = commit([...dossierActuel.monde.lieux, nouveau], lieuAffiche?.id ?? id, { resout: false })
 		// Structurellement inatteignable : un identifiant frappé est bien formé et
 		// jamais dupliqué (entropie de `randomToken()`).
 		if (resultat.statut !== 'ecrit') return
@@ -175,7 +216,11 @@ export function PanneauLieux({ dossierId }: PanneauLieuxProps): JSX.Element | nu
 		)
 	}
 
-	if (dossier.monde.lieux.length === 0) {
+	// Équivalent exact de `dossier.monde.lieux.length === 0` (voir le calcul de
+	// `lieuAffiche` plus haut) — mais brancher sur LA MÊME valeur que le reste
+	// de la fonction utilise donne à TypeScript le rétrécissement `Lieu` (non
+	// `| undefined`) pour tout ce qui suit, sans assertion `!`.
+	if (lieuAffiche === undefined) {
 		// Cas défensif, non normalement atteignable : `charpente.depart.lieu_id`
 		// doit toujours résoudre un lieu existant pour qu'un dossier soit lisible
 		// (`DossierService.get()` re-valide et rend `null` sinon) — gabarit dashed
@@ -192,15 +237,14 @@ export function PanneauLieux({ dossierId }: PanneauLieuxProps): JSX.Element | nu
 		)
 	}
 
-	// Calculé EN LIGNE, jamais resynchronisé par effet (KR-013/113) : résout la
-	// sélection courante, et retombe sur le premier lieu tant qu'aucune sélection
-	// explicite n'a été posée (montage, ou sélection devenue caduque).
-	const lieuAffiche = dossier.monde.lieux.find((lieu) => lieu.id === selection) ?? dossier.monde.lieux[0]
 	const brouillon = brouillons[lieuAffiche.id] ?? brouillonDe(lieuAffiche)
 	const indexAffiche = dossier.monde.lieux.findIndex((lieu) => lieu.id === lieuAffiche.id)
 	// Le refus ne se rend QUE sous la fiche du lieu qui l'a produit — changer de
-	// sélection ne doit jamais laisser le bandeau attaché au mauvais lieu.
-	const refusAffiche = refus !== null && refus.lieuId === lieuAffiche.id ? { issues: refus.issues } : null
+	// sélection ne doit jamais laisser le bandeau attaché au mauvais lieu. Les
+	// DEUX statuts passent désormais par `FicheLieu` (un seul bandeau, revue de
+	// PR second tour) : `refusAffiche` porte `{ statut, issues }`.
+	const refusAffiche =
+		refus !== null && refus.lieuId === lieuAffiche.id ? { statut: refus.statut, issues: refus.issues } : null
 
 	return (
 		<div style={pageStyle} ref={panneauRef}>

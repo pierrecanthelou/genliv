@@ -7,10 +7,11 @@ import { PanneauPersonnages } from '../components/PanneauPersonnages'
  * L'écran Personnages — liste `ListRow` à gauche, fiche à droite (§3 du plan
  * d'itération 1 de `dossier-fiches`). Ce que ces tests éprouvent, distinct des
  * précédents `PanneauLieux`/`ObjectifsCanon` : l'accordéon à 8 emplacements
- * (1 rempli, 7 placeholders, compte exact), DEUX widgets FERMÉS qui committent
- * immédiatement (camp, plan) au lieu d'un brouillon, un `Select` d'objectif
- * dont l'état vide dépend du CANON (pas du personnage lui-même), et l'absence
- * volontaire de tout retrait/bandeau de refus (hors périmètre it1).
+ * (2 remplis dont le bloc « Identité » depuis it2, 6 placeholders, compte
+ * exact), DEUX widgets FERMÉS qui committent immédiatement (camp, plan) au
+ * lieu d'un brouillon, un `Select` d'objectif dont l'état vide dépend du
+ * CANON (pas du personnage lui-même), et le bandeau de refus indexé par
+ * personnage (it2, KR-197).
  */
 
 function renderPanel(brain: Brain, dossierId: string) {
@@ -61,6 +62,9 @@ function laLigne(id: string): HTMLElement {
 
 const NOM_DU_BLOC_1 = 'Camp, plan & rattachement'
 const TEXTE_ITERATION = (n: number) => `ce bloc arrive à l'itération ${n} de dossier-fiches`
+
+const EYEBROW_REFUS = "CE CHANGEMENT N'A PAS ÉTÉ ENREGISTRÉ"
+const TEXTE_ABSENT = "Ce dossier n'existe plus — il a été supprimé ailleurs pendant que vous l'éditiez."
 
 describe('PanneauPersonnages', () => {
 	beforeEach(() => window.localStorage.clear())
@@ -199,7 +203,7 @@ describe('PanneauPersonnages', () => {
 		expect(lire(brain, dossier.id).monde.personnages[0]).not.toHaveProperty('objectif_id')
 	})
 
-	it('7 placeholders: compte exact = 7 (pas 6 ni 8), textes distincts par iteration cible, titres exacts dans l ordre', () => {
+	it('six placeholders recales: compte exact = 6 (pas 5 ni 7), textes distincts par iteration cible, titres exacts dans l ordre', () => {
 		const brain = createBrain()
 		const dossier = brain.dossiers.create('Un dossier')
 		semerPersonnage(brain, dossier.id, { id: 'pnj.aldur', portee: 'premier', plan_actions: [], savoirs: [] })
@@ -220,12 +224,12 @@ describe('PanneauPersonnages', () => {
 		})
 
 		const placeholders = screen.getAllByText(/Pas encore renseigné — /)
-		expect(placeholders).toHaveLength(7)
+		expect(placeholders).toHaveLength(6)
 
-		expect(screen.getAllByText(`Pas encore renseigné — ${TEXTE_ITERATION(2)}.`)).toHaveLength(2) // Identité, Caractéristiques
-		expect(screen.getAllByText(`Pas encore renseigné — ${TEXTE_ITERATION(3)}.`)).toHaveLength(1) // Objectif & plan d'actions
-		expect(screen.getAllByText(`Pas encore renseigné — ${TEXTE_ITERATION(4)}.`)).toHaveLength(3) // Savoirs, Relations, Présence
-		expect(screen.getAllByText(`Pas encore renseigné — ${TEXTE_ITERATION(5)}.`)).toHaveLength(1) // Caractère exploitable
+		expect(screen.getAllByText(`Pas encore renseigné — ${TEXTE_ITERATION(3)}.`)).toHaveLength(1) // Caractéristiques
+		expect(screen.getAllByText(`Pas encore renseigné — ${TEXTE_ITERATION(4)}.`)).toHaveLength(1) // Objectif & plan d'actions
+		expect(screen.getAllByText(`Pas encore renseigné — ${TEXTE_ITERATION(5)}.`)).toHaveLength(3) // Savoirs, Relations, Présence
+		expect(screen.getAllByText(`Pas encore renseigné — ${TEXTE_ITERATION(6)}.`)).toHaveLength(1) // Caractère exploitable
 	})
 
 	it('un ajout, une edition de nom et un choix de camp laissent canon et charpente traverser intacts', async () => {
@@ -275,31 +279,73 @@ describe('PanneauPersonnages', () => {
 	})
 
 	/**
-	 * BUG-064 — le SENS DE LECTURE, et son INDEXATION. Aucun des 9 tests ci-dessus
-	 * n'assertait une valeur VENUE DU DOCUMENT : ceux qui touchent le bloc 1
-	 * cliquent avant de vérifier — ils prouvent que l'écriture atteint le
-	 * document, jamais que le document revient à l'écran —, et les trois autres
-	 * assertent un rendu sans donnée (liste vide, Select sans canon, placeholders).
-	 * L'idiome de relecture
-	 * existait pourtant dans ce fichier même (le test `nom` démonte et remonte) ;
-	 * il n'avait simplement pas été étendu aux TROIS widgets fermés à commit
-	 * immédiat, dont l'assertion sur le document donne l'illusion de la preuve.
+	 * IDENTITÉ (it2, critère #1 du plan) — les trois `Field` du bloc 2
+	 * persistent au blur, exactement comme `nom` (idiome hérité d'it1), et un
+	 * champ laissé vide n'écrit AUCUNE clé (même idiome que `objectif_id`).
+	 */
+	it('identite: les trois proses persistent au blur', async () => {
+		const user = userEvent.setup()
+		const brain = createBrain()
+		const dossier = brain.dossiers.create('Un dossier')
+		semerPersonnage(brain, dossier.id, { id: 'pnj.aldur', portee: 'premier', plan_actions: [], savoirs: [] })
+		renderPanel(brain, dossier.id)
+		const updateSpy = jest.spyOn(brain.dossiers, 'update')
+
+		// Le bloc 2 ne s ouvre pas automatiquement : il faut le deplier.
+		await user.click(screen.getByRole('button', { name: 'Identité' }))
+
+		const champFonction = screen.getByRole('textbox', { name: /^FONCTION/ })
+		const champApparence = screen.getByRole('textbox', { name: /^APPARENCE/ })
+		const champDescriptionJoueur = screen.getByRole('textbox', { name: /^DESCRIPTION JOUEUR/ })
+
+		expect(champFonction).toHaveAttribute('placeholder', 'Ermite retiré du monde, gardien de la mémoire de Val-Cendre.')
+		expect(champDescriptionJoueur).toHaveValue('')
+
+		fireEvent.change(champFonction, {
+			target: { value: 'Ermite retiré du monde, gardien de la mémoire de Val-Cendre.' },
+		})
+		fireEvent.blur(champFonction)
+		fireEvent.change(champApparence, {
+			target: { value: "Un vieil homme voûté à la barbe blanche tressée de perles d'os." },
+		})
+		fireEvent.blur(champApparence)
+		// `description_joueur` reste vide : aucune clé ne doit etre ecrite pour lui.
+
+		expect(updateSpy).toHaveBeenCalledTimes(2)
+		const personnage = lire(brain, dossier.id).monde.personnages[0]
+		expect(personnage.fonction).toBe('Ermite retiré du monde, gardien de la mémoire de Val-Cendre.')
+		expect(personnage.apparence).toBe("Un vieil homme voûté à la barbe blanche tressée de perles d'os.")
+		expect(personnage).not.toHaveProperty('description_joueur')
+
+		// Vider un champ deja rempli retire sa cle plutot que d y committer ''.
+		fireEvent.change(champFonction, { target: { value: '' } })
+		fireEvent.blur(champFonction)
+		expect(updateSpy).toHaveBeenCalledTimes(3)
+		expect(lire(brain, dossier.id).monde.personnages[0]).not.toHaveProperty('fonction')
+	})
+
+	/**
+	 * BUG-064 — le SENS DE LECTURE, et son INDEXATION, ÉTENDU à it2 aux trois
+	 * proses d'identité (fonction/apparence/description_joueur) — les valeurs
+	 * de ce bloc restent lues DANS un bloc FERMÉ par défaut (la fiche ne
+	 * l'ouvre pas), et `getByDisplayValue` n'est PAS filtré par visibilité CSS
+	 * (contrairement à `getByRole`), donc reste le bon instrument ici pour
+	 * lire « au montage, sans interaction ».
 	 *
-	 * Deux propriétés distinctes, et il faut les deux — la seconde est celle que
-	 * ce dépôt rate en boucle (KR-197, BUG-056/061/063) :
+	 * Deux propriétés distinctes, et il faut les deux — la seconde est celle
+	 * que ce dépôt rate en boucle (KR-197, BUG-056/061/063) :
 	 *
 	 * 1. LECTURE — chaque champ rendu porte la valeur du document. Éprouvé sur
 	 *    des valeurs que le composant NE PEUT PAS produire par défaut : ni le
 	 *    plancher du schéma (`PORTEE_INITIALE = 'premier'`), ni le premier
 	 *    élément d'un registre RÉEL (d'où DEUX objectifs semés, le rattachement
-	 *    portant le second), ni l'option synthétique « Aucun ».
+	 *    portant le second), ni l'option synthétique « Aucun », ni une prose
+	 *    d'identité (le composant n'a aucun défaut à leur opposer).
 	 * 2. INDEXATION — la fiche suit la ligne SÉLECTIONNÉE, et aucune valeur ne
-	 *    fuit d'un personnage vers l'autre. C'est le scénario réellement signalé :
-	 *    une liste de six, un clic sur l'un d'eux. Un test mono-personnage ne
-	 *    peut structurellement pas le voir — `brouillonNom` figé sur
-	 *    `personnages[0]` survivait aux dix tests précédents.
+	 *    fuit d'un personnage vers l'autre. Un test mono-personnage ne peut
+	 *    structurellement pas le voir.
 	 */
-	it('lecture au montage et apres selection: deux personnages opposes, aucune valeur ne fuit de l un a l autre (BUG-064)', async () => {
+	it('lecture au montage sur DEUX personnages, sans interaction (BUG-064)', async () => {
 		const user = userEvent.setup()
 		const brain = createBrain()
 		const dossier = brain.dossiers.create('Un dossier')
@@ -313,6 +359,9 @@ describe('PanneauPersonnages', () => {
 			portee: 'premier',
 			plan_actions: [],
 			savoirs: [],
+			fonction: 'Ermite retiré du monde, gardien de la mémoire de Val-Cendre.',
+			apparence: "Un vieil homme voûté à la barbe blanche tressée de perles d'os.",
+			description_joueur: 'On le dit sage, et un peu fou.',
 		})
 		semerPersonnage(brain, dossier.id, {
 			id: 'pnj.selene',
@@ -322,6 +371,9 @@ describe('PanneauPersonnages', () => {
 			savoirs: [],
 			camp: 'antagoniste',
 			objectif_id: 'objectif.gouffre',
+			fonction: 'Guetteuse du beffroi, elle compte les silhouettes qui approchent de nuit.',
+			apparence: 'Une jeune femme maigre, la cape rapiécée, un sifflet de corne autour du cou.',
+			description_joueur: "On dit qu'elle voit dans le noir mieux qu'un chat.",
 		})
 		renderPanel(brain, dossier.id)
 
@@ -337,8 +389,16 @@ describe('PanneauPersonnages', () => {
 		expect(segment('Protagoniste')).toHaveAttribute('aria-checked', 'false')
 		expect(segment('Antagoniste')).toHaveAttribute('aria-checked', 'false')
 		expect(selectObjectif()).toHaveValue('')
+		expect(screen.getByDisplayValue('Ermite retiré du monde, gardien de la mémoire de Val-Cendre.')).toBeInTheDocument()
+		expect(
+			screen.getByDisplayValue("Un vieil homme voûté à la barbe blanche tressée de perles d'os."),
+		).toBeInTheDocument()
+		expect(screen.getByDisplayValue('On le dit sage, et un peu fou.')).toBeInTheDocument()
+		expect(
+			screen.queryByDisplayValue('Guetteuse du beffroi, elle compte les silhouettes qui approchent de nuit.'),
+		).toBeNull()
 
-		// APRES SELECTION : les quatre champs suivent la ligne selectionnee.
+		// APRES SELECTION : les sept champs suivent la ligne selectionnee.
 		await user.click(laLigne('pnj.selene'))
 		expect(champNom()).toHaveValue('Sélène la Vigie')
 		expect(segment('Second plan')).toHaveAttribute('aria-checked', 'true')
@@ -346,6 +406,14 @@ describe('PanneauPersonnages', () => {
 		expect(segment('Antagoniste')).toHaveAttribute('aria-checked', 'true')
 		expect(segment('Protagoniste')).toHaveAttribute('aria-checked', 'false')
 		expect(selectObjectif()).toHaveValue('objectif.gouffre')
+		expect(
+			screen.getByDisplayValue('Guetteuse du beffroi, elle compte les silhouettes qui approchent de nuit.'),
+		).toBeInTheDocument()
+		expect(
+			screen.getByDisplayValue('Une jeune femme maigre, la cape rapiécée, un sifflet de corne autour du cou.'),
+		).toBeInTheDocument()
+		expect(screen.getByDisplayValue("On dit qu'elle voit dans le noir mieux qu'un chat.")).toBeInTheDocument()
+		expect(screen.queryByDisplayValue('Ermite retiré du monde, gardien de la mémoire de Val-Cendre.')).toBeNull()
 
 		// Les badges sont le SECOND site de lecture, independant du premier — et
 		// chaque ligne porte les siens, pas ceux de sa voisine.
@@ -353,5 +421,298 @@ describe('PanneauPersonnages', () => {
 		expect(within(laLigne('pnj.selene')).getByText('Second plan')).toBeInTheDocument()
 		expect(within(laLigne('pnj.aldur')).getByText('Premier plan')).toBeInTheDocument()
 		expect(within(laLigne('pnj.aldur')).queryByText(/Protagoniste|Antagoniste/)).toBeNull()
+	})
+
+	/**
+	 * KR-197 (4e occurrence) — SONDE OBLIGATOIRE (§7 du plan d'itération 2) :
+	 * muter `personnageAffiche.id` en `personnages[0].id` dans un des
+	 * gestionnaires câblés par `PanneauPersonnages` (ex. `onBlurChamp`) DOIT
+	 * faire rougir CE test précis. Exécutée à la main, restaurée ensuite —
+	 * voir le compte rendu du lot.
+	 */
+	it('ecriture sur DEUX personnages, aucune fuite d indexation', async () => {
+		const user = userEvent.setup()
+		const brain = createBrain()
+		const dossier = brain.dossiers.create('Un dossier')
+		semerPersonnage(brain, dossier.id, {
+			id: 'pnj.aldur',
+			nom: 'Aldûr le Sage',
+			portee: 'premier',
+			plan_actions: [],
+			savoirs: [],
+		})
+		semerPersonnage(brain, dossier.id, {
+			id: 'pnj.selene',
+			nom: 'Sélène la Vigie',
+			portee: 'second',
+			plan_actions: [],
+			savoirs: [],
+		})
+		renderPanel(brain, dossier.id)
+
+		// Le SECOND personnage est selectionne.
+		await user.click(laLigne('pnj.selene'))
+		await user.click(screen.getByRole('button', { name: 'Identité' }))
+
+		const champFonction = screen.getByRole('textbox', { name: /^FONCTION/ })
+		fireEvent.change(champFonction, { target: { value: 'Guetteuse du beffroi.' } })
+		fireEvent.blur(champFonction)
+
+		const personnages = lire(brain, dossier.id).monde.personnages
+		const aldur = personnages.find((p) => p.id === 'pnj.aldur')
+		const selene = personnages.find((p) => p.id === 'pnj.selene')
+		if (aldur === undefined || selene === undefined) throw new Error('Personnage introuvable apres ecriture')
+
+		expect(selene.fonction).toBe('Guetteuse du beffroi.')
+		expect(aldur).not.toHaveProperty('fonction')
+	})
+
+	/**
+	 * KR-183 — un dossier supprimé ailleurs pendant l'édition ne doit jamais
+	 * rester un no-op muet : `commit()` rend `{statut:'absent'}` et le bandeau
+	 * l'annonce. SANS MOCK du service (interdit dans ce lot, §7 du plan) : un
+	 * second `createBrain()` sur le MÊME stockage (`window.localStorage`
+	 * partagé) supprime le dossier, le premier brain — encore monté — le
+	 * découvre au premier `commit()` suivant.
+	 */
+	it('dossier supprime pendant l edition: bandeau, pas de silence', () => {
+		const brain = createBrain()
+		const dossier = brain.dossiers.create('Un dossier')
+		semerPersonnage(brain, dossier.id, {
+			id: 'pnj.aldur',
+			nom: 'Aldûr le Sage',
+			portee: 'premier',
+			plan_actions: [],
+			savoirs: [],
+		})
+		renderPanel(brain, dossier.id)
+
+		const autreBrain = createBrain()
+		expect(autreBrain.dossiers.remove(dossier.id)).toBe(true)
+
+		const champNom = screen.getByRole('textbox', { name: /nom du personnage/i })
+		fireEvent.change(champNom, { target: { value: 'Un nom quelconque' } })
+		fireEvent.blur(champNom)
+
+		// Deux regions `role="status"` peuvent coexister a l ecran selon le
+		// bloc en cause (regle RTL du depot) — ici une seule, mais `getAllByRole`
+		// reste l instrument prescrit.
+		const bandeaux = screen.getAllByRole('status')
+		expect(bandeaux.length).toBeGreaterThan(0)
+		expect(screen.getByText(EYEBROW_REFUS)).toBeInTheDocument()
+		expect(screen.getByText(TEXTE_ABSENT)).toBeInTheDocument()
+	})
+
+	/**
+	 * KR-197 (4e occurrence) — l'INDEXATION D'AFFICHAGE, isolée de
+	 * l'invalidation : un refus provoqué sur un personnage ne doit jamais se
+	 * montrer sous la fiche d'un AUTRE, y compris après un simple changement
+	 * de SÉLECTION (aucune écriture). Chemin d'atteinte du refus : le seul
+	 * réel, `{statut:'absent'}` via un second `createBrain()` sur le MÊME
+	 * `window.localStorage` — AUCUN mock du service. Une fois le dossier
+	 * supprimé, TOUT commit ultérieur rend `'absent'` : ce test n'a donc besoin
+	 * que d'une seule écriture ratée (sur le premier personnage) et de
+	 * changements de SÉLECTION ensuite, qui ne committent rien.
+	 */
+	it('bandeau de refus: un refus sur un personnage ne s affiche pas sous un autre', () => {
+		const brain = createBrain()
+		const dossier = brain.dossiers.create('Un dossier')
+		semerPersonnage(brain, dossier.id, {
+			id: 'pnj.aldur',
+			nom: 'Aldûr le Sage',
+			portee: 'premier',
+			plan_actions: [],
+			savoirs: [],
+		})
+		semerPersonnage(brain, dossier.id, {
+			id: 'pnj.selene',
+			nom: 'Sélène la Vigie',
+			portee: 'second',
+			plan_actions: [],
+			savoirs: [],
+		})
+		renderPanel(brain, dossier.id)
+
+		const autreBrain = createBrain()
+		expect(autreBrain.dossiers.remove(dossier.id)).toBe(true)
+
+		// Refus sur ALDUR, le personnage affiche par defaut (premier seme).
+		const champNom = () => screen.getByRole('textbox', { name: /nom du personnage/i })
+		fireEvent.change(champNom(), { target: { value: 'Un nom quelconque' } })
+		fireEvent.blur(champNom())
+		expect(screen.getByText(TEXTE_ABSENT)).toBeInTheDocument()
+
+		// Selectionner l AUTRE personnage (aucune ecriture) : le bandeau ne le suit pas.
+		fireEvent.click(laLigne('pnj.selene'))
+		expect(screen.queryByText(TEXTE_ABSENT)).toBeNull()
+
+		// Revenir sur aldur : le bandeau y est toujours.
+		fireEvent.click(laLigne('pnj.aldur'))
+		expect(screen.getByText(TEXTE_ABSENT)).toBeInTheDocument()
+	})
+
+	/**
+	 * KR-197 (4e occurrence) — l'INDEXATION D'INVALIDATION, isolée de
+	 * l'affichage : un commit RÉUSSI sur un AUTRE personnage ne doit jamais
+	 * effacer un refus non résolu ; seul un commit réussi sur le personnage EN
+	 * CAUSE l'efface.
+	 *
+	 * MONTAGE : `{statut:'absent'}` rend TOUT commit ultérieur absent tant que
+	 * le dossier reste supprimé — impossible d'y obtenir une écriture
+	 * RÉUSSIE sur un second personnage sans restaurer le dossier entre les
+	 * deux écritures. La restauration passe par le SEUL chemin public
+	 * symétrique du retrait (`DossierService.importDossier`, jamais un
+	 * `persistence.set` derrière le service) : le document exact d'avant
+	 * suppression est ré-importé sous le MÊME identifiant (libéré par le
+	 * retrait), via un second `createBrain()` — toujours aucun mock.
+	 */
+	it('bandeau de refus: une ecriture reussie sur un autre personnage n efface pas le refus', () => {
+		const brain = createBrain()
+		const dossier = brain.dossiers.create('Un dossier')
+		semerPersonnage(brain, dossier.id, {
+			id: 'pnj.aldur',
+			nom: 'Aldûr le Sage',
+			portee: 'premier',
+			plan_actions: [],
+			savoirs: [],
+		})
+		semerPersonnage(brain, dossier.id, {
+			id: 'pnj.selene',
+			nom: 'Sélène la Vigie',
+			portee: 'second',
+			plan_actions: [],
+			savoirs: [],
+		})
+		// Capture AVANT suppression : le document tel qu il faudra le restaurer,
+		// par le chemin public d import/export.
+		const avant = JSON.stringify(lire(brain, dossier.id))
+		renderPanel(brain, dossier.id)
+
+		const autreBrain = createBrain()
+		expect(autreBrain.dossiers.remove(dossier.id)).toBe(true)
+
+		// Refus sur ALDUR (personnage affiche par defaut).
+		const champNom = () => screen.getByRole('textbox', { name: /nom du personnage/i })
+		fireEvent.change(champNom(), { target: { value: 'Un nom quelconque' } })
+		fireEvent.blur(champNom())
+		expect(screen.getByText(TEXTE_ABSENT)).toBeInTheDocument()
+
+		// Restaure le dossier EXACTEMENT tel qu avant (chemin public : import),
+		// pour qu une ecriture ulterieure puisse a nouveau REUSSIR.
+		const restauration = autreBrain.dossiers.importDossier(avant)
+		expect(restauration.statut).toBe('valid')
+
+		// Ecriture REUSSIE sur l AUTRE personnage : selectionner selene, editer son nom.
+		fireEvent.click(laLigne('pnj.selene'))
+		fireEvent.change(champNom(), { target: { value: 'Un autre nom' } })
+		fireEvent.blur(champNom())
+		expect(lire(brain, dossier.id).monde.personnages.find((p) => p.id === 'pnj.selene')?.nom).toBe('Un autre nom')
+
+		// Le refus sur aldur SURVIT a ce succes ailleurs : revenir sur sa ligne,
+		// le bandeau y est toujours.
+		fireEvent.click(laLigne('pnj.aldur'))
+		expect(screen.getByText(TEXTE_ABSENT)).toBeInTheDocument()
+
+		// Une ecriture reussie sur le personnage EN CAUSE, elle, l efface bien.
+		fireEvent.change(champNom(), { target: { value: 'Aldur corrige' } })
+		fireEvent.blur(champNom())
+		expect(screen.queryByText(TEXTE_ABSENT)).toBeNull()
+	})
+
+	/**
+	 * Revue de PR (it2) — un ajout RATE ne doit jamais evincer un refus deja
+	 * affiche : `handleAjouter` indexait autrefois le refus sur l identifiant
+	 * TOUT JUSTE FRAPPE, qui n entre dans le document QUE si l ecriture
+	 * reussit -- un ajout refuse rendait donc le bandeau existant inaffichable
+	 * (aucune ligne ne porte cet id) tout en l evincant silencieusement.
+	 * Meme montage que les deux tests precedents : `{statut:'absent'}` via un
+	 * second `createBrain()` sur le MEME stockage, AUCUN mock du service.
+	 */
+	it('bandeau de refus: un refus sur un personnage survit a un ajout qui echoue', () => {
+		const brain = createBrain()
+		const dossier = brain.dossiers.create('Un dossier')
+		semerPersonnage(brain, dossier.id, {
+			id: 'pnj.aldur',
+			nom: 'Aldûr le Sage',
+			portee: 'premier',
+			plan_actions: [],
+			savoirs: [],
+		})
+		semerPersonnage(brain, dossier.id, {
+			id: 'pnj.selene',
+			nom: 'Sélène la Vigie',
+			portee: 'second',
+			plan_actions: [],
+			savoirs: [],
+		})
+		renderPanel(brain, dossier.id)
+
+		const autreBrain = createBrain()
+		expect(autreBrain.dossiers.remove(dossier.id)).toBe(true)
+
+		// Refus sur ALDUR (personnage affiche par defaut).
+		const champNom = screen.getByRole('textbox', { name: /nom du personnage/i })
+		fireEvent.change(champNom, { target: { value: 'Un nom quelconque' } })
+		fireEvent.blur(champNom)
+		expect(screen.getByText(TEXTE_ABSENT)).toBeInTheDocument()
+
+		// L ajout echoue aussi (meme dossier absent) : le bandeau ne doit ni
+		// disparaitre, ni un personnage etre ajoute pour autant. Le dossier
+		// ayant disparu du stockage partage, `lire()` ne peut plus le relire --
+		// la preuve passe par la liste RENDUE (toujours DEUX lignes, aucune
+		// troisieme, le sous-titre etant l identifiant du personnage).
+		fireEvent.click(screen.getByRole('button', { name: '+ Ajouter un personnage…' }))
+		expect(screen.getByText(TEXTE_ABSENT)).toBeInTheDocument()
+		expect(screen.getAllByText(/^pnj\./)).toHaveLength(2)
+	})
+
+	/**
+	 * Revue de PR — RÉGRESSION introduite par le correctif précédent (symptôme
+	 * de BUG-063) : indexer l'ajout raté sur le personnage AFFICHÉ (pour que
+	 * le refus survive) a un effet de bord non voulu quand l'ajout RÉUSSIT —
+	 * la garde d'invalidation de `commit()` voit alors le MÊME identifiant que
+	 * le refus déjà en cause et l'efface, alors qu'un ajout ne résout rien sur
+	 * un AUTRE personnage. `resout: false` sur le chemin de création ferme
+	 * cette régression. Montage : refus `{statut:'absent'}` puis dossier
+	 * RESTAURÉ (chemin public `importDossier`, même document exporté juste
+	 * avant suppression) pour que l'ajout suivant puisse réellement RÉUSSIR —
+	 * aucun mock du service.
+	 */
+	it('bandeau de refus: un ajout reussi ne resout pas un refus non resolu', () => {
+		const brain = createBrain()
+		const dossier = brain.dossiers.create('Un dossier')
+		semerPersonnage(brain, dossier.id, {
+			id: 'pnj.aldur',
+			nom: 'Aldûr le Sage',
+			portee: 'premier',
+			plan_actions: [],
+			savoirs: [],
+		})
+		const avant = JSON.stringify(lire(brain, dossier.id))
+		renderPanel(brain, dossier.id)
+
+		const autreBrain = createBrain()
+		expect(autreBrain.dossiers.remove(dossier.id)).toBe(true)
+
+		// Refus sur ALDUR (personnage affiche par defaut).
+		const champNom = screen.getByRole('textbox', { name: /nom du personnage/i })
+		fireEvent.change(champNom, { target: { value: 'Un nom quelconque' } })
+		fireEvent.blur(champNom)
+		expect(screen.getByText(TEXTE_ABSENT)).toBeInTheDocument()
+
+		// Restaure le dossier : l ajout suivant va REUSSIR.
+		const restauration = autreBrain.dossiers.importDossier(avant)
+		expect(restauration.statut).toBe('valid')
+
+		// L ajout REUSSIT desormais (indexe sur Aldur pour l affichage) : il ne
+		// doit PAS resoudre le refus non resolu sur Aldur.
+		fireEvent.click(screen.getByRole('button', { name: '+ Ajouter un personnage…' }))
+		expect(lire(brain, dossier.id).monde.personnages).toHaveLength(2)
+
+		// La selection a change (le nouveau personnage devient affiche) : le
+		// FILTRE D AFFICHAGE masque donc le bandeau ICI, quel que soit l etat
+		// reel de `refus` -- revenir sur la ligne d Aldur re-verifie l etat REEL.
+		fireEvent.click(laLigne('pnj.aldur'))
+		expect(screen.getByText(TEXTE_ABSENT)).toBeInTheDocument()
 	})
 })

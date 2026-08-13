@@ -589,7 +589,7 @@
 		{
 			"id": "KR-196",
 			"feature": "dossier-fiches",
-			"risk": "contre_mesures[] (6e famille de conditions D1) se rend comme une SECTION INTERNE de BlocPlanActions, gated camp==='antagoniste' - jamais un emplacement d'accordeon separe. Un protagoniste ne doit voir ni un etat vide qui ne se remplira jamais, ni une carte manquante cassant la regularite de la grille a 8 entrees. Ses destinations sont deja arbitrees en commentaire dans destinations.ts (fin de fichier) - a materialiser en lignes de table dans le lot contrat d'it3, jamais a redebattre."
+			"risk": "contre_mesures[] (6e famille de conditions D1) se rend comme une SECTION INTERNE de BlocPlanActions, gated camp==='antagoniste' - jamais un emplacement d'accordeon separe. Un protagoniste ne doit voir ni un etat vide qui ne se remplira jamais, ni une carte manquante cassant la regularite de la grille a 8 entrees. Ses destinations sont deja arbitrees en commentaire dans destinations.ts (fin de fichier) - a materialiser en lignes de table dans le lot contrat d'it4 (ex-it3, redecoupage du 2026-08-12), jamais a redebattre."
 		},
 		{
 			"id": "KR-197",
@@ -599,7 +599,7 @@
 		{
 			"id": "KR-198",
 			"feature": "dossier-fiches",
-			"risk": "Personnage.objectif_id (it1, MOTEUR, reference vers canon.objectifs[].id) n'est PAS l'identifiant du but propre du personnage. Ce but arrive a it3 et se nomme `but` {libelle, pourquoi?, echeance?}, JAMAIS `objectif` : deux cles objectif* voisines sur le meme objet rejoueraient la collision plan (l'enumere) / plan_actions (la liste), classee correction IRREVERSIBLE dans l'en-tete de types.ts. Le piege est de COMPREHENSION, pas de mecanique -- les deux chemins sont distincts, rien ne rougira ; il ne se paierait qu'a la n° 10, quand un champ moteur partirait dans un contexte de modele parce qu'un lecteur aurait suppose que les deux objectif* vont ensemble. Decision prise a it1 et non differee a it3, parce que schema:1 n'a aucun chemin de migration (KR-160) : objectif_id est ecrit dans des documents persistes des ce commit et ne se renomme plus, tandis que la cle d'it3 est encore libre."
+			"risk": "Personnage.objectif_id (it1, MOTEUR, reference vers canon.objectifs[].id) n'est PAS l'identifiant du but propre du personnage. Ce but arrive a it4 (ex-it3) et se nomme `but` {libelle, pourquoi?, echeance?}, JAMAIS `objectif` : deux cles objectif* voisines sur le meme objet rejoueraient la collision plan (l'enumere) / plan_actions (la liste), classee correction IRREVERSIBLE dans l'en-tete de types.ts. Le piege est de COMPREHENSION, pas de mecanique -- les deux chemins sont distincts, rien ne rougira ; il ne se paierait qu'a la n° 10, quand un champ moteur partirait dans un contexte de modele parce qu'un lecteur aurait suppose que les deux objectif* vont ensemble. Decision prise a it1 et non differee a it4, parce que schema:1 n'a aucun chemin de migration (KR-160) : objectif_id est ecrit dans des documents persistes des ce commit et ne se renomme plus, tandis que la cle d'it4 est encore libre."
 		}
 	]
 }

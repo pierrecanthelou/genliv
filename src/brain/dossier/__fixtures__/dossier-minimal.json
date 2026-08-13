@@ -56,6 +56,9 @@
 				"portee": "premier",
 				"camp": "protagoniste",
 				"objectif_id": "objectif.refermer-le-sceau",
+				"fonction": "Ermite retiré du monde, gardien de la mémoire de Val-Cendre : c'est chez lui qu'on vient demander ce que le bourg a préféré oublier.",
+				"apparence": "Un vieil homme voûté à la barbe blanche tressée de perles d'os, les mains tachées d'encre et de cendre. Sa voix ne dépasse jamais le murmure.",
+				"description_joueur": "À Val-Cendre, on le dit sage et un peu fou. Chacun sait où il vit ; personne ne sait ce qu'il garde.",
 				"plan_actions": [
 					{
 						"etape": 1,

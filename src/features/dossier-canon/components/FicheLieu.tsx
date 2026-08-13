@@ -1,5 +1,6 @@
 import type { ChangeEvent, CSSProperties, FocusEvent, Ref } from 'react'
 import { Card, Field, IconButton, IssueList, HIT_TARGET_MIN, type Lieu, type DossierIssue } from '../../../brain'
+import { EYEBROW_REFUS, TEXTE_ABSENT } from '../utils/refusMessages'
 
 /**
  * Le brouillon local des QUATRE champs de prose d'un lieu — le type vit ici
@@ -15,14 +16,19 @@ export interface BrouillonLieu {
 }
 
 /**
- * Le refus en cours — SIMPLE, à la différence de `Refus.champs` dans
- * `PanneauCanon.tsx`/`PanneauDepart.tsx` : cette fiche n'a qu'UNE seule
- * écriture refusable (le retrait du lieu de `charpente.depart.lieu_id`), les
- * quatre champs de prose ne pouvant structurellement jamais l'être (aucune
- * entrée de `BUDGETS_DE_MOTS` ni de famille de conditions ne porte sur
- * `monde.lieux[]`).
+ * Le refus en cours. Deux écritures peuvent désormais le produire : le
+ * retrait du lieu de `charpente.depart.lieu_id` (`'refuse'`, les quatre
+ * champs de prose ne pouvant structurellement jamais l'être — aucune entrée
+ * de `BUDGETS_DE_MOTS` ni de famille de conditions ne porte sur
+ * `monde.lieux[]`) et `{statut:'absent'}` (le dossier a disparu ailleurs
+ * pendant l'édition, revue de PR dossier-fiches it2, élargissement) —
+ * `statut` distingue les deux, même patron que `FichePersonnage.tsx`
+ * (dossier-fiches) : `'absent'` ne porte AUCUN `issues` réel
+ * (`DossierService.ts`), le rendu branche donc sur `statut`, jamais sur
+ * `issues`.
  */
-export interface RefusLieu {
+interface RefusLieu {
+	statut: 'absent' | 'refuse'
 	issues: DossierIssue[]
 }
 
@@ -37,8 +43,6 @@ export interface FicheLieuProps {
 	onBlurChamp: (champ: keyof BrouillonLieu, valeur: string) => void
 	onRetirer: () => void
 }
-
-const EYEBROW_REFUS = "CE CHANGEMENT N'A PAS ÉTÉ ENREGISTRÉ"
 
 const PLACEHOLDER_NOM = "La Caverne d'Aldûr"
 const PLACEHOLDER_DESCRIPTION =
@@ -131,7 +135,11 @@ export function FicheLieu({
 				{refus !== null && (
 					<div role="status" style={bandeauRefusStyle}>
 						<p style={eyebrowRefusStyle}>{EYEBROW_REFUS}</p>
-						<IssueList issues={refus.issues} />
+						{refus.statut === 'absent' ? (
+							<p style={texteAbsentStyle}>{TEXTE_ABSENT}</p>
+						) : (
+							<IssueList issues={refus.issues} />
+						)}
 					</div>
 				)}
 			</div>
@@ -162,4 +170,12 @@ const eyebrowRefusStyle: CSSProperties = {
 	fontSize: 'var(--fs-eyebrow)',
 	color: 'var(--bad)',
 	letterSpacing: 'var(--track-eyebrow)',
+}
+
+const texteAbsentStyle: CSSProperties = {
+	margin: 0,
+	fontFamily: 'var(--font-ui)',
+	fontSize: 'var(--fs-body)',
+	color: 'var(--text-body)',
+	lineHeight: 'var(--lh-body)',
 }

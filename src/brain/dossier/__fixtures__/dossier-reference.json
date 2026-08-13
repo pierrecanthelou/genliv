@@ -75,6 +75,9 @@
 				"id": "pnj.corvin-le-marchand",
 				"nom": "Corvin le Marchand",
 				"portee": "premier",
+				"fonction": "Marchand du marché des cendres, et prêteur sur gage à ses heures : il vend du sel et des lanternes, mais il monnaie surtout ce qu'il entend.",
+				"apparence": "Un homme sec au manteau trop large, une lanterne toujours allumée à la ceinture, qui compte ses pièces en vous parlant sans jamais lever les yeux.",
+				"description_joueur": "Tout le Foyer du Guet lui achète quelque chose, et tout le Foyer du Guet se méfie de ce qu'il répète ailleurs.",
 				"plan_actions": [
 					{
 						"etape": 1,
@@ -137,6 +140,7 @@
 				"id": "pnj.harek-le-forgeron",
 				"nom": "Harek le Forgeron",
 				"portee": "premier",
+				"fonction": "Forgeron du Foyer du Guet, le dernier du village à savoir remonter une pièce du mécanisme du beffroi.",
 				"plan_actions": [],
 				"savoirs": [
 					{

@@ -145,7 +145,7 @@ Huit features. Une phrase de démo par feature, sans « et » : c'est le test de
 | 1 | `dossier-format` | …importer un dossier d'aventure validé contre un schéma versionné | **5** | **5/5 — terminée** | 5 rôles | — |
 | 2 | `bascule-editeur` | …naviguer dans son aventure par une liste de sections | 3 | **3/3 — terminée** | 5 rôles | 1 |
 | 3 | `dossier-canon` | …rédiger la vérité immuable de son histoire | 4 | **4/4 — terminée** | 4 rôles | 2 |
-| 4 | `dossier-fiches` | …écrire une fiche de personnage exploitable par l'IA | 5 | **1/5** | 5 rôles | 3 |
+| 4 | `dossier-fiches` | …écrire une fiche de personnage exploitable par l'IA | 6 | **2/6** | 5 rôles | 3 |
 | 5 | `dossier-objets` | …tenir le registre des objets de son aventure | 2 | — | 4 rôles | 1 |
 | 6 | `dossier-registres` | …tenir les quêtes, les indices, les événements de son aventure | 4 | — | 4 rôles | 4 · 5 |
 | 7 | `dossier-controles` | …voir pourquoi son aventure n'est pas encore jouable | 3 | — | 5 rôles | 6 |
@@ -163,7 +163,7 @@ Huit features. Une phrase de démo par feature, sans « et » : c'est le test de
 
 **3 · `dossier-canon`** — sections 01 synopsis & canon (synopsis MJ vs accroche joueur), 02 objectifs des camps, 07 lieux, 10 point de départ. **CORRECTION (cadrage dossier-canon, 2026-08-10)** : passe de 3 à 4 itérations (Canon · Départ · Objectifs · Lieux) — Objectifs et Lieux ouvrent chacun un lot contrat de schéma disjoint (`camp` sur `Objectif` ; création du type `Lieu`), qui ne cohabitent jamais dans une même itération.
 
-**4 · `dossier-fiches`** — sections 03 et 04. **Le gros morceau**, et le plan de cible le dit deux fois : « l'écran le plus important du produit ». 8 blocs, deux axes `camp` × `plan`, 6 curseurs de caractère, l'éditeur de plan d'actions (5 champs par étape), l'éditeur de savoirs avec `revele_si` à 4 conditions, le sélecteur de relations à intensité signée. Un seul formulaire pour tous les personnages. **5 itérations, pas moins.** Le bloc 3 (« caractère exploitable ») est décrit comme « le bloc qui décide de tout » — d'où `narratif-ia` au comité, et le mapping des 6 curseurs sur CA/IN/IG, aujourd'hui indéfini, est à produire ici.
+**4 · `dossier-fiches`** — sections 03 et 04. **Le gros morceau**, et le plan de cible le dit deux fois : « l'écran le plus important du produit ». 8 blocs, deux axes `camp` × `plan`, 6 curseurs de caractère, l'éditeur de plan d'actions (5 champs par étape), l'éditeur de savoirs avec `revele_si` à 4 conditions, le sélecteur de relations à intensité signée. Un seul formulaire pour tous les personnages. **6 itérations** — cadrée à 5, passée à 6 au raffinage d'it2 (2026-08-12) : « identité **et** caractéristiques » ne s'écrivait pas sans « et » et pesait ≥ 9 critères, donc l'identité (it2) et les caractéristiques (it3) sont deux tranches de schéma séparées. Le bloc 3 (« caractère exploitable ») est décrit comme « le bloc qui décide de tout » — d'où `narratif-ia` au comité, et le mapping des 6 curseurs sur CA/IN/IG, aujourd'hui indéfini, est à produire ici.
 
 **5 · `dossier-objets`** — **absente du plan de cible.** `objet_id` y est référencé à quatre endroits sans qu'aucun tableau racine ne le définisse, alors que `CLAUDE.md` en fait une règle de domaine. `action-decor` est supprimée, mais l'`ObjectEditor` qu'elle utilisait vit dans `brain/components/` et reste disponible comme graine.
 

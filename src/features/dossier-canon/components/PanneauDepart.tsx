@@ -10,6 +10,7 @@ import {
 	type Depart,
 	type DossierIssue,
 } from '../../../brain'
+import { EYEBROW_REFUS } from '../utils/refusMessages'
 
 export interface PanneauDepartProps {
 	dossierId: string
@@ -32,8 +33,6 @@ interface Refus {
 	champs: (keyof Depart)[]
 	issues: DossierIssue[]
 }
-
-const EYEBROW_REFUS = "CE CHANGEMENT N'A PAS ÉTÉ ENREGISTRÉ"
 
 /**
  * La légende du cas à UNE seule option — l'état normal d'un dossier tant que la

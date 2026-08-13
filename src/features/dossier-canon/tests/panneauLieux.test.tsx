@@ -268,4 +268,93 @@ describe('PanneauLieux', () => {
 		expect(apresRetrait.canon).toEqual(avant.canon)
 		expect(apresRetrait.charpente).toEqual(avant.charpente)
 	})
+
+	/**
+	 * Revue de PR (dossier-fiches it2, élargissement) — `commit()` ne traitait
+	 * QUE `'refuse'` explicitement ; `'absent'` (dossier supprimé ailleurs
+	 * pendant l'édition) tombait dans la branche succès et EFFAÇAIT tout refus
+	 * en silence au lieu de le signaler. SANS MOCK du service : un second
+	 * `createBrain()` sur le MÊME stockage (`window.localStorage` partagé)
+	 * supprime le dossier, le premier brain — encore monté — le découvre au
+	 * premier `commit()` suivant.
+	 */
+	it('dossier supprime pendant l edition: bandeau, jamais efface silencieusement par la branche succes', () => {
+		const brain = createBrain()
+		const dossier = brain.dossiers.create('Un dossier')
+		renderPanel(brain, dossier.id)
+
+		const autreBrain = createBrain()
+		expect(autreBrain.dossiers.remove(dossier.id)).toBe(true)
+
+		const champNom = screen.getByRole('textbox', { name: /nom du lieu/i })
+		fireEvent.change(champNom, { target: { value: 'Un nom quelconque' } })
+		fireEvent.blur(champNom)
+
+		const bandeau = screen.getByRole('status')
+		expect(bandeau).toHaveTextContent("CE CHANGEMENT N'A PAS ÉTÉ ENREGISTRÉ")
+		expect(bandeau).toHaveTextContent("Ce dossier n'existe plus")
+	})
+
+	/**
+	 * Revue de PR — même défaut que `PanneauPersonnages.handleAjouter`
+	 * (dossier-fiches it2) : `commit()` indexait l'ajout raté sur l'identifiant
+	 * TOUT JUSTE FRAPPÉ, qui n'entre jamais dans le document si l'écriture
+	 * échoue — un ajout refusé évinçait donc en silence un refus déjà affiché
+	 * sur un autre lieu. Même montage que le test précédent : `{statut:'absent'}`
+	 * via un second `createBrain()`, AUCUN mock du service.
+	 */
+	it('bandeau de refus: un refus sur un lieu survit a un ajout qui echoue', () => {
+		const brain = createBrain()
+		const dossier = brain.dossiers.create('Un dossier')
+		renderPanel(brain, dossier.id)
+
+		const autreBrain = createBrain()
+		expect(autreBrain.dossiers.remove(dossier.id)).toBe(true)
+
+		// Refus sur lieu.amorce (lieu affiche par defaut).
+		const champNom = screen.getByRole('textbox', { name: /nom du lieu/i })
+		fireEvent.change(champNom, { target: { value: 'Un nom quelconque' } })
+		fireEvent.blur(champNom)
+		expect(screen.getByRole('status')).toHaveTextContent("Ce dossier n'existe plus")
+
+		// L ajout echoue aussi (meme dossier absent) : le bandeau ne doit ni
+		// disparaitre, ni un lieu etre ajoute pour autant.
+		fireEvent.click(screen.getByRole('button', { name: '+ Ajouter un lieu…' }))
+		expect(screen.getByRole('status')).toHaveTextContent("Ce dossier n'existe plus")
+		expect(lesLignes()).toHaveLength(1)
+	})
+
+	/**
+	 * Revue de PR — RÉGRESSION introduite par le correctif précédent (symptôme
+	 * de BUG-063) : indexer l'ajout raté sur le lieu AFFICHÉ (pour que le refus
+	 * survive à un ajout qui ÉCHOUE) a un effet de bord non voulu quand l'ajout
+	 * RÉUSSIT — la garde d'invalidation de `commit()` voit alors le MÊME
+	 * identifiant que le refus déjà en cause et l'efface, alors qu'un ajout ne
+	 * résout rien sur un AUTRE lieu. `resout: false` sur le chemin de création
+	 * ferme cette régression. Séquence directement montable (retrait refusé
+	 * par le SSOT, `charpente.depart.lieu_id`) — aucun besoin de simuler un
+	 * dossier absent ici, l'ajout doit réellement RÉUSSIR pour prouver le défaut.
+	 */
+	it('bandeau de refus: un ajout reussi ne resout pas un refus non resolu', async () => {
+		const user = userEvent.setup()
+		const brain = createBrain()
+		const dossier = brain.dossiers.create('Un dossier')
+		// Un second lieu NON reference, pour que lieu.amorce reste la selection.
+		semerLieu(brain, dossier.id, { id: 'lieu.val-cendre', nom: 'Val-Cendre' })
+		renderPanel(brain, dossier.id)
+
+		// Refus sur lieu.amorce (reference par charpente.depart).
+		await user.click(screen.getByRole('button', { name: 'Retirer le lieu n°1' }))
+		expect(screen.getByRole('status')).toHaveTextContent("CE CHANGEMENT N'A PAS ÉTÉ ENREGISTRÉ")
+
+		// L ajout REUSSIT desormais (indexe sur lieu.amorce, l entite affichee) :
+		// il ne doit PAS resoudre le refus non resolu sur lieu.amorce.
+		await user.click(screen.getByRole('button', { name: '+ Ajouter un lieu…' }))
+		expect(lire(brain, dossier.id).monde.lieux).toHaveLength(3)
+
+		// La selection a change (le nouveau lieu, focus Nom) -- revenir sur
+		// lieu.amorce re-verifie l etat REEL du refus.
+		await user.click(laLigne('lieu.amorce'))
+		expect(screen.getByRole('status')).toHaveTextContent("CE CHANGEMENT N'A PAS ÉTÉ ENREGISTRÉ")
+	})
 })

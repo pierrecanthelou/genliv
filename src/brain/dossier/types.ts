@@ -34,7 +34,9 @@
  * La n° 4 `dossier-fiches` ouvre ensuite la fiche de personnage, une TRANCHE DE
  * SCHÉMA par itération (KR-190) : l'itération 1 y pose `camp` et `objectif_id`,
  * tous deux OPTIONNELS — le schéma reste 1, et rien de ce qui est déjà persisté ne
- * devient invalide (KR-191).
+ * devient invalide (KR-191). L'itération 2 y ajoute les TROIS proses d'identité —
+ * `fonction`, `apparence`, `description_joueur` —, optionnelles elles aussi et
+ * toutes trois d'audience `ia`.
  *
  * QUI LIT QUOI : ce fichier dit la FORME, il ne dit pas l'AUDIENCE. L'audience
  * de chaque champ terminal vit dans `destinations.ts`, sous le balayage de
@@ -232,12 +234,22 @@ export interface Savoir {
 /**
  * Un acteur du monde : sa portée, son plan, ce qu'il sait — et, depuis
  * l'itération 1 de la n° 4, où il se situe dans l'histoire (son camp et
- * l'objectif auquel il se rattache).
+ * l'objectif auquel il se rattache), depuis l'itération 2 QUI IL EST (ses trois
+ * proses d'identité).
  *
  * Les deux champs de situation sont OPTIONNELS et posés À PLAT, au même niveau
  * que `portee` : aucun sous-objet `rattachement`, et aucune union discriminée
  * `objectif_id | quete_id` — `monde.quetes[]` n'a pas de forme complète avant la
- * n° 6, et une référence CONDITIONNELLE serait une première dans le schéma.
+ * n° 6, et une référence CONDITIONNELLE serait une première dans le schéma. Les
+ * trois proses d'identité suivent la même règle : À PLAT, aucun sous-objet
+ * `fiche{}` — un porteur intermédiaire ferait de chaque champ un chemin de
+ * destination à deux étages sans qu'aucune règle ne s'y attache.
+ *
+ * LES TROIS PROSES SE DISCRIMINENT L'UNE L'AUTRE, et c'est écrit sur chacune :
+ * deux proses `ia` sans discriminant sont deux vérités concurrentes dans le même
+ * contexte de modèle. `fonction` dit ce que le personnage EST, `apparence` ce que
+ * le narrateur DÉCRIT quand il entre en scène, `description_joueur` ce que le
+ * joueur en SAIT déjà sans avoir enquêté.
  */
 export interface Personnage extends Entite {
 	portee: Portee
@@ -252,11 +264,39 @@ export interface Personnage extends Entite {
 	 *  Une référence orpheline est EXPOSÉE, jamais silencieuse (KR-021).
 	 *
 	 *  CE N'EST PAS l'identifiant du but propre du personnage (KR-198) : ce
-	 *  dernier arrive à l'itération 3 sous la clé `but`, PAS `objectif`, et il est
+	 *  dernier arrive à l'itération 4 sous la clé `but`, PAS `objectif`, et il est
 	 *  destination `ia` là où celui-ci est `moteur`. Deux clés `objectif*`
 	 *  voisines auraient rejoué la collision `plan` / `plan_actions` que
 	 *  l'en-tête de ce fichier compte parmi ses corrections irréversibles. */
 	objectif_id?: string
+	/** IA — ce que le personnage EST dans le monde : son métier, son rang, la
+	 *  charge qu'il occupe. C'est le champ de l'ÉTAT SOCIAL, jamais du physique :
+	 *  ce qu'on voit de lui va dans `apparence`, ce qui se dit de lui dans
+	 *  `description_joueur`. OPTIONNEL — absent ≠ vide : une fiche en cours de
+	 *  rédaction est un état calme, jamais une alerte.
+	 *  Exemple : « Ermite retiré du monde, gardien de la mémoire de Val-Cendre. » */
+	fonction?: string
+	/** IA — ce que le narrateur décrit quand le personnage ENTRE EN SCÈNE :
+	 *  physique, voix, signes distinctifs. Elle DÉCRIT, elle ne chiffre pas — la
+	 *  force ou l'agilité d'un personnage se règlent aux caractéristiques, jamais
+	 *  dans cette prose. À ne pas confondre avec `description_joueur` : celle-ci
+	 *  est ce que le joueur SAIT avant de le rencontrer, celle-là ce qu'il
+	 *  DÉCOUVRE en le voyant. OPTIONNEL — absent ≠ vide.
+	 *  Exemple : « Un vieil homme voûté à la barbe blanche tressée de perles
+	 *  d'os, les mains tachées d'encre et de cendre. » */
+	apparence?: string
+	/** IA — ce que le joueur peut savoir du personnage SANS ENQUÊTE : sa
+	 *  réputation publique, ce qui se dit de lui. Ce n'est ni sa charge
+	 *  (`fonction`), ni ce qu'on voit de lui (`apparence`).
+	 *
+	 *  Le suffixe `_joueur` nomme son AUDIENCE, jamais son RÉGIME : elle est
+	 *  INJECTÉE au modèle comme les deux autres, jamais émise mot pour mot. La
+	 *  seule prose du dossier émise verbatim reste
+	 *  `charpente.depart.texte_ouverture_joueur`, et c'est pour cela qu'elle est
+	 *  `moteur` là où celle-ci est `ia`. OPTIONNEL — absent ≠ vide.
+	 *  Exemple : « On le dit sage, et un peu fou ; tout le bourg sait où il vit,
+	 *  personne ne sait ce qu'il garde. » */
+	description_joueur?: string
 }
 
 /**

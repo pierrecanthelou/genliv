@@ -15,6 +15,7 @@ import {
 	type DossierIssue,
 	type EcritureDossier,
 } from '../../../brain'
+import { EYEBROW_REFUS, TEXTE_ABSENT } from '../utils/refusMessages'
 
 export interface ObjectifsCanonProps {
 	dossierId: string
@@ -25,9 +26,16 @@ export interface ObjectifsCanonProps {
  * motif que `RefusEnCours` dans `PanneauLieux.tsx` (BUG-061) : sans cet index,
  * un succès sur un AUTRE objectif de la carte effacerait un refus toujours
  * actif, sans que l'auteur n'ait rien corrigé.
+ *
+ * `statut` (revue de PR, dossier-fiches it2) — AVANT, seul `'refuse'` posait
+ * un refus explicite ; `'absent'` (dossier supprimé ailleurs pendant
+ * l'édition) tombait dans la branche succès de `commit()` et EFFAÇAIT tout
+ * refus non résolu au lieu de le signaler — le même no-op muet que KR-183/197
+ * ferme ailleurs.
  */
 interface RefusEnCours {
 	objectifId: string
+	statut: 'absent' | 'refuse'
 	issues: DossierIssue[]
 }
 
@@ -54,7 +62,6 @@ const OPTIONS_CAMPS = CAMPS.map((camp) => ({ value: camp, label: LIBELLES_CAMPS[
 
 const EYEBROW_SECTION = 'OBJECTIFS DES CAMPS — interne, jamais injecté au modèle'
 const EYEBROW_AVERTISSEMENT_OBJECTIFS = 'ENREGISTRÉ, AVEC AVERTISSEMENT'
-const EYEBROW_REFUS = "CE CHANGEMENT N'A PAS ÉTÉ ENREGISTRÉ"
 
 const PLACEHOLDER_NOM = 'Percer le secret du Gouffre scellé'
 const PLACEHOLDER_REUSSITE = 'Le héros a atteint le fond du Gouffre scellé.'
@@ -156,6 +163,15 @@ export function ObjectifsCanon({ dossierId }: ObjectifsCanonProps): JSX.Element 
 	// nulle une fois ici évite un `as`/`!` ou un second garde répété.
 	const dossierActuel: typeof dossier = dossier
 
+	// Cette carte est PLATE (pas de sélection, tous les objectifs sont rendus en
+	// même temps) : il n'existe pas d'« entité affichée » comme dans
+	// `PanneauLieux.tsx`/`PanneauPersonnages.tsx`. La seule ancre disponible
+	// « sous la main » de `handleAjouter` avant que l'ajout n'existe est le
+	// PREMIER objectif de la carte, s'il y en a déjà un — même repli
+	// `array[0]` que `lieuAffiche`/`personnageAffiche` (`undefined` sur une
+	// carte encore vide, cas où aucun refus ne peut de toute façon préexister).
+	const objectifAncre = dossierActuel.canon.objectifs[0]
+
 	/**
 	 * L'idiome d'écriture prescrit (§5 du plan) : TROIS racines nommées, jamais
 	 * un spread de `dossier` — seul `canon.objectifs` change, `monde`/`charpente`
@@ -163,15 +179,33 @@ export function ObjectifsCanon({ dossierId }: ObjectifsCanonProps): JSX.Element 
 	 * écriture (celui qu'on retire/modifie, ou le nouvel objectif à l'ajout) —
 	 * chaque appelant le nomme explicitement, jamais un identifiant vide ou
 	 * approximatif.
+	 *
+	 * `resout` (revue de PR — régression du correctif `handleAjouter`, symptôme
+	 * de BUG-063) : `objectifId` porte DEUX RÔLES distincts — l'AFFICHAGE
+	 * (indirect ici, cette carte est plate) et l'INVALIDATION (quel succès
+	 * efface le refus, actif SEULEMENT si `resout`). `handleAjouter` indexe son
+	 * refus d'ajout raté sur `objectifAncre`, mais un AJOUT NE RÉSOUT JAMAIS un
+	 * refus — même quand il réussit et que l'ancre coïncide avec l'entité déjà
+	 * en cause : ajouter un objectif ne corrige rien sur un AUTRE objectif. Les
+	 * chemins d'ÉDITION (blur, retrait, changement de camp) gardent
+	 * `resout: true` (défaut) : eux RÉSOLVENT légitimement.
 	 */
-	function commit(objectifs: Objectif[], objectifId: string): EcritureDossier {
+	function commit(
+		objectifs: Objectif[],
+		objectifId: string,
+		{ resout }: { resout: boolean } = { resout: true },
+	): EcritureDossier {
 		const resultat = dossiers.update(dossierId, (d) => ({
 			canon: { ...d.canon, objectifs },
 			monde: d.monde,
 			charpente: d.charpente,
 		}))
 		setRefus((refusPrecedent) => {
-			if (resultat.statut === 'refuse') return { objectifId, issues: resultat.errors }
+			if (resultat.statut === 'refuse') return { objectifId, statut: 'refuse', issues: resultat.errors }
+			if (resultat.statut === 'absent') return { objectifId, statut: 'absent', issues: [] }
+			// Écriture réussie. Un AJOUT (`resout: false`) ne résout JAMAIS un
+			// refus, quelle que soit l'entité qu'il touche pour l'affichage.
+			if (!resout) return refusPrecedent
 			// Un commit réussi n'efface le refus que s'il touche le MÊME objectif
 			// que celui déjà en cause (BUG-056/BUG-061) : un succès sur un AUTRE
 			// objectif ne doit jamais faire disparaître un refus non résolu.
@@ -187,7 +221,15 @@ export function ObjectifsCanon({ dossierId }: ObjectifsCanonProps): JSX.Element 
 	function handleAjouter(): void {
 		const id = frapperIdentifiant('objectif')
 		const nouveau: Objectif = { id, camp: CAMP_INITIAL, nom: '', reussi_si_texte: '', echoue_si_texte: '' }
-		const resultat = commit([...dossierActuel.canon.objectifs, nouveau], id)
+		/**
+		 * Le refus d'un ajout raté s'indexe sur `objectifAncre` (le PREMIER
+		 * objectif de la carte), JAMAIS sur `id` — l'identifiant tout juste
+		 * frappé n'entre dans le document QUE si l'écriture réussit, et un
+		 * refus qui lui serait attaché ne pourrait plus jamais être effacé par
+		 * aucun succès ultérieur. `resout: false` : un ajout, réussi ou non, ne
+		 * résout JAMAIS un refus (voir `commit`).
+		 */
+		const resultat = commit([...dossierActuel.canon.objectifs, nouveau], objectifAncre?.id ?? id, { resout: false })
 		if (resultat.statut !== 'ecrit') return
 		setBrouillons((prev) => ({ ...prev, [id]: brouillonDe(nouveau) }))
 	}
@@ -317,7 +359,11 @@ export function ObjectifsCanon({ dossierId }: ObjectifsCanonProps): JSX.Element 
 			{refus !== null && (
 				<div role="status" style={bandeauRefusStyle}>
 					<p style={eyebrowRefusStyle}>{EYEBROW_REFUS}</p>
-					<IssueList issues={refus.issues} />
+					{refus.statut === 'absent' ? (
+						<p style={texteAbsentStyle}>{TEXTE_ABSENT}</p>
+					) : (
+						<IssueList issues={refus.issues} />
+					)}
 				</div>
 			)}
 
@@ -396,6 +442,14 @@ const eyebrowRefusStyle: CSSProperties = {
 	fontSize: 'var(--fs-eyebrow)',
 	color: 'var(--bad)',
 	letterSpacing: 'var(--track-eyebrow)',
+}
+
+const texteAbsentStyle: CSSProperties = {
+	margin: 0,
+	fontFamily: 'var(--font-ui)',
+	fontSize: 'var(--fs-body)',
+	color: 'var(--text-body)',
+	lineHeight: 'var(--lh-body)',
 }
 
 const bandeauAvertissementStyle: CSSProperties = {

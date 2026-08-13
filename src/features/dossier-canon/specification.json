@@ -236,8 +236,20 @@
 				"completed_at": "2026-08-11",
 				"goal_livre": "L'auteur consigne les lieux de son aventure dans la section Lieux : ajoute, modifie (nom, description, ambiance, dangers), retire un lieu, sauf le lieu de depart (charpente.depart.lieu_id), protege par le blocage deja existant du validateur (reference-pendante) plutot qu'une confirmation Modal. Derniere iteration de la feature (3/4 -> 4/4, feature done).",
 				"lots": [
-					{ "id": 1, "nom": "contrat-lieu", "type": "contrat", "ouvrier": "dev-contrat", "fichiers": 6 },
-					{ "id": 2, "nom": "panneau-lieux", "type": "feature", "ouvrier": "dev-lot", "fichiers": 6 }
+					{
+						"id": 1,
+						"nom": "contrat-lieu",
+						"type": "contrat",
+						"ouvrier": "dev-contrat",
+						"fichiers": 6
+					},
+					{
+						"id": 2,
+						"nom": "panneau-lieux",
+						"type": "feature",
+						"ouvrier": "dev-lot",
+						"fichiers": 6
+					}
 				],
 				"architecture_choices": [
 					"Lieu extends Entite { description?, ambiance?, dangers? } - les trois champs TOUS optionnels (contrairement a Objectif.camp, it3) : lot contrat mesure a 6 fichiers, pas 9 - tables.ts/validate.ts/amorce.ts/identifiers.ts/sections.ts restent intouches (aucune ligne CHAMPS_REQUIS/ENUMERES_FERMES a ajouter).",
@@ -251,7 +263,9 @@
 					"FicheLieu.tsx cree en plus des fichiers du plan (clause conditionnelle deja prevue si PanneauLieux depasse ~350 lignes, KR-112) - meme propriete de lot, aucune collision.",
 					"Un test supplementaire au-dela des 8 nommes au plan, ajoute en reponse a la QA mode B (critere #7, compteur de nav) : une sonde d'ecriture batie sur brain/ (jamais un import direct de PanneauLieux, KR-184 vaut aussi pour les tests) rejoue le geste de production dans dossierEditorScreen.test.tsx et prouve que le compteur de la section Lieux se met a jour depuis un clic reel.",
 					"Deux tours de revue de PR (tech-lead) au lieu d'un : tour 1 a trouve le refus non indexe (affichage), tour 2 a trouve son symetrique (invalidation) reste global apres le premier correctif - les deux corriges dans le meme lot, BUG-061.",
-					"Prealable non planifie decouvert en tour 2 : BUG-059 (identifiant choisi pour ce lot) etait deja pris dans bug_history.features-terminees.json (bascule-editeur it1) - renumerote en BUG-061 avant tout commit (jamais cite ailleurs, aucun cout de renumerotation), et BUG-062 journalise pour la collision preexistante 055-058 (non corrigee, cout de casse superieur au gain cosmetique)."
+					"Prealable non planifie decouvert en tour 2 : BUG-059 (identifiant choisi pour ce lot) etait deja pris dans bug_history.features-terminees.json (bascule-editeur it1) - renumerote en BUG-061 avant tout commit (jamais cite ailleurs, aucun cout de renumerotation), et BUG-062 journalise pour la collision preexistante 055-058 (non corrigee, cout de casse superieur au gain cosmetique).",
+					"REOUVERTE le 2026-08-13, hors de toute iteration de cette feature, par la revue de PR de dossier-fiches it2 (BUG-067, bug_history.dossier-canon.json ; revue .claude/raffinage/dossier-fiches-it2.revue.md). PanneauLieux.tsx et ObjectifsCanon.tsx ne traitaient que statut:'refuse' : sur 'absent' l ecriture tombait dans la BRANCHE SUCCES, donc dossier disparu sans message ET refus legitime efface. Corrige, avec trois consequences de forme a connaitre avant de rouvrir ces fichiers : (1) RefusLieu passe de {lieuId, issues} a {lieuId, statut, issues} et FicheLieu rend les DEUX cas ; (2) EYEBROW_REFUS et TEXTE_ABSENT vivent desormais dans utils/refusMessages.ts, importe par les QUATRE composants a bandeau de la feature ; (3) commit() prend un 3e parametre {resout: boolean} (defaut true) — handleAjouter passe {resout:false}, un ajout ne resout jamais un refus.",
+					"DETTE KR-112 SANS PROPRIETAIRE, a nommer ici parce que la feature est done et n a plus d iteration pour se refaire : ObjectifsCanon.tsx est passe a 467 lignes (413 avant le 2026-08-13), au-dessus du seuil de SIGNAL de 400 — loin du bloqueur (800), mais aucune itration de dossier-canon ne viendra l extraire. Proprietaire de fait : n° 6 dossier-registres, seule feature planifiee qui rouvrira ces ecrans. Le lot useEcriturePersonnage reserve au raffinage de dossier-fiches it3 ne couvre QUE dossier-fiches."
 				],
 				"test_coverage": {
 					"unit": "63 suites / 861 tests verts (63/858 apres integration initiale) - +1 garde de selection au tour 1 de la revue de PR, +1 compteur de nav en reponse a la QA mode B, +1 garde d'invalidation au tour 2, +1 assertion (meme test) au tour 3 pour l'angle symetrique (succes sur le MEME lieu leve le bandeau)",

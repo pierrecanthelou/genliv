@@ -13,6 +13,7 @@ import {
 	type DossierIssue,
 } from '../../../brain'
 import { ObjectifsCanon } from './ObjectifsCanon'
+import { EYEBROW_REFUS } from '../utils/refusMessages'
 
 export interface PanneauCanonProps {
 	dossierId: string
@@ -53,8 +54,6 @@ function brouillonDe(canon: Canon): Brouillon {
 		interdits_ton: canon.interdits_ton,
 	}
 }
-
-const EYEBROW_REFUS = "CE CHANGEMENT N'A PAS ÉTÉ ENREGISTRÉ"
 
 type EtatCompteur = 'normal' | 'avertissement'
 
