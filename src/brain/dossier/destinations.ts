@@ -25,6 +25,7 @@
  * Elle n'est PAS ré-exportée par `brain/index.ts` : aucun consommateur hors de
  * `brain/dossier/` avant la n° 10.
  */
+import { CHARACTERISTIC_VALUES } from '../characteristics'
 
 /**
  * · `ia` — le contenu du champ entre dans le contexte d'un appel au modèle (pour
@@ -36,6 +37,30 @@
  *   jeu, c'est une note de rédaction.
  */
 export type Destination = 'ia' | 'moteur' | 'auteur'
+
+/**
+ * Les HUIT lignes des caractéristiques d'un personnage, DÉRIVÉES du registre
+ * (KR-117) : huit chemins littéraux divergeraient de `CHARACTERISTICS` en silence.
+ * La dérivation est ÉTALÉE ICI, au site, et ne devient pas un mécanisme partagé —
+ * le jour où `caractere.curseurs` arrivera, il écrira SA propre dérivation.
+ *
+ * `moteur`, et l'arbitrage mérite d'être écrit ici plutôt que découvert à la
+ * n° 10 : le chiffre est un SEUIL (`docs/REGLES-DU-JEU.md` § 2 — réussite = dés ≤
+ * caractéristique). Un modèle qui lit `FO: 9` connaît la marge AVANT que
+ * `challenge.ts` n'ait résolu ; il narrerait « tu forces la porte sans effort »
+ * pendant que le moteur tire un échec. Ce qui remplace le chiffre côté prose est
+ * déjà écrit par l'auteur : `apparence` et `fonction`, `ia` toutes les deux. Aucune
+ * PARAPHRASE non plus (« FO élevée ») tant que la n° 10 n'aura pas livré un libellé
+ * dérivé PAR LE CODE et sa propre ligne d'audience.
+ *
+ * AUCUNE LIGNE PORTEUSE `monde.personnages[].stats` — et ce n'est pas un oubli :
+ * `feuillesDeLaFixture` ne rend jamais un objet NON VIDE comme feuille, donc une
+ * telle ligne serait morte le jour même où elle est écrite, et l'assertion
+ * « aucune ligne morte » de `couverture.test.ts` la ferait rougir aussitôt.
+ */
+const DESTINATION_DES_CARACTERISTIQUES: Record<string, Destination> = Object.fromEntries(
+	CHARACTERISTIC_VALUES.map((carac) => [`monde.personnages[].stats.${carac}`, 'moteur' as Destination]),
+)
 
 /**
  * Les clés sont des chemins à INDICES EFFACÉS (`charpente.jalons[].enonce_texte`),
@@ -116,6 +141,11 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	'monde.personnages[].fonction': 'ia',
 	'monde.personnages[].apparence': 'ia',
 	'monde.personnages[].description_joueur': 'ia',
+	// Les HUIT caractéristiques — `moteur`, dérivées, motif complet à la déclaration
+	// de la constante en tête de fichier. Étalées ici, à leur place dans la section
+	// du personnage, plutôt que réunies en bas : l'ordre de la table est celui du
+	// document, et c'est ce qui la rend relisible à côté de `types.ts`.
+	...DESTINATION_DES_CARACTERISTIQUES,
 	'monde.personnages[].plan_actions[].etape': 'moteur',
 	// L'intention du personnage à cette étape — c'est ce que le rôle acteur joue,
 	// et la seule raison d'être d'un plan d'actions. SEULE clé `ia` de la famille :

@@ -28,6 +28,8 @@ Le héros est défini par **8 caractéristiques principales**, plafonnées à **
 | `SE` | Sens | Perception, vigilance et instinct (jets de détection : pièges cachés, embuscades, indices) |
 | `CA` | Caractère | Volonté et résilience mentale |
 
+**Échelle.** Une caractéristique vaut un **entier de 1 à 12**. `12` est le plafond dur (rappelé au § 5) ; `1` est le plancher, et c'est une valeur que le système utilise réellement (§ 4 : Rat géant `FO 1`, Zombie `AG 1`). La **génération du héros** (`2D4` par caractéristique, puis `1D4` réparti, plafond **10** à la création) est une **procédure de départ**, pas la borne de l'échelle : elle ne produit ni valeur sous 2 ni valeur au-dessus de 10, mais rien n'interdit à une caractéristique de sortir de cet intervalle ensuite (progression, § 5), ni à un personnage écrit dans un dossier d'aventure d'y être posé hors de lui.
+
 ### Création & état de santé
 - **Génération** : l'ordinateur lance **2D4** pour chaque caractéristique. Le joueur répartit ensuite un bonus de **1D4** (points **librement répartis** entre les caractéristiques, **plafond 10 par caractéristique** à la création).
 - **Points de Vie (PV)** : `PV = FO + AG + EN`.

@@ -17,6 +17,7 @@ import {
 import { COLLECTIONS_IDENTIFIEES } from './identifiers'
 import { PREDICATES } from './predicates'
 import { DELTAS } from './deltas'
+import { CHARACTERISTIC_VALUES } from '../characteristics'
 
 /**
  * LE SCHÉMA EST ÉCRIT TROIS FOIS — une fois comme types (`types.ts`), une fois
@@ -557,6 +558,52 @@ describe('couverture', () => {
 			expect(feuilles).toContain(chemin)
 			expect(feuillesDeLaReference).toContain(chemin)
 		}
+	})
+
+	it('les 8 caracs sont moteur et instanciees dans les DEUX fixtures', () => {
+		// Même construction que les deux tests ci-dessus, et pour la même raison
+		// (KR-174) : « toute feuille a une destination » ne dit rien de la VALEUR,
+		// « aucune ligne morte » ne dit rien de l'audience. Les deux moitiés nommées
+		// ensemble épinglent l'arbitrage — `moteur` et non `ia` : une caractéristique est
+		// un SEUIL (§ 2 de `docs/REGLES-DU-JEU.md`, réussite = dés ≤ carac), et un modèle
+		// qui lit `FO: 9` connaît la marge avant que le moteur n'ait résolu.
+		//
+		// LES HUIT CHEMINS SONT DÉRIVÉS de `CHARACTERISTIC_VALUES`, jamais écrits en
+		// littéral — c'est ce qui sépare ce test de celui des proses de `Lieu`, où
+		// aucune table ne portait la liste. Ici le registre existe : huit littéraux en
+		// divergeraient en silence le jour où une caractéristique s'ajouterait.
+		//
+		// LE MESSAGE D'ÉCHEC NOMME LE CHAMP, jamais un compte : les deux assertions
+		// d'instanciation projettent la LISTE DES CHEMINS MANQUANTS, de sorte que le
+		// rapport dise « monde.personnages[].stats.SE » et non « attendu 8, reçu 7 ».
+		const chemin = (carac: string): string => `monde.personnages[].stats.${carac}`
+		const CHEMINS_DE_CARACTERISTIQUES = CHARACTERISTIC_VALUES.map(chemin)
+		const feuilles = cheminsDeLaFixture()
+		const feuillesDeLaReference = feuillesDeLaFixture(documentDeReference()).map((feuille) => feuille.normalise)
+
+		expect(CHEMINS_DE_CARACTERISTIQUES.filter((c) => !feuilles.includes(c))).toEqual([])
+		// L'INSTANCE DANS LA RÉFÉRENCE est dans le MÊME test : le garde d'exhaustivité
+		// balaie la fixture MINIMALE, donc un champ instancié là mais absent d'une
+		// aventure réelle resterait vert partout.
+		expect(CHEMINS_DE_CARACTERISTIQUES.filter((c) => !feuillesDeLaReference.includes(c))).toEqual([])
+		for (const c of CHEMINS_DE_CARACTERISTIQUES) {
+			expect(`${c} → ${DESTINATION_DES_CHAMPS[c]}`).toBe(`${c} → moteur`)
+		}
+
+		// Discriminant (a) : la dérivation rend réellement des chemins — sans cette
+		// ligne, les trois assertions ci-dessus passeraient sur une liste vide.
+		expect(CHEMINS_DE_CARACTERISTIQUES.length).toBeGreaterThan(0)
+		// Discriminant (b) : la table de VALIDATION et la table d'AUDIENCE parlent des
+		// MÊMES chemins. Elles dérivent du même registre aujourd'hui ; le jour où l'une
+		// serait recopiée à la main, elles divergeraient sans qu'aucune des assertions
+		// générales ne le voie — chacune ne regarde qu'une des deux.
+		expect(ENUMERES_FERMES.filter((e) => e.path.includes('.stats.')).map((e) => e.path)).toEqual(
+			CHEMINS_DE_CARACTERISTIQUES,
+		)
+		// Discriminant (c) : AUCUNE ligne porteuse `…stats` sans feuille (veto du
+		// raffinage) — `feuillesDeLaFixture` ne rend jamais un objet non vide comme
+		// feuille, donc une telle ligne serait morte le jour où elle serait écrite.
+		expect(DESTINATION_DES_CHAMPS['monde.personnages[].stats']).toBeUndefined()
 	})
 
 	it('chaque entree de PREDICATES a au moins une instance dans la fixture', () => {

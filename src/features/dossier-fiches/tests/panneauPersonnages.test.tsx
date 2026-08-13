@@ -1,6 +1,19 @@
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createBrain, BrainProvider, type Brain, type Dossier, type Personnage, type Objectif } from '../../../brain'
+import {
+	createBrain,
+	BrainProvider,
+	CARACTERISTIQUE_MIN,
+	CHARACTERISTIC_MAX,
+	CHARACTERISTICS,
+	CHARACTERISTIC_VALUES,
+	STATS_INITIALES,
+	type Brain,
+	type Dossier,
+	type Personnage,
+	type Objectif,
+	type Characteristic,
+} from '../../../brain'
 import { PanneauPersonnages } from '../components/PanneauPersonnages'
 
 /**
@@ -203,7 +216,7 @@ describe('PanneauPersonnages', () => {
 		expect(lire(brain, dossier.id).monde.personnages[0]).not.toHaveProperty('objectif_id')
 	})
 
-	it('six placeholders recales: compte exact = 6 (pas 5 ni 7), textes distincts par iteration cible, titres exacts dans l ordre', () => {
+	it('cinq placeholders recales: compte exact = 5 (pas 4 ni 6), textes distincts par iteration cible, titres exacts dans l ordre', () => {
 		const brain = createBrain()
 		const dossier = brain.dossiers.create('Un dossier')
 		semerPersonnage(brain, dossier.id, { id: 'pnj.aldur', portee: 'premier', plan_actions: [], savoirs: [] })
@@ -223,10 +236,12 @@ describe('PanneauPersonnages', () => {
 			expect(screen.getByRole('button', { name: titre })).toBeInTheDocument()
 		})
 
+		// « Caractéristiques » a quitte la table des placeholders a it3 : sans
+		// stats, son bloc porte desormais le CTA « + Regler... », plus un
+		// placeholder generique « Pas encore renseigné — ».
 		const placeholders = screen.getAllByText(/Pas encore renseigné — /)
-		expect(placeholders).toHaveLength(6)
+		expect(placeholders).toHaveLength(5)
 
-		expect(screen.getAllByText(`Pas encore renseigné — ${TEXTE_ITERATION(3)}.`)).toHaveLength(1) // Caractéristiques
 		expect(screen.getAllByText(`Pas encore renseigné — ${TEXTE_ITERATION(4)}.`)).toHaveLength(1) // Objectif & plan d'actions
 		expect(screen.getAllByText(`Pas encore renseigné — ${TEXTE_ITERATION(5)}.`)).toHaveLength(3) // Savoirs, Relations, Présence
 		expect(screen.getAllByText(`Pas encore renseigné — ${TEXTE_ITERATION(6)}.`)).toHaveLength(1) // Caractère exploitable
@@ -714,5 +729,109 @@ describe('PanneauPersonnages', () => {
 		// reel de `refus` -- revenir sur la ligne d Aldur re-verifie l etat REEL.
 		fireEvent.click(laLigne('pnj.aldur'))
 		expect(screen.getByText(TEXTE_ABSENT)).toBeInTheDocument()
+	})
+
+	/**
+	 * BLOC CARACTÉRISTIQUES (it3, §6 critère #3 du plan) — le `clamp` de
+	 * `Stepper` (`min`/`max` déjà câblés à `CARACTERISTIQUE_MIN`/
+	 * `CHARACTERISTIC_MAX`) rend toute valeur hors `[1,12]` INATTEIGNABLE :
+	 * ni affichée, ni écrite. 8 clics « Diminuer » depuis le plancher, puis 20
+	 * clics « Augmenter » (20 > 12 − 1) pour dépasser largement la borne haute.
+	 */
+	it('Force se clampe aux deux bornes 1 et 12', async () => {
+		const user = userEvent.setup()
+		const brain = createBrain()
+		const dossier = brain.dossiers.create('Un dossier')
+		semerPersonnage(brain, dossier.id, { id: 'pnj.aldur', portee: 'premier', plan_actions: [], savoirs: [] })
+		renderPanel(brain, dossier.id)
+
+		await user.click(screen.getByRole('button', { name: 'Caractéristiques' }))
+		await user.click(screen.getByRole('button', { name: '+ Régler les caractéristiques…' }))
+
+		const diminuer = () => screen.getByRole('button', { name: 'Diminuer FORCE (FO)' })
+		const augmenter = () => screen.getByRole('button', { name: 'Augmenter FORCE (FO)' })
+		const controlesFO = () => diminuer().parentElement as HTMLElement
+
+		for (let i = 0; i < 8; i += 1) {
+			await user.click(diminuer())
+		}
+		expect(within(controlesFO()).getByText(String(CARACTERISTIQUE_MIN))).toBeInTheDocument()
+		expect(lire(brain, dossier.id).monde.personnages[0].stats).toEqual(STATS_INITIALES)
+
+		for (let i = 0; i < 20; i += 1) {
+			await user.click(augmenter())
+		}
+		expect(within(controlesFO()).getByText(String(CHARACTERISTIC_MAX))).toBeInTheDocument()
+		const reglagesFinaux = lire(brain, dossier.id).monde.personnages[0].stats
+		expect(reglagesFinaux).toEqual({ ...STATS_INITIALES, FO: CHARACTERISTIC_MAX })
+	})
+
+	/**
+	 * BUG-064, ÉTENDU au bloc Caractéristiques (it3, §6 critère #5 du plan) —
+	 * mêmes deux propriétés que le test d'identité plus haut : LECTURE (chaque
+	 * Stepper + le PV portent la valeur du document) et INDEXATION (la fiche
+	 * suit la ligne sélectionnée, rien ne fuit d'un personnage vers l'autre).
+	 * `FO≠1`/`PV≠3` sur LES DEUX personnages : indiscernable d'un défaut de
+	 * widget sinon (BUG-064). Le bloc 3 ne s'ouvre pas automatiquement, et
+	 * l'accordéon revient au bloc 1 à chaque changement de sélection (remontage
+	 * par `key`) : il faut le rouvrir après avoir sélectionné le second
+	 * personnage.
+	 *
+	 * REVUE QA MODE B — les HUIT Stepper, pas seulement FO/AG/CA : FO et AG
+	 * sont recoupées par le PV (qui pin de fait EN par soustraction), mais DX,
+	 * IN, IG, SE n'étaient éprouvées nulle part avant ce correctif, ni sur A ni
+	 * sur B. `verifieLesHuitCaracs` boucle sur `CHARACTERISTIC_VALUES` (jamais
+	 * huit littéraux) pour que l'assertion couvre exactement le même ensemble
+	 * que celui rendu par `FichePersonnage.tsx`.
+	 */
+	it('lecture au montage sur DEUX personnages, sans interaction', async () => {
+		const user = userEvent.setup()
+		const brain = createBrain()
+		const dossier = brain.dossiers.create('Un dossier')
+		const statsAldur: Record<Characteristic, number> = { FO: 7, AG: 9, DX: 8, EN: 6, IN: 10, IG: 4, SE: 5, CA: 11 } // PV = 22
+		const statsSelene: Record<Characteristic, number> = { FO: 5, AG: 6, DX: 9, EN: 6, IN: 3, IG: 7, SE: 8, CA: 2 } // PV = 17
+		semerPersonnage(brain, dossier.id, {
+			id: 'pnj.aldur',
+			portee: 'premier',
+			plan_actions: [],
+			savoirs: [],
+			stats: statsAldur,
+		})
+		semerPersonnage(brain, dossier.id, {
+			id: 'pnj.selene',
+			portee: 'second',
+			plan_actions: [],
+			savoirs: [],
+			stats: statsSelene,
+		})
+		renderPanel(brain, dossier.id)
+
+		const valeurAffichee = (carac: Characteristic): string | null => {
+			const label = `${CHARACTERISTICS[carac].label.toUpperCase()} (${carac})`
+			const bouton = screen.getByRole('button', { name: `Diminuer ${label}` })
+			return within(bouton.parentElement as HTMLElement).getByText(/^\d+$/).textContent
+		}
+
+		const verifieLesHuitCaracs = (attendu: Record<Characteristic, number>) => {
+			CHARACTERISTIC_VALUES.forEach((carac) => {
+				expect(valeurAffichee(carac)).toBe(String(attendu[carac]))
+			})
+		}
+
+		// AU MONTAGE, sans aucun clic de selection : c est le PREMIER personnage
+		// (aldur) qui est affiche.
+		await user.click(screen.getByRole('button', { name: 'Caractéristiques' }))
+		verifieLesHuitCaracs(statsAldur)
+		expect(screen.getByText('22')).toBeInTheDocument()
+		expect(screen.queryByText('17')).toBeNull()
+
+		// APRES SELECTION de selene : les 8 Stepper et le PV suivent SA fiche,
+		// aucun residu d aldur (l accordeon est revenu au bloc 1, il faut le
+		// rouvrir).
+		await user.click(laLigne('pnj.selene'))
+		await user.click(screen.getByRole('button', { name: 'Caractéristiques' }))
+		verifieLesHuitCaracs(statsSelene)
+		expect(screen.getByText('17')).toBeInTheDocument()
+		expect(screen.queryByText('22')).toBeNull()
 	})
 })

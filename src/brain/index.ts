@@ -137,7 +137,27 @@ export { autoSlot } from './BookService'
 // `deltas.test.ts`, de sorte que le jour où la n° 11 voudra câbler le registre
 // dans un schéma de sortie, elle devra SUPPRIMER un test, c'est-à-dire prendre la
 // décision au lieu de la subir. `DeltaBrut` disparaît, remplacé par `Delta`.
-export { DOSSIER_SCHEMA, BUDGET_MOTS_CANON, BUDGET_MOTS_JALON, CONFIANCE_MIN, CONFIANCE_MAX } from './dossier/types'
+// MÊME RÈGLE pour l'itération 3 de la n° 4 : les DEUX constantes de l'échelle des
+// caractéristiques sortent, et chacune a son consommateur réel et unique côté
+// feature. `CARACTERISTIQUE_MIN` est le `min` des huit `Stepper` de la fiche — la
+// borne basse écrite en dur à l'écran dériverait de celle qui décide réellement du
+// refus à l'import (KR-165), et son plafond jumeau `CHARACTERISTIC_MAX` sort déjà
+// plus haut. `STATS_INITIALES` est le bloc SEMÉ quand l'auteur règle les
+// caractéristiques pour la première fois : reconstruit côté feature, il serait huit
+// littéraux qui divergeraient du registre.
+// ⚠ `STATS_INITIALES` est une valeur d'ÉCRITURE : `stats ?? STATS_INITIALES` sur un
+// chemin de LECTURE est interdit — voir sa docstring. `VALEURS_DE_CARACTERISTIQUE`
+// reste dedans, comme `CONFIANCES` : c'est une table de validation, aucun écran ne
+// choisit une caractéristique dans une liste.
+export {
+	DOSSIER_SCHEMA,
+	BUDGET_MOTS_CANON,
+	BUDGET_MOTS_JALON,
+	CONFIANCE_MIN,
+	CONFIANCE_MAX,
+	CARACTERISTIQUE_MIN,
+	STATS_INITIALES,
+} from './dossier/types'
 // `CAMPS` sort à l'itération 3 de la n° 3 : la carte d'objectif rend un `Select`
 // FERMÉ sur ses trois valeurs, et re-lister les camps côté feature en ferait une
 // seconde source que le validateur ne connaîtrait pas (KR-117). Les LIBELLÉS

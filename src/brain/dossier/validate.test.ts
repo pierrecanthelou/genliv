@@ -6,12 +6,21 @@ import {
 	BUDGET_MOTS_JALON,
 	CAMPS,
 	CAMPS_PERSONNAGE,
+	CARACTERISTIQUE_MIN,
 	CONFIANCE_MAX,
 	CONFIANCE_MIN,
 	DOSSIER_SCHEMA,
+	STATS_INITIALES,
 } from './types'
 import { DOSSIER_ISSUE_LABELS, dossierIssueRemediation, type DossierIssue, type DossierIssueCode } from './issues'
-import { ENUMERES_FERMES, FAMILLES_DE_CONDITIONS, LISTES_A_ELEMENTS_STRUCTURES, REFERENCES_SIMPLES } from './tables'
+import {
+	ENUMERES_FERMES,
+	FAMILLES_DE_CONDITIONS,
+	LISTES_A_ELEMENTS_STRUCTURES,
+	REFERENCES_SIMPLES,
+	VALEURS_DE_CARACTERISTIQUE,
+} from './tables'
+import { CHARACTERISTIC_MAX, CHARACTERISTIC_VALUES } from '../characteristics'
 import { DELTAS, type Delta } from './deltas'
 import { feuilleDe } from './identifiers'
 
@@ -563,6 +572,165 @@ describe('validateDossier', () => {
 		})
 
 		expect(refuses).toEqual([])
+	})
+
+	it('les huit caracteristiques lisent VALEURS_DE_CARACTERISTIQUE et sont requises DANS le bloc', () => {
+		// Les huit lignes sont DÉRIVÉES de `CHARACTERISTIC_VALUES` (KR-117) : une liste
+		// recopiée divergerait du registre en silence. `toBe` et non `toEqual` sur les
+		// valeurs — une copie de l'échelle, qui dériverait du `Stepper` de l'écran, fait
+		// rougir ce test.
+		const lignes = ENUMERES_FERMES.filter((e) => e.path.includes('.stats.'))
+
+		expect(lignes.map((e) => e.path)).toEqual(CHARACTERISTIC_VALUES.map((c) => `monde.personnages[].stats.${c}`))
+		for (const ligne of lignes) {
+			expect(`${ligne.path} → ${ligne.location}`).toBe(`${ligne.path} → Personnages`)
+			// `requis: true` — l'arbitrage du raffinage contre le `requis: false` recopié
+			// de `confiance_min`. Le bon précédent est `revele_si.jet.carac`, déjà
+			// `requis: true` sous deux porteurs optionnels.
+			expect(`${ligne.path} → ${ligne.requis}`).toBe(`${ligne.path} → true`)
+			expect(ligne.valeurs).toBe(VALEURS_DE_CARACTERISTIQUE)
+		}
+		// L'échelle est DÉRIVÉE de ses deux bornes nommées, jamais réécrite (KR-165) :
+		// la doc des règles (§ 1, « Échelle ») dit « entier de 1 à 12 », et les deux
+		// bornes sont les constantes qui font foi.
+		expect(VALEURS_DE_CARACTERISTIQUE[0]).toBe(CARACTERISTIQUE_MIN)
+		expect(VALEURS_DE_CARACTERISTIQUE[VALEURS_DE_CARACTERISTIQUE.length - 1]).toBe(CHARACTERISTIC_MAX)
+		expect(VALEURS_DE_CARACTERISTIQUE).toHaveLength(CHARACTERISTIC_MAX - CARACTERISTIQUE_MIN + 1)
+	})
+
+	it('un bloc stats ABSENT est calme : ni erreur ni avertissement', () => {
+		// La MOITIÉ « optionnel en bloc » du contrat, et celle qu'un `requis` posé sur
+		// le porteur casserait : `monde.personnages[]` existe depuis la n° 1 sans ce
+		// champ, et `schema: 1` n'a aucun chemin de migration (KR-160/191). Un bloc
+		// requis rendrait ILLISIBLE en bibliothèque tout dossier déjà persisté.
+		const doc = fixture()
+		delete personnage(doc).stats
+
+		const resultat = validateDossier(doc)
+
+		expect(resultat.errors).toEqual([])
+		expect(resultat.warnings).toEqual([])
+		expect(resultat.ok).toBe(true)
+	})
+
+	it('un bloc stats a 1-7 cles est refuse, et l anomalie nomme la carac manquante', () => {
+		// L'AUTRE moitié : TOTAL quand présent. C'est elle qui rend l'état binaire et
+		// vérifiable en UN point — sans elle, le moteur du Temps 2 devrait une garde à
+		// CHAQUE site de résolution de jet, et un bloc partiel laisserait le choix entre
+		// refuser, prendre un défaut, ou laisser le modèle improviser.
+		//
+		// Dérivé : CHAQUE clé est retirée à son tour. Un test qui n'en retirerait qu'une
+		// laisserait sept lignes de table non éprouvées.
+		const refuses = CHARACTERISTIC_VALUES.map((carac) => {
+			const doc = fixture()
+			delete obj(personnage(doc).stats)[carac]
+			const resultat = validateDossier(doc)
+			const anomalie = resultat.errors.find((e) => e.path === `monde.personnages[0].stats.${carac}`)
+			return {
+				carac,
+				ok: resultat.ok,
+				code: anomalie?.code,
+				location: anomalie?.location,
+				nommeLaCarac: anomalie?.message.includes(`« ${carac} »`) ?? false,
+			}
+		})
+
+		expect(refuses).toEqual(
+			CHARACTERISTIC_VALUES.map((carac) => ({
+				carac,
+				ok: false,
+				code: 'valeur-hors-enumeration',
+				location: 'Personnage « Aldûr le Sage »',
+				nommeLaCarac: true,
+			})),
+		)
+	})
+
+	it('un bloc stats reduit a UNE cle est refuse sept fois, jamais une seule', () => {
+		// Cas limite du précédent, et il mesure autre chose : chaque ligne de table
+		// parle pour SA clé. Une implémentation qui contrôlerait « le bloc » en un seul
+		// site rendrait une anomalie unique et laisserait l'auteur chercher les six
+		// autres champs à remplir.
+		const doc = fixture()
+		personnage(doc).stats = { FO: 4 }
+
+		const resultat = validateDossier(doc)
+		const anomalies = resultat.errors.filter((e) => e.code === 'valeur-hors-enumeration')
+
+		expect(resultat.ok).toBe(false)
+		expect(anomalies.map((e) => e.path)).toEqual(
+			CHARACTERISTIC_VALUES.filter((carac) => carac !== 'FO').map((carac) => `monde.personnages[0].stats.${carac}`),
+		)
+	})
+
+	it('une caracteristique a 1 et a 12 est acceptee ; 0, 13, 2.5 et une chaine sont bloquants', () => {
+		// Limite et limite+1 des DEUX côtés (KR-165), plus les deux corruptions de type
+		// que l'énumération explicite attrape par la même porte : un non-entier et une
+		// chaîne ne sont pas dans la liste, donc ils tombent sans qu'aucune règle de
+		// forme n'ait à être écrite.
+		//
+		// L'échelle vient de `docs/REGLES-DU-JEU.md` § 1, paragraphe « Échelle » : un
+		// entier de 1 à 12, plancher compris — le bestiaire du § 4 utilise réellement 1
+		// (Rat géant `FO 1`, Zombie `AG 1`).
+		for (const valeur of [CARACTERISTIQUE_MIN, CHARACTERISTIC_MAX]) {
+			const doc = fixture()
+			obj(personnage(doc).stats).FO = valeur
+
+			expect(`${valeur} → ${JSON.stringify(validateDossier(doc).errors)}`).toBe(`${valeur} → []`)
+		}
+
+		for (const valeur of [CARACTERISTIQUE_MIN - 1, CHARACTERISTIC_MAX + 1, 2.5, '3']) {
+			const doc = fixture()
+			obj(personnage(doc).stats).FO = valeur
+
+			const resultat = validateDossier(doc)
+			const anomalie = resultat.errors.find((e) => e.code === 'valeur-hors-enumeration')
+
+			expect(`${valeur} → ${resultat.ok}`).toBe(`${valeur} → false`)
+			expect(anomalie?.path).toBe('monde.personnages[0].stats.FO')
+			expect(anomalie?.location).toBe('Personnage « Aldûr le Sage »')
+			expect(anomalie?.message).toContain('« FO »')
+			expect(anomalie?.message).toContain(String(valeur))
+			// La borne haute est ANNONCÉE dans le message : l'auteur doit lire ce qui est
+			// attendu, pas seulement ce qui est refusé.
+			expect(anomalie?.message).toContain(String(CHARACTERISTIC_MAX))
+			for (const fuite of FUITES_TECHNIQUES) {
+				expect(anomalie?.message.toLowerCase()).not.toContain(fuite)
+			}
+		}
+	})
+
+	it('chaque valeur de l echelle est acceptee sur chaque caracteristique', () => {
+		// Discriminant des refus ci-dessus : ce n'est pas « toute valeur est refusée ».
+		// Dérivé des deux registres — les huit clés × les douze valeurs.
+		const refuses = CHARACTERISTIC_VALUES.flatMap((carac) =>
+			VALEURS_DE_CARACTERISTIQUE.filter((valeur) => {
+				const doc = fixture()
+				obj(personnage(doc).stats)[carac] = valeur
+				return !validateDossier(doc).ok
+			}).map((valeur) => `${carac} = ${valeur}`),
+		)
+
+		expect(refuses).toEqual([])
+	})
+
+	it('STATS_INITIALES est le bloc des huit cles au plancher, et il passe le validateur', () => {
+		// La valeur SEMÉE à l'écriture doit être acceptée par le schéma qui la valide :
+		// sans cette assertion, l'écran pourrait écrire un bloc que l'import refuserait,
+		// et l'auteur ne l'apprendrait qu'en rouvrant son dossier.
+		//
+		// Elle est DÉRIVÉE du registre × la borne nommée, jamais huit littéraux.
+		expect(STATS_INITIALES).toEqual(Object.fromEntries(CHARACTERISTIC_VALUES.map((c) => [c, CARACTERISTIQUE_MIN])))
+		expect(Object.keys(STATS_INITIALES)).toEqual(CHARACTERISTIC_VALUES)
+
+		const doc = fixture()
+		personnage(doc).stats = { ...STATS_INITIALES }
+
+		const resultat = validateDossier(doc)
+
+		expect(resultat.errors).toEqual([])
+		expect(resultat.warnings).toEqual([])
+		expect(resultat.ok).toBe(true)
 	})
 
 	it('une carac ou un TC de jet hors registre est bloquant', () => {

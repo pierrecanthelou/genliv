@@ -3,13 +3,14 @@ import {
 	BUDGET_MOTS_JALON,
 	CAMPS,
 	CAMPS_PERSONNAGE,
+	CARACTERISTIQUE_MIN,
 	CERTITUDES,
 	CONFIANCE_MAX,
 	CONFIANCE_MIN,
 	PORTEES,
 } from './types'
 import { COLLECTIONS_IDENTIFIEES, type EspaceDeNoms } from './identifiers'
-import { CHARACTERISTIC_VALUES } from '../characteristics'
+import { CHARACTERISTIC_MAX, CHARACTERISTIC_VALUES } from '../characteristics'
 import { CHALLENGE_TIER_VALUES } from '../challenge'
 
 /**
@@ -122,6 +123,27 @@ export const CONFIANCES: readonly number[] = Array.from(
 )
 
 /**
+ * Les valeurs qu'une caractéristique peut prendre — DÉRIVÉES des deux bornes
+ * nommées, exactement comme `CONFIANCES` juste au-dessus, et pour la même raison :
+ * une borne ne se réécrit jamais en dur au site de validation (KR-165).
+ *
+ * L'échelle « entier de 1 à 12 » fait foi dans `docs/REGLES-DU-JEU.md` § 1,
+ * paragraphe « Échelle » (KR-130) ; ses deux bornes vivent aujourd'hui à deux
+ * endroits — `CHARACTERISTIC_MAX` dans `characteristics.ts` (sous score de
+ * mutation), `CARACTERISTIQUE_MIN` dans `types.ts` —, ce que la docstring de la
+ * seconde nomme et date.
+ *
+ * L'ÉNUMÉRATION EXPLICITE est ce qui rend `2.5` et `"3"` refusés sans qu'aucune
+ * règle de forme n'ait à être écrite : la boucle générique des ensembles fermés
+ * teste une APPARTENANCE, donc un non-entier et une chaîne tombent par la même
+ * porte qu'un `0` ou qu'un `13`.
+ */
+export const VALEURS_DE_CARACTERISTIQUE: readonly number[] = Array.from(
+	{ length: CHARACTERISTIC_MAX - CARACTERISTIQUE_MIN + 1 },
+	(_, rang) => CARACTERISTIQUE_MIN + rang,
+)
+
+/**
  * Les ensembles FERMÉS du schéma. Chaque ligne cite le registre qui porte ses
  * valeurs — jamais une liste recopiée (KR-117) : les deux `camp`, `portee` et
  * `certitude` viennent de `types.ts`, le jet de révélation des registres de
@@ -133,6 +155,16 @@ export const CONFIANCES: readonly number[] = Array.from(
  * `CAMPS_PERSONNAGE` (de quel côté cet acteur joue) et il est OPTIONNEL — un camp
  * requis sur `monde.personnages[]` invaliderait rétroactivement tout dossier déjà
  * persisté, le schéma restant 1 sans chemin de migration (KR-191).
+ *
+ * LES HUIT CARACTÉRISTIQUES SONT `requis: true` SANS QUE `stats` DEVIENNE
+ * OBLIGATOIRE, et cette combinaison est le contrat « optionnel en bloc, TOTAL
+ * quand présent » — pas une contradiction. Elle tient à `sitesDe` : le segment
+ * `stats` d'un personnage qui n'en porte pas ne produit AUCUN site, donc aucune
+ * des huit règles ne parle ; dès que le bloc existe, chacune des huit clés
+ * manquantes est une anomalie bloquante. Le précédent est
+ * `savoirs[].revele_si.jet.carac`, déjà `requis: true` sous deux porteurs
+ * optionnels — et surtout PAS `revele_si.confiance_min`, feuille scalaire
+ * optionnelle, dont le `requis: false` ne dit rien d'un bloc.
  */
 export const ENUMERES_FERMES: readonly EnumereFerme[] = [
 	{ path: 'canon.objectifs[].camp', location: 'Objectifs', valeurs: CAMPS, requis: true },
@@ -163,6 +195,17 @@ export const ENUMERES_FERMES: readonly EnumereFerme[] = [
 		valeurs: [true, false],
 		requis: true,
 	},
+	// LES HUIT CARACTÉRISTIQUES — DÉRIVÉES du registre, jamais huit littéraux : une
+	// liste recopiée divergerait de `CHARACTERISTICS` en silence (KR-117), et la
+	// dérivation est ÉTALÉE ICI plutôt que confiée à un mécanisme générique de
+	// « Record à clés fixes » — deux étalements de trois lignes valent mieux qu'une
+	// abstraction dont le rayon d'explosion serait le garde d'audience du schéma.
+	...CHARACTERISTIC_VALUES.map((carac) => ({
+		path: `monde.personnages[].stats.${carac}`,
+		location: 'Personnages',
+		valeurs: VALEURS_DE_CARACTERISTIQUE,
+		requis: true,
+	})),
 ]
 
 /**

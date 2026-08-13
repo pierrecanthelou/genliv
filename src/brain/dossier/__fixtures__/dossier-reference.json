@@ -78,6 +78,16 @@
 				"fonction": "Marchand du marché des cendres, et prêteur sur gage à ses heures : il vend du sel et des lanternes, mais il monnaie surtout ce qu'il entend.",
 				"apparence": "Un homme sec au manteau trop large, une lanterne toujours allumée à la ceinture, qui compte ses pièces en vous parlant sans jamais lever les yeux.",
 				"description_joueur": "Tout le Foyer du Guet lui achète quelque chose, et tout le Foyer du Guet se méfie de ce qu'il répète ailleurs.",
+				"stats": {
+					"FO": 4,
+					"AG": 5,
+					"DX": 7,
+					"EN": 3,
+					"IN": 6,
+					"IG": 9,
+					"SE": 8,
+					"CA": 10
+				},
 				"plan_actions": [
 					{
 						"etape": 1,
@@ -141,6 +151,16 @@
 				"nom": "Harek le Forgeron",
 				"portee": "premier",
 				"fonction": "Forgeron du Foyer du Guet, le dernier du village à savoir remonter une pièce du mécanisme du beffroi.",
+				"stats": {
+					"FO": 10,
+					"AG": 4,
+					"DX": 9,
+					"EN": 8,
+					"IN": 5,
+					"IG": 6,
+					"SE": 3,
+					"CA": 7
+				},
 				"plan_actions": [],
 				"savoirs": [
 					{

@@ -1,20 +1,28 @@
-import type { ChangeEvent, CSSProperties, FocusEvent } from 'react'
+import { useEffect, useRef, type ChangeEvent, type CSSProperties, type FocusEvent } from 'react'
 import {
 	Card,
 	Field,
 	Select,
 	SegmentedControl,
+	Stepper,
 	IssueList,
 	localiserEntite,
 	CAMPS_PERSONNAGE,
 	PORTEES,
+	CHARACTERISTICS,
+	CHARACTERISTIC_VALUES,
+	CHARACTERISTIC_MAX,
+	CARACTERISTIQUE_MIN,
+	maxPV,
 	type CampPersonnage,
 	type Portee,
 	type Personnage,
 	type Objectif,
 	type DossierIssue,
+	type Characteristic,
 } from '../../../brain'
 import { Accordion, type AccordionSection } from './Accordion'
+import { boutonPointilleStyle } from './styles'
 import type { BrouillonPersonnage, ChampTexte } from './PanneauPersonnages'
 
 /** Libellés français du camp — côté FEATURE (précédent `ObjectifsCanon.tsx`,
@@ -37,6 +45,7 @@ const OPTIONS_PORTEE = PORTEES.map((portee) => ({ value: portee, label: LIBELLES
 
 const BLOC_1_ID = 'camp-plan-rattachement'
 const BLOC_2_ID = 'identite'
+const BLOC_3_ID = 'caracteristiques'
 
 const PLACEHOLDER_NOM = 'Aldûr le Sage'
 
@@ -59,12 +68,16 @@ const OPTION_AUCUN_OBJECTIF = { value: '', label: 'Aucun objectif rattaché' }
 const EYEBROW_REFUS = "CE CHANGEMENT N'A PAS ÉTÉ ENREGISTRÉ"
 const TEXTE_ABSENT = "Ce dossier n'existe plus — il a été supprimé ailleurs pendant que vous l'éditiez."
 
-/** Les 6 blocs encore vides à l'itération 2 — titre exact + itération cible du
- *  placeholder, table DÉCLARATIVE (§3 du plan) plutôt que 6 littéraux JSX
- *  recopiés. `identite` a quitté cette table à l'itération 2 : il porte
- *  désormais du contenu réel (bloc 2, ci-dessous). */
+const TEXTE_REGLER_CARACTERISTIQUES = '+ Régler les caractéristiques…'
+const LEGENDE_CARACTERISTIQUES = 'Caractéristiques — jamais lues par le narrateur.'
+const LEGENDE_PV = 'Dérivé de Force + Agilité + Endurance — jamais stocké.'
+
+/** Les 5 blocs encore vides à l'itération 3 — titre exact + itération cible du
+ *  placeholder, table DÉCLARATIVE (§3 du plan) plutôt que 5 littéraux JSX
+ *  recopiés. `identite` a quitté cette table à l'itération 2, `caracteristiques`
+ *  à l'itération 3 : ils portent désormais du contenu réel (blocs 2 et 3,
+ *  ci-dessous). */
 const BLOCS_VIDES: readonly { id: string; titre: string; iteration: number }[] = [
-	{ id: 'caracteristiques', titre: 'Caractéristiques', iteration: 3 },
 	{ id: 'objectif-plan-actions', titre: "Objectif & plan d'actions", iteration: 4 },
 	{ id: 'savoirs', titre: 'Savoirs', iteration: 5 },
 	{ id: 'relations', titre: 'Relations', iteration: 5 },
@@ -91,6 +104,11 @@ export interface FichePersonnageProps {
 	/** `''` = « Aucun objectif rattaché » — au parent de retirer la clé plutôt
 	 *  que de committer une chaîne vide (§ compte rendu du lot contrat, note 1). */
 	onChangeObjectif: (objectifId: string) => void
+	/** Geste EXPLICITE (désaccord n° 2 du plan d'itération 3) qui sème les 8
+	 *  clés à `CARACTERISTIQUE_MIN` en un seul commit — jamais un effet de bord
+	 *  du premier Stepper touché. */
+	onReglerCaracteristiques: () => void
+	onChangeCaracteristique: (carac: Characteristic, valeur: number) => void
 }
 
 /**
@@ -110,12 +128,33 @@ export interface FichePersonnageProps {
  * placeholders/hints que le contrat de design. Ce bloc NE S'OUVRE PAS
  * automatiquement : `defaultOpenId` reste le bloc 1.
  *
- * `BlocIdentite.tsx` n'est PAS extrait (§5 du plan, désaccord 11) : ce fichier
- * reste sous le seuil de scission KR-112 (~265 lignes projetées).
+ * `BlocIdentite.tsx` n'est PAS extrait (§5 du plan d'it2, désaccord 11) : à
+ * l'époque ce fichier restait sous le seuil de scission KR-112. IL NE L'EST
+ * PLUS — 317 l. avant it3, 437 après : le SIGNAL de 400 est franchi (le
+ * bloqueur reste à 800). Extraction datée it4, qui doit soulager LES DEUX
+ * fichiers : `hooks/useEcriturePersonnages.ts` pour le panneau, un bloc
+ * d'accordéon pour cette fiche — extraire le seul hook laisserait ce
+ * fichier-ci grossir encore (revue de PR it3).
  *
  * L'accordéon revient au bloc 1 à chaque changement de personnage par
  * `key={personnage.id}` posé ICI, sur `<Accordion>` — remontage React, jamais
  * un `useEffect` (KR-013/113).
+ *
+ * BLOC 3 « CARACTÉRISTIQUES » (it3, §3 du plan) : DEUX états exclusifs, jamais
+ * de troisième. `stats` absent → une seule CTA, ni grille ni ligne PV dans le
+ * DOM. `stats` présent (TOUJOURS les 8 clés) → légende de bloc + grille 2×4
+ * (ordre `CHARACTERISTIC_VALUES`) + ligne PV dérivée EN LIGNE (`pv`,
+ * ci-dessous, KR-013/113 — une seule condition, aucun `?? 0`).
+ *
+ * FOCUS après le clic sur la CTA (§3 « Clavier ») : déplacement DOM impératif
+ * vers le premier contrôle du bloc qui vient d'apparaître (« Diminuer FORCE
+ * (FO) »), pas un miroir d'état — usage légitime de `useEffect` (KR-013/113),
+ * même famille que `PanneauLieux.tsx`/`ImportDossierDialog.tsx`. `Stepper`
+ * n'est PAS étendu pour exposer un ref (désaccord n° 3, REJETÉ) : le premier
+ * `<button>` du DOM sous la grille EST « Diminuer FORCE (FO) » (FO est le
+ * premier de `CHARACTERISTIC_VALUES`, et un `Stepper` rend son bouton
+ * « Diminuer » avant son bouton « Augmenter ») — interrogé par `querySelector`
+ * plutôt que par un ref porté par `Stepper`.
  *
  * BANDEAU DE REFUS (it2, §3 du plan) : dernier enfant de `champsStyle`,
  * position exacte de `FicheLieu.tsx`. Branché sur `refus.statut`, JAMAIS sur
@@ -133,7 +172,42 @@ export function FichePersonnage({
 	onChangeCamp,
 	onChangePortee,
 	onChangeObjectif,
+	onReglerCaracteristiques,
+	onChangeCaracteristique,
 }: FichePersonnageProps): JSX.Element {
+	// `stats` capté en LOCAL (plutôt que relire `personnage.stats` dans les
+	// fermetures ci-dessous) : TypeScript ne conserve pas le rétrécissement
+	// `!== undefined` d'un accès de propriété à travers une fermeture
+	// (`.map(...)`) — seule celle d'une variable locale survit.
+	const stats = personnage.stats
+	// PV — EN LIGNE (KR-013/113), une seule condition, aucun `?? 0` possible :
+	// un `stats` absent se LIT comme absent (§9 du registre des désaccords),
+	// jamais un repli vers `STATS_INITIALES`, réservé à l'ÉCRITURE.
+	const pv = stats === undefined ? null : maxPV(stats)
+
+	const grilleCaracteristiquesRef = useRef<HTMLDivElement>(null)
+	// L'intention de focus porte l'IDENTITÉ du personnage réglé, jamais un
+	// booléen : un clic « Régler… » suivi d'un échec (dossier supprimé pendant
+	// l'édition, KR-183) laisse une intention pendante, qu'un booléen ferait
+	// consommer par le PROCHAIN personnage déjà configuré. Ce composant n'est
+	// pas remonté au changement de sélection (aucun `key` côté panneau), donc
+	// le ref survit à la sélection et c'est bien l'identité qui l'invalide.
+	// Un seul effet : la version à deux effets tenait par leur ORDRE DE
+	// DÉCLARATION, que ni le linter ni un test ne voient (revue de PR it3).
+	const focusApresReglageRef = useRef<string | null>(null)
+
+	useEffect(() => {
+		if (focusApresReglageRef.current === personnage.id) {
+			focusApresReglageRef.current = null
+			grilleCaracteristiquesRef.current?.querySelector('button')?.focus()
+		}
+	}, [stats, personnage.id])
+
+	function handleClicRegler(): void {
+		focusApresReglageRef.current = personnage.id
+		onReglerCaracteristiques()
+	}
+
 	const sections: AccordionSection[] = [
 		{
 			id: BLOC_1_ID,
@@ -226,6 +300,37 @@ export function FichePersonnage({
 				</>
 			),
 		},
+		{
+			id: BLOC_3_ID,
+			title: 'Caractéristiques',
+			content:
+				stats === undefined ? (
+					<button type="button" onClick={handleClicRegler} style={boutonPointilleStyle}>
+						{TEXTE_REGLER_CARACTERISTIQUES}
+					</button>
+				) : (
+					<>
+						<p style={legendeStyle}>{LEGENDE_CARACTERISTIQUES}</p>
+						<div style={grilleCaracteristiquesStyle} ref={grilleCaracteristiquesRef}>
+							{CHARACTERISTIC_VALUES.map((carac) => (
+								<Stepper
+									key={carac}
+									label={`${CHARACTERISTICS[carac].label.toUpperCase()} (${carac})`}
+									value={stats[carac]}
+									min={CARACTERISTIQUE_MIN}
+									max={CHARACTERISTIC_MAX}
+									onChange={(valeur) => onChangeCaracteristique(carac, valeur)}
+								/>
+							))}
+						</div>
+						<div style={lignePvStyle}>
+							<span style={eyebrowStyle}>PV</span>
+							<span style={valeurPvStyle}>{pv}</span>
+							<p style={legendeStyle}>{LEGENDE_PV}</p>
+						</div>
+					</>
+				),
+		},
 		...BLOCS_VIDES.map(
 			(bloc): AccordionSection => ({
 				id: bloc.id,
@@ -314,4 +419,24 @@ const texteAbsentStyle: CSSProperties = {
 	fontSize: 'var(--fs-body)',
 	color: 'var(--text-body)',
 	lineHeight: 'var(--lh-body)',
+}
+
+const grilleCaracteristiquesStyle: CSSProperties = {
+	display: 'grid',
+	gridTemplateColumns: '1fr 1fr',
+	gap: 'var(--space-8)',
+}
+
+const lignePvStyle: CSSProperties = {
+	marginTop: 'var(--space-2)',
+	paddingTop: 'var(--space-5)',
+	borderTop: '1px solid var(--border-divider)',
+}
+
+const valeurPvStyle: CSSProperties = {
+	display: 'block',
+	fontFamily: 'var(--font-mono)',
+	fontSize: 'var(--fs-title)',
+	fontWeight: 'var(--fw-semibold)',
+	color: 'var(--text-strong)',
 }

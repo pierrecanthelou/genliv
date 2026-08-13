@@ -7,13 +7,16 @@ import {
 	ListRow,
 	Badge,
 	PORTEE_INITIALE,
+	STATS_INITIALES,
 	type Personnage,
 	type CampPersonnage,
 	type Portee,
+	type Characteristic,
 	type EcritureDossier,
 	type DossierIssue,
 } from '../../../brain'
 import { FichePersonnage, LIBELLES_CAMP, LIBELLES_PORTEE } from './FichePersonnage'
+import { boutonPointilleStyle } from './styles'
 
 export interface PanneauPersonnagesProps {
 	dossierId: string
@@ -263,6 +266,41 @@ export function PanneauPersonnages({ dossierId }: PanneauPersonnagesProps): JSX.
 		)
 	}
 
+	/**
+	 * Geste EXPLICITE (désaccord n° 2 du plan d'itération 3) : sème les 8 clés à
+	 * `CARACTERISTIQUE_MIN` (`STATS_INITIALES`, dérivé du registre, jamais 8
+	 * littéraux) en UN SEUL commit — jamais un effet de bord du premier
+	 * `Stepper` touché. Même régime « widget fermé » que `camp`/`portee` :
+	 * aucun brouillon.
+	 */
+	function handleReglerCaracteristiques(id: string): void {
+		commit(
+			// `{ ...STATS_INITIALES }` et non la constante elle-même : écrire la
+			// référence partagée exportée de `brain/` dans un document candidat
+			// n'est inoffensif que parce que `validateDossier` gèle une copie —
+			// une propriété à deux couches du site d'appel (revue de PR it3).
+			dossierActuel.monde.personnages.map((p) => (p.id === id ? { ...p, stats: { ...STATS_INITIALES } } : p)),
+			id,
+		)
+	}
+
+	/**
+	 * Ne touche JAMAIS un personnage dont `stats` est `undefined` : sous le
+	 * schéma TOTAL (§4 du plan), un `Stepper` n'est monté que lorsque `stats`
+	 * existe déjà (désaccord n° 3, REJETÉ) — cette garde est donc structurellement
+	 * inatteignable par ce chemin, mais elle rend le contrat explicite plutôt que
+	 * de compter sur cette seule propriété du rendu.
+	 */
+	function handleChangeCaracteristique(id: string, carac: Characteristic, valeur: number): void {
+		commit(
+			dossierActuel.monde.personnages.map(
+				(p): Personnage =>
+					p.id !== id || p.stats === undefined ? p : { ...p, stats: { ...p.stats, [carac]: valeur } },
+			),
+			id,
+		)
+	}
+
 	// Repli PAR CHAMP, jamais par objet (§5 du plan, BUG-058 côté lecture) : un
 	// objet brouillon présent mais incomplet (clé arrivée après le montage,
 	// réconciliation cloud) doit encore retomber sur le document, champ par champ
@@ -288,7 +326,7 @@ export function PanneauPersonnages({ dossierId }: PanneauPersonnagesProps): JSX.
 			<div style={pageStyle}>
 				<div style={colonneListeStyle}>
 					<span style={eyebrowStyle}>{EYEBROW_SECTION}</span>
-					<button type="button" onClick={handleAjouter} style={boutonAjouterStyle}>
+					<button type="button" onClick={handleAjouter} style={boutonPointilleStyle}>
 						+ Ajouter un personnage…
 					</button>
 				</div>
@@ -333,7 +371,7 @@ export function PanneauPersonnages({ dossierId }: PanneauPersonnagesProps): JSX.
 						/>
 					))}
 				</div>
-				<button type="button" onClick={handleAjouter} style={boutonAjouterStyle}>
+				<button type="button" onClick={handleAjouter} style={boutonPointilleStyle}>
 					+ Ajouter un personnage…
 				</button>
 			</div>
@@ -349,6 +387,8 @@ export function PanneauPersonnages({ dossierId }: PanneauPersonnagesProps): JSX.
 					onChangeCamp={(camp) => handleChangeCamp(personnageAffiche.id, camp)}
 					onChangePortee={(portee) => handleChangePortee(personnageAffiche.id, portee)}
 					onChangeObjectif={(objectifId) => handleChangeObjectif(personnageAffiche.id, objectifId)}
+					onReglerCaracteristiques={() => handleReglerCaracteristiques(personnageAffiche.id)}
+					onChangeCaracteristique={(carac, valeur) => handleChangeCaracteristique(personnageAffiche.id, carac, valeur)}
 				/>
 			</div>
 		</div>
@@ -397,23 +437,6 @@ const badgesStyle: CSSProperties = {
 	display: 'flex',
 	alignItems: 'center',
 	gap: 'var(--space-2)',
-}
-
-const boutonAjouterStyle: CSSProperties = {
-	display: 'flex',
-	alignItems: 'center',
-	justifyContent: 'center',
-	width: '100%',
-	boxSizing: 'border-box',
-	minHeight: 'var(--hit-target)',
-	padding: '7px 10px',
-	border: '1.5px dashed var(--accent)',
-	borderRadius: 'var(--r-md)',
-	background: 'var(--accent-bg)',
-	color: 'var(--accent)',
-	fontFamily: 'var(--font-ui)',
-	fontSize: 'var(--fs-body)',
-	cursor: 'pointer',
 }
 
 const emptyStateStyle: CSSProperties = {

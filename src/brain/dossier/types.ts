@@ -36,7 +36,8 @@
  * tous deux OPTIONNELS — le schéma reste 1, et rien de ce qui est déjà persisté ne
  * devient invalide (KR-191). L'itération 2 y ajoute les TROIS proses d'identité —
  * `fonction`, `apparence`, `description_joueur` —, optionnelles elles aussi et
- * toutes trois d'audience `ia`.
+ * toutes trois d'audience `ia`. L'itération 3 y ajoute `stats` — les HUIT
+ * caractéristiques, optionnelles EN BLOC et TOTALES quand le bloc est là.
  *
  * QUI LIT QUOI : ce fichier dit la FORME, il ne dit pas l'AUDIENCE. L'audience
  * de chaque champ terminal vit dans `destinations.ts`, sous le balayage de
@@ -47,7 +48,7 @@
  * sens (KR-167) : un chemin de compatibilité serait une seconde source de vérité
  * que personne n'oserait couper en n° 9.
  */
-import type { Characteristic } from '../characteristics'
+import { CHARACTERISTIC_VALUES, type Characteristic } from '../characteristics'
 import type { ChallengeTier } from '../challenge'
 import type { ExprNode } from './expr'
 import type { Delta } from './deltas'
@@ -84,6 +85,44 @@ export const BUDGET_MOTS_JALON = 20
  */
 export const CONFIANCE_MIN = -3
 export const CONFIANCE_MAX = 3
+
+/**
+ * Le PLANCHER d'une caractéristique — l'autre borne de l'échelle, dont le plafond
+ * est `CHARACTERISTIC_MAX` (`characteristics.ts`). Constante NOMMÉE, jamais un `1`
+ * en dur au site de validation ni au site de saisie (KR-165).
+ *
+ * La règle vient de `docs/REGLES-DU-JEU.md` § 1, paragraphe « Échelle » (KR-130),
+ * qui la pose pour cette itération : une caractéristique vaut un entier de 1 à 12,
+ * et `1` n'est pas une valeur théorique — le bestiaire l'utilise (§ 4 : Rat géant
+ * `FO 1`, Zombie `AG 1`). La génération du héros (2D4 + 1D4, plafond 10) est une
+ * procédure de DÉPART, pas la borne de l'échelle.
+ *
+ * POURQUOI ICI, à côté de `CONFIANCE_MIN`, et non dans `characteristics.ts` auprès
+ * de son plafond : ce fichier-là est sous score de mutation, et y toucher
+ * déclencherait le run ET le cliquet `break` 80 → 85 (`docs/WORKFLOW.md`) qu'aucune
+ * mesure ne paie aujourd'hui. LIMITE ASSUMÉE ET DATÉE : l'échelle vit donc à deux
+ * endroits, et le MIN remonte auprès du MAX au prochain travail qui touche
+ * légitimement `characteristics.ts` (n° 9).
+ */
+export const CARACTERISTIQUE_MIN = 1
+
+/**
+ * Le bloc de caractéristiques SEMÉ À L'ÉCRITURE quand l'auteur règle les
+ * caractéristiques d'un personnage pour la première fois : les huit clés au
+ * plancher, DÉRIVÉES du registre (KR-117) — jamais huit littéraux, qui
+ * divergeraient du registre le jour où une neuvième caractéristique existerait.
+ *
+ * ⚠ VALEUR D'ÉCRITURE, JAMAIS UN REPLI DE LECTURE. `stats ?? STATS_INITIALES` est
+ * INTERDIT partout : exporté depuis `brain/`, ce bloc est à un import du moteur du
+ * Temps 2, où un repli de lecture ferait résoudre un jet contre une fiche
+ * FABRIQUÉE — un personnage que l'auteur n'a jamais chiffré passerait pour un
+ * personnage tout à 1, et le narrateur raconterait un échec que personne n'a écrit.
+ * Un `stats` absent se LIT comme absent : c'est un état calme, et l'écran rend son
+ * affordance de réglage plutôt qu'une grille inventée.
+ */
+export const STATS_INITIALES: Record<Characteristic, number> = Object.fromEntries(
+	CHARACTERISTIC_VALUES.map((carac) => [carac, CARACTERISTIQUE_MIN]),
+) as Record<Characteristic, number>
 
 /**
  * Toute entité nommée et référencée du dossier. `id` porte son espace de noms
@@ -297,6 +336,37 @@ export interface Personnage extends Entite {
 	 *  Exemple : « On le dit sage, et un peu fou ; tout le bourg sait où il vit,
 	 *  personne ne sait ce qu'il garde. » */
 	description_joueur?: string
+	/** MOTEUR — les HUIT caractéristiques du personnage, chacune un entier de
+	 *  `CARACTERISTIQUE_MIN` à `CHARACTERISTIC_MAX` (`docs/REGLES-DU-JEU.md` § 1,
+	 *  paragraphe « Échelle », KR-130).
+	 *
+	 *  OPTIONNEL EN BLOC, TOTAL QUAND PRÉSENT — et c'est le point de contrat, pas un
+	 *  détail de typage. `Partial` aurait créé un état où le moteur ne peut PAS
+	 *  résoudre un jet (refuser ? prendre un défaut ? laisser le modèle improviser ?)
+	 *  et il aurait fallu une garde à CHAQUE site moteur ; le bloc total rend l'état
+	 *  binaire et vérifiable en UN point — ici, et dans `ENUMERES_FERMES`, où les
+	 *  huit lignes sont `requis: true`. Un bloc à 1-7 clés est une anomalie
+	 *  BLOQUANTE à l'import. L'asymétrie du regret confirme le sens : sur un
+	 *  `schema: 1` sans migration (KR-160), desserrer TOTAL → Partial est gratuit,
+	 *  resserrer Partial → TOTAL est impossible.
+	 *
+	 *  Le bloc ABSENT reste un état calme (« absent ≠ vide ») : il n'invalide aucun
+	 *  dossier déjà persisté, exactement comme `camp` (KR-191). Il ne se remplace
+	 *  JAMAIS par `STATS_INITIALES` à la lecture — voir la docstring de cette
+	 *  constante.
+	 *
+	 *  NI `pv` NI `tier` ici (KR-192) : le PV est DÉRIVÉ à l'affichage par
+	 *  `maxPV({ FO, AG, EN })`, jamais stocké — le stocker dupliquerait une règle de
+	 *  jeu en deux endroits, et la copie se périmerait au premier réglage. `tier`
+	 *  n'a aucun consommateur avant la n° 13.
+	 *
+	 *  MOTEUR ET NON `ia`, et la question s'est réellement posée : le chiffre est un
+	 *  SEUIL (§ 2 : réussite = dés ≤ carac). Un modèle qui lit `FO: 9` connaît la
+	 *  marge avant que `challenge.ts` n'ait résolu — il narrerait « tu forces la
+	 *  porte sans effort » pendant que le moteur tire un échec. Ce qui remplace le
+	 *  chiffre côté prose existe déjà et est écrit par l'auteur : `apparence` et
+	 *  `fonction`, dont le JSDoc dit qu'elles DÉCRIVENT sans chiffrer. */
+	stats?: Record<Characteristic, number>
 }
 
 /**

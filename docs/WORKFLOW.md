@@ -280,8 +280,8 @@ Charger par référence plutôt que tout charger est ce qui évite le contexte m
 | Fichier | Croissance | Mesuré | Plafond | Marge |
 | --- | --- | ---: | ---: | ---: |
 | `CLAUDE.md` + `docs/WORKFLOW.md` (couple) | défaut | 45 994 o | **45 kio** (46 080) | **86 o** |
-| `code-knowledge.json` | normale | 76 411 o | **75 kio** (76 800) | ~0,38 kio |
-| `bug_history.json` | normale | 10 234 o | **10 kio** (10 240) | **6 o** |
+| `code-knowledge.json` | normale | 76 564 o | **75 kio** (76 800) | ~0,23 kio |
+| `bug_history.json` | normale | 8 259 o | **10 kio** (10 240) | ~1,93 kio |
 | `features_history.json` | normale | 15 344 o | **15 kio** (15 360) | ~0,02 kio |
 | `specification.json`, **par feature** | normale | 66 436 o (max : `dossier-format`) | **65 kio** (66 560) | ~0,12 kio |
 | `docs/ROADMAP-BASCULE-IA.md` | **défaut** | 35 050 o | **35 kio** (35 840) | ~0,77 kio |
@@ -300,7 +300,7 @@ Compacter n'est jamais « supprimer de l'information » : c'est la déplacer là
 
 - **`code-knowledge.json`** — le moins cher : un KR dont l'invariant est **passé en règle ESLint** (KR-011/111, imports inter-features, couleurs en dur) renvoie à la règle et à son message, il ne redécrit ni le risque ni la parade. Un invariant câblé est une ligne — le linter le rappellera mieux que le fichier.
 - **`specification.json`** — boucle de mémoire de la skill `raffinage-iteration` : une décision livrée se réduit à sa phrase d'arbitrage + le renvoi à `.claude/raffinage/<feature>-it<N>.revue.md`, qui porte déjà le raisonnement. La revue est le dossier, la spec en est l'index.
-- **`bug_history.json`, `features_history.json`** — append-only : ils ne se compactent pas, ils **se scindent** — par temps, par feature `done`, ou par étape ponctuelle sans feature vivante (historique des scissions : CHANGELOG.md). Id = max(BUG-xxx) des **quatre** fichiers, jamais d'un seul (précédent : BUG-062). Pas avant le plafond.
+- **`bug_history.json`, `features_history.json`** — append-only : ils ne se compactent pas, ils **se scindent** — par temps, par feature `done`, ou par étape ponctuelle sans feature vivante (historique des scissions : CHANGELOG.md). Id = max(BUG-xxx) des **cinq** fichiers, jamais d'un seul (précédent : BUG-062). Pas avant le plafond.
 - **`CLAUDE.md` + `docs/WORKFLOW.md`** — **déjà à saturation**, délibérément : une règle qui entre ici **en remplace une**, ou part dans la spec de sa feature / le prompt de l'agent qui l'applique. Transverse et stable, elle a sa place ; propre à une feature, jamais. Un invariant câblé s'y écrit **en une ligne qui nomme l'outil**, sans re-lister ce que l'outil vérifie.
 
 ## Bug Investigation

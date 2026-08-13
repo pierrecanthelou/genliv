@@ -59,6 +59,16 @@
 				"fonction": "Ermite retiré du monde, gardien de la mémoire de Val-Cendre : c'est chez lui qu'on vient demander ce que le bourg a préféré oublier.",
 				"apparence": "Un vieil homme voûté à la barbe blanche tressée de perles d'os, les mains tachées d'encre et de cendre. Sa voix ne dépasse jamais le murmure.",
 				"description_joueur": "À Val-Cendre, on le dit sage et un peu fou. Chacun sait où il vit ; personne ne sait ce qu'il garde.",
+				"stats": {
+					"FO": 3,
+					"AG": 4,
+					"DX": 5,
+					"EN": 2,
+					"IN": 10,
+					"IG": 7,
+					"SE": 6,
+					"CA": 9
+				},
 				"plan_actions": [
 					{
 						"etape": 1,
