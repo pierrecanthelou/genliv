@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.24 — un personnage peut être retiré, et le dossier dit pourquoi il ne peut pas l'être
+
+`dossier-fiches` itération 7/8. L'auteur retire un personnage de son aventure — confirmé par une modale avant toute écriture, refusé au SSOT si une autre entité le référence encore.
+
+- **Le refus existait depuis it5 ; ce lot le CÂBLE à un geste, pour la première fois sur `pnj.*`.** Zéro ligne de `tables.ts`/`validate.ts`/`destinations.ts` : `relations[].cible_id` (`REFERENCES_SIMPLES`) et les six chemins `…_expr` portant `pnj_a_revele` refusent déjà toute référence pendante. Le lot est marqué `contrat` pour **deux messages** seulement (`brain/dossier/issues.ts`), pas pour une ligne de schéma.
+- **Aucun pré-vol de référence côté feature (veto tech-lead/narratif-ia).** Le bouton de retrait est **toujours actif**, la modale **toujours muette** sur qui référence le personnage : dupliquer la règle du SSOT dans l'écran se tromperait sur l'**auto-référence** (KR-194) — un personnage dont la seule relation entrante est la sienne part avec elle dans le même commit et ne pend jamais. C'est le test discriminant du lot ; un pré-vol le fait rougir.
+- **`BUG-075` : deux lignes « QUOI FAIRE » du registre d'anomalies conseillaient un geste impossible.** `reference-pendante` finissait par « puis réimportez-le » et `texte-trop-long` affirmait « l'import n'est pas bloqué » — or les deux se rendent **aujourd'hui pendant une édition** (`FichePersonnage.tsx` depuis it2, le bandeau de refus du retrait depuis ce lot). Même classe que BUG-042/KR-171 : une remédiation rédigée contre une **surface** au lieu d'une **cause**. Corrigées, avec une assertion nommée dans la porte de commit épinglant l'absence de « import » sur ces deux codes. Les 14 autres libellés gardent la consigne : ils ne sont rendus qu'au rapport d'import.
+- **Fermeture de la modale et retrait dans le MÊME gestionnaire synchrone** — invariant, pas un style : c'est ce qui fait gagner le focus programmé (`intentionFocus`) contre la restauration native de `Modal.tsx`, qui rend le focus au bouton qui l'a ouverte. Sur **refus**, rien n'est programmé : le bouton visé est toujours monté et `Modal` lui rend légitimement le focus.
+- **La retombée de sélection est celle du précédent `PanneauLieux`** (`restants[max(index - 1, 0)]`, `null` si la liste se vide) et l'état de la modale est **gardé en ligne** (`enConfirmation === personnageAffiche.id`), jamais resynchronisé par effet (KR-013/113). Aucune purge de brouillon : un identifiant frappé n'est jamais réutilisé.
+- **Quatre mutants tués à la main** en sonde de discriminance : sélecteur de focus non ancré, retombée sur `restants[0]`, `intentionFocus` posé au refus, pré-vol de référence côté feature. Plus la récidive « réimportez » côté contrat.
+- 71 suites / 1024 tests. Score de mutation **non requis** (aucun des 4 fichiers mutés touché).
+
 ## 0.6.23 — un personnage cesse d'ignorer et se met à savoir
 
 `dossier-fiches` itération 6/8. L'auteur donne à son personnage un **savoir** — un indice qu'il connaît, comment il le révèle, et sous quelles conditions (confiance, jet, contrepartie, indice déjà connu) — dans le 7ᵉ bloc de l'accordéon.

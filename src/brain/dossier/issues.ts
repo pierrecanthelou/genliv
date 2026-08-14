@@ -90,7 +90,14 @@ export const DOSSIER_ISSUE_LABELS: Record<DossierIssueCode, string> = {
 	// GÉNÉRALISÉ à l'itération 2 : ce texte était câblé en dur sur `depart.lieu_id`,
 	// et `monstre_ref` en aurait hérité une consigne trompeuse (même famille que
 	// BUG-042). Le marqueur nomme désormais le champ réellement fautif.
-	'reference-pendante': "↪ Corrigez « {champ} » ou ajoutez l'élément correspondant, puis réimportez-le.",
+	//
+	// SANS « puis réimportez-le » depuis `dossier-fiches` it7 (BUG-075, même classe
+	// que BUG-042/KR-171) : cette ligne se rend AUSSI hors de tout import — le
+	// bandeau de refus d'un retrait de personnage la montre à un auteur qui ÉDITE,
+	// et à qui « réimportez » ne désigne aucun geste possible. Les deux gestes
+	// nommés valent sur les DEUX surfaces : corriger le champ, ou rétablir
+	// l'élément pointé.
+	'reference-pendante': "↪ Corrigez « {champ} » ou rétablissez l'élément correspondant.",
 	// UNE remédiation pour les DEUX messages de ce code (`DossierService`) : la
 	// cause est « cet identifiant est occupé », et les deux gestes qui le libèrent
 	// valent que l'occupant soit lisible ou non. La suppression est nommée ici
@@ -100,7 +107,11 @@ export const DOSSIER_ISSUE_LABELS: Record<DossierIssueCode, string> = {
 	// une ligne QUOI FAIRE se vérifie contre la version où elle est livrée).
 	'dossier-deja-importe':
 		'↪ Supprimez-le depuis la bibliothèque, ou changez le champ « id » du fichier pour en importer une copie distincte.',
-	'texte-trop-long': "↪ Resserrez le texte si possible ; l'import n'est pas bloqué.",
+	// MÊME CORRECTION, MÊME CLASSE (it7, second défaut de copie relevé au tour 2) :
+	// « l'import n'est pas bloqué » est déjà FAUX aujourd'hui — `FichePersonnage.tsx`
+	// rend cet avertissement pendant une édition, hors de tout import. Ce que la
+	// ligne doit dire est le CANAL (`warning`), pas la surface qui l'a produite.
+	'texte-trop-long': "↪ Resserrez le texte si possible ; ce n'est pas bloquant.",
 	'valeur-hors-enumeration': "↪ Remplacez cette valeur par l'une de celles attendues, puis réimportez-le.",
 	'delta-en-prose': "↪ Remplacez ce texte par une liste d'effets, puis réimportez-le.",
 	'porte-inconnue': "↪ Supprimez cette clé ou remplacez-la par l'une des quatre portes reconnues, puis réimportez-le.",

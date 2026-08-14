@@ -145,7 +145,7 @@ Huit features. Une phrase de démo par feature, sans « et » : c'est le test de
 | 1 | `dossier-format` | …importer un dossier d'aventure validé contre un schéma versionné | **5** | **5/5 — terminée** | 5 rôles | — |
 | 2 | `bascule-editeur` | …naviguer dans son aventure par une liste de sections | 3 | **3/3 — terminée** | 5 rôles | 1 |
 | 3 | `dossier-canon` | …rédiger la vérité immuable de son histoire | 4 | **4/4 — terminée** | 4 rôles | 2 |
-| 4 | `dossier-fiches` | …écrire une fiche de personnage exploitable par l'IA | 8 | **6/8** | 5 rôles | 3 |
+| 4 | `dossier-fiches` | …écrire une fiche de personnage exploitable par l'IA | 8 | **7/8** | 5 rôles | 3 |
 | 5 | `dossier-objets` | …tenir le registre des objets de son aventure | 2 | — | 4 rôles | 1 |
 | 6 | `dossier-registres` | …tenir les quêtes, les indices, les événements de son aventure | 4 | — | 4 rôles | 4 · 5 |
 | 7 | `dossier-controles` | …voir pourquoi son aventure n'est pas encore jouable | 3 | — | 5 rôles | 6 |
@@ -229,8 +229,8 @@ Relevés en lecture intégrale. Chacun est affecté à la feature qui doit le tr
 
 | Trou | À traiter dans |
 |---|---|
-| ~~Aucun registre `objets[]` racine~~ → **tranché au cadrage** : le dossier a **treize** racines, `objets[]` comprise — sans elle l'intégrité référentielle de l'itération 3 n'a pas de cible | n° 1 (la racine) · n° 5 (son éditeur) |
-| ~~Grammaire des conditions non définie~~ → **D1 tranchée** : deux champs par famille (`…_texte` pour l'**auteur**, jamais injecté ; `…_expr` pour le moteur) | n° 1 (grammaire + registre de prédicats) |
+| ~~Aucun registre `objets[]` racine~~ → tranché : treize racines, `objets[]` comprise | n° 1 · n° 5 |
+| ~~Grammaire des conditions non définie~~ → **D1 tranchée**, voir § 1 | n° 1 |
 | `jalons`, `fins`, `meta` au schéma sans section ni écran — `jalons` et `fins` sont groupées sous `charpente` ; `meta` n'est **pas** une racine (tranché le 2026-08-04). `charpente` n'est plus « **jamais** injectée » mais « **jamais injectée ENTIÈRE** » : une projection nommée en porte **une** feuille — l'`enonce_texte` des jalons **déjà atteints** —, jamais les déclencheurs ni les conditions de fin, qui sont la même règle en français et apprendraient au modèle à provoquer le jalon ou à conduire à la fin | n° 1 (la forme + `enonce_texte`) · n° 2 (la section dans la liste, lecture seule — CORRECTION cadrage `bascule-editeur` 2026-08-08 : l'écran d'édition dépend du registre `DELTAS`, réservé à n° 6) · n° 6 (l'écran d'édition) · n° 9 (la projection) |
 | « Scènes écrites » : le format porte un texte et un drapeau (n° 1), mais leur propriété définissante est un **chemin de code** — une scène verbatim est **émise** par le moteur, jamais demandée au modèle | n° 1 (le champ) · n° 10 (l'émission) |
 | Mapping des 6 curseurs sur CA / IN / IG non donné | n° 4 |
@@ -238,8 +238,8 @@ Relevés en lecture intégrale. Chacun est affecté à la feature qui doit le tr
 | Échelle de confiance : bornes, valeur initiale, amplitude d'un delta | n° 12 |
 | `ΔT` invoqué pour le calcul d'XP, jamais défini | n° 11 |
 | Choix de posture du monstre « selon sa capacité et son IG » non spécifié | n° 13 — vérifier `combatEngine.ts`, c'est peut-être déjà fait |
-| ~~Format de `evenements[].monstre_ref`~~ → **tranché au cadrage** : `bestiaire.<templateId>`, second espace de noms résolu contre `BESTIARY` ; référence pendante = bloquante à l'import **et** au démarrage de session | n° 1 |
-| ~~Fournisseur, modèle, clé, coût, latence, hors-ligne~~ → **D2 tranchée** : tout par le worker, clé jamais côté client, une route par rôle, SSE pour la narration, pas de hors-ligne en v1 | n° 10 (modèle et budget concrets) |
+| ~~Format de `evenements[].monstre_ref`~~ → tranché : `bestiaire.<templateId>`, bloquant à l'import et en session | n° 1 |
+| ~~Fournisseur, modèle, clé, coût, latence, hors-ligne~~ → **D2 tranchée**, voir § 1 | n° 10 |
 | Persistance du dossier, bibliothèque multi-livres, `cloud-sync` | n° 1 (forme persistée) · n° 2 (bibliothèque) |
 | Migration `schema: 1` → `schema: 2` | n° 1 |
 | Champs laissés en `[ … ]` : `quetes[].etapes`, `journal[].deltas`, `memoire.faits_etablis` | n° 1 · n° 9 |

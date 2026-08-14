@@ -1,0 +1,9 @@
+RISQUE — Le correctif `issues.ts:93` proposé par narratif-ia, mal borné, redevient le lot ObjectifsCanon écarté à it4 (hors périmètre, non causé par l'itération).
+
+CONSTAT — Consensus confirmé : PM, tech-lead et UX convergent indépendamment vers la modale retenue (7 blocs remplis vs 3 champs plats du Lieu). Ce n'est plus un désaccord à trancher au tour 3, je l'inscris comme acquis.
+
+OBJECTION (réponse nommée à narratif-ia) — Je tranche IN SCOPE, à l'inverse du précédent it4 : le bandeau de refus, avec sa ligne QUOI FAIRE, fait déjà partie du critère d'acceptation propre à it7 (« retrait refusé → bandeau nomme le référençant », demandé par TL) — la ligne fausse serait donc démontrée par ce lot, pas simplement adjacente, exactement comme le correctif ObjectifsCanon d'it1 était fallout direct de son propre critère. Périmètre strict : la seule ligne générique proposée (« Corrigez « {champ} » ou rétablissez l'élément correspondant »), zéro refonte du système de messages, zéro revue des autres consommateurs. Le point 4 (prose non scannée par nom) reste hors it7, chargé sur n°10 — narratif-ia le proposait déjà ainsi, je ne rajoute rien.
+
+PROPOSITION — Critère QA écrit : Étant donné un personnage portant au moins un bloc structuré rempli (identité/stats/plan/relations/présence/savoirs — la norme, pas l'exception) et non référencé ailleurs, Quand l'auteur confirme le retrait, Alors la modale s'ouvre AVANT écriture et énumère les blocs perdus — divergence du Lieu motivée par le VOLUME, le refus SSOT restant identique dans les deux cas. Silences TL : (a) dernier personnage → état vide d'it1, exigé en critère explicite ; (b) brouillons non purgés (id jamais réutilisé) — accepté tel quel, hygiène technique hors mon domaine.
+
+VERDICT — recevable sous réserve : modale + correctif `issues.ts:93` (une ligne) entrent au périmètre, rien d'autre. Objection tour 1 : retirée (motif : satisfaite par le consensus TL/UX indépendant).

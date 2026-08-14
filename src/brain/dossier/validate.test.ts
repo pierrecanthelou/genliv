@@ -409,12 +409,32 @@ describe('validateDossier', () => {
 		expect(depart).toBeDefined()
 		expect(monstre).toBeDefined()
 		if (depart === undefined || monstre === undefined) return
-		expect(dossierIssueRemediation(depart)).toBe(
-			"↪ Corrigez « lieu_id » ou ajoutez l'élément correspondant, puis réimportez-le.",
-		)
-		expect(dossierIssueRemediation(monstre)).toBe(
-			"↪ Corrigez « monstre_ref » ou ajoutez l'élément correspondant, puis réimportez-le.",
-		)
+		expect(dossierIssueRemediation(depart)).toBe("↪ Corrigez « lieu_id » ou rétablissez l'élément correspondant.")
+		expect(dossierIssueRemediation(monstre)).toBe("↪ Corrigez « monstre_ref » ou rétablissez l'élément correspondant.")
+	})
+
+	/**
+	 * GARDE DE RÉCURRENCE (dossier-fiches it7, BUG-075 — même classe que
+	 * BUG-042/KR-171) : ces DEUX lignes se rendent AUSSI hors de tout import.
+	 * `reference-pendante` est ce que le bandeau de refus montre à l'auteur qui
+	 * retire un personnage encore référencé, `texte-trop-long` ce que
+	 * `FichePersonnage.tsx` affiche pendant une édition — « puis réimportez-le »
+	 * et « l'import n'est pas bloqué » y désignent un geste et un contexte qui
+	 * n'existent pas. Les DEUX assertions à chaîne exacte ci-dessus figent le
+	 * texte ; celle-ci fige la PROPRIÉTÉ, pour qu'une reformulation future ne
+	 * ré-introduise pas la consigne d'import par inadvertance.
+	 *
+	 * Elle ne porte QUE sur ces deux codes : les autres libellés du registre ne
+	 * sont rendus qu'au rapport d'import et gardent légitimement la consigne
+	 * (hors périmètre d'it7, § 2 du plan).
+	 */
+	it('la remediation de reference-pendante et texte-trop-long ne contient plus reimportez', () => {
+		const codesHorsImport: DossierIssueCode[] = ['reference-pendante', 'texte-trop-long']
+
+		for (const code of codesHorsImport) {
+			expect(DOSSIER_ISSUE_LABELS[code]).not.toMatch(/réimport/i)
+			expect(DOSSIER_ISSUE_LABELS[code]).not.toMatch(/import/i)
+		}
 	})
 
 	it('portee hors enumeration est bloquant', () => {

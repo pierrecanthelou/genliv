@@ -2,7 +2,9 @@ import { type ChangeEvent, type CSSProperties, type FocusEvent } from 'react'
 import {
 	Card,
 	Field,
+	IconButton,
 	IssueList,
+	HIT_TARGET_MIN,
 	type CampPersonnage,
 	type Portee,
 	type Personnage,
@@ -52,6 +54,27 @@ const EYEBROW_AVERTISSEMENT = 'ENREGISTRÉ, AVEC AVERTISSEMENT'
  *  aucun autre placeholder, une constante nommée plutôt qu'un tableau. */
 const BLOC_CARACTERE_EXPLOITABLE = { id: 'caractere-exploitable', titre: 'Caractère exploitable', iteration: 8 }
 
+/**
+ * La DÉSIGNATION d'un personnage — la seule partie variable des DEUX textes
+ * d'it7 (le libellé du bouton de retrait et le corps de la modale). MÊMES DEUX
+ * BRANCHES que `localiserEntite('pnj', personnage, index)`, dont elle est la
+ * moitié droite : le nom entre guillemets, ou le repli numéroté « n°4 (sans
+ * nom) ». Exportée pour `PanneauPersonnages.tsx`, qui possède l'état de la
+ * modale et doit lui passer la même désignation (précédent `LIBELLES_CAMP`,
+ * importé de `BlocSituation.tsx`).
+ */
+export function designationDe(personnage: Personnage, index: number): string {
+	const nom = personnage.nom
+	if (typeof nom === 'string' && nom.trim() !== '') return `« ${nom.trim()} »`
+	return `n°${index + 1} (sans nom)`
+}
+
+/** Le libellé du bouton de retrait — jamais désactivé, jamais conditionné à qui
+ *  référence ce personnage (veto § 8 désaccord 2 du plan d'itération 7). */
+function libelleRetirer(personnage: Personnage, index: number): string {
+	return `Retirer le personnage ${designationDe(personnage, index)}`
+}
+
 function placeholderDe(iteration: number): string {
 	return `Pas encore renseigné — ce bloc arrive à l'itération ${iteration} de dossier-fiches.`
 }
@@ -62,6 +85,9 @@ function sectionPlaceholder(bloc: { id: string; titre: string; iteration: number
 
 export interface FichePersonnageProps {
 	personnage: Personnage
+	/** Rang dans `monde.personnages` — pour le repli du libellé de retrait
+	 *  « Retirer le personnage n°4 (sans nom) ». */
+	index: number
 	brouillon: BrouillonPersonnage
 	objectifsCanon: Objectif[]
 	/** Le refus en cours, DÉJÀ filtré par le parent — cette fiche ne reçoit jamais
@@ -111,6 +137,9 @@ export interface FichePersonnageProps {
 	relationsPresence: UseEcritureRelationsPresenceResult
 	/** Même motif pour la tranche savoirs (21 champs). */
 	savoirs: UseEcritureSavoirsResult
+	/** N'ÉCRIT RIEN : ouvre la modale de confirmation possédée par le parent.
+	 *  Cette fiche n'appelle jamais `handleRetirer` directement. */
+	onDemanderRetrait: () => void
 }
 
 /**
@@ -138,6 +167,7 @@ export interface FichePersonnageProps {
  */
 export function FichePersonnage({
 	personnage,
+	index,
 	brouillon,
 	objectifsCanon,
 	refus,
@@ -169,6 +199,7 @@ export function FichePersonnage({
 	objets,
 	relationsPresence,
 	savoirs,
+	onDemanderRetrait,
 }: FichePersonnageProps): JSX.Element {
 	const sections: AccordionSection[] = [
 		{
@@ -302,6 +333,20 @@ export function FichePersonnage({
 				/>
 				<Accordion key={personnage.id} sections={sections} defaultOpenId={BLOC_1_ID} />
 
+				{/* TOUJOURS ACTIF — jamais `disabled` selon qui référence ce personnage
+				    (veto § 8 désaccord 2) : le refus vient du SSOT, APRÈS la tentative,
+				    et un pré-vol se tromperait sur l'auto-référence (KR-194). */}
+				<div style={piedFicheStyle}>
+					<IconButton
+						label={libelleRetirer(personnage, index)}
+						tone="danger"
+						size={HIT_TARGET_MIN}
+						onClick={onDemanderRetrait}
+					>
+						✕
+					</IconButton>
+				</div>
+
 				{refus !== null && (
 					<div role="status" style={bandeauRefusStyle}>
 						<p style={eyebrowRefusStyle}>{EYEBROW_REFUS}</p>
@@ -328,6 +373,11 @@ const champsStyle: CSSProperties = {
 	display: 'flex',
 	flexDirection: 'column',
 	gap: 'var(--space-6)',
+}
+
+const piedFicheStyle: CSSProperties = {
+	display: 'flex',
+	justifyContent: 'flex-end',
 }
 
 const placeholderStyle: CSSProperties = {

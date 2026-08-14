@@ -12,6 +12,7 @@ import type {
 	Characteristic,
 	ChallengeTier,
 	DossierIssue,
+	EcritureDossier,
 } from '../../../brain'
 import type { RefusAffiche } from './useSocleEcriturePersonnages'
 import type { BrouillonPersonnage, ChampTexte } from './useEcritureIdentite'
@@ -50,6 +51,10 @@ export interface UseEcriturePersonnagesResult {
 	presence: BrouillonPresence[]
 	savoirs: BrouillonSavoir[]
 	handleAjouter: () => void
+	/** Retire le personnage AFFICHÉ et REND le résultat brut du SSOT — un refus
+	 *  n'est jamais avalé (KR-183) : l'appelant en a besoin pour décider s'il
+	 *  déplace le focus. Sans argument (§ 8 désaccord 3 du plan d'itération 7). */
+	handleRetirer: () => EcritureDossier
 	handleChangeChamp: (champ: ChampTexte, valeur: string) => void
 	handleBlurChamp: (champ: ChampTexte, valeur: string) => void
 	handleChangeCamp: (camp: CampPersonnage) => void
@@ -117,6 +122,7 @@ export function useEcriturePersonnages(dossierId: string): UseEcriturePersonnage
 		refusAffiche: socle.refusAffiche,
 		avertissementsAffiches: socle.avertissementsAffiches,
 		handleAjouter: socle.handleAjouter,
+		handleRetirer: socle.handleRetirer,
 		...identite,
 		...plan,
 		...relationsPresence,

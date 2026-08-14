@@ -64,6 +64,12 @@ export interface UseSocleEcriturePersonnagesResult {
 	 *  `revelation-sans-porte`, qui n'appartient pas à D1 (§ 8 désaccord 9). */
 	avertissementsAffiches: DossierIssue[]
 	handleAjouter: () => void
+	/** Retire le personnage AFFICHÉ. Rend le résultat brut : le refus SSOT n'est
+	 *  jamais avalé, l'appelant sait s'il doit déplacer le focus. Aucun retrait
+	 *  optimiste. Sans argument — agit sur `personnageAffiche`, jamais sur un id
+	 *  passé par l'appelant (une seule source de vérité, § 8 désaccord 3 du plan
+	 *  d'itération 7). */
+	handleRetirer: () => EcritureDossier
 	/** `null` quand le dossier est absent : aucun sous-hook n'écrit sur un
 	 *  dossier disparu. */
 	socle: SocleEcriture | null
@@ -127,6 +133,44 @@ export function useSocleEcriturePersonnages(dossierId: string): UseSocleEcriture
 		setSelection(id)
 	}
 
+	/**
+	 * LE RETRAIT du personnage affiché (itération 7). AUCUN PRÉ-VOL : ce hook ne
+	 * cherche jamais qui référence ce personnage — ni pour désactiver le geste, ni
+	 * pour composer un message. Il tente l'écriture et RELAIE ce que le SSOT
+	 * répond (veto tech-lead/narratif-ia, § 8 désaccord 2 du plan) : dupliquer la
+	 * règle ici se tromperait sur l'auto-référence (KR-194), où la relation part
+	 * dans le MÊME commit que son porteur et ne pend donc jamais.
+	 *
+	 * AUCUNE PURGE DE BROUILLON dans les quatre sous-hooks de famille (§ 8
+	 * désaccord 9) : `frapperIdentifiant` ne réutilise jamais un identifiant, donc
+	 * une entrée de brouillon laissée derrière ne peut être lue par aucun
+	 * personnage futur. Motivé ici, pas codé.
+	 */
+	function handleRetirer(): EcritureDossier {
+		// Structurellement inatteignable depuis l'écran — le bouton de retrait
+		// n'existe que dans la fiche d'un personnage AFFICHÉ. Le repli rend le même
+		// statut que `DossierService` sur un dossier disparu, jamais un quatrième
+		// statut inventé.
+		if (dossier === null || personnageAffiche === undefined) return { statut: 'absent' }
+		const id = personnageAffiche.id
+		const index = dossier.monde.personnages.findIndex((p) => p.id === id)
+		const resultat = commit(
+			dossier.monde.personnages.filter((p) => p.id !== id),
+			id,
+		)
+		// Refusé (une autre entité le référence encore) : rien n'est persisté, la
+		// liste et la sélection restent celles d'avant — aucun retrait optimiste.
+		if (resultat.statut !== 'ecrit') return resultat
+		const restants = resultat.dossier.monde.personnages
+		// Le personnage d'`index - 1`, ou le premier restant si le retiré était en
+		// tête — `restants[Math.max(index - 1, 0)]` réalise les DEUX cas d'un coup
+		// (précédent `PanneauLieux.handleRetirer`). `null` quand il ne reste
+		// personne : l'état vide livré à it1 revient, et `selection` ne pointe
+		// jamais un identifiant disparu.
+		setSelection(restants.length === 0 ? null : restants[Math.max(index - 1, 0)].id)
+		return resultat
+	}
+
 	// Le refus ne se rend QUE sous la fiche du personnage qui l'a produit
 	// (KR-197, affichage).
 	const refusAffiche: RefusAffiche | null =
@@ -142,6 +186,7 @@ export function useSocleEcriturePersonnages(dossierId: string): UseSocleEcriture
 		refusAffiche,
 		avertissementsAffiches,
 		handleAjouter,
+		handleRetirer,
 		socle: dossier === null ? null : { dossierActuel: dossier, personnageAffiche, commit },
 	}
 }
