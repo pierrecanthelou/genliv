@@ -18,11 +18,14 @@
  *
  * PÉRIMÈTRE — décision A du 2026-08-04 : la forme COMPLÈTE des treize racines
  * n'appartient plus à cette feature. Chaque racine reçoit la sienne dans la
- * feature qui l'ÉDITE (`canon` en n° 3, `personnages` en n° 4, `lieux`/`objets`/
- * `indices` en n° 5, `quetes`/`evenements`/`conditions` en n° 6) — à une exception
+ * feature qui l'ÉDITE (`canon` en n° 3, `personnages` en n° 4, `objets` en n° 5,
+ * `indices`/`quetes`/`evenements`/`conditions` en n° 6) — à une exception
  * DATÉE : la section 07 lieux est passée à la n° 3 au cadrage du 2026-08-10
  * (`docs/ROADMAP-BASCULE-IA.md` § 3), qui y pose la PROSE de `Lieu` ; `acces` et
- * les références croisées de `Lieu` restent aux n° 4/5/6. L'itération 2
+ * les références croisées de `Lieu` restent aux n° 4/5/6. (Cette ligne rangeait
+ * `indices` en n° 5 et `lieux` en n° 5 jusqu'à l'itération 6 de la n° 4 : les
+ * deux avaient glissé, `lieux` vers la n° 3 et `indices` vers la n° 6, et la
+ * même correction a été portée à `docs/ROADMAP-BASCULE-IA.md` § 5, décision A.) L'itération 2
  * ne pose ici que les corrections IRRÉVERSIBLES — celles qu'aucune migration ne
  * rattrape : la collision de clé `plan`, les portes de révélation fermées, les
  * quatre emplacements de deltas TYPÉS, `monstre_ref`, et `jalons[].enonce_texte`.
@@ -96,6 +99,27 @@ export const BUDGET_MOTS_JALON = 20
  */
 export const CONFIANCE_MIN = -3
 export const CONFIANCE_MAX = 3
+
+/**
+ * La confiance POSÉE À L'OUVERTURE de la porte de confiance par l'éditeur — le
+ * PLANCHER D'ÉCRITURE d'une porte, jamais une intention d'auteur.
+ *
+ * CONSTANTE DISTINCTE DE `CONFIANCE_MIN` JUSTE AU-DESSUS, et c'est l'arbitrage
+ * qui la justifie, pas un scrupule de nommage : `CONFIANCE_MIN` vaut `-3`, la
+ * borne BASSE de l'échelle. Une porte semée là n'exigerait RIEN — toute session
+ * la franchit d'entrée — tout en ÉTEIGNANT l'avertissement
+ * `revelation-sans-porte` que `validateDossier` émet sur un savoir sans porte.
+ * L'auteur croirait avoir posé une condition, le validateur se tairait, et le
+ * savoir se révélerait au premier tour. `1` est le premier échelon au-dessus du
+ * neutre : une porte qui demande qu'on ait gagné quelque chose.
+ *
+ * ⚠ VALEUR D'ÉCRITURE, JAMAIS UN REPLI DE LECTURE — même doctrine que
+ * `STATS_INITIALES` et `PORTEE_INITIALE` : `confiance_min ?? CONFIANCE_INITIALE_PORTE`
+ * est INTERDIT partout. Une porte non posée se lit comme non posée (« absent ≠
+ * vide ») ; c'est un état calme, et l'écran rend son affordance d'ouverture
+ * plutôt qu'un seuil inventé.
+ */
+export const CONFIANCE_INITIALE_PORTE: number = 1
 
 /**
  * Les bornes FERMÉES de l'échelle d'INTENSITÉ d'une relation : de l'hostilité
@@ -236,6 +260,28 @@ export const PORTEE_INITIALE: Portee = 'premier'
  */
 export const CERTITUDES = ['sait', 'croit', 'soupconne'] as const
 export type Certitude = (typeof CERTITUDES)[number]
+
+/**
+ * La certitude POSÉE À LA CRÉATION d'un savoir par l'éditeur — le PLANCHER DU
+ * SCHÉMA, jamais une intention d'auteur.
+ *
+ * `monde.personnages[].savoirs[].certitude` est structurellement REQUISE
+ * (`ENUMERES_FERMES`, `requis: true`) : un savoir créé sans elle serait refusé
+ * par le validateur à l'instant même où l'auteur choisit son indice. Il faut donc
+ * écrire une valeur, et `'sait'` est celle qu'on écrit — la seule des trois qui
+ * n'accuse pas le personnage d'une erreur qu'il n'a pas commise : `'croit'` et
+ * `'soupconne'` qualifient une information FAUSSE ou incertaine, et les poser
+ * d'office ferait entrer une rumeur au carnet d'indices sans que personne l'ait
+ * voulu (voir `CERTITUDES` ci-dessus).
+ *
+ * CE QU'ELLE NE DIT PAS : que l'auteur a CHOISI « sait ». Une certitude encore à
+ * `CERTITUDE_INITIALE` est un champ que personne n'a tranché.
+ *
+ * Constante NOMMÉE, jamais `CERTITUDES[0]` : l'ordre du registre est un ordre
+ * d'affichage, et le jour où il change le plancher ne doit pas changer avec lui.
+ * Même précédent que `PORTEE_INITIALE`.
+ */
+export const CERTITUDE_INITIALE: Certitude = 'sait'
 
 /**
  * Le CAMP d'un objectif : À QUI cette victoire appartient. Le tableau est la
@@ -455,9 +501,28 @@ export interface Savoir {
 	/** Référence vers `monde.indices[].id`. */
 	indice_id: string
 	certitude: Certitude
-	/** La MANIÈRE dont le savoir se révèle — didascalie pour l'IA, injectée
-	 *  UNIQUEMENT quand la porte est ouverte. Jamais un dialogue verbatim.
-	 *  Exemple : « Elle hésite, puis chuchote, jetant un regard vers la porte. » */
+	/**
+	 * IA — la MANIÈRE dont le savoir se révèle : une DIDASCALIE de jeu d'acteur,
+	 * même famille que `plan_actions[].action`, jamais un dialogue verbatim.
+	 *
+	 * LE PRÉDICAT D'INJECTION, écrit ICI et au commentaire de sa ligne de
+	 * `destinations.ts`, nulle part ailleurs (précédent `Relation.secret`) :
+	 *
+	 * `revele_comment` n'entre dans le contexte d'un appel au modèle **que**
+	 * lorsque le **moteur** a constaté ouvertes les portes que ce savoir porte
+	 * (`revele_si`). Il n'entre **jamais** avant cette constatation, ni **seul**,
+	 * sans le savoir qu'il accompagne. Un savoir SANS aucune porte n'ouvre jamais
+	 * ce chemin de lui-même : `validateDossier` en avertit
+	 * (`revelation-sans-porte`), sans bloquer.
+	 *
+	 * ⚠ LA VERSION PRÉCÉDENTE DE CE COMMENTAIRE DISAIT « quand LA porte est
+	 * ouverte », AU SINGULIER, et ne nommait pas QUI la constate : il y a QUATRE
+	 * portes (voir `Revelation`), et c'est le moteur qui les constate, jamais le
+	 * modèle. La table dit l'AUDIENCE ; le MOMENT est la charge de l'assembleur
+	 * n° 10 — même dispositif que `plan_actions[].si_bloque` et `Relation.secret`.
+	 *
+	 * Exemple : « Elle hésite, puis chuchote, jetant un regard vers la porte. »
+	 */
 	revele_comment?: string
 	revele_si?: Revelation
 }

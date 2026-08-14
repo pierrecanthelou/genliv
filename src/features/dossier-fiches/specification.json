@@ -100,8 +100,8 @@
 			},
 			{
 				"id": 6,
-				"goal": "L'auteur édite les savoirs de son personnage — le type Savoir/Revelation est déjà complet depuis dossier-format, seul l'écran est neuf ici. Retiré d'it5 (raffinage du 2026-08-13) parce que ce volet coûte ZÉRO ligne de contrat (destinations déjà écrites depuis n°1) — un passager qui gonflait l'itération sans raison de schéma. Voir .claude/raffinage/dossier-fiches-it5/tour1-ux-designer.md pour un premier jet de design (bloc, 4 portes de révélation par widgets fermés) et tour1-tech-lead.md pour la mesure qui a motivé le report — non raffiné, à raffiner en temps voulu. NOTE POUR LE RAFFINAGE : FichePersonnage.tsx (417 l.) et useEcriturePlan.ts (415 l.) sont deja au-dessus du signal KR-112 (400) — it6 doit extraire BlocSavoirs.tsx AVANT d ecrire son contenu, pas apres, sinon la fiche repasse mecaniquement au-dessus.",
-				"status": "planned"
+				"goal": "Raffine le 2026-08-14 (dossier-fiches-it6.plan.md, valide) : l'auteur donne un savoir a son personnage -- indice_id (Select-comme-geste-d'ajout), certitude (CERTITUDE_INITIALE='sait'), revele_comment (prose ia, hint 'la maniere jamais la condition'), et 4 portes independantes (confiance_min avec CONFIANCE_INITIALE_PORTE=1 jamais CONFIANCE_MIN qui n'exigerait rien ; jet{carac,tc} ; contrepartie{objet_id,consomme} et apres_indice_id ouvertes par Select jamais bouton pointille, self-exclusion sur apres_indice_id). Type Savoir/Revelation deja complet depuis dossier-format n1 (zero ligne de table/fixture) : le lot corrige 3 commentaires faux de destinations.ts (indice_id ne peut pas injecter 'verite', champ absent du schema, proprietaire n6) et decharge FichePersonnage.tsx (BlocSituation.tsx/BlocIdentite.tsx, KR-112) avant le cablage. Etat vide gate sur savoirs.length, jamais indices.length seul (precedent must-fix M1 d'it5). 1 lot marque contrat, dev-contrat seul.",
+				"status": "done"
 			},
 			{
 				"id": 7,
@@ -155,18 +155,18 @@
 				"label": "iteration-2",
 				"completed_at": "2026-08-12",
 				"architecture_choices": [
-					"Trois proses `ia` a plat sur Personnage, aucune ligne de tables.ts : le pari du plan sur KR-190 s'est VERIFIE a la mesure. Une tranche de prose pure ne touche ni tables.ts, ni validate.ts, ni validate.test.ts, ni suffisance.test.ts — KR-190 borne le pire cas, il ne prescrit pas la liste, et un plan qui recopie « les 8 fichiers » sans mesurer invite le dev-contrat a inventer du travail pour remplir la liste.",
-					"commit() rend EcritureDossier au lieu de void, LIVRE AVANT le premier champ de prose libre (ordre impose par le plan, dette datee a la revue de PR d'it1). RefusEnCours{personnageId, statut, issues} vit dans le panneau, seul proprietaire de dossierId et de la selection ; la fiche recoit un refus DEJA FILTRE et jamais d'identifiant. Le bandeau branche sur `statut`, jamais sur `issues` — {statut:'absent'} ne porte ni errors ni warnings (verifie dans DossierService.ts), et un IssueList vide rendrait un bandeau vide sous un eyebrow rouge.",
-					"Repli de brouillon PAR CHAMP (brouillons[id]?.fonction ?? personnage.fonction ?? ''), jamais par objet : un brouillon present mais incomplet — cle arrivee apres le montage par reconciliation cloud — afficherait vide puis reecrirait ce vide au blur (BUG-058 cote lecture).",
-					"BlocIdentite.tsx NON cree (FichePersonnage a 317 l. contre un seuil KR-112 a 400) : une extraction a un seul appelant est la dette habituelle du depot. 2 lots sequentiels, aucun essaim — les trois candidats a un 3e lot nommaient tous les deux memes fichiers ; le decoupage revele le parallelisme, il ne le fabrique pas."
+					"3 proses `ia` a plat, aucune ligne de tables.ts/validate.ts -- KR-190 borne le pire cas, ne le prescrit pas.",
+					"commit() rend EcritureDossier (ordre impose, dette d'it1) ; RefusEnCours{personnageId,statut,issues} dans le panneau, la fiche recoit un refus deja filtre. Bandeau branche sur `statut` jamais `issues`.",
+					"Repli de brouillon PAR CHAMP, jamais par objet (BUG-058 cote lecture).",
+					"BlocIdentite.tsx NON cree (dette a un seul appelant). 2 lots sequentiels, aucun essaim -- le decoupage revele le parallelisme, il ne le fabrique pas."
 				],
 				"deviations_from_plan": [
-					"nom unifié sous ChampTexte : absent et '' traités identiquement (repli « sans nom »), aligné sur l'idiome objectif_id d'it1. Signalé par l'ouvrier, examiné par QA, accepté.",
-					"BUG-065 — les deux gardes d'indexation KR-197 étaient correctes mais prouvées par aucun test (un seul personnage semé). Attrapé par QA mode B sur un lot déjà vert, corrigé par deux tests à contrôle croisé. 4e occurrence de la classe.",
-					"Le critere #7 (« sans avertissement neuf » sur le dossier de reference) n'etait tenu par aucun test nomme au premier passage — seule la fixture minimale etait assertee `warnings === []`. Referme par `le dossier de reference ne produit ni erreur ni avertissement`, dont le message d'echec NOMME l'avertissement au lieu de le compter.",
-					"Scission de bug_history.json (4e axe, feature DORMANTE) : BUG-054/BUG-062 partent à l'archive sous « aucun travail en cours ne le relira ». 12124→7852 o avant BUG-065/066, 9997 o après — marge consommée aux deux tiers dans la même itération.",
-					"ÉLARGISSEMENT HORS PLAN après revue de PR : 6 fichiers de dossier-canon (même no-op muet sur statut:'absent' que le correctif d'it1, vivant encore côté ObjectifsCanon/PanneauLieux/FicheLieu) — voir BUG-067 (bug_history.dossier-canon.json).",
-					"BUG-066 puis sa PROPRE régression (KR-197, 4e forme dans cette itération) : indexation de création coercée aux deux rôles à la fois, corrigée par un paramètre explicite {resout: boolean}. Détail : bug_history.json / KR-197."
+					"nom unifie sous ChampTexte (absent et '' identiques), aligne sur objectif_id d'it1.",
+					"BUG-065 -- indexations KR-197 correctes mais non prouvees (un seul personnage seme). 4e occurrence de la classe.",
+					"Critere #7 non tenu par un test nomme au premier passage -- referme par un test au message explicite.",
+					"Scission bug_history.json (4e axe, feature dormante) : BUG-054/062 a l'archive.",
+					"Elargissement hors plan post-PR : 6 fichiers dossier-canon, meme no-op statut:'absent' -- BUG-067.",
+					"BUG-066 puis sa propre regression (KR-197, 4e forme) -- corrige par {resout:boolean}."
 				],
 				"test_coverage": {
 					"unit": "65 suites / 903 tests",
@@ -179,19 +179,19 @@
 				"label": "iteration-3",
 				"completed_at": "2026-08-13",
 				"architecture_choices": [
-					"`stats?: Record<Characteristic, number>` OPTIONNEL EN BLOC, TOTAL quand present. La mecanique du « total » ne coute AUCUNE ligne a validate.ts : `sitesDe` coupe sur `if (!estObjet(site.valeur))`, donc bloc absent = zero site = calme, et bloc a 1-7 cles = 7 sites `undefined` refuses par les 8 lignes `requis: true` d'ENUMERES_FERMES. Le typage et l'execution disent la meme chose sans qu'on l'ait ecrit deux fois. Arbitrage complet (les deux roles porteurs ont echange leurs positions entre les tours) en resolved_decisions ; recit dans .claude/raffinage/dossier-fiches-it3.revue.md.",
-					"L'etat vide EST le mecanisme, pas une decoration : « + Regler les caracteristiques… » ecrit les 8 cles a CARACTERISTIQUE_MIN en UN commit, et c'est la seule ecriture qui cree le bloc. C'est ce qui rend tenable la ligne rouge du tech-lead (« ne pas fabriquer 7 valeurs `moteur` que l'auteur n'a pas posees ») SOUS une forme totale — l'alternative, un repli de LECTURE `stats ?? STATS_INITIALES`, afficherait huit 1 et un PV 3 au montage d'un personnage jamais touche, exactement la paire de valeurs que le critere BUG-064 interdit de semer.",
-					"docs/REGLES-DU-JEU.md ecrit EN PREMIER, dans le MEME lot que le code (KR-130). Motif MECANIQUE en plus du principe : docs/WORKFLOW.md fait sauter les deux revues sur un changement `.md` seul — livree a part, la phrase qui devient la source de CARACTERISTIQUE_MIN serait la seule ligne de l'iteration que personne ne relit.",
-					"CARACTERISTIQUE_MIN pose dans dossier/types.ts et NON dans characteristics.ts : ce fichier est sous score de mutation, y toucher declenche le run ET le cliquet `break` 80 → 85, qu'une mesure a 81,40 % ne paie pas pour une constante d'une ligne. Limite ecrite, pas decouverte : l'echelle vit a deux endroits (MAX la-bas, MIN ici) jusqu'a la n° 9. Mesure de sortie, critere #8 : `git diff --stat -- src/brain/characteristics.ts` rend vide, `break` reste a 80."
+					"stats?: Record<Characteristic,number> optionnel en bloc, TOTAL quand present -- sitesDe coupe sur bloc absent (calme), 8 requis:true refusent un bloc partiel. Arbitrage complet en resolved_decisions.",
+					"Etat vide EST le mecanisme : « + Regler les caracteristiques… » ecrit les 8 cles en un commit -- repli de lecture aurait affiche 8x1 + PV 3 au montage (BUG-064).",
+					"REGLES-DU-JEU.md ecrit EN PREMIER, meme lot que le code (KR-130) -- un commit .md seul saute les revues.",
+					"CARACTERISTIQUE_MIN dans dossier/types.ts, pas characteristics.ts (evite le cliquet mutation pour une constante d'une ligne)."
 				],
 				"deviations_from_plan": [
-					"BUG-068 — deux tests promettaient plus que leurs assertions (spy posé après le rendu ; « les 8 Stepper » prouvé sur 3, échantillon recouvrant le PV). Trouvés par QA mode B, corrigés avant livraison. 3e occurrence de la classe — frappée en KR-199.",
-					"Le § 7 du plan attribue le test « le dossier de reference ne produit ni erreur ni avertissement » a validate.test.ts ; il vit en realite dans couverture.test.ts et n'a demande aucune ligne. Imprecision du plan, pas defaut de code.",
-					"FichePersonnage.tsx franchit le signal KR-112 (317→456 l.), non daté au plan (seul PanneauPersonnages.tsx l'était). Dette datée pour it4 : extraction du hook ET d'un bloc d'accordéon, les deux — payée à it4.",
-					"Compaction du budget de contexte déclenchée dans ce lot, deux plafonds franchis : bug_history.json scindé sur un 5e axe (mitigation déjà promue part à l'archive) ; code-knowledge.json allégé du corps de KR-095, déplacé vers cloud-sync.",
-					"BUG-069, revue de PR — deux documents en lecture obligatoire contredisaient ce que le lot venait de livrer (design_contract portait encore Partial ; règle d'unicité BUG-xxx comptait 4 fichiers au lieu de 5). Règle qui en sort : une itération qui renverse une décision l'annote LÀ OÙ ELLE EST LUE, dans le même lot.",
-					"ÉLARGISSEMENT HORS PLAN après revue de PR : components/styles.ts (boutonPointilleStyle, 2 appelants réels), même motif qu'it2 (utils/refusMessages.ts). Corrigés au même tour : `stats: {...STATS_INITIALES}` et le garde de focus par IDENTITÉ plutôt que par ordre de déclaration d'effets.",
-					"SECOND franchissement du plafond de bug_history.json dans le meme lot (BUG-069 le repasse au-dessus de 10 kio) : le 5e axe s'applique alors A LUI-MEME — BUG-068, dont la parade est passee en KR-199 le jour meme, part a l'archive. L'axe porte sur la REDONDANCE, pas sur l'age. 10 926 -> 8 259 o."
+					"BUG-068 -- 2 tests promettaient plus que leurs assertions, 3e occurrence -- frappee en KR-199.",
+					"§7 du plan attribuait un test a validate.test.ts, vit en realite dans couverture.test.ts -- imprecision du plan.",
+					"FichePersonnage.tsx franchit KR-112 (317->456l), non date au plan -- dette payee a it4.",
+					"Compaction de budget declenchee : bug_history.json 5e axe, code-knowledge.json allege de KR-095.",
+					"BUG-069 (revue de PR) : design_contract et regle d'unicite BUG-xxx perimes -- regle : annoter la ligne renversee LA OU ELLE EST LUE.",
+					"Elargissement hors plan post-PR : styles.ts (boutonPointilleStyle, 2 appelants).",
+					"2e franchissement du plafond bug_history.json dans le meme lot -- BUG-068 (parade promue KR-199 le jour meme) part a l'archive."
 				],
 				"test_coverage": {
 					"unit": "67 suites / 940 tests",
@@ -244,6 +244,29 @@
 					"e2e": "sans objet (aucun harnais E2E dans ce depot)"
 				},
 				"revue": ".claude/raffinage/dossier-fiches-it5.revue.md"
+			},
+			{
+				"id": 6,
+				"label": "iteration-6",
+				"completed_at": "2026-08-14",
+				"architecture_choices": [
+					"Lot UNIQUE marque contrat (touche brain/ pour 2 constantes + 3 corrections de commentaires, zero ligne de table/fixture), execute par dev-contrat seul -- premier precedent de cette feature sans second lot feature separe (it1-it5 avaient toutes 2 lots sequentiels).",
+					"Decharge FichePersonnage.tsx en BlocSituation.tsx/BlocIdentite.tsx (comportement inchange) AVANT le cablage de BlocSavoirs.tsx, fermant la dette KR-112 datee par it3/it4/it5 -- ordre impose par le plan pour eviter que la fiche ne repasse mecaniquement au-dessus du signal.",
+					"Etat vide du bloc Savoirs gate sur personnage.savoirs.length, jamais monde.indices.length seul (precedent must-fix M1 d'it5) : des savoirs deja ecrits restent visibles et editables meme si le canon d'indices est vide.",
+					"Garde structurelle du balayage des 4 portes (revele_si.*) derivee par prefixe depuis tables.ts/destinations.ts, jamais une seconde liste recopiee a la main -- condition posee par le QA au raffinage, verifiee tenue par le QA en mode B."
+				],
+				"deviations_from_plan": [
+					"Libelle du critere d'acceptation #3 (§6 du plan) imprecis par rapport au comportement livre et au §7/§3 -- le code suit la forme EXACTE de BlocRelations.tsx post-M1 (conjonction savoirs.length===0 && indices.length===0), coherente avec l'esprit du must-fix M1 ; seule la phrase du critere etait mal formulee par l'orchestrateur. Imprecision du plan, pas defaut de code -- precedent it3 (§7 mal attribue).",
+					"BlocSavoirs.tsx = 487 lignes (post-revue de PR : +10, corrections m1/m2), franchit le signal KR-112 (400) des sa creation, sous le bloqueur (800). 4e iteration consecutive (it3->it6) ou la dette se deplace sans se resorber -- notee en RETOUR-COMITE pour it7/it8.",
+					"BUG-074 trouve (BlocPresence.tsx porte encore la forme non corrigee du must-fix M1 d'it5) -- hors liste de fichiers de ce lot, journalise, correctif reporte au prochain lot touchant ce fichier.",
+					"Revue de PR tech-lead : REQUEST CHANGES puis APPROVE. 1 must-fix (relevé du budget de contexte manquant, fait a posteriori -- les deux fichiers restaient sous leur plafond) et 3 minor (garde de focus par sous-chaine plutot qu'appartenance exacte ; self-exclusion unidirectionnelle affichant 'introuvable' pour un indice reel ; test panneauPersonnages pretendant verifier un ordre jamais teste, KR-199), tous corriges avant presentation utilisateur -- detail complet dans dossier-fiches-it6.revue.md § Revue de PR.",
+					"Detail complet, ecarts mineurs et RETOUR-COMITE : dossier-fiches-it6.revue.md."
+				],
+				"test_coverage": {
+					"unit": "70 suites / 1009 tests",
+					"e2e": "sans objet (aucun harnais E2E dans ce depot)"
+				},
+				"revue": ".claude/raffinage/dossier-fiches-it6.revue.md"
 			}
 		],
 		"resolved_decisions": [
@@ -259,32 +282,32 @@
 			"RETENU — relations[].cible_id auto-référentiel toléré sans garde (voir KR-194, motif complet).",
 			"REJETÉ — avancer Savoirs en it2/it3 (proposition QA, retirée par son auteur — recommandation, pas veto) : regrouper Savoirs avec Relations/Présence préserve la cohérence thématique du lot.",
 			"RETENU — camp (Personnage) et CAMPS/Camp (canon.objectifs) restent deux registres distincts (fusionner coercerait 'joueur', absent de personnages[]). Naming : CAMPS_PERSONNAGE/CampPersonnage — précédent réutilisé par it4 pour PorteeContreMesure/Portee.",
-			"RAFFINAGE it1, 2026-08-11 — RETENU : `nom` s'edite dans un Field « NOM DU PERSONNAGE » en EN-TETE de fiche, HORS de l'accordeon (precedent FicheLieu) ; le bloc 1 s'appelle « Camp, plan & rattachement », jamais « Identite », reserve au bloc d'it2. [it1 livree — motif complet : .claude/raffinage/dossier-fiches-it1.plan.md § 8 + .revue.md]",
+			"RAFFINAGE it1 — RETENU : `nom` en Field EN-TETE hors accordeon (precedent FicheLieu) ; bloc 1 = « Camp, plan & rattachement », jamais « Identite ». [it1 livree — dossier-fiches-it1.plan.md § 8 + .revue.md]",
 			"RAFFINAGE it1 — REJETE le retrait d'un personnage en it1 : ne sert pas la demo, un personnage vide n'a aucun cout de nettoyage. Reporte (it5, cf. open_questions). [it1 livree — motif complet : .claude/raffinage/dossier-fiches-it1.plan.md § 8 + .revue.md]",
-			"RAFFINAGE it1 — REJETE RefusEnCours en it1 : aucun champ du bloc 1 (enumere ferme, requis-et-ferme, reference resout-ou-vide) ne peut produire statut:'refuse'. DOCTRINE REUTILISEE DEPUIS (it3, bloc caracteristiques) : on ne construit pas un bandeau qui ne peut jamais s'allumer. [it1 livree — motif complet : .claude/raffinage/dossier-fiches-it1.plan.md § 8 + .revue.md]",
-			"RAFFINAGE it1 — RETENU un lot hors perimetre, correctif ObjectifsCanon.tsx (dossier-canon) : objectif_id entrant dans REFERENCES_SIMPLES rendait un retrait refusable au SSOT, mais commit() y ignorait la valeur de retour — no-op muet, regression directe de cette iteration. [it1 livree — motif complet : dossier-fiches-it1.plan.md par8 + .revue.md]",
-			"RAFFINAGE it1 — RETENU l'elargissement de SegmentedControl.tsx a `value: T | undefined` (additif ; onChange inchange — retour a « non renseigne » via IconButton dedie, jamais un 3e segment). [it1 livree — motif complet : .claude/raffinage/dossier-fiches-it1.plan.md § 8 + .revue.md]",
-			"RAFFINAGE it1 — RETENU : __fixtures__/dossier-reference.json touche par le lot contrat, au moins une instance par champ neuf — le garde de couverture.test.ts balaie la FIXTURE, pas le type. [it1 livree — motif complet : .claude/raffinage/dossier-fiches-it1.plan.md § 8 + .revue.md]",
+			"RAFFINAGE it1 — REJETE RefusEnCours en it1 : aucun champ du bloc 1 ne peut produire statut:'refuse' — on ne construit pas un bandeau qui ne peut jamais s'allumer (doctrine reutilisee it3). [it1 livree — dossier-fiches-it1.plan.md § 8 + .revue.md]",
+			"RAFFINAGE it1 — RETENU correctif hors-perimetre ObjectifsCanon.tsx : commit() y ignorait sa valeur de retour, no-op muet cause par objectif_id entrant dans REFERENCES_SIMPLES. [it1 livree — dossier-fiches-it1.plan.md § 8 + .revue.md]",
+			"RAFFINAGE it1 — RETENU SegmentedControl.tsx elargi a `value: T | undefined` (additif) — retour a « non renseigne » via IconButton dedie, jamais un 3e segment. [it1 livree — dossier-fiches-it1.plan.md § 8 + .revue.md]",
+			"RAFFINAGE it1 — RETENU : dossier-reference.json touche par le lot contrat (couverture.test.ts balaie la FIXTURE, pas le type). [it1 livree — dossier-fiches-it1.plan.md § 8 + .revue.md]",
 			"RAFFINAGE it1 — RETENU PORTEE_INITIALE: Portee = premier (jamais PORTEES[0]), plancher du schema pas intention d auteur. [it1 livree — motif complet : dossier-fiches-it1.plan.md par8 + .revue.md]",
 			"RAFFINAGE it2 — RETENU redecoupage de it2 en deux (5->6 iterations) : identite+caracteristiques ne s ecrivait pas sans et, >= 9 criteres. [it2 livree — motif complet : dossier-fiches-it2.plan.md par8 + .revue.md]",
 			"RAFFINAGE it2 — REJETÉ le budget de mots sur les 3 proses d'identité, retiré par son propre auteur (8 chemins de prose ia déjà sans borne). [it2 livrée — motif complet : dossier-fiches-it2.plan.md § 8 + .revue.md]",
-			"RAFFINAGE it2 — RETENU : fonction/apparence/description_joueur = ia avec discriminant écrit en docstring (EST/DÉCRIT/SAIT) ; le suffixe _joueur désigne l'audience, jamais le régime. [it2 livrée — motif complet : dossier-fiches-it2.plan.md § 8 + .revue.md]",
-			"RAFFINAGE it2 — RETENU RefusEnCours{personnageId, statut, issues} dans PanneauPersonnages, deux indexations KR-197 nommées séparément ; la fiche ne reçoit jamais d'identifiant. [it2 livrée — motif complet : dossier-fiches-it2.plan.md § 8 + .revue.md]",
-			"RAFFINAGE it2 — RETENU, correction load-bearing : {statut:'absent'} ne porte NI errors NI warnings, donc le bandeau branche sur `statut`, jamais sur `issues` (un IssueList vide rendrait un bandeau vide sous un eyebrow rouge). 'absent' -> phrase fixe, 'refuse' -> IssueList. [it2 livree — motif complet : .claude/raffinage/dossier-fiches-it2.plan.md § 8 + .revue.md]",
-			"RAFFINAGE it2 — REJETÉ l'extraction de BlocIdentite.tsx (retirée par son auteur, dette habituelle à un seul appelant). RETENU le repli de brouillon PAR CHAMP, jamais par objet (BUG-058). [it2 livrée — motif complet : dossier-fiches-it2.plan.md § 8 + .revue.md]",
-			"RAFFINAGE it2 — RETENU : retrait de la parenthèse « aucun BUDGETS_DE_MOTS sur lieux[] » du motif PROSE_D_ENTITE_LIBRE (affirmait l'état d'une autre table, sans rapport avec la dispense réelle). [it2 livrée — motif complet : dossier-fiches-it2.plan.md § 8 + .revue.md]",
-			"RAFFINAGE it2 — RETENU 2 lots SEQUENTIELS, pas d'essaim : les trois candidats a un 3e lot nommaient tous les deux memes fichiers. Le decoupage REVELE le parallelisme, il ne le fabrique pas. [it2 livree — motif complet : .claude/raffinage/dossier-fiches-it2.plan.md § 8 + .revue.md]",
+			"RAFFINAGE it2 — RETENU : fonction/apparence/description_joueur = ia (discriminant EST/DECRIT/SAIT) ; _joueur designe l'audience, jamais le regime. [it2 livree — dossier-fiches-it2.plan.md § 8 + .revue.md]",
+			"RAFFINAGE it2 — RETENU RefusEnCours{personnageId,statut,issues} dans PanneauPersonnages, 2 indexations KR-197 separees ; la fiche ne recoit jamais d'identifiant. [it2 livree — dossier-fiches-it2.plan.md § 8 + .revue.md]",
+			"RAFFINAGE it2 — RETENU : bandeau branche sur `statut` jamais `issues` ('absent' -> phrase fixe, 'refuse' -> IssueList) — {statut:'absent'} ne porte ni errors ni warnings. [it2 livree — dossier-fiches-it2.plan.md § 8 + .revue.md]",
+			"RAFFINAGE it2 — REJETE extraction BlocIdentite.tsx (dette a un seul appelant) ; RETENU repli de brouillon PAR CHAMP, jamais par objet (BUG-058). [it2 livree — dossier-fiches-it2.plan.md § 8 + .revue.md]",
+			"RAFFINAGE it2 — RETENU retrait de la parenthese perimee sur BUDGETS_DE_MOTS/lieux[] dans PROSE_D_ENTITE_LIBRE (affirmait l'etat d'une autre table). [it2 livree — dossier-fiches-it2.plan.md § 8 + .revue.md]",
+			"RAFFINAGE it2 — RETENU 2 lots sequentiels, pas d'essaim : les 3 candidats a un 3e lot nommaient les 2 memes fichiers — le decoupage REVELE le parallelisme, il ne le fabrique pas. [it2 livree — dossier-fiches-it2.plan.md § 8 + .revue.md]",
 			"RAFFINAGE it3 — RETENU : stats?: Record<Characteristic, number>, optionnel EN BLOC et TOTAL quand present (jamais Partial) — bloc partiel rend un jet irresolvable, et desserrer TOTAL->Partial n'invalide rien alors que l'inverse casserait schema:1. [it3 livree — motif complet : dossier-fiches-it3.plan.md § 8 + .revue.md]",
-			"RAFFINAGE it3 — RETENU : passage de non regle a regle = GESTE EXPLICITE, jamais un effet de bord du premier stepper (BUG-064). Precedent RE-ENFREINT puis corrige par it4 (duree) ET it5 (Stepper.tsx, prefix signe). [it3 livree — motif complet : dossier-fiches-it3.plan.md par8 + .revue.md]",
-			"RAFFINAGE it3 — REJETE l'extension de Stepper a `value: number | undefined` (proposee puis RETIREE par l'UX) : sous le schema TOTAL, `Stepper` n'est jamais monte quand `stats` est absent. `Stepper.tsx` et `ObjectEditor.tsx` restent HORS LOT. [it3 livree — motif complet : .claude/raffinage/dossier-fiches-it3.revue.md]",
-			"RAFFINAGE it3 — RETENU `requis: true` sur les 8 lignes ENUMERES_FERMES de stats (precedent : savoirs[].revele_si.jet.carac, deja requis:true sous porteur optionnel) — bloc absent = calme (sitesDe coupe), bloc partiel = refuse. Rend le « total quand present » mecanique, pas seulement type. [it3 livree — motif complet : dossier-fiches-it3.plan.md § 8 + .revue.md]",
-			"RAFFINAGE it3 — RETENU : docs/REGLES-DU-JEU.md § 1 corrige DANS LE LOT CONTRAT, ecrit EN PREMIER (KR-130 doc->code) — le plancher 1 n etait ecrit nulle part. Raison mecanique : un commit .md seul saute les revues tech-lead/utilisateur (docs/WORKFLOW.md). [it3 livree — motif complet : dossier-fiches-it3.plan.md § 8 + .revue.md]",
+			"RAFFINAGE it3 — RETENU : passage de non-regle a regle = GESTE EXPLICITE, jamais un effet de bord (BUG-064) — precedent re-enfreint puis corrige par it4/it5. [it3 livree — dossier-fiches-it3.plan.md § 8 + .revue.md]",
+			"RAFFINAGE it3 — REJETE l'extension de Stepper a `value: number|undefined` (retiree par l'UX) : sous schema TOTAL, Stepper n'est jamais monte quand stats est absent. [it3 livree — dossier-fiches-it3.revue.md]",
+			"RAFFINAGE it3 — RETENU `requis: true` sur les 8 lignes ENUMERES_FERMES de stats — bloc absent = calme, bloc partiel = refuse, rend le « total quand present » mecanique. [it3 livree — dossier-fiches-it3.plan.md § 8 + .revue.md]",
+			"RAFFINAGE it3 — RETENU : REGLES-DU-JEU.md § 1 corrige DANS le lot contrat, ecrit en premier (KR-130 doc->code) — un commit .md seul saute les revues. [it3 livree — dossier-fiches-it3.plan.md § 8 + .revue.md]",
 			"RAFFINAGE it3 — REJETÉ : CARACTERISTIQUE_MIN dans characteristics.ts (déclenche le score de mutation). RETENU dans dossier/types.ts, déclencheur daté : remonte quand un autre travail touche characteristics.ts (n°9). [it3 livrée — motif complet : dossier-fiches-it3.revue.md]",
-			"RAFFINAGE it3 — RETENU : ?? STATS_INITIALES legitime A L ECRITURE, INTERDIT EN LECTURE — un repli de lecture ferait resoudre un jet contre une fiche fabriquee que personne n a ecrite. Tenu par docstring + pvDerive.test.ts. [it3 livree — motif complet : dossier-fiches-it3.plan.md § 8 + .revue.md]",
-			"RAFFINAGE it3 — RETENU : aucun mécanisme générique de « Record à clés fixes » (Object.fromEntries étalé au site, une fois par itération) ; veto permanent sur toute ligne de destination PORTEUSE monde.personnages[].stats. [it3 livrée — motif complet : dossier-fiches-it3.revue.md]",
+			"RAFFINAGE it3 — RETENU : repli `?? STATS_INITIALES` legitime a l'ecriture, interdit en lecture — resoudrait un jet contre une fiche fabriquee. [it3 livree — dossier-fiches-it3.plan.md § 8 + .revue.md]",
+			"RAFFINAGE it3 — RETENU : aucun mecanisme generique de « Record a cles fixes » — veto permanent sur toute ligne de destination porteuse monde.personnages[].stats. [it3 livree — dossier-fiches-it3.revue.md]",
 			"RAFFINAGE it3 — RETENU, JURISPRUDENCE POUR it8 (ex-it6) : caractere.curseurs suivra la MEME FORME que stats — curseurs?: Record<Curseur, number>, optionnel en bloc, TOTAL quand present, 6 lignes ENUMERES_FERMES (requis: true), 6 lignes moteur, 6 cles dans les deux fixtures. MOTIF DIFFERENT : un curseur manquant ne rend aucun jet irresoluble (mapping CA/IN/IG documentaire, KR-193) ; un bloc partiel casse EN AVAL — l assembleur n10 deriverait un libelle par curseur avec une branche par cle manquante, l endroit ou l on invente un trait cote prompt. Meme FORME, aucun MECANISME partage.",
-			"RAFFINAGE it3 — RETENU (avertissement permanent) : docs/PLAN-BASCULE-IA.dc.html est PERIME sur les caracteristiques (ligne 201, § 1.3 : pv/tier — CONTRAIRE de KR-192). Reference de design non modifiee (CLAUDE.md) ; correction enregistree ici pour qu un dev-contrat ne code pas ce qu il y lit.",
-			"RAFFINAGE it3 — RETENU : les 8 cles de stats sont moteur, une ligne PAR CARACTERISTIQUE, derivees de CHARACTERISTIC_VALUES — le chiffre est un SEUIL (des <= carac), un modele qui le lit connait l issue avant le tirage. Precedent : savoirs[].revele_si.jet.carac. [it3 livree — motif complet : dossier-fiches-it3.plan.md § 8 + .revue.md]",
+			"RAFFINAGE it3 — RETENU (avertissement permanent) : PLAN-BASCULE-IA.dc.html est PERIME sur les caracteristiques (§1.3 : pv/tier, contraire de KR-192) — reference non modifiee (CLAUDE.md).",
+			"RAFFINAGE it3 — RETENU : les 8 cles de stats sont moteur — le chiffre est un SEUIL, un modele qui le lit connait l'issue avant le tirage. [it3 livree — dossier-fiches-it3.plan.md § 8 + .revue.md]",
 			"RAFFINAGE it4 — RETENU but.echeance vers auteur (desaccord SWAP tech-lead/narratif-ia). [it4 livree — motif complet : dossier-fiches-it4.plan.md par8 desaccord 6 + .revue.md]",
 			"RAFFINAGE it4 — RETENU duree/delai vers moteur entier DUREE_MIN=1 ; si_bloque vers ia, controle isole hors FAMILLES_DE_CONDITIONS. [it4 livree — motif complet : dossier-fiches-it4.plan.md par8 desaccords 7-8 + .revue.md]",
 			"RAFFINAGE it4 — RETENU : critere racine 7 scinde 7a (contre_mesures avertit)/7b (plan_actions calme). [it4 livree — motif complet : dossier-fiches-it4.plan.md par8 desaccord 2 + .revue.md]",
@@ -295,7 +318,11 @@
 			"RAFFINAGE it5 — RETENU presence.quand vers auteur, relations.intensite vers moteur (INTENSITE_MIN/MAX distinctes de CONFIANCE_MIN/MAX). [it5 livree — motif complet : dossier-fiches-it5.plan.md par4 + .revue.md]",
 			"RAFFINAGE it5 — RETENU le mecanisme de gating de relations[].secret (porteur seul, narrateur exclu si secret, secret:false elargit d un role). Ecrit aux deux sites, zero code d assemblage. [it5 livree — motif complet : dossier-fiches-it5.plan.md par8 desaccord 4 + .revue.md]",
 			"RAFFINAGE it5 — RETENU correctif Stepper.tsx : value > 0 (pas >= 0) efface le prefix a zero. Bug reel, trouve par UX. [it5 livree — motif complet : dossier-fiches-it5.plan.md par8 desaccord 3 + .revue.md]",
-			"RAFFINAGE it5 — RETENU scission de useEcriturePersonnages.ts en 4 sous-hooks, fermant la dette KR-112 datee par it3/it4 (dette partiellement deplacee, voir revue). [it5 livree — motif complet : dossier-fiches-it5.plan.md par5 + .revue.md]"
+			"RAFFINAGE it5 — RETENU scission de useEcriturePersonnages.ts en 4 sous-hooks, fermant la dette KR-112 datee par it3/it4 (dette partiellement deplacee, voir revue). [it5 livree — motif complet : dossier-fiches-it5.plan.md par5 + .revue.md]",
+			"RAFFINAGE it6, 2026-08-14 -- RETENU : indice_id/certitude restent destination 'ia' mais leur motif est corrige -- destinations.ts invoquait un champ 'verite' absent du schema (propriete future n6 dossier-registres) ; 3 commentaires corriges, zero changement de valeur de destination. [voir plan dossier-fiches-it6.plan.md § 8 desaccord 4]",
+			"RAFFINAGE it6 -- RETENU : CONFIANCE_INITIALE_PORTE=1 (distincte de CONFIANCE_MIN=-3, qui n'exigerait rien tout en eteignant l'avertissement revelation-sans-porte) -- une graine de porte optionnelle ne peut jamais etre sa propre valeur de neant, precedent CERTITUDE_INITIALE/PORTEE_INITIALE. [voir plan § 8 desaccord 5]",
+			"RAFFINAGE it6 -- RETENU : une porte-reference (contrepartie.objet_id, apres_indice_id) s'ouvre PAR SELECT, jamais un bouton pointille qui ecrirait un index de registre implicite -- meme doctrine que cible_id/lieu_id. Self-exclusion sur apres_indice_id. [voir plan § 8 desaccord 6]",
+			"RAFFINAGE it6 -- RETENU : etat vide du bloc Savoirs gate sur personnage.savoirs.length, jamais sur monde.indices.length seul -- des savoirs deja ecrits restent rendus meme si indices est vide (precedent must-fix M1 d'it5). BlocPresence.tsx porte ENCORE la forme non corrigee de ce meme bug -- BUG-074, correctif hors lot d'it6. [voir plan § 8 desaccords 1 et 7]"
 		],
 		"open_questions": [
 			"REPORTÉ n° 10 (moteur-interprete), propriétaire non assigné avant cette feature — la destination de Entite.nom (actuellement 'auteur' pour les 8 collections identifiées) empêche un narrateur de prononcer le nom d'un personnage tel quel. Question transverse à toutes les entités nommées, pas propre aux personnages. Piste pré-inscrite par narratif-ia (tour 2) : une appellation re-projetée par le CODE à l'assemblage, jamais une seconde clé au schéma.",
@@ -308,7 +335,8 @@
 			"REPORTÉ, propriétaire non assigné — EXAMINÉE par it4 (tech-lead l'a retrouvée dans ce périmètre, PM a opposé un veto de périmètre) : statut:'absent' est un fait de DOCUMENT, filtré par entité dans PanneauPersonnages/PanneauLieux, mais affiché INCONDITIONNELLEMENT dans ObjectifsCanon (carte plate, sans sélection) — un ajout qui échoue y indexe le refus sur un identifiant fantôme, jamais effaçable. Motif du report : pas causé par it4, absent de sa phrase de démo, même si it4 rouvre la couche d'écriture analogue côté personnages. Micro-commit indépendant, hors PATCH d'une itération dossier-fiches.",
 			"REPORTÉ n° 9 (moteur-dossier), ouvert par le raffinage d'it3 — LA SUFFISANCE. Le schéma dit désormais qu'un bloc stats présent est COMPLET ; il ne dit toujours pas qu'un personnage qui se bat doit en avoir un. Un PNJ sans stats est un document parfaitement valide dont aucun jet n'est résoluble. C'est une question de SUFFISANCE (le linter d'aventure n° 7, ou l'état du héros en session n° 9), pas de typage : la trancher dans le schéma reviendrait à rendre stats requis, ce que KR-191 interdit sur un schema:1 sans chemin de migration. Nommée ici par le tech-lead plutôt que découverte au Temps 2.",
 			"OUVERT, propriétaire = n° 12 moteur-acteurs (ou le premier consommateur réel) — valeurs de PorteeContreMesure posées par dev-contrat d'it4 : 'personnage' | 'groupe' | 'lieu' (contre_mesures[].portee, destination moteur, jamais rendu à l'auteur). Aucun appui documentaire réel dans docs/REGLES-PLAY.md à ce jour (honnêtement admis dans la docstring de types.ts) — révisables sans coût avant tout consommateur du Temps 2.",
-			"OUVERT, propriétaire = n° 12 moteur-acteurs — contrat de sortie IA « R4 · acteur » (entrée injectée, schéma {replique, indices_reveles, delta_confiance}, échec → rejeu puis repli déterministe) esquissé par narratif-ia au raffinage d'it5 mais volontairement PAS écrit dans le plan (créerait un second site pour un contrat que n°12 possédera). Détail complet : .claude/raffinage/dossier-fiches-it5/tour1-narratif-ia.md § F."
+			"OUVERT, propriétaire = n° 12 moteur-acteurs — contrat de sortie IA « R4 · acteur » (entrée injectée, schéma {replique, indices_reveles, delta_confiance}, échec → rejeu puis repli déterministe) esquissé par narratif-ia au raffinage d'it5 mais volontairement PAS écrit dans le plan (créerait un second site pour un contrat que n°12 possédera). Détail complet : .claude/raffinage/dossier-fiches-it5/tour1-narratif-ia.md § F.",
+			"REPORTE n6 (dossier-registres), trouve au raffinage d'it6 -- indices[].verite (la formulation jouee du savoir) est absente du schema : une porte de revele_si ouverte donne une CONDITION mais jamais un CONTENU, l'assembleur n12 ne pourrait qu'inventer ce qu'un personnage revele. destinations.ts (l. 209-211) etait ecrit contre un protocole qui presupposait ce champ ; motif corrige dans le meme lot."
 		]
 	}
 }

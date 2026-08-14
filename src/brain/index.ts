@@ -165,12 +165,20 @@ export { autoSlot } from './BookService'
 // l'échelle d'un sentiment d'auteur à celle d'un état de session. Leur registre dérivé
 // `INTENSITES` reste dedans, comme `CONFIANCES` : c'est une table de validation, aucun
 // écran ne choisit une intensité dans une liste.
+// MÊME RÈGLE pour l'itération 6 : `CONFIANCE_INITIALE_PORTE` sort parce qu'elle est la
+// valeur SEMÉE quand l'auteur ouvre la porte de confiance d'un savoir — une graine
+// reconstruite côté feature serait un nombre en dur au site de saisie (KR-165), et
+// surtout la feature attraperait `CONFIANCE_MIN` « puisqu'elle est déjà exportée » :
+// une porte à `-3` n'exige RIEN tout en éteignant l'avertissement
+// `revelation-sans-porte`. Les deux bornes sortent avec elle parce qu'elles sont le
+// `min` et le `max` du `Stepper` qui règle ensuite le seuil.
 export {
 	DOSSIER_SCHEMA,
 	BUDGET_MOTS_CANON,
 	BUDGET_MOTS_JALON,
 	CONFIANCE_MIN,
 	CONFIANCE_MAX,
+	CONFIANCE_INITIALE_PORTE,
 	CARACTERISTIQUE_MIN,
 	STATS_INITIALES,
 	DUREE_MIN,
@@ -190,7 +198,11 @@ export {
 // place lierait le plancher du schéma à un ordre d'affichage. Les LIBELLÉS
 // français des deux registres restent côté feature — un seul consommateur réel,
 // précédent `CAMPS` ci-dessus.
-export { PORTEES, PORTEE_INITIALE, CERTITUDES, CAMPS, CAMPS_PERSONNAGE } from './dossier/types'
+// `CERTITUDE_INITIALE` sort à l'itération 6 de la n° 4, exactement comme
+// `PORTEE_INITIALE` : elle est écrite DANS LE DOCUMENT au geste qui crée un savoir, et
+// une feature qui prendrait `CERTITUDES[0]` à sa place lierait le plancher du schéma à
+// un ordre d'affichage. Ses LIBELLÉS français restent côté feature.
+export { PORTEES, PORTEE_INITIALE, CERTITUDES, CERTITUDE_INITIALE, CAMPS, CAMPS_PERSONNAGE } from './dossier/types'
 export type {
 	Dossier,
 	Canon,

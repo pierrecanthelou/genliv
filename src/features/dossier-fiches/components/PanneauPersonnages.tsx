@@ -1,6 +1,10 @@
 import type { CSSProperties } from 'react'
 import { localiserEntite, ListRow, Badge } from '../../../brain'
-import { FichePersonnage, LIBELLES_CAMP, LIBELLES_PORTEE } from './FichePersonnage'
+import { FichePersonnage } from './FichePersonnage'
+// `LIBELLES_CAMP`/`LIBELLES_PORTEE` ont suivi le bloc 1 dans `BlocSituation.tsx`
+// à la décharge d'it6 (KR-112) : ce sont les mêmes valeurs, au même usage
+// (les deux badges de `ListRow`), seul le module change.
+import { LIBELLES_CAMP, LIBELLES_PORTEE } from './BlocSituation'
 import { boutonPointilleStyle } from './styles'
 import { useEcriturePersonnages } from '../hooks/useEcriturePersonnages'
 
@@ -85,7 +89,7 @@ export function PanneauPersonnages({ dossierId }: PanneauPersonnagesProps): JSX.
 					brouillon={ecriture.brouillon}
 					objectifsCanon={dossier.canon.objectifs}
 					refus={ecriture.refusAffiche}
-					avertissementsD1={ecriture.avertissementsD1Affiche}
+					avertissementsAffiches={ecriture.avertissementsAffiches}
 					onChangeChamp={ecriture.handleChangeChamp}
 					onBlurChamp={ecriture.handleBlurChamp}
 					onChangeCamp={ecriture.handleChangeCamp}
@@ -109,7 +113,10 @@ export function PanneauPersonnages({ dossierId }: PanneauPersonnagesProps): JSX.
 					onRetirerContreMesure={ecriture.handleRetirerContreMesure}
 					personnages={dossier.monde.personnages}
 					lieux={dossier.monde.lieux}
+					indices={dossier.monde.indices}
+					objets={dossier.monde.objets}
 					relationsPresence={ecriture}
+					savoirs={ecriture}
 				/>
 			</div>
 		</div>

@@ -20,8 +20,8 @@ import { PanneauPersonnages } from '../components/PanneauPersonnages'
  * L'écran Personnages — liste `ListRow` à gauche, fiche à droite (§3 du plan
  * d'itération 1 de `dossier-fiches`). Ce que ces tests éprouvent, distinct des
  * précédents `PanneauLieux`/`ObjectifsCanon` : l'accordéon à 8 emplacements
- * (6 remplis dont le bloc « Identité » depuis it2, 2 placeholders (savoirs,
- * caractère exploitable), compte exact), DEUX widgets FERMÉS qui committent immédiatement (camp, plan) au
+ * (7 remplis depuis l'itération 6, qui livre « Savoirs » ; 1 placeholder,
+ * « Caractère exploitable », compte exact), DEUX widgets FERMÉS qui committent immédiatement (camp, plan) au
  * lieu d'un brouillon, un `Select` d'objectif dont l'état vide dépend du
  * CANON (pas du personnage lui-même), et le bandeau de refus indexé par
  * personnage (it2, KR-197).
@@ -216,7 +216,7 @@ describe('PanneauPersonnages', () => {
 		expect(lire(brain, dossier.id).monde.personnages[0]).not.toHaveProperty('objectif_id')
 	})
 
-	it('deux placeholders recales apres it5: compte exact = 2 (pas 1 ni 3), textes distincts par iteration cible, titres exacts dans l ordre', () => {
+	it('un seul placeholder apres it6: compte exact = 1 (pas 0 ni 2), texte de son iteration cible, titres exacts dans l ordre', () => {
 		const brain = createBrain()
 		const dossier = brain.dossiers.create('Un dossier')
 		semerPersonnage(brain, dossier.id, { id: 'pnj.aldur', portee: 'premier', plan_actions: [], savoirs: [] })
@@ -232,18 +232,24 @@ describe('PanneauPersonnages', () => {
 			'Présence',
 			'Caractère exploitable',
 		]
-		titresExacts.forEach((titre) => {
-			expect(screen.getByRole('button', { name: titre })).toBeInTheDocument()
-		})
+		// Ordre reellement verifie (pas seulement la presence, revue de PR it6) :
+		// seuls les boutons d'en-tete d'accordeon portent aria-expanded (Accordion.tsx) ;
+		// le chevron `▾` est aria-hidden mais reste dans textContent, on le retire.
+		const titresAffiches = screen
+			.getAllByRole('button')
+			.filter((bouton) => bouton.hasAttribute('aria-expanded'))
+			.map((bouton) => bouton.textContent?.replace('▾', '').trim())
+		expect(titresAffiches).toEqual(titresExacts)
 
-		// « Relations » et « Présence » ont quitte la table des placeholders a it5
-		// (comme « Caractéristiques » a it3, « Objectif & plan d'actions » a it4) :
-		// sans donnees renseignees, ces deux blocs portent desormais leur propre
-		// contenu (etat vide invitant du bloc, pas un placeholder generique).
+		// « Savoirs » a quitte la table des placeholders a it6 (comme
+		// « Caractéristiques » a it3, « Objectif & plan d'actions » a it4,
+		// « Relations »/« Présence » a it5) : sans donnees renseignees, ce bloc porte
+		// desormais son propre contenu (etat vide invitant du bloc, pas un
+		// placeholder generique). Il n en reste qu UN, « Caractère exploitable ».
 		const placeholders = screen.getAllByText(/Pas encore renseigné — /)
-		expect(placeholders).toHaveLength(2)
+		expect(placeholders).toHaveLength(1)
 
-		expect(screen.getAllByText(`Pas encore renseigné — ${TEXTE_ITERATION(6)}.`)).toHaveLength(1) // Savoirs
+		expect(screen.queryByText(`Pas encore renseigné — ${TEXTE_ITERATION(6)}.`)).toBeNull() // Savoirs, livre
 		expect(screen.getAllByText(`Pas encore renseigné — ${TEXTE_ITERATION(8)}.`)).toHaveLength(1) // Caractère exploitable
 	})
 

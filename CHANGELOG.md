@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.23 — un personnage cesse d'ignorer et se met à savoir
+
+`dossier-fiches` itération 6/8. L'auteur donne à son personnage un **savoir** — un indice qu'il connaît, comment il le révèle, et sous quelles conditions (confiance, jet, contrepartie, indice déjà connu) — dans le 7ᵉ bloc de l'accordéon.
+
+- **Premier lot de la feature sans second lot feature séparé.** Le schéma `Savoir`/`Revelation` était déjà complet depuis `dossier-format` n°1 (zéro ligne de `tables.ts`/`validate.ts`) : le seul travail `brain/` est 2 constantes-graine + la correction de 3 commentaires faux dans `destinations.ts`. Marqué `contrat` (touche `brain/`), exécuté en entier par `dev-contrat` — un lot unique, effort élevé, plutôt qu'une scission artificielle contrat/feature qui n'aurait rien acheté sans second lot à protéger.
+- **Un vrai défaut trouvé dans le contrat déjà écrit, par le rôle narratif-ia.** Le commentaire justifiant `savoirs[].indice_id: 'ia'` invoquait un protocole `{indice_id, certitude, vérité}` dont le champ `vérité` **n'existe pas** dans le schéma (`monde.indices` est un `Entite[]` nu, propriété future de n°6 `dossier-registres`). Corrigé : 3 commentaires, zéro changement de valeur de destination — `indice_id` reste `ia`, mais par le bon motif (le rang injecté par l'assembleur n°12, jamais l'identifiant brut).
+- **`CONFIANCE_INITIALE_PORTE = 1`, jamais `CONFIANCE_MIN` (-3), pour la graine de la porte « confiance ».** Une porte ouverte à `-3` n'exigerait rien de l'auteur tout en éteignant l'avertissement `revelation-sans-porte` — la graine mentirait par silence. Même doctrine que `CERTITUDE_INITIALE`/`PORTEE_INITIALE` : une valeur de départ nommée, jamais un plancher de registre réutilisé par accident.
+- **Les portes « contrepartie » et « indice préalable » s'ouvrent par un `Select`, jamais un bouton pointillé** — un index de registre implicite (`objets[0].id`) écrirait une référence que l'auteur n'a pas choisie, veto tech-lead levé par une réécriture complète du contrat de design en tour 2. Self-exclusion de l'indice propre au savoir pour la porte « indice préalable ».
+- **État vide gaté sur les savoirs du personnage, jamais sur le canon d'indices seul** — précédent must-fix M1 d'it5 : un dossier importé portant déjà des savoirs les garde visibles et éditables même si `monde.indices` est vide, seul le `Select` d'ajout se retrouve sans option.
+- **Garde structurelle du balayage des 4 portes**, exigée par le QA en condition de recevabilité (pas une seconde liste recopiée à la main) : le test dérive les 4 chemins `revele_si.*` par filtrage de préfixe depuis `tables.ts`/`destinations.ts`, comparés au descripteur du composant — une 5ᵉ porte oubliée d'un côté rougirait.
+- **`BUG-074` trouvé, pas corrigé ici** : `BlocPresence.tsx` (livré à it5) porte encore la forme non corrigée du bug M1 — masque des présences déjà écrites. Hors liste de fichiers de ce lot ; correctif reporté au prochain lot qui l'ouvre.
+- Décharge de `FichePersonnage.tsx` en `BlocSituation.tsx`/`BlocIdentite.tsx` (comportement inchangé) avant le câblage du bloc Savoirs — dette KR-112 datée par it3/it4/it5. `BlocSavoirs.tsx` lui-même livre à 487 lignes, au-dessus du signal (400), sous le bloqueur (800) : 4ᵉ itération consécutive où la dette se déplace sans se résorber.
+- 70 suites / 1009 tests. Score de mutation **non requis** (aucun des 4 fichiers mutés touché).
+
 ## 0.6.22 — un personnage cesse d'être seul et devient situé dans le monde
 
 `dossier-fiches` itération 5/8. L'auteur situe un personnage dans le monde : ses **relations** à d'autres personnages (cible, ce qui les lie, intensité signée, secret) et sa **présence** (lieu, moment), dans les 5ᵉ et 6ᵉ blocs de l'accordéon.

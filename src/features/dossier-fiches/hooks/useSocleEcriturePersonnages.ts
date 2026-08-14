@@ -16,11 +16,12 @@ import {
  * `useEcriturePersonnages.ts` (690 l., dette KR-112 datée par it3/it4,
  * désaccord n° 1 du plan d'itération 5) : sélection du personnage affiché,
  * création, `commit()` et ses DEUX indexations KR-197 (affichage/invalidation,
- * `resout: false` sur le chemin de création), le bandeau de refus et
- * l'avertissement D1 dérivé.
+ * `resout: false` sur le chemin de création), le bandeau de refus et les
+ * avertissements dérivés du personnage affiché.
  *
- * Les TROIS sous-hooks de famille (`useEcritureIdentite`, `useEcriturePlan`,
- * `useEcritureRelationsPresence`) reçoivent `socle` en PARAMÈTRE et n'appellent
+ * Les QUATRE sous-hooks de famille (`useEcritureIdentite`, `useEcriturePlan`,
+ * `useEcritureRelationsPresence`, `useEcritureSavoirs`) reçoivent `socle` en
+ * PARAMÈTRE et n'appellent
  * JAMAIS `useBrain`/`useOpenDossier` eux-mêmes — un seul abonnement au dossier
  * pour toute la fiche, ici. `commit` et ses deux indexations vivent
  * UNIQUEMENT dans ce fichier, jamais recopiées par sous-hook : c'est ce qui
@@ -56,7 +57,12 @@ export interface UseSocleEcriturePersonnagesResult {
 	selection: string | null
 	setSelection: (id: string) => void
 	refusAffiche: RefusAffiche | null
-	avertissementsD1Affiche: DossierIssue[]
+	/** Les avertissements du dossier PORTÉS PAR LE PERSONNAGE AFFICHÉ, filtrés par
+	 *  PRÉFIXE DE CHEMIN — jamais par famille d'anomalie. Nommé
+	 *  `avertissementsD1Affiche` jusqu'à l'itération 6, où le nom a cessé d'être
+	 *  seulement imprécis pour devenir FAUX : le bloc Savoirs fait remonter ici
+	 *  `revelation-sans-porte`, qui n'appartient pas à D1 (§ 8 désaccord 9). */
+	avertissementsAffiches: DossierIssue[]
 	handleAjouter: () => void
 	/** `null` quand le dossier est absent : aucun sous-hook n'écrit sur un
 	 *  dossier disparu. */
@@ -75,9 +81,12 @@ export function useSocleEcriturePersonnages(dossierId: string): UseSocleEcriture
 			? undefined
 			: (dossier.monde.personnages.find((p) => p.id === selection) ?? dossier.monde.personnages[0])
 
-	// Avertissement D1 (KR-189) — dérivé, jamais un état semé une fois : il doit
-	// s'allumer au montage (dossier réouvert) autant qu'après un commit de session.
-	const avertissementsD1Affiche = useMemo((): DossierIssue[] => {
+	// Avertissements du personnage affiché (KR-189) — dérivés, jamais un état semé
+	// une fois : ils doivent s'allumer au montage (dossier réouvert) autant
+	// qu'après un commit de session. Le filtre est un PRÉFIXE DE CHEMIN, donc TOUT
+	// avertissement porté par ce personnage passe — D1 (`condition-sans-expr`)
+	// comme `revelation-sans-porte`, arrivé avec le bloc Savoirs en it6.
+	const avertissementsAffiches = useMemo((): DossierIssue[] => {
 		if (dossier === null || personnageAffiche === undefined) return []
 		const index = dossier.monde.personnages.findIndex((p) => p.id === personnageAffiche.id)
 		if (index === -1) return []
@@ -131,7 +140,7 @@ export function useSocleEcriturePersonnages(dossierId: string): UseSocleEcriture
 		selection,
 		setSelection,
 		refusAffiche,
-		avertissementsD1Affiche,
+		avertissementsAffiches,
 		handleAjouter,
 		socle: dossier === null ? null : { dossierActuel: dossier, personnageAffiche, commit },
 	}

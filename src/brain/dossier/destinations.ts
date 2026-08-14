@@ -206,14 +206,44 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	'monde.personnages[].contre_mesures[].delai': 'moteur',
 	// Une classification de portée d'effet, même famille que `portee` ci-dessus.
 	'monde.personnages[].contre_mesures[].portee': 'moteur',
-	// Le protocole de révélation (reporté n° 9-12, décision déjà écrite) injecte le
-	// savoir sous la forme `{ indice_id, certitude, vérité }` et la sortie du modèle
-	// renvoie `indices_reveles: string[]` : cet identifiant-là traverse le contexte.
+	// LE PROTOCOLE DE RÉVÉLATION (reporté n° 9-12, décision déjà écrite) fait
+	// traverser le contexte à cet identifiant : c'est ce qui rend la ligne `ia`, et
+	// la valeur ne change pas.
+	//
+	// ⚠ CORRECTION (itération 6 de la n° 4) — la version précédente de ce commentaire
+	// décrivait la charge utile comme `{ indice_id, certitude, vérité }`. `vérité`
+	// N'EXISTE PAS dans le schéma 1 : `monde.indices[]` est une `Entite[]` (`id` +
+	// `nom` optionnel), et le champ qui porterait le CONTENU d'un indice appartient à
+	// la n° 6 `dossier-registres`, qui ne l'a pas encore écrit — trou nommé en
+	// `open_questions` de `dossier-fiches`. Un commentaire qui promet un champ
+	// inexistant est exactement ce qu'une table d'audiences ne peut pas se permettre :
+	// c'est ici que la n° 10 viendra lire ce qu'elle a le droit d'assembler.
+	//
+	// CE QUI EST RÉELLEMENT PRÉVU, et reste à écrire en n° 12 : le savoir est
+	// RECOMPOSÉ PAR LE CODE avant injection — un RANG dans la liste des savoirs
+	// injectés, sa `certitude`, et le contenu de l'indice le jour où la n° 6 l'aura
+	// posé. Jamais le `nom` de l'indice, qui est `auteur` (KR-195). La sortie du
+	// modèle renvoie ces RANGS, que le code re-résout en identifiants : c'est ce
+	// va-et-vient — pas la clé écrite telle quelle — qui fait traverser cet
+	// identifiant.
 	'monde.personnages[].savoirs[].indice_id': 'ia',
 	// Un « croit » est une information fausse : c'est précisément ce que le modèle
 	// doit savoir pour ne pas l'énoncer comme un fait.
 	'monde.personnages[].savoirs[].certitude': 'ia',
-	// Didascalie — injectée UNIQUEMENT quand la porte est ouverte.
+	// LA DIDASCALIE DE RÉVÉLATION — `ia`, mais SOUS CONDITION D'ÉTAT, comme
+	// `plan_actions[].si_bloque`. LE PRÉDICAT est écrit ICI et au JSDoc de
+	// `Savoir.revele_comment`, nulle part ailleurs :
+	//
+	// `revele_comment` n'entre dans le contexte d'un appel au modèle **que** lorsque
+	// le **moteur** a constaté ouvertes les portes que ce savoir porte (`revele_si`).
+	// Il n'entre **jamais** avant cette constatation, ni **seul**, sans le savoir
+	// qu'il accompagne. Un savoir SANS aucune porte n'ouvre jamais ce chemin de
+	// lui-même : `validateDossier` en avertit (`revelation-sans-porte`), sans bloquer.
+	//
+	// ⚠ CORRECTION (itération 6 de la n° 4) : la version précédente disait « quand LA
+	// porte est ouverte », AU SINGULIER, et ne nommait pas QUI la constate. Il y en a
+	// QUATRE (les cinq lignes ci-dessous), et c'est le moteur qui les constate, jamais
+	// le modèle. La table dit l'AUDIENCE, le MOMENT est la charge de la n° 10.
 	'monde.personnages[].savoirs[].revele_comment': 'ia',
 	// Les quatre PORTES sont des données de moteur pur : elles se ferment à
 	// l'assemblage du contexte, jamais par filtrage de la sortie du modèle. Le
@@ -221,8 +251,20 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	'monde.personnages[].savoirs[].revele_si.confiance_min': 'moteur',
 	'monde.personnages[].savoirs[].revele_si.jet.carac': 'moteur',
 	'monde.personnages[].savoirs[].revele_si.jet.tc': 'moteur',
-	// Le prix DIT au joueur se dérive du `nom` de l'objet à l'assemblage : c'est le
-	// nom qui est injecté, jamais l'identifiant ni le drapeau.
+	// LA CONTREPARTIE est un prix STRUCTURÉ : `objet_id` est un HANDLE que le code
+	// résout, `consomme` un drapeau que le moteur applique. Ni l'un ni l'autre n'est
+	// injecté.
+	//
+	// ⚠ CORRECTION (itération 6 de la n° 4) — la version précédente promettait que
+	// « le prix DIT au joueur se dérive du `nom` de l'objet à l'assemblage : c'est le
+	// nom qui est injecté ». Or `monde.objets[].nom` est `auteur` (ligne plus bas dans
+	// cette même table, KR-195) : RIEN n'est injectable de cette porte aujourd'hui, et
+	// une ligne d'audience ne peut pas promettre ce qu'une autre ligne de la même
+	// table interdit. C'est le MÊME trou que celui écrit au JSDoc de
+	// `Relation.cible_id`, et il a la MÊME réponse : l'appellation que le joueur
+	// entendra sera une PROJECTION de l'assembleur n° 10 — jamais une bascule de `nom`
+	// vers `ia`, jamais une clé de plus au schéma. La question est TRANSVERSE à toutes
+	// les entités nommées du dossier et n'est PAS rouverte ici (KR-195).
 	'monde.personnages[].savoirs[].revele_si.contrepartie.objet_id': 'moteur',
 	'monde.personnages[].savoirs[].revele_si.contrepartie.consomme': 'moteur',
 	'monde.personnages[].savoirs[].revele_si.apres_indice_id': 'moteur',
