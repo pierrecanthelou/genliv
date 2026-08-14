@@ -66,3 +66,38 @@ export const separateurStyle: CSSProperties = {
 	paddingTop: 'var(--space-5)',
 	borderTop: '1px solid var(--border-divider)',
 }
+
+/**
+ * La liste verticale de lignes répétées (étapes de plan d'actions, relations,
+ * présences…), et la ligne elle-même — `<div>` bordée, jamais `ListRow` (sa
+ * racine `<button>` ne peut pas porter de champs interactifs, précédent
+ * `BlocPlanActions.tsx` it4). Déplacé ici en revue de PR d'it5 : la 3ᵉ copie
+ * octet pour octet (`BlocRelations.tsx`, `BlocPresence.tsx`, en plus de
+ * `BlocPlanActions.tsx`) dépassait le seuil que ce fichier existe pour éviter
+ * — trois consommateurs réels de la MÊME feature, pas une abstraction
+ * spéculative (précédent `boutonPointilleStyle`, deux consommateurs, ci-dessus).
+ */
+export const listeLignesStyle: CSSProperties = {
+	display: 'flex',
+	flexDirection: 'column',
+	gap: 'var(--space-3)',
+	marginTop: 'var(--space-3)',
+}
+
+export const ligneStyle: CSSProperties = {
+	border: '1px solid var(--border-divider)',
+	background: 'var(--surface-sunken)',
+	borderRadius: 'var(--r-md)',
+	padding: 'var(--space-4)',
+	display: 'flex',
+	flexDirection: 'column',
+	gap: 'var(--space-4)',
+}
+
+/** L'en-tête d'une ligne répétée (eyebrow « ÉTAPE {n} »/« RELATION {n} »/
+ *  « PRÉSENCE {n} » + `IconButton` de retrait). */
+export const enTeteLigneStyle: CSSProperties = {
+	display: 'flex',
+	alignItems: 'center',
+	justifyContent: 'space-between',
+}

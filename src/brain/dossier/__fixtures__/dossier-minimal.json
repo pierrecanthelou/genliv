@@ -105,6 +105,20 @@
 							"apres_indice_id": "indice.cendres-tiedes"
 						}
 					}
+				],
+				"relations": [
+					{
+						"cible_id": "pnj.aldur-le-sage",
+						"lien": "Il ne se pardonne pas d'avoir laissé le sceau se briser, et il se tait devant lui-même comme devant le bourg.",
+						"intensite": -2,
+						"secret": true
+					}
+				],
+				"presence": [
+					{
+						"lieu_id": "lieu.val-cendre",
+						"quand": "Au crépuscule, quand les braises de l'âtre sont hautes."
+					}
 				]
 			}
 		],

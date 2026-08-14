@@ -99,15 +99,19 @@ describe('importDossier', () => {
 		const fichier = new File([JSON.stringify(document_)], 'casse.json', { type: 'application/json' })
 		await user.upload(screen.getByLabelText(/choisir un fichier de dossier/i), fichier)
 
-		// Le badge compte et accorde. TROIS depuis l'itération 3, et la troisième est
-		// la démo de cette itération-là rendue par l'affordance existante : casser
-		// l'identifiant du personnage rend PENDANTE la condition qui le référence
-		// (`canon.objectifs[0].echoue_si_expr`). Cascade VOULUE et déjà établie —
-		// `charpente.depart.lieu_id` se comporte pareil depuis l'itération 1.
-		expect(await screen.findByText('3 anomalies')).toBeInTheDocument()
+		// Le badge compte et accorde. QUATRE depuis l'itération 5 de dossier-fiches
+		// (relations[].cible_id s'ajoute à la cascade) — TROIS depuis l'itération 3,
+		// et la troisième est la démo de cette itération-là rendue par l'affordance
+		// existante : casser l'identifiant du personnage rend PENDANTE la condition
+		// qui le référence (`canon.objectifs[0].echoue_si_expr`). Cascade VOULUE et
+		// déjà établie — `charpente.depart.lieu_id` se comporte pareil depuis
+		// l'itération 1 ; `relations[0].cible_id` s'y ajoute depuis dossier-fiches it5.
+		expect(await screen.findByText('4 anomalies')).toBeInTheDocument()
 
 		// OÙ : l'entité résolue par son NOM, avec son identifiant entre parenthèses.
-		expect(screen.getByText(/Personnage « Aldûr le Sage »/)).toBeInTheDocument()
+		// DEUX anomalies portent désormais ce même OÙ (echoue_si_expr et cible_id) —
+		// getAllByText, pas getByText (RTL Query Safety, docs/WORKFLOW.md).
+		expect(screen.getAllByText(/Personnage « Aldûr le Sage »/).length).toBeGreaterThan(0)
 		expect(screen.getByText(/\(PNJ\.Aldûr\)/)).toBeInTheDocument()
 		// QUOI : la phrase française du validateur.
 		expect(screen.getByText(/ne respecte pas le format attendu/)).toBeInTheDocument()

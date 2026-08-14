@@ -16,7 +16,8 @@ export interface StepperProps {
 	onChange: (value: number) => void
 	min?: number
 	max?: number
-	/** Optional prefix on the displayed value (e.g. "+" for a bonus). */
+	/** Signe optionnel affiché devant une valeur POSITIVE (« + » pour un bonus).
+	 *  C'est un SIGNE, jamais une unité : sous **et à** zéro il s'efface. */
 	prefix?: string
 }
 
@@ -31,7 +32,10 @@ export function Stepper({ label, value, onChange, min = 0, max = 99, prefix = ''
 					−
 				</IconButton>
 				<span style={display} aria-live="polite">
-					{prefix}
+					{/* Le signe ne se pose QUE sur une valeur strictement positive : `-2` avec
+					    `prefix="+"` affichait « +-2 », et `0` afficherait « +0 » — une intensité
+					    neutre n'est ni hostile ni attachée, elle ne porte aucun signe. */}
+					{value > 0 ? prefix : ''}
 					{value}
 				</span>
 				<IconButton label={`Augmenter ${label}`} size={HIT_TARGET_MIN} onClick={() => onChange(clamp(value + 1))}>

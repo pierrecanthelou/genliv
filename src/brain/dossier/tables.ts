@@ -8,6 +8,8 @@ import {
 	CONFIANCE_MAX,
 	CONFIANCE_MIN,
 	DUREE_MIN,
+	INTENSITE_MAX,
+	INTENSITE_MIN,
 	PORTEES,
 	PORTEES_CONTRE_MESURE,
 } from './types'
@@ -107,6 +109,16 @@ export const CHAMPS_REQUIS: readonly ChampRequis[] = [
 	// une contre-mesure sans intention n'a rien à jouer. La liste, elle, reste
 	// OPTIONNELLE — c'est l'ÉLÉMENT qui est contraint.
 	{ path: 'monde.personnages[].contre_mesures[].action', location: 'Personnages' },
+	// LES DEUX MOITIÉS D'UNE RELATION, requises DANS leur élément par le même
+	// mécanisme que `contre_mesures[].action` : la LISTE reste optionnelle, c'est
+	// l'ÉLÉMENT qui est contraint. Une relation sans cible ne désigne personne ; une
+	// relation sans `lien` n'a rien à faire jouer — c'est la seule des quatre clés
+	// que le rôle acteur reçoive, donc une ligne muette pour tout le Temps 2.
+	{ path: 'monde.personnages[].relations[].cible_id', location: 'Personnages' },
+	{ path: 'monde.personnages[].relations[].lien', location: 'Personnages' },
+	// MÊME FORME : une présence sans lieu ne situe rien. `quand` reste optionnel — le
+	// moment courant vient de la SESSION, pas de la fiche.
+	{ path: 'monde.personnages[].presence[].lieu_id', location: 'Personnages' },
 	{ path: 'monde.personnages[].savoirs[].indice_id', location: 'Personnages' },
 	{ path: 'monde.personnages[].savoirs[].revele_si.contrepartie.objet_id', location: 'Personnages' },
 	{ path: 'monde.evenements[].resolutions[].resultat', location: 'Événements' },
@@ -131,6 +143,27 @@ export interface EnumereFerme extends ChampRequis {
 export const CONFIANCES: readonly number[] = Array.from(
 	{ length: CONFIANCE_MAX - CONFIANCE_MIN + 1 },
 	(_, rang) => CONFIANCE_MIN + rang,
+)
+
+/**
+ * Les valeurs d'INTENSITÉ acceptables sur une relation, DÉRIVÉES des deux bornes
+ * nommées exactement comme `CONFIANCES` juste au-dessus (KR-165).
+ *
+ * REGISTRE DISTINCT DE `CONFIANCES`, et la table est l'endroit où cela se voit : les
+ * deux listes portent aujourd'hui les MÊMES SEPT VALEURS, et c'est précisément ce qui
+ * rendait la réutilisation tentante. Elles ne mesurent pas la même chose — la
+ * confiance est un état de SESSION que le héros gagne d'un PNJ, l'intensité une
+ * donnée d'AUTEUR écrite une fois — et un registre partagé les ferait dériver
+ * ensemble au premier changement de l'une. Précédents : `CAMPS_PERSONNAGE` face à
+ * `CAMPS`, `PORTEES_CONTRE_MESURE` face à `PORTEES`.
+ *
+ * L'ÉNUMÉRATION EXPLICITE est ce qui rend `2.5` et `"3"` refusés sans qu'aucune règle
+ * de forme n'ait à être écrite, même mécanique que `VALEURS_DE_CARACTERISTIQUE` : le
+ * balayage générique des ensembles fermés teste une APPARTENANCE.
+ */
+export const INTENSITES: readonly number[] = Array.from(
+	{ length: INTENSITE_MAX - INTENSITE_MIN + 1 },
+	(_, rang) => INTENSITE_MIN + rang,
 )
 
 /**
@@ -190,6 +223,29 @@ export const ENUMERES_FERMES: readonly EnumereFerme[] = [
 		path: 'monde.personnages[].contre_mesures[].portee',
 		location: 'Personnages',
 		valeurs: PORTEES_CONTRE_MESURE,
+		requis: false,
+	},
+	// L'INTENSITÉ D'UNE RELATION lit `INTENSITES`, JAMAIS `CONFIANCES` — les deux
+	// listes portent les mêmes sept valeurs aujourd'hui, et c'est exactement ce qui
+	// rend l'erreur invisible : rien ne rougirait, et les deux échelles dériveraient
+	// ensemble au premier changement de l'une. `requis: true` DANS l'élément, comme
+	// les huit caractéristiques dans leur bloc — une relation dont personne n'a réglé
+	// l'intensité laisserait le seuil du moteur indéfini.
+	{
+		path: 'monde.personnages[].relations[].intensite',
+		location: 'Personnages',
+		valeurs: INTENSITES,
+		requis: true,
+	},
+	// LE DRAPEAU DE SECRET — `requis: false` : une relation dont l'auteur n'a rien dit
+	// n'est pas secrète (« absent se traite comme `false` », JSDoc de `Relation.secret`),
+	// et l'exiger invaliderait rétroactivement le premier dossier qui en porterait une.
+	// Même forme que `revele_si.contrepartie.consomme`, qui est le seul autre booléen
+	// fermé du schéma — mais `requis: true` là-bas, la porte n'ayant pas de défaut.
+	{
+		path: 'monde.personnages[].relations[].secret',
+		location: 'Personnages',
+		valeurs: [true, false],
 		requis: false,
 	},
 	{ path: 'monde.personnages[].savoirs[].certitude', location: 'Personnages', valeurs: CERTITUDES, requis: true },
@@ -295,11 +351,13 @@ export const CHAMPS_ENTIERS: readonly ChampEntier[] = [
  *
  * Elle ne se dérive de rien : une liste optionnelle n'a, par définition, aucune
  * autre table qui la nomme. Toute liste optionnelle STRUCTURÉE ajoutée à
- * `types.ts` gagne sa ligne ici — le compilateur ne relie pas les deux. La n° 4
- * en ajoutera deux à l'itération 5 (`relations[]`, `presence[]`).
+ * `types.ts` gagne sa ligne ici — le compilateur ne relie pas les deux. Les DEUX
+ * annoncées par l'itération 4 sont arrivées à l'itération 5.
  */
 export const LISTES_OPTIONNELLES_STRUCTUREES: readonly ChampRequis[] = [
 	{ path: 'monde.personnages[].contre_mesures', location: 'Personnages' },
+	{ path: 'monde.personnages[].relations', location: 'Personnages' },
+	{ path: 'monde.personnages[].presence', location: 'Personnages' },
 ]
 
 /**
@@ -351,19 +409,28 @@ export interface ReferenceSimple {
 }
 
 /**
- * Les CINQ références simples du schéma 1 — quatre posées par la n° 1, la
- * cinquième (`personnages[].objectif_id`) par l'itération 1 de la n° 4. Toutes
- * bloquantes quand elles ne résolvent pas : une référence orpheline est EXPOSÉE,
- * jamais silencieuse (KR-021).
+ * Les SEPT références simples du schéma 1 — quatre posées par la n° 1, la
+ * cinquième (`personnages[].objectif_id`) par l'itération 1 de la n° 4, les deux
+ * dernières par son itération 5. Toutes bloquantes quand elles ne résolvent pas :
+ * une référence orpheline est EXPOSÉE, jamais silencieuse (KR-021). Le nombre est à
+ * REMESURER, jamais à recopier d'ici (KR-159).
  *
- * Les trois de `savoirs[]` — et la cinquième, portée directement par la fiche —
- * nomment le PERSONNAGE porteur : c'est `sitesDe` qui le résout en traversant
+ * Les trois de `savoirs[]` — et les trois portées par la fiche elle-même — nomment
+ * le PERSONNAGE porteur : c'est `sitesDe` qui le résout en traversant
  * `monde.personnages`, sans qu'aucune ligne ait à le dire.
  *
  * CONSÉQUENCE DE LA CINQUIÈME, à ne pas découvrir en aval : un objectif du canon
  * cité par un personnage ne peut plus être retiré tant que le rattachement tient.
  * Ce n'est pas un effet de bord, c'est la définition d'une référence — l'écran qui
  * retire l'objectif doit RENDRE le refus, jamais l'avaler (KR-183).
+ *
+ * LA SIXIÈME EST LA PREMIÈRE RÉFÉRENCE AUTO-RÉFÉRENTIELLE DU SCHÉMA, et cette table
+ * n'y change RIEN : `relations[].cible_id` pointe l'espace `pnj`, donc le porteur
+ * lui-même y résout comme n'importe quel autre personnage. Aucune garde, aucun
+ * filtre, ni ici ni au sélecteur (KR-194) — un personnage en conflit avec lui-même
+ * est une didascalie jouable, pas une anomalie à rattraper. Sa conséquence en aval
+ * est symétrique de celle de la cinquième : un personnage cité par une relation ne
+ * pourra plus être retiré en silence, ce que l'itération 7 rendra visible à l'écran.
  */
 export const REFERENCES_SIMPLES: readonly ReferenceSimple[] = [
 	{ path: 'charpente.depart.lieu_id', espace: 'lieu', location: 'Point de départ', sujet: 'Le point de départ' },
@@ -376,6 +443,13 @@ export const REFERENCES_SIMPLES: readonly ReferenceSimple[] = [
 		location: 'Personnages',
 		sujet: 'Le rattachement de ce personnage',
 	},
+	// LES DEUX DE L'ITÉRATION 5, SANS `sujet` — comme les trois de `savoirs[]`, et
+	// délibérément : le repli dérivé écrit « Le champ « cible_id » », qui nomme le
+	// champ que l'auteur vient d'éditer. Un `sujet` rédigé serait du texte d'interface
+	// qu'aucun contrat de design n'a arbitré ; les deux qui en portent un
+	// (`depart.lieu_id`, `objectif_id`) le tiennent d'une décision écrite.
+	{ path: 'monde.personnages[].relations[].cible_id', espace: 'pnj', location: 'Personnages' },
+	{ path: 'monde.personnages[].presence[].lieu_id', espace: 'lieu', location: 'Personnages' },
 ]
 
 /**

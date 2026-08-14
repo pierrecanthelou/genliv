@@ -12,36 +12,36 @@ import {
 	type Portee,
 	type Personnage,
 	type Objectif,
+	type Lieu,
 	type DossierIssue,
 	type Characteristic,
 } from '../../../brain'
 import { Accordion, type AccordionSection } from './Accordion'
 import { BlocCaracteristiques } from './BlocCaracteristiques'
 import { BlocPlanActions } from './BlocPlanActions'
+import { BlocRelations } from './BlocRelations'
+import { BlocPresence } from './BlocPresence'
 import { eyebrowStyle, legendeStyle } from './styles'
+import type { BrouillonPersonnage, ChampTexte } from '../hooks/useEcritureIdentite'
 import type {
-	BrouillonPersonnage,
-	ChampTexte,
 	BrouillonBut,
 	ChampBut,
 	BrouillonEtape,
 	ChampEtapeTexte,
 	BrouillonContreMesure,
 	ChampContreMesureTexte,
-} from '../hooks/useEcriturePersonnages'
+} from '../hooks/useEcriturePlan'
+import type { UseEcritureRelationsPresenceResult } from '../hooks/useEcritureRelationsPresence'
 
-/** Libellés français du camp — côté FEATURE (précédent `ObjectifsCanon.tsx`,
- *  `LIBELLES_CAMPS`) : un seul registre, réutilisé ici par le `SegmentedControl`
- *  du bloc 1 ET par le badge de `ListRow` dans `PanneauPersonnages.tsx`, pour
- *  qu'un seul texte porte « Protagoniste »/« Antagoniste ». */
+/** Libellés français du camp — côté FEATURE, réutilisés par le `SegmentedControl`
+ *  du bloc 1 et le badge de `ListRow` de `PanneauPersonnages.tsx`. */
 export const LIBELLES_CAMP: Record<CampPersonnage, string> = {
 	protagoniste: 'Protagoniste',
 	antagoniste: 'Antagoniste',
 }
 const OPTIONS_CAMP = CAMPS_PERSONNAGE.map((camp) => ({ value: camp, label: LIBELLES_CAMP[camp] }))
 
-/** Même règle pour la portée — un seul registre pour le `SegmentedControl` du
- *  bloc 1 et le badge de plan, toujours présent, de `PanneauPersonnages.tsx`. */
+/** Même règle pour la portée. */
 export const LIBELLES_PORTEE: Record<Portee, string> = {
 	premier: 'Premier plan',
 	second: 'Second plan',
@@ -52,6 +52,8 @@ const BLOC_1_ID = 'camp-plan-rattachement'
 const BLOC_2_ID = 'identite'
 const BLOC_3_ID = 'caracteristiques'
 const BLOC_4_ID = 'objectif-plan-actions'
+const BLOC_5_ID = 'relations'
+const BLOC_6_ID = 'presence'
 
 const PLACEHOLDER_NOM = 'Aldûr le Sage'
 
@@ -75,43 +77,37 @@ const EYEBROW_REFUS = "CE CHANGEMENT N'A PAS ÉTÉ ENREGISTRÉ"
 const TEXTE_ABSENT = "Ce dossier n'existe plus — il a été supprimé ailleurs pendant que vous l'éditiez."
 const EYEBROW_AVERTISSEMENT = 'ENREGISTRÉ, AVEC AVERTISSEMENT'
 
-/** Les 4 blocs encore vides après it4 — titre exact + itération cible du
- *  placeholder, table DÉCLARATIVE (§3 du plan) plutôt que 4 littéraux JSX
- *  recopiés. `identite` a quitté cette table à l'itération 2, `caracteristiques`
- *  à l'itération 3, `objectif-plan-actions` à l'itération 4 : ils portent
- *  désormais du contenu réel (blocs 2, 3 et 4, ci-dessous). */
-const BLOCS_VIDES: readonly { id: string; titre: string; iteration: number }[] = [
-	{ id: 'savoirs', titre: 'Savoirs', iteration: 5 },
-	{ id: 'relations', titre: 'Relations', iteration: 5 },
-	{ id: 'presence', titre: 'Présence', iteration: 5 },
-	{ id: 'caractere-exploitable', titre: 'Caractère exploitable', iteration: 6 },
-]
+/** Les 2 blocs encore vides après it5, renumérotés au raffinage d'it5 (savoirs
+ *  → it6, caractère exploitable → it8). PLUS ADJACENTS dans l'ordre de rendu
+ *  (Relations/Présence s'intercalent) : deux constantes nommées, pas un tableau. */
+const BLOC_SAVOIRS = { id: 'savoirs', titre: 'Savoirs', iteration: 6 }
+const BLOC_CARACTERE_EXPLOITABLE = { id: 'caractere-exploitable', titre: 'Caractère exploitable', iteration: 8 }
 
 function placeholderDe(iteration: number): string {
 	return `Pas encore renseigné — ce bloc arrive à l'itération ${iteration} de dossier-fiches.`
+}
+
+function sectionPlaceholder(bloc: { id: string; titre: string; iteration: number }): AccordionSection {
+	return { id: bloc.id, title: bloc.titre, content: <p style={placeholderStyle}>{placeholderDe(bloc.iteration)}</p> }
 }
 
 export interface FichePersonnageProps {
 	personnage: Personnage
 	brouillon: BrouillonPersonnage
 	objectifsCanon: Objectif[]
-	/** Le refus en cours, DÉJÀ filtré par le parent (seul propriétaire de la
-	 *  sélection et de `dossierId`) — cette fiche ne reçoit jamais l'identifiant
-	 *  du personnage en cause, seulement ce qu'il reste à afficher. */
+	/** Le refus en cours, DÉJÀ filtré par le parent — cette fiche ne reçoit jamais
+	 *  l'identifiant du personnage en cause, seulement ce qu'il reste à afficher. */
 	refus: { statut: 'absent' | 'refuse'; issues: DossierIssue[] } | null
-	/** Avertissement D1 (KR-189), DÉJÀ filtré au personnage affiché — dérivé par
-	 *  le parent (`useMemo` sur `validateDossier(dossier).warnings`). */
+	/** Avertissement D1 (KR-189), DÉJÀ filtré au personnage affiché par le parent. */
 	avertissementsD1: DossierIssue[]
 	onChangeChamp: (champ: ChampTexte, valeur: string) => void
 	onBlurChamp: (champ: ChampTexte, valeur: string) => void
 	onChangeCamp: (camp: CampPersonnage) => void
 	onChangePortee: (portee: Portee) => void
-	/** `''` = « Aucun objectif rattaché » — au parent de retirer la clé plutôt
-	 *  que de committer une chaîne vide (§ compte rendu du lot contrat, note 1). */
+	/** `''` = « Aucun objectif rattaché » — le parent retire la clé plutôt que de
+	 *  committer une chaîne vide. */
 	onChangeObjectif: (objectifId: string) => void
-	/** Geste EXPLICITE (désaccord n° 2 du plan d'itération 3) qui sème les 8
-	 *  clés à `CARACTERISTIQUE_MIN` en un seul commit — jamais un effet de bord
-	 *  du premier Stepper touché. */
+	/** Geste EXPLICITE qui sème les 8 clés à `CARACTERISTIQUE_MIN` en un commit. */
 	onReglerCaracteristiques: () => void
 	onChangeCaracteristique: (carac: Characteristic, valeur: number) => void
 	butBrouillon: BrouillonBut
@@ -128,38 +124,39 @@ export interface FichePersonnageProps {
 	onBlurContreMesure: (index: number, champ: ChampContreMesureTexte, valeur: string) => void
 	onAjouterContreMesure: () => void
 	onRetirerContreMesure: (index: number) => void
+	/** Le dossier ENTIER, jamais filtré : l'auto-référence est légale (KR-194). */
+	personnages: Personnage[]
+	lieux: Lieu[]
+	/** La tranche relations/présence de l'assembleur `useEcriturePersonnages`
+	 *  (structurellement compatible avec `UseEcritureRelationsPresenceResult`,
+	 *  §5 lot 2 du plan) : ses champs sont câblés un par un vers
+	 *  `BlocRelations`/`BlocPresence` (noms `on*`, jamais `handle*`, dans le JSX
+	 *  ci-dessous) — regroupés ici pour ne pas recopier ces props individuelles
+	 *  sur cette interface (KR-112). */
+	relationsPresence: UseEcritureRelationsPresenceResult
 }
 
 /**
  * La fiche du personnage sélectionné — liste `ListRow` à gauche
  * (`PanneauPersonnages.tsx`), fiche à droite. Composant PUREMENT DE RENDU :
- * aucun état de DOCUMENT, aucun appel à `DossierService` — brouillon et
- * commit restent la responsabilité du hook `useEcriturePersonnages`.
+ * aucun état de DOCUMENT, aucun appel à `DossierService` — brouillon et commit
+ * restent la responsabilité du hook `useEcriturePersonnages`. Champ NOM en
+ * EN-TÊTE de fiche, HORS accordéon (précédent `FicheLieu`).
  *
- * Champ NOM en EN-TÊTE de fiche, HORS accordéon (précédent `FicheLieu`).
- *
- * BLOC 2 « IDENTITÉ » (it2) : trois `Field` multiline. Ce bloc NE S'OUVRE PAS
- * automatiquement : `defaultOpenId` reste le bloc 1.
- *
- * BLOC 3 « CARACTÉRISTIQUES » (it3) et BLOC 4 « OBJECTIF & PLAN D'ACTIONS »
- * (it4) sont chacun EXTRAITS dans leur propre composant
- * (`BlocCaracteristiques.tsx` / `BlocPlanActions.tsx`, dette KR-112 datée par
- * it3, désaccord n° 17 du plan d'itération 4) : ce fichier ne fait plus que
- * les CÂBLER dans `sections`.
+ * Blocs 3 à 6 (caractéristiques, objectif & plan d'actions, relations,
+ * présence) EXTRAITS dans leur propre composant (dette KR-112) : ce fichier ne
+ * fait plus que les CÂBLER dans `sections`, DANS L'ORDRE D'AFFICHAGE — « Savoirs »
+ * (encore un placeholder) s'intercale entre le bloc 4 et le bloc 5, d'où
+ * `BLOC_SAVOIRS`/`BLOC_CARACTERE_EXPLOITABLE` posés HORS séquence.
  *
  * L'accordéon revient au bloc 1 à chaque changement de personnage par
- * `key={personnage.id}` posé ICI, sur `<Accordion>` — remontage React, jamais
- * un `useEffect` (KR-013/113). Ce remontage emporte AUSSI
- * `BlocCaracteristiques`/`BlocPlanActions` (rendus comme `content` d'une
- * section de l'accordéon) : leurs refs de focus internes n'ont donc pas
+ * `key={personnage.id}` posé ICI (remontage React, jamais un `useEffect`,
+ * KR-013/113) — les refs de focus internes des blocs extraits n'ont donc pas
  * besoin de porter l'identité du personnage.
  *
- * BANDEAU DE REFUS (it2) : dernier enfant de `champsStyle`, position exacte de
- * `FicheLieu.tsx`. Branché sur `refus.statut`, JAMAIS sur `refus.issues`.
- *
- * BANDEAU D'AVERTISSEMENT D1 (it4, §3.D du plan) : HORS accordéon, second
- * `role="status"` frère de `<Accordion>`, après le bandeau de refus — rendu
- * SEULEMENT si `avertissementsD1` est non vide.
+ * Bandeau de refus (`refus.statut`, jamais `refus.issues`) puis bandeau
+ * d'avertissement D1 (rendu seulement si `avertissementsD1` est non vide) :
+ * derniers enfants de `champsStyle`, position exacte de `FicheLieu.tsx`.
  */
 export function FichePersonnage({
 	personnage,
@@ -188,7 +185,17 @@ export function FichePersonnage({
 	onBlurContreMesure,
 	onAjouterContreMesure,
 	onRetirerContreMesure,
+	personnages,
+	lieux,
+	relationsPresence,
 }: FichePersonnageProps): JSX.Element {
+	// Factorise la paire onChange/onBlur typée, répétée sur les 4 champs texte
+	// de brouillon-par-champ (nom + les 3 proses du bloc 2).
+	const champHandlers = (champ: ChampTexte) => ({
+		onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChangeChamp(champ, e.target.value),
+		onBlur: (e: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => onBlurChamp(champ, e.target.value),
+	})
+
 	const sections: AccordionSection[] = [
 		{
 			id: BLOC_1_ID,
@@ -247,10 +254,7 @@ export function FichePersonnage({
 						rows={2}
 						placeholder={PLACEHOLDER_FONCTION}
 						value={brouillon.fonction}
-						onChange={(e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-							onChangeChamp('fonction', e.target.value)
-						}
-						onBlur={(e: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => onBlurChamp('fonction', e.target.value)}
+						{...champHandlers('fonction')}
 					/>
 					<Field
 						label="APPARENCE"
@@ -259,10 +263,7 @@ export function FichePersonnage({
 						rows={3}
 						placeholder={PLACEHOLDER_APPARENCE}
 						value={brouillon.apparence}
-						onChange={(e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-							onChangeChamp('apparence', e.target.value)
-						}
-						onBlur={(e: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => onBlurChamp('apparence', e.target.value)}
+						{...champHandlers('apparence')}
 					/>
 					<Field
 						label="DESCRIPTION JOUEUR"
@@ -271,12 +272,7 @@ export function FichePersonnage({
 						rows={3}
 						placeholder={PLACEHOLDER_DESCRIPTION_JOUEUR}
 						value={brouillon.description_joueur}
-						onChange={(e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-							onChangeChamp('description_joueur', e.target.value)
-						}
-						onBlur={(e: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-							onBlurChamp('description_joueur', e.target.value)
-						}
+						{...champHandlers('description_joueur')}
 					/>
 				</>
 			),
@@ -315,13 +311,40 @@ export function FichePersonnage({
 				/>
 			),
 		},
-		...BLOCS_VIDES.map(
-			(bloc): AccordionSection => ({
-				id: bloc.id,
-				title: bloc.titre,
-				content: <p style={placeholderStyle}>{placeholderDe(bloc.iteration)}</p>,
-			}),
-		),
+		sectionPlaceholder(BLOC_SAVOIRS),
+		{
+			id: BLOC_5_ID,
+			title: 'Relations',
+			content: (
+				<BlocRelations
+					personnages={personnages}
+					relations={relationsPresence.relations}
+					onAjouterRelation={relationsPresence.handleAjouterRelation}
+					onChangeCibleRelation={relationsPresence.handleChangeCibleRelation}
+					onChangeLienRelation={relationsPresence.handleChangeLienRelation}
+					onBlurLienRelation={relationsPresence.handleBlurLienRelation}
+					onChangeIntensiteRelation={relationsPresence.handleChangeIntensiteRelation}
+					onChangeSecretRelation={relationsPresence.handleChangeSecretRelation}
+					onRetirerRelation={relationsPresence.handleRetirerRelation}
+				/>
+			),
+		},
+		{
+			id: BLOC_6_ID,
+			title: 'Présence',
+			content: (
+				<BlocPresence
+					lieux={lieux}
+					presence={relationsPresence.presence}
+					onAjouterPresence={relationsPresence.handleAjouterPresence}
+					onChangeLieuPresence={relationsPresence.handleChangeLieuPresence}
+					onChangeQuandPresence={relationsPresence.handleChangeQuandPresence}
+					onBlurQuandPresence={relationsPresence.handleBlurQuandPresence}
+					onRetirerPresence={relationsPresence.handleRetirerPresence}
+				/>
+			),
+		},
+		sectionPlaceholder(BLOC_CARACTERE_EXPLOITABLE),
 	]
 
 	return (
@@ -332,8 +355,7 @@ export function FichePersonnage({
 					hint="interne"
 					placeholder={PLACEHOLDER_NOM}
 					value={brouillon.nom}
-					onChange={(e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChangeChamp('nom', e.target.value)}
-					onBlur={(e: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => onBlurChamp('nom', e.target.value)}
+					{...champHandlers('nom')}
 				/>
 				<Accordion key={personnage.id} sections={sections} defaultOpenId={BLOC_1_ID} />
 

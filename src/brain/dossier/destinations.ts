@@ -227,6 +227,51 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	'monde.personnages[].savoirs[].revele_si.contrepartie.consomme': 'moteur',
 	'monde.personnages[].savoirs[].revele_si.apres_indice_id': 'moteur',
 
+	// ── LES QUATRE LIGNES DE `relations[]` (itération 5 de la n° 4) ───────────
+	// Un identifiant est un HANDLE technique : le code le résout, le modèle reçoit
+	// le CONTENU. ⚠ ce qu'il résout n'est PAS injectable aujourd'hui (`nom` est
+	// `auteur`, KR-195) — le raisonnement complet est au JSDoc de `Relation.cible_id`.
+	'monde.personnages[].relations[].cible_id': 'moteur',
+	// La NATURE du lien en français (« son frère », « son créancier ») — `ia`, même
+	// famille que `plan_actions[].action` : c'est ce que le rôle acteur JOUE. C'est aussi
+	// ce qui remplace le chiffre côté prose, et la raison pour laquelle `intensite` peut
+	// rester `moteur` sans appauvrir la scène.
+	'monde.personnages[].relations[].lien': 'ia',
+	// L'INTENSITÉ — `moteur`, exactement pour la raison des huit caractéristiques et des
+	// six curseurs à venir (KR-193, open_question « libellés dérivés ») : un NOMBRE SIGNÉ
+	// qui code un fait de jeu, et dont le seul consommateur écrit en fait un SEUIL (plan
+	// de cible § 2.6 : deux PNJ dans un même lieu et `intensite >= 1` → le moteur
+	// transfère l'indice hors caméra). Un modèle qui lit `-2` connaît l'exacte profondeur
+	// d'une inimitié que la scène n'a pas montrée : il la joue au premier tour, avant que
+	// le joueur ait rien observé. AUCUNE PARAPHRASE non plus (« très hostile ») tant que
+	// la n° 10 n'a pas livré un libellé dérivé PAR LE CODE et sa propre ligne d'audience.
+	'monde.personnages[].relations[].intensite': 'moteur',
+	// LE DRAPEAU DE SECRET — `moteur`, et il ne se contente pas de rester hors contexte :
+	// il COMMANDE l'injection de SA PROPRE LIGNE. La table dit l'AUDIENCE, le MOMENT est
+	// la charge de la n° 10 — même dispositif que `plan_actions[].si_bloque`. LE PRÉDICAT
+	// est écrit ICI et au JSDoc de `Relation.secret`, nulle part ailleurs :
+	//
+	// Une ligne de `relations[]` n'entre **que** dans le contexte de l'appel **acteur du
+	// personnage QUI LA PORTE**. Si `secret !== true`, elle entre **en plus** dans le
+	// contexte du **narrateur**, pour une scène où le porteur est présent. Elle n'entre
+	// **jamais** dans le contexte d'un **autre** personnage, ni dans celui de la
+	// **cible**, ni dans celui de l'arbitre.
+	'monde.personnages[].relations[].secret': 'moteur',
+	// ── LES DEUX LIGNES DE `presence[]` ───────────────────────────────────────
+	// Encore un HANDLE, même règle que `charpente.depart.lieu_id` : le code résout, le
+	// modèle reçoit le lieu sous l'audience DU LIEU, jamais cette clé.
+	'monde.personnages[].presence[].lieu_id': 'moteur',
+	// `auteur`, MÊME ARBITRAGE que `but.echeance` (it4) et A FORTIORI : une échéance
+	// anticipée fait tomber une horloge en avance ; une DISPONIBILITÉ lue par le
+	// narrateur le fait CONTREDIRE la scène que le moteur vient d'assembler — « il n'est
+	// là que la nuit » narré alors que le moteur a placé le PNJ ici à midi, c'est le
+	// modèle qui décide d'une présence, donc d'un état. Le moment courant vient de la
+	// SESSION, jamais de la fiche ; la couleur du lieu est déjà `ia` (`lieux[].ambiance`).
+	// Se desserre vers `ia` sans coût le jour où la n° 14 livre un jumeau `quand_expr`
+	// évaluable, ou la n° 10 un libellé de disponibilité DÉRIVÉ PAR LE CODE avec sa
+	// propre ligne d'audience. Aucune PARAPHRASE en attendant.
+	'monde.personnages[].presence[].quand': 'auteur',
+
 	// ── monde — les collections nommées ───────────────────────────────────────
 	'monde.lieux[].id': 'moteur',
 	'monde.lieux[].nom': 'auteur',

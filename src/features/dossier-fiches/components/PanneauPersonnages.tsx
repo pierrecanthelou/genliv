@@ -107,6 +107,9 @@ export function PanneauPersonnages({ dossierId }: PanneauPersonnagesProps): JSX.
 					onBlurContreMesure={ecriture.handleBlurContreMesure}
 					onAjouterContreMesure={ecriture.handleAjouterContreMesure}
 					onRetirerContreMesure={ecriture.handleRetirerContreMesure}
+					personnages={dossier.monde.personnages}
+					lieux={dossier.monde.lieux}
+					relationsPresence={ecriture}
 				/>
 			</div>
 		</div>

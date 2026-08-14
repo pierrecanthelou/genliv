@@ -559,7 +559,7 @@
 		{
 			"id": "KR-190",
 			"feature": "dossier-fiches",
-			"risk": "Tout ajout au schema personnage touche les MEMES 8 fichiers du lot contrat (types.ts, tables.ts, destinations.ts, validate.ts, __fixtures__/dossier-minimal.json, __fixtures__/dossier-reference.json, couverture.test.ts, validate.test.ts) + brain/index.ts si un symbole nouveau est exporte - deux lots contrat ne peuvent jamais coexister dans une iteration. Les 5 iterations de dossier-fiches sont donc STRICTEMENT SERIELLES : jamais deux dev-contrat en parallele sur des iterations differentes, et un seul lot contrat (seul, en premier) par iteration."
+			"risk": "Tout ajout au schema personnage touche les MEMES 8 fichiers du lot contrat (types.ts, tables.ts, destinations.ts, validate.ts, __fixtures__/dossier-minimal.json, __fixtures__/dossier-reference.json, couverture.test.ts, validate.test.ts) + brain/index.ts si un symbole nouveau est exporte - deux lots contrat ne peuvent jamais coexister dans une iteration. Les 8 iterations de dossier-fiches sont donc STRICTEMENT SERIELLES : jamais deux dev-contrat en parallele sur des iterations differentes, et un seul lot contrat (seul, en premier) par iteration."
 		},
 		{
 			"id": "KR-191",
@@ -589,7 +589,7 @@
 		{
 			"id": "KR-196",
 			"feature": "dossier-fiches",
-			"risk": "contre_mesures[] (6e famille de conditions D1) se rend comme une SECTION INTERNE de BlocPlanActions, gated camp==='antagoniste' - jamais un emplacement d'accordeon separe. Un protagoniste ne doit voir ni un etat vide qui ne se remplira jamais, ni une carte manquante cassant la regularite de la grille a 8 entrees. Ses destinations sont deja arbitrees en commentaire dans destinations.ts (fin de fichier) - a materialiser en lignes de table dans le lot contrat d'it4 (ex-it3, redecoupage du 2026-08-12), jamais a redebattre."
+			"risk": "contre_mesures[] (6e famille de conditions D1) se rend comme une SECTION INTERNE de BlocPlanActions, gated camp==='antagoniste' - jamais un emplacement d'accordeon separe. Un protagoniste ne doit voir ni un etat vide qui ne se remplira jamais, ni une carte manquante cassant la regularite de la grille a 8 entrees. Ses destinations sont deja arbitrees en commentaire dans destinations.ts (fin de fichier) - MATERIALISEE en lignes de table par le lot contrat d'it4, jamais a redebattre."
 		},
 		{
 			"id": "KR-197",

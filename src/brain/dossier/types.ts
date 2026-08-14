@@ -42,7 +42,13 @@
  * `libelle` requis dedans — même contrat que `stats`), deux champs de plus sur
  * `PlanAction` (`duree` moteur, `si_bloque` ia) et `contre_mesures[]`, SIXIÈME
  * famille de conditions D1 et première liste OPTIONNELLE dont les éléments sont
- * contrôlés (fermeture du trou résiduel de BUG-050).
+ * contrôlés (fermeture du trou résiduel de BUG-050). L'itération 5 SITUE le
+ * personnage dans le monde : `relations[]` (qui il connaît) et `presence[]` (où on
+ * le trouve), deux listes optionnelles structurées de plus — et avec elles la
+ * PREMIÈRE référence auto-référentielle du schéma, LÉGALE et sans garde (KR-194),
+ * ainsi que le PREMIER champ dont l'injection dépend du RÔLE qui demande
+ * (`Relation.secret`, dont le prédicat est écrit à DEUX sites et nulle part
+ * ailleurs).
  *
  * QUI LIT QUOI : ce fichier dit la FORME, il ne dit pas l'AUDIENCE. L'audience
  * de chaque champ terminal vit dans `destinations.ts`, sous le balayage de
@@ -90,6 +96,33 @@ export const BUDGET_MOTS_JALON = 20
  */
 export const CONFIANCE_MIN = -3
 export const CONFIANCE_MAX = 3
+
+/**
+ * Les bornes FERMÉES de l'échelle d'INTENSITÉ d'une relation : de l'hostilité
+ * (`INTENSITE_MIN`) à l'attachement (`INTENSITE_MAX`), `0` étant le point NEUTRE —
+ * ni l'un ni l'autre, et pas davantage une valeur manquante.
+ *
+ * DEUX CONSTANTES DISTINCTES DE `CONFIANCE_MIN`/`CONFIANCE_MAX` JUSTE AU-DESSUS,
+ * bien que les quatre valeurs coïncident aujourd'hui, et c'est un arbitrage plutôt
+ * qu'une redite : celles-là mesurent ce que le HÉROS a gagné d'un PNJ EN SESSION
+ * (une valeur qui bouge de tour en tour, n° 12), celles-ci ce qu'un personnage
+ * ÉPROUVE envers un autre — une donnée d'AUTEUR, écrite une fois dans le dossier.
+ * Une seule paire pour les deux échelles, et elles dériveraient ensemble au premier
+ * changement de l'une. Mêmes précédents que `CAMPS_PERSONNAGE` face à `CAMPS` et
+ * que `PORTEES_CONTRE_MESURE` face à `PORTEES`.
+ *
+ * Hors borne = BLOQUANT à l'import, même motif que les caractéristiques : une
+ * échelle ouverte rendrait indéfini le libellé dérivé que la n° 10 posera un jour
+ * (« très hostile » pour un `-3`) autant que le seuil que le moteur y lira.
+ *
+ * AUCUNE SECTION DE `docs/REGLES-DU-JEU.md` NE LES PORTE, et c'est délibéré : ce
+ * n'est pas encore une mécanique de jeu, aucun code ne lit ce nombre. Le jour où la
+ * n° 12 écrit le seuil du plan de cible (« deux PNJ dans un même lieu et
+ * `intensite >= 1` → le moteur transfère l'indice hors caméra »), la doc des règles
+ * passe EN PREMIER (KR-130), puis la table dorée, puis le code — jamais l'inverse.
+ */
+export const INTENSITE_MIN = -3
+export const INTENSITE_MAX = 3
 
 /**
  * Le PLANCHER d'une caractéristique — l'autre borne de l'échelle, dont le plafond
@@ -430,6 +463,122 @@ export interface Savoir {
 }
 
 /**
+ * CE QU'UN PERSONNAGE ÉPROUVE ENVERS UN AUTRE — un fait du PORTEUR, jamais de la
+ * PAIRE, et c'est la décision qui commande tout le reste de ce type. Si l'auteur
+ * veut que la cible connaisse le lien, il écrit la relation symétrique sur la fiche
+ * de la cible : dériver la réciproque ferait inventer par le code un fait que
+ * personne n'a écrit, et rendrait l'audience d'une ligne dépendante d'un GRAPHE
+ * plutôt que de son porteur.
+ *
+ * DEUX CHAMPS INJECTABLES SUR QUATRE, et le partage n'est pas cosmétique : `lien`
+ * est la prose que le rôle acteur JOUE (`ia`), `cible_id` un handle que le code
+ * résout, `intensite` et `secret` des données de moteur pur. C'est ce qui réduit le
+ * gating de `secret` à UNE paire injectable — donc à un point de contrôle unique le
+ * jour où l'assembleur n° 10 existera.
+ */
+export interface Relation {
+	/**
+	 * Référence vers `monde.personnages[].id`. MOTEUR : un identifiant est un
+	 * HANDLE, résolu par le code, jamais injecté tel quel — même règle que
+	 * `objectif_id` et `charpente.depart.lieu_id`. Une référence orpheline est
+	 * EXPOSÉE par `validateDossier`, jamais filtrée au rendu (KR-021).
+	 *
+	 * CE QU'IL RÉSOUT N'EST PAS ENCORE INJECTABLE, et c'est écrit ici pour que la
+	 * n° 10 trouve les deux moitiés du problème au même endroit : le `nom` de la
+	 * cible est destination `auteur` (KR-195, question transverse aux collections
+	 * nommées, NON rouverte par cette feature). Une ligne de relation injectée
+	 * aujourd'hui donnerait donc « son créancier » SANS DIRE DE QUI — la moitié
+	 * de l'information. La moitié manquante est l'`open_question` « appellation
+	 * re-projetée par le CODE à l'assemblage, jamais une seconde clé au schéma »
+	 * (`specification.json`, n° 10 propriétaire) : la réponse est une projection
+	 * de l'assembleur, PAS une bascule de `nom` vers `ia`, PAS un champ
+	 * `appellation` de plus sur ce type.
+	 *
+	 * L'AUTO-RÉFÉRENCE EST LÉGALE (KR-194) : `cible_id === personnage.id` ne porte
+	 * ni garde ni filtre — c'est une didascalie de conflit intérieur, jouable
+	 * telle quelle. La n° 10 la rendra « envers lui-même » plutôt qu'en répétant
+	 * le nom ; ce n'est pas une question de schéma.
+	 */
+	cible_id: string
+	/**
+	 * IA — la NATURE du lien, en français (« son frère », « son créancier »), en
+	 * prose de jeu d'acteur : c'est ce que le rôle acteur JOUE, même famille que
+	 * `plan_actions[].action`, et jamais une réplique lue telle quelle par le
+	 * joueur. C'est aussi ce qui REMPLACE le chiffre côté prose, et la raison pour
+	 * laquelle `intensite` peut rester `moteur` sans appauvrir la scène.
+	 * Exemple : « Elle lui doit la vie depuis l'incendie du beffroi, et ne l'a
+	 * jamais dit à personne. »
+	 */
+	lien: string
+	/**
+	 * MOTEUR — l'INTENSITÉ du lien, entier signé de `INTENSITE_MIN` (hostilité) à
+	 * `INTENSITE_MAX` (attachement), `0` étant neutre. Même arbitrage que les huit
+	 * caractéristiques et que les six curseurs à venir (KR-193, `open_question`
+	 * « libellés dérivés ») : un NOMBRE qui code un fait de jeu, et dont le seul
+	 * consommateur écrit en fera un SEUIL. Un modèle qui lit `-2` connaît l'exacte
+	 * profondeur d'une inimitié que la scène n'a pas montrée — il la jouerait au
+	 * premier tour, avant que le joueur ait rien observé.
+	 *
+	 * AUCUNE PARAPHRASE non plus (« très hostile ») tant que la n° 10 n'a pas livré
+	 * un libellé dérivé PAR LE CODE et sa propre ligne d'audience.
+	 */
+	intensite: number
+	/**
+	 * MOTEUR — le DRAPEAU DE SECRET. Il ne se contente pas de rester hors contexte :
+	 * il COMMANDE l'injection de SA PROPRE LIGNE, et c'est le premier champ du
+	 * schéma dont l'injection dépend de QUI DEMANDE (`plan_actions[].si_bloque` se
+	 * conditionnait à un fait de SESSION ; celui-ci à l'identité du RÔLE).
+	 *
+	 * LE PRÉDICAT, écrit ICI et au commentaire de sa ligne de `destinations.ts`,
+	 * nulle part ailleurs :
+	 *
+	 * Une ligne de `relations[]` n'entre **que** dans le contexte de l'appel **acteur du
+	 * personnage QUI LA PORTE**. Si `secret !== true`, elle entre **en plus** dans le
+	 * contexte du **narrateur**, pour une scène où le porteur est présent. Elle n'entre
+	 * **jamais** dans le contexte d'un **autre** personnage, ni dans celui de la
+	 * **cible**, ni dans celui de l'arbitre.
+	 *
+	 * Ce que cela règle et qu'une tautologie (« une relation secrète n'entre pas
+	 * dans le contexte d'un rôle qui ne doit pas la connaître ») ne réglait pas :
+	 * la ligne exclue est la ligne ENTIÈRE (`lien` + l'appellation dérivée de
+	 * `cible_id`) ; le NARRATEUR est exclu au même titre qu'un autre PNJ, motif déjà
+	 * écrit pour `camp` ; `secret: false` n'est PAS « public », il élargit d'UN rôle
+	 * et d'un seul ; et un champ absent se traite comme `false`.
+	 *
+	 * La table dit l'AUDIENCE, le MOMENT est la charge de l'assembleur n° 10 — même
+	 * dispositif que `si_bloque`, et ZÉRO mécanisme de code en itération 5 : aucun
+	 * assembleur n'existe encore à exercer.
+	 */
+	secret?: boolean
+}
+
+/**
+ * OÙ L'ON TROUVE CE PERSONNAGE, et à quel moment.
+ *
+ * Une liste plutôt qu'un champ : un PNJ tient boutique le jour et rentre chez lui
+ * la nuit, et deux lieux ne se hiérarchisent pas. Le MOMENT COURANT vient de la
+ * SESSION, jamais de la fiche — c'est ce qui sépare les deux champs de ce type par
+ * leur audience, `lieu_id` étant le seul que le moteur puisse constater.
+ */
+export interface Presence {
+	/** Référence vers `monde.lieux[].id`. MOTEUR : un identifiant est un HANDLE,
+	 *  résolu par le code, jamais injecté tel quel — même règle que
+	 *  `charpente.depart.lieu_id`. Une référence orpheline est EXPOSÉE par
+	 *  `validateDossier`, jamais filtrée au rendu (KR-021). */
+	lieu_id: string
+	/** AUTEUR — quand on l'y trouve, en français. `auteur` et NON `ia`, MÊME
+	 *  ARBITRAGE que `but.echeance` et A FORTIORI : une échéance anticipée fait
+	 *  tomber une horloge en avance ; une DISPONIBILITÉ lue par le narrateur le fait
+	 *  CONTREDIRE la scène que le moteur vient d'assembler — « il n'est là que la
+	 *  nuit » narré alors que le moteur a placé le PNJ ici à midi, c'est le modèle
+	 *  qui décide d'une présence, donc d'un état. `lieu_id` et l'état de session
+	 *  décident déjà des PNJ présents, et la couleur du moment est déjà `ia`
+	 *  ailleurs (`monde.lieux[].ambiance`) : rien n'est perdu.
+	 *  Exemple : « Au crépuscule, avant que le marché ne ferme. » */
+	quand?: string
+}
+
+/**
  * Un acteur du monde : sa portée, son plan, ce qu'il sait — et, depuis
  * l'itération 1 de la n° 4, où il se situe dans l'histoire (son camp et
  * l'objectif auquel il se rattache), depuis l'itération 2 QUI IL EST (ses trois
@@ -537,6 +686,15 @@ export interface Personnage extends Entite {
 	 *  (`LISTES_OPTIONNELLES_STRUCTUREES`) — une chaîne rangée là serait un acteur
 	 *  qui perd sa riposte en silence, c'est le trou résiduel de BUG-050. */
 	contre_mesures?: ContreMesure[]
+	/** QUI CE PERSONNAGE CONNAÎT — voir `Relation`. OPTIONNELLE, sur une collection
+	 *  qui existe depuis la n° 1 : un dossier déjà persisté n'en porte aucune, et
+	 *  cela doit rester silencieux (KR-160/KR-191). Liste STRUCTURÉE, contrôlée
+	 *  élément par élément (`LISTES_OPTIONNELLES_STRUCTUREES`), comme
+	 *  `contre_mesures`. */
+	relations?: Relation[]
+	/** OÙ ON LE TROUVE — voir `Presence`. Mêmes contrat et motifs que `relations`
+	 *  ci-dessus : optionnelle, structurée, contrôlée élément par élément. */
+	presence?: Presence[]
 }
 
 /**

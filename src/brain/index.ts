@@ -156,6 +156,15 @@ export { autoSlot } from './BookService'
 // d'autant moins devinable côté feature. Sa jumelle de table, `CHAMPS_ENTIERS`,
 // reste dedans, comme `VALEURS_DE_CARACTERISTIQUE` : c'est une table de
 // validation, aucun écran ne l'interroge.
+// MÊME RÈGLE pour l'itération 5 : `INTENSITE_MIN` et `INTENSITE_MAX` sortent parce
+// qu'elles sont le `min` et le `max` du `Stepper` d'intensité d'une relation.
+// Écrites en dur à l'écran, elles dériveraient des bornes qui décident réellement du
+// refus à l'import (KR-165) — et le piège est ici plus vicieux qu'ailleurs :
+// `CONFIANCE_MIN`/`CONFIANCE_MAX`, exportées juste au-dessus, portent AUJOURD'HUI les
+// mêmes valeurs, et une feature qui les prendrait « puisque c'est pareil » lierait
+// l'échelle d'un sentiment d'auteur à celle d'un état de session. Leur registre dérivé
+// `INTENSITES` reste dedans, comme `CONFIANCES` : c'est une table de validation, aucun
+// écran ne choisit une intensité dans une liste.
 export {
 	DOSSIER_SCHEMA,
 	BUDGET_MOTS_CANON,
@@ -165,6 +174,8 @@ export {
 	CARACTERISTIQUE_MIN,
 	STATS_INITIALES,
 	DUREE_MIN,
+	INTENSITE_MIN,
+	INTENSITE_MAX,
 } from './dossier/types'
 // `CAMPS` sort à l'itération 3 de la n° 3 : la carte d'objectif rend un `Select`
 // FERMÉ sur ses trois valeurs, et re-lister les camps côté feature en ferait une
@@ -207,6 +218,12 @@ export type {
 	But,
 	ContreMesure,
 	PorteeContreMesure,
+	// LES DEUX TYPES DE L'ITÉRATION 5, pour la même raison que `But` et
+	// `ContreMesure` : les blocs « Relations » et « Présence » écrivent l'un et
+	// l'autre par `DossierService.update()`, et les typer sur place reconstruirait
+	// deux formes que le validateur ne connaîtrait pas.
+	Relation,
+	Presence,
 	Revelation,
 	Savoir,
 	Personnage,

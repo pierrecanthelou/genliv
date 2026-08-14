@@ -76,6 +76,20 @@
 						"revele_comment": "Elle sort la lettre d'une poche cousue dans sa cape, sans un mot.",
 						"revele_si": { "jet": { "carac": "CA", "tc": "TC2" } }
 					}
+				],
+				"relations": [
+					{
+						"cible_id": "pnj.corvin-le-marchand",
+						"lien": "Elle le tient à distance depuis qu'il a proposé de lui acheter le secret du beffroi.",
+						"intensite": -2,
+						"secret": true
+					}
+				],
+				"presence": [
+					{
+						"lieu_id": "lieu.tour-effondree",
+						"quand": "La nuit, tant que le signal doit rester allumé."
+					}
 				]
 			},
 			{
@@ -119,7 +133,21 @@
 						"portee": "groupe"
 					}
 				],
-				"savoirs": []
+				"savoirs": [],
+				"relations": [
+					{
+						"cible_id": "pnj.mira-la-guerisseuse",
+						"lien": "Il lui règle ses herbes bien au-dessus du prix, et compte sur elle pour ne rien dire de ce qu'elle soupçonne.",
+						"intensite": 2,
+						"secret": true
+					}
+				],
+				"presence": [
+					{
+						"lieu_id": "lieu.marche-des-cendres",
+						"quand": "Du lever du jour jusqu'à la fermeture du marché."
+					}
+				]
 			},
 			{
 				"id": "pnj.mira-la-guerisseuse",

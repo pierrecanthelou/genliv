@@ -20,8 +20,8 @@ import { PanneauPersonnages } from '../components/PanneauPersonnages'
  * L'écran Personnages — liste `ListRow` à gauche, fiche à droite (§3 du plan
  * d'itération 1 de `dossier-fiches`). Ce que ces tests éprouvent, distinct des
  * précédents `PanneauLieux`/`ObjectifsCanon` : l'accordéon à 8 emplacements
- * (2 remplis dont le bloc « Identité » depuis it2, 6 placeholders, compte
- * exact), DEUX widgets FERMÉS qui committent immédiatement (camp, plan) au
+ * (6 remplis dont le bloc « Identité » depuis it2, 2 placeholders (savoirs,
+ * caractère exploitable), compte exact), DEUX widgets FERMÉS qui committent immédiatement (camp, plan) au
  * lieu d'un brouillon, un `Select` d'objectif dont l'état vide dépend du
  * CANON (pas du personnage lui-même), et le bandeau de refus indexé par
  * personnage (it2, KR-197).
@@ -216,7 +216,7 @@ describe('PanneauPersonnages', () => {
 		expect(lire(brain, dossier.id).monde.personnages[0]).not.toHaveProperty('objectif_id')
 	})
 
-	it('quatre placeholders recales: compte exact = 4 (pas 3 ni 5), textes distincts par iteration cible, titres exacts dans l ordre', () => {
+	it('deux placeholders recales apres it5: compte exact = 2 (pas 1 ni 3), textes distincts par iteration cible, titres exacts dans l ordre', () => {
 		const brain = createBrain()
 		const dossier = brain.dossiers.create('Un dossier')
 		semerPersonnage(brain, dossier.id, { id: 'pnj.aldur', portee: 'premier', plan_actions: [], savoirs: [] })
@@ -236,15 +236,15 @@ describe('PanneauPersonnages', () => {
 			expect(screen.getByRole('button', { name: titre })).toBeInTheDocument()
 		})
 
-		// « Caractéristiques » a quitte la table des placeholders a it3, « Objectif
-		// & plan d'actions » a it4 : sans but/plan_actions renseignes, ce bloc porte
-		// desormais son propre contenu (CE QU'IL VEUT, + Ajouter une etape...), plus
-		// un placeholder generique « Pas encore renseigné — ».
+		// « Relations » et « Présence » ont quitte la table des placeholders a it5
+		// (comme « Caractéristiques » a it3, « Objectif & plan d'actions » a it4) :
+		// sans donnees renseignees, ces deux blocs portent desormais leur propre
+		// contenu (etat vide invitant du bloc, pas un placeholder generique).
 		const placeholders = screen.getAllByText(/Pas encore renseigné — /)
-		expect(placeholders).toHaveLength(4)
+		expect(placeholders).toHaveLength(2)
 
-		expect(screen.getAllByText(`Pas encore renseigné — ${TEXTE_ITERATION(5)}.`)).toHaveLength(3) // Savoirs, Relations, Présence
-		expect(screen.getAllByText(`Pas encore renseigné — ${TEXTE_ITERATION(6)}.`)).toHaveLength(1) // Caractère exploitable
+		expect(screen.getAllByText(`Pas encore renseigné — ${TEXTE_ITERATION(6)}.`)).toHaveLength(1) // Savoirs
+		expect(screen.getAllByText(`Pas encore renseigné — ${TEXTE_ITERATION(8)}.`)).toHaveLength(1) // Caractère exploitable
 	})
 
 	it('un ajout, une edition de nom et un choix de camp laissent canon et charpente traverser intacts', async () => {

@@ -10,13 +10,17 @@ import {
 	CONFIANCE_MAX,
 	CONFIANCE_MIN,
 	DOSSIER_SCHEMA,
+	INTENSITE_MAX,
+	INTENSITE_MIN,
 	STATS_INITIALES,
 } from './types'
 import { DOSSIER_ISSUE_LABELS, dossierIssueRemediation, type DossierIssue, type DossierIssueCode } from './issues'
 import {
 	CHAMPS_ENTIERS,
+	CONFIANCES,
 	ENUMERES_FERMES,
 	FAMILLES_DE_CONDITIONS,
+	INTENSITES,
 	LISTES_A_ELEMENTS_STRUCTURES,
 	REFERENCES_SIMPLES,
 	VALEURS_DE_CARACTERISTIQUE,
@@ -42,12 +46,14 @@ function fixture(): Doc {
 const obj = (value: unknown): Doc => value as Doc
 const arr = (value: unknown): Doc[] => value as Doc[]
 
-/** Les huit accès profonds de la fixture, nommés une fois. */
+/** Les DIX accès profonds de la fixture, nommés une fois (remesuré, KR-159). */
 const personnage = (doc: Doc): Doc => arr(obj(doc.monde).personnages)[0]
 const savoir = (doc: Doc): Doc => arr(personnage(doc).savoirs)[0]
 const revele = (doc: Doc): Doc => obj(savoir(doc).revele_si)
 const etape = (doc: Doc): Doc => arr(personnage(doc).plan_actions)[0]
 const contreMesure = (doc: Doc): Doc => arr(personnage(doc).contre_mesures)[0]
+const relation = (doc: Doc): Doc => arr(personnage(doc).relations)[0]
+const presence = (doc: Doc): Doc => arr(personnage(doc).presence)[0]
 const evenement = (doc: Doc): Doc => arr(obj(doc.monde).evenements)[0]
 const jalon = (doc: Doc): Doc => arr(obj(doc.charpente).jalons)[0]
 const objectif = (doc: Doc): Doc => arr(obj(doc.canon).objectifs)[0]
@@ -799,6 +805,203 @@ describe('validateDossier', () => {
 		expect(anomalie?.location).toBe('Personnage « Aldûr le Sage »')
 	})
 
+	it('une relation sans cible_id ou sans lien est bloquante, une liste relations ABSENTE reste calme', () => {
+		// MÊME FORME que les deux tests ci-dessus, sur la liste optionnelle de
+		// l'itération 5, et les deux moitiés portées par le nom du test (KR-199) : la
+		// moitié CALME est celle qui protège d'une invalidation rétroactive tout dossier
+		// déjà persisté — `monde.personnages[]` existe depuis la n° 1 sans ce champ, et
+		// `schema: 1` n'a aucun chemin de migration (KR-160/KR-191).
+		const sansListe = fixture()
+		delete personnage(sansListe).relations
+
+		const calme = validateDossier(sansListe)
+
+		expect(calme.errors).toEqual([])
+		expect(calme.warnings).toEqual([])
+		expect(calme.ok).toBe(true)
+
+		// LES DEUX CHAMPS REQUIS DE L'ÉLÉMENT, chacun retiré à son tour : un test qui
+		// n'en retirerait qu'un laisserait l'autre ligne de table non éprouvée.
+		const manquants = ['cible_id', 'lien'].map((champ) => {
+			const doc = fixture()
+			delete relation(doc)[champ]
+			const resultat = validateDossier(doc)
+			const anomalie = resultat.errors.find((e) => e.path === `monde.personnages[0].relations[0].${champ}`)
+			return {
+				champ,
+				ok: resultat.ok,
+				code: anomalie?.code,
+				location: anomalie?.location,
+				nommeLeChamp: anomalie?.message.includes(`« ${champ} »`) ?? false,
+			}
+		})
+
+		expect(manquants).toEqual(
+			['cible_id', 'lien'].map((champ) => ({
+				champ,
+				ok: false,
+				code: 'champ-requis-vide',
+				location: 'Personnage « Aldûr le Sage »',
+				nommeLeChamp: true,
+			})),
+		)
+	})
+
+	it('une presence sans lieu_id est bloquante, une liste presence ABSENTE reste calme', () => {
+		// Le jumeau du test ci-dessus sur l'autre liste de l'itération : `quand` n'y
+		// figure PAS, et c'est le point de contrat — une présence dit OÙ, le moment reste
+		// facultatif parce qu'il vient de la session.
+		const sansListe = fixture()
+		delete personnage(sansListe).presence
+
+		const calme = validateDossier(sansListe)
+
+		expect(calme.errors).toEqual([])
+		expect(calme.warnings).toEqual([])
+		expect(calme.ok).toBe(true)
+
+		const sansLieu = fixture()
+		delete presence(sansLieu).lieu_id
+
+		const resultat = validateDossier(sansLieu)
+		const anomalie = resultat.errors.find((e) => e.path === 'monde.personnages[0].presence[0].lieu_id')
+
+		expect(resultat.ok).toBe(false)
+		expect(anomalie?.code).toBe('champ-requis-vide')
+		expect(anomalie?.message).toContain('« lieu_id »')
+		expect(anomalie?.location).toBe('Personnage « Aldûr le Sage »')
+
+		// Discriminant : `quand` retiré ne dit RIEN — sinon le test ci-dessus prouverait
+		// seulement « une présence amputée est refusée », sans dire de quel champ.
+		const sansQuand = fixture()
+		delete presence(sansQuand).quand
+
+		expect(validateDossier(sansQuand).errors).toEqual([])
+		expect(validateDossier(sansQuand).warnings).toEqual([])
+	})
+
+	it('intensite : les bornes et le neutre passent, hors bornes ou non entier est bloquant, absente aussi', () => {
+		// Limite et limite+1 des DEUX côtés (KR-165), plus les corruptions de type que
+		// l'énumération explicite attrape par la même porte — un non-entier, une chaîne
+		// et un nul ne sont pas dans la liste. Les bornes sont LUES des constantes
+		// nommées, jamais recopiées ici : ce sont elles qui décident à la fois du refus à
+		// l'import et du `min`/`max` du `Stepper` de saisie.
+		for (const valeur of [INTENSITE_MIN, INTENSITE_MAX, 0]) {
+			const doc = fixture()
+			relation(doc).intensite = valeur
+
+			expect(`${valeur} → ${JSON.stringify(validateDossier(doc).errors)}`).toBe(`${valeur} → []`)
+		}
+
+		for (const valeur of [INTENSITE_MIN - 1, INTENSITE_MAX + 1, 1.5, '2', null]) {
+			const doc = fixture()
+			relation(doc).intensite = valeur
+
+			const resultat = validateDossier(doc)
+			const anomalie = resultat.errors.find((e) => e.code === 'valeur-hors-enumeration')
+
+			expect(`${String(valeur)} → ${resultat.ok}`).toBe(`${String(valeur)} → false`)
+			expect(anomalie?.path).toBe('monde.personnages[0].relations[0].intensite')
+			expect(anomalie?.location).toBe('Personnage « Aldûr le Sage »')
+			expect(anomalie?.message).toContain('« intensite »')
+			// Les DEUX bornes sont ANNONCÉES : l'auteur lit ce qui est attendu, pas
+			// seulement ce qui est refusé.
+			expect(anomalie?.message).toContain(String(INTENSITE_MIN))
+			expect(anomalie?.message).toContain(String(INTENSITE_MAX))
+			for (const fuite of FUITES_TECHNIQUES) {
+				expect(anomalie?.message.toLowerCase()).not.toContain(fuite)
+			}
+		}
+
+		// `requis: true` DANS l'élément : une relation dont personne n'a réglé
+		// l'intensité laisserait indéfini le seuil que le moteur y lira.
+		const absente = fixture()
+		delete relation(absente).intensite
+
+		expect(validateDossier(absente).errors.map((e) => `${e.code} → ${e.path}`)).toEqual([
+			'valeur-hors-enumeration → monde.personnages[0].relations[0].intensite',
+		])
+	})
+
+	it('la ligne d intensite lit le registre INTENSITES, jamais CONFIANCES', () => {
+		// LE DÉFAUT QUE CE TEST EXISTE POUR INTERDIRE : les deux registres portent
+		// AUJOURD'HUI les mêmes sept valeurs, donc réutiliser `CONFIANCES` ici serait
+		// invisible — aucun test de comportement ne rougirait, et les deux échelles
+		// dériveraient ensemble au premier changement de l'une. C'est une identité
+		// d'OBJET qui est épinglée, pas une égalité de contenu.
+		const ligne = ENUMERES_FERMES.find((e) => e.path === 'monde.personnages[].relations[].intensite')
+		const confiance = ENUMERES_FERMES.find((e) => e.path === 'monde.personnages[].savoirs[].revele_si.confiance_min')
+
+		expect(ligne?.valeurs).toBe(INTENSITES)
+		expect(ligne?.requis).toBe(true)
+		expect(confiance?.valeurs).toBe(CONFIANCES)
+		expect(INTENSITES).toEqual(CONFIANCES)
+		expect(INTENSITES).not.toBe(CONFIANCES)
+
+		// L'échelle est DÉRIVÉE de ses deux bornes nommées, jamais réécrite (KR-165) —
+		// même construction que `CONFIANCES` et `VALEURS_DE_CARACTERISTIQUE`.
+		expect(INTENSITES[0]).toBe(INTENSITE_MIN)
+		expect(INTENSITES[INTENSITES.length - 1]).toBe(INTENSITE_MAX)
+		expect(INTENSITES).toHaveLength(INTENSITE_MAX - INTENSITE_MIN + 1)
+	})
+
+	it('secret accepte true et false, son absence reste calme, toute autre valeur est bloquante', () => {
+		// `requis: false` : une relation dont l'auteur n'a rien dit n'est pas secrète —
+		// « absent se traite comme `false` », JSDoc de `Relation.secret`. Exiger le
+		// drapeau invaliderait le premier dossier qui porterait une relation ordinaire.
+		for (const valeur of [true, false]) {
+			const doc = fixture()
+			relation(doc).secret = valeur
+
+			expect(`${valeur} → ${JSON.stringify(validateDossier(doc).errors)}`).toBe(`${valeur} → []`)
+		}
+
+		const absent = fixture()
+		delete relation(absent).secret
+
+		const calme = validateDossier(absent)
+
+		expect(calme.errors).toEqual([])
+		expect(calme.warnings).toEqual([])
+		expect(calme.ok).toBe(true)
+
+		const doc = fixture()
+		relation(doc).secret = 'oui'
+
+		const resultat = validateDossier(doc)
+		const anomalie = resultat.errors.find((e) => e.path === 'monde.personnages[0].relations[0].secret')
+
+		expect(resultat.ok).toBe(false)
+		expect(anomalie?.code).toBe('valeur-hors-enumeration')
+		expect(anomalie?.message).toContain('« secret »')
+		expect(anomalie?.location).toBe('Personnage « Aldûr le Sage »')
+	})
+
+	it('une relation AUTO-REFERENTIELLE est acceptee sans erreur ni avertissement (KR-194)', () => {
+		// LA PREMIÈRE RÉFÉRENCE AUTO-RÉFÉRENTIELLE DU SCHÉMA, tolérée au SSOT sans garde
+		// nouvelle : `cible_id === personnage.id` est une didascalie de conflit intérieur,
+		// jouable telle quelle. La fixture minimale ne porte qu'UN personnage, donc sa
+		// relation pointe le porteur — c'est délibéré, et l'identifiant est ASSERTÉ plutôt
+		// que supposé : sans cette ligne, le test resterait vert le jour où la fixture
+		// cesserait d'être auto-référentielle, et la garde disparaîtrait en silence.
+		const doc = fixture()
+
+		expect(relation(doc).cible_id).toBe(personnage(doc).id)
+
+		const resultat = validateDossier(doc)
+
+		expect(resultat.errors).toEqual([])
+		expect(resultat.warnings).toEqual([])
+		expect(resultat.ok).toBe(true)
+
+		// Discriminant : ce n'est pas « toute cible passe ». L'auto-référence est tolérée
+		// parce qu'elle RÉSOUT, pas parce que la règle aurait été désarmée.
+		const pendante = fixture()
+		relation(pendante).cible_id = 'pnj.nulle-part'
+
+		expect(codes(validateDossier(pendante).errors)).toEqual(['reference-pendante'])
+	})
+
 	/**
 	 * Où poser une valeur de champ ENTIER, par chemin de `CHAMPS_ENTIERS`. Un chemin
 	 * ajouté à la table sans son poseur se NOMME dans le test juste en dessous, il ne
@@ -1228,6 +1431,12 @@ describe('validateDossier', () => {
 		'monde.personnages[].contre_mesures': (doc, valeur) => {
 			personnage(doc).contre_mesures = valeur
 		},
+		'monde.personnages[].relations': (doc, valeur) => {
+			personnage(doc).relations = valeur
+		},
+		'monde.personnages[].presence': (doc, valeur) => {
+			personnage(doc).presence = valeur
+		},
 	}
 
 	it('les listes a elements structures ont toutes leur poseur, aucune de plus', () => {
@@ -1292,6 +1501,46 @@ describe('validateDossier', () => {
 		const anomalie = resultat.errors[0]
 		expect(anomalie.path).toBe('monde.personnages[1].contre_mesures[0]')
 		expect(anomalie.location).toBe('Personnage « Corvin le Marchand »')
+	})
+
+	it('le dossier de reference reste accepte SANS REGRESSION quand une relation ET une presence y sont corrompues, et SEULES ces deux anomalies remontent', () => {
+		// Critère #8 du plan d'itération 5, MÊME FORME que celui d'it4 juste au-dessus et
+		// pour la même raison (BUG-072) : les deux moitiés — « le dossier de référence
+		// reste accepté sans régression sur les champs hors lot » et « un élément
+		// malformé est refusé » — ne valent que prouvées ENSEMBLE, sur le MÊME document
+		// et dans le MÊME résultat. Prouvées séparément, une régression qui n'apparaît
+		// qu'en présence des cinq autres personnages passerait les deux tests.
+		//
+		// DEUX PORTEURS DISTINCTS ET DEUX LISTES DISTINCTES : la boucle générique parle
+		// par ligne de table, et une seule corruption ne dirait rien de l'autre ligne.
+		const doc = JSON.parse(fs.readFileSync(CHEMIN_REFERENCE, 'utf8')) as Doc
+		const selene = arr(obj(doc.monde).personnages)[0]
+		const corvin = arr(obj(doc.monde).personnages)[1]
+		expect(selene.nom).toBe('Sélène la Vigie')
+		expect(corvin.nom).toBe('Corvin le Marchand')
+		arr(selene.relations)[0] = 'du texte a la place' as unknown as Doc
+		arr(corvin.presence)[0] = 42 as unknown as Doc
+
+		const resultat = validateDossier(doc)
+
+		expect(resultat.ok).toBe(false)
+		// SEULES les deux anomalies attendues : rien d'autre, dans les six personnages et
+		// le reste du dossier, n'a régressé du fait de ces corruptions. Le message d'échec
+		// NOMME le chemin et le OÙ, il ne les compte pas.
+		expect(resultat.errors.map((e) => `${e.code} → ${e.path} — ${e.location}`)).toEqual([
+			'element-non-objet → monde.personnages[0].relations[0] — Personnage « Sélène la Vigie »',
+			'element-non-objet → monde.personnages[1].presence[0] — Personnage « Corvin le Marchand »',
+		])
+		expect(resultat.warnings).toEqual([])
+
+		// Discriminant : le MÊME document, intact, ne produit RIEN. Sans cette ligne, un
+		// dossier de référence devenu invalide pour une tout autre raison satisferait
+		// l'assertion ci-dessus par accident.
+		const intact = validateDossier(JSON.parse(fs.readFileSync(CHEMIN_REFERENCE, 'utf8')))
+
+		expect(intact.errors).toEqual([])
+		expect(intact.warnings).toEqual([])
+		expect(intact.ok).toBe(true)
 	})
 
 	it('un element non-objet d une collection identifiee reste champ-requis-vide', () => {
@@ -2120,6 +2369,22 @@ describe('validateDossier, les references simples', () => {
 			},
 			chemin: 'monde.personnages[0].objectif_id',
 			// Le OÙ est le personnage lui-même : c'est lui qui porte le champ.
+			location: 'Personnage « Aldûr le Sage »',
+		},
+		'monde.personnages[].relations[].cible_id': {
+			poser: (doc, id) => {
+				relation(doc).cible_id = id
+			},
+			chemin: 'monde.personnages[0].relations[0].cible_id',
+			// Le OÙ est le PORTEUR de la relation, jamais la cible : c'est sur sa fiche
+			// que l'auteur doit aller corriger.
+			location: 'Personnage « Aldûr le Sage »',
+		},
+		'monde.personnages[].presence[].lieu_id': {
+			poser: (doc, id) => {
+				presence(doc).lieu_id = id
+			},
+			chemin: 'monde.personnages[0].presence[0].lieu_id',
 			location: 'Personnage « Aldûr le Sage »',
 		},
 	}

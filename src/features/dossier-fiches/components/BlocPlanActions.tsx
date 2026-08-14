@@ -1,6 +1,14 @@
 import { useEffect, useRef, type ChangeEvent, type CSSProperties, type FocusEvent } from 'react'
 import { Field, Stepper, IconButton, HIT_TARGET_MIN, DUREE_MIN, type Personnage } from '../../../brain'
-import { boutonPointilleStyle, eyebrowStyle, legendeStyle, separateurStyle } from './styles'
+import {
+	boutonPointilleStyle,
+	eyebrowStyle,
+	legendeStyle,
+	separateurStyle,
+	listeLignesStyle,
+	ligneStyle,
+	enTeteLigneStyle,
+} from './styles'
 import type {
 	BrouillonBut,
 	ChampBut,
@@ -8,7 +16,7 @@ import type {
 	ChampEtapeTexte,
 	BrouillonContreMesure,
 	ChampContreMesureTexte,
-} from '../hooks/useEcriturePersonnages'
+} from '../hooks/useEcriturePlan'
 
 const LEGENDE_PLAN_ACTIONS =
 	"Suite d'étapes vers l'objectif — chacune avec son intention, son déclencheur et une porte de sortie si le joueur bloque le personnage."
@@ -334,27 +342,4 @@ const sousSectionStyle: CSSProperties = {
 	flexDirection: 'column',
 	gap: 'var(--space-4)',
 	marginTop: 'var(--space-2)',
-}
-
-const listeLignesStyle: CSSProperties = {
-	display: 'flex',
-	flexDirection: 'column',
-	gap: 'var(--space-3)',
-	marginTop: 'var(--space-3)',
-}
-
-const ligneStyle: CSSProperties = {
-	border: '1px solid var(--border-divider)',
-	background: 'var(--surface-sunken)',
-	borderRadius: 'var(--r-md)',
-	padding: 'var(--space-4)',
-	display: 'flex',
-	flexDirection: 'column',
-	gap: 'var(--space-4)',
-}
-
-const enTeteLigneStyle: CSSProperties = {
-	display: 'flex',
-	alignItems: 'center',
-	justifyContent: 'space-between',
 }
