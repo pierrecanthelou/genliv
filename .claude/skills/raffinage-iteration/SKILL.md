@@ -67,12 +67,27 @@ Chaque rôle **doit** produire au moins une objection. Une note sans objection e
 Le veto n'est pas un vote général ; chacun ne peut bloquer que sur **son** terrain.
 
 - **PM** — hors périmètre, ne répond pas à la demande, casse l'ordre du walking skeleton, valeur utilisateur nulle.
-- **Tech Lead** — viole l'isolation des features, contourne un contrat `brain/`, duplique la source de vérité, crée une dépendance croisée.
+- **Tech Lead** — viole l'isolation des features, contourne un contrat `brain/`, duplique la source de vérité, crée une dépendance croisée, expose/manipule à distance un détail d'implémentation d'un composant, hook ou fonction voisin (§ Encapsulation ci-dessous).
 - **UX** — s'écarte du design system (valeur en dur au lieu d'un token, composant maison au lieu de `components/`), oublie la règle des états vides, casse l'accessibilité (≥44px, clavier), fautes de registre de langue.
 - **QA** — critère non observable, absence de test de non-régression sur un KR cité, définition de fini floue.
 - **Narratif & IA** *(si convoqué)* — l'IA touche aux dés, aux stats, à l'inventaire ou à l'XP ; sortie modèle sans schéma ni comportement d'échec ; règle dupliquée entre code et prompt ; référence narrative par nom libre ; contexte sans borne ; mémoire de session non spécifiée.
 
 Un veto **hors domaine** est irrecevable : l'orchestrateur le requalifie en objection.
+
+## Encapsulation — jamais un détail d'implémentation à distance
+
+**Un composant, un hook ou une fonction ne manipule jamais un détail d'implémentation (DOM, structure interne, algorithme, texte dérivé) d'un autre composant, hook ou fonction — il s'appuie sur une abstraction que l'autre expose délibérément.** Loi de Déméter appliquée au code du dépôt. Généralisée depuis un cas trouvé en revue humaine, après l'approbation tech-lead (`dossier-fiches` it8) : `PanneauPersonnages.tsx` cherchait le bouton de retrait de `FichePersonnage.tsx` par `querySelector('button[aria-label^="Retirer le personnage"]')` — un texte de label et un ordre DOM que seule `FichePersonnage.tsx` décide, lus à distance par un composant qui n'a aucune raison de les connaître. Rien ne rougissait si le label changeait ; seul un test de focus dédié l'aurait vu. Une seconde occurrence, non corrigée (dette datée, hors périmètre de la feature qui l'a trouvée), vit dans `dossier-canon/PanneauLieux.tsx` — `bug_history.dossier-canon.json` BUG-078.
+
+**Le symptôme à reconnaître** : un composant/hook A lit ou reconstruit une donnée, un texte, une structure DOM ou un calcul qui appartient RÉELLEMENT à B — souvent via `querySelector`/`getElementBy*`, un texte recopié en dur, une supposition sur l'ordre ou la forme d'une structure interne, ou un accès à un champ que B pourrait renommer sans casser sa propre suite de tests. Le risque n'est jamais immédiat : le code compile, les tests de B restent verts, et c'est A qui casse en silence — la question à se poser en revue : « si B renommait son label ou réorganisait son DOM demain, quel autre fichier casserait sans qu'aucun test ne le voie venir ? ».
+
+**Le correctif : B EXPOSE la capacité, A l'APPELLE, jamais l'inverse.**
+- Une **donnée dérivée** (un libellé, une désignation) → une fonction EXPORTÉE par le module qui la définit, jamais recalculée par l'appelant (précédent `designationDe`, exporté nommément par `FichePersonnage.tsx` pour que `PanneauPersonnages.tsx` ne reconstruise pas la même chaîne).
+- Un **geste impératif** sur le DOM d'un composant qu'on ne possède pas (focus, scroll, sélection) → `forwardRef` + `useImperativeHandle`, une interface `<Composant>Handle` dont les méthodes sont NOMMÉES par leur INTENTION (`focusRetirer()`, jamais `getButton()`/`getRef()`) — précédent : `FichePersonnageHandle`, même correction.
+- Un **service ou un contrat cross-feature** → `brain/` (déjà couvert par le veto Tech Lead « contourne un contrat `brain/` », ci-dessus — cette section couvre le cas plus fin d'un composant DANS la même feature).
+
+**Ce qui n'est PAS une violation** : lire une constante, un type ou une fonction PUBLIQUEMENT EXPORTÉE d'un module (c'est l'abstraction elle-même, pas un détail) ; un composant qui lit son PROPRE DOM (ex. `PanneauPersonnages.tsx` garde un `ref` direct sur son propre bouton « + Ajouter… », qu'il rend lui-même — aucune indirection n'est due sur ce qu'on possède déjà, un `forwardRef` y serait une abstraction à un seul appelant, donc une dette).
+
+**Au raffinage** : le Tech Lead vérifie ce veto dès qu'un contrat de design ou un lot mentionne une recherche DOM inter-composants, un texte recopié entre deux fichiers, ou un accès à un champ interne d'un état géré ailleurs — pas seulement au moment où un `useEffect` en fait la démonstration la plus visible (le cas trouvé ici). **À l'essaim** : `dev-lot`/`dev-contrat` le portent en autocontrôle avant de committer une recherche DOM ou un texte dupliqué visant un composant qu'ils ne possèdent pas.
 
 ## Blocage
 
