@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.27 — un objet cesse d'être une référence orpheline pour de bon
+
+`dossier-objets` itération 2/2 — **dernière itération de la feature**. L'auteur retire un objet de son registre, confirmé par une modale (`RetirerObjetDialog.tsx`, précédent `RetirerPersonnageDialog.tsx`) muette sur les référents — aucun pré-vol côté feature, le dossier refuse et nomme le personnage porteur si un savoir le référence encore.
+
+- **Zéro fichier `brain/` cette itération** — découverte du raffinage, tour 1, confirmée indépendamment par le tech-lead et la QA : le refus par référence pendante (`reference-pendante`) est déjà géré structurellement par `validateDossier` depuis dossier-fiches it6. Première itération de la feature sans lot `contrat`.
+- **Modal, jamais retrait immédiat** : `CLAUDE.md` § Dangerous Actions exige un dialogue de confirmation pour toute action destructive/irréversible. Le retrait immédiat de `PanneauLieux.tsx` (dossier-canon it4) reste un précédent affaibli — il porte une dette non corrigée (BUG-078, recherche DOM distante).
+- **`FicheObjet.tsx` expose `FicheObjetHandle`** (`forwardRef`/`useImperativeHandle`, `focusRetirer()`) pour le focus post-retrait — jamais un `querySelector` du panneau vers la fiche, 3ᵉ occurrence de la classe d'encapsulation généralisée depuis dossier-fiches it8, non reproduite malgré deux précédents fautifs connus dans le dépôt.
+- Le test de discriminance (KR-202) sème sa propre fixture en mémoire, jamais `dossier-reference.json` — vérifié empiriquement (0/3 précédents dans les features sœurs en dépendent). Une assertion séparée, hors discriminance, confirme que `objet.lanterne-de-corvin` (déjà référencé dans le vrai dossier de référence) est bien refusé.
+- 1 lot séquentiel, aucun worktree. 75 suites / 1074 tests, tous verts. Score de mutation sans objet (aucun fichier `brain/` touché).
+- **La feature `dossier-objets` (n° 5) est terminée : 2/2 itérations.** Raffinage : `.claude/raffinage/dossier-objets-it2.plan.md`, revue : `.claude/raffinage/dossier-objets-it2.revue.md`.
+
 ## 0.6.26 — un objet cesse d'être une référence orpheline et devient un registre
 
 `dossier-objets` itération 1/2. L'auteur tient le registre des objets de son aventure : il en ajoute un depuis la section Objets, lui donne un nom et une description lue par le joueur, le voit apparaître dans la liste, et réordonne son registre — remplace l'état vide générique de la section Objets.

@@ -146,7 +146,7 @@ Huit features. Une phrase de démo par feature, sans « et » : c'est le test de
 | 2 | `bascule-editeur` | …naviguer dans son aventure par une liste de sections | 3 | **3/3 — terminée** | 5 rôles | 1 |
 | 3 | `dossier-canon` | …rédiger la vérité immuable de son histoire | 4 | **4/4 — terminée** | 4 rôles | 2 |
 | 4 | `dossier-fiches` | …écrire une fiche de personnage exploitable par l'IA | 8 | **8/8 — terminée** | 5 rôles | 3 |
-| 5 | `dossier-objets` | …tenir le registre des objets de son aventure | 2 | **1/2** | 4 rôles | 1 |
+| 5 | `dossier-objets` | …tenir le registre des objets de son aventure | 2 | **2/2 — terminée** | 4 rôles | 1 |
 | 6 | `dossier-registres` | …tenir les quêtes, les indices, les événements de son aventure | 4 | — | 4 rôles | 4 · 5 |
 | 7 | `dossier-controles` | …voir pourquoi son aventure n'est pas encore jouable | 3 | — | 5 rôles | 6 |
 | 8 | `dossier-copilote` | …faire proposer un texte par l'IA, champ par champ | 3 | — | 5 rôles | 6 |
@@ -165,7 +165,7 @@ Huit features. Une phrase de démo par feature, sans « et » : c'est le test de
 
 **4 · `dossier-fiches`** — sections 03 et 04. **Le gros morceau**, et le plan de cible le dit deux fois : « l'écran le plus important du produit ». 8 blocs, deux axes `camp` × `plan`, 6 curseurs de caractère, l'éditeur de plan d'actions, l'éditeur de savoirs à 4 portes, le sélecteur de relations à intensité signée. Un seul formulaire pour tous les personnages. **Terminée le 2026-08-16, 8/8 itérations** (cadrée à 5, redécoupée à 6 puis 8 au raffinage — détail : `src/features/dossier-fiches/specification.json`, `resolved_decisions`). Mapping des 6 curseurs sur CA/IN/IG posé dans `brain/dossier/curseurs.ts` (donnée de présentation, KR-193, hors mutation et hors table dorée).
 
-**5 · `dossier-objets`** — **absente du plan de cible.** `objet_id` y est référencé à quatre endroits sans qu'aucun tableau racine ne le définisse, alors que `CLAUDE.md` en fait une règle de domaine. `action-decor` est supprimée, mais l'`ObjectEditor` qu'elle utilisait vit dans `brain/components/` et reste disponible comme graine.
+**5 · `dossier-objets`** — était **absente du plan de cible** : `objet_id` y était référencé à quatre endroits sans qu'aucun tableau racine ne le définisse, alors que `CLAUDE.md` en fait une règle de domaine. `action-decor` est supprimée, mais l'`ObjectEditor` qu'elle utilisait vivait dans `brain/components/` et a servi de graine de motif (jamais réutilisé comme écran — ses contrôles mécaniques appartiennent au modèle condamné). **Terminée le 2026-08-16, 2/2 itérations** : `Objet extends Entite { description_joueur?: string }`, registre liste + fiche, réordonnancement composé par la feature (jamais une prop sur `ListRow.tsx`), retrait refusé au SSOT sans aucun lot contrat (le refus par référence pendante était déjà couvert depuis dossier-fiches it6) — détail : `src/features/dossier-objets/specification.json`, `resolved_decisions`.
 
 **6 · `dossier-registres`** — sections 05 quêtes, 06 indices + son graphe, 08 événements (deux listes séparées par l'interrupteur « lié à l'histoire », branchées sur le bestiaire existant), 09 climat & conditions.
 

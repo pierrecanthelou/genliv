@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
 	useBrain,
 	useOpenDossier,
@@ -9,8 +9,23 @@ import {
 	HIT_TARGET_MIN,
 	type Objet,
 	type EcritureDossier,
+	type DossierIssue,
 } from '../../../brain'
-import { FicheObjet, type BrouillonObjet } from './FicheObjet'
+import { FicheObjet, designationDe, type BrouillonObjet, type FicheObjetHandle } from './FicheObjet'
+import { RetirerObjetDialog } from './RetirerObjetDialog'
+import {
+	pageStyle,
+	colonneListeStyle,
+	colonneFicheStyle,
+	eyebrowStyle,
+	listeStyle,
+	ligneStyle,
+	ligneListRowStyle,
+	boutonAjouterStyle,
+	emptyStateStyle,
+	emptyGlyphStyle,
+	emptyTextStyle,
+} from './styles'
 
 export interface PanneauObjetsProps {
 	dossierId: string
@@ -21,6 +36,20 @@ function brouillonDe(objet: Objet): BrouillonObjet {
 		nom: objet.nom ?? '',
 		description_joueur: objet.description_joueur ?? '',
 	}
+}
+
+/**
+ * Le refus en cours, indexé par l'objet dont l'écriture l'a produit — sans cet
+ * index, changer de sélection après un refus laisse le bandeau affiché sous
+ * la fiche d'un AUTRE objet, qui n'a rien vu refuser (même famille que
+ * KR-197, précédent `PanneauLieux.tsx`). `FicheObjet` ne connaît que
+ * `{ statut, issues }` : le filtrage par id reste ici, seul endroit qui
+ * connaît la sélection courante.
+ */
+interface RefusEnCours {
+	objetId: string
+	statut: 'absent' | 'refuse'
+	issues: DossierIssue[]
 }
 
 const EYEBROW_SECTION = 'OBJETS'
@@ -44,7 +73,7 @@ function libelleDescendre(objet: Objet, index: number): string {
  * Le panneau Objets — la liste du registre d'objets du monde (`monde.objets[]`),
  * écrite par le même `DossierService.update()` que Canon/Départ/Personnages/Lieux,
  * avec un patch ÉTROIT : `canon`/`charpente` traversent intacts. Précédent direct
- * `PanneauLieux.tsx` (dossier-canon it4) : layout à deux colonnes, sélection par
+ * `PanneauLieux.tsx` (dossier-canon) : layout à deux colonnes, sélection par
  * défaut (le premier objet) calculée EN LIGNE (`objets.find(...) ?? objets[0]`),
  * jamais un `useEffect` de resynchronisation (KR-013/113).
  *
@@ -55,16 +84,23 @@ function libelleDescendre(objet: Objet, index: number): string {
  * permute `monde.objets` PAR IDENTIFIANT, jamais par position, et appelle le
  * même `commit()` que les autres champs — la sélection reste indexée par id,
  * donc la fiche affichée reste celle du MÊME objet après une permutation. Aux
- * bornes de la liste, le bouton correspondant est OMIS, jamais rendu `disabled`
- * (§8, désaccord 9 : aucune prop `disabled` ajoutée à `IconButton.tsx`).
+ * bornes de la liste, le bouton correspondant est OMIS, jamais rendu `disabled`.
  *
- * PAS de retrait en it1 (it2, réservée à la discrimination de référence) : ni
- * `Modal`, ni bandeau de refus, ni `IssueList` — `FicheObjet.tsx` ne porte que
- * les deux champs de prose.
+ * RETRAIT (itération 2) — possédé ici, en trois pièces : l'état d'ouverture de
+ * la modale (`enConfirmation`, un identifiant, jamais un booléen — une
+ * demande de retrait laissée ouverte sur un objet qui n'est plus l'affiché se
+ * referme d'elle-même au rendu suivant, garde EN LIGNE), la CONFIRMATION
+ * (`handleConfirmerRetrait`) et le déplacement de focus qui suit un retrait
+ * réussi (`intentionFocus`, usage légitime de `useEffect`, KR-013). Le SSOT
+ * seul décide du refus, APRÈS la tentative — aucun pré-vol côté feature, cette
+ * feature n'a connaissance d'aucun autre registre du dossier.
  *
- * Le FOCUS qui suit un ajout (champ Nom) est un déplacement DOM impératif, pas
- * un miroir d'état — usage légitime de `useEffect` (KR-013), même patron que
- * `PanneauLieux.tsx`.
+ * CIBLE DU FOCUS : ce panneau ne cherche JAMAIS le bouton de retrait dans le
+ * DOM — c'est un détail d'implémentation de `FicheObjet`, pas le sien. Il
+ * DEMANDE (`ficheRef.current?.focusRetirer()`, `FicheObjetHandle`), même motif
+ * que `designationDe` : la fiche EXPOSE la capacité, ce panneau l'APPELLE. Pour
+ * son PROPRE bouton « + Ajouter un objet… » (rendu dans les DEUX branches
+ * ci-dessous), un `ref` direct suffit.
  *
  * Rend `null` si le dossier est absent : l'écran parent affiche déjà
  * « Dossier introuvable. ».
@@ -72,51 +108,84 @@ function libelleDescendre(objet: Objet, index: number): string {
 export function PanneauObjets({ dossierId }: PanneauObjetsProps): JSX.Element | null {
 	const { dossiers } = useBrain()
 	const dossier = useOpenDossier(dossierId)
+	const objets = dossier?.monde.objets ?? []
 	const [brouillons, setBrouillons] = useState<Record<string, BrouillonObjet>>(() =>
-		dossier === null ? {} : Object.fromEntries(dossier.monde.objets.map((objet) => [objet.id, brouillonDe(objet)])),
+		Object.fromEntries(objets.map((objet) => [objet.id, brouillonDe(objet)])),
 	)
 	const [selection, setSelection] = useState<string | null>(null)
-	const [intentionFocus, setIntentionFocus] = useState<'nom' | null>(null)
+	const [refus, setRefus] = useState<RefusEnCours | null>(null)
+	/** L'identifiant de l'objet dont le retrait attend confirmation, jamais un
+	 *  booléen : la modale se garde EN LIGNE contre l'objet affiché
+	 *  (`enConfirmation === objetAffiche?.id`). */
+	const [enConfirmation, setEnConfirmation] = useState<string | null>(null)
+	const [intentionFocus, setIntentionFocus] = useState<'nom' | 'retirer' | null>(null)
 	const nomInputRef = useRef<HTMLInputElement>(null)
-
-	useEffect(() => {
-		if (intentionFocus === 'nom') {
-			nomInputRef.current?.focus()
-		}
-		if (intentionFocus !== null) setIntentionFocus(null)
-	}, [intentionFocus])
-
-	if (dossier === null) return null
-	// Même idiome que `PanneauLieux.tsx` : capter une valeur non nulle une fois
-	// évite un `as`/`!` répété dans chaque gestionnaire.
-	const dossierActuel: typeof dossier = dossier
-	const objets = dossierActuel.monde.objets
+	const ficheRef = useRef<FicheObjetHandle>(null)
+	const boutonAjouterRef = useRef<HTMLButtonElement>(null)
 
 	// Calculé EN LIGNE, jamais resynchronisé par effet (KR-013/113) : résout la
 	// sélection courante, retombe sur le premier objet tant qu'aucune sélection
 	// explicite n'a été posée — `undefined` seulement quand la liste est vide.
+	// HISSÉ au-dessus du retour anticipé « dossier absent » : l'effet de focus
+	// ci-dessous a besoin de le lire, et les règles des hooks interdisent un
+	// retour anticipé entre deux hooks.
 	const objetAffiche = objets.find((objet) => objet.id === selection) ?? objets[0]
+
+	useEffect(() => {
+		if (intentionFocus === 'nom') {
+			nomInputRef.current?.focus()
+		} else if (intentionFocus === 'retirer') {
+			// `objetAffiche` reflète déjà la RETOMBÉE post-retrait à ce point : présent
+			// → la fiche retombée se focalise elle-même ; absent → retirer le dernier
+			// objet a basculé sur l'état vide, le focus revient sur « + Ajouter… ».
+			if (objetAffiche !== undefined) {
+				ficheRef.current?.focusRetirer()
+			} else {
+				boutonAjouterRef.current?.focus()
+			}
+		}
+		if (intentionFocus !== null) setIntentionFocus(null)
+	}, [intentionFocus, objetAffiche])
+
+	if (dossier === null) return null
 
 	/**
 	 * L'idiome d'écriture : TROIS racines nommées, jamais un spread de
 	 * `dossier` — seul `monde.objets` change, `canon`/`charpente` traversent
 	 * intacts (même patron que `PanneauLieux.tsx`).
+	 *
+	 * `resout` (même discipline que `PanneauLieux.tsx:136-153`) : `objetId`
+	 * porte DEUX RÔLES distincts — l'AFFICHAGE (sous quelle fiche le refus se
+	 * montre, TOUJOURS actif) et l'INVALIDATION (quel succès l'efface, actif
+	 * SEULEMENT si `resout`). Un AJOUT n'efface JAMAIS un refus, même quand il
+	 * réussit et que l'entité affichée coïncide avec l'entité déjà en cause.
 	 */
-	function commit(objetsSuivants: Objet[]): EcritureDossier {
-		return dossiers.update(dossierId, (d) => ({
+	function commit(
+		objetsSuivants: Objet[],
+		objetId: string,
+		{ resout }: { resout: boolean } = { resout: true },
+	): EcritureDossier {
+		const resultat = dossiers.update(dossierId, (d) => ({
 			canon: d.canon,
 			monde: { ...d.monde, objets: objetsSuivants },
 			charpente: d.charpente,
 		}))
+		setRefus((refusPrecedent) => {
+			if (resultat.statut === 'refuse') return { objetId, statut: 'refuse', issues: resultat.errors }
+			if (resultat.statut === 'absent') return { objetId, statut: 'absent', issues: [] }
+			if (!resout) return refusPrecedent
+			return refusPrecedent !== null && refusPrecedent.objetId !== objetId ? refusPrecedent : null
+		})
+		return resultat
 	}
 
 	function handleAjouter(): void {
 		const id = frapperIdentifiant('objet')
 		const nouveau: Objet = { id }
-		const resultat = commit([...objets, nouveau])
-		// Structurellement inatteignable en it1 (aucune borne, aucun refus
-		// possible sur un ajout d'objet nu) : garde défensive, même patron que
-		// `PanneauLieux.tsx`.
+		// Indexé sur l'objet AFFICHÉ (`objetAffiche?.id`), jamais sur `id` — celui-ci
+		// n'entre dans le document QUE si l'écriture réussit. `resout: false` : un
+		// ajout, réussi ou non, ne résout JAMAIS un refus (voir `commit`).
+		const resultat = commit([...objets, nouveau], objetAffiche?.id ?? id, { resout: false })
 		if (resultat.statut !== 'ecrit') return
 		setBrouillons((prev) => ({ ...prev, [id]: brouillonDe(nouveau) }))
 		setSelection(id)
@@ -136,13 +205,16 @@ export function PanneauObjets({ dossierId }: PanneauObjetsProps): JSX.Element | 
 	}
 
 	function handleBlurChamp(id: string, champ: keyof BrouillonObjet, valeur: string): void {
-		commit(objets.map((objet) => (objet.id === id ? { ...objet, [champ]: valeur } : objet)))
+		commit(
+			objets.map((objet) => (objet.id === id ? { ...objet, [champ]: valeur } : objet)),
+			id,
+		)
 	}
 
 	/**
 	 * Permute deux objets ADJACENTS par IDENTIFIANT, jamais par position — la
 	 * sélection (indexée par id) n'a donc rien à recalculer après l'écriture :
-	 * la fiche affichée reste celle du même objet (critère #4 du plan).
+	 * la fiche affichée reste celle du même objet.
 	 */
 	function deplacer(id: string, sens: -1 | 1): void {
 		const index = objets.findIndex((objet) => objet.id === id)
@@ -150,24 +222,45 @@ export function PanneauObjets({ dossierId }: PanneauObjetsProps): JSX.Element | 
 		if (index === -1 || cible < 0 || cible >= objets.length) return
 		const permutes = [...objets]
 		;[permutes[index], permutes[cible]] = [permutes[cible], permutes[index]]
-		commit(permutes)
+		commit(permutes, id)
+	}
+
+	function handleRetirer(id: string): void {
+		const index = objets.findIndex((objet) => objet.id === id)
+		if (index === -1) return
+		const resultat = commit(
+			objets.filter((objet) => objet.id !== id),
+			id,
+		)
+		// Refusé (référencé ailleurs dans le dossier) : rien n'est persisté, la
+		// liste et la sélection restent celles d'avant — aucun retrait optimiste.
+		if (resultat.statut !== 'ecrit') return
+		setBrouillons((prev) => {
+			const suivant = { ...prev }
+			delete suivant[id]
+			return suivant
+		})
+		const restants = resultat.dossier.monde.objets
+		// Le PRÉCÉDENT de l'objet retiré, ou le premier restant si l'élément retiré
+		// était en tête — `restants[Math.max(index - 1, 0)]` réalise les DEUX cas
+		// d'un coup (même formule que `PanneauLieux.tsx`).
+		setSelection(restants.length === 0 ? null : restants[Math.max(index - 1, 0)].id)
+		setIntentionFocus('retirer')
 	}
 
 	// Équivalent exact de `dossier.monde.objets.length === 0` (voir le calcul de
 	// `objetAffiche` plus haut), mais brancher sur LA MÊME valeur donne à
 	// TypeScript le rétrécissement `Objet` (non `| undefined`) pour la suite,
-	// sans assertion `!`. Contrairement à `monde.lieux` (toujours semé avec
-	// `lieu.amorce`), `monde.objets` DÉMARRE VIDE à la création d'un dossier
+	// sans assertion `!`. `monde.objets` DÉMARRE VIDE à la création d'un dossier
 	// (`construireAmorce`) : cette branche est donc l'état RÉEL d'un dossier
 	// neuf, pas un cas défensif — le bouton « + Ajouter un objet… » doit y
-	// rester accessible (précédent `PanneauPersonnages.tsx`, même situation
-	// avec `monde.personnages: []`).
+	// rester accessible (précédent `PanneauPersonnages.tsx`).
 	if (objetAffiche === undefined) {
 		return (
 			<div style={pageStyle}>
 				<div style={colonneListeStyle}>
 					<span style={eyebrowStyle}>{EYEBROW_SECTION}</span>
-					<button type="button" onClick={handleAjouter} style={boutonAjouterStyle}>
+					<button ref={boutonAjouterRef} type="button" onClick={handleAjouter} style={boutonAjouterStyle}>
 						+ Ajouter un objet…
 					</button>
 				</div>
@@ -184,6 +277,22 @@ export function PanneauObjets({ dossierId }: PanneauObjetsProps): JSX.Element | 
 	}
 
 	const brouillon = brouillons[objetAffiche.id] ?? brouillonDe(objetAffiche)
+	const indexAffiche = objets.findIndex((objet) => objet.id === objetAffiche.id)
+	// Le refus ne se rend QUE sous la fiche de l'objet qui l'a produit — changer
+	// de sélection ne doit jamais laisser le bandeau attaché au mauvais objet.
+	const refusAffiche =
+		refus !== null && refus.objetId === objetAffiche.id ? { statut: refus.statut, issues: refus.issues } : null
+
+	/**
+	 * L'ORDRE DES DEUX GESTES EST UN INVARIANT, pas une préférence de style
+	 * (même motif que `PanneauPersonnages.tsx`) : la fermeture de la modale et
+	 * le retrait vivent dans le MÊME gestionnaire synchrone, donc dans le même
+	 * commit React.
+	 */
+	function handleConfirmerRetrait(): void {
+		setEnConfirmation(null)
+		handleRetirer(objetAffiche.id)
+	}
 
 	return (
 		<div style={pageStyle}>
@@ -221,119 +330,35 @@ export function PanneauObjets({ dossierId }: PanneauObjetsProps): JSX.Element | 
 						</li>
 					))}
 				</ul>
-				<button type="button" onClick={handleAjouter} style={boutonAjouterStyle}>
+				<button ref={boutonAjouterRef} type="button" onClick={handleAjouter} style={boutonAjouterStyle}>
 					+ Ajouter un objet…
 				</button>
 			</div>
 
 			<div style={colonneFicheStyle}>
 				<FicheObjet
+					ref={ficheRef}
+					objet={objetAffiche}
+					index={indexAffiche}
 					brouillon={brouillon}
+					refus={refusAffiche}
 					nomInputRef={nomInputRef}
 					onChangeChamp={(champ, valeur) => handleChangeChamp(objetAffiche.id, champ, valeur)}
 					onBlurChamp={(champ, valeur) => handleBlurChamp(objetAffiche.id, champ, valeur)}
+					onDemanderRetrait={() => setEnConfirmation(objetAffiche.id)}
 				/>
 			</div>
+
+			{/* GARDE EN LIGNE, jamais un effet miroir (KR-013/113) : une demande de
+			    retrait laissée ouverte sur un objet qui n'est plus l'affiché se
+			    referme d'elle-même au rendu suivant. */}
+			{enConfirmation === objetAffiche.id && (
+				<RetirerObjetDialog
+					nomAffiche={designationDe(objetAffiche, indexAffiche)}
+					onConfirm={handleConfirmerRetrait}
+					onCancel={() => setEnConfirmation(null)}
+				/>
+			)}
 		</div>
 	)
-}
-
-const pageStyle: CSSProperties = {
-	flex: 1,
-	minHeight: 0,
-	boxSizing: 'border-box',
-	display: 'flex',
-	gap: 'var(--space-8)',
-	padding: 'var(--space-8)',
-	overflowY: 'auto',
-}
-
-const colonneListeStyle: CSSProperties = {
-	width: 320,
-	flexShrink: 0,
-	display: 'flex',
-	flexDirection: 'column',
-	gap: 'var(--space-3)',
-}
-
-const colonneFicheStyle: CSSProperties = {
-	flex: 1,
-	minWidth: 0,
-}
-
-const eyebrowStyle: CSSProperties = {
-	display: 'block',
-	fontFamily: 'var(--font-mono)',
-	fontSize: 'var(--fs-eyebrow)',
-	color: 'var(--text-label)',
-	letterSpacing: 'var(--track-eyebrow)',
-	marginBottom: 'var(--space-2)',
-}
-
-const listeStyle: CSSProperties = {
-	display: 'flex',
-	flexDirection: 'column',
-	gap: 'var(--space-3)',
-	margin: 0,
-	padding: 0,
-	listStyle: 'none',
-}
-
-// Chaque `<li>` : la `ListRow` (flex:1, minWidth:0 — voir `ligneListRowStyle`)
-// suivie des boutons Monter/Descendre, FRÈRES et hors du `<button>` de
-// `ListRow` (§3 du plan, désaccord 3).
-const ligneStyle: CSSProperties = {
-	display: 'flex',
-	alignItems: 'center',
-	gap: 'var(--space-2)',
-}
-
-// `ListRow` n'accepte ni `style` ni `className` (contrat `brain/` figé) : cette
-// enveloppe lui donne `flex:1, minWidth:0` sans toucher `ListRow.tsx`.
-const ligneListRowStyle: CSSProperties = {
-	flex: 1,
-	minWidth: 0,
-}
-
-const boutonAjouterStyle: CSSProperties = {
-	display: 'flex',
-	alignItems: 'center',
-	justifyContent: 'center',
-	width: '100%',
-	boxSizing: 'border-box',
-	minHeight: 'var(--hit-target)',
-	padding: '7px 10px',
-	border: '1.5px dashed var(--accent)',
-	borderRadius: 'var(--r-md)',
-	background: 'var(--accent-bg)',
-	color: 'var(--accent)',
-	fontFamily: 'var(--font-ui)',
-	fontSize: 'var(--fs-body)',
-	cursor: 'pointer',
-}
-
-const emptyStateStyle: CSSProperties = {
-	display: 'flex',
-	flexDirection: 'column',
-	alignItems: 'center',
-	textAlign: 'center',
-	gap: 'var(--space-3)',
-	border: '1.5px dashed var(--border-field)',
-	borderRadius: 'var(--r-xl)',
-	background: 'var(--surface-inset)',
-	padding: 'var(--space-10) var(--space-8)',
-	maxWidth: 480,
-	margin: 'auto',
-}
-
-const emptyGlyphStyle: CSSProperties = {
-	fontSize: 'var(--fs-h1)',
-	color: 'var(--text-faint)',
-	lineHeight: 1,
-}
-
-const emptyTextStyle: CSSProperties = {
-	margin: 0,
-	color: 'var(--text-muted)',
-	lineHeight: 'var(--lh-body)',
 }

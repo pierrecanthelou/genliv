@@ -121,6 +121,11 @@ describe('FichePersonnage - bloc Caractere', () => {
 	/** Critère #2 du plan — la valeur d'un curseur est persistee telle quelle,
 	 *  sans prefix signe, clampee a CURSEUR_MIN/CURSEUR_MAX. */
 	it('un curseur se regle sans prefix signe et se clampe aux deux bornes', async () => {
+		// 2 * (CURSEUR_MAX + 5) clics user-event reels : le test lui-meme est
+		// legitimement long (~30 clics), pas bogue -- sous charge parallele
+		// complete il approchait 4s sur un budget de 5s (mesure du 2026-08-16,
+		// flake reproductible bloquant le hook de pre-commit). Timeout releve,
+		// aucune assertion touchee.
 		const user = userEvent.setup()
 		const brain = createBrain()
 		const dossier = brain.dossiers.create('Un dossier')
@@ -152,7 +157,7 @@ describe('FichePersonnage - bloc Caractere', () => {
 		}
 		expect(within(controles()).getByText(String(CURSEUR_MIN))).toBeInTheDocument()
 		expect(lire(brain, dossier.id).monde.personnages[0].caractere?.curseurs?.courage).toBe(CURSEUR_MIN)
-	})
+	}, 15000)
 
 	/** Critère #3 du plan — length 1 : CTA d'ajout visible, focus sur le nouveau
 	 *  champ ; blur vide ne committe rien, blur non vide persiste. */

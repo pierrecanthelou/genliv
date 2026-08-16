@@ -17,11 +17,26 @@
 					"type": "type",
 					"name": "brain/dossier/types.ts — Personnage étendu sur 8 itérations : camp, objectif_id, apparence/fonction/description_joueur, stats, but, plan_actions+duree/si_bloque, contre_mesures, relations, presence, caractere — tous additifs, optionnels"
 				},
-				{ "type": "registry", "name": "brain/dossier/curseurs.ts — CURSEURS (6 entrées), CURSEUR_MIN/MAX, PARLER_REPLIQUES, CURSEURS_INITIAUX" },
-				{ "type": "type", "name": "CAMPS_PERSONNAGE/CampPersonnage, PorteeContreMesure — registres distincts des registres canon homonymes (CAMPS/Camp, Portee)" },
-				{ "type": "registry", "name": "brain/dossier/tables.ts — 7e couple FAMILLES_DE_CONDITIONS, LISTES_OPTIONNELLES_STRUCTUREES" },
-				{ "type": "service", "name": "DossierService.update(id, recette): EcritureDossier — réutilisé sans changement de signature sur les 8 itérations" },
-				{ "type": "component", "name": "features/dossier-fiches/components/Accordion — local à la feature, 1 seul consommateur (KR-109)" }
+				{
+					"type": "registry",
+					"name": "brain/dossier/curseurs.ts — CURSEURS (6 entrées), CURSEUR_MIN/MAX, PARLER_REPLIQUES, CURSEURS_INITIAUX"
+				},
+				{
+					"type": "type",
+					"name": "CAMPS_PERSONNAGE/CampPersonnage, PorteeContreMesure — registres distincts des registres canon homonymes (CAMPS/Camp, Portee)"
+				},
+				{
+					"type": "registry",
+					"name": "brain/dossier/tables.ts — 7e couple FAMILLES_DE_CONDITIONS, LISTES_OPTIONNELLES_STRUCTUREES"
+				},
+				{
+					"type": "service",
+					"name": "DossierService.update(id, recette): EcritureDossier — réutilisé sans changement de signature sur les 8 itérations"
+				},
+				{
+					"type": "component",
+					"name": "features/dossier-fiches/components/Accordion — local à la feature, 1 seul consommateur (KR-109)"
+				}
 			],
 			"lessons_learned": [
 				"Une classe de défaut découverte une 2e fois dans la même feature mérite d'être promue en discipline de raffinage à CE moment-là, pas au seuil arbitraire du dépôt (3e occurrence) : le coût cumulé des répétitions (KR-197 : BUG-056/061/063/065/066 ; KR-199 : BUG-064/065/068) a systématiquement dépassé ce qu'aurait coûté une règle écrite un cran plus tôt.",
@@ -29,9 +44,46 @@
 				"Le découpage en tranches de schéma a tenu sur 8 itérations sans jamais faire cohabiter deux lots contrat — la seule dérive volumétrique observée a été côté assemblage React (hooks, FichePersonnage.tsx), jamais côté contrat brain/ lui-même."
 			],
 			"bugs_encountered": [
-				"BUG-064", "BUG-065", "BUG-066", "BUG-068", "BUG-069", "BUG-070",
-				"BUG-071", "BUG-072", "BUG-073", "BUG-074", "BUG-075", "BUG-076"
+				"BUG-064",
+				"BUG-065",
+				"BUG-066",
+				"BUG-068",
+				"BUG-069",
+				"BUG-070",
+				"BUG-071",
+				"BUG-072",
+				"BUG-073",
+				"BUG-074",
+				"BUG-075",
+				"BUG-076"
 			]
+		},
+		{
+			"feature": "dossier-objets",
+			"completed_at": "2026-08-16",
+			"goal": "Donner à l'auteur un panneau liste + fiche pour tenir le registre des objets de son aventure — nom, description lue par le joueur, réordonnancement — puis retirer un objet, refusé et motivé par le dossier s'il est encore requis ailleurs, pour que objet_id cesse d'être une référence orpheline dans le format.",
+			"key_architecture_choices": [
+				"Réordonnancement composé ENTIÈREMENT par la feature (it1) : deux IconButton Monter/Descendre, frères de ListRow dans un <li> possédé par PanneauObjets.tsx — jamais une prop ajoutée à ListRow.tsx (resté inchangé en code, docstring seul corrigé). Écarté au raffinage : le mécanisme présupposé au cadrage (poignée de glisser câblée sur ListRow.onReorder) — aucun équivalent clavier, non prouvable en jsdom, anti-patron KR-109 (prop brain/ à un seul appelant réel).",
+				"Retrait (it2) sans AUCUN lot contrat — découverte du raffinage : le refus par référence pendante était déjà géré structurellement par validateDossier depuis dossier-fiches it6 (REFERENCES_SIMPLES). Première itération de la feature sans fichier brain/.",
+				"Modal de confirmation (RetirerObjetDialog.tsx, précédent RetirerPersonnageDialog.tsx) retenue contre le retrait immédiat de PanneauLieux.tsx (dossier-canon it4) — CLAUDE.md § Dangerous Actions, et le retrait immédiat porte une dette non corrigée (BUG-078).",
+				"FicheObjet.tsx expose FicheObjetHandle (forwardRef/useImperativeHandle, focusRetirer()) — jamais un querySelector du panneau vers la fiche : 3e occurrence de la classe d'encapsulation généralisée depuis dossier-fiches it8, non reproduite ici malgré deux précédents fautifs connus (BUG-076 corrigé, BUG-078 non corrigé)."
+			],
+			"brain_contracts_added": [
+				{
+					"type": "type",
+					"name": "brain/dossier/types.ts — Objet extends Entite { description_joueur?: string }, destination ia, sans borne ; Monde.objets: Entite[] devient Objet[]"
+				},
+				{
+					"type": "component",
+					"name": "brain/components/ListRow.tsx — docstring seul corrigé (aucune prop ajoutée) : le réordonnancement est composé par la feature, pas porté par le composant"
+				}
+			],
+			"lessons_learned": [
+				"Vérifier le mécanisme réel AVANT de planifier un lot contrat : le goal brut d'it2 laissait supposer un besoin de brain/ (comme dossier-fiches it7), mais la lecture directe de validate.ts/tables.ts a montré que le refus était déjà couvert — le tech-lead et la QA l'ont découvert indépendamment dès le tour 1 du raffinage.",
+				"Un plan qui prescrit un mécanisme de test précis (sonde de focus 'candidats multiples') doit vérifier qu'il a un support DOM réel dans le composant visé — FicheObjet.tsx (bouton unique) n'a pas la même forme que FichePersonnage.tsx (accordéon à blocs répétés) dont le mécanisme avait été copié ; l'écart, trouvé et corrigé par l'ouvrier, a préservé l'intention (KR-199) sans le mécanisme littéral.",
+				"Un désaccord sur le matériau d'un test (fixture locale vs fixture de référence partagée) se tranche par la mesure empirique du précédent établi (QA : 0/3 tests de refus des features sœurs ne dépendent de dossier-reference.json), pas par préférence — le tech-lead a concédé sur cette base au tour 2."
+			],
+			"bugs_encountered": []
 		}
 	]
 }
