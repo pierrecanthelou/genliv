@@ -16,6 +16,7 @@ import {
 	RACINES,
 	REFERENCES_SIMPLES,
 } from './tables'
+import { BUDGET_MOTS_CANON } from './types'
 import { COLLECTIONS_IDENTIFIEES } from './identifiers'
 import { PREDICATES } from './predicates'
 import { DELTAS } from './deltas'
@@ -244,14 +245,15 @@ const TEXTE_OPTIONNEL_LIBRE =
 	"jumeau prose OPTIONNEL d'une condition : son absence est calme par D1, et aucune règle du schéma 1 ne contraint sa forme quand il est présent. Même question ouverte que les dispenses « nom », propriétaire n° 2 bascule-editeur : une table « présent → doit être une chaîne », ou une garde à l'affichage."
 
 /**
- * Le motif partagé des proses d'entité — ONZE aujourd'hui, remesuré et jamais
+ * Le motif partagé des proses d'entité — DOUZE aujourd'hui, remesuré et jamais
  * recopié (KR-159) : les TROIS de `Lieu` (itération 4 de la n° 3), les TROIS
  * d'identité d'un `Personnage` (itération 2 de la n° 4), les DEUX proses libres
  * de son `but` (itération 4 de la n° 4 : `pourquoi` et `echeance` — `libelle`, lui,
  * est REQUIS dans son bloc, donc couvert par la corruption), la note d'auteur de
- * sa `presence[]` (itération 5 : `quand`) et les DEUX lignes rouges de son
+ * sa `presence[]` (itération 5 : `quand`), les DEUX lignes rouges de son
  * `caractere` (itération 8 : `jamais` et `cede_si` — `parler[]`, lui, porte son
- * propre motif, ses éléments étant des chaînes de LISTE et non une prose de champ).
+ * propre motif, ses éléments étant des chaînes de LISTE et non une prose de champ)
+ * et L'UNIQUE prose d'un `Objet` (itération 1 de la n° 5 : `description_joueur`).
  * Il
  * est DISTINCT de `TEXTE_OPTIONNEL_LIBRE`, et pas par style : celui-là dispense le
  * jumeau prose d'une CONDITION, dont l'absence est calme PAR D1 et dont la
@@ -364,6 +366,15 @@ const LIBRES: Record<string, string> = {
 	'monde.lieux[].ambiance': PROSE_D_ENTITE_LIBRE,
 	'monde.lieux[].dangers': PROSE_D_ENTITE_LIBRE,
 	'monde.objets[].nom': NOM_LIBRE,
+	// L'UNIQUE PROSE D'UN OBJET (it1 de la n° 5), même motif mot pour mot que les
+	// trois proses de `Lieu` juste au-dessus : une prose d'entité sans jumeau
+	// structuré, dont la corruption remplace la chaîne par un NOMBRE, et qu'aucune
+	// règle du schéma 1 n'arbitre. Elle n'est PAS dispensée pour cause de longueur :
+	// `monde.objets[].description_joueur` n'entre dans AUCUNE ligne de
+	// `BUDGETS_DE_MOTS` (KR-203, décision explicite d'absence de borne), ce que le
+	// test nommé « texte long, aucun avertissement » plus bas prouve par un cas
+	// POSITIF plutôt que par cette absence.
+	'monde.objets[].description_joueur': PROSE_D_ENTITE_LIBRE,
 	'monde.indices[].nom': NOM_LIBRE,
 	'monde.quetes[].nom': NOM_LIBRE,
 	'monde.evenements[].nom': NOM_LIBRE,
@@ -857,6 +868,84 @@ describe('couverture', () => {
 				`${chemin} dans la reference → true`,
 			)
 		}
+	})
+
+	it('la prose d un objet est ia et instanciee dans les DEUX fixtures', () => {
+		// LA SEULE LIGNE DE SCHÉMA DE L'ITÉRATION 1 DE LA N° 5, épinglée par la même
+		// construction que ses six aînées ci-dessus, et pour la même raison (KR-174,
+		// leçon de BUG-051) : « toute feuille a une destination » ne dit rien de la
+		// VALEUR, « aucune ligne morte » ne dit rien de l'audience. Nommées ensemble,
+		// les deux moitiés épinglent l'arbitrage — `ia` et non `auteur` : ce que le
+		// joueur voit d'un objet qu'il tient est de la donnée de jeu que le narrateur
+		// du Temps 2 LIT pour la raconter, pas une note de rédaction.
+		//
+		// La bascule que ce test doit faire rougir : passer ce champ à `moteur` en
+		// croyant que le suffixe `_joueur` désigne une prose émise verbatim. Il désigne
+		// l'AUDIENCE, jamais le RÉGIME — même piège que sur le champ jumeau du
+		// personnage, et c'est pour cela que les deux tests le disent chacun.
+		//
+		// L'INSTANCE DANS LA RÉFÉRENCE est dans le MÊME test : le garde d'exhaustivité
+		// balaie la fixture MINIMALE, donc un champ instancié là mais absent d'une
+		// aventure réelle resterait vert partout. Un champ que la référence n'exerce pas
+		// n'est pas un champ qu'on sait utiliser.
+		const PROSE_D_OBJET = 'monde.objets[].description_joueur'
+		const feuilles = cheminsDeLaFixture()
+		const feuillesDeLaReference = feuillesDeLaFixture(documentDeReference()).map((feuille) => feuille.normalise)
+
+		expect(`${PROSE_D_OBJET} → ${DESTINATION_DES_CHAMPS[PROSE_D_OBJET]}`).toBe(`${PROSE_D_OBJET} → ia`)
+		expect(`${PROSE_D_OBJET} dans la minimale → ${feuilles.includes(PROSE_D_OBJET)}`).toBe(
+			`${PROSE_D_OBJET} dans la minimale → true`,
+		)
+		expect(`${PROSE_D_OBJET} dans la reference → ${feuillesDeLaReference.includes(PROSE_D_OBJET)}`).toBe(
+			`${PROSE_D_OBJET} dans la reference → true`,
+		)
+		// Discriminant : le `nom` VOISIN, sur la même entité, reste `auteur`. Sans cette
+		// ligne, l'assertion ci-dessus passerait aussi sur une table qui aurait basculé
+		// TOUT l'objet vers `ia` — c'est-à-dire sur la réouverture silencieuse de la
+		// question transverse que KR-195 laisse fermée jusqu'à l'assembleur n° 10.
+		expect(`monde.objets[].nom → ${DESTINATION_DES_CHAMPS['monde.objets[].nom']}`).toBe('monde.objets[].nom → auteur')
+	})
+
+	it('description_joueur d un objet, texte long, aucun avertissement', () => {
+		// KR-203, ET C'EST UN CAS POSITIF, pas une absence de doc : « aucune borne de
+		// longueur » est une DÉCISION du cadrage, et une décision que rien n'exerce se
+		// périme sans bruit. Trois moitiés, dans le même test parce qu'aucune ne vaut
+		// seule.
+		//
+		// (a) STRUCTUREL — le champ n'entre dans AUCUNE ligne de `BUDGETS_DE_MOTS`,
+		// seule table du schéma 1 qui plafonne un texte. Lu de la table, jamais affirmé.
+		expect(BUDGETS_DE_MOTS.filter((budget) => budget.path.startsWith('monde.objets')).map((b) => b.path)).toEqual([])
+
+		// (b) COMPORTEMENTAL — le dossier de RÉFÉRENCE (celui d'une aventure réelle,
+		// KR-156) porte une description de DEUX fois le plus large budget du schéma, et
+		// il reste accepté SANS avertissement. Le texte est dérivé de la constante, pas
+		// d'un nombre en dur : le jour où le budget bouge, le témoin bouge avec lui.
+		const TEXTE_TRES_LONG = Array.from({ length: BUDGET_MOTS_CANON * 2 }, (_, rang) => `mot${rang}`).join(' ')
+		const document = documentDeReference()
+		const monde = document.monde as { objets: { description_joueur?: string }[] }
+		monde.objets[0].description_joueur = TEXTE_TRES_LONG
+
+		const resultat = validateDossier(document)
+
+		expect(resultat.warnings.map(lisible)).toEqual([])
+		expect(resultat.errors.map(lisible)).toEqual([])
+		expect(resultat.ok).toBe(true)
+
+		// (c) SONDE DE DISCRIMINANCE (KR-199) — sans elle, (b) resterait vert le jour où
+		// `validateDossier` cesserait d'avertir POUR TOUT LE MONDE, et le test dirait
+		// « aucune borne sur ce champ » en ne prouvant que « aucun avertissement nulle
+		// part ». Le MÊME texte, versé dans un champ qui, lui, PORTE un budget, doit
+		// faire apparaître l'avertissement — et un seul.
+		const temoin = documentDeReference()
+		const canon = temoin.canon as { mj: { synopsis_mj: string } }
+		canon.mj.synopsis_mj = TEXTE_TRES_LONG
+
+		const resultatTemoin = validateDossier(temoin)
+
+		expect(resultatTemoin.warnings.map((avertissement) => avertissement.code)).toEqual(['texte-trop-long'])
+		// Un budget dépassé n'a JAMAIS bloqué un import, et ce n'est pas cette sonde qui
+		// doit le faire croire.
+		expect(resultatTemoin.ok).toBe(true)
 	})
 
 	it('le predicat de gating de cede_si est present aux DEUX sites, mot pour mot', () => {

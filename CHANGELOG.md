@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.26 — un objet cesse d'être une référence orpheline et devient un registre
+
+`dossier-objets` itération 1/2. L'auteur tient le registre des objets de son aventure : il en ajoute un depuis la section Objets, lui donne un nom et une description lue par le joueur, le voit apparaître dans la liste, et réordonne son registre — remplace l'état vide générique de la section Objets.
+
+- **`Objet extends Entite { description_joueur?: string }`** (`ia`, sans borne de longueur — même famille que `Lieu.description`/`Personnage.description_joueur`) : seul champ neuf du schéma cette itération. `Monde.objets` passe de `Entite[]` à `Objet[]`.
+- **Le réordonnancement présupposé au cadrage (une poignée de glisser câblée sur `ListRow.onReorder`) a été écarté au raffinage par les 4 rôles**, convergence indépendante : aucun équivalent clavier écrit nulle part dans le dépôt, non prouvable fidèlement en jsdom, et une prop `brain/` à un seul appelant réel est l'anti-patron KR-109 déjà refusé ailleurs (le tech-lead a retourné contre la proposition d'UX le même argument qu'elle invoquait contre lui). Retenu à la place : deux boutons Monter/Descendre, **composés entièrement par la feature** (frères de `ListRow` dans un `<li>` que `PanneauObjets` possède) — `ListRow.tsx` reste inchangé en code, seul son docstring est corrigé.
+- **Aux bornes de la liste, le bouton manquant est OMIS, jamais rendu `disabled`** — évite d'ajouter une prop `disabled` à `IconButton.tsx` pour un besoin qu'une simple condition de rendu couvre déjà ; le critère de reorder se prouve par deux assertions dans le même test (clic et clavier `Tab`+`Entrée`), et par une discriminance à deux objets (la fiche affichée reste celle du même identifiant après permutation, jamais un saut par index).
+- 2 lots séquentiels (contrat `brain/dossier/` + docstring `ListRow.tsx`, puis feature `dossier-objets/`), aucun worktree, intégration réduite à un contrôle de propriété. 1063 tests, 1062 verts (1 flake préexistant et sans rapport, confirmé isolément). Score de mutation sans objet (aucun des 4 fichiers de règles touché).
+- Raffinage complet (2 tours, aucune `ESCALADE`) : `.claude/raffinage/dossier-objets-it1.plan.md`, revue : `.claude/raffinage/dossier-objets-it1.revue.md`.
+
 ## 0.6.25 — un personnage cesse d'être une fiche et devient un caractère qu'on peut jouer
 
 `dossier-fiches` itération 8/8 — **dernière itération de la feature**. L'auteur règle le caractère de son personnage : 6 curseurs de comportement (méfiance, franchise, courage, cupidité, loyauté, verve, mappés CA/IN/IG), jusqu'à deux répliques types, une limite absolue, une condition de reddition — le 8ᵉ et dernier bloc de l'accordéon. Plus aucun bloc de la fiche personnage n'affiche « Pas encore renseigné ».

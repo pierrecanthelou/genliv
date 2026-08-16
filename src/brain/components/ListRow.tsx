@@ -12,10 +12,30 @@ import { type CSSProperties, type ReactNode } from 'react'
  * courante d'une liste, pas une bascule ni une option de `listbox`.
  *
  * SANS POIGNÉE DE GLISSER : la source de design en porte une (`⠿`, résidu d'un
- * usage objet/butin réordonnable), retirée ici avec toute prop associée. Le
- * réordonnancement appartient à la feature n° 5 `dossier-objets`, qui ajoutera
- * la poignée AVEC son câblage réel (`onReorder`) — une prop `draggable` posée
- * par avance serait une branche jamais exercée dans un composant `brain/`.
+ * usage objet/butin réordonnable), retirée ici avec toute prop associée.
+ *
+ * ⚠ CORRECTION (itération 1 de la n° 5 `dossier-objets`, 2026-08-16) — la version
+ * précédente de ce paragraphe annonçait que cette feature « ajouterait la poignée
+ * AVEC son câblage réel (`onReorder`) ». Elle ne l'a pas fait, et c'est une
+ * décision des quatre rôles du raffinage, pas un report : le réordonnancement est
+ * COMPOSÉ ENTIÈREMENT PAR LA FEATURE — deux boutons Monter/Descendre rendus en
+ * FRÈRES de `ListRow` par son `PanneauObjets.tsx`, dans le `<li>` qui les entoure.
+ * `ListRow.tsx` ne change donc pas d'une ligne : ni `ListRowProps`, ni le DOM
+ * rendu, ni les styles.
+ *
+ * DEUX raisons, et la première suffit : une prop `brain/` à UN SEUL appelant réel
+ * est exactement la dette que ce paragraphe reprochait à `onReorder` posée par
+ * avance (KR-109) — la déplacer d'un cran dans le temps ne la change pas de
+ * nature. La seconde est d'instrument : le glisser natif n'a d'équivalent clavier
+ * écrit nulle part dans ce dépôt et n'est pas prouvable fidèlement en jsdom, alors
+ * que deux `<button>` le sont nativement (Tab, Entrée/Espace), par la même
+ * mécanique du navigateur qui rend cette ligne-ci opérable au clavier.
+ *
+ * La promotion de la paire en primitive `brain/components/ReorderControls` est
+ * REPORTÉE faute d'un second appelant réel et NOMMÉ ; son déclencheur écrit et la
+ * signature retenue vivent dans `src/features/dossier-objets/specification.json`
+ * (`open_questions`). Raisonnement complet :
+ * `.claude/raffinage/dossier-objets-it1.plan.md` § 3 et § 8, désaccord 3.
  */
 export interface ListRowProps {
 	title: string

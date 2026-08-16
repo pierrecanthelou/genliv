@@ -1,0 +1,120 @@
+{
+	"feature": "dossier-objets",
+	"created_at": "2026-08-16",
+	"status": "in-progress",
+	"design_reference": "docs/PLAN-BASCULE-IA.dc.html NE DÉFINIT AUCUNE forme pour objets[] — absente du plan de cible, confirmé par docs/ROADMAP-BASCULE-IA.md § 2, ligne n°5 : « objet_id référencé à quatre endroits sans qu'aucun tableau racine ne le définisse ». Seul objet_id apparaît en référence ailleurs dans le schéma cible (récompense de quête, contrepartie de savoir, lieux[].objets, depart.inventaire_initial, inventaire de session). La forme qui fait foi est src/brain/dossier/types.ts (Monde.objets: Entite[] aujourd'hui — un tableau NU, id+nom seuls), à étendre par cette feature. Graine UI citée par la roadmap (§ 1 bis) : brain/components/ObjectEditor.tsx (ancien modèle d'arbre, action-decor supprimée le 2026-08-03) — motif nom-interne/description-joueur réutilisable ; ses contrôles mécaniques (équipement arme/protection, bonus de renforcement, objet de scénario) appartiennent au modèle condamné et sont écartés (voir resolved_decisions). Précédents d'écran directement comparables : dossier-canon it4 (PanneauLieux.tsx/FicheLieu.tsx, terminée 2026-08-11) et dossier-fiches it1-it2 (PanneauPersonnages.tsx/FichePersonnage.tsx). L'écran d'accueil de la section Objets (index 5 du registre SECTIONS, brain/dossier/sections.ts) est déjà livré par bascule-editeur : src/features/bascule-editeur/components/PanneauSection.tsx (PANNEAU_PAR_SECTION, featureNum: 5) — dossier-objets remplace ce panneau, sans jamais importer directement bascule-editeur (KR-184, précédent dossier-canon/dossier-fiches).",
+	"plan": {
+		"goal": "Donner à l'auteur un panneau liste + fiche pour tenir le registre des objets de son aventure — un nom interne et une description lue par le joueur, réordonnables — puis lui dire pourquoi il ne peut pas retirer un objet encore requis ailleurs dans le dossier, pour que objet_id cesse d'être une référence orpheline dans le format.",
+		"design_contract": {
+			"surface": "PanneauObjets remplace l'état vide de bascule-editeur pour la section objets (index 5) SANS import direct entre les deux features (KR-184) : injection depuis App.tsx via la prop panneaux de DossierEditorScreen, précédent dossier-canon/dossier-fiches. Motif liste-à-gauche (ListRow) + fiche-à-droite (Card), précédent PanneauLieux/FicheLieu — un seul bloc de contenu, pas d'accordéon (l'entité est trop mince pour le justifier).",
+			"champs_a_plat": "Un seul champ neuf : Objet extends Entite { description_joueur?: string }, posé directement, destination ia, SANS borne de longueur — même famille que Lieu.description et Personnage.description_joueur, tous deux déjà livrés sans borne. nom reste Entite.nom, destination auteur, déjà validé structurellement depuis dossier-format.",
+			"reordonnancement": "Le reordonnancement de monde.objets est compose ENTIEREMENT par PanneauObjets.tsx : deux IconButton Monter/Descendre, freres de ListRow dans le <li> qui les entoure, jamais une prop ajoutee a ListRow.tsx (inchange en code, docstring seul corrige). CORRIGE au raffinage d'it1 (4 roles) : le mecanisme presuppose ici (une poignee de glisser cablee sur ListRow.onReorder) a ete ecarte -- aucun equivalent clavier ecrit nulle part dans le depot, non prouvable en jsdom, et une prop brain/ a un seul appelant reel est l'anti-patron KR-109. Seul fichier brain/ touche par ce geste : ListRow.tsx, docstring uniquement ; aucune autre feature n'est concernee (distinct de lieux[].acces, voir known_risks KR-200/KR-201 et open_questions).",
+			"retrait": "Aucun pré-vol côté feature : commit() lit le retour de DossierService.update() (EcritureDossier) et affiche le refus si statut==='refuse', motivé par le SSOT seul — même patron que PanneauLieux (dossier-canon it4) et dossier-fiches it7. Refus indexé PAR OBJET (RefusEnCours{objetId, issues}), DEUX indexations distinctes (affichage / invalidation, KR-197) — 5e+ occurrence documentée de cette classe, à ne pas rejouer sans garde. Test de discriminance à DEUX objets (un référencé par une contrepartie de savoir, un non) — KR-197/KR-199.",
+			"object_editor_ecarte": "brain/components/ObjectEditor.tsx N'EST PAS réutilisé comme écran : ses contrôles d'équipement/renforcement/objet-de-scénario appartiennent au modèle d'arbre condamné (GameObject, brain/equipment.ts, encore consommé par le runtime de combat conservé — Temps 2). Seul son motif de champs (nom interne + description lue par le joueur) vaut de précédent, reproduit avec Field, jamais importé.",
+			"composants": "Réutilisés tels quels : Field, ListRow (inchange, reordonnancement compose autour par la feature), Card, IconButton, Badge, Modal (retrait), IssueList (bandeau de refus). Aucune primitive neuve dans brain/components/ — ListRow existe déjà et s'étend, elle n'est pas créée."
+		},
+		"acceptance_criteria": [
+			"Étant donné la section Objets vide, quand l'auteur clique « + Ajouter un objet… », alors un objet est créé (frapperIdentifiant('objet')), apparaît dans la liste (ListRow, repli « Objet n°N (sans nom) »).",
+			"Étant donné un objet sélectionné, quand l'auteur écrit son nom et sa description lue par le joueur, alors DossierService.update() persiste les deux champs et la fiche les reflète au montage SANS AUCUNE INTERACTION (non-régression du motif lecture-au-montage, précédent BUG-064).",
+			"Etant donne au moins deux objets dans le registre, quand l'auteur active Monter ou Descendre sur une ligne -- au clic ou au clavier --, alors l'ordre de monde.objets est persiste et reflete par la liste au rendu suivant ; le bouton est OMIS (jamais disabled) aux bornes de la liste.",
+			"Étant donné un objet référencé par Personnage.savoirs[].revele_si.contrepartie.objet_id, quand l'auteur tente de le retirer, alors le dossier refuse et nomme le personnage/savoir fautif ; étant donné un second objet non référencé, alors son retrait réussit — LES DEUX PROUVÉS DANS LE MÊME TEST (discriminance, KR-197/KR-199).",
+			"Étant donné description_joueur, quand l'auteur y écrit un texte long, alors aucune troncature ni borne bloquante ne s'applique — décision explicite d'absence de borne (même famille que Lieu.description/Personnage.description_joueur), prouvée par un cas positif dans couverture.test.ts, pas seulement absente de doc.",
+			"Étant donné le dossier de référence (3 objets nommés, __fixtures__/dossier-reference.json), quand chaque lot de cette feature est livré (it1, it2), alors les 3 objets restent acceptés par validateDossier sans modification de leurs champs hors de ce lot (non-régression nommée, testée à chaque itération, lue depuis le FICHIER réel — KR-156/KR-199).",
+			"Étant donné les 9 sections que cette feature ne livrera jamais (elle ne possède que l'index 5), quand l'écran d'édition se rend à chaque itération, alors elles affichent toujours l'état vide honnête de PanneauSection, intact et non modifié (test-grep de non-régression, KR-187).",
+			"Étant donné le nouveau code, quand npm run lint et tsc --noEmit tournent, alors zéro erreur : aucun import direct entre dossier-objets et bascule-editeur (KR-184), aucune couleur en dur, et AUCUN fichier de dossier-canon (PanneauLieux.tsx, FicheLieu.tsx) n'apparaît dans la liste de fichiers d'un lot de cette feature (garde de revue, voir KR-200)."
+		],
+		"brain_contracts": [
+			{
+				"type": "type",
+				"name": "Objet extends Entite (brain/dossier/types.ts) — description_joueur?: string, destination ia, sans borne",
+				"direction": "provides"
+			},
+			{
+				"type": "registry",
+				"name": "PREDICATES.possede_objet / DELTAS.donner_objet,retirer_objet — namespace objet déjà fermé et validé (dossier-format), rien à ajouter",
+				"direction": "consumes"
+			},
+			{
+				"type": "service",
+				"name": "DossierService.update(id, recette): EcritureDossier — réutilisé sans changement de signature",
+				"direction": "consumes"
+			},
+			{
+				"type": "event",
+				"name": "dossier:updated",
+				"direction": "emits",
+				"payload": {
+					"dossierId": "string"
+				}
+			},
+			{
+				"type": "component",
+				"name": "brain/components/{Field, ListRow, Card, IconButton, Badge, Modal, IssueList}",
+				"direction": "consumes"
+			}
+		],
+		"walking_skeleton": "Itération 1 : la tranche la plus fine qui traverse tout — un objet se crée, porte un nom et une description lue par le joueur, apparaît dans la liste et peut y être réordonné, remplaçant l'état vide de la section Objets. Itération 2 durcit le registre : un objet référencé ailleurs dans le dossier ne peut plus être retiré sans que l'auteur en connaisse le motif exact, même patron que dossier-fiches it7.",
+		"n": 2,
+		"iterations": [
+			{
+				"id": 1,
+				"goal": "Raffiné le 2026-08-16 (.claude/raffinage/dossier-objets-it1.plan.md, validé) : l'auteur tient son registre d'objets - ajoute un objet, lui donne un nom et une description lue par le joueur (Objet.description_joueur?: string, ia, sans borne - seul champ neuf sur le schema), le voit apparaitre dans la liste, et le reordonne par deux boutons Monter/Descendre composes ENTIEREMENT par la feature (ListRow.tsx INCHANGE, docstring seul corrige - le mecanisme de glisser presuppose au cadrage a ete ecarte par les 4 roles, sans equivalent clavier ecrit nulle part et non prouvable en jsdom). PAS de retrait (it2). 2 lots sequentiels : contrat (types.ts, destinations.ts, 2 fixtures, couverture.test.ts, brain/index.ts, docstring ListRow.tsx) puis feature (PanneauObjets.tsx, FicheObjet.tsx, cablage App.tsx).",
+				"status": "done"
+			},
+			{
+				"id": 2,
+				"goal": "L'auteur retire un objet de son registre ; si l'objet est encore requis ailleurs dans le dossier (aujourd'hui : Personnage.savoirs[].revele_si.contrepartie.objet_id), le dossier refuse la suppression et nomme le personnage/savoir fautif — aucun pré-vol côté feature, le SSOT reste la seule autorité. Même patron que dossier-fiches it7 (retrait de personnage) et dossier-canon it4 (retrait de lieu).",
+				"status": "planned"
+			}
+		],
+		"known_risks": [
+			"KR-200 : lieux[].acces (connexions lieu-à-lieu) N'EST PAS dans le périmètre de cette feature, malgré son assignation écrite à « n°5 dossier-objets » dans src/features/dossier-canon/specification.json (resolved_decisions ET open_questions : « REPORTÉ n° 5 (dossier-objets) — lieux[].acces »). CORRECTION DE CE CADRAGE, tour 1-2 du comité : construire l'écran d'édition d'acces exige de modifier PanneauLieux.tsx/FicheLieu.tsx, fichiers possédés par dossier-canon (déjà terminée, 4/4) — un lot de dossier-objets qui les toucherait écrirait chez le voisin (veto tech-lead, § encapsulation de la skill raffinage-iteration). acces reste donc un référent SANS PROPRIÉTAIRE RÉEL à l'issue de ce cadrage — voir open_questions pour la recommandation.",
+			"KR-201 : CORRIGE au raffinage d'it1 -- a ne pas confondre avec KR-200 malgre la meme phrase de roadmap d'origine. Le reordonnancement de monde.objets est compose ENTIEREMENT par dossier-objets (deux IconButton Monter/Descendre, freres de ListRow), mais ListRow.tsx reste INCHANGE EN CODE (docstring seul) -- ce n'est donc PAS onReorder cable sur ListRow comme l'affirmait la version d'origine de ce KR. Seuls des fichiers propres a dossier-objets sont concernes. Aucune ecriture chez une autre feature.",
+			"KR-202 : le refus de retrait d'it2 doit être prouvé par DEUX objets distincts dans le MÊME test (un référencé par une contrepartie de savoir, un non) — un test à un seul objet ne distingue pas un refus correctement indexé par entité d'un refus global qui bloquerait tout retrait. 5e+ occurrence de cette classe de bug après BUG-056/BUG-061/BUG-063/BUG-066 (dossier-fiches, dossier-canon) — voir KR-197. Refus construit en RefusEnCours{objetId, issues}, deux indexations distinctes (affichage / invalidation), jamais un état global au panneau.",
+			"KR-203 : description_joueur est livré SANS borne de longueur — décision explicite du cadrage (tour 2, tech-lead), pas un oubli. Motif : les deux précédents directement comparables (Lieu.description, Personnage.description_joueur) sont tous deux sans borne et n'ont rien cassé ; poser une borne ici exigerait une constante nommée PLUS une branche d'avertissement dans validate.ts PLUS un code d'anomalie neuf pour un champ sans consommateur qui la justifie (KR-165 ne s'applique qu'aux bornes qui EXISTENT). Si une borne est un jour posée, elle doit valoir pour LES DEUX champs jumeaux (Objet et Personnage), jamais un seul — sinon deux champs de même nom aux règles divergentes."
+		]
+	},
+	"implementation": {
+		"iterations_log": [
+			{
+				"id": 1,
+				"label": "iteration-1",
+				"completed_at": "2026-08-16",
+				"architecture_choices": [
+					"Reordonnancement compose ENTIEREMENT par la feature (deux IconButton Monter/Descendre, freres de ListRow dans un <li> possede par PanneauObjets.tsx) plutot que par une extension de ListRow.tsx (onReorder ou props onMonter/onDescendre) presupposee au cadrage -- ecarte par les 4 roles du raffinage : aucun equivalent clavier, non prouvable en jsdom, anti-patron KR-109 (prop brain/ a un seul appelant reel). ListRow.tsx INCHANGE en code, docstring seul corrige.",
+					"Aux bornes de la liste, le bouton manquant est OMIS du DOM, jamais rendu disabled -- evite d'ajouter une prop disabled a IconButton.tsx (brain/) pour un besoin qu'une condition de rendu couvre deja.",
+					"Etat 0 objet : layout deux colonnes (precedent PanneauPersonnages.tsx), pas plein-page (precedent PanneauLieux.tsx, cas defensif inatteignable chez Lieux) -- monde.objets demarre reellement vide a la creation d'un dossier, contrairement a monde.lieux toujours seme.",
+					"2 lots sequentiels, aucun essaim parallele : lot 1 contrat (Objet extends Entite, destination ia, 2 fixtures, couverture.test.ts, export brain/index.ts, docstring ListRow.tsx) puis lot 2 feature (PanneauObjets.tsx, FicheObjet.tsx, cablage App.tsx)."
+				],
+				"deviations_from_plan": [
+					"ListRow.test.tsx (1 ligne de commentaire, hors liste du plan) corrigee en cours de lot 2, explicitement autorisee par l'orchestrateur : le commentaire affirmait encore que la feature ajouterait une poignee avec son vrai cablage, rendu faux par l'arbitrage du raffinage. Zero changement d'assertion.",
+					"Liste de fichiers remise a l'integrateur pour le controle de propriete omettait specification.json (artefact standard de tout cadrage, ecrit par l'orchestrateur avant l'essaim) -- signale a tort comme ecart, sans consequence."
+				],
+				"test_coverage": {
+					"unit": "dossier-objets + bascule-editeur + ListRow.test.tsx : 4 suites / 38 tests ; brain/dossier complet : 12 suites / 353 tests ; suite complete du depot : 1063 tests, 1062 verts (1 flake preexistant et sans rapport, confirme)",
+					"e2e": "sans objet (aucun harnais E2E dans ce depot)"
+				},
+				"revue": ".claude/raffinage/dossier-objets-it1.revue.md"
+			}
+		],
+		"resolved_decisions": [
+			"RETENU (tour 1-2, 4 rôles) — un seul champ neuf sur Objet cette feature : description_joueur?: string, destination ia, sans borne de longueur.",
+			"REJETÉ — un second champ (« objet significatif »/« objet de scénario ») en it1 : aucun consommateur nommé dans le dossier ou le plan de cible, même anti-patron que tier sur Personnage (forme sans producteur). S'il revient un jour, c'est une propriété DÉRIVÉE de ce qui référence l'objet (badge calculé par dossier-controles n°7), jamais un champ auteur à cocher sur la fiche — motif porté par UX au tour 2.",
+			"REJETÉ — reprendre brain/components/ObjectEditor.tsx comme base d'écran : ses champs mécaniques (équipement arme/protection, bonus de renforcement) appartiennent au modèle d'arbre condamné (GameObject, brain/equipment.ts) et smuggleraient une décision de schéma via un composant d'UI. Patron retenu : FicheLieu.tsx/FichePersonnage.tsx (liste + fiche, composant de rendu pur).",
+			"RETENU — it2 (retrait) se pin sur le référent réel et déjà câblé : Personnage.savoirs[].revele_si.contrepartie.objet_id (livré dossier-fiches it6). Le test de discriminance porte sur deux objets distincts (un référencé, un non) — voir KR-202.",
+			"CORRIGE AU RAFFINAGE D'IT1 (voir decision plus bas) -- la redaction d'origine disait : « ListRow.onReorder est cable dans cette feature (it1) : seuls des fichiers propres a dossier-objets et a ListRow.tsx sont concernes ». Cette phrase presupposait le mecanisme de glisser ecarte par les 4 roles -- voir KR-201.",
+			"CORRIGÉ (contredit une note écrite de dossier-canon/specification.json) — lieux[].acces reste HORS PÉRIMÈTRE de dossier-objets : construire son écran exige de modifier des fichiers possédés par dossier-canon (déjà terminée). Le comité de CE cadrage (tech-lead, veto ; PM, convergence tour 2) considère l'assignation écrite précédente comme un artefact de proximité (« la feature qui suit Lieux ») plutôt qu'une décision de domaine — voir KR-200 et open_questions pour la recommandation de correction, non appliquée par ce cadrage (hors de son périmètre d'écrire dans une autre feature).",
+			"RETENU — n=2 itérations, conforme au chiffre de docs/ROADMAP-BASCULE-IA.md § 2. Sous le plancher habituel de 3-6 itérations (skill raffinage-iteration, étape cadrage) parce que le domaine est délibérément mince (un seul champ de contenu, deux capacités : tenir le registre, le durcir) — signalé comme fait, pas comme défaut de découpage.",
+			"CORRIGÉ (raffinage it1, 4 rôles, contredit la décision ci-dessus sur ListRow.onReorder) — le mécanisme de réordonnancement n'est PAS une poignée de glisser câblée sur ListRow.onReorder. Écarté par les 4 rôles (tours 1-2) : aucun équivalent clavier écrit nulle part dans le dépôt, non prouvable en jsdom, et une prop brain/ à un seul appelant réel est l'anti-patron KR-109 déjà refusé ailleurs. Retenu à la place : deux IconButton Monter/Descendre composés ENTIÈREMENT par dossier-objets (PanneauObjets.tsx), en frères de ListRow — ListRow.tsx NE CHANGE PAS DE CODE, seul son docstring est corrigé. Détail : .claude/raffinage/dossier-objets-it1.plan.md, section 3 et section 8 (désaccord 3).",
+			"RETENU (raffinage it1) — aux bornes de la liste (premier/dernier objet), le bouton Monter/Descendre manquant est OMIS, jamais rendu disabled — évite d'ajouter une prop disabled à IconButton.tsx (brain/) pour un besoin qu'une simple condition de rendu couvre déjà.",
+			"RETENU (raffinage it1) -- le critere de reorder se prouve par DEUX TESTS DISTINCTS, aucun ne supposant l'autre (clic d'une part, clavier Tab+Entree de l'autre), et par une discriminance a deux objets distincts : apres permutation, la fiche affichee reste celle du meme identifiant, jamais un saut par index -- meme famille que KR-197/KR-199 deja connue des features soeurs."
+		],
+		"open_questions": [
+			"OUVERT — propriétaire réel de lieux[].acces (connexions lieu-à-lieu) : assigné par erreur de proximité à « n°5 dossier-objets » dans src/features/dossier-canon/specification.json (resolved_decisions ET open_questions) alors que son écran d'édition vit dans PanneauLieux.tsx/FicheLieu.tsx, fichiers possédés par dossier-canon (déjà terminée, 4/4). Recommandation de CE cadrage, à trancher par l'utilisateur avant qu'une future feature n'en hérite à son tour sans le savoir : soit une itération de suite de dossier-canon (rouvre une feature marquée done), soit un repointage explicite vers n°6 dossier-registres (qui consomme aussi le futur graphe de tree-canvas, roadmap § 1 bis). Quel que soit le choix, docs/ROADMAP-BASCULE-IA.md § 5 et dossier-canon/specification.json devront être corrigés en conséquence — non fait par ce cadrage, qui n'a pas mandat d'écrire dans une autre feature.",
+			"OUVERT — depart.inventaire_initial (référence vers des objets) n'a aucune forme dans Charpente.Depart aujourd'hui (seuls lieu_id et texte_ouverture_joueur existent) et aucun propriétaire assigné dans la roadmap. Hors périmètre de cette feature.",
+			"OUVERT — Quete.recompense (peut cibler un objet via un Delta donner_objet) n'exige AUCUN travail ici : DELTAS générique déjà suffisant, validé depuis dossier-format it4. Propriétaire réel = n°6 dossier-registres quand Quete reçoit son écran.",
+			"OUVERT — un indicateur d'« objet de scénario »/signification, si le besoin produit réel apparaît, se pose comme badge DÉRIVÉ (dossier-controles n°7) plutôt qu'un champ auteur — jamais réouvert sans ce besoin (précédent KR-194, relations auto-référentielles, même discipline).",
+			"OUVERT (raffinage it1) — promotion des boutons Monter/Descendre en primitive brain/components/ReorderControls : différée faute de 2e appelant réel et nommé. Déclencheur écrit au raffinage d'it1 : au premier autre écran demandant un réordonnancement (candidat pressenti, non confirmé par le roadmap : n°6 dossier-registres, quêtes/indices/événements), la paire migre avec la signature { labelMonter, labelDescendre, onMonter?, onDescendre? }, dossier-objets en devient le second appelant."
+		]
+	}
+}

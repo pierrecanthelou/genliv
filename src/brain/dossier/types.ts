@@ -58,6 +58,10 @@
  * des curseurs vit dans `curseurs.ts` et n'importe RIEN de la couche des règles
  * (KR-193) ; `cede_si` est le SECOND champ dont l'injection dépend du RÔLE qui
  * demande, et le premier qu'aucun fait de session ne conditionne.
+ * La n° 5 `dossier-objets` ouvre ensuite le REGISTRE DES OBJETS : son itération 1
+ * y pose `Objet` — une `Entite` plus UNE seule prose, `description_joueur`,
+ * OPTIONNELLE et d'audience `ia`, SANS borne de longueur (KR-203). `monde.objets`
+ * cesse d'être une liste d'`Entite` nues.
  *
  * QUI LIT QUOI : ce fichier dit la FORME, il ne dit pas l'AUDIENCE. L'audience
  * de chaque champ terminal vit dans `destinations.ts`, sous le balayage de
@@ -911,6 +915,45 @@ export interface Lieu extends Entite {
 	dangers?: string
 }
 
+/**
+ * Un objet du monde — ce que le héros peut posséder, recevoir ou perdre.
+ *
+ * Son `id` est un HANDLE que le schéma 1 référence DÉJÀ depuis quatre portes,
+ * mesurées et non recopiées (KR-159) : un prédicat (`possede_objet`), deux deltas
+ * (`donner_objet`, `retirer_objet`) et une référence simple
+ * (`monde.personnages[].savoirs[].revele_si.contrepartie.objet_id`). Le registre
+ * qui les résout existait donc avant d'avoir la moindre forme propre : jusqu'ici
+ * `monde.objets` portait des `Entite` NUES, id et nom seuls.
+ *
+ * UNE SEULE PROSE, et c'est `description_joueur` — d'audience `ia`
+ * (`destinations.ts`). Le `nom`, lui, reste `auteur` : une frappe de rédaction que
+ * le joueur ne lit jamais. Ce que le joueur ENTENDRA nommer sera une PROJECTION de
+ * l'assembleur n° 10, jamais une bascule de `nom` vers `ia` — question TRANSVERSE
+ * à toutes les entités nommées du dossier, non rouverte ici (KR-195).
+ *
+ * AUCUNE BORNE DE LONGUEUR, et c'est une DÉCISION, pas un oubli (KR-203) : les
+ * deux précédents directement comparables — `Lieu.description` et
+ * `Personnage.description_joueur` — sont livrés sans borne et n'ont rien cassé. En
+ * poser une ici exigerait une constante nommée, une branche dans `validate.ts` et
+ * un code d'anomalie neuf (KR-165 ne vaut que pour les bornes qui EXISTENT) pour
+ * un champ dont aucun consommateur ne la réclame. Le jour où une borne se pose,
+ * elle vaut pour LES DEUX champs jumeaux — celui-ci ET celui du personnage —,
+ * jamais pour un seul : deux clés de même nom aux règles divergentes coûteraient
+ * plus cher que l'absence de borne.
+ */
+export interface Objet extends Entite {
+	/** IA — ce que le joueur voit et comprend de l'objet : sa matière, son état, ce
+	 *  qu'il évoque. De la PROSE, jamais un résumé mécanique (« objet magique qui
+	 *  donne +2 ») — un effet de règle est un `Delta`, et un narrateur qui lirait un
+	 *  chiffre ici le réciterait au lieu de le laisser jouer. Injectée, jamais émise
+	 *  verbatim : la seule prose que le joueur lit mot pour mot reste
+	 *  `charpente.depart.texte_ouverture_joueur`. OPTIONNELLE — absent ≠ vide, un
+	 *  objet en cours de rédaction est un état calme, jamais une alerte.
+	 *  Exemple : « Une couverture de cuir craquelé, fermée par une lanière de
+	 *  plomb ; les pages, entrevues sous la reliure, semblent respirer. » */
+	description_joueur?: string
+}
+
 /** Une issue possible d'un événement, et ce qu'elle change. */
 export interface Resolution {
 	/** L'issue, en français — ce que le narrateur joue quand elle survient. */
@@ -1013,7 +1056,7 @@ export interface CanonPartage {
 export interface Monde {
 	personnages: Personnage[]
 	lieux: Lieu[]
-	objets: Entite[]
+	objets: Objet[]
 	indices: Entite[]
 	quetes: Quete[]
 	evenements: Evenement[]

@@ -64,7 +64,7 @@
 		{
 			"id": "KR-050",
 			"feature": "node-editor",
-			"risk": "Feature node-editor supprimee le 2026-08-03 (bascule IA) - code inexistant, ce risque n'a plus d'objet aujourd'hui. Detail historique : docs/ROADMAP-BASCULE-IA.md § 1 ter (journal de bascule), ou git log avant la suppression."
+			"risk": "Feature node-editor supprimee le 2026-08-03, code inexistant, risque sans objet. Detail : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
 		},
 		{
 			"id": "KR-051",
@@ -79,7 +79,7 @@
 		{
 			"id": "KR-053",
 			"feature": "node-editor",
-			"risk": "Feature node-editor supprimee le 2026-08-03 (bascule IA) - code inexistant, ce risque n'a plus d'objet aujourd'hui. Detail historique : docs/ROADMAP-BASCULE-IA.md § 1 ter (journal de bascule), ou git log avant la suppression."
+			"risk": "Feature node-editor supprimee le 2026-08-03, code inexistant, risque sans objet. Detail : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
 		},
 		{
 			"id": "KR-054",
@@ -114,7 +114,7 @@
 		{
 			"id": "KR-064",
 			"feature": "choice-linking",
-			"risk": "Feature choice-linking supprimee le 2026-08-03 (bascule IA) - code inexistant, ce risque n'a plus d'objet aujourd'hui. Detail historique : docs/ROADMAP-BASCULE-IA.md § 1 ter (journal de bascule), ou git log avant la suppression."
+			"risk": "Feature choice-linking supprimee le 2026-08-03, code inexistant, risque sans objet. Detail : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
 		},
 		{
 			"id": "KR-065",
@@ -124,7 +124,7 @@
 		{
 			"id": "KR-066",
 			"feature": "choice-linking",
-			"risk": "Feature choice-linking supprimee le 2026-08-03 (bascule IA) - code inexistant, ce risque n'a plus d'objet aujourd'hui. Detail historique : docs/ROADMAP-BASCULE-IA.md § 1 ter (journal de bascule), ou git log avant la suppression."
+			"risk": "Feature choice-linking supprimee le 2026-08-03, code inexistant, risque sans objet. Detail : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
 		},
 		{
 			"id": "KR-067",
@@ -159,7 +159,7 @@
 		{
 			"id": "KR-081",
 			"feature": "outline-view",
-			"risk": "Feature outline-view supprimee le 2026-08-03 (bascule IA) - code inexistant, ce risque n'a plus d'objet aujourd'hui. Detail historique : docs/ROADMAP-BASCULE-IA.md § 1 ter (journal de bascule), ou git log avant la suppression."
+			"risk": "Feature outline-view supprimee le 2026-08-03, code inexistant, risque sans objet. Detail : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
 		},
 		{
 			"id": "KR-090",
@@ -169,7 +169,7 @@
 		{
 			"id": "KR-091",
 			"feature": "action-monster",
-			"risk": "Combat/skill outcomes are rÃ©ussite/Ã©chec ONLY â€” the only semantic outcomes and the only semantic colours (rÃ©ussite = good/green, Ã©chec = bad/red). Their label + tone live in the brain ROLL_OUTCOMES registry (Record<RollOutcome,{label,tone}>, an instance of KR-117), placed in brain (not the feature) because trap + dÃ©cor/PNJ skill-roll editors will reuse it (KR-109). Editors DERIVE every outcome row from ROLL_OUTCOMES â€” never hardcode Â« RÃ©ussite Â»/Â« Ã‰chec Â», never branch on the value, never invent other outcome colours. The monster library is wired via the monster:savedToLibrary event (per the event list) but stubbed: no consumer/persistence until the MonsterLibraryService iteration (like the deferred Object/PNJ catalogs). Feature action-monster supprimee le 2026-08-03 ; le registre qu il documentait (ROLL_OUTCOMES) vit dans src/brain/types.ts, partage par trap/decor/pnj."
+			"risk": "reussite/echec are the ONLY semantic outcomes/colours (green/red), never invented elsewhere. Registry: brain/outcomes.ts ROLL_OUTCOMES (Record<RollOutcome,{label,tone}>, KR-117 instance) - still live, cited by src/brain/types.ts:105/152 and OutcomesEditor.tsx. action-monster itself was deleted 2026-08-03; the registry survives, shared by other roll editors."
 		},
 		{
 			"id": "KR-092",
@@ -194,12 +194,12 @@
 		{
 			"id": "KR-096",
 			"feature": "action-pnj",
-			"risk": "Feature action-pnj supprimee le 2026-08-03 (bascule IA) - code inexistant, ce risque n'a plus d'objet aujourd'hui. Detail historique : docs/ROADMAP-BASCULE-IA.md § 1 ter (journal de bascule), ou git log avant la suppression."
+			"risk": "Feature action-pnj supprimee le 2026-08-03, code inexistant, risque sans objet. Detail : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
 		},
 		{
 			"id": "KR-097",
 			"feature": "action-monster",
-			"risk": "Feature action-monster supprimee le 2026-08-03 (bascule IA) - code inexistant, ce risque n'a plus d'objet aujourd'hui. Detail historique : docs/ROADMAP-BASCULE-IA.md § 1 ter (journal de bascule), ou git log avant la suppression."
+			"risk": "Feature action-monster supprimee le 2026-08-03, code inexistant, risque sans objet. Detail : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
 		},
 		{
 			"id": "KR-098",
@@ -259,12 +259,12 @@
 		{
 			"id": "KR-119",
 			"feature": "book-export",
-			"risk": "Feature book-export supprimee le 2026-08-03 (bascule IA) - code inexistant, ce risque n'a plus d'objet aujourd'hui. Detail historique : docs/ROADMAP-BASCULE-IA.md § 1 ter (journal de bascule), ou git log avant la suppression."
+			"risk": "Feature book-export supprimee le 2026-08-03, code inexistant, risque sans objet. Detail : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
 		},
 		{
 			"id": "KR-120",
 			"feature": "book-export",
-			"risk": "Feature book-export supprimee le 2026-08-03 (bascule IA) - code inexistant, ce risque n'a plus d'objet aujourd'hui. Detail historique : docs/ROADMAP-BASCULE-IA.md § 1 ter (journal de bascule), ou git log avant la suppression."
+			"risk": "Feature book-export supprimee le 2026-08-03, code inexistant, risque sans objet. Detail : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
 		},
 		{
 			"id": "KR-130",
@@ -334,7 +334,7 @@
 		{
 			"id": "KR-143",
 			"feature": "book-export",
-			"risk": "Feature book-export supprimee le 2026-08-03 (bascule IA) - code inexistant, ce risque n'a plus d'objet aujourd'hui. Detail historique : docs/ROADMAP-BASCULE-IA.md § 1 ter (journal de bascule), ou git log avant la suppression."
+			"risk": "Feature book-export supprimee le 2026-08-03, code inexistant, risque sans objet. Detail : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
 		},
 		{
 			"id": "KR-144",
@@ -349,7 +349,7 @@
 		{
 			"id": "KR-146",
 			"feature": "outline-view",
-			"risk": "Feature outline-view supprimee le 2026-08-03 (bascule IA) - code inexistant, ce risque n'a plus d'objet aujourd'hui. Detail historique : docs/ROADMAP-BASCULE-IA.md § 1 ter (journal de bascule), ou git log avant la suppression."
+			"risk": "Feature outline-view supprimee le 2026-08-03, code inexistant, risque sans objet. Detail : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
 		},
 		{
 			"id": "KR-147",
@@ -605,6 +605,26 @@
 			"id": "KR-199",
 			"feature": "cross-cutting",
 			"risk": "Un test VERT dont le NOM couvre une portee plus large que ses ASSERTIONS. La porte de commit compte des tests verts, elle ne compare jamais les deux portees -- et un compte rendu d'ouvrier qui revendique la garde n'est pas une preuve. Trois occurrences, trois formes : BUG-064 (le nom promet la lecture, les assertions ne prouvent que l'ecriture), BUG-065 (une propriete a deux moities prouvee par un seul test -- voir KR-197), BUG-068 sous deux formes neuves. (a) INSTRUMENTATION POSTERIEURE : un jest.spyOn pose APRES le rendu qu'il observe est syntaxiquement present et semantiquement mort ; seul l'ordre des lignes le trahit. (b) ENUMERATION ECHANTILLONNEE : 'les 8' prouve sur 3, d'autant plus invisible que l'echantillon RECOUVRE une autre assertion (le PV recoupe FO+AG+EN) -- le recouvrement fait paraitre la couverture plus large qu'elle n'est et cache que quatre clefs n'ont aucune preuve. Parade, au moment d'ECRIRE le nom d'un test : compter ses assertions contre son nom ; balayer toute enumeration depuis son registre, jamais N litteraux (KR-117) ; poser toute sonde AVANT l'evenement observe. Et la sonde de discriminance doit prouver que c'est LA LIGNE NOMMEE qui rougit -- inverser l'ordre des assertions le temps de la sonde, sinon elle valide la voisine et laisse la garde nommee sans preuve."
+		},
+		{
+			"id": "KR-200",
+			"feature": "dossier-objets",
+			"risk": "lieux[].acces reste HORS PERIMETRE de dossier-objets malgre son assignation ecrite a tort a la n5 dans dossier-canon/specification.json (artefact de proximite, pas une decision de domaine) -- construire son ecran modifierait des fichiers possedes par dossier-canon. Voir dossier-objets/open_questions pour la recommandation de proprietaire reel."
+		},
+		{
+			"id": "KR-201",
+			"feature": "dossier-objets",
+			"risk": "dossier-objets it1 : le reordonnancement de monde.objets est compose ENTIEREMENT par la feature (deux IconButton freres autour de ListRow, inchange, dans un <li> que la feature possede). Une prop brain/ pour un seul appelant reel (onReorder, ou onMonter/onDescendre) est l'anti-patron KR-109, quel que soit le role qui la propose."
+		},
+		{
+			"id": "KR-202",
+			"feature": "dossier-objets",
+			"risk": "dossier-objets it2 (retrait) : le test de discriminance du refus de retrait exige DEUX objets distincts (un reference par une contrepartie de savoir, un non) dans le MEME test -- un test a un seul objet ne distingue pas un refus par entite d'un blocage global. 5e+ occurrence de cette classe, voir KR-197/KR-199."
+		},
+		{
+			"id": "KR-203",
+			"feature": "dossier-objets",
+			"risk": "dossier-objets : Objet.description_joueur est livre SANS borne de longueur, meme famille que Lieu.description/Personnage.description_joueur (deja sans borne, rien de casse). Une borne future doit couvrir les DEUX champs jumeaux a la fois, jamais un seul."
 		}
 	]
 }

@@ -28,8 +28,9 @@ describe('ListRow, rendu sans poignee', () => {
 		expect(screen.getByText('monde.personnages')).toBeInTheDocument()
 		expect(screen.getByTestId('leading')).toBeInTheDocument()
 		expect(screen.getByTestId('trailing')).toBeInTheDocument()
-		// La poignée `⠿` de la source est retirée : le réordonnancement appartient à
-		// la feature n° 5, avec son vrai câblage.
+		// La poignée `⠿` de la source est retirée : le réordonnancement est
+		// composé PAR la feature n° 5 (deux `IconButton` frères, hors de ce
+		// composant), pas porté par `ListRow` — voir son docstring.
 		expect(document.body.textContent).not.toContain(POIGNEE)
 	})
 

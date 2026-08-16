@@ -396,6 +396,16 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	'monde.lieux[].dangers': 'ia',
 	'monde.objets[].id': 'moteur',
 	'monde.objets[].nom': 'auteur',
+	// LA PROSE D'UN OBJET est `ia`, et la question s'est posée contre `auteur`
+	// exactement comme pour les trois proses d'un `Lieu` juste au-dessus : `auteur`
+	// est réservé à ce qui n'est PAS de la donnée de jeu. Ce que le joueur voit et
+	// comprend d'un objet qu'il tient, le narrateur du Temps 2 doit le LIRE pour le
+	// raconter. Injectée, jamais émise verbatim — la seule prose lue mot pour mot
+	// reste `charpente.depart.texte_ouverture_joueur`, et c'est ce qui la rend
+	// `moteur`. Le `nom` juste au-dessus reste `auteur` (KR-195, question transverse
+	// non rouverte ici) : c'est la ligne que ce champ vient soulager, et non
+	// remplacer.
+	'monde.objets[].description_joueur': 'ia',
 	'monde.indices[].id': 'moteur',
 	'monde.indices[].nom': 'auteur',
 	'monde.quetes[].id': 'moteur',

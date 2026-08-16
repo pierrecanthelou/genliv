@@ -277,6 +277,14 @@ export type {
 	Savoir,
 	Personnage,
 	Lieu,
+	// LE TYPE DE L'ITÉRATION 1 DE LA N° 5, pour la même raison que `But`,
+	// `ContreMesure`, `Relation`, `Presence` et `Caractere` : le panneau des objets
+	// crée et écrit un objet par `DossierService.update()`, et le typer sur place
+	// reconstruirait une forme que le validateur ne connaîtrait pas. Il sort AVEC
+	// `Entite`, déjà exporté, dont il n'est qu'une extension d'une seule prose — la
+	// feature a besoin des deux : `Entite` pour ce qu'elle LIT des registres voisins,
+	// `Objet` pour ce qu'elle ÉCRIT dans le sien.
+	Objet,
 	Resolution,
 	Evenement,
 	Quete,

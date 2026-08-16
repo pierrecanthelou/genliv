@@ -269,8 +269,16 @@
 			{ "id": "lieu.vigie-du-nord", "nom": "La vigie du nord" }
 		],
 		"objets": [
-			{ "id": "objet.sceau-de-cendre", "nom": "Le sceau de cendre" },
-			{ "id": "objet.lanterne-de-corvin", "nom": "La lanterne de Corvin" },
+			{
+				"id": "objet.sceau-de-cendre",
+				"nom": "Le sceau de cendre",
+				"description_joueur": "Un disque de cire grise gros comme une paume, fendu en son milieu ; les deux moitiés tiennent encore ensemble par une fibre de crin, et la cassure sent le feu éteint."
+			},
+			{
+				"id": "objet.lanterne-de-corvin",
+				"nom": "La lanterne de Corvin",
+				"description_joueur": "Une lanterne de fer-blanc bosselée, dont la vitre fumée ne laisse passer qu'un rond de lumière jaune. Elle brûle sans qu'on y verse jamais rien."
+			},
 			{ "id": "objet.amulette-scellee", "nom": "Une amulette scellée" }
 		],
 		"indices": [

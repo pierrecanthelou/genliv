@@ -147,7 +147,13 @@
 				"dangers": "Les gobelins rôdent aux abords du Fanal dès la nuit tombée."
 			}
 		],
-		"objets": [{ "id": "objet.clef-de-basalte", "nom": "Clef de basalte" }],
+		"objets": [
+			{
+				"id": "objet.clef-de-basalte",
+				"nom": "Clef de basalte",
+				"description_joueur": "Une clef trapue taillée dans une pierre noire et poreuse, tiède au toucher longtemps après qu'on l'a lâchée. Son panneton est usé comme si on l'avait tournée mille fois."
+			}
+		],
 		"indices": [
 			{ "id": "indice.cendres-tiedes", "nom": "Des cendres encore tièdes" },
 			{ "id": "indice.sceau-brise", "nom": "Le sceau du Gouffre est brisé" }
