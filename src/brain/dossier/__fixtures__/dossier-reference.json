@@ -147,7 +147,20 @@
 						"lieu_id": "lieu.marche-des-cendres",
 						"quand": "Du lever du jour jusqu'à la fermeture du marché."
 					}
-				]
+				],
+				"caractere": {
+					"curseurs": {
+						"mefiance": 6,
+						"franchise": 2,
+						"courage": 3,
+						"cupidite": 9,
+						"loyaute": 1,
+						"verve": 8
+					},
+					"parler": ["Tout se paie, l'ami. Même ce que vous n'avez pas encore demandé."],
+					"jamais": "Il ne rendra jamais un gage sans être payé, pas même à qui lui aurait sauvé la vie.",
+					"cede_si": "Devant une reconnaissance de dette écrite de sa main, il cède : il préfère payer que voir le papier circuler."
+				}
 			},
 			{
 				"id": "pnj.mira-la-guerisseuse",

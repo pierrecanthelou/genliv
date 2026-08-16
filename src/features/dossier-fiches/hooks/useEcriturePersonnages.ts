@@ -3,6 +3,7 @@ import { useEcritureIdentite } from './useEcritureIdentite'
 import { useEcriturePlan } from './useEcriturePlan'
 import { useEcritureRelationsPresence } from './useEcritureRelationsPresence'
 import { useEcritureSavoirs } from './useEcritureSavoirs'
+import { useEcritureCaractere } from './useEcritureCaractere'
 import type {
 	Dossier,
 	Personnage,
@@ -11,6 +12,7 @@ import type {
 	Certitude,
 	Characteristic,
 	ChallengeTier,
+	CurseurId,
 	DossierIssue,
 	EcritureDossier,
 } from '../../../brain'
@@ -26,15 +28,17 @@ import type {
 } from './useEcriturePlan'
 import type { BrouillonRelation, BrouillonPresence } from './useEcritureRelationsPresence'
 import type { BrouillonSavoir } from './useEcritureSavoirs'
+import type { BrouillonCaractere } from './useEcritureCaractere'
 
 /**
- * La couche d'écriture du panneau Personnages — devenue un ASSEMBLEUR (§5 lot 2
- * du plan d'itération 5, désaccord n° 1) : elle compose les cinq sous-hooks
- * de sous-domaine (socle, identité, plan, relations & présence, savoirs) et rend
- * EXACTEMENT la même forme qu'avant leur scission, augmentée seulement des
- * champs additifs de cette itération. `PanneauPersonnages.tsx` n'y lit plus
- * qu'un objet plat de données déjà résolues et de handlers déjà curriés sur le
- * personnage AFFICHÉ — il reste seul propriétaire du RENDU (liste + fiche).
+ * La couche d'écriture du panneau Personnages — l'ASSEMBLEUR (§5 lot 2 du plan
+ * d'itération 5, désaccord n° 1) : elle compose les SIX sous-hooks de
+ * sous-domaine (socle, identité, plan, relations & présence, savoirs, caractère
+ * depuis it8) et rend EXACTEMENT la même forme qu'avant leur scission, augmentée
+ * seulement des champs additifs de chaque itération. `PanneauPersonnages.tsx`
+ * n'y lit plus qu'un objet plat de données déjà résolues et de handlers déjà
+ * curriés sur le personnage AFFICHÉ — il reste seul propriétaire du RENDU
+ * (liste + fiche).
  */
 export interface UseEcriturePersonnagesResult {
 	dossier: Dossier | null
@@ -105,6 +109,18 @@ export interface UseEcriturePersonnagesResult {
 	handleOuvrirPorteApresIndice: (index: number, indiceId: string) => void
 	handleChangeApresIndice: (index: number, indiceId: string) => void
 	handleFermerPorteApresIndice: (index: number) => void
+	caractere: BrouillonCaractere
+	parler: string[]
+	handleReglerCurseurs: () => void
+	handleChangeCurseur: (curseur: CurseurId, valeur: number) => void
+	handleAjouterReplique: () => void
+	handleChangeReplique: (index: number, valeur: string) => void
+	handleBlurReplique: (index: number, valeur: string) => void
+	handleRetirerReplique: (index: number) => void
+	handleChangeJamais: (valeur: string) => void
+	handleBlurJamais: (valeur: string) => void
+	handleChangeCedeSi: (valeur: string) => void
+	handleBlurCedeSi: (valeur: string) => void
 }
 
 export function useEcriturePersonnages(dossierId: string): UseEcriturePersonnagesResult {
@@ -113,6 +129,7 @@ export function useEcriturePersonnages(dossierId: string): UseEcriturePersonnage
 	const plan = useEcriturePlan(socle.socle)
 	const relationsPresence = useEcritureRelationsPresence(socle.socle)
 	const savoirs = useEcritureSavoirs(socle.socle)
+	const caractere = useEcritureCaractere(socle.socle)
 
 	return {
 		dossier: socle.dossier,
@@ -127,5 +144,6 @@ export function useEcriturePersonnages(dossierId: string): UseEcriturePersonnage
 		...plan,
 		...relationsPresence,
 		...savoirs,
+		...caractere,
 	}
 }

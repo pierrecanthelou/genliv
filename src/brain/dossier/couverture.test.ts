@@ -19,6 +19,7 @@ import {
 import { COLLECTIONS_IDENTIFIEES } from './identifiers'
 import { PREDICATES } from './predicates'
 import { DELTAS } from './deltas'
+import { CURSEUR_VALUES } from './curseurs'
 import { CHARACTERISTIC_VALUES } from '../characteristics'
 
 /**
@@ -243,12 +244,15 @@ const TEXTE_OPTIONNEL_LIBRE =
 	"jumeau prose OPTIONNEL d'une condition : son absence est calme par D1, et aucune règle du schéma 1 ne contraint sa forme quand il est présent. Même question ouverte que les dispenses « nom », propriétaire n° 2 bascule-editeur : une table « présent → doit être une chaîne », ou une garde à l'affichage."
 
 /**
- * Le motif partagé des proses d'entité — NEUF aujourd'hui, remesuré et jamais
+ * Le motif partagé des proses d'entité — ONZE aujourd'hui, remesuré et jamais
  * recopié (KR-159) : les TROIS de `Lieu` (itération 4 de la n° 3), les TROIS
  * d'identité d'un `Personnage` (itération 2 de la n° 4), les DEUX proses libres
  * de son `but` (itération 4 de la n° 4 : `pourquoi` et `echeance` — `libelle`, lui,
- * est REQUIS dans son bloc, donc couvert par la corruption) et la note d'auteur de
- * sa `presence[]` (itération 5 : `quand`). Il
+ * est REQUIS dans son bloc, donc couvert par la corruption), la note d'auteur de
+ * sa `presence[]` (itération 5 : `quand`) et les DEUX lignes rouges de son
+ * `caractere` (itération 8 : `jamais` et `cede_si` — `parler[]`, lui, porte son
+ * propre motif, ses éléments étant des chaînes de LISTE et non une prose de champ).
+ * Il
  * est DISTINCT de `TEXTE_OPTIONNEL_LIBRE`, et pas par style : celui-là dispense le
  * jumeau prose d'une CONDITION, dont l'absence est calme PAR D1 et dont la
  * présence sans `…_expr` déclenche un avertissement. Ceux-là n'ont aucun
@@ -339,6 +343,22 @@ const LIBRES: Record<string, string> = {
 	// ensembles fermés. `quand` est le seul optionnel LIBRE des six, exactement comme
 	// `but.echeance` juste au-dessus : même motif, même propriétaire de la question.
 	'monde.personnages[].presence[].quand': PROSE_D_ENTITE_LIBRE,
+	// LES DEUX LIGNES ROUGES DU CARACTÈRE (it8), même motif que les proses ci-dessus
+	// et pour la même raison : aucune règle du schéma 1 n'arbitre leur forme quand
+	// elles sont présentes, et leur absence est calme. Les SIX curseurs, eux, ne sont
+	// PAS ici — ils sont des ensembles fermés, donc leur corruption est refusée et une
+	// dispense à leur nom serait morte ; c'est le même point de contrat que
+	// `but.libelle`, et il se voit le mieux à cet endroit.
+	'monde.personnages[].caractere.jamais': PROSE_D_ENTITE_LIBRE,
+	'monde.personnages[].caractere.cede_si': PROSE_D_ENTITE_LIBRE,
+	// L'ÉCHANTILLON DE VOIX porte un motif à lui, et la distinction n'est pas de
+	// style : ce n'est pas une prose de CHAMP mais un ÉLÉMENT DE LISTE, exactement
+	// comme `canon.interdits_ton[]` plus haut. Sa liste n'entre pas dans
+	// `LISTES_OPTIONNELLES_STRUCTUREES` (qui ne contrôle que des listes d'OBJETS), et
+	// sa cardinalité `PARLER_REPLIQUES` est une borne d'INTERFACE, jamais un chemin de
+	// refus du SSOT — un document qui porte trois répliques est ACCEPTÉ.
+	'monde.personnages[].caractere.parler[]':
+		"échantillon de voix LIBRE : ses éléments sont des CHAÎNES, la liste n'a donc aucune règle d'élément (précédent « canon.interdits_ton[] »), et sa cardinalité est une borne d'INTERFACE, jamais un refus du schéma 1. Un élément présent mais non textuel tombe sous la question ouverte déjà possédée par la n° 2 bascule-editeur, la même qui porte les dispenses « nom ».",
 	'monde.lieux[].nom': NOM_LIBRE,
 	'monde.lieux[].description': PROSE_D_ENTITE_LIBRE,
 	'monde.lieux[].ambiance': PROSE_D_ENTITE_LIBRE,
@@ -475,17 +495,26 @@ describe('couverture', () => {
 		// Discriminant de l'instrument : sans lui, `estInstancie` pourrait rendre vrai
 		// pour tout et l'assertion ci-dessus serait une constante.
 		//
-		// LA SONDE SE DÉPLACE À CHAQUE TRANCHE DE SCHÉMA : `contre_mesures` à
-		// l'itération 4, `relations` à la 5 — les deux sont désormais instanciées, et
-		// c'est bien la preuve que cette sonde mesure quelque chose. Elle vise
-		// maintenant `caractere`, tranche de schéma de l'itération 8 (les curseurs de
-		// caractère ; l'itération 6, savoirs, n'ajoute aucun champ et l'itération 7 non
-		// plus). Le jour où celle-là arrive, la sonde se déplace encore.
+		// LA SONDE A CESSÉ DE SE DÉPLACER, et c'est l'itération 8 qui l'arrête. Elle
+		// visait successivement la tranche de schéma À VENIR — `contre_mesures` en it4,
+		// `relations` en it5, `caractere` ensuite — et cette cible-là vient d'être
+		// instanciée : `dossier-fiches` est close, il n'existe plus AUCUNE tranche
+		// interne où la déplacer. La supprimer était exclu (sans elle, `estInstancie`
+		// pourrait rendre vrai pour tout et l'assertion ci-dessus serait une constante) ;
+		// elle est donc REBASÉE sur un NÉGATIF DE FORME DE CHEMIN — un préfixe qui
+		// s'arrête au milieu d'un segment —, exactement le motif que les deux dernières
+		// lignes de ce test portaient déjà pour `plan` face à `plan_actions`. Ce négatif
+		// ne se périme pas : il ne dépend d'aucun champ futur, seulement de la
+		// normalisation sur séparateur qu'`estInstancie` promet.
 		const feuilles = cheminsDeLaFixture()
 
-		expect(estInstancie('monde.personnages[].caractere', feuilles)).toBe(false)
-		// Et l'inverse, sur les deux chemins que l'itération 5 vient d'instancier — sans
-		// ces lignes, la sonde ne dirait pas qu'elle sait aussi rendre `true` sur du neuf.
+		expect(estInstancie('monde.personnages[].caractere.curseur', feuilles)).toBe(false)
+		// Et l'inverse, sur le chemin que l'itération 8 vient d'instancier — sans cette
+		// ligne, la sonde ne dirait pas qu'elle sait aussi rendre `true` sur du neuf, et
+		// le négatif ci-dessus passerait aussi sur un bloc `caractere` absent.
+		expect(estInstancie('monde.personnages[].caractere.curseurs', feuilles)).toBe(true)
+		// Les deux chemins de l'itération 5, gardés : ils prouvent que le `true` ne tient
+		// pas à la seule tranche la plus récente.
 		expect(estInstancie('monde.personnages[].relations', feuilles)).toBe(true)
 		expect(estInstancie('monde.personnages[].presence', feuilles)).toBe(true)
 		// Et le préfixe se normalise sur un séparateur : un préfixe de NOM ne compte pas.
@@ -755,6 +784,120 @@ describe('couverture', () => {
 				`${chemin} dans la reference → true`,
 			)
 		}
+	})
+
+	it('les SIX curseurs sont moteur et instancies dans les DEUX fixtures', () => {
+		// MÊME CONSTRUCTION que les 8 caracs plus haut, et pour la même raison
+		// (KR-174) : « toute feuille a une destination » ne dit rien de la VALEUR,
+		// « aucune ligne morte » ne dit rien de l'audience. Les deux moitiés nommées
+		// ensemble épinglent l'arbitrage — `moteur` et non `ia` : un modèle qui lit
+		// `mefiance: 8` connaît l'exacte profondeur d'une méfiance que la scène n'a pas
+		// montrée, et il la joue au premier tour. La bascule que ce test doit faire
+		// rougir est « le caractère est de la matière à jouer, donc tout le bloc est
+		// `ia` » — trois de ses quatre champs le sont, les curseurs non.
+		//
+		// LES SIX CHEMINS SONT DÉRIVÉS de `CURSEUR_VALUES`, jamais écrits en littéral :
+		// le registre existe, et six littéraux en divergeraient en silence le jour où un
+		// septième curseur s'ajouterait (KR-117).
+		const chemin = (curseur: string): string => `monde.personnages[].caractere.curseurs.${curseur}`
+		const CHEMINS_DE_CURSEURS = CURSEUR_VALUES.map(chemin)
+		const feuilles = cheminsDeLaFixture()
+		const feuillesDeLaReference = feuillesDeLaFixture(documentDeReference()).map((feuille) => feuille.normalise)
+
+		// LE MESSAGE D'ÉCHEC NOMME LE CHAMP, jamais un compte : la liste des chemins
+		// manquants, de sorte que le rapport dise « …curseurs.verve » et non « 5/6 ».
+		expect(CHEMINS_DE_CURSEURS.filter((c) => !feuilles.includes(c))).toEqual([])
+		expect(CHEMINS_DE_CURSEURS.filter((c) => !feuillesDeLaReference.includes(c))).toEqual([])
+		for (const c of CHEMINS_DE_CURSEURS) {
+			expect(`${c} → ${DESTINATION_DES_CHAMPS[c]}`).toBe(`${c} → moteur`)
+		}
+
+		// Discriminant (a) : la dérivation rend réellement des chemins — sans cette
+		// ligne, les trois assertions ci-dessus passeraient sur une liste vide.
+		expect(CHEMINS_DE_CURSEURS.length).toBeGreaterThan(0)
+		// Discriminant (b) : la table de VALIDATION et la table d'AUDIENCE parlent des
+		// MÊMES chemins. Elles dérivent du même registre aujourd'hui ; le jour où l'une
+		// serait recopiée à la main, elles divergeraient sans qu'aucune des assertions
+		// générales ne le voie — chacune ne regarde qu'une des deux.
+		expect(ENUMERES_FERMES.filter((e) => e.path.includes('.curseurs.')).map((e) => e.path)).toEqual(CHEMINS_DE_CURSEURS)
+		// Discriminant (c) : AUCUNE ligne PORTEUSE, ni sur le bloc `caractere` ni sur
+		// son sous-bloc `curseurs` (veto du raffinage) — `feuillesDeLaFixture` ne rend
+		// jamais un objet non vide comme feuille, donc l'une ou l'autre serait morte le
+		// jour où elle serait écrite. Même point de contrat que `…stats` ci-dessus, à
+		// DEUX étages cette fois.
+		expect(DESTINATION_DES_CHAMPS['monde.personnages[].caractere']).toBeUndefined()
+		expect(DESTINATION_DES_CHAMPS['monde.personnages[].caractere.curseurs']).toBeUndefined()
+	})
+
+	it('les TROIS proses de caractere sont ia et instanciees dans les DEUX fixtures', () => {
+		// La MOITIÉ `ia` du bloc, séparée des six curseurs juste au-dessus parce que
+		// c'est la coupure qui EST l'arbitrage : le chiffre reste au moteur, la voix va
+		// au modèle. Même construction que les tests d'it4 et d'it5 (KR-174).
+		//
+		// `parler[]` porte le suffixe de LISTE, et ce n'est pas cosmétique : ses éléments
+		// sont des chaînes, donc la feuille du balayage est l'ÉLÉMENT — précédent exact
+		// `canon.interdits_ton[]`. Une ligne sans suffixe serait morte.
+		//
+		// La bascule que ce test doit faire rougir : passer `cede_si` à `moteur` en
+		// croyant qu'un champ à gating de rôle n'est pas injecté. Il l'est — à UN rôle
+		// (voir le prédicat, épinglé par le test suivant) : l'audience est `ia`, le
+		// destinataire est restreint, et confondre les deux le rendrait inutile.
+		const PROSES_DE_CARACTERE: ReadonlyArray<readonly [string, string]> = [
+			['monde.personnages[].caractere.parler[]', 'ia'],
+			['monde.personnages[].caractere.jamais', 'ia'],
+			['monde.personnages[].caractere.cede_si', 'ia'],
+		]
+		const feuilles = cheminsDeLaFixture()
+		const feuillesDeLaReference = feuillesDeLaFixture(documentDeReference()).map((feuille) => feuille.normalise)
+
+		for (const [chemin, audience] of PROSES_DE_CARACTERE) {
+			expect(`${chemin} → ${DESTINATION_DES_CHAMPS[chemin]}`).toBe(`${chemin} → ${audience}`)
+			expect(`${chemin} dans la minimale → ${feuilles.includes(chemin)}`).toBe(`${chemin} dans la minimale → true`)
+			expect(`${chemin} dans la reference → ${feuillesDeLaReference.includes(chemin)}`).toBe(
+				`${chemin} dans la reference → true`,
+			)
+		}
+	})
+
+	it('le predicat de gating de cede_si est present aux DEUX sites, mot pour mot', () => {
+		// MÊME INSTRUMENT que pour `secret` juste en dessous, et il vaut pour la même
+		// raison : aucun assembleur n'existe avant la n° 10, donc l'EXCLUSION réelle
+		// n'est exerçable par aucun test. Ce qui l'est — et ce qui décide de ce que la
+		// n° 10 codera — est la PRÉSENCE du prédicat à ses deux sites, à l'identique.
+		//
+		// LE PLAN D'IT8 RANGEAIT CE POINT EN « non vérifiable en l'état » au motif que
+		// « les commentaires ne sont pas accessibles à l'exécution ». C'est faux depuis
+		// l'itération 5, qui a livré exactement cet instrument : le prédicat est LU du
+		// JSDoc puis cherché dans `destinations.ts`. Ce qui reste hors instrument est
+		// l'autre moitié — que l'assembleur RESPECTE le prédicat —, et elle le reste.
+		//
+		// Le prédicat n'est PAS écrit en littéral ici : une troisième copie ferait
+		// exactement ce que le raffinage interdit (« une phrase, DEUX sites ») et se
+		// périmerait en silence le jour où les deux autres changeraient ensemble.
+		const types = fs.readFileSync(path.join(MODULE_DOSSIER, 'types.ts'), 'utf8')
+		const destinations = fs.readFileSync(path.join(MODULE_DOSSIER, 'destinations.ts'), 'utf8')
+
+		const sansPrefixe = (source: string): string =>
+			source.replace(/\r?\n[ \t]*(\*|\/\/) ?/g, ' ').replace(/[ \t]+/g, ' ')
+		const debut = "`cede_si` n'entre"
+		const fin = "puisse l'adosser."
+		const typesAplati = sansPrefixe(types)
+		const depart = typesAplati.indexOf(debut)
+
+		expect(depart).toBeGreaterThan(-1)
+
+		const predicat = typesAplati.slice(depart, typesAplati.indexOf(fin, depart) + fin.length)
+
+		// Discriminant : le prédicat extrait porte bien ses quatre clauses — le rôle
+		// UNIQUE qui le reçoit, les trois exclusions, l'absence de condition de session,
+		// et le moment. Sans elles, la comparaison ci-dessous vaudrait sur une phrase
+		// tronquée.
+		expect(predicat).toContain("**que** dans le contexte de l'appel")
+		expect(predicat).toContain('**narrateur**')
+		expect(predicat).toContain("celui de l'**arbitre**")
+		expect(predicat).toContain('**dès le premier tour**')
+
+		expect(sansPrefixe(destinations)).toContain(predicat)
 	})
 
 	it('le predicat de gating de secret est present aux DEUX sites, mot pour mot', () => {

@@ -1,3 +1,5 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
@@ -15,6 +17,24 @@ import {
 	type Characteristic,
 } from '../../../brain'
 import { PanneauPersonnages } from '../components/PanneauPersonnages'
+
+// Le dossier de RÉFÉRENCE, MÊME fixture que `dossier-format`/`couverture.test.ts`
+// (KR-156) — jamais un littéral de dossier inline pour ce genre de vérification :
+// c'est le format que le validateur accepte réellement, avec ses 6 personnages.
+const CHEMIN_REFERENCE = path.join(
+	__dirname,
+	'..',
+	'..',
+	'..',
+	'brain',
+	'dossier',
+	'__fixtures__',
+	'dossier-reference.json',
+)
+
+function texteReference(): string {
+	return fs.readFileSync(CHEMIN_REFERENCE, 'utf8')
+}
 
 /**
  * L'écran Personnages — liste `ListRow` à gauche, fiche à droite (§3 du plan
@@ -216,7 +236,16 @@ describe('PanneauPersonnages', () => {
 		expect(lire(brain, dossier.id).monde.personnages[0]).not.toHaveProperty('objectif_id')
 	})
 
-	it('un seul placeholder apres it6: compte exact = 1 (pas 0 ni 2), texte de son iteration cible, titres exacts dans l ordre', () => {
+	/**
+	 * KR-187 (§6 critère #7 du plan d'itération 8) — REECRIT ICI, dans le lot qui
+	 * construit le vrai panneau (« Caractère exploitable », le 8e et DERNIER bloc
+	 * de la feature) : le placeholder générique de bloc-non-livré a disparu de
+	 * l'accordéon, compte exact ZÉRO, sur un personnage qui ne porte AUCUNE des
+	 * données optionnelles des huit blocs — « Pas encore renseigné » ne doit plus
+	 * jamais apparaître, où que ce soit, y compris ailleurs que dans l'accordéon.
+	 * `queryAllByText` (jamais `getAllByText`, qui jetterait sur zéro résultat).
+	 */
+	it('plus aucun placeholder apres it8 (compte exact 0), titres exacts dans l ordre', () => {
 		const brain = createBrain()
 		const dossier = brain.dossiers.create('Un dossier')
 		semerPersonnage(brain, dossier.id, { id: 'pnj.aldur', portee: 'premier', plan_actions: [], savoirs: [] })
@@ -241,16 +270,40 @@ describe('PanneauPersonnages', () => {
 			.map((bouton) => bouton.textContent?.replace('▾', '').trim())
 		expect(titresAffiches).toEqual(titresExacts)
 
-		// « Savoirs » a quitte la table des placeholders a it6 (comme
+		// « Caractère exploitable » a quitte la table des placeholders a it8 (comme
 		// « Caractéristiques » a it3, « Objectif & plan d'actions » a it4,
-		// « Relations »/« Présence » a it5) : sans donnees renseignees, ce bloc porte
-		// desormais son propre contenu (etat vide invitant du bloc, pas un
-		// placeholder generique). Il n en reste qu UN, « Caractère exploitable ».
-		const placeholders = screen.getAllByText(/Pas encore renseigné — /)
-		expect(placeholders).toHaveLength(1)
+		// « Relations »/« Présence » a it5, « Savoirs » a it6) : c'etait le
+		// DERNIER, il n'en reste plus AUCUN.
+		expect(screen.queryAllByText(/Pas encore renseigné — /)).toHaveLength(0)
+		expect(screen.queryByText(`Pas encore renseigné — ${TEXTE_ITERATION(8)}.`)).toBeNull()
+	})
 
-		expect(screen.queryByText(`Pas encore renseigné — ${TEXTE_ITERATION(6)}.`)).toBeNull() // Savoirs, livre
-		expect(screen.getAllByText(`Pas encore renseigné — ${TEXTE_ITERATION(8)}.`)).toHaveLength(1) // Caractère exploitable
+	/**
+	 * KR-187, ÉTENDU au dossier de RÉFÉRENCE (§6 critère #7, §7 du plan
+	 * d'itération 8 — « aucun des 6 personnages du dossier de référence
+	 * n'affiche "Pas encore renseigné" ») : le fichier réel (KR-156 — jamais un
+	 * littéral de dossier inline), importé par le CHEMIN PUBLIC symétrique du
+	 * retrait (`DossierService.importDossier`, jamais un `persistence.set`
+	 * derrière le service, précédent des tests de refus plus haut) — ses
+	 * `canon`/`monde` voyagent ENSEMBLE, donc les références internes des
+	 * personnages (objectif, lieux, indices/objets des savoirs) résolvent
+	 * réellement. Un clic sur CHACUNE des 6 lignes, sans dépiler aucun accordéon
+	 * (le placeholder, s'il existait encore, serait dans le `content` d'une
+	 * section FERMÉE, restée montée en `display:none` — `queryAllByText` n'est
+	 * pas filtré par la visibilité CSS, contrairement à `getByRole`).
+	 */
+	it('dossier de reference (6 personnages) : aucun n affiche Pas encore renseigne', () => {
+		const brain = createBrain()
+		const inspection = brain.dossiers.importDossier(texteReference())
+		if (inspection.statut !== 'valid') throw new Error(`Import refuse : ${inspection.statut}`)
+		const { dossier } = inspection
+		expect(dossier.monde.personnages).toHaveLength(6)
+		renderPanel(brain, dossier.id)
+
+		dossier.monde.personnages.forEach((personnage) => {
+			fireEvent.click(laLigne(personnage.id))
+			expect(screen.queryAllByText(/Pas encore renseigné — /)).toHaveLength(0)
+		})
 	})
 
 	it('un ajout, une edition de nom et un choix de camp laissent canon et charpente traverser intacts', async () => {

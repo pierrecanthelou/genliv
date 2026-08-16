@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { localiserEntite, ListRow, Badge } from '../../../brain'
-import { FichePersonnage, designationDe } from './FichePersonnage'
+import { FichePersonnage, designationDe, type FichePersonnageHandle } from './FichePersonnage'
 import { RetirerPersonnageDialog } from './RetirerPersonnageDialog'
 // `LIBELLES_CAMP`/`LIBELLES_PORTEE` ont suivi le bloc 1 dans `BlocSituation.tsx`
 // à la décharge d'it6 (KR-112) : ce sont les mêmes valeurs, au même usage
@@ -31,9 +31,18 @@ const TEXTE_VIDE = 'Aucun personnage — cliquez « + Ajouter un personnage… �
  * Le RETRAIT d'un personnage (itération 7) est possédé ici, en trois pièces :
  * l'état d'ouverture de la modale (`enConfirmation`), la CONFIRMATION
  * (`handleConfirmerRetrait`) et le déplacement de focus qui suit un retrait
- * réussi (`intentionFocus`/`panneauRef`). Le focus est un geste DOM impératif,
- * pas un miroir d'état — usage légitime de `useEffect` (KR-013), même famille
- * que `PanneauLieux.tsx`.
+ * réussi (`intentionFocus`). Le focus est un geste DOM impératif, pas un
+ * miroir d'état — usage légitime de `useEffect` (KR-013), même famille que
+ * `PanneauLieux.tsx`.
+ *
+ * CIBLE DU FOCUS (revue de PR, post-livraison it8) : ce panneau ne cherche
+ * JAMAIS le bouton de retrait dans le DOM par son `aria-label` — c'est un
+ * détail d'implémentation de `FichePersonnage`, pas le sien. Il DEMANDE
+ * (`ficheRef.current?.focusRetirer()`, `FichePersonnageHandle`), même motif
+ * que `designationDe` : la fiche EXPOSE la capacité, ce panneau l'APPELLE.
+ * Pour son PROPRE bouton « + Ajouter un personnage… » (qu'il rend lui-même,
+ * dans les deux branches ci-dessous), un `ref` direct suffit — aucune
+ * indirection nécessaire sur ce qu'on possède déjà.
  *
  * Rend `null` si le dossier est absent : l'écran parent affiche déjà
  * « Dossier introuvable. ».
@@ -50,30 +59,24 @@ export function PanneauPersonnages({ dossierId }: PanneauPersonnagesProps): JSX.
 	 *  possible. */
 	const [enConfirmation, setEnConfirmation] = useState<string | null>(null)
 	const [intentionFocus, setIntentionFocus] = useState<'retirer' | null>(null)
-	const panneauRef = useRef<HTMLDivElement>(null)
+	const ficheRef = useRef<FichePersonnageHandle>(null)
+	const boutonAjouterRef = useRef<HTMLButtonElement>(null)
 
 	useEffect(() => {
 		if (intentionFocus === 'retirer') {
-			// Ancré sur « Retirer le personnage » : les blocs FERMÉS de l'accordéon
-			// restent montés (`display:none`) et portent leurs propres boutons
-			// « Retirer la relation… »/« Retirer la présence… », qui précèdent
-			// celui-ci dans l'ordre du DOM. Un sélecteur non ancré focaliserait un
-			// bouton masqué — c'est-à-dire personne.
-			// Repli sur « + Ajouter un personnage… » : retirer le DERNIER personnage
-			// bascule sur l'état vide, où aucun bouton « Retirer… » n'existe (revue
-			// de PR it7) — sans ce repli, le focus tomberait sur document.body.
-			// Recherche en JS, jamais un sélecteur CSS `[aria-label="…"]` : jsdom/nwsapi
-			// ne fait pas correspondre une valeur d'attribut contenant `…` (U+2026)
-			// dans un sélecteur CSS, alors que la comparaison JS directe la voit.
-			const cible =
-				panneauRef.current?.querySelector<HTMLButtonElement>('button[aria-label^="Retirer le personnage"]') ??
-				Array.from(panneauRef.current?.querySelectorAll('button') ?? []).find((bouton) =>
-					bouton.getAttribute('aria-label')?.startsWith('+ Ajouter un personnage'),
-				)
-			cible?.focus()
+			// `personnageAffiche` reflète déjà la RETOMBÉE post-retrait à ce point
+			// (calculé en ligne depuis `dossier`, mis à jour dans le même commit React
+			// que ce `useEffect`) : présent → une fiche existe, la sienne se focalise
+			// elle-même ; absent → retirer le DERNIER personnage a basculé sur l'état
+			// vide (revue de PR it7 — sans ce repli, le focus tombait sur document.body).
+			if (personnageAffiche !== undefined) {
+				ficheRef.current?.focusRetirer()
+			} else {
+				boutonAjouterRef.current?.focus()
+			}
 		}
 		if (intentionFocus !== null) setIntentionFocus(null)
-	}, [intentionFocus])
+	}, [intentionFocus, personnageAffiche])
 
 	if (dossier === null) return null
 
@@ -98,10 +101,11 @@ export function PanneauPersonnages({ dossierId }: PanneauPersonnagesProps): JSX.
 
 	if (personnageAffiche === undefined) {
 		return (
-			<div style={pageStyle} ref={panneauRef}>
+			<div style={pageStyle}>
 				<div style={colonneListeStyle}>
 					<span style={eyebrowStyle}>{EYEBROW_SECTION}</span>
 					<button
+						ref={boutonAjouterRef}
 						type="button"
 						aria-label="+ Ajouter un personnage…"
 						onClick={handleAjouter}
@@ -125,7 +129,7 @@ export function PanneauPersonnages({ dossierId }: PanneauPersonnagesProps): JSX.
 	const indexAffiche = dossier.monde.personnages.findIndex((p) => p.id === personnageAffiche.id)
 
 	return (
-		<div style={pageStyle} ref={panneauRef}>
+		<div style={pageStyle}>
 			<div style={colonneListeStyle}>
 				<span style={eyebrowStyle}>{EYEBROW_SECTION}</span>
 				<div style={listeStyle}>
@@ -146,6 +150,7 @@ export function PanneauPersonnages({ dossierId }: PanneauPersonnagesProps): JSX.
 					))}
 				</div>
 				<button
+					ref={boutonAjouterRef}
 					type="button"
 					aria-label="+ Ajouter un personnage…"
 					onClick={handleAjouter}
@@ -157,6 +162,7 @@ export function PanneauPersonnages({ dossierId }: PanneauPersonnagesProps): JSX.
 
 			<div style={colonneFicheStyle}>
 				<FichePersonnage
+					ref={ficheRef}
 					personnage={personnageAffiche}
 					index={indexAffiche}
 					brouillon={ecriture.brouillon}
@@ -190,6 +196,7 @@ export function PanneauPersonnages({ dossierId }: PanneauPersonnagesProps): JSX.
 					objets={dossier.monde.objets}
 					relationsPresence={ecriture}
 					savoirs={ecriture}
+					caractere={ecriture}
 					onDemanderRetrait={() => setEnConfirmation(personnageAffiche.id)}
 				/>
 			</div>

@@ -84,6 +84,18 @@
 			"mitigation": "Un test nomme par composant, chacun prouve discriminant par sa propre sonde. A NOTER, honnetete de mesure : la premiere version du test d ObjectifsCanon restait VERTE sous mutation et l ouvrier l a signale plutot que de la declarer prouvee -- le texte de 'absent' est un message fixe, identique quel que soit l objectif tague, donc illisible sur une carte PLATE sans filtre d affichage par id. Reecrit pour prouver le vrai symptome : un identifiant fantome qu aucun succes ulterieur ne peut atteindre.",
 			"regression_test": "src/features/dossier-canon/tests/panneauLieux.test.tsx et objectifsCanon.test.tsx -- TROIS tests par composant : it('dossier supprime pendant l edition: bandeau, jamais efface silencieusement par la branche succes'), it('bandeau de refus: un refus sur un lieu|objectif survit a un ajout qui echoue') et it('bandeau de refus: un ajout reussi ne resout pas un refus non resolu') -- ce dernier verrouille la REGRESSION decrite au champ fix, ou l ancre servait aux deux indexations a la fois",
 			"severity": "major"
+		},
+		{
+			"id": "BUG-078",
+			"date": "2026-08-16",
+			"feature": "dossier-canon",
+			"discovered_at": "regression",
+			"symptom": "PanneauLieux.tsx (retrait d'un lieu) cherche le bouton de retrait de FicheLieu.tsx dans le DOM par une recherche aria-label distante (panneauRef.current?.querySelector(button[aria-label^=Retirer le lieu])?.focus()) -- meme detail d'implementation lu a distance que dossier-fiches/PanneauPersonnages.tsx avant son propre correctif (revue humaine, dossier-fiches it8) : le parent connait un texte de label et une structure DOM qui appartiennent a un composant enfant qu'il ne possede pas. Trouve en tech-lead PR review de dossier-fiches it8, hors de son propre perimetre.",
+			"root_cause": "Meme classe que la forme corrigee dans dossier-fiches (specification.json de dossier-fiches, iterations_log[8]) : au moment ou PanneauLieux.tsx (it4 de dossier-canon) a ete ecrit, ce patron etait deja en place dans dossier-fiches lui-meme (it1-it7) -- rien ne signalait alors qu'il s'agissait d'un detail d'implementation a exposer plutot qu'a deviner.",
+			"fix": "NON CORRIGE -- feature dossier-canon TERMINEE (4/4), hors perimetre de l'iteration qui l'a trouve. Correctif attendu, deja ecrit et verifie dans dossier-fiches it8 : IconButton.tsx (brain/components/, partage) en forwardRef<HTMLButtonElement> (deja fait, additif, reutilisable tel quel) ; FicheLieu.tsx expose focusRetirer() via forwardRef<FicheLieuHandle>/useImperativeHandle ; PanneauLieux.tsx appelle ficheRef.current?.focusRetirer() au lieu de chercher dans panneauRef.",
+			"mitigation": "Moins severe que la forme dossier-fiches : retirer le DERNIER lieu n'est pas un chemin utilisateur atteignable (charpente.depart.lieu_id bloque toujours au moins un lieu au SSOT), donc aucun repli sur un etat vide n'est necessaire ici contrairement a PanneauPersonnages -- seul le detail d'implementation partage est en cause, pas un focus perdu sur document.body. 2e occurrence du motif (seuil du depot avant KR = 3e, precedent BUG-076). A appliquer au premier lot futur qui touche PanneauLieux.tsx/FicheLieu.tsx.",
+			"regression_test": "aucun -- dette non corrigee, rien a verrouiller avant le correctif",
+			"severity": "minor"
 		}
 	]
 }

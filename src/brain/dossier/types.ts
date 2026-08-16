@@ -51,7 +51,13 @@
  * PREMIÈRE référence auto-référentielle du schéma, LÉGALE et sans garde (KR-194),
  * ainsi que le PREMIER champ dont l'injection dépend du RÔLE qui demande
  * (`Relation.secret`, dont le prédicat est écrit à DEUX sites et nulle part
- * ailleurs).
+ * ailleurs). L'itération 8 — la DERNIÈRE de la n° 4 — pose le CARACTÈRE
+ * (`caractere`) : six curseurs de comportement optionnels EN BLOC et TOTAUX quand
+ * le bloc est là (même contrat que `stats`), un échantillon de voix borné par
+ * l'INTERFACE seule, une limite absolue et une condition de reddition. Le registre
+ * des curseurs vit dans `curseurs.ts` et n'importe RIEN de la couche des règles
+ * (KR-193) ; `cede_si` est le SECOND champ dont l'injection dépend du RÔLE qui
+ * demande, et le premier qu'aucun fait de session ne conditionne.
  *
  * QUI LIT QUOI : ce fichier dit la FORME, il ne dit pas l'AUDIENCE. L'audience
  * de chaque champ terminal vit dans `destinations.ts`, sous le balayage de
@@ -66,6 +72,7 @@ import { CHARACTERISTIC_VALUES, type Characteristic } from '../characteristics'
 import type { ChallengeTier } from '../challenge'
 import type { ExprNode } from './expr'
 import type { Delta } from './deltas'
+import type { CurseurId } from './curseurs'
 
 /**
  * La version du schéma. Comparée au NOMBRE 1, strictement : ni `'1'`, ni `0`, ni
@@ -644,6 +651,105 @@ export interface Presence {
 }
 
 /**
+ * LE CARACTÈRE EXPLOITABLE d'un personnage : comment il se comporte, comment il
+ * parle, ce qu'il ne fera jamais, et ce qui le fait céder.
+ *
+ * QUATRE CHAMPS INDÉPENDANTS, tous OPTIONNELS, et aucun n'en entraîne un autre :
+ * le geste qui sème les six curseurs n'écrit QUE `curseurs`, et un personnage qui
+ * ne porte qu'une réplique type est un état calme, jamais une fiche à moitié
+ * remplie (« absent ≠ vide », KR-191). Le bloc entier est optionnel sur une
+ * collection qui existe depuis la n° 1 : un dossier déjà persisté n'en porte
+ * aucun, et cela doit rester silencieux (KR-160).
+ *
+ * TROIS AUDIENCES DANS UN MÊME BLOC, et la coupure est le contenu de l'arbitrage :
+ * les curseurs sont des NOMBRES que seul le moteur lit, les trois proses sont des
+ * didascalies que le rôle acteur JOUE — dont l'une, `cede_si`, sous condition de
+ * RÔLE. Le détail de chaque partage est sur le champ concerné et dans
+ * `destinations.ts`.
+ *
+ * ⚠ `caractere` N'EST PAS `stats`, ET L'HOMONYMIE EST RÉELLE, pas théorique :
+ * `CHARACTERISTICS.CA` s'intitule « Caractère » (volonté et résilience mentale,
+ * `docs/REGLES-DU-JEU.md` § 1), et c'est un SEUIL de jet. Ce bloc-ci ne se résout
+ * dans aucun jet et ne modifie aucune caractéristique : l'`affinite` d'un curseur
+ * est une couleur de voix, DOCUMENTAIRE (KR-193), et `curseurs.ts` n'importe rien
+ * de la couche des règles pour que cela reste vrai. Le piège est de COMPRÉHENSION,
+ * pas de mécanique — les deux chemins sont distincts, rien ne rougirait — et il ne
+ * se paierait qu'à la n° 10, si quelqu'un envoyait un `mefiance: 8` dans un calcul
+ * de challenge parce que « CA/IN/IG, ce sont bien des caractéristiques ».
+ */
+export interface Caractere {
+	/** MOTEUR — les SIX curseurs de comportement, chacun un entier de `CURSEUR_MIN`
+	 *  à `CURSEUR_MAX` (`curseurs.ts`).
+	 *
+	 *  OPTIONNEL EN BLOC, TOTAL QUAND PRÉSENT — même contrat que `stats` et par le
+	 *  même mécanisme (`sitesDe` ne produit aucun site sous un bloc absent ; les six
+	 *  lignes d'`ENUMERES_FERMES` sont `requis: true`), mais pour un MOTIF DIFFÉRENT,
+	 *  et il vaut d'être écrit ici : un curseur manquant ne rend aucun jet
+	 *  irrésoluble — l'affinité `CA`/`IN`/`IG` est documentaire (KR-193) et aucun
+	 *  code ne calcule rien depuis ce nombre. Ce qu'un bloc partiel casse est EN
+	 *  AVAL : l'assembleur n° 10 dérivera un libellé par curseur, et une clé
+	 *  manquante y deviendrait une branche — c'est-à-dire l'endroit exact où l'on
+	 *  invente un trait de caractère côté prompt. Un bloc à 1-5 clés est une anomalie
+	 *  BLOQUANTE à l'import.
+	 *
+	 *  MOTEUR ET NON `ia`, même arbitrage que les huit caractéristiques et que
+	 *  `relations[].intensite` : un modèle qui lit `mefiance: 8` connaît l'exacte
+	 *  profondeur d'une méfiance que la scène n'a pas montrée, et il la joue au
+	 *  premier tour. AUCUNE PARAPHRASE non plus (« très méfiant ») tant que la n° 10
+	 *  n'a pas livré un libellé dérivé PAR LE CODE et sa propre ligne d'audience. Ce
+	 *  qui remplace le chiffre côté prose est déjà écrit par l'auteur : `parler`,
+	 *  `jamais` et `cede_si`, toutes trois `ia`.
+	 *
+	 *  Il ne se remplace JAMAIS par `CURSEURS_INITIAUX` à la lecture — voir la
+	 *  docstring de cette constante. */
+	curseurs?: Record<CurseurId, number>
+	/** IA — un ÉCHANTILLON DE VOIX, jamais une réplique à réciter : ces phrases
+	 *  donnent le ton, le débit et le vocabulaire du personnage, et le modèle les
+	 *  lit pour PARLER COMME LUI, jamais pour les citer mot pour mot. Même famille
+	 *  que `plan_actions[].action` et que `Relation.lien` — de la prose de jeu
+	 *  d'acteur, que le joueur ne lit pas telle quelle.
+	 *
+	 *  Au plus `PARLER_REPLIQUES` répliques — borne d'interface, non validée. Un
+	 *  document qui en porte davantage se rend en entier ; c'est l'assembleur n° 10
+	 *  qui tronque à l'injection, il n'échoue pas.
+	 *
+	 *  Exemple : « Ne traînez pas dehors après la cloche — la garde ne pose pas de
+	 *  questions. » */
+	parler?: string[]
+	/** IA — LA LIMITE ABSOLUE : ce que ce personnage ne fera jamais, quoi qu'on lui
+	 *  offre et quoi qu'il lui en coûte. C'est le garde-fou que le rôle acteur lit
+	 *  AVANT de décider, à ne pas confondre avec `cede_si`, qui dit l'inverse — la
+	 *  brèche par laquelle il finit par plier.
+	 *  Exemple : « Il ne trahira jamais un secret confié sous serment, même sous la
+	 *  torture. » */
+	jamais?: string
+	/** IA — CE QUI LE FAIT CÉDER : la seule chose devant laquelle sa résistance
+	 *  tombe. Une DIDASCALIE, jamais une porte D1 — voir le prédicat ci-dessous.
+	 *
+	 *  LE PRÉDICAT D'INJECTION, écrit ICI et au commentaire de sa ligne de
+	 *  `destinations.ts`, nulle part ailleurs (précédent `Relation.secret`) :
+	 *
+	 *  `cede_si` n'entre **que** dans le contexte de l'appel **acteur du personnage
+	 *  QUI LE PORTE**. Il n'entre **jamais** dans le contexte du **narrateur**, ni
+	 *  dans celui d'un **autre** personnage, ni dans celui de l'**arbitre**. Aucun
+	 *  fait de session ne le conditionne : dans cet appel-là il est injecté **dès le
+	 *  premier tour**, sans que le moteur ait rien à constater — il n'a ni jumeau
+	 *  `…_expr`, ni ligne dans `FAMILLES_DE_CONDITIONS`, et rien à quoi
+	 *  `validateDossier` puisse l'adosser.
+	 *
+	 *  CE QUE CE PRÉDICAT RÈGLE, et qu'une lecture rapide manquerait : ce champ n'est
+	 *  PAS un `ia` nu (il serait alors lu par le narrateur, qui saurait où appuyer
+	 *  pour faire plier un PNJ) et il n'est PAS conditionné à un fait de SESSION
+	 *  comme `plan_actions[].si_bloque` (le moteur n'a rien à constater ici). La
+	 *  table dit l'AUDIENCE ; le MOMENT — dès le premier tour — est écrit dans le
+	 *  prédicat lui-même, et l'assembleur n° 10 le trouvera à ses deux sites.
+	 *
+	 *  Exemple : « Face à une preuve que son fils est vivant, il cède immédiatement —
+	 *  le reste, jamais. » */
+	cede_si?: string
+}
+
+/**
  * Un acteur du monde : sa portée, son plan, ce qu'il sait — et, depuis
  * l'itération 1 de la n° 4, où il se situe dans l'histoire (son camp et
  * l'objectif auquel il se rattache), depuis l'itération 2 QUI IL EST (ses trois
@@ -760,6 +866,13 @@ export interface Personnage extends Entite {
 	/** OÙ ON LE TROUVE — voir `Presence`. Mêmes contrat et motifs que `relations`
 	 *  ci-dessus : optionnelle, structurée, contrôlée élément par élément. */
 	presence?: Presence[]
+	/** COMMENT IL SE COMPORTE — voir `Caractere`. OPTIONNEL EN BLOC, et chacun de
+	 *  ses quatre champs l'est à son tour : seuls les six `curseurs` sont TOTAUX
+	 *  quand ils sont là. `parler[]` n'a AUCUNE règle de cardinalité au schéma
+	 *  (`PARLER_REPLIQUES` est une borne d'interface) et ses éléments sont des
+	 *  CHAÎNES : elle n'a donc pas sa place dans `LISTES_OPTIONNELLES_STRUCTUREES`,
+	 *  qui ne contrôle que des listes d'OBJETS — précédent `canon.interdits_ton[]`. */
+	caractere?: Caractere
 }
 
 /**

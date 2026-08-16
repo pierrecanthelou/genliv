@@ -14,6 +14,7 @@ import {
 	PORTEES_CONTRE_MESURE,
 } from './types'
 import { COLLECTIONS_IDENTIFIEES, type EspaceDeNoms } from './identifiers'
+import { CURSEUR_MAX, CURSEUR_MIN, CURSEUR_VALUES } from './curseurs'
 import { CHARACTERISTIC_MAX, CHARACTERISTIC_VALUES } from '../characteristics'
 import { CHALLENGE_TIER_VALUES } from '../challenge'
 
@@ -188,6 +189,27 @@ export const VALEURS_DE_CARACTERISTIQUE: readonly number[] = Array.from(
 )
 
 /**
+ * Les valeurs qu'un CURSEUR DE CARACTÈRE peut prendre — DÉRIVÉES des deux bornes
+ * nommées de `curseurs.ts`, exactement comme les trois échelles ci-dessus, et pour
+ * la même raison : une borne ne se réécrit jamais en dur au site de validation
+ * (KR-165).
+ *
+ * QUATRIÈME REGISTRE D'ÉCHELLE, et le premier qui ne commence pas à `1` ni à `-3` :
+ * `0` est ici une EXTRÉMITÉ (« aucune méfiance »), pas un point neutre entre deux
+ * contraires — c'est ce qui le sépare d'`INTENSITES`, et ce qui fait que le
+ * `Stepper` qui règle un curseur ne porte AUCUN `prefix` signé.
+ *
+ * SA SOURCE N'EST PAS `docs/REGLES-DU-JEU.md`, et c'est délibéré (KR-193) : un
+ * curseur ne change aucun jet, il ne colore qu'une prose. Les deux bornes vivent
+ * dans `curseurs.ts`, registre de PRÉSENTATION, hors table dorée et hors score de
+ * mutation.
+ */
+export const VALEURS_DE_CURSEUR: readonly number[] = Array.from(
+	{ length: CURSEUR_MAX - CURSEUR_MIN + 1 },
+	(_, rang) => CURSEUR_MIN + rang,
+)
+
+/**
  * Les ensembles FERMÉS du schéma. Chaque ligne cite le registre qui porte ses
  * valeurs — jamais une liste recopiée (KR-117) : les deux `camp`, `portee` et
  * `certitude` viennent de `types.ts`, le jet de révélation des registres de
@@ -284,6 +306,21 @@ export const ENUMERES_FERMES: readonly EnumereFerme[] = [
 		valeurs: VALEURS_DE_CARACTERISTIQUE,
 		requis: true,
 	})),
+	// LES SIX CURSEURS DE CARACTÈRE — MÊME FORME que les huit caractéristiques
+	// ci-dessus (jurisprudence d'it3 : dérivées du registre, `requis: true` sous un
+	// bloc optionnel, dérivation ÉTALÉE ICI et jamais promue en mécanisme partagé),
+	// pour un MOTIF DIFFÉRENT, et c'est ce qui interdit de fondre les deux : un
+	// curseur manquant ne rend aucun jet irrésoluble — l'affinité est documentaire
+	// et aucun code ne calcule rien depuis ce nombre (KR-193). Ce qu'un bloc partiel
+	// casse est EN AVAL, à l'assemblage du contexte de la n° 10 : une clé manquante y
+	// deviendrait une branche, c'est-à-dire l'endroit où l'on invente un trait de
+	// caractère côté prompt.
+	...CURSEUR_VALUES.map((curseur) => ({
+		path: `monde.personnages[].caractere.curseurs.${curseur}`,
+		location: 'Personnages',
+		valeurs: VALEURS_DE_CURSEUR,
+		requis: true,
+	})),
 ]
 
 /**
@@ -353,6 +390,15 @@ export const CHAMPS_ENTIERS: readonly ChampEntier[] = [
  * autre table qui la nomme. Toute liste optionnelle STRUCTURÉE ajoutée à
  * `types.ts` gagne sa ligne ici — le compilateur ne relie pas les deux. Les DEUX
  * annoncées par l'itération 4 sont arrivées à l'itération 5.
+ *
+ * ⚠ `monde.personnages[].caractere.parler` N'Y EST PAS, ET CE N'EST PAS UN OUBLI
+ * (itération 8) : le mot qui compte dans le nom de cette table est STRUCTURÉES —
+ * ses éléments sont des CHAÎNES, pas des objets, et la règle qu'elle pose
+ * (« chaque élément est un objet ») refuserait le contenu même du champ. Le
+ * précédent exact est `canon.interdits_ton[]`, liste de chaînes sans règle
+ * d'élément depuis la n° 1. Sa cardinalité (`PARLER_REPLIQUES`) est une borne
+ * d'INTERFACE, jamais un chemin de refus du SSOT : un document qui porte trois
+ * répliques est ACCEPTÉ et rendu en entier.
  */
 export const LISTES_OPTIONNELLES_STRUCTUREES: readonly ChampRequis[] = [
 	{ path: 'monde.personnages[].contre_mesures', location: 'Personnages' },

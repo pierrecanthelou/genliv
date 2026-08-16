@@ -24,7 +24,9 @@ import {
 	LISTES_A_ELEMENTS_STRUCTURES,
 	REFERENCES_SIMPLES,
 	VALEURS_DE_CARACTERISTIQUE,
+	VALEURS_DE_CURSEUR,
 } from './tables'
+import { CURSEURS_INITIAUX, CURSEUR_MAX, CURSEUR_MIN, CURSEUR_VALUES, PARLER_REPLIQUES } from './curseurs'
 import { CHARACTERISTIC_MAX, CHARACTERISTIC_VALUES } from '../characteristics'
 import { DELTAS, type Delta } from './deltas'
 import { feuilleDe } from './identifiers'
@@ -46,7 +48,7 @@ function fixture(): Doc {
 const obj = (value: unknown): Doc => value as Doc
 const arr = (value: unknown): Doc[] => value as Doc[]
 
-/** Les DIX accès profonds de la fixture, nommés une fois (remesuré, KR-159). */
+/** Les DOUZE accès profonds de la fixture, nommés une fois (remesuré, KR-159). */
 const personnage = (doc: Doc): Doc => arr(obj(doc.monde).personnages)[0]
 const savoir = (doc: Doc): Doc => arr(personnage(doc).savoirs)[0]
 const revele = (doc: Doc): Doc => obj(savoir(doc).revele_si)
@@ -54,6 +56,8 @@ const etape = (doc: Doc): Doc => arr(personnage(doc).plan_actions)[0]
 const contreMesure = (doc: Doc): Doc => arr(personnage(doc).contre_mesures)[0]
 const relation = (doc: Doc): Doc => arr(personnage(doc).relations)[0]
 const presence = (doc: Doc): Doc => arr(personnage(doc).presence)[0]
+const caractere = (doc: Doc): Doc => obj(personnage(doc).caractere)
+const curseurs = (doc: Doc): Doc => obj(caractere(doc).curseurs)
 const evenement = (doc: Doc): Doc => arr(obj(doc.monde).evenements)[0]
 const jalon = (doc: Doc): Doc => arr(obj(doc.charpente).jalons)[0]
 const objectif = (doc: Doc): Doc => arr(obj(doc.canon).objectifs)[0]
@@ -761,6 +765,257 @@ describe('validateDossier', () => {
 		expect(resultat.errors).toEqual([])
 		expect(resultat.warnings).toEqual([])
 		expect(resultat.ok).toBe(true)
+	})
+
+	it('les six curseurs lisent VALEURS_DE_CURSEUR et sont requis DANS le bloc', () => {
+		// MÊME FORME que les huit caractéristiques ci-dessus (jurisprudence d'it3) : les
+		// six lignes sont DÉRIVÉES de `CURSEUR_VALUES` (KR-117), une liste recopiée
+		// divergerait du registre en silence. `toBe` et non `toEqual` sur les valeurs —
+		// une copie de l'échelle, qui dériverait du `Stepper` de l'écran, fait rougir ce
+		// test.
+		const lignes = ENUMERES_FERMES.filter((e) => e.path.includes('.curseurs.'))
+
+		expect(lignes.map((e) => e.path)).toEqual(CURSEUR_VALUES.map((c) => `monde.personnages[].caractere.curseurs.${c}`))
+		for (const ligne of lignes) {
+			expect(`${ligne.path} → ${ligne.location}`).toBe(`${ligne.path} → Personnages`)
+			// `requis: true` sous un bloc OPTIONNEL — le contrat « optionnel en bloc,
+			// TOTAL quand présent », même mécanisme que `stats` pour un motif différent :
+			// un curseur manquant ne rend aucun jet irrésoluble, il casse EN AVAL, à
+			// l'assemblage du contexte de la n° 10.
+			expect(`${ligne.path} → ${ligne.requis}`).toBe(`${ligne.path} → true`)
+			expect(ligne.valeurs).toBe(VALEURS_DE_CURSEUR)
+		}
+		// L'échelle est DÉRIVÉE de ses deux bornes nommées, jamais réécrite (KR-165).
+		// Elle ne vient PAS de `docs/REGLES-DU-JEU.md` et n'a pas à en venir : un curseur
+		// ne change aucun jet, il colore une prose (KR-193).
+		expect(VALEURS_DE_CURSEUR[0]).toBe(CURSEUR_MIN)
+		expect(VALEURS_DE_CURSEUR[VALEURS_DE_CURSEUR.length - 1]).toBe(CURSEUR_MAX)
+		expect(VALEURS_DE_CURSEUR).toHaveLength(CURSEUR_MAX - CURSEUR_MIN + 1)
+		// Discriminant : les deux échelles de personnage ne se partagent pas leur
+		// registre. Elles ne portent pas les mêmes valeurs aujourd'hui, mais le jour où
+		// l'une d'elles bougerait, une table réutilisée les ferait dériver ensemble.
+		expect(VALEURS_DE_CURSEUR).not.toBe(VALEURS_DE_CARACTERISTIQUE)
+	})
+
+	it('un bloc curseurs ABSENT est calme, et un bloc caractere ENTIEREMENT absent aussi', () => {
+		// LES DEUX MOITIÉS DANS LE NOM ET DANS LES ASSERTIONS (KR-199) : c'est cette
+		// moitié-là qui protège tout dossier déjà persisté d'une invalidation
+		// rétroactive (KR-160/KR-191) — `monde.personnages[]` existe depuis la n° 1, et
+		// AUCUN document écrit avant cette itération ne porte de `caractere`.
+		const sansCurseurs = fixture()
+		delete obj(caractere(sansCurseurs)).curseurs
+
+		const calme = validateDossier(sansCurseurs)
+
+		expect(calme.errors).toEqual([])
+		expect(calme.warnings).toEqual([])
+		expect(calme.ok).toBe(true)
+
+		const sansCaractere = fixture()
+		delete personnage(sansCaractere).caractere
+
+		const calmeAussi = validateDossier(sansCaractere)
+
+		expect(calmeAussi.errors).toEqual([])
+		expect(calmeAussi.warnings).toEqual([])
+		expect(calmeAussi.ok).toBe(true)
+	})
+
+	it('un bloc curseurs a 1-5 cles est refuse, et l anomalie nomme le curseur manquant', () => {
+		// L'AUTRE moitié : TOTAL quand présent. Dérivé — CHAQUE clé est retirée à son
+		// tour ; un test qui n'en retirerait qu'une laisserait cinq lignes de table non
+		// éprouvées (KR-199, énumération échantillonnée).
+		const refuses = CURSEUR_VALUES.map((id) => {
+			const doc = fixture()
+			delete obj(curseurs(doc))[id]
+			const resultat = validateDossier(doc)
+			const anomalie = resultat.errors.find((e) => e.path === `monde.personnages[0].caractere.curseurs.${id}`)
+			return {
+				id,
+				ok: resultat.ok,
+				code: anomalie?.code,
+				location: anomalie?.location,
+				nommeLeCurseur: anomalie?.message.includes(`« ${id} »`) ?? false,
+			}
+		})
+
+		expect(refuses).toEqual(
+			CURSEUR_VALUES.map((id) => ({
+				id,
+				ok: false,
+				code: 'valeur-hors-enumeration',
+				location: 'Personnage « Aldûr le Sage »',
+				nommeLeCurseur: true,
+			})),
+		)
+
+		// Cas limite : un bloc réduit à UNE clé est refusé CINQ fois, jamais une seule —
+		// chaque ligne de table parle pour SA clé, sans quoi l'auteur chercherait les
+		// quatre autres champs à remplir.
+		const doc = fixture()
+		caractere(doc).curseurs = { mefiance: 4 }
+
+		const resultat = validateDossier(doc)
+
+		expect(resultat.ok).toBe(false)
+		expect(resultat.errors.filter((e) => e.code === 'valeur-hors-enumeration').map((e) => e.path)).toEqual(
+			CURSEUR_VALUES.filter((id) => id !== 'mefiance').map((id) => `monde.personnages[0].caractere.curseurs.${id}`),
+		)
+	})
+
+	it('un curseur a 0 et a 10 est accepte ; -1, 11, 2.5 et une chaine sont bloquants', () => {
+		// Limite et limite+1 des DEUX côtés (KR-165), plus les deux corruptions de type
+		// que l'énumération explicite attrape par la même porte : un non-entier et une
+		// chaîne ne sont pas dans la liste, donc ils tombent sans qu'aucune règle de
+		// forme n'ait à être écrite.
+		for (const valeur of [CURSEUR_MIN, CURSEUR_MAX]) {
+			const doc = fixture()
+			obj(curseurs(doc)).mefiance = valeur
+
+			expect(`${valeur} → ${JSON.stringify(validateDossier(doc).errors)}`).toBe(`${valeur} → []`)
+		}
+
+		for (const valeur of [CURSEUR_MIN - 1, CURSEUR_MAX + 1, 2.5, '3']) {
+			const doc = fixture()
+			obj(curseurs(doc)).mefiance = valeur
+
+			const resultat = validateDossier(doc)
+			const anomalie = resultat.errors.find((e) => e.code === 'valeur-hors-enumeration')
+
+			expect(`${valeur} → ${resultat.ok}`).toBe(`${valeur} → false`)
+			expect(anomalie?.path).toBe('monde.personnages[0].caractere.curseurs.mefiance')
+			expect(anomalie?.location).toBe('Personnage « Aldûr le Sage »')
+			expect(anomalie?.message).toContain('« mefiance »')
+			expect(anomalie?.message).toContain(String(valeur))
+			// La borne haute est ANNONCÉE dans le message : l'auteur doit lire ce qui est
+			// attendu, pas seulement ce qui est refusé.
+			expect(anomalie?.message).toContain(String(CURSEUR_MAX))
+			for (const fuite of FUITES_TECHNIQUES) {
+				expect(anomalie?.message.toLowerCase()).not.toContain(fuite)
+			}
+		}
+	})
+
+	it('chaque valeur de l echelle est acceptee sur chaque curseur', () => {
+		// Discriminant des refus ci-dessus : ce n'est pas « toute valeur est refusée ».
+		// Dérivé des deux registres — les six clés × les onze valeurs.
+		const refuses = CURSEUR_VALUES.flatMap((id) =>
+			VALEURS_DE_CURSEUR.filter((valeur) => {
+				const doc = fixture()
+				obj(curseurs(doc))[id] = valeur
+				return !validateDossier(doc).ok
+			}).map((valeur) => `${id} = ${valeur}`),
+		)
+
+		expect(refuses).toEqual([])
+	})
+
+	it('CURSEURS_INITIAUX est le bloc des six cles au plancher, et il passe le validateur', () => {
+		// La valeur SEMÉE à l'écriture doit être acceptée par le schéma qui la valide :
+		// sans cette assertion, l'écran pourrait écrire un bloc que l'import refuserait,
+		// et l'auteur ne l'apprendrait qu'en rouvrant son dossier. Même garde que
+		// `STATS_INITIALES` ci-dessus.
+		expect(CURSEURS_INITIAUX).toEqual(Object.fromEntries(CURSEUR_VALUES.map((id) => [id, CURSEUR_MIN])))
+		expect(Object.keys(CURSEURS_INITIAUX)).toEqual(CURSEUR_VALUES)
+
+		const doc = fixture()
+		caractere(doc).curseurs = { ...CURSEURS_INITIAUX }
+
+		const resultat = validateDossier(doc)
+
+		expect(resultat.errors).toEqual([])
+		expect(resultat.warnings).toEqual([])
+		expect(resultat.ok).toBe(true)
+	})
+
+	it('parler a la limite ET a limite+1 passe : PARLER_REPLIQUES ne refuse rien au SSOT', () => {
+		// KR-165 exige qu'une borne soit testée À LA LIMITE ET À LIMITE+1. Celle-ci est
+		// une borne d'INTERFACE, tranchée au raffinage (désaccords #3 et #7) : l'écran
+		// cesse d'offrir le bouton d'ajout, le SSOT n'a AUCUNE règle de cardinalité — et
+		// c'est le sens de ce test, dont les deux cas passent. Un document importé qui
+		// porte une réplique de trop se rend EN ENTIER ; c'est l'assembleur n° 10 qui
+		// tronquera à l'injection, il n'échouera pas.
+		//
+		// La moitié « toutes rendues » appartient au lot B (`caractere.test.tsx`) ; celle
+		// -ci est la moitié CONTRAT : « aucun refus ».
+		const replique = (rang: number): string => `Réplique n°${rang} — le ton, jamais le texte.`
+
+		for (const nombre of [PARLER_REPLIQUES, PARLER_REPLIQUES + 1]) {
+			const doc = fixture()
+			caractere(doc).parler = Array.from({ length: nombre }, (_, rang) => replique(rang + 1))
+
+			const resultat = validateDossier(doc)
+
+			expect(`${nombre} répliques → ${JSON.stringify(resultat.errors)}`).toBe(`${nombre} répliques → []`)
+			expect(`${nombre} répliques → ${JSON.stringify(resultat.warnings)}`).toBe(`${nombre} répliques → []`)
+		}
+
+		// Discriminant : le champ est réellement RELU du document — sans cette ligne, un
+		// validateur qui écarterait silencieusement `parler` satisferait tout ce qui
+		// précède. La liste ressort ENTIÈRE, y compris la réplique de trop.
+		const doc = fixture()
+		caractere(doc).parler = Array.from({ length: PARLER_REPLIQUES + 1 }, (_, rang) => replique(rang + 1))
+
+		const rendu = validateDossier(doc).dossier?.monde.personnages[0].caractere?.parler
+
+		expect(rendu).toEqual([replique(1), replique(2), replique(3)])
+		expect(rendu).toHaveLength(PARLER_REPLIQUES + 1)
+	})
+
+	it('les trois proses de caractere sont libres : leur absence ne produit aucune anomalie', () => {
+		// `parler`, `jamais` et `cede_si` n'ont AUCUNE règle de forme au schéma 1 —
+		// « absent ≠ vide » (KR-191), et leur corruption est dispensée dans
+		// `couverture.test.ts` sous le motif des proses d'entité. Ce test dit l'autre
+		// moitié : leur absence ne produit rien non plus, pas même un avertissement.
+		const doc = fixture()
+		delete caractere(doc).parler
+		delete caractere(doc).jamais
+		delete caractere(doc).cede_si
+
+		const resultat = validateDossier(doc)
+
+		expect(resultat.errors).toEqual([])
+		expect(resultat.warnings).toEqual([])
+		expect(resultat.ok).toBe(true)
+		// Discriminant : les six curseurs, eux, sont toujours là — sans cette ligne, le
+		// calme ci-dessus pourrait venir d'un bloc `caractere` devenu vide, qui ne dirait
+		// rien de la liberté des trois proses.
+		const rendus = resultat.dossier?.monde.personnages[0].caractere?.curseurs
+
+		expect(rendus === undefined ? [] : Object.keys(rendus)).toEqual(CURSEUR_VALUES)
+	})
+
+	it('le dossier de reference (6 personnages) reste accepte SANS REGRESSION quand un curseur y est corrompu, et SEULE cette anomalie remonte', () => {
+		// MÊME FORME que les tests de non-régression d'it4 et d'it5, et pour la même
+		// raison (BUG-072) : les deux moitiés — « le dossier de référence reste accepté
+		// sans régression sur les champs hors lot » et « une valeur hors échelle est
+		// refusée » — ne valent que prouvées ENSEMBLE, sur le MÊME document et dans le
+		// MÊME résultat. Prouvées séparément, une régression qui n'apparaît qu'en
+		// présence des cinq autres personnages passerait les deux tests.
+		const doc = JSON.parse(fs.readFileSync(CHEMIN_REFERENCE, 'utf8')) as Doc
+		const corvin = arr(obj(doc.monde).personnages)[1]
+		expect(corvin.nom).toBe('Corvin le Marchand')
+		obj(obj(corvin.caractere).curseurs).cupidite = CURSEUR_MAX + 1
+
+		const resultat = validateDossier(doc)
+
+		expect(resultat.ok).toBe(false)
+		// SEULE l'anomalie attendue : rien d'autre, dans les six personnages et le reste
+		// du dossier, n'a régressé du fait de cette corruption. Le message d'échec NOMME
+		// le chemin et le OÙ, il ne les compte pas.
+		expect(resultat.errors.map((e) => `${e.code} → ${e.path} — ${e.location}`)).toEqual([
+			'valeur-hors-enumeration → monde.personnages[1].caractere.curseurs.cupidite — Personnage « Corvin le Marchand »',
+		])
+		expect(resultat.warnings).toEqual([])
+
+		// Discriminant : le MÊME document, intact, ne produit RIEN. Sans cette ligne, un
+		// dossier de référence devenu invalide pour une tout autre raison satisferait
+		// l'assertion ci-dessus par accident.
+		const intact = validateDossier(JSON.parse(fs.readFileSync(CHEMIN_REFERENCE, 'utf8')))
+
+		expect(intact.errors).toEqual([])
+		expect(intact.warnings).toEqual([])
+		expect(intact.ok).toBe(true)
 	})
 
 	it('un but sans libelle est bloquant, un personnage SANS but reste calme', () => {

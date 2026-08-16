@@ -398,17 +398,23 @@ describe('PanneauPersonnages - retrait', () => {
 	/**
 	 * KR-199 — LE FOCUS SUIT LA FICHE RETOMBEE, avec sa SONDE DE DISCRIMINANCE.
 	 *
-	 * DEUX mutants doivent le faire rougir, et le montage est choisi pour ca :
+	 * UN mutant doit le faire rougir, et le montage est choisi pour ca :
+	 * `restants[0]` au lieu de `restants[Math.max(index - 1, 0)]` — on retire ici
+	 * le DERNIER des trois (index 2), donc la retombee attendue est le PRECEDENT
+	 * (Séléné, index 1) et non le premier de la liste (Aldûr).
 	 *
-	 *  · `restants[0]` au lieu de `restants[Math.max(index - 1, 0)]` — on retire
-	 *    ici le DERNIER des trois (index 2), donc la retombee attendue est le
-	 *    PRECEDENT (Séléné, index 1) et non le premier de la liste (Aldûr) ;
-	 *  · un selecteur non ancre (`button[aria-label^="Retirer"]`) — les blocs
-	 *    FERMES de l'accordeon restent MONTES (`display:none`), donc la fiche de
-	 *    Séléné porte, AVANT son bouton de retrait dans l'ordre du DOM, un
-	 *    « Retirer la relation n°1 » et un « Retirer la présence n°1 » masques.
-	 *    Un selecteur non ancre focaliserait un element invisible, c'est-a-dire
-	 *    personne. La sonde verifie cet ordre explicitement.
+	 * REVUE DE PR (post-livraison it8) : cette sonde en visait un SECOND —
+	 * `PanneauPersonnages.tsx` cherchait le bouton de retrait dans le DOM par un
+	 * `aria-label`, et un selecteur NON ANCRE (`button[aria-label^="Retirer"]`)
+	 * aurait pu focaliser un des boutons « Retirer la relation… »/« Retirer la
+	 * présence… » MASQUES (`display:none`) qui precedent le bon bouton dans
+	 * l'ordre du DOM des blocs FERMES de l'accordeon. Ce mutant n'existe plus :
+	 * `FichePersonnage` expose desormais `focusRetirer()` (`useImperativeHandle`,
+	 * `FichePersonnageHandle`) que ce panneau APPELLE, sans jamais chercher le bon
+	 * bouton parmi plusieurs candidats — il n'y a plus de selecteur a ancrer. Le
+	 * montage a plusieurs boutons « Retirer… » ambigus reste toutefois une garde
+	 * utile : il prouve que le focus suit la BONNE fiche meme quand le DOM porte
+	 * plusieurs candidats plausibles.
 	 */
 	it('focus apres retrait reussi sur le bouton Retirer de la fiche retombee', async () => {
 		const user = userEvent.setup()

@@ -119,7 +119,23 @@
 						"lieu_id": "lieu.val-cendre",
 						"quand": "Au crépuscule, quand les braises de l'âtre sont hautes."
 					}
-				]
+				],
+				"caractere": {
+					"curseurs": {
+						"mefiance": 8,
+						"franchise": 3,
+						"courage": 5,
+						"cupidite": 1,
+						"loyaute": 9,
+						"verve": 2
+					},
+					"parler": [
+						"Ne traînez pas dehors après la cloche — la garde ne pose pas de questions.",
+						"Asseyez-vous. Ce que vous croyez savoir attendra bien que l'eau bouille."
+					],
+					"jamais": "Il ne dira jamais où mène le second escalier à quelqu'un qui n'a pas veillé une nuit entière avec lui.",
+					"cede_si": "Devant une preuve que le Gouffre s'est rouvert, il cède et parle sans qu'on ait à insister."
+				}
 			}
 		],
 		"lieux": [

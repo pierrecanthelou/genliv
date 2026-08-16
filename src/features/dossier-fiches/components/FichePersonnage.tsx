@@ -1,4 +1,4 @@
-import { type ChangeEvent, type CSSProperties, type FocusEvent } from 'react'
+import { forwardRef, useImperativeHandle, useRef, type ChangeEvent, type CSSProperties, type FocusEvent } from 'react'
 import {
 	Card,
 	Field,
@@ -22,6 +22,7 @@ import { BlocPlanActions } from './BlocPlanActions'
 import { BlocSavoirs } from './BlocSavoirs'
 import { BlocRelations } from './BlocRelations'
 import { BlocPresence } from './BlocPresence'
+import { BlocCaractere } from './BlocCaractere'
 import type { BrouillonPersonnage, ChampTexte } from '../hooks/useEcritureIdentite'
 import type {
 	BrouillonBut,
@@ -33,6 +34,7 @@ import type {
 } from '../hooks/useEcriturePlan'
 import type { UseEcritureRelationsPresenceResult } from '../hooks/useEcritureRelationsPresence'
 import type { UseEcritureSavoirsResult } from '../hooks/useEcritureSavoirs'
+import type { UseEcritureCaractereResult } from '../hooks/useEcritureCaractere'
 
 const BLOC_1_ID = 'camp-plan-rattachement'
 const BLOC_2_ID = 'identite'
@@ -41,18 +43,13 @@ const BLOC_4_ID = 'objectif-plan-actions'
 const BLOC_5_ID = 'relations'
 const BLOC_6_ID = 'presence'
 const BLOC_7_ID = 'savoirs'
+const BLOC_8_ID = 'caractere-exploitable'
 
 const PLACEHOLDER_NOM = 'Aldûr le Sage'
 
 const EYEBROW_REFUS = "CE CHANGEMENT N'A PAS ÉTÉ ENREGISTRÉ"
 const TEXTE_ABSENT = "Ce dossier n'existe plus — il a été supprimé ailleurs pendant que vous l'éditiez."
 const EYEBROW_AVERTISSEMENT = 'ENREGISTRÉ, AVEC AVERTISSEMENT'
-
-/** Le SEUL bloc encore vide après it6 (savoirs a quitté cette table à it6, comme
- *  « Caractéristiques » à it3, « Objectif & plan d'actions » à it4 et
- *  « Relations »/« Présence » à it5). Posé HORS séquence : il n'est adjacent à
- *  aucun autre placeholder, une constante nommée plutôt qu'un tableau. */
-const BLOC_CARACTERE_EXPLOITABLE = { id: 'caractere-exploitable', titre: 'Caractère exploitable', iteration: 8 }
 
 /**
  * La DÉSIGNATION d'un personnage — la seule partie variable des DEUX textes
@@ -73,14 +70,6 @@ export function designationDe(personnage: Personnage, index: number): string {
  *  référence ce personnage (veto § 8 désaccord 2 du plan d'itération 7). */
 function libelleRetirer(personnage: Personnage, index: number): string {
 	return `Retirer le personnage ${designationDe(personnage, index)}`
-}
-
-function placeholderDe(iteration: number): string {
-	return `Pas encore renseigné — ce bloc arrive à l'itération ${iteration} de dossier-fiches.`
-}
-
-function sectionPlaceholder(bloc: { id: string; titre: string; iteration: number }): AccordionSection {
-	return { id: bloc.id, title: bloc.titre, content: <p style={placeholderStyle}>{placeholderDe(bloc.iteration)}</p> }
 }
 
 export interface FichePersonnageProps {
@@ -137,9 +126,28 @@ export interface FichePersonnageProps {
 	relationsPresence: UseEcritureRelationsPresenceResult
 	/** Même motif pour la tranche savoirs (21 champs). */
 	savoirs: UseEcritureSavoirsResult
+	/** Même motif pour la tranche caractère (it8, dernière famille) — un seul bloc
+	 *  consommateur (`BlocCaractere`), câblée un par un dans le JSX ci-dessous
+	 *  (même discipline que `relationsPresence`/`savoirs`, jamais les champs à plat
+	 *  sur cette interface, KR-112). */
+	caractere: UseEcritureCaractereResult
 	/** N'ÉCRIT RIEN : ouvre la modale de confirmation possédée par le parent.
 	 *  Cette fiche n'appelle jamais `handleRetirer` directement. */
 	onDemanderRetrait: () => void
+}
+
+/**
+ * Ce que `PanneauPersonnages.tsx` peut DEMANDER à une fiche, jamais ce qu'il
+ * peut aller CHERCHER lui-même dans son DOM : le focus post-retrait ciblait
+ * jusqu'ici le bouton « Retirer » par une recherche `aria-label` distante
+ * (`querySelector`/`startsWith`, avec son propre repli sur le défaut
+ * jsdom/nwsapi de BUG-076) — un détail d'implémentation de CETTE fiche, lu à
+ * distance par un composant qui n'a aucune raison de le connaître. Même motif
+ * que `designationDe` : la fiche EXPOSE la capacité, le parent l'APPELLE.
+ */
+export interface FichePersonnageHandle {
+	/** Focalise le bouton de retrait de LA FICHE ACTUELLEMENT RENDUE. */
+	focusRetirer: () => void
 }
 
 /**
@@ -149,12 +157,11 @@ export interface FichePersonnageProps {
  * restent la responsabilité du hook `useEcriturePersonnages`. Champ NOM en
  * EN-TÊTE de fiche, HORS accordéon (précédent `FicheLieu`).
  *
- * LES SEPT BLOCS RENSEIGNÉS sont EXTRAITS dans leur propre composant (dette
- * KR-112) : ce fichier ne fait plus que les CÂBLER dans `sections`, DANS L'ORDRE
- * D'AFFICHAGE. Les blocs 1 et 2 ont rejoint les autres à l'itération 6, AVANT
- * que le bloc « Savoirs » n'y soit branché — les y laisser aurait remis ce
- * fichier au-dessus du seuil de scission au moment même où il gagnait un
- * huitième câblage.
+ * LES HUIT BLOCS sont EXTRAITS dans leur propre composant (dette KR-112) : ce
+ * fichier ne fait plus que les CÂBLER dans `sections`, DANS L'ORDRE D'AFFICHAGE.
+ * Le bloc 8 (« Caractère exploitable », `BlocCaractere`) est le DERNIER câblage
+ * de la feature (it8) — après lui, plus aucun emplacement de l'accordéon ne
+ * porte le placeholder générique de bloc-non-livré.
  *
  * L'accordéon revient au bloc 1 à chaque changement de personnage par
  * `key={personnage.id}` posé ICI (remontage React, jamais un `useEffect`,
@@ -164,43 +171,54 @@ export interface FichePersonnageProps {
  * Bandeau de refus (`refus.statut`, jamais `refus.issues`) puis bandeau
  * d'avertissement (rendu seulement si `avertissementsAffiches` est non vide) :
  * derniers enfants de `champsStyle`, position exacte de `FicheLieu.tsx`.
+ *
+ * `forwardRef<FichePersonnageHandle>` (revue de PR, post-livraison it8) :
+ * remplace la recherche DOM que `PanneauPersonnages.tsx` faisait depuis
+ * l'extérieur pour retrouver le bouton de retrait après un retrait réussi.
  */
-export function FichePersonnage({
-	personnage,
-	index,
-	brouillon,
-	objectifsCanon,
-	refus,
-	avertissementsAffiches,
-	onChangeChamp,
-	onBlurChamp,
-	onChangeCamp,
-	onChangePortee,
-	onChangeObjectif,
-	onReglerCaracteristiques,
-	onChangeCaracteristique,
-	butBrouillon,
-	onChangeBut,
-	onBlurBut,
-	etapes,
-	onChangeEtape,
-	onBlurEtape,
-	onChangeDureeEtape,
-	onAjouterEtape,
-	onRetirerEtape,
-	contreMesures,
-	onChangeContreMesure,
-	onBlurContreMesure,
-	onAjouterContreMesure,
-	onRetirerContreMesure,
-	personnages,
-	lieux,
-	indices,
-	objets,
-	relationsPresence,
-	savoirs,
-	onDemanderRetrait,
-}: FichePersonnageProps): JSX.Element {
+export const FichePersonnage = forwardRef<FichePersonnageHandle, FichePersonnageProps>(function FichePersonnage(
+	{
+		personnage,
+		index,
+		brouillon,
+		objectifsCanon,
+		refus,
+		avertissementsAffiches,
+		onChangeChamp,
+		onBlurChamp,
+		onChangeCamp,
+		onChangePortee,
+		onChangeObjectif,
+		onReglerCaracteristiques,
+		onChangeCaracteristique,
+		butBrouillon,
+		onChangeBut,
+		onBlurBut,
+		etapes,
+		onChangeEtape,
+		onBlurEtape,
+		onChangeDureeEtape,
+		onAjouterEtape,
+		onRetirerEtape,
+		contreMesures,
+		onChangeContreMesure,
+		onBlurContreMesure,
+		onAjouterContreMesure,
+		onRetirerContreMesure,
+		personnages,
+		lieux,
+		indices,
+		objets,
+		relationsPresence,
+		savoirs,
+		caractere,
+		onDemanderRetrait,
+	}: FichePersonnageProps,
+	ref,
+) {
+	const retirerRef = useRef<HTMLButtonElement>(null)
+	useImperativeHandle(ref, () => ({ focusRetirer: () => retirerRef.current?.focus() }), [])
+
 	const sections: AccordionSection[] = [
 		{
 			id: BLOC_1_ID,
@@ -317,7 +335,27 @@ export function FichePersonnage({
 				/>
 			),
 		},
-		sectionPlaceholder(BLOC_CARACTERE_EXPLOITABLE),
+		{
+			id: BLOC_8_ID,
+			title: 'Caractère exploitable',
+			content: (
+				<BlocCaractere
+					personnage={personnage}
+					onReglerCurseurs={caractere.handleReglerCurseurs}
+					onChangeCurseur={caractere.handleChangeCurseur}
+					parler={caractere.parler}
+					onAjouterReplique={caractere.handleAjouterReplique}
+					onChangeReplique={caractere.handleChangeReplique}
+					onBlurReplique={caractere.handleBlurReplique}
+					onRetirerReplique={caractere.handleRetirerReplique}
+					brouillon={caractere.caractere}
+					onChangeJamais={caractere.handleChangeJamais}
+					onBlurJamais={caractere.handleBlurJamais}
+					onChangeCedeSi={caractere.handleChangeCedeSi}
+					onBlurCedeSi={caractere.handleBlurCedeSi}
+				/>
+			),
+		},
 	]
 
 	return (
@@ -338,6 +376,7 @@ export function FichePersonnage({
 				    et un pré-vol se tromperait sur l'auto-référence (KR-194). */}
 				<div style={piedFicheStyle}>
 					<IconButton
+						ref={retirerRef}
 						label={libelleRetirer(personnage, index)}
 						tone="danger"
 						size={HIT_TARGET_MIN}
@@ -367,7 +406,7 @@ export function FichePersonnage({
 			</div>
 		</Card>
 	)
-}
+})
 
 const champsStyle: CSSProperties = {
 	display: 'flex',
@@ -378,14 +417,6 @@ const champsStyle: CSSProperties = {
 const piedFicheStyle: CSSProperties = {
 	display: 'flex',
 	justifyContent: 'flex-end',
-}
-
-const placeholderStyle: CSSProperties = {
-	margin: 0,
-	fontFamily: 'var(--font-ui)',
-	fontSize: 'var(--fs-body)',
-	color: 'var(--text-muted)',
-	lineHeight: 'var(--lh-body)',
 }
 
 const bandeauRefusStyle: CSSProperties = {

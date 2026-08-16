@@ -1,145 +1,37 @@
 {
-	"_about": "Les features livrées au TEMPS COURANT — bascule IA, versions 0.6.x, depuis le 2026-08-03. Les features antérieures (l'éditeur d'arbre) sont dans features_history.0.5.json, qui n'est PAS en lecture obligatoire. Ce fichier-ci l'est.",
+	"_about": "Les features livrées au TEMPS COURANT — bascule IA, versions 0.6.x, depuis le 2026-08-03. Scission du 2026-08-16 (lot qui clôt dossier-fiches, n° 4) : les trois entrées antérieures (dossier-format, bascule-editeur, dossier-canon) sont parties, verbatim, dans features_history.0.6.x-anterieures.json — leurs key_architecture_choices/lessons_learned sont déjà chacune un KR-1xx de code-knowledge.json, donc DÉJÀ en lecture obligatoire ; les relire ici les relirait une seconde fois. Ce fichier-ci reste la source vivante : une feature y entre à sa complétion, en repart vers l'archive dès que ses leçons sont promues ET que ce plafond est de nouveau franchi.",
 	"features": [
 		{
-			"feature": "dossier-format",
-			"completed_at": "2026-08-08",
-			"goal": "Fix the adventure dossier as the single persisted format — a versioned schema (schema:1, three grouped roots canon/monde/charpente), a validator that refuses in French what is not playable, deep-freeze on import, round-trip import/export, and a reference dossier — so the fifteen following features (editor and play engine) have a stable contract to consume.",
+			"feature": "dossier-fiches",
+			"completed_at": "2026-08-16",
+			"goal": "Donner à l'auteur un seul formulaire à accordéon pour écrire la fiche de chaque personnage de son aventure — identité, camp × plan, caractéristiques, objectif et plan d'actions (avec contre-mesures pour un antagoniste), relations et présence, savoirs, retrait, caractère exploitable — à travers 8 itérations verticales, une tranche de schéma à la fois, de sorte que le PNJ devienne un acteur exploitable par l'IA plutôt qu'un nom dans une liste.",
 			"key_architecture_choices": [
-				"types.ts is split into rules types (survive, consumed by src/player/) vs tree.ts (the doomed tree model) — the physical barrier that makes KR-167 (no Book<->Dossier converter, ever) verifiable by a test-grep rather than a comment.",
-				"Validation rules are TABLE data (tables.ts), never if/switch cascades (KR-117): one path-expanding walker (sitesDe) reads RACINES/CHAMPS_REQUIS/ENUMERES_FERMES/LISTES_REQUISES/REFERENCES_SIMPLES/CHEMINS_DE_DELTAS/FAMILLES_DE_CONDITIONS. Extending the schema is adding rows.",
-				"Conditions (…_expr) are a persisted JSON tree (ExprNode, four French operators) with NO parser — validateExpr + collectRefs only — driven by a closed PREDICATES registry (7 entries) that renders as widgets, never free syntax (KR-168).",
-				"Effects (…) are a closed DELTAS registry (4 reference-only slots: donner_objet/retirer_objet/reveler_indice/atteindre_jalon); every integer-magnitude delta is deliberately excluded until docs/REGLES-DU-JEU.md poses the rule (KR-130), reopened doc -> golden test -> code, in that order.",
-				"A DESTINATION_DES_CHAMPS table (ia/moteur/auteur) declares the AUDIENCE of every terminal field, closed by couverture.test.ts's full-depth corruption sweep over the real fixture — the instrument that would have caught monde fields silently reaching a future AI-context assembler.",
-				"validateDossier is pure (never freezes its argument) and deep-freezes a JSON-cloned COPY on success — the only Object.freeze site in the module, test-grepped to stay unique (KR-166).",
-				"it5: a SECOND fixture (dossier-reference.json, six personnages, five lieux) proves schema sufficiency by real narrative construction rather than enriching dossier-minimal.json, which seven other test suites read and partially pin — a seven-suite blast radius for zero benefit.",
-				"it5: the suffisance checklist is a local test table (BRANCHES: {nom, predicat}) so every failure names its branch (KR-157) instead of a silent boolean — the substitute proof-of-slice when the iteration ships no screen (KR-156)."
+				"Découpage en TRANCHES DE SCHÉMA, jamais en blocs UI (KR-190) : le lot contrat de chaque itération touche le même jeu de 8 fichiers de brain/dossier/, donc l'unité de découpage est ce qu'un seul lot contrat peut porter — jamais deux tranches disjointes dans la même itération, jamais deux lots contrat en parallèle sur deux itérations. Tenu sur les 8 itérations sans exception, y compris les deux redécoupages (it2 : 5->6, identité/caractéristiques séparées ; it5 : 6->8, savoirs et retrait extraits d'un plan-fleuve à 4 têtes).",
+				"'Optionnel en bloc, TOTAL quand présent' posé à it3 (stats) et repris tel quel à it8 (caractere.curseurs) — MÊME FORME, AUCUN mécanisme partagé : stats est une règle de jeu (un bloc partiel rend un jet irrésoluble), curseurs une donnée de présentation (KR-193, hors mutation, hors table dorée) — la ressemblance de forme n'a jamais justifié un abstraction commune.",
+				"Un champ à injection conditionnelle au RÔLE qui demande porte son prédicat mot pour mot à DEUX sites (JSDoc du type + commentaire de sa ligne dans destinations.ts), jamais un mécanisme de code : trois occurrences (Relation.secret it5, plan_actions.si_bloque it4 conditionné à un fait de session, Caractere.cede_si it8 conditionné au rôle sans gating de session) — aucun assembleur n'existe avant la n° 10/12, donc aucune des trois n'a de comportement à tester avant elle, seule l'identité des deux sites l'est.",
+				"useEcriturePersonnages.ts, parti à 690 lignes (it5), scindé en un assembleur + 4 sous-hooks par sous-domaine (socle/identité/plan/relations-présence, puis savoirs) — le socle seul porte commit() et les deux indexations KR-197, jamais recopiées. La dette KR-112 s'est ensuite redéplacée d'itération en itération (FichePersonnage.tsx, useEcriturePlan.ts, BlocSavoirs.tsx) sans jamais totalement se résorber ; la feature clôt à 418 lignes sur son fichier le plus proche du signal 400, sous le bloqueur 800.",
+				"Deux classes de défaut nées ailleurs (KR-197, bandeau de refus à deux indexations, dossier-canon it1 ; KR-199, test vert au nom plus large que ses assertions) ont chacune ressurgi 3-4 fois DANS cette seule feature avant promotion en discipline systématique de raffinage — la répétition, pas la première occurrence, a fini par coûter plus cher que la règle écrite l'aurait coûté."
 			],
 			"brain_contracts_added": [
 				{
 					"type": "type",
-					"name": "brain/dossier/types.ts — Dossier (schema 1, canon/monde/charpente)"
+					"name": "brain/dossier/types.ts — Personnage étendu sur 8 itérations : camp, objectif_id, apparence/fonction/description_joueur, stats, but, plan_actions+duree/si_bloque, contre_mesures, relations, presence, caractere — tous additifs, optionnels"
 				},
-				{
-					"type": "type",
-					"name": "brain/tree.ts — Book/BookNode/Edge, extracted, condemned n° 2/9"
-				},
-				{
-					"type": "service",
-					"name": "brain/dossier/validate.ts — validateDossier(input: unknown): DossierValidation"
-				},
-				{
-					"type": "registry",
-					"name": "brain/dossier/predicates.ts — PREDICATES (7 entries)"
-				},
-				{
-					"type": "type",
-					"name": "brain/dossier/expr.ts — ExprNode (persisted tree, no parser)"
-				},
-				{
-					"type": "registry",
-					"name": "brain/dossier/deltas.ts — DELTAS (4 entries)"
-				},
-				{
-					"type": "service",
-					"name": "brain/DossierService.ts — get/open/importDossier/exportDossier"
-				},
-				{
-					"type": "event",
-					"name": "dossier:created|opened|updated|deleted"
-				}
+				{ "type": "registry", "name": "brain/dossier/curseurs.ts — CURSEURS (6 entrées), CURSEUR_MIN/MAX, PARLER_REPLIQUES, CURSEURS_INITIAUX" },
+				{ "type": "type", "name": "CAMPS_PERSONNAGE/CampPersonnage, PorteeContreMesure — registres distincts des registres canon homonymes (CAMPS/Camp, Portee)" },
+				{ "type": "registry", "name": "brain/dossier/tables.ts — 7e couple FAMILLES_DE_CONDITIONS, LISTES_OPTIONNELLES_STRUCTUREES" },
+				{ "type": "service", "name": "DossierService.update(id, recette): EcritureDossier — réutilisé sans changement de signature sur les 8 itérations" },
+				{ "type": "component", "name": "features/dossier-fiches/components/Accordion — local à la feature, 1 seul consommateur (KR-109)" }
 			],
 			"lessons_learned": [
-				"A number cited in a plan must state its PREDICATE, not just its count, and must be re-measured every time it is quoted rather than copy-pasted forward — the types.ts->tree.ts import-line count (KR-159) and the 'validate.ts <= 650 lines' threshold that acquired authority purely by repetition without ever having a source (KR-176) both cost review time for the same underlying mistake.",
-				"A registry indexed by an untrusted value must use its own hasOwnProperty guard, never `in` or a bare index test — every plain object inherits Object.prototype, so 'toString' in REGISTRY is true and REGISTRY['toString'] is a function; a cast (`as`) placed right after a weak guard is exactly where tsc stops protecting (BUG-053, KR-175).",
-				"A property asserted only in a docstring ('pure', 'total', 'the only call site') is an intention, not a contract until a test pins it — three of four PR-review majors across the feature were exactly this shape, including validateDossier's docstring claiming purity while actually freezing its caller's argument (BUG-038, KR-169).",
-				"When a total/defensive traversal silently skips a branch to stay total, what it stops visiting needs its own table, not a comment — three non-optional array fields passed validation absent (BUG-049), and a non-object list element passed silently for the same reason (BUG-050) — both closed by dedicated tables (LISTES_REQUISES, LISTES_A_ELEMENTS_STRUCTURES) rather than widening the walker.",
-				"Two agents never work in parallel on the same uncommitted tree once either mutates files — an orchestrator ran an integrator and a QA-mode-B pass concurrently and the QA's legitimate cache-restore (git checkout) wiped 409 lines the integrator was mid-review on (BUG-045, KR-172).",
-				"specification.json's resolved_decisions is a write-heavy, append-only section with no automatic ceiling; once code ships AND its revue.md carries the reasoning, an entry compacts to its arbitration sentence + a pointer — the same content duplicated in a production docstring (deltas.ts, predicates.ts, tables.ts) is doubly safe to compact, since it survives in the more durable location."
+				"Une classe de défaut découverte une 2e fois dans la même feature mérite d'être promue en discipline de raffinage à CE moment-là, pas au seuil arbitraire du dépôt (3e occurrence) : le coût cumulé des répétitions (KR-197 : BUG-056/061/063/065/066 ; KR-199 : BUG-064/065/068) a systématiquement dépassé ce qu'aurait coûté une règle écrite un cran plus tôt.",
+				"Un plan qui classe un critère « non vérifiable en l'état » doit vérifier qu'aucun instrument équivalent n'existe déjà ailleurs dans le dépôt avant de l'écrire ainsi — it8 a découvert que l'identité mot-pour-mot d'un prédicat à deux sites, jugée hors-jest, était déjà instrumentée depuis it5 pour un champ jumeau (Relation.secret).",
+				"Le découpage en tranches de schéma a tenu sur 8 itérations sans jamais faire cohabiter deux lots contrat — la seule dérive volumétrique observée a été côté assemblage React (hooks, FichePersonnage.tsx), jamais côté contrat brain/ lui-même."
 			],
 			"bugs_encountered": [
-				"BUG-038",
-				"BUG-039",
-				"BUG-040",
-				"BUG-041",
-				"BUG-042",
-				"BUG-043",
-				"BUG-044",
-				"BUG-045",
-				"BUG-046",
-				"BUG-047",
-				"BUG-048",
-				"BUG-049",
-				"BUG-050",
-				"BUG-051",
-				"BUG-052",
-				"BUG-053"
+				"BUG-064", "BUG-065", "BUG-066", "BUG-068", "BUG-069", "BUG-070",
+				"BUG-071", "BUG-072", "BUG-073", "BUG-074", "BUG-075", "BUG-076"
 			]
-		},
-		{
-			"feature": "bascule-editeur",
-			"completed_at": "2026-08-10",
-			"goal": "Move the library and editor screen from the Book/tree model to the Dossier model, in three vertical slices: retrieve, download, and delete an already-imported dossier (it1); seed and open a new one, landing on a minimal editor screen (it2); navigate an open dossier via a ten-section list with fiche counters, in a two-column layout, with tree-canvas demounted from the editor (it3) — without building any content-editing form (n 3-6) or relational graph (n 6).",
-			"key_architecture_choices": [
-				"DossierResume is a strict discriminated union ({id, lisible:true, titre, updatedAt} | {id, lisible:false}) with zero content-derived field: counting entities would force a get()-and-revalidate per card on every library render (it1).",
-				"BUG-048 closed by two distinct fixes, not one: list() surfaces lisible:false (visibility) AND importDossier constates presence by KEY (persistence.keys(prefix).includes(key)), never get() !== null, which re-validates and can silently overwrite a stored-but-now-invalid dossier (it1).",
-				"createDossierId stays a private, single-caller function on DossierService.ts; randomToken() (entropy only, no separator) is extracted from brain/utils/id.ts and shared with the generic createId() — the id form (KR-177, FORME_ID_DOSSIER rejects the generic underscore separator) is proven by a validateDossier() round-trip in the test, never an exported/duplicated regex (it2).",
-				"Seed content (construireAmorce, brain/dossier/amorce.ts) marks its four prose fields with MARQUEUR_A_ECRIRE — a schema-valid dossier is not a playable one, and this marker is the only signal of that gap until n7 linter and n9 play-time gate exist (it2). A seeded entity id encodes only its immutable origin (lieu.amorce), never a rank or role that goes stale the moment an author reorders or relocates things.",
-				"DossierEditorScreen lives in a brand-new file (bascule-editeur/components/) for its entire life across all three iterations — never a branch grafted onto the doomed src/EditorScreen.tsx (Book, condemned demolition n9). EditorTopBar (brain/components) is extended by optional props instead, so the Book screen stays byte-for-byte untouched (it2).",
-				"SECTIONS (brain/dossier/sections.ts) carries no glyph and no feature-number: brain/ does not own a feature display copy (same doctrine as EditorTopBar.previewDisabledReason). Those two tables live feature-side, confined to their sole consumer, exhaustive at compile time via a TS Record<SectionId, ...> (it3). compte(dossier): string always returns text, never a number — Canon/Depart (not collections) return a constant em-dash rather than force a numeric branch that would be dead code, once raffinage measured that Depart configure branch was structurally unreachable (charpente.depart.lieu_id is a validator-blocking required field).",
-				"src/EditorScreen.tsx, src/App.tsx and the Route type editor variant stayed completely untouched across all three iterations, including the one (it3) whose inherited acceptance criterion literally asked for a content-grep on EditorScreen.tsx: raffinage discovered — by actually reading tree-canvas own integration test, not just grepping its imports — that TreeCanvas.test.tsx mounts App on that route and asserts EditorScreen rendered composition. The exit proof became an unreachability lock (no production code navigates to the editor route) rather than a file-content grep."
-			],
-			"brain_contracts_added": [
-				{ "type": "service", "name": "DossierService.list/remove/create/createDossierId (private)" },
-				{ "type": "type", "name": "DossierResume — discriminated union, no content-derived field" },
-				{ "type": "event", "name": "dossier:deleted" },
-				{ "type": "registry", "name": "brain/dossier/sections.ts — SECTIONS (10 entries)" },
-				{ "type": "registry", "name": "brain/dossier/amorce.ts — MARQUEUR_A_ECRIRE, construireAmorce" },
-				{ "type": "component", "name": "brain/components/ListRow" },
-				{ "type": "hook", "name": "brain/hooks.ts — useOpenDossier" },
-				{
-					"type": "component",
-					"name": "brain/components/EditorTopBar — extended by optional props (backLabel, previewDisabledReason)"
-				},
-				{ "type": "type", "name": "Route — gains { name: 'dossier'; dossierId: string }" }
-			],
-			"lessons_learned": [
-				"Unreachable from the UI is not the same claim as unreachable from another feature's tests — a file with zero live navigation path can still be the direct subject of another feature's integration-test assertions. Measure the real test dependency graph before locking a content-grep exit criterion on such a file (it3, BUG-060/KR-181 correction).",
-				"An acceptance criterion that names two explicit test levels (contract + component) is two distinct obligations, not one shared implicitly across two lots that never talk to each other — a lot-based split can leave one level silently uncovered even when both lots report green. Only QA mode B literal grep for the expected event name caught it (it3, BUG-060).",
-				"A schema-valid document is not a playable one: validateDossier errors:[]/warnings:[] proves conformance, never that placeholder prose was actually rewritten. A marker string, not a code path, is the only invariant that closes this gap until later features build the real check (it2, KR-178 correction).",
-				"Reopening a resolved_decision mid-feature is legitimate when a later iteration measures something the earlier arbitration could not have known — but it must be written explicitly as a reopening with its own motif, never silently overwritten (it3: Depart counter, configure/dash to constant dash, once configure was shown to be a dead, always-true branch)."
-			],
-			"bugs_encountered": ["BUG-048", "BUG-059", "BUG-060"]
-		},
-		{
-			"feature": "dossier-canon",
-			"completed_at": "2026-08-11",
-			"goal": "Donner à l'auteur trois écrans de rédaction — Canon, Point de départ, Lieux — pour que la vérité immuable de son histoire cesse d'être un JSON tapé à la main et devienne un formulaire, à travers le premier chemin d'écriture réel du dossier (DossierService.update()), en quatre itérations verticales (Canon it1, Départ it2, Objectifs it3, Lieux it4) plutôt que les trois annoncées par le roadmap initial.",
-			"key_architecture_choices": [
-				"DossierService.update(id, recette): EcritureDossier (it1), premier chemin d'écriture réel du dossier : get() re-validé -> recette -> enveloppe recomposée champ par champ -> validateDossier -> refus sans écriture si erreurs, sinon persistance du clone gelé + dossier:updated. Consommé sans jamais être rouvert par les 3 itérations suivantes.",
-				"Un champ RÉFÉRENCE ne porte jamais de brouillon (commit immédiat, it2) ; un champ de PROSE garde un brouillon seedé une fois, commité au blur, jamais réinitialisé sur refus (it1). Promotions systématiquement au 2e appelant réel, jamais avant : IssueList/compterMots, localiserEntite, frapperIdentifiant.",
-				"KR-159 : le poids d'un lot contrat se remesure à chaque champ ajouté, jamais recopié — un champ requis (Objectif.camp, it3) touche 9 fichiers, un type à champs tous optionnels (Lieu, it4) n'en touche que 6. La forme du champ, pas son nombre, détermine le poids.",
-				"Un état de refus sous une fiche sélectionnée s'indexe PAR L'ENTITÉ aux deux endroits où il peut fuir : affichage ET invalidation — BUG-056 (it1, un seul angle) puis BUG-061 (it4, liste à plusieurs entités, les deux angles, trouvés à deux tours de revue distincts)."
-			],
-			"brain_contracts_added": [
-				{ "type": "service", "name": "DossierService.update(id, recette): EcritureDossier" },
-				{ "type": "type", "name": "brain/dossier/types.ts — Objectif.camp: Camp (CAMPS, registre fermé)" },
-				{ "type": "type", "name": "brain/dossier/types.ts — Lieu extends Entite (description?, ambiance?, dangers?)" },
-				{
-					"type": "function",
-					"name": "brain/dossier/identifiers.ts — localiserEntite, frapperIdentifiant (ré-exportées par brain/index.ts)"
-				},
-				{ "type": "component", "name": "brain/components/IssueList (promu de dossier-format)" },
-				{
-					"type": "prop",
-					"name": "DossierEditorScreenProps.panneaux — slot d'injection (bascule-editeur), câblé uniquement depuis App.tsx"
-				}
-			],
-			"lessons_learned": [
-				"Un motif de raffinage cité comme précédent (« aucune référence vivante », it1/it3) doit être revérifié à chaque itération, pas recopié : il aurait été faux pour Lieux si le comité n'avait pas vérifié que le seul cas référencé (le lieu de départ) était déjà bloqué ailleurs (it4).",
-				"Une numérotation globale à travers plusieurs fichiers scindés n'est pas auto-vérifiée : un scindage qui repart du max du seul fichier édité produit des collisions silencieuses (BUG-055-058, découvertes en ajoutant BUG-062) — la règle doit nommer « le max des trois fichiers »."
-			],
-			"bugs_encountered": ["BUG-055", "BUG-056", "BUG-057", "BUG-058", "BUG-061", "BUG-062"]
 		}
 	]
 }

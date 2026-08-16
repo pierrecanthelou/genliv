@@ -1,9 +1,15 @@
-import { type ReactNode } from 'react'
+import { forwardRef, type ReactNode } from 'react'
 
 /**
  * IconButton — square action button used on rows (édition, suppression).
  * Tone 'danger' for destructive, 'accent' for active. Default size bumped
  * to 44px-min hit target via padding on small marks at call sites.
+ *
+ * `forwardRef` (additif, aucun appelant existant n'en a besoin) : un appelant
+ * qui possède le bouton (ex. le retrait de personnage, `dossier-fiches` it8)
+ * peut vouloir le focaliser par un `ref` direct plutôt qu'en recherchant son
+ * `aria-label` dans le DOM depuis un composant distant — voir
+ * `FichePersonnageHandle`/`focusRetirer`.
  */
 export type IconButtonTone = 'default' | 'danger' | 'accent'
 
@@ -21,10 +27,14 @@ const TONES: Record<IconButtonTone, { color: string; border: string; bg: string 
 	accent: { color: 'var(--accent-fg)', border: 'var(--accent)', bg: 'var(--accent)' },
 }
 
-export function IconButton({ children, onClick, tone = 'default', label, size = 24 }: IconButtonProps): JSX.Element {
+export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
+	{ children, onClick, tone = 'default', label, size = 24 },
+	ref,
+) {
 	const t = TONES[tone]
 	return (
 		<button
+			ref={ref}
 			type="button"
 			onClick={onClick}
 			aria-label={label}
@@ -48,4 +58,4 @@ export function IconButton({ children, onClick, tone = 'default', label, size = 
 			{children}
 		</button>
 	)
-}
+})

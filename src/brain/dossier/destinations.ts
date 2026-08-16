@@ -26,6 +26,7 @@
  * `brain/dossier/` avant la n° 10.
  */
 import { CHARACTERISTIC_VALUES } from '../characteristics'
+import { CURSEUR_VALUES } from './curseurs'
 
 /**
  * · `ia` — le contenu du champ entre dans le contexte d'un appel au modèle (pour
@@ -60,6 +61,36 @@ export type Destination = 'ia' | 'moteur' | 'auteur'
  */
 const DESTINATION_DES_CARACTERISTIQUES: Record<string, Destination> = Object.fromEntries(
 	CHARACTERISTIC_VALUES.map((carac) => [`monde.personnages[].stats.${carac}`, 'moteur' as Destination]),
+)
+
+/**
+ * Les SIX lignes des curseurs de caractère, DÉRIVÉES du registre `CURSEURS`
+ * (KR-117) exactement comme les huit caractéristiques ci-dessus. La promesse
+ * écrite là-haut est tenue à la lettre : « le jour où `caractere.curseurs`
+ * arrivera, il écrira SA propre dérivation » — deux étalements de trois lignes
+ * plutôt qu'un mécanisme générique de « Record à clés fixes », dont le rayon
+ * d'explosion serait le garde d'audience du schéma entier.
+ *
+ * `moteur`, MÊME ARBITRAGE que les huit caractéristiques et que
+ * `relations[].intensite` : un modèle qui lit `mefiance: 8` connaît l'exacte
+ * profondeur d'une méfiance que la scène n'a pas montrée, et il la joue au premier
+ * tour, avant que le joueur ait rien observé. Ce qui remplace le chiffre côté prose
+ * est déjà écrit par l'auteur, dans le MÊME bloc : `parler`, `jamais` et `cede_si`,
+ * toutes trois `ia`. AUCUNE PARAPHRASE non plus (« très méfiant ») tant que la
+ * n° 10 n'a pas livré un libellé dérivé PAR LE CODE et sa propre ligne d'audience —
+ * `open_question` « libellés dérivés », propriétaire n° 10, non réélargie ici.
+ *
+ * CE QUE L'AFFINITÉ NE CHANGE PAS : le champ `affinite` (`CA`/`IN`/`IG`) du
+ * registre ne franchit JAMAIS le document — c'est une donnée de code, sans clé de
+ * schéma, donc sans ligne dans cette table. Il n'y a rien à classer là.
+ *
+ * AUCUNE LIGNE PORTEUSE `…caractere` NI `…caractere.curseurs` — même raison que
+ * pour `…stats` : `feuillesDeLaFixture` ne rend jamais un objet NON VIDE comme
+ * feuille, donc une telle ligne serait morte le jour même où elle est écrite, et
+ * l'assertion « aucune ligne morte » de `couverture.test.ts` la ferait rougir.
+ */
+const DESTINATION_DES_CURSEURS: Record<string, Destination> = Object.fromEntries(
+	CURSEUR_VALUES.map((curseur) => [`monde.personnages[].caractere.curseurs.${curseur}`, 'moteur' as Destination]),
 )
 
 /**
@@ -313,6 +344,41 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	// évaluable, ou la n° 10 un libellé de disponibilité DÉRIVÉ PAR LE CODE avec sa
 	// propre ligne d'audience. Aucune PARAPHRASE en attendant.
 	'monde.personnages[].presence[].quand': 'auteur',
+
+	// ── LES NEUF LIGNES DE `caractere` (itération 8 de la n° 4) ───────────────
+	// SIX curseurs `moteur`, TROIS proses `ia`, et la coupure est l'arbitrage : le
+	// chiffre reste au moteur, la voix va au modèle. Motif complet des six premières
+	// à la déclaration de `DESTINATION_DES_CURSEURS`, en tête de fichier.
+	...DESTINATION_DES_CURSEURS,
+	// L'ÉCHANTILLON DE VOIX — `ia`, et c'est la raison d'être du champ : ces phrases
+	// disent au modèle COMMENT parler, elles ne lui donnent pas de quoi réciter. Même
+	// famille que `plan_actions[].action` et `relations[].lien` — de la prose de jeu
+	// d'acteur, jamais lue telle quelle par le joueur. Sa cardinalité est une borne
+	// d'INTERFACE (`PARLER_REPLIQUES`) : un document qui en porte davantage est
+	// accepté, et c'est l'assembleur n° 10 qui tronque à l'injection.
+	'monde.personnages[].caractere.parler[]': 'ia',
+	// LA LIMITE ABSOLUE — `ia` sans condition : c'est le garde-fou que le rôle acteur
+	// doit lire AVANT de décider quoi que ce soit. Un narrateur qui l'ignore fait
+	// franchir à un personnage la seule ligne que l'auteur ait déclarée infranchissable.
+	'monde.personnages[].caractere.jamais': 'ia',
+	// CE QUI LE FAIT CÉDER — `ia`, mais SOUS CONDITION DE RÔLE, et c'est le SECOND
+	// champ du schéma dont l'injection dépend de QUI DEMANDE (après `Relation.secret`)
+	// — le premier qu'aucun fait de session ne conditionne. LE PRÉDICAT est écrit ICI
+	// et au JSDoc de `Caractere.cede_si`, nulle part ailleurs :
+	//
+	// `cede_si` n'entre **que** dans le contexte de l'appel **acteur du personnage
+	// QUI LE PORTE**. Il n'entre **jamais** dans le contexte du **narrateur**, ni
+	// dans celui d'un **autre** personnage, ni dans celui de l'**arbitre**. Aucun
+	// fait de session ne le conditionne : dans cet appel-là il est injecté **dès le
+	// premier tour**, sans que le moteur ait rien à constater — il n'a ni jumeau
+	// `…_expr`, ni ligne dans `FAMILLES_DE_CONDITIONS`, et rien à quoi
+	// `validateDossier` puisse l'adosser.
+	//
+	// Ce que cela règle : livré au NARRATEUR, ce champ lui apprendrait où appuyer
+	// pour faire plier n'importe quel PNJ — il l'utiliserait au premier tour, avant
+	// que le joueur ait rien deviné. Livré à un AUTRE personnage, il ferait connaître
+	// à celui-ci une faiblesse que le porteur n'a dite à personne.
+	'monde.personnages[].caractere.cede_si': 'ia',
 
 	// ── monde — les collections nommées ───────────────────────────────────────
 	'monde.lieux[].id': 'moteur',

@@ -172,6 +172,24 @@ export { autoSlot } from './BookService'
 // une porte à `-3` n'exige RIEN tout en éteignant l'avertissement
 // `revelation-sans-porte`. Les deux bornes sortent avec elle parce qu'elles sont le
 // `min` et le `max` du `Stepper` qui règle ensuite le seuil.
+// MÊME RÈGLE pour l'itération 8, sur le registre NEUF `dossier/curseurs.ts` : tout ce
+// qui a un consommateur d'écran sort, et rien d'autre. `CURSEURS` arme la grille des
+// six `Stepper` (libellé + affinité entre parenthèses — six littéraux côté feature
+// divergeraient du registre, KR-117) ; `CURSEUR_VALUES` en donne l'ORDRE, jamais
+// `Object.keys` refait sur place ; `CURSEUR_MIN`/`CURSEUR_MAX` sont le `min` et le
+// `max` de ces Stepper (KR-165, et le piège est ici que `CARACTERISTIQUE_MIN`,
+// exportée juste au-dessus, vaut `1` quand un curseur descend à `0` — une feature qui
+// la prendrait « puisqu'elle est déjà là » interdirait la valeur la plus basse de
+// l'échelle) ; `PARLER_REPLIQUES` décide de la disparition du bouton d'ajout de
+// réplique, et elle n'est lue nulle part ailleurs — c'est une borne d'INTERFACE, le
+// validateur ne la connaît pas ; `CURSEURS_INITIAUX` est le bloc SEMÉ au geste « Régler
+// le caractère… », reconstruit côté feature il serait six littéraux qui divergeraient
+// du registre.
+// ⚠ `CURSEURS_INITIAUX` est une valeur d'ÉCRITURE : `curseurs ?? CURSEURS_INITIAUX` sur
+// un chemin de LECTURE est interdit — voir sa docstring, même doctrine que
+// `STATS_INITIALES`. `VALEURS_DE_CURSEUR` reste dedans, comme
+// `VALEURS_DE_CARACTERISTIQUE` : c'est une table de validation, aucun écran ne choisit
+// une valeur de curseur dans une liste.
 export {
 	DOSSIER_SCHEMA,
 	BUDGET_MOTS_CANON,
@@ -185,6 +203,19 @@ export {
 	INTENSITE_MIN,
 	INTENSITE_MAX,
 } from './dossier/types'
+export {
+	CURSEURS,
+	CURSEURS_INITIAUX,
+	CURSEUR_MIN,
+	CURSEUR_MAX,
+	CURSEUR_VALUES,
+	PARLER_REPLIQUES,
+} from './dossier/curseurs'
+// `AffiniteCurseur` sort AVEC `CurseurId` et non pour lui-même : il est un membre de
+// la forme publique de `CurseurDescripteur`, et une feature qui doit l'annoter n'aurait
+// aucun autre moyen de le NOMMER — même motif que `PorteeContreMesure` avec
+// `ContreMesure`. `CurseurId` indexe le `Record` que l'écran écrit et relit.
+export type { CurseurId, AffiniteCurseur, CurseurDescripteur } from './dossier/curseurs'
 // `CAMPS` sort à l'itération 3 de la n° 3 : la carte d'objectif rend un `Select`
 // FERMÉ sur ses trois valeurs, et re-lister les camps côté feature en ferait une
 // seconde source que le validateur ne connaîtrait pas (KR-117). Les LIBELLÉS
@@ -236,6 +267,12 @@ export type {
 	// deux formes que le validateur ne connaîtrait pas.
 	Relation,
 	Presence,
+	// LE TYPE DE L'ITÉRATION 8, pour la même raison que `But`, `ContreMesure`,
+	// `Relation` et `Presence` : le bloc « Caractère exploitable » écrit ce bloc par
+	// `DossierService.update()`, et le typer sur place reconstruirait une forme que le
+	// validateur ne connaîtrait pas. `CurseurId` et `AffiniteCurseur`, membres de sa
+	// forme publique, sortent plus haut avec leur registre.
+	Caractere,
 	Revelation,
 	Savoir,
 	Personnage,
