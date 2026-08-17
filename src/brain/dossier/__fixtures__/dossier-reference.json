@@ -373,7 +373,8 @@
 						{ "op": "predicat", "predicat": "possede_objet", "cibles": ["objet.sceau-de-cendre"] },
 						{ "op": "predicat", "predicat": "jalon_atteint", "cibles": ["jalon.second-guet"] }
 					]
-				}
+				},
+				"texte": "Le feu du beffroi s'éteint enfin, et pour la première fois depuis des années le Foyer du Guet dort dans le noir. Tu poses le sceau de cendre sur la table de la vigie ; quelqu'un, un jour, saura quoi en faire."
 			},
 			{
 				"id": "fin.vigie-abandonnee",
@@ -388,7 +389,8 @@
 							"enfant": { "op": "predicat", "predicat": "lieu_visite", "cibles": ["lieu.vigie-du-nord"] }
 						}
 					]
-				}
+				},
+				"texte": "Tu redescends la route du sud sans t'être approché de la vigie. Derrière toi le beffroi brûle toujours, et personne à Val-Cendre ne dira jamais qui l'avait allumé."
 			}
 		]
 	}

@@ -1,0 +1,7 @@
+RISQUE      — Le goal compact ("jalons ET fins ET Fin.texte ET avertissement D1") fait porter à cette itération deux registres et deux fiches là où it1 n'en portait qu'une. Risque concret de débordement vers des périmètres déjà exclus ailleurs dans le cadrage : Jalon.effet (Delta[], EditeurEffets n'existe qu'en it3, L6) et le badge D1 sur la fiche Jalon (L4 : alerteSansExpr=false, silencieux PAR DESIGN, seul Fin porte le garde).
+
+OBJECTION — La phrase du goal, « l'avertissement D1... rendu visible sur chaque fiche », est ambiguë lue au pied de la lettre : « chaque fiche » peut se comprendre comme Jalon ET Fin, alors que L4 tranche que seul Fin porte alerteSansExpr:true et que Jalon reste silencieux « par design ». Une définition qui, telle qu'écrite, peut conduire un ouvrier à coder le badge sur les deux fiches rouvre une décision déjà actée à la table des conditions — c'est un défaut de la définition écrite, pas une préférence.
+
+PROPOSITION — Corriger le goal : « ...l'avertissement D1, visible uniquement sur chaque fiche Fin (Jalon reste silencieux par design, L4) ». Figer explicitement au plan une section « hors périmètre » nommant : (a) Jalon.effet non rendu cette itération (pas d'EditeurEffets avant it3) ; (b) D1 absent de toute fiche Jalon ; (c) plafond de 2 lots (1 contrat, 1 écran) comme it1, un seul panneau (PanneauJalonsFins.tsx) portant les deux collections distinctes sans jamais fondre leurs compteurs (L2, `compte()`).
+
+VERDICT — recevable sous réserve.

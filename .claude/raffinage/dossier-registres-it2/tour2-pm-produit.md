@@ -1,0 +1,9 @@
+RISQUE — Le brouillon différé (précédent `useEcriturePlan`) est un motif d'interaction NEUF pour une collection racine : contrairement à it1/`PanneauIndices` où « + Ajouter » committe et sélectionne immédiatement, une fin/un jalon « à moitié créé » disparaîtrait sans trace si l'auteur ferme le panneau avant le premier blur non-vide. C'est une perte de travail silencieuse, à l'opposé de l'esprit « jamais un vide muet » (empty state) et du réflexe « surfacer, jamais casser silencieusement » déjà appliqué aux références dans ce projet.
+
+OBJECTION — Je maintiens mon objection tour 1 sur le libellé du goal : tech-lead et QA lisent tous deux, indépendamment, la même faille (`alerteSansExpr:false` sur Jalon = silence PAR DESIGN, aucun badge D1 côté Jalon) — convergence à trois rôles, ce n'est plus une lecture isolée à corriger « au cas où ». J'adopte la reformulation tech-lead de KR-211(b) en discriminance à trois entités comme correction du goal écrit.
+
+Ma partie tour 1 sur Jalon.effet/EditeurEffets — retirée (motif : tech-lead confirme KR-211a déjà acquis via `dossier-format`, downgrade en simple note de non-régression ; aucun travail neuf, donc plus de risque de débordement vers it3/EditeurEffets). Mon plafond « 2 lots » — retiré comme risque isolé, confirmé satisfait par le plan tech-lead (lot 1 contrat, lot 2 écran).
+
+PROPOSITION — Semis par marqueur, pas brouillon différé : préserve le contrat d'interaction établi en it1 (création immédiate, visible dans le registre), donne à KR-211(b) une fiche Fin existante à tester dès sa création, n'ajoute aucun lot ni motif d'interaction neuf à spécifier côté UX. Le brouillon-différé n'est pas hors-cadre en soi mais c'est une dépense d'itération non demandée par le goal — à réserver, si jamais nécessaire, à une itération qui la nommerait explicitement.
+
+VERDICT — recevable sous réserve : goal corrigé + KR-211(b) reformulé + semis par marqueur (pas brouillon différé).

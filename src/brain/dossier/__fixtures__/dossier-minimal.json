@@ -226,7 +226,8 @@
 							"enfant": { "op": "predicat", "predicat": "lieu_courant_est", "cibles": ["lieu.val-cendre"] }
 						}
 					]
-				}
+				},
+				"texte": "La pierre se referme sans un bruit, et le Gouffre se tait pour la première fois depuis vingt ans. Derrière toi, Val-Cendre s'efface dans la brume ; tu ne reviendras pas."
 			}
 		]
 	}

@@ -247,7 +247,7 @@ const TEXTE_OPTIONNEL_LIBRE =
 	"jumeau prose OPTIONNEL d'une condition : son absence est calme par D1, et aucune règle du schéma 1 ne contraint sa forme quand il est présent. Même question ouverte que les dispenses « nom », propriétaire n° 2 bascule-editeur : une table « présent → doit être une chaîne », ou une garde à l'affichage."
 
 /**
- * Le motif partagé des proses d'entité — QUATORZE aujourd'hui, remesuré et jamais
+ * Le motif partagé des proses d'entité — QUINZE aujourd'hui, remesuré et jamais
  * recopié (KR-159) : les TROIS de `Lieu` (itération 4 de la n° 3), les TROIS
  * d'identité d'un `Personnage` (itération 2 de la n° 4), les DEUX proses libres
  * de son `but` (itération 4 de la n° 4 : `pourquoi` et `echeance` — `libelle`, lui,
@@ -258,7 +258,9 @@ const TEXTE_OPTIONNEL_LIBRE =
  * L'UNIQUE prose d'un `Objet` (itération 1 de la n° 5 : `description_joueur`) et les
  * DEUX d'un `Indice` (itération 1 de la n° 6 : `verite` et `formulation_joueur` —
  * `mene_a[]`, lui, N'EST PAS ici, étant une RÉFÉRENCE dont la corruption est refusée
- * par `REFERENCES_SIMPLES`, et une dispense à son nom serait morte).
+ * par `REFERENCES_SIMPLES`, et une dispense à son nom serait morte) et L'UNIQUE
+ * prose d'une `Fin` (itération 2 de la n° 6 : `texte` — `condition_texte`, lui,
+ * N'EST PAS ici, étant à la fois REQUIS et jumeau prose d'une condition).
  * Il
  * est DISTINCT de `TEXTE_OPTIONNEL_LIBRE`, et pas par style : celui-là dispense le
  * jumeau prose d'une CONDITION, dont l'absence est calme PAR D1 et dont la
@@ -391,6 +393,17 @@ const LIBRES: Record<string, string> = {
 	'monde.conditions.climat[].nom': NOM_LIBRE,
 	'charpente.jalons[].nom': NOM_LIBRE,
 	'charpente.fins[].nom': NOM_LIBRE,
+	// LA PROSE DE FIN (it2 de la n° 6), même motif mot pour mot que les quatorze
+	// précédentes : une prose d'entité SANS jumeau structuré, dont la corruption
+	// remplace la chaîne par un NOMBRE, et qu'aucune règle du schéma 1 n'arbitre.
+	// Elle n'est PAS `TEXTE_OPTIONNEL_LIBRE` malgré son voisinage immédiat avec
+	// `condition_texte`, et c'est le point de contrat qui se voit le mieux à cet
+	// endroit : `condition_texte` est le jumeau prose d'une CONDITION (famille de
+	// `FAMILLES_DE_CONDITIONS`, avertissement D1 quand son `…_expr` manque), et il
+	// est REQUIS, donc sa corruption est refusée et une dispense à son nom serait
+	// morte. `texte`, lui, n'a ni jumeau `…_expr`, ni famille, ni ligne dans
+	// `CHAMPS_REQUIS` — aucun avertissement ne le concerne, et rien ne le refuse.
+	'charpente.fins[].texte': PROSE_D_ENTITE_LIBRE,
 }
 
 /**
@@ -972,6 +985,90 @@ describe('couverture', () => {
 		// ligne morte » la ferait rougir. Écrit ici pour que le jour où le bloc revient,
 		// il revienne ENTIER : type + registre + table + audience + fixture + écran.
 		expect(DESTINATION_DES_CHAMPS['monde.indices[].portee']).toBeUndefined()
+	})
+
+	it('le texte d une fin est moteur, instancie dans les DEUX fixtures, et OPTIONNEL', () => {
+		// LA SEULE LIGNE DE SCHÉMA DE L'ITÉRATION 2 DE LA N° 6, épinglée par la même
+		// construction que les tests d'audience ci-dessus (aucun compte recopié ici :
+		// ceux qu'ils portent sont déjà décalés, KR-159/KR-176), et pour la même raison
+		// (KR-174, leçon de BUG-051) : « toute feuille a une destination » ne dit rien
+		// de la VALEUR, « aucune ligne morte » ne dit rien de l'audience. Nommées
+		// ensemble, les deux moitiés épinglent l'arbitrage — `moteur`, et il se dispute
+		// contre LES DEUX autres audiences, ce qui est propre à ce champ :
+		//
+		//  · contre `ia`, parce que la prose d'une fin ressemble aux proses en
+		//    `…_joueur` du monde (`objets[].description_joueur`,
+		//    `indices[].formulation_joueur`), qui sont INJECTÉES. Celle-ci est ÉMISE
+		//    VERBATIM — à cette itération, le second champ du schéma dans ce cas après
+		//    `charpente.depart.texte_ouverture_joueur` —, et la faire écrire au modèle
+		//    la ferait varier d'une partie à l'autre. La bascule que ce test doit faire
+		//    rougir est « toute prose lue par le joueur est de la matière à raconter » ;
+		//  · contre `auteur`, parce que son voisin immédiat `condition_texte` l'est. Ce
+		//    voisin est une NOTE DE RÉDACTION que personne ne lira jamais en jeu ;
+		//    celui-ci est la seule chose que le joueur lira de cette fin.
+		//
+		// Consommateur : n° 15 `moteur-fins`.
+		const TEXTE_DE_FIN = 'charpente.fins[].texte'
+		const feuilles = cheminsDeLaFixture()
+		const feuillesDeLaReference = feuillesDeLaFixture(documentDeReference()).map((feuille) => feuille.normalise)
+
+		expect(`${TEXTE_DE_FIN} → ${DESTINATION_DES_CHAMPS[TEXTE_DE_FIN]}`).toBe(`${TEXTE_DE_FIN} → moteur`)
+		// L'INSTANCE DANS LES DEUX FIXTURES, dans le même test : le garde d'exhaustivité
+		// ne balaie que la MINIMALE, donc un champ instancié là mais absent d'une
+		// aventure réelle resterait vert partout.
+		expect(`${TEXTE_DE_FIN} dans la minimale → ${feuilles.includes(TEXTE_DE_FIN)}`).toBe(
+			`${TEXTE_DE_FIN} dans la minimale → true`,
+		)
+		expect(`${TEXTE_DE_FIN} dans la reference → ${feuillesDeLaReference.includes(TEXTE_DE_FIN)}`).toBe(
+			`${TEXTE_DE_FIN} dans la reference → true`,
+		)
+
+		// Discriminant : les DEUX voisines de la MÊME entité gardent leur audience.
+		// Sans ces lignes, l'assertion ci-dessus passerait aussi sur une table qui
+		// aurait basculé TOUTE la fin vers `moteur` — c'est-à-dire sur la perte
+		// silencieuse du veto D1 sur `condition_texte` (KR-174).
+		expect(`charpente.fins[].condition_texte → ${DESTINATION_DES_CHAMPS['charpente.fins[].condition_texte']}`).toBe(
+			'charpente.fins[].condition_texte → auteur',
+		)
+		expect(`charpente.fins[].nom → ${DESTINATION_DES_CHAMPS['charpente.fins[].nom']}`).toBe(
+			'charpente.fins[].nom → auteur',
+		)
+
+		// L'OPTIONNALITÉ (KR-191), LUE DES TABLES et jamais affirmée : rien de déjà
+		// persisté ne devient invalide, et aucune borne de longueur ne s'invente au
+		// passage (KR-203, même famille que `Objet.description_joueur`).
+		expect(CHAMPS_REQUIS.filter((champ) => champ.path === TEXTE_DE_FIN)).toEqual([])
+		expect(BUDGETS_DE_MOTS.filter((budget) => budget.path === TEXTE_DE_FIN)).toEqual([])
+
+		// … et COMPORTEMENTALE, parce qu'une ligne absente d'une table ne prouve rien
+		// du validateur : le dossier de RÉFÉRENCE dont on retire les deux proses de fin
+		// reste accepté, SANS avertissement — une fin en cours de rédaction est un état
+		// calme, jamais une alerte.
+		const document = documentDeReference()
+		const charpente = document.charpente as { fins: { texte?: string }[] }
+		for (const fin of charpente.fins) delete fin.texte
+
+		const resultat = validateDossier(document)
+
+		expect(resultat.warnings.map(lisible)).toEqual([])
+		expect(resultat.errors.map(lisible)).toEqual([])
+		expect(resultat.ok).toBe(true)
+
+		// SONDE DE DISCRIMINANCE (KR-199) — sans elle, l'assertion ci-dessus resterait
+		// verte le jour où `validateDossier` cesserait de refuser POUR TOUT LE MONDE, et
+		// le test dirait « ce champ est optionnel » en ne prouvant que « rien n'est
+		// jamais refusé ». Le MÊME geste sur le voisin REQUIS de la même entité doit,
+		// lui, faire refuser le document — et par son propre nom.
+		const temoin = documentDeReference()
+		const charpenteTemoin = temoin.charpente as { fins: { condition_texte?: string }[] }
+		delete charpenteTemoin.fins[0].condition_texte
+
+		const resultatTemoin = validateDossier(temoin)
+
+		expect(resultatTemoin.errors.map((anomalie) => `${anomalie.code} → ${anomalie.path}`)).toEqual([
+			'champ-requis-vide → charpente.fins[0].condition_texte',
+		])
+		expect(resultatTemoin.ok).toBe(false)
 	})
 
 	it('description_joueur d un objet, texte long, aucun avertissement', () => {

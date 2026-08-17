@@ -169,8 +169,9 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	// coexistent DÉJÀ sous ce suffixe, ce qui interdit d'en déduire quoi que ce soit :
 	// `canon.partage.accroche_joueur` est `ia`, `charpente.depart.texte_ouverture_joueur`
 	// est `moteur`. `description_joueur` est INJECTÉE au modèle, jamais émise verbatim :
-	// la seule prose que le joueur lit mot pour mot reste `texte_ouverture_joueur`, et
-	// c'est précisément ce qui la rend `moteur`.
+	// les proses que le joueur lit mot pour mot sont `texte_ouverture_joueur` et
+	// `charpente.fins[].texte` (itération 2 de la n° 6), et c'est précisément ce qui
+	// les rend `moteur` toutes les deux.
 	'monde.personnages[].fonction': 'ia',
 	'monde.personnages[].apparence': 'ia',
 	'monde.personnages[].description_joueur': 'ia',
@@ -388,9 +389,9 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	// — une note de rédaction (`nom`, un jumeau `…_texte`). Un piège tendu près d'un
 	// autel, une odeur de cendre froide, un prédateur qui rôde : le narrateur du
 	// Temps 2 doit les LIRE pour raconter le lieu, au même titre qu'un
-	// `plan_actions[].action`. Injectées, jamais émises verbatim — la seule prose
-	// que le joueur lit mot pour mot est `charpente.depart.texte_ouverture_joueur`,
-	// et elle est `moteur` pour cette raison exacte.
+	// `plan_actions[].action`. Injectées, jamais émises verbatim — les proses que le
+	// joueur lit mot pour mot sont `charpente.depart.texte_ouverture_joueur` et
+	// `charpente.fins[].texte`, et elles sont `moteur` pour cette raison exacte.
 	'monde.lieux[].description': 'ia',
 	'monde.lieux[].ambiance': 'ia',
 	'monde.lieux[].dangers': 'ia',
@@ -400,11 +401,11 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	// exactement comme pour les trois proses d'un `Lieu` juste au-dessus : `auteur`
 	// est réservé à ce qui n'est PAS de la donnée de jeu. Ce que le joueur voit et
 	// comprend d'un objet qu'il tient, le narrateur du Temps 2 doit le LIRE pour le
-	// raconter. Injectée, jamais émise verbatim — la seule prose lue mot pour mot
-	// reste `charpente.depart.texte_ouverture_joueur`, et c'est ce qui la rend
-	// `moteur`. Le `nom` juste au-dessus reste `auteur` (KR-195, question transverse
-	// non rouverte ici) : c'est la ligne que ce champ vient soulager, et non
-	// remplacer.
+	// raconter. Injectée, jamais émise verbatim — les proses lues mot pour mot sont
+	// `charpente.depart.texte_ouverture_joueur` et `charpente.fins[].texte`, et c'est
+	// ce qui les rend `moteur`. Le `nom` juste au-dessus reste `auteur` (KR-195,
+	// question transverse non rouverte ici) : c'est la ligne que ce champ vient
+	// soulager, et non remplacer.
 	'monde.objets[].description_joueur': 'ia',
 	'monde.indices[].id': 'moteur',
 	'monde.indices[].nom': 'auteur',
@@ -425,9 +426,10 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	// CE QUE LE JOUEUR PERÇOIT — `ia` sans condition, même famille que
 	// `monde.objets[].description_joueur` et les trois proses d'un `Lieu` : le
 	// narrateur du Temps 2 doit la LIRE pour raconter ce que le héros remarque.
-	// Injectée, jamais émise verbatim — la seule prose lue mot pour mot reste
-	// `charpente.depart.texte_ouverture_joueur`, et c'est ce qui la rend `moteur`. Le
-	// suffixe `_joueur` désigne l'AUDIENCE, jamais le RÉGIME.
+	// Injectée, jamais émise verbatim — les proses lues mot pour mot sont
+	// `charpente.depart.texte_ouverture_joueur` et `charpente.fins[].texte`, et c'est
+	// ce qui les rend `moteur`. Le suffixe `_joueur` désigne l'AUDIENCE, jamais le
+	// RÉGIME.
 	'monde.indices[].formulation_joueur': 'ia',
 	// LES ENCHAÎNEMENTS — `moteur`. Un identifiant est un HANDLE : le code résout, le
 	// modèle reçoit le CONTENU de l'indice débloqué sous l'audience de CET indice-là,
@@ -489,6 +491,17 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	// Un narrateur qui connaît les conditions de fin y conduit.
 	'charpente.fins[].condition_texte': 'auteur',
 	'charpente.fins[].condition_expr': 'moteur',
+	// LA PROSE DE FIN (itération 2 de la n° 6) — `moteur`, SECOND champ du schéma
+	// émis VERBATIM au joueur après `charpente.depart.texte_ouverture_joueur`, et
+	// pour la même raison exacte : ce n'est pas du contexte, c'est du texte joueur
+	// — la faire écrire au modèle la ferait varier d'une partie à l'autre.
+	// `moteur` ET NON `ia`, contre le voisinage des proses en `…_joueur` du monde
+	// (`objets[].description_joueur`, `indices[].formulation_joueur`), qui sont
+	// injectées et jamais émises telles quelles : le suffixe désigne l'AUDIENCE,
+	// jamais le RÉGIME, et ce champ-ci n'en porte pas. `moteur` ET NON `auteur`
+	// non plus — ce n'est pas une note de rédaction, c'est la seule chose que le
+	// joueur lira de cette fin. Consommateur : n° 15 `moteur-fins`.
+	'charpente.fins[].texte': 'moteur',
 }
 
 // ── LA RÉSERVE DE LA n° 4 EST LEVÉE ──────────────────────────────────────────

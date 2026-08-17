@@ -1,0 +1,9 @@
+RISQUE      — KR-211 annonce « deux tests nommés » comme travail neuf, mais un seul l'est vraiment. Un score QA mal calé sur ce lot compterait un critère « vérifié » sans qu'aucune ligne de test n'ait été écrite.
+
+OBJECTION   — KR-211(a) tel qu'écrit (« couverture.test.ts étend sa table aux Delta[] de jalons/fins ») n'est plus observable comme travail d'it2 : `charpente.jalons[].effet` est déjà dans `CHEMINS_DE_DELTAS` (tables.ts:578) et déjà exercé par les boucles génériques de couverture.test.ts (lignes 1150-1209, avant it2) ; `Fin` ne porte aucun Delta[] cette itération (L5) donc rien à y « étendre ». Le critère tel que rédigé ne peut être VÉRIFIÉ par un test neuf — c'est un acquis, pas une livraison.
+
+OBJECTION 2 — KR-211(b) (« un jalon/une fin conforme, un non conforme ») est imprécis face à L4 : Jalon a `alerteSansExpr: false` (silencieux PAR DESIGN), donc un « jalon non conforme » ne déclenche jamais le bandeau — au contraire du précédent ObjectifsCanon où les deux familles alertent. Non corrigé, l'implémentation risque soit de mal lire le critère, soit de tester une symétrie qui n'existe pas.
+
+PROPOSITION — Reformuler KR-211 en 2 tests réellement nommés : (a) régression seule, sans code neuf — « jalons[].effet reste dans CHEMINS_DE_DELTAS, couvert par les boucles existantes, sans régression » (note dans la revue, pas un critère de livraison) ; (b) deux tests composant distincts sur PanneauJalonsFins : « une Fin non conforme affiche le bandeau role="status" D1, distinct du bandeau de refus (getAllByRole) » (seed via update(), aucune fin non conforme dans dossier-reference.json) et « un jalon non conforme (fixture existante `jalon.second-guet`, declencheur_texte sans _expr) n'affiche AUCUNE région status — preuve explicite du silence D1 ».
+
+VERDICT     — recevable sous réserve (correction de KR-211(a)/(b) avant lotissement)

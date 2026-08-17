@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.29 — un jalon ou une fin cesse d'être un texte nu et devient une fiche
+
+`dossier-registres` itération 2/5. L'auteur tient le registre « Jalons & fins » de son dossier : il crée un jalon ou une fin, écrit `Fin.texte` (la prose lue par le joueur à l'arrivée sur une fin, consommateur futur n° 15), réordonne chaque collection, et voit l'avertissement D1 (déclencheur/condition sans expression) apparaître automatiquement — uniquement sur une fin non conforme, jamais sur un jalon, silencieux par design depuis `dossier-format`.
+
+- **`CHAMPS_REQUIS` rencontre son premier écran** — `Jalon.enonce_texte`/`declencheur_texte` et `Fin.condition_texte` sont des champs que `validateDossier` refuse vides, ce que le geste d'ajout d'it1 (commit immédiat d'une entité quasi nue) ne peut pas satisfaire. Résolu par un **brouillon différé** : l'entité reste locale, hors du document, tant que ses champs requis ne sont pas tous non vides — précédent réel et déjà livré, `useEcriturePlan.ts` (`dossier-fiches`), étendu ici au cas à deux champs requis simultanés (Jalon). KR-214.
+- **Un semis par texte-marqueur, écarté au raffinage** — la première option envisagée (`MARQUEUR_A_ECRIRE`, précédent `amorce.ts`) aurait allumé l'avertissement D1 sur toute fin fraîchement créée, contredisant le principe déjà posé et testé qu'un document/une entité neuve ne s'ouvre jamais déjà en alerte. Le tech-lead a retourné son propre veto tour 1 sur le brouillon différé après l'avoir vérifié contre ce précédent.
+- **`Fin.texte?: string`, seul ajout de schéma** — destination `moteur`, prose émise verbatim au joueur, même régime que `charpente.depart.texte_ouverture_joueur`, jamais gatante pour la création d'une fin.
+- **La fiche Jalon reçoit la même prop `avertissements` que la fiche Fin**, toujours vide côté Jalon — le silence est une preuve du validateur (`alerteSansExpr:false`), jamais une omission de rendu.
+- 2 lots séquentiels (contrat minimal — un seul champ, zéro fichier `brain/index.ts`/`amorce.ts` — puis écran, zéro fichier `brain/`), aucun worktree. 78 suites / 1127 tests verts. Score de mutation sans objet.
+- Raffinage complet (2 tours, aucune `ESCALADE`, un veto tech-lead retourné en cours de route) : `.claude/raffinage/dossier-registres-it2.plan.md`, revue : `.claude/raffinage/dossier-registres-it2.revue.md`.
+
 ## 0.6.28 — un indice cesse d'être une référence orpheline et devient un registre
 
 `dossier-registres` itération 1/5. L'auteur tient le registre des indices de son aventure : une vérité pour le MJ, une formulation lue par le joueur, et un chaînage vers d'autres indices — remplace l'état vide de la section Indices. Première itération de la sixième feature de la bascule IA (roadmap §2, n° 6).

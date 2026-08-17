@@ -162,3 +162,41 @@ export const enTeteLigneStyle: CSSProperties = {
 	justifyContent: 'space-between',
 	gap: 'var(--space-3)',
 }
+
+// ── Panneau à onglets (Jalons & fins, it2) : ajouts STRICTEMENT ADDITIFS ────
+// Motif KR-147 (flex-column scroll shell) : la racine coupe le débordement,
+// l'en-tête (eyebrow + `SegmentedControl`) est de hauteur fixe (`flexShrink:
+// 0`), et le corps à deux colonnes réutilise `pageStyle` ci-dessus telle
+// quelle — elle porte déjà `flex:1, minHeight:0, overflowY:'auto'`.
+export const panneauRacineStyle: CSSProperties = {
+	display: 'flex',
+	flexDirection: 'column',
+	height: '100%',
+	overflow: 'hidden',
+}
+
+export const enTetePanneauStyle: CSSProperties = {
+	display: 'flex',
+	flexDirection: 'column',
+	gap: 'var(--space-3)',
+	padding: 'var(--space-8) var(--space-8) 0',
+	flexShrink: 0,
+}
+
+// ── Région D1 (avertissement, distincte du bandeau de refus) ───────────────
+// Même couple de tokens que `bandeauRefusStyle`/`eyebrowRefusStyle` — aucune
+// teinte « warning » n'existe dans les tokens (`--good`/`--bad` seuls),
+// précédent exact `ObjectifsCanon.tsx` (dossier-canon it3).
+export const bandeauAvertissementStyle: CSSProperties = {
+	display: 'flex',
+	flexDirection: 'column',
+	gap: 'var(--space-3)',
+}
+
+export const eyebrowAvertissementStyle: CSSProperties = {
+	margin: 0,
+	fontFamily: 'var(--font-mono)',
+	fontSize: 'var(--fs-eyebrow)',
+	color: 'var(--bad)',
+	letterSpacing: 'var(--track-eyebrow)',
+}

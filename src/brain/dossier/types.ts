@@ -817,9 +817,10 @@ export interface Personnage extends Entite {
 	 *  (`fonction`), ni ce qu'on voit de lui (`apparence`).
 	 *
 	 *  Le suffixe `_joueur` nomme son AUDIENCE, jamais son RÉGIME : elle est
-	 *  INJECTÉE au modèle comme les deux autres, jamais émise mot pour mot. La
-	 *  seule prose du dossier émise verbatim reste
-	 *  `charpente.depart.texte_ouverture_joueur`, et c'est pour cela qu'elle est
+	 *  INJECTÉE au modèle comme les deux autres, jamais émise mot pour mot. Les
+	 *  DEUX seules proses du dossier émises verbatim sont
+	 *  `charpente.depart.texte_ouverture_joueur` et `charpente.fins[].texte` (la
+	 *  seconde depuis l'itération 2 de la n° 6), et c'est pour cela qu'elles sont
 	 *  `moteur` là où celle-ci est `ia`. OPTIONNEL — absent ≠ vide.
 	 *  Exemple : « On le dit sage, et un peu fou ; tout le bourg sait où il vit,
 	 *  personne ne sait ce qu'il garde. » */
@@ -896,8 +897,8 @@ export interface Personnage extends Entite {
  * `nom`, qui est `auteur` : un piège tendu près d'un autel ou l'odeur d'une
  * grotte sont de la DONNÉE DE JEU que le narrateur du Temps 2 devra lire pour
  * raconter le lieu, pas des notes de rédaction. Injectés, jamais émis verbatim :
- * le joueur ne lit aucun des trois tel quel — c'est `texte_ouverture_joueur` qui
- * porte la seule prose émise mot pour mot.
+ * le joueur ne lit aucun des trois tel quel — les proses émises mot pour mot sont
+ * `texte_ouverture_joueur` et, depuis l'itération 2 de la n° 6, `Fin.texte`.
  *
  * `acces` et toute référence croisée (personnages, objets, indices, événements
  * présents) appartiennent aux features qui possèdent ces collections (n° 4/5/6)
@@ -951,8 +952,9 @@ export interface Objet extends Entite {
 	 *  qu'il évoque. De la PROSE, jamais un résumé mécanique (« objet magique qui
 	 *  donne +2 ») — un effet de règle est un `Delta`, et un narrateur qui lirait un
 	 *  chiffre ici le réciterait au lieu de le laisser jouer. Injectée, jamais émise
-	 *  verbatim : la seule prose que le joueur lit mot pour mot reste
-	 *  `charpente.depart.texte_ouverture_joueur`. OPTIONNELLE — absent ≠ vide, un
+	 *  verbatim : les proses que le joueur lit mot pour mot sont
+	 *  `charpente.depart.texte_ouverture_joueur` et `charpente.fins[].texte`, toutes
+	 *  deux `moteur` pour cette raison. OPTIONNELLE — absent ≠ vide, un
 	 *  objet en cours de rédaction est un état calme, jamais une alerte.
 	 *  Exemple : « Une couverture de cuir craquelé, fermée par une lanière de
 	 *  plomb ; les pages, entrevues sous la reliure, semblent respirer. » */
@@ -1038,8 +1040,9 @@ export interface Indice extends Entite {
 	 *  Exemple : « Le sceau a été brisé par le gardien lui-même, vingt ans plus tôt. » */
 	verite?: string
 	/** IA — CE QUE LE JOUEUR PERÇOIT de l'indice, sans l'interprétation qui va avec.
-	 *  Injectée, jamais émise verbatim : la seule prose que le joueur lit mot pour mot
-	 *  reste `charpente.depart.texte_ouverture_joueur`. Le suffixe `_joueur` nomme son
+	 *  Injectée, jamais émise verbatim : les proses que le joueur lit mot pour mot
+	 *  sont `charpente.depart.texte_ouverture_joueur` et `charpente.fins[].texte`,
+	 *  toutes deux `moteur` pour cette raison. Le suffixe `_joueur` nomme son
 	 *  AUDIENCE, jamais son RÉGIME — même piège que sur `Objet.description_joueur` et
 	 *  `Personnage.description_joueur`. OPTIONNELLE — absent ≠ vide.
 	 *  Exemple : « Une odeur de cendre froide, là où elle ne devrait pas être. » */
@@ -1204,7 +1207,14 @@ export interface Jalon extends Entite {
 	effet: Delta[]
 }
 
-/** Une fin possible de l'aventure. */
+/**
+ * Une fin possible de l'aventure — et DEUX proses aux régimes OPPOSÉS, ce qui est
+ * le point de contrat de cette entité depuis l'itération 2 de la n° 6 :
+ * `condition_texte` est `auteur` (jamais injecté, jamais lu par le joueur),
+ * `texte` est `moteur` ET ÉMIS VERBATIM. Les confondre remettrait la règle de fin
+ * dans le prompt, ou ferait réécrire au modèle la seule prose que le joueur lise
+ * mot pour mot à l'arrivée sur cette fin.
+ */
 export interface Fin extends Entite {
 	/** AUTEUR — condition de fin en langage naturel. Jamais injectée (un narrateur
 	 *  qui la connaît y conduit).
@@ -1216,6 +1226,39 @@ export interface Fin extends Entite {
 	 *    { op: 'predicat', predicat: 'possede_objet', cibles: ['objet.clef-de-basalte'] },
 	 *    { op: 'predicat', predicat: 'jalon_atteint', cibles: ['jalon.premiere-nuit'] } ] } */
 	condition_expr?: ExprNode
+	/** MOTEUR — LA PROSE QUE LE JOUEUR LIT À L'ARRIVÉE SUR CETTE FIN, ÉMISE
+	 *  VERBATIM par le moteur (consommateur : n° 15 `moteur-fins`). MÊME RÉGIME que
+	 *  `charpente.depart.texte_ouverture_joueur`, et pour la raison exacte qui rend
+	 *  celui-là `moteur` : ce n'est pas du contexte, c'est du texte joueur — la
+	 *  faire écrire au modèle la ferait varier d'une partie à l'autre, alors qu'une
+	 *  fin est ce qu'une aventure a de plus stable. Elle n'est donc NI injectée, NI
+	 *  une note de rédaction : le dossier ne portait jusqu'ici qu'UNE prose émise
+	 *  verbatim, celle du départ ; elles sont DEUX depuis cette itération, et il
+	 *  n'y en a pas d'autre.
+	 *
+	 *  À NE PAS RANGER avec les proses en `…_joueur` du monde
+	 *  (`objets[].description_joueur`, `indices[].formulation_joueur`) : celles-là
+	 *  sont `ia`, INJECTÉES et jamais émises telles quelles. Le suffixe `_joueur`
+	 *  désigne l'AUDIENCE, jamais le RÉGIME — c'est ce qui explique que ce champ-ci
+	 *  ne le porte pas alors qu'il est le plus « joueur » de tous : la clé s'appelle
+	 *  `texte`, et c'est l'audience `moteur` de `destinations.ts` qui dit le
+	 *  verbatim, jamais le nom du champ.
+	 *
+	 *  OPTIONNELLE, et ce n'est PAS une symétrie manquée avec `condition_texte`
+	 *  (KR-191) : `charpente.fins[]` existe depuis la n° 1 en schéma 1, sans aucun
+	 *  chemin de migration (KR-160) — un champ requis de plus invaliderait
+	 *  RÉTROACTIVEMENT tout dossier déjà persisté. AUCUNE ligne dans
+	 *  `CHAMPS_REQUIS`, donc, et son absence est un état calme (doctrine
+	 *  « absent ≠ vide »), jamais une alerte : une fin en cours de rédaction ne
+	 *  s'ouvre pas en anomalie.
+	 *
+	 *  AUCUNE BORNE DE LONGUEUR — même décision que `Objet.description_joueur` et
+	 *  que les deux proses d'un `Indice` (KR-203) : aucune ligne dans
+	 *  `BUDGETS_DE_MOTS`. Le jour où une borne se pose, elle vaut pour la famille
+	 *  entière, jamais pour un seul de ces champs.
+	 *  Exemple : « Le sceau se referme derrière toi ; Val-Cendre s'efface dans la
+	 *  brume, pour toujours. » */
+	texte?: string
 }
 
 /**
