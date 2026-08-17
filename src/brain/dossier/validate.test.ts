@@ -22,6 +22,7 @@ import {
 	FAMILLES_DE_CONDITIONS,
 	INTENSITES,
 	LISTES_A_ELEMENTS_STRUCTURES,
+	LISTES_OPTIONNELLES_TEXTUELLES,
 	REFERENCES_SIMPLES,
 	VALEURS_DE_CARACTERISTIQUE,
 	VALEURS_DE_CURSEUR,
@@ -1752,6 +1753,136 @@ describe('validateDossier', () => {
 		})
 	}
 
+	/**
+	 * LE TROISIÈME TROU refermé par l'itération 1 de la n° 6, et il n'est ni celui de
+	 * BUG-050 (l'élément), ni celui du § 5 (la valeur non textuelle d'une référence) :
+	 * c'est le CONTENEUR. `sitesDe` abandonne un segment `[]` dont la valeur n'est pas
+	 * un tableau — ce qui le rend total sur un document non fiable —, si bien qu'un
+	 * `mene_a: "indice.x"` sortait `ok: true`, RÉSOLUTION COMPRISE, puis faisait LEVER
+	 * le panneau qui le parcourt.
+	 *
+	 * Un poseur par ligne, l'exhaustivité assertée : une liste ajoutée à la table sans
+	 * son poseur se NOMME ici, elle ne disparaît pas du diff. Même dispositif que
+	 * `POSEURS_DE_LISTE` juste au-dessus.
+	 */
+	const POSEURS_DE_LISTE_TEXTUELLE: Record<string, (doc: Doc, valeur: unknown) => void> = {
+		'monde.indices[].mene_a': (doc, valeur) => {
+			arr(obj(doc.monde).indices)[0].mene_a = valeur
+		},
+		'monde.personnages[].caractere.parler': (doc, valeur) => {
+			caractere(doc).parler = valeur
+		},
+	}
+
+	it('les listes optionnelles textuelles ont toutes leur poseur, aucune de plus', () => {
+		expect(Object.keys(POSEURS_DE_LISTE_TEXTUELLE).sort()).toEqual(
+			LISTES_OPTIONNELLES_TEXTUELLES.map((l) => l.path).sort(),
+		)
+		// Discriminant : la table n'est pas vide, sans quoi la boucle ci-dessous ne
+		// mesurerait rien. DEUX lignes dès le premier jour — c'est ce qui la sépare
+		// d'une abstraction à un seul appelant.
+		expect(LISTES_OPTIONNELLES_TEXTUELLES.length).toBeGreaterThan(1)
+	})
+
+	for (const liste of LISTES_OPTIONNELLES_TEXTUELLES) {
+		it(`${liste.path} non-tableau ne plante pas : anomalie typee, jamais un throw`, () => {
+			const doc = fixture()
+			POSEURS_DE_LISTE_TEXTUELLE[liste.path](doc, 'du texte a la place')
+
+			// LA PROPRIÉTÉ D'ABORD : le validateur est TOTAL, il rend un rapport, il ne
+			// lève pas. C'est ce qui sépare une frontière de confiance d'un `try/catch`
+			// posé à l'écran.
+			const resultat = validateDossier(doc)
+			const anomalie = resultat.errors.find((e) => e.code === 'liste-non-textuelle')
+
+			expect(resultat.ok).toBe(false)
+			expect(`${liste.path} → ${anomalie?.path ?? 'aucune anomalie'}`).not.toBe(`${liste.path} → aucune anomalie`)
+			expect(anomalie?.message).toContain(`« ${feuilleDe(liste.path)} »`)
+			expect(anomalie?.message).toContain('du texte a la place')
+			// Le OÙ nomme l'ENTITÉ PORTEUSE, jamais le repli de la table.
+			expect(anomalie?.location).not.toBe(liste.location)
+			expect(dossierIssueRemediation(anomalie as DossierIssue)).toContain(`« ${feuilleDe(liste.path)} »`)
+			for (const fuite of FUITES_TECHNIQUES) {
+				expect(anomalie?.message.toLowerCase()).not.toContain(fuite)
+			}
+		})
+
+		it(`${liste.path} ABSENTE ou VIDE reste calme`, () => {
+			// Discriminant, et c'est la moitié qui fait de la règle une règle plutôt qu'un
+			// refus : ces listes sont OPTIONNELLES (« absent ≠ vide »), et une liste VIDE
+			// est un état légitime — un indice qui ne mène nulle part est une feuille de
+			// l'enquête, pas une anomalie.
+			for (const valeur of [undefined, []]) {
+				const doc = fixture()
+				POSEURS_DE_LISTE_TEXTUELLE[liste.path](doc, valeur)
+
+				expect(`${liste.path} = ${JSON.stringify(valeur) ?? 'absent'} → ${validateDossier(doc).ok}`).toBe(
+					`${liste.path} = ${JSON.stringify(valeur) ?? 'absent'} → true`,
+				)
+			}
+		})
+	}
+
+	it('le dossier de reference (4 indices) reste accepte SANS REGRESSION quand un seul mene_a y est corrompu, et SEULE cette anomalie remonte', () => {
+		// CRITÈRE #8 DU PLAN D'IT1 DE LA N° 6, MÊME FORME que ceux d'it4 et d'it5 de la
+		// n° 4 et pour la même raison (BUG-072) : les deux moitiés — « les indices déjà
+		// persistés, et les `savoirs[].indice_id`/`apres_indice_id` qui les référencent,
+		// restent acceptés sans régression » et « une référence fautive est refusée » —
+		// ne valent que prouvées ENSEMBLE, sur le MÊME document et dans le MÊME résultat.
+		// Prouvées séparément, une régression qui n'apparaîtrait qu'à la 4e entité d'une
+		// liste, ou qu'en présence des six personnages, passerait les deux tests.
+		//
+		// LE DOCUMENT EST CELUI D'UNE AVENTURE RÉELLE, et c'est ce qui compte ici : le
+		// premier indice porte DEUX cibles, trois personnages le référencent par
+		// `indice_id`, et un quatrième par `apres_indice_id`.
+		const doc = JSON.parse(fs.readFileSync(CHEMIN_REFERENCE, 'utf8')) as Doc
+		const premier = arr(obj(doc.monde).indices)[0]
+		expect(premier.nom).toBe('Des pas frais dans la cendre')
+		expect(premier.mene_a).toHaveLength(2)
+		;(premier.mene_a as string[])[1] = 'indice.nulle-part'
+
+		const resultat = validateDossier(doc)
+
+		expect(resultat.ok).toBe(false)
+		// SEULE l'anomalie attendue, et au BON RANG : ni la première cible, qui résout,
+		// ni les trois autres indices, ni les six personnages qui les référencent n'ont
+		// régressé du fait de cette corruption. Le message d'échec NOMME le chemin et le
+		// OÙ, il ne les compte pas.
+		expect(resultat.errors.map((e) => `${e.code} → ${e.path} — ${e.location}`)).toEqual([
+			'reference-pendante → monde.indices[0].mene_a[1] — Indice « Des pas frais dans la cendre »',
+		])
+		expect(resultat.warnings).toEqual([])
+
+		// Discriminant : le MÊME document, intact, ne produit RIEN. Sans cette ligne, un
+		// dossier de référence devenu invalide pour une tout autre raison satisferait
+		// l'assertion ci-dessus par accident.
+		const intact = validateDossier(JSON.parse(fs.readFileSync(CHEMIN_REFERENCE, 'utf8')))
+
+		expect(intact.errors).toEqual([])
+		expect(intact.warnings).toEqual([])
+		expect(intact.ok).toBe(true)
+	})
+
+	it('liste-non-textuelle ne double JAMAIS une autre anomalie sur la meme cause', () => {
+		// KR-164 — un code par CAUSE, jamais deux anomalies pour un seul défaut. Un
+		// `mene_a` non-tableau est UNE cause : le conteneur. La résolution du § 5, elle,
+		// se tait — `sitesDe` n'a produit aucun site sous le segment `[]`. Sans cette
+		// assertion, on pourrait fermer le trou en empilant `element-non-objet` ou
+		// `identifiant-invalide` par-dessus, et le rapport deviendrait du bruit.
+		const doc = fixture()
+		arr(obj(doc.monde).indices)[0].mene_a = 'indice.sceau-brise'
+
+		const resultat = validateDossier(doc)
+
+		expect(resultat.errors.map((e) => `${e.code} → ${e.path}`)).toEqual([
+			'liste-non-textuelle → monde.indices[0].mene_a',
+		])
+		expect(resultat.errors[0].location).toBe('Indice « Des cendres encore tièdes »')
+		expect(resultat.errors[0].message).toBe(
+			'Le champ « mene_a » attend une liste de textes ; il contient « indice.sceau-brise ».',
+		)
+	})
+
 	it('le dossier de reference (6 personnages) reste accepte SANS REGRESSION quand une contre-mesure y est corrompue, et SEULE cette anomalie remonte', () => {
 		// Critere #8 du plan d iteration 4 : les deux moities du critere — « le
 		// dossier de reference reste accepte sans regression sur les champs hors lot »
@@ -2138,10 +2269,10 @@ describe('issues', () => {
 		return { code, severity: 'error', message: 'peu importe', location: 'Monde', path }
 	}
 
-	it('les dix-neuf codes sont prefixes et sans marqueur residuel', () => {
+	it('les vingt codes sont prefixes et sans marqueur residuel', () => {
 		const tous = Object.keys(DOSSIER_ISSUE_LABELS) as DossierIssueCode[]
 
-		expect(tous).toHaveLength(19)
+		expect(tous).toHaveLength(20)
 		for (const code of tous) {
 			const rendu = dossierIssueRemediation(anomalieDe(code, 'monde.personnages'))
 
@@ -2662,6 +2793,17 @@ describe('validateDossier, les references simples', () => {
 			chemin: 'monde.personnages[0].presence[0].lieu_id',
 			location: 'Personnage « Aldûr le Sage »',
 		},
+		// LA HUITIÈME, ET LA PREMIÈRE DONT LA FEUILLE EST UN ÉLÉMENT DE LISTE : le OÙ
+		// n'est plus le repli de la table mais l'INDICE porteur, `monde.indices` étant une
+		// collection identifiée — `sitesDe` le résout en traversant, sans qu'aucune ligne
+		// ait à le dire.
+		'monde.indices[].mene_a[]': {
+			poser: (doc, id) => {
+				arr(obj(doc.monde).indices)[0].mene_a = [id]
+			},
+			chemin: 'monde.indices[0].mene_a[0]',
+			location: 'Indice « Des cendres encore tièdes »',
+		},
 	}
 
 	it('depart.lieu_id reste signale quand monde.lieux est une racine ABSENTE', () => {
@@ -2812,6 +2954,174 @@ describe('validateDossier, les references simples', () => {
 		expect(
 			validateDossier(surLIndice).errors.find((e) => e.path === 'monde.personnages[0].savoirs[0].indice_id')?.message,
 		).toBe("Le champ « indice_id » pointe « indice.nulle-part », qui n'existe pas dans ce dossier.")
+	})
+
+	/** L'accès à la LISTE de références du premier indice — nommé une fois. */
+	const meneA = (doc: Doc): unknown[] => arr(obj(doc.monde).indices)[0].mene_a as unknown[]
+
+	it('mene_a orphelin isole au bon rang', () => {
+		// DISCRIMINANCE (KR-197/199/202), et elle est le cœur du test : `mene_a` est la
+		// PREMIÈRE référence du schéma dont la feuille est un ÉLÉMENT de liste, donc la
+		// première où l'on peut se tromper de RANG. Les deux moitiés sont dans le MÊME
+		// test — une cible qui résout ET une cible qui ne résout pas, dans la même liste
+		// — parce qu'un test qui ne poserait que l'orpheline resterait vert sur une
+		// boucle qui signalerait TOUS les éléments.
+		const doc = fixture()
+		meneA(doc).push('indice.nulle-part')
+
+		const resultat = validateDossier(doc)
+		const surLaListe = resultat.errors.filter((e) => e.path.startsWith('monde.indices[0].mene_a'))
+
+		expect(resultat.ok).toBe(false)
+		// UNE seule anomalie : l'élément valide ne rougit pas avec son voisin.
+		expect(surLaListe.map((e) => `${e.code} → ${e.path}`)).toEqual(['reference-pendante → monde.indices[0].mene_a[1]'])
+		expect(surLaListe[0].entityId).toBe('indice.nulle-part')
+		// Le OÙ est l'INDICE PORTEUR, résolu par son nom : c'est sur sa fiche que
+		// l'auteur doit aller corriger, jamais sur l'indice cible qui n'existe pas.
+		expect(surLaListe[0].location).toBe('Indice « Des cendres encore tièdes »')
+	})
+
+	it('mene_a message nomme le champ pas l indice', () => {
+		// Le correctif de `feuilleDe` vu depuis le message que l'auteur LIT : avec
+		// l'ancien motif `\[\d+\]$`, le chemin de TABLE `monde.indices[].mene_a[]` rendait
+		// « mene_a[] », et la consigne QUOI FAIRE aurait écrit « Corrigez « mene_a[] » ».
+		// Assertions de VALEUR EXACTE, jamais `toContain` (KR-174).
+		const doc = fixture()
+		meneA(doc)[0] = 'indice.nulle-part'
+
+		const pendante = validateDossier(doc).errors.find((e) => e.path === 'monde.indices[0].mene_a[0]')
+
+		expect(pendante?.message).toBe(
+			"Le champ « mene_a » pointe « indice.nulle-part », qui n'existe pas dans ce dossier.",
+		)
+		expect(dossierIssueRemediation(pendante as DossierIssue)).toBe(
+			"↪ Corrigez « mene_a » ou rétablissez l'élément correspondant.",
+		)
+		// Ni le crochet vide du chemin de table, ni le rang du chemin concret ne fuient
+		// dans la phrase.
+		expect(pendante?.message).not.toContain('[]')
+		expect(pendante?.message).not.toContain('[0]')
+	})
+
+	it('mene_a chaine vide est une anomalie, jamais une reference calme', () => {
+		// CORRIGE en revue de PR (dossier-registres it1) : l'exemption « chaîne vide =
+		// calme » a été écrite pour un champ SCALAIRE optionnel (`objectif_id`,
+		// `apres_indice_id` — non-régression couverte par le test « vides » ci-dessus)
+		// où `''` est ce qu'écrit un « aucun » de sélecteur. Appliquée telle quelle à
+		// un ÉLÉMENT DE LISTE (`mene_a[]`), elle aurait laissé passer `mene_a: ['']` :
+		// la PRÉSENCE même de l'élément signale une référence, une chaîne vide n'y est
+		// pas « pas de référence » mais une entrée corrompue — et `avecOrpheline()`
+		// (brain/utils) renvoie la liste d'options INCHANGÉE sur une valeur vide, donc
+		// un `<select value="">` y résoudrait au premier indice de la liste, à l'insu
+		// de l'auteur. `reference.path.endsWith('[]')` distingue les deux cas.
+		const doc = fixture()
+		meneA(doc)[0] = ''
+
+		const resultat = validateDossier(doc)
+		const surLElement = resultat.errors.find((e) => e.path === 'monde.indices[0].mene_a[0]')
+
+		expect(resultat.ok).toBe(false)
+		expect(surLElement?.code).toBe('identifiant-invalide')
+	})
+
+	it('mene_a auto-reference resout, jamais orpheline', () => {
+		// KR-194, épinglé au SSOT : un indice qui se pointe lui-même est LÉGAL, et la
+		// table ne porte aucune garde. C'est la moitié CONTRAT de l'arbitrage du
+		// raffinage — l'autre moitié (la self-exclusion de la ligne d'AJOUT) est une
+		// règle d'écran, et elle ne doit RIEN changer ici.
+		const doc = fixture()
+		meneA(doc)[0] = 'indice.cendres-tiedes'
+
+		const resultat = validateDossier(doc)
+
+		expect(resultat.errors.filter((e) => e.path.startsWith('monde.indices[0].mene_a'))).toEqual([])
+		expect(resultat.ok).toBe(true)
+	})
+
+	it('mene_a du MAUVAIS ESPACE est identifiant-invalide, jamais pendante', () => {
+		// Le cas est réaliste : la liste se remplit par un `Select` qui n'offre que des
+		// indices, mais un document écrit à la main peut y ranger n'importe quel
+		// identifiant — et `objet.clef-de-basalte` EXISTE, donc la seule résolution par
+		// appartenance l'aurait accepté. C'est ce que le champ `espace` de la ligne de
+		// table achète (BUG-052).
+		const doc = fixture()
+		meneA(doc)[0] = 'objet.clef-de-basalte'
+
+		const resultat = validateDossier(doc)
+		const anomalie = resultat.errors.find((e) => e.path === 'monde.indices[0].mene_a[0]')
+
+		expect(resultat.ok).toBe(false)
+		expect(anomalie?.code).toBe('identifiant-invalide')
+		expect(anomalie?.message).toContain('« Indice »')
+		expect(codes(resultat.errors)).not.toContain('reference-pendante')
+	})
+
+	it('objectif_id et apres_indice_id : la chaine VIDE reste calme, la NON-CHAINE devient bloquante', () => {
+		// RÉGRESSION du trou n° 1, sur les DEUX champs préexistants qui partageaient sa
+		// cause racine. Le § 5 de `validate.ts` rangeait toute valeur non textuelle avec
+		// l'ABSENCE (`typeof site.valeur !== 'string' → continue`) : un `objectif_id: 42`
+		// sortait `ok: true`, et le dossier gelé promettait une référence là où il y a un
+		// nombre. `mene_a[]` n'a fait que rendre le défaut plus fréquent.
+		//
+		// LE NOM DE CE TEST DIT LE CONTRAIRE DE CELUI DU § 7 DU PLAN D'ITÉRATION
+		// (« valeur non-string reste calme »), et c'est délibéré : le § 5 du même plan
+		// pose la borne exacte — « puis toute non-chaîne ⇒ anomalie
+		// identifiant-invalide. La chaîne vide reste calme » —, et c'est elle qui fait
+		// foi. Le libellé du § 7 décrivait l'ancien comportement.
+		//
+		// LES DEUX MOITIÉS SONT DANS LE MÊME TEST : sans la première, on prouverait
+		// qu'on refuse davantage sans prouver qu'on n'a rien cassé du chemin d'édition
+		// vivant ; sans la seconde, l'inverse.
+		const vides: ReadonlyArray<readonly [(doc: Doc) => void, string]> = [
+			[(doc) => (personnage(doc).objectif_id = ''), 'monde.personnages[0].objectif_id'],
+			[(doc) => (revele(doc).apres_indice_id = ''), 'monde.personnages[0].savoirs[0].revele_si.apres_indice_id'],
+		]
+
+		for (const [poser, chemin] of vides) {
+			const doc = fixture()
+			poser(doc)
+
+			const resultat = validateDossier(doc)
+
+			expect(`${chemin} vide → ${resultat.errors.filter((e) => e.path === chemin).length} anomalie(s)`).toBe(
+				`${chemin} vide → 0 anomalie(s)`,
+			)
+		}
+
+		const nonChaines: ReadonlyArray<readonly [(doc: Doc) => void, string]> = [
+			[(doc) => (personnage(doc).objectif_id = 42), 'monde.personnages[0].objectif_id'],
+			[(doc) => (revele(doc).apres_indice_id = 42), 'monde.personnages[0].savoirs[0].revele_si.apres_indice_id'],
+		]
+
+		for (const [poser, chemin] of nonChaines) {
+			const doc = fixture()
+			poser(doc)
+
+			const resultat = validateDossier(doc)
+			const anomalie = resultat.errors.find((e) => e.path === chemin)
+
+			expect(`${chemin} → ${anomalie?.code ?? 'aucune anomalie'}`).toBe(`${chemin} → identifiant-invalide`)
+			// La valeur fautive est DÉCRITE, jamais interpolée nue : sur un objet, la
+			// phrase dirait « [object Object] » (KR-164).
+			expect(anomalie?.message).toContain('« 42 »')
+			// Et `entityId` reste ABSENT : il ne porte que des identifiants, jamais un
+			// nombre coercé en chaîne.
+			expect(anomalie).not.toHaveProperty('entityId')
+			for (const fuite of FUITES_TECHNIQUES) {
+				expect(anomalie?.message.toLowerCase()).not.toContain(fuite)
+			}
+		}
+
+		// DISCRIMINANT du dernier point : une valeur STRUCTURÉE ne fait pas fuir sa
+		// sérialisation dans une phrase française.
+		const objetALaPlace = fixture()
+		personnage(objetALaPlace).objectif_id = { id: 'objectif.refermer-le-sceau' }
+
+		const surObjet = validateDossier(objetALaPlace).errors.find((e) => e.path === 'monde.personnages[0].objectif_id')
+
+		expect(surObjet?.code).toBe('identifiant-invalide')
+		expect(surObjet?.message).toContain('« un objet »')
+		expect(surObjet?.message).not.toContain('[object Object]')
 	})
 })
 

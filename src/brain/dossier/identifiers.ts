@@ -202,13 +202,22 @@ export function decrireValeur(valeur: unknown): string {
  * `monstre_ref`, `charpente.jalons[0]` donne `jalons`. Sans cela, la consigne
  * « Corrigez « {champ} » » nommerait un rang plutôt qu'un champ.
  *
+ * ⚠ L'INDICE EST FACULTATIF DANS LE MOTIF (`\d*` et non `\d+`), et ce n'est pas une
+ * généralisation gratuite : les deux formes de chemin traversent cette fonction. Le
+ * validateur l'appelle sur le chemin de TABLE (`monde.indices[].mene_a[]`, indices
+ * EFFACÉS) autant que sur le chemin CONCRET d'une anomalie
+ * (`monde.indices[0].mene_a[1]`). Avec `\d+`, la première forme rendait
+ * « mene_a[] » — un chemin donné à lire là où l'auteur attend un nom de champ, et le
+ * défaut ne pouvait pas se voir avant que le schéma ne porte sa première liste de
+ * références (itération 1 de la n° 6).
+ *
  * Elle vit ICI, dans le module bas, et non dans le validateur : `issues.ts` en a
  * besoin, et `validate.ts` importe déjà `issues.ts` — l'y laisser serait un cycle.
  */
 export function feuilleDe(path: string): string {
 	const dernier = path.lastIndexOf('.')
 	const feuille = dernier === -1 ? path : path.slice(dernier + 1)
-	return feuille.replace(/\[\d+\]$/, '')
+	return feuille.replace(/\[\d*\]$/, '')
 }
 
 /** Descend un chemin pointé dans une valeur non fiable, sans jamais lever. */

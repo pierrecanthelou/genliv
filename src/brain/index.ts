@@ -285,6 +285,16 @@ export type {
 	// feature a besoin des deux : `Entite` pour ce qu'elle LIT des registres voisins,
 	// `Objet` pour ce qu'elle ÉCRIT dans le sien.
 	Objet,
+	// LE TYPE DE L'ITÉRATION 1 DE LA N° 6, même motif que `Objet` juste au-dessus : le
+	// panneau des indices crée et écrit un indice par `DossierService.update()`.
+	// `PorteeIndice` sort AVEC lui et non pour lui-même — il est un membre de sa forme
+	// publique, et une feature qui doit l'annoter n'aurait aucun autre moyen de le
+	// NOMMER (précédent exact `PorteeContreMesure` avec `ContreMesure`). Le registre
+	// `PORTEES_INDICE` qui le porte, lui, reste dedans : `portee` n'est rendue par
+	// AUCUN écran de cette itération, donc l'exporter serait une affordance sans
+	// surface — même arbitrage que `PORTEES_CONTRE_MESURE`.
+	Indice,
+	PorteeIndice,
 	Resolution,
 	Evenement,
 	Quete,
@@ -348,6 +358,13 @@ export {
 } from './kinds'
 export { getNode, getEdge } from './utils/book'
 export { collectObjects, collectLineageObjects, findObject } from './utils/objects'
+// `avecOrpheline` sort à l'itération 1 de la n° 6, qui en est le SECOND appelant réel
+// (KR-110) : elle était privée à `dossier-fiches/components/BlocSavoirs.tsx`, et le
+// registre des indices en a besoin le jour même pour ses `mene_a[]`. Recopiée côté
+// feature, elle ferait diverger deux règles d'affichage de la même doctrine — une
+// référence orpheline reste SÉLECTIONNÉE et VISIBLE, jamais réécrite en silence
+// (KR-021). Même seuil que `localiserEntite`, `compterMots` et `frapperIdentifiant`.
+export { avecOrpheline } from './utils/references'
 export { deriveAutomaticEdges, deriveMonsterEdges } from './utils/automaticEdges'
 export {
 	exportBookForPlay,

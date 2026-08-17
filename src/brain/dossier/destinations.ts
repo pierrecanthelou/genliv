@@ -241,22 +241,22 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	// traverser le contexte à cet identifiant : c'est ce qui rend la ligne `ia`, et
 	// la valeur ne change pas.
 	//
-	// ⚠ CORRECTION (itération 6 de la n° 4) — la version précédente de ce commentaire
-	// décrivait la charge utile comme `{ indice_id, certitude, vérité }`. `vérité`
-	// N'EXISTE PAS dans le schéma 1 : `monde.indices[]` est une `Entite[]` (`id` +
-	// `nom` optionnel), et le champ qui porterait le CONTENU d'un indice appartient à
-	// la n° 6 `dossier-registres`, qui ne l'a pas encore écrit — trou nommé en
-	// `open_questions` de `dossier-fiches`. Un commentaire qui promet un champ
-	// inexistant est exactement ce qu'une table d'audiences ne peut pas se permettre :
-	// c'est ici que la n° 10 viendra lire ce qu'elle a le droit d'assembler.
+	// ⚠ CORRECTION (itération 6 de la n° 4, MISE À JOUR à l'itération 1 de la n° 6) —
+	// une version de ce commentaire décrivait la charge utile comme
+	// `{ indice_id, certitude, vérité }` alors que `vérité` N'EXISTAIT PAS : les
+	// `monde.indices[]` étaient des `Entite` nues (`id` + `nom` optionnel), et le champ
+	// qui porte le CONTENU d'un indice appartenait à la n° 6, qui ne l'avait pas encore
+	// écrit. ELLE L'A ÉCRIT : `monde.indices[].verite` est une ligne de cette table,
+	// plus bas, `ia` SOUS CONDITION D'ÉTAT. La promesse cesse donc d'être fausse — mais
+	// la clé s'écrit `verite`, sans accent, comme toute clé du document.
 	//
 	// CE QUI EST RÉELLEMENT PRÉVU, et reste à écrire en n° 12 : le savoir est
 	// RECOMPOSÉ PAR LE CODE avant injection — un RANG dans la liste des savoirs
-	// injectés, sa `certitude`, et le contenu de l'indice le jour où la n° 6 l'aura
-	// posé. Jamais le `nom` de l'indice, qui est `auteur` (KR-195). La sortie du
-	// modèle renvoie ces RANGS, que le code re-résout en identifiants : c'est ce
-	// va-et-vient — pas la clé écrite telle quelle — qui fait traverser cet
-	// identifiant.
+	// injectés, sa `certitude`, et le contenu de l'indice (`verite` quand le moteur l'a
+	// constaté acquis, `formulation_joueur` sinon). Jamais le `nom` de l'indice, qui
+	// est `auteur` (KR-195). La sortie du modèle renvoie ces RANGS, que le code
+	// re-résout en identifiants : c'est ce va-et-vient — pas la clé écrite telle
+	// quelle — qui fait traverser cet identifiant.
 	'monde.personnages[].savoirs[].indice_id': 'ia',
 	// Un « croit » est une information fausse : c'est précisément ce que le modèle
 	// doit savoir pour ne pas l'énoncer comme un fait.
@@ -408,6 +408,32 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	'monde.objets[].description_joueur': 'ia',
 	'monde.indices[].id': 'moteur',
 	'monde.indices[].nom': 'auteur',
+	// ── LES TROIS LIGNES D'UN INDICE (itération 1 de la n° 6) ─────────────────
+	// LA VÉRITÉ — `ia`, mais SOUS CONDITION D'ÉTAT, comme `plan_actions[].si_bloque`
+	// et `savoirs[].revele_comment` : elle n'entre dans le contexte d'un appel au
+	// modèle QUE lorsque le moteur a constaté cet indice ACQUIS (le carnet d'indices,
+	// n° 12 `moteur-acteurs`). Livrée d'avance, elle apprendrait au narrateur la
+	// solution de l'énigme avant que le joueur ait rien cherché — et il y conduirait,
+	// exactement comme un `declencheur_texte` injecté ferait provoquer l'embuscade.
+	// La table dit l'AUDIENCE ; le MOMENT est la charge de l'assembleur n° 10, qui
+	// trouvera la promesse écrite ici et au JSDoc du champ.
+	//
+	// `ia` ET NON `auteur`, et la question s'est posée : ce n'est pas une note de
+	// rédaction mais de la DONNÉE DE JEU — sans elle, un PNJ qui révèle un savoir n'a
+	// rien à révéler, et c'est tout l'objet du protocole de la n° 12.
+	'monde.indices[].verite': 'ia',
+	// CE QUE LE JOUEUR PERÇOIT — `ia` sans condition, même famille que
+	// `monde.objets[].description_joueur` et les trois proses d'un `Lieu` : le
+	// narrateur du Temps 2 doit la LIRE pour raconter ce que le héros remarque.
+	// Injectée, jamais émise verbatim — la seule prose lue mot pour mot reste
+	// `charpente.depart.texte_ouverture_joueur`, et c'est ce qui la rend `moteur`. Le
+	// suffixe `_joueur` désigne l'AUDIENCE, jamais le RÉGIME.
+	'monde.indices[].formulation_joueur': 'ia',
+	// LES ENCHAÎNEMENTS — `moteur`. Un identifiant est un HANDLE : le code résout, le
+	// modèle reçoit le CONTENU de l'indice débloqué sous l'audience de CET indice-là,
+	// jamais cette clé. Injectée, la liste apprendrait au narrateur la suite de
+	// l'enquête — il y mènerait le joueur au lieu de le laisser chercher.
+	'monde.indices[].mene_a[]': 'moteur',
 	'monde.quetes[].id': 'moteur',
 	'monde.quetes[].nom': 'auteur',
 	// Un delta est APPLIQUÉ par le moteur. Injecté, il apprendrait au modèle à

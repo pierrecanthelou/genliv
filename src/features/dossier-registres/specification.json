@@ -1,0 +1,172 @@
+{
+	"feature": "dossier-registres",
+	"created_at": "2026-08-17",
+	"status": "in-progress",
+	"design_reference": "docs/ROADMAP-BASCULE-IA.md §2 l.150/170 (intention, comité à 4 rôles) et §5 (trous à combler, corrigés par ce cadrage). docs/PLAN-BASCULE-IA.dc.html lignes 190-241 (schéma abrégé) et 546-553 (description des 4 sections) — RÉFÉRENCE PARTIELLEMENT PÉRIMÉE (CLAUDE.md : les .dc.html ne sont pas du code de production) : le graphe visuel évoqué en ligne 266 n'est PAS repris (tree-canvas hors périmètre, cadrage 2026-08-17, KR-204) ; conditions.contraintes (ligne 232-233) n'est PAS repris (état de session, pas une donnée du dossier auteur, KR-207) ; quetes[].lie_au_canon (ligne 219) est REJETÉ (forme sans consommateur, KR-206). La forme qui fait foi est src/brain/dossier/types.ts, telle qu'arbitrée par dossier-format et étendue par cette feature. Les 4 sections (indices, quêtes, événements, conditions — index 6/7/8/9 de src/brain/dossier/sections.ts) plus la section jalons-fins (index 10) sont aujourd'hui des états vides honnêtes rendus par PanneauSection.tsx (bascule-editeur) — cette feature les remplace un panneau à la fois, sans jamais importer directement bascule-editeur (KR-184).",
+	"plan": {
+		"goal": "Donner à l'auteur les cinq derniers écrans de registre de son dossier — indices (avec leurs enchaînements en liste textuelle), jalons & fins, quêtes, événements (liés à la trame ou libres), climat — de sorte que chaque identifiant déjà référencé ailleurs dans le schéma (indice_id des savoirs, condition_texte/declencheur_texte des fins/jalons) cesse d'être une référence orpheline, et que l'auteur puisse fermer la boucle de son aventure.",
+		"design_contract": {
+			"surface": "5 panneaux (indices, jalons-fins, quetes, evenements, conditions) remplacent l'état vide de bascule-editeur section par section, injection via App.tsx (prop panneaux de DossierEditorScreen), jamais d'import direct (KR-184). Motif commun : liste-à-gauche ListRow (réordonnancement composé par 2 IconButton Monter/Descendre, jamais une prop sur ListRow.tsx, précédent dossier-objets) + fiche-à-droite Card avec Field. Retrait : Modal + IssueList, jamais immédiat (précédent RetirerObjetDialog).",
+			"references_croisees": "Select + avecOrpheline() + localiserEntite() pour toute référence (donneur_id, mene_a[], monstre_ref) — précédent BlocSavoirs.tsx/BlocRelations.tsx (dossier-fiches). JAMAIS TargetPicker (lié à BookNode, modèle condamné). avecOrpheline() est promue en it1 vers brain/utils/references.ts (KR-110) : les itérations suivantes la consomment depuis là, jamais recopiée.",
+			"editeur_effets": "Un seul composant EditeurEffets, local à dossier-registres/components/ (KR-109, pas promu brain/ avant 2e appelant extérieur), né en itération 3 (Quêtes, recompense: Delta[]), réutilisé sans fork par l'itération 4 (Événements, resolutions[].consequence). Climat (it5) n'en a pas besoin : aucune opération Delta à opérande entier n'existe pour effets_regles (KR-208), donc pas d'éditeur dédié dans cette feature.",
+			"graphe_hors_perimetre": "indices[].mene_a se rend en LISTE TEXTUELLE d'identifiants (ListRow/localiserEntite), jamais un canevas. Le repointage visuel de tree-canvas sur le graphe de relations+indices (roadmap §1bis) est HORS PÉRIMÈTRE TOTAL de cette feature — veto tech-lead confirmé unanimement (KR-204).",
+			"lie_a_histoire": "Événements : SegmentedControl en tête de liste, deux onglets « LIÉS À LA TRAME » / « LIBRES », pilote lie_a_histoire (filtre de liste, pas un chip par ligne). Jamais le mot « canon » côté Événements.",
+			"d1_jalons_fins": "Garde D1 (declencheur_texte/condition_texte sans son jumeau _expr) rendue par lecture DÉRIVÉE (useMemo sur validateDossier(dossier).warnings), région role=\"status\" distincte de tout bandeau de refus (précédent dossier-canon it3, dossier-fiches it4 ; code-knowledge.json risk l.557 nommait déjà cette feature comme porteuse attendue pour jalons/fins/evenements).",
+			"composants": "Réutilisés tels quels : Field, ListRow, Card, IconButton, Badge, Modal, IssueList, Select, SegmentedControl, Toggle. Un seul composant neuf hors EditeurEffets : aucun — tous les autres motifs ont un précédent direct.",
+			"textes": "Placeholders proposés (UX, tour 1) : Quêtes — titre \"La dette du forgeron\", vide \"Aucune quête — cliquez « + Ajouter une quête… » pour commencer.\" ; Indices — verite \"Le sceau a été brisé par le gardien lui-même, vingt ans plus tôt.\", formulation_joueur \"Une odeur de cendre froide, là où elle ne devrait pas être.\" ; Événements — declencheur_texte \"Le joueur revient à Val-Cendre après la tempête.\" ; Climat — libellé \"Tempête de cendres\". Chaque section reprend le motif vide « Aucun·e X — cliquez « + Ajouter... » pour commencer. »"
+		},
+		"acceptance_criteria": [
+			"Étant donné le dossier de référence, quand chaque itération de dossier-registres est livrée, alors les entités déjà persistées restent acceptées par validateDossier sans régression de leurs champs hors du lot en cours (non-régression nommée, précédent dossier-objets critère 6).",
+			"Étant donné un indice A dont mene_a[] référence un indice B, quand l'auteur consulte la fiche de A, alors le chaînage A→B s'affiche en LISTE TEXTUELLE d'identifiants — jamais un rendu canevas (KR-204). CORRIGÉ (raffinage it1, QA) : la version d'origine ancrait ce critère sur savoirs[].indice_id/apres_indice_id (référence personnage→indice), un sens opposé à mene_a[] (référence indice→indice) — aucun test unique ne pouvait prouver les deux à la fois.",
+			"Étant donné un indice référencé par savoirs[].indice_id ou savoirs[].revele_si.apres_indice_id d'un personnage, quand Indice reçoit sa forme complète (it1), alors ces références restent résolues par REFERENCES_SIMPLES sans régression — le namespace indice.<id> existait déjà (dossier-fiches it6) sans porteur de forme (AJOUTÉ raffinage it1, QA).",
+			"Étant donné un jalon ou une fin dont declencheur_texte/condition_texte est renseigné sans son jumeau _expr, quand la fiche se rend, alors un avertissement D1 est visible via une lecture DÉRIVÉE, jamais un état semé une fois (précédent dossier-canon it3/dossier-fiches it4).",
+			"Étant donné un événement lie_a_histoire: true et un second false, quand le panneau Événements se rend, alors le premier apparaît dans « Liés à la trame » et jamais dans « Libres », et réciproquement (discriminance à deux entités, KR-197/199/202).",
+			"Étant donné une quête, quand l'auteur lui ajoute une récompense via EditeurEffets, alors la ligne est persistée comme entrée de Delta[], et le même composant est réutilisé sans fork par Événements — critère d'architecture, prouvé par l'absence d'un second composant équivalent dans le lot Événements.",
+			"Étant donné un climat, quand l'auteur lui donne un libellé et une durée, alors ces deux champs sont persistés ; effets_regles reste un Delta[] éditable via les opérations existantes, sans nouvelle opération à opérande entier (KR-208).",
+			"Étant donné le nouveau code, quand npm run lint et tsc --noEmit tournent, alors zéro erreur : aucun import direct entre dossier-registres et bascule-editeur (KR-184), aucune couleur en dur, et aucun fichier de dossier-canon ou tree-canvas dans la liste de fichiers d'un lot de cette feature (KR-205/KR-204).",
+			"Étant donné les 5 itérations strictement sérielles (un seul lot contrat par itération, KR-210), quand une itération est raffinée, alors son lot contrat ne partage aucun fichier brain/dossier/* en cours d'écriture avec une itération non encore livrée."
+		],
+		"brain_contracts": [
+			{
+				"type": "type",
+				"name": "Indice extends Entite (brain/dossier/types.ts) — portee?, verite?, formulation_joueur?, mene_a?: string[] — monde.indices cesse d'être Entite[]. portee reste sur le type sans champ de formulaire en it1 (KR-206-like, résolu en raffinage it1, resolved_decisions)",
+				"direction": "provides"
+			},
+			{
+				"type": "registry",
+				"name": "PORTEES_INDICE / PorteeIndice — registre fermé distinct de PORTEES (personnage) et PORTEES_CONTRE_MESURE",
+				"direction": "provides"
+			},
+			{
+				"type": "type",
+				"name": "Fin extended — texte?: string (prose émise au joueur, consommateur futur n°15)",
+				"direction": "provides"
+			},
+			{
+				"type": "type",
+				"name": "Quete extended — donneur_id?, objectif?, etapes?: EtapeQuete[], echeance? — recompense: Delta[] inchangé",
+				"direction": "provides"
+			},
+			{
+				"type": "type",
+				"name": "EtapeQuete — { etape: number, libelle: string }, liste ordonnée de prose, sans declencheur_expr (D1 reste à six familles)",
+				"direction": "provides"
+			},
+			{
+				"type": "type",
+				"name": "Evenement extended — lie_a_histoire?: boolean, nature?: NatureEvenement",
+				"direction": "provides"
+			},
+			{
+				"type": "registry",
+				"name": "NATURES_EVENEMENT / NatureEvenement — registre fermé (monstre|scene|obstacle)",
+				"direction": "provides"
+			},
+			{
+				"type": "type",
+				"name": "Climat extended — duree?: string — effets_regles: Delta[] inchangé",
+				"direction": "provides"
+			},
+			{
+				"type": "component",
+				"name": "dossier-registres/components/EditeurEffets — composant local (KR-109), né en it3 Quêtes, réutilisé sans fork par it4 Événements",
+				"direction": "provides"
+			},
+			{
+				"type": "function",
+				"name": "brain/utils/references.ts — avecOrpheline(options, valeur, espace), promue en it1 depuis dossier-fiches/components/BlocSavoirs.tsx (KR-110)",
+				"direction": "provides"
+			},
+			{
+				"type": "service",
+				"name": "DossierService.update(id, recette): EcritureDossier — réutilisé sans changement de signature",
+				"direction": "consumes"
+			},
+			{ "type": "event", "name": "dossier:updated", "direction": "emits", "payload": { "dossierId": "string" } },
+			{
+				"type": "component",
+				"name": "brain/components/{Field, ListRow, Card, IconButton, Badge, Modal, IssueList, Select, SegmentedControl, Toggle}",
+				"direction": "consumes"
+			}
+		],
+		"walking_skeleton": "Itération 1 (Indices) est la tranche la plus fine : un indice se crée, porte une vérité, une formulation joueur, et peut être chaîné à d'autres indices via mene_a (liste textuelle, jamais un graphe visuel), remplaçant l'état vide de la section Indices. Les 4 itérations suivantes donnent leur forme aux registres restants (jalons & fins, quêtes, événements, climat), chacune une tranche de schéma distincte, jamais deux lots contrat dans la même itération (KR-210).",
+		"n": 5,
+		"iterations": [
+			{
+				"id": 1,
+				"goal": "Raffiné le 2026-08-17 (.claude/raffinage/dossier-registres-it1.plan.md, validé) : l'auteur tient le registre des indices de son aventure — nom interne, vérité (MJ), formulation lue par le joueur, réordonnancement, et un chaînage mene_a[] vers d'autres indices rendu en LISTE TEXTUELLE (jamais un canevas, KR-204). Indice.portee reste sur le type (validé au cadrage) mais N'A AUCUN CHAMP DE FORMULAIRE cette itération — aucun consommateur réel, même anti-patron que tier/lie_au_canon déjà écartés deux fois dans cette feature ; revient en bloc (type+écran) avec son consommateur (candidat n°7). Auto-référence dans mene_a : exclue de la ligne d'ajout, tolérée et résolue si déjà persistée (précédent BlocSavoirs.tsx:435-450, apres_indice_id). 2 lots séquentiels : contrat (Indice.{verite,formulation_joueur,mene_a}, 3 corrections de validation sur mene_a — première liste de références du schéma — promotion d'avecOrpheline() vers brain/utils/references.ts, KR-110) puis écran (PanneauIndices.tsx, FicheIndice.tsx, câblage App.tsx). Retrait d'un indice hors périmètre (aucune itération de la feature ne le porte, voir open_questions). Livré le 2026-08-17 : 8/8 critères VÉRIFIÉS en QA mode B, 77 suites / 1113 tests verts — .claude/raffinage/dossier-registres-it1.revue.md.",
+				"status": "done"
+			},
+			{
+				"id": 2,
+				"goal": "L'auteur tient les jalons et les fins de son aventure — la dernière trace de l'ancien arbre de choix — avec le texte que le moteur émettra au joueur quand une fin est atteinte (Fin.texte, consommateur futur n°15), et l'avertissement D1 déjà connu (déclencheur sans expression) rendu visible sur chaque fiche (KR-211, deux tests nommés).",
+				"status": "planned"
+			},
+			{
+				"id": 3,
+				"goal": "L'auteur tient le registre de ses quêtes secondaires — donneur, objectif, étapes, échéance — et gagne son premier éditeur de récompense (EditeurEffets, composant né ici et réutilisé sans fork par les itérations suivantes).",
+				"status": "planned"
+			},
+			{
+				"id": 4,
+				"goal": "L'auteur tient ses deux listes d'événements séparées par l'interrupteur « lié à la trame » / « libres », chacun pouvant s'adosser au bestiaire existant (monstre_ref, déjà câblé) et porter ses propres résolutions via l'éditeur de récompense hérité de l'itération Quêtes.",
+				"status": "planned"
+			},
+			{
+				"id": 5,
+				"goal": "L'auteur tient le registre des climats de son aventure — un libellé, une durée — refermant la dernière racine du dossier ; ses effets de règles restent un Delta[] inchangé, sans nouvelle opération à opérande entier (KR-208).",
+				"status": "planned"
+			}
+		],
+		"known_risks": [
+			"KR-204 : le graphe visuel des indices (repointage de tree-canvas sur les relations+accès+indices, roadmap §1bis/§2 l.170) est HORS PÉRIMÈTRE TOTAL de dossier-registres — veto tech-lead confirmé unanimement au tour 2 du cadrage : tree-canvas est câblé sur BookNode/Edge condamnés, sa démolition physique est déjà planifiée en n°9, demontageArbre.test.ts (possédé par bascule-editeur) verrouille sa non-atteignabilité, et aucun instrument du dépôt ne couvre pan/zoom/layout (specs navigateur différées). indices[].mene_a est livré comme DONNÉE + repli textuel uniquement. Le repointage visuel, si un jour repris, est un chantier à part, non planifié.",
+			"KR-205 : lieux[].acces (KR-200, ouvert par dossier-objets) reste HORS PÉRIMÈTRE de dossier-registres — son écran vivrait dans PanneauLieux.tsx/FicheLieu.tsx, possédés par dossier-canon (déjà done) ; un lot de n°6 qui les toucherait violerait la propriété exclusive de fichier. Propriétaire recommandé mais NON MANDATÉ par ce cadrage : une itération 5 de dossier-canon.",
+			"KR-206 : Quete.lie_au_canon est REJETÉ (forme sans consommateur, dérivable — même anti-patron que tier/objet-de-scénario, dossier-objets it1). Evenement.nature reste au schéma mais son cas 'monstre' (dérivable de monstre_ref) est REPORTÉ au raffinage de l'itération 4 pour trancher forme vs dérivation.",
+			"KR-207 : conditions.contraintes (plan-cible : faim/froid/poursuite) N'EST PAS un champ du dossier — ce sont des états de SESSION (bandeau d'horloge, plan-cible §2.7), propriété éventuelle de n°9 moteur-dossier. Ne pas confondre avec monde.conditions.climat[], seule famille de Conditions après cette feature.",
+			"KR-208 : Climat.effets_regles reste Delta[] inchangé, SANS éditeur d'opérande entier dans cette feature — DELTAS n'admet aujourd'hui aucune opération numérique (« effets chiffrés sur les règles » du plan-cible n'est pas atteignable avec le registre actuel). Ouvrir un DeltaModificateur exige docs/REGLES-DU-JEU.md → table dorée → code (KR-130) ; propriétaire recommandé n°11/n°13.",
+			"KR-209 : la récompense en XP (Quete.recompense visant xp, plan-cible l.218) reste hors périmètre — aucune entrée DELTAS ne porte d'opérande entier, et ΔT (roadmap §5) est encore à définir par n°11.",
+			"KR-210 : comme dossier-fiches (KR-190), chaque itération de cette feature ouvre un lot contrat distinct sur les mêmes fichiers (types.ts, tables.ts, destinations.ts, validate.ts, 2 fixtures, couverture.test.ts, brain/index.ts) — deux lots contrat ne coexistent jamais dans la même itération ; les 5 itérations sont strictement sérielles.",
+			"KR-211 : l'itération 2 (jalons & fins) n'entre au découpage qu'accompagnée de DEUX tests nommés (condition posée par QA, tour 2) : (a) couverture.test.ts étend sa table aux Delta[] de jalons/fins, au même rang que récompense/effets déjà couverts pour quêtes/événements ; (b) garde D1 en région role=\"status\" distincte du bandeau de refus, assertion via getAllByRole('status'), discriminance sur deux entités distinctes (un jalon/une fin conforme, un non conforme — motif KR-197/199/202). Précédent : code-knowledge.json risk l.557 nommait déjà dossier-registres n6 comme porteuse attendue de ce motif pour jalons/fins/evenements.",
+			"KR-212 (raffinage it1) : mene_a[] est la PREMIÈRE liste de références du schéma (les autres champs REFERENCES_SIMPLES sont des scalaires) — trois trous de validation trouvés à la lecture du code, corrigés dans le lot contrat d'it1 : (a) validate.ts, une valeur non-string dans une liste de références passait en silence (trou préexistant partagé avec objectif_id/apres_indice_id) ; (b) identifiers.ts, le message d'erreur affichait le nom de champ mal formaté (mene_a[] au lieu de mene_a) ; (c) sitesDe plantait sur une valeur non-tableau à ce chemin (même trou que caractere.parler) — fermé par un registre générique LISTES_OPTIONNELLES_TEXTUELLES couvrant les deux champs par la même cause. Tout futur champ xxx[] de type REFERENCES_SIMPLES doit vérifier que ces trois gardes le couvrent.",
+			"KR-213 (raffinage it1) : l'auto-référence dans une liste de références authored (mene_a[] pointant sur son propre indice) suit un patron à DEUX moitiés distinctes, précédent BlocSavoirs.tsx:435-450 (apres_indice_id) : exclue des options au moment où l'auteur AJOUTE un lien (empêche la création), mais TOLÉRÉE ET RÉSOLUE (jamais marquée orpheline) si elle existe déjà dans le document (import, ou donnée antérieure). Une exclusion appliquée aux DEUX moitiés (options ET résolution) produit un faux orphelin — piège vérifié en raffinage."
+		]
+	},
+	"implementation": {
+		"iterations_log": [
+			{
+				"id": 1,
+				"label": "iteration-1",
+				"completed_at": "2026-08-17",
+				"architecture_choices": [
+					"avecOrpheline() promue de dossier-fiches/components/BlocSavoirs.tsx (privee) vers brain/utils/references.ts (2 appelants reels des ce lot) - KR-110.",
+					"3 trous de validation preexistants fermes sur la premiere liste de references du schema (mene_a[]) : valeur non-string silencieuse, message d'erreur mal formate, valeur non-tableau plantant sitesDe - fermes par un registre generique LISTES_OPTIONNELLES_TEXTUELLES couvrant aussi caractere.parler par la meme cause (KR-212).",
+					"Auto-reference dans mene_a[] : exclue des options a l'AJOUT (regle d'ecran), tolere et resout une auto-reference DEJA PERSISTEE (SSOT + lignes existantes) - deux moities distinctes, precedent BlocSavoirs.tsx:435-450 (apres_indice_id). Une exclusion appliquee aux deux moities produirait un faux orphelin (KR-213).",
+					"Indice.portee reste pose sur le type (contrat de cadrage) mais SANS champ de formulaire cette iteration - arbitrage orchestrateur contre une proposition tech-lead tour 2 (destination='auteur' suffirait) : energie fermee a usage instrumental, plus proche de tier (KR-192) que de but.echeance."
+				],
+				"deviations_from_plan": [
+					"Libelle IconButton retrait de lien mene_a compose depuis localiserEntite() (deja mandatee pour cette section) plutot qu'une forme nue - aucun critere n'en dependait, confirme coherent en QA mode B.",
+					"Deux dispenses LIBRES devenues mortes dans couverture.test.ts (objectif_id, revele_si.apres_indice_id) retirees en consequence mesuree du correctif du trou de validation n1 - precedent BUG-044 (auto-nettoyage)."
+				],
+				"test_coverage": {
+					"unit": "77 suites / 1113 tests verts (dont 21 tests de contrat brain/dossier et 17 tests composant dossier-registres neufs) ; savoirs.test.tsx (regression extraction avecOrpheline) 16/16 inchanges",
+					"e2e": "sans objet (aucun harnais E2E dans ce depot)"
+				},
+				"revue": ".claude/raffinage/dossier-registres-it1.revue.md"
+			}
+		],
+		"resolved_decisions": [
+			"RETENU (raffinage it1, tech-lead) — avecOrpheline() (jusque-là privée à dossier-fiches/components/BlocSavoirs.tsx) promue vers brain/utils/references.ts, 2 appelants réels dès ce lot (KR-110).",
+			"REJETÉ (raffinage it1, arbitrage orchestrateur) — Indice.portee rendu dans FicheIndice.tsx dès it1 : veto PM (valeur nulle sans lecteur observable), confirmé par la convergence UX+QA au tour 2 contre la proposition tech-lead (destination='auteur' suffirait, précédent titre/but.echeance) — écartée par l'orchestrateur : ces précédents sont de la prose librement lisible par un humain, portee est une énumération fermée à usage purement instrumental, plus proche de tier (KR-192) que de but.echeance. Reste posé au type, sans champ de formulaire ; revient en bloc (type+écran) avec son consommateur.",
+			"RETENU (raffinage it1) — auto-référence dans mene_a[] : deux moitiés distinctes, voir KR-213.",
+			"RETENU (raffinage it1, tech-lead) — 3e trou de validation (mene_a non-tableau) fermé par une table générique LISTES_OPTIONNELLES_TEXTUELLES plutôt qu'accepté tel quel — voir KR-212.",
+			"RETENU (raffinage it1, tech-lead) — retrait (suppression) d'un indice hors périmètre d'it1 (engagerait Dangerous Actions, un lot de plus) ; aucune itération planifiée de la feature ne le porte — voir open_questions."
+		],
+		"open_questions": [
+			"OUVERT (hérité de dossier-objets, KR-200/KR-205) — propriétaire réel de lieux[].acces : ce cadrage confirme qu'il ne peut PAS être n°6 (fichiers possédés par dossier-canon, déjà done). Recommandation non mandatée : itération 5 de dossier-canon.",
+			"OUVERT — Evenement.nature==='monstre' est potentiellement dérivable de monstre_ref plutôt que stocké séparément (même anti-patron que lie_au_canon/tier) — à trancher au raffinage de l'itération 4, pas au cadrage.",
+			"OUVERT — le repointage visuel de tree-canvas (graphe de relations+accès+indices) n'a plus de feature porteuse après ce cadrage (il était supposé n°6 par le roadmap §1bis, désormais corrigé en « non assigné »). Nécessite : (a) que lieux[].acces trouve un propriétaire, (b) un instrument de test navigateur (aujourd'hui différé). Recommandation : cadrer une feature dédiée le jour où ces deux préalables sont levés, pas avant.",
+			"OUVERT (raffinage it1) — retrait (suppression) d'un indice/quête/événement/climat n'a aucune itération porteuse dans le plan actuel à 5 itérations de cette feature, contrairement à dossier-objets (une 2e itération entière consacrée au retrait). À trancher plus tard : une 6e itération de durcissement, ou le retrait plié dans une itération existante si son budget de lots le permet — pas avant qu'un besoin réel soit remonté.",
+			"OUVERT (raffinage it1) — Indice.portee (canon|quete) revient en bloc (type+écran) quand un consommateur réel existe : candidat naturel n°7 dossier-controles (règle de lint « Intrigue en second plan », plan-cible §1.6)."
+		]
+	}
+}

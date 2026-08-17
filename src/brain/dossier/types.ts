@@ -62,6 +62,11 @@
  * y pose `Objet` — une `Entite` plus UNE seule prose, `description_joueur`,
  * OPTIONNELLE et d'audience `ia`, SANS borne de longueur (KR-203). `monde.objets`
  * cesse d'être une liste d'`Entite` nues.
+ * La n° 6 `dossier-registres` ouvre enfin les CINQ derniers registres : son
+ * itération 1 pose `Indice` — DEUX proses (`verite`, `formulation_joueur`) et la
+ * PREMIÈRE LISTE DE RÉFÉRENCES du schéma (`mene_a[]`), toutes trois optionnelles.
+ * `monde.indices` cesse d'être une liste d'`Entite` nues, et la clé `verite` que
+ * `destinations.ts` promettait à tort depuis l'itération 6 de la n° 4 existe enfin.
  *
  * QUI LIT QUOI : ce fichier dit la FORME, il ne dit pas l'AUDIENCE. L'audience
  * de chaque champ terminal vit dans `destinations.ts`, sous le balayage de
@@ -954,6 +959,115 @@ export interface Objet extends Entite {
 	description_joueur?: string
 }
 
+/**
+ * CE QU'UN INDICE SERT : l'intrigue principale (`canon`) ou une quête secondaire
+ * (`quete`).
+ *
+ * QUATRIÈME REGISTRE À PORTER LE MOT « PORTÉE », et il ne fusionne avec aucun des
+ * trois autres : `PORTEES` dit la profondeur de SIMULATION d'un personnage
+ * (`premier`/`second`), `PORTEES_CONTRE_MESURE` ce qu'une RIPOSTE atteint
+ * (`personnage`/`groupe`/`lieu`), celui-ci ce à quoi un indice SE RATTACHE. Aucune
+ * valeur n'est commune aux trois listes, et c'est ce qui rend une confusion visible
+ * plutôt que silencieuse — mêmes précédents que `CAMPS_PERSONNAGE` face à `CAMPS`.
+ *
+ * ⚠ LES DEUX VALEURS VIENNENT DE `docs/PLAN-BASCULE-IA.dc.html` (ligne 221 :
+ * `"indices": [ { "id", "portee": "canon|quete", … } ]`), la référence de conception
+ * que `src/features/dossier-registres/specification.json` cite en `design_reference`.
+ * Sa ligne 582 les corrobore côté consommateur : la future règle de lint « Intrigue
+ * en second plan » (n° 7) parle d'« un indice de portée « canon » détenu uniquement
+ * par des personnages de second plan ». `docs/REGLES-DU-JEU.md` n'en dit RIEN, et
+ * c'est normal — ce n'est pas une mécanique de jeu, aucun jet n'en dépend, aucune
+ * table dorée ne la couvre (même statut que `PORTEES_CONTRE_MESURE`).
+ *
+ * ⚠ CE REGISTRE N'A AUCUN LECTEUR AUJOURD'HUI, ET C'EST NOMMÉ PLUTÔT QUE SUBI
+ * (arbitrage du raffinage d'it1, désaccord n° 2) : `portee` n'a AUCUN champ de
+ * formulaire dans `FicheIndice.tsx` cette itération, donc AUCUNE ligne dans
+ * `ENUMERES_FERMES`, AUCUNE ligne dans `DESTINATION_DES_CHAMPS`, et AUCUNE instance
+ * dans les deux fixtures. La conséquence est une LIMITE ASSUMÉE ET DATÉE : un
+ * `portee: "troisieme"` traverse `validateDossier` en silence, exactement comme
+ * n'importe quelle clé que le schéma 1 ne connaît pas. Le bloc revient ENTIER —
+ * ligne de table, ligne d'audience, instance de fixture, champ d'écran — le jour où
+ * un consommateur concret existe (candidat : n° 7 `dossier-controles`). Poser
+ * aujourd'hui la moitié validation sans la moitié écran ferait rougir la 4e
+ * assertion de `couverture.test.ts`, qui exige une instance de fixture par chemin de
+ * table.
+ */
+export const PORTEES_INDICE = ['canon', 'quete'] as const
+export type PorteeIndice = (typeof PORTEES_INDICE)[number]
+
+/**
+ * Un INDICE — ce que le héros peut apprendre, et ce que les personnages savent.
+ *
+ * Son `id` est un HANDLE que le schéma 1 référençait DÉJÀ depuis quatre portes,
+ * mesurées et non recopiées (KR-159) : un prédicat (`indice_connu`), un delta
+ * (`reveler_indice`) et DEUX références simples
+ * (`monde.personnages[].savoirs[].indice_id` et
+ * `…savoirs[].revele_si.apres_indice_id`). Le registre qui les résout existait donc
+ * avant d'avoir la moindre forme propre : jusqu'ici `monde.indices` portait des
+ * `Entite` NUES, id et nom seuls — et `destinations.ts` promettait au contexte de la
+ * n° 12 une « vérité » que le schéma n'avait pas.
+ *
+ * DEUX PROSES QUI SE DISCRIMINENT L'UNE L'AUTRE, et c'est le point de contrat :
+ * `verite` est ce qui EST VRAI (le MJ le sait, le joueur ne le lit jamais tel quel),
+ * `formulation_joueur` est ce que le joueur PERÇOIT. Deux proses `ia` sans
+ * discriminant seraient deux vérités concurrentes dans le même contexte de modèle —
+ * même arbitrage que les trois proses d'identité d'un `Personnage`.
+ *
+ * AUCUNE BORNE DE LONGUEUR sur ni l'une ni l'autre, et c'est la MÊME décision que
+ * pour `Objet.description_joueur` (KR-203) : les précédents comparables sont livrés
+ * sans borne et n'ont rien cassé, et en poser une ici exigerait une constante nommée,
+ * une branche dans `validate.ts` et un code d'anomalie neuf pour un champ dont aucun
+ * consommateur ne la réclame.
+ */
+export interface Indice extends Entite {
+	/** À quoi cet indice se rattache — voir `PORTEES_INDICE`. OPTIONNEL, et SANS
+	 *  aucun lecteur avant son consommateur (n° 7) : ni table de validation, ni ligne
+	 *  d'audience, ni champ d'écran. Le motif complet est à la docstring du registre. */
+	portee?: PorteeIndice
+	/** IA, SOUS CONDITION D'ÉTAT — CE QUI EST VRAI, y compris ce que le joueur
+	 *  ignore. C'est la moitié MJ de l'indice, et elle n'entre dans le contexte d'un
+	 *  appel au modèle QUE lorsque le moteur a constaté que cet indice est acquis (le
+	 *  « carnet d'indices » de la n° 12). Livrée d'avance, elle apprendrait au
+	 *  narrateur la solution de l'énigme avant que le joueur ait rien cherché — même
+	 *  dispositif que `plan_actions[].si_bloque` et `savoirs[].revele_comment` : la
+	 *  table dit l'AUDIENCE, le MOMENT est la charge de l'assembleur n° 10.
+	 *
+	 *  À NE PAS CONFONDRE AVEC `formulation_joueur` juste en dessous : celle-ci dit ce
+	 *  que le joueur PERÇOIT, celle-là ce que la perception SIGNIFIE. OPTIONNELLE —
+	 *  absent ≠ vide, un indice en cours de rédaction est un état calme.
+	 *  Exemple : « Le sceau a été brisé par le gardien lui-même, vingt ans plus tôt. » */
+	verite?: string
+	/** IA — CE QUE LE JOUEUR PERÇOIT de l'indice, sans l'interprétation qui va avec.
+	 *  Injectée, jamais émise verbatim : la seule prose que le joueur lit mot pour mot
+	 *  reste `charpente.depart.texte_ouverture_joueur`. Le suffixe `_joueur` nomme son
+	 *  AUDIENCE, jamais son RÉGIME — même piège que sur `Objet.description_joueur` et
+	 *  `Personnage.description_joueur`. OPTIONNELLE — absent ≠ vide.
+	 *  Exemple : « Une odeur de cendre froide, là où elle ne devrait pas être. » */
+	formulation_joueur?: string
+	/** MOTEUR — LES INDICES QUE CELUI-CI DÉBLOQUE une fois obtenu, dans l'ordre où le
+	 *  moteur les lira. Références vers `monde.indices[].id` : un identifiant est un
+	 *  HANDLE, résolu par le code, jamais injecté tel quel — même règle que
+	 *  `relations[].cible_id` et `charpente.depart.lieu_id`. Une référence orpheline
+	 *  est EXPOSÉE par `validateDossier`, jamais filtrée au rendu (KR-021).
+	 *
+	 *  PREMIÈRE LISTE DE RÉFÉRENCES DU SCHÉMA — les six autres références simples sont
+	 *  des champs SCALAIRES, et c'est ce qui fait de `monde.indices[].mene_a[]` la
+	 *  première ligne de `REFERENCES_SIMPLES` à porter DEUX suffixes `[]`. Elle est
+	 *  aussi la première entrée de `LISTES_OPTIONNELLES_TEXTUELLES` : la liste
+	 *  elle-même doit ÊTRE une liste quand elle est là, sans quoi le panneau qui la
+	 *  parcourt lèverait sur un document accepté.
+	 *
+	 *  L'AUTO-RÉFÉRENCE EST LÉGALE et ne porte AUCUNE garde ici (même doctrine que
+	 *  `Relation.cible_id`, KR-194) : un `mene_a` qui contient l'identifiant de son
+	 *  propre porteur RÉSOUT, et ne doit jamais s'afficher orphelin. La self-exclusion
+	 *  arbitrée au raffinage vit à l'ÉCRAN, sur la seule ligne d'AJOUT, et nulle part
+	 *  ailleurs — précédent exact `savoirs[].revele_si.apres_indice_id`.
+	 *
+	 *  OPTIONNELLE, et la LISTE VIDE est un état calme : un indice qui ne mène nulle
+	 *  part est une feuille de l'enquête, pas une anomalie. */
+	mene_a?: string[]
+}
+
 /** Une issue possible d'un événement, et ce qu'elle change. */
 export interface Resolution {
 	/** L'issue, en français — ce que le narrateur joue quand elle survient. */
@@ -1057,7 +1171,7 @@ export interface Monde {
 	personnages: Personnage[]
 	lieux: Lieu[]
 	objets: Objet[]
-	indices: Entite[]
+	indices: Indice[]
 	quetes: Quete[]
 	evenements: Evenement[]
 	conditions: Conditions

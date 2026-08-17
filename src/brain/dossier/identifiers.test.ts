@@ -100,6 +100,24 @@ describe('identifiers', () => {
 		expect(feuilleDe('id')).toBe('id')
 	})
 
+	it('feuilleDe retire aussi le crochet VIDE d un chemin de table', () => {
+		// LE CORRECTIF DE L'ITÉRATION 1 DE LA N° 6, et le défaut ne pouvait pas se voir
+		// avant elle : les deux formes de chemin traversent `feuilleDe` — la forme
+		// CONCRÈTE d'une anomalie (`…[0]`) et la forme de TABLE, indices EFFACÉS (`…[]`)
+		// —, mais aucune ligne de table ne finissait par `[]` tant que le schéma n'avait
+		// pas sa première LISTE de références. Avec `\d+`, la consigne QUOI FAIRE aurait
+		// écrit « Corrigez « mene_a[] » » : un chemin donné à lire là où l'auteur attend
+		// un nom de champ (KR-164).
+		expect(feuilleDe('monde.indices[].mene_a[]')).toBe('mene_a')
+		// Le chemin CONCRET de la même référence rend le MÊME nom de champ : c'est ce
+		// qui rend le message identique quel que soit le rang fautif.
+		expect(feuilleDe('monde.indices[0].mene_a[2]')).toBe('mene_a')
+		// Discriminants : le crochet n'est retiré qu'à la FIN, et un nom qui contient un
+		// crochet ailleurs n'est pas amputé.
+		expect(feuilleDe('monde.personnages[].savoirs[].indice_id')).toBe('indice_id')
+		expect(feuilleDe('monde.indices[]')).toBe('indices')
+	})
+
 	it('la forme accepte un prefixe connu suivi de minuscules chiffres et tirets', () => {
 		expect(FORME_IDENTIFIANT.test('lieu.val-cendre')).toBe(true)
 		expect(FORME_IDENTIFIANT.test('pnj.aldur-2')).toBe(true)

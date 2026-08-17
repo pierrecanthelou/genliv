@@ -12,6 +12,7 @@ import {
 	FAMILLES_DE_CONDITIONS,
 	LISTES_A_ELEMENTS_STRUCTURES,
 	LISTES_OPTIONNELLES_STRUCTUREES,
+	LISTES_OPTIONNELLES_TEXTUELLES,
 	LISTES_REQUISES,
 	RACINES,
 	REFERENCES_SIMPLES,
@@ -179,6 +180,7 @@ function cheminsDesTables(): ReadonlyArray<readonly [string, string]> {
 		...CHAMPS_ENTIERS.map((c) => ['CHAMPS_ENTIERS', c.path] as const),
 		...LISTES_REQUISES.map((l) => ['LISTES_REQUISES', l.path] as const),
 		...LISTES_OPTIONNELLES_STRUCTUREES.map((l) => ['LISTES_OPTIONNELLES_STRUCTUREES', l.path] as const),
+		...LISTES_OPTIONNELLES_TEXTUELLES.map((l) => ['LISTES_OPTIONNELLES_TEXTUELLES', l.path] as const),
 		...CHEMINS_DE_DELTAS.map((d) => ['CHEMINS_DE_DELTAS', d.path] as const),
 		...REFERENCES_SIMPLES.map((r) => ['REFERENCES_SIMPLES', r.path] as const),
 		...BUDGETS_DE_MOTS.map((b) => ['BUDGETS_DE_MOTS', b.path] as const),
@@ -245,15 +247,18 @@ const TEXTE_OPTIONNEL_LIBRE =
 	"jumeau prose OPTIONNEL d'une condition : son absence est calme par D1, et aucune règle du schéma 1 ne contraint sa forme quand il est présent. Même question ouverte que les dispenses « nom », propriétaire n° 2 bascule-editeur : une table « présent → doit être une chaîne », ou une garde à l'affichage."
 
 /**
- * Le motif partagé des proses d'entité — DOUZE aujourd'hui, remesuré et jamais
+ * Le motif partagé des proses d'entité — QUATORZE aujourd'hui, remesuré et jamais
  * recopié (KR-159) : les TROIS de `Lieu` (itération 4 de la n° 3), les TROIS
  * d'identité d'un `Personnage` (itération 2 de la n° 4), les DEUX proses libres
  * de son `but` (itération 4 de la n° 4 : `pourquoi` et `echeance` — `libelle`, lui,
  * est REQUIS dans son bloc, donc couvert par la corruption), la note d'auteur de
  * sa `presence[]` (itération 5 : `quand`), les DEUX lignes rouges de son
  * `caractere` (itération 8 : `jamais` et `cede_si` — `parler[]`, lui, porte son
- * propre motif, ses éléments étant des chaînes de LISTE et non une prose de champ)
- * et L'UNIQUE prose d'un `Objet` (itération 1 de la n° 5 : `description_joueur`).
+ * propre motif, ses éléments étant des chaînes de LISTE et non une prose de champ),
+ * L'UNIQUE prose d'un `Objet` (itération 1 de la n° 5 : `description_joueur`) et les
+ * DEUX d'un `Indice` (itération 1 de la n° 6 : `verite` et `formulation_joueur` —
+ * `mene_a[]`, lui, N'EST PAS ici, étant une RÉFÉRENCE dont la corruption est refusée
+ * par `REFERENCES_SIMPLES`, et une dispense à son nom serait morte).
  * Il
  * est DISTINCT de `TEXTE_OPTIONNEL_LIBRE`, et pas par style : celui-là dispense le
  * jumeau prose d'une CONDITION, dont l'absence est calme PAR D1 et dont la
@@ -308,23 +313,18 @@ const LIBRES: Record<string, string> = {
 	// forme gardée.
 	'monde.personnages[].plan_actions[].si_bloque':
 		"didascalie de sortie OPTIONNELLE : le contrôle isolé de l'itération 4 exige une `duree` quand elle est PRÉSENTE — un avertissement, pas un refus — et ne dit rien de sa forme. Même question ouverte que les dispenses « nom », propriétaire n° 2 bascule-editeur.",
-	// MOTIF RÉÉCRIT en itération 4 : l'ancien annonçait que la résolution arriverait
-	// et rendrait la dispense caduque. Elle est arrivée (`REFERENCES_SIMPLES`), et la
-	// dispense TIENT QUAND MÊME — parce que la corruption remplace la chaîne par un
-	// NOMBRE, et qu'une porte OPTIONNELLE présente mais non textuelle n'est arbitrée
-	// par aucune règle du schéma 1. Ce qui reste ouvert n'est donc pas la résolution
-	// mais la même question que les dispenses `nom` et `…_texte`.
-	'monde.personnages[].savoirs[].revele_si.apres_indice_id':
-		"porte OPTIONNELLE : sa résolution vers monde.indices est vivante depuis l'itération 4 (REFERENCES_SIMPLES), mais elle ne parle que d'une CHAÎNE — une valeur présente et non textuelle tombe sous la question ouverte déjà possédée par la n° 2, la même qui porte les dispenses « nom ».",
-	// MÊME MOTIF, MÊME FORME que la porte ci-dessus, et c'est ce qui le rend
-	// recevable : `objectif_id` est une RÉFÉRENCE SIMPLE résolue depuis l'itération 1
-	// de la n° 4, mais la boucle de `REFERENCES_SIMPLES` ne parle que d'une CHAÎNE
-	// (`typeof site.valeur !== 'string' → continue`), et la corruption remplace ici la
-	// chaîne par un NOMBRE. Une cible pendante, elle, EST bloquante — c'est le test
-	// nommé de `validate.test.ts`, pas cette dispense. Rien de neuf n'est arbitré :
-	// même question ouverte, même propriétaire.
-	'monde.personnages[].objectif_id':
-		"rattachement OPTIONNEL : sa résolution vers canon.objectifs est vivante (REFERENCES_SIMPLES), mais elle ne parle que d'une CHAÎNE — une valeur présente et non textuelle tombe sous la question ouverte déjà possédée par la n° 2, la même qui porte les dispenses « nom » et la porte apres_indice_id.",
+	// ⚠ DEUX DISPENSES ONT DISPARU D'ICI À L'ITÉRATION 1 DE LA N° 6, et leur
+	// disparition est le résultat le plus visible de son lot contrat — écrit plutôt
+	// que laissé au diff. `monde.personnages[].savoirs[].revele_si.apres_indice_id` et
+	// `monde.personnages[].objectif_id` étaient dispensés parce que la boucle de
+	// `REFERENCES_SIMPLES` se taisait sur TOUTE valeur non textuelle
+	// (`typeof site.valeur !== 'string' → continue`) : leur corruption chaîne → NOMBRE
+	// traversait `ok: true`. Cette boucle distingue désormais TROIS états — absent
+	// (calme), chaîne vide (calme), tout le reste (`identifiant-invalide`) —, donc les
+	// deux chemins sont COUVERTS PAR LA CORRUPTION. Deux dispenses laissées là
+	// auraient ABSORBÉ la perte de la règle qu'elles nomment, ce que le test
+	// d'auto-nettoyage (BUG-044) refuse. Leur non-régression est nommée dans
+	// `validate.test.ts`.
 	// Les TROIS proses d'identité (it2 de la n° 4) : même motif, mot pour mot, que
 	// les trois proses de `Lieu` — une prose d'entité sans jumeau structuré, dont la
 	// corruption remplace la chaîne par un NOMBRE. Une SECONDE constante au texte
@@ -376,6 +376,16 @@ const LIBRES: Record<string, string> = {
 	// POSITIF plutôt que par cette absence.
 	'monde.objets[].description_joueur': PROSE_D_ENTITE_LIBRE,
 	'monde.indices[].nom': NOM_LIBRE,
+	// LES DEUX PROSES D'UN INDICE (it1 de la n° 6), même motif mot pour mot que les
+	// douze précédentes : une prose d'entité sans jumeau structuré, dont la corruption
+	// remplace la chaîne par un NOMBRE, et qu'aucune règle du schéma 1 n'arbitre.
+	// `mene_a[]` n'a PAS de dispense, et c'est le point de contrat qui se voit le mieux
+	// à cet endroit : c'est une RÉFÉRENCE, donc sa corruption en nombre est REFUSÉE
+	// (`identifiant-invalide`) depuis le correctif de cette même itération — une
+	// dispense à son nom serait morte, et le test « une dispense nommant une feuille
+	// deja couverte est morte » le dirait.
+	'monde.indices[].verite': PROSE_D_ENTITE_LIBRE,
+	'monde.indices[].formulation_joueur': PROSE_D_ENTITE_LIBRE,
 	'monde.quetes[].nom': NOM_LIBRE,
 	'monde.evenements[].nom': NOM_LIBRE,
 	'monde.conditions.climat[].nom': NOM_LIBRE,
@@ -904,6 +914,64 @@ describe('couverture', () => {
 		// TOUT l'objet vers `ia` — c'est-à-dire sur la réouverture silencieuse de la
 		// question transverse que KR-195 laisse fermée jusqu'à l'assembleur n° 10.
 		expect(`monde.objets[].nom → ${DESTINATION_DES_CHAMPS['monde.objets[].nom']}`).toBe('monde.objets[].nom → auteur')
+	})
+
+	it('les TROIS champs d un indice portent leur destination exacte, dans les DEUX fixtures', () => {
+		// Même construction que ses sept aînées ci-dessus, et pour la même raison
+		// (KR-174, leçon de BUG-051) : « toute feuille a une destination » ne dit rien de
+		// la VALEUR, « aucune ligne morte » ne dit rien de l'audience. Nommées ensemble,
+		// les deux moitiés épinglent les arbitrages de l'itération :
+		//
+		//  · `verite` → `ia` et non `auteur` : c'est de la DONNÉE DE JEU, celle que le
+		//    protocole de révélation de la n° 12 fait traverser vers le modèle quand le
+		//    moteur a constaté l'indice acquis. La bascule que ce test doit faire rougir
+		//    est « la vérité est réservée au MJ, donc c'est une note de rédaction » — le
+		//    MJ, ici, c'est le modèle ;
+		//  · `mene_a[]` → `moteur` et non `ia`, CONTRE le voisinage de ses deux proses :
+		//    un identifiant est un handle, et la liste des indices débloqués est la SUITE
+		//    de l'enquête. Un narrateur qui la lit y mène le joueur au lieu de le laisser
+		//    chercher. La bascule à faire rougir est « tout ce qui décrit un indice est de
+		//    la matière à raconter ».
+		//
+		// LE SUFFIXE `[]` DE `mene_a` N'EST PAS COSMÉTIQUE : ses éléments sont des
+		// chaînes, donc la feuille du balayage est l'ÉLÉMENT — précédent exact
+		// `caractere.parler[]` et `canon.interdits_ton[]`. Une ligne sans suffixe serait
+		// morte.
+		const CHAMPS_D_INDICE: ReadonlyArray<readonly [string, string]> = [
+			['monde.indices[].verite', 'ia'],
+			['monde.indices[].formulation_joueur', 'ia'],
+			['monde.indices[].mene_a[]', 'moteur'],
+		]
+		const feuilles = cheminsDeLaFixture()
+		const feuillesDeLaReference = feuillesDeLaFixture(documentDeReference()).map((feuille) => feuille.normalise)
+
+		for (const [chemin, audience] of CHAMPS_D_INDICE) {
+			expect(`${chemin} → ${DESTINATION_DES_CHAMPS[chemin]}`).toBe(`${chemin} → ${audience}`)
+			// L'INSTANCE DANS LES DEUX FIXTURES, dans le même test : le garde
+			// d'exhaustivité ne balaie que la MINIMALE, donc un champ instancié là mais
+			// absent d'une aventure réelle resterait vert partout. Pour `mene_a` c'est plus
+			// qu'une précaution : une LISTE VIDE est une feuille pour le balayage, donc une
+			// fixture qui en porterait une n'exercerait JAMAIS la clé `…mene_a[]` — ni sa
+			// ligne d'audience, ni sa ligne de `REFERENCES_SIMPLES`.
+			expect(`${chemin} dans la minimale → ${feuilles.includes(chemin)}`).toBe(`${chemin} dans la minimale → true`)
+			expect(`${chemin} dans la reference → ${feuillesDeLaReference.includes(chemin)}`).toBe(
+				`${chemin} dans la reference → true`,
+			)
+		}
+
+		// Discriminant : le `nom` VOISIN, sur la même entité, reste `auteur`. Sans cette
+		// ligne, les assertions ci-dessus passeraient aussi sur une table qui aurait
+		// basculé TOUT l'indice vers `ia` — c'est-à-dire sur la réouverture silencieuse
+		// de la question transverse que KR-195 laisse fermée jusqu'à l'assembleur n° 10.
+		expect(`monde.indices[].nom → ${DESTINATION_DES_CHAMPS['monde.indices[].nom']}`).toBe(
+			'monde.indices[].nom → auteur',
+		)
+		// Et `portee` n'a AUCUNE ligne, délibérément (arbitrage d'it1 : elle reste au
+		// type, sans consommateur, jusqu'à ce qu'un écran la rende). Une ligne écrite
+		// d'avance serait MORTE — aucune fixture ne l'instancie — et l'assertion « aucune
+		// ligne morte » la ferait rougir. Écrit ici pour que le jour où le bloc revient,
+		// il revienne ENTIER : type + registre + table + audience + fixture + écran.
+		expect(DESTINATION_DES_CHAMPS['monde.indices[].portee']).toBeUndefined()
 	})
 
 	it('description_joueur d un objet, texte long, aucun avertissement', () => {

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.28 — un indice cesse d'être une référence orpheline et devient un registre
+
+`dossier-registres` itération 1/5. L'auteur tient le registre des indices de son aventure : une vérité pour le MJ, une formulation lue par le joueur, et un chaînage vers d'autres indices — remplace l'état vide de la section Indices. Première itération de la sixième feature de la bascule IA (roadmap §2, n° 6).
+
+- **`Indice extends Entite { portee?, verite?, formulation_joueur?, mene_a?: string[] }`** — `monde.indices` cesse d'être un `Entite[]` nu, refermant le namespace `indice.<id>` déjà résolu par `dossier-fiches` it6 (`savoirs[].indice_id`/`apres_indice_id`). `mene_a[]` se rend en **liste textuelle d'identifiants** ; le graphe visuel (repointage `tree-canvas`) reste **hors périmètre total** de la feature (KR-204, veto tech-lead unanime au cadrage) — corrigé au passage dans `docs/ROADMAP-BASCULE-IA.md`, qui l'assignait encore à tort à cette feature.
+- **`Indice.portee` reste posé sur le type, sans champ de formulaire.** Arbitré contre une proposition tech-lead (`destination: 'auteur'` suffirait) : énumération fermée à usage purement instrumental, sans lecteur réel cette itération — même anti-patron que `tier`/`lie_au_canon`, déjà écartés deux fois dans cette même feature. Revient en bloc (type + écran) avec son consommateur, candidat naturel n° 7 `dossier-controles`.
+- **`mene_a[]` est la première liste de références du schéma** — jusqu'ici, tous les champs `REFERENCES_SIMPLES` étaient des scalaires. Trois trous de validation latents fermés au passage : une valeur non-string y passait en silence, le message d'erreur affichait mal le nom du champ, une valeur non-tableau plantait le panneau — fermés par un registre générique `LISTES_OPTIONNELLES_TEXTUELLES` couvrant aussi `caractere.parler` par la même cause (KR-212).
+- **Auto-référence dans `mene_a`** : exclue des options au moment où l'auteur ajoute un lien, mais tolérée et résolue si déjà persistée (import) — précédent `BlocSavoirs.tsx` (`apres_indice_id`). Exclure les deux moitiés à la fois aurait produit un faux orphelin (`avecOrpheline()` teste une appartenance sur une liste déjà filtrée) — piège trouvé et corrigé au raffinage, avant tout code (KR-213).
+- **`avecOrpheline()` promue** de `dossier-fiches/components/BlocSavoirs.tsx` (privée) vers `brain/utils/references.ts`, deux appelants réels dès ce lot (KR-110).
+- 2 lots séquentiels (contrat `brain/dossier/` + `brain/utils/references.ts`, puis feature `dossier-registres/`), aucun worktree. 77 suites / 1113 tests verts. Score de mutation sans objet (aucun fichier `brain/` de règles touché).
+- Raffinage complet (2 tours, aucune `ESCALADE`) : `.claude/raffinage/dossier-registres-it1.plan.md`, revue : `.claude/raffinage/dossier-registres-it1.revue.md`.
+
 ## 0.6.27 — un objet cesse d'être une référence orpheline pour de bon
 
 `dossier-objets` itération 2/2 — **dernière itération de la feature**. L'auteur retire un objet de son registre, confirmé par une modale (`RetirerObjetDialog.tsx`, précédent `RetirerPersonnageDialog.tsx`) muette sur les référents — aucun pré-vol côté feature, le dossier refuse et nomme le personnage porteur si un savoir le référence encore.

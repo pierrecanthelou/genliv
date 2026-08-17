@@ -399,11 +399,54 @@ export const CHAMPS_ENTIERS: readonly ChampEntier[] = [
  * d'élément depuis la n° 1. Sa cardinalité (`PARLER_REPLIQUES`) est une borne
  * d'INTERFACE, jamais un chemin de refus du SSOT : un document qui porte trois
  * répliques est ACCEPTÉ et rendu en entier.
+ *
+ * CE QUI A CHANGÉ À L'ITÉRATION 1 DE LA N° 6, et qui ne contredit pas le paragraphe
+ * ci-dessus : son CONTENEUR est désormais gardé par `LISTES_OPTIONNELLES_TEXTUELLES`
+ * juste en dessous — `parler: "une seule réplique"` était accepté puis faisait lever
+ * le bloc qui le parcourt. C'est la LISTE qui a gagné une règle, jamais ses éléments.
  */
 export const LISTES_OPTIONNELLES_STRUCTUREES: readonly ChampRequis[] = [
 	{ path: 'monde.personnages[].contre_mesures', location: 'Personnages' },
 	{ path: 'monde.personnages[].relations', location: 'Personnages' },
 	{ path: 'monde.personnages[].presence', location: 'Personnages' },
+]
+
+/**
+ * Les listes OPTIONNELLES de TEXTES — celles dont les éléments sont des CHAÎNES et
+ * non des objets, et que `LISTES_OPTIONNELLES_STRUCTUREES` ne peut donc pas garder.
+ *
+ * CE QU'ELLE CONTRÔLE, ET RIEN DE PLUS : que la valeur, QUAND ELLE EST PRÉSENTE,
+ * SOIT UN TABLEAU. C'est le trou que l'itération 1 de la n° 6 a mesuré, et il ne
+ * ressemble à aucun de ceux de BUG-050 : `sitesDe` ABANDONNE un segment `[]` dont
+ * la valeur n'est pas un tableau — c'est ce qui lui permet de traverser un document
+ * non fiable sans lever —, si bien qu'un `mene_a: "indice.x"` traversait
+ * `validateDossier` en `ok: true`, référence simple comprise, puis faisait LEVER le
+ * panneau qui le parcourt. Un document accepté qui casse l'écran est le pire des
+ * deux mondes : le validateur est la frontière de confiance, pas l'écran.
+ *
+ * ELLE NE CONTRÔLE PAS LA TEXTUALITÉ DE SES ÉLÉMENTS, et c'est délibéré :
+ *  · pour `mene_a`, l'élément est DÉJÀ gardé — c'est une ligne de
+ *    `REFERENCES_SIMPLES` (`monde.indices[].mene_a[]`), et un élément non textuel y
+ *    est `identifiant-invalide` depuis l'itération 1 de la n° 6. Le contrôler ici
+ *    produirait deux anomalies pour une seule cause (KR-164) ;
+ *  · pour `caractere.parler`, un élément présent mais non textuel tombe sous la
+ *    QUESTION OUVERTE déjà possédée par la n° 2 `bascule-editeur` (« une table
+ *    présent → doit être une chaîne, ou une garde à l'affichage »), celle-là même qui
+ *    porte les neuf dispenses « nom » de `couverture.test.ts`. Trancher ici serait
+ *    trancher à la place de son propriétaire.
+ *
+ * DEUX LIGNES DÈS LE PREMIER JOUR, et c'est ce qui la sépare d'une abstraction à un
+ * seul appelant : `caractere.parler` (n° 4, itération 8) souffrait EXACTEMENT du même
+ * défaut que `mene_a`, par la même cause, et il est refermé par la même ligne de
+ * table. Toute liste optionnelle de CHAÎNES ajoutée à `types.ts` gagne sa ligne ici —
+ * le compilateur ne relie pas les deux.
+ *
+ * `canon.interdits_ton[]` n'y est PAS : sa liste est REQUISE (`RACINES`, genre
+ * `liste`), donc déjà gardée comme tableau depuis l'itération 1 de la n° 1.
+ */
+export const LISTES_OPTIONNELLES_TEXTUELLES: readonly ChampRequis[] = [
+	{ path: 'monde.indices[].mene_a', location: 'Indices' },
+	{ path: 'monde.personnages[].caractere.parler', location: 'Personnages' },
 ]
 
 /**
@@ -455,11 +498,12 @@ export interface ReferenceSimple {
 }
 
 /**
- * Les SEPT références simples du schéma 1 — quatre posées par la n° 1, la
+ * Les HUIT références simples du schéma 1 — quatre posées par la n° 1, la
  * cinquième (`personnages[].objectif_id`) par l'itération 1 de la n° 4, les deux
- * dernières par son itération 5. Toutes bloquantes quand elles ne résolvent pas :
- * une référence orpheline est EXPOSÉE, jamais silencieuse (KR-021). Le nombre est à
- * REMESURER, jamais à recopier d'ici (KR-159).
+ * suivantes par son itération 5, la dernière (`indices[].mene_a[]`) par l'itération 1
+ * de la n° 6. Toutes bloquantes quand elles ne résolvent pas : une référence
+ * orpheline est EXPOSÉE, jamais silencieuse (KR-021). Le nombre est à REMESURER,
+ * jamais à recopier d'ici (KR-159).
  *
  * Les trois de `savoirs[]` — et les trois portées par la fiche elle-même — nomment
  * le PERSONNAGE porteur : c'est `sitesDe` qui le résout en traversant
@@ -496,6 +540,24 @@ export const REFERENCES_SIMPLES: readonly ReferenceSimple[] = [
 	// (`depart.lieu_id`, `objectif_id`) le tiennent d'une décision écrite.
 	{ path: 'monde.personnages[].relations[].cible_id', espace: 'pnj', location: 'Personnages' },
 	{ path: 'monde.personnages[].presence[].lieu_id', espace: 'lieu', location: 'Personnages' },
+	// LA HUITIÈME EST LA PREMIÈRE DONT LA FEUILLE EST UN ÉLÉMENT DE LISTE, et c'est
+	// tout ce qui la distingue : deux suffixes `[]` au lieu d'un, `sitesDe` produisant
+	// un site PAR ÉLÉMENT, donc une anomalie par élément fautif et pas une pour la
+	// liste entière. C'est aussi ce qui a rendu nécessaires les deux correctifs livrés
+	// avec elle — `feuilleDe` retirait `[0]` mais pas `[]` (le message aurait nommé
+	// « mene_a[] », un chemin, jamais un champ), et la boucle de résolution SE TAISAIT
+	// sur toute valeur non textuelle (`mene_a: [42]` sortait `ok: true`).
+	//
+	// SANS `sujet`, comme les cinq autres sans décision de rédaction écrite : le repli
+	// dérivé écrit « Le champ « mene_a » », qui nomme le champ que l'auteur vient
+	// d'éditer.
+	//
+	// AUCUNE GARDE D'AUTO-RÉFÉRENCE (KR-194, précédent `relations[].cible_id`) :
+	// l'espace visé est `indice`, donc le porteur lui-même y résout comme n'importe
+	// quel autre indice. Un indice qui se pointe lui-même est accepté, et il doit
+	// s'afficher RÉSOLU — l'exclusion arbitrée au raffinage est une règle d'ÉCRAN, sur
+	// la seule ligne d'ajout.
+	{ path: 'monde.indices[].mene_a[]', espace: 'indice', location: 'Indices' },
 ]
 
 /**

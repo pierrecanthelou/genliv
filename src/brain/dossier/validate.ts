@@ -22,6 +22,7 @@ import {
 	ENUMERES_FERMES,
 	FAMILLES_DE_CONDITIONS,
 	LISTES_A_ELEMENTS_STRUCTURES,
+	LISTES_OPTIONNELLES_TEXTUELLES,
 	LISTES_REQUISES,
 	RACINES,
 	REFERENCES_SIMPLES,
@@ -383,21 +384,48 @@ export function validateDossier(input: unknown): DossierValidation {
 	// collection porteuse existe.
 	for (const reference of REFERENCES_SIMPLES) {
 		for (const site of sitesDe(input, reference.path, reference.location)) {
-			if (typeof site.valeur !== 'string' || site.valeur.trim() === '') continue
+			// TROIS ÉTATS, PAS DEUX — et c'est le correctif de l'itération 1 de la n° 6.
+			// La version précédente écrivait `typeof site.valeur !== 'string' → continue`,
+			// ce qui rangeait TOUTE valeur non textuelle avec l'absence : un
+			// `objectif_id: 42` traversait `ok: true`, et le dossier gelé promettait une
+			// référence là où il y a un nombre. Le défaut était préexistant sur
+			// `objectif_id` et `apres_indice_id` ; `mene_a[]`, première liste de
+			// références du schéma, l'aurait simplement rendu plus fréquent.
+			//
+			//  · ABSENT (`undefined`) — calme : ces références sont OPTIONNELLES, et
+			//    « absent ≠ vide » est la doctrine du schéma depuis l'itération 1 ;
+			//  · CHAÎNE VIDE SUR UN CHAMP SCALAIRE — calme, et c'est une borne
+			//    délibérée : `''` est ce qu'écrit un « aucun » de sélecteur sur un champ
+			//    comme `objectif_id`/`apres_indice_id`, et la durcir refuserait un
+			//    document que rien n'a cassé. Une chaîne vide ne pointe rien, elle ne
+			//    pointe pas À CÔTÉ. NE VAUT PAS pour un ÉLÉMENT DE LISTE (`reference.path`
+			//    finissant par `[]`, ex. `monde.indices[].mene_a[]`) : là, la présence même
+			//    de l'élément SIGNALE une référence — un `mene_a: ['']` n'est pas
+			//    « aucun lien », c'est une entrée corrompue que `avecOrpheline()` (qui
+			//    renvoie une liste d'options inchangée sur `''`) laisserait résoudre au
+			//    hasard du premier `<select>` non contrôlé (revue de PR, KR-212) ;
+			//  · TOUTE AUTRE NON-CHAÎNE — fautive, et de la même CAUSE qu'un identifiant
+			//    mal formé : ce n'est pas une référence. Un code par cause (KR-164).
+			if (site.valeur === undefined) continue
+			if (typeof site.valeur === 'string' && site.valeur.trim() === '' && !reference.path.endsWith('[]')) continue
 			const sujet = reference.sujet ?? `Le champ « ${feuilleDe(reference.path)} »`
 			// FORME d'abord, RÉSOLUTION ensuite — même frontière que pour une cible de
 			// condition ou d'effet, et deux causes distinctes ne partagent pas un code.
 			// Sans le contrôle d'ESPACE, un `pnj.aldur-le-sage` rangé dans
 			// `depart.lieu_id` RÉSOUDRAIT : l'identifiant existe, mais pas là.
-			if (!estIdentifiantBienForme(site.valeur, reference.espace)) {
+			//
+			// `decrireValeur` et jamais la valeur nue : sur une non-chaîne, l'interpolation
+			// directe écrirait « [object Object] » dans une phrase française (KR-164). Sur
+			// une chaîne, elle rend le texte inchangé — le message existant ne bouge pas.
+			if (typeof site.valeur !== 'string' || !estIdentifiantBienForme(site.valeur, reference.espace)) {
 				errors.push(
 					anomalie(
 						'identifiant-invalide',
 						'error',
-						`${sujet} fournit « ${site.valeur} », qui n'est pas une référence valide de type « ${ESPACES_DE_NOMS[reference.espace].label} ».`,
+						`${sujet} fournit « ${decrireValeur(site.valeur)} », qui n'est pas une référence valide de type « ${ESPACES_DE_NOMS[reference.espace].label} ».`,
 						site.location,
 						site.path,
-						site.valeur,
+						typeof site.valeur === 'string' && site.valeur.trim() !== '' ? site.valeur : undefined,
 					),
 				)
 				continue
@@ -537,6 +565,37 @@ export function validateDossier(input: unknown): DossierValidation {
 					),
 				)
 			})
+		}
+	}
+
+	// 6 quinquies — Les LISTES OPTIONNELLES DE TEXTES : présentes, elles doivent ÊTRE
+	// des listes. Boucle CALQUÉE sur le § 6 quater ci-dessus — même forme, table
+	// différente — et elle ferme un trou d'une autre nature que BUG-050.
+	//
+	// `sitesDe` abandonne un segment `[]` dont la valeur n'est pas un tableau : c'est
+	// ce qui lui permet de rester total sur un document non fiable, mais cela rend
+	// AUSSI muettes toutes les règles portées par les descendants — y compris la ligne
+	// `monde.indices[].mene_a[]` de `REFERENCES_SIMPLES`. Un `mene_a: "indice.x"`
+	// sortait donc `ok: true`, puis faisait LEVER le panneau qui le parcourt. Un
+	// document ACCEPTÉ qui casse l'écran est le pire des deux mondes : le validateur
+	// est la frontière de confiance, pas l'écran.
+	//
+	// C'est le CONTENEUR qui est contrôlé, jamais ses éléments — voir la docstring de
+	// `LISTES_OPTIONNELLES_TEXTUELLES` : ceux de `mene_a` sont déjà gardés par la
+	// résolution du § 5, ceux de `parler` relèvent d'une question ouverte possédée par
+	// la n° 2.
+	for (const liste of LISTES_OPTIONNELLES_TEXTUELLES) {
+		for (const site of sitesDe(input, liste.path, liste.location)) {
+			if (site.valeur === undefined || Array.isArray(site.valeur)) continue
+			errors.push(
+				anomalie(
+					'liste-non-textuelle',
+					'error',
+					`Le champ « ${feuilleDe(liste.path)} » attend une liste de textes ; il contient « ${decrireValeur(site.valeur)} ».`,
+					site.location,
+					site.path,
+				),
+			)
 		}
 	}
 

@@ -155,7 +155,13 @@
 			}
 		],
 		"indices": [
-			{ "id": "indice.cendres-tiedes", "nom": "Des cendres encore tièdes" },
+			{
+				"id": "indice.cendres-tiedes",
+				"nom": "Des cendres encore tièdes",
+				"verite": "Quelqu'un est descendu dans le Gouffre cette nuit, et il en est ressorti.",
+				"formulation_joueur": "Une odeur de cendre froide, là où elle ne devrait pas être.",
+				"mene_a": ["indice.sceau-brise"]
+			},
 			{ "id": "indice.sceau-brise", "nom": "Le sceau du Gouffre est brisé" }
 		],
 		"quetes": [

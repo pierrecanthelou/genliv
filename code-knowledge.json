@@ -69,12 +69,12 @@
 		{
 			"id": "KR-051",
 			"feature": "node-editor",
-			"risk": "Feature node-editor supprimee le 2026-08-03 (bascule IA) - code inexistant, ce risque n'a plus d'objet aujourd'hui. Detail historique : docs/ROADMAP-BASCULE-IA.md § 1 ter (journal de bascule), ou git log avant la suppression. Cite par src/brain/kinds.ts:16 pour dire ce que kinds.ts N'EST PAS (le registre de types de nœuds/arêtes n'est pas ActionRegistry)."
+			"risk": "Feature node-editor supprimee le 2026-08-03, code inexistant. Cite par src/brain/kinds.ts:16 pour dire ce que kinds.ts N'EST PAS (le registre de types de noeuds/aretes n'est pas ActionRegistry) -- seule raison de garder cette entree au lieu du stub standard."
 		},
 		{
 			"id": "KR-052",
 			"feature": "node-editor",
-			"risk": "Objects carry a player-facing DESCRIPTION, not just a name; the inventory editor must capture both via the shared brain ObjectEditor, never a bare string (domain rule). Feature node-editor supprimee le 2026-08-03 ; l invariant vit au SSOT (src/brain/components/ObjectEditor.tsx, src/brain/types.ts), conserve jusqu a sa demolition prevue en n9 (roadmap 1 bis)."
+			"risk": "Feature node-editor supprimee le 2026-08-03, code inexistant. Le motif nom interne + description joueur qu'elle imposait est repris et documente par dossier-objets/specification.json (feature terminee, champ object_editor_ecarte) ; brain/components/ObjectEditor.tsx lui-meme n'est plus qu'un precedent de champs, condamne avec le modele d'arbre (demolition n9)."
 		},
 		{
 			"id": "KR-053",
@@ -84,7 +84,7 @@
 		{
 			"id": "KR-054",
 			"feature": "node-editor",
-			"risk": "Turning a node into a Fin (victoire/Ã©chec) changes its kind/badge everywhere; the end flags live on the node in BookService and the FIN badge is derived (effectiveKind/endLabel) so canvas/outline/panel reflect it from one source via node:updated. Feature node-editor supprimee le 2026-08-03 ; l invariant vit au SSOT (src/brain/tree.ts, src/brain/utils/nodeKind.ts), conserve jusqu a sa demolition prevue en n9."
+			"risk": "Feature node-editor supprimee le 2026-08-03 ; le derive-badge Fin (effectiveKind/endLabel, une seule source via node:updated) vit dans src/brain/tree.ts + src/brain/utils/nodeKind.ts, condamne avec le modele d'arbre (demolition n9)."
 		},
 		{
 			"id": "KR-055",
@@ -94,22 +94,22 @@
 		{
 			"id": "KR-060",
 			"feature": "choice-linking",
-			"risk": "Edges are the book's structure: all create/delete goes through BookService (addChoiceBranch/addEdge/removeEdge) so tree-canvas + outline-view + game-preview agree; never mutate edges locally (re-asserts KR-020). Mort may not have outgoing edges â€” enforced at the SSOT, not just the UI (KR-055). Feature choice-linking supprimee le 2026-08-03 ; l invariant vit au SSOT (src/brain/BookService.ts), conserve jusqu a sa demolition prevue en n9."
+			"risk": "Feature choice-linking supprimee le 2026-08-03 ; l'invariant (aretes creees/supprimees seulement via BookService, jamais localement -- re-affirme KR-020) vivait dans src/brain/BookService.ts, condamne (demolition n9). Mort sans arete sortante reste couvert par KR-055."
 		},
 		{
 			"id": "KR-061",
 			"feature": "choice-linking",
-			"risk": "Relink allows cycles/convergence by DESIGN but must guard degenerate cases: no duplicate identical edges, sane self-link handling, and the target node is never created/deleted by relinking (only the edge). Guards landed in iteration 2 at the SSOT (BookService.addEdge rejects from===to and any pre-existing from/to/kind edge â€” identity is from+to+kind, so a same-target edge of a different kind is legitimate convergence) AND mirrored in the relink picker (self + already-relinked targets excluded); the SSOT is the law, the picker is convenience. Feature choice-linking supprimee le 2026-08-03 ; l invariant vit au SSOT (src/brain/BookService.ts, src/brain/tree.ts), conserve jusqu a sa demolition prevue en n9."
+			"risk": "Feature choice-linking supprimee le 2026-08-03 ; les gardes anti-doublon et anti-self-link du relink (identite = from+to+kind) vivaient dans src/brain/BookService.ts + tree.ts, condamnes (demolition n9)."
 		},
 		{
 			"id": "KR-062",
 			"feature": "choice-linking",
-			"risk": "Hidden prerequisite references an acquirable object by STABLE id, never by name; a dangling reference must be surfaced, never silently true/false. Resolved against a DERIVED catalog (collectObjects(book), pure VIEW, KR-020), never an owned store. Feature choice-linking supprimee le 2026-08-03 ; l'invariant vit au SSOT (src/brain/BookService.ts, src/brain/tree.ts, src/brain/utils/objects.ts), conserve jusqu'a sa demolition prevue en n9. Detail historique (Edge.prereq, EdgePatch, resolution âš /âŠ˜) : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant la suppression."
+			"risk": "Feature choice-linking supprimee le 2026-08-03. La regle de domaine generale qu'elle appliquait (reference par id stable, jamais par nom ; toute reference pendante surfacee, jamais silencieuse) reste en vigueur (CLAUDE.md, regles de domaine). Le mecanisme specifique (collectObjects sur le catalogue du livre) vivait dans src/brain/BookService.ts/tree.ts/utils/objects.ts, condamne (demolition n9)."
 		},
 		{
 			"id": "KR-063",
 			"feature": "choice-linking",
-			"risk": "Countdown fallback + relink targets are node references that can dangle if the target is deleted; a referential-integrity check surfaces broken targets rather than crashing the reader later (re-asserts KR-021). Feature choice-linking supprimee le 2026-08-03 ; l'invariant vit au SSOT (src/brain/tree.ts), conserve jusqu'a sa demolition prevue en n9. Detail historique (Edge.countdown, ChoiceCountdownEditor, TargetPicker) : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant la suppression."
+			"risk": "Feature choice-linking supprimee le 2026-08-03, code inexistant (Edge.countdown, ChoiceCountdownEditor, TargetPicker). Detail historique : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
 		},
 		{
 			"id": "KR-064",
@@ -119,7 +119,7 @@
 		{
 			"id": "KR-065",
 			"feature": "choice-linking",
-			"risk": "A choice may hold BOTH a hidden prerequisite and a countdown; the countdown only ticks while the choice is visible (prerequisite met), so a hidden choice never expires invisibly. Feature choice-linking supprimee le 2026-08-03 ; l invariant vit au SSOT (src/brain/tree.ts), conserve jusqu a sa demolition prevue en n9."
+			"risk": "Feature choice-linking supprimee le 2026-08-03, code inexistant (regle countdown + prerequis cache combines sur un meme choix). Detail : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
 		},
 		{
 			"id": "KR-066",
@@ -154,7 +154,7 @@
 		{
 			"id": "KR-080",
 			"feature": "outline-view",
-			"risk": "The outline DFS MUST guard cycles/convergence: a node already shown â€” or reached via a relink/flee edge â€” becomes a â†ª reference row and is never recursed into, so a cyclic book (allowed by design, KR-061) cannot infinite-loop. Nodes unreachable from the sommaire root (the isolated mort, free-floating nodes) are listed flat so none are hidden. A dangling edge target is flagged (âš  cible supprimÃ©e), never crashed (KR-021). buildOutline is pure + view-agnostic so the rule is tested once. Feature outline-view supprimee le 2026-08-03 ; l algorithme qu il documentait (convergence/cycle-safe) vit dans tree-canvas (feature survivante, repointee en n6, roadmap 1 bis) via layout/geometry.ts, qui cite explicitement ce KR dans sa propre specification.json."
+			"risk": "Feature outline-view supprimee le 2026-08-03, code inexistant. L'algorithme cycle-safe qu'elle documentait vit desormais dans tree-canvas/layout/geometry.ts (feature dormante), qui cite explicitement ce KR dans sa propre specification.json -- lire celle-ci pour le detail, pas cette entree."
 		},
 		{
 			"id": "KR-081",
@@ -164,7 +164,7 @@
 		{
 			"id": "KR-090",
 			"feature": "action-decor",
-			"risk": "Un composant action-* s'enregistrait aupres de brain ActionRegistry a la racine de composition ; feature action-decor supprimee le 2026-08-03. Le composant qu'il documentait, ObjectEditor (nom interne + description joueur, KR-052), vit dans src/brain/components/, designe par la roadmap comme la graine de dossier-objets (n5, § 1 ter). Detail historique (ref/own takeable, reuse-by-id, ReuseObjectPicker) : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant la suppression."
+			"risk": "Feature action-decor supprimee le 2026-08-03, code inexistant. La graine qu'elle documentait (ObjectEditor -> dossier-objets, n5) est desormais actee dans dossier-objets/specification.json (feature terminee, champ object_editor_ecarte). Detail historique : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
 		},
 		{
 			"id": "KR-091",
@@ -254,7 +254,7 @@
 		{
 			"id": "KR-118",
 			"feature": "choice-linking",
-			"risk": "A hidden-prerequisite picker (and any future ownership gate) must offer only objects the player could actually OWN at that screen â€” i.e. those collectable in the node's LINEAGE (the node itself + its ancestors), not the whole-book catalog. Use brain collectLineageObjects(book, nodeId) (reverse-reachability over book.edges, all kinds count, cycles handled by a visited set; reuses collectObjects over the lineage subset so de-dup/migration stay single-sourced) for the OFFER, and the full collectObjects(book) only to RESOLVE an already-set reference. Narrowing must never silently DROP an authored rule: an existing reference that resolves in the book but lies outside the lineage stays selectable and is flagged Â« hors lignÃ©e Â» (distinct from a truly deleted id â†’ Â« âš  introuvable Â»); the dangling-ref warning still renders even when the lineage picker is empty (gate the empty-state hint on list empty AND no selection). Lineage uses authored edges only â€” config-target navigations not yet promoted to edges (monster victoire/fuite, PNJ Â« mÃ¨ne Ã  Â», KR-067) are a known under-approximation that errs safe (can only hide a reachable object, never offer an unreachable one). Feature choice-linking supprimee le 2026-08-03 ; l invariant vit au SSOT (src/brain/utils/objects.ts), conserve jusqu a sa demolition prevue en n9."
+			"risk": "Feature choice-linking supprimee le 2026-08-03 ; le picker de prerequis cache limitait les objets proposes a la lignee du noeud (collectLineageObjects, jamais tout le catalogue), avec un flag « hors lignee » distinct d'une reference introuvable. Vivait dans src/brain/utils/objects.ts, condamne (demolition n9) -- le concept de choix/lignee n'existe plus dans le modele dossier."
 		},
 		{
 			"id": "KR-119",
@@ -344,7 +344,7 @@
 		{
 			"id": "KR-145",
 			"feature": "book-export",
-			"risk": "LIVE STRUCTURAL VALIDATION (checkBookHealth + useBookHealth, KR-145): dead-ends (non-terminal, non-root nodes with no configured exit â€” stored edges OR monster.victoryTarget / pnj.target / trap.fatal) and dangling-edge-target (edge.to not in nodeIds) are flagged in the canvas + outline at ALL TIMES, not only after export. checkBookHealth(book) in brain/utils/bookHealth.ts is a pure function; useBookHealth(bookId) wraps it with useOpenBook + useMemo (re-runs on every BOOK_MUTATION_EVENT). EditorScreen warnedNodeIds = union of live StructuralWarnings + export PlayWarnings â€” live covers structural gaps; export covers deeper referential integrity (prereqs, countdowns, config targets). The sommaire root is EXEMPT from dead-end detection (a fresh book always starts unconnected; flagging it would add noise on every new book). StructuralWarning.nodeId is always set (never optional) so consumers never need secondary lookups. Feature book-export supprimee le 2026-08-03 ; la validation qu il documentait (dead-ends, dangling edges) vit dans src/brain/utils/bookHealth.ts, consommee par EditorScreen.tsx et tree-canvas (roadmap 0 bis)."
+			"risk": "LIVE STRUCTURAL VALIDATION (checkBookHealth + useBookHealth) : dead-ends (noeud non terminal, non racine, sans sortie configuree -- aretes stockees OU monster.victoryTarget / pnj.target / trap.fatal) et dangling-edge-target (edge.to absent de nodeIds) sont signales en permanence dans le canevas, pas seulement a l'export. checkBookHealth(book) (src/brain/utils/bookHealth.ts) est pure ; useBookHealth(bookId) la memoise sur BOOK_MUTATION_EVENT. La racine sommaire est EXEMPTE (un livre neuf commence toujours non connecte). Consomme aujourd'hui par src/EditorScreen.tsx (route 'editor', atteinte par les tests tree-canvas/cloud-sync uniquement -- la navigation de production utilise la route 'dossier'). Feature book-export d'origine supprimee le 2026-08-03 ; cette validation lui a survecu et vit desormais independamment dans bookHealth.ts, condamnee avec le modele d'arbre (demolition n9)."
 		},
 		{
 			"id": "KR-146",
@@ -354,7 +354,7 @@
 		{
 			"id": "KR-147",
 			"feature": "node-editor",
-			"risk": "FLEX-COLUMN SCROLL SHELL PATTERN: in any flex-column container with overflow:hidden, a scrollable child div MUST have BOTH flex:1 AND minHeight:0 in addition to overflowY:auto. Without flex:1+minHeight:0 the child expands to its content height, the parent clips the overflow, and overflowY:auto is a no-op (the element is never constrained so it never needs to scroll). Symptom: sections below the visible area are silently cut off. Pattern: panelShell={display:flex,flexDirection:column,height:'100%',overflow:hidden} then panelBody={flex:1,minHeight:0,overflowY:auto}. BUG-015. Feature node-editor supprimee le 2026-08-03 ; le motif CSS lui-meme est GENERIQUE (tout conteneur flex-column scrollable), pas specifique au code supprime -- toujours applicable a tout futur panneau scrollable du dossier."
+			"risk": "FLEX-COLUMN SCROLL SHELL (motif generique, survit a node-editor supprime le 2026-08-03, BUG-015) : dans un conteneur flex-column a overflow:hidden, l'enfant scrollable a besoin de flex:1 ET minHeight:0 en plus d'overflowY:auto, sinon il grandit a son contenu et le scroll est un no-op (sections basses coupees sans avertissement). Patron : panelShell={display:flex,flexDirection:column,height:'100%',overflow:hidden}, panelBody={flex:1,minHeight:0,overflowY:auto}. Applicable a tout futur panneau scrollable du dossier."
 		},
 		{
 			"id": "KR-148",
@@ -625,6 +625,56 @@
 			"id": "KR-203",
 			"feature": "dossier-objets",
 			"risk": "dossier-objets : Objet.description_joueur est livre SANS borne de longueur, meme famille que Lieu.description/Personnage.description_joueur (deja sans borne, rien de casse). Une borne future doit couvrir les DEUX champs jumeaux a la fois, jamais un seul."
+		},
+		{
+			"id": "KR-204",
+			"feature": "dossier-registres",
+			"risk": "Le graphe visuel des indices (repointage tree-canvas) est HORS PERIMETRE de dossier-registres — tree-canvas cable sur BookNode/Edge condamnes, demolition prevue en n9, aucun instrument de test (specs navigateur differees). indices[].mene_a est une donnee + liste textuelle uniquement, jamais un canevas."
+		},
+		{
+			"id": "KR-205",
+			"feature": "dossier-registres",
+			"risk": "lieux[].acces reste HORS PERIMETRE de dossier-registres (comme de dossier-objets, KR-200) — son ecran vit dans PanneauLieux.tsx/FicheLieu.tsx, possedes par dossier-canon (done). Proprietaire recommande mais non mandate : une iteration 5 de dossier-canon."
+		},
+		{
+			"id": "KR-206",
+			"feature": "dossier-registres",
+			"risk": "Quete.lie_au_canon REJETE (forme sans consommateur, derivable — meme anti-patron que tier/objet-de-scenario, KR-192/KR-201-like). Evenement.nature=='monstre' potentiellement derivable de monstre_ref, tranche au raffinage d'it4 de dossier-registres, pas au cadrage."
+		},
+		{
+			"id": "KR-207",
+			"feature": "dossier-registres",
+			"risk": "conditions.contraintes (faim/froid/poursuite, plan-cible) N'EST PAS un champ du dossier — etat de SESSION (bandeau d'horloge), pas une donnee auteur. Propriete eventuelle de n9 moteur-dossier, jamais de dossier-registres."
+		},
+		{
+			"id": "KR-208",
+			"feature": "dossier-registres",
+			"risk": "Climat.effets_regles reste Delta[] sans operande entier — DELTAS n'admet aucune operation numerique aujourd'hui. Ouvrir un DeltaModificateur exige REGLES-DU-JEU.md -> table doree -> code (KR-130), propriete n11/n13."
+		},
+		{
+			"id": "KR-209",
+			"feature": "dossier-registres",
+			"risk": "Recompense de quete en XP hors perimetre de dossier-registres — aucune entree DELTAS a operande entier, DeltaT (roadmap § 5) encore a definir par n11."
+		},
+		{
+			"id": "KR-210",
+			"feature": "dossier-registres",
+			"risk": "Comme dossier-fiches (KR-190) : chaque iteration de dossier-registres ouvre un lot contrat distinct sur les memes fichiers brain/dossier/* — jamais deux lots contrat dans la meme iteration, les 5 iterations sont strictement serielles."
+		},
+		{
+			"id": "KR-211",
+			"feature": "dossier-registres",
+			"risk": "L'iteration jalons & fins de dossier-registres exige DEUX tests nommes (extension de couverture.test.ts aux Delta[] de jalons/fins + garde D1 role=status a discriminance sur deux entites) — deja predit par le risk KR-189 (destinations D1) qui nommait jalons/fins/evenements comme porteurs attendus."
+		},
+		{
+			"id": "KR-212",
+			"feature": "dossier-registres",
+			"risk": "mene_a[] est la 1ere liste de references du schema (les autres REFERENCES_SIMPLES sont des scalaires) — 3 trous de validation fermes en it1 : valeur non-string silencieuse, message d'erreur mal formate (feuilleDe), valeur non-tableau plantant sitesDe (ferme par le registre LISTES_OPTIONNELLES_TEXTUELLES, couvre aussi caractere.parler par la meme cause). Tout futur champ xxx[] de type REFERENCES_SIMPLES doit verifier ces trois gardes."
+		},
+		{
+			"id": "KR-213",
+			"feature": "dossier-registres",
+			"risk": "Auto-reference dans une liste de references authored (ex. mene_a pointant sur soi) : patron a DEUX moities, precedent BlocSavoirs.tsx (apres_indice_id) — exclue des options au moment de l'AJOUT, mais TOLEREE ET RESOLUE si deja persistee (import). Exclure aux deux moities produit un faux orphelin : avecOrpheline() teste une appartenance sur une liste deja filtree, donc une auto-reference existante s'affiche a tort introuvable."
 		}
 	]
 }

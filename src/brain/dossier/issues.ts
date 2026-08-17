@@ -6,7 +6,7 @@ import { feuilleDe } from './identifiers'
  * badger une section, et que la modale d'import rend dès l'itération 1.
  *
  * Trois invariants tiennent ce contrat (KR-164) :
- *  · `code` appartient à une union FERMÉE de dix-neuf valeurs, doublée d'un `Record`
+ *  · `code` appartient à une union FERMÉE de vingt valeurs, doublée d'un `Record`
  *    de libellés (KR-117) — jamais un `if (code === …)` en cascade chez le
  *    consommateur, jamais un `Partial<Record>` à trou silencieux ;
  *  · `message` est TOUJOURS une phrase française rédigée, jamais une erreur
@@ -18,16 +18,23 @@ import { feuilleDe } from './identifiers'
  */
 
 /**
- * Les dix-neuf anomalies que le schéma 1 sait produire. Union FERMÉE.
+ * Les vingt anomalies que le schéma 1 sait produire. Union FERMÉE.
  *
  * Les QUATRE de la sixième ligne sont les conditions (itération 3), les TROIS
- * dernières les effets de règle et les éléments de liste (itération 4). Aucun
+ * suivantes les effets de règle et les éléments de liste (itération 4). Aucun
  * code neuf pour les RÉFÉRENCES d'une cible, de condition comme d'effet : une
  * cible mal formée ou de mauvais espace de noms est le même défaut qu'un
  * identifiant d'entité mal formé (`identifiant-invalide`), une cible bien formée
  * qu'aucune entité ne porte est le même défaut qu'une référence pendante
  * (`reference-pendante`). Les deux existent depuis it1 — un code par CAUSE, pas
  * un code par emplacement.
+ *
+ * LA VINGTIÈME (`liste-non-textuelle`, itération 1 de la n° 6) est un code neuf pour
+ * exactement la même raison : sa CAUSE n'est celle d'aucun des dix-neuf autres. Ce
+ * n'est ni un champ requis vide (la liste est OPTIONNELLE), ni un élément non-objet
+ * (ses éléments sont des CHAÎNES), ni une valeur hors énumération (l'ensemble n'est
+ * pas fermé) — c'est un CONTENEUR qui n'est pas une liste, et le geste qui le corrige
+ * est le sien : entourer la valeur de crochets.
  */
 export type DossierIssueCode =
 	| 'schema-inconnu'
@@ -49,6 +56,7 @@ export type DossierIssueCode =
 	| 'delta-inconnu'
 	| 'delta-malforme'
 	| 'element-non-objet'
+	| 'liste-non-textuelle'
 
 /**
  * Le canal de l'anomalie. `error` bloque l'import ; `warning` ne le bloque
@@ -134,6 +142,13 @@ export const DOSSIER_ISSUE_LABELS: Record<DossierIssueCode, string> = {
 	'delta-malforme':
 		'↪ Corrigez la forme de « {champ} » dans le fichier (clé « delta » et ses cibles), puis réimportez-le.',
 	'element-non-objet': '↪ Remplacez cet élément de « {champ} » par un objet, puis réimportez-le.',
+	// UN GESTE À ELLE, et c'est ce qui justifie un vingtième code plutôt que le
+	// recyclage d'`element-non-objet` : ce que l'auteur doit faire n'est pas remplacer
+	// un élément mais ENTOURER sa valeur de crochets. La consigne ne dit pas
+	// « réimportez-le » (BUG-075, même classe que BUG-042/KR-171) : cette ligne se
+	// rendra AUSSI hors de tout import, sous le bandeau de refus d'une écriture, à un
+	// auteur à qui « réimportez » ne désigne aucun geste possible.
+	'liste-non-textuelle': '↪ Écrivez « {champ} » comme une liste, entre crochets, même pour une seule valeur.',
 }
 
 /**

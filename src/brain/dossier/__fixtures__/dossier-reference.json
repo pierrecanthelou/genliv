@@ -282,9 +282,24 @@
 			{ "id": "objet.amulette-scellee", "nom": "Une amulette scellée" }
 		],
 		"indices": [
-			{ "id": "indice.pas-dans-la-cendre", "nom": "Des pas frais dans la cendre" },
-			{ "id": "indice.sceau-brise-a-nouveau", "nom": "Le sceau de cendre est de nouveau fendu" },
-			{ "id": "indice.lettre-de-la-vigie", "nom": "Une lettre signée de la Vigie" },
+			{
+				"id": "indice.pas-dans-la-cendre",
+				"nom": "Des pas frais dans la cendre",
+				"verite": "Ce sont les pas d'Aubry, qui monte au beffroi chaque nuit depuis la tempête.",
+				"formulation_joueur": "Des empreintes nettes dans la cendre, encore tièdes au petit matin.",
+				"mene_a": ["indice.sceau-brise-a-nouveau", "indice.lettre-de-la-vigie"]
+			},
+			{
+				"id": "indice.sceau-brise-a-nouveau",
+				"nom": "Le sceau de cendre est de nouveau fendu",
+				"verite": "La fêlure a été faite de l'intérieur, et personne à Val-Cendre n'en a la force.",
+				"formulation_joueur": "Une fêlure court le long du sceau, fine comme un cheveu."
+			},
+			{
+				"id": "indice.lettre-de-la-vigie",
+				"nom": "Une lettre signée de la Vigie",
+				"verite": "Sélène a écrit cette lettre sous la dictée, et la signature n'est pas la sienne."
+			},
 			{ "id": "indice.trace-du-guet", "nom": "Une trace laissée près du beffroi" }
 		],
 		"quetes": [

@@ -1,0 +1,7 @@
+RISQUE — Le contrat de cadrage liste `portee?` sur `Indice` sans que le goal, le `design_contract` ni les placeholders de l'itération 1 le mentionnent nulle part. Risque qu'un ouvrier le sème quand même « puisque c'est dans `brain_contracts` », livrant un champ que l'auteur peut remplir mais qui ne produit aucun effet observable (pas de filtre, pas de badge, pas de lint) — même anti-patron que `tier`/`lie_au_canon`, déjà écarté deux fois (KR-192, KR-206).
+
+OBJECTION — La question ouverte du comité n'a pas de réponse par défaut dans le texte du goal. Si elle reste tranchée « au fil de l'eau » par l'ouvrier, la démo livrée divergera de ce que ce tour aura validé. Je refuse que `portee` entre dans la fiche de cette itération sans consommateur RÉEL présent dans CE lot : le lint « Intrigue en second plan » appartient à la n°7 `dossier-controles`, qui n'existe pas encore — exactement la situation qui a fait différer `tier`.
+
+PROPOSITION — Fiche Indice d'it1 limitée à trois champs rendus : `verite`, `formulation_joueur`, `mene_a[]` — même gabarit que `dossier-objets` it1 (nom + description + reorder, un seul lot contrat puis un lot feature). `portee?`/`PORTEES_INDICE` restent posés au type (cadrage déjà validé, je ne rouvre pas le schéma) mais ne sont PAS rendus dans `FicheIndice.tsx` cette itération ; report tracé en `known_risks`, à réévaluer au raffinage de la n°7 quand un consommateur existe.
+
+VERDICT — recevable sous réserve (report explicite de `portee` hors de la fiche, à acter ce tour).

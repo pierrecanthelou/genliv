@@ -13,14 +13,14 @@ import {
 	CHARACTERISTIC_VALUES,
 	CHALLENGE_TIERS,
 	CHALLENGE_TIER_VALUES,
-	ESPACES_DE_NOMS,
+	avecOrpheline,
 	localiserEntite,
 	type Certitude,
 	type Characteristic,
 	type ChallengeTier,
 	type Entite,
-	type EspaceDeNoms,
 	type Revelation,
+	type SelectOption,
 } from '../../../brain'
 import {
 	boutonPointilleStyle,
@@ -93,23 +93,18 @@ const OPTIONS_CARACTERISTIQUE = CHARACTERISTIC_VALUES.map((carac) => ({
 }))
 const OPTIONS_TC = CHALLENGE_TIER_VALUES.map((tc) => ({ value: tc, label: `${tc} · ${CHALLENGE_TIERS[tc].label}` }))
 
-interface Option {
-	value: string
-	label: string
-}
-
 /**
- * Une référence qui NE RÉSOUT PAS reste SÉLECTIONNÉE et VISIBLE, sous une option
- * non résolue qui montre l'identifiant tel quel (KR-021) — jamais une réécriture
- * silencieuse vers la première option du registre, qui ferait dire au dossier
- * autre chose que ce que l'auteur y a mis. Le libellé du TYPE vient du registre
- * `ESPACES_DE_NOMS`, comme celui de `localiserEntite` : « Indice introuvable — … »,
- * « Objet introuvable — … ».
+ * `avecOrpheline` VIVAIT ICI, privée à ce fichier, jusqu'à l'itération 1 de la n° 6
+ * `dossier-registres` : le registre des indices en est le SECOND appelant réel, et
+ * une utilitaire partagée par deux features appartient à `brain/utils/` (KR-110).
+ * Son corps n'a pas changé d'une ligne à la promotion — les trois sélecteurs de ce
+ * bloc l'éprouvent toujours, par les tests de `savoirs.test.tsx`, INCHANGÉS.
+ *
+ * `Option` reste un ALIAS de `SelectOption<string>` — c'est le doublon STRUCTUREL
+ * qui a disparu à la promotion (la définition locale dupliquée), pas le nom : les
+ * sélecteurs de ce fichier continuent de lire `Option`.
  */
-function avecOrpheline(options: Option[], valeur: string, espace: EspaceDeNoms): Option[] {
-	if (valeur === '' || options.some((option) => option.value === valeur)) return options
-	return [...options, { value: valeur, label: `${ESPACES_DE_NOMS[espace].label} introuvable — ${valeur}` }]
-}
+type Option = SelectOption<string>
 
 /** La clé d'une porte d'une ligne, pour la table des conteneurs de focus. */
 function clePorte(index: number, porte: keyof Revelation): string {

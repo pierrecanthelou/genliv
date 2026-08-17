@@ -8,6 +8,7 @@ import { DossierEditorScreen } from './features/bascule-editeur'
 import { PanneauCanon, PanneauDepart, PanneauLieux } from './features/dossier-canon'
 import { PanneauPersonnages } from './features/dossier-fiches'
 import { PanneauObjets } from './features/dossier-objets'
+import { PanneauIndices } from './features/dossier-registres'
 
 /**
  * App shell — routes between the home (book-library), the Book editor
@@ -27,9 +28,10 @@ export function App(): JSX.Element {
 			<EditorScreen key={route.bookId} bookId={route.bookId} />
 		) : route.name === 'dossier' ? (
 			// Key by dossierId so a dossier→dossier switch remounts the screen. The
-			// Canon, Départ, Personnages, Lieux and Objets panels are injected HERE,
-			// from the composition root: bascule-editeur never imports dossier-canon,
-			// dossier-fiches or dossier-objets, and vice versa (KR-184).
+			// Canon, Départ, Personnages, Lieux, Objets and Indices panels are injected
+			// HERE, from the composition root: bascule-editeur never imports
+			// dossier-canon, dossier-fiches, dossier-objets or dossier-registres, and
+			// vice versa (KR-184).
 			<DossierEditorScreen
 				key={route.dossierId}
 				dossierId={route.dossierId}
@@ -39,6 +41,7 @@ export function App(): JSX.Element {
 					personnages: <PanneauPersonnages dossierId={route.dossierId} />,
 					lieux: <PanneauLieux dossierId={route.dossierId} />,
 					objets: <PanneauObjets dossierId={route.dossierId} />,
+					indices: <PanneauIndices dossierId={route.dossierId} />,
 				}}
 			/>
 		) : (
