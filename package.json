@@ -1,6 +1,6 @@
 {
 	"name": "genliv",
-	"version": "0.6.29",
+	"version": "0.6.30",
 	"private": true,
 	"type": "module",
 	"description": "Éditeur de « livre dont vous êtes le héros » — authoring tool",

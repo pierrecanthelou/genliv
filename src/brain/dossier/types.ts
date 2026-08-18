@@ -1097,9 +1097,106 @@ export interface Evenement extends Entite {
 	resolutions: Resolution[]
 }
 
-/** Une quête, et ce qu'elle rapporte. */
+/**
+ * UNE ÉTAPE D'UNE QUÊTE — ce que le joueur accomplit, dans l'ordre où il le
+ * franchit.
+ *
+ * ⚠ AUCUN CHAMP `etape`, ET C'EST LE POINT DE CONTRAT DE CE TYPE : l'ordre d'une
+ * étape est celui du TABLEAU, jamais une donnée du document. Un ordinal persisté
+ * serait de l'état dérivé miroité dans la SSOT (KR-013), et le dépôt en porte
+ * déjà le précédent — `plan_actions[].etape` DÉSYNCHRONISE dès qu'une étape du
+ * milieu est retirée (`1, 3, 4`, jamais renuméroté), au point que
+ * `CHAMPS_ENTIERS` a dû renoncer à le contraindre faute d'une règle
+ * d'ordonnancement que personne n'a jamais arbitrée. L'étiquette « ÉTAPE N » que
+ * l'auteur lit est CALCULÉE depuis la position à chaque rendu, jamais écrite.
+ *
+ * `libelle` est REQUIS DANS SON ÉLÉMENT, la LISTE restant OPTIONNELLE — même
+ * mécanique et même motif que `contre_mesures[].action` et `relations[].lien` :
+ * une quête sans étapes est un état calme (« absent ≠ vide »), une étape sans
+ * libellé n'a rien à faire accomplir.
+ *
+ * AUCUN `declencheur_expr` NI `declencheur_texte` : une étape de quête n'est pas
+ * une condition, et `FAMILLES_DE_CONDITIONS` reste à six familles. Ce qui fait
+ * passer le joueur d'une étape à la suivante appartient au moteur de la n° 14, pas
+ * au schéma d'aujourd'hui.
+ */
+export interface EtapeQuete {
+	/** IA — ce que le joueur accomplit à cette étape, en prose. Même famille que
+	 *  `plan_actions[].action` : de la matière à jouer, jamais une réplique lue
+	 *  telle quelle par le joueur.
+	 *  Exemple : « Convaincre le passeur de traverser la rivière de nuit. » */
+	libelle: string
+}
+
+/**
+ * Une QUÊTE secondaire : qui la donne, ce qu'elle demande, comment elle se
+ * déroule, pour quand — et ce qu'elle rapporte.
+ *
+ * `recompense` est INCHANGÉE depuis l'itération 2 de la n° 1, qui en a figé la
+ * FORME, et l'itération 4 le VOCABULAIRE : une liste de `Delta`, jamais de la
+ * prose. Les QUATRE champs ajoutés par l'itération 3 de la n° 6 sont tous
+ * OPTIONNELS — `monde.quetes[]` existe depuis la n° 1 en `schema: 1` sans chemin
+ * de migration (KR-160), et un champ requis de plus invaliderait RÉTROACTIVEMENT
+ * tout dossier déjà persisté (KR-191).
+ *
+ * TROIS AUDIENCES DANS QUATRE CHAMPS, et la coupure est le contenu de
+ * l'arbitrage : `donneur_id` est un HANDLE (`moteur`), `consigne` et
+ * `etapes[].libelle` sont le CONTENU JOUABLE de la quête (`ia` — sans eux, un
+ * modèle narrateur n'a rien à faire de cette quête), `echeance` est une note de
+ * PACING que le narrateur ne doit pas faire tomber tout seul (`auteur`, précédent
+ * exact `but.echeance`). Le détail de chaque partage est sur le champ concerné et
+ * dans `destinations.ts`.
+ *
+ * PAS DE `lie_au_canon` (KR-206, rejeté au cadrage de la n° 6) : une forme sans
+ * consommateur, dérivable — même anti-patron que `tier` et que `Indice.portee`.
+ * PAS DE RÉCOMPENSE EN XP non plus (KR-209) : aucune entrée de `DELTAS` ne porte
+ * d'opérande entier, et en ouvrir une exigerait `docs/REGLES-DU-JEU.md` → table
+ * dorée → le code, dans cet ordre (KR-130).
+ */
 export interface Quete extends Entite {
 	recompense: Delta[]
+	/** Référence vers `monde.personnages[].id` — le personnage qui confie cette
+	 *  quête. MOTEUR : un identifiant est un HANDLE, résolu par le code, jamais
+	 *  injecté tel quel — même règle que `relations[].cible_id`, `objectif_id` et
+	 *  `charpente.depart.lieu_id`. Une référence orpheline est EXPOSÉE par
+	 *  `validateDossier`, jamais filtrée au rendu (KR-021).
+	 *
+	 *  L'ESPACE DE NOMS EST `pnj`, le libellé montré à l'auteur reste
+	 *  « Personnage » (`ESPACES_DE_NOMS`) : la clé dit ce que la quête a besoin de
+	 *  désigner, le libellé dit ce que l'auteur lit. OPTIONNELLE — une quête que
+	 *  personne ne confie est un état calme, pas une fiche à moitié remplie. */
+	donneur_id?: string
+	/** IA — CE QUE LE DONNEUR DEMANDE, en prose. C'est le contenu jouable de la
+	 *  quête : le modèle narrateur doit le LIRE pour que la quête existe en jeu,
+	 *  au même titre qu'il lit `plan_actions[].action` pour incarner un
+	 *  personnage. Injectée, jamais émise verbatim — les deux seules proses que le
+	 *  joueur lit mot pour mot sont `charpente.depart.texte_ouverture_joueur` et
+	 *  `charpente.fins[].texte`, toutes deux `moteur` pour cette raison.
+	 *
+	 *  LA CLÉ EST `consigne`, JAMAIS `objectif` NI `enonce`, et les deux exclusions
+	 *  sont des décisions écrites, pas un goût de nommage : `objectif` rejouerait
+	 *  la collision `objectif_id` / `objectif` que KR-198 a déjà tranchée pour le
+	 *  `but` d'un personnage ; `enonce` entrerait en collision de compréhension
+	 *  avec `charpente.jalons[].enonce_texte`, qui existe et qui dit tout autre
+	 *  chose (le FAIT accompli d'un jalon). `consigne` n'a aucun homonyme au
+	 *  schéma. OPTIONNELLE — absent ≠ vide.
+	 *  Exemple : « Retrouver l'enclume volée avant la foire de printemps. » */
+	consigne?: string
+	/** LE DÉROULÉ DE LA QUÊTE, dans l'ordre où le joueur le franchit — voir
+	 *  `EtapeQuete`. OPTIONNELLE, et la LISTE VIDE est un état calme : une quête
+	 *  d'un seul tenant n'a pas d'étapes. Liste STRUCTURÉE, contrôlée élément par
+	 *  élément (`LISTES_OPTIONNELLES_STRUCTUREES`), comme `contre_mesures`,
+	 *  `relations` et `presence` — une chaîne rangée là serait une étape qui
+	 *  disparaît en silence, c'est le trou de BUG-050. */
+	etapes?: EtapeQuete[]
+	/** AUTEUR — pour quand, en français. `auteur` et NON `ia`, PRÉCÉDENT EXACT
+	 *  `but.echeance` et même arbitrage : une échéance en prose reste une DONNÉE
+	 *  D'HORLOGE, et un narrateur qui lit « avant la foire de printemps » fait
+	 *  tomber l'échéance quand la scène s'y prête, pendant qu'aucune horloge n'a
+	 *  tourné. Se desserre vers `ia` sans coût le jour où la n° 10 livre un libellé
+	 *  d'écoulement DÉRIVÉ PAR LE CODE, et sa propre ligne d'audience.
+	 *  Exemple : « Avant que la caravane ne reparte, à l'aube. » */
+	echeance?: string
 }
 
 /** Un climat : une condition ambiante qui modifie les règles. */

@@ -163,6 +163,20 @@ export const enTeteLigneStyle: CSSProperties = {
 	gap: 'var(--space-3)',
 }
 
+// ── Ligne bordée répétée (ÉTAPES, it3) ──────────────────────────────────────
+// Précédent RECOPIÉ octet pour octet de `dossier-fiches/components/styles.ts`
+// (`ligneStyle`) — jamais partagé par import, même doctrine que le reste de ce
+// fichier (chaque feature garde sa propre copie de ses tokens de style).
+export const ligneStyle: CSSProperties = {
+	border: '1px solid var(--border-divider)',
+	background: 'var(--surface-sunken)',
+	borderRadius: 'var(--r-md)',
+	padding: 'var(--space-4)',
+	display: 'flex',
+	flexDirection: 'column',
+	gap: 'var(--space-4)',
+}
+
 // ── Panneau à onglets (Jalons & fins, it2) : ajouts STRICTEMENT ADDITIFS ────
 // Motif KR-147 (flex-column scroll shell) : la racine coupe le débordement,
 // l'en-tête (eyebrow + `SegmentedControl`) est de hauteur fixe (`flexShrink:

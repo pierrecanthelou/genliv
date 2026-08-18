@@ -168,6 +168,13 @@
 			{
 				"id": "quete.retrouver-la-clef",
 				"nom": "Retrouver la clef de basalte",
+				"donneur_id": "pnj.aldur-le-sage",
+				"consigne": "Rapporter à Aldûr la clef de basalte, avant que quelqu'un d'autre ne descende dans le Gouffre.",
+				"etapes": [
+					{ "libelle": "Faire parler l'aubergiste du Fanal sur ce qu'il a vu la nuit de la tempête." },
+					{ "libelle": "Descendre jusqu'à la première salle du Gouffre et en remonter la clef." }
+				],
+				"echeance": "Avant la pleine lune prochaine.",
 				"recompense": [{ "delta": "donner_objet", "cibles": ["objet.clef-de-basalte"] }]
 			}
 		],

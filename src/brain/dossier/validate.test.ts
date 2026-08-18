@@ -49,7 +49,7 @@ function fixture(): Doc {
 const obj = (value: unknown): Doc => value as Doc
 const arr = (value: unknown): Doc[] => value as Doc[]
 
-/** Les DOUZE accès profonds de la fixture, nommés une fois (remesuré, KR-159). */
+/** Les TREIZE accès profonds de la fixture, nommés une fois (remesuré, KR-159). */
 const personnage = (doc: Doc): Doc => arr(obj(doc.monde).personnages)[0]
 const savoir = (doc: Doc): Doc => arr(personnage(doc).savoirs)[0]
 const revele = (doc: Doc): Doc => obj(savoir(doc).revele_si)
@@ -60,6 +60,7 @@ const presence = (doc: Doc): Doc => arr(personnage(doc).presence)[0]
 const caractere = (doc: Doc): Doc => obj(personnage(doc).caractere)
 const curseurs = (doc: Doc): Doc => obj(caractere(doc).curseurs)
 const evenement = (doc: Doc): Doc => arr(obj(doc.monde).evenements)[0]
+const quete = (doc: Doc): Doc => arr(obj(doc.monde).quetes)[0]
 const jalon = (doc: Doc): Doc => arr(obj(doc.charpente).jalons)[0]
 const objectif = (doc: Doc): Doc => arr(obj(doc.canon).objectifs)[0]
 
@@ -1713,6 +1714,14 @@ describe('validateDossier', () => {
 		'monde.personnages[].presence': (doc, valeur) => {
 			personnage(doc).presence = valeur
 		},
+		// LA CINQUIÈME LIGNE (itération 3 de la n° 6) — et la PREMIÈRE de la moitié
+		// déclarée dont le porteur ne soit pas un personnage. La boucle générique ne
+		// change pas d'une ligne : le OÙ de son anomalie est la QUÊTE, résolu par
+		// `sitesDe` en traversant `monde.quetes`, et c'est exactement ce que
+		// l'assertion `location !== liste.location` ci-dessous éprouve.
+		'monde.quetes[].etapes': (doc, valeur) => {
+			quete(doc).etapes = valeur
+		},
 	}
 
 	it('les listes a elements structures ont toutes leur poseur, aucune de plus', () => {
@@ -1936,6 +1945,124 @@ describe('validateDossier', () => {
 		expect(resultat.errors.map((e) => `${e.code} → ${e.path} — ${e.location}`)).toEqual([
 			'element-non-objet → monde.personnages[0].relations[0] — Personnage « Sélène la Vigie »',
 			'element-non-objet → monde.personnages[1].presence[0] — Personnage « Corvin le Marchand »',
+		])
+		expect(resultat.warnings).toEqual([])
+
+		// Discriminant : le MÊME document, intact, ne produit RIEN. Sans cette ligne, un
+		// dossier de référence devenu invalide pour une tout autre raison satisferait
+		// l'assertion ci-dessus par accident.
+		const intact = validateDossier(JSON.parse(fs.readFileSync(CHEMIN_REFERENCE, 'utf8')))
+
+		expect(intact.errors).toEqual([])
+		expect(intact.warnings).toEqual([])
+		expect(intact.ok).toBe(true)
+	})
+
+	it('une etape sans libelle est bloquante, une quete SANS etapes reste calme', () => {
+		// LA SEULE LIGNE DE `CHAMPS_REQUIS` DE L'ITÉRATION 3 DE LA N° 6, et le contrat
+		// qu'elle porte a DEUX moitiés qui ne valent que prouvées ensemble : `libelle` est
+		// REQUIS DANS SON ÉLÉMENT tandis que la LISTE reste OPTIONNELLE (même mécanique
+		// que `contre_mesures[].action` et `relations[].lien`). Prouver la première seule
+		// laisserait passer une liste devenue obligatoire, ce qui invaliderait
+		// RÉTROACTIVEMENT tout dossier déjà persisté (KR-160/KR-191).
+		const absent = fixture()
+		arr(quete(absent).etapes)[1] = {}
+
+		const resultatAbsent = validateDossier(absent)
+
+		expect(resultatAbsent.ok).toBe(false)
+		expect(resultatAbsent.errors.map((e) => `${e.code} → ${e.path} — ${e.location}`)).toEqual([
+			'champ-requis-vide → monde.quetes[0].etapes[1].libelle — Quête « Retrouver la clef de basalte »',
+		])
+		expect(resultatAbsent.errors[0].message).toContain('« libelle »')
+
+		// La chaîne VIDE est refusée au même titre que l'absence — `CHAMPS_REQUIS` exige
+		// une chaîne NON VIDE, et une étape dont le libellé a été effacé n'a pas plus à
+		// faire accomplir qu'une étape qui n'en a jamais porté.
+		const vide = fixture()
+		arr(quete(vide).etapes)[0].libelle = '   '
+
+		expect(codes(validateDossier(vide).errors)).toEqual(['champ-requis-vide'])
+
+		// LA SECONDE MOITIÉ : la LISTE, elle, est optionnelle — absente comme vide, une
+		// quête d'un seul tenant est un état calme, ni erreur ni avertissement.
+		for (const valeur of [undefined, []]) {
+			const doc = fixture()
+			quete(doc).etapes = valeur
+
+			const resultat = validateDossier(doc)
+
+			expect(`etapes = ${JSON.stringify(valeur) ?? 'absent'} → ${resultat.ok}`).toBe(
+				`etapes = ${JSON.stringify(valeur) ?? 'absent'} → true`,
+			)
+			expect(resultat.warnings).toEqual([])
+		}
+	})
+
+	it('deux Delta identiques dans recompense[] sont acceptes', () => {
+		// LES DOUBLONS SONT LÉGAUX, et ce n'est pas une tolérance subie : « donne deux
+		// fois la clef » est une récompense qu'un auteur peut vouloir écrire, et rien au
+		// schéma 1 ne définit ce qu'une déduplication devrait choisir. Le champ est une
+		// LISTE, pas un ensemble — c'est le moteur de la n° 9 qui appliquera les effets,
+		// dans l'ordre, autant de fois qu'ils sont écrits.
+		//
+		// SANS CE TEST, la propriété n'est tenue par rien : l'écran d'it3 rend une ligne
+		// par entrée avec l'INDEX pour clé React, et il n'aurait aucun moyen de savoir
+		// que le SSOT accepte ce qu'il lui envoie.
+		const doc = fixture()
+		const effet = { delta: 'donner_objet', cibles: ['objet.clef-de-basalte'] }
+		quete(doc).recompense = [effet, { ...effet, cibles: [...effet.cibles] }]
+
+		const resultat = validateDossier(doc)
+
+		expect(resultat.errors.map((e) => `${e.code} → ${e.path}`)).toEqual([])
+		expect(resultat.warnings).toEqual([])
+		expect(resultat.ok).toBe(true)
+		// Les DEUX entrées survivent au gel et à la copie — un dédoublonnage silencieux
+		// en aurait fait disparaître une sans qu'aucune anomalie ne le dise.
+		expect(resultat.dossier?.monde.quetes[0].recompense).toHaveLength(2)
+
+		// SONDE DE DISCRIMINANCE (KR-199) — sans elle, l'assertion ci-dessus resterait
+		// verte le jour où ce chemin cesserait de refuser POUR TOUT LE MONDE, et le test
+		// dirait « les doublons sont acceptés » en ne prouvant que « rien n'est jamais
+		// refusé ici ». Une TROISIÈME entrée, elle, fautive, doit être refusée — et une
+		// seule fois, au bon rang.
+		const temoin = fixture()
+		quete(temoin).recompense = [
+			effet,
+			{ ...effet, cibles: [...effet.cibles] },
+			{ delta: 'donner_objet', cibles: ['objet.nulle-part'] },
+		]
+
+		const resultatTemoin = validateDossier(temoin)
+
+		expect(resultatTemoin.errors.map((e) => `${e.code} → ${e.path}`)).toEqual([
+			'reference-pendante → monde.quetes[0].recompense[2]',
+		])
+		expect(resultatTemoin.ok).toBe(false)
+	})
+
+	it('le dossier de reference reste accepte SANS REGRESSION quand le donneur d une quete y est orphelin, et SEULE cette anomalie remonte', () => {
+		// CRITÈRE #1 DU PLAN D'IT3, MÊME FORME que ses aînés d'it4/it5 de la n° 4 et
+		// d'it1 de la n° 6, et pour la même raison (BUG-072) : les deux moitiés — « les
+		// quêtes déjà persistées restent acceptées sans régression de leurs champs hors
+		// du lot » et « une référence fautive est refusée » — ne valent que prouvées
+		// ENSEMBLE, sur le MÊME document et dans le MÊME résultat.
+		//
+		// LE DOCUMENT EST CELUI D'UNE AVENTURE RÉELLE : sa quête porte un donneur, une
+		// consigne, trois étapes, une échéance et DEUX effets de récompense, au milieu de
+		// six personnages qui référencent quatre indices.
+		const doc = JSON.parse(fs.readFileSync(CHEMIN_REFERENCE, 'utf8')) as Doc
+		const premiere = arr(obj(doc.monde).quetes)[0]
+		expect(premiere.nom).toBe('Retrouver la Vigie')
+		expect(premiere.etapes).toHaveLength(3)
+		premiere.donneur_id = 'pnj.nulle-part'
+
+		const resultat = validateDossier(doc)
+
+		expect(resultat.ok).toBe(false)
+		expect(resultat.errors.map((e) => `${e.code} → ${e.path} — ${e.location}`)).toEqual([
+			'reference-pendante → monde.quetes[0].donneur_id — Quête « Retrouver la Vigie »',
 		])
 		expect(resultat.warnings).toEqual([])
 
@@ -2803,6 +2930,17 @@ describe('validateDossier, les references simples', () => {
 			},
 			chemin: 'monde.indices[0].mene_a[0]',
 			location: 'Indice « Des cendres encore tièdes »',
+		},
+		// LA NEUVIÈME (itération 3 de la n° 6) — LE DONNEUR D'UNE QUÊTE. Le OÙ n'est ni
+		// le personnage désigné ni le repli de la table, mais la QUÊTE PORTEUSE : c'est
+		// sur sa fiche que l'auteur doit aller corriger, exactement comme
+		// `relations[].cible_id` nomme le porteur de la relation et jamais sa cible.
+		'monde.quetes[].donneur_id': {
+			poser: (doc, id) => {
+				quete(doc).donneur_id = id
+			},
+			chemin: 'monde.quetes[0].donneur_id',
+			location: 'Quête « Retrouver la clef de basalte »',
 		},
 	}
 

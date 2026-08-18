@@ -9,7 +9,9 @@ import type { DossierIssue, DossierIssueCode } from './issues'
  * LA FORME D'UN EFFET DE RÈGLE, éprouvée hors de tout document. `validateDelta`
  * est la frontière de confiance des quatre emplacements de deltas (KR-116) : ce
  * fichier tient les propriétés que sa docstring affirme, une par une (KR-169) —
- * totalité, appartenance propre au registre, non-exportation du registre.
+ * totalité, appartenance propre au registre, et confinement de sa sortie du baril
+ * `brain/index.ts` à une ALLOW-LIST NOMMÉE (KR-215, itération 3 de la n° 6 : le
+ * registre en sort désormais, mais pour des porteurs qu'on écrit).
  */
 
 const MODULE_DOSSIER = __dirname
@@ -47,10 +49,14 @@ function source(nom: string): string {
 /**
  * La source PRIVÉE DE SES COMMENTAIRES. Sans elle, les deux test-greps ci-dessous
  * seraient rouges sur de la PROSE : la docstring de `deltas.ts` nomme
- * `'toString' in DELTAS` pour dire pourquoi c'est interdit, et celle du baril
- * `brain/index.ts` nomme `DELTAS` pour dire qu'il n'y sort pas. Une règle qui
- * interdirait d'écrire un nom interdirait aussi d'expliquer pourquoi — même
- * patron que le test-grep de `parseExpr` dans `expr.test.ts`.
+ * `'toString' in DELTAS` pour dire pourquoi c'est interdit, et le baril
+ * `brain/index.ts` nomme `DELTAS` en commentaire pour dire À QUI il le laisse
+ * sortir. Une règle qui interdirait d'écrire un nom interdirait aussi d'expliquer
+ * pourquoi — même patron que le test-grep de `parseExpr` dans `expr.test.ts`.
+ *
+ * ⚠ CONSÉQUENCE À CONNAÎTRE DEPUIS L'ALLOW-LIST : un fichier qui ne NOMMERAIT le
+ * registre qu'en commentaire n'est pas un porteur. C'est exactement ce qu'on veut
+ * — le garde compte les CONSOMMATEURS, pas les mentions.
  */
 function enPositionDeCode(texte: string): string {
 	return texte.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
@@ -157,12 +163,37 @@ describe('DELTAS, les proprietes que le registre achete', () => {
 		expect(ailleurs).toEqual(['validate.ts → DELTAS[ref.delta]'])
 	})
 
-	it('DELTAS n est reference par aucun fichier hors brain/dossier/', () => {
-		// C'est l'instrument de la clause d'ESCALADE : le registre ne sort pas du baril
-		// `brain/index.ts` (seuls les TYPES `Delta` / `DeltaId` en sortent). Le jour où
-		// la n° 11 voudra le câbler dans un schéma de sortie de modèle, elle devra
-		// SUPPRIMER ce test — c'est-à-dire prendre la décision au lieu de la subir.
+	it('DELTAS n est reference hors brain/dossier/ que par un porteur de l allow-list nommee', () => {
+		// C'était l'instrument de la clause d'ESCALADE sous sa forme la plus dure — le
+		// registre ne sortait PAS du baril `brain/index.ts`, seuls les TYPES `Delta` /
+		// `DeltaId` en sortaient — et l'itération 3 de la n° 6 vient de payer cette
+		// escalade plutôt que de la contourner (KR-215).
 		//
+		// CE QUI A CHANGÉ, ET CE QUI N'A PAS CHANGÉ. Le registre sort désormais du
+		// baril, pour un consommateur NOMMÉ : `EditeurEffets.tsx` rend un `Select` dont
+		// les options sont les entrées de `DELTAS` dans SON ordre, avec leur `label`
+		// VERBATIM, et un `Select` de cible PAR ENTRÉE de `refKinds`. Le contournement
+		// disponible — une projection dérivée re-listant les quatre libellés côté
+		// feature — a été explicitement veto au raffinage : elle divergerait EN SILENCE
+		// le jour où un cinquième effet est admis (KR-117). Ce qui n'a pas changé, c'est
+		// que la décision reste EXPLICITE : toute autre feature qui voudra consommer le
+		// registre devra ajouter SA ligne ici, c'est-à-dire prendre la décision au lieu
+		// de la subir.
+		//
+		// ⚠ LES ENTRÉES SONT CONSTRUITES PAR `path.join`, JAMAIS ÉCRITES À LA BARRE
+		// OBLIQUE : `path.relative` rend des séparateurs NATIFS de la plateforme, et ce
+		// dépôt tourne aussi sous Windows — un littéral `'brain/index.ts'` ferait rougir
+		// ce test là-bas et nulle part ailleurs.
+		//
+		// L'ALLOW-LIST EST UN SUR-ENSEMBLE, et c'est délibéré : le lot contrat livre le
+		// premier porteur, le lot écran le second. L'assertion porte donc sur
+		// l'INCLUSION (« aucun porteur hors liste »), jamais sur l'égalité — qui aurait
+		// fait rougir un lot vert.
+		const AUTORISES = [
+			path.join('brain', 'index.ts'),
+			path.join('features', 'dossier-registres', 'components', 'EditeurEffets.tsx'),
+		]
+
 		// `\b` en tête : `CHEMINS_DE_DELTAS` n'est pas une occurrence (`_` est un
 		// caractère de mot), et c'est voulu — cette table-là est publique dans le module.
 		const registre = /\bDELTAS\b/
@@ -172,7 +203,14 @@ describe('DELTAS, les proprietes que le registre achete', () => {
 			.filter((fichier) => registre.test(enPositionDeCode(fs.readFileSync(fichier, 'utf8'))))
 			.map((fichier) => path.relative(RACINE_SRC, fichier))
 
-		expect(porteurs).toEqual([])
+		expect(porteurs.filter((fichier) => !AUTORISES.includes(fichier))).toEqual([])
+
+		// SONDE DE DISCRIMINANCE (KR-199) — sans elle, l'assertion ci-dessus resterait
+		// verte si le balayage ne trouvait RIEN : elle dirait « aucun porteur hors
+		// liste » en ne prouvant que « aucun porteur ». Le baril EXPORTE réellement le
+		// registre, et le balayage le voit — vrai après ce lot seul comme après le lot
+		// écran, puisque cet export ne repart pas.
+		expect(porteurs).toContain(path.join('brain', 'index.ts'))
 
 		// Discriminant du motif : sans ces deux lignes, l'assertion serait vraie parce
 		// que la regex ne matche rien plutôt que parce que le registre est confiné.

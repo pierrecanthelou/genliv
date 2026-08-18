@@ -438,6 +438,44 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	'monde.indices[].mene_a[]': 'moteur',
 	'monde.quetes[].id': 'moteur',
 	'monde.quetes[].nom': 'auteur',
+	// ── LES QUATRE LIGNES D'UNE QUÊTE (itération 3 de la n° 6) ────────────────
+	// TROIS AUDIENCES DANS QUATRE CHAMPS, et la coupure EST l'arbitrage.
+	//
+	// LE DONNEUR est un HANDLE technique : le code le résout, le modèle reçoit le
+	// CONTENU du personnage sous l'audience DU PERSONNAGE, jamais cette clé — même
+	// règle que tous les `…_id` du schéma (`relations[].cible_id`,
+	// `personnages[].objectif_id`, `charpente.depart.lieu_id`).
+	'monde.quetes[].donneur_id': 'moteur',
+	// CE QUE LE DONNEUR DEMANDE — `ia`, et la question s'est posée contre `auteur` :
+	// c'est le CONTENU JOUABLE de la quête, celui sans lequel un narrateur n'a rien à
+	// faire de cette entrée du registre. `auteur` est réservé à ce qui n'est PAS de la
+	// donnée de jeu (le `nom`, un jumeau `…_texte`, une note de pacing comme
+	// l'`echeance` juste en dessous). Injectée, jamais émise verbatim : les proses que
+	// le joueur lit mot pour mot sont `charpente.depart.texte_ouverture_joueur` et
+	// `charpente.fins[].texte`, et c'est ce qui les rend `moteur` toutes les deux.
+	'monde.quetes[].consigne': 'ia',
+	// LE DÉROULÉ — `ia`, PAR COHÉRENCE AVEC `consigne` et par analogie au précédent
+	// structurel direct `plan_actions[].action`, déjà `ia` : une étape de quête est le
+	// même type de contenu jouable que la consigne (ce que le joueur doit accomplir),
+	// et la livrer au modèle est toute la raison d'être du champ.
+	//
+	// AUCUNE LIGNE PORTEUSE `monde.quetes[].etapes` — même raison que pour `…stats` et
+	// `…caractere` : `feuillesDeLaFixture` ne rend jamais un objet NON VIDE comme
+	// feuille, donc une telle ligne serait morte le jour même où elle est écrite, et
+	// l'assertion « aucune ligne morte » de `couverture.test.ts` la ferait rougir.
+	'monde.quetes[].etapes[].libelle': 'ia',
+	// POUR QUAND — `auteur`, CONTRE le voisinage immédiat de `consigne` et
+	// d'`etapes[].libelle`, et l'arbitrage mérite d'être écrit ici plutôt que
+	// redécouvert à la n° 10. PRÉCÉDENT EXACT `but.echeance` (itération 4 de la n° 4),
+	// mot pour mot : une échéance en prose reste une DONNÉE D'HORLOGE, et le précédent
+	// le plus proche n'est pas le bloc qui la porte, ce sont les `…_texte`
+	// (`evenements[]`, `jalons[]`), tous `auteur` sous le motif « le narrateur ne doit
+	// pas provoquer ni improviser ce que le moteur n'a pas constaté » — un narrateur
+	// qui lit « avant que la caravane ne reparte » fait tomber l'échéance quand la
+	// scène s'y prête, pendant qu'aucune horloge n'a tourné. Se desserre vers `ia`
+	// sans coût le jour où la n° 10 livre un libellé d'écoulement DÉRIVÉ PAR LE CODE
+	// et sa propre ligne d'audience. Aucune PARAPHRASE en attendant.
+	'monde.quetes[].echeance': 'auteur',
 	// Un delta est APPLIQUÉ par le moteur. Injecté, il apprendrait au modèle à
 	// distribuer lui-même des récompenses.
 	'monde.quetes[].recompense[]': 'moteur',

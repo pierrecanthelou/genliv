@@ -132,11 +132,22 @@ export { autoSlot } from './BookService'
 // les n° 3/6/7, et un registre exporté trop tôt se fait lire par des branches
 // `if (predicat === …)` avant d'avoir son `Select`.
 // MÊME RÈGLE pour l'itération 4 : `Delta` et `DeltaId` sortent (la n° 6 en aura
-// besoin pour typer l'éditeur de récompenses), `DELTAS`, `validateDelta` et
+// besoin pour typer l'éditeur de récompenses), `validateDelta` et
 // `collectDeltaRefs` restent — propriété tenue par un test-grep de
-// `deltas.test.ts`, de sorte que le jour où la n° 11 voudra câbler le registre
-// dans un schéma de sortie, elle devra SUPPRIMER un test, c'est-à-dire prendre la
-// décision au lieu de la subir. `DeltaBrut` disparaît, remplacé par `Delta`.
+// `deltas.test.ts`. `DeltaBrut` disparaît, remplacé par `Delta`.
+// ⚠ LE REGISTRE `DELTAS` LUI-MÊME SORT À L'ITÉRATION 3 DE LA N° 6, et le test-grep
+// qui l'interdisait est réécrit en ALLOW-LIST NOMMÉE plutôt que supprimé (KR-215) :
+// il exige désormais que tout porteur hors de `brain/dossier/` soit l'un des DEUX
+// fichiers nommés — ce baril, et `dossier-registres/components/EditeurEffets.tsx`.
+// Le consommateur est réel et unique : l'éditeur de récompenses d'une quête (puis,
+// SANS FORK, celui des résolutions d'un événement) rend un `Select` dont les options
+// sont les entrées du registre DANS SON ORDRE, avec leur `label` VERBATIM, et un
+// `Select` de cible PAR ENTRÉE de `refKinds`. Re-lister les quatre libellés côté
+// feature — ou en dériver une projection à la main — en ferait une seconde source
+// qui divergerait en silence le jour où un cinquième effet est admis (KR-117) : ce
+// contournement a été explicitement veto au raffinage. Toute AUTRE feature qui
+// voudra consommer `DELTAS` devra ajouter sa ligne à l'allow-list, c'est-à-dire
+// prendre la décision au lieu de la subir.
 // MÊME RÈGLE pour l'itération 3 de la n° 4 : les DEUX constantes de l'échelle des
 // caractéristiques sortent, et chacune a son consommateur réel et unique côté
 // feature. `CARACTERISTIQUE_MIN` est le `min` des huit `Stepper` de la fiche — la
@@ -297,7 +308,14 @@ export type {
 	PorteeIndice,
 	Resolution,
 	Evenement,
+	// LES DEUX TYPES DE L'ITÉRATION 3 DE LA N° 6, même motif que `Objet` et `Indice` :
+	// le panneau des quêtes crée et écrit une quête par `DossierService.update()`, et
+	// la typer sur place reconstruirait une forme que le validateur ne connaîtrait
+	// pas. `EtapeQuete` sort AVEC `Quete` et non pour lui-même — il est un membre de
+	// sa forme publique, et la fiche qui écrit `etapes[]` n'aurait aucun autre moyen
+	// de le NOMMER (précédent exact `PorteeContreMesure` avec `ContreMesure`).
 	Quete,
+	EtapeQuete,
 	Climat,
 	Conditions,
 	Jalon,
@@ -307,6 +325,7 @@ export type {
 export type { ExprNode } from './dossier/expr'
 export type { PredicatId } from './dossier/predicates'
 export type { Delta, DeltaId } from './dossier/deltas'
+export { DELTAS } from './dossier/deltas'
 export { DOSSIER_ISSUE_LABELS, dossierIssueRemediation } from './dossier/issues'
 export type { DossierIssue, DossierIssueCode, DossierIssueSeverity } from './dossier/issues'
 // `localiserEntite` SORT à l'itération 2 de la n° 3 (`dossier-canon`), qui en est

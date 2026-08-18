@@ -99,14 +99,19 @@ describe('importDossier', () => {
 		const fichier = new File([JSON.stringify(document_)], 'casse.json', { type: 'application/json' })
 		await user.upload(screen.getByLabelText(/choisir un fichier de dossier/i), fichier)
 
-		// Le badge compte et accorde. QUATRE depuis l'itération 5 de dossier-fiches
-		// (relations[].cible_id s'ajoute à la cascade) — TROIS depuis l'itération 3,
-		// et la troisième est la démo de cette itération-là rendue par l'affordance
-		// existante : casser l'identifiant du personnage rend PENDANTE la condition
-		// qui le référence (`canon.objectifs[0].echoue_si_expr`). Cascade VOULUE et
-		// déjà établie — `charpente.depart.lieu_id` se comporte pareil depuis
-		// l'itération 1 ; `relations[0].cible_id` s'y ajoute depuis dossier-fiches it5.
-		expect(await screen.findByText('4 anomalies')).toBeInTheDocument()
+		// Le badge compte et accorde. CINQ depuis l'itération 3 de dossier-registres
+		// (`monde.quetes[0].donneur_id` s'ajoute à la cascade) — QUATRE depuis
+		// l'itération 5 de dossier-fiches (relations[].cible_id), TROIS depuis
+		// l'itération 3, et la troisième est la démo de cette itération-là rendue par
+		// l'affordance existante : casser l'identifiant du personnage rend PENDANTE la
+		// condition qui le référence (`canon.objectifs[0].echoue_si_expr`). Cascade
+		// VOULUE et déjà établie — `charpente.depart.lieu_id` se comporte pareil depuis
+		// l'itération 1 ; `relations[0].cible_id` s'y ajoute depuis dossier-fiches it5,
+		// et `quetes[0].donneur_id` depuis dossier-registres it3, la fixture minimale
+		// n'ayant qu'UN personnage — tout champ de référence vers l'espace `pnj` y
+		// pointe donc nécessairement `pnj.aldur-le-sage`. Le compte est REMESURÉ à
+		// chaque tranche de schéma, jamais recopié (KR-159).
+		expect(await screen.findByText('5 anomalies')).toBeInTheDocument()
 
 		// OÙ : l'entité résolue par son NOM, avec son identifiant entre parenthèses.
 		// DEUX anomalies portent désormais ce même OÙ (echoue_si_expr et cible_id) —

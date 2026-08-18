@@ -122,6 +122,12 @@ export const CHAMPS_REQUIS: readonly ChampRequis[] = [
 	{ path: 'monde.personnages[].presence[].lieu_id', location: 'Personnages' },
 	{ path: 'monde.personnages[].savoirs[].indice_id', location: 'Personnages' },
 	{ path: 'monde.personnages[].savoirs[].revele_si.contrepartie.objet_id', location: 'Personnages' },
+	// MÊME FORME que `contre_mesures[].action` et `relations[].lien` ci-dessus, et
+	// pour la même raison : la LISTE `etapes` reste OPTIONNELLE, c'est l'ÉLÉMENT qui
+	// est contraint. Une étape sans libellé n'a rien à faire accomplir au joueur.
+	// C'est aussi la SEULE règle que `EtapeQuete` porte : son ordre est celui du
+	// tableau, jamais un champ (KR-013, voir la docstring du type).
+	{ path: 'monde.quetes[].etapes[].libelle', location: 'Quêtes' },
 	{ path: 'monde.evenements[].resolutions[].resultat', location: 'Événements' },
 	{ path: 'charpente.depart.lieu_id', location: 'Point de départ' },
 	{ path: 'charpente.depart.texte_ouverture_joueur', location: 'Point de départ' },
@@ -389,7 +395,11 @@ export const CHAMPS_ENTIERS: readonly ChampEntier[] = [
  * Elle ne se dérive de rien : une liste optionnelle n'a, par définition, aucune
  * autre table qui la nomme. Toute liste optionnelle STRUCTURÉE ajoutée à
  * `types.ts` gagne sa ligne ici — le compilateur ne relie pas les deux. Les DEUX
- * annoncées par l'itération 4 sont arrivées à l'itération 5.
+ * annoncées par l'itération 4 sont arrivées à l'itération 5, et la QUATRIÈME
+ * (`monde.quetes[].etapes`) à l'itération 3 de la n° 6 : c'est la première de
+ * cette table à ne PAS vivre sous `monde.personnages[]`, ce qui ne change rien à
+ * sa règle — le OÙ de son anomalie est la QUÊTE porteuse, résolu par `sitesDe` en
+ * traversant `monde.quetes`, sans qu'aucune ligne ait à le dire.
  *
  * ⚠ `monde.personnages[].caractere.parler` N'Y EST PAS, ET CE N'EST PAS UN OUBLI
  * (itération 8) : le mot qui compte dans le nom de cette table est STRUCTURÉES —
@@ -409,6 +419,7 @@ export const LISTES_OPTIONNELLES_STRUCTUREES: readonly ChampRequis[] = [
 	{ path: 'monde.personnages[].contre_mesures', location: 'Personnages' },
 	{ path: 'monde.personnages[].relations', location: 'Personnages' },
 	{ path: 'monde.personnages[].presence', location: 'Personnages' },
+	{ path: 'monde.quetes[].etapes', location: 'Quêtes' },
 ]
 
 /**
@@ -498,12 +509,13 @@ export interface ReferenceSimple {
 }
 
 /**
- * Les HUIT références simples du schéma 1 — quatre posées par la n° 1, la
+ * Les NEUF références simples du schéma 1 — quatre posées par la n° 1, la
  * cinquième (`personnages[].objectif_id`) par l'itération 1 de la n° 4, les deux
- * suivantes par son itération 5, la dernière (`indices[].mene_a[]`) par l'itération 1
- * de la n° 6. Toutes bloquantes quand elles ne résolvent pas : une référence
- * orpheline est EXPOSÉE, jamais silencieuse (KR-021). Le nombre est à REMESURER,
- * jamais à recopier d'ici (KR-159).
+ * suivantes par son itération 5, la huitième (`indices[].mene_a[]`) par l'itération 1
+ * de la n° 6 et la dernière (`quetes[].donneur_id`) par son itération 3. Toutes
+ * bloquantes quand elles ne résolvent pas : une référence orpheline est EXPOSÉE,
+ * jamais silencieuse (KR-021). Le nombre est à REMESURER, jamais à recopier d'ici
+ * (KR-159).
  *
  * Les trois de `savoirs[]` — et les trois portées par la fiche elle-même — nomment
  * le PERSONNAGE porteur : c'est `sitesDe` qui le résout en traversant
@@ -558,6 +570,21 @@ export const REFERENCES_SIMPLES: readonly ReferenceSimple[] = [
 	// s'afficher RÉSOLU — l'exclusion arbitrée au raffinage est une règle d'ÉCRAN, sur
 	// la seule ligne d'ajout.
 	{ path: 'monde.indices[].mene_a[]', espace: 'indice', location: 'Indices' },
+	// LA NEUVIÈME (itération 3 de la n° 6) — LE DONNEUR D'UNE QUÊTE, et la première
+	// référence du schéma dont le PORTEUR n'est ni un personnage ni un indice. Elle
+	// n'apporte aucune mécanique neuve : l'espace `pnj` est déjà résolu par
+	// `relations[].cible_id`, `monde.quetes` est déjà une collection identifiée, et
+	// le OÙ de son anomalie est la QUÊTE porteuse, que `sitesDe` résout en traversant.
+	//
+	// SANS `sujet`, comme les six autres sans décision de rédaction écrite : le repli
+	// dérivé écrit « Le champ « donneur_id » », qui nomme le champ que l'auteur vient
+	// d'éditer.
+	//
+	// CONSÉQUENCE EN AVAL, symétrique de celle de la cinquième et de la sixième : un
+	// personnage qui donne une quête ne pourra plus être retiré en silence. C'est la
+	// définition d'une référence, pas un effet de bord — l'écran qui retire le
+	// personnage doit RENDRE le refus, jamais l'avaler (KR-183).
+	{ path: 'monde.quetes[].donneur_id', espace: 'pnj', location: 'Quêtes' },
 ]
 
 /**

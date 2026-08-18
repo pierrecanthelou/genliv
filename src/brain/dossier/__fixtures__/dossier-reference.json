@@ -306,6 +306,14 @@
 			{
 				"id": "quete.retrouver-la-vigie",
 				"nom": "Retrouver la Vigie",
+				"donneur_id": "pnj.mira-la-guerisseuse",
+				"consigne": "Découvrir qui entretient le feu du beffroi, et le lui dire à elle seule.",
+				"etapes": [
+					{ "libelle": "Relever les pas frais dans la cendre, au pied de la tour effondrée." },
+					{ "libelle": "Obtenir de Corvin ce qu'il a vendu, et à qui, la nuit de la tempête." },
+					{ "libelle": "Monter à la vigie du nord avant l'aube et y attendre celle qui allume le signal." }
+				],
+				"echeance": "Avant que la crypte ne se rouvre.",
 				"recompense": [
 					{ "delta": "atteindre_jalon", "cibles": ["jalon.second-guet"] },
 					{ "delta": "donner_objet", "cibles": ["objet.amulette-scellee"] }

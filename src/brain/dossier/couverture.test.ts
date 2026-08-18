@@ -247,7 +247,7 @@ const TEXTE_OPTIONNEL_LIBRE =
 	"jumeau prose OPTIONNEL d'une condition : son absence est calme par D1, et aucune règle du schéma 1 ne contraint sa forme quand il est présent. Même question ouverte que les dispenses « nom », propriétaire n° 2 bascule-editeur : une table « présent → doit être une chaîne », ou une garde à l'affichage."
 
 /**
- * Le motif partagé des proses d'entité — QUINZE aujourd'hui, remesuré et jamais
+ * Le motif partagé des proses d'entité — DIX-SEPT aujourd'hui, remesuré et jamais
  * recopié (KR-159) : les TROIS de `Lieu` (itération 4 de la n° 3), les TROIS
  * d'identité d'un `Personnage` (itération 2 de la n° 4), les DEUX proses libres
  * de son `but` (itération 4 de la n° 4 : `pourquoi` et `echeance` — `libelle`, lui,
@@ -258,9 +258,13 @@ const TEXTE_OPTIONNEL_LIBRE =
  * L'UNIQUE prose d'un `Objet` (itération 1 de la n° 5 : `description_joueur`) et les
  * DEUX d'un `Indice` (itération 1 de la n° 6 : `verite` et `formulation_joueur` —
  * `mene_a[]`, lui, N'EST PAS ici, étant une RÉFÉRENCE dont la corruption est refusée
- * par `REFERENCES_SIMPLES`, et une dispense à son nom serait morte) et L'UNIQUE
+ * par `REFERENCES_SIMPLES`, et une dispense à son nom serait morte), L'UNIQUE
  * prose d'une `Fin` (itération 2 de la n° 6 : `texte` — `condition_texte`, lui,
- * N'EST PAS ici, étant à la fois REQUIS et jumeau prose d'une condition).
+ * N'EST PAS ici, étant à la fois REQUIS et jumeau prose d'une condition) et les DEUX
+ * proses libres d'une `Quete` (itération 3 de la n° 6 : `consigne` et `echeance` —
+ * `etapes[].libelle`, lui, N'EST PAS ici, étant REQUIS dans son élément, et
+ * `donneur_id` non plus, étant une RÉFÉRENCE ; deux dispenses à leurs noms seraient
+ * mortes).
  * Il
  * est DISTINCT de `TEXTE_OPTIONNEL_LIBRE`, et pas par style : celui-là dispense le
  * jumeau prose d'une CONDITION, dont l'absence est calme PAR D1 et dont la
@@ -389,6 +393,23 @@ const LIBRES: Record<string, string> = {
 	'monde.indices[].verite': PROSE_D_ENTITE_LIBRE,
 	'monde.indices[].formulation_joueur': PROSE_D_ENTITE_LIBRE,
 	'monde.quetes[].nom': NOM_LIBRE,
+	// LES DEUX PROSES LIBRES D'UNE QUÊTE (it3 de la n° 6), même motif mot pour mot que
+	// les quinze précédentes : une prose d'entité sans jumeau structuré, dont la
+	// corruption remplace la chaîne par un NOMBRE, et qu'aucune règle du schéma 1
+	// n'arbitre. `echeance` est bien ici et NON sous `TEXTE_OPTIONNEL_LIBRE` malgré son
+	// nom de note d'auteur : elle n'a ni jumeau `…_expr`, ni ligne dans
+	// `FAMILLES_DE_CONDITIONS` — précédent exact `but.echeance`, dispensée plus haut
+	// sous ce même motif.
+	//
+	// LES DEUX AUTRES CHAMPS DE L'ITÉRATION N'Y SONT PAS, et c'est le point de contrat
+	// qui se voit le mieux à cet endroit : `etapes[].libelle` est REQUIS DANS SON
+	// ÉLÉMENT (`CHAMPS_REQUIS`), donc sa corruption chaîne → nombre est refusée par
+	// `champ-requis-vide` ; `donneur_id` est une RÉFÉRENCE (`REFERENCES_SIMPLES`), donc
+	// la même corruption est refusée par `identifiant-invalide`. Une dispense à l'un ou
+	// à l'autre serait MORTE, et le test « une dispense nommant une feuille deja
+	// couverte est morte » le dirait.
+	'monde.quetes[].consigne': PROSE_D_ENTITE_LIBRE,
+	'monde.quetes[].echeance': PROSE_D_ENTITE_LIBRE,
 	'monde.evenements[].nom': NOM_LIBRE,
 	'monde.conditions.climat[].nom': NOM_LIBRE,
 	'charpente.jalons[].nom': NOM_LIBRE,
@@ -1071,6 +1092,66 @@ describe('couverture', () => {
 		expect(resultatTemoin.ok).toBe(false)
 	})
 
+	it('les QUATRE champs d une quete portent leur destination exacte, dans les DEUX fixtures', () => {
+		// LES QUATRE LIGNES DE SCHÉMA DE L'ITÉRATION 3 DE LA N° 6, épinglées par la même
+		// construction que leurs aînées ci-dessus, et pour la même raison (KR-174, leçon
+		// de BUG-051) : « toute feuille a une destination » ne dit rien de la VALEUR,
+		// « aucune ligne morte » ne dit rien de l'audience. Nommées ensemble, les deux
+		// moitiés épinglent les arbitrages de l'itération — TROIS audiences en quatre
+		// champs, et chacune se dispute contre une voisine immédiate :
+		//
+		//  · `donneur_id` → `moteur` et non `ia`, CONTRE l'idée qu'un narrateur aurait
+		//    besoin de savoir qui donne la quête : un identifiant est un HANDLE, le code
+		//    le résout, et le modèle reçoit le CONTENU du personnage sous l'audience DU
+		//    PERSONNAGE. La bascule que ce test doit faire rougir est « tout ce qui
+		//    décrit une quête est de la matière à raconter » ;
+		//  · `consigne` → `ia` et non `auteur` : c'est le CONTENU JOUABLE de la quête,
+		//    celui sans lequel un narrateur n'a rien à faire de cette entrée du registre.
+		//    La bascule à faire rougir est « une quête est une note d'intrigue de
+		//    l'auteur » ;
+		//  · `etapes[].libelle` → `ia`, par cohérence avec `consigne` et par analogie au
+		//    précédent structurel direct `plan_actions[].action`, déjà `ia` ;
+		//  · `echeance` → `auteur`, CONTRE le voisinage de ses deux sœurs `ia` du même
+		//    objet, et par le MÊME arbitrage que `but.echeance` et `presence[].quand` :
+		//    une échéance lue par le narrateur le fait faire tomber l'horloge quand la
+		//    scène s'y prête, pendant que le moteur n'a rien constaté. La bascule à faire
+		//    rougir est « les quatre champs d'une quête sont du contenu de jeu ».
+		//
+		// Les chemins sont écrits en littéral, et c'est assumé — aucune table du dépôt ne
+		// liste les champs d'une entité ; le garde contre la divergence est l'assertion
+		// d'instanciation ci-dessous, plus les deux assertions générales.
+		const CHAMPS_DE_QUETE: ReadonlyArray<readonly [string, string]> = [
+			['monde.quetes[].donneur_id', 'moteur'],
+			['monde.quetes[].consigne', 'ia'],
+			['monde.quetes[].etapes[].libelle', 'ia'],
+			['monde.quetes[].echeance', 'auteur'],
+		]
+		const feuilles = cheminsDeLaFixture()
+		const feuillesDeLaReference = feuillesDeLaFixture(documentDeReference()).map((feuille) => feuille.normalise)
+
+		for (const [chemin, audience] of CHAMPS_DE_QUETE) {
+			expect(`${chemin} → ${DESTINATION_DES_CHAMPS[chemin]}`).toBe(`${chemin} → ${audience}`)
+			// L'INSTANCE DANS LES DEUX FIXTURES, dans le même test : le garde
+			// d'exhaustivité ne balaie que la MINIMALE, donc un champ instancié là mais
+			// absent d'une aventure réelle resterait vert partout.
+			expect(`${chemin} dans la minimale → ${feuilles.includes(chemin)}`).toBe(`${chemin} dans la minimale → true`)
+			expect(`${chemin} dans la reference → ${feuillesDeLaReference.includes(chemin)}`).toBe(
+				`${chemin} dans la reference → true`,
+			)
+		}
+
+		// Discriminant : le `nom` VOISIN, sur la même entité, reste `auteur`. Sans cette
+		// ligne, les assertions ci-dessus passeraient aussi sur une table qui aurait
+		// basculé TOUTE la quête vers `ia` — c'est-à-dire sur la réouverture silencieuse
+		// de la question transverse que KR-195 laisse fermée jusqu'à l'assembleur n° 10.
+		expect(`monde.quetes[].nom → ${DESTINATION_DES_CHAMPS['monde.quetes[].nom']}`).toBe('monde.quetes[].nom → auteur')
+		// Discriminant : AUCUNE ligne PORTEUSE sur la liste `etapes` elle-même — même
+		// point de contrat que `…stats` et `…caractere.curseurs` plus haut :
+		// `feuillesDeLaFixture` ne rend jamais un objet NON VIDE comme feuille, donc une
+		// telle ligne serait morte le jour où elle serait écrite.
+		expect(DESTINATION_DES_CHAMPS['monde.quetes[].etapes']).toBeUndefined()
+	})
+
 	it('description_joueur d un objet, texte long, aucun avertissement', () => {
 		// KR-203, ET C'EST UN CAS POSITIF, pas une absence de doc : « aucune borne de
 		// longueur » est une DÉCISION du cadrage, et une décision que rien n'exerce se
@@ -1332,10 +1413,12 @@ describe('couverture', () => {
 		).map((liste) => liste.path)
 
 		expect(deriver(COLLECTIONS_IDENTIFIEES)).toEqual(moitieDerivee)
-		// Le trou vaut SIX chemins depuis l'itération 5 — REMESURÉ ici, jamais recopié
-		// (KR-159) : trois requis dérivés, plus les TROIS listes OPTIONNELLES
-		// structurées, que la dérivation ne peut pas voir (trou résiduel de BUG-050).
-		expect(LISTES_A_ELEMENTS_STRUCTURES).toHaveLength(6)
+		// Le trou vaut SEPT chemins depuis l'itération 3 de la n° 6 — REMESURÉ ici,
+		// jamais recopié (KR-159) : trois requis dérivés, plus les QUATRE listes
+		// OPTIONNELLES structurées, que la dérivation ne peut pas voir (trou résiduel de
+		// BUG-050). La quatrième, `monde.quetes[].etapes`, est la première de la moitié
+		// déclarée à ne pas vivre sous `monde.personnages[]`.
+		expect(LISTES_A_ELEMENTS_STRUCTURES).toHaveLength(7)
 		expect(LISTES_A_ELEMENTS_STRUCTURES.map((liste) => liste.path)).toEqual([
 			'monde.personnages[].plan_actions',
 			'monde.personnages[].savoirs',
@@ -1343,6 +1426,7 @@ describe('couverture', () => {
 			'monde.personnages[].contre_mesures',
 			'monde.personnages[].relations',
 			'monde.personnages[].presence',
+			'monde.quetes[].etapes',
 		])
 		// Discriminant du TROU RÉSIDUEL : la dérivation seule ne rend AUCUNE des trois
 		// listes optionnelles. Sans cette ligne, on ne saurait pas dire si les trois

@@ -659,27 +659,32 @@
 		{
 			"id": "KR-210",
 			"feature": "dossier-registres",
-			"risk": "Comme dossier-fiches (KR-190) : chaque iteration de dossier-registres ouvre un lot contrat distinct sur les memes fichiers brain/dossier/* — jamais deux lots contrat dans la meme iteration, les 5 iterations sont strictement serielles."
+			"risk": "Comme dossier-fiches (KR-190) : chaque iteration ouvre un lot contrat distinct sur les memes fichiers brain/dossier/* — jamais deux lots contrat dans la meme iteration, les 5 iterations sont strictement serielles."
 		},
 		{
 			"id": "KR-211",
 			"feature": "dossier-registres",
-			"risk": "Predit par KR-189. Reformule it2 : couverture Delta[] deja acquise, garde D1 en discriminance a 3 entites (Jalon.alerteSansExpr:false) — voir KR-214."
+			"risk": "Predit par KR-189. Reformule it2 : couverture Delta[] deja acquise, D1 en discriminance a 3 entites (Jalon.alerteSansExpr:false)."
 		},
 		{
 			"id": "KR-212",
 			"feature": "dossier-registres",
-			"risk": "mene_a[] est la 1ere liste de references du schema (les autres REFERENCES_SIMPLES sont des scalaires) — 3 trous de validation fermes en it1 : valeur non-string silencieuse, message d'erreur mal formate (feuilleDe), valeur non-tableau plantant sitesDe (ferme par le registre LISTES_OPTIONNELLES_TEXTUELLES, couvre aussi caractere.parler par la meme cause). Tout futur champ xxx[] de type REFERENCES_SIMPLES doit verifier ces trois gardes."
+			"risk": "1ere liste de references du schema (mene_a[]) — 3 trous fermes en it1 : valeur non-string silencieuse, message d'erreur mal formate, valeur non-tableau plantant sitesDe (LISTES_OPTIONNELLES_TEXTUELLES, couvre aussi caractere.parler). Futur champ xxx[] REFERENCES_SIMPLES : verifier ces trois gardes."
 		},
 		{
 			"id": "KR-213",
 			"feature": "dossier-registres",
-			"risk": "Auto-reference dans une liste de references authored (ex. mene_a pointant sur soi) : patron a DEUX moities, precedent BlocSavoirs.tsx (apres_indice_id) — exclue des options au moment de l'AJOUT, mais TOLEREE ET RESOLUE si deja persistee (import). Exclure aux deux moities produit un faux orphelin : avecOrpheline() teste une appartenance sur une liste deja filtree, donc une auto-reference existante s'affiche a tort introuvable."
+			"risk": "Auto-reference dans une liste authored (ex. mene_a pointant sur soi) : DEUX moities (precedent apres_indice_id) — exclue des options a l'AJOUT, mais TOLEREE si deja persistee (import). Exclure aux deux moities produit un faux orphelin (avecOrpheline teste une liste deja filtree)."
 		},
 		{
 			"id": "KR-214",
 			"feature": "dossier-registres",
-			"risk": "Un champ CHAMPS_REQUIS refuse le geste d'ajout naif (entite quasi nue). Marqueur MARQUEUR_A_ECRIRE a eviter si le champ est dans FAMILLES_DE_CONDITIONS avec alerteSansExpr:true (allume D1 a la creation). Resolu par brouillon differe (precedent useEcriturePlan.ts), voir dossier-registres it2."
+			"risk": "Un champ CHAMPS_REQUIS refuse le geste d'ajout naif. Marqueur MARQUEUR_A_ECRIRE a eviter si le champ est dans FAMILLES_DE_CONDITIONS avec alerteSansExpr:true (allume D1 a la creation). Resolu par brouillon differe (precedent useEcriturePlan.ts), voir dossier-registres it2."
+		},
+		{
+			"id": "KR-215",
+			"feature": "dossier-registres",
+			"risk": "Un registre brain/ non exporte avant un consommateur nomme (cf KR-214) porte souvent un test-grep interdisant tout porteur hors module. Ne PAS contourner par une projection derivee (veto) : reecrire en allow-list nommee, avec path.join (pas un litteral a barre oblique, Windows)."
 		}
 	]
 }

@@ -5,3 +5,4 @@
  */
 export { PanneauIndices } from './components/PanneauIndices'
 export { PanneauJalonsFins } from './components/PanneauJalonsFins'
+export { PanneauQuetes } from './components/PanneauQuetes'
