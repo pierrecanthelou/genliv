@@ -103,7 +103,19 @@ const PORTES_DE_REVELATION = ['confiance_min', 'jet', 'contrepartie', 'apres_ind
 /** L'unique référence du schéma 1 qui résout HORS du dossier, contre le bestiaire. */
 const CHEMIN_MONSTRE_REF = 'monde.evenements[].monstre_ref'
 const ESPACE_BESTIAIRE: EspaceDeNoms = 'bestiaire'
-const PREFIXE_BESTIAIRE = `${ESPACE_BESTIAIRE}.`
+/**
+ * Le préfixe d'une référence de bestiaire — DÉRIVÉ de l'espace de noms ci-dessus,
+ * jamais un second littéral `'bestiaire.'` (KR-165/117).
+ *
+ * IL SORT du module à l'itération 4 de la n° 6, et c'est le seul changement que ce
+ * fichier reçoit d'elle : la fiche d'un événement écrit `monstre_ref` depuis un
+ * `Select` armé par `BESTIARY`, donc elle doit COMPOSER la référence
+ * (`${PREFIXE_BESTIAIRE}${templateId}`) et la DÉCOMPOSER pour retrouver l'entrée
+ * choisie. Retaper le littéral côté feature en ferait une seconde source de la
+ * seule chose qui décide réellement du refus à l'import, deux lignes plus bas.
+ * Le mot-clé `export` est tout ce qui est ajouté ici — aucune branche neuve.
+ */
+export const PREFIXE_BESTIAIRE = `${ESPACE_BESTIAIRE}.`
 
 /**
  * La forme de l'IDENTIFIANT DE DOSSIER — la racine `id`, distincte des

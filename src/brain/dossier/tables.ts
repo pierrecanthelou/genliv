@@ -268,8 +268,10 @@ export const ENUMERES_FERMES: readonly EnumereFerme[] = [
 	// LE DRAPEAU DE SECRET — `requis: false` : une relation dont l'auteur n'a rien dit
 	// n'est pas secrète (« absent se traite comme `false` », JSDoc de `Relation.secret`),
 	// et l'exiger invaliderait rétroactivement le premier dossier qui en porterait une.
-	// Même forme que `revele_si.contrepartie.consomme`, qui est le seul autre booléen
-	// fermé du schéma — mais `requis: true` là-bas, la porte n'ayant pas de défaut.
+	// Même forme que `revele_si.contrepartie.consomme` — mais `requis: true` là-bas, la
+	// porte n'ayant pas de défaut. Le schéma compte TROIS booléens fermés depuis
+	// l'itération 4 de la n° 6 (`evenements[].lie_a_histoire`, en fin de table) : ce
+	// commentaire disait « le seul autre », il ne le dit plus.
 	{
 		path: 'monde.personnages[].relations[].secret',
 		location: 'Personnages',
@@ -327,6 +329,24 @@ export const ENUMERES_FERMES: readonly EnumereFerme[] = [
 		valeurs: VALEURS_DE_CURSEUR,
 		requis: true,
 	})),
+	// LE RATTACHEMENT D'UN ÉVÉNEMENT À LA TRAME — PREMIÈRE LIGNE DE CETTE TABLE HORS
+	// `canon` ET HORS `monde.personnages[]`, et elle est en DERNIER parce que l'ordre
+	// de la table est celui du document. Aucune mécanique neuve : c'est le TROISIÈME
+	// booléen fermé du schéma, et il se range avec `relations[].secret` plutôt qu'avec
+	// `revele_si.contrepartie.consomme`.
+	//
+	// `requis: false`, comme `secret` et pour la MÊME raison : `monde.evenements[]`
+	// existe depuis la n° 1 en `schema: 1` sans chemin de migration (KR-160), donc
+	// l'exiger invaliderait RÉTROACTIVEMENT tout dossier déjà persisté (KR-191) — et
+	// l'exemption de KR-188 ne s'applique pas ici, l'entité existant bien avant son
+	// éditeur. ABSENT se traite comme « libre » en lecture (JSDoc de
+	// `Evenement.lie_a_histoire`) ; l'écran, lui, pose toujours la valeur.
+	//
+	// `ENUMERES_FERMES` ET NON `CHAMPS_REQUIS` : cette dernière exige une CHAÎNE non
+	// vide, ce qu'un booléen n'est jamais. C'est ici, et ici seulement, que `true` et
+	// `false` deviennent l'ensemble ADMIS — un `lie_a_histoire: "oui"` venu d'un
+	// fichier importé y tombe par la même porte qu'un `secret: "oui"`.
+	{ path: 'monde.evenements[].lie_a_histoire', location: 'Événements', valeurs: [true, false], requis: false },
 ]
 
 /**

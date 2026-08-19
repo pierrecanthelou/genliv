@@ -352,7 +352,15 @@ export type { EspaceDeNoms, EspaceDeNomsDescripteur } from './dossier/identifier
 // réel : le compteur « n/BUDGET mots » rendu sous les champs de canon. Un compteur
 // d'écran réimplémenté dériverait en silence de la borne qui décide réellement de
 // l'avertissement `texte-trop-long`.
-export { validateDossier, compterMots, type DossierValidation } from './dossier/validate'
+// `PREFIXE_BESTIAIRE` sort à l'itération 4 de la n° 6, et son consommateur est réel
+// et unique : la fiche d'un événement, dont le `Select` MONSTRE est armé par
+// `BESTIARY` (déjà exporté plus haut) et doit COMPOSER `monstre_ref`
+// (`${PREFIXE_BESTIAIRE}${templateId}`) puis la DÉCOMPOSER pour retrouver l'entrée
+// choisie. Réécrit côté feature, `'bestiaire.'` serait un littéral de seconde source
+// face à celui qui décide réellement du refus à l'import (KR-165/117) — et il n'a
+// AUCUN jumeau visible : les autres espaces de noms n'entrent jamais dans une
+// concaténation d'écran, `frapperIdentifiant` les composant déjà pour eux.
+export { validateDossier, compterMots, PREFIXE_BESTIAIRE, type DossierValidation } from './dossier/validate'
 export { inspectDossierFile, type DossierInspection, type FileReadErrorCode } from './dossier/read'
 // MÊME RÈGLE pour l'itération 3 de la n° 2 : `SECTIONS` sort — la nav de l'écran
 // d'édition la rend et n'a PAS le droit de re-lister les dix sections chez elle —

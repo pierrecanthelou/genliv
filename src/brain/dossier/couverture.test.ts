@@ -1152,6 +1152,66 @@ describe('couverture', () => {
 		expect(DESTINATION_DES_CHAMPS['monde.quetes[].etapes']).toBeUndefined()
 	})
 
+	it('le lien a la trame d un evenement est moteur, et ses DEUX valeurs sont instanciees', () => {
+		// LA SEULE LIGNE DE SCHÉMA DE L'ITÉRATION 4 DE LA N° 6, épinglée par la même
+		// construction que ses aînées ci-dessus, et pour la même raison (KR-174, leçon de
+		// BUG-051) : « toute feuille a une destination » ne dit rien de la VALEUR,
+		// « aucune ligne morte » ne dit rien de l'audience. Nommées ensemble, les deux
+		// moitiés épinglent l'arbitrage — `moteur`, et il se dispute contre les DEUX
+		// autres audiences :
+		//
+		//  · contre `ia`, parce que c'est une CLASSIFICATION, même famille que
+		//    `personnages[].portee` et `objectifs[].camp`, tous deux `moteur` pour la
+		//    même raison. Injecté, ce drapeau apprendrait au narrateur QUELLES rencontres
+		//    sont décoratives : il jouerait les libres comme du remplissage et conduirait
+		//    le joueur vers les autres. La bascule que ce test doit faire rougir est
+		//    « savoir si une scène compte aide le narrateur à doser » ;
+		//  · contre `auteur`, parce que ce n'est pas une note de rédaction mais un FILTRE
+		//    que le CODE lit — le registre des événements se partage en deux onglets sur
+		//    cette seule valeur.
+		const LIEN_A_LA_TRAME = 'monde.evenements[].lie_a_histoire'
+		const feuilles = cheminsDeLaFixture()
+		const feuillesDeLaReference = feuillesDeLaFixture(documentDeReference()).map((feuille) => feuille.normalise)
+
+		expect(`${LIEN_A_LA_TRAME} → ${DESTINATION_DES_CHAMPS[LIEN_A_LA_TRAME]}`).toBe(`${LIEN_A_LA_TRAME} → moteur`)
+		// L'INSTANCE DANS LES DEUX FIXTURES : le garde d'exhaustivité ne balaie que la
+		// MINIMALE, donc un champ instancié là mais absent d'une aventure réelle
+		// resterait vert partout.
+		expect(`${LIEN_A_LA_TRAME} dans la minimale → ${feuilles.includes(LIEN_A_LA_TRAME)}`).toBe(
+			`${LIEN_A_LA_TRAME} dans la minimale → true`,
+		)
+		expect(`${LIEN_A_LA_TRAME} dans la reference → ${feuillesDeLaReference.includes(LIEN_A_LA_TRAME)}`).toBe(
+			`${LIEN_A_LA_TRAME} dans la reference → true`,
+		)
+
+		// LES DEUX VALEURS SONT EXERCÉES, et cette moitié-là est propre à ce champ : un
+		// ensemble fermé à deux valeurs dont les fixtures n'en porteraient qu'UNE serait
+		// « instancié » au sens du garde d'exhaustivité tout en laissant l'autre onglet
+		// de l'écran sans aucun document qui le peuple. La RÉFÉRENCE porte les deux —
+		// une aventure réelle a des rencontres de trame ET des rencontres libres.
+		const valeursDe = (document: Doc): unknown[] =>
+			feuillesDeLaFixture(document)
+				.filter((feuille) => feuille.normalise === LIEN_A_LA_TRAME)
+				.map((feuille) => feuille.valeur)
+
+		expect([...valeursDe(documentDeReference())].sort()).toEqual([false, true])
+		// … et l'union des deux fixtures ne fait entrer aucune autre valeur : le jour où
+		// un `"oui"` s'y glisserait, la ligne d'`ENUMERES_FERMES` le refuserait, mais ce
+		// test le dirait par la valeur reçue plutôt que par un compte d'anomalies.
+		expect([...new Set([...valeursDe(fixture()), ...valeursDe(documentDeReference())])].sort()).toEqual([false, true])
+
+		// Discriminant : le `nom` VOISIN, sur la même entité, reste `auteur`. Sans cette
+		// ligne, l'assertion d'audience passerait aussi sur une table qui aurait basculé
+		// TOUT l'événement vers `moteur` — et le `resultat` d'une résolution, lui, doit
+		// rester `ia`, c'est la seule matière que le narrateur joue de cet événement.
+		expect(`monde.evenements[].nom → ${DESTINATION_DES_CHAMPS['monde.evenements[].nom']}`).toBe(
+			'monde.evenements[].nom → auteur',
+		)
+		expect(
+			`monde.evenements[].resolutions[].resultat → ${DESTINATION_DES_CHAMPS['monde.evenements[].resolutions[].resultat']}`,
+		).toBe('monde.evenements[].resolutions[].resultat → ia')
+	})
+
 	it('description_joueur d un objet, texte long, aucun avertissement', () => {
 		// KR-203, ET C'EST UN CAS POSITIF, pas une absence de doc : « aucune borne de
 		// longueur » est une DÉCISION du cadrage, et une décision que rien n'exerce se

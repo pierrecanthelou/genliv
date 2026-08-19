@@ -324,6 +324,7 @@
 			{
 				"id": "evenement.embuscade-a-la-tour",
 				"nom": "L'embuscade de la tour effondrée",
+				"lie_a_histoire": true,
 				"monstre_ref": "bestiaire.squelette",
 				"declencheur_texte": "Le joueur monte seul à la tour effondrée après la tombée du jour.",
 				"declencheur_expr": { "op": "predicat", "predicat": "lieu_visite", "cibles": ["lieu.tour-effondree"] },
@@ -341,6 +342,7 @@
 			{
 				"id": "evenement.rumeur-sans-origine",
 				"nom": "Une rumeur sans origine",
+				"lie_a_histoire": false,
 				"resolutions": []
 			}
 		],

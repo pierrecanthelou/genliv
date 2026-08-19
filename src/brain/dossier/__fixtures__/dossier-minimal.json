@@ -182,6 +182,7 @@
 			{
 				"id": "evenement.embuscade-du-fanal",
 				"nom": "L'embuscade du Fanal",
+				"lie_a_histoire": true,
 				"monstre_ref": "bestiaire.gobelin",
 				"declencheur_texte": "Le joueur revient à Val-Cendre après la tempête.",
 				"declencheur_expr": { "op": "predicat", "predicat": "lieu_courant_est", "cibles": ["lieu.val-cendre"] },

@@ -483,6 +483,18 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	// ── monde.evenements ──────────────────────────────────────────────────────
 	'monde.evenements[].id': 'moteur',
 	'monde.evenements[].nom': 'auteur',
+	// LE RATTACHEMENT À LA TRAME (itération 4 de la n° 6) — `moteur`, et la question
+	// s'est posée contre `ia` : c'est une CLASSIFICATION, même famille que
+	// `personnages[].portee` (profondeur de simulation) et `objectifs[].camp` (à qui
+	// la victoire appartient), tous deux `moteur` pour la même raison. Injecté, ce
+	// drapeau apprendrait au narrateur QUELLES rencontres sont décoratives : il jouerait
+	// les libres comme du remplissage et conduirait le joueur vers les autres — le
+	// symétrique exact du veto D1 sur `declencheur_texte`, deux lignes plus bas.
+	//
+	// `moteur` ET NON `auteur` non plus : ce n'est pas une note de rédaction mais un
+	// FILTRE que le code lit — l'écran des événements partage la collection en deux
+	// onglets sur cette seule valeur.
+	'monde.evenements[].lie_a_histoire': 'moteur',
 	// Résolu, `monstre_ref` rend `pv`, `armour`, `weaponMultiplier`, `capacity` et
 	// les stats. Le narrateur reçoit le NOM du monstre et le log d'assaut, point.
 	'monde.evenements[].monstre_ref': 'moteur',

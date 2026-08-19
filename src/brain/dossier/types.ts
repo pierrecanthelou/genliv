@@ -1078,8 +1078,42 @@ export interface Resolution {
 	consequence: Delta[]
 }
 
-/** Un événement du monde, éventuellement adossé à une créature du bestiaire. */
+/**
+ * Un événement du monde, éventuellement adossé à une créature du bestiaire.
+ *
+ * ⚠ AUCUN CHAMP DE CLASSIFICATION (`scene` / `obstacle` / `monstre`), et c'est le
+ * point de contrat de ce type — rejeté au complet au raffinage d'it4 de la n° 6,
+ * convergence unanime des quatre rôles (KR-206, qui l'annonçait « à trancher au
+ * raffinage »). Deux motifs, et le second est le seul irréversible : aucun
+ * consommateur nommé pour les deux premières valeurs ; et le cas « combat » est
+ * DÉRIVABLE de `monstre_ref`, si bien qu'une clé persistée en serait une SECONDE
+ * source de vérité pour « cet événement est un combat », que rien ne re-synchronise
+ * quand l'auteur retire le monstre. Le libellé « Monstre : {nom} » que l'écran
+ * affiche DÉRIVE de `monstre_ref` à chaque rendu, jamais d'une clé du document.
+ * Troisième occurrence du même anti-patron dans cette feature, après `tier`
+ * (KR-192) et `Quete.lie_au_canon` (KR-206), et quatrième avec `Indice.portee`,
+ * dont le bloc est au moins RÉEL mais sans lecteur (voir `PORTEES_INDICE`).
+ */
 export interface Evenement extends Entite {
+	/** MOTEUR — LE RATTACHEMENT À LA TRAME : `true` quand l'événement sert
+	 *  l'intrigue principale, `false` quand il est LIBRE (couleur locale, rencontre
+	 *  optionnelle). C'est le seul filtre du registre des événements à l'écran, et il
+	 *  n'entre dans aucun contexte de modèle : un narrateur qui sait qu'une rencontre
+	 *  est décorative la joue comme telle, et il conduirait le joueur vers celles qui
+	 *  ne le sont pas.
+	 *
+	 *  OPTIONNEL, ET LES DEUX SENS NE SE COMPORTENT PAS PAREIL (arbitrage du raffinage
+	 *  d'it4, désaccord n° 6 — précédent exact `Relation.secret`) :
+	 *   · en LECTURE, ABSENT se traite comme « libre ». `monde.evenements[]` existe
+	 *     depuis la n° 1 en `schema: 1`, sans chemin de migration (KR-160) : l'exiger
+	 *     invaliderait rétroactivement tout dossier déjà persisté (KR-191) ;
+	 *   · en ÉCRITURE, l'écran pose TOUJOURS la valeur explicitement à la création
+	 *     (`lie_a_histoire: filtre === 'lies'`), JAMAIS `undefined` — sans quoi
+	 *     l'événement n'apparaîtrait pas dans l'onglet où il vient de naître.
+	 *
+	 *  JAMAIS `null` : le retrait d'une valeur optionnelle se fait par `undefined`,
+	 *  comme partout ailleurs dans le schéma. */
+	lie_a_histoire?: boolean
 	/**
 	 * `bestiaire.<templateId>` — SECOND espace de noms, résolu contre `BESTIARY`
 	 * et non contre une collection du dossier. Une référence pendante est

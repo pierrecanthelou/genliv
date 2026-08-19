@@ -639,7 +639,7 @@
 		{
 			"id": "KR-206",
 			"feature": "dossier-registres",
-			"risk": "Quete.lie_au_canon REJETE (forme sans consommateur, derivable — meme anti-patron que tier/objet-de-scenario, KR-192/KR-201-like). Evenement.nature=='monstre' potentiellement derivable de monstre_ref, tranche au raffinage d'it4 de dossier-registres, pas au cadrage."
+			"risk": "Quete.lie_au_canon REJETE. Evenement.nature aussi (it4), derive monstre_ref."
 		},
 		{
 			"id": "KR-207",
@@ -685,6 +685,11 @@
 			"id": "KR-215",
 			"feature": "dossier-registres",
 			"risk": "Un registre brain/ non exporte avant un consommateur nomme (cf KR-214) porte souvent un test-grep interdisant tout porteur hors module. Ne PAS contourner par une projection derivee (veto) : reecrire en allow-list nommee, avec path.join (pas un litteral a barre oblique, Windows)."
+		},
+		{
+			"id": "KR-216",
+			"feature": "dossier-registres",
+			"risk": "JETON DE REMONTAGE : cle React d une ligne a etat local = id entite parente + compteur de retrait, jamais l index seul."
 		}
 	]
 }

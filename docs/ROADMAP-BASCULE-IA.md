@@ -147,7 +147,7 @@ Huit features. Une phrase de démo par feature, sans « et » : c'est le test de
 | 3 | `dossier-canon` | …rédiger la vérité immuable de son histoire | 4 | **4/4 — terminée** | 4 rôles | 2 |
 | 4 | `dossier-fiches` | …écrire une fiche de personnage exploitable par l'IA | 8 | **8/8 — terminée** | 5 rôles | 3 |
 | 5 | `dossier-objets` | …tenir le registre des objets de son aventure | 2 | **2/2 — terminée** | 4 rôles | 1 |
-| 6 | `dossier-registres` | …tenir les quêtes, les indices, les événements de son aventure | 5 | **3/5** | 4 rôles | 4 · 5 |
+| 6 | `dossier-registres` | …tenir les quêtes, les indices, les événements de son aventure | 5 | **4/5** | 4 rôles | 4 · 5 |
 | 7 | `dossier-controles` | …voir pourquoi son aventure n'est pas encore jouable | 3 | — | 5 rôles | 6 |
 | 8 | `dossier-copilote` | …faire proposer un texte par l'IA, champ par champ | 3 | — | 5 rôles | 6 |
 

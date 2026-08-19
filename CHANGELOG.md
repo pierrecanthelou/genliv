@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.31 — un événement cesse d'être un texte nu et gagne ses deux listes et sa résolution
+
+`dossier-registres` itération 4/5. L'auteur tient le registre de ses événements : filtrés entre « liés à la trame » et « libres » (`lie_a_histoire`), optionnellement adossés à un monstre du bestiaire existant (`monstre_ref`, déjà câblé depuis `dossier-format`), chacun porteur de résolutions dont les conséquences s'éditent via `EditeurEffets` — l'éditeur né à l'itération Quêtes, réutilisé ici sans une ligne modifiée.
+
+- **`Evenement.nature` REJETÉ au complet** — convergence unanime des 4 rôles au tour 2 du raffinage : aucun consommateur nommé pour les cas `scene`/`obstacle`, le cas `monstre` se dérive de `monstre_ref` au rendu. Troisième occurrence du même anti-patron que `tier`/`lie_au_canon`/`Indice.portee` dans cette feature — un champ à énumération fermée sans consommateur réel pour au moins une de ses valeurs est désormais un candidat de rejet par défaut (KR-206 mis à jour).
+- **Le retrait d'une résolution, hors périmètre à l'ouverture du raffinage, remis dedans au tour 2** après une objection UX — protégé par un « jeton de remontage » : un compteur monotone incrémenté au seul retrait, inclus dans la clé React de chaque ligne, qui force le démontage/remontage des N instances d'`EditeurEffets` pour qu'aucun brouillon d'effet en cours de saisie ne migre vers la résolution voisine. Nouvelle technique, documentée pour toute future liste authored à sous-composants à état local (KR-216).
+- **`PREFIXE_BESTIAIRE` exporté**, dérivé de la constante `ESPACE_BESTIAIRE` déjà interne à `validate.ts` — évite un second point de vérité pour le même préfixe. `BESTIARY`/`BESTIARY_BY_TEMPLATE` étaient déjà exportés depuis `dossier-format` : aucun nouvel export de registre à ouvrir, contrairement à `DELTAS` en it3.
+- **`lie_a_histoire?: boolean` en `ENUMERES_FERMES`**, jamais `CHAMPS_REQUIS` : absent se lit comme « libre » en lecture (compatibilité des événements déjà persistés), mais l'écran l'écrit toujours explicitement à la création, jamais `undefined`.
+- Revue tech-lead : deux libellés d'écran (le nom affiché en liste, les boutons Monter/Descendre) indexaient sur la position FILTRÉE plutôt que l'index réel dans `monde.evenements` — corrigé avant merge, avec une assertion d'ordre dédiée sur le réordonnancement à travers un filtre.
+- 2 lots séquentiels (contrat minimal — un champ, un export dérivé — puis écran, zéro fichier `EditeurEffets.tsx`), aucun worktree. 80 suites / 1156 tests verts. Aucun ricochet sur les fixtures partagées (contrairement aux trois itérations précédentes) : `lie_a_histoire` ne référence ni collection ni l'espace `pnj`.
+- Raffinage complet (2 tours, aucune `ESCALADE`, 6 désaccords tous convergés en `RETENU`) : `.claude/raffinage/dossier-registres-it4.plan.md`, revue : `.claude/raffinage/dossier-registres-it4.revue.md`.
+
 ## 0.6.30 — une quête cesse d'être un nom vide et gagne son premier éditeur de récompense
 
 `dossier-registres` itération 3/5. L'auteur tient le registre de ses quêtes secondaires : un donneur (référence à un personnage), une consigne (le contenu de la demande, injecté au modèle narrateur), des étapes en prose sans réordonnancement manuel, une échéance, et sa première récompense en effets de règles via `EditeurEffets` — le premier éditeur de `Delta[]` du dépôt, réutilisé sans fork par l'itération Événements.

@@ -8,7 +8,7 @@ import { DossierEditorScreen } from './features/bascule-editeur'
 import { PanneauCanon, PanneauDepart, PanneauLieux } from './features/dossier-canon'
 import { PanneauPersonnages } from './features/dossier-fiches'
 import { PanneauObjets } from './features/dossier-objets'
-import { PanneauIndices, PanneauJalonsFins, PanneauQuetes } from './features/dossier-registres'
+import { PanneauIndices, PanneauJalonsFins, PanneauQuetes, PanneauEvenements } from './features/dossier-registres'
 
 /**
  * App shell — routes between the home (book-library), the Book editor
@@ -43,6 +43,7 @@ export function App(): JSX.Element {
 					objets: <PanneauObjets dossierId={route.dossierId} />,
 					indices: <PanneauIndices dossierId={route.dossierId} />,
 					quetes: <PanneauQuetes dossierId={route.dossierId} />,
+					evenements: <PanneauEvenements dossierId={route.dossierId} />,
 					'jalons-fins': <PanneauJalonsFins dossierId={route.dossierId} />,
 				}}
 			/>

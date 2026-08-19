@@ -1,0 +1,7 @@
+RISQUE — `nature?: NatureEvenement` (registre fermé monstre|scene|obstacle, KR-206) est un livrable de cette itération dont la forme (dérivée de `monstre_ref` vs stockée) reste À TRANCHER pendant ce raffinage. Sans consommateur nommé pour les cas `scene`/`obstacle`, c'est le même anti-patron que `tier`/`lie_au_canon`/`Indice.portee` — déjà écarté deux fois dans cette même feature.
+
+OBJECTION — le `goal` tel qu'écrit (point 1) ne cite QUE `lie_a_histoire`, `monstre_ref`, `resolutions`/`EditeurEffets` ; il ne mentionne pas `nature`, alors que `plan.brain_contracts` en fait un livrable explicite. Une phrase de démo qui omet un champ que le contrat impose et que l'open question laisse ouvert est le signe d'une itération pas encore stabilisée en une seule tranche : soit `nature` se tranche vite et léger, soit il sort du périmètre comme `portee` l'a fait pour indices it1 (même motif : aucun lecteur observable).
+
+PROPOSITION — si `nature` est retenu : forme DÉRIVÉE uniquement pour le cas `monstre` (calculé depuis `monstre_ref`, rien stocké), `scene`/`obstacle` sans sélecteur d'écran dédié cette itération (valeur par défaut ou absence de champ). Sinon : retrait pur et simple de `nature` de it4, reporté avec `portee` au premier consommateur réel nommé (open question déjà tracée). Dans les deux cas, l'écran reste 2 lots (contrat + écran) — aucun 3e lot pour `nature`.
+
+VERDICT — recevable sous réserve : je demande que `nature` soit tranché (dérivé-léger ou retiré) au tour 1/2 de ce raffinage, pas laissé filer vers l'implémentation comme une décision ouverte.

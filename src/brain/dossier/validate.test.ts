@@ -17,6 +17,7 @@ import {
 import { DOSSIER_ISSUE_LABELS, dossierIssueRemediation, type DossierIssue, type DossierIssueCode } from './issues'
 import {
 	CHAMPS_ENTIERS,
+	CHAMPS_REQUIS,
 	CONFIANCES,
 	ENUMERES_FERMES,
 	FAMILLES_DE_CONDITIONS,
@@ -1277,6 +1278,82 @@ describe('validateDossier', () => {
 		relation(pendante).cible_id = 'pnj.nulle-part'
 
 		expect(codes(validateDossier(pendante).errors)).toEqual(['reference-pendante'])
+	})
+
+	it('lie_a_histoire hors enumeration refuse, et nomme l evenement porteur', () => {
+		// LA SEULE LIGNE DE TABLE DE L'ITÉRATION 4 DE LA N° 6 — troisième booléen fermé
+		// du schéma, précédent exact `relations[].secret` juste au-dessus. Aucune branche
+		// neuve dans `validate.ts` : c'est le balayage générique des ensembles fermés qui
+		// refuse, et ce test le prouve en épinglant le CODE, le CHEMIN et le OÙ.
+		const doc = fixture()
+		evenement(doc).lie_a_histoire = 'oui'
+
+		const resultat = validateDossier(doc)
+		const anomalie = resultat.errors.find((e) => e.path === 'monde.evenements[0].lie_a_histoire')
+
+		expect(resultat.ok).toBe(false)
+		expect(anomalie?.code).toBe('valeur-hors-enumeration')
+		expect(anomalie?.message).toContain('« lie_a_histoire »')
+		expect(anomalie?.message).toContain('« oui »')
+		// Le OÙ est l'ÉVÉNEMENT porteur, résolu par `sitesDe` en traversant
+		// `monde.evenements` — aucune ligne de table n'a eu à le dire.
+		expect(anomalie?.location).toBe("Événement « L'embuscade du Fanal »")
+		// Aucune fuite technique dans la phrase française (KR-164).
+		expect(anomalie?.message).not.toContain('boolean')
+		expect(anomalie?.message).not.toContain('|')
+
+		// DISCRIMINANT (KR-199) : la règle n'est pas « tout est refusé ». Les DEUX
+		// valeurs de l'ensemble passent, et c'est ce qui fait des deux onglets de
+		// l'écran deux états légitimes du document plutôt qu'un défaut toléré.
+		for (const valeur of [true, false]) {
+			const legitime = fixture()
+			evenement(legitime).lie_a_histoire = valeur
+
+			expect(`${valeur} → ${JSON.stringify(validateDossier(legitime).errors)}`).toBe(`${valeur} → []`)
+		}
+
+		// La ligne de table lit l'ensemble FERMÉ, et elle est OPTIONNELLE : lu de la
+		// table, jamais affirmé (KR-191 — l'exiger invaliderait tout dossier déjà
+		// persisté, `monde.evenements[]` existant depuis la n° 1 sans migration).
+		const ligne = ENUMERES_FERMES.find((e) => e.path === 'monde.evenements[].lie_a_histoire')
+
+		expect(ligne?.valeurs).toEqual([true, false])
+		expect(ligne?.requis).toBe(false)
+		expect(ligne?.location).toBe('Événements')
+		// … et elle n'est PAS dans `CHAMPS_REQUIS`, qui exigerait une CHAÎNE non vide —
+		// un booléen y serait refusé dans les deux sens.
+		expect(CHAMPS_REQUIS.filter((champ) => champ.path === 'monde.evenements[].lie_a_histoire')).toEqual([])
+	})
+
+	it('lie_a_histoire absent est accepte, sans erreur ni avertissement', () => {
+		// EN LECTURE, ABSENT SE TRAITE COMME « LIBRE » (arbitrage du raffinage d'it4,
+		// désaccord n° 6 — précédent `Relation.secret`) : un événement écrit avant que
+		// l'écran n'existe reste ACCEPTÉ, et il ne fait apparaître aucune alerte que
+		// personne n'a demandé à l'auteur de corriger. Les DEUX tableaux sont assertés :
+		// un avertissement suffirait à faire rougir le bandeau d'un dossier déjà valide.
+		const doc = fixture()
+		delete evenement(doc).lie_a_histoire
+
+		const calme = validateDossier(doc)
+
+		expect(calme.errors).toEqual([])
+		expect(calme.warnings).toEqual([])
+		expect(calme.ok).toBe(true)
+
+		// SONDE DE DISCRIMINANCE (KR-199) — sans elle, l'assertion ci-dessus resterait
+		// verte le jour où `validateDossier` cesserait de refuser POUR TOUT LE MONDE, et
+		// le test dirait « ce champ est optionnel » en ne prouvant que « rien n'est
+		// jamais refusé ». Le MÊME geste sur un voisin REQUIS du MÊME événement doit,
+		// lui, faire refuser le document — et par son propre nom.
+		const temoin = fixture()
+		delete arr(evenement(temoin).resolutions)[0].resultat
+
+		const resultatTemoin = validateDossier(temoin)
+
+		expect(resultatTemoin.errors.map((e) => `${e.code} → ${e.path}`)).toEqual([
+			'champ-requis-vide → monde.evenements[0].resolutions[0].resultat',
+		])
+		expect(resultatTemoin.ok).toBe(false)
 	})
 
 	/**
