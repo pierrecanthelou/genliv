@@ -1,0 +1,153 @@
+{
+	"feature": "dossier-controles",
+	"created_at": "2026-09-15",
+	"status": "planned",
+	"design_reference": "docs/ROADMAP-BASCULE-IA.md §2 (ligne n°7, comité à 5 rôles) et §5 (le trou « Atteignabilité d'un objectif, calibration de difficulté : aucune formule », affecté à n°7). docs/PLAN-BASCULE-IA.dc.html section t1-lint (l.269-281, la maquette de la liste de règles), la table lints: (l.575-585, les 8 règles littérales) et l'arbitrage n°5 (l.591, « le seuil de jouabilité = les règles bloquantes du linter »). RÉFÉRENCE PARTIELLEMENT PÉRIMÉE (CLAUDE.md : les .dc.html ne sont pas du code de production), et ce cadrage la corrige sur quatre points MESURÉS : (a) les DEUX règles D1 que le roadmap attribue à n°7 sont DÉJÀ livrées dans validateDossier (reference-pendante, condition-sans-expr) ; (b) « Intrigue en second plan » et « Difficulté non calibrée » SORTENT du périmètre (resolved_decisions) ; (c) « PNJ inatteignable » est AMPUTÉE de sa moitié « lieu non relié au départ », faute de graphe de lieux au schéma 1 ; (d) DEUX règles entrent qui ne sont pas au plan-cible (amorce non rédigée, canon sans objectif). Décompte final : DIX règles — 5 bloquantes, 4 alertes, 1 info — et non huit. L'anatomie à DEUX lignes du wireframe (pastille + règle — détail) est écartée au profit de l'anatomie à TROIS lignes déjà en production (QUOI / OÙ / QUOI FAIRE, KR-164).",
+	"plan": {
+		"goal": "Donner à l'auteur un rapport de contrôles qui lui dit, en continu et localisé par section, ce qui empêche encore son aventure d'être jouable — sans jamais refuser une écriture ni exiger un réimport.",
+		"design_contract": {
+			"surface": "DEUX surfaces, pas plus. (1) Un panneau « Contrôles », injecté par App.tsx comme les dix autres (prop panneaux de DossierEditorScreen, KR-184), atteint par une entrée de nav ajoutée APRÈS les dix SECTIONS.map(...) et séparée par un borderTop — jamais une 11e entrée du registre SECTIONS, dont le compte() dit un nombre d'ENTITÉS et non un nombre de défauts. (2) Le badge de chaque ligne de SectionNav, FUSIONNÉ avec le badge de compte existant : un seul Badge par ListRow, jamais un second nœud, jamais une coche verte sur une section saine (précédent SANS_COMPTE de sections.ts : un voyant tautologiquement vert est sans information).",
+			"anatomie": "Une ligne de contrôle CALQUE l'anatomie à trois lignes d'IssueList, avec les mêmes jetons : OÙ (l'entité résolue par son NOM via localiserEntite, repli « {Type} n°{index} (sans nom) ») / QUOI (phrase française rédigée, jamais une erreur technique) / QUOI FAIRE (remédiation à marqueurs résolus). Seul ajout : une pastille de NIVEAU en tête de ligne. AUCUNE ligne QUOI FAIRE ne dit « réimportez-le » — le linter tourne pendant que l'auteur ÉDITE (BUG-042 / BUG-075 / KR-171).",
+			"couleurs": "TROIS niveaux sur DEUX couleurs sémantiques, et c'est une contrainte de domaine et non un manque de jetons : CLAUDE.md fait de réussite/échec les SEULES couleurs sémantiques du produit, et tokens/colors.css ne porte que --good et --bad. BLOQUANT = Badge tone=bad (--bad / --bad-line / --bad-bg-2, miroir du severity:error déjà rendu par ImportDossierDialog). ALERTE = tone=neutral (--ink-2 / --line-1). INFO = tone=muted (--ink-4 / --line-2). Les trois se séparent par le MOT (BLOQUANT / ALERTE / INFO, mono, capitales, accord en nombre), jamais par une teinte neuve.",
+			"etat_vide": "Le linter SE TAIT sur les collections vides — un dossier neuf n'a ni personnage ni indice, et c'est un état calme, pas un manque (doctrine « absent ≠ vide », posée par amorce.ts sur Entite.nom, qui explique pourquoi le lieu semé ne porte délibérément pas de nom). Il PARLE en revanche sur les quatre proses encore marquées ⟨à écrire⟩, dispositif que amorce.ts prévoit nommément pour « qu'un balayage (n°7) ne produise pas de faux positif ». Panneau sans aucune anomalie : un texte d'amorce rédigé, jamais une liste vide nue.",
+			"clavier": "Une ligne du panneau Contrôles sélectionne SA section (onSelect existe déjà sur SectionNav). Poser le focus DANS le champ fautif d'une fiche appartenant à une autre feature est REPORTÉ (open_questions) : cela traverserait les Panneau* de n°3/4/5/6 — quatre features — et ne tient dans aucun lot étanche."
+		},
+		"acceptance_criteria": [
+			"Étant donné un dossier fraîchement créé par DossierService.create, quand l'auteur ouvre le panneau Contrôles, alors il y lit quatre lignes — une BLOQUANTE sur charpente.depart.texte_ouverture_joueur, trois ALERTES sur les proses du canon — et aucune ligne portant sur une collection vide.",
+			"Étant donné un dossier dont les quatre proses d'amorce ont été réécrites, quand le rapport est calculé, alors aucune ligne « amorce non rédigée » ne subsiste et le panneau rend son texte d'état calme.",
+			"Étant donné un dossier portant au moins un contrôle rattaché à une entité de la section Indices et aucun ailleurs, quand le rapport est calculé, alors exactement une section est marquée anormale et les neuf autres ne le sont pas — et la somme des contrôles groupés par section égale le nombre total de contrôles, sans perte ni doublon.",
+			"Étant donné une section saine affichant déjà son compte (« 6 fiches »), quand le linter ne trouve rien à y signaler, alors le badge de cette ligne reste inchangé en texte et en teinte, et le nombre de badges de la ligne est le même qu'avant l'ajout d'anomalies ailleurs.",
+			"Étant donné un indice qu'aucun savoir de personnage ne détient et qu'aucun effet de règle ne révèle, quand le rapport est calculé, alors un contrôle BLOQUANT est produit sur la section Indices — et rien sur la section qui porterait le remède, celle-ci étant nommée dans la phrase française.",
+			"Étant donné un indice détenu par exactement un personnage et par aucune autre source, quand le rapport est calculé, alors un contrôle ALERTE est produit et jouable reste vrai si aucune règle bloquante ne s'est déclenchée par ailleurs.",
+			"Étant donné un personnage dont aucun bloc caractere n'existe, quand le rapport est calculé, alors aucun contrôle fondé sur une VALEUR de curseur n'est produit — l'absence du bloc est un état calme, et « jamais réglé » ne se détecte que par présence ou absence de clé (KR-221).",
+			"Étant donné un objectif dont reussi_si_expr référence un fait qu'aucun producteur du dossier ne peut établir, quand le rapport est calculé, alors un contrôle BLOQUANT nomme la feuille fautive et son remède, et jouable est faux.",
+			"Étant donné un objectif SANS reussi_si_expr et un objectif dont le reussi_si_expr est atteignable, quand le rapport est calculé, alors les deux se distinguent par un signal observable — le premier porte l'avertissement condition-sans-expr rendu visible, le second ne porte rien (KR-222, classe KR-199).",
+			"Étant donné un dossier dont canon.objectifs est vide, quand le rapport est calculé, alors un contrôle BLOQUANT « canon sans objectif » est produit — jamais un contrôle « objectif sans chemin », qui se tait sur une collection vide.",
+			"Étant donné n'importe quel dossier, quand le rapport est calculé, alors aucune écriture n'est refusée et aucune anomalie de sévérité error n'est exhibée : un dossier persisté ne peut structurellement pas en porter (KR-225).",
+			"Étant donné les suites existantes du dépôt, quand chaque itération est livrée, alors validate.test.ts, couverture.test.ts, suffisance.test.ts, amorce.test.ts et roundtrip.test.ts restent verts SANS modification de leurs assertions — le rapport de contrôles ne passe jamais par le canal errors/warnings de validateDossier (KR-217)."
+		],
+		"brain_contracts": [
+			{
+				"type": "module",
+				"name": "brain/dossier/controles.ts — module NEUF, jamais une extension de validate.ts. Motif à quatre étages : son entrée est un Dossier TYPÉ, revalidé et gelé (pas un unknown, donc aucun besoin de sitesDe/anomalie/parentDe) ; sa sortie ne doit JAMAIS refuser une écriture, un dossier en cours de rédaction étant massivement injouable et devant rester persistable ; validate.ts appartient à la triade de la Décision A, donc chaque itération y rouvrirait un lot contrat ; et validate.ts dépasse déjà 800 lignes.",
+				"direction": "provides"
+			},
+			{
+				"type": "type",
+				"name": "NiveauControle = 'bloquant' | 'alerte' | 'info' — le MOT, jamais une couleur. DEUX AXES DISTINCTS, à écrire dans la docstring : DossierIssueSeverity répond « ce document peut-il être ÉCRIT ? » (deux valeurs parce qu'elle a deux effets sur DossierService.update), NiveauControle répond « cette aventure peut-elle être JOUÉE ? » (trois mots, aucun effet sur l'écriture). Un dossier parfaitement écrivable peut être totalement injouable.",
+				"direction": "provides"
+			},
+			{
+				"type": "type",
+				"name": "Controle — { id: ControleId, niveau: NiveauControle, section: SectionId, message: string, location: string, entityId?: string, path: string }. Type FRÈRE de DossierIssue, jamais une extension de son union de vingt codes, qui documente « les anomalies que le SCHÉMA 1 sait produire » — un défaut de jouabilité n'en est pas une.",
+				"direction": "provides"
+			},
+			{
+				"type": "type",
+				"name": "ControleDescripteur — { libelle: string, niveau: NiveauControle, section: SectionId, controler(dossier: Dossier): Controle[] }. La règle DÉCLARE sa section ; aucun path ne la résout (KR-219).",
+				"direction": "provides"
+			},
+			{
+				"type": "registry",
+				"name": "CONTROLES — registre FERMÉ (KR-117), ControleId DÉRIVÉ de ses clés et jamais re-listé. Une règle de plus est une entrée de plus, plus son libellé et sa remédiation : zéro modification chez ses consommateurs, aucun fichier d'UI touché.",
+				"direction": "provides"
+			},
+			{
+				"type": "type",
+				"name": "RapportControles — { controles, jouable: boolean, parSection: Record<SectionId, NiveauControle | null> }. jouable est DÉRIVÉ ici et nulle part ailleurs (aucun contrôle bloquant), jamais stocké, jamais recalculé par une vue (KR-013). parSection est un Record TOTAL : une section de plus ne compile pas sans sa ligne.",
+				"direction": "provides"
+			},
+			{
+				"type": "function",
+				"name": "controlerDossier(dossier: Dossier): RapportControles — PURE et TOTALE. controleRemediation(controle: Controle): string — la ligne QUOI FAIRE, marqueurs résolus, jamais interpolée au site d'appel.",
+				"direction": "provides"
+			},
+			{
+				"type": "module",
+				"name": "brain/dossier/atteignabilite.ts — itération 4. L'index des producteurs et sa saturation, UNIQUE et partagé par « objectif sans chemin » et « indice orphelin » : deux parcours seraient deux vérités.",
+				"direction": "provides"
+			},
+			{
+				"type": "registry",
+				"name": "CHEMINS_DE_DELTAS (tables.ts) — les QUATRE sites porteurs de Delta[], DÉRIVÉS et jamais re-listés, sa propre docstring l'interdisant puisqu'elle a déjà deux lecteurs. Attention : son location est un LIBELLÉ (« Climat », « Jalons »), pas un SectionId.",
+				"direction": "consumes"
+			},
+			{
+				"type": "constant",
+				"name": "MARQUEUR_A_ECRIRE (brain/dossier/amorce.ts) — importé par controles.ts depuis ./amorce, JAMAIS recopié en littéral, JAMAIS exporté par brain/index.ts. Les deux tests-grep d'amorce.test.ts restent verts sans modification (le premier compte les porteurs de la VALEUR, un import n'en est pas un ; le second garde le baril) — KR-215 ne se déclenche donc pas, et KR-223 dit pourquoi.",
+				"direction": "consumes"
+			},
+			{
+				"type": "registry",
+				"name": "SECTIONS / SectionId (sections.ts), PREDICATES, DELTAS, localiserEntite — consommés sans aucune modification.",
+				"direction": "consumes"
+			}
+		],
+		"walking_skeleton": "L'itération 1 est la tranche la plus fine qui traverse tout : le registre de règles dans brain/, son rapport dérivé (jouable compris), et l'écran qui le rend — avec UNE règle, celle dont le matériau est garanti présent sur tout dossier neuf : les proses encore marquées ⟨à écrire⟩. Elle est scindée en deux niveaux par l'AUDIENCE de la prose : BLOQUANTE sur charpente.depart.texte_ouverture_joueur, d'audience moteur et lue au joueur mot pour mot ; ALERTE sur les trois proses ia du canon, parce qu'aucune règle bloquante ne doit prendre pour critère un champ d'audience ia — exiger de nourrir le modèle pour débloquer le moteur inverserait les audiences. Les trois itérations suivantes ajoutent la surface de navigation, puis les règles de registre, puis l'atteignabilité — aucune ne rouvre le schéma.",
+		"n": 4,
+		"iterations": [
+			{
+				"id": 1,
+				"goal": "Poser brain/dossier/controles.ts — registre fermé de règles, rapport dérivé, seuil jouable — et l'écran Contrôles qui le rend, avec la première règle : les proses encore marquées ⟨à écrire⟩, bloquante sur le texte d'ouverture, alerte sur les trois proses du canon. Démo : l'auteur voit, dans un écran Contrôles, quelles proses de son dossier restent à rédiger.",
+				"status": "planned"
+			},
+			{
+				"id": 2,
+				"goal": "Porter le niveau du pire contrôle de chaque section sur le badge de sa ligne de navigation, fusionné au badge de compte existant — un seul Badge par ListRow, jamais de coche verte sur une section saine. Démo : l'auteur repère, depuis la navigation, quelle section porte une anomalie.",
+				"status": "planned"
+			},
+			{
+				"id": 3,
+				"goal": "Livrer les cinq règles de registre — indice orphelin (bloquant), goulot d'étranglement (alerte), lieu de départ désert (bloquant), personnage sans présence (alerte), personnage sans voix propre (info) — et rendre enfin visibles les avertissements que validateDossier produisait déjà sans qu'aucune surface ne les montre hors import. Démo : l'auteur voit qu'un indice que personne ne détient rend son aventure injouable.",
+				"status": "planned"
+			},
+			{
+				"id": 4,
+				"goal": "Livrer l'atteignabilité : l'index des producteurs par saturation, la règle canon sans objectif (bloquante) et la règle objectif sans chemin (bloquante si aucun producteur n'existe, alerte si le seul producteur n'est jamais amorcé). Démo : l'auteur voit qu'un objectif qu'il a posé n'a aucun chemin qui puisse l'accomplir.",
+				"status": "planned"
+			}
+		],
+		"known_risks": [
+			"KR-217 : le rapport de contrôles vit dans un module DISTINCT de validateDossier et porte un type FRÈRE de DossierIssue — jamais le canal errors/warnings. DEUX AXES : severity dit si le document peut être ÉCRIT (deux valeurs, deux effets sur update), niveau dit si l'aventure peut être JOUÉE (trois mots, aucun effet). Mesure qui l'impose : dossier-reference.json porte déjà des indices à détenteur unique (indice.lettre-de-la-vigie, indice.sceau-brise-a-nouveau), donc la règle « goulot d'étranglement » ferait rougir suffisance.test.ts le jour de sa naissance si elle passait par warnings.",
+			"KR-218 : un SEUL Badge par ListRow de SectionNav, toujours FUSIONNÉ avec le compte existant de sections.ts — jamais un second nœud, jamais une coche verte sur une section saine (précédent SANS_COMPTE : un voyant tautologiquement vert est sans information). Garde : le comptage DOM de badges par ligne reste inchangé avant et après l'ajout d'anomalies.",
+			"KR-219 : la section d'un contrôle est DÉCLARÉE par la règle qui le produit (Controle.section: SectionId), jamais dérivée de son path. Motif : SectionDescripteur.cle est un TEXTE D'AFFICHAGE, pas un chemin à déréférencer — la section « Jalons & fins » porte « charpente.jalons · charpente.fins », et un résolveur devrait découper une chaîne d'affichage sur un point médian. Une table path → SectionId serait une SECONDE vérité à tenir en phase avec SECTIONS.",
+			"KR-220 : Indice.portee est posée au type SANS lecteur, SANS ligne ENUMERES_FERMES, SANS ligne DESTINATION_DES_CHAMPS et SANS aucune instance dans les deux fixtures partagées (vérifié : les portee qu'on y trouve sont des Personnage.portee et une PorteeContreMesure). Toute itération qui l'active livre le bloc ENTIER d'un coup ET une fixture d'exercice LOCALE — toucher dossier-minimal.json ou dossier-reference.json ferait rougir couverture.test.ts, qui épingle DESTINATION_DES_CHAMPS['monde.indices[].portee'] à undefined, hors de la propriété de fichiers de la feature.",
+			"KR-221 : « absent n'est pas vide » sur Personnage.caractere. Le linter ne peut détecter « jamais réglé » que par PRÉSENCE ou ABSENCE de clé : CURSEURS_INITIAUX pose les six curseurs à CURSEUR_MIN (0) et non à la médiane, si bien qu'un bloc présent tout au plancher est INDISTINGUABLE d'un réglage délibéré. La règle « personnage sans voix propre » ne s'appuie donc que sur caractere.parler vide ou absent, jamais sur une valeur de curseur. curseurs.ts interdit nommément le repli curseurs ?? CURSEURS_INITIAUX.",
+			"KR-222 : deux silences indistinguables sont un défaut de classe KR-199. La règle « objectif sans chemin » se tait dans DEUX cas — reussi_si_expr absent (D1 : facultatif) et reussi_si_expr atteignable — et rien ne les sépare par défaut. Le signal discriminant est l'avertissement condition-sans-expr, déjà produit par validateDossier et rendu visible à l'itération 3 : il porte le premier cas et pas le second. Aucun code neuf n'est dû, mais l'itération 4 ne peut pas être livrée avant l'itération 3 pour cette raison.",
+			"KR-223 : MARQUEUR_A_ECRIRE (amorce.ts) est gardé par DEUX tests-grep — un porteur unique de la valeur dans src/, et l'interdiction de sortir par brain/index.ts, dont le commentaire nomme n°7 et n°9 comme consommateurs attendus. controles.ts vit dans brain/dossier/ et l'IMPORTE depuis ./amorce : les deux gardes restent vertes sans modification, et KR-215 ne se déclenche pas. Précaution obligatoire : controles.test.ts IMPORTE la constante, il ne recopie jamais le glyphe — sinon il devient un second porteur et casse la première garde.",
+			"KR-224 : « tout lieu déclaré est atteignable » (hypothèse de MONDE OUVERT) est un raccourci DATÉ et assumé, pas une propriété du domaine : le schéma 1 n'a aucun graphe de praticabilité, lieux[].acces n'existe pas et n'a aucun propriétaire (KR-200 / KR-205). Sans cette clause, l'objectif le plus naturel qui soit (« atteindre le sanctuaire ») remonterait bloquant à tort. Le jour où un graphe arrive, la définition change à UN endroit (atteignabilite.ts) et la règle « personnage sans présence » retrouve sa seconde moitié.",
+			"KR-225 : un dossier PERSISTÉ ne porte JAMAIS d'anomalie de sévérité error. DossierService.update refuse toute écriture dont validateDossier rend des errors, et get() revalide à chaque lecture. Conséquence de conception : la règle D1 « un …_expr référençant un identifiant inconnu bloque », que le roadmap attribue à n°7, est structurellement inobservable dans l'éditeur — l'y câbler allumerait un voyant qui ne peut jamais s'allumer. Conséquence de test : tout critère qui prétendrait exhiber une anomalie error sur un dossier obtenu via DossierService fabrique un état que le produit ne peut pas atteindre.",
+			"KR-164 (hérité) : un code par CAUSE, jamais un code par emplacement — c'est ce qui fait entrer « canon sans objectif » comme règle DISTINCTE plutôt que comme une branche d'« objectif sans chemin ».",
+			"KR-184 (hérité) : le panneau Contrôles est injecté par App.tsx, jamais importé depuis bascule-editeur.",
+			"KR-199 (hérité) : « les dix règles » est une énumération ÉCHANTILLONNÉE dès qu'un test en prouve moins de dix — balayer depuis le registre CONTROLES, jamais N littéraux.",
+			"KR-197 / KR-202 (hérités) : tout test de règle exige DEUX entités dans le MÊME test — une qui déclenche, une qui ne déclenche pas. Un test mono-entité ne distingue pas une règle d'un blocage global."
+		]
+	},
+	"implementation": {
+		"iterations_log": [],
+		"resolved_decisions": [
+			"REJETÉ (cadrage, tour 2 — l'UX a retiré) — ajouter 'info' à DossierIssueSeverity. severity n'est pas un niveau de lecture, c'est le CANAL de DossierValidation : il a deux valeurs parce qu'il a deux effets (errors interdit l'écriture, warnings jamais). Un troisième mot serait une sévérité dont l'effet sur update() n'est pas défini, et il compilerait silencieusement partout où severity === 'error' tourne déjà — aucun tsc ne l'aurait signalé. Le niveau vit sur le DESCRIPTEUR de règle, jamais sur l'anomalie.",
+			"RETENU (cadrage, tour 2) — ListeControles est un composant LOCAL à la feature qui CALQUE l'anatomie à trois lignes d'IssueList avec les mêmes jetons, et non une anatomie sœur inventée : deux listes d'anomalies d'anatomies différentes seraient une faute de design system. L'extraction d'une primitive partagée dans brain/components/ se fait au DEUXIÈME appelant réel (KR-109), pas avant. Le mécanisme de rendu exact — calque local, ou élargissement du contrat de props d'IssueList — est REPORTÉ au raffinage de l'itération 1.",
+			"REJETÉ (cadrage, tour 2) — la règle « Intrigue en second plan » et, avec elle, l'activation d'Indice.portee. Sa moitié « un plan de second plan qui prétend cocher un jalon principal » n'a AUCUN champ au schéma 1 (PlanAction ne porte aucun Delta, et aucun jalon n'est marqué principal) ; sa moitié calculable ne ferait que relever le niveau d'un sous-ensemble de l'alerte « goulot d'étranglement » déjà livrée. Prix refusé : un lot contrat sur la triade de la Décision A, un champ de formulaire dans FicheIndice.tsx d'une feature CLOSE, et une fixture d'exercice. Le renvoi « propriétaire n°6 » ne veut rien dire : dossier-registres est done, 5/5. Voir open_questions pour le pré-requis de réouverture.",
+			"REJETÉ (cadrage, tour 2 — convergence des cinq rôles, veto durci du PM) — la règle « Difficulté non calibrée ». Elle compare les monstres et TC du dossier au Tier du personnage de départ, or le héros ne vit PAS dans le dossier : il est TIRÉ AUX DÉS au runtime (rollCreationPool, src/player/engine/charCreation.ts, 8×2D4 + 1D4). La référence n'existe pas, et toute formule qui l'inventerait serait une RÈGLE DE JEU neuve soumise à KR-130 (docs/REGLES-DU-JEU.md → rules.golden.test.ts → code) — disproportionné pour un badge de sévérité info. Par ailleurs Personnage.stats ne porte pas tier (KR-192, propriétaire n°13). Propriétaire recommandé : n°16 dossier-repetition, seule feature qui joue réellement l'aventure.",
+			"RETENU (cadrage, tour 2) — la règle « PNJ inatteignable » est livrée AMPUTÉE : « aucune présence dans aucun lieu », jamais « dans un lieu non relié au départ ». Le schéma 1 n'a aucun graphe de lieux et lieux[].acces reste sans propriétaire (KR-200 / KR-205). Le manque se DIT dans la phrase française, il ne se simule pas.",
+			"REJETÉ (cadrage, tour 2 — mesure M1) — le squelette proposé au tour 1, qui agrégeait les deux règles D1 déjà calculées par validateDossier. reference-pendante est une anomalie error, donc structurellement impossible sur un dossier persisté : le badge naîtrait tautologiquement éteint, exactement le défaut que sections.ts a déjà refusé sous SANS_COMPTE. Le squelette retenu porte une règle NEUVE dont le matériau est garanti présent sur tout dossier neuf.",
+			"RETENU (cadrage, tour 2 — arbitrage entre trois positions : bloquant pour le tech-lead, alerte pour l'UX, scindé pour le narratif) — le niveau de « amorce non rédigée » est SCINDÉ par l'audience de la prose : BLOQUANT sur charpente.depart.texte_ouverture_joueur (audience moteur, émise au joueur mot pour mot), ALERTE sur les trois proses ia du canon. Motif : aucune règle BLOQUANTE ne prend pour critère un champ d'audience ia — exiger de nourrir le modèle pour débloquer le moteur inverserait les audiences. Vérification nominale faite sur les cinq règles bloquantes retenues : elles ne lisent que du moteur (reussi_si_expr, cibles de DELTAS, savoirs[].indice_id, presence[].lieu_id, depart.lieu_id, texte_ouverture_joueur).",
+			"RETENU (cadrage, tour 2) — modifier un fichier possédé par une AUTRE feature est admis quand le diff n'ajoute AUCUNE logique métier (seulement la lecture d'un contrat brain/) et qu'il tient dans un lot unique possédant ce fichier en exclusivité pour l'itération. C'est ce qui autorise n°7 à éditer SectionNav.tsx et DossierEditorScreen.tsx (bascule-editeur), et c'est DISTINCT de ce que KR-200 / KR-205 refusaient : y construire un ÉCRAN ENTIER, c'est-à-dire transplanter une feature.",
+			"REJETÉ (cadrage, tour 2 — le tech-lead a retiré sa propre proposition) — extraire designationDe vers brain/dossier/identifiers.ts et faire adopter validate.ts dans le même lot. Son bénéfice va à n°4/n°5, pas ici ; localiserEntite sort déjà du baril et suffit à n°7 ; et payer un lot contrat sur validate.ts (triade de la Décision A) pour le confort d'un fichier tiers est l'abstraction prématurée qu'il faut refuser.",
+			"RETENU (cadrage, tour 2) — la preuve de chaque règle se fait par CLONE de dossier-minimal.json muté d'un SEUL champ, rouge puis calme dans le MÊME test. Jamais une troisième fixture partagée figée, jamais une modification des deux fixtures existantes, lues par huit suites.",
+			"RETENU (cadrage, tour 2) — cette feature n'ouvre AUCUN lot contrat sur types.ts, destinations.ts ou validate.ts. C'est la conséquence directe du rejet d'Indice.portee, et c'est ce qui rend ses quatre itérations non sérielles au sens de KR-190 / KR-210 : aucune tranche de schéma n'est en jeu."
+		],
+		"open_questions": [
+			"OUVERT (cadrage 2026-09-15) — « Intrigue en second plan » et Indice.portee reviennent ENSEMBLE, jamais l'un sans l'autre, le jour où UNE SEULE feature possède les deux moitiés : (a) un champ d'effet sur PlanAction — aujourd'hui inexistant, PlanAction ne porte aucun Delta — ou une marque « principal » sur un jalon, qui rendrait calculable la seconde clause ; (b) le champ de formulaire de portee dans FicheIndice.tsx. Tant que la seconde clause est sans matériau, activer la première ne livrerait qu'un relèvement de niveau sur un sous-ensemble du goulot. Propriétaire recommandé, non mandaté : une feature de durcissement des registres, ou n°16.",
+			"OUVERT (cadrage 2026-09-15) — « Difficulté non calibrée » est reportée à n°16 dossier-repetition, qui simule vingt tours joués et dispose donc d'un héros réel plutôt que d'une référence inventée. Y revenir plus tôt exigerait d'abord une section de docs/REGLES-DU-JEU.md définissant un héros étalon, puis sa ligne de table dorée, puis le code — dans cet ordre (KR-130).",
+			"OUVERT (cadrage 2026-09-15) — poser le focus DANS le champ fautif depuis une ligne du panneau Contrôles traverse les Panneau* de n°3/4/5/6 : quatre features, une dizaine de fichiers, aucun lot étanche possible. Les itérations de n°7 s'arrêtent à SÉLECTIONNER la section. Si le besoin se confirme, c'est une itération à part entière avec son propre contrat brain (candidat : focusTarget?: { entityId } sur PanneauSection), jamais un ajout en passant.",
+			"OUVERT (cadrage 2026-09-15) — le branchement de RapportControles.jouable sur previewDisabledReason d'EditorTopBar (le CTA « Aperçu du jeu ») est la conséquence naturelle de l'arbitrage n°5 du plan-cible, et il appartient à n°9 moteur-dossier, pas ici. Écrit pour qu'aucune itération de n°7 ne le prenne en passant dès que jouable existe.",
+			"OUVERT (hérité, non repris par cette feature) — lieux[].acces n'a toujours aucun propriétaire (KR-200 ouvert par dossier-objets, KR-205 confirmé par dossier-registres). n°7 le confirme une troisième fois et en tire une conséquence de plus : tant qu'il n'existe pas, l'hypothèse de monde ouvert (KR-224) est câblée dans atteignabilite.ts, et la règle « personnage sans présence » reste amputée de sa seconde moitié. Recommandation inchangée et toujours non mandatée : une itération 5 de dossier-canon.",
+			"OUVERT (cadrage 2026-09-15, tech-lead) — le doublon de désignation d'entité subsiste : la logique « {Type} « {nom} » » avec repli « {Type} n°{index} (sans nom) » vit à la fois dans sitesDe (privé de validate.ts) et dans designationDe, exporté par FichePersonnage.tsx — une FEATURE, dont l'import depuis n°7 serait un veto d'isolation. n°7 ne le re-dérive pas : il consomme localiserEntite, exporté du baril. L'extraction reste due au prochain lot qui touche légitimement validate.ts.",
+			"OUVERT (cadrage 2026-09-15) — le décompte du plan-cible et du roadmap (« 8 règles, 4 bloquantes, 3 alertes, 1 info ») est périmé par ce cadrage : la feature en livre DIX — 5 bloquantes, 4 alertes, 1 info. Le roadmap §2 est mis à jour (itérations 3 → 4) ; le .dc.html ne l'est pas, étant une référence de conception et non du code de production (CLAUDE.md).",
+			"OUVERT (cadrage 2026-09-15) — l'agrégation des avertissements de validateDossier (itération 3) suppose que controles.ts appelle validateDossier sur le dossier courant, ce que le découpage du tour 2 voulait éviter pour ne pas coupler les deux modules. Deux voies à trancher au raffinage de l'itération 3 : controles.ts importe validateDossier et mappe ses warnings en Controle ; ou le panneau reçoit les deux sources. La première est préférée — une seule forme de charge dans le rapport, donc un seul rendu — la seconde évite l'import ; aucune n'est acquise.",
+			"OUVERT (cadrage 2026-09-15) — budget de contexte : code-knowledge.json mesurait 76 797 o pour un plafond de 76 800 o le jour de ce cadrage, soit TROIS octets de marge. Les neuf KR de cette feature le feront franchir dès l'étape 4 de l'itération 1, ce qui déclenche une compaction DANS CE LOT-LÀ (docs/WORKFLOW.md, § Budget de contexte) — jamais au lot suivant."
+		]
+	}
+}

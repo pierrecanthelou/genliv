@@ -148,7 +148,7 @@ Huit features. Une phrase de démo par feature, sans « et » : c'est le test de
 | 4 | `dossier-fiches` | …écrire une fiche de personnage exploitable par l'IA | 8 | **8/8 — terminée** | 5 rôles | 3 |
 | 5 | `dossier-objets` | …tenir le registre des objets de son aventure | 2 | **2/2 — terminée** | 4 rôles | 1 |
 | 6 | `dossier-registres` | …tenir les quêtes, les indices, les événements de son aventure | 5 | **5/5 — terminée** | 4 rôles (5 à it5) | 4 · 5 |
-| 7 | `dossier-controles` | …voir pourquoi son aventure n'est pas encore jouable | 3 | — | 5 rôles | 6 |
+| 7 | `dossier-controles` | …voir pourquoi son aventure n'est pas encore jouable | 4 | 0/4 | 5 rôles | 6 |
 | 8 | `dossier-copilote` | …faire proposer un texte par l'IA, champ par champ | 3 | — | 5 rôles | 6 |
 
 **Colonne `Statut`** — itérations **livrées / prévues**, *projetées* depuis `plan.iterations[].status` du `specification.json` de la feature : elle se recopie, elle ne se décide pas ici (source unique, mise à jour à l'étape 4 de `docs/WORKFLOW.md` § Build Steps). `—` = pas commencée. Ce tableau ne dit rien d'un raffinage en cours : `2/5` signifie deux itérations **livrées**, pas « rien d'ouvert ».
@@ -169,7 +169,7 @@ Huit features. Une phrase de démo par feature, sans « et » : c'est le test de
 
 **6 · `dossier-registres`** — sections 05 quêtes, 06 indices, 08 événements (deux listes séparées par l'interrupteur « lié à l'histoire », branchées sur le bestiaire existant), 09 climat & conditions, et l'écran d'édition des jalons & fins (§5 : dépend du registre `DELTAS` que cette feature introduit). **CORRECTION (cadrage `dossier-registres`, 2026-08-17)** : « + son graphe » retiré — repointage visuel hors périmètre (§1 bis, `tree-canvas` ; détail KR-204). `indices[].mene_a` se rend en liste textuelle. Passée à 5 itérations (jalons & fins ajoutés, absents de la phrase de démo d'origine).
 
-**7 · `dossier-controles`** — le linter d'aventure. 8 règles (4 bloquantes, 3 alertes, 1 info), badges par section. Deux règles sont fixées par D1 : un `…_expr` référençant un identifiant inconnu **bloque**, un `…_texte` sans `…_expr` sur une fin ou un objectif **alerte**. Deux règles demandent un vrai algorithme : l'atteignabilité d'un objectif et la calibration de difficulté. Nommée `controles` et non `lint` : dans ce dépôt `npm run lint` désigne ESLint depuis l'itération outillage-1.
+**7 · `dossier-controles`** — le linter d'aventure : un rapport de contrôles, un panneau, des badges par section. Nommée `controles` et non `lint` : dans ce dépôt `npm run lint` désigne ESLint depuis l'itération outillage-1. **CORRECTION (cadrage 2026-09-15)** : 3 → **4 itérations**, 8 → **10 règles** (5 bloquantes, 4 alertes, 1 info) — deux sortent (dont « Difficulté non calibrée » → n° 16), une est amputée, deux entrent ; les deux règles D1 étaient déjà dans `validateDossier`. Aucun lot contrat sur la triade de la Décision A. Mesures et arbitrages : `src/features/dossier-controles/specification.json`.
 
 **8 · `dossier-copilote`** — 3 assistants (Éclater le synopsis, Compléter une fiche, Tisser les indices), toujours en proposition, panneau de diff accepté champ par champ. **La « Répétition à blanc » n'est pas ici** : elle simule 20 tours joués par un joueur synthétique, donc elle exige le moteur. Elle est déplacée en n° 16.
 
@@ -234,7 +234,7 @@ Relevés en lecture intégrale. Chacun est affecté à la feature qui doit le tr
 | `jalons`, `fins`, `meta` au schéma sans section ni écran — `jalons` et `fins` sont groupées sous `charpente` ; `meta` n'est **pas** une racine (tranché le 2026-08-04). `charpente` n'est plus « **jamais** injectée » mais « **jamais injectée ENTIÈRE** » : une projection nommée en porte **une** feuille — l'`enonce_texte` des jalons **déjà atteints** —, jamais les déclencheurs ni les conditions de fin, qui sont la même règle en français et apprendraient au modèle à provoquer le jalon ou à conduire à la fin | n° 1 (la forme + `enonce_texte`) · n° 2 (la section dans la liste, lecture seule — CORRECTION cadrage `bascule-editeur` 2026-08-08 : l'écran d'édition dépend du registre `DELTAS`, réservé à n° 6) · n° 6 (l'écran d'édition) · n° 9 (la projection) |
 | « Scènes écrites » : le format porte un texte et un drapeau (n° 1), mais leur propriété définissante est un **chemin de code** — une scène verbatim est **émise** par le moteur, jamais demandée au modèle | n° 1 (le champ) · n° 10 (l'émission) |
 | Mapping des 6 curseurs sur CA / IN / IG non donné | n° 4 |
-| Atteignabilité d'un objectif, calibration de difficulté : aucune formule | n° 7 |
+| ~~Atteignabilité d'un objectif~~ → tranchée le 2026-09-15 (saturation, monde ouvert, KR-224). Calibration : déplacée, le Tier du héros n'est pas au dossier | n° 7 · n° 16 |
 | Échelle de confiance : bornes, valeur initiale, amplitude d'un delta | n° 12 |
 | `ΔT` invoqué pour le calcul d'XP, jamais défini | n° 11 |
 | Choix de posture du monstre « selon sa capacité et son IG » non spécifié | n° 13 — vérifier `combatEngine.ts`, c'est peut-être déjà fait |
