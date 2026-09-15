@@ -4,6 +4,7 @@ import { validateDossier } from './validate'
 import {
 	BUDGET_MOTS_CANON,
 	BUDGET_MOTS_JALON,
+	BUDGET_MOTS_MANIFESTATION,
 	CAMPS,
 	CAMPS_PERSONNAGE,
 	CARACTERISTIQUE_MIN,
@@ -16,6 +17,7 @@ import {
 } from './types'
 import { DOSSIER_ISSUE_LABELS, dossierIssueRemediation, type DossierIssue, type DossierIssueCode } from './issues'
 import {
+	BUDGETS_DE_MOTS,
 	CHAMPS_ENTIERS,
 	CHAMPS_REQUIS,
 	CONFIANCES,
@@ -50,7 +52,8 @@ function fixture(): Doc {
 const obj = (value: unknown): Doc => value as Doc
 const arr = (value: unknown): Doc[] => value as Doc[]
 
-/** Les TREIZE accès profonds de la fixture, nommés une fois (remesuré, KR-159). */
+/** Les QUATORZE accès profonds de la fixture, nommés une fois (remesuré, KR-159 —
+ *  ils étaient TREIZE jusqu'à l'itération 5 de la n° 6, qui ajoute le climat). */
 const personnage = (doc: Doc): Doc => arr(obj(doc.monde).personnages)[0]
 const savoir = (doc: Doc): Doc => arr(personnage(doc).savoirs)[0]
 const revele = (doc: Doc): Doc => obj(savoir(doc).revele_si)
@@ -64,6 +67,7 @@ const evenement = (doc: Doc): Doc => arr(obj(doc.monde).evenements)[0]
 const quete = (doc: Doc): Doc => arr(obj(doc.monde).quetes)[0]
 const jalon = (doc: Doc): Doc => arr(obj(doc.charpente).jalons)[0]
 const objectif = (doc: Doc): Doc => arr(obj(doc.canon).objectifs)[0]
+const climat = (doc: Doc): Doc => arr(obj(obj(doc.monde).conditions).climat)[0]
 
 /** Les sous-chaînes qui trahissent une erreur runtime sérialisée (KR-164). */
 const FUITES_TECHNIQUES = ['expected', 'undefined', 'is not a function']
@@ -93,7 +97,10 @@ describe('validateDossier', () => {
 		expect(resultat.dossier?.monde.evenements[0].monstre_ref).toBe('bestiaire.gobelin')
 		expect(resultat.dossier?.charpente.jalons[0].enonce_texte.length).toBeGreaterThan(0)
 		// Les effets de l'itération 4 sont TYPÉS, pas seulement traversés — et la liste
-		// VIDE du climat est légitime : aucun des quatre effets admis n'est ambiant.
+		// VIDE du climat est légitime. CORRIGÉ LE 2026-08-19 (n° 6 it5, § 8-1) : le motif
+		// écrit ici (« aucun des quatre effets admis n'est ambiant ») est FAUX. Les vrais :
+		// un climat n'a aucun INSTANT d'application ni aucune IDEMPOTENCE — voir le
+		// commentaire de `destinations.ts` sur `climat[].effets_regles`.
 		expect(resultat.dossier?.monde.conditions.climat[0].effets_regles).toEqual([])
 		expect(resultat.dossier?.charpente.jalons[0].effet).toEqual([
 			{ delta: 'reveler_indice', cibles: ['indice.sceau-brise'] },
@@ -1357,16 +1364,36 @@ describe('validateDossier', () => {
 	})
 
 	/**
-	 * Où poser une valeur de champ ENTIER, par chemin de `CHAMPS_ENTIERS`. Un chemin
-	 * ajouté à la table sans son poseur se NOMME dans le test juste en dessous, il ne
-	 * disparaît pas du diff.
+	 * Où poser une valeur de champ ENTIER, par chemin de `CHAMPS_ENTIERS`, ET sous quel
+	 * OÙ l'anomalie doit ressortir. Un chemin ajouté à la table sans son poseur se
+	 * NOMME dans le test juste en dessous, il ne disparaît pas du diff.
+	 *
+	 * LE `ou` EST DANS LE MÊME ENREGISTREMENT QUE LE POSEUR, et ce n'est pas de la
+	 * commodité : il était écrit en littéral dans le corps de la boucle tant que les
+	 * deux seuls chemins vivaient sous `monde.personnages[]`. La troisième ligne
+	 * (itération 5 de la n° 6) vit sous `monde.conditions.climat[]`, donc son OÙ est un
+	 * CLIMAT — et un littéral partagé aurait forcé à relâcher l'assertion au lieu de la
+	 * rendre plus précise. C'est aussi ce qui prouve que `location: 'Climat'` de la
+	 * table ne sert PAS de repli ici : `sitesDe` résout le OÙ par le NOM de l'entité.
 	 */
-	const POSEURS_D_ENTIER: Record<string, (doc: Doc, valeur: unknown) => void> = {
-		'monde.personnages[].plan_actions[].duree': (doc, valeur) => {
-			etape(doc).duree = valeur
+	const POSEURS_D_ENTIER: Record<string, { poser: (doc: Doc, valeur: unknown) => void; ou: string }> = {
+		'monde.personnages[].plan_actions[].duree': {
+			poser: (doc, valeur) => {
+				etape(doc).duree = valeur
+			},
+			ou: 'Personnage « Aldûr le Sage »',
 		},
-		'monde.personnages[].contre_mesures[].delai': (doc, valeur) => {
-			contreMesure(doc).delai = valeur
+		'monde.personnages[].contre_mesures[].delai': {
+			poser: (doc, valeur) => {
+				contreMesure(doc).delai = valeur
+			},
+			ou: 'Personnage « Aldûr le Sage »',
+		},
+		'monde.conditions.climat[].duree': {
+			poser: (doc, valeur) => {
+				climat(doc).duree = valeur
+			},
+			ou: 'Climat « Pluie de cendres »',
 		},
 	}
 
@@ -1387,7 +1414,7 @@ describe('validateDossier', () => {
 
 			for (const valeur of REFUSES) {
 				const doc = fixture()
-				POSEURS_D_ENTIER[champ.path](doc, valeur)
+				POSEURS_D_ENTIER[champ.path].poser(doc, valeur)
 
 				const resultat = validateDossier(doc)
 				const anomalie = resultat.errors.find((e) => e.path.endsWith(feuilleDe(champ.path)))
@@ -1397,7 +1424,7 @@ describe('validateDossier', () => {
 				)
 				expect(anomalie?.message).toContain(`« ${feuilleDe(champ.path)} »`)
 				expect(anomalie?.message).toContain(`supérieur ou égal à ${champ.min}`)
-				expect(anomalie?.location).toBe('Personnage « Aldûr le Sage »')
+				expect(anomalie?.location).toBe(POSEURS_D_ENTIER[champ.path].ou)
 				expect(resultat.ok).toBe(false)
 				for (const fuite of FUITES_TECHNIQUES) {
 					expect(anomalie?.message.toLowerCase()).not.toContain(fuite)
@@ -1408,16 +1435,17 @@ describe('validateDossier', () => {
 			// aussi — sans ces deux lignes, « tout est refusé » satisferait la boucle.
 			for (const valeur of [champ.min, champ.min + 41]) {
 				const doc = fixture()
-				POSEURS_D_ENTIER[champ.path](doc, valeur)
+				POSEURS_D_ENTIER[champ.path].poser(doc, valeur)
 
 				expect(`${valeur} → ${validateDossier(doc).ok}`).toBe(`${valeur} → true`)
 			}
 
-			// Discriminant (b) : l'ABSENCE n'est pas une erreur — les deux champs sont
-			// optionnels, et une étape que rien ne périme est légitime. (Elle peut, elle,
+			// Discriminant (b) : l'ABSENCE n'est pas une erreur — les trois champs sont
+			// optionnels, et une étape que rien ne périme est légitime, comme un climat
+			// dont l'auteur n'a pas encore réglé la durée. (Celle d'une étape peut, elle,
 			// déclencher l'avertissement `si_bloque`, qui ne touche pas `errors`.)
 			const absent = fixture()
-			POSEURS_D_ENTIER[champ.path](absent, undefined)
+			POSEURS_D_ENTIER[champ.path].poser(absent, undefined)
 
 			expect(validateDossier(absent).errors).toEqual([])
 			expect(validateDossier(absent).ok).toBe(true)
@@ -1514,7 +1542,7 @@ describe('validateDossier', () => {
 		[
 			'conditions climat effets_regles',
 			(doc) => {
-				arr(obj(obj(doc.monde).conditions).climat)[0].effets_regles = 'la vue est réduite'
+				climat(doc).effets_regles = 'la vue est réduite'
 			},
 			'monde.conditions.climat[0].effets_regles',
 		],
@@ -1650,7 +1678,7 @@ describe('validateDossier', () => {
 		const delta = [{ cle: 'valeur libre' }]
 		arr(obj(doc.monde).quetes)[0].recompense = delta
 		arr(evenement(doc).resolutions)[0].consequence = delta
-		arr(obj(obj(doc.monde).conditions).climat)[0].effets_regles = delta
+		climat(doc).effets_regles = delta
 		jalon(doc).effet = delta
 
 		const resultat = validateDossier(doc)
@@ -1673,7 +1701,7 @@ describe('validateDossier', () => {
 		const brut = ['du texte a la place']
 		arr(obj(doc.monde).quetes)[0].recompense = brut
 		arr(evenement(doc).resolutions)[0].consequence = brut
-		arr(obj(obj(doc.monde).conditions).climat)[0].effets_regles = brut
+		climat(doc).effets_regles = brut
 		jalon(doc).effet = brut
 
 		const resultat = validateDossier(doc)
@@ -1745,10 +1773,7 @@ describe('validateDossier', () => {
 				(doc, effet) => (arr(evenement(doc).resolutions)[0].consequence = effet),
 				'monde.evenements[0].resolutions[0].consequence[0]',
 			],
-			[
-				(doc, effet) => (arr(obj(obj(doc.monde).conditions).climat)[0].effets_regles = effet),
-				'monde.conditions.climat[0].effets_regles[0]',
-			],
+			[(doc, effet) => (climat(doc).effets_regles = effet), 'monde.conditions.climat[0].effets_regles[0]'],
 			[(doc, effet) => (jalon(doc).effet = effet), 'charpente.jalons[0].effet[0]'],
 		]
 
@@ -2269,6 +2294,87 @@ describe('validateDossier', () => {
 		expect(depasse.warnings[0].message).not.toContain('BUDGET')
 		expect(depasse.errors).toEqual([])
 		expect(depasse.ok).toBe(true)
+	})
+
+	it('climat manifestation absente calme, a 20 mots calme, a 21 mots un avertissement non bloquant', () => {
+		// LE QUATRIÈME BUDGET DU SCHÉMA (itération 5 de la n° 6), et le PREMIER porté par
+		// un champ OPTIONNEL — d'où les TROIS états dans un seul test : sans le premier,
+		// « avertit au-delà » ne dirait rien de ce qui arrive à un climat que personne n'a
+		// encore rédigé, qui est l'état de tout climat à sa création.
+		const absente = fixture()
+		delete climat(absente).manifestation
+		const calme = validateDossier(absente)
+
+		expect(calme.warnings).toEqual([])
+		expect(calme.errors).toEqual([])
+		expect(calme.ok).toBe(true)
+
+		const aLaBorne = fixture()
+		climat(aLaBorne).manifestation = Array(BUDGET_MOTS_MANIFESTATION).fill('mot').join(' ')
+		const borne = validateDossier(aLaBorne)
+
+		expect(borne.warnings).toEqual([]) // à la borne EXACTE, rien
+		expect(borne.errors).toEqual([])
+		expect(borne.ok).toBe(true)
+
+		const auDela = fixture()
+		climat(auDela).manifestation = Array(BUDGET_MOTS_MANIFESTATION + 1)
+			.fill('mot')
+			.join(' ')
+		const depasse = validateDossier(auDela)
+
+		expect(codes(depasse.warnings)).toEqual(['texte-trop-long'])
+		expect(depasse.warnings[0].path).toBe('monde.conditions.climat[0].manifestation')
+		// Le OÙ est le CLIMAT résolu par son NOM, jamais le `location` de repli de la
+		// table (`'Climat'` nu) ni le chemin JSON (KR-164).
+		expect(depasse.warnings[0].location).toBe('Climat « Pluie de cendres »')
+		expect(depasse.warnings[0].severity).toBe('warning')
+		expect(depasse.warnings[0].message).toContain(String(BUDGET_MOTS_MANIFESTATION + 1))
+		expect(depasse.warnings[0].message).toContain('La manifestation de ce climat')
+		// Le NOM de la constante ne fuit jamais dans le texte.
+		expect(depasse.warnings[0].message).not.toContain('BUDGET')
+		// Avertissant, JAMAIS bloquant : `errors` reste vide, `ok` reste vrai, et le
+		// dossier ressort — c'est la moitié du critère que le mot « budget » fait oublier.
+		expect(depasse.errors).toEqual([])
+		expect(depasse.ok).toBe(true)
+		expect(depasse.dossier).not.toBeNull()
+
+		// LE BUDGET NE REMPLACE PAS UNE RÈGLE DE FORME, et c'est ce qui justifie la
+		// dispense que `couverture.test.ts` garde pour ce chemin : `compterMotsDe` rend
+		// `0` sur un nombre, donc une corruption chaîne → nombre TRAVERSE le validateur.
+		// Sans cette ligne, on croirait la ligne de `BUDGETS_DE_MOTS` protectrice.
+		const corrompue = fixture()
+		climat(corrompue).manifestation = 42
+
+		const traverse = validateDossier(corrompue)
+
+		expect(traverse.warnings).toEqual([])
+		expect(traverse.errors).toEqual([])
+		expect(traverse.ok).toBe(true)
+
+		// LA LIGNE DE TABLE, lue plutôt qu'affirmée — `location: 'Climat'` et non
+		// `'Conditions'`, qui est le OÙ de la LISTE.
+		const ligne = BUDGETS_DE_MOTS.find((budget) => budget.path === 'monde.conditions.climat[].manifestation')
+
+		expect(ligne?.location).toBe('Climat')
+		expect(ligne?.sujet).toBe('La manifestation de ce climat')
+		// … et le champ n'est PAS requis : rien de déjà persisté ne devient invalide
+		// (KR-191), `monde.conditions.climat[]` existant depuis la n° 1 sans migration.
+		expect(CHAMPS_REQUIS.filter((champ) => champ.path === 'monde.conditions.climat[].manifestation')).toEqual([])
+
+		// LA CONSTANTE EST PROPRE, et cette propriété-là ne se prouve QUE dans la source
+		// (KR-169) : `BUDGET_MOTS_JALON` vaut le MÊME nombre aujourd'hui, donc aucune
+		// assertion de valeur ne peut distinguer les deux. Le jour où l'un des deux
+		// budgets bouge, une réutilisation ferait bouger l'autre en silence.
+		const tables = fs.readFileSync(path.join(__dirname, 'tables.ts'), 'utf8')
+		const depart = tables.indexOf("path: 'monde.conditions.climat[].manifestation'")
+
+		expect(depart).toBeGreaterThan(-1)
+
+		const ligneSource = tables.slice(depart, tables.indexOf('}', depart))
+
+		expect(ligneSource).toContain('BUDGET_MOTS_MANIFESTATION')
+		expect(ligneSource).not.toContain('BUDGET_MOTS_JALON')
 	})
 
 	it('confiance_min aux bornes et hors bornes', () => {

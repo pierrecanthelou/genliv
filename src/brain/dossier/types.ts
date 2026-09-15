@@ -108,6 +108,25 @@ export const BUDGET_MOTS_CANON = 600
 export const BUDGET_MOTS_JALON = 20
 
 /**
+ * Le budget de mots d'une `monde.conditions.climat[].manifestation` — la phrase que
+ * le narrateur lit tant qu'un climat est actif.
+ *
+ * CONSTANTE PROPRE, JAMAIS `BUDGET_MOTS_JALON` RÉUTILISÉ, bien que les deux valeurs
+ * coïncident aujourd'hui — et c'est précisément cette coïncidence qui rendait la
+ * réutilisation tentante. Elles ne mesurent pas la même chose : l'énoncé d'un jalon
+ * est injecté AVEC TOUS LES AUTRES jalons atteints, et cette liste croît
+ * monotonement avec la durée de la partie ; une manifestation est injectée SEULE,
+ * pour le SEUL climat que `horloge.climat_actif` désigne. Une constante partagée les
+ * ferait dériver ensemble au premier changement de l'une. Mêmes précédents que
+ * `CAMPS_PERSONNAGE` face à `CAMPS`, `PORTEES_CONTRE_MESURE` face à `PORTEES`, et
+ * `INTENSITES` face à `CONFIANCES`.
+ *
+ * Dépassement = AVERTISSEMENT non bloquant, jamais un refus (KR-165) : l'auteur
+ * garde ce qu'il a écrit, et l'écran le lui dit.
+ */
+export const BUDGET_MOTS_MANIFESTATION = 20
+
+/**
  * Les bornes FERMÉES de l'échelle de confiance d'une porte de révélation. Le
  * schéma de session du plan de cible écrit déjà `confiance: -3..3` ; les poser
  * ici évite qu'un dossier importé demande une confiance que la session ne peut
@@ -1233,9 +1252,76 @@ export interface Quete extends Entite {
 	echeance?: string
 }
 
-/** Un climat : une condition ambiante qui modifie les règles. */
+/**
+ * Un climat : une condition ambiante qui modifie les règles.
+ *
+ * DEUX CHAMPS AJOUTÉS PAR L'ITÉRATION 5 DE LA N° 6, tous deux OPTIONNELS :
+ * `monde.conditions.climat[]` existe depuis la n° 1 en `schema: 1`, sans aucun chemin
+ * de migration (KR-160) — un champ requis de plus invaliderait RÉTROACTIVEMENT tout
+ * dossier déjà persisté (KR-191). Un climat qui n'en porte aucun est un état calme
+ * (« absent ≠ vide »), jamais une alerte.
+ *
+ * DEUX AUDIENCES POUR DEUX CHAMPS, et la coupure EST l'arbitrage : `duree` est un
+ * COMPTE que le moteur tient, `manifestation` la SEULE matière qu'un narrateur lise
+ * d'un climat. Le détail de chaque partage est sur le champ concerné et dans
+ * `destinations.ts`.
+ *
+ * `effets_regles` EST INCHANGÉ, et l'absence d'éditeur pour lui est une DÉCISION, pas
+ * un oubli (raffinage d'it5, désaccord n° 1) : `Climat` ne porte ni
+ * `declencheur_texte` ni `declencheur_expr`, donc RIEN dans le dossier ne dit QUAND un
+ * delta s'y appliquerait — `climat_actif` est un état de SESSION (KR-207), posé par la
+ * n° 9 / n° 14 — et rien n'enregistre « déjà appliqué », de sorte qu'un climat qui
+ * revient ré-appliquerait. Le besoin est DÉJÀ servi par un `Evenement`, dont le
+ * `declencheur_expr` donne un instant daté. Aucun opérande entier non plus (KR-208) :
+ * `DELTAS` n'en admet pas, et en ouvrir un exige `docs/REGLES-DU-JEU.md` → table dorée
+ * → le code, dans cet ordre (KR-130), propriété n° 11 / n° 13.
+ */
 export interface Climat extends Entite {
 	effets_regles: Delta[]
+	/** MOTEUR — le nombre de PAS D'HORLOGE DE SESSION pendant lesquels ce climat reste
+	 *  actif. Un ENTIER ≥ `DUREE_MIN`, jamais de la prose : une durée en français
+	 *  laisserait l'EXTINCTION du climat sans propriétaire de code — seul le narrateur
+	 *  pourrait la décider, ce qui est exactement la frontière que D1 trace.
+	 *
+	 *  MÊME MOT, MÊME CHOSE que `plan_actions[].duree` et que `contre_mesures[].delai` :
+	 *  un compte de pas d'horloge. Le piège d'homonymie que décrit KR-198 est ici ÉTEINT
+	 *  plutôt que contourné — deux clés voisines ne sont un piège que quand leurs sens
+	 *  DIVERGENT (là-bas, `objectif_id`, une RÉFÉRENCE moteur, contre le `but`, une prose
+	 *  `ia`), et ces trois `duree`/`delai`-là comptent tous la même chose.
+	 *
+	 *  L'UNITÉ DU PAS N'EST PAS DÉCIDÉE ICI — elle appartient à la n° 9
+	 *  `moteur-dossier` (voir `DUREE_MIN` et `docs/REGLES-PLAY.md` § J). Le mot
+	 *  « tour » reste RÉSERVÉ au round de combat par `docs/REGLES-DU-JEU.md`.
+	 *
+	 *  AUCUN CONSOMMATEUR AUJOURD'HUI, écrit plutôt que supposé : rien ne lit ce nombre
+	 *  avant la n° 14 `moteur-horloge`, qui éteindra le climat. Cette itération pose la
+	 *  donnée et son audience, pas son consommateur. */
+	duree?: number
+	/** IA — LA PHRASE QUE LE NARRATEUR LIT tant que ce climat est actif, et la SEULE
+	 *  matière injectable d'un climat : `nom` est `auteur` (KR-195), `duree` et
+	 *  `effets_regles` sont `moteur`. Sans elle, `monde.conditions.climat[]` serait la
+	 *  seule collection de registre du schéma à ZÉRO champ `ia`, et la n° 10 hériterait
+	 *  de « que lit le narrateur quand un climat est actif ? » avec trois portes déjà
+	 *  fermées.
+	 *
+	 *  Bornée à `BUDGET_MOTS_MANIFESTATION` mots — AVERTISSEMENT non bloquant, jamais un
+	 *  refus. JUMELLE EXACTE de `monde.quetes[].consigne` par la forme (prose
+	 *  optionnelle, libre, `ia`) : elle n'ouvre aucune catégorie neuve.
+	 *
+	 *  LE CONTRAT D'INJECTION, opposable à la n° 10, écrit ICI et au commentaire de sa
+	 *  ligne de `destinations.ts`, nulle part ailleurs (précédents `Relation.secret` et
+	 *  `Caractere.cede_si`) :
+	 *
+	 *  Au plus **UN** climat par tour entre dans le contexte — celui que
+	 *  `horloge.climat_actif` désigne, **jamais** la collection. Le champ injecté est
+	 *  `manifestation` **seul** : `id`, `nom`, `duree` et `effets_regles` n'entrent
+	 *  **jamais**. Une `manifestation` absente ou vide fait **omettre** le bloc climat —
+	 *  il n'est **jamais** remplacé par le `nom`, **jamais** paraphrasé : le repli est le
+	 *  **silence**.
+	 *
+	 *  Exemple : « La cendre grise les toits et se dépose sur chaque épaule sans jamais
+	 *  fondre. » */
+	manifestation?: string
 }
 
 /**

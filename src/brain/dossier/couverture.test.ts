@@ -247,7 +247,7 @@ const TEXTE_OPTIONNEL_LIBRE =
 	"jumeau prose OPTIONNEL d'une condition : son absence est calme par D1, et aucune règle du schéma 1 ne contraint sa forme quand il est présent. Même question ouverte que les dispenses « nom », propriétaire n° 2 bascule-editeur : une table « présent → doit être une chaîne », ou une garde à l'affichage."
 
 /**
- * Le motif partagé des proses d'entité — DIX-SEPT aujourd'hui, remesuré et jamais
+ * Le motif partagé des proses d'entité — DIX-HUIT aujourd'hui, remesuré et jamais
  * recopié (KR-159) : les TROIS de `Lieu` (itération 4 de la n° 3), les TROIS
  * d'identité d'un `Personnage` (itération 2 de la n° 4), les DEUX proses libres
  * de son `but` (itération 4 de la n° 4 : `pourquoi` et `echeance` — `libelle`, lui,
@@ -264,9 +264,17 @@ const TEXTE_OPTIONNEL_LIBRE =
  * proses libres d'une `Quete` (itération 3 de la n° 6 : `consigne` et `echeance` —
  * `etapes[].libelle`, lui, N'EST PAS ici, étant REQUIS dans son élément, et
  * `donneur_id` non plus, étant une RÉFÉRENCE ; deux dispenses à leurs noms seraient
- * mortes).
- * Il
- * est DISTINCT de `TEXTE_OPTIONNEL_LIBRE`, et pas par style : celui-là dispense le
+ * mortes) et L'UNIQUE prose d'un `Climat` (itération 5 de la n° 6 : `manifestation`
+ * — `duree`, elle, N'EST PAS ici, étant un ENTIER borné par `CHAMPS_ENTIERS`, donc sa
+ * corruption est refusée et une dispense à son nom serait morte).
+ *
+ * LE COMPTE CI-DESSUS N'EST PLUS DÉCORATIF depuis l'itération 5 de la n° 6 : le test
+ * « les DEUX champs d un climat portent leur destination exacte » le REMESURE sur
+ * cette table, de sorte qu'une dispense ajoutée ou retirée sans toucher à cette phrase
+ * fait rougir la suite. C'est ce que KR-159 demande d'un nombre écrit dans un
+ * commentaire — une source, ou rien.
+ *
+ * Il est DISTINCT de `TEXTE_OPTIONNEL_LIBRE`, et pas par style : celui-là dispense le
  * jumeau prose d'une CONDITION, dont l'absence est calme PAR D1 et dont la
  * présence sans `…_expr` déclenche un avertissement. Ceux-là n'ont aucun
  * jumeau `…_expr`, aucune famille dans `FAMILLES_DE_CONDITIONS`, et donc aucun
@@ -283,6 +291,17 @@ const TEXTE_OPTIONNEL_LIBRE =
  * vérifié par rien ici — ni par le compilateur, ni par le garde d'auto-nettoyage,
  * qui ne porte que sur la corruption — et la porter à six clés doublerait la
  * surface d'une phrase qui deviendrait fausse en silence.
+ *
+ * ⚠ ET C'EST EXACTEMENT POURQUOI `manifestation` EST ICI (itération 5 de la n° 6),
+ * bien qu'elle soit la PREMIÈRE de ces dix-huit à porter un budget : une ligne de
+ * `BUDGETS_DE_MOTS` n'AVERTIT que — `ok` reste vrai, et `compterMotsDe` rend `0` sur
+ * un nombre —, donc la corruption chaîne → nombre traverse et la dispense reste due.
+ * La contre-épreuve est `charpente.jalons[].enonce_texte`, qui porte un budget et
+ * n'a AUCUNE dispense : lui est dans `CHAMPS_REQUIS`. Cette phrase-ci ne tombe pas
+ * sous l'interdit du paragraphe ci-dessus, parce qu'elle NOMME son instrument plutôt
+ * que d'affirmer en passant : le test « climat manifestation absente calme, a 20 mots
+ * calme, a 21 mots un avertissement non bloquant » de `validate.test.ts` verse un
+ * NOMBRE dans ce champ et constate `ok: true`.
  */
 const PROSE_D_ENTITE_LIBRE =
 	"prose OPTIONNELLE d'une entité, sans jumeau structuré : son absence est un état calme (doctrine « absent ≠ vide » de l'itération 1, comme « nom »), et aucune règle du schéma 1 ne contraint sa forme quand elle est présente — ni longueur, ni vocabulaire. Même question ouverte que les dispenses « nom », propriétaire n° 2 bascule-editeur : une table « présent → doit être une chaîne », ou une garde à l'affichage."
@@ -412,6 +431,22 @@ const LIBRES: Record<string, string> = {
 	'monde.quetes[].echeance': PROSE_D_ENTITE_LIBRE,
 	'monde.evenements[].nom': NOM_LIBRE,
 	'monde.conditions.climat[].nom': NOM_LIBRE,
+	// L'UNIQUE PROSE D'UN CLIMAT (it5 de la n° 6), même motif mot pour mot que ses
+	// aînées : une prose d'entité sans jumeau structuré, dont la corruption remplace la
+	// chaîne par un NOMBRE, et qu'aucune règle du schéma 1 n'arbitre. (Aucun ordinal
+	// ici — le compte des proses vit dans la docstring de `PROSE_D_ENTITE_LIBRE`, où un
+	// test le remesure ; recopié à chaque site, il dériverait, KR-159.)
+	//
+	// Elle porte pourtant un BUDGET DE MOTS, et c'est la SEULE dispense de cette table
+	// dans ce cas : un budget n'AVERTIT que, il ne refuse rien — voir le ⚠ de
+	// `PROSE_D_ENTITE_LIBRE` ci-dessus et le test qu'il nomme dans `validate.test.ts`.
+	//
+	// `duree` N'A PAS DE DISPENSE, et c'est le point de contrat qui se voit le mieux à
+	// cet endroit : c'est un ENTIER BORNÉ (`CHAMPS_ENTIERS`), donc sa corruption en
+	// texte est REFUSÉE par `valeur-hors-enumeration` — une dispense à son nom serait
+	// morte, et le test « une dispense nommant une feuille deja couverte est morte » le
+	// dirait.
+	'monde.conditions.climat[].manifestation': PROSE_D_ENTITE_LIBRE,
 	'charpente.jalons[].nom': NOM_LIBRE,
 	'charpente.fins[].nom': NOM_LIBRE,
 	// LA PROSE DE FIN (it2 de la n° 6), même motif mot pour mot que les quatorze
@@ -1212,6 +1247,76 @@ describe('couverture', () => {
 		).toBe('monde.evenements[].resolutions[].resultat → ia')
 	})
 
+	it('les DEUX champs d un climat portent leur destination exacte, dans les DEUX fixtures', () => {
+		// LES DEUX LIGNES DE SCHÉMA DE L'ITÉRATION 5 DE LA N° 6, épinglées par la même
+		// construction que leurs aînées ci-dessus, et pour la même raison (KR-174, leçon
+		// de BUG-051) : « toute feuille a une destination » ne dit rien de la VALEUR,
+		// « aucune ligne morte » ne dit rien de l'audience. Nommées ensemble, les deux
+		// moitiés épinglent l'arbitrage — DEUX audiences en deux champs, et la coupure EST
+		// la décision de l'itération :
+		//
+		//  · `duree` → `moteur` et non `ia`, CONTRE l'idée qu'un narrateur gagnerait à
+		//    savoir combien de temps la tempête va durer : c'est un COMPTE DE PAS
+		//    D'HORLOGE, même famille que `plan_actions[].duree` et
+		//    `contre_mesures[].delai`. Injectée, elle ferait jouer la fin du climat avant
+		//    que l'horloge ne l'ait constatée. La bascule que ce test doit faire rougir
+		//    est « tout ce qui décrit un climat est de la matière à raconter » ;
+		//  · `manifestation` → `ia`, et c'est la SEULE ligne `ia` de ce registre : sans
+		//    elle, `monde.conditions.climat[]` resterait la seule collection du schéma à
+		//    zéro champ injectable. La bascule à faire rougir est « un climat est une note
+		//    d'ambiance de l'auteur ».
+		const CHAMPS_DE_CLIMAT: ReadonlyArray<readonly [string, string]> = [
+			['monde.conditions.climat[].duree', 'moteur'],
+			['monde.conditions.climat[].manifestation', 'ia'],
+		]
+		const feuilles = cheminsDeLaFixture()
+		const feuillesDeLaReference = feuillesDeLaFixture(documentDeReference()).map((feuille) => feuille.normalise)
+
+		for (const [chemin, audience] of CHAMPS_DE_CLIMAT) {
+			expect(`${chemin} → ${DESTINATION_DES_CHAMPS[chemin]}`).toBe(`${chemin} → ${audience}`)
+			// L'INSTANCE DANS LES DEUX FIXTURES, dans le même test : le garde
+			// d'exhaustivité ne balaie que la MINIMALE, donc un champ instancié là mais
+			// absent d'une aventure réelle resterait vert partout.
+			expect(`${chemin} dans la minimale → ${feuilles.includes(chemin)}`).toBe(`${chemin} dans la minimale → true`)
+			expect(`${chemin} dans la reference → ${feuillesDeLaReference.includes(chemin)}`).toBe(
+				`${chemin} dans la reference → true`,
+			)
+		}
+
+		// Discriminant : les DEUX voisines de la MÊME entité gardent leur audience. Sans
+		// ces lignes, les assertions ci-dessus passeraient aussi sur une table qui aurait
+		// basculé TOUT le climat vers `ia` — c'est-à-dire sur la réouverture silencieuse
+		// de la question transverse que KR-195 laisse fermée jusqu'à l'assembleur n° 10,
+		// et sur la perte du veto qui garde les deltas hors du contexte du modèle.
+		expect(`monde.conditions.climat[].nom → ${DESTINATION_DES_CHAMPS['monde.conditions.climat[].nom']}`).toBe(
+			'monde.conditions.climat[].nom → auteur',
+		)
+		// L'emplacement d'effets est DÉRIVÉ de `CHEMINS_DE_DELTAS`, jamais réécrit : une
+		// SECONDE liste de chemins de delta dans ce fichier divergerait en silence, et le
+		// test « aucune seconde liste de chemins de delta » le refuse — il vient de le
+		// prouver en rougissant sur cette ligne.
+		const EFFETS_DU_CLIMAT = CHEMINS_DE_DELTAS.filter((delta) => delta.location === 'Climat')
+
+		expect(EFFETS_DU_CLIMAT).toHaveLength(1)
+		expect(`${EFFETS_DU_CLIMAT[0].path} → ${DESTINATION_DES_CHAMPS[EFFETS_DU_CLIMAT[0].path]}`).toBe(
+			`${EFFETS_DU_CLIMAT[0].path} → moteur`,
+		)
+
+		// LE PARTAGE DES DEUX GARDES, et c'est la moitié propre à cette itération : la
+		// `duree` est un ENTIER, donc sa corruption est REFUSÉE et elle n'a AUCUNE
+		// dispense ; la `manifestation` est une prose libre, donc elle en a EXACTEMENT
+		// une, sous le motif EXISTANT — jamais un motif neuf.
+		expect(LIBRES['monde.conditions.climat[].duree']).toBeUndefined()
+		expect(couvertsParCorruption()).toContain('monde.conditions.climat[].duree')
+		expect(LIBRES['monde.conditions.climat[].manifestation']).toBe(PROSE_D_ENTITE_LIBRE)
+
+		// LE COMPTE DES PROSES LIBRES, REMESURÉ ICI et jamais recopié (KR-159) : la
+		// docstring de `PROSE_D_ENTITE_LIBRE` annonce DIX-HUIT depuis cette itération, et
+		// c'est cette ligne qui l'oblige à rester vraie. Même patron que le `toHaveLength`
+		// de `LISTES_A_ELEMENTS_STRUCTURES` plus bas.
+		expect(Object.values(LIBRES).filter((motif) => motif === PROSE_D_ENTITE_LIBRE)).toHaveLength(18)
+	})
+
 	it('description_joueur d un objet, texte long, aucun avertissement', () => {
 		// KR-203, ET C'EST UN CAS POSITIF, pas une absence de doc : « aucune borne de
 		// longueur » est une DÉCISION du cadrage, et une décision que rien n'exerce se
@@ -1331,6 +1436,47 @@ describe('couverture', () => {
 		expect(predicat).toContain("Elle n'entre **jamais**")
 
 		expect(sansPrefixe(destinations)).toContain(predicat)
+	})
+
+	it('le contrat d injection de manifestation est present aux DEUX sites, mot pour mot', () => {
+		// TROISIÈME INSTANCE du même instrument, après `secret` (it5 de la n° 4) et
+		// `cede_si` (it8), et il vaut pour la même raison : aucun assembleur n'existe
+		// avant la n° 10, donc l'injection réelle n'est exerçable par aucun test. Ce qui
+		// l'est — et ce qui décide de ce que la n° 10 codera — est la PRÉSENCE du contrat
+		// à ses deux sites, à l'identique. Sans lui, le § 9 du plan d'itération déposerait
+		// une promesse qu'aucune porte ne relit (KR-169).
+		//
+		// Ce contrat-ci ne dit PAS la même chose que les deux autres, et c'est pourquoi il
+		// a son test plutôt qu'une clause de plus dans les leurs : eux restreignent le
+		// RÔLE qui reçoit une ligne, celui-ci borne la CARDINALITÉ (un climat par tour,
+		// jamais la collection) et impose un REPLI (le silence, jamais le `nom`).
+		//
+		// Le contrat n'est PAS écrit en littéral ici : il est LU du JSDoc de
+		// `Climat.manifestation` puis cherché dans `destinations.ts`. Une troisième copie
+		// se périmerait en silence le jour où les deux autres changeraient ensemble.
+		const types = fs.readFileSync(path.join(MODULE_DOSSIER, 'types.ts'), 'utf8')
+		const destinations = fs.readFileSync(path.join(MODULE_DOSSIER, 'destinations.ts'), 'utf8')
+
+		const sansPrefixe = (source: string): string =>
+			source.replace(/\r?\n[ \t]*(\*|\/\/) ?/g, ' ').replace(/[ \t]+/g, ' ')
+		const debut = 'Au plus **UN** climat par tour'
+		const fin = 'le repli est le **silence**.'
+		const typesAplati = sansPrefixe(types)
+		const depart = typesAplati.indexOf(debut)
+
+		expect(depart).toBeGreaterThan(-1)
+
+		const contrat = typesAplati.slice(depart, typesAplati.indexOf(fin, depart) + fin.length)
+
+		// Discriminant : le contrat extrait porte bien ses quatre clauses — la
+		// cardinalité, le champ unique injecté, les quatre champs exclus, et le repli.
+		// Sans elles, la comparaison ci-dessous vaudrait sur une phrase tronquée.
+		expect(contrat).toContain('**jamais** la collection')
+		expect(contrat).toContain('`manifestation` **seul**')
+		expect(contrat).toContain("n'entrent **jamais**")
+		expect(contrat).toContain('**omettre** le bloc climat')
+
+		expect(sansPrefixe(destinations)).toContain(contrat)
 	})
 
 	it('chaque entree de PREDICATES a au moins une instance dans la fixture', () => {

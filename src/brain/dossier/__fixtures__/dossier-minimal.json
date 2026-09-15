@@ -202,7 +202,15 @@
 			}
 		],
 		"conditions": {
-			"climat": [{ "id": "climat.pluie-de-cendres", "nom": "Pluie de cendres", "effets_regles": [] }]
+			"climat": [
+				{
+					"id": "climat.pluie-de-cendres",
+					"nom": "Pluie de cendres",
+					"duree": 3,
+					"manifestation": "La cendre grise les toits et se dépose sur chaque épaule sans jamais fondre.",
+					"effets_regles": []
+				}
+			]
 		}
 	},
 	"charpente": {

@@ -347,7 +347,15 @@
 			}
 		],
 		"conditions": {
-			"climat": [{ "id": "climat.cendres-tenaces", "nom": "Cendres tenaces", "effets_regles": [] }]
+			"climat": [
+				{
+					"id": "climat.cendres-tenaces",
+					"nom": "Cendres tenaces",
+					"duree": 6,
+					"manifestation": "Une cendre tenace colle aux volets et au pavé, et le Foyer du Guet respire gris.",
+					"effets_regles": []
+				}
+			]
 		}
 	},
 	"charpente": {

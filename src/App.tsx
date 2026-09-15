@@ -8,7 +8,13 @@ import { DossierEditorScreen } from './features/bascule-editeur'
 import { PanneauCanon, PanneauDepart, PanneauLieux } from './features/dossier-canon'
 import { PanneauPersonnages } from './features/dossier-fiches'
 import { PanneauObjets } from './features/dossier-objets'
-import { PanneauIndices, PanneauJalonsFins, PanneauQuetes, PanneauEvenements } from './features/dossier-registres'
+import {
+	PanneauIndices,
+	PanneauJalonsFins,
+	PanneauQuetes,
+	PanneauEvenements,
+	PanneauConditions,
+} from './features/dossier-registres'
 
 /**
  * App shell — routes between the home (book-library), the Book editor
@@ -27,9 +33,10 @@ export function App(): JSX.Element {
 			// seed-once viewport from the new book's persisted prefs (KR-013).
 			<EditorScreen key={route.bookId} bookId={route.bookId} />
 		) : route.name === 'dossier' ? (
-			// Key by dossierId so a dossier→dossier switch remounts the screen. The
-			// Canon, Départ, Personnages, Lieux, Objets, Indices, Quêtes and Jalons &
-			// fins panels are injected HERE, from the composition root:
+			// Key by dossierId so a dossier→dossier switch remounts the screen. ALL TEN
+			// section panels are injected HERE, from the composition root — the list is
+			// the `panneaux` map below, never re-enumerated in prose (a recopied list
+			// drifts, KR-159: this comment named eight of them for two iterations).
 			// bascule-editeur never imports dossier-canon, dossier-fiches,
 			// dossier-objets or dossier-registres, and vice versa (KR-184).
 			<DossierEditorScreen
@@ -44,6 +51,7 @@ export function App(): JSX.Element {
 					indices: <PanneauIndices dossierId={route.dossierId} />,
 					quetes: <PanneauQuetes dossierId={route.dossierId} />,
 					evenements: <PanneauEvenements dossierId={route.dossierId} />,
+					conditions: <PanneauConditions dossierId={route.dossierId} />,
 					'jalons-fins': <PanneauJalonsFins dossierId={route.dossierId} />,
 				}}
 			/>

@@ -509,13 +509,57 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	// ── monde.conditions ──────────────────────────────────────────────────────
 	'monde.conditions.climat[].id': 'moteur',
 	'monde.conditions.climat[].nom': 'auteur',
+	// LA DURÉE D'UN CLIMAT (itération 5 de la n° 6) — `moteur`, MÊME FAMILLE que
+	// `plan_actions[].duree` et `contre_mesures[].delai` : un COMPTE DE PAS D'HORLOGE,
+	// et c'est le moteur qui compte, lui seul. Injectée, elle apprendrait au narrateur
+	// combien de temps le climat va durer — il jouerait la fin de la tempête avant que
+	// l'horloge ne l'ait constatée, ou la dirait au joueur. AUCUNE PARAPHRASE non plus
+	// tant que la n° 10 n'a pas livré un libellé d'écoulement DÉRIVÉ PAR LE CODE, avec
+	// sa propre ligne d'audience — même doctrine que les caractéristiques.
+	//
+	// Consommateur : n° 14 `moteur-horloge`, qui éteindra le climat. PERSONNE
+	// aujourd'hui : cette itération pose la donnée et son audience, pas son lecteur.
+	'monde.conditions.climat[].duree': 'moteur',
+	// LA MANIFESTATION (itération 5 de la n° 6) — `ia`, et c'est la SEULE ligne `ia` de
+	// ce registre. La question s'est posée contre `auteur` : ce n'est pas une note de
+	// rédaction mais la matière même que le narrateur joue tant que le climat dure.
+	// Sans elle, `monde.conditions.climat[]` serait la seule collection de registre du
+	// schéma à ZÉRO champ injectable, et la n° 10 hériterait de « que lit le narrateur
+	// quand un climat est actif ? » avec trois portes déjà fermées (`nom` = `auteur`,
+	// KR-195 ; `duree` et `effets_regles` = `moteur`) — elle injecterait le libellé nu
+	// et le modèle improviserait le reste à chaque tour.
+	//
+	// LE CONTRAT D'INJECTION est écrit ICI et au JSDoc de `Climat.manifestation`, nulle
+	// part ailleurs (précédents `Relation.secret` et `Caractere.cede_si`) :
+	//
+	// Au plus **UN** climat par tour entre dans le contexte — celui que
+	// `horloge.climat_actif` désigne, **jamais** la collection. Le champ injecté est
+	// `manifestation` **seul** : `id`, `nom`, `duree` et `effets_regles` n'entrent
+	// **jamais**. Une `manifestation` absente ou vide fait **omettre** le bloc climat —
+	// il n'est **jamais** remplacé par le `nom`, **jamais** paraphrasé : le repli est le
+	// **silence**.
+	//
+	// La table dit l'AUDIENCE ; le MOMENT et le DESTINATAIRE sont la charge de
+	// l'assembleur n° 10, qui trouvera la promesse écrite à ses deux sites.
+	'monde.conditions.climat[].manifestation': 'ia',
 	// SANS `[]` final, et ce n'est pas une coquille : la fixture porte ici une liste
 	// VIDE, et une liste vide est une feuille — le balayage n'entre pas dedans, donc
 	// il n'existe aucune feuille `…effets_regles[]` dont cette ligne déclarerait
-	// l'audience. Un climat « modifie les règles » : sa nature est un opérande
-	// ENTIER, que la règle d'admission de `DELTAS` n'accepte pas, et aucun des
-	// quatre effets admis n'a de sens ambiant. Les trois autres emplacements, eux,
-	// portent de vrais effets et gardent leur suffixe.
+	// l'audience. Les trois autres emplacements, eux, portent de vrais effets et
+	// gardent leur suffixe.
+	//
+	// CORRIGÉ LE 2026-08-19 (raffinage n° 6 it5, § 8-1) — la version précédente de ce
+	// commentaire justifiait la liste vide par « la nature d'un climat est un opérande
+	// ENTIER, et aucun des quatre effets admis n'a de sens ambiant ». La seconde moitié
+	// est FAUSSE et a été démontrée telle au raffinage : rien n'interdit à un climat de
+	// révéler un indice ou d'atteindre un jalon. Les DEUX vrais motifs, eux, tiennent —
+	// et c'est pour cela qu'aucun écran n'édite ce champ : (a) un climat n'a AUCUN
+	// INSTANT d'application (il ne porte ni `declencheur_texte` ni `declencheur_expr`,
+	// et `climat_actif` est un état de SESSION, propriété n° 9/n° 14), (b) rien
+	// n'enregistre « déjà appliqué », donc AUCUNE IDEMPOTENCE — un climat qui revient
+	// ré-appliquerait. Le besoin « la tempête révèle un indice » est déjà servi par un
+	// ÉVÉNEMENT, qui a un instant daté. Reste vrai et indépendant : `DELTAS` n'admet
+	// aucune opération à opérande entier (KR-208), d'où l'absence d'effet chiffré.
 	'monde.conditions.climat[].effets_regles': 'moteur',
 
 	// ── charpente — jamais vue ENTIÈRE ────────────────────────────────────────

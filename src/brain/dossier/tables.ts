@@ -1,6 +1,7 @@
 import {
 	BUDGET_MOTS_CANON,
 	BUDGET_MOTS_JALON,
+	BUDGET_MOTS_MANIFESTATION,
 	CAMPS,
 	CAMPS_PERSONNAGE,
 	CARACTERISTIQUE_MIN,
@@ -387,16 +388,30 @@ export interface ChampEntier extends ChampRequis {
  * l'ensemble admis est infini, et il faut donc dire en toutes lettres ce que
  * l'appartenance disait — un NOMBRE, ENTIER, au moins `min`.
  *
- * DEUX CHEMINS, ET DEUX SEULEMENT. `plan_actions[].etape` n'y est PAS, et c'est un
- * arbitrage, pas un oubli : c'est un champ DÉJÀ EXISTANT et déjà valide depuis la
- * n° 1, dont aucune règle d'ordonnancement (unicité, continuité, départ à 1) n'a
- * jamais été arbitrée — le contraindre ici serait décider en passant ce que
- * personne n'a décidé, et invalider rétroactivement des documents déjà persistés
- * (KR-160). KR-190 borne le pire cas d'un lot contrat, il ne prescrit pas sa liste.
+ * TROIS CHEMINS, ET TROIS SEULEMENT — ils étaient DEUX jusqu'à l'itération 5 de la
+ * n° 6, et le troisième est le premier de cette table à ne PAS vivre sous
+ * `monde.personnages[]` : c'est la DURÉE d'un climat, même mot et même chose que ses
+ * deux aînés, un compte de pas d'horloge. Le piège d'homonymie que décrit KR-198 est
+ * ici ÉTEINT plutôt que contourné — deux clés voisines ne sont un piège que quand
+ * leurs sens DIVERGENT, et ces trois-là comptent tous la même chose.
+ *
+ * `plan_actions[].etape` N'Y EST TOUJOURS PAS, et c'est un arbitrage, pas un oubli :
+ * c'est un champ DÉJÀ EXISTANT et déjà valide depuis la n° 1, dont aucune règle
+ * d'ordonnancement (unicité, continuité, départ à 1) n'a jamais été arbitrée — le
+ * contraindre ici serait décider en passant ce que personne n'a décidé, et invalider
+ * rétroactivement des documents déjà persistés (KR-160). KR-190 borne le pire cas
+ * d'un lot contrat, il ne prescrit pas sa liste.
+ *
+ * `location: 'Climat'` SUR LA TROISIÈME LIGNE, JAMAIS `'Conditions'` : celui-là est
+ * le OÙ de la LISTE (`LISTES_REQUISES`, plus haut), celui-ci le OÙ d'un CHAMP D'UN
+ * climat — aligné sur `CHEMINS_DE_DELTAS`, qui nomme déjà `'Climat'` pour
+ * `effets_regles`. Le repli ne sert d'ailleurs jamais ici : `monde.conditions.climat`
+ * est une collection identifiée, donc `sitesDe` résout le OÙ par le NOM du climat.
  */
 export const CHAMPS_ENTIERS: readonly ChampEntier[] = [
 	{ path: 'monde.personnages[].plan_actions[].duree', location: 'Personnages', min: DUREE_MIN },
 	{ path: 'monde.personnages[].contre_mesures[].delai', location: 'Personnages', min: DUREE_MIN },
+	{ path: 'monde.conditions.climat[].duree', location: 'Climat', min: DUREE_MIN },
 ]
 
 /**
@@ -634,6 +649,19 @@ export interface BudgetDeMots extends ChampRequis {
 /**
  * Les textes soumis à un budget de mots (avertissement, jamais blocage). La borne
  * est toujours une constante NOMMÉE, et son NOM ne fuit jamais dans le message.
+ *
+ * LA QUATRIÈME LIGNE (itération 5 de la n° 6) EST LA PREMIÈRE À PORTER UN CHAMP
+ * OPTIONNEL, et cette différence a une conséquence qu'il vaut mieux lire ici que
+ * découvrir en revue : `charpente.jalons[].enonce_texte` est aussi dans
+ * `CHAMPS_REQUIS`, donc sa corruption chaîne → nombre est REFUSÉE par
+ * `champ-requis-vide` ; `monde.conditions.climat[].manifestation` ne l'est nulle
+ * part. Or un budget n'AVERTIT que (`compterMotsDe` rend `0` sur un nombre, et `ok`
+ * reste vrai) : une ligne de cette table ne remplace donc JAMAIS une dispense de
+ * `couverture.test.ts`, et `manifestation` en garde une, sous le motif existant des
+ * proses d'entité libres.
+ *
+ * `location: 'Climat'` et non `'Conditions'`, même arbitrage que la troisième ligne
+ * de `CHAMPS_ENTIERS` : le OÙ d'un CHAMP D'UN climat, jamais celui de la liste.
  */
 export const BUDGETS_DE_MOTS: readonly BudgetDeMots[] = [
 	{ path: 'canon.mj', location: 'Canon (MJ)', budget: BUDGET_MOTS_CANON, sujet: 'Le canon' },
@@ -643,6 +671,12 @@ export const BUDGETS_DE_MOTS: readonly BudgetDeMots[] = [
 		location: 'Jalons',
 		budget: BUDGET_MOTS_JALON,
 		sujet: "L'énoncé de ce jalon",
+	},
+	{
+		path: 'monde.conditions.climat[].manifestation',
+		location: 'Climat',
+		budget: BUDGET_MOTS_MANIFESTATION,
+		sujet: 'La manifestation de ce climat',
 	},
 ]
 
