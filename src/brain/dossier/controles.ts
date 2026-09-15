@@ -37,9 +37,14 @@ import type { Dossier } from './types'
 
 /**
  * Le NIVEAU d'un contrôle — le MOT, jamais une couleur : le produit n'a que deux
- * couleurs sémantiques (`--good`, `--bad`) et elles sont réservées au jet. Les
- * libellés français et les pastilles restent côté feature, comme le glyphe et le
- * numéro de feature de `SECTIONS`.
+ * couleurs sémantiques (`--good`, `--bad`) et elles sont réservées au jet.
+ *
+ * SON RENDU — le libellé français et la teinte — vivait côté feature tant qu'il
+ * n'avait qu'UN appelant. L'itération 2 lui en donne un SECOND, dans une AUTRE
+ * feature (le badge des lignes de navigation), donc il est descendu dans
+ * `dossier/pastilles.ts` (KR-109) plutôt que d'être recopié. CE MODULE-CI, lui,
+ * ne connaît toujours ni mot français ni teinte : il dit QUELS constats, jamais
+ * comment on les montre.
  *
  * `info` n'a aucune règle qui le produise avant l'itération 3. Il entre
  * maintenant parce qu'un mapping exhaustif par compilation coûte une ligne

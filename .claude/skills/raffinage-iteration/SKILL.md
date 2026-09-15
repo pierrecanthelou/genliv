@@ -148,6 +148,18 @@ C'est la règle la plus importante de cette skill. Une itération qui gonfle co�
 
 En fin d'exécution, la revue reste un **dossier**, pas un compte rendu de commit — ce que l'auteur peut faire maintenant, chaque critère avec sa preuve, **ce qui a été refusé et pourquoi**, ce qui a été reporté, et ce que personne n'a pu vérifier. Les motifs de rejet sont la seule chose qu'un diff ne dit pas.
 
+## Une affirmation sur la couleur d'un test se MESURE, elle ne se déduit pas
+
+**Tout passage d'un plan qui écrit « ce test resterait vert », « ce test rougirait » ou « cet instrument fonctionne » rejoue le test contre l'état cible AVANT d'être écrit.** Le coût est un `jest` ciblé ; le coût de l'erreur est un motif faux qui traverse deux tours de comité, la porte mécanique et la revue de PR sans que rien ne l'arrête — puisque aucune de ces portes n'exécute une phrase.
+
+Trois occurrences dans la seule itération 2 de `dossier-controles`, et les trois auraient coûté un run :
+
+- **« La faisabilité est vérifiée, le test passe »** — il passait parce qu'il **passe toujours** : `toHaveStyle({ color: 'var(--bad)' })` est vert sur un `Badge tone="muted"`, le CSSOM de jsdom rejetant les jetons `var()` sur `color` et faisant collapser les deux côtés du matcher. Un instrument **cassé** est plus dangereux qu'un instrument absent : l'absence se voit, le faux positif se cite.
+- **« Cette sonde serait restée verte sans amendement »** (posée au tour 1, **maintenue** au tour 2, recopiée deux fois au plan) — elle aurait rougi : son assertion **positive** ne survivait pas au changement. La conclusion — réécrire la sonde — restait juste ; le motif ne l'était pas, et un refus juste pour un motif faux cède au premier contradicteur sérieux (même famille que BUG-080).
+- **« Ces trois états sont prouvés au contrat et au composant »** — un seul l'était au composant. L'imprécision allait dans le sens qui **surestime** la couverture, ce qui est la seule direction dangereuse.
+
+**Le geste qui les a trouvés, à reprendre** : la QA en mode B a **rejoué le corps de l'ancien test contre le fichier livré**, et a écrit une sonde jetable pour l'instrument douteux — en vérifiant le **cas négatif**, jamais seulement le positif. Un instrument qui ne sait pas échouer ne mesure rien. Détail : `bug_history.json` BUG-084.
+
 ## Instruments de test — le bon outil pour le bon risque
 
 Le dépôt tourne sur **jest + jsdom + Testing Library**.

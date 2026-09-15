@@ -2,7 +2,15 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createBrain, BrainProvider, useBrain, frapperIdentifiant, type Brain, type Dossier } from '../../../brain'
+import {
+	createBrain,
+	BrainProvider,
+	useBrain,
+	frapperIdentifiant,
+	SECTIONS,
+	type Brain,
+	type Dossier,
+} from '../../../brain'
 import { dossierKey } from '../../../brain/persistenceKeys'
 import { DossierEditorScreen, type DossierEditorScreenProps } from '../components/DossierEditorScreen'
 
@@ -113,11 +121,20 @@ const TITRES = [
 ]
 const FEATURE_NUMS = [3, 3, 4, 3, 5, 6, 6, 6, 6, 6]
 const GLYPHES = ['✎', '✎', '❏', '❏', '❏', '❏', '❏', '❏', '⊘', '⊘']
-/** Compteurs exacts sur un dossier fraîchement issu de `DossierService.create()` :
- * `monde.lieux` porte déjà `lieu.amorce` (KR-178), donc « 1 fiche », pas « 0 fiche ». */
-const COMPTES_DOSSIER_NEUF = [
-	'—',
-	'—',
+/**
+ * Les DIX BADGES exacts sur un dossier fraîchement issu de `DossierService.create()`
+ * — écrits À LA MAIN depuis le contrat de design (§ 3 du plan d'itération 2 de
+ * `dossier-controles`), jamais dérivés de l'ancien `COMPTES_DOSSIER_NEUF` par un
+ * `map` qui rejouerait la règle d'élision : un test qui recalcule la règle de
+ * production ne prouve rien (§ 7 du plan). Canon et Départ élident leur tiret
+ * derrière le mot du niveau — les quatre proses semées par l'amorce (KR-217)
+ * rendent Départ BLOQUANT et Canon ALERTE dès la création. Les huit autres
+ * sections sont calmes et gardent leur compte INCHANGÉ — dont Lieux, qui porte
+ * déjà `lieu.amorce` (KR-178), donc « 1 fiche », pas « 0 fiche ».
+ */
+const BADGES_DOSSIER_NEUF = [
+	'ALERTE',
+	'BLOQUANT',
 	'0 fiche',
 	'1 fiche',
 	'0 fiche',
@@ -176,7 +193,7 @@ describe('DossierEditorScreen', () => {
 	})
 
 	describe('nav des dix sections', () => {
-		it('rend les 10 ListRow dans l ordre exact de SECTIONS, chaque trailing = compte(dossier)', () => {
+		it('rend les 10 ListRow dans l ordre exact de SECTIONS, chaque trailing = badge de section (compte + niveau)', () => {
 			const brain = createBrain()
 			const dossier = brain.dossiers.create('Un dossier')
 			renderScreen(brain, dossier.id)
@@ -187,7 +204,56 @@ describe('DossierEditorScreen', () => {
 
 			lignes.forEach((ligne, index) => {
 				expect(within(ligne).getByText(TITRES[index])).toBeInTheDocument()
-				expect(within(ligne).getByText(COMPTES_DOSSIER_NEUF[index])).toBeInTheDocument()
+				expect(within(ligne).getByText(BADGES_DOSSIER_NEUF[index])).toBeInTheDocument()
+			})
+		})
+
+		/**
+		 * Critère #5 du plan d'itération 2 de `dossier-controles` : une section
+		 * SAINE ne porte JAMAIS un des trois mots de niveau — assertion NÉGATIVE
+		 * sur le TEXTE, jamais sur une teinte (l'instrument est cassé, § 2/§ 7 du
+		 * plan). Canon (index 0) et Départ (index 1) portent un mot par
+		 * construction sur un dossier neuf (l'amorce semée, KR-217) ; les HUIT
+		 * autres sections n'en portent aucun.
+		 */
+		it('une section saine ne porte aucun mot de niveau', () => {
+			const brain = createBrain()
+			const dossier = brain.dossiers.create('Un dossier')
+			renderScreen(brain, dossier.id)
+
+			const nav = screen.getByRole('navigation', { name: 'Sections du dossier' })
+			const lignesCalmes = within(nav).getAllByRole('button').slice(2)
+
+			// SUR LE `textContent`, jamais `queryByText` : ce dernier est une
+			// correspondance EXACTE sur le texte entier du nœud, donc aveugle à la
+			// forme FUSIONNÉE que cette itération vient de créer — une ligne calme
+			// qui rendrait « 0 fiche · BLOQUANT » laisserait `queryByText('BLOQUANT')`
+			// à `null` et ce test VERT, alors que son nom promet le contraire
+			// (KR-199). Le trou était bouché incidemment par le test frère, égalité
+			// stricte sur `textContent` ; une garde ne s'appuie pas sur sa voisine.
+			for (const ligne of lignesCalmes) {
+				expect(ligne.textContent).not.toMatch(/BLOQUANT|ALERTE|INFO/)
+			}
+		})
+
+		/**
+		 * Critère #4 du plan (KR-218) : UN SEUL badge par ligne — égalité STRICTE
+		 * sur `textContent`, jamais `toHaveTextContent` (une inclusion ne
+		 * rougirait pas si un second nœud de badge s'ajoutait à côté du titre,
+		 * BUG-083). Le sous-titre technique (`section.cle`) est lu depuis
+		 * `SECTIONS`, jamais recopié dans une seconde table qui pourrait dériver
+		 * de `sections.ts`.
+		 */
+		it('un seul badge par ligne: egalite sur le textContent, jamais une inclusion (BUG-083)', () => {
+			const brain = createBrain()
+			const dossier = brain.dossiers.create('Un dossier')
+			renderScreen(brain, dossier.id)
+
+			const nav = screen.getByRole('navigation', { name: 'Sections du dossier' })
+			const lignes = within(nav).getAllByRole('button')
+
+			lignes.forEach((ligne, index) => {
+				expect(ligne.textContent).toBe(`${TITRES[index]}${SECTIONS[index].cle}${BADGES_DOSSIER_NEUF[index]}`)
 			})
 		})
 
@@ -200,14 +266,43 @@ describe('DossierEditorScreen', () => {
 			expect(source).not.toMatch(/\.reduce\(/)
 		})
 
-		it('aucun badge de completion colore: SectionNav n utilise jamais tone="good"/"bad"/"accent"', () => {
+		/**
+		 * RÉÉCRITURE de « aucun badge de completion colore: SectionNav n utilise
+		 * jamais tone="good"/"bad"/"accent" » (critère #8 du plan d'itération 2 de
+		 * `dossier-controles`).
+		 *
+		 * ⚠ CE PARAGRAPHE A ÉTÉ CORRIGÉ (BUG-084). Le raffinage avait écrit ici que
+		 * l'ancien test « serait resté VERT sans amendement », et en avait fait une
+		 * sixième occurrence de KR-199 : c'est FAUX, et personne ne l'avait mesuré.
+		 * L'ancienne sonde portait une assertion POSITIVE — `toMatch(/tone="muted"/)`
+		 * — qui ne pouvait pas survivre au remplacement de tout littéral par
+		 * `tone={badge.tone}` : elle AURAIT ROUGI. La réécriture reste juste, mais
+		 * pour un autre motif : l'ancienne sonde aurait échoué en accusant la
+		 * MAUVAISE CAUSE (« le badge muted a disparu » au lieu de « la vue décide
+		 * d'une teinte »), et un ouvrier l'aurait « réparée » en rétablissant un
+		 * littéral — c'est-à-dire en rendant vrai précisément ce qu'elle interdit.
+		 *
+		 * CE QU'IL GARDAIT : aucun badge de complétion coloré en dur
+		 * (`good`/`bad`/`accent`). CE QU'IL GARDE DÉSORMAIS, en plus et plus
+		 * fort : aucune teinte NI aucun mot de niveau écrits en dur dans la vue,
+		 * sous AUCUNE forme — ni une table locale (`BadgeTone` ne doit apparaître
+		 * nulle part dans ce fichier) — et l'appel à `badgeSection`, seule source
+		 * admise de la décision, est EXIGÉ.
+		 */
+		it('SectionNav ne decide jamais d une teinte: badgeSection est la seule source du mot et du ton', () => {
 			const chemin = path.join(__dirname, '..', 'components', 'SectionNav.tsx')
 			const source = fs.readFileSync(chemin, 'utf8')
 
-			expect(source).not.toMatch(/tone=["']good["']/)
-			expect(source).not.toMatch(/tone=["']bad["']/)
-			expect(source).not.toMatch(/tone=["']accent["']/)
-			expect(source).toMatch(/tone=["']muted["']/)
+			// Aucune teinte littérale — `tone={badge.tone}` reste le seul chemin.
+			expect(source).not.toMatch(/tone=["'][a-z]+["']/)
+			// Aucune table locale de teintes : `BadgeTone` n'apparaît nulle part ici.
+			expect(source).not.toMatch(/BadgeTone/)
+			// Aucun des trois mots de niveau, littéral.
+			expect(source).not.toMatch(/BLOQUANT/)
+			expect(source).not.toMatch(/ALERTE/)
+			expect(source).not.toMatch(/\bINFO\b/)
+			// La décision vient de `badgeSection`, et de la seule.
+			expect(source).toMatch(/badgeSection\(/)
 		})
 
 		/**
@@ -253,6 +348,48 @@ describe('DossierEditorScreen', () => {
 			const ligneApres = within(nav).getAllByRole('button')[2]
 			expect(within(ligneApres).getByText('1 fiche')).toBeInTheDocument()
 			expect(within(ligneApres).queryByText('0 fiche')).toBeNull()
+		})
+
+		/**
+		 * Critère #7 du plan d'itération 2 de `dossier-controles` — le CÂBLAGE
+		 * RÉEL sur un vrai dossier, complémentaire du critère #6 (`sectionNav.test.tsx`,
+		 * entrée fabriquée) : Canon et Départ partagent le MÊME compte (`—`) mais
+		 * portent deux badges différents, ce qui tue l'hypothèse « le badge colore
+		 * les sections sans compte » sans aucune fabrication. Même patron que le
+		 * test ci-dessus (écrit DERRIÈRE le service PUIS émis, KR-004) : la
+		 * réécriture du champ bloquant fait disparaître `BLOQUANT` de Départ, qui
+		 * GARDE son tiret, pendant que Canon — dont aucun des trois textes n'a
+		 * changé — reste `ALERTE`.
+		 */
+		it('le badge suit une reecriture sans remontage: BLOQUANT disparait de Depart qui garde son tiret, Canon reste ALERTE', () => {
+			const brain = createBrain()
+			const dossier = brain.dossiers.create('Un dossier')
+			renderScreen(brain, dossier.id)
+
+			const nav = screen.getByRole('navigation', { name: 'Sections du dossier' })
+			const ligneCanonAvant = within(nav).getAllByRole('button')[0]
+			const ligneDepartAvant = within(nav).getAllByRole('button')[1]
+			expect(within(ligneCanonAvant).getByText('ALERTE')).toBeInTheDocument()
+			expect(within(ligneDepartAvant).getByText('BLOQUANT')).toBeInTheDocument()
+
+			const dossierReecrit: Dossier = {
+				...dossier,
+				charpente: {
+					...dossier.charpente,
+					depart: { ...dossier.charpente.depart, texte_ouverture_joueur: 'Le vent siffle sur la lande grise.' },
+				},
+				updatedAt: '2026-08-10T09:00:00.000Z',
+			}
+			act(() => {
+				brain.persistence.set(dossierKey(dossier.id), dossierReecrit)
+				brain.events.emit('dossier:updated', { dossierId: dossier.id })
+			})
+
+			const ligneCanonApres = within(nav).getAllByRole('button')[0]
+			const ligneDepartApres = within(nav).getAllByRole('button')[1]
+			expect(within(ligneDepartApres).queryByText('BLOQUANT')).toBeNull()
+			expect(within(ligneDepartApres).getByText('—')).toBeInTheDocument()
+			expect(within(ligneCanonApres).getByText('ALERTE')).toBeInTheDocument()
 		})
 
 		/**

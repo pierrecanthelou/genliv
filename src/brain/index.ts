@@ -376,9 +376,16 @@ export { SECTIONS, type SectionDescripteur, type SectionId } from './dossier/sec
 // la table des proses — aucun consommateur hors de `brain/dossier/`, et un registre
 // exporté trop tôt se fait lire par des branches `if (id === …)` avant d'avoir son
 // écran. `NiveauControle` sort AVEC le rapport et non pour lui-même : c'est lui qui
-// indexe le `Record` exhaustif des trois pastilles côté feature.
+// indexe le `Record` exhaustif des trois pastilles, descendu dans `dossier/pastilles.ts`
+// à l'itération 2 (deux appelants, deux features — KR-109).
 export { controlerDossier, controleRemediation } from './dossier/controles'
 export type { NiveauControle, Controle, ControleId, RapportControles } from './dossier/controles'
+// ITÉRATION 2 de la n° 7 : sortent les DEUX FONCTIONS de rendu d'un niveau — le mot
+// seul pour le panneau, le badge fondu (compte + mot) pour la navigation. La table des
+// trois mots et des trois tons, elle, reste PRIVÉE : deux surfaces partagent la
+// décision, jamais la table — un consommateur qui la lirait en ferait un second site
+// de décision, et c'est précisément la divergence que cette descente ferme.
+export { pastilleNiveau, badgeSection } from './dossier/pastilles'
 export type { DossierService, DossierResume, CorpsDossier, EcritureDossier } from './DossierService'
 export type { SelectionService } from './SelectionService'
 export { effectiveKind, endLabel } from './utils/nodeKind'

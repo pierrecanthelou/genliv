@@ -1,5 +1,13 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
-import { useBrain, useOpenDossier, EditorTopBar, ListRow, SECTIONS, type SectionId } from '../../../brain'
+import {
+	useBrain,
+	useOpenDossier,
+	controlerDossier,
+	EditorTopBar,
+	ListRow,
+	SECTIONS,
+	type SectionId,
+} from '../../../brain'
 import { SectionNav } from './SectionNav'
 import { PanneauSection } from './PanneauSection'
 
@@ -74,6 +82,13 @@ export function DossierEditorScreen({ dossierId, panneaux, panneauControles }: D
 		)
 	}
 
+	// Dérivé EN LIGNE à chaque rendu, jamais via un `useEffect` miroir ni un
+	// `useMemo` (KR-013/113) : `controlerDossier` est pure et bornée à quatre
+	// proses aujourd'hui, rien ne justifie de mettre en cache son résultat.
+	// `parSection` SEUL est propagé à `SectionNav` — jamais le `RapportControles`
+	// entier, qui n'a rien à faire de `controles` ni de `jouable` ici.
+	const { parSection } = controlerDossier(dossier)
+
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
 			<EditorTopBar
@@ -88,6 +103,7 @@ export function DossierEditorScreen({ dossierId, panneaux, panneauControles }: D
 						dossier={dossier}
 						selectedId={destination === DESTINATION_CONTROLES ? null : destination}
 						onSelect={setDestination}
+						niveauxParSection={parSection}
 					/>
 					{panneauControles !== undefined && (
 						<nav aria-label="Contrôles" style={controlesNav}>

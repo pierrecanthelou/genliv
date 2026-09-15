@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import { Badge, controleRemediation, type BadgeTone, type Controle, type NiveauControle } from '../../../brain'
+import { Badge, controleRemediation, pastilleNiveau, type Controle } from '../../../brain'
 
 export interface ListeControlesProps {
 	controles: readonly Controle[]
@@ -18,6 +18,14 @@ export interface ListeControlesProps {
  * connaît ni le registre `CONTROLES` ni aucune table de son cru (Open/Closed,
  * KR-117).
  *
+ * LE MOT ET LA TEINTE DE LA PASTILLE non plus, depuis l'itération 2 : sa table
+ * `Record<NiveauControle, …>` est descendue dans `brain/dossier/pastilles.ts` le
+ * jour où le badge de la navigation en est devenu le SECOND appelant, dans une
+ * autre feature (KR-109). Ce qui reste ICI est le BALISAGE — le `<li>` à trois
+ * étages —, et il n'est toujours pas partagé : la navigation rend un `trailing`
+ * de `ListRow`, pas une ligne de liste. Deux surfaces partagent la DÉCISION,
+ * jamais le balisage.
+ *
  * PURE PRÉSENTATION : ce composant ne lit jamais le dossier ni n'importe
  * `MARQUEUR_A_ECRIRE` — il reçoit des `Controle` déjà produits. C'est ce qui
  * garde le glyphe hors de cette source (§ 8, désaccord 5 du plan).
@@ -26,7 +34,7 @@ export function ListeControles({ controles }: ListeControlesProps): JSX.Element 
 	return (
 		<ul style={listStyle}>
 			{controles.map((controle, index) => {
-				const pastille = PASTILLES[controle.niveau]
+				const pastille = pastilleNiveau(controle.niveau)
 				return (
 					<li
 						key={`${controle.path}-${index}`}
@@ -34,7 +42,7 @@ export function ListeControles({ controles }: ListeControlesProps): JSX.Element 
 							index < controles.length - 1 ? { ...rowStyle, borderBottom: '1px solid var(--border-divider)' } : rowStyle
 						}
 					>
-						<Badge tone={pastille.tone}>{pastille.libelle}</Badge>
+						<Badge tone={pastille.tone}>{pastille.texte}</Badge>
 						<div style={colonneStyle}>
 							<p style={whereStyle}>{controle.location}</p>
 							<p style={whatStyle}>{controle.message}</p>
@@ -45,20 +53,6 @@ export function ListeControles({ controles }: ListeControlesProps): JSX.Element 
 			})}
 		</ul>
 	)
-}
-
-/**
- * Les trois niveaux se séparent par le MOT, jamais par une teinte neuve — le
- * produit n'a que `--good`/`--bad` comme couleurs sémantiques, et elles sont
- * réservées au jet (§ 3 du plan). `Record` TOTAL sur `NiveauControle` :
- * exhaustif PAR COMPILATION dès cette itération, `info` compris bien
- * qu'aucune règle ne le produise avant l'itération 3 — sinon celle-ci
- * rouvrirait ce fichier.
- */
-const PASTILLES: Record<NiveauControle, { libelle: string; tone: BadgeTone }> = {
-	bloquant: { libelle: 'BLOQUANT', tone: 'bad' },
-	alerte: { libelle: 'ALERTE', tone: 'neutral' },
-	info: { libelle: 'INFO', tone: 'muted' },
 }
 
 // Repris d'`IssueList` à l'identique, moins `maxHeight`/`overflowY` (gabarit de

@@ -71,8 +71,13 @@ export interface SectionDescripteur {
  * dossier que l'écran peut tenir en main a donc un départ résolu : le voyant
  * serait tautologiquement vert, c'est-à-dire sans information (désaccord 4 du
  * plan d'itération 3).
+ *
+ * Exportée à l'itération 2 de la n° 7 pour `dossier/pastilles.ts` SEUL, qui en a
+ * besoin pour élider le tiret derrière le mot du niveau plutôt que de l'y
+ * ajouter ; elle ne sort PAS du baril `brain/index.ts` — aucune vue ne compare
+ * un compte, elles les rendent (un test de balayage tient cette propriété).
  */
-const SANS_COMPTE = '—'
+export const SANS_COMPTE = '—'
 
 /** « 0 fiche », « 1 fiche », « 2 fiches » — accord français (0 au singulier). */
 function fiches(nombre: number): string {
