@@ -273,9 +273,9 @@ Trois strates de lecture obligatoire, chacune avec son coût :
 - **lu en entier avant d'écrire du code** : `code-knowledge.json` ;
 - **lu à l'ouverture d'une itération** : le `specification.json` de la feature, `bug_history.json`, `features_history.json`, et `docs/ROADMAP-BASCULE-IA.md` — relu par 3 rôles à chaque tour de raffinage, donc chargé plus souvent que tous les autres.
 
-Charger par référence plutôt que tout charger est ce qui évite le contexte monolithique — KR dans la spec de leur feature, lecture du comité bornée à 3–6 fichiers, canon narratif injecté par identifiant. Ce dispositif n'a **aucun garde-fou automatique** : ces fichiers n'ont que des écrivains, et l'un d'eux ne rétrécit que si quelqu'un le décide. La discipline peut donc s'y relâcher **sans bruit** — d'où un plafond chiffré plutôt qu'une intention.
+Charger par référence plutôt que tout charger est ce qui évite le contexte monolithique — KR dans la spec de leur feature, lecture du comité bornée à 3–6 fichiers, canon narratif injecté par identifiant. Aucun garde-fou automatique : ces fichiers n'ont que des écrivains, et l'un d'eux ne rétrécit que si quelqu'un le décide. La discipline s'y relâche **sans bruit** — d'où un plafond chiffré plutôt qu'une intention.
 
-**Mesure d'abord, plafond ensuite**, même doctrine que le score de mutation. Formule posée avant la mesure : `plafond = ceil(mesure ÷ 5 kio) × 5 kio`. **L'arrondi EST la marche — il n'y en a pas d'autre**, et aucune ligne de la table n'en a jamais ajouté une : n'ajoute jamais 5 kio « parce que ce fichier-là grossit normalement », ce serait re-desserrer un plafond que le cliquet inversé vient de resserrer. Mesure du **2026-08-13** (`wc -c`, 1 kio = 1024 o) :
+**Mesure d'abord, plafond ensuite**, même doctrine que le score de mutation. Formule posée avant la mesure : `plafond = ceil(mesure ÷ 5 kio) × 5 kio`. **L'arrondi EST la marche — il n'y en a pas d'autre** : n'ajoute jamais 5 kio « parce que ce fichier-là grossit normalement », ce serait re-desserrer le plafond que le cliquet vient de resserrer. Mesure du **2026-08-13** (1 kio = 1024 o). **On mesure les octets EN LF, ceux que quelqu'un a tapés** : `core.autocrlf=true` rend la copie de travail en CRLF, et le couple toujours-chargé y pèse ~480 o que personne n'a écrits — assez pour simuler un dépassement et déclencher une compaction pour rien :
 
 | Fichier | Croissance | Mesuré | Plafond | Marge |
 | --- | --- | ---: | ---: | ---: |
@@ -290,13 +290,13 @@ Le roadmap est un **index**, pas un journal : sa croissance est un défaut, pas 
 
 **Le plafond ne monte jamais** — cliquet inversé de celui du score de mutation. Après une compaction il se **re-dérive vers le bas** sur la nouvelle mesure ; il ne se desserre pas parce qu'une itération avait beaucoup à dire. Le franchir ne bloque pas la livraison : il déclenche une compaction **dans le même lot que la doc** (Build Steps, étape 4). Reporter la compaction au lot suivant, c'est ne jamais la faire.
 
-Relevé — pas de script maison, une abstraction à un seul appelant est une dette :
+Relevé — pas de script maison (abstraction à un seul appelant) :
 
 ```
-wc -c CLAUDE.md docs/WORKFLOW.md code-knowledge.json bug_history.json features_history.json src/features/*/specification.json
+git show :fichier | wc -c   # octets en LF de l'index. Jamais wc -c brut sur une copie CRLF.
 ```
 
-Compacter n'est jamais « supprimer de l'information » : c'est la déplacer là où elle est lue au bon moment.
+Compacter n'est pas supprimer : c'est déplacer là où c'est lu au bon moment.
 
 - **`code-knowledge.json`** — le moins cher : un KR dont l'invariant est **passé en règle ESLint** (KR-011/111, imports inter-features, couleurs en dur) renvoie à la règle et à son message, il ne redécrit ni le risque ni la parade. Un invariant câblé est une ligne — le linter le rappellera mieux que le fichier.
 - **`specification.json`** — boucle de mémoire de la skill `raffinage-iteration` : une décision livrée se réduit à sa phrase d'arbitrage + le renvoi à `.claude/raffinage/<feature>-it<N>.revue.md`, qui porte déjà le raisonnement. La revue est le dossier, la spec en est l'index.

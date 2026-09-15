@@ -14,9 +14,11 @@ import { CURSEURS_INITIAUX, CURSEUR_MIN, CURSEUR_VALUES } from './curseurs'
 import type { Delta } from './deltas'
 import { DESTINATION_DES_CHAMPS } from './destinations'
 import { estCleDe } from './identifiers'
+import type { DossierIssueCode } from './issues'
 import { SECTIONS, type SectionId } from './sections'
-import { CHEMINS_DE_DELTAS } from './tables'
+import { BUDGETS_DE_MOTS, CHEMINS_DE_DELTAS, FAMILLES_DE_CONDITIONS } from './tables'
 import type { Dossier } from './types'
+import { validateDossier } from './validate'
 
 /**
  * LE LINTER DU DOSSIER, règle « amorce non rédigée ».
@@ -30,7 +32,20 @@ import type { Dossier } from './types'
  */
 
 const CHEMIN_FIXTURE = path.join(__dirname, '__fixtures__', 'dossier-minimal.json')
-const SOURCE_CONTROLES = fs.readFileSync(path.join(__dirname, 'controles.ts'), 'utf8')
+const CHEMIN_REFERENCE = path.join(__dirname, '__fixtures__', 'dossier-reference.json')
+
+/**
+ * LES SOURCES BALAYÉES, fins de ligne NORMALISÉES. L'arbre de travail est en
+ * CRLF et `prettier` écrit en LF : une garde de source qui dépendrait de l'une
+ * ou de l'autre rougirait après un simple `git checkout`, et son échec ne
+ * dirait rien de ce qu'elle surveille.
+ */
+function lireSource(fichier: string): string {
+	return fs.readFileSync(path.join(__dirname, fichier), 'utf8').replace(/\r\n/g, '\n')
+}
+
+const SOURCE_CONTROLES = lireSource('controles.ts')
+const SOURCE_VALIDATE = lireSource('validate.ts')
 
 /**
  * Un dossier SEMÉ, celui que `DossierService.create()` produit : ses quatre
@@ -97,6 +112,124 @@ function cloneSansVoix(): Dossier {
 	const dossier = clone()
 	delete dossier.monde.personnages[0].caractere
 	return dossier
+}
+
+/** Le dossier de RÉFÉRENCE, lu du disque à chaque appel — la seconde fixture du dépôt. */
+function cloneReference(): Dossier {
+	return JSON.parse(fs.readFileSync(CHEMIN_REFERENCE, 'utf8')) as Dossier
+}
+
+/** Un texte de N mots, sans aucun sens : seul le DÉCOMPTE est en jeu ici. */
+function texteDe(nombre: number): string {
+	return Array.from({ length: nombre }, (_, rang) => `mot${rang}`).join(' ')
+}
+
+/**
+ * Le budget d'un chemin, LU DANS LA TABLE QUI FAIT FOI — jamais un seuil retapé
+ * (KR-165). Le repli à zéro n'est pas une valeur de secours : un chemin absent de
+ * `BUDGETS_DE_MOTS` produirait un témoin d'un mot, dont la sonde rougirait — ce
+ * qu'elle doit faire.
+ */
+function budgetDe(chemin: string): number {
+	const budget = BUDGETS_DE_MOTS.find((candidat) => candidat.path === chemin)
+	return budget === undefined ? 0 : budget.budget
+}
+
+/** Le clone, son synopsis MJ porté à N mots — un seul champ. */
+function cloneCanonLong(mots: number): Dossier {
+	const dossier = clone()
+	dossier.canon.mj.synopsis_mj = texteDe(mots)
+	return dossier
+}
+
+/** Le clone, la porte de révélation de son unique savoir vidée — un seul champ. */
+function cloneSansPorte(): Dossier {
+	const dossier = clone()
+	dossier.monde.personnages[0].savoirs[0].revele_si = {}
+	return dossier
+}
+
+/** Le clone, sa fin privée de condition structurée — un seul champ. */
+function cloneFinSansExpr(): Dossier {
+	const dossier = clone()
+	delete dossier.charpente.fins[0].condition_expr
+	return dossier
+}
+
+/** Le clone, son étape de plan privée de durée — un seul champ. */
+function cloneEtapeSansDuree(): Dossier {
+	const dossier = clone()
+	delete dossier.monde.personnages[0].plan_actions[0].duree
+	return dossier
+}
+
+/**
+ * LES DIX TÉMOINS DU PONT — un par site d'avertissement, chacun obtenu par la
+ * mutation d'UN SEUL champ du clone, et la clé EST le chemin de table.
+ *
+ * Ils sont dix et non quatre : les quatre CODES du validateur ne suffisent pas à
+ * prouver dix SITES, et `validate.ts` écrit déjà un message par site, pas par
+ * code (les deux phrases de `condition-sans-expr` divergent entre une fin et une
+ * étape de plan). Un témoin par code laisserait six lignes de table sans preuve.
+ *
+ * La table du module, elle, n'est jamais lue ici : elle est privée, et ce que
+ * ces sondes confrontent, ce sont les registres qui font foi (`BUDGETS_DE_MOTS`,
+ * `FAMILLES_DE_CONDITIONS`) et les deux sites que `validate.ts` écrit à la main.
+ */
+const TEMOINS_DU_PONT: Record<string, () => Dossier> = {
+	'canon.mj': () => cloneCanonLong(budgetDe('canon.mj') + 1),
+	'canon.partage': () => {
+		const dossier = clone()
+		dossier.canon.partage.accroche_joueur = texteDe(budgetDe('canon.partage') + 1)
+		return dossier
+	},
+	'charpente.jalons[].enonce_texte': () => {
+		const dossier = clone()
+		dossier.charpente.jalons[0].enonce_texte = texteDe(budgetDe('charpente.jalons[].enonce_texte') + 1)
+		return dossier
+	},
+	'monde.conditions.climat[].manifestation': () => {
+		const dossier = clone()
+		dossier.monde.conditions.climat[0].manifestation = texteDe(budgetDe('monde.conditions.climat[].manifestation') + 1)
+		return dossier
+	},
+	'canon.objectifs[].reussi_si_texte': () => {
+		const dossier = clone()
+		delete dossier.canon.objectifs[0].reussi_si_expr
+		return dossier
+	},
+	'canon.objectifs[].echoue_si_texte': () => {
+		const dossier = clone()
+		delete dossier.canon.objectifs[0].echoue_si_expr
+		return dossier
+	},
+	'charpente.fins[].condition_texte': cloneFinSansExpr,
+	'monde.personnages[].contre_mesures[].declencheur_texte': () => {
+		const dossier = clone()
+		const contreMesures = dossier.monde.personnages[0].contre_mesures ?? []
+		delete contreMesures[0].declencheur_expr
+		return dossier
+	},
+	'monde.personnages[].savoirs[].revele_si': cloneSansPorte,
+	'monde.personnages[].plan_actions[].si_bloque': cloneEtapeSansDuree,
+}
+
+/** Les deux niveaux que le pont peut émettre — jamais `bloquant`, tenu aussi par le type. */
+const NIVEAUX_DU_PONT: readonly NiveauControle[] = ['alerte', 'info']
+
+/**
+ * LA GARDE DE L'ITÉRATION 1, AMENDÉE. Un `path` est une clé de la table des
+ * destinations, OU le PRÉFIXE STRICT d'au moins une clé, coupé sur le
+ * séparateur : `canon.mj`, `canon.partage` et `…savoirs[].revele_si` sont des
+ * CONTENEURS, et cette table n'indexe que des feuilles. Le point final n'est pas
+ * décoratif — sans lui, `canon.mj` matcherait `canon.mjolnir`.
+ *
+ * Elle s'amende, elle ne se retire pas, et `DESTINATION_DES_CHAMPS` ne bouge pas :
+ * la garde couvre le retour vers le champ fautif, la table dit une AUDIENCE.
+ */
+function estCheminDeChamp(chemin: string): boolean {
+	if (estCleDe(DESTINATION_DES_CHAMPS, chemin)) return true
+	return Object.keys(DESTINATION_DES_CHAMPS).some((cle) => cle.startsWith(`${chemin}.`))
 }
 
 describe('controlerDossier, le rapport de controles', () => {
@@ -225,11 +358,21 @@ describe('controlerDossier, le rapport de controles', () => {
 		// enverrait toutes sur `monde` ou `charpente`, deux non-sections. La table est
 		// TOTALE par compilation sur `ControleId` moins l'amorce : une sixième règle ne
 		// compilera pas ici tant que son auteur n'aura pas exhibé un témoin.
+		// LE CHOIX DU TÉMOIN DE LA RÈGLE NEUVE, et il se dit en une phrase parce qu'il
+		// se trompe autrement : le témoin de la PREUVE VERTICALE D'ALLUMAGE se choisit
+		// sur le COÛT — `canon.mj` via un budget de mots est le moins cher, une seule
+		// affectation, aucun risque de fabriquer une anomalie. Le témoin de la GARDE
+		// ANTI-DÉRIVATION ci-dessous se choisit sur le CONTRASTE et exclut nommément
+		// tout site `canon.*`, dont la racine du `path` égale toujours la section.
+		// DEUX TÉMOINS, DEUX TESTS DIFFÉRENTS, JAMAIS LE MÊME SITE POUR LES DEUX
+		// PREUVES. `cloneSansPorte()` est celui-ci : racine `monde`, section
+		// `personnages`, et il ne produit qu'UN avertissement (mesuré).
 		const NEUVES: Record<Exclude<ControleId, 'amorce-non-redigee'>, Dossier> = {
 			'indice-sans-source': cloneIndiceOrphelin(),
 			'depart-desert': cloneSansPresence(),
 			'personnage-sans-presence': cloneSansPresence(),
 			'personnage-sans-voix': cloneSansVoix(),
+			'avertissement-de-validation': cloneSansPorte(),
 		}
 
 		for (const id of Object.keys(NEUVES) as (keyof typeof NEUVES)[]) {
@@ -237,6 +380,15 @@ describe('controlerDossier, le rapport de controles', () => {
 			// Discriminance : une règle muette rendrait la boucle suivante vraie sans
 			// rien prouver.
 			expect(`${id} → ${constats.length > 0}`).toBe(`${id} → true`)
+			// LA LIMITE DE CE PRÉDICAT, écrite ici parce qu'elle punira un jour la BONNE
+			// réponse : il est structurellement INSATISFIABLE pour la section `canon` —
+			// `sections.ts` en fait la seule des dix `cle` sans point, donc la seule où
+			// l'identifiant de section et la racine du chemin sont la même chaîne. Une
+			// future règle qui déclarera correctement `section: 'canon'` sur un `path` en
+			// `canon.*` fera rougir ce test EN ÉTANT JUSTE. Ne pas ajouter un tel témoin
+			// ici ; réécrire l'invariant est la charge de qui touchera `canon.*` en
+			// premier. L'invariant lui-même — « le module ne découpe jamais un chemin » —
+			// est balayé sur la SOURCE par la suite du pont, et celui-là couvre `canon`.
 			for (const constat of constats) {
 				expect(`${id} · ${constat.path} → ${constat.path.split('.')[0] !== constat.section}`).toBe(
 					`${id} · ${constat.path} → true`,
@@ -261,6 +413,7 @@ describe('controlerDossier, le rapport de controles', () => {
 			'depart-desert': cloneSansPresence(),
 			'personnage-sans-presence': cloneSansPresence(),
 			'personnage-sans-voix': cloneSansVoix(),
+			'avertissement-de-validation': cloneSansPorte(),
 		}
 
 		for (const id of Object.keys(CONTROLES) as ControleId[]) {
@@ -285,7 +438,7 @@ describe('controlerDossier, le rapport de controles', () => {
 	})
 
 	it('les path sont des cles de DESTINATION_DES_CHAMPS', () => {
-		// LE RAPPORT COMPLET, et sur les témoins des CINQ règles : un balayage du seul
+		// LE RAPPORT COMPLET, et sur les témoins des SIX règles : un balayage du seul
 		// dossier semé ne verrait que les quatre chemins de l'amorce et laisserait sans
 		// preuve les quatre `path` neufs, alors que son nom promet « les path »
 		// (KR-199).
@@ -294,17 +447,25 @@ describe('controlerDossier, le rapport de controles', () => {
 			controlerDossier(cloneIndiceOrphelin()),
 			controlerDossier(cloneSansPresence()),
 			controlerDossier(cloneSansVoix()),
+			// LA SIXIÈME RÈGLE, sans quoi la ligne de discriminance juste en dessous
+			// rougit : elle compte les identifiants REPRÉSENTÉS contre la taille du
+			// registre, et les quatre dossiers ci-dessus ne mutent aucun champ porteur
+			// d'avertissement. Elle rougirait EN FAISANT SON TRAVAIL — c'est elle qui
+			// force toute règle neuve à entrer dans ce balayage de `path`.
+			controlerDossier(cloneSansPorte()),
 		]
 		const controles = rapports.flatMap((rapport) => rapport.controles)
 
-		// Discriminance : les CINQ règles sont représentées dans ce qui est balayé.
+		// Discriminance : les SIX règles sont représentées dans ce qui est balayé.
 		expect(new Set(controles.map((controle) => controle.id)).size).toBe(Object.keys(CONTROLES).length)
 		expect(controles.length).toBeGreaterThan(CHAMPS_SEMES.length)
 
 		for (const controle of controles) {
 			// Appartenance PROPRE, jamais `in` (KR-175). Un `path` libre ferait du
 			// retour vers le champ fautif une chaîne que personne ne résout.
-			expect(`${controle.path} → ${estCleDe(DESTINATION_DES_CHAMPS, controle.path)}`).toBe(`${controle.path} → true`)
+			// CLÉ OU CONTENEUR depuis l'itération 5 : trois des dix sites du pont sont
+			// des blocs, préfixes stricts de 1, 1 et 6 clés, et aucun n'est orphelin.
+			expect(`${controle.path} → ${estCheminDeChamp(controle.path)}`).toBe(`${controle.path} → true`)
 		}
 	})
 
@@ -333,12 +494,30 @@ describe('controlerDossier, le rapport de controles', () => {
 		}
 	})
 
-	it('le rapport ne passe jamais par le canal errors ou warnings du validateur', () => {
-		// Un dossier PERSISTÉ ne porte jamais d'anomalie `error` (KR-225) : brancher
-		// ce rapport sur ce canal allumerait un voyant qui ne peut pas s'allumer, et
-		// ferait rougir les suites qui épinglent déjà ce canal (KR-217).
-		expect(SOURCE_CONTROLES).not.toContain('validateDossier')
-		expect(SOURCE_CONTROLES).not.toContain("from './validate'")
+	it('le rapport lit les avertissements du validateur, jamais ses anomalies', () => {
+		// LA GARDE DE L'ITÉRATION 3, RÉTRÉCIE SUR SON PROPRE MOTIF. Elle interdisait
+		// le MODULE ENTIER au nom d'un argument qui ne porte que sur un canal : un
+		// dossier PERSISTÉ ne porte jamais d'anomalie (KR-225), un voyant branché là
+		// ne pourrait pas s'allumer et DOUBLERAIT les suites qui l'épinglent déjà
+		// (KR-217). L'autre canal est l'exact inverse — le seul dont tout l'intérêt
+		// est qu'il SURVIT à la persistance.
+		//
+		// LES DEUX MOITIÉS, et la seconde n'est pas décorative : une garde d'absence
+		// seule passerait tautologiquement sur un module qui ne mentionnerait pas du
+		// tout le validateur.
+		expect(SOURCE_CONTROLES).not.toContain('.errors')
+		expect(SOURCE_CONTROLES).toContain('.warnings')
+
+		// LA SONDE D'EXÉCUTION, sur un témoin construit pour ne porter AUCUN
+		// avertissement : les deux canaux s'empilent INDÉPENDAMMENT, si bien qu'un
+		// dossier porteur des deux rendrait ce test vert pour la mauvaise raison.
+		const pendant = clone()
+		pendant.charpente.depart.lieu_id = 'lieu.englouti'
+		const validation = validateDossier(pendant)
+		expect(`${validation.errors.length} anomalies · ${validation.warnings.length} avertissements`).toBe(
+			'1 anomalies · 0 avertissements',
+		)
+		expect(pourLaRegle(controlerDossier(pendant), 'avertissement-de-validation')).toEqual([])
 	})
 
 	it('parSection porte les dix sections, dans l ordre du registre', () => {
@@ -714,5 +893,324 @@ describe('controleRemediation, la ligne QUOI FAIRE', () => {
 		const consignes = (['bloquant', 'alerte'] as const).map((niveau) => controleRemediation({ ...forgeIndice, niveau }))
 		expect(consignes.filter((consigne) => consigne === '')).toEqual([])
 		expect(new Set(consignes).size).toBe(consignes.length)
+	})
+})
+
+describe('avertissement-de-validation, le pont vers les avertissements du validateur', () => {
+	it('allume sur un champ mute, se tait sur le clone intact, et porte le decompte mesure', () => {
+		// (a) LE CLONE INTACT — aucun avertissement, donc aucune ligne de CETTE règle.
+		// Sans cette moitié, un pont câblé sur « tout » serait indistinguable d'un
+		// pont juste. Le compte est FILTRÉ : ce que le clone porte par ailleurs est la
+		// ligne de base d'une autre règle, épinglée par sa propre sonde.
+		expect(pourLaRegle(controlerDossier(clone()), 'avertissement-de-validation')).toEqual([])
+
+		// (b) UN SEUL champ muté, au premier mot AU-DELÀ du budget — et le budget est
+		// LU dans la table qui fait foi, jamais retapé ici (KR-165).
+		const juste = budgetDe('canon.mj') + 1
+		const large = budgetDe('canon.mj') + 50
+		const rougeJuste = pourLaRegle(controlerDossier(cloneCanonLong(juste)), 'avertissement-de-validation')
+		const rougeLarge = pourLaRegle(controlerDossier(cloneCanonLong(large)), 'avertissement-de-validation')
+
+		expect(rougeJuste).toHaveLength(1)
+		expect(`${rougeJuste[0].niveau} · ${rougeJuste[0].section} · ${rougeJuste[0].path}`).toBe(
+			'alerte · canon · canon.mj',
+		)
+		// LE OÙ EST REPRIS, jamais déclaré : `validate.ts` le résout avec la MÊME
+		// `localiserEntite` que ce module importe déjà, et c'est lui qui sépare les
+		// deux budgets du canon, dont les messages sont mot pour mot identiques.
+		expect(rougeJuste[0].location).toBe('Canon (MJ)')
+
+		// DEUX VOLUMES DANS LE MÊME TEST, et c'est ce qui PROUVE la reprise au lieu de
+		// l'affirmer : un message ÉCRIT dans la table de mappage porterait la même
+		// phrase aux deux volumes.
+		expect(`${juste} mots → ${rougeJuste[0].message.includes(String(juste))}`).toBe(`${juste} mots → true`)
+		expect(`${large} mots → ${rougeLarge[0].message.includes(String(large))}`).toBe(`${large} mots → true`)
+		expect(rougeJuste[0].message).not.toBe(rougeLarge[0].message)
+
+		// (c) LE QUOI FAIRE est celui du SITE, écrit pour le rapport — jamais la
+		// consigne du validateur, qui porte le glyphe d'un autre registre.
+		expect(controleRemediation(rougeJuste[0])).toBe('Resserrez le synopsis MJ (Canon → Synopsis MJ).')
+
+		// (d) LE VOYANT S'ÉTEINT À LA BORNE, dans le MÊME test : le budget exact ne
+		// dit rien, le budget plus un parle. C'est la moitié « silence » du critère.
+		expect(pourLaRegle(controlerDossier(cloneCanonLong(budgetDe('canon.mj'))), 'avertissement-de-validation')).toEqual(
+			[],
+		)
+	})
+
+	it('aucune des quatre mutations ne produit un bloquant, et jouable ne bouge pas', () => {
+		// TROIS CODES, atteints par QUATRE mutations d'UN SEUL champ.
+		// `condition-sans-expr` en fournit DEUX témoins parce que ses deux messages
+		// divergent déjà dans `validate.ts` : une fin parle de condition structurée,
+		// une étape de plan parle de durée.
+		const MUTES: Record<string, Dossier> = {
+			'texte-trop-long': cloneCanonLong(budgetDe('canon.mj') + 1),
+			'revelation-sans-porte': cloneSansPorte(),
+			'condition-sans-expr · fin': cloneFinSansExpr(),
+			'condition-sans-expr · etape': cloneEtapeSansDuree(),
+		}
+
+		// L'ensemble FERMÉ de l'entrée ne porte pas `bloquant`, et c'est déjà tenu par
+		// le type de la table de mappage ; on le vérifie aussi à l'EXÉCUTION, un
+		// constat assemblé dynamiquement échappant au contrôle d'excès de propriété.
+		expect(CONTROLES['avertissement-de-validation'].niveaux).toEqual(NIVEAUX_DU_PONT)
+		// La ligne de base, sans laquelle « jouable inchangé » ne dirait rien.
+		expect(controlerDossier(clone()).jouable).toBe(true)
+
+		for (const [nom, dossier] of Object.entries(MUTES)) {
+			const rapport = controlerDossier(dossier)
+			const lignes = pourLaRegle(rapport, 'avertissement-de-validation')
+			expect(`${nom} → ${lignes.length}`).toBe(`${nom} → 1`)
+			expect(`${nom} → ${lignes[0].niveau}`).not.toBe(`${nom} → bloquant`)
+			expect(`${nom} → ${NIVEAUX_DU_PONT.includes(lignes[0].niveau)}`).toBe(`${nom} → true`)
+			// AUCUN DE CES DIX SITES, PRIS SEUL, NE REND L'AVENTURE INJOUABLE — et
+			// jamais « parce que ce sont des avertissements » : la règle de COLLECTION
+			// que l'itération 6 doit écrire sera bloquante, et lira le même canal.
+			expect(`${nom} → ${rapport.jouable}`).toBe(`${nom} → true`)
+		}
+	})
+
+	it('la table couvre les dix sites du validateur, aucun de plus, aucune ligne morte', () => {
+		// LES DIX SITES BALAYÉS DEPUIS LES REGISTRES QUI FONT FOI (KR-199) — jamais
+		// dix littéraux, qui dériveraient d'eux en silence. QUATRE budgets, QUATRE
+		// familles de conditions en alerte, et DEUX sites que `validate.ts` écrit à la
+		// main, qu'aucune table ne porte.
+		const ISOLES = ['monde.personnages[].savoirs[].revele_si', 'monde.personnages[].plan_actions[].si_bloque']
+		const ATTENDUS = [
+			...BUDGETS_DE_MOTS.map((budget) => budget.path),
+			...FAMILLES_DE_CONDITIONS.filter((famille) => famille.alerteSansExpr).map((famille) => famille.texte),
+			...ISOLES,
+		]
+		expect(ATTENDUS).toHaveLength(10)
+		expect([...Object.keys(TEMOINS_DU_PONT)].sort()).toEqual([...ATTENDUS].sort())
+
+		// (a) CHACUN A SON ENTRÉE, prouvé À L'EXÉCUTION : le témoin de chaque site
+		// produit UNE ligne, à CE chemin, avec une consigne non vide.
+		for (const chemin of ATTENDUS) {
+			const lignes = pourLaRegle(controlerDossier(TEMOINS_DU_PONT[chemin]()), 'avertissement-de-validation')
+			expect(`${chemin} → ${lignes.map((ligne) => ligne.path).join(', ')}`).toBe(`${chemin} → ${chemin}`)
+			expect(`${chemin} → ${controleRemediation(lignes[0]) !== ''}`).toBe(`${chemin} → true`)
+		}
+
+		// DIX CONSIGNES DISTINCTES : une consigne partagée ne dirait à l'auteur quel
+		// geste faire sur aucun des sites qui la partagent.
+		const consignes = ATTENDUS.map(
+			(chemin) => pourLaRegle(controlerDossier(TEMOINS_DU_PONT[chemin]()), 'avertissement-de-validation')[0],
+		).map(controleRemediation)
+		expect(new Set(consignes).size).toBe(consignes.length)
+
+		// (b) AUCUNE LIGNE MORTE. La table de mappage est PRIVÉE — elle n'a qu'un
+		// appelant, et l'exporter pour un test en ferait un contrat —, donc ses clés
+		// se lisent dans sa SOURCE, entre sa déclaration et la fonction qui la suit.
+		// Une onzième ligne qu'aucun avertissement ne peut atteindre ne se verrait
+		// nulle part ailleurs : par définition, elle ne produit rien.
+		const BLOC_DES_SITES = SOURCE_CONTROLES.slice(
+			SOURCE_CONTROLES.indexOf('const SITES_AVERTISSEMENT'),
+			SOURCE_CONTROLES.indexOf('function cheminDeTable'),
+		)
+		const declarees = BLOC_DES_SITES.split('\n')
+			.map((ligne) => /^\t'(.+)': /.exec(ligne))
+			.filter((trouve): trouve is RegExpExecArray => trouve !== null)
+			.map((trouve) => trouve[1])
+		expect(declarees).toHaveLength(10)
+		expect([...declarees].sort()).toEqual([...ATTENDUS].sort())
+
+		// (c) LE RÉSIDU, et il faut le nommer : les deux sites isolés sont écrits À LA
+		// MAIN dans `validate.ts`, donc (a) ne peut pas les découvrir tout seul.
+		// QUATRE sites d'écriture pour DIX lignes de table — les deux registres se
+		// DÉPLIENT, les deux isolés non. Un cinquième emplacement écrit à la main
+		// renvoie son auteur ICI, sans quoi son avertissement n'atteindrait le rapport
+		// de personne. Ne pas confondre 4 et 10 : les deux gardes sont complémentaires
+		// et aucune n'est redondante.
+		expect(SOURCE_VALIDATE.split('warnings.push(').length - 1).toBe(4)
+	})
+
+	it('le code declare par chaque site est celui que le validateur produit vraiment', () => {
+		// LE CHAMP `code` DE LA TABLE EST DÉCLARÉ ET JAMAIS LU par le module — il ne
+		// sert qu'ici, et sans cette sonde la table dériverait SANS BRUIT : un site
+		// dont le validateur changerait de code continuerait de rendre sa ligne, avec
+		// la mauvaise prose et la mauvaise consigne, sans qu'aucun test rougisse.
+		//
+		// La table étant privée, ses `code` se lisent dans sa SOURCE, par un
+		// parcours de ses lignes — même geste que le compte de clés ci-dessus.
+		const BLOC_DES_SITES = SOURCE_CONTROLES.slice(
+			SOURCE_CONTROLES.indexOf('const SITES_AVERTISSEMENT'),
+			SOURCE_CONTROLES.indexOf('function cheminDeTable'),
+		)
+		const codeDeclare: Record<string, string> = {}
+		let siteCourant = ''
+		for (const ligne of BLOC_DES_SITES.split('\n')) {
+			const cle = /^\t'(.+)': /.exec(ligne)
+			if (cle !== null) siteCourant = cle[1]
+			const code = /^\t\tcode: '(.+)',$/.exec(ligne)
+			if (code !== null && siteCourant !== '') codeDeclare[siteCourant] = code[1]
+		}
+		expect(Object.keys(codeDeclare)).toHaveLength(10)
+
+		// LES TROIS CODES ATTENDUS, écrits ici depuis la table du plan — un
+		// quatrième code qui n'existerait pas dans l'union ne compilerait pas.
+		const CODES_DU_PONT: readonly DossierIssueCode[] = [
+			'texte-trop-long',
+			'condition-sans-expr',
+			'revelation-sans-porte',
+		]
+
+		for (const [chemin, faireLeTemoin] of Object.entries(TEMOINS_DU_PONT)) {
+			const codesProduits = validateDossier(faireLeTemoin()).warnings.map((avertissement) => avertissement.code)
+			expect(`${chemin} → ${codesProduits.join(', ')}`).toBe(`${chemin} → ${codeDeclare[chemin]}`)
+			expect(`${chemin} → ${CODES_DU_PONT.includes(codesProduits[0])}`).toBe(`${chemin} → true`)
+		}
+	})
+
+	it('la section de chaque ligne du pont est declaree, et le module ne decoupe jamais un chemin', () => {
+		// LES DIX VALEURS ATTENDUES, écrites ici depuis la table du plan d'itération —
+		// jamais relues dans le module qu'elles contrôlent. QUATRE sections pour dix
+		// sites, et QUATRE de ces sites sont enracinés dans `canon` : aucun prédicat
+		// portant sur un constat ne pourrait y distinguer une section DÉCLARÉE d'une
+		// section dérivée, les deux chaînes coïncidant. C'est ce que la garde de
+		// SOURCE, en bas de ce test, couvre et que l'autre ne peut pas couvrir.
+		const SECTION_ATTENDUE: Record<string, SectionId> = {
+			'canon.mj': 'canon',
+			'canon.partage': 'canon',
+			'charpente.jalons[].enonce_texte': 'jalons-fins',
+			'monde.conditions.climat[].manifestation': 'conditions',
+			'canon.objectifs[].reussi_si_texte': 'canon',
+			'canon.objectifs[].echoue_si_texte': 'canon',
+			'charpente.fins[].condition_texte': 'jalons-fins',
+			'monde.personnages[].contre_mesures[].declencheur_texte': 'personnages',
+			'monde.personnages[].savoirs[].revele_si': 'personnages',
+			'monde.personnages[].plan_actions[].si_bloque': 'personnages',
+		}
+		// La table des attendus est TOTALE sur les dix témoins : un onzième site sans
+		// section décidée ne passerait pas cette ligne.
+		expect([...Object.keys(SECTION_ATTENDUE)].sort()).toEqual([...Object.keys(TEMOINS_DU_PONT)].sort())
+
+		for (const [chemin, faireLeTemoin] of Object.entries(TEMOINS_DU_PONT)) {
+			const rapport = controlerDossier(faireLeTemoin())
+			const lignes = pourLaRegle(rapport, 'avertissement-de-validation')
+			expect(`${chemin} → ${lignes.length}`).toBe(`${chemin} → 1`)
+			expect(`${chemin} → ${lignes[0].section}`).toBe(`${chemin} → ${SECTION_ATTENDUE[chemin]}`)
+			// La pastille de section s'allume AVEC la ligne : une section déclarée hors
+			// de `SECTIONS` laisserait `parSection` muet, et la flèche de la ligne
+			// pointerait dans le vide — état illégal représentable.
+			expect(`${chemin} → ${rapport.parSection[lignes[0].section]}`).toBe(`${chemin} → ${lignes[0].niveau}`)
+		}
+
+		// LA GARDE DE `path` AMENDÉE, éprouvée sur les DIX sites et pas seulement sur
+		// celui que le balayage d'it1 rencontre : sept sont des clés, trois sont des
+		// CONTENEURS. Le point final du prédicat n'est pas décoratif — le témoin
+		// ci-dessous est exactement ce qu'un `startsWith` nu laisserait passer.
+		for (const chemin of Object.keys(TEMOINS_DU_PONT)) {
+			expect(`${chemin} → ${estCheminDeChamp(chemin)}`).toBe(`${chemin} → true`)
+		}
+		expect(estCheminDeChamp('canon.m')).toBe(false)
+
+		// L'INVARIANT LUI-MÊME, et non son proxy : toute dérivation d'une section
+		// depuis un chemin commencerait par un découpage. Universelle, cette garde
+		// couvre les dix sites, `canon` compris — et `cheminDeTable` ne l'enfreint
+		// pas, qui EFFACE des indices sans jamais lire un segment.
+		expect(SOURCE_CONTROLES).not.toContain("split('.')")
+	})
+
+	it('le calme des deux fixtures et du dossier neuf ne bouge pas', () => {
+		// LA MOITIÉ SILENCIEUSE : une itération qui allume sans se taire ne prouve pas
+		// plus qu'une qui se tait sans allumer. Les trois dossiers que le dépôt
+		// possède ne portent AUCUN avertissement — ils sont FINIS, ce qu'un dossier
+		// d'auteur en cours n'est jamais —, et c'est ce qui rend ce silence mesurable.
+		//
+		// L'ÉPINGLE PORTE SUR CE QUE LA RÈGLE DÉCIDE (règle, niveau, section, chemin)
+		// et jamais sur le NOM des entités, qui appartient aux fixtures : deux lignes
+		// jumelles s'y comptent donc deux fois, ce qui est exactement le propos.
+		const ligne = (controle: Controle): string =>
+			`${controle.id} · ${controle.niveau} · ${controle.section} · ${controle.path}`
+		const SANS_PRESENCE = 'personnage-sans-presence · alerte · personnages · monde.personnages[].presence[].lieu_id'
+		const SANS_VOIX = 'personnage-sans-voix · info · personnages · monde.personnages[].caractere.parler[]'
+
+		const neuf = controlerDossier(seme())
+		expect(neuf.controles.map(ligne)).toEqual([
+			'amorce-non-redigee · bloquant · depart · charpente.depart.texte_ouverture_joueur',
+			'amorce-non-redigee · alerte · canon · canon.mj.synopsis_mj',
+			'amorce-non-redigee · alerte · canon · canon.partage.accroche_joueur',
+			'amorce-non-redigee · alerte · canon · canon.ton',
+		])
+		expect(neuf.jouable).toBe(false)
+
+		const minimal = controlerDossier(clone())
+		expect(minimal.controles.map(ligne)).toEqual(['indice-sans-source · alerte · indices · monde.indices[].id'])
+		expect(minimal.jouable).toBe(true)
+
+		const reference = controlerDossier(cloneReference())
+		expect(reference.controles.map(ligne)).toEqual([
+			'depart-desert · bloquant · depart · charpente.depart.lieu_id',
+			SANS_PRESENCE,
+			SANS_PRESENCE,
+			SANS_PRESENCE,
+			SANS_PRESENCE,
+			SANS_VOIX,
+			SANS_VOIX,
+			SANS_VOIX,
+			SANS_VOIX,
+			SANS_VOIX,
+		])
+		expect(reference.jouable).toBe(false)
+
+		// LE MÉCANISME du silence, nommé plutôt que constaté : aucun des trois ne
+		// porte d'avertissement, donc le pont n'a rien à mapper. Sans cette ligne, un
+		// pont DÉBRANCHÉ passerait les trois épingles ci-dessus.
+		for (const [nom, dossier] of Object.entries({ neuf: seme(), minimal: clone(), reference: cloneReference() })) {
+			expect(`${nom} → ${validateDossier(dossier).warnings.length}`).toBe(`${nom} → 0`)
+			expect(pourLaRegle(controlerDossier(dossier), 'avertissement-de-validation')).toEqual([])
+		}
+	})
+
+	it('les six regles ecrivent le meme registre de langue, sur les deux colonnes', () => {
+		// CE QUE L'AUTEUR NE DOIT JAMAIS LIRE : le glyphe d'un autre registre, une clé
+		// du schéma, une mention de canal, un geste d'import. DISCRIMINANCE ACQUISE
+		// PAR MESURE et non par espoir : les phrases réelles de `condition-sans-expr`
+		// portent une clé JSON dans leur prose, si bien que brancher le message du
+		// validateur verbatim sur l'un de ces cinq sites FAIT ROUGIR cette sonde —
+		// branchement EXÉCUTÉ avant adoption, puis retiré (BUG-084 : une couleur de
+		// test annoncée n'est pas une couleur de test observée).
+		const TERMES_INTERDITS = [
+			'↪',
+			'_texte',
+			'_expr',
+			'si_bloque',
+			'revele_si',
+			'réimport',
+			'bloquant',
+			'warning',
+			'error',
+		]
+
+		const rapports = [
+			controlerDossier(seme()),
+			controlerDossier(cloneIndiceOrphelin()),
+			controlerDossier(cloneSansPresence()),
+			controlerDossier(cloneSansVoix()),
+			...Object.values(TEMOINS_DU_PONT).map((faireLeTemoin) => controlerDossier(faireLeTemoin())),
+		]
+		const controles = rapports.flatMap((rapport) => rapport.controles)
+
+		// Discriminance : les SIX règles sont représentées dans ce qui est balayé, et
+		// les DIX sites du pont aussi.
+		expect(new Set(controles.map((controle) => controle.id)).size).toBe(Object.keys(CONTROLES).length)
+		expect(
+			new Set(
+				controles.filter((controle) => controle.id === 'avertissement-de-validation').map((controle) => controle.path),
+			).size,
+		).toBe(10)
+
+		for (const controle of controles) {
+			for (const colonne of [controle.message, controleRemediation(controle)]) {
+				const repere = `${controle.id} · ${controle.path}`
+				// AUCUNE N'EST VIDE : deux silences indistinguables — « rien à dire » et
+				// « personne ne l'a écrit » — sont un défaut, pas une absence.
+				expect(`${repere} → ${colonne !== ''}`).toBe(`${repere} → true`)
+				for (const terme of TERMES_INTERDITS) {
+					expect(`${repere} · ${terme} → ${colonne.includes(terme)}`).toBe(`${repere} · ${terme} → false`)
+				}
+			}
+		}
 	})
 })

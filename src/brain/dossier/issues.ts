@@ -73,7 +73,12 @@ export interface DossierIssue {
 	location: string
 	/** L'identifiant stable de l'entité fautive, quand elle en porte un. */
 	entityId?: string
-	/** Chemin JSON stable — le contrat que n° 7 consomme pour badger une section. */
+	/**
+	 * Chemin JSON stable, INDICES COMPRIS (`charpente.fins[0].condition_texte`) —
+	 * la clé par laquelle n° 7 retrouve la ligne DÉCLARÉE de sa table de mappage,
+	 * une fois les indices effacés. Il désigne un CHAMP, jamais une section : la
+	 * section d'un contrôle est déclarée par la règle qui le produit (KR-219).
+	 */
 	path: string
 }
 

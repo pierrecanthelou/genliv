@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createBrain, BrainProvider, SECTIONS, type Dossier, type SectionId } from '../../../brain'
+import { createBrain, BrainProvider, BUDGET_MOTS_CANON, SECTIONS, type Dossier, type SectionId } from '../../../brain'
 import { dossierKey } from '../../../brain/persistenceKeys'
 import { PanneauControles } from '../components/PanneauControles'
 
@@ -160,8 +160,15 @@ describe('PanneauControles', () => {
 	 * maison. Seule l'assertion sur `queryAllByRole('button')` bascule (mesuré :
 	 * React ne reparente pas le `<li>`, aucun avertissement) ; les assertions
 	 * `role`/`tabindex` du `<li>` lui-même restent vraies et ne bougent pas.
+	 *
+	 * RENOMMÉE à l'itération 5, dette relevée à la relecture de l'itération 4 :
+	 * l'ancien nom promettait « chaque ligne est un arrêt de tabulation » là où la
+	 * dernière assertion compte GLOBALEMENT les boutons de la liste et ne dit rien
+	 * de la tabulation. Le nom dit désormais ce que le test vérifie vraiment ;
+	 * AUCUNE ligne d'assertion n'a bougé, et l'écart que ce nom exposait (un
+	 * `tabindex="-1"`, ou quatre boutons dans un seul `<li>`) reste ouvert.
 	 */
-	it('chaque ligne est un arret de tabulation', () => {
+	it('chaque ligne rend un bouton natif unique, sans role ni tabindex manuels', () => {
 		const brain = createBrain()
 		const dossier = brain.dossiers.create('Un dossier')
 
@@ -271,5 +278,86 @@ describe('PanneauControles', () => {
 
 		expect(onSelectSection).toHaveBeenNthCalledWith(1, 'canon')
 		expect(onSelectSection).toHaveBeenNthCalledWith(2, 'canon')
+	})
+
+	/**
+	 * Critère #8 du plan d'itération 5 — LA PREUVE VERTICALE DU PONT : un
+	 * avertissement du validateur allume une ligne RÉELLE du panneau, sans qu'une
+	 * seule ligne de code de feature ait été écrite.
+	 *
+	 * LE TÉMOIN SE CHOISIT SUR LE COÛT : le budget de mots du synopsis MJ est le
+	 * moins cher des dix sites — une seule affectation, aucun risque de fabriquer
+	 * une anomalie au passage. (Le témoin de la garde anti-dérivation, lui, se
+	 * choisit sur le CONTRASTE et vit dans `brain/dossier/controles.test.ts` :
+	 * deux témoins, deux tests, jamais le même site pour les deux preuves.)
+	 *
+	 * FIXTURE LOCALE, clonée-mutée d'UN SEUL champ par-dessus un dossier créé par
+	 * le service : les fixtures JSON de `brain/dossier` ne se rendent jamais ici.
+	 * Les quatre proses d'amorce sont réécrites, sinon le panneau serait rempli de
+	 * leurs contrôles et la ligne prouvée serait noyée.
+	 */
+	it('un avertissement du validateur remonte une ligne ALERTE dans le panneau', () => {
+		const brain = createBrain()
+		const dossier = brain.dossiers.create('Un dossier bavard')
+
+		// UN mot AU-DELÀ du budget, lu depuis la constante qui fait foi : jamais un
+		// seuil retapé ici, et le décompte rendu sera le nombre réel de mots.
+		const motsDeTrop = BUDGET_MOTS_CANON + 1
+		const synopsisTropLong = Array.from({ length: motsDeTrop }, (_, rang) => `mot${rang}`).join(' ')
+
+		const dossierBavard: Dossier = {
+			...dossier,
+			charpente: {
+				...dossier.charpente,
+				depart: {
+					...dossier.charpente.depart,
+					texte_ouverture_joueur: 'Le hall de pierre s ouvre devant vous, torches allumees.',
+				},
+			},
+			canon: {
+				...dossier.canon,
+				mj: { synopsis_mj: synopsisTropLong },
+				partage: { accroche_joueur: 'Une accroche complete, deja redigee par l auteur.' },
+				ton: 'Sombre et feutre, sans humour.',
+			},
+			updatedAt: '2026-09-15T09:00:00.000Z',
+		}
+		brain.persistence.set(dossierKey(dossier.id), dossierBavard)
+
+		render(
+			<BrainProvider brain={brain}>
+				<PanneauControles dossierId={dossier.id} onSelectSection={jest.fn()} />
+			</BrainProvider>,
+		)
+
+		const liste = screen.getByRole('list')
+		const lignes = within(liste).getAllByRole('listitem')
+		expect(lignes).toHaveLength(1)
+		// ALERTE, jamais BLOQUANT : aucun de ces sites, pris seul, ne rend
+		// l aventure injouable.
+		expect(within(liste).getAllByText('ALERTE')).toHaveLength(1)
+		expect(within(liste).queryAllByText('BLOQUANT')).toHaveLength(0)
+
+		// LE OU est REPRIS du validateur, resolu par la meme `localiserEntite` que
+		// le rapport : c est lui qui separe les deux budgets du canon, dont les
+		// messages sont mot pour mot identiques.
+		expect(within(liste).getByText('Canon (MJ)')).toBeInTheDocument()
+		// LE QUOI porte le DECOMPTE REEL -- la preuve que le message est repris et
+		// non recopie : un texte ecrit dans la table de mappage ne saurait pas
+		// compter les mots de ce dossier-ci.
+		expect(within(liste).getAllByText(new RegExp(`${motsDeTrop} mots`))).toHaveLength(1)
+		// LE QUOI FAIRE nomme l ecran ou le geste se fait. Fragment, jamais la
+		// phrase entiere : le texte francais appartient a `brain/dossier`.
+		expect(within(liste).getAllByText(/Canon → Synopsis MJ/)).toHaveLength(1)
+		// Et la fleche de destination designe la section declaree par la regle.
+		expect(within(liste).getByText('→ Canon')).toBeInTheDocument()
+
+		// ANATOMIE INCHANGEE : un bouton natif, trois etages, aucun noeud neuf --
+		// meme garde que sur les lignes d amorce, sur une ligne produite par une
+		// SIXIEME regle.
+		expect(within(lignes[0]).getByRole('button')).toBeInTheDocument()
+		const etages = lignes[0].querySelectorAll('[data-etage]')
+		expect(etages).toHaveLength(3)
+		etages.forEach((etage) => expect(etage.textContent).not.toBe(''))
 	})
 })

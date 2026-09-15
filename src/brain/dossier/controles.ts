@@ -1,8 +1,10 @@
 import { AMORCE, MARQUEUR_A_ECRIRE } from './amorce'
 import type { Delta } from './deltas'
 import { defineRegistre, estCleDe, localiserEntite } from './identifiers'
+import type { DossierIssue, DossierIssueCode } from './issues'
 import { SECTIONS, type SectionId } from './sections'
 import type { Dossier } from './types'
+import { validateDossier } from './validate'
 
 /**
  * LE LINTER DU DOSSIER — ce qui empêche une aventure d'être JOUÉE, par
@@ -19,8 +21,19 @@ import type { Dossier } from './types'
  * Un dossier parfaitement écrivable peut être totalement injouable — c'est
  * l'état de tout dossier neuf, dont les quatre proses sont semées MARQUÉES et
  * que le validateur accepte pourtant sans une seule anomalie ni un seul
- * avertissement. Le rapport ne passe donc jamais par le canal `errors` /
- * `warnings`, et ce module n'importe pas le validateur : il n'a rien à y lire.
+ * avertissement.
+ *
+ * DEUX CANAUX AU VALIDATEUR, ET CE MODULE N'EN LIT QU'UN. La garde de
+ * l'itération 3 interdisait le module ENTIER, au nom d'un motif qui ne porte que
+ * sur le canal `error` : un dossier PERSISTÉ n'en porte jamais (KR-225), un
+ * voyant branché là ne pourrait pas s'allumer, et il DOUBLERAIT les suites qui
+ * épinglent déjà ce canal (KR-217). Le canal `warning` est l'exact inverse : le
+ * seul dont tout l'intérêt est qu'il SURVIT à la persistance — un jumeau
+ * structuré non posé, un texte au-delà de son budget sont l'état intermédiaire
+ * NORMAL de l'écriture, pas une avarie. Ce module lit donc le second, par la
+ * règle `avertissement-de-validation` et par elle seule, et ne lit jamais le
+ * premier : un balayage de source tient les DEUX moitiés, l'interdiction comme
+ * l'obligation.
  *
  * CE QUI SORT PAR `brain/index.ts` : le rapport, ses types, et la consigne QUOI
  * FAIRE. CE QUI RESTE ICI : le registre `CONTROLES`, son descripteur,
@@ -77,7 +90,14 @@ export interface ConstatControle {
 	 * nom) ». Une entité en cours de rédaction reste ainsi désignable.
 	 */
 	location: string
-	/** Chemin JSON stable du champ fautif — une clé de `DESTINATION_DES_CHAMPS`. */
+	/**
+	 * Chemin JSON stable du champ fautif, INDICES EFFACÉS — clé de
+	 * `DESTINATION_DES_CHAMPS`, OU chemin de BLOC dont au moins une feuille en est
+	 * une. `canon.mj` et `monde.personnages[].savoirs[].revele_si` sont des
+	 * conteneurs, et cette table-là n'indexe que des feuilles : la garde qui lit
+	 * ce champ accepte les deux formes, elle ne s'est pas retirée. Il désigne un
+	 * CHAMP, jamais une section — celle-ci est déclarée par la règle (KR-219).
+	 */
 	path: string
 	/** L'identifiant stable de l'entité fautive, quand elle en porte un. */
 	entityId?: string
@@ -392,6 +412,183 @@ function producteursParIndice(dossier: Dossier): Map<string, SourceIndice[]> {
 }
 
 /**
+ * UN SITE d'avertissement du validateur, et ce que le linter en fait.
+ *
+ * Elle EST une table, pas un calcul — et la distinction est celle que KR-219
+ * protège : `PROSES_AMORCE`, dans ce fichier même, en est le précédent. Aucune
+ * ligne ne se dérive d'un chemin ; les dix sont écrites à la main par la règle
+ * qui les produit, et leur TOTALITÉ est balayée depuis les deux registres qui
+ * font foi (`BUDGETS_DE_MOTS`, `FAMILLES_DE_CONDITIONS`) plus les deux sites que
+ * `validate.ts` écrit à la main.
+ */
+interface SiteAvertissement {
+	/**
+	 * DÉCLARÉ et jamais lu : la sonde le compare au `code` réellement produit,
+	 * sinon la table dériverait sans bruit.
+	 */
+	code: DossierIssueCode
+	/**
+	 * Jamais `bloquant` : aucun de ces dix sites, PRIS SEUL, ne rend l'aventure
+	 * injouable. JAMAIS « parce que ce sont des avertissements » — ce serait la
+	 * confusion d'axes que KR-217 interdit (le canal dit si le DOCUMENT s'écrit,
+	 * `niveau` si l'AVENTURE se joue), et elle enfermerait l'itération 6, dont la
+	 * règle de COLLECTION (« aucune fin atteignable ») doit pouvoir bloquer.
+	 */
+	niveau: Exclude<NiveauControle, 'bloquant'>
+	/** La section DÉCLARÉE par la règle de mappage — jamais dérivée (KR-219). */
+	section: SectionId
+	/**
+	 * Le QUOI. `null` = le message du validateur est REPRIS, parce qu'il interpole
+	 * une VALEUR LUE DANS LE DOSSIER (un décompte, la désignation d'une entité)
+	 * que cette table ne peut pas reconstituer sans déréférencer un chemin — ce
+	 * que ce module ne fait jamais. Une chaîne = le message du validateur
+	 * n'interpole aucune valeur du dossier, et celui-ci est ÉCRIT pour le rapport.
+	 * CINQ et CINQ, et la répartition se relit ligne à ligne dans `validate.ts`.
+	 *
+	 * CE QUI EST ÉCRIT L'EST PARCE QUE LA PHRASE DU VALIDATEUR PORTE UNE CLÉ DU
+	 * SCHÉMA DANS SA PROSE : la docstring de ce module interdit qu'un terme
+	 * interne atteigne l'auteur, et une garde de langue le tient sur les six
+	 * règles et les deux colonnes.
+	 */
+	message: string | null
+	remediation: string
+}
+
+/**
+ * DIX SITES, QUATRE SECTIONS. Clé = chemin de TABLE (indices effacés). PRIVÉE :
+ * elle n'a qu'un appelant, et l'exporter pour un test en ferait un contrat.
+ *
+ * L'ORDRE DES CLÉS EST L'ORDRE DE RENDU des lignes de cette règle, comme
+ * ailleurs dans ce fichier : les quatre budgets, les quatre conditions restées
+ * en prose, la révélation sans porte, puis l'étape sans durée — jamais l'ordre
+ * alphabétique, qu'aucune vue ne rétablirait.
+ *
+ * `location` N'Y EST PAS, ET C'EST MESURÉ : `validate.ts` ne passe jamais le
+ * libellé de sa table, il passe le OÙ résolu par la MÊME `localiserEntite` que
+ * ce module importe déjà — « Personnage « Aldûr le Sage » », « Fin « … » ».
+ * Déclarer dix `location` ici remplacerait un nom d'entité résolu par un seau
+ * écrit à la main, et dégraderait l'étage OÙ au lieu de le tenir.
+ */
+const SITES_AVERTISSEMENT: Record<string, SiteAvertissement> = {
+	'canon.mj': {
+		code: 'texte-trop-long',
+		niveau: 'alerte',
+		section: 'canon',
+		message: null,
+		remediation: 'Resserrez le synopsis MJ (Canon → Synopsis MJ).',
+	},
+	'canon.partage': {
+		code: 'texte-trop-long',
+		niveau: 'alerte',
+		section: 'canon',
+		message: null,
+		remediation: "Resserrez l'accroche joueur (Canon → Accroche joueur).",
+	},
+	'charpente.jalons[].enonce_texte': {
+		code: 'texte-trop-long',
+		niveau: 'alerte',
+		section: 'jalons-fins',
+		message: null,
+		remediation: "Resserrez l'énoncé de ce jalon (Jalons & fins → Jalons).",
+	},
+	// INFO et non alerte : une manifestation trop longue allonge le contexte du
+	// modèle, elle n'empêche aucune partie de s'ouvrir ni de se finir.
+	'monde.conditions.climat[].manifestation': {
+		code: 'texte-trop-long',
+		niveau: 'info',
+		section: 'conditions',
+		message: null,
+		remediation: 'Resserrez cette manifestation (Conditions).',
+	},
+	'canon.objectifs[].reussi_si_texte': {
+		code: 'condition-sans-expr',
+		niveau: 'alerte',
+		section: 'canon',
+		message: "Cette condition de réussite reste en prose : rien ne l'évaluera.",
+		remediation: 'Posez la condition structurée de réussite (Objectifs → Condition de réussite).',
+	},
+	'canon.objectifs[].echoue_si_texte': {
+		code: 'condition-sans-expr',
+		niveau: 'alerte',
+		section: 'canon',
+		message: "Cette condition d'échec reste en prose : rien ne l'évaluera.",
+		remediation: "Posez la condition structurée d'échec (Objectifs → Condition d'échec).",
+	},
+	'charpente.fins[].condition_texte': {
+		code: 'condition-sans-expr',
+		niveau: 'alerte',
+		section: 'jalons-fins',
+		message:
+			"Cette fin reste conditionnée par une prose : le moteur ne l'atteindra jamais tant qu'aucune condition structurée n'est posée.",
+		remediation: 'Posez la condition structurée de cette fin (Jalons & fins → Fins).',
+	},
+	'monde.personnages[].contre_mesures[].declencheur_texte': {
+		code: 'condition-sans-expr',
+		niveau: 'alerte',
+		section: 'personnages',
+		message: "Ce déclencheur reste en prose : rien n'arme cette contre-mesure.",
+		remediation: 'Posez le déclencheur structuré de cette contre-mesure (Personnages → Contre-mesures).',
+	},
+	'monde.personnages[].savoirs[].revele_si': {
+		code: 'revelation-sans-porte',
+		niveau: 'info',
+		section: 'personnages',
+		message: null,
+		remediation:
+			'Ajoutez au moins une porte de révélation, ou laissez tel quel si ce savoir ne doit jamais se révéler de lui-même (Personnages → Savoirs).',
+	},
+	// LE MESSAGE EST ÉCRIT, et pas seulement parce que celui du validateur porte
+	// une clé du schéma : sa consigne y est FACTUELLEMENT fausse — elle réclame
+	// une condition structurée là où ce qui manque est une DURÉE, que son propre
+	// message nomme deux lignes plus haut.
+	'monde.personnages[].plan_actions[].si_bloque': {
+		code: 'condition-sans-expr',
+		niveau: 'info',
+		section: 'personnages',
+		message:
+			"Cette étape ne porte aucune durée : rien ne sait combien de temps le joueur a avant qu'elle ne se déclenche.",
+		remediation: "Posez une durée pour cette étape (Personnages → Plan d'actions).",
+	},
+}
+
+/**
+ * `monde.personnages[2].savoirs[0].revele_si` → `monde.personnages[].savoirs[].revele_si`.
+ * Un EFFACEMENT d'indices, jamais un découpage : ce module ne lit aucun segment
+ * de chemin, et un balayage de source le tient.
+ */
+function cheminDeTable(path: string): string {
+	return path.replace(/\[\d+\]/g, '[]')
+}
+
+/**
+ * UN avertissement → ZÉRO ou UN constat. Zéro quand le site n'est pas dans la
+ * table : silence tenu par un TEST de totalité, jamais par une levée —
+ * `controlerDossier` se promet pure et totale.
+ *
+ * `location` est REPRIS : `validate.ts` le produit avec la MÊME `localiserEntite`
+ * que ce module importe déjà, si bien qu'il n'y a par construction aucune
+ * seconde vérité à tenir en phase.
+ *
+ * `entityId` est ABSENT des constats mappés : les quatre sites d'écriture du
+ * validateur appellent leur fabrique à CINQ arguments, le sixième étant
+ * optionnel et non passé. Le réparer ouvrirait `validate.ts`, hors périmètre.
+ */
+function constatDAvertissement(avertissement: DossierIssue): ConstatControle[] {
+	const chemin = cheminDeTable(avertissement.path)
+	if (!estCleDe(SITES_AVERTISSEMENT, chemin)) return []
+	const site = SITES_AVERTISSEMENT[chemin]
+	return [
+		{
+			niveau: site.niveau,
+			section: site.section,
+			message: site.message ?? avertissement.message,
+			location: avertissement.location,
+			path: chemin,
+		},
+	]
+}
+
+/**
  * LE REGISTRE DES RÈGLES — fermé, une entrée par CAUSE, jamais par emplacement
  * ni par niveau. Scinder « amorce non rédigée » en deux entrées parce qu'elle
  * émet deux niveaux obligerait à scinder aussi les règles à venir qui portent
@@ -402,7 +599,9 @@ function producteursParIndice(dossier: Dossier): Map<string, SourceIndice[]> {
  * vue ne trie, donc si l'ordre ne vient pas d'ici il ne vient de nulle part. Les
  * quatre entrées de l'itération 3 sont déclarées APRÈS `amorce-non-redigee` pour
  * cette seule raison — l'amorce reste la première chose que l'auteur lit d'un
- * dossier neuf.
+ * dossier neuf. Le pont vers les avertissements du validateur est déclaré EN
+ * DERNIER, pour la même : ce qui empêche de JOUER se lit avant ce qui reste à
+ * finir d'écrire.
  */
 export const CONTROLES = defineRegistre<ControleDescripteur>()({
 	/**
@@ -484,7 +683,7 @@ export const CONTROLES = defineRegistre<ControleDescripteur>()({
 	},
 
 	/**
-	 * LE LIEU DE DÉPART DÉSERT — la seule des cinq règles qui porte sur une
+	 * LE LIEU DE DÉPART DÉSERT — la seule des cinq règles de jouabilité à porter sur une
 	 * COLLECTION et non sur ses éléments, et c'est ce qui lui vaut trois gardes
 	 * quand les quatre autres sont des filtres qui se taisent d'eux-mêmes.
 	 *
@@ -600,6 +799,35 @@ export const CONTROLES = defineRegistre<ControleDescripteur>()({
 			return constats
 		},
 		remediation: () => PROSE_PERSONNAGE_SANS_VOIX.remediation,
+	},
+
+	/**
+	 * LES AVERTISSEMENTS DU VALIDATEUR, portés au rapport — UNE entrée pour DIX
+	 * sites, et non une entrée miroir par code — ils sont TROIS, pour quatre sites
+	 * d'écriture : la CAUSE est déjà codée par `DossierIssueCode` (KR-164), et
+	 * trois entrées coûteraient six validations par rendu là où une en coûte deux.
+	 *
+	 * DÉCLARÉE EN DERNIER, et l'ordre des clés est l'ordre de rendu : ce que
+	 * l'auteur lit d'abord reste ce que les cinq règles de jouabilité disent.
+	 *
+	 * `niveaux` est l'ensemble fermé DE CETTE ENTRÉE, et il ne porte pas
+	 * `bloquant` : aucun des dix sites, pris seul, ne rend l'aventure injouable.
+	 * La règle de COLLECTION qui bloquera (« aucune fin atteignable ») sera une
+	 * entrée DISTINCTE, cause distincte — elle n'aura jamais à rouvrir cette
+	 * ligne-ci.
+	 */
+	'avertissement-de-validation': {
+		libelle: 'Avertissement du validateur',
+		niveaux: ['alerte', 'info'],
+		controler: (dossier) => validateDossier(dossier).warnings.flatMap(constatDAvertissement),
+		/**
+		 * La consigne du site visé, résolue par appartenance PROPRE (KR-175) sur le
+		 * chemin de table que `constatDAvertissement` a déjà posé — aucune seconde
+		 * normalisation. Repli sur la chaîne VIDE, jamais une levée ni une consigne
+		 * inventée, même geste que les cinq règles au-dessus.
+		 */
+		remediation: (constat) =>
+			estCleDe(SITES_AVERTISSEMENT, constat.path) ? SITES_AVERTISSEMENT[constat.path].remediation : '',
 	},
 })
 

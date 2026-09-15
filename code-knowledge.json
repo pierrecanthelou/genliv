@@ -29,7 +29,7 @@
 		{
 			"id": "KR-013",
 			"feature": "cross-cutting",
-			"risk": "No useEffect for derived state â€” compute inline or with useMemo. Legitimate useEffect: subscriptions, imperative DOM/third-party APIs, external-store syncing. Feature-level facet of global KR-113."
+			"risk": "No useEffect for derived state — compute inline or with useMemo. Legitimate useEffect: subscriptions, imperative DOM/third-party APIs, external-store syncing. Feature-level facet of global KR-113."
 		},
 		{
 			"id": "KR-020",
@@ -64,7 +64,7 @@
 		{
 			"id": "KR-050",
 			"feature": "node-editor",
-			"risk": "Feature node-editor supprimee le 2026-08-03, code inexistant, risque sans objet. Detail : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
+			"risk": "node-editor supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
 		},
 		{
 			"id": "KR-051",
@@ -79,7 +79,7 @@
 		{
 			"id": "KR-053",
 			"feature": "node-editor",
-			"risk": "Feature node-editor supprimee le 2026-08-03, code inexistant, risque sans objet. Detail : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
+			"risk": "node-editor supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
 		},
 		{
 			"id": "KR-054",
@@ -89,7 +89,7 @@
 		{
 			"id": "KR-055",
 			"feature": "node-editor",
-			"risk": "Sommaire (root) and Mort (death leaf) are STRUCTURAL screens: no Â« libellÃ© du choix Â», no Â« action requise pour poursuivre Â», no Fin victoire/Ã©chec toggles. Mort additionally has NO outgoing choices. Sommaire's editable fields: text + illustration (serves as book cover thumbnail in the library and as full-width header in play mode). Mort's only editable field is the text. Enforced in NodeEditorPanel (illustration section gated on node.kind !== 'mort'; action/end-toggle sections gated on !structural) AND in BookService.updateNode (structural nodes accept { text, illustration } patch; locked nodes accept only { text }). Feature node-editor supprimee le 2026-08-03 ; l invariant vit au SSOT (src/brain/BookService.ts, src/brain/kinds.ts) et reste cite par CLAUDE.md comme regle de domaine non negociable jusqu au remplacement par dossier-format (n1) puis la demolition en n9."
+			"risk": "Sommaire (root) and Mort (death leaf) are STRUCTURAL screens: no « libellé du choix », no « action requise pour poursuivre », no Fin victoire/échec toggles. Mort additionally has NO outgoing choices. Sommaire's editable fields: text + illustration (serves as book cover thumbnail in the library and as full-width header in play mode). Mort's only editable field is the text. Enforced in NodeEditorPanel (illustration section gated on node.kind !== 'mort'; action/end-toggle sections gated on !structural) AND in BookService.updateNode (structural nodes accept { text, illustration } patch; locked nodes accept only { text }). Feature node-editor supprimee le 2026-08-03 ; l invariant vit au SSOT (src/brain/BookService.ts, src/brain/kinds.ts) et reste cite par CLAUDE.md comme regle de domaine non negociable jusqu au remplacement par dossier-format (n1) puis la demolition en n9."
 		},
 		{
 			"id": "KR-060",
@@ -114,7 +114,7 @@
 		{
 			"id": "KR-064",
 			"feature": "choice-linking",
-			"risk": "Feature choice-linking supprimee le 2026-08-03, code inexistant, risque sans objet. Detail : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
+			"risk": "choice-linking supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
 		},
 		{
 			"id": "KR-065",
@@ -124,7 +124,7 @@
 		{
 			"id": "KR-066",
 			"feature": "choice-linking",
-			"risk": "Feature choice-linking supprimee le 2026-08-03, code inexistant, risque sans objet. Detail : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
+			"risk": "choice-linking supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
 		},
 		{
 			"id": "KR-067",
@@ -139,12 +139,12 @@
 		{
 			"id": "KR-070",
 			"feature": "book-library",
-			"risk": "Deleting a book is a dangerous, irreversible action: always gate behind a confirmation dialog (name the book, error-toned confirm, labelled Annuler) and route the delete through BookService.deleteBook (persist-remove then book:deleted, KR-004) â€” never a raw removal."
+			"risk": "Deleting a book is a dangerous, irreversible action: always gate behind a confirmation dialog (name the book, error-toned confirm, labelled Annuler) and route the delete through BookService.deleteBook (persist-remove then book:deleted, KR-004) — never a raw removal."
 		},
 		{
 			"id": "KR-071",
 			"feature": "book-library",
-			"risk": "The library list is a VIEW over BookService via useBooks (recomputed only on book:created/book:deleted, cached snapshot for useSyncExternalStore), never a private copy (re-asserts KR-020/013). Search/sort over it must be DERIVED INLINE (filter + sort a COPY â€” never mutate the cached snapshot array, or useSyncExternalStore's stable reference breaks). Deleting the currently-open book could leave the editor on a dangling route â€” guarded (iteration 2) at the COMPOSITION ROOT (App subscribes to book:deleted, reads the router route fresh in the handler, navigates home if the deleted id is open in the editor), not in the feature, so no feature owns cross-route navigation and there is no stale-closure route dependency."
+			"risk": "The library list is a VIEW over BookService via useBooks (recomputed only on book:created/book:deleted, cached snapshot for useSyncExternalStore), never a private copy (re-asserts KR-020/013). Search/sort over it must be DERIVED INLINE (filter + sort a COPY — never mutate the cached snapshot array, or useSyncExternalStore's stable reference breaks). Deleting the currently-open book could leave the editor on a dangling route — guarded (iteration 2) at the COMPOSITION ROOT (App subscribes to book:deleted, reads the router route fresh in the handler, navigates home if the deleted id is open in the editor), not in the feature, so no feature owns cross-route navigation and there is no stale-closure route dependency."
 		},
 		{
 			"id": "KR-072",
@@ -159,7 +159,7 @@
 		{
 			"id": "KR-081",
 			"feature": "outline-view",
-			"risk": "Feature outline-view supprimee le 2026-08-03, code inexistant, risque sans objet. Detail : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
+			"risk": "outline-view supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
 		},
 		{
 			"id": "KR-090",
@@ -179,12 +179,12 @@
 		{
 			"id": "KR-093",
 			"feature": "cloud-sync",
-			"risk": "CloudSyncService is a Decorator over PersistenceService (Liskov) wired once in createBrain â€” features stay unchanged. It MUST be local-first: get/set/keys/remove hit the local store synchronously so the app works offline and the synchronous write resolves before any event/navigation (KR-004); the cloud push is best-effort in the background and never blocks/reorders the local write, and a failed push keeps the local write (status â†’ error). With no transport the store is `offline` (local-only) and emits sync:status ONLY on a real change (no per-write noise) â€” so wrapping is transparent to non-sync code. Only the book document flows through persistence; UI state (view-mode, pan/zoom) is never synced (KR-022). The SyncStatusâ†’label/tone mapping is one Record (KR-117); a real transport's credentials must be registered SENSITIVE in persistenceKeys.ts (KR-114)."
+			"risk": "CloudSyncService is a Decorator over PersistenceService (Liskov) wired once in createBrain — features stay unchanged. It MUST be local-first: get/set/keys/remove hit the local store synchronously so the app works offline and the synchronous write resolves before any event/navigation (KR-004); the cloud push is best-effort in the background and never blocks/reorders the local write, and a failed push keeps the local write (status â†’ error). With no transport the store is `offline` (local-only) and emits sync:status ONLY on a real change (no per-write noise) — so wrapping is transparent to non-sync code. Only the book document flows through persistence; UI state (view-mode, pan/zoom) is never synced (KR-022). The SyncStatusâ†’label/tone mapping is one Record (KR-117); a real transport's credentials must be registered SENSITIVE in persistenceKeys.ts (KR-114)."
 		},
 		{
 			"id": "KR-094",
 			"feature": "cloud-sync",
-			"risk": "The CloudTransport is selected by BUILD/PRODUCTION TARGET at the composition root (main.tsx): the local target wires a localStorage-backed LocalStorageTransport (a fake remote in a separate `cloudsync:` namespace), the Cloudflare target a worker-backed one; both implement one interface so app code is target-agnostic and tests stay offline by default (createBrain transport-optional). Pushes are DEBOUNCED + BATCHED â€” set() writes local synchronously then coalesces into a pending map flushed after a debounce window; status goes syncing (sync on write) â†’ synced/error once per batch; the flush timer is tracked + cleared on reschedule. book:opened triggers LAST-WRITE-WINS reconciliation by updatedAt: a newer cloud copy is adopted by writing the UNDERLYING local store (NEVER the decorated set â€” avoids re-pushing what was just pulled, no echo loop) then emitting book:updated so open views re-read; a newer local copy is pushed up; an empty cloud is seeded. Reconciliation is the ONLY place the persistence decorator is book-aware (resolves bookKey, emits book:updated). Extends KR-093."
+			"risk": "The CloudTransport is selected by BUILD/PRODUCTION TARGET at the composition root (main.tsx): the local target wires a localStorage-backed LocalStorageTransport (a fake remote in a separate `cloudsync:` namespace), the Cloudflare target a worker-backed one; both implement one interface so app code is target-agnostic and tests stay offline by default (createBrain transport-optional). Pushes are DEBOUNCED + BATCHED — set() writes local synchronously then coalesces into a pending map flushed after a debounce window; status goes syncing (sync on write) â†’ synced/error once per batch; the flush timer is tracked + cleared on reschedule. book:opened triggers LAST-WRITE-WINS reconciliation by updatedAt: a newer cloud copy is adopted by writing the UNDERLYING local store (NEVER the decorated set — avoids re-pushing what was just pulled, no echo loop) then emitting book:updated so open views re-read; a newer local copy is pushed up; an empty cloud is seeded. Reconciliation is the ONLY place the persistence decorator is book-aware (resolves bookKey, emits book:updated). Extends KR-093."
 		},
 		{
 			"id": "KR-095",
@@ -194,22 +194,22 @@
 		{
 			"id": "KR-096",
 			"feature": "action-pnj",
-			"risk": "Feature action-pnj supprimee le 2026-08-03, code inexistant, risque sans objet. Detail : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
+			"risk": "action-pnj supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
 		},
 		{
 			"id": "KR-097",
 			"feature": "action-monster",
-			"risk": "Feature action-monster supprimee le 2026-08-03, code inexistant, risque sans objet. Detail : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
+			"risk": "action-monster supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
 		},
 		{
 			"id": "KR-098",
 			"feature": "cloud-sync",
-			"risk": "CONFLICT handling (cloud-sync iter 3) â€” reconciliation must NOT silently last-write-wins when BOTH sides diverged. A conflict on book:opened reconcile = local has UNPUSHED edits (book key still in the offline queue) AND the cloud copy is NEWER (cloudAt > localAt): stash the cloud copy in a transient in-memory conflictMap (by bookId, re-detected next open, never persisted), do NOT overwrite local, emit sync:conflict. Clean local (no queued edit) + newer cloud keeps the safe LWW adopt (no edits to lose). resolveConflict(bookId, local|cloud): cloud writes the cloud under the LOCAL store (never the decorated set, no echo) + drops the queued local edit + book:updated; local re-queues the local copy to push over the cloud; both clear the conflict + re-emit sync:conflict. resolveConflict + reconcile are the only two book-aware spots in the decorator (KR-094). The ConflictDialog (cloud-sync) is a VIEW over useSyncConflict(openBookId) (external store, KR-013), mounted once by App; deletes/tombstones + cloud-only list reconciliation stay deferred (need CloudTransport delete + list). Extends KR-093/094."
+			"risk": "CONFLICT handling (cloud-sync iter 3) — reconciliation must NOT silently last-write-wins when BOTH sides diverged. A conflict on book:opened reconcile = local has UNPUSHED edits (book key still in the offline queue) AND the cloud copy is NEWER (cloudAt > localAt): stash the cloud copy in a transient in-memory conflictMap (by bookId, re-detected next open, never persisted), do NOT overwrite local, emit sync:conflict. Clean local (no queued edit) + newer cloud keeps the safe LWW adopt (no edits to lose). resolveConflict(bookId, local|cloud): cloud writes the cloud under the LOCAL store (never the decorated set, no echo) + drops the queued local edit + book:updated; local re-queues the local copy to push over the cloud; both clear the conflict + re-emit sync:conflict. resolveConflict + reconcile are the only two book-aware spots in the decorator (KR-094). The ConflictDialog (cloud-sync) is a VIEW over useSyncConflict(openBookId) (external store, KR-013), mounted once by App; deletes/tombstones + cloud-only list reconciliation stay deferred (need CloudTransport delete + list). Extends KR-093/094."
 		},
 		{
 			"id": "KR-109",
 			"feature": "global-config",
-			"risk": "Any presentational component consumed by more than one feature belongs in brain/components/ and is re-exported from brain/components/index.ts. A component living in a feature but imported by another is a cross-feature violation â€” move it."
+			"risk": "Any presentational component consumed by more than one feature belongs in brain/components/ and is re-exported from brain/components/index.ts. A component living in a feature but imported by another is a cross-feature violation — move it."
 		},
 		{
 			"id": "KR-110",
@@ -229,27 +229,27 @@
 		{
 			"id": "KR-113",
 			"feature": "global-config",
-			"risk": "No useEffect-synced mirrors of props/derived state; never use // eslint-disable react-hooks/exhaustive-deps to mask a stale closure â€” fix the root cause (stable refs, recompute inline)."
+			"risk": "No useEffect-synced mirrors of props/derived state; never use // eslint-disable react-hooks/exhaustive-deps to mask a stale closure — fix the root cause (stable refs, recompute inline)."
 		},
 		{
 			"id": "KR-114",
 			"feature": "global-config",
-			"risk": "Any localStorage key holding a credential/token/secret (PAT, OAuth, API key) must be registered in brain/persistenceKeys.ts with a /* SENSITIVE */ marker and annotated in UIPreferenceKey â€” one auditable location for all credential storage. None yet."
+			"risk": "Any localStorage key holding a credential/token/secret (PAT, OAuth, API key) must be registered in brain/persistenceKeys.ts with a /* SENSITIVE */ marker and annotated in UIPreferenceKey — one auditable location for all credential storage. None yet."
 		},
 		{
 			"id": "KR-115",
 			"feature": "global-config",
-			"risk": "A design value needed both as a CSS string and as a numeric JS value lives in TWO synced forms: a CSS token (e.g. --hit-target: 44px in styles/tokens) and a mirrored brain constant (e.g. HIT_TARGET_MIN = 44 in brain/ui.ts). Use the token in CSS/style strings and the constant only where a number is required (numeric size props). The two MUST stay in sync â€” never reintroduce the bare literal at call sites."
+			"risk": "A design value needed both as a CSS string and as a numeric JS value lives in TWO synced forms: a CSS token (e.g. --hit-target: 44px in styles/tokens) and a mirrored brain constant (e.g. HIT_TARGET_MIN = 44 in brain/ui.ts). Use the token in CSS/style strings and the constant only where a number is required (numeric size props). The two MUST stay in sync — never reintroduce the bare literal at call sites."
 		},
 		{
 			"id": "KR-116",
 			"feature": "global-config",
-			"risk": "PersistenceService.get does an unchecked JSON.parse cast, so persisted data is UNTRUSTED at the runtime boundary even though it is typed: a corrupted store or a schema drift can carry a node/edge kind outside the registry, and a direct NODE_KINDS[kind].field then throws (undefined access). Validate kinds at the single read boundary (BookService.loadBook + listBooks) with isNodeKind/isEdgeKind; a book with an unknown kind is surfaced (console.warn) and treated as unreadable (getBook/openBook -> null, omitted from listBooks, mutations refused) â€” never silently coerced. A corrupt book must remain DELETABLE (deleteBook uses the raw read, not the validated one), so the user can clean it up."
+			"risk": "PersistenceService.get does an unchecked JSON.parse cast, so persisted data is UNTRUSTED at the runtime boundary even though it is typed: a corrupted store or a schema drift can carry a node/edge kind outside the registry, and a direct NODE_KINDS[kind].field then throws (undefined access). Validate kinds at the single read boundary (BookService.loadBook + listBooks) with isNodeKind/isEdgeKind; a book with an unknown kind is surfaced (console.warn) and treated as unreadable (getBook/openBook -> null, omitted from listBooks, mutations refused) — never silently coerced. A corrupt book must remain DELETABLE (deleteBook uses the raw read, not the validated one), so the user can clean it up."
 		},
 		{
 			"id": "KR-117",
 			"feature": "global-config",
-			"risk": "A closed set (a fixed union type â€” node/edge kind, dÃ©cor interaction, action type, skill outcomeâ€¦) lives in ONE Record<Union, Descriptor> as the single source of per-variant data + behaviour; derive option lists / labels / flags / copy from it, and NEVER re-list the literals or branch on the union with if (x === 'a') â€¦ else â€¦ or x === 'a' ? â€¦ : â€¦ ladders. This eliminates the Fowler/Uncle-Bob smells Duplicated Code, Repeated Switch/Conditional, Shotgun Surgery, Primitive Obsession, and honours Open/Closed + SRP â€” adding a variant is one new entry with zero consumer edits. In TypeScript the data-driven Record IS 'replace conditional with polymorphism' for a JSON-serialised domain (not a class hierarchy): use Record<Union, â€¦> for compile-time exhaustiveness â€” never Partial<Record<â€¦>> (silent gaps) â€” and derive the union from the keys (keyof typeof + a defineX factory) when the registry must be the single source for the set itself. Instances: NODE_KINDS/EDGE_KINDS (KR-068), ROLL_OUTCOMES, CHARACTERISTICS, GIFT_EFFECTS, TAKEABLE_KINDS, DECOR_INTERACTIONS. The editor only needs each variant's DATA (labels/tones/flags); when PLAY MODE lands, per-variant BEHAVIOUR (how to apply a gift effect, compute/test a caractÃ©ristique, resolve a leurre) becomes a descriptor FIELD on the same Record ({ label, apply, test, â€¦ }) â€” never an if/switch at call sites. Adding behaviour is one edit to the registry, the same Open/Closed win."
+			"risk": "A closed set (a fixed union type — node/edge kind, décor interaction, action type, skill outcomeâ€¦) lives in ONE Record<Union, Descriptor> as the single source of per-variant data + behaviour; derive option lists / labels / flags / copy from it, and NEVER re-list the literals or branch on the union with if (x === 'a') â€¦ else â€¦ or x === 'a' ? â€¦ : â€¦ ladders. This eliminates the Fowler/Uncle-Bob smells Duplicated Code, Repeated Switch/Conditional, Shotgun Surgery, Primitive Obsession, and honours Open/Closed + SRP — adding a variant is one new entry with zero consumer edits. In TypeScript the data-driven Record IS 'replace conditional with polymorphism' for a JSON-serialised domain (not a class hierarchy): use Record<Union, â€¦> for compile-time exhaustiveness — never Partial<Record<â€¦>> (silent gaps) — and derive the union from the keys (keyof typeof + a defineX factory) when the registry must be the single source for the set itself. Instances: NODE_KINDS/EDGE_KINDS (KR-068), ROLL_OUTCOMES, CHARACTERISTICS, GIFT_EFFECTS, TAKEABLE_KINDS, DECOR_INTERACTIONS. The editor only needs each variant's DATA (labels/tones/flags); when PLAY MODE lands, per-variant BEHAVIOUR (how to apply a gift effect, compute/test a caractéristique, resolve a leurre) becomes a descriptor FIELD on the same Record ({ label, apply, test, â€¦ }) — never an if/switch at call sites. Adding behaviour is one edit to the registry, the same Open/Closed win."
 		},
 		{
 			"id": "KR-118",
@@ -259,62 +259,62 @@
 		{
 			"id": "KR-119",
 			"feature": "book-export",
-			"risk": "Feature book-export supprimee le 2026-08-03, code inexistant, risque sans objet. Detail : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
+			"risk": "book-export supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
 		},
 		{
 			"id": "KR-120",
 			"feature": "book-export",
-			"risk": "Feature book-export supprimee le 2026-08-03, code inexistant, risque sans objet. Detail : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
+			"risk": "book-export supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
 		},
 		{
 			"id": "KR-130",
 			"feature": "game-system",
-			"risk": "REGLES-DU-JEU.md is the SINGLE SOURCE OF TRUTH for all game mechanics. Two coherence corrections are baked in relative to the original brief: (1) the enduranceMalus ordering is most-severe-first (PEâ‰¤0 â†’ âˆ’3; PE<EN/5 â†’ âˆ’2; PE<EN/3 â†’ âˆ’1; else 0), not the reverse; (2) the challenge dice are harmonised across Â§1/Â§2/Â§3 (1D6/2D5/3D4/4D4). Never resolve a game-rule ambiguity from the code â€” go back to REGLES-DU-JEU.md first and propagate the correction there before updating the implementation."
+			"risk": "REGLES-DU-JEU.md is the SINGLE SOURCE OF TRUTH for all game mechanics. Two coherence corrections are baked in relative to the original brief: (1) the enduranceMalus ordering is most-severe-first (PEâ‰¤0 â†’ âˆ’3; PE<EN/5 â†’ âˆ’2; PE<EN/3 â†’ âˆ’1; else 0), not the reverse; (2) the challenge dice are harmonised across Â§1/Â§2/Â§3 (1D6/2D5/3D4/4D4). Never resolve a game-rule ambiguity from the code — go back to REGLES-DU-JEU.md first and propagate the correction there before updating the implementation."
 		},
 		{
 			"id": "KR-131",
 			"feature": "game-system",
-			"risk": "AUTHORING vs PLAY split: the EDITOR stores only the SCHEMA of a game rule (which caractÃ©ristique is tested, which Tier de Challenge, which monster stat block); the RUNTIME computes PV, PE, combat rounds, XP, and all dice outcomes. Pure play-mode helpers (resolveChallenge, resolveAssault, combatXp, etc.) live in brain/ as injectable-RNG pure functions so they are unit-testable without a play runtime; the editor imports ONLY the TYPE/REGISTRY parts (CHARACTERISTICS, CHALLENGE_TIERS, WEAPONS, etc.) to build its pickers. Never let the editor call play-mode resolvers â€” that is a play-mode concern and violates the authoring/play seam."
+			"risk": "AUTHORING vs PLAY split: the EDITOR stores only the SCHEMA of a game rule (which caractéristique is tested, which Tier de Challenge, which monster stat block); the RUNTIME computes PV, PE, combat rounds, XP, and all dice outcomes. Pure play-mode helpers (resolveChallenge, resolveAssault, combatXp, etc.) live in brain/ as injectable-RNG pure functions so they are unit-testable without a play runtime; the editor imports ONLY the TYPE/REGISTRY parts (CHARACTERISTICS, CHALLENGE_TIERS, WEAPONS, etc.) to build its pickers. Never let the editor call play-mode resolvers — that is a play-mode concern and violates the authoring/play seam."
 		},
 		{
 			"id": "KR-132",
 			"feature": "game-system",
-			"risk": "BESTIARY SEED IS IDEMPOTENT AND DELETION-SAFE: MonsterLibraryService.seedDefaults(BESTIARY) is guarded by the MONSTER_LIBRARY_SEEDED_KEY flag. Once the flag is set (first successful seed), seedDefaults() is a no-op on every subsequent launch â€” a user who deletes bestiary entries does NOT get them re-injected. Tests must suppress the auto-seed by pre-setting the flag in beforeEach (window.localStorage.setItem('genliv:monster-library:seeded', 'true')) so the library starts empty and assertions on library contents remain deterministic."
+			"risk": "BESTIARY SEED IS IDEMPOTENT AND DELETION-SAFE: MonsterLibraryService.seedDefaults(BESTIARY) is guarded by the MONSTER_LIBRARY_SEEDED_KEY flag. Once the flag is set (first successful seed), seedDefaults() is a no-op on every subsequent launch — a user who deletes bestiary entries does NOT get them re-injected. Tests must suppress the auto-seed by pre-setting the flag in beforeEach (window.localStorage.setItem('genliv:monster-library:seeded', 'true')) so the library starts empty and assertions on library contents remain deterministic."
 		},
 		{
 			"id": "KR-133",
 			"feature": "play-mode",
-			"risk": "MONSTER CAPACITÃ‰S AS PLAY REGISTRY: capacitÃ©s must be a KR-117 registry (MONSTER_CAPACITIES) mapping each capacity id to { trigger: CapacitÃ©Trigger, apply: CapacitÃ©Effect } â€” never an if/switch in the combat loop. The `capacity` string on MonsterConfig identifies the variant; the play runtime dispatches through the registry. Adding a new capacitÃ© effect = one registry entry, zero consumer edits. Source decisions: REGLES-PLAY-A-COMPLETER.md Â§ H."
+			"risk": "MONSTER CAPACITÃ‰S AS PLAY REGISTRY: capacités must be a KR-117 registry (MONSTER_CAPACITIES) mapping each capacity id to { trigger: CapacitéTrigger, apply: CapacitéEffect } — never an if/switch in the combat loop. The `capacity` string on MonsterConfig identifies the variant; the play runtime dispatches through the registry. Adding a new capacité effect = one registry entry, zero consumer edits. Source decisions: REGLES-PLAY-A-COMPLETER.md Â§ H."
 		},
 		{
 			"id": "KR-134",
 			"feature": "play-mode",
-			"risk": "SESSION SAVE STATE: the play session persists via PersistenceService with a per-book key `genliv:play:session:{bookId}` (must be registered in persistenceKeys.ts, KR-011). State includes: current node id, hero snapshot (caracs, PV/PE/XP, MC bonus), full inventory (objects by id), active weapon/armor/shield ids, and the visited-node set (node ids where an object was taken or a monster was defeated â€” anti-farm). Battle transients (current-round state) are NOT persisted; saves happen only at node transitions."
+			"risk": "SESSION SAVE STATE: the play session persists via PersistenceService with a per-book key `genliv:play:session:{bookId}` (must be registered in persistenceKeys.ts, KR-011). State includes: current node id, hero snapshot (caracs, PV/PE/XP, MC bonus), full inventory (objects by id), active weapon/armor/shield ids, and the visited-node set (node ids where an object was taken or a monster was defeated — anti-farm). Battle transients (current-round state) are NOT persisted; saves happen only at node transitions."
 		},
 		{
 			"id": "KR-135",
 			"feature": "play-mode",
-			"risk": "CREATURE TYPE DRIVES AI: `creatureType` on MonsterStatBlock (and every BestiaryRow) is a KR-117 registry key (CREATURE_TYPES) whose descriptor carries flee threshold %, flee strategy (roll-based / chance / never), posture-weight overrides at low HP, and passive trait flags (e.g. immuneToFatigue for Squelette). Never infer creature type from monster name or capacity text string. Classification: humanoide (Gobelin, Orque, Hobgobelin, SorciÃ¨re, Ogre, GÃ©ant); mort-vivant (Squelette, Zombie, Spectre, Momie, Liche, Vampire); animal (Ours); animal-geant (Rat gÃ©ant, AraignÃ©e gÃ©ante, Loup gÃ©ant, Serpent gÃ©ant); creature-magique (Harpie, MÃ©duse, Manticore, Troll, Loup-Garou, TyrannÅ“il). Flee rules from REGLES-PLAY-A-COMPLETER.md: humanoide at 25% PV (MC roll TC=1+Î”T); undead never; animal at 50% / animal-geant at 40% (50/50 chance); creature-magique at 10% PV (MC roll TC=Î”T; Î”T=0 â†’ never)."
+			"risk": "CREATURE TYPE DRIVES AI: `creatureType` on MonsterStatBlock (and every BestiaryRow) is a KR-117 registry key (CREATURE_TYPES) whose descriptor carries flee threshold %, flee strategy (roll-based / chance / never), posture-weight overrides at low HP, and passive trait flags (e.g. immuneToFatigue for Squelette). Never infer creature type from monster name or capacity text string. Classification: humanoide (Gobelin, Orque, Hobgobelin, Sorcière, Ogre, Géant); mort-vivant (Squelette, Zombie, Spectre, Momie, Liche, Vampire); animal (Ours); animal-geant (Rat géant, Araignée géante, Loup géant, Serpent géant); creature-magique (Harpie, Méduse, Manticore, Troll, Loup-Garou, TyrannÅ“il). Flee rules from REGLES-PLAY-A-COMPLETER.md: humanoide at 25% PV (MC roll TC=1+Î”T); undead never; animal at 50% / animal-geant at 40% (50/50 chance); creature-magique at 10% PV (MC roll TC=Î”T; Î”T=0 â†’ never)."
 		},
 		{
 			"id": "KR-136",
 			"feature": "play-mode",
-			"risk": "MAGIC AND SILVER WEAPON MODIFIERS: `magic: n` on EquipmentEffect.arme adds n to the wielder's MC (before AT computation) AND n to PF_base (before Ã©cart Ã— posture multiplier). `silver: true` sets the target's effective armour to 0 during damage calculation, ONLY for monsters whose MONSTER_CAPACITIES descriptor includes `bypassedBySilver: true` (Loup-Garou). Never check templateId or monster name at call sites â€” the flag on the MONSTER_CAPACITIES descriptor is the only gate. Source decision: REGLES-PLAY-A-COMPLETER.md Â§ H-bis."
+			"risk": "MAGIC AND SILVER WEAPON MODIFIERS: `magic: n` on EquipmentEffect.arme adds n to the wielder's MC (before AT computation) AND n to PF_base (before écart Ã— posture multiplier). `silver: true` sets the target's effective armour to 0 during damage calculation, ONLY for monsters whose MONSTER_CAPACITIES descriptor includes `bypassedBySilver: true` (Loup-Garou). Never check templateId or monster name at call sites — the flag on the MONSTER_CAPACITIES descriptor is the only gate. Source decision: REGLES-PLAY-A-COMPLETER.md Â§ H-bis."
 		},
 		{
 			"id": "KR-137",
 			"feature": "play-mode",
-			"risk": "PERMANENT ARMOR BONUS IN SESSION NOT HERO: `permanentArmorBonus` lives on SessionEquipmentState, not HeroState, so PNJ 'defense' gift bonuses survive combat without touching hero caracs. Must be applied in BOTH heroArmourEffective (combatEngine.ts) AND heroArmour (capacityEffects.ts) â€” these are separate helper functions. When adding new armor computation helpers, always include permanentArmorBonus."
+			"risk": "PERMANENT ARMOR BONUS IN SESSION NOT HERO: `permanentArmorBonus` lives on SessionEquipmentState, not HeroState, so PNJ 'defense' gift bonuses survive combat without touching hero caracs. Must be applied in BOTH heroArmourEffective (combatEngine.ts) AND heroArmour (capacityEffects.ts) — these are separate helper functions. When adding new armor computation helpers, always include permanentArmorBonus."
 		},
 		{
 			"id": "KR-138",
 			"feature": "play-mode",
-			"risk": "PREREQ FILTERING IS CANONICAL IN sessionEngine.listChoices: `filterChoicesByPrereq` is called inside listChoices so all callers automatically get filtered results. Never filter choice edges outside of sessionEngine â€” the single-source guarantees consistency. Empty objectId ('' â€” unconfigured prereq) â†’ hide the choice (safe default, not an error)."
+			"risk": "PREREQ FILTERING IS CANONICAL IN sessionEngine.listChoices: `filterChoicesByPrereq` is called inside listChoices so all callers automatically get filtered results. Never filter choice edges outside of sessionEngine — the single-source guarantees consistency. Empty objectId ('' — unconfigured prereq) â†’ hide the choice (safe default, not an error)."
 		},
 		{
 			"id": "KR-139",
 			"feature": "play-mode",
-			"risk": "COUNTDOWN TIMER IN CHOICE LIST â€” TIMER SAFETY: Each countdown choice gets its own setInterval tracked in a useRef, cancelled in the useEffect cleanup. The dep array uses primitive values (delay, fallback) extracted from the edge object â€” not the edge object itself â€” to avoid unnecessary restarts. onChoice is stable-reffed (onChoiceRef.current = onChoice) so interval callbacks never close over stale references."
+			"risk": "COUNTDOWN TIMER IN CHOICE LIST — TIMER SAFETY: Each countdown choice gets its own setInterval tracked in a useRef, cancelled in the useEffect cleanup. The dep array uses primitive values (delay, fallback) extracted from the edge object — not the edge object itself — to avoid unnecessary restarts. onChoice is stable-reffed (onChoiceRef.current = onChoice) so interval callbacks never close over stale references."
 		},
 		{
 			"id": "KR-140",
@@ -324,22 +324,22 @@
 		{
 			"id": "KR-141",
 			"feature": "play-mode",
-			"risk": "OBJECT REINFORCEMENT (AC C5): ReinforcementBonus.rollBonus on a GameObject adds to the hero's effective characteristic value for a skill roll (trap or dÃ©cor prendre). Author sets the bonus via ObjectEditor Stepper (0â€“5). The player picks 0 or 1 applicable object before the roll (one object per action phase). rollBonus is the 4th param on resolveTrap / resolveTakeableRoll (after rng, default 0) â€” existing test signatures remain unchanged. TrapScreen: if trap.roll exists, start in pick phase (result=null); resolve on Affronter le piÃ¨ge click. DecorScreen: ReinforcementPicker above object list; rollBonus injected per Prendre click. ReinforcementPicker returns null when no applicable inventory objects â€” callers render nothing. ObjectEditor clears reinforcementBonus to undefined when rollBonus drops to 0 (clean serialisation)."
+			"risk": "OBJECT REINFORCEMENT (AC C5): ReinforcementBonus.rollBonus on a GameObject adds to the hero's effective characteristic value for a skill roll (trap or décor prendre). Author sets the bonus via ObjectEditor Stepper (0–5). The player picks 0 or 1 applicable object before the roll (one object per action phase). rollBonus is the 4th param on resolveTrap / resolveTakeableRoll (after rng, default 0) — existing test signatures remain unchanged. TrapScreen: if trap.roll exists, start in pick phase (result=null); resolve on Affronter le piège click. DecorScreen: ReinforcementPicker above object list; rollBonus injected per Prendre click. ReinforcementPicker returns null when no applicable inventory objects — callers render nothing. ObjectEditor clears reinforcementBonus to undefined when rollBonus drops to 0 (clean serialisation)."
 		},
 		{
 			"id": "KR-142",
 			"feature": "action-trap",
-			"risk": "TRAP INVENTORY LOSS (KR-142): TrapConfig.inventoryLoss?: TrapInventoryLoss drives what the hero loses on Ã©chec. Four kinds: 'aucune' (default, no loss), 'petits' (non-equipment non-scenario objects), 'petits-et-armes' (all non-scenario objects), 'specifique' (one object by stable id). GameObject.scenario?: boolean marks plot-critical items â€” NEVER removed by 'petits' or 'petits-et-armes'; only 'specifique' can target them. computeInventoryLoss() is the canonical pure resolver (actionEngine.ts); TrapScreen derives lostObjectIds inline (KR-013); finishTrap filters session.inventory before saving. Absence of inventoryLoss on a persisted node = 'aucune' behaviour (no migration needed). Feature action-trap supprimee le 2026-08-03 ; la logique qu il documentait (perte d inventaire) vit dans src/player/engine/actionEngine.ts et src/player/components/TrapScreen.tsx, runtime joueur conserve intact (roadmap 0 bis)."
+			"risk": "TRAP INVENTORY LOSS (KR-142): TrapConfig.inventoryLoss?: TrapInventoryLoss drives what the hero loses on échec. Four kinds: 'aucune' (default, no loss), 'petits' (non-equipment non-scenario objects), 'petits-et-armes' (all non-scenario objects), 'specifique' (one object by stable id). GameObject.scenario?: boolean marks plot-critical items — NEVER removed by 'petits' or 'petits-et-armes'; only 'specifique' can target them. computeInventoryLoss() is the canonical pure resolver (actionEngine.ts); TrapScreen derives lostObjectIds inline (KR-013); finishTrap filters session.inventory before saving. Absence of inventoryLoss on a persisted node = 'aucune' behaviour (no migration needed). Feature action-trap supprimee le 2026-08-03 ; la logique qu il documentait (perte d inventaire) vit dans src/player/engine/actionEngine.ts et src/player/components/TrapScreen.tsx, runtime joueur conserve intact (roadmap 0 bis)."
 		},
 		{
 			"id": "KR-143",
 			"feature": "book-export",
-			"risk": "Feature book-export supprimee le 2026-08-03, code inexistant, risque sans objet. Detail : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
+			"risk": "book-export supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
 		},
 		{
 			"id": "KR-144",
 			"feature": "tree-canvas",
-			"risk": "DAGRE AUTO-LAYOUT (resolvePositions): tree-connected nodes (reachable from sommaire via choice edges, BFS) are laid out by Dagre (Sugiyama-style DAG layout). Isolated nodes (mort, unreachable pages) are grid-placed below. Dagre outputs CENTER coordinates â€” always convert to top-left (pos.x - NODE_W/2, pos.y - NODE_H/2) then apply a global offset so the top-left node starts at LAYOUT_ORIGIN. UIPreferencesService.clearNodePositions(bookId) resets all dragged overrides for a book (auto-layout reset). AutoLayoutButton in tree-canvas is the only UI entry point for that reset â€” it is wired conditionally (canvas view mode only) in EditorScreen actions. Do NOT call dagre.layout on an empty graph (0 nodes); guard with treeNodeIds.size > 0."
+			"risk": "DAGRE AUTO-LAYOUT (resolvePositions): tree-connected nodes (reachable from sommaire via choice edges, BFS) are laid out by Dagre (Sugiyama-style DAG layout). Isolated nodes (mort, unreachable pages) are grid-placed below. Dagre outputs CENTER coordinates — always convert to top-left (pos.x - NODE_W/2, pos.y - NODE_H/2) then apply a global offset so the top-left node starts at LAYOUT_ORIGIN. UIPreferencesService.clearNodePositions(bookId) resets all dragged overrides for a book (auto-layout reset). AutoLayoutButton in tree-canvas is the only UI entry point for that reset — it is wired conditionally (canvas view mode only) in EditorScreen actions. Do NOT call dagre.layout on an empty graph (0 nodes); guard with treeNodeIds.size > 0."
 		},
 		{
 			"id": "KR-145",
@@ -349,7 +349,7 @@
 		{
 			"id": "KR-146",
 			"feature": "outline-view",
-			"risk": "Feature outline-view supprimee le 2026-08-03, code inexistant, risque sans objet. Detail : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
+			"risk": "outline-view supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
 		},
 		{
 			"id": "KR-147",
@@ -704,7 +704,7 @@
 		{
 			"id": "KR-219",
 			"feature": "dossier-controles",
-			"risk": "La section d un controle est DECLAREE par la regle qui le produit, jamais derivee de son path. SectionDescripteur.cle est un TEXTE D AFFICHAGE, pas un chemin : la section Jalons & fins porte deux chemins separes par un point median, et un resolveur devrait decouper une chaine d affichage. Une table path -> SectionId serait une SECONDE verite a tenir en phase avec SECTIONS."
+			"risk": "La section d un controle est DECLAREE par la regle qui le produit, jamais DERIVEE de son path. DERIVER vise un CALCUL (decouper, prefixer, lire SECTIONS[].cle, qui est un texte d affichage). Une table ECRITE ligne a ligne par la regle productrice n en est pas un — precedent PROSES_AMORCE — a DEUX conditions tenues par un test : totalite balayee depuis le registre qui fait foi (KR-199), et un chemin absent produit ZERO constat. L invariant se tient par un balayage de source interdisant tout decoupage de chemin ; il ne s ecrit PAS « racine du path differente de la section », voir KR-226. Amende a it5 de dossier-controles."
 		},
 		{
 			"id": "KR-220",
@@ -719,7 +719,7 @@
 		{
 			"id": "KR-222",
 			"feature": "dossier-controles",
-			"risk": "Deux silences indistinguables sont un defaut de classe KR-199. La regle « objectif sans chemin » se tait dans DEUX cas — reussi_si_expr absent (D1 : facultatif) et reussi_si_expr atteignable — et rien ne les separe par defaut. Le signal discriminant est l avertissement condition-sans-expr, deja produit par validateDossier : aucun code neuf n est du, mais l iteration 4 ne peut pas etre livree avant l iteration 3 pour cette raison."
+			"risk": "Deux silences indistinguables sont un defaut de classe KR-199. Le signal discriminant est condition-sans-expr, rendu au rapport a it5. PORTEE MESUREE : il ne tire QUE si le jumeau prose est non vide, donc il separe « pas d _expr mais une prose » de « _expr present », et PAS « ni _expr ni prose ». Trou PROPRE AUX OBJECTIFS (reussi_si_texte optionnel, fins[].condition_texte requis)."
 		},
 		{
 			"id": "KR-223",
@@ -735,6 +735,11 @@
 			"id": "KR-225",
 			"feature": "dossier-controles",
 			"risk": "Un dossier PERSISTE ne porte JAMAIS d anomalie de severite error : DossierService.update refuse toute ecriture dont validateDossier rend des errors, et get() revalide a chaque lecture. Consequence de conception : une regle de lint calquee sur reference-pendante allumerait un voyant qui ne peut jamais s allumer. Consequence de test : tout critere pretendant exhiber une anomalie error sur un dossier obtenu via DossierService fabrique un etat que le produit ne peut pas atteindre."
+		},
+		{
+			"id": "KR-226",
+			"feature": "dossier-controles",
+			"risk": "Le predicat « racine du path differente de la section » est STRUCTURELLEMENT INSATISFIABLE pour la section canon : sections.ts en fait la seule des dix dont la cle n a pas de point. La garde encode une COINCIDENCE, pas l invariant qu elle nomme : une regle declarant correctement section: 'canon' sur un path en canon.* LA FERA ROUGIR EN ETANT JUSTE. Ne pas ajouter un tel temoin ; reecrire l invariant est la charge de qui touchera canon.* en premier. L invariant est tenu, lui, par le balayage de source interdisant tout decoupage de chemin."
 		}
 	]
 }
