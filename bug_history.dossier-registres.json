@@ -1,0 +1,41 @@
+{
+	"_about": "Defauts de la feature dossier-registres (n6, Temps 1), CLOSE le 2026-08-19 — scindes hors de bug_history.json le 2026-09-15 au franchissement du plafond de 10 kio (docs/WORKFLOW.md, Budget de contexte). Critere d appartenance inverse : un travail en cours ne les relira pas, leur feature etant terminee et ses lecons promues en KR. Numerotation GLOBALE aux SIX fichiers bug_history*.json, jamais reemployee.",
+	"bugs": [
+		{
+			"id": "BUG-079",
+			"date": "2026-08-19",
+			"feature": "dossier-registres",
+			"discovered_at": "iteration-5",
+			"symptom": "README.md : la ligne du tableau des features portait QUATRE cellules dans un tableau a TROIS colonnes. En GFM les cellules excedentaires sont IGNOREES AU RENDU — tout le recit des iterations 1 a 4 (~5 000 caracteres, unique trace README de quatre iterations livrees) disparaissait de la page, alors que le fichier, lui, contenait toujours le texte.",
+			"root_cause": "L'edit d'it5 a insere le nouveau paragraphe AVANT le paragraphe existant en le separant par un ' | ' au lieu d'une espace — un separateur de cellule la ou il fallait une continuation de prose. Les quatre autres lignes du meme tableau ont bien trois cellules : la quatrieme est nee dans ce lot. Aucune porte ne le voyait : ni tsc, ni jest, ni ESLint, ni prettier ne verifient l'arite des cellules d'un tableau markdown, et le fichier brut paraissait correct a la relecture.",
+			"fix": "Le ' | ' fautif remplace par ' — ' dans README.md, fusionnant les deux paragraphes dans l'unique cellule Resume.",
+			"mitigation": "REGLE : toute edition qui AJOUTE du texte a une cellule de tableau markdown deja remplie se relit en comptant les separateurs de la ligne, pas en relisant la prose — le defaut est invisible a la lecture du source et ne se voit qu'au rendu. Trouve par la revue de PR tech-lead ; aucun instrument automatique du depot ne couvre ce cas et aucun n'est propose (une regle de lint markdown pour un seul motif serait une abstraction a un seul appelant).",
+			"regression_test": "Aucun — defaut de document, hors instrument. La parade est la revue de PR, qui l'a effectivement attrape avant que l'utilisateur ne voie la tranche.",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-080",
+			"date": "2026-08-19",
+			"feature": "dossier-registres",
+			"discovered_at": "iteration-5",
+			"symptom": "Le motif que le raffinage d'it5 a DEMONTRE FAUX (« aucun des quatre effets admis n'a de sens ambiant », donne comme raison de ne pas editer climat[].effets_regles) survivait mot pour mot dans DEUX fichiers de brain/ que le lot 1 possedait pourtant : destinations.ts (commentaire de la ligne climat[].effets_regles) et validate.test.ts. La correction avait ete portee a specification.json (3 annotations) et a types.ts, pas aux deux sites que liront la n10 et quiconque rouvrira la decision.",
+			"root_cause": "Exactement la classe BUG-069 — une decision qui renverse une ligne ecrite ailleurs, corrigee la ou on travaille (la spec, le type) mais pas la ou elle est LUE. Aggravant : cette iteration donne precisement cette lecon en exemple (« la citation d'un KR n'est pas sa lecture »), et l'a quand meme reproduite dans le meme lot. Le corollaire BUG-069 avait ete applique consciencieusement a la spec, ce qui a donne le sentiment que le travail etait fait — le perimetre de l'annotation n'avait jamais ete etabli par un grep de la formule renversee.",
+			"fix": "Les deux commentaires retailles : ce qui reste vrai est garde (DELTAS n'admet aucun operande entier ; une liste vide est une feuille, d'ou l'absence de suffixe []), la clause fausse est remplacee par les deux motifs reels (aucun INSTANT d'application, aucune IDEMPOTENCE) avec renvoi au 8-1 du plan, sur le modele deja pose dans types.ts.",
+			"mitigation": "REGLE, durcissement du corollaire BUG-069 : quand une iteration renverse une affirmation, on ne corrige pas « les endroits auxquels on pense » — on GREP LA FORMULE RENVERSEE sur tout le depot et on traite la liste. L'annotation en place reste la forme ; c'est son PERIMETRE qui doit etre etabli par un outil, pas par la memoire.",
+			"regression_test": "Aucun — defaut de document. Trouve par la revue de PR tech-lead.",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-081",
+			"date": "2026-08-19",
+			"feature": "dossier-registres",
+			"discovered_at": "iteration-5",
+			"symptom": "Quatre reperes recopies devenus faux, tous dans des documents de lecture obligatoire, tous trouves a la revue de PR : (a) deux citations « destinations.ts:512-518 » dans specification.json, rendues fausses PAR LE LOT LUI-MEME (ses 33 lignes ajoutees ont decale le bloc en 545-552, et 512-518 designe desormais un autre champ) ; (b) le commentaire d'App.tsx enumerait huit panneaux alors que la table en injecte dix (Evenements manquait depuis it4, Conditions depuis ce lot) ; (c) l'entree dossier-fiches archivee dans features_history omettait BUG-077 ; (d) le goal d'it5 etait le seul non compacte du fichier, dans le lot meme qui compactait les quatre autres.",
+			"root_cause": "Meme cause pour les quatre : un repere recopie (numero de ligne, enumeration en prose, liste de bugs, recit) n'a aucun lien mecanique avec ce qu'il decrit et derive des que la chose bouge. (a) est le cas limite : la citation etait juste quand elle a ete ecrite et c'est le meme lot qui l'a invalidee. Famille KR-159/KR-176.",
+			"fix": "(a) citations par SYMBOLE et non par numero de ligne ; (b) enumeration remplacee par un renvoi a la table `panneaux` elle-meme, avec la trace du defaut en commentaire ; (c) BUG-077 ajoute a l'entree archivee ; (d) goal d'it5 compacte comme les quatre autres, renvoi a la revue.",
+			"mitigation": "REGLE : dans un document, on cite un SYMBOLE (un nom de cle, une constante, un chemin de champ), jamais un numero de ligne — un numero de ligne est un repere que le prochain diff invalide sans avertir. Et une enumeration en prose qui double une structure de donnees se remplace par un renvoi a la structure. Corollaire de scission : le lot qui DEPLACE une entree entre deux fichiers verifie son integrite champ par champ contre la source, pas seulement sa presence.",
+			"regression_test": "Aucun — defauts de document. Le compte de dispenses (18), lui, est desormais epingle par un test (couverture.test.ts), ce qui le sort de cette classe.",
+			"severity": "minor"
+		}
+	]
+}

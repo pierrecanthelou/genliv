@@ -62,6 +62,8 @@ Chaque rôle **doit** produire au moins une objection. Une note sans objection e
 
 **Aucun désaccord ne disparaît sans statut.** C'est la seule protection contre le faux consensus.
 
+**Et un `REJETÉ` qui vit dans l'ANNEXE d'un rôle n'existe pas pour l'essaim.** Les notes de tour sont condensées par l'orchestrateur avant d'atteindre les ouvriers ; une condensation garde les conclusions et perd les refus motivés qui les accompagnaient. Tout `REJETÉ` d'annexe se recopie donc dans le **registre des désaccords** du plan (§ 8), où il est lu. Contrôle constatable à la porte 2, et c'est ce qui distingue cette règle d'une bonne intention : les notes de tour sont des fichiers voisins du plan (`.claude/raffinage/<feature>-it<N>/tour1-*.md`) — avant d'écrire le § 8, relire leurs annexes et vérifier qu'aucun `REJETÉ` n'en reste sorti. Précédent, et il a coûté un défaut majeur : au raffinage de `dossier-controles` it1, le tech-lead avait rejeté nommément la variante « deux états pour ce qui est affiché — état illégal représentable » dans l'annexe de sa note de tour 1 ; la note condensée l'a perdue, l'ouvrier a livré exactement cette forme (deux lignes de navigation courantes à l'écran), et la QA en mode B n'a pas pu retrouver la prémisse qu'on lui citait (BUG-082).
+
 ## Droit de veto — cadré par domaine
 
 Le veto n'est pas un vote général ; chacun ne peut bloquer que sur **son** terrain.

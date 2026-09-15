@@ -3,7 +3,15 @@ import { Badge, ListRow, SECTIONS, type Dossier, type SectionId } from '../../..
 
 export interface SectionNavProps {
 	dossier: Dossier
-	selectedId: SectionId
+	/**
+	 * La section surlignée, ou `null` quand la destination courante n'est AUCUNE
+	 * des dix — c'est-à-dire « Contrôles » (n° 7). `null` plutôt que l'union
+	 * `SectionId | 'controles'` : cette nav n'a aucune raison de connaître une
+	 * destination qui ne lui appartient pas, elle a seulement besoin de savoir
+	 * qu'aucune de SES lignes n'est courante. Le jour où une deuxième destination
+	 * étrangère arrive, cette signature ne bouge pas.
+	 */
+	selectedId: SectionId | null
 	onSelect: (id: SectionId) => void
 }
 
@@ -38,14 +46,15 @@ export function SectionNav({ dossier, selectedId, onSelect }: SectionNavProps): 
 	)
 }
 
+// `width` / `borderRight` / `overflowY` / `padding` sont CÉDÉS au `<div>`
+// wrapper en colonne de `DossierEditorScreen` (§ 3 du plan d'itération 1 de
+// `dossier-controles`, itération 1) — c'est lui qui devient la boîte visuelle
+// de la colonne de nav depuis qu'elle empile deux `<nav>` frères
+// (« Sections du dossier » puis « Contrôles »). Rien d'autre ne change ici.
 const nav: CSSProperties = {
-	width: 280,
 	flexShrink: 0,
 	boxSizing: 'border-box',
-	borderRight: '1px solid var(--border-subtle)',
-	overflowY: 'auto',
 	display: 'flex',
 	flexDirection: 'column',
 	gap: 'var(--space-3)',
-	padding: 'var(--space-8)',
 }

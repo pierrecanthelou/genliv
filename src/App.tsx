@@ -5,6 +5,7 @@ import { SyncIndicator, ConflictDialog } from './features/cloud-sync'
 import { ImportDossierButton } from './features/dossier-format'
 import { CreateDossierEntry } from './features/book-creation'
 import { DossierEditorScreen } from './features/bascule-editeur'
+import { PanneauControles } from './features/dossier-controles'
 import { PanneauCanon, PanneauDepart, PanneauLieux } from './features/dossier-canon'
 import { PanneauPersonnages } from './features/dossier-fiches'
 import { PanneauObjets } from './features/dossier-objets'
@@ -42,6 +43,7 @@ export function App(): JSX.Element {
 			<DossierEditorScreen
 				key={route.dossierId}
 				dossierId={route.dossierId}
+				panneauControles={<PanneauControles dossierId={route.dossierId} />}
 				panneaux={{
 					canon: <PanneauCanon dossierId={route.dossierId} />,
 					depart: <PanneauDepart dossierId={route.dossierId} />,

@@ -49,7 +49,7 @@
 		{
 			"id": "KR-023",
 			"feature": "tree-canvas",
-			"risk": "The canvas AUTO-LAYS-OUT the book as a top-down TREE (resolvePositions, a pure VIEW over the choice-edge structure, KR-020): a DFS of the choice hierarchy from the sommaire root assigns y by DEPTH (each level a row beneath the previous) and x by a left-to-right leaf cursor with each PARENT CENTRED over its children's span â€” so the sommaire is at the TOP, every node's direct children sit on ONE evenly-spaced horizontal row beneath it, recursively, and links read downward. Convergence/cycle targets reached via nesting are placed once (visited set, KR-080/061). LINKLESS / unreachable nodes (the isolated mort, any page not reached from the sommaire by a choice edge) WRAP INTO A GRID below the tree (FREE_COLS columns) â€” so a book of loose pages reads as a familiar grid while a connected book reads as the tree above it. Do NOT place free nodes in a single horizontal row (reads as 'all nodes horizontal') NOR a single vertical column (reads as 'one branch descending') â€” both regressed this and were rejected; a wrapping grid avoids both. Deterministic, stable across reloads, never a 0,0 pileup. Stored node.position is currently IGNORED by the view; manual drag + per-book position persistence is a later iteration, at which point a stored position overrides the computed slot. autoSlot remains the BookService document default but is not consulted for the canvas layout."
+			"risk": "Le canevas dispose l arbre automatiquement (resolvePositions, pur) et n a aucune position persistee. COMPACTE le 2026-09-15 : tree-canvas est EN SOMMEIL, cable sur BookNode/Edge condamnes, demolition prevue n9, aucun repointage assigne (roadmap 1bis). Detail integral : src/features/tree-canvas/specification.json."
 		},
 		{
 			"id": "KR-024",
@@ -59,7 +59,7 @@
 		{
 			"id": "KR-025",
 			"feature": "tree-canvas",
-			"risk": "Per-device editor view state (pan/zoom, canvasâ†”outline view-mode, dragged node positions, the outline collapsed-node set) lives in the brain UIPreferencesService, persisted through the RAW local store â€” NOT the CloudSyncService decorator â€” so it can NEVER enter the cloud queue (KR-022/093); createBrain wires it over `local`, not `sync`. Its key is the `genliv:ui:book:<id>` namespace (uiPrefsKey), distinct from BOOK_KEY_PREFIX so listBooks never sees it. DRAGGED POSITIONS are a UI PREFERENCE, not synced book content: they persist in UIPreferencesService keyed by book+node and OVERRIDE the computed auto-layout slot in resolvePositions (a stored override replaces the slot, but only for nodes still in the book â€” a deleted node's stale override leaves no ghost, KR-021/023); node.position on the document stays the autoSlot default and is not consulted by the canvas. The service serves reads from an in-memory CACHE so getBookPrefs returns a STABLE reference between writes (useSyncExternalStore requires snapshot stability â€” a fresh object each call infinite-loops); each write makes a NEW prefs object (immutable update) and notifies subscribers; the no-prefs snapshot returns a single frozen EMPTY constant. Hooks (useBookViewMode/useBookNodePositions) are external-store subscriptions (KR-013), never useEffect mirrors. The live viewport stays fast local useState seeded lazily from the service and PERSISTED ON SETTLE (drag-release, each zoom step, a centre request) â€” never every pan frame. NodeCard drag uses window pointer listeners tracked in a ref + unmount cleanup (no dangling listener, BUG-001 pattern); a press that travels past a threshold is a drag (commit position, consume the click), one that doesn't is a select."
+			"risk": "L etat de vue de l editeur (pan/zoom, noeud glisse) est PAR APPAREIL et ne touche jamais le document. COMPACTE le 2026-09-15, meme motif que KR-023 : feature en sommeil. Detail integral : src/features/tree-canvas/specification.json."
 		},
 		{
 			"id": "KR-050",
@@ -134,7 +134,7 @@
 		{
 			"id": "KR-068",
 			"feature": "cross-cutting",
-			"risk": "Per-kind knowledge lives in ONE data-driven registry (brain/kinds.ts: NODE_KINDS / EDGE_KINDS), not scattered if (kind === â€¦) tests or partial maps. Each descriptor carries the kind's label, default title, badge mark, and domain invariants (structural / canHaveOutgoing / canBeTarget). Consumers (NodeBadge, nodeView, effectiveKind, NodeEditorPanel, BookService, EdgeLayer, OutgoingChoices) READ the descriptor. The registry is the SINGLE source even for the NodeKind/EdgeKind union types: each is derived with `keyof typeof` via the `defineKinds` factory, which infers the key union while pinning every entry to the descriptor shape â€” so there is no separate union to keep in sync, a missing descriptor field fails to compile, and there is no silent Partial<Record> gap. Kinds stay plain string literals (JSON-serialised domain) â€” descriptors, not classes, are the 'replace conditional with polymorphism' answer here. Same Open/Closed seam as ActionRegistry (KR-051). DOMAIN INVARIANTS are read through NAMED PREDICATES (kinds.ts: isStructural/canHaveOutgoing/canBeTarget/edgeNests), not by indexing the registry at call sites â€” callers ask the question without importing NODE_KINDS/EDGE_KINDS or knowing its shape (Law of Demeter); the registry stays the single source. PRESENTATIONAL reads (label/mark/defaultTitle/rowLabel/tone/canvasLabel) may still read the descriptor directly in view code."
+			"risk": "Le savoir PAR TYPE vit dans UN registre pilote par la donnee (brain/kinds.ts : NODE_KINDS), jamais en cascades de conditions dispersees. COMPACTE le 2026-09-15 : le principe est GENERALISE par KR-117 (ensemble ferme + Record exhaustif), et kinds.ts porte le modele d ARBRE, condamne a la demolition n9. Detail integral : src/features/tree-canvas/specification.json et l historique git."
 		},
 		{
 			"id": "KR-070",
@@ -374,17 +374,17 @@
 		{
 			"id": "KR-151",
 			"feature": "global-config",
-			"risk": "CROSS-FEATURE IMPORT IS ESLINT-ENFORCED (outillage-1 lot B, .eslintrc.cjs, no-restricted-imports + an ImportExpression selector for dynamic import(), message MSG_CROISE) — the rule and its message are the source, not this entry. player/ is deliberately exempt (extractible runtime, KR-134, not a feature)."
+			"risk": "Import inter-features : CABLE dans ESLint (no-restricted-imports, .eslintrc.cjs), dans les trois sens, sur une liste derivee du disque. Preuve : lintIsolation.test.ts. Le message francais de la regle nomme la parade — ne pas la re-decrire ici."
 		},
 		{
 			"id": "KR-152",
 			"feature": "global-config",
-			"risk": "RAW STORAGE IN A FEATURE IS ESLINT-ENFORCED (outillage-1 lot B, .eslintrc.cjs, no-restricted-globals + no-restricted-properties TOGETHER — the latter alone misses window.localStorage) — the rule is the source, not this entry. brain/ and player/utils/persist.ts (KR-134) are exempt by design."
+			"risk": "Stockage brut en feature : CABLE dans ESLint (no-restricted-globals + no-restricted-properties sur src/features/**, tests exclus). Passer par PersistenceService / persistenceKeys.ts. Le message de la regle nomme la parade."
 		},
 		{
 			"id": "KR-153",
 			"feature": "global-config",
-			"risk": "NO ESLINT RULE FOR KR-013/113 (DERIVED-STATE useEffect) — DECIDED AND REPLACED BY A REVIEW HEURISTIC (outillage-1 lot B): the only plausible AST selector (a useEffect whose entire body is one setX(...) call) was checked against all 24 useEffect sites in the repo at the time — zero derived-state mirrors, all legitimate (subscriptions, DOM listeners, imperative focus, timer cleanup, feature registration) — so the rule would start at zero signal while its future false positives (useEffect(() => { setMounted(true) }, []), a reset-on-route-change) are common and legitimate; a rule that cries wolf gets disabled within a month and takes the other two invariants down with it. AST sees a FORM, not a semantics, and derived-vs-legitimate is a semantic question. Replacement — a non-blocking review heuristic run before any self-review touching a component/hook: rg -n -U --multiline-dotall \"useEffect\\(\\(\\) => \\{[^}]{0,120}\\bset[A-Z]\\w*\\(\" src/, then for each hit ask ONE question — is the value passed to setX computable from props/state already present at render? If yes, replace with useMemo/inline computation and drop the effect. react-hooks/exhaustive-deps stays 'error' (catches the lying-dependency subclass of the same bug); // eslint-disable-next-line react-hooks/exhaustive-deps remains forbidden by CLAUDE.md regardless of this heuristic."
+			"risk": "Etat derive (KR-013/113) : il n existe VOLONTAIREMENT aucune regle ESLint — l AST voit une forme, pas une semantique. Heuristique de revue, procedure complete (repere rg, la question a poser, exhaustive-deps a error) dans docs/WORKFLOW.md, Build Steps etape 5."
 		},
 		{
 			"id": "KR-154",
@@ -690,6 +690,51 @@
 			"id": "KR-216",
 			"feature": "dossier-registres",
 			"risk": "JETON DE REMONTAGE : cle React d une ligne a etat local = id entite parente + compteur de retrait, jamais l index seul."
+		},
+		{
+			"id": "KR-217",
+			"feature": "dossier-controles",
+			"risk": "Le rapport de controles vit dans un module DISTINCT de validateDossier et porte un type FRERE de DossierIssue — jamais le canal errors/warnings. DEUX AXES : severity dit si le document peut etre ECRIT (deux valeurs, deux effets sur DossierService.update), niveau dit si l aventure peut etre JOUEE (trois mots, aucun effet). Mesure qui l impose : dossier-reference.json porte deja des indices a detenteur unique, donc la regle goulot ferait rougir suffisance.test.ts le jour de sa naissance si elle passait par warnings."
+		},
+		{
+			"id": "KR-218",
+			"feature": "dossier-controles",
+			"risk": "Un SEUL Badge par ListRow de SectionNav, toujours fusionne avec le compte existant de sections.ts — jamais un second noeud, jamais une coche verte sur une section saine (precedent SANS_COMPTE : un voyant tautologiquement vert est sans information)."
+		},
+		{
+			"id": "KR-219",
+			"feature": "dossier-controles",
+			"risk": "La section d un controle est DECLAREE par la regle qui le produit, jamais derivee de son path. SectionDescripteur.cle est un TEXTE D AFFICHAGE, pas un chemin : la section Jalons & fins porte deux chemins separes par un point median, et un resolveur devrait decouper une chaine d affichage. Une table path -> SectionId serait une SECONDE verite a tenir en phase avec SECTIONS."
+		},
+		{
+			"id": "KR-220",
+			"feature": "dossier-controles",
+			"risk": "Indice.portee est posee au type SANS lecteur, SANS ligne ENUMERES_FERMES, SANS ligne DESTINATION_DES_CHAMPS et SANS instance de fixture. Toute iteration qui l active livre le bloc ENTIER d un coup ET une fixture d exercice LOCALE — toucher les deux fixtures partagees ferait rougir couverture.test.ts, qui epingle sa destination a undefined, hors de la propriete de fichiers de la feature."
+		},
+		{
+			"id": "KR-221",
+			"feature": "dossier-controles",
+			"risk": "« absent n est pas vide » sur Personnage.caractere : le linter ne detecte « jamais regle » que par PRESENCE ou ABSENCE de cle. CURSEURS_INITIAUX pose les six curseurs a CURSEUR_MIN (0) et non a la mediane, si bien qu un bloc present tout au plancher est INDISTINGUABLE d un reglage delibere. curseurs.ts interdit nommement le repli par defaut a la lecture."
+		},
+		{
+			"id": "KR-222",
+			"feature": "dossier-controles",
+			"risk": "Deux silences indistinguables sont un defaut de classe KR-199. La regle « objectif sans chemin » se tait dans DEUX cas — reussi_si_expr absent (D1 : facultatif) et reussi_si_expr atteignable — et rien ne les separe par defaut. Le signal discriminant est l avertissement condition-sans-expr, deja produit par validateDossier : aucun code neuf n est du, mais l iteration 4 ne peut pas etre livree avant l iteration 3 pour cette raison."
+		},
+		{
+			"id": "KR-223",
+			"feature": "dossier-controles",
+			"risk": "MARQUEUR_A_ECRIRE (amorce.ts) est garde par DEUX tests-grep : un porteur unique de la VALEUR dans tout src/ (fichiers TypeScript), et l interdiction de sortir par brain/index.ts — y compris en COMMENTAIRE, l assertion portant sur le texte brut du baril. Un module de brain/dossier/ l IMPORTE depuis ./amorce : les deux gardes restent vertes, KR-215 ne se declenche pas. Corollaire de CONCEPTION, pas d hygiene : aucun fichier de feature ni aucun test ne peut ecrire le glyphe, donc un composant qui rend des controles les RECOIT en props et son test les FABRIQUE ; seul le panneau lit le dossier reel."
+		},
+		{
+			"id": "KR-224",
+			"feature": "dossier-controles",
+			"risk": "« tout lieu declare est atteignable » (MONDE OUVERT) est un raccourci DATE et assume, pas une propriete du domaine : le schema 1 n a aucun graphe de praticabilite, lieux[].acces n existe pas et n a aucun proprietaire (KR-200/205). Sans cette clause, « atteindre le sanctuaire » remonterait bloquant a tort. Le jour ou un graphe arrive, la definition change a UN endroit (atteignabilite.ts)."
+		},
+		{
+			"id": "KR-225",
+			"feature": "dossier-controles",
+			"risk": "Un dossier PERSISTE ne porte JAMAIS d anomalie de severite error : DossierService.update refuse toute ecriture dont validateDossier rend des errors, et get() revalide a chaque lecture. Consequence de conception : une regle de lint calquee sur reference-pendante allumerait un voyant qui ne peut jamais s allumer. Consequence de test : tout critere pretendant exhiber une anomalie error sur un dossier obtenu via DossierService fabrique un etat que le produit ne peut pas atteindre."
 		}
 	]
 }

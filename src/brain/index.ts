@@ -368,6 +368,17 @@ export { inspectDossierFile, type DossierInspection, type FileReadErrorCode } fr
 // indexe les tables de la feature (glyphe, feature propriétaire de l'écran
 // d'édition), `SectionDescripteur` type la ligne rendue.
 export { SECTIONS, type SectionDescripteur, type SectionId } from './dossier/sections'
+// MÊME RÈGLE pour l'itération 1 de la n° 7 : sort ce que le panneau Contrôles rend —
+// le rapport, ses types, et la ligne QUOI FAIRE, que le consommateur obtient par une
+// FONCTION pour n'avoir jamais à connaître ni le registre ni l'identifiant de la règle
+// (précédent exact `dossierIssueRemediation`). Restent dedans, comme `PREDICATES` et
+// `DELTAS` avant eux : le registre `CONTROLES`, son descripteur, `ConstatControle` et
+// la table des proses — aucun consommateur hors de `brain/dossier/`, et un registre
+// exporté trop tôt se fait lire par des branches `if (id === …)` avant d'avoir son
+// écran. `NiveauControle` sort AVEC le rapport et non pour lui-même : c'est lui qui
+// indexe le `Record` exhaustif des trois pastilles côté feature.
+export { controlerDossier, controleRemediation } from './dossier/controles'
+export type { NiveauControle, Controle, ControleId, RapportControles } from './dossier/controles'
 export type { DossierService, DossierResume, CorpsDossier, EcritureDossier } from './DossierService'
 export type { SelectionService } from './SelectionService'
 export { effectiveKind, endLabel } from './utils/nodeKind'

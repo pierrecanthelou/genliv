@@ -377,6 +377,83 @@ describe('DossierEditorScreen', () => {
 			expect(screen.getByText(texteEtatVide(5))).toBeInTheDocument()
 		})
 	})
+
+	/**
+	 * Critère #7 du plan d'itération 1 de `dossier-controles` : un SECOND
+	 * landmark, frère de « Sections du dossier », rendu SEULEMENT si un panneau
+	 * Contrôles est injecté (critère #8 : sans injection, la nav des dix
+	 * sections reste inchangée — voir `rend les 10 ListRow…` ci-dessus, non
+	 * modifié). Sonde LOCALE, jamais le vrai `PanneauControles`
+	 * (`dossier-controles`) : un test de `bascule-editeur` n'a pas plus le
+	 * droit de l'importer que le code source (KR-184).
+	 */
+	describe('entree Controles (dossier-controles iteration 1)', () => {
+		const SONDE_CONTROLES = 'Sonde du panneau Controles (test bascule-editeur)'
+		function SondePanneauControles(): JSX.Element {
+			return <p>{SONDE_CONTROLES}</p>
+		}
+
+		it('l entree Controles apparait quand un panneau est injecte', async () => {
+			const user = userEvent.setup()
+			const brain = createBrain()
+			const dossier = brain.dossiers.create('Un dossier')
+			render(
+				<BrainProvider brain={brain}>
+					<DossierEditorScreen dossierId={dossier.id} panneauControles={<SondePanneauControles />} />
+				</BrainProvider>,
+			)
+
+			const navControles = screen.getByRole('navigation', { name: 'Contrôles' })
+			const ligne = within(navControles).getByRole('button', { name: 'Contrôles' })
+			// Aucun badge de compte sur la ligne, et l assertion porte sur la TOTALITE
+			// du texte rendu : `toHaveTextContent` seul teste une SOUS-chaine et ne
+			// rougirait pas si un `trailing` etait ajoute demain a cote du titre
+			// (KR-199 — un test dont le nom couvre plus que ses assertions).
+			expect(ligne.textContent).toBe('Contrôles')
+
+			// Pas encore active : le panneau ne s affiche pas avant l activation.
+			expect(screen.queryByText(SONDE_CONTROLES)).toBeNull()
+
+			await user.click(ligne)
+			expect(ligne).toHaveAttribute('aria-current', 'true')
+			expect(screen.getByText(SONDE_CONTROLES)).toBeInTheDocument()
+
+			// BUG-082 — UNE SEULE ligne courante a l ecran. La premiere livraison
+			// portait DEUX etats (`selectedId` + `destination`) et laissait la
+			// derniere section surlignee en meme temps que « Controles » : deux
+			// lignes `aria-current` simultanees, qu aucun test ne voyait rougir.
+			const courantes = screen.getAllByRole('button').filter((bouton) => bouton.getAttribute('aria-current') === 'true')
+			expect(courantes).toEqual([ligne])
+
+			// Retour sur une section, puis activation CLAVIER (Tab implicite via
+			// focus + Entree, meme mecanique que le bloc "clavier" ci-dessus).
+			const navSections = screen.getByRole('navigation', { name: 'Sections du dossier' })
+			const lignesSections = within(navSections).getAllByRole('button')
+			expect(lignesSections).toHaveLength(10)
+			await user.click(lignesSections[0])
+			expect(screen.queryByText(SONDE_CONTROLES)).toBeNull()
+
+			ligne.focus()
+			await user.keyboard('{Enter}')
+			expect(ligne).toHaveAttribute('aria-current', 'true')
+			expect(screen.getByText(SONDE_CONTROLES)).toBeInTheDocument()
+
+			// SECTIONS.length === 10 reste vrai : la nav des dix sections est intacte.
+			expect(within(navSections).getAllByRole('button')).toHaveLength(10)
+		})
+
+		it('sans panneau Controles injecte, le second landmark n existe pas', () => {
+			const brain = createBrain()
+			const dossier = brain.dossiers.create('Un dossier')
+			render(
+				<BrainProvider brain={brain}>
+					<DossierEditorScreen dossierId={dossier.id} />
+				</BrainProvider>,
+			)
+
+			expect(screen.queryByRole('navigation', { name: 'Contrôles' })).toBeNull()
+		})
+	})
 })
 
 describe('racine de composition', () => {
