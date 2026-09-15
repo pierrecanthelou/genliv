@@ -35,8 +35,15 @@ export interface DossierEditorScreenProps {
 	 * jamais une onzième clé de section : « Contrôles » n'est pas une section
 	 * du dossier (§ 4 du plan d'itération 1 de `dossier-controles`). Sa nav
 	 * n'apparaît que si cette prop est injectée.
+	 *
+	 * RENDER-PROP depuis l'itération 4 de `dossier-controles` (§ 4 du plan) :
+	 * l'écran fournit le rappel de navigation `onSelectSection`, jamais
+	 * l'inverse. `SectionId` SEUL traverse la frontière — jamais
+	 * `DestinationNav`, qui reste STRICTEMENT local à ce fichier — donc le
+	 * panneau Contrôles ne peut pas exprimer `'controles'` et ne peut pas
+	 * fabriquer l'état illégal de BUG-082.
 	 */
-	panneauControles?: ReactNode
+	panneauControles?: (onSelectSection: (section: SectionId) => void) => ReactNode
 }
 
 const RAISON_APERCU_DESACTIVE =
@@ -123,7 +130,7 @@ export function DossierEditorScreen({ dossierId, panneaux, panneauControles }: D
 					)}
 				</div>
 				{destination === DESTINATION_CONTROLES
-					? panneauControles
+					? panneauControles?.((section) => setDestination(section))
 					: (panneaux?.[destination] ?? <PanneauSection sectionId={destination} />)}
 			</main>
 		</div>

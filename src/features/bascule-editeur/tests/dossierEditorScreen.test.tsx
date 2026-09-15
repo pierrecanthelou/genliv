@@ -10,6 +10,7 @@ import {
 	SECTIONS,
 	type Brain,
 	type Dossier,
+	type SectionId,
 } from '../../../brain'
 import { dossierKey } from '../../../brain/persistenceKeys'
 import { DossierEditorScreen, type DossierEditorScreenProps } from '../components/DossierEditorScreen'
@@ -542,60 +543,71 @@ describe('DossierEditorScreen', () => {
 	 * modifié). Sonde LOCALE, jamais le vrai `PanneauControles`
 	 * (`dossier-controles`) : un test de `bascule-editeur` n'a pas plus le
 	 * droit de l'importer que le code source (KR-184).
+	 *
+	 * Depuis l'itération 4 de `dossier-controles` (§ 4 du plan), `panneauControles`
+	 * est une RENDER-PROP : la sonde reçoit `onSelectSection` et l'appelle pour
+	 * prouver le câblage `ListeControles` → `PanneauControles` → `App.tsx` →
+	 * `DossierEditorScreen` → `SectionNav`, sans jamais importer une feature sœur.
 	 */
 	describe('entree Controles (dossier-controles iteration 1)', () => {
 		const SONDE_CONTROLES = 'Sonde du panneau Controles (test bascule-editeur)'
-		function SondePanneauControles(): JSX.Element {
-			return <p>{SONDE_CONTROLES}</p>
+		const SONDE_ACTIVER = 'Sonde : activer Indices'
+		function SondePanneauControles({
+			onSelectSection,
+		}: {
+			onSelectSection: (section: SectionId) => void
+		}): JSX.Element {
+			return (
+				<div>
+					<p>{SONDE_CONTROLES}</p>
+					<button type="button" onClick={() => onSelectSection('indices')}>
+						{SONDE_ACTIVER}
+					</button>
+				</div>
+			)
 		}
 
-		it('l entree Controles apparait quand un panneau est injecte', async () => {
+		/**
+		 * Critère #1 du plan d'itération 4 : la sonde, en render-prop, appelle
+		 * `onSelectSection('indices')` — destination initiale `SECTIONS[0]`
+		 * (Canon, JAMAIS Indices). La ligne « Indices » doit porter SEULE
+		 * `aria-current="true"` (égalité STRICTE du tableau filtré, jamais une
+		 * inclusion — généralise BUG-082 à toute ligne de l'écran, Sections et
+		 * Contrôles confondues), et le panneau Contrôles cède la place.
+		 */
+		it('la sonde du panneau selectionne la section demandee', async () => {
 			const user = userEvent.setup()
 			const brain = createBrain()
 			const dossier = brain.dossiers.create('Un dossier')
 			render(
 				<BrainProvider brain={brain}>
-					<DossierEditorScreen dossierId={dossier.id} panneauControles={<SondePanneauControles />} />
+					<DossierEditorScreen
+						dossierId={dossier.id}
+						panneauControles={(onSelectSection) => <SondePanneauControles onSelectSection={onSelectSection} />}
+					/>
 				</BrainProvider>,
 			)
 
-			const navControles = screen.getByRole('navigation', { name: 'Contrôles' })
-			const ligne = within(navControles).getByRole('button', { name: 'Contrôles' })
-			// Aucun badge de compte sur la ligne, et l assertion porte sur la TOTALITE
-			// du texte rendu : `toHaveTextContent` seul teste une SOUS-chaine et ne
-			// rougirait pas si un `trailing` etait ajoute demain a cote du titre
-			// (KR-199 — un test dont le nom couvre plus que ses assertions).
-			expect(ligne.textContent).toBe('Contrôles')
-
-			// Pas encore active : le panneau ne s affiche pas avant l activation.
-			expect(screen.queryByText(SONDE_CONTROLES)).toBeNull()
-
-			await user.click(ligne)
-			expect(ligne).toHaveAttribute('aria-current', 'true')
-			expect(screen.getByText(SONDE_CONTROLES)).toBeInTheDocument()
-
-			// BUG-082 — UNE SEULE ligne courante a l ecran. La premiere livraison
-			// portait DEUX etats (`selectedId` + `destination`) et laissait la
-			// derniere section surlignee en meme temps que « Controles » : deux
-			// lignes `aria-current` simultanees, qu aucun test ne voyait rougir.
-			const courantes = screen.getAllByRole('button').filter((bouton) => bouton.getAttribute('aria-current') === 'true')
-			expect(courantes).toEqual([ligne])
-
-			// Retour sur une section, puis activation CLAVIER (Tab implicite via
-			// focus + Entree, meme mecanique que le bloc "clavier" ci-dessus).
 			const navSections = screen.getByRole('navigation', { name: 'Sections du dossier' })
 			const lignesSections = within(navSections).getAllByRole('button')
-			expect(lignesSections).toHaveLength(10)
-			await user.click(lignesSections[0])
-			expect(screen.queryByText(SONDE_CONTROLES)).toBeNull()
+			// Destination initiale : SECTIONS[0] (Canon), JAMAIS Indices.
+			expect(lignesSections[0]).toHaveAttribute('aria-current', 'true')
 
-			ligne.focus()
-			await user.keyboard('{Enter}')
-			expect(ligne).toHaveAttribute('aria-current', 'true')
+			const navControles = screen.getByRole('navigation', { name: 'Contrôles' })
+			const ligneControles = within(navControles).getByRole('button', { name: 'Contrôles' })
+			await user.click(ligneControles)
 			expect(screen.getByText(SONDE_CONTROLES)).toBeInTheDocument()
 
-			// SECTIONS.length === 10 reste vrai : la nav des dix sections est intacte.
-			expect(within(navSections).getAllByRole('button')).toHaveLength(10)
+			await user.click(screen.getByRole('button', { name: SONDE_ACTIVER }))
+
+			// La ligne Indices (SECTIONS[5]) porte SEULE aria-current="true".
+			const ligneIndices = lignesSections[5]
+			expect(ligneIndices).toHaveTextContent('Indices')
+			const courantes = screen.getAllByRole('button').filter((bouton) => bouton.getAttribute('aria-current') === 'true')
+			expect(courantes).toEqual([ligneIndices])
+
+			// Le panneau Controles cede la place.
+			expect(screen.queryByText(SONDE_CONTROLES)).toBeNull()
 		})
 
 		it('sans panneau Controles injecte, le second landmark n existe pas', () => {
@@ -646,5 +658,29 @@ describe('racine de composition', () => {
 		// Le slot `lieux` gagne son panneau reel (dossier-canon it4), meme garde.
 		expect(source).toContain('PanneauLieux')
 		expect(source).toMatch(/panneaux=\{\{[\s\S]*?lieux:\s*<PanneauLieux/)
+	})
+
+	/**
+	 * Critère #6 du plan d'itération 4 de `dossier-controles` : le câblage RÉEL
+	 * de la racine — `App.tsx` passe `onSelectSection` à `PanneauControles`
+	 * dans un render-prop, et `panneauControles` reste AVANT `panneaux` (garde
+	 * de placement, § 4 du plan). `it` séparé de la sonde locale ci-dessus :
+	 * l'étendre dans le test existant ferait un nom couvrant plus que ses
+	 * assertions (KR-199).
+	 */
+	it('App.tsx cable onSelectSection sur PanneauControles', () => {
+		const cheminAppTsx = path.join(__dirname, '..', '..', '..', 'App.tsx')
+		const source = fs.readFileSync(cheminAppTsx, 'utf8')
+
+		expect(source).toMatch(
+			/panneauControles=\{\(onSelectSection\)\s*=>\s*\([\s\S]*?onSelectSection=\{onSelectSection\}/,
+		)
+
+		// panneauControles reste AVANT panneaux (garde de placement, § 4 du plan).
+		const indexPanneauControles = source.indexOf('panneauControles=')
+		const indexPanneaux = source.indexOf('panneaux={{')
+		expect(indexPanneauControles).toBeGreaterThan(-1)
+		expect(indexPanneaux).toBeGreaterThan(-1)
+		expect(indexPanneauControles).toBeLessThan(indexPanneaux)
 	})
 })

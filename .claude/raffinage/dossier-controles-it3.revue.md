@@ -85,9 +85,11 @@ Par règle : `depart-desert` 1 · `personnage-sans-presence` 4 · `personnage-sa
 | Score de mutation | **sans objet** — aucun des 4 fichiers mutés n'est au diff, confirmé par mesure et non supposé |
 | Table dorée | **sans objet** — aucun registre couvert n'est touché |
 
-## Incident hors périmètre, tracé ici parce qu'il s'est produit pendant l'itération
+## ~~Incident hors périmètre~~ — ATTRIBUTION CORRIGÉE le 2026-09-15 (raffinage it4)
 
 `docs/EXIGENCE-APERCU-DU-JEU.md` (supprimé, 62 l.) et `docs/REGLES-DU-JEU.md` (amputé de son en-tête « Source de vérité », 13 l.) ont été abîmés par un agent de la session, **sans aucun rapport avec l'itération** — le dépôt était propre au lancement. **Restaurés depuis `HEAD`** par l'orchestrateur ; les deux diffs étant purement soustractifs, aucune ligne écrite n'a été perdue, et la suite complète est repassée verte après restauration. **Aucun agent n'a déclaré avoir touché ces chemins** : le fait a été découvert parce que le rapport du lot les mentionnait comme « préexistants à son lancement », ce qu'ils n'étaient pas.
+
+> **⚠ CETTE SECTION ACCUSAIT À TORT. Corrigé au raffinage d'it4, confirmé par l'humain.** Ce n'était **pas** un dégât d'agent : c'est une **scission éditoriale** que l'humain avait lui-même engagée — le fichier `docs/REGLES-DU-JEU-PAPIER.md` (non suivi) est `REGLES-DU-JEU.md` **privé de son bloc d'en-tête**, c'est-à-dire exactement la moitié qui manquait à l'original. L'opération avait été interrompue en son milieu. La restauration depuis `HEAD` restait le bon geste (`tsc` était cassé par ailleurs, et une ligne de tableau portait du JSON collé de travers), mais **l'attribution était trop confiante**. *Une accusation sans auteur identifié ne se consigne pas comme un fait.*
 
 ## Dette écrite, à payer au commit SUIVANT (`.md` seul, sans revue)
 

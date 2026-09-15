@@ -1,9 +1,16 @@
 import type { CSSProperties } from 'react'
-import { controlerDossier, useOpenDossier } from '../../../brain'
+import { controlerDossier, useOpenDossier, type SectionId } from '../../../brain'
 import { ListeControles } from './ListeControles'
 
 export interface PanneauControlesProps {
 	dossierId: string
+	/**
+	 * Le rappel de navigation — REQUIS, fourni par `DossierEditorScreen` en
+	 * render-prop (§ 4 du plan d'itération 4) : `(onSelectSection) => (<PanneauControles
+	 * … onSelectSection={onSelectSection} />)`. Ce panneau ne connaît que
+	 * `SectionId`, jamais `DestinationNav` (local à `bascule-editeur`).
+	 */
+	onSelectSection: (section: SectionId) => void
 }
 
 /**
@@ -24,7 +31,7 @@ const TEXTE_ETAT_CALME = 'Aucun contrôle à signaler — le dossier passe tous 
  * miroité par un `useEffect` (KR-013/113) — la dérivation la moins chère
  * possible pour un calcul qui ne dépend que du dossier déjà en main.
  */
-export function PanneauControles({ dossierId }: PanneauControlesProps): JSX.Element | null {
+export function PanneauControles({ dossierId, onSelectSection }: PanneauControlesProps): JSX.Element | null {
 	const dossier = useOpenDossier(dossierId)
 	if (dossier === null) return null
 
@@ -40,7 +47,7 @@ export function PanneauControles({ dossierId }: PanneauControlesProps): JSX.Elem
 					<p style={emptyText}>{TEXTE_ETAT_CALME}</p>
 				</div>
 			) : (
-				<ListeControles controles={rapport.controles} />
+				<ListeControles controles={rapport.controles} onSelectSection={onSelectSection} />
 			)}
 		</div>
 	)

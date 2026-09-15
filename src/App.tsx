@@ -43,7 +43,9 @@ export function App(): JSX.Element {
 			<DossierEditorScreen
 				key={route.dossierId}
 				dossierId={route.dossierId}
-				panneauControles={<PanneauControles dossierId={route.dossierId} />}
+				panneauControles={(onSelectSection) => (
+					<PanneauControles dossierId={route.dossierId} onSelectSection={onSelectSection} />
+				)}
 				panneaux={{
 					canon: <PanneauCanon dossierId={route.dossierId} />,
 					depart: <PanneauDepart dossierId={route.dossierId} />,
