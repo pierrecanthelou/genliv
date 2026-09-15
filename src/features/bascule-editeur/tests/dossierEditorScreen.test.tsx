@@ -330,11 +330,30 @@ describe('DossierEditorScreen', () => {
 			// une copie du dossier RÉEL (spread, pas un dossier littéral inline — KR-156) ;
 			// tous les autres champs, y compris `charpente.depart`, restent ceux que
 			// `DossierService.create()` a validés.
+			//
+			// `presence` ET `caractere.parler` sont RENSEIGNÉS, et c'est le LITTÉRAL qui
+			// a été complété, jamais l'assertion : depuis l'itération 3 de
+			// `dossier-controles`, un personnage sans présence tire une ALERTE sur la
+			// section Personnages et `badgeSection` rendrait « 1 fiche · ALERTE » en UN
+			// SEUL nœud (KR-218), que `getByText('1 fiche')` ne trouverait plus. Réécrire
+			// l'assertion accrocherait CE test au jeu de règles d'une AUTRE feature, et
+			// il rougirait à chaque règle future. Le lieu de présence est lu sur le
+			// dossier réel, jamais écrit en dur : c'est `DossierService.create()` qui
+			// décide quel lieu il sème (KR-178).
 			const dossierPeuple: Dossier = {
 				...dossier,
 				monde: {
 					...dossier.monde,
-					personnages: [{ id: 'pnj.aldur-le-sage', portee: 'premier', plan_actions: [], savoirs: [] }],
+					personnages: [
+						{
+							id: 'pnj.aldur-le-sage',
+							portee: 'premier',
+							plan_actions: [],
+							savoirs: [],
+							presence: [{ lieu_id: dossier.charpente.depart.lieu_id }],
+							caractere: { parler: ['Je ne dirai rien avant la nuit.'] },
+						},
+					],
 				},
 				updatedAt: '2026-08-10T09:00:00.000Z',
 			}

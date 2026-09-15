@@ -1,0 +1,41 @@
+{
+	"_about": "Archive des defauts de dossier-controles (n 7, EN COURS 3/6) dont la lecon est DEJA PROMUE dans un instrument lui-meme en lecture obligatoire. MEME AXE que bug_history.dossier-fiches.json — le 5e, ne le 2026-08-13 — et applique ici pour la premiere fois a une feature VIVANTE, ce que cet axe permet explicitement : il porte sur la REDONDANCE, jamais sur l'age (precedents BUG-068, BUG-070, BUG-072, BUG-077, archives le jour meme de leur livraison, dossier-fiches etant alors en cours). Une entree promue est relue a chaque iteration SOUS SA FORME PROMUE ; garder le recit a cote, c'est payer la meme lecon deux fois par session. Ne le 2026-09-15 (dossier-controles it3, franchissement du plafond de 10 kio a 11 508 o). PROMOTIONS AYANT JUSTIFIE CHAQUE ENTREE : BUG-082 -> section << Et un REJETE qui vit dans l'ANNEXE d'un role n'existe pas pour l'essaim >> de .claude/skills/raffinage-iteration/SKILL.md, qui le NOMME et porte sa parade actionnable (tout REJETE d'annexe se recopie au registre des desaccords du plan, controle constatable a la porte 2). BUG-083 -> KR-199 de code-knowledge.json, que sa propre mitigation designe (<< Regle deja portee par KR-199 >>) — precedent exact BUG-072, archive sur ce meme motif. BUG-084 -> section << Une affirmation sur la couleur d'un test se MESURE, elle ne se deduit pas >> de la meme skill, qui le NOMME et detaille ses trois occurrences. CE QUI RESTE dans bug_history.json et pourquoi : BUG-074 (correctif NON FAIT, lecon promue nulle part — l'archiver serait l'oublier) et BUG-085 (ecrit le jour meme, leçon pas encore promue). Numerotation des BUG-xxx GLOBALE aux SEPT fichiers, jamais reemployee ; prochain id = max(BUG-xxx) des SEPT, jamais du seul fichier en cours (precedent BUG-062). Ce fichier n'est PAS en lecture obligatoire ; on l'ouvre pour le RECIT d'un defaut dont on a deja rencontre la regle. Historique complet des scissions : CHANGELOG.md.",
+	"bugs": [
+		{
+			"id": "BUG-082",
+			"date": "2026-09-15",
+			"feature": "dossier-controles",
+			"discovered_at": "iteration-1",
+			"symptom": "DossierEditorScreen rendait DEUX lignes courantes en meme temps : en activant Controles, la derniere section restait surlignee (aria-current=true) a cote de la ligne Controles egalement surlignee.",
+			"root_cause": "Le lot 2 a pose DEUX useState independants — selectedId: SectionId (ce que SectionNav surligne) et destination: DestinationNav (ce qui est affiche) — et le onSelect de la ligne Controles ne mettait a jour que le second. Deux sources pour « ce qui est affiche » : etat illegal representable. Cette forme avait ete REJETEE nommement par le tech-lead au tour 1 du raffinage (« 4 combinaisons pour 2 etats legaux »), mais la note condensee ecrite par l orchestrateur dans .claude/raffinage/dossier-controles-it1/tour1-tech-lead.md avait PERDU cette ligne : l ouvrier ne pouvait pas la lire, et la QA en mode B n a pas pu retrouver la premisse qu on lui citait.",
+			"fix": "Un seul etat destination: DestinationNav. SectionNavProps.selectedId passe de SectionId a SectionId | null, et l ecran lui passe null quand la destination courante ne lui appartient pas. null plutot que l union SectionId | controles : la nav n a aucune raison de connaitre une destination etrangere, elle a seulement besoin de savoir qu aucune de SES lignes n est courante.",
+			"mitigation": "Test de discriminance ajoute — sous Controles actif, la liste des boutons aria-current=true vaut exactement [ligne Controles]. Sonde executee : reintroduire le defaut fait rougir exactement ce test, le restaurer le rend vert.",
+			"regression_test": "src/features/bascule-editeur/tests/dossierEditorScreen.test.tsx — « l entree Controles apparait quand un panneau est injecte », bloc BUG-082",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-083",
+			"date": "2026-09-15",
+			"feature": "dossier-controles",
+			"discovered_at": "iteration-1",
+			"symptom": "Le test qui garde « l entree Controles ne porte aucun badge de compte » assertait expect(ligne).toHaveTextContent(\"Controles\"), un test de SOUS-CHAINE : il serait reste vert si un trailing avait ete ajoute a cote du titre.",
+			"root_cause": "toHaveTextContent (jest-dom) verifie une inclusion, pas une egalite. Le nom du test couvrait donc une portee plus large que son assertion — classe KR-199, cinquieme occurrence.",
+			"fix": "expect(ligne.textContent).toBe(\"Controles\") — egalite sur la totalite du texte rendu.",
+			"mitigation": "Regle deja portee par KR-199 ; ce cas ajoute le motif precis « toHaveTextContent est une inclusion » a retenir au moment d ecrire une assertion d ABSENCE.",
+			"regression_test": "src/features/bascule-editeur/tests/dossierEditorScreen.test.tsx — meme test, assertion sur textContent",
+			"severity": "minor"
+		},
+		{
+			"id": "BUG-084",
+			"date": "2026-09-15",
+			"feature": "dossier-controles",
+			"discovered_at": "iteration-2",
+			"symptom": "DEUX affirmations sur le comportement d un test, portees au plan d iteration et signees par le comite, etaient FAUSSES — et toutes deux avaient ete avancees sans executer le test. (a) « la sonde de teinte serait restee VERTE sans amendement » : elle aurait rougi, son assertion POSITIVE expect(source).toMatch(/tone=\"muted\"/) ne pouvant survivre au remplacement du litteral par tone={badge.tone}. (b) « les etats 4, 6 et 7 sont prouves au contrat ET au composant sur entree fabriquee » : seul l etat 4 l est, le test de composant ne fabriquant que le niveau bloquant.",
+			"root_cause": "Une affirmation sur ce qu un test FERAIT se raisonne au lieu de s executer. Pour (a), le tech-lead a pose le motif au tour 1, l a maintenu au tour 2, l orchestrateur l a recopie deux fois dans le plan, et personne n a lance l ancien test contre le nouveau fichier — il aurait suffi d un run. Pour (b), la phrase groupait trois etats dont un seul etait couvert au composant, dans le sens qui SURESTIME la couverture (classe KR-199 appliquee a la prose d un plan, non a un test). Troisieme occurrence de la meme famille dans cette feature apres la « faisabilite verifiee » de toHaveStyle, qui passait parce qu elle passe toujours.",
+			"fix": "CORRECTION PORTEE EN DEUX TEMPS, et le second temps est la lecon. D abord au plan (§7) et a la revue. Puis, la revue de PR ayant montre que la correction n avait PAS atteint les deux sites ou l affirmation fausse etait encore ECRITE : (a) le JSDoc de la sonde reecrite dans dossierEditorScreen.test.tsx — SEUL des sites a vivre en SOURCE, donc celui que les comites d it3 et it4 liront en premier ; (b) l open_question de specification.json, qui contredisait deviations_from_plan du meme fichier 50 lignes plus haut. La reecriture de la sonde RESTE juste — la nouvelle garde interdit strictement plus que l ancienne — mais son motif est desormais exact partout : l ancienne aurait echoue en accusant la MAUVAISE cause, et un ouvrier l aurait reparee en retablissant un litteral.",
+			"mitigation": "Regle a tenir, en trois temps. (1) Toute affirmation « ce test resterait vert / rougirait » se MESURE avant d entrer dans un plan — on rejoue le test contre l etat cible. (2) Et quand elle s avere fausse, on ne corrige pas « les endroits auxquels on pense » : on GREP LA FORMULE RENVERSEE et on traite la liste. La premiere correction de ce bug a manque deux sites sur cinq, dont le seul en source — meme classe que BUG-080, reproduite dans le lot meme qui en fait sa lecon. TROISIEME temps, mesure au premier usage de la regle : ce grep se fait INSENSIBLE A LA CASSE. La reprise a manque un sixieme site (une note de tour) parce que la formule y etait ecrite en CAPITALES — « serait restee VERTE » — qu un balayage sensible a la casse ne voit pas. Une affirmation qu on defend s ecrit volontiers en majuscules : c est exactement la ou le grep doit regarder. Ce site-la a ete ANNOTE et non reecrit — une note de tour est la piece sur laquelle repose le root_cause du bug ; la corriger detruirait la preuve du defaut.",
+			"regression_test": "Aucun test de code — defaut de raisonnement dans un document. La QA en mode B l a trouve en REJOUANT le corps de l ancien test contre le fichier livre, methode a reprendre quand un plan affirme la couleur d un test.",
+			"severity": "minor"
+		}
+	]
+}

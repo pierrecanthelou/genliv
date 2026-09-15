@@ -83,8 +83,15 @@ export function DossierEditorScreen({ dossierId, panneaux, panneauControles }: D
 	}
 
 	// Dérivé EN LIGNE à chaque rendu, jamais via un `useEffect` miroir ni un
-	// `useMemo` (KR-013/113) : `controlerDossier` est pure et bornée à quatre
-	// proses aujourd'hui, rien ne justifie de mettre en cache son résultat.
+	// `useMemo` (KR-013/113). Le motif a changé à l'itération 3 de la n° 7 et il
+	// est réécrit ici plutôt que laissé faux : `controlerDossier` balaie désormais,
+	// EN PLUS des quatre proses semées, les collections du dossier (personnages et
+	// leurs savoirs, quêtes, événements, climat, jalons, indices et leurs
+	// enchaînements). Elle reste pure, et le coût mesuré sur le dossier de
+	// référence du dépôt — dix constats — est sous le seuil où un cache se
+	// justifierait. `useMemo` attend une MESURE, jamais une intuition : le jour
+	// où un dossier réel rendra ce balayage visible au profilage, c'est cette
+	// mesure-là qui décidera, pas cette phrase.
 	// `parSection` SEUL est propagé à `SectionNav` — jamais le `RapportControles`
 	// entier, qui n'a rien à faire de `controles` ni de `jouable` ici.
 	const { parSection } = controlerDossier(dossier)
