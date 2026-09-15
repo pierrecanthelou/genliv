@@ -129,6 +129,15 @@ Dégâts finaux subis = `PF − Réduction_protection` (cf. ci-dessous). On arro
 
 Les monstres n'ont que **5 caractéristiques** (`FO, AG, DX, EN, IG`) et des armes naturelles (multiplicateur 0.3 à 2, moyenne 1). `PV` est noté `base ± variance`. La **valeur du Tier** d'un monstre (1 à 4) sert au calcul d'XP.
 
+#### Fuite du monstre — par famille
+
+Seuil de PV à partir duquel le monstre **peut vouloir rompre le combat**, et jet qui décide s'il y parvient :
+
+- **Humanoïdes** : peuvent fuir à 25 % de PV — jet sous MC, niveau de tier de difficulté = `1 + différence de tier (personnage − humanoïde)`.
+- **Morts-vivants** : attaquent tout le temps et **ne fuient pas**.
+- **Animaux** : à 50 % de PV, **une chance sur deux** de vouloir fuir. **Animaux géants** : à 40 % de PV.
+- **Créatures magiques** : peuvent fuir à 10 % de PV — jet sous MC, niveau de tier de difficulté = `différence de tier (personnage − créature)` ; si 0 alors **ne fuira pas**.
+
 ### 🟢 Tier 1 — Chair à canon & nuisibles
 | Monstre | FO | AG | DX | EN | IG | MC | PV | Armure | Arme | Capacité |
 |---------|----|----|----|----|----|----|----|--------|------|----------|
