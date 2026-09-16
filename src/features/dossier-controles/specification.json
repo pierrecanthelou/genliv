@@ -84,7 +84,7 @@
 			}
 		],
 		"walking_skeleton": "L'itération 1 est la tranche la plus fine qui traverse tout : le registre de règles dans brain/, son rapport dérivé (jouable compris), et l'écran qui le rend — avec UNE règle, celle dont le matériau est garanti présent sur tout dossier neuf : les proses encore marquées ⟨à écrire⟩. Elle est scindée en deux niveaux par l'AUDIENCE de la prose : BLOQUANTE sur charpente.depart.texte_ouverture_joueur, d'audience moteur et lue au joueur mot pour mot ; ALERTE sur les trois proses ia du canon, parce qu'aucune règle bloquante ne doit prendre pour critère un champ d'audience ia — exiger de nourrir le modèle pour débloquer le moteur inverserait les audiences. Les trois itérations suivantes ajoutent la surface de navigation, puis les règles de registre, puis l'atteignabilité — aucune ne rouvre le schéma.",
-		"n": 6,
+		"n": 8,
 		"iterations": [
 			{
 				"id": 1,
@@ -109,11 +109,21 @@
 			{
 				"id": 5,
 				"goal": "RAFFINEE le 2026-09-15 (comite a 5 roles, 2 tours, aucun veto tenu) - faire entrer au rapport les DIX emplacements ou validateDossier produit deja un avertissement, par UNE entree de registre lisant warnings et une table DECLAREE de dix lignes. Demo : l auteur qui laisse une fin, un blocage ou une revelation sans leur pendant structure, ou un synopsis trop long, le voit dans son rapport sans ouvrir chaque fiche une par une. Benefice second NOMME (exigence PM) : condition-sans-expr est le signal pre-requis d it6. Plan : .claude/raffinage/dossier-controles-it5.plan.md",
-				"status": "planned"
+				"status": "done"
 			},
 			{
 				"id": 6,
-				"goal": "Livrer l'atteignabilite : l'EXTRACTION de producteursParIndice vers brain/dossier/atteignabilite.ts (deplacement, jamais reecriture - le nom est fige depuis it3), sa SATURATION par point fixe, la regle canon sans objectif (bloquante) et la regle objectif sans chemin (bloquante si aucun producteur, alerte si le seul producteur n'est jamais amorce). La saturation fera DELIBEREMENT basculer le test du cycle mene_a d'it3 de deux alertes a deux bloquants. Demo : l'auteur voit qu'un objectif qu'il a pose n'a aucun chemin qui puisse l'accomplir.",
+				"goal": "RAFFINEE le 2026-09-16 (comite a 5 roles, 2 tours, aucun veto tenu). DECOUPEE EN TROIS a la porte de taille ; cette tranche ne porte que l EXTRACTION de producteursParIndice vers brain/dossier/atteignabilite.ts (deplacement, jamais reecriture - nom gele depuis it3) et la SATURATION de mene_a par point fixe. Bascule DELIBEREE de deux assertions livrees d it3 (cycle A<->B, auto-boucle) de alerte a bloquant. 1 LOT UNIQUE contrat, 5 fichiers, en DEUX TEMPS (T1 deplacement iso-comportement a assertion unique touchee, PUIS T2 saturation). 8 criteres. Demo : l auteur voit qu un indice pris dans une boucle de renvois n est produit par rien. Plan complet : .claude/raffinage/dossier-controles-it6.plan.md",
+				"status": "done"
+			},
+			{
+				"id": 7,
+				"goal": "Issue du decoupage d it6 (2026-09-16). Les deux regles d objectif : canon-sans-objectif (bloquante, collection vide, KR-164) et objectif-sans-chemin (bloquante), sur une table de productibilite BALAYEE depuis PREDICATES (KR-199) - emporte la REECRITURE de l invariant KR-226, ces deux regles etant les premieres a declarer section canon sur un path en canon.*. Demo : l auteur voit qu un objectif qu il a pose n a aucun chemin qui puisse l accomplir.",
+				"status": "planned"
+			},
+			{
+				"id": 8,
+				"goal": "Issue du decoupage d it6 (2026-09-16). Le SECOND point fixe, sur les RACINES : un producteur n est compte que s il est AMORCABLE (savoir sans porte revele_si, jalon ou evenement sans declencheur_expr). Sens d erreur INVERSE d it6 - fermer une porte RETIRE une racine, les faux positifs vivent ici, et c est le motif du decoupage. Herite de H2 la liste exhaustive. Demo : l auteur voit qu un indice n est servi que par une source que rien ne declenchera.",
 				"status": "planned"
 			}
 		],
@@ -141,16 +151,16 @@
 				"label": "iteration-1",
 				"completed_at": "2026-09-15",
 				"architecture_choices": [
-					"Module NEUF brain/dossier/controles.ts, jamais une extension de validate.ts : entree Dossier TYPE et gele (pas un unknown), sortie qui ne refuse JAMAIS une ecriture, et validate.ts appartient a la triade de la Decision A. […] .claude/raffinage/dossier-controles-it1.revue.md",
-					"La circularite de la signature du cadrage (ControleId = keyof typeof CONTROLES utilise dans le type que controler() rend) cassee par ConstatControle (sans id) + Controle extends ConstatControle, et remediation(constat). […] .claude/raffinage/dossier-controles-it1.revue.md",
+					"Module NEUF brain/dossier/controles.ts, jamais une extension de validate.ts : entree Dossier TYPE et gelee, sortie qui ne refuse JAMAIS une ecriture.",
+					"Circularite de la signature du cadrage cassee par ConstatControle (sans id) + Controle extends ConstatControle, et remediation(constat).",
 					"niveau et section sur le CONSTAT, pas sur le descripteur, avec UNE entree de registre.",
 					"Detection du marqueur par includes et non startsWith : amorce.test.ts teste le SEMEUR, qui maitrise la tete de sa chaine ; controles.ts lit un texte EDITE PAR L AUTEUR, qui ne la maitrise pas.",
-					"Un SECOND landmark <nav aria-label=\"Controles\"> frere, rendu sous injection : l ordre de tabulation suit le DOM (donc 11e position au clavier), le test existant des dix lignes reste vert SANS modification, et le landmark « Sections du dossier » cesse de mentir […] .claude/raffinage/dossier-controles-it1.revue.md",
+					"Un SECOND landmark <nav aria-label=\"Controles\"> frere, rendu sous injection : l ordre de tabulation suit le DOM, et le test existant des dix lignes reste vert SANS modification.",
 					"Raisonnement complet : .claude/raffinage/dossier-controles-it1.revue.md"
 				],
 				"deviations_from_plan": [
-					"L iteration touche DEUX features dans son lot non-contrat (dossier-controles neuve + adoption bascule-editeur) — signal de coupe de la skill, non coupe en connaissance de cause et acte par l humain a la porte 2 : un module brain/ sans ecran n est pas une tranc […] .claude/raffinage/dossier-controles-it1.revue.md",
-					"Cinq tests au-dela des noms du plan (aucun ne remplace un test nomme) ; libelle du descripteur non fourni par le contrat de design (aucune surface ne le rend) ; agregation « le plus grave » de parSection non specifiee au plan, livree par un Record exhaustif pa […] .claude/raffinage/dossier-controles-it1.revue.md",
+					"L iteration touche DEUX features dans son lot non-contrat - signal de coupe de la skill, non coupe en connaissance de cause et acte par l humain a la porte 2.",
+					"Cinq tests au-dela des noms du plan (aucun ne remplace un test nomme) ; libelle du descripteur non fourni par le contrat de design ; agregation << le plus grave >> de parSection non specifiee au plan.",
 					"Incoherence interne du plan relevee par la QA : le lot annoncait un test separe pour ListeControles, la table des tests n en listait aucun."
 				],
 				"test_coverage": {
@@ -168,16 +178,16 @@
 				"label": "iteration-2",
 				"completed_at": "2026-09-15",
 				"architecture_choices": [
-					"RÈGLE D ÉLISION : le mot du niveau REMPLACE le tiret des sections sans compte, il ne s y ajoute jamais.",
+					"REGLE D ELISION : le mot du niveau REMPLACE le tiret des sections sans compte, il ne s y ajoute jamais.",
 					"Porteur unique du couple mot+teinte extrait dans un fichier brain/ NEUF (pastilles.ts), en DEUX fonctions pures rendant { texte, tone } en un seul appel.",
-					"Le lot CONTRAT emporte un fichier de feature (ListeControles.tsx) : la sonde de porteur unique ne pouvait pas être verte à sa propre porte tant que la table PASTILLES survivait ailleurs. […] .claude/raffinage/dossier-controles-it2.revue.md",
+					"Le lot CONTRAT emporte un fichier de feature (ListeControles.tsx) : la sonde de porteur unique ne pouvait pas etre verte a sa propre porte tant que la table PASTILLES survivait ailleurs.",
 					"SectionNav gagne une prop REQUISE niveauxParSection (parSection seul, jamais le rapport entier).",
-					"La sonde de source « aucun badge de completion colore » est RÉÉCRITE et non supprimée, avec une garde strictement plus forte (toute teinte littérale, tout BadgeTone, tout mot de niveau interdits ; l appel à badgeSection exigé). […] .claude/raffinage/dossier-controles-it2.revue.md",
+					"La sonde de source << aucun badge de completion colore >> est REECRITE et non supprimee, avec une garde strictement plus forte.",
 					"Raisonnement complet : .claude/raffinage/dossier-controles-it2.revue.md"
 				],
 				"deviations_from_plan": [
-					"DEUX affirmations du plan sur le comportement d un test étaient FAUSSES, trouvées par la QA en mode B et confirmées par l orchestrateur (BUG-084) : « la sonde de teinte serait restée verte » (elle aurait rougi — son assertion POSITIVE sur tone=\"muted\" ne survi […] .claude/raffinage/dossier-controles-it2.revue.md",
-					"dev-contrat a corrigé deux commentaires au-delà de la lettre de son lot (brain/index.ts et ListeControles.tsx), chacun parce que sa prose devenait fausse du fait du lot — même motif que la correction de JSDoc explicitement commandée sur controles.ts."
+					"DEUX affirmations du plan sur le comportement d un test etaient FAUSSES, trouvees par la QA en mode B (BUG-084) - l instrument de teinte etait CASSE, pas absent : toHaveStyle sur un jeton var() passe quelle que soit la couleur.",
+					"dev-contrat a corrige deux commentaires au-dela de la lettre de son lot, chacun parce que sa prose devenait fausse du fait du lot."
 				],
 				"test_coverage": {
 					"unit": "85 suites / 1202 tests verts (avant itération : 83 / 1193 ; après le lot contrat seul : 84 / 1198)",
@@ -193,24 +203,23 @@
 				"label": "iteration-3",
 				"completed_at": "2026-09-15",
 				"architecture_choices": [
-					"QUATRE entrees de registre pour CINQ regles annoncees : indice-sans-source porte les deux seuils d'un SEUL compteur (0 producteur -> bloquant, 1 -> alerte, >=2 -> silence) via niveaux:['bloquant','alerte'].",
-					"producteursParIndice(dossier): Map<string, SourceIndice[]>, PRIVEE a controles.ts, lisant SIX chemins en union : savoirs[].indice_id + les 4 sites de CHEMINS_DE_DELTAS filtres sur reveler_indice + mene_a[] lu A PLAT. […] .claude/raffinage/dossier-controles-it3.revue.md",
-					"Les 4 sites de deltas sont lus en ACCES TYPES, jamais par un marcheur de chemins generique : sitesDe est privee a validate.ts et son import deja interdit par un test de source ; en reecrire un aurait cree un second moteur de traversee du schema, derivant de sa grammaire figee. […] .claude/raffinage/dossier-controles-it3.revue.md",
-					"depart-desert porte TROIS gardes, et la premiere est une necessite LOGIQUE : la regle porte sur la COLLECTION et non sur ses elements, or un predicat universel sur l'ensemble vide est VRAI - elle se declencherait PAR VACUITE sur tout dossier neuf. […] .claude/raffinage/dossier-controles-it3.revue.md",
-					"Le balayage de discriminance de controles.test.ts est REFONDU en Record<ControleId, Dossier> TOTAL PAR COMPILATION : il exigeait que chaque regle parle sur un dossier SEME, ce que les regles neuves ne peuvent structurellement pas faire. […] .claude/raffinage/dossier-controles-it3.revue.md",
+					"QUATRE entrees de registre pour CINQ regles annoncees : indice-sans-source porte les deux seuils d un SEUL compteur via niveaux:['bloquant','alerte'].",
+					"producteursParIndice(dossier): Map<string, SourceIndice[]>, PRIVEE a controles.ts, lisant SIX chemins en union : savoirs[].indice_id + les 4 sites de CHEMINS_DE_DELTAS filtres sur reveler_indice + mene_a[] lu A PLAT.",
+					"Les 4 sites de deltas sont lus en ACCES TYPES, jamais par un marcheur de chemins generique : en reecrire un aurait cree un second moteur de traversee du schema.",
+					"depart-desert porte TROIS gardes, et la premiere est une necessite LOGIQUE : un predicat universel sur l ensemble vide est VRAI, la regle se declencherait PAR VACUITE sur tout dossier neuf.",
+					"Le balayage de discriminance de controles.test.ts est REFONDU en Record<ControleId, Dossier> TOTAL PAR COMPILATION.",
 					"Raisonnement complet : .claude/raffinage/dossier-controles-it3.revue.md"
 				],
 				"deviations_from_plan": [
-					"DEUX affirmations du plan mesurees FAUSSES par la QA en mode B, corrigees en ECRIVANT LES TESTS MANQUANTS plutot qu'en adoucissant le texte : (a) le cas limite << auto-reference mene_a >> etait annonce couvert au section 7 sans aucun test de comptage ; (b) l'absence de severity sur un Controle n'eta […] .claude/raffinage/dossier-controles-it3.revue.md",
+					"DEUX affirmations du plan mesurees FAUSSES par la QA en mode B, corrigees en ECRIVANT LES TESTS MANQUANTS plutot qu en adoucissant le texte.",
 					"Le plan promettait en D-10 une garde de source que son propre section 7 ne listait pas.",
-					"entityId renseigne sur les 4 regles : extrapolation raisonnable de l'ouvrier (le champ existe au contrat depuis it2 et les tests s'appuient dessus), mais NON mandatee par le plan ecrit.",
-					"HORS ITERATION, trace ici parce que survenu pendant : docs/EXIGENCE-APERCU-DU-JEU.md a ete supprime et docs/REGLES-DU-JEU.md ampute de son en-tete << Source de verite >> par un agent de la session, sans rapport avec le lot. […] .claude/raffinage/dossier-controles-it3.revue.md"
+					"entityId renseigne sur les 4 regles : extrapolation raisonnable de l ouvrier, mais NON mandatee par le plan ecrit.",
+					"HORS ITERATION, trace ici parce que survenu pendant : deux fichiers de docs touches par un agent de la session, sans rapport avec le lot (voir la correction portee a it4 - scission editoriale engagee par l humain)."
 				],
 				"test_coverage": {
 					"unit": "85 suites / 1214 tests verts (avant iteration : 85 / 1213). controles.test.ts 13 -> 26 tests ; panneauControles 3 -> 4 ; dossierEditorScreen 26 -> 26 (CORRIGE au raffinage it4 : le journal ecrivait 28 -> 28, mesure fausse - une boucle TITRES.forEach genere 10 tests dynamiques, le compte reel n a jamais change) (litteral complete, zero assertion modifiee)",
 					"e2e": "sans objet - pas de spec navigateur dans ce depot"
 				},
-				"volume_mesure": "controlerDossier(dossier-reference.json) le 2026-09-15 : 10 lignes, jouable=false, 1 bloquant / 4 alertes / 5 infos. Par regle : depart-desert 1, personnage-sans-presence 4, personnage-sans-voix 5, indice-sans-source ZERO - les quatre indices de la fixture sont a exactement deux producteurs. A REFAIRE a chaque iteration, jamais recopie.",
 				"revue": ".claude/raffinage/dossier-controles-it3.revue.md"
 			},
 			{
@@ -257,7 +266,38 @@
 				"test_coverage": {
 					"unit": "85 suites / 1226 tests (base 1218, +8)",
 					"e2e": "preuve verticale au panneau, fixture locale mutee d un seul champ"
-				}
+				},
+				"revue": ".claude/raffinage/dossier-controles-it5.revue.md"
+			},
+			{
+				"id": 6,
+				"label": "iteration-6",
+				"completed_at": "2026-09-16",
+				"architecture_choices": [
+					"producteursParIndice DEPLACEE vers brain/dossier/atteignabilite.ts sous le meme nom, en DEUX TEMPS dont la porte est passee aux deux (T1 deplacement seul, UNE assertion touchee ; PUIS T2 saturation).",
+					"SATURATION par point fixe : une arete mene_a ne compte un producteur que si son amont est produit. Le COMPTEUR SURVIT - trois seuils intacts, jamais un booleen.",
+					"La saturation ne touche que les ARETES, jamais les RACINES, qui restent comptees ouvertes donc SOUS-GRADUEES : c est ce qui rend la tranche livrable seule.",
+					"DEUX messages, UNE remediation, sans aucun champ neuf - le message est grave a l emission, la remediation resolue depuis constat.niveau seul.",
+					"Discrimination des deux messages par l ENSEMBLE DE CLES de la Map (absente / presente-vide / pleine), sans aucun champ neuf. Structurellement garanti : les deux cartes partagent le meme ensemble de cles.",
+					"H1 et H2 en tete du module (forme KR-224) ; H2 legue a it8 les portes non evaluees ET savoirs[].revele_si.apres_indice_id."
+				],
+				"deviations_from_plan": [
+					"BUG-087 (majeur, QA en mode B) : le temoin du critere 2 ne discriminait ni une mono-passe ni une sur-propagation - deux affirmations du plan MESUREES FAUSSES. Corrige dans le meme lot.",
+					"BUG-088 (majeur, revue de PR) : le message MANDATE MOT POUR MOT au SS 3 affirmait que les enchainements << bouclent >>, la condition n etablissant que << des aretes, aucune racine >>. Corrige dans le meme lot.",
+					"Interpretation de brut par l ensemble de cles : le seul arbitrage que le comite n avait pas rendu, sa lettre etant incompatible avec << signature inchangee >>.",
+					"Des docstrings corrigees au-dela des deux mandatees : certaines portaient une affirmation que le plan declare fausse, d autres illustraient encore par une chaine a trois maillons, cinq autres conflaient boucle et absence de racine (BUG-088).",
+					"Un 4e it de controles.test.ts touche pour faire entrer le temoin neuf dans le balayage de langue (KR-199) ; un test de couture et une garde de population ajoutes au module neuf (KR-169).",
+					"panneauControles.test.tsx possede par le lot et livre a ZERO ligne modifiee, comme le plan l exigeait."
+				],
+				"test_coverage": {
+					"unit": "86 suites / 1237 tests verts",
+					"e2e": "non applicable (aucun parcours navigateur)"
+				},
+				"revue": ".claude/raffinage/dossier-controles-it6.revue.md",
+				"bugs": [
+					"BUG-087",
+					"BUG-088"
+				]
 			}
 		],
 		"resolved_decisions": [
@@ -310,15 +350,22 @@
 			"RETENU (raffinage it4) comme CHOIX et jamais comme necessite - la conversion des trois etages en <span> : <p> dans <button> est invalide au sens de la spec HTML, et ListRow a deja tranche ainsi. Raisonnement : .claude/raffinage/dossier-controles-it4.revue.md",
 			"RETENU (raffinage it4, tech-lead) - UN SEUL LOT, et l argument est TEXTUEL : la resolved_decision qui AUTORISE de toucher DossierEditorScreen.tsx est conditionnee a un lot unique possedant ce fichier en exclusivite. Raisonnement : .claude/raffinage/dossier-controles-it4.revue.md",
 			"RETENU (raffinage it4, mesure QA) - la porte passe par tsc AVANT jest, sans exception : sur un type mesapparie, jest reste VERT a 35/35 pendant que tsc rougit sur TROIS fichiers, dont celui qui CONSOMME la prop. Raisonnement : .claude/raffinage/dossier-controles-it4.revue.md",
-			"RETENU (raffinage it5, tech-lead + narratif + QA) - controles.ts IMPORTE validateDossier et lit .warnings. KR-217 interdit de PRODUIRE par ce canal, pas d y LIRE. La garde d it3 interdisait le MODULE ENTIER alors que son propre commentaire ne motivait que errors (KR-225 : un dossier persiste n en porte jamais) ; warnings est l inverse exact, le seul canal qui SURVIT a la persistance. Elle retrecit sur son motif : .errors interdit, .warnings exige. Mesure : lire warnings en ligne au rendu est deja la pratique du depot a QUATRE sites de features. Raisonnement : .claude/raffinage/dossier-controles-it5.revue.md",
-			"RETENU (raffinage it5, narratif - amendement KR-219) - la section reste DECLAREE, par une table de dix lignes ecrite par la regle productrice. DERIVEE vise un CALCUL (decouper, prefixer, SECTIONS[].cle) ; une table ecrite ligne a ligne et TOTALE PAR BALAYAGE n en est pas un - PROSES_AMORCE en est le precedent dans le meme fichier. Licite a deux conditions tenues par un test : totalite balayee depuis le registre qui fait foi, et un chemin absent produit ZERO constat, jamais une section de repli. Garde mecanique : controles.ts ne contient aucun decoupage de chemin. Raisonnement : .claude/raffinage/dossier-controles-it5.revue.md",
-			"RETENU (raffinage it5, narratif - motif substitue) - ZERO bloquant, parce qu AUCUN de ces dix sites PRIS SEUL ne rend l aventure injouable. JAMAIS 'parce que ce sont des warning' : c est la confusion d axes que KR-217 existe pour interdire (severity dit si le DOCUMENT s ecrit, niveau si l AVENTURE se joue). Erreur de cadrage de l orchestrateur, relevee par le narratif. L ancien motif aurait INTERDIT a it6 d ecrire sa regle de collection bloquante. Raisonnement : .claude/raffinage/dossier-controles-it5.revue.md",
-			"RETENU (raffinage it5, mesure orchestrateur contre R7 du tech-lead) - le message se REPREND sur 5 sites, s ECRIT sur 5. Discriminant mecanique : repris ssi le message interpole une VALEUR LUE DANS LE DOSSIER (les 4 decomptes de budget, la designation du savoir) ; ecrit sinon. Les 5 sites condition-sans-expr rendent litteralement le nom du champ JSON dans la prose de l auteur, ce que la docstring de controles.ts interdit a elle-meme. R7 etait pose sans la chaine sous les yeux. Raisonnement : .claude/raffinage/dossier-controles-it5.revue.md",
-			"RETENU (raffinage it5, mesure orchestrateur contre la proposition du narratif) - location est REPRIS tel quel aux dix sites. Mesure : validate.ts ne passe jamais le libelle de table, il passe site.location resolu par la MEME localiserEntite que controles.ts importe deja - il rend le nom de l entite, pas le nom de la section. Declarer les dix location remplacerait un nom d entite resolu par un seau ecrit a la main. Le narratif avait lu la table, pas la sortie. Raisonnement : .claude/raffinage/dossier-controles-it5.revue.md",
-			"RETENU (raffinage it5, mesure orchestrateur contre tech-lead + narratif) - la garde d it3 NE SE RELACHE PAS. Son predicat (racine du path differente de la section) est structurellement insatisfiable pour canon, seule des dix sections dont la cle n a pas de point ; mais le temoin retenu (revele_si vide sur dossier-minimal) produit UN avertissement de racine monde et de section personnages : il satisfait DEJA le predicat universel. Relacher couterait de la couverture sur cinq regles livrees pour n acheter rien. A la place : garde de source (aucun decoupage de chemin) + la limite canon DOCUMENTEE au-dessus du predicat. Raisonnement : .claude/raffinage/dossier-controles-it5.revue.md",
-			"RETENU (raffinage it5, mesure de cout) - aucun cache, aucun useMemo sur le rapport. validateDossier coute 0,743 ms contre 0,018 ms pour controlerDossier sur la reference de 13 ko (x41), le rapport passe a 0,768 ms, soit ~1,5 ms par rendu : rien a absorber. Le depot avait ecrit que c est cette mesure-la qui deciderait ; elle decide CONTRE le cache. Corollaire mesure : trois entrees - une par code - auraient coute six validations par rendu contre deux, d ou UNE entree. Un nombre sans son protocole ne se compare a rien : le protocole va dans la revue. Raisonnement : .claude/raffinage/dossier-controles-it5.revue.md",
-			"RETENU (raffinage it5, mesure orchestrateur - correction de l argument de valeur) - la valeur d it5 est l AGREGATION et la PORTEE, pas la revelation. Mesure : les dix sites ont DEJA une affordance sur leur propre ecran (quatre panneaux lisent les avertissements en ligne, le compteur du canon rougit seul), mais SEPT ne se montrent que pour l entite AFFICHEE. La phrase de demo dit donc 'sans ouvrir chaque fiche une par une', et non 'sans reimporter' comme le PM le defendait avant cette mesure. Raisonnement : .claude/raffinage/dossier-controles-it5.revue.md",
-			"RETENU (raffinage it5, UX - registre de langue etendu) - les dix remediations sont ECRITES pour le rapport : verbe nu a l imperatif, chemin d ecran entre parentheses, AUCUN glyphe, AUCUNE mention de canal, AUCUN terme interne. Motif mesure et non de gout : la consigne partagee de condition-sans-expr dit d ajouter la condition structuree aux DEUX sites, alors que sur si_bloque ce qui manque est une DUREE - elle contredit son propre message. La garde que le tech-lead citait (controles.test.ts:676) ne couvre que la regle d amorce : aucun test n empechait un glyphe d entrer. Raisonnement : .claude/raffinage/dossier-controles-it5.revue.md"
+			"RETENU (raffinage it5) - controles.ts IMPORTE validateDossier et lit .warnings : .errors INTERDIT, .warnings EXIGE. KR-217 interdit de PRODUIRE par ce canal, pas d y LIRE ; warnings est le seul canal qui SURVIT a la persistance. Raisonnement : .claude/raffinage/dossier-controles-it5.revue.md",
+			"RETENU (raffinage it5, amendement KR-219) - la section reste DECLAREE, par une table ecrite ligne a ligne par la regle productrice et TOTALE PAR BALAYAGE : ce n est pas le CALCUL que KR-219 vise. Garde mecanique : controles.ts ne contient aucun decoupage de chemin. Raisonnement : .claude/raffinage/dossier-controles-it5.revue.md",
+			"RETENU (raffinage it5, narratif - motif substitue) - ZERO bloquant sur les dix sites d avertissement parce qu AUCUN PRIS SEUL ne rend l aventure injouable. JAMAIS 'parce que ce sont des warning' : confusion d axes que KR-217 existe pour interdire. Raisonnement : .claude/raffinage/dossier-controles-it5.revue.md",
+			"RETENU (raffinage it5) - le message du validateur est REPRIS ssi il interpole une VALEUR LUE DANS LE DOSSIER, ECRIT sinon. Cinq et cinq. Raisonnement : .claude/raffinage/dossier-controles-it5.revue.md",
+			"RETENU (raffinage it5) - location est REPRIS tel quel aux dix sites : validate.ts passe le OU resolu par la MEME localiserEntite, jamais un libelle de table. Raisonnement : .claude/raffinage/dossier-controles-it5.revue.md",
+			"RETENU (raffinage it5) - la garde d it3 NE SE RELACHE PAS ; sa limite sur canon est DOCUMENTEE au-dessus du predicat (KR-226), l invariant etant tenu par un balayage de source. Raisonnement : .claude/raffinage/dossier-controles-it5.revue.md",
+			"RETENU (raffinage it5, mesure de cout) - aucun cache, aucun useMemo sur le rapport : ~1,5 ms par rendu, rien a absorber. Corollaire : UNE entree de registre, pas trois. Raisonnement : .claude/raffinage/dossier-controles-it5.revue.md",
+			"RETENU (raffinage it5) - la valeur d it5 est l AGREGATION et la PORTEE, pas la revelation : sept des dix sites ne se montrent que pour l entite AFFICHEE. Raisonnement : .claude/raffinage/dossier-controles-it5.revue.md",
+			"RETENU (raffinage it5, UX) - les dix remediations sont ECRITES pour le rapport : verbe nu a l imperatif, chemin d ecran entre parentheses, aucun glyphe, aucun terme interne. Raisonnement : .claude/raffinage/dossier-controles-it5.revue.md",
+			"RETENU (raffinage it6, porte de taille) - l it6 d origine est DECOUPEE EN TROIS, sur le SENS D ERREUR et non sur le volume : saturer les ARETES (it6) est monotone et sur, fermer une PORTE DE RACINE (it8) RETIRE un producteur - c est la que vivent les faux positifs. Raisonnement : .claude/raffinage/dossier-controles-it6.revue.md",
+			"RETENU (raffinage it6, narratif tour 2 - orchestrateur CONTRE les trois autres roles) - DEUX messages, UNE remediation, sur une asymetrie MESUREE : le message est grave dans le constat A L EMISSION (zero champ), la remediation est resolue depuis constat.niveau SEUL - deux consignes exigeraient un discriminant sur ConstatControle, interface exportee par le baril, donc etat illegal representable (BUG-082). Raisonnement : .claude/raffinage/dossier-controles-it6.revue.md",
+			"RETENU (raffinage it6, tech-lead) - le COMPTEUR SURVIT a la saturation : elle corrige un COMPTE, jamais un booleen atteignable, qui supprimerait le seuil 1 -> alerte livre en it3. Raisonnement : .claude/raffinage/dossier-controles-it6.revue.md",
+			"RETENU (raffinage it6, narratif) - la saturation ne touche que les ARETES, JAMAIS les racines, qui restent comptees ouvertes donc SOUS-GRADUEES : c est ce qui rend la tranche livrable SEULE sur une regle bloquante. Raisonnement : .claude/raffinage/dossier-controles-it6.revue.md",
+			"RETENU (raffinage it6, narratif) - atteignabilite.ts est le DOMICILE des hypotheses datees d atteignabilite (forme KR-224) : H1 l octroi des cibles de mene_a, H2 une racine reputee amorcable. H2 cite savoirs[].revele_si.apres_indice_id EN TOUTES LETTRES, que it8 herite. Raisonnement : .claude/raffinage/dossier-controles-it6.revue.md",
+			"RETENU (raffinage it6, UX + tech-lead retirant sa propre proposition) - une garde de test de feature NE DICTE PAS la prose francaise d un module brain/ : le TEXTE gagne, l ancre se reecrit dans le meme lot. Raisonnement : .claude/raffinage/dossier-controles-it6.revue.md",
+			"RETENU (raffinage it6, tech-lead) - un lot contrat qui DEPLACE du code s execute en DEUX TEMPS dont la porte est passee AUX DEUX : T1 le deplacement seul a assertion unique touchee, PUIS T2 le comportement. Unique instrument qui rend << deplacement, jamais reecriture >> constatable. Raisonnement : .claude/raffinage/dossier-controles-it6.revue.md"
 		],
 		"open_questions": [
 			"OUVERT (cadrage 2026-09-15) — « Intrigue en second plan » et Indice.portee reviennent ENSEMBLE, jamais l'un sans l'autre, le jour où UNE SEULE feature possède les deux moitiés : (a) un champ d'effet sur PlanAction — aujourd'hui inexistant, PlanAction ne porte aucun Delta — ou une marque « principal » sur un jalon, qui rendrait calculable la seconde clause ; (b) le champ de formulaire de portee dans FicheIndice.tsx. Tant que la seconde clause est sans matériau, activer la première ne livrerait qu'un relèvement de niveau sur un sous-ensemble du goulot. Propriétaire recommandé, non mandaté : une feature de durcissement des registres, ou n°16.",
@@ -329,18 +376,18 @@
 			"OUVERT (cadrage 2026-09-15, tech-lead) — le doublon de désignation d'entité subsiste : la logique « {Type} « {nom} » » avec repli « {Type} n°{index} (sans nom) » vit à la fois dans sitesDe (privé de validate.ts) et dans designationDe, exporté par FichePersonnage.tsx — une FEATURE, dont l'import depuis n°7 serait un veto d'isolation. n°7 ne le re-dérive pas : il consomme localiserEntite, exporté du baril. L'extraction reste due au prochain lot qui touche légitimement validate.ts.",
 			"OUVERT (raffinage it1, deviation actee par l humain a la porte 2, RECONDUITE a it4) - cette feature touche DEUX features dans son lot non-contrat, ce qui est un signal de coupe de la skill. Raisonnement : .claude/raffinage/dossier-controles-it1.revue.md",
 			"OUVERT (raffinage it2) — la LARGEUR RENDUE du badge composé n est vérifiée par personne : jsdom ne calcule aucun layout. Raisonnement : .claude/raffinage/dossier-controles-it2.revue.md",
-			"REPORTE VERS IT6 (raffinage it3) - la SATURATION par point fixe de mene_a, avec l'extraction de producteursParIndice vers atteignabilite.ts. Raisonnement : .claude/raffinage/dossier-controles-it3.revue.md",
 			"OUVERT (raffinage it3, reserve narratif, proprietaire n14) - monde.conditions.climat[].effets_regles est COMPTE parmi les producteurs d'un indice alors qu'aucun moteur ne peut aujourd'hui appliquer un effet de climat : un climat n'a AUCUN INSTANT d'application et rien n'enregistre << deja applique >>, donc aucune idempotence (destinations.ts l.551-562). Raisonnement : .claude/raffinage/dossier-controles-it3.revue.md",
 			"OUVERT (raffinage it3, QA - non verifiable par aucun instrument) - la premisse du bloquant << lieu de depart desert >> (<< le premier tour est le seul que l'auteur ne puisse pas rattraper, aucun acces alternatif n'existe a cet instant >>) n'est verifiee par AUCUN test et ne peut pas l'etre : il n'existe aucun graphe de lieux a interroger (KR-224, lieux[].acces toujours sans proprietaire). Raisonnement : .claude/raffinage/dossier-controles-it3.revue.md",
 			"OUVERT (raffinage it4, QA - clause anti-faux-signal) - si it5 ou it6 routent un jour le clic vers la section du REMEDE, le critere de navigation d it4 sera SUPERSEDED par le nouveau contrat, JAMAIS REGRESSE : un futur QA en mode B ne doit pas lire cette reecriture comme une regression. Raisonnement : .claude/raffinage/dossier-controles-it4.revue.md",
 			"OUVERT (raffinage it4) - le routage vers la SECTION DU REMEDE reste hors perimetre. Raisonnement : .claude/raffinage/dossier-controles-it4.revue.md",
 			"OUVERT (raffinage it4, signale par l UX ET le tech-lead, non mandate) - apres le clic, le bouton focalise se demonte et le focus retombe sur body. Raisonnement : .claude/raffinage/dossier-controles-it4.revue.md",
-			"CORRIGE (raffinage it4, confirme par l humain) - l accusation portee par la revue d it3 contre un agent (degradation de docs/REGLES-DU-JEU.md) est SANS OBJET : c est une scission editoriale engagee par l humain lui-meme (docs/REGLES-DU-JEU-PAPIER.md, non suivi). Raisonnement : .claude/raffinage/dossier-controles-it4.revue.md",
-			"REPORTE a it6 (raffinage it5, narratif) - 'porte morte, producteur fantome' : producteursParIndice compte savoirs[].indice_id SANS regarder revele_si, donc un indice dont l unique producteur est un savoir sans porte est compte comme produit alors que rien ne le revelera. Faux negatif d une regle BLOQUANTE. C est une cause distincte (KR-164), pas un relevement de niveau de revelation-sans-porte, qui reste info.",
+			"REPORTE a l iteration 8 (raffinage it5, narratif ; REPOINTE au raffinage it6) - 'porte morte, producteur fantome' : producteursParIndice compte savoirs[].indice_id SANS regarder revele_si, donc un indice dont l unique producteur est un savoir sans porte est compte comme produit alors que rien ne le revelera. Faux negatif d une regle BLOQUANTE, cause distincte (KR-164). It6 a sature les ARETES et laisse les RACINES intactes : c est exactement la charge d it8, et H2 lui en legue la liste exhaustive.",
 			"REPORTE au premier lot qui rouvrira validate.ts (raffinage it5, narratif - perimetre CORRIGE par la mesure) - 'deux lignes jumelles, aucune n est designable' : plusieurs elements d une MEME collection sous une MEME entite parente rendent des lignes identiques (meme OU, meme QUOI, seul le path differe et il n est pas rendu). Le narratif annoncait 7 sites sur 10 ; mesure : faux, location nomme l entite et separe les lignes de parents differents. Les quatre sites d ecriture d avertissement appellent anomalie a CINQ arguments, entityId jamais passe.",
 			"REPORTE au premier lot qui rouvrira validate.ts (raffinage it5, tech-lead) - 'le savoir se nomme par son identifiant' : designerSavoir (validate.ts:223) met un IDENTIFIANT dans la prose lue par l auteur, et it5 ELARGIT sa surface d exposition — le message etant REPRIS, il s affiche desormais aussi dans le rapport. Le corriger depuis controles.ts exigerait un second moteur de traversee du schema.",
 			"REPORTE a une iteration a part, SUR MESURE (raffinage it5, narratif + UX) - le GROUPEMENT des lignes prolifiques. Deux sites tirent par element (une ligne par savoir, une par objectif x2). Le releve volume_mesure d it5 doit compter les lignes produites, leur repartition par niveau, le site le plus prolifique ET le nombre de lignes indistinguables. Au-dela de ~10 lignes pour un site, l arbitrage a rouvrir est le groupement, pas le niveau - c est un changement d anatomie de la liste.",
-			"OUVERT (revue de PR it5) - controlerDossier paie un clone profond + gel que validateDossier produit et JETTE (validate.ts:837), deux fois par rendu : l essentiel des 0,743 ms mesures est du travail perdu, et il croit avec la taille du dossier (mesure sur 15 832 o). Si le cout redevient un sujet, le levier est de NE PAS CLONER — jamais un cache (RJ-6, KR-013/113)."
+			"OUVERT (revue de PR it5) - controlerDossier paie un clone profond + gel que validateDossier produit et JETTE (validate.ts:837), deux fois par rendu : l essentiel des 0,743 ms mesures est du travail perdu, et il croit avec la taille du dossier (mesure sur 15 832 o). Si le cout redevient un sujet, le levier est de NE PAS CLONER — jamais un cache (RJ-6, KR-013/113).",
+			"REPORTE a l iteration 8 (raffinage it6) - savoirs[].revele_si.apres_indice_id, SECONDE arete indice->indice du schema, n est PAS saturee par it6 : c est une porte de racine, pas une arete de production. Nommee en H2 et rendue mecanique par la garde G3.",
+			"REPORTE a la n 9 moteur-dossier (raffinage it6, narratif) - le seuil >= 2 -> silence sous la SECONDE lecture de mene_a (types.ts:1069 est ambigu entre octroi automatique et liste de pistes). Le POINT FIXE reste valide sous LES DEUX ; seul le COMPTE devient trop genereux, et se corrige dans atteignabilite.ts en UN endroit."
 		]
 	}
 }

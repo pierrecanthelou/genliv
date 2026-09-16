@@ -1,0 +1,9 @@
+# Tour 2 — pm-produit — dossier-controles it6
+
+**C2 (mon terrain) — l'alerte reste hors périmètre comme critère, mais suit le même texte sans coût.** UX a raison sur le fond : la remédiation alerte n'est pas un mensonge (contrairement au bloquant/cycle, elle ne nie rien d'observable), c'est une imprécision — un geste supplémentaire qui ne nuit pas s'il échoue. Ce n'est pas la valeur nulle qui justifie un veto. Je ne crée PAS de second critère d'acceptation pour l'alerte : ce serait gonfler la tranche pour une différence de gravité, pas de nature. En revanche, si la même ligne de table (`controles.ts:263-270`) est de toute façon réécrite pour le bloquant, la même main peut qualifier le dernier segment de l'alerte sans ouvrir de fichier, de mécanisme ou de test supplémentaire — c'est une conséquence gratuite du même edit, pas un ajout de périmètre. Si ça coûte un fichier ou un discriminant : reporté à n° 8, point.
+
+**Mes objections du tour 1 : RETIRÉE (satisfaite).** Je demandais une correction du texte bloquant, un seul critère, zéro code distinct. La proposition narratif (« Aucun chemin praticable ne donne cet indice ») livre exactement ça — un texte vrai des deux côtés, sans code, sans champ. Le veto annoncé tombe : il n'a plus d'objet.
+
+**C1 — UN texte, pas deux.** Du point de vue de l'auteur, la distinction « aucune source brute » / « boucle sans source réelle » est un détail de mécanisme, invisible à l'écran et sans effet sur son prochain geste : dans les deux cas il doit ancrer la chaîne à une vraie source. Le texte narratif satisfait déjà la contrainte non négociable d'UX (ne nie pas l'enchaînement, ne repropose pas le geste neutralisé) sans discriminant ni second `ControleId` — deux textes achèteraient une nuance interne au prix d'un mécanisme de sélection. Le blocage tech-lead sur le fragment « aucun enchaînement » est déjà résolu par sa propre annexe (le lot possède le test, peut le réécrire).
+
+VERDICT — recevable sous réserve

@@ -1,5 +1,5 @@
 import { AMORCE, MARQUEUR_A_ECRIRE } from './amorce'
-import type { Delta } from './deltas'
+import { producteursParIndice } from './atteignabilite'
 import { defineRegistre, estCleDe, localiserEntite } from './identifiers'
 import type { DossierIssue, DossierIssueCode } from './issues'
 import { SECTIONS, type SectionId } from './sections'
@@ -250,26 +250,76 @@ type SeuilIndice = 'bloquant' | 'alerte'
  *  · « aucun personnage, aucun effet et aucun enchaînement » n'est affirmable
  *    QUE parce que `producteursParIndice` balaie les SIX chemins. Retirer un
  *    chemin de l'index rendrait cette phrase fausse avant de rendre le compte
- *    faux — le texte se relit donc avec l'index, jamais seul ;
+ *    faux — le texte se relit donc avec l'index, jamais seul. C'est aussi
+ *    pourquoi cette ligne-ci ne couvre PLUS tout le seuil `bloquant` depuis
+ *    qu'it6 sature les arêtes : elle nie trois familles, et un indice servi par
+ *    des enchaînements sans racine EN A UNE — il relève de
+ *    `MESSAGE_INDICE_SANS_RACINE` ci-dessous, jamais de celle-ci ;
  *  · l'énumération des remèdes est ISOMORPHE à l'ensemble des producteurs
- *    comptés : trois familles comptées, trois familles offertes. Le texte du
- *    seuil `alerte` ne nomme pour cette raison AUCUNE famille (« un seul
- *    chemin », jamais « un seul personnage ») — un indice à source unique peut
- *    n'être détenu par personne, et c'est le cas de la fixture des preuves.
+ *    comptés — mais l'isomorphisme a CESSÉ d'être plat avec la saturation :
+ *    trois familles comptées, DEUX offertes sans condition et UNE sous condition
+ *    explicitée dans la phrase (« depuis un indice que le joueur peut lui-même
+ *    obtenir »). Offrir l'enchaînement sans sa réserve conseillerait, sur un
+ *    indice déjà servi par des enchaînements sans racine, le geste que l'auteur
+ *    vient de faire. Le texte du seuil
+ *    `alerte` ne nomme pour cette raison AUCUNE famille dans son MESSAGE (« un
+ *    seul chemin », jamais « un seul personnage ») — un indice à source unique
+ *    peut n'être détenu par personne, et c'est le cas de la fixture des preuves.
  */
 const PROSES_INDICE_SANS_SOURCE: Record<SeuilIndice, ProseControle> = {
 	bloquant: {
 		message:
 			"Aucun personnage, aucun effet et aucun enchaînement ne donne cet indice : le joueur ne pourra jamais l'obtenir.",
 		remediation:
-			"Confiez-le à un personnage (Personnages → Savoirs), révélez-le par un effet « révèle l'indice », ou faites-y mener un autre indice (Indices → Mène à).",
+			"Ancrez la chaîne : confiez cet indice — ou l'un de ceux qui y mènent — à un personnage (Personnages → Savoirs), ou révélez-le par un effet « révèle l'indice ». Un enchaînement depuis un indice lui-même inaccessible ne suffit pas.",
 	},
 	alerte: {
 		message: "Cet indice n'est accessible que par un seul chemin : si le joueur le manque, il devient inaccessible.",
 		remediation:
-			"Ouvrez-lui un second chemin — un autre personnage (Personnages → Savoirs), un effet « révèle l'indice », ou un enchaînement depuis un autre indice (Indices → Mène à).",
+			"Ouvrez-lui un second chemin — un autre personnage (Personnages → Savoirs), un effet « révèle l'indice », ou un enchaînement depuis un indice que le joueur peut lui-même obtenir (Indices → Mène à).",
 	},
 }
+
+/**
+ * LE SECOND MESSAGE DU SEUIL `bloquant` — celui de l'indice que des
+ * enchaînements SERVENT, mais dont AUCUN ne remonte à une racine. UNE CONSTANTE
+ * NOMMÉE À PART, jamais une troisième ligne de `PROSES_INDICE_SANS_SOURCE`, et
+ * le motif est mécanique :
+ *  · cette table est un `Record<SeuilIndice, ProseControle>` TOTAL, indexé par
+ *    le NIVEAU et par lui seul. Une troisième clé n'y est pas un niveau, donc
+ *    `estSeuilIndice` cesserait d'être une garde de type et la consigne cesserait
+ *    de se résoudre depuis `constat.niveau` ;
+ *  · le MESSAGE est gravé dans le constat À L'ÉMISSION, la REMÉDIATION est
+ *    résolue PLUS TARD depuis `constat.niveau` SEUL. Deux messages coûtent donc
+ *    zéro champ, zéro type ; deux consignes exigeraient un discriminant sur
+ *    `ConstatControle`, interface exportée par le baril et posable sur les
+ *    constats des cinq autres règles — un état illégal représentable. C'est
+ *    l'arbitrage d'it6 : DEUX messages, UNE remédiation, vraie des deux côtés.
+ *
+ * IL NE DIT PAS « BOUCLE », ET C'EST UNE CORRECTION DE REVUE, pas une nuance de
+ * style. La condition d'émission établit « toutes les sources brutes sont des
+ * enchaînements et aucune ne survit » ; elle n'établit PAS que les amonts se
+ * renvoient l'un à l'autre. En remontant les amonts d'un indice non produit dans
+ * un graphe FINI, on tombe sur un cycle OU sur une chaîne simplement non
+ * racinée — et c'est la seconde configuration qui est la plus probable, un
+ * auteur qui chaîne `A → B → C` sans raciner `A`. La version précédente de ce
+ * texte affirmait la boucle sur les deux : elle était FAUSSE sur le cas courant.
+ *
+ * CE QU'IL NE DIT PAS NON PLUS, et qui est une contrainte de rédaction : il ne
+ * nomme aucun des indices en amont. Ils sont en nombre quelconque, et dans le
+ * cas particulier du cycle l'« autre membre » n'est calculable que pour un cycle
+ * à DEUX — faux pour l'auto-renvoi et pour les cycles à trois et plus. Une
+ * formulation à exceptions plutôt qu'une règle.
+ *
+ * SA VÉRITÉ EST STRUCTURELLE, pas rédactionnelle : il n'est émis que sous
+ * « sources brutes non vides ET compte saturé nul », ce qui ÉQUIVAUT à « toutes
+ * les sources sont des enchaînements, et aucun ne remonte à un personnage ou à
+ * un effet » — l'équivalence est démontrée à la docstring de
+ * `producteursParIndice` (`atteignabilite.ts`), et c'est elle qui empêche cette
+ * phrase de dériver. Le texte dit désormais exactement cela, et rien de plus.
+ */
+const MESSAGE_INDICE_SANS_RACINE =
+	"Cet indice n'est relié qu'à des enchaînements qui ne remontent eux-mêmes à aucun personnage ni à aucun effet : le joueur ne pourra jamais l'obtenir."
 
 /**
  * L'appartenance PROPRE au couple de seuils (KR-175), en GARDE DE TYPE : la
@@ -314,101 +364,6 @@ const PROSE_PERSONNAGE_SANS_VOIX: ProseControle = {
 	message:
 		"Ce personnage n'a aucune réplique type : le modèle inventera sa façon de parler, et elle changera d'un tour à l'autre.",
 	remediation: "Écrivez une ou deux répliques telles qu'il les dirait (Caractère exploitable → Manière de parler).",
-}
-
-/**
- * LA FAMILLE d'un chemin producteur. Trois familles comptées, trois familles
- * offertes par la remédiation : l'isomorphisme est une contrainte de rédaction
- * mesurée, pas une coïncidence — une quatrième famille comptée sans quatrième
- * remède offert rendrait la consigne incomplète sans qu'aucun test rougisse.
- */
-type FamilleDeSource = 'savoir' | 'delta' | 'mene_a'
-
-/**
- * UNE SOURCE qui fait parvenir un indice au joueur. Un OBJET plutôt que le seul
- * mot de la famille, et c'est délibéré : la saturation transitive d'it6 aura
- * besoin du PORTEUR de l'arête, et un champ de plus posé ici ne touchera pas la
- * signature de `producteursParIndice`, qui est le contrat d'extraction.
- */
-interface SourceIndice {
-	famille: FamilleDeSource
-}
-
-/**
- * L'INDEX DES PRODUCTEURS — pour chaque identifiant d'indice CITÉ quelque part
- * dans le dossier, les sources qui le produisent. Un indice ABSENT de la carte
- * n'a aucun producteur : c'est le zéro, et son appelant le lit comme tel.
- *
- * Pure, totale, et elle ne ferme sur RIEN — en particulier pas sur `CONTROLES`.
- * C'est cette propriété-là, et non sa taille, qui la rend déplaçable telle
- * quelle.
- *
- * CONTRAT D'EXTRACTION D'IT6 : elle garde ce NOM en traversant vers
- * `atteignabilite.ts`, où elle sera DÉPLACÉE, jamais réécrite. Un déplacement se
- * relit en diff ; une réécriture sous un autre nom passe inaperçue.
- *
- * LES SIX CHEMINS, en UNION et jamais en branches disjointes — deux branches
- * disjointes laissent entre elles un indice à zéro savoir et un seul effet, donc
- * un silence sur le cas même que la règle existe pour attraper :
- *  · `monde.personnages[].savoirs[].indice_id` ;
- *  · les QUATRE sites de `CHEMINS_DE_DELTAS` filtrés sur `reveler_indice` —
- *    récompense de quête, conséquence de résolution, effet de climat, effet de
- *    jalon — lus en ACCÈS TYPÉS, jamais par un marcheur de chemins générique :
- *    `sitesDe` est PRIVÉE à `validate.ts` et son import est déjà interdit ici
- *    par un balayage de source ; en réécrire un créerait un SECOND moteur de
- *    traversée du schéma, non typé, qui dériverait en silence de la grammaire
- *    figée du premier ;
- *  · `monde.indices[].mene_a[]`.
- *
- * LE CLIMAT EST COMPTÉ bien qu'aucun moteur ne sache aujourd'hui APPLIQUER un
- * effet de climat : sur une règle bloquante, l'erreur permise est le faux
- * négatif, jamais le faux positif.
- *
- * `mene_a` EST LU À PLAT, JAMAIS SATURÉ : tout indice cité dans un `mene_a[]`
- * compte un producteur, sans qu'on vérifie que son amont soit lui-même produit.
- * CE QUE CETTE LECTURE NE COUVRE PAS : un CYCLE sans aucune source extérieure
- * (`A.mene_a = ['B']`, `B.mene_a = ['A']`) — chacun des deux s'y compte un
- * producteur et remonte ALERTE, là où la saturation par point fixe remonterait
- * BLOQUANT. Le sens d'erreur est délibéré : SOUS-GRADUÉ, JAMAIS ÉTEINT. La
- * saturation est la charge d'IT6, qu'elle traverse avec l'atteignabilité ; son
- * test séparateur est écrit et basculera ce jour-là de deux alertes à deux
- * bloquants.
- */
-function producteursParIndice(dossier: Dossier): Map<string, SourceIndice[]> {
-	const producteurs = new Map<string, SourceIndice[]>()
-
-	const ajouter = (indiceId: string, famille: FamilleDeSource): void => {
-		const sources = producteurs.get(indiceId)
-		if (sources === undefined) producteurs.set(indiceId, [{ famille }])
-		else sources.push({ famille })
-	}
-
-	// Un emplacement d'effets, quel que soit son porteur — le filtre sur
-	// `reveler_indice` est écrit UNE FOIS, et un balayage de source tient cette
-	// unicité : quatre copies dériveraient le jour où un cinquième site entrerait.
-	const ajouterEffets = (effets: readonly Delta[]): void => {
-		for (const effet of effets) {
-			if (effet.delta !== 'reveler_indice') continue
-			for (const cible of effet.cibles) ajouter(cible, 'delta')
-		}
-	}
-
-	for (const personnage of dossier.monde.personnages) {
-		for (const savoir of personnage.savoirs) ajouter(savoir.indice_id, 'savoir')
-	}
-
-	for (const quete of dossier.monde.quetes) ajouterEffets(quete.recompense)
-	for (const evenement of dossier.monde.evenements) {
-		for (const resolution of evenement.resolutions) ajouterEffets(resolution.consequence)
-	}
-	for (const climat of dossier.monde.conditions.climat) ajouterEffets(climat.effets_regles)
-	for (const jalon of dossier.charpente.jalons) ajouterEffets(jalon.effet)
-
-	for (const indice of dossier.monde.indices) {
-		for (const vise of indice.mene_a ?? []) ajouter(vise, 'mene_a')
-	}
-
-	return producteurs
 }
 
 /**
@@ -643,6 +598,14 @@ export const CONTROLES = defineRegistre<ControleDescripteur>()({
 	 * haut, dit qu'une seule source est un goulot. UNE cause, DEUX seuils, jamais
 	 * deux entrées : `0 → bloquant`, `1 → alerte`, `≥ 2 → silence`.
 	 *
+	 * ET DEUX TEXTES SOUS LE SEUIL `bloquant` DEPUIS IT6, toujours sous UN SEUL
+	 * identifiant de règle : la cause est la même (« zéro producteur après
+	 * saturation »), seule sa CONFIGURATION diffère — un indice que rien ne cite,
+	 * un indice que des enchaînements servent sans qu'aucun remonte à une racine
+	 * (une boucle, ou une chaîne dont personne n'a raciné la tête). Un second `ControleId`
+	 * coderait une configuration, pas une cause (KR-164) ; la distinction vit donc
+	 * dans le message, et la consigne reste unique.
+	 *
 	 * POURQUOI CETTE RÈGLE PEUT ÊTRE BLOQUANTE alors qu'elle lit une clé
 	 * d'audience `ia` (`savoirs[].indice_id`) : le critère n'est pas l'audience de
 	 * la clé lue, c'est la NATURE DU GESTE qui éteint le voyant. Un voyant qu'on
@@ -663,13 +626,27 @@ export const CONTROLES = defineRegistre<ControleDescripteur>()({
 			const constats: ConstatControle[] = []
 
 			for (const [index, indice] of dossier.monde.indices.entries()) {
-				const nombre = producteurs.get(indice.id)?.length ?? 0
-				if (nombre >= 2) continue
-				const niveau: SeuilIndice = nombre === 0 ? 'bloquant' : 'alerte'
+				// DEUX LECTURES DE LA MÊME CARTE, et c'est tout ce que coûtent les deux
+				// messages du seuil bloquant : la LONGUEUR donne le compte SATURÉ, qui
+				// décide du niveau ; la PRÉSENCE de la clé dit que des sources BRUTES
+				// citent bien cet indice. Rien de la source n'est lu — ni sa famille, ni
+				// son porteur : ce module dit ce qu'on conclut, `atteignabilite.ts` dit
+				// qui produit quoi.
+				const sources = producteurs.get(indice.id)
+				const compte = sources?.length ?? 0
+				if (compte >= 2) continue
+				const niveau: SeuilIndice = compte === 0 ? 'bloquant' : 'alerte'
+				// « brut ≥ 1 et compte nul » — l'indice est SERVI, mais AUCUN de ses amonts
+				// n'est atteignable. Une source de personnage ou d'effet forcerait un compte
+				// d'au moins un : le cas est donc exactement « des enchaînements, aucune
+				// racine », et c'est cela, et RIEN DE PLUS, que le message affirme. Il ne dit
+				// pas « boucle » : remonter les amonts dans un graphe FINI tombe sur un cycle
+				// OU sur une chaîne non racinée, et la seconde est la configuration courante.
+				const sansRacine = compte === 0 && sources !== undefined
 				constats.push({
 					niveau,
 					section: 'indices',
-					message: PROSES_INDICE_SANS_SOURCE[niveau].message,
+					message: sansRacine ? MESSAGE_INDICE_SANS_RACINE : PROSES_INDICE_SANS_SOURCE[niveau].message,
 					location: localiserEntite('indice', indice, index),
 					path: 'monde.indices[].id',
 					entityId: indice.id,

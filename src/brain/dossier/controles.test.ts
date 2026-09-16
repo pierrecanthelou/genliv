@@ -100,6 +100,34 @@ function cloneIndiceOrphelin(): Dossier {
 	return dossier
 }
 
+/**
+ * Le clone, sa collection d'indices remplacée par les DEUX configurations « des
+ * enchaînements, aucune racine » PLUS l'indice que rien ne cite — un seul champ
+ * muté, même geste que ci-dessus.
+ *
+ * TROIS ENTITÉS ET NON DEUX, et la troisième est une CORRECTION DE REVUE : la
+ * boucle n'est qu'un EXEMPLAIRE de « aucun amont atteignable », et la chaîne non
+ * racinée `amont → aval` en est l'autre — la plus probable en pratique, un
+ * auteur qui chaîne sans raciner la tête. Un témoin qui n'aurait porté que le
+ * cycle laissait passer un message affirmant une boucle là où il n'y en a pas.
+ *
+ * `indice.amont`, lui, n'est cité par personne : il relève du PREMIER message,
+ * comme l'orphelin. Deux indices d'une même chaîne, deux textes, tous deux
+ * vrais — c'est la démonstration que la distinction porte sur l'état de l'index
+ * et non sur une intuition de forme du graphe.
+ */
+function cloneIndiceSansRacine(): Dossier {
+	const dossier = clone()
+	dossier.monde.indices = [
+		{ id: 'indice.anneau-de-cuivre', mene_a: ['indice.anneau-de-fer'] },
+		{ id: 'indice.anneau-de-fer', mene_a: ['indice.anneau-de-cuivre'] },
+		{ id: 'indice.amont', mene_a: ['indice.aval'] },
+		{ id: 'indice.aval' },
+		{ id: INDICE_ORPHELIN },
+	]
+	return dossier
+}
+
 /** Le clone, son unique personnage retiré de tout lieu — un seul champ. */
 function cloneSansPresence(): Dossier {
 	const dossier = clone()
@@ -606,7 +634,7 @@ describe('indice-sans-source, un compteur et deux seuils', () => {
 		expect(rapport.jouable).toBe(true)
 	})
 
-	it('un cycle mene_a sans autre source rend deux alertes, pas deux bloquants', () => {
+	it('un cycle mene_a sans autre source bloque les deux, et un savoir pose sur A les discrimine', () => {
 		const dossier = clone()
 		// UN SEUL champ muté : la collection ENTIÈRE est remplacée. Les savoirs et les
 		// effets du clone continuent de pointer `cendres-tiedes` / `sceau-brise`, qui
@@ -618,18 +646,32 @@ describe('indice-sans-source, un compteur et deux seuils', () => {
 			{ id: 'indice.anneau-de-fer', mene_a: ['indice.anneau-de-cuivre'] },
 		]
 
-		const constats = pourLaRegle(controlerDossier(dossier), 'indice-sans-source')
+		// SATURATION PAR POINT FIXE, et cette assertion est la BASCULE DÉLIBÉRÉE d'it6 :
+		// la lecture à plat d'it3 comptait ici l'arête entrante de l'autre, donc UN
+		// producteur chacun, donc deux ALERTES. Aucune des deux arêtes ne remonte à un
+		// personnage ni à un effet, donc aucune ne survit : les deux sont BLOQUANTS. Le
+		// sens d'erreur ne change pas de camp — la lecture à plat était SOUS-GRADUÉE, et
+		// cette itération paie la dette qu'it3 avait assumée en la nommant.
+		expect(
+			pourLaRegle(controlerDossier(dossier), 'indice-sans-source').map(
+				(constat) => `${constat.entityId} → ${constat.niveau}`,
+			),
+		).toEqual(['indice.anneau-de-cuivre → bloquant', 'indice.anneau-de-fer → bloquant'])
+		expect(controlerDossier(dossier).jouable).toBe(false)
 
-		// LECTURE À PLAT, nommée : chacun compte l'arête entrante de l'autre, donc UN
-		// producteur chacun, donc deux ALERTES. L'implémentation retenue est celle-là,
-		// et la saturation transitive par point fixe — charge d'IT6, qu'elle traverse
-		// avec l'atteignabilité — fera DÉLIBÉRÉMENT basculer cette assertion en deux
-		// BLOQUANTS. Le sens d'erreur de la lecture à plat est sous-gradué, jamais
-		// éteint : c'est ce qui la rend acceptable sur une règle bloquante.
-		expect(constats.map((constat) => `${constat.entityId} → ${constat.niveau}`)).toEqual([
-			'indice.anneau-de-cuivre → alerte',
-			'indice.anneau-de-fer → alerte',
-		])
+		// DISCRIMINANT, DANS LE MÊME TEST (KR-197/202) : le savoir de l'unique
+		// personnage est repointé sur le premier anneau — UN SEUL champ de plus. Celui-ci
+		// devient une RACINE, son arête survit, et le second retombe à UN producteur donc
+		// à ALERTE ; le premier, qui compte désormais son savoir PLUS l'arête entrante
+		// redevenue vivante, se tait à DEUX. Sans cette moitié, l'assertion ci-dessus
+		// serait verte sous une implémentation qui bloquerait tout indice cité dans un
+		// cycle, saturation ou pas.
+		dossier.monde.personnages[0].savoirs[0].indice_id = 'indice.anneau-de-cuivre'
+		expect(
+			pourLaRegle(controlerDossier(dossier), 'indice-sans-source').map(
+				(constat) => `${constat.entityId} → ${constat.niveau}`,
+			),
+		).toEqual(['indice.anneau-de-fer → alerte'])
 		expect(controlerDossier(dossier).jouable).toBe(true)
 	})
 
@@ -654,34 +696,84 @@ describe('indice-sans-source, un compteur et deux seuils', () => {
 		).toEqual(['indice.cendres-tiedes → alerte', 'indice.sceau-brise → alerte'])
 	})
 
-	it('un indice qui se mene_a lui-meme est compte comme tout autre arete, jamais un plantage', () => {
+	it('un indice qui ne se mene_a que lui-meme ne se produit pas, et un savoir le discrimine', () => {
 		const dossier = clone()
 		// UN SEUL champ. L'auto-référence est LÉGALE au schéma (KR-194) et
 		// `validate.test.ts` le prouve côté validateur ; ce qui n'était prouvé NULLE
 		// PART, c'est ce que le COMPTEUR en fait.
 		dossier.monde.indices = [{ id: 'indice.A', mene_a: ['indice.A'] }]
 
-		// Elle compte pour UN producteur — le sien —, donc ALERTE et non BLOQUANT.
-		// C'est la même sous-gradation que le cycle `A↔B` ci-dessus, et pour la même
-		// raison : la lecture est À PLAT, elle ne vérifie pas que l'amont soit
-		// lui-même atteignable. Un indice qui n'est mené que par lui-même est en
-		// vérité inatteignable ; la saturation d'it6 fera basculer cette assertion en
-		// `bloquant`, DÉLIBÉRÉMENT.
-		expect(
-			pourLaRegle(controlerDossier(dossier), 'indice-sans-source').map(
-				(constat) => `${constat.entityId} → ${constat.niveau}`,
-			),
-		).toEqual(['indice.A → alerte'])
-
-		// DISCRIMINANT : l'arête retirée, le même indice tombe à ZÉRO producteur.
-		// Sans cette moitié, l'assertion ci-dessus serait verte que l'auto-référence
-		// soit comptée, ignorée, ou qu'elle fasse lever.
-		dossier.monde.indices = [{ id: 'indice.A' }]
+		// SECONDE BASCULE DÉLIBÉRÉE D'IT6, même cause que le cycle à deux ci-dessus :
+		// l'arête réflexive part d'un amont que rien ne produit, donc elle ne survit pas
+		// à la saturation. La lecture à plat d'it3 comptait ici UN producteur — le sien —
+		// et rendait ALERTE ; un indice qui n'est mené que par lui-même est en vérité
+		// inatteignable, et le rapport le dit maintenant.
 		expect(
 			pourLaRegle(controlerDossier(dossier), 'indice-sans-source').map(
 				(constat) => `${constat.entityId} → ${constat.niveau}`,
 			),
 		).toEqual(['indice.A → bloquant'])
+
+		// DISCRIMINANT, DANS LE MÊME TEST (KR-197/202) : le savoir de l'unique
+		// personnage est repointé sur A — UN SEUL champ de plus. A devient une racine,
+		// son arête réflexive survit, il compte DEUX producteurs et se tait. Sans cette
+		// moitié, l'assertion ci-dessus serait verte que l'auto-référence soit comptée,
+		// ignorée, ou qu'elle fasse lever.
+		dossier.monde.personnages[0].savoirs[0].indice_id = 'indice.A'
+		expect(pourLaRegle(controlerDossier(dossier), 'indice-sans-source')).toEqual([])
+	})
+
+	it('les deux messages du seuil bloquant se distinguent dans le meme dossier', () => {
+		// UNE CAUSE, UN CODE, DEUX TEXTES. Les cinq indices remontent le même `bloquant`
+		// sous le même identifiant de règle — un second `ControleId` coderait une
+		// CONFIGURATION, pas une cause (KR-164). Ce qui les sépare est donc le message,
+		// et c'est ici qu'on le prouve.
+		const constats = pourLaRegle(controlerDossier(cloneIndiceSansRacine()), 'indice-sans-source')
+		expect(constats.map((constat) => `${constat.entityId} → ${constat.niveau}`)).toEqual([
+			'indice.anneau-de-cuivre → bloquant',
+			'indice.anneau-de-fer → bloquant',
+			'indice.amont → bloquant',
+			'indice.aval → bloquant',
+			`${INDICE_ORPHELIN} → bloquant`,
+		])
+
+		const messageDe = (entityId: string): string =>
+			constats.find((constat) => constat.entityId === entityId)?.message ?? ''
+
+		// LE PARTAGE EST CELUI DE L'ÉTAT DE L'INDEX, JAMAIS CELUI DE LA FORME DU GRAPHE.
+		// `anneau-de-cuivre` (dans un cycle) et `aval` (dans une chaîne SANS le moindre
+		// cycle) reçoivent le MÊME texte, parce qu'ils sont dans le même état : servis,
+		// sans racine. `amont` et l'orphelin reçoivent l'AUTRE, parce que personne ne les
+		// cite. Sans cette ligne, un texte qui affirmerait « ces enchaînements bouclent »
+		// resterait vert sur la configuration la plus courante — et c'est exactement le
+		// défaut que la revue de PR a relevé.
+		expect(`cycle = chaine → ${messageDe('indice.anneau-de-cuivre') === messageDe('indice.aval')}`).toBe(
+			'cycle = chaine → true',
+		)
+		expect(`amont = orphelin → ${messageDe('indice.amont') === messageDe(INDICE_ORPHELIN)}`).toBe(
+			'amont = orphelin → true',
+		)
+
+		// LE FRAGMENT SÉPARATEUR, DANS LES DEUX SENS (KR-197/199) : le message des
+		// indices servis ne NIE pas l'enchaînement qui existe — le nier serait un
+		// diagnostic auto-contradictoire, qui redemanderait le geste que l'auteur vient
+		// de faire —, celui de l'orphelin le nie et reste MOT POUR MOT celui d'it3. C'est
+		// cette seconde moitié qui laisse la garde de feature verte sans une retouche.
+		expect(`servi → ${messageDe('indice.aval').includes('aucun enchaînement')}`).toBe('servi → false')
+		expect(`orphelin → ${messageDe(INDICE_ORPHELIN).includes('aucun enchaînement')}`).toBe('orphelin → true')
+
+		// Discriminance : les textes sont RÉELLEMENT deux et aucun n'est vide — sans
+		// cette ligne, les assertions ci-dessus resteraient vertes sur un message UNIQUE
+		// qui aurait simplement perdu le fragment.
+		const messages = constats.map((constat) => constat.message)
+		expect(messages.filter((message) => message === '')).toEqual([])
+		expect(new Set(messages).size).toBe(2)
+
+		// L'AUTRE MOITIÉ DE L'ARBITRAGE, et elle se prouve ici parce qu'elle est la
+		// contrepartie du choix ci-dessus : la consigne se résout depuis `constat.niveau`
+		// SEUL, donc les cinq constats rendent le MÊME geste. Deux consignes exigeraient
+		// un discriminant sur `ConstatControle`, exportée par le baril.
+		expect(new Set(constats.map((constat) => controleRemediation(constat))).size).toBe(1)
 	})
 
 	it('les quatre sites de deltas sont tous lus', () => {
@@ -741,7 +833,7 @@ describe('indice-sans-source, un compteur et deux seuils', () => {
 			.filter((fichier) => fichier.endsWith('.ts') && !fichier.endsWith('.test.ts'))
 			.filter((fichier) => fs.readFileSync(path.join(__dirname, fichier), 'utf8').includes(MARQUE))
 
-		expect(porteurs).toEqual(['controles.ts'])
+		expect(porteurs).toEqual(['atteignabilite.ts'])
 	})
 })
 
@@ -1186,6 +1278,11 @@ describe('avertissement-de-validation, le pont vers les avertissements du valida
 		const rapports = [
 			controlerDossier(seme()),
 			controlerDossier(cloneIndiceOrphelin()),
+			// LE SECOND TEXTE DU SEUIL BLOQUANT, entré avec la saturation d'it6. Une
+			// prose française qu'aucun rapport balayé ici ne produit n'est tenue que par
+			// une relecture humaine, c'est-à-dire par rien (KR-199) : le témoin des
+			// indices sans racine entre donc dans ce balayage le jour où le texte naît.
+			controlerDossier(cloneIndiceSansRacine()),
 			controlerDossier(cloneSansPresence()),
 			controlerDossier(cloneSansVoix()),
 			...Object.values(TEMOINS_DU_PONT).map((faireLeTemoin) => controlerDossier(faireLeTemoin())),

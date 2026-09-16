@@ -160,6 +160,12 @@ Trois occurrences dans la seule itération 2 de `dossier-controles`, et les troi
 
 **Le geste qui les a trouvés, à reprendre** : la QA en mode B a **rejoué le corps de l'ancien test contre le fichier livré**, et a écrit une sonde jetable pour l'instrument douteux — en vérifiant le **cas négatif**, jamais seulement le positif. Un instrument qui ne sait pas échouer ne mesure rien. Détail : `bug_history.json` BUG-084.
 
+### Et la VALEUR attendue n'est pas le POUVOIR SÉPARATEUR — ce sont deux mesures, pas une
+
+**Tout témoin dont un plan affirme qu'il attrape une implémentation fautive NOMMÉE se prouve en ÉCRIVANT cette implémentation fautive** — au raffinage, ou au plus tard à l'essaim, jamais « plus tard ». Les deux vérifications ne s'exécutent pas sur le même code : « ce test rend 1/1/1 » tourne sur le code **bon**, « ce test rougirait sur une mono-passe » ne tourne que sur le code **fauté**. Mesurer la première et croire la seconde, c'est n'avoir rien mesuré du tout — et le vert est ce que l'instrument produit, donc la panne est invisible.
+
+Précédent, et il a coûté deux affirmations fausses signées par deux rôles (`dossier-controles` it6, BUG-087) : le témoin du point fixe devait attraper une relaxation mono-passe et une propagation non orientée. Les **valeurs attendues** avaient bien été mesurées — justes, confirmées à l'unité. Le **pouvoir séparateur**, non : les deux implémentations fautives laissaient les sept tests **verts**. Une chaîne à deux arêtes se sature en une passe (le maillon intermédiaire entre dans l'ensemble sans jamais être dépilé, et la reconstruction ne teste que l'appartenance *finale*) ; et un pairage négatif dont le nœud orphelin est **isolé** n'oppose rien à une arête inversée — il y faut un nœud **relié**. Ni les deux tours, ni la porte mécanique, ni la revue de PR n'exécutent une phrase : seule la QA en mode B, qui a posé les mutants, l'a vu.
+
 ## Instruments de test — le bon outil pour le bon risque
 
 Le dépôt tourne sur **jest + jsdom + Testing Library**.
