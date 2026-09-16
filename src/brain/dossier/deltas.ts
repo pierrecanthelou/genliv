@@ -63,7 +63,12 @@ export const DELTAS = defineRegistre<DeltaDescripteur>()({
 	donner_objet: { label: "donne l'objet", refKinds: ['objet'] },
 	/** Écrit l'inventaire de session — déjà muté par `actionEngine.computeInventoryLoss`. */
 	retirer_objet: { label: "retire l'objet", refKinds: ['objet'] },
-	/** Écrit la liste des indices connus — lue par `indice_connu` et `pnj_a_revele`. */
+	/**
+	 * Écrit la liste des indices connus — lue par `indice_connu` SEUL. Il n'écrit
+	 * JAMAIS le carnet d'un personnage, et c'est mécanique : son arité est 1, il
+	 * n'a aucun opérande `pnj` par lequel nommer QUI a parlé (H3,
+	 * `atteignabilite.ts`).
+	 */
 	reveler_indice: { label: "révèle l'indice", refKinds: ['indice'] },
 	/** Écrit la liste des jalons atteints — lue par `jalon_atteint`. */
 	atteindre_jalon: { label: 'marque le jalon atteint', refKinds: ['jalon'] },

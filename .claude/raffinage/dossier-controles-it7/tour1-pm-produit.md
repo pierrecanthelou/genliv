@@ -1,0 +1,9 @@
+# Tour 1 — pm-produit — dossier-controles it7
+
+RISQUE — `canon-sans-objectif` (bloquant sur COLLECTION vide, sans garde de t=0) va s'allumer sur TOUT dossier fraîchement créé : `amorce.ts:107` sème `objectifs: []` (confirmé `amorce.test.ts:126`). Ça recrée à l'identique le « bandeau rouge sur 100 % des dossiers à t=0 » déjà REJETÉ à l'it1 (`resolved_decisions`), miniaturisé en une ligne de rapport au lieu d'un verdict global — et ça casse une acceptance criterion déjà actée : **AC1 exige « quatre lignes … et aucune portant sur une collection vide » sur `seme()`**, épinglé en dur `CHAMPS_SEMES.length` à 4 sites (`controles.test.ts` l.267, 504, 861, 942). C'est exactement le cas que la garde de vacuité de `depart-desert` (it3) a été écrite pour éviter — mais côté objectifs, personne ne l'a posée.
+
+OBJECTION — le goal ne dit rien du sort d'AC1. Soit c'est une réouverture non déclarée d'un acquis testé, soit AC1 doit devenir « cinq lignes dès la création » — mais alors la doctrine `design_contract.etat_vide` (« le linter SE TAIT sur les collections vides ») cesse d'être vraie pour `objectifs` sans que rien n'explique pourquoi cette collection diffère de `personnages` / `indices`, qui restent calmes à vide.
+
+PROPOSITION — trancher AVANT code, pas la laisser à l'ouvrier : soit **(a)** `canon-sans-objectif` reste silencieux sur le dossier fraîchement semé (contredit KR-164 / AC10 tel qu'écrit), soit **(b)** le goal ASSUME et écrit noir sur blanc qu'AC1 passe à 5 lignes, avec les 4 sites `CHAMPS_SEMES.length` mis à jour dans CE lot. Je recommande **(b)**, mais mandatée par le comité. Second point, plus léger : `Objectif` porte aussi `echoue_si_expr` (`types.ts:1361`) — écrire explicitement en hors-périmètre que seul `reussi_si_expr` est couvert, sinon un ouvrier double le travail par symétrie.
+
+VERDICT — recevable sous réserve.

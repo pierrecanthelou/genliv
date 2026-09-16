@@ -331,7 +331,10 @@
 				"resolutions": [
 					{
 						"resultat": "Le squelette s'effondre en cendres devant la tour.",
-						"consequence": [{ "delta": "reveler_indice", "cibles": ["indice.trace-du-guet"] }]
+						"consequence": [
+							{ "delta": "reveler_indice", "cibles": ["indice.trace-du-guet"] },
+							{ "delta": "donner_objet", "cibles": ["objet.sceau-de-cendre"] }
+						]
 					},
 					{
 						"resultat": "Le héros bat en retraite, la lanterne éteinte.",

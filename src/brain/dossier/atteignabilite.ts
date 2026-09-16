@@ -1,8 +1,10 @@
 import type { Delta } from './deltas'
+import type { ExprNode } from './expr'
+import { PREDICATES, type PredicatId } from './predicates'
 import type { Dossier } from './types'
 
 /**
- * HYPOTHÈSES DATÉES D'ATTEIGNABILITÉ — 2026-09-16, itération 6 de la n° 6.
+ * HYPOTHÈSES DATÉES D'ATTEIGNABILITÉ — 2026-09-16, itérations 6 et 7 de la n° 6.
  *
  * Ce module conclut « le joueur peut obtenir cet indice » sur un document
  * STATIQUE, alors qu'obtenir est un geste de SESSION. L'écart est comblé par des
@@ -52,6 +54,28 @@ import type { Dossier } from './types'
  * le faux positif. C'est ce qui rend la saturation des arêtes livrable SEULE.
  * Le sens d'erreur de la n° 8 est l'INVERSE : fermer une porte RETIRE une racine.
  * Les faux positifs vivent là-bas, jamais ici — et c'est la raison du découpage.
+ *
+ * H3 — LE SEUL PRODUCTEUR DE `monde.pnj.<id>.a_dit[]` EST UN `savoirs[]` DU
+ * PERSONNAGE PORTEUR. C'est ce qui rend `pnj_a_revele(p, i)` décidable sur un
+ * document : la PAIRE (p, i) est productible si et seulement si `p` porte un
+ * savoir dont l'`indice_id` vaut `i`. Aucun effet de règle n'y supplée —
+ * `reveler_indice` écrit la liste des indices CONNUS, jamais le carnet d'un
+ * personnage, et il ne le pourrait pas : son arité est 1, il n'a aucun
+ * opérande `pnj` par lequel nommer QUI a parlé. Rien d'autre ne l'établit que
+ * le commentaire de `predicates.ts` qui nomme le champ ; aucun moteur n'existe
+ * encore pour trancher, et la n° 11 pourrait décider que le moteur inscrit
+ * aussi `a_dit[]` lorsqu'un indice est révélé À TRAVERS un personnage par un
+ * autre chemin — une résolution d'événement jouée en scène, par exemple.
+ * C'EST LA SEULE HYPOTHÈSE DE CE FICHIER DONT L'ERREUR IRAIT DANS LE SENS
+ * INTERDIT. H1 et H2 ne peuvent que SUR-COMPTER les producteurs, donc
+ * sous-graduer le constat ; celle-ci, si la n° 11 la contredit, ferait
+ * déclarer sans chemin une condition que le moteur accomplirait — un FAUX
+ * POSITIF sous une règle BLOQUANTE. Elle se corrige en UN endroit, la ligne
+ * `pnj_a_revele` de la table d'établissement, et nulle part ailleurs.
+ * COROLLAIRE DE RÉDACTION, sans lequel l'hypothèse ne dit rien : la paire
+ * s'évalue JOINTEMENT. Deux feuilles indépendantes — « ce personnage existe »
+ * et « cet indice a un producteur » — seraient vraies ensemble sans qu'aucun
+ * savoir ne les relie, et le prédicat serait déclaré productible à tort.
  */
 
 /**
@@ -77,6 +101,31 @@ export type FamilleDeSource = 'savoir' | 'delta' | 'mene_a'
  */
 export interface SourceIndice {
 	famille: FamilleDeSource
+}
+
+/**
+ * LES QUATRE EMPLACEMENTS D'EFFETS DE RÈGLE du dossier, APLATIS dans l'ordre de
+ * `CHEMINS_DE_DELTAS` — récompense de quête, conséquence de résolution, effet de
+ * climat, effet de jalon. Lus en ACCÈS TYPÉS, jamais par un marcheur de chemins
+ * générique : `sitesDe` est PRIVÉE à `validate.ts` et son import est déjà
+ * interdit ici par un balayage de source ; en réécrire un créerait un SECOND
+ * moteur de traversée du schéma, non typé, qui dériverait en silence de la
+ * grammaire figée du premier.
+ *
+ * UNE SEULE TRAVERSÉE POUR DEUX FILTRES — `reveler_indice` pour les indices
+ * produits, `donner_objet` pour les objets donnés. Deux copies de ces quatre
+ * accès dériveraient le jour où un cinquième emplacement entrerait, exactement
+ * comme dériveraient deux copies du filtre.
+ */
+function effetsDeRegle(dossier: Dossier): readonly Delta[] {
+	return [
+		...dossier.monde.quetes.flatMap((quete) => quete.recompense),
+		...dossier.monde.evenements.flatMap((evenement) =>
+			evenement.resolutions.flatMap((resolution) => resolution.consequence),
+		),
+		...dossier.monde.conditions.climat.flatMap((climat) => climat.effets_regles),
+		...dossier.charpente.jalons.flatMap((jalon) => jalon.effet),
+	]
 }
 
 /**
@@ -122,11 +171,8 @@ export interface SourceIndice {
  *  · `monde.personnages[].savoirs[].indice_id` ;
  *  · les QUATRE sites de `CHEMINS_DE_DELTAS` filtrés sur `reveler_indice` —
  *    récompense de quête, conséquence de résolution, effet de climat, effet de
- *    jalon — lus en ACCÈS TYPÉS, jamais par un marcheur de chemins générique :
- *    `sitesDe` est PRIVÉE à `validate.ts` et son import est déjà interdit ici
- *    par un balayage de source ; en réécrire un créerait un SECOND moteur de
- *    traversée du schéma, non typé, qui dériverait en silence de la grammaire
- *    figée du premier ;
+ *    jalon. Leur TRAVERSÉE vit dans `effetsDeRegle`, juste au-dessus, et le
+ *    motif du lecteur typé y est écrit UNE fois ;
  *  · `monde.indices[].mene_a[]`.
  *
  * LE CLIMAT EST COMPTÉ bien qu'aucun moteur ne sache aujourd'hui APPLIQUER un
@@ -188,26 +234,17 @@ export function producteursParIndice(dossier: Dossier): Map<string, SourceIndice
 		else sources.push({ famille })
 	}
 
-	// Un emplacement d'effets, quel que soit son porteur — le filtre sur
-	// `reveler_indice` est écrit UNE FOIS, et un balayage de source tient cette
-	// unicité : quatre copies dériveraient le jour où un cinquième site entrerait.
-	const ajouterEffets = (effets: readonly Delta[]): void => {
-		for (const effet of effets) {
-			if (effet.delta !== 'reveler_indice') continue
-			for (const cible of effet.cibles) ajouter(cible, 'delta')
-		}
-	}
-
 	for (const personnage of dossier.monde.personnages) {
 		for (const savoir of personnage.savoirs) ajouter(savoir.indice_id, 'savoir')
 	}
 
-	for (const quete of dossier.monde.quetes) ajouterEffets(quete.recompense)
-	for (const evenement of dossier.monde.evenements) {
-		for (const resolution of evenement.resolutions) ajouterEffets(resolution.consequence)
+	// Le filtre sur `reveler_indice` est écrit UNE FOIS, et un balayage de source
+	// tient cette unicité : quatre copies dériveraient le jour où un cinquième
+	// emplacement entrerait.
+	for (const effet of effetsDeRegle(dossier)) {
+		if (effet.delta !== 'reveler_indice') continue
+		for (const cible of effet.cibles) ajouter(cible, 'delta')
 	}
-	for (const climat of dossier.monde.conditions.climat) ajouterEffets(climat.effets_regles)
-	for (const jalon of dossier.charpente.jalons) ajouterEffets(jalon.effet)
 
 	for (const indice of dossier.monde.indices) {
 		for (const vise of indice.mene_a ?? []) ajouter(vise, 'mene_a')
@@ -268,4 +305,188 @@ export function producteursParIndice(dossier: Dossier): Map<string, SourceIndice
 	}
 
 	return satures
+}
+
+/**
+ * UNE FEUILLE DE CONDITION QUE RIEN DU DOSSIER NE PEUT ÉTABLIR.
+ *
+ * Le module COMPTE, il ne raconte pas : il rend le LIBELLÉ français du prédicat
+ * et les identifiants visés. La phrase, le retour vers le champ fautif et le
+ * classement du constat appartiennent à son appelant.
+ */
+export interface FeuilleInaccomplissable {
+	/** Libellé FRANÇAIS du prédicat — `PREDICATES[id].label`, résolu ICI. Jamais la clé. */
+	readonly predicat: string
+	/** Les identifiants visés, DANS L'ORDRE de `refKinds`. Arité 1 ou 2. */
+	readonly cibles: readonly string[]
+}
+
+/**
+ * L'ÉTAT DU DOSSIER réduit à ce que les trois prédicats qui MORDENT ont besoin
+ * de lire, calculé UNE fois par condition. Privé, et il le reste :
+ * `indicesProduits` n'est qu'une projection de `producteursParIndice` (« au
+ * moins un producteur APRÈS saturation »), et l'exporter en ferait un second
+ * index à tenir en phase avec le premier.
+ */
+interface EtatDuDossier {
+	dossier: Dossier
+	indicesProduits: ReadonlySet<string>
+	objetsDonnes: ReadonlySet<string>
+}
+
+/**
+ * CE QU'IL FAUT AU DOSSIER POUR ÉTABLIR CHAQUE PRÉDICAT — une ligne par
+ * identifiant de `PREDICATES`, `Record` TOTAL donc exhaustif PAR COMPILATION
+ * (KR-117) : un huitième prédicat ne compile pas tant que personne n'a décidé ce
+ * que le linter en fait.
+ *
+ * TROIS LIGNES MORDENT, QUATRE SONT « NON ÉVALUÉES À IT7 » — et c'est le mot
+ * juste, jamais « toujours vraie » : un commentaire plus large que le fait est
+ * exactement KR-199. Les deux portes de RACINE (`declencheur_expr` d'un jalon,
+ * d'un événement) sont la charge de la tranche « porte morte, producteur
+ * fantôme », et les deux prédicats de LIEU relèvent de KR-224 — le schéma n'a
+ * aucun graphe de praticabilité, donc « ce lieu est atteint » n'est pas
+ * décidable ici. Rendre `true` là où l'on ne sait pas est la seule direction
+ * permise sous une règle bloquante.
+ *
+ * `possede_objet` LIT UN VERBE NOMMÉ, jamais `refKinds.includes('objet')` :
+ * `retirer_objet` porte le même espace de noms et est un producteur NÉGATIF —
+ * le dériver compterait une SOUSTRACTION comme un don. Le trou n'est pas
+ * hypothétique : les deux verbes sont au registre aujourd'hui, et un témoin les
+ * sépare.
+ *
+ * `pnj_a_revele` s'évalue JOINTEMENT (H3) : la PAIRE, jamais deux feuilles
+ * indépendantes.
+ */
+const ETABLISSEMENT: Record<PredicatId, (etat: EtatDuDossier, cibles: readonly string[]) => boolean> = {
+	possede_objet: (etat, cibles) => etat.objetsDonnes.has(cibles[0]),
+	indice_connu: (etat, cibles) => etat.indicesProduits.has(cibles[0]),
+	pnj_a_revele: (etat, cibles) =>
+		etat.dossier.monde.personnages.some(
+			(personnage) =>
+				personnage.id === cibles[0] && personnage.savoirs.some((savoir) => savoir.indice_id === cibles[1]),
+		),
+	jalon_atteint: () => true,
+	evenement_consomme: () => true,
+	lieu_visite: () => true,
+	lieu_courant_est: () => true,
+}
+
+/**
+ * L'EXHAUSTIVITÉ DU PARCOURS, PORTÉE PAR LE COMPILATEUR ET NON PAR UNE
+ * RELECTURE — et c'est la CONDITION à laquelle ce module est admis comme second
+ * lecteur d'`ExprNode`.
+ *
+ * Le `switch` ci-dessous décide des QUATRE opérateurs ; son `default` passe le
+ * nœud ici, où le type `never` du paramètre EXIGE que la branche soit
+ * inatteignable. Un cinquième opérateur ajouté à l'union casse donc `tsc` à CET
+ * APPEL. Sans cette marque, il tomberait en SILENCE dans le `default` — le seul
+ * mode de panne qu'un lecteur d'arbre puisse avoir quand il ne re-dérive pas la
+ * grammaire, et exactement ce que la garde de couture d'`expr.test.ts` existe
+ * pour empêcher. Une cascade de `if (noeud.op === …)` ne l'aurait PAS porté :
+ * TypeScript n'en vérifie pas l'exhaustivité.
+ *
+ * ELLE REND `null`, jamais le nœud : si un document forçait un jour cette
+ * branche à l'exécution malgré le type, `null` va dans le sens d'erreur permis —
+ * le FAUX NÉGATIF —, là où rendre le nœud ferait lire `cibles` à un appelant qui
+ * n'en trouverait aucune.
+ */
+function aucunVerdict(_operateur: never): null {
+	return null
+}
+
+/**
+ * LA TRAVERSÉE — UN CAS PAR OPÉRATEUR, et pas un de plus : les quatre opérateurs
+ * d'`ExprNode` sont une union CLOSE, et le `default` la tient FERMÉE au
+ * compilateur.
+ */
+function feuilleSansEtablissement(etat: EtatDuDossier, noeud: ExprNode): FeuilleInaccomplissable | null {
+	switch (noeud.op) {
+		// `non` → `null` SANS DESCENDRE, et c'est la ligne la plus importante des
+		// quatre. Sous une négation, la productibilité de la feuille ne dit RIEN : les
+		// sept prédicats lisent des champs de session qui partent VIDES, si bien que
+		// `non(P)` est vrai au tour zéro. Descendre et inverser allumerait un faux
+		// positif sous une règle BLOQUANTE — la seule direction que tout ce module
+		// s'interdit.
+		case 'non':
+			return null
+
+		// `predicat` → la table d'établissement, et rien d'autre.
+		case 'predicat':
+			if (ETABLISSEMENT[noeud.predicat](etat, noeud.cibles)) return null
+			return { predicat: PREDICATES[noeud.predicat].label, cibles: noeud.cibles }
+
+		// `et` → la feuille du PREMIER enfant en défaut, ORDRE DU DOCUMENT. Un rapport
+		// de linter se rejoue comme une session : le témoin désigné ne dépend jamais de
+		// l'ordre dans lequel on a parcouru l'arbre.
+		case 'et': {
+			for (const enfant of noeud.enfants) {
+				const feuille = feuilleSansEtablissement(etat, enfant)
+				if (feuille !== null) return feuille
+			}
+			return null
+		}
+
+		// `ou` → `null` dès qu'UN enfant est accomplissable. Un `ou` est écrit
+		// exactement pour offrir un second chemin : exiger toutes ses branches est le
+		// faux positif le plus probable de cette fonction. Quand aucune ne tient, le
+		// témoin est la feuille du PREMIER enfant, même règle d'ordre que `et`.
+		case 'ou': {
+			let premiere: FeuilleInaccomplissable | null = null
+			for (const enfant of noeud.enfants) {
+				const feuille = feuilleSansEtablissement(etat, enfant)
+				if (feuille === null) return null
+				if (premiere === null) premiere = feuille
+			}
+			return premiere
+		}
+
+		// L'UNION EST CLOSE, et c'est le compilateur qui le dit.
+		default:
+			return aucunVerdict(noeud)
+	}
+}
+
+/**
+ * LA PREMIÈRE FEUILLE INACCOMPLISSABLE d'une condition — `null` quand la
+ * condition est accomplissable.
+ *
+ * SATISFIABILITÉ, PAS ÉVALUATION — aucun état de session lu ; l'évaluation en
+ * session appartient à la n° 9 `moteur-dossier`, et ce module ne la paraphrase
+ * pas. SENS D'ERREUR : le FAUX NÉGATIF — dans le doute on rend `null`, seule
+ * direction permise sous une règle bloquante. Totale sur un arbre accepté par
+ * `validateExpr` ; AUCUNE borne de récursion propre — c'est `PROFONDEUR_MAX_EXPR`
+ * chez le validateur qui la lui garantit.
+ *
+ * ELLE NE RÉUTILISE PAS `collectRefs`, ET C'EST MESURÉ PLUTÔT QUE SUPPOSÉ :
+ * celle-là APLATIT le `ou` et DESCEND dans le `non` — juste pour résoudre des
+ * références, faux pour la satisfiabilité. Un relevé plat de feuilles, filtré
+ * ensuite, allumerait un bloquant sur une condition qui offre un second chemin.
+ *
+ * ELLE NE RÉSOUT AUCUNE RÉFÉRENCE : une cible qui ne désigne aucune entité du
+ * dossier n'est pas son affaire — c'est une anomalie du validateur, et son
+ * appelant s'en tait. La frontière est la même que celle de `validateDelta`,
+ * qui connaît la FORME d'une cible et jamais son EXISTENCE.
+ *
+ * AUCUNE MÉMOÏSATION : elle se rappelle à chaque rendu, comme le rapport qui la
+ * consomme.
+ */
+export function premiereFeuilleInaccomplissable(dossier: Dossier, condition: ExprNode): FeuilleInaccomplissable | null {
+	// LE COMPTE SATURÉ, RÉUTILISÉ TEL QUEL — jamais un second parcours des
+	// producteurs d'indices, qui dériverait du premier au premier chemin ajouté.
+	const indicesProduits = new Set<string>()
+	for (const [indiceId, sources] of producteursParIndice(dossier)) {
+		if (sources.length > 0) indicesProduits.add(indiceId)
+	}
+
+	// LE VERBE EST NOMMÉ. `retirer_objet` partage `refKinds: ['objet']` et retire
+	// ce que celui-ci donne : dériver le producteur de l'espace de noms compterait
+	// les deux.
+	const objetsDonnes = new Set<string>()
+	for (const effet of effetsDeRegle(dossier)) {
+		if (effet.delta !== 'donner_objet') continue
+		for (const cible of effet.cibles) objetsDonnes.add(cible)
+	}
+
+	return feuilleSansEtablissement({ dossier, indicesProduits, objetsDonnes }, condition)
 }

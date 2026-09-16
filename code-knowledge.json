@@ -739,7 +739,7 @@
 		{
 			"id": "KR-226",
 			"feature": "dossier-controles",
-			"risk": "Le predicat « racine du path differente de la section » est STRUCTURELLEMENT INSATISFIABLE pour la section canon : sections.ts en fait la seule des dix dont la cle n a pas de point. La garde encode une COINCIDENCE, pas l invariant qu elle nomme : une regle declarant correctement section: 'canon' sur un path en canon.* LA FERA ROUGIR EN ETANT JUSTE. Ne pas ajouter un tel temoin ; reecrire l invariant est la charge de qui touchera canon.* en premier. L invariant est tenu, lui, par le balayage de source interdisant tout decoupage de chemin."
+			"risk": "Le predicat « racine du path differente de la section » est STRUCTURELLEMENT INSATISFIABLE pour la section canon : sections.ts en fait la seule des dix dont la cle n a pas de point. La garde encodait une COINCIDENCE, pas l invariant qu elle nomme : une regle declarant correctement section: 'canon' sur un path en canon.* L AURAIT FAIT ROUGIR EN ETANT JUSTE. (Echeance atteinte a it7 de dossier-controles, ou objectif-sans-chemin EST cette regle : le predicat est REMPLACE par une table path -> section epinglee valeur par valeur, totale par compilation, plus le balayage de source interdisant tout decoupage de chemin, repris DANS LE MEME it. Un temoin en canon.* est desormais ATTENDU, plus interdit.)"
 		}
 	]
 }

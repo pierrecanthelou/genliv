@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.40 — un objectif que rien ne peut accomplir
+
+`dossier-controles` iteration 7/8. La regle `objectif-sans-chemin` : BLOQUANTE sur un objectif dont la condition de reussite designe un fait qu aucun producteur du dossier ne peut etablir. Verdict BOTTOM-UP, adosse a une table de productibilite totale par compilation sur `PREDICATES`.
+
+- **Le linter a trouve trois defauts reels dans l aventure de reference du depot**, qu aucun humain n avait vus : un objectif exigeant un objet qu aucun `donner_objet` ne donne jamais, une fin portant la meme feuille morte, et une condition d echec **vraie des l ouverture**. Le premier est repare ici. Le narratif a cherche la lecture narrative qui sauverait la fixture : elle n existe pas au schema, et le texte de fin emis VERBATIM au joueur (<< Tu poses le sceau de cendre sur la table de la vigie >>) etablit l intention inverse. **On repare la donnee, jamais l assertion.**
+- **Le perimetre a ete REDUIT au tour 2, et c est la bonne decision.** Le goal portait deux regles ; `canon-sans-objectif` part a it8. Elle s allumait sur **100 % des dossiers neufs**, portait SEULE tout le rayon d explosion inter-features, et rouvrait sans le dire la doctrine ecrite << le linter se tait sur les collections vides >>. Trois roles l ont mesure separement.
+- **Le defaut trouve etait dans un INSTRUMENT, pour la troisieme fois en deux iterations.** Une garde de source protegeait MOINS que ce qu elle enoncait : elle disait << un seul site interprete `op` >> et ne cherchait qu UNE forme d ecriture. Un `switch` sur le meme discriminant n etait **meme pas compte** — la garde serait repassee au vert **toute seule**, en laissant passer exactement ce qu elle interdisait. BUG-089.
+- **Et le typage ne rattrapait rien.** Contrefactuel rejoue trois fois : avec une cascade de `if`, un 5e operateur ajoute a `ExprNode` ne fait rougir **aucun fichier** — le noeud inconnu se fait traiter **comme un `ou`**. Avec `switch` + `never`, `tsc` rougit a l appel exact. Le durcissement est mesure, pas revendique.
+- **Trois desaccords se sont refermes par retrait volontaire.** L UX a cede sur le message, puis le tech-lead a retire sa propre position ET rejete sa propre proposition de tour 1 (<< un refus juste sur un motif faux ne tient pas deux tours >>). Le narratif a maintenu, en mesurant que la remediation retenue renvoyait a un ecran qui **n ecrit pas** `reussi_si_expr`.
+- **Un ouvrier qui refuse de contourner vaut plus qu un ouvrier qui livre vert.** Le `BLOCAGE` remonte etait reel ; un `switch` pose pour echapper au marqueur aurait rendu la garde verte et fausse, et personne ne l aurait su.
+
 ## 0.6.39 — un indice que rien ne racine n est produit par personne
 
 `dossier-controles` iteration 6/8. `producteursParIndice` DEPLACEE vers `brain/dossier/atteignabilite.ts` (meme nom, gele depuis it3), puis SATUREE par point fixe : une arete `mene_a` ne compte un producteur que si son amont est lui-meme produit. Deux assertions livrees en it3 basculent d `alerte` a `bloquant`, deliberement.

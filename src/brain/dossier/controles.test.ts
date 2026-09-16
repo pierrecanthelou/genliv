@@ -13,6 +13,7 @@ import {
 import { CURSEURS_INITIAUX, CURSEUR_MIN, CURSEUR_VALUES } from './curseurs'
 import type { Delta } from './deltas'
 import { DESTINATION_DES_CHAMPS } from './destinations'
+import type { ExprNode } from './expr'
 import { estCleDe } from './identifiers'
 import type { DossierIssueCode } from './issues'
 import { SECTIONS, type SectionId } from './sections'
@@ -145,6 +146,40 @@ function cloneSansVoix(): Dossier {
 /** Le dossier de RÉFÉRENCE, lu du disque à chaque appel — la seconde fixture du dépôt. */
 function cloneReference(): Dossier {
 	return JSON.parse(fs.readFileSync(CHEMIN_REFERENCE, 'utf8')) as Dossier
+}
+
+/**
+ * Le clone, la condition de réussite de son unique objectif repointée sur une
+ * PAIRE que rien ne porte — UN SEUL champ muté.
+ *
+ * `pnj.aldur-le-sage` existe, `indice.cendres-tiedes` existe ET a un producteur
+ * (le delta d'une résolution le révèle) : les deux moitiés d'une évaluation
+ * INDÉPENDANTE seraient donc vraies ensemble. Ce qui manque est le LIEN — aucun
+ * savoir d'Aldûr ne porte cet indice —, et c'est la paire, et elle seule, qui
+ * décide (H3, `atteignabilite.ts`).
+ */
+function cloneObjectifSansChemin(): Dossier {
+	const dossier = clone()
+	dossier.canon.objectifs[0].reussi_si_expr = {
+		op: 'predicat',
+		predicat: 'pnj_a_revele',
+		cibles: ['pnj.aldur-le-sage', 'indice.cendres-tiedes'],
+	}
+	return dossier
+}
+
+/**
+ * Le dossier de RÉFÉRENCE dans l'état où il était AVANT la réparation de cette
+ * itération : l'unique `donner_objet` de la première résolution retiré, un seul
+ * champ. C'est le seul moyen de garder la preuve du VRAI POSITIF une fois le
+ * défaut d'auteur corrigé — sans lui, la réparation effacerait sa propre raison
+ * d'être, et personne ne saurait plus que la règle l'avait vu.
+ */
+function cloneReferenceAvantReparation(): Dossier {
+	const dossier = cloneReference()
+	const resolution = dossier.monde.evenements[0].resolutions[0]
+	resolution.consequence = resolution.consequence.filter((effet) => effet.delta !== 'donner_objet')
+	return dossier
 }
 
 /** Un texte de N mots, sans aucun sens : seul le DÉCOMPTE est en jeu ici. */
@@ -380,49 +415,80 @@ describe('controlerDossier, le rapport de controles', () => {
 		expect(bloquant?.section).toBe('depart')
 		expect(bloquant?.path.split('.')[0]).toBe('charpente')
 
-		// LES QUATRE ENTRÉES DE L'ITÉRATION 3, et la démonstration porte sur LES
-		// QUATRE — pas sur un échantillon (KR-199) : dans chacune, le premier segment
-		// du `path` diffère de la `section` déclarée. Une dérivation naïve les
-		// enverrait toutes sur `monde` ou `charpente`, deux non-sections. La table est
-		// TOTALE par compilation sur `ControleId` moins l'amorce : une sixième règle ne
-		// compilera pas ici tant que son auteur n'aura pas exhibé un témoin.
-		// LE CHOIX DU TÉMOIN DE LA RÈGLE NEUVE, et il se dit en une phrase parce qu'il
-		// se trompe autrement : le témoin de la PREUVE VERTICALE D'ALLUMAGE se choisit
-		// sur le COÛT — `canon.mj` via un budget de mots est le moins cher, une seule
-		// affectation, aucun risque de fabriquer une anomalie. Le témoin de la GARDE
-		// ANTI-DÉRIVATION ci-dessous se choisit sur le CONTRASTE et exclut nommément
-		// tout site `canon.*`, dont la racine du `path` égale toujours la section.
-		// DEUX TÉMOINS, DEUX TESTS DIFFÉRENTS, JAMAIS LE MÊME SITE POUR LES DEUX
-		// PREUVES. `cloneSansPorte()` est celui-ci : racine `monde`, section
-		// `personnages`, et il ne produit qu'UN avertissement (mesuré).
-		const NEUVES: Record<Exclude<ControleId, 'amorce-non-redigee'>, Dossier> = {
-			'indice-sans-source': cloneIndiceOrphelin(),
-			'depart-desert': cloneSansPresence(),
-			'personnage-sans-presence': cloneSansPresence(),
-			'personnage-sans-voix': cloneSansVoix(),
-			'avertissement-de-validation': cloneSansPorte(),
+		// LES SIX ENTRÉES QUI NE SONT PAS L'AMORCE, et la démonstration porte sur LES
+		// SIX — pas sur un échantillon (KR-199). La table est TOTALE par compilation
+		// sur `ControleId` moins l'amorce : une huitième règle ne compilera pas ici
+		// tant que son auteur n'aura pas exhibé un témoin ET épinglé la section de
+		// chacun des chemins qu'il produit.
+		//
+		// KR-226 EST ARRIVÉE À ÉCHÉANCE, ET LA GARDE DURCIT PLUTÔT QUE DE SE RETIRER.
+		// Ce balayage employait le prédicat « racine du `path` différente de la
+		// `section` ». Il est STRUCTURELLEMENT INSATISFIABLE pour la section `canon`,
+		// dont `sections.ts` fait la seule des dix clés sans point — et
+		// `objectif-sans-chemin`, qui déclare CORRECTEMENT `section: 'canon'` sur un
+		// chemin en `canon.*`, l'aurait fait rougir EN ÉTANT JUSTE. La table
+		// ci-dessous épingle la section VALEUR PAR VALEUR : une valeur épinglée
+		// implique l'ancienne inégalité partout où celle-ci était vraie, et interdit
+		// en plus toute AUTRE section — ce que l'inégalité, elle, ne faisait pas.
+		// L'invariant « le module ne dérive jamais une section d'un chemin » reste
+		// tenu, lui, par le balayage de SOURCE en bas de ce test : c'est le seul
+		// instrument qui couvre `canon`, et il est UNIVERSEL là où un prédicat sur un
+		// constat ne peut pas l'être.
+		const NEUVES: Record<
+			Exclude<ControleId, 'amorce-non-redigee'>,
+			{ dossier: Dossier; sections: Record<string, SectionId> }
+		> = {
+			'indice-sans-source': { dossier: cloneIndiceOrphelin(), sections: { 'monde.indices[].id': 'indices' } },
+			'depart-desert': { dossier: cloneSansPresence(), sections: { 'charpente.depart.lieu_id': 'depart' } },
+			'personnage-sans-presence': {
+				dossier: cloneSansPresence(),
+				sections: { 'monde.personnages[].presence[].lieu_id': 'personnages' },
+			},
+			'personnage-sans-voix': {
+				dossier: cloneSansVoix(),
+				sections: { 'monde.personnages[].caractere.parler[]': 'personnages' },
+			},
+			// LA SEULE DES SEPT dont la racine du chemin ÉGALE la section déclarée :
+			// c'est elle que l'ancien prédicat punissait, et c'est elle qui rend la
+			// nouvelle table plus forte que lui.
+			'objectif-sans-chemin': {
+				dossier: cloneObjectifSansChemin(),
+				sections: { 'canon.objectifs[].reussi_si_expr': 'canon' },
+			},
+			// LE TÉMOIN DU PONT se choisit sur le CONTRASTE : racine `monde`, section
+			// `personnages`, et il ne produit qu'UN avertissement (mesuré). Celui de la
+			// PREUVE VERTICALE D'ALLUMAGE, lui, se choisit sur le COÛT et vit ailleurs :
+			// deux témoins, deux tests, jamais le même site pour les deux preuves.
+			'avertissement-de-validation': {
+				dossier: cloneSansPorte(),
+				sections: { 'monde.personnages[].savoirs[].revele_si': 'personnages' },
+			},
 		}
 
 		for (const id of Object.keys(NEUVES) as (keyof typeof NEUVES)[]) {
-			const constats = CONTROLES[id].controler(NEUVES[id])
+			const { dossier, sections } = NEUVES[id]
+			const constats = CONTROLES[id].controler(dossier)
 			// Discriminance : une règle muette rendrait la boucle suivante vraie sans
 			// rien prouver.
 			expect(`${id} → ${constats.length > 0}`).toBe(`${id} → true`)
-			// LA LIMITE DE CE PRÉDICAT, écrite ici parce qu'elle punira un jour la BONNE
-			// réponse : il est structurellement INSATISFIABLE pour la section `canon` —
-			// `sections.ts` en fait la seule des dix `cle` sans point, donc la seule où
-			// l'identifiant de section et la racine du chemin sont la même chaîne. Une
-			// future règle qui déclarera correctement `section: 'canon'` sur un `path` en
-			// `canon.*` fera rougir ce test EN ÉTANT JUSTE. Ne pas ajouter un tel témoin
-			// ici ; réécrire l'invariant est la charge de qui touchera `canon.*` en
-			// premier. L'invariant lui-même — « le module ne découpe jamais un chemin » —
-			// est balayé sur la SOURCE par la suite du pont, et celui-là couvre `canon`.
 			for (const constat of constats) {
-				expect(`${id} · ${constat.path} → ${constat.path.split('.')[0] !== constat.section}`).toBe(
-					`${id} · ${constat.path} → true`,
+				expect(`${id} · ${constat.path} → ${constat.section}`).toBe(
+					`${id} · ${constat.path} → ${sections[constat.path]}`,
 				)
 			}
+			// NI LIGNE MORTE, NI CHEMIN NON ÉPINGLÉ : les deux ensembles sont ÉGAUX, donc
+			// la table ne peut ni promettre plus que ce que la règle produit, ni moins.
+			expect(`${id} → ${[...new Set(constats.map((constat) => constat.path))].sort().join(', ')}`).toBe(
+				`${id} → ${Object.keys(sections).sort().join(', ')}`,
+			)
 		}
+
+		// L'INVARIANT LUI-MÊME, ET DANS CE TEST-CI : toute dérivation d'une section
+		// depuis un chemin commencerait par un découpage. Universelle, cette garde
+		// couvre les sept règles, `canon` compris — et `cheminDeTable` ne l'enfreint
+		// pas, qui EFFACE des indices sans jamais lire un segment. C'est elle qui
+		// remplace ce que le prédicat insatisfiable prétendait tenir.
+		expect(SOURCE_CONTROLES).not.toContain("split('.')")
 	})
 
 	it('chaque regle du registre exhibe un temoin qui la declenche', () => {
@@ -441,6 +507,7 @@ describe('controlerDossier, le rapport de controles', () => {
 			'depart-desert': cloneSansPresence(),
 			'personnage-sans-presence': cloneSansPresence(),
 			'personnage-sans-voix': cloneSansVoix(),
+			'objectif-sans-chemin': cloneObjectifSansChemin(),
 			'avertissement-de-validation': cloneSansPorte(),
 		}
 
@@ -475,7 +542,11 @@ describe('controlerDossier, le rapport de controles', () => {
 			controlerDossier(cloneIndiceOrphelin()),
 			controlerDossier(cloneSansPresence()),
 			controlerDossier(cloneSansVoix()),
-			// LA SIXIÈME RÈGLE, sans quoi la ligne de discriminance juste en dessous
+			// LA RÈGLE D'IT7, pour la même raison que la ligne ci-dessous : la
+			// discriminance compte les identifiants REPRÉSENTÉS contre la taille du
+			// registre, et aucun des dossiers ci-dessus ne porte d'objectif inaccomplissable.
+			controlerDossier(cloneObjectifSansChemin()),
+			// LA RÈGLE DU PONT, sans quoi la ligne de discriminance juste en dessous
 			// rougit : elle compte les identifiants REPRÉSENTÉS contre la taille du
 			// registre, et les quatre dossiers ci-dessus ne mutent aucun champ porteur
 			// d'avertissement. Elle rougirait EN FAISANT SON TRAVAIL — c'est elle qui
@@ -1255,7 +1326,7 @@ describe('avertissement-de-validation, le pont vers les avertissements du valida
 		}
 	})
 
-	it('les six regles ecrivent le meme registre de langue, sur les deux colonnes', () => {
+	it('les sept regles ecrivent le meme registre de langue, sur les deux colonnes', () => {
 		// CE QUE L'AUTEUR NE DOIT JAMAIS LIRE : le glyphe d'un autre registre, une clé
 		// du schéma, une mention de canal, un geste d'import. DISCRIMINANCE ACQUISE
 		// PAR MESURE et non par espoir : les phrases réelles de `condition-sans-expr`
@@ -1285,11 +1356,18 @@ describe('avertissement-de-validation, le pont vers les avertissements du valida
 			controlerDossier(cloneIndiceSansRacine()),
 			controlerDossier(cloneSansPresence()),
 			controlerDossier(cloneSansVoix()),
+			// LES DEUX ARITÉS DU MESSAGE D'IT7, et les deux entrent : ce message
+			// INTERPOLE un libellé de prédicat et des noms d'entités, donc il est le
+			// premier du registre dont le registre de langue dépend d'une donnée. Une
+			// seule arité balayée en laisserait la moitié tenue par une relecture
+			// humaine, c'est-à-dire par rien (KR-199).
+			controlerDossier(cloneObjectifSansChemin()),
+			controlerDossier(cloneReferenceAvantReparation()),
 			...Object.values(TEMOINS_DU_PONT).map((faireLeTemoin) => controlerDossier(faireLeTemoin())),
 		]
 		const controles = rapports.flatMap((rapport) => rapport.controles)
 
-		// Discriminance : les SIX règles sont représentées dans ce qui est balayé, et
+		// Discriminance : les SEPT règles sont représentées dans ce qui est balayé, et
 		// les DIX sites du pont aussi.
 		expect(new Set(controles.map((controle) => controle.id)).size).toBe(Object.keys(CONTROLES).length)
 		expect(
@@ -1309,5 +1387,238 @@ describe('avertissement-de-validation, le pont vers les avertissements du valida
 				}
 			}
 		}
+	})
+})
+
+describe('objectif-sans-chemin, une condition de reussite que rien ne peut etablir', () => {
+	it('un objectif que rien ne peut accomplir bloque, et le clone intact se tait', () => {
+		// (a) LE CLONE INTACT — la condition de réussite de son unique objectif est
+		// accomplissable, donc aucun constat DE CETTE RÈGLE et l'aventure reste
+		// jouable. Sans cette moitié, un linter qui signale tout serait
+		// indistinguable d'un linter juste.
+		expect(pourLaRegle(controlerDossier(clone()), 'objectif-sans-chemin')).toEqual([])
+		expect(controlerDossier(clone()).jouable).toBe(true)
+
+		// (b) UN SEUL champ muté : la condition repointée sur une paire que rien ne
+		// porte.
+		const dossier = cloneObjectifSansChemin()
+		const constats = pourLaRegle(controlerDossier(dossier), 'objectif-sans-chemin')
+
+		expect(
+			constats.map((constat) => `${constat.entityId} → ${constat.niveau} · ${constat.section} · ${constat.path}`),
+		).toEqual(['objectif.refermer-le-sceau → bloquant · canon · canon.objectifs[].reussi_si_expr'])
+		// Le OÙ désigne l'OBJECTIF, résolu par son nom — jamais son identifiant.
+		expect(constats[0].location).toBe('Objectif « Refermer le sceau du Gouffre »')
+		// LE VOYANT BLOQUE, et c'est une bascule : le même clone était jouable en (a).
+		expect(controlerDossier(dossier).jouable).toBe(false)
+		// LA CONSIGNE, verbatim : elle nomme les écrans PRODUCTEURS et jamais
+		// « Objectifs → Condition de réussite », qui n'écrit pas cette condition.
+		expect(controleRemediation(constats[0])).toBe(
+			"Donnez un producteur à ce fait : un effet de règle « donne l'objet » ou « révèle l'indice » (Quêtes, Événements, Jalons), ou un savoir de personnage (Personnages → Savoirs).",
+		)
+	})
+
+	it('le ou suffit a UNE branche, le et les exige toutes — deux objectifs, meme dossier', () => {
+		// DEUX OBJECTIFS DE MÊMES FEUILLES dans le MÊME dossier (KR-197/202), et un
+		// seul caractère les sépare : l'opérateur. `A` n'est produit par personne —
+		// seul un `retirer_objet` vise cette lanterne, et c'est un producteur NÉGATIF
+		// —, `B` l'est par l'effet du premier jalon.
+		const dossier = cloneReference()
+		const A: ExprNode = { op: 'predicat', predicat: 'possede_objet', cibles: ['objet.lanterne-de-corvin'] }
+		const B: ExprNode = { op: 'predicat', predicat: 'indice_connu', cibles: ['indice.pas-dans-la-cendre'] }
+		dossier.canon.objectifs[0].reussi_si_expr = { op: 'ou', enfants: [A, B] }
+		dossier.canon.objectifs[1].reussi_si_expr = { op: 'et', enfants: [A, B] }
+
+		const constats = pourLaRegle(controlerDossier(dossier), 'objectif-sans-chemin')
+
+		// SEUL LE SECOND PARLE. Un `ou` est écrit exactement pour offrir un second
+		// chemin : exiger toutes ses branches serait le faux positif le plus probable
+		// de toute cette tranche — et il tomberait sous une règle BLOQUANTE.
+		expect(constats.map((constat) => `${constat.entityId} → ${constat.niveau}`)).toEqual([
+			'objectif.proteger-le-sceau → bloquant',
+		])
+		// Et c'est bien la branche MORTE qui est nommée, pas la vivante.
+		expect(constats[0].message).toContain('Objet « La lanterne de Corvin »')
+
+		// DISCRIMINANT, DANS LE MÊME TEST : la branche VIVANTE du `ou` remplacée par
+		// une SECONDE branche morte — un seul enfant changé —, et le premier objectif
+		// parle à son tour. Sans cette moitié, le silence du `ou` serait
+		// indistinguable d'une règle qui ne lirait jamais cet opérateur.
+		//
+		// DEUX FEUILLES MORTES DISTINCTES, ET NON DEUX FOIS LA MÊME — correction de
+		// revue, et elle a coûté un mutant survivant : sous `ou(A, A)`, nommer la
+		// PREMIÈRE branche morte ou la DERNIÈRE rend exactement la même prose, si bien
+		// qu'une implémentation qui garderait la dernière passait la suite ENTIÈRE.
+		// Les deux feuilles sont ici mortes pour des raisons DIFFÉRENTES — un objet que
+		// seul un « retire » vise, une paire qu'aucun savoir ne relie —, donc « la
+		// PREMIÈRE, ordre du document » devient une assertion et non un vœu.
+		const MORTE: ExprNode = {
+			op: 'predicat',
+			predicat: 'pnj_a_revele',
+			cibles: ['pnj.corvin-le-marchand', 'indice.lettre-de-la-vigie'],
+		}
+		dossier.canon.objectifs[0].reussi_si_expr = { op: 'ou', enfants: [A, MORTE] }
+		const deuxMortes = pourLaRegle(controlerDossier(dossier), 'objectif-sans-chemin')
+
+		expect(deuxMortes.map((constat) => constat.entityId)).toEqual([
+			'objectif.reveler-la-vigie',
+			'objectif.proteger-le-sceau',
+		])
+		// LE TÉMOIN NOMMÉ EST LE PREMIER ENFANT, jamais le dernier — même règle d'ordre
+		// que `et`, et c'est ICI, et nulle part ailleurs, qu'elle se mesure pour `ou`.
+		expect(deuxMortes[0].message).toContain('Objet « La lanterne de Corvin »')
+		expect(deuxMortes[0].message).not.toContain('Personnage « Corvin le Marchand »')
+
+		// ET L'ORDRE ÉCHANGÉ, même geste que pour le `et` : c'est l'autre feuille qui
+		// est nommée. Sans ce renversement, « la première » tiendrait par la
+		// coïncidence du prédicat placé en tête.
+		dossier.canon.objectifs[0].reussi_si_expr = { op: 'ou', enfants: [MORTE, A] }
+		const renverse = pourLaRegle(controlerDossier(dossier), 'objectif-sans-chemin')
+		expect(renverse[0].message).toContain('Personnage « Corvin le Marchand »')
+		expect(renverse[0].message).not.toContain('Objet « La lanterne de Corvin »')
+	})
+
+	it('le message nomme la PREMIERE feuille en defaut, verbatim, aux deux arites', () => {
+		// DEUX OBJECTIFS, LES MÊMES DEUX FEUILLES MORTES, L'ORDRE ÉCHANGÉ : c'est ce
+		// qui prouve « la PREMIÈRE, ordre du document » au lieu de le laisser tenir
+		// par une coïncidence. Les deux feuilles sont mortes pour deux raisons
+		// différentes — un objet que seul un `retirer_objet` vise, une paire qu'aucun
+		// savoir ne relie —, donc le témoin nommé ne peut pas venir d'un hasard de
+		// famille.
+		const dossier = cloneReference()
+		const LANTERNE: ExprNode = { op: 'predicat', predicat: 'possede_objet', cibles: ['objet.lanterne-de-corvin'] }
+		const PAIRE: ExprNode = {
+			op: 'predicat',
+			predicat: 'pnj_a_revele',
+			cibles: ['pnj.corvin-le-marchand', 'indice.lettre-de-la-vigie'],
+		}
+		dossier.canon.objectifs[0].reussi_si_expr = { op: 'et', enfants: [LANTERNE, PAIRE] }
+		dossier.canon.objectifs[1].reussi_si_expr = { op: 'et', enfants: [PAIRE, LANTERNE] }
+
+		const constats = pourLaRegle(controlerDossier(dossier), 'objectif-sans-chemin')
+
+		// VERBATIM PAR SCÉNARIO, et le gabarit est le MÊME aux deux arités : par
+		// apposition, sans aucun article à accorder. Un message générique ne serait
+		// vérifiable que par « non vide + registre de langue » — un test qui passe
+		// déjà sur toute règle existante, incapable de distinguer la bonne feuille
+		// désignée de la mauvaise.
+		expect(constats.map((constat) => constat.message)).toEqual([
+			"Cette condition de réussite exige « possède l'objet » — Objet « La lanterne de Corvin » —, et rien dans ce dossier ne peut le produire.",
+			"Cette condition de réussite exige « le personnage a déjà révélé l'indice » — Personnage « Corvin le Marchand », Indice « Une lettre signée de la Vigie » —, et rien dans ce dossier ne peut le produire.",
+		])
+
+		// ≤ 1 CONSTAT PAR OBJECTIF : une ligne de rapport par feuille en défaut
+		// noierait l'auteur, et le `et` en porte DEUX ici.
+		expect(constats).toHaveLength(2)
+
+		// NI CLÉ TECHNIQUE, NI IDENTIFIANT BRUT, NI LE MOT DE SCHÉMA — l'auteur lit
+		// le mot que le sélecteur de conditions lui présente, et le NOM de chaque
+		// entité.
+		for (const constat of constats) {
+			for (const interdit of ['possede_objet', 'pnj_a_revele', 'objet.', 'pnj.', 'indice.', 'prédicat']) {
+				expect(`${interdit} → ${constat.message.includes(interdit)}`).toBe(`${interdit} → false`)
+			}
+		}
+	})
+
+	it('le dossier de reference portait un vrai defaut d auteur, et la reparation de ce lot l eteint', () => {
+		// UN DÉFAUT D'AUTEUR RÉEL, que personne n'avait vu avant que cette règle
+		// n'existe : `objectif.proteger-le-sceau` exige de POSSÉDER un objet
+		// qu'aucun « donne l'objet » ne donnait nulle part. La fixture est RÉPARÉE
+		// dans ce lot — on ajoute le producteur manquant, on ne change pas la
+		// condition : le texte de la fin, émis VERBATIM au joueur, dit « Tu poses le
+		// sceau de cendre sur la table de la vigie » et établit l'intention inverse.
+		const avant = cloneReferenceAvantReparation()
+		const constats = pourLaRegle(controlerDossier(avant), 'objectif-sans-chemin')
+
+		expect(
+			constats.map((constat) => `${constat.entityId} → ${constat.niveau} · ${constat.section} · ${constat.path}`),
+		).toEqual(['objectif.proteger-le-sceau → bloquant · canon · canon.objectifs[].reussi_si_expr'])
+		expect(constats[0].location).toBe("Objectif « Empêcher l'ouverture du sceau de cendre »")
+		expect(constats[0].message).toBe(
+			"Cette condition de réussite exige « possède l'objet » — Objet « Le sceau de cendre » —, et rien dans ce dossier ne peut le produire.",
+		)
+
+		// LA RÉPARATION, LUE SUR LA DONNÉE et jamais promise en prose : le producteur
+		// ajouté est bien là, au site mesuré à zéro coût sur les treize suites qui
+		// lisent ce fichier, et la règle s'y tait.
+		const reference = cloneReference()
+		expect(
+			reference.monde.evenements[0].resolutions[0].consequence.map(
+				(effet) => `${effet.delta} → ${effet.cibles.join(', ')}`,
+			),
+		).toEqual(['reveler_indice → indice.trace-du-guet', 'donner_objet → objet.sceau-de-cendre'])
+		expect(pourLaRegle(controlerDossier(reference), 'objectif-sans-chemin')).toEqual([])
+	})
+
+	it('une cible qui ne resout aucune entite ne produit AUCUN constat', () => {
+		const dossier = cloneReference()
+		// UNE RÉFÉRENCE PENDANTE : cet objet n'existe pas au dossier. C'est une
+		// anomalie du validateur, qu'un dossier PERSISTÉ ne peut pas porter (KR-225)
+		// et que le canal des contrôles ne doit pas DOUBLER (KR-217) — et sans cette
+		// garde, le OÙ du message nommerait une entité qui n'existe pas.
+		dossier.canon.objectifs[1].reussi_si_expr = {
+			op: 'predicat',
+			predicat: 'possede_objet',
+			cibles: ['objet.jamais-vu'],
+		}
+		expect(pourLaRegle(controlerDossier(dossier), 'objectif-sans-chemin')).toEqual([])
+		// ET C'EST BIEN L'AUTRE CANAL QUI PARLE sur ce même dossier : sans cette
+		// ligne, le silence ci-dessus serait indistinguable d'un trou.
+		expect(validateDossier(dossier).errors.map((anomalie) => anomalie.code)).toEqual(['reference-pendante'])
+
+		// LA MOITIÉ QUI MANQUAIT À L'ARITÉ 2 : le personnage résout, l'indice non.
+		// Le compte, et non un drapeau, porte la garde — il dit aussi bien « aucune »
+		// que « l'une des deux ».
+		dossier.canon.objectifs[1].reussi_si_expr = {
+			op: 'predicat',
+			predicat: 'pnj_a_revele',
+			cibles: ['pnj.corvin-le-marchand', 'indice.jamais-vu'],
+		}
+		expect(pourLaRegle(controlerDossier(dossier), 'objectif-sans-chemin')).toEqual([])
+
+		// DISCRIMINANT, DANS LE MÊME TEST : la même condition sur deux identifiants
+		// qui RÉSOLVENT tous les deux allume le bloquant. Sans cette moitié, les deux
+		// silences ci-dessus seraient ceux d'une règle qui ne parle jamais.
+		dossier.canon.objectifs[1].reussi_si_expr = {
+			op: 'predicat',
+			predicat: 'pnj_a_revele',
+			cibles: ['pnj.corvin-le-marchand', 'indice.lettre-de-la-vigie'],
+		}
+		expect(pourLaRegle(controlerDossier(dossier), 'objectif-sans-chemin')).toHaveLength(1)
+	})
+
+	it('sans condition structuree, et sur une collection vide, la regle se tait', () => {
+		const dossier = cloneReference()
+		delete dossier.canon.objectifs[1].reussi_si_expr
+
+		expect(pourLaRegle(controlerDossier(dossier), 'objectif-sans-chemin')).toEqual([])
+		// C'est `condition-sans-expr` qui parle là, par le pont vers les
+		// avertissements du validateur : deux voyants pour une seule cause seraient
+		// KR-217 en sens inverse.
+		expect(
+			pourLaRegle(controlerDossier(dossier), 'avertissement-de-validation').map((constat) => constat.path),
+		).toEqual(['canon.objectifs[].reussi_si_texte'])
+
+		// LA COLLECTION VIDE — et c'est la raison pour laquelle cette règle ne touche
+		// AUCUN test de feature : elle tire PAR OBJECTIF, donc jamais sur le dossier
+		// que `DossierService.create()` produit.
+		expect(seme().canon.objectifs).toEqual([])
+		expect(pourLaRegle(controlerDossier(seme()), 'objectif-sans-chemin')).toEqual([])
+	})
+
+	it('controles.ts ne connait ni le registre des conditions ni leur type', () => {
+		// LA COUTURE D'IT6, ÉPINGLÉE PLUTÔT QU'AFFIRMÉE (KR-169) : ce module conclut
+		// et raconte, `atteignabilite.ts` compte. Le libellé français du prédicat est
+		// résolu par le module qui POSSÈDE le registre ; celui-ci reçoit du français
+		// et des identifiants. Sans cette garde, la couture céderait au premier
+		// message qui aurait besoin d'un mot de plus.
+		expect(SOURCE_CONTROLES).not.toContain("from './predicates'")
+		expect(SOURCE_CONTROLES).not.toContain("from './expr'")
+		expect(SOURCE_CONTROLES).not.toContain('ExprNode')
+
+		// LES DEUX MOITIÉS : sans celle-ci, un module qui n'appellerait rien du tout
+		// passerait les interdictions ci-dessus sans rien prouver.
+		expect(SOURCE_CONTROLES).toContain('premiereFeuilleInaccomplissable')
 	})
 })

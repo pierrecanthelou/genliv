@@ -1,6 +1,6 @@
 import { AMORCE, MARQUEUR_A_ECRIRE } from './amorce'
-import { producteursParIndice } from './atteignabilite'
-import { defineRegistre, estCleDe, localiserEntite } from './identifiers'
+import { premiereFeuilleInaccomplissable, producteursParIndice } from './atteignabilite'
+import { collectIds, defineRegistre, estCleDe, localiserEntite } from './identifiers'
 import type { DossierIssue, DossierIssueCode } from './issues'
 import { SECTIONS, type SectionId } from './sections'
 import type { Dossier } from './types'
@@ -365,6 +365,47 @@ const PROSE_PERSONNAGE_SANS_VOIX: ProseControle = {
 		"Ce personnage n'a aucune réplique type : le modèle inventera sa façon de parler, et elle changera d'un tour à l'autre.",
 	remediation: "Écrivez une ou deux répliques telles qu'il les dirait (Caractère exploitable → Manière de parler).",
 }
+
+/**
+ * LE GABARIT DU CONSTAT « objectif sans chemin » — il NOMME la feuille fautive,
+ * et c'est ce qui le rend actionnable : « faites produire un fait » sans dire
+ * LEQUEL ne l'est pas. Un message générique ne se vérifierait d'ailleurs que par
+ * « non vide + registre de langue », un test qui passe déjà sur toute règle
+ * existante et qui ne saurait pas distinguer la bonne feuille de la mauvaise.
+ *
+ * UN SEUL PATRON POUR LES DEUX ARITÉS, par APPOSITION et jamais en complément
+ * d'objet : il n'y a ainsi aucun article à accorder, donc aucun cas spécial à
+ * écrire pour le seul prédicat à deux cibles du schéma.
+ *
+ * LE LIBELLÉ EST LE MOT DE L'AUTEUR — celui-là même que le `Select` de la carte
+ * d'objectif lui présente —, résolu par le module qui possède le registre des
+ * conditions. Ce module-ci ne le connaît pas : il reçoit du français et des
+ * identifiants, résout l'entité, écrit la prose. C'est la couture d'it6, tenue.
+ *
+ * CONTRÔLE ANTI-BUG-088 : la condition d'émission établit « la première feuille
+ * du parcours est sans producteur ». Le message dit exactement cela — il ne
+ * prétend NI que l'objectif entier est perdu (sa condition d'échec n'est pas
+ * regardée), NI que le remède suffit : sous un « et » à plusieurs branches
+ * mortes, il ne suffit pas.
+ */
+function messageObjectifSansChemin(predicat: string, localisations: readonly string[]): string {
+	return `Cette condition de réussite exige « ${predicat} » — ${localisations.join(', ')} —, et rien dans ce dossier ne peut le produire.`
+}
+
+/**
+ * UNE SEULE CONSIGNE, et elle est JUSTE parce que le message nomme le fait :
+ * l'auteur sait lequel, la consigne dit seulement OÙ les faits se produisent, et
+ * chaque membre de la phrase est vrai d'au moins un des trois prédicats qui
+ * mordent. Trois consignes isomorphes exigeraient un discriminant sur
+ * `ConstatControle`, interface exportée par le baril et posable sur les constats
+ * des six autres règles — un état illégal représentable, refusé à it6 puis ici.
+ *
+ * ELLE NE RENVOIE PAS À « Objectifs → Condition de réussite », et c'est mesuré :
+ * cet écran n'écrit pas la condition structurée — la phrase nommerait une
+ * surface qui n'existe pas. Elle nomme les écrans PRODUCTEURS, et eux seuls.
+ */
+const REMEDIATION_OBJECTIF_SANS_CHEMIN =
+	"Donnez un producteur à ce fait : un effet de règle « donne l'objet » ou « révèle l'indice » (Quêtes, Événements, Jalons), ou un savoir de personnage (Personnages → Savoirs)."
 
 /**
  * UN SITE d'avertissement du validateur, et ce que le linter en fait.
@@ -776,6 +817,85 @@ export const CONTROLES = defineRegistre<ControleDescripteur>()({
 			return constats
 		},
 		remediation: () => PROSE_PERSONNAGE_SANS_VOIX.remediation,
+	},
+
+	/**
+	 * UN OBJECTIF QUE RIEN NE PEUT ACCOMPLIR — la condition de réussite désigne un
+	 * fait qu'aucun producteur du dossier ne peut établir.
+	 *
+	 * BLOQUANTE, et le discriminant est le même que celui d'« indice sans
+	 * source » : le geste qui éteint ce voyant est POSER UNE RÉFÉRENCE entre des
+	 * entités qui existent déjà — donner l'objet, révéler l'indice, confier un
+	 * savoir —, jamais rédiger de la prose. Un voyant qu'on éteint en écrivant
+	 * n'est jamais bloquant.
+	 *
+	 * PREMIÈRE RÈGLE DU REGISTRE À DÉCLARER `section: 'canon'` SUR UN CHEMIN
+	 * ENRACINÉ DANS `canon`, et c'est elle qui a fait arriver KR-226 à échéance :
+	 * le prédicat « racine du chemin différente de la section » est
+	 * structurellement insatisfiable ici, puisque `sections.ts` donne à `canon` la
+	 * seule clé des dix qui n'a pas de point. La garde qui l'employait est
+	 * remplacée par une table épinglée, valeur par valeur, dans
+	 * `controles.test.ts` — l'invariant, lui, ne bouge pas : la section est
+	 * DÉCLARÉE, jamais dérivée (KR-219).
+	 *
+	 * DEUX SILENCES, ET AUCUN N'EST UN OUBLI :
+	 *  · `reussi_si_expr` ABSENT — c'est `condition-sans-expr` qui parle là, par le
+	 *    pont vers les avertissements du validateur, et doubler le canal serait
+	 *    KR-217 en sens inverse. Une collection d'objectifs vide ne produit rien
+	 *    non plus : cette règle tire PAR OBJECTIF, elle n'a rien à évaluer sur
+	 *    l'ensemble vide ;
+	 *  · UNE CIBLE QUI NE RÉSOUT AUCUNE ENTITÉ — troisième garde de silence de ce
+	 *    fichier, après les deux de « lieu de départ désert ». C'est une référence
+	 *    pendante, anomalie `error` du validateur — l'autre AXE, jamais un niveau
+	 *    (KR-217) —, structurellement absente d'un dossier persisté (KR-225) : la
+	 *    traiter ici DOUBLERAIT ce canal, et le OÙ du message nommerait une entité
+	 *    qui n'existe pas.
+	 *
+	 * LE VERDICT VIENT D'AILLEURS ET DE LÀ SEULEMENT : ce module ne traverse aucun
+	 * arbre de condition, ne connaît aucun identifiant de prédicat et n'importe ni
+	 * le registre des conditions ni leur type. Il conclut et raconte ; il ne
+	 * compte pas.
+	 */
+	'objectif-sans-chemin': {
+		libelle: 'Objectif sans chemin',
+		niveaux: ['bloquant'],
+		controler: (dossier) => {
+			const constats: ConstatControle[] = []
+			// LES ENTITÉS DU DOSSIER, RELEVÉES UNE FOIS : le message NOMME chaque cible,
+			// et `collectIds` rend le OÙ déjà rédigé — « Objet « Le sceau de cendre » ».
+			// C'est la même fonction que celle dont `validate.ts` tire ses propres OÙ, si
+			// bien qu'il n'y a par construction aucune seconde vérité à tenir en phase.
+			const entites = collectIds(dossier)
+
+			for (const [index, objectif] of dossier.canon.objectifs.entries()) {
+				const condition = objectif.reussi_si_expr
+				if (condition === undefined) continue
+				const feuille = premiereFeuilleInaccomplissable(dossier, condition)
+				if (feuille === null) continue
+
+				// LES CIBLES, LOCALISÉES DANS L'ORDRE où le prédicat les attend. Une seule
+				// qui ne résout pas et la règle se tait : le compte, et non un drapeau,
+				// porte la garde — il dit aussi bien « aucune » que « l'une des deux ».
+				const localisations: string[] = []
+				for (const cible of feuille.cibles) {
+					const entite = entites.find((candidate) => candidate.id === cible)
+					if (entite !== undefined) localisations.push(entite.location)
+				}
+				if (localisations.length !== feuille.cibles.length) continue
+
+				constats.push({
+					niveau: 'bloquant',
+					section: 'canon',
+					message: messageObjectifSansChemin(feuille.predicat, localisations),
+					location: localiserEntite('objectif', objectif, index),
+					path: 'canon.objectifs[].reussi_si_expr',
+					entityId: objectif.id,
+				})
+			}
+
+			return constats
+		},
+		remediation: () => REMEDIATION_OBJECTIF_SANS_CHEMIN,
 	},
 
 	/**

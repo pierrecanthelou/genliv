@@ -1,7 +1,9 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { producteursParIndice } from './atteignabilite'
+import { premiereFeuilleInaccomplissable, producteursParIndice } from './atteignabilite'
 import { DELTAS, type Delta } from './deltas'
+import type { ExprNode } from './expr'
+import { PREDICATES, type PredicatId } from './predicates'
 import { CHEMINS_DE_DELTAS, REFERENCES_SIMPLES } from './tables'
 import type { Dossier } from './types'
 
@@ -379,5 +381,194 @@ describe('le recensement des racines reste borne, et la borne vient des registre
 			// sature. Comptée par OCCURRENCE, famille `mene_a`.
 			'monde.indices[].mene_a[]',
 		])
+	})
+})
+
+/**
+ * LA SATISFIABILITÉ D'UNE CONDITION — ce que le dossier peut ÉTABLIR, jamais ce
+ * qu'une session évaluerait.
+ *
+ * Ce que cette suite prouve et que `controles.test.ts` ne peut pas prouver : la
+ * sémantique des quatre opérateurs et la décision de chacun des sept prédicats,
+ * à l'unité, sans passer par la prose d'une règle. Là-bas un verdict se lit comme
+ * une ligne de rapport ; ici il se lit comme un verdict.
+ */
+describe('premiereFeuilleInaccomplissable, la satisfiabilite d une condition', () => {
+	/**
+	 * Les libellés français sont ÉCRITS, jamais relus dans le registre : une
+	 * attente qui s'alimenterait à la source qu'elle contrôle resterait verte sur
+	 * un module qui rendrait la CLÉ technique (KR-199).
+	 */
+	const LIBELLE_POSSEDE = "possède l'objet"
+	const LIBELLE_PAIRE = "le personnage a déjà révélé l'indice"
+	const LIBELLE_CONNU = "connaît l'indice"
+
+	it('le non ne descend jamais, et la condition de la fixture minimale reste accomplissable', () => {
+		const dossier = clone()
+		const condition = dossier.canon.objectifs[0].reussi_si_expr
+		if (condition === undefined) throw new Error('la fixture minimale a perdu son reussi_si_expr')
+
+		// LA FORME EST LUE SUR LA DONNÉE, jamais promise en prose : sans cette ligne,
+		// l'assertion d'après resterait verte le jour où la fixture perdrait son `non`
+		// — et c'est ce `non`-là qui porte tout le témoin.
+		const formeDesEnfants = condition.op === 'et' ? condition.enfants.map((enfant) => enfant.op).join('+') : ''
+		expect(`${condition.op} · ${formeDesEnfants}`).toBe('et · predicat+non')
+
+		// LE MUTANT QUE CETTE LIGNE ATTRAPE, mesuré et non déduit : un `non` qui
+		// DESCEND et INVERSE son enfant trouve ici un `evenement_consomme` que rien
+		// n'évalue à it7 — donc établissable —, l'inverse en « inaccomplissable », et
+		// allume un BLOQUANT sur la fixture de toutes les preuves.
+		expect(premiereFeuilleInaccomplissable(dossier, condition)).toBeNull()
+
+		// LES DEUX SENS, DANS LE MÊME TEST (KR-197/202). Une feuille que RIEN ne
+		// produit est bien un défaut quand elle est NUE ; sous une négation, elle ne
+		// dit plus rien : les sept prédicats lisent des champs de session qui partent
+		// VIDES, donc `non(P)` est vrai au tour zéro. Sans cette moitié, l'assertion
+		// ci-dessus serait verte sous une implémentation incapable de rien signaler.
+		const nue: ExprNode = { op: 'predicat', predicat: 'possede_objet', cibles: ['objet.rien-de-tel'] }
+		expect(premiereFeuilleInaccomplissable(dossier, nue)).toEqual({
+			predicat: LIBELLE_POSSEDE,
+			cibles: ['objet.rien-de-tel'],
+		})
+		expect(premiereFeuilleInaccomplissable(dossier, { op: 'non', enfant: nue })).toBeNull()
+	})
+
+	it('la table d etablissement porte les sept predicats, et dit de CHACUN ce qu elle en fait', () => {
+		// TOTALE PAR COMPILATION — un huitième prédicat ne compile pas tant que
+		// personne n'a décidé ce que le linter en fait — ET TOTALE PAR VALEUR : it8
+		// faisant passer `jalon_atteint` d'une colonne à l'autre fait rougir la ligne
+		// de ce prédicat, au lieu de glisser en silence (KR-199).
+		//
+		// « NON ÉVALUÉE À IT7 », jamais « toujours vraie » : un mot plus large que le
+		// fait est exactement le défaut que cette garde existe pour attraper. Les deux
+		// prédicats de LIEU sont là par KR-224 (monde ouvert, aucun graphe de
+		// praticabilité au schéma), les deux autres par la porte de racine qu'it8
+		// portera.
+		const DECISION: Record<PredicatId, 'mord' | 'non-evaluee-a-it7'> = {
+			possede_objet: 'mord',
+			indice_connu: 'mord',
+			pnj_a_revele: 'mord',
+			jalon_atteint: 'non-evaluee-a-it7',
+			evenement_consomme: 'non-evaluee-a-it7',
+			lieu_visite: 'non-evaluee-a-it7',
+			lieu_courant_est: 'non-evaluee-a-it7',
+		}
+
+		// LES SEPT, BALAYÉS DEPUIS LE REGISTRE QUI FAIT FOI — jamais sept littéraux,
+		// qui dériveraient de lui en silence.
+		expect([...Object.keys(DECISION)].sort()).toEqual([...Object.keys(PREDICATES)].sort())
+		// Discriminance : les DEUX colonnes sont réellement peuplées. Une table tout
+		// entière d'un seul mot passerait le balayage ci-dessous sans rien séparer.
+		expect(Object.values(DECISION).filter((decision) => decision === 'mord')).toHaveLength(3)
+
+		const dossier = clone()
+		for (const id of Object.keys(DECISION) as PredicatId[]) {
+			// LES CIBLES SONT DÉRIVÉES DE `refKinds`, position par position : l'arité
+			// n'est écrite nulle part ici, et le prédicat à deux cibles n'a aucun cas
+			// spécial. Aucune ne désigne une entité de la fixture — c'est ce qui rend la
+			// colonne lisible : ce qui mord, mord faute de producteur.
+			const cibles = PREDICATES[id].refKinds.map((espace) => `${espace}.rien-de-tel`)
+			const verdict = premiereFeuilleInaccomplissable(dossier, { op: 'predicat', predicat: id, cibles })
+			expect(`${id} → ${verdict === null ? 'non-evaluee-a-it7' : 'mord'}`).toBe(`${id} → ${DECISION[id]}`)
+		}
+	})
+
+	it('le producteur d un objet est le VERBE donne, jamais son espace de noms', () => {
+		const dossier = clone()
+		const POSSEDE: ExprNode = { op: 'predicat', predicat: 'possede_objet', cibles: ['objet.clef-de-basalte'] }
+
+		// (a) la récompense de la quête DONNE cet objet → accomplissable.
+		expect(premiereFeuilleInaccomplissable(dossier, POSSEDE)).toBeNull()
+
+		// (b) UN SEUL champ muté : le VERBE de cette récompense passe de « donne » à
+		// « retire ». Le `refKinds` ne bouge pas — c'est le même espace de noms
+		// `objet` —, si bien qu'une productibilité dérivée de l'espace resterait VERTE
+		// ici, en comptant une SOUSTRACTION comme un don.
+		dossier.monde.quetes[0].recompense = [{ delta: 'retirer_objet', cibles: ['objet.clef-de-basalte'] }]
+		expect(premiereFeuilleInaccomplissable(dossier, POSSEDE)).toEqual({
+			predicat: LIBELLE_POSSEDE,
+			cibles: ['objet.clef-de-basalte'],
+		})
+
+		// LE TROU EST RÉEL, PAS HYPOTHÉTIQUE, et il se lit dans le registre : DEUX
+		// verbes portent l'espace `objet` aujourd'hui, un positif et un négatif. La
+		// liste se dérive de `DELTAS`, jamais de la mémoire — même geste que G2.
+		expect(
+			Object.entries(DELTAS)
+				.filter(([, descripteur]) => descripteur.refKinds.includes('objet'))
+				.map(([id]) => id),
+		).toEqual(['donner_objet', 'retirer_objet'])
+
+		// ET LE VERBE N'EST NOMMÉ QU'À UN SEUL ENDROIT du module, comme l'est déjà
+		// celui qui produit un indice : deux sites dériveraient. La marque est
+		// construite par morceaux pour que la présence de ce test ne suffise pas à
+		// faire passer le balayage ; les fichiers de test sont exclus, puisqu'ils
+		// PLANTENT des effets sans jamais les filtrer.
+		const MARQUE = ["'", 'donner_objet', "'"].join('')
+		const porteurs = fs
+			.readdirSync(__dirname)
+			.filter((fichier) => fichier.endsWith('.ts') && !fichier.endsWith('.test.ts'))
+			.filter((fichier) => fs.readFileSync(path.join(__dirname, fichier), 'utf8').includes(MARQUE))
+
+		expect(porteurs).toEqual(['atteignabilite.ts'])
+	})
+
+	it('pnj_a_revele s evalue par PAIRE, jamais en deux feuilles independantes', () => {
+		const dossier = clone()
+		const PAIRE: ExprNode = {
+			op: 'predicat',
+			predicat: 'pnj_a_revele',
+			cibles: ['pnj.aldur-le-sage', 'indice.cendres-tiedes'],
+		}
+
+		// LES DEUX MOITIÉS DU MUTANT SONT VRAIES, ET C'EST MESURÉ ICI : le personnage
+		// existe, et l'indice a bien un producteur. Une implémentation qui évaluerait
+		// « ce personnage existe » ET « cet indice a un producteur » comme deux
+		// feuilles INDÉPENDANTES conclurait donc « productible », alors qu'aucun
+		// savoir ne les relie (H3). Sans ces deux lignes, l'assertion d'après serait
+		// verte pour une raison qu'on ne saurait pas nommer.
+		expect(dossier.monde.personnages.some((personnage) => personnage.id === 'pnj.aldur-le-sage')).toBe(true)
+		expect(producteursParIndice(dossier).get('indice.cendres-tiedes')?.length).toBe(1)
+
+		expect(premiereFeuilleInaccomplissable(dossier, PAIRE)).toEqual({
+			predicat: LIBELLE_PAIRE,
+			cibles: ['pnj.aldur-le-sage', 'indice.cendres-tiedes'],
+		})
+
+		// DISCRIMINANT, DANS LE MÊME TEST : le savoir de l'unique personnage repointé
+		// sur cet indice — UN SEUL champ. La paire est alors portée, et la condition
+		// devient accomplissable. Sans cette moitié, l'assertion ci-dessus resterait
+		// verte sous une ligne qui rendrait TOUJOURS faux.
+		dossier.monde.personnages[0].savoirs[0].indice_id = 'indice.cendres-tiedes'
+		expect(premiereFeuilleInaccomplissable(dossier, PAIRE)).toBeNull()
+	})
+
+	it('indice_connu lit le compte SATURE, jamais un second parcours des producteurs', () => {
+		const dossier = clone()
+		const CONNU: ExprNode = { op: 'predicat', predicat: 'indice_connu', cibles: ['indice.boucle-a'] }
+
+		// UN SEUL champ muté : la collection d'indices devient un cycle que RIEN ne
+		// racine. Les savoirs et les effets du clone continuent de pointer des indices
+		// qui n'y sont plus, donc ils ne contribuent à aucun des deux.
+		dossier.monde.indices = [
+			{ id: 'indice.boucle-a', mene_a: ['indice.boucle-b'] },
+			{ id: 'indice.boucle-b', mene_a: ['indice.boucle-a'] },
+		]
+
+		// CE QUE LA SATURATION ACHÈTE ICI : une lecture À PLAT compterait l'arête
+		// entrante de l'autre — UN producteur — et déclarerait la condition
+		// accomplissable. Aucune des deux arêtes ne remonte à un personnage ni à un
+		// effet : la condition ne peut pas s'accomplir.
+		expect(premiereFeuilleInaccomplissable(dossier, CONNU)).toEqual({
+			predicat: LIBELLE_CONNU,
+			cibles: ['indice.boucle-a'],
+		})
+
+		// DISCRIMINANT, DANS LE MÊME TEST : le savoir de l'unique personnage repointé
+		// sur le PREMIER maillon — UN SEUL champ de plus. Il devient une racine, et la
+		// condition redevient accomplissable. C'est la MÊME carte que celle des trois
+		// seuils, réutilisée telle quelle, jamais recomptée.
+		dossier.monde.personnages[0].savoirs[0].indice_id = 'indice.boucle-a'
+		expect(premiereFeuilleInaccomplissable(dossier, CONNU)).toBeNull()
 	})
 })

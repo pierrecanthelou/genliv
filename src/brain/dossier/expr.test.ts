@@ -353,19 +353,87 @@ describe('le module dossier, proprietes statiques', () => {
 			.filter((nom) => !nom.endsWith('.test.ts'))
 	}
 
+	/** Le SECOND lecteur d'arbre du module — celui qui n'est pas la grammaire. */
+	const ATTEIGNABILITE = 'atteignabilite.ts'
+
 	function source(nom: string): string {
 		return fs.readFileSync(path.join(MODULE_DOSSIER, nom), 'utf8')
 	}
 
-	it('op et predicat ne sont interpretes qu au SEUL site validateExpr', () => {
-		// Un second lecteur de l'arbre serait une seconde grammaire, et les deux
-		// divergeraient en silence. `collectRefs` lit le même arbre — dans le MÊME
-		// fichier, et seulement après que `validateExpr` s'est tue.
-		const marqueur = ['op ===', " '"].join('')
+	/**
+	 * LE SITE DE LA GRAMMAIRE — le seul module qui décide ce QU'EST un nœud, à
+	 * partir d'une valeur que personne n'a encore typée.
+	 */
+	const SITE_DE_LA_GRAMMAIRE = 'expr.ts'
 
-		const porteurs = fichiersDuModule().filter((nom) => source(nom).includes(marqueur))
+	it('un lecteur d arbre est soit le SEUL site de la grammaire, soit exhaustif au compilateur', () => {
+		// L'INVARIANT, RÉÉCRIT À SON ÉCHÉANCE — ET IL DURCIT, IL NE SE DESSERRE PAS.
+		//
+		// CE QU'IL PROTÉGEAIT VRAIMENT : aucun module ne RE-DÉRIVE la grammaire d'un
+		// arbre NON TYPÉ. `validateExpr` et `collectRefs` reçoivent de l'`unknown` et
+		// décident eux-mêmes ce qui est un nœud ; deux lecteurs de cette espèce
+		// divergeraient en silence, et c'est cela — cela seul — qui exige un site
+		// UNIQUE.
+		//
+		// CE QU'IL DISAIT DE TROP : « un seul lecteur ». Un lecteur d'un arbre DÉJÀ
+		// ACCEPTÉ par `validateExpr` n'invente aucune forme : il reçoit un `ExprNode`
+		// et n'énonce qu'une sémantique. Il est donc admis, à UNE CONDITION vérifiée
+		// plus bas — être EXHAUSTIF AU COMPILATEUR.
+		//
+		// POURQUOI CETTE CONDITION ET PAS UNE AUTRE, mesuré et non supposé : la
+		// cascade de `if (noeud.op === …)` qu'`atteignabilite.ts` portait d'abord
+		// laissait `tsc` ENTIÈREMENT MUET quand un cinquième opérateur entrait dans
+		// l'union — le nœud inconnu y tombait dans la branche de repli et s'y faisait
+		// traiter comme un `ou`. C'est exactement le mode de panne — dériver en
+		// silence — que cette garde existe pour empêcher, et il survit à la frontière
+		// du typage. Le `default` qui échoue sur un paramètre `never` le ferme : le
+		// même cinquième opérateur casse alors `tsc` à CET appel, et nulle part
+		// ailleurs.
+		//
+		// LES DEUX FORMES, EN EXPRESSION RÉGULIÈRE ET NON EN LITTÉRAL — troisième
+		// resserrement, et il ferme un trou de l'espèce même que cette garde surveille :
+		// un marqueur textuel est lié au NOM DU PARAMÈTRE, si bien qu'un troisième
+		// lecteur écrivant `switch (n.op)` n'aurait pas été RELEVÉ, donc jamais soumis
+		// à la condition. L'aiguillage couvre aussi la forme à variable nue.
+		const CASCADE = /\.?\bop\s*===\s*'/g
+		const AIGUILLAGE = /\bswitch\s*\(\s*[\w.]*\bop\s*\)/g
+		const lecteurs = fichiersDuModule().filter((nom) =>
+			[CASCADE, AIGUILLAGE].some((motif) => source(nom).match(motif) !== null),
+		)
 
-		expect(porteurs).toEqual(['expr.ts'])
+		expect(lecteurs).toEqual([ATTEIGNABILITE, SITE_DE_LA_GRAMMAIRE])
+
+		// L'EXEMPTION SE DÉRIVE DE LA FRONTIÈRE DE TYPAGE, JAMAIS D'UN NOM DE FICHIER :
+		// est dispensé de la condition celui qui lit un arbre `unknown`, parce
+		// qu'aucune exhaustivité n'y est EXPRIMABLE — et c'est exactement pour cela
+		// qu'il doit rester unique. Exempter `expr.ts` par son nom aurait été un
+		// privilège ; le dériver en fait une propriété que le prochain module devra
+		// mériter de la même façon.
+		const semantiques = lecteurs.filter((nom) => !source(nom).includes('noeud: unknown'))
+
+		// Discriminance (KR-199) : la boucle ci-dessous porte sur UN fichier, et on le
+		// dit — une liste vide la rendrait vraie sans rien prouver.
+		expect(semantiques).toEqual([ATTEIGNABILITE])
+
+		// UNE FERMETURE PAR AIGUILLAGE, et non une par FICHIER : un second `switch`
+		// ajouté demain dans le même module, sans `default` fermé, passerait un
+		// `includes` global — le fichier porterait toujours la marque de son PREMIER
+		// aiguillage, et le second dériverait en silence. C'est le compte qui répond,
+		// et il répond par fichier relevé.
+		const FERMETURE = /:\s*never\b/g
+		for (const nom of semantiques) {
+			const aiguillages = (source(nom).match(AIGUILLAGE) ?? []).length
+			const fermetures = (source(nom).match(FERMETURE) ?? []).length
+			const repere = `${nom} → ${aiguillages} aiguillage(s), ${fermetures} fermeture(s)`
+			expect(`${repere} → ${aiguillages > 0 && fermetures >= aiguillages}`).toBe(`${repere} → true`)
+		}
+
+		// LES DEUX SIGNATURES, LUES DANS LA SOURCE : c'est la frontière de typage qui
+		// sépare les deux régimes, et elle se constate. Sans la seconde, un module
+		// « sémantique » pourrait recevoir de l'`unknown` par un autre nom de
+		// paramètre et se dispenser de tout.
+		expect(source(SITE_DE_LA_GRAMMAIRE)).toContain('noeud: unknown')
+		expect(source(ATTEIGNABILITE)).toContain('noeud: ExprNode')
 	})
 
 	it('aucune fonction de parsing d expression dans brain/dossier/', () => {
