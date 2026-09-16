@@ -72,6 +72,18 @@
 			"mitigation": "Deux sondes de discriminance, posees et annulees par copie de fichier avec verification SHA-256, puis REJOUEES par la QA en mode B : marque never retiree -> rouge sur la moitie conditionnelle ; troisieme lecteur fictif en forme switch depose dans le module -> rouge sur le releve, LA OU L ANCIEN MARQUEUR SERAIT RESTE VERT (mesure a l execution dans la meme sonde). Le pouvoir separateur de la garde amendee est donc mesure, pas revendique. REGLE DE PROCESS portee au RETOUR-COMITE : quand un plan cree un SECOND LECTEUR d une structure du module, relever AVANT LE TOUR 1 les gardes de source qui portent sur cette structure - c est greppable et ca coute une commande.",
 			"regression_test": "src/brain/dossier/expr.test.ts - << un lecteur d arbre est soit le SEUL site de la grammaire, soit exhaustif au compilateur >>",
 			"severity": "major"
+		},
+		{
+			"id": "BUG-090",
+			"date": "2026-09-16",
+			"feature": "dossier-controles",
+			"discovered_at": "iteration-8",
+			"symptom": "La remediation de `condition-sans-expr` (livree it5, controles.ts) dit a l auteur << Posez la condition structuree de reussite (Objectifs -> Condition de reussite) >>. Or le champ etiquete CONDITION DE REUSSITE sur cet ecran (ObjectifsCanon.tsx l.311) ecrit `reussi_si_texte` - LA PROSE MEME QUI A DECLENCHE L AVERTISSEMENT. La consigne est CIRCULAIRE : la suivre ne change rien, l avertissement reste. Aucune surface de l editeur n ecrit `reussi_si_expr` (0 occurrence en production dans src/features/), dossier-canon l ayant explicitement ecarte (design_contract.objectifs_texte_seul) et reporte SANS PROPRIETAIRE.",
+			"root_cause": "Une remediation ecrite en supposant l ecran producteur plutot qu en le LISANT. Aggravant : it7 a MESURE et EPINGLE l inverse DANS LE MEME FICHIER, deux iterations plus tard (controles.ts l.403-405 : << ELLE NE RENVOIE PAS A Objectifs -> Condition de reussite, et c est mesure : cet ecran n ecrit pas la condition structuree >>), sans que personne ne rapproche les deux enonces contradictoires cohabitant dans un meme module.",
+			"fix": "NON CORRIGE a it8 - hors perimetre, la correction appartient au prochain lot qui rouvrira legitimement SITES_AVERTISSEMENT. Le defaut est ici JOURNALISE et sa NON-REPLICATION est mecanisee.",
+			"mitigation": "Critere 6 d it8 : une garde de source interdit la chaine 'Condition de reussite)' dans la remediation de `canon-sans-victoire`, et sa SECONDE MOITIE prouve que cette formule EXISTE bel et bien dans controles.ts - un interdit pose sur un fantome n interdirait rien. Une seconde garde verifie par TRANCHE DE SOURCE que l ecran nomme par la remediation neuve ecrit REELLEMENT le champ nomme. Doctrine generalisee au plan d it8 : une capacite absente ne peut atteindre le BLOQUANT que si l editeur offre AUJOURD HUI le geste qui la restaure.",
+			"regression_test": "src/brain/dossier/controles.test.ts - << la remediation nomme un ecran qui ecrit vraiment le champ, et ne replique pas le defaut d it5 >>",
+			"severity": "major"
 		}
 	]
 }

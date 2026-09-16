@@ -408,6 +408,49 @@ const REMEDIATION_OBJECTIF_SANS_CHEMIN =
 	"Donnez un producteur à ce fait : un effet de règle « donne l'objet » ou « révèle l'indice » (Quêtes, Événements, Jalons), ou un savoir de personnage (Personnages → Savoirs)."
 
 /**
+ * LA PROSE DE « CANON SANS VICTOIRE ÉNONCÉE », et QUATRE CONTRAINTES qu'aucune
+ * reformulation ne lève — elles ne sont pas des préférences de style, chacune
+ * nomme une phrase que le code d'à côté rendrait FAUSSE :
+ *  · RIEN SUR LE MODÈLE. Aucun des sept champs d'`Objectif` n'est d'audience
+ *    `ia` (`destinations.ts` : `moteur` ou `auteur`, jamais autre chose) ; une
+ *    phrase suggérant que le modèle attend ces objectifs inviterait à les lui
+ *    injecter ;
+ *  · RIEN SUR L'INJOUABILITÉ. `objectif_atteint` est ÉCARTÉ de `PREDICATES` pour
+ *    circularité, donc aucune `charpente.fins[].condition_expr` ne peut dépendre
+ *    d'un objectif : une aventure sans objectif énoncé s'ouvre, se joue et se
+ *    termine — par `charpente.fins`, et par elle seule. Ce qui manque n'est pas
+ *    la partie, c'est l'ATTRIBUTION de l'issue à un camp. Ingagnable, pas
+ *    injouable — et aucun mot de `NiveauControle` ne dit cela, ce qui est
+ *    exactement pourquoi la nuance vit dans le MESSAGE ;
+ *  · AUCUN EFFET MOTEUR PROMIS À UN GESTE DE PROSE. Le voyant s'éteint en
+ *    écrivant `reussi_si_texte`, que le moteur ne lit JAMAIS. La phrase sur le
+ *    moteur appartient à `condition-sans-expr`, qui prend le relais au barreau
+ *    suivant ;
+ *  · L'ÉCRAN NOMMÉ ÉCRIT RÉELLEMENT LE CHAMP NOMMÉ, et c'est MESURÉ par une
+ *    garde de source : `ObjectifsCanon.tsx` porte l'eyebrow « OBJECTIFS DES
+ *    CAMPS » et son champ « CONDITION DE RÉUSSITE » écrit `reussi_si_texte`.
+ *
+ * ELLE NE NOMME PAS « Objectifs → Condition de réussite », ET C'EST DÉLIBÉRÉ :
+ * `condition-sans-expr` (it5) porte cette formule dans ce fichier même, pour une
+ * surface dont it7 a mesuré l'inexistence — la consigne y est CIRCULAIRE, le
+ * champ ainsi étiqueté écrivant la prose qui a déclenché l'avertissement. Le
+ * défaut est journalisé, il n'est pas corrigé ici (hors périmètre) ; il n'est
+ * surtout pas RÉPLIQUÉ, et une garde de source tient la non-réplication.
+ */
+const PROSE_CANON_SANS_VICTOIRE: ProseControle = {
+	message: "Des objectifs sont posés, mais aucun ne dit ce qu'il faut accomplir pour l'emporter.",
+	remediation: 'Dites ce qui fait réussir au moins un objectif (Canon → Objectifs des camps).',
+}
+
+/**
+ * LE OÙ, en FORME CHAMP — capitales, comme les quatre proses semées, et non le
+ * nom d'une entité résolue par `localiserEntite` : cette règle porte sur la
+ * COLLECTION, aucun objectif n'y est plus fautif qu'un autre. C'est aussi
+ * pourquoi son constat n'a pas d'`entityId` : il n'y a personne à désigner.
+ */
+const LOCATION_CANON_SANS_VICTOIRE = 'CANON · OBJECTIFS — condition de réussite'
+
+/**
  * UN SITE d'avertissement du validateur, et ce que le linter en fait.
  *
  * Elle EST une table, pas un calcul — et la distinction est celle que KR-219
@@ -839,11 +882,16 @@ export const CONTROLES = defineRegistre<ControleDescripteur>()({
 	 * DÉCLARÉE, jamais dérivée (KR-219).
 	 *
 	 * DEUX SILENCES, ET AUCUN N'EST UN OUBLI :
-	 *  · `reussi_si_expr` ABSENT — c'est `condition-sans-expr` qui parle là, par le
-	 *    pont vers les avertissements du validateur, et doubler le canal serait
-	 *    KR-217 en sens inverse. Une collection d'objectifs vide ne produit rien
-	 *    non plus : cette règle tire PAR OBJECTIF, elle n'a rien à évaluer sur
-	 *    l'ensemble vide ;
+	 *  · `reussi_si_expr` ABSENT — et DEUX règles s'y partagent la parole depuis
+	 *    it8, selon que le jumeau en PROSE est écrit ou non. UNE PROSE SANS
+	 *    `_expr` : c'est `condition-sans-expr` qui parle, par le pont vers les
+	 *    avertissements du validateur, et doubler le canal serait KR-217 en sens
+	 *    inverse. NI `_expr` NI PROSE, sur aucun objectif de la collection : c'est
+	 *    `canon-sans-victoire`, déclarée juste en dessous — le troisième silence
+	 *    que KR-222 laissait sans propriétaire. Une collection d'objectifs vide ne
+	 *    produit rien non plus, ni ici ni là-bas : cette règle-ci tire PAR
+	 *    OBJECTIF et n'a rien à évaluer sur l'ensemble vide, celle-là s'en garde
+	 *    explicitement ;
 	 *  · UNE CIBLE QUI NE RÉSOUT AUCUNE ENTITÉ — troisième garde de silence de ce
 	 *    fichier, après les deux de « lieu de départ désert ». C'est une référence
 	 *    pendante, anomalie `error` du validateur — l'autre AXE, jamais un niveau
@@ -896,6 +944,82 @@ export const CONTROLES = defineRegistre<ControleDescripteur>()({
 			return constats
 		},
 		remediation: () => REMEDIATION_OBJECTIF_SANS_CHEMIN,
+	},
+
+	/**
+	 * DES OBJECTIFS POSÉS, ET AUCUN QUI DISE CE QU'IL FAUT ACCOMPLIR POUR
+	 * L'EMPORTER — le TROISIÈME silence que KR-222 nommait sans propriétaire :
+	 * « ni `_expr` ni prose ». `condition-sans-expr` ne sépare que « prose sans
+	 * `_expr` » de « `_expr` posé » ; un objectif à peine posé n'a ni l'un ni
+	 * l'autre, et restait indistinguable d'un objectif fini.
+	 *
+	 * ALERTE, ET JAMAIS BLOQUANT — la doctrine achetée par cette itération : une
+	 * capacité absente se signale au niveau de ce qu'elle EMPÊCHE, jamais de
+	 * l'effort restant. Ce qui manque ici n'empêche AUCUNE partie de s'ouvrir ni de
+	 * se conclure (`charpente.fins` conclut seule, `objectif_atteint` étant écarté
+	 * de `PREDICATES` pour circularité) : il manque l'attribution de l'issue à un
+	 * camp. Le discriminant relisible est celui d'it6 et d'it7, appliqué en sens
+	 * inverse : le geste qui éteint ce voyant est RÉDIGER DE LA PROSE, et un voyant
+	 * qu'on éteint en écrivant n'est jamais bloquant.
+	 *
+	 * RÈGLE DE COLLECTION, comme « lieu de départ désert » et pour la même raison :
+	 * ZÉRO OU UN constat, JAMAIS un par objectif. Un objectif creux À CÔTÉ d'un
+	 * objectif pourvu reste donc silencieux — prix assumé, la discrimination par
+	 * entité n'ayant aucun propriétaire déclaré.
+	 *
+	 * TROIS GARDES CUMULATIVES, et la première n'est PAS une commodité : c'est elle
+	 * qui décide de quelle doctrine relève la règle. Sans elle, un prédicat
+	 * UNIVERSEL sur l'ensemble vide est VRAI, la règle tirerait sur `canon.objectifs`
+	 * VIDE — c'est-à-dire sur tout dossier fraîchement créé —, redeviendrait un
+	 * CARDINAL et rouvrirait `design_contract.etat_vide` de sa propre feature, qui
+	 * dit que le linter SE TAIT sur les collections vides. Même nécessité logique
+	 * que la garde 1 de « lieu de départ désert », dans l'autre sens.
+	 *
+	 * ELLE NE LIT QUE DES PRÉSENCES DE CLÉ ET DE LA LONGUEUR DE TEXTE : jamais un
+	 * arbre de condition, jamais un identifiant de prédicat. `reussi_si_expr` est
+	 * testé pour son ABSENCE et rien de plus — la couture d'it6 reste fermée, et
+	 * une garde de source le tient.
+	 *
+	 * `trim()` SUR LA PROSE, et il est APPARIÉ : `validate.ts` saute le site
+	 * `condition-sans-expr` quand le texte est absent OU BLANC. Sans le `trim` ici,
+	 * une prose faite d'espaces ne serait vue par AUCUNE des deux règles et
+	 * rouvrirait le trou que celle-ci vient fermer.
+	 *
+	 * `echoue_si_*` N'EST JAMAIS LU : sens d'erreur inverse (une condition d'échec
+	 * absente ne perd pas la partie, une condition d'échec vraie au tour zéro la
+	 * perd), cause distincte, règle distincte le jour où elle aura un propriétaire.
+	 */
+	'canon-sans-victoire': {
+		libelle: 'Canon sans victoire énoncée',
+		niveaux: ['alerte'],
+		controler: (dossier) => {
+			const objectifs = dossier.canon.objectifs
+			// GARDE 1 — LA COLLECTION VIDE. Un dossier neuf n'a pas d'objectif CREUX, il
+			// n'en a AUCUN : rien n'y est énoncé de travers, il n'y a rien du tout, et le
+			// bouton pointillé « + Ajouter un objectif… » porte déjà ce geste-là.
+			if (objectifs.length === 0) return []
+
+			// GARDE 2 — UNE CONDITION STRUCTURÉE, N'IMPORTE LAQUELLE. PRÉSENCE DE CLÉ, et
+			// rien d'autre : ce que l'arbre contient et s'il est accomplissable sont
+			// l'affaire d'`objectif-sans-chemin`, qui prend le relais.
+			if (objectifs.some((objectif) => objectif.reussi_si_expr !== undefined)) return []
+
+			// GARDE 3 — UNE PROSE DE RÉUSSITE, N'IMPORTE LAQUELLE. Dès qu'un objectif en
+			// porte une, c'est `condition-sans-expr` qui parle, et doubler ce canal serait
+			// KR-217 en sens inverse.
+			if (objectifs.some((objectif) => (objectif.reussi_si_texte ?? '').trim() !== '')) return []
+
+			return [
+				{
+					niveau: 'alerte',
+					section: 'canon',
+					message: PROSE_CANON_SANS_VICTOIRE.message,
+					location: LOCATION_CANON_SANS_VICTOIRE,
+					path: 'canon.objectifs[].reussi_si_texte',
+				},
+			]
+		},
+		remediation: () => PROSE_CANON_SANS_VICTOIRE.remediation,
 	},
 
 	/**

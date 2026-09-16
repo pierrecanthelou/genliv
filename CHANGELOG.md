@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.41 — des objectifs qui ne disent pas comment l emporter
+
+`dossier-controles` iteration 8/10. La regle `canon-sans-victoire` : ALERTE sur un canon dont les objectifs sont poses mais dont AUCUN ne dit ce qu il faut accomplir pour l emporter. Trois gardes cumulatives — et la premiere, `length > 0`, laisse la collection VIDE muette.
+
+- **L iteration ecrite en spec portait QUATRE charges. Elle a ete decoupee AVANT d etre raffinee** — premiere coupe de cette feature sur le VOLUME et non sur le sens d erreur. La scission de `controles.ts` part en tranche `chore`, les racines a it9, l echec au tour zero a it10.
+- **La regle telle que le cadrage l ecrivait ne pouvait pas etre livree, et trois mesures le disaient.** Elle contredisait le `design_contract` de sa PROPRE feature (<< le linter SE TAIT sur les collections vides >>) ; elle s eteignait sur un objectif CREUX, le bouton << + Ajouter >> posant `{nom:'', reussi_si_texte:'', echoue_si_texte:''}` — un clic aurait fait passer `jouable` a vrai sur un dossier tout aussi injouable ; et elle n avait AUCUN `path` legal.
+- **<< BLOQUANT >> y aurait affirme quelque chose de faux.** `objectif_atteint` est ecarte de `PREDICATES` pour circularite, donc aucune `Fin` ne depend d un objectif : une aventure sans objectif s ouvre, se joue et SE TERMINE. Ingagnable, pas injouable — et aucun mot de `NiveauControle` ne dit ca, d ou la nuance portee par le MESSAGE.
+- **La variante de repli a ete tuee par une mesure, elle aussi.** Le comite avait converge au tour 2 sur une regle tirant sur `reussi_si_expr` — jusqu a ce qu on mesure qu AUCUNE surface de l editeur n ecrit ce champ (0 occurrence en production). Le voyant aurait ete inextinguible par tout geste d auteur.
+- **Un defaut REEL du code livre a ete trouve, et il n est pas corrige ici.** `condition-sans-expr` (it5) renvoie a << Objectifs -> Condition de reussite >>, ecran dont le champ ainsi etiquete ecrit la PROSE MEME qui a declenche l avertissement : consigne CIRCULAIRE. it7 avait mesure et epingle l inverse DANS LE MEME FICHIER sans que personne ne rapproche les deux. BUG-090 — journalise, non replique (une garde de source l interdit, et sa seconde moitie prouve que la formule existe bel et bien).
+- **La QA en mode B a trouve un trou que l ouvrier et le plan avaient manque** : neutraliser la DEUXIEME garde ne faisait rougir aucun test du depot, toutes les fixtures portant `reussi_si_expr` portant aussi une prose non vide. << Trois gardes cumulatives >> n etait etaye que pour deux. Quatrieme iteration d affilee ou le defaut est dans l instrument, et quatrieme fois que c est ce poste qui le voit.
+- **Trois roles ont retire une position qu ils defendaient** : le PM son retrait pur de la regle, l UX son motif ET son niveau bloquant, le tech-lead son propre amendement de garde et son propre decoupage en deux lots.
+- **Le comite contredit deliberement une ligne du plan de cible** — l arbitrage n 5 garde son PRINCIPE (<< pas de quota arbitraire >>), c est son ENUMERATION qui est perimee, sur son deuxieme item. Le premier l avait deja ete a it6.
+
 ## 0.6.40 — un objectif que rien ne peut accomplir
 
 `dossier-controles` iteration 7/8. La regle `objectif-sans-chemin` : BLOQUANTE sur un objectif dont la condition de reussite designe un fait qu aucun producteur du dossier ne peut etablir. Verdict BOTTOM-UP, adosse a une table de productibilite totale par compilation sur `PREDICATES`.

@@ -18,7 +18,7 @@ import { estCleDe } from './identifiers'
 import type { DossierIssueCode } from './issues'
 import { SECTIONS, type SectionId } from './sections'
 import { BUDGETS_DE_MOTS, CHEMINS_DE_DELTAS, FAMILLES_DE_CONDITIONS } from './tables'
-import type { Dossier } from './types'
+import type { Dossier, Objectif } from './types'
 import { validateDossier } from './validate'
 
 /**
@@ -165,6 +165,41 @@ function cloneObjectifSansChemin(): Dossier {
 		predicat: 'pnj_a_revele',
 		cibles: ['pnj.aldur-le-sage', 'indice.cendres-tiedes'],
 	}
+	return dossier
+}
+
+/**
+ * L'IDENTIFIANT DE L'OBJECTIF CREUX EST EMPRUNTÉ À LA FIXTURE, et le motif est
+ * mécanique : `pnj.aldur-le-sage` y porte `objectif_id:
+ * 'objectif.refermer-le-sceau'`. Frapper un identifiant neuf laisserait cette
+ * référence PENDANTE — une anomalie `error`, c'est-à-dire un document que
+ * `DossierService.update` REFUSE d'écrire : le témoin fabriquerait alors un
+ * état que le produit ne peut pas atteindre (KR-225). La règle ne lit JAMAIS la
+ * valeur d'un identifiant ; c'est la seule chose qu'on emprunte, et le test de
+ * l'état B le vérifie en passant le témoin au validateur.
+ */
+const OBJECTIF_DU_CLONE = 'objectif.refermer-le-sceau'
+
+/**
+ * UN OBJECTIF CREUX, CHAMP POUR CHAMP TEL QUE L'ÉCRAN LE POSE — `handleAjouter`
+ * d'`ObjectifsCanon.tsx` écrit `{ id, camp, nom: '', reussi_si_texte: '',
+ * echoue_si_texte: '' }`, et c'est ce littéral-là qui est recopié ici, jamais une
+ * approximation « un objectif vide ». Toute la démonstration d'it8 tient à cela :
+ * le CARDINAL qu'AC10 décrivait s'éteindrait sur ce dossier-ci, qui est pourtant
+ * tout aussi ingagnable que la collection vide — un clic, et le voyant tombait.
+ *
+ * `camp` est REQUIS au schéma et l'écran le pose à `'protagonistes'` à la
+ * création : un objectif creux est un document PARFAITEMENT ÉCRIVABLE, et c'est
+ * tout le propos du type frère (KR-217).
+ */
+function objectifCreux(): Objectif {
+	return { id: OBJECTIF_DU_CLONE, camp: 'protagonistes', nom: '', reussi_si_texte: '', echoue_si_texte: '' }
+}
+
+/** Le clone, sa collection d'objectifs remplacée par ce seul creux — UN SEUL champ muté. */
+function cloneObjectifCreux(): Dossier {
+	const dossier = clone()
+	dossier.canon.objectifs = [objectifCreux()]
 	return dossier
 }
 
@@ -415,9 +450,9 @@ describe('controlerDossier, le rapport de controles', () => {
 		expect(bloquant?.section).toBe('depart')
 		expect(bloquant?.path.split('.')[0]).toBe('charpente')
 
-		// LES SIX ENTRÉES QUI NE SONT PAS L'AMORCE, et la démonstration porte sur LES
-		// SIX — pas sur un échantillon (KR-199). La table est TOTALE par compilation
-		// sur `ControleId` moins l'amorce : une huitième règle ne compilera pas ici
+		// LES SEPT ENTRÉES QUI NE SONT PAS L'AMORCE, et la démonstration porte sur LES
+		// SEPT — pas sur un échantillon (KR-199). La table est TOTALE par compilation
+		// sur `ControleId` moins l'amorce : une NEUVIÈME règle ne compilera pas ici
 		// tant que son auteur n'aura pas exhibé un témoin ET épinglé la section de
 		// chacun des chemins qu'il produit.
 		//
@@ -455,6 +490,13 @@ describe('controlerDossier, le rapport de controles', () => {
 				dossier: cloneObjectifSansChemin(),
 				sections: { 'canon.objectifs[].reussi_si_expr': 'canon' },
 			},
+			// LA SECONDE À S'ENRACINER DANS `canon`, et la seule du registre à porter sur
+			// une COLLECTION plutôt que sur ses éléments : son `path` désigne le champ où
+			// le geste se fait, sa `section` la page où l'auteur le fera.
+			'canon-sans-victoire': {
+				dossier: cloneObjectifCreux(),
+				sections: { 'canon.objectifs[].reussi_si_texte': 'canon' },
+			},
 			// LE TÉMOIN DU PONT se choisit sur le CONTRASTE : racine `monde`, section
 			// `personnages`, et il ne produit qu'UN avertissement (mesuré). Celui de la
 			// PREUVE VERTICALE D'ALLUMAGE, lui, se choisit sur le COÛT et vit ailleurs :
@@ -464,6 +506,13 @@ describe('controlerDossier, le rapport de controles', () => {
 				sections: { 'monde.personnages[].savoirs[].revele_si': 'personnages' },
 			},
 		}
+
+		// TOTALE PAR BALAYAGE DU REGISTRE, et pas seulement par compilation (KR-199) :
+		// l'`Exclude` ci-dessus tient déjà l'égalité au typage, mais un jour où quelqu'un
+		// l'assouplirait, un « N » littéral ne dirait plus rien. L'ensemble se compare
+		// donc à `CONTROLES` lui-même, l'amorce mise à part — elle a son propre balayage
+		// juste au-dessus.
+		expect([...Object.keys(NEUVES), 'amorce-non-redigee'].sort()).toEqual(Object.keys(CONTROLES).sort())
 
 		for (const id of Object.keys(NEUVES) as (keyof typeof NEUVES)[]) {
 			const { dossier, sections } = NEUVES[id]
@@ -508,6 +557,7 @@ describe('controlerDossier, le rapport de controles', () => {
 			'personnage-sans-presence': cloneSansPresence(),
 			'personnage-sans-voix': cloneSansVoix(),
 			'objectif-sans-chemin': cloneObjectifSansChemin(),
+			'canon-sans-victoire': cloneObjectifCreux(),
 			'avertissement-de-validation': cloneSansPorte(),
 		}
 
@@ -533,7 +583,7 @@ describe('controlerDossier, le rapport de controles', () => {
 	})
 
 	it('les path sont des cles de DESTINATION_DES_CHAMPS', () => {
-		// LE RAPPORT COMPLET, et sur les témoins des SIX règles : un balayage du seul
+		// LE RAPPORT COMPLET, et sur les témoins des HUIT règles : un balayage du seul
 		// dossier semé ne verrait que les quatre chemins de l'amorce et laisserait sans
 		// preuve les quatre `path` neufs, alors que son nom promet « les path »
 		// (KR-199).
@@ -546,6 +596,10 @@ describe('controlerDossier, le rapport de controles', () => {
 			// discriminance compte les identifiants REPRÉSENTÉS contre la taille du
 			// registre, et aucun des dossiers ci-dessus ne porte d'objectif inaccomplissable.
 			controlerDossier(cloneObjectifSansChemin()),
+			// LA RÈGLE D'IT8, et son témoin est NÉCESSAIREMENT DISTINCT du dossier semé :
+			// `seme()` produit `canon.objectifs: []`, où cette règle-là se tait par sa
+			// première garde. Aucune des cinq lignes ci-dessus ne porte d'objectif creux.
+			controlerDossier(cloneObjectifCreux()),
 			// LA RÈGLE DU PONT, sans quoi la ligne de discriminance juste en dessous
 			// rougit : elle compte les identifiants REPRÉSENTÉS contre la taille du
 			// registre, et les quatre dossiers ci-dessus ne mutent aucun champ porteur
@@ -555,7 +609,8 @@ describe('controlerDossier, le rapport de controles', () => {
 		]
 		const controles = rapports.flatMap((rapport) => rapport.controles)
 
-		// Discriminance : les SIX règles sont représentées dans ce qui est balayé.
+		// Discriminance : les HUIT règles sont représentées dans ce qui est balayé —
+		// le compte se lit dans le registre, jamais en littéral (KR-199).
 		expect(new Set(controles.map((controle) => controle.id)).size).toBe(Object.keys(CONTROLES).length)
 		expect(controles.length).toBeGreaterThan(CHAMPS_SEMES.length)
 
@@ -1326,7 +1381,7 @@ describe('avertissement-de-validation, le pont vers les avertissements du valida
 		}
 	})
 
-	it('les sept regles ecrivent le meme registre de langue, sur les deux colonnes', () => {
+	it('les huit regles ecrivent le meme registre de langue, sur les deux colonnes', () => {
 		// CE QUE L'AUTEUR NE DOIT JAMAIS LIRE : le glyphe d'un autre registre, une clé
 		// du schéma, une mention de canal, un geste d'import. DISCRIMINANCE ACQUISE
 		// PAR MESURE et non par espoir : les phrases réelles de `condition-sans-expr`
@@ -1363,11 +1418,15 @@ describe('avertissement-de-validation, le pont vers les avertissements du valida
 			// humaine, c'est-à-dire par rien (KR-199).
 			controlerDossier(cloneObjectifSansChemin()),
 			controlerDossier(cloneReferenceAvantReparation()),
+			// LA RÈGLE D'IT8 — sa prose est la première à devoir passer TROIS familles de
+			// mots interdites de plus (modèle, injouabilité, partie qui ne se conclut pas),
+			// épinglées à part ; ce balayage-ci lui applique en plus le registre commun.
+			controlerDossier(cloneObjectifCreux()),
 			...Object.values(TEMOINS_DU_PONT).map((faireLeTemoin) => controlerDossier(faireLeTemoin())),
 		]
 		const controles = rapports.flatMap((rapport) => rapport.controles)
 
-		// Discriminance : les SEPT règles sont représentées dans ce qui est balayé, et
+		// Discriminance : les HUIT règles sont représentées dans ce qui est balayé, et
 		// les DIX sites du pont aussi.
 		expect(new Set(controles.map((controle) => controle.id)).size).toBe(Object.keys(CONTROLES).length)
 		expect(
@@ -1620,5 +1679,326 @@ describe('objectif-sans-chemin, une condition de reussite que rien ne peut etabl
 		// LES DEUX MOITIÉS : sans celle-ci, un module qui n'appellerait rien du tout
 		// passerait les interdictions ci-dessus sans rien prouver.
 		expect(SOURCE_CONTROLES).toContain('premiereFeuilleInaccomplissable')
+	})
+})
+
+describe('canon-sans-victoire, des objectifs qui ne disent pas ce qu il faut accomplir', () => {
+	it('la collection vide reste muette, et le dossier neuf garde ses quatre lignes', () => {
+		// CRITÈRE 1 — LA GARDE `length > 0`, PROUVÉE PAR LE HAUT. Ce n'est pas une
+		// commodité : `design_contract.etat_vide` de cette feature dit que le linter SE
+		// TAIT sur les collections vides, et AC1 épingle les quatre lignes du dossier
+		// neuf. Une règle CARDINALE — « aucun objectif → constat » — rouvrait les deux
+		// d'un coup, sur 100 % des dossiers fraîchement créés.
+		const neuf = seme()
+		expect(neuf.canon.objectifs).toEqual([])
+
+		const rapport = controlerDossier(neuf)
+		expect(pourLaRegle(rapport, 'canon-sans-victoire')).toEqual([])
+
+		// LES QUATRE LIGNES D'AC1, INCHANGÉES — et la comparaison porte sur ce que
+		// chaque ligne DÉCIDE, jamais sur un compte : « 4 » resterait vrai si une ligne
+		// neuve remplaçait une ligne d'amorce.
+		expect(rapport.controles.map((controle) => `${controle.id} · ${controle.niveau} · ${controle.section}`)).toEqual([
+			'amorce-non-redigee · bloquant · depart',
+			'amorce-non-redigee · alerte · canon',
+			'amorce-non-redigee · alerte · canon',
+			'amorce-non-redigee · alerte · canon',
+		])
+		expect(rapport.jouable).toBe(false)
+	})
+
+	it('un seul objectif creux, tel que l ecran le cree, produit exactement une alerte sur canon', () => {
+		// CRITÈRE 2 — L'ÉTAT B, celui que KR-222 laissait sans propriétaire : « ni
+		// `_expr` ni prose ». Le témoin est le littéral de `handleAjouter`, jamais une
+		// approximation.
+		const dossier = cloneObjectifCreux()
+		expect(dossier.canon.objectifs).toEqual([
+			{ id: OBJECTIF_DU_CLONE, camp: 'protagonistes', nom: '', reussi_si_texte: '', echoue_si_texte: '' },
+		])
+
+		// LE TÉMOIN EST UN DOCUMENT QUE LE PRODUIT PEUT RÉELLEMENT ATTEINDRE (KR-225) :
+		// le validateur ne rend AUCUNE anomalie, donc `DossierService.update` l'écrit.
+		// Sans cette ligne, la règle se prouverait sur un état fabriqué.
+		expect(validateDossier(dossier).errors).toEqual([])
+
+		const constats = pourLaRegle(controlerDossier(dossier), 'canon-sans-victoire')
+		expect(constats).toHaveLength(1)
+		expect(`${constats[0].niveau} · ${constats[0].section}`).toBe('alerte · canon')
+
+		// LES TROIS TEXTES, MOT POUR MOT — c'est le contrat de design de l'itération, et
+		// il ne se relit nulle part ailleurs. Le OÙ est en FORME CHAMP (capitales), la
+		// règle portant sur la collection et non sur une entité.
+		expect(constats[0].location).toBe('CANON · OBJECTIFS — condition de réussite')
+		expect(constats[0].message).toBe(
+			"Des objectifs sont posés, mais aucun ne dit ce qu'il faut accomplir pour l'emporter.",
+		)
+		expect(controleRemediation(constats[0])).toBe(
+			'Dites ce qui fait réussir au moins un objectif (Canon → Objectifs des camps).',
+		)
+
+		// `entityId` ABSENT, et c'est une décision : aucun objectif n'est plus fautif
+		// qu'un autre, il n'y a personne à désigner. `Object.keys` et non `in`, qui
+		// remonte la chaîne de prototypes (KR-175).
+		expect(Object.keys(constats[0]).includes('entityId')).toBe(false)
+
+		// ZÉRO OU UN, JAMAIS UN PAR OBJECTIF : deux creux ne font pas deux lignes.
+		const deuxCreux = clone()
+		deuxCreux.canon.objectifs = [objectifCreux(), { ...objectifCreux(), id: 'objectif.second-creux' }]
+		expect(pourLaRegle(controlerDossier(deuxCreux), 'canon-sans-victoire')).toHaveLength(1)
+
+		// LA LIGNE F, ÉPINGLÉE plutôt que laissée à une note de plan : un creux À CÔTÉ
+		// d'un pourvu se tait. Prix assumé d'une règle de COLLECTION — la
+		// discrimination par entité n'a aucun propriétaire déclaré.
+		const creuxEtPourvu = clone()
+		creuxEtPourvu.canon.objectifs = [{ ...objectifCreux(), id: 'objectif.second-creux' }, ...clone().canon.objectifs]
+		expect(pourLaRegle(controlerDossier(creuxEtPourvu), 'canon-sans-victoire')).toEqual([])
+	})
+
+	it('les quatre barreaux se separent sur un seul dossier, restaure en fin de test', () => {
+		// CRITÈRE 3 — UN CODE PAR CAUSE (KR-164), prouvé par ZÉRO RECOUVREMENT sur UN
+		// SEUL dossier muté d'un barreau au suivant, PUIS RESTAURÉ (KR-197/202, forme
+		// « collection » posée à it3 : muter, puis REVENIR). « Aller » sans « revenir »
+		// ne distingue pas une règle d'un blocage global.
+		//
+		// LES VOYANTS COMPTÉS SONT CEUX DE L'OBJECTIF, et le filtre est le CHEMIN : les
+		// trois règles en jeu s'enracinent toutes dans `canon.objectifs`, et le clone
+		// n'en produit aucun à l'état intact. Compter le rapport ENTIER y mêlerait
+		// l'alerte structurelle « indice sans source » que ce clone porte par ailleurs,
+		// et le test mesurerait autre chose que ce que son nom promet.
+		const dossier = clone()
+		const voyants = (): readonly Controle[] =>
+			controlerDossier(dossier).controles.filter((controle) => controle.path.startsWith('canon.objectifs'))
+		const barreau = (rang: string): string => {
+			const allumes = voyants()
+			const noms = allumes.map((controle) => `${controle.id} · ${controle.niveau}`).join(' + ')
+			return `${rang} · ${allumes.length} · ${allumes.length === 0 ? 'aucun' : noms}`
+		}
+
+		// BARREAU 1 — LA COLLECTION VIDE, état de tout dossier fraîchement créé, et
+		// état INITIAL de ce test : c'est à lui que le dossier sera restauré.
+		dossier.canon.objectifs = []
+		expect(barreau('1')).toBe('1 · 0 · aucun')
+
+		// BARREAU 2 — L'OBJECTIF CREUX. Ni `_expr` ni prose : la règle d'it8, seule.
+		dossier.canon.objectifs = [objectifCreux()]
+		expect(barreau('2')).toBe('2 · 1 · canon-sans-victoire · alerte')
+
+		// BARREAU 3 — LA PROSE ÉCRITE, sans jumeau structuré. La règle d'it8 s'éteint
+		// par sa TROISIÈME garde, `condition-sans-expr` prend le relais par le pont.
+		dossier.canon.objectifs[0].reussi_si_texte = 'Le sceau du Gouffre est refermé avant la troisième nuit.'
+		expect(barreau('3')).toBe('3 · 1 · avertissement-de-validation · alerte')
+		// ET C'EST BIEN CE CODE-LÀ : sans cette ligne, « le pont parle » ne dirait pas
+		// LEQUEL de ses dix sites parle.
+		expect(validateDossier(dossier).warnings.map((avertissement) => avertissement.code)).toEqual([
+			'condition-sans-expr',
+		])
+
+		// BARREAU 4 — LA CONDITION STRUCTURÉE, que rien ne peut accomplir. La règle
+		// d'it8 s'éteint par sa DEUXIÈME garde, le pont se tait (le jumeau existe),
+		// `objectif-sans-chemin` parle — et lui seul bloque.
+		dossier.canon.objectifs[0].reussi_si_expr = {
+			op: 'predicat',
+			predicat: 'pnj_a_revele',
+			cibles: ['pnj.aldur-le-sage', 'indice.cendres-tiedes'],
+		}
+		expect(barreau('4')).toBe('4 · 1 · objectif-sans-chemin · bloquant')
+
+		// RESTAURATION, DANS LE MÊME TEST : le dossier revient à son état initial et le
+		// barreau 1 est RE-VÉRIFIÉ. C'est cette moitié-là qui prouve qu'on a mesuré une
+		// RÈGLE et non un verrou global.
+		dossier.canon.objectifs = []
+		expect(barreau('1 bis')).toBe('1 bis · 0 · aucun')
+	})
+
+	it('une condition structuree sans prose tait la regle, et son retrait seul la rallume', () => {
+		// LA DEUXIÈME GARDE, ISOLÉE — et ce test existe parce qu'elle ne l'était PAS.
+		// MESURE DE LA QA EN MODE B : la garde 2 neutralisée, les 47 tests du fichier
+		// restaient VERTS, et le dépôt entier aussi. Cause mesurée : tout dossier de la
+		// suite qui porte un `reussi_si_expr` porte AUSSI une prose non vide — le clone
+		// en hérite de la fixture, et le barreau 4 ci-dessus AJOUTE la condition
+		// structurée sans jamais effacer la prose posée au barreau 3. La garde 3
+		// masquait donc la garde 2 dans TOUS les états exercés, jamais l'inverse : une
+		// disjonction revendiquée à trois gardes, vraie aux deux tiers à l'épreuve.
+		// Classe BUG-084/087/089 — la VALEUR ATTENDUE était mesurée et juste, le
+		// POUVOIR SÉPARATEUR ne l'était pas, et ce sont deux vérifications différentes.
+		//
+		// L'ÉTAT MANQUANT est celui d'un auteur qui pose la condition structurée et
+		// laisse à vide la prose que `handleAjouter` a semée — parfaitement légal, et
+		// c'est très exactement ce que la garde 2 existe pour taire. UN SEUL champ muté.
+		const dossier = clone()
+		dossier.canon.objectifs[0].reussi_si_texte = ''
+
+		// LE TÉMOIN EST UN DOCUMENT QUE LE PRODUIT PEUT ÉCRIRE (KR-225) : un
+		// `reussi_si_expr` référençant un identifiant inconnu rendrait une anomalie
+		// `error`, donc un dossier que `DossierService.update` REFUSE — l'expression de
+		// la fixture, elle, résout. Et la condition structurée est bien LÀ : sans cette
+		// seconde ligne, tout ce test pourrait porter sur un objectif creux.
+		expect(validateDossier(dossier).errors).toEqual([])
+		expect(dossier.canon.objectifs[0].reussi_si_expr).toBeDefined()
+
+		// (a) LA LIGNE QUE LE RETRAIT DE LA GARDE 2 FAIT ROUGIR, et elle est nommée :
+		// prose VIDE, condition structurée POSÉE — la règle se tait par sa DEUXIÈME
+		// garde, et par elle seule, la troisième ne mordant pas sur une prose vide.
+		expect(pourLaRegle(controlerDossier(dossier), 'canon-sans-victoire')).toEqual([])
+
+		// (b) LE DISCRIMINANT, DANS LE MÊME TEST (KR-197/202) : UN SEUL champ change —
+		// la condition structurée s'en va, la prose reste vide — et le voyant s'allume.
+		// Sans cette moitié, le silence ci-dessus serait celui d'une règle qui ne parle
+		// jamais sur ce dossier-là.
+		const structuree = dossier.canon.objectifs[0].reussi_si_expr
+		delete dossier.canon.objectifs[0].reussi_si_expr
+		expect(pourLaRegle(controlerDossier(dossier), 'canon-sans-victoire')).toHaveLength(1)
+
+		// (c) RESTAURATION, dans le MÊME test : la condition revient, le voyant
+		// s'éteint. « Aller » sans « revenir » ne distingue pas une garde d'un silence.
+		dossier.canon.objectifs[0].reussi_si_expr = structuree
+		expect(pourLaRegle(controlerDossier(dossier), 'canon-sans-victoire')).toEqual([])
+	})
+
+	it('le path de la regle est une cle litterale de DESTINATION_DES_CHAMPS', () => {
+		// CRITÈRE 4 — LE `path` EST LE RETOUR VERS LE CHAMP FAUTIF, et il doit être
+		// RÉSOLUBLE. La table `NEUVES` (« la section de chaque controle… ») épingle par
+		// ailleurs la SECTION de ce chemin, valeur par valeur et totale par balayage du
+		// registre ; cette sonde-ci épingle l'autre moitié, l'APPARTENANCE.
+		const constats = pourLaRegle(controlerDossier(cloneObjectifCreux()), 'canon-sans-victoire')
+		expect(constats.map((constat) => constat.path)).toEqual(['canon.objectifs[].reussi_si_texte'])
+
+		// CLÉ LITTÉRALE, et pas seulement conteneur : `estCheminDeChamp` accepte aussi
+		// les blocs, donc lui seul ne distinguerait pas les deux. L'audience du champ
+		// est `auteur` — cohérent avec une consigne qui demande d'ÉCRIRE.
+		expect(estCleDe(DESTINATION_DES_CHAMPS, 'canon.objectifs[].reussi_si_texte')).toBe(true)
+		expect(estCheminDeChamp('canon.objectifs[].reussi_si_texte')).toBe(true)
+
+		// LE DISCRIMINANT, ET C'EST LA MESURE QUI A TUÉ LA VARIANTE CARDINALE :
+		// `'canon.objectifs'` n'est une clé de cette table SOUS AUCUNE FORME — ni
+		// littérale, ni conteneur. Une règle portant sur le seul cardinal n'avait donc
+		// aucun `path` légal à déclarer.
+		expect(estCleDe(DESTINATION_DES_CHAMPS, 'canon.objectifs')).toBe(false)
+		expect(estCheminDeChamp('canon.objectifs')).toBe(false)
+	})
+
+	it('la prose ne promet ni besoin du modele, ni injouabilite, ni partie qui ne se conclut pas', () => {
+		// CRITÈRE 5 — TROIS FAMILLES DÉCLARÉES puis BALAYÉES, jamais trois
+		// `not.toContain` écrits à la main : un nom qui promet trois familles et trois
+		// assertions qui prouvent trois mots est la classe KR-199. Chaque famille nomme
+		// une phrase que le code d'à côté rendrait FAUSSE — ce ne sont pas des interdits
+		// de style.
+		const FAMILLES_INTERDITES = {
+			// `destinations.ts` ne donne l'audience `ia` À AUCUN des sept champs
+			// d'`Objectif` : suggérer que le modèle les attend inviterait à les lui
+			// injecter — exactement ce que le plan de cible, périmé sur ce point, laisse
+			// croire.
+			'besoin du modele': ['modèle', 'contexte', 'injecté', 'narrateur', 'matériau'],
+			// `objectif_atteint` est écarté de `PREDICATES` pour circularité : aucune fin
+			// ne dépend d'un objectif, donc une aventure sans victoire énoncée s'ouvre et
+			// se joue. Ingagnable, pas injouable.
+			injouabilite: ['injouable', 'jouer', 'jouable', 'partie'],
+			// `charpente.fins` conclut seule. Affirmer qu'une partie ne pourrait pas se
+			// terminer serait faux du produit tel qu'il est.
+			'partie sans conclusion': ['conclure', 'terminer', 'terminera', 'achever', 'aboutir'],
+		}
+
+		// POUVOIR SÉPARATEUR, ÉPINGLÉ DANS LE MÊME TEST. Une famille dont aucun terme ne
+		// mordrait jamais passerait verte en ne prouvant rien — et le vert est ce que
+		// cet instrument produit (BUG-087). Chaque contre-épreuve est une prose
+		// explicitement REJETÉE au registre des désaccords de l'itération.
+		const CONTRE_EPREUVES: Record<keyof typeof FAMILLES_INTERDITES, string> = {
+			'besoin du modele': "Le modèle a besoin de ces objectifs pour mener l'aventure.",
+			injouabilite: 'Sans objectif énoncé, cette aventure est injouable et ne se joue pas.',
+			'partie sans conclusion': 'Aucune partie ne pourra se conclure ni se terminer.',
+		}
+
+		const constats = pourLaRegle(controlerDossier(cloneObjectifCreux()), 'canon-sans-victoire')
+		expect(constats).toHaveLength(1)
+		const COLONNES: Record<string, string> = {
+			message: constats[0].message,
+			remediation: controleRemediation(constats[0]),
+		}
+
+		// COMPARAISON INSENSIBLE À LA CASSE, DES DEUX CÔTÉS. Les termes sont écrits en
+		// minuscules ; sans cette normalisation, une prose future ouvrant une phrase par
+		// « Modèle » ou « Jouable » passerait les trois familles — et la contre-épreuve,
+		// minuscule elle aussi, ne pourrait PAS voir le trou.
+		const mord = (paille: string, terme: string): boolean => paille.toLowerCase().includes(terme.toLowerCase())
+
+		for (const famille of Object.keys(FAMILLES_INTERDITES) as (keyof typeof FAMILLES_INTERDITES)[]) {
+			const termes: readonly string[] = FAMILLES_INTERDITES[famille]
+			// La famille MORD sur sa propre contre-épreuve : sans cette ligne, la boucle
+			// ci-dessous serait verte sur une liste de termes introuvables.
+			const attrape = termes.some((terme) => mord(CONTRE_EPREUVES[famille], terme))
+			expect(`${famille} → ${attrape}`).toBe(`${famille} → true`)
+
+			for (const [nom, colonne] of Object.entries(COLONNES)) {
+				// AUCUNE N'EST VIDE : « rien à dire » et « personne ne l'a écrit » sont deux
+				// silences indistinguables.
+				expect(`${nom} → ${colonne !== ''}`).toBe(`${nom} → true`)
+				for (const terme of termes) {
+					expect(`${famille} · ${nom} · ${terme} → ${mord(colonne, terme)}`).toBe(
+						`${famille} · ${nom} · ${terme} → false`,
+					)
+				}
+			}
+		}
+	})
+
+	it('la remediation nomme un ecran qui ecrit vraiment le champ, et ne replique pas le defaut d it5', () => {
+		// CRITÈRE 6 — UNE CONSIGNE QUOI FAIRE SE VÉRIFIE CONTRE CE QUE LE PRODUIT PERMET
+		// À LA VERSION OÙ ELLE EST LIVRÉE (KR-171). Le chemin est construit par
+		// `path.join`, jamais à la barre oblique : ce dépôt tourne aussi sous Windows.
+		const SOURCE_OBJECTIFS_CANON = fs
+			.readFileSync(
+				path.join(__dirname, '..', '..', 'features', 'dossier-canon', 'components', 'ObjectifsCanon.tsx'),
+				'utf8',
+			)
+			.replace(/\r\n/g, '\n')
+
+		const constats = pourLaRegle(controlerDossier(cloneObjectifCreux()), 'canon-sans-victoire')
+		const REMEDIATION = controleRemediation(constats[0])
+
+		// (a) L'ÉCRAN NOMMÉ EXISTE — « Canon → Objectifs des camps » est l'eyebrow que
+		// cette carte porte réellement.
+		expect(REMEDIATION).toContain('Objectifs des camps')
+		expect(SOURCE_OBJECTIFS_CANON).toContain('OBJECTIFS DES CAMPS')
+
+		// (b) ET LE CHAMP AINSI ÉTIQUETÉ ÉCRIT LE CHAMP QUE LA RÈGLE LIT. La tranche de
+		// source va d'un libellé à l'autre : deux `toContain` sur le fichier entier
+		// prouveraient seulement que les deux chaînes y coexistent, pas qu'elles sont
+		// sur le MÊME champ — et le jumeau `echoue_si_texte` est juste en dessous.
+		// LES DEUX ANCRES EXISTENT. Les deux modes de perte échouent fermé, mais ils
+		// ACCUSENT LE MAUVAIS COUPABLE : un renommage LÉGITIME et interne à
+		// `dossier-canon` (extraire le libellé en constante, par exemple) ferait rougir
+		// un test de `brain/` sur `reussi_si_texte`, sans jamais dire que c'est l'ancre
+		// qui a bougé. Ces deux lignes transforment un rouge cryptique en consigne.
+		expect(SOURCE_OBJECTIFS_CANON.indexOf('label="CONDITION DE RÉUSSITE"')).toBeGreaterThan(-1)
+		expect(SOURCE_OBJECTIFS_CANON.indexOf('label="CONDITION D\'ÉCHEC"')).toBeGreaterThan(-1)
+
+		const CHAMP_REUSSITE = SOURCE_OBJECTIFS_CANON.slice(
+			SOURCE_OBJECTIFS_CANON.indexOf('label="CONDITION DE RÉUSSITE"'),
+			SOURCE_OBJECTIFS_CANON.indexOf('label="CONDITION D\'ÉCHEC"'),
+		)
+		expect(CHAMP_REUSSITE).toContain('reussi_si_texte')
+		expect(CHAMP_REUSSITE).not.toContain('echoue_si_texte')
+		// Discriminance de la tranche : une tranche VIDE passerait le `not.toContain`
+		// ci-dessus sans rien prouver.
+		expect(CHAMP_REUSSITE.length).toBeGreaterThan(0)
+
+		// (c) LA NON-RÉPLICATION DU DÉFAUT D'IT5. `condition-sans-expr` renvoie à
+		// « (Objectifs → Condition de réussite) » — surface dont it7 a mesuré
+		// l'inexistence DANS CE MÊME FICHIER : le champ ainsi étiqueté écrit
+		// `reussi_si_texte`, c'est-à-dire la prose même qui a déclenché
+		// l'avertissement, et la consigne est donc CIRCULAIRE. Le défaut est
+		// journalisé ; il n'est pas corrigé ici (hors périmètre), il n'est SURTOUT PAS
+		// recopié.
+		expect(REMEDIATION).not.toContain('Condition de réussite)')
+		// LA SECONDE MOITIÉ, sans quoi la ligne ci-dessus interdirait un fantôme : la
+		// formule est une chaîne RÉELLEMENT écrivable par imitation. Elle est prouvée sur
+		// un LITTÉRAL FABRIQUÉ, jamais sur `SOURCE_CONTROLES` — épingler la source
+		// vivante FIGERAIT BUG-090 EN PLACE : le jour où le lot qui rouvrira
+		// `SITES_AVERTISSEMENT` corrigera enfin la remédiation d'it5, ce test rougirait
+		// sous un nom qui dit « ne réplique pas le défaut d'it5 » alors que le
+		// correcteur vient de faire exactement l'inverse. Même forme que `deltas.test.ts`.
+		expect('Posez la condition structurée de réussite (Objectifs → Condition de réussite).').toContain(
+			'Condition de réussite)',
+		)
 	})
 })
