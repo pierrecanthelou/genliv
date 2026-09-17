@@ -1,0 +1,148 @@
+{
+	"feature": "dossier-copilote",
+	"created_at": "2026-09-17",
+	"status": "planned",
+	"design_reference": "docs/PLAN-BASCULE-IA.dc.html SS 1.7 (l. 283-293) : 'Le copilote de redaction' -- une IA aide a ECRIRE le dossier, mais TOUJOURS EN PROPOSITION, jamais en ecriture directe ; chaque suggestion arrive dans un panneau de diff que l'auteur accepte CHAMP PAR CHAMP. Le plan de cible y decrit QUATRE assistants ; la 'Repetition a blanc' est deplacee en n16 par le roadmap (elle simule 20 tours joues, donc elle exige le moteur). Les TROIS retenus sont donc : Eclater le synopsis, Completer une fiche, Tisser les indices. Garde-fous heriles du SS 2.8 du meme document (l. 610-621) : sortie structuree obligatoire, rejeu unique, aucune creation d'entite, deltas sous contrat, anti-complaisance, budget par tour -- dont DEUX sont REINTERPRETES pour la redaction par ce cadrage (voir resolved_decisions) : 'aucune creation d'entite' et la 'degradation'. REFERENCE PARTIELLEMENT PERIMEE, comme tout .dc.html (CLAUDE.md) : la moitie DETECTION de 'Tisser les indices' ('verifie que chaque indice a au moins deux detenteurs ou sources') est DEJA LIVREE par dossier-controles n7 (regle indice-sans-source, bloquant a 0 producteur / alerte a 1, src/brain/dossier/controles.ts) -- cette feature n'apporte que la moitie PROPOSITION. La surface qui fait foi est le motif render-prop de PanneauControles (bascule-editeur, DossierEditorScreen.tsx), et le contrat de contexte qui fait foi est src/brain/dossier/destinations.ts.",
+	"plan": {
+		"goal": "Donner a l'auteur un copilote de redaction qui PROPOSE et n'ECRIT JAMAIS : trois assistants (completer une fiche de personnage, tisser les detenteurs d'un indice, eclater le synopsis en distribution) dont chaque suggestion arrive dans un panneau de diff accepte ou refuse CHAMP PAR CHAMP, l'acceptation passant par DossierService.update et par lui seul -- de sorte que l'auteur cesse d'affronter la page blanche sans qu'aucun texte n'entre dans son dossier sans son geste.",
+		"design_contract": {
+			"surface": "UNE destination de navigation dediee, 'Copilote', rendue comme un ListRow FRERE de 'Controles' dans la colonne de nav de DossierEditorScreen.tsx (bascule-editeur). TROISIEME PROP SOEUR, signature IDENTIQUE a panneauControles : panneauCopilote?: (onSelectSection: (section: SectionId) => void) => ReactNode, injectee depuis App.tsx (racine de composition, KR-184) et posee UNE SEULE FOIS par le lot contrat de l'iteration 1. SectionId SEUL franchit la frontiere -- jamais l'union locale DestinationNav --, donc l'etat illegal de BUG-082 reste irrepresentable. L'ALTERNATIVE (un bouton 'Proposer' dans chaque panneau de section) est VETOEE : elle toucherait PanneauCanon/PanneauPersonnages/PanneauIndices, possedes par trois features deja 'done' (propriete exclusive de fichier, precedent KR-200/205). CONSEQUENCE ACQUISE : des l'iteration 2, aucun lot ne sort de src/features/dossier-copilote/** ni de src/brain/copilote/**.",
+			"panneau": "PAS une Modal (largeur fixe, ombres reservees aux modales : une revue de neuf entites est un contenu long, pas une confirmation transitoire) -- un panneau plein, meme gabarit que PanneauControles. Etat par defaut : trois Card, une par assistant, texte repris du plan de cible ; 'Completer une fiche' porte un Select de ciblage (JAMAIS TargetPicker, cable sur le modele BookNode condamne) et son bouton reste desactive sans cible. Etat de chargement -- AUCUN PRECEDENT DANS LE DEPOT : region role='status', 'Le copilote reflechit...' + bouton Annuler ; Echap annule et REND LE FOCUS au bouton Lancer.",
+			"ligne_de_proposition": "Composant LigneProposition LOCAL a la feature (precedent EditeurEffets de dossier-registres, ne a it1 et reutilise sans fork -- jamais promu brain/components/ avant un second appelant EXTERIEUR, KR-109). TROIS variantes. REMPLISSAGE : la cible est vide OU porte MARQUEUR_A_ECRIRE (constante IMPORTEE depuis brain/dossier/amorce.ts, JAMAIS recopiee -- veto UX, KR-223) ; un seul Field, label et hint IDENTIQUES a ceux du champ dans sa fiche d'origine, importes et jamais reformules. REMPLACEMENT : un bloc statique 'AVANT' en lecture seule (--surface-inset, --text-muted, --border-field, --r-md) compose LOCALEMENT -- l'extension Field.readOnly a ete RETIREE par l'UX, une prop brain/ a un seul appelant etant l'anti-patron KR-109 -- puis un Field 'APRES'. GROUPE : les six curseurs de caractere, bloc INDIVISIBLE (le contrat est 'les six ou aucun'), six lignes en lecture seule au format deja utilise par BlocCaractere.tsx, et UNE SEULE paire d'actions. Actions : IconButton '+' (accent) et 'x' (danger), AUCUN glyphe neuf -- pas de coche, absente du jeu canonique, et '+' porte deja le sens 'ajouter au dossier'. Apres decision : ligne compacte + Badge accent 'Accepte' ou muted 'Rejete', JAMAIS good/bad, reserves a reussite/echec de jet.",
+			"registres_de_langue": "AUCUN troisieme axe visuel : le hint du champ d'origine PORTE DEJA le registre, dans un vocabulaire etabli que l'UX a releve dans dossier-fiches ('interne -- jamais lu par le joueur', 'prose de jeu d'acteur, jamais lue telle quelle par le joueur', 'lue par le joueur'). La regle est d'IMPORTER ces constantes, jamais de les reformuler.",
+			"chemins_d_echec": "TROIS textes pour les motifs techniques, jamais un par motif : (a) worker injoignable -- 'Le copilote est indisponible... Reessayez dans un instant.' ; (b) toute sortie non exploitable apres le rejeu unique -- 'Le copilote n'a pas produit de proposition exploitable.' ; (c) contexte insuffisant -- gabarit nommant LE CHAMP MANQUANT par son libelle francais d'ecran, jamais sa cle technique, parce que c'est le seul des trois qui propose un geste a l'auteur. PLUS un quatrieme texte, qui n'est PAS un echec : l'etat vide-mais-reussi ('Aucune proposition -- tous les indices ont deja au moins deux detenteurs ou sources.'). Quatre textes, jamais confondus (discriminance, KR-197/199).",
+			"relance": "AUCUN bouton 'regenerer' dedie : le bouton 'Lancer', re-actionnable, couvre le besoin. Ce qui entre au perimetre est une CONTRAINTE DE COPIE, consequence de l'absence de memoire : le texte de relance ne doit JAMAIS suggerer une amelioration ni une continuite ('affiner', 'ameliorer') -- seulement un nouvel essai sans memoire du precedent. Ce n'est pas un ecran neuf, c'est une phrase a ne pas ecrire."
+		},
+		"acceptance_criteria": [
+			"Etant donne une reponse de modele conforme au schema du role appele, quand le service la recoit, alors elle est acceptee SANS second appel (fetch moque, appele exactement 1 fois).",
+			"Etant donne une premiere reponse non conforme puis une seconde conforme, quand le service traite la demande, alors il rejoue EXACTEMENT une fois -- 2 appels, jamais 3 -- ET, etant donne deux reponses non conformes consecutives, alors il rend un etat terminal explicite sans rien persister : DEUX criteres prouves separement, jamais un seul temoin (KR-230).",
+			"Etant donne un etat terminal d'echec, quand le panneau se rend, alors son message est DISTINCT de celui de l'indisponibilite, de celui du contexte insuffisant et de l'etat vide-mais-reussi -- quatre textes, discriminance prouvee dans le meme test (KR-197/199).",
+			"Etant donne une proposition acceptee, quand elle est committee, alors elle passe PAR DossierService.update(id, recette) -- jamais une ecriture directe -- et l'ordre persistance-puis-evenement est epingle (KR-004).",
+			"Etant donne une proposition acceptee dont le candidat recompose est REFUSE par validateDossier, quand update s'execute, alors RIEN n'est persiste et les anomalies sont rendues a l'ecran : CAS NOMINAL de la feature, pas un cas limite (KR-234).",
+			"Etant donne une sortie de modele contenant une chaine en forme d'identifiant, quand elle est validee, alors le lot ENTIER est refuse -- prouve par un scanner DEDIE non ancre portant SES DEUX CANARIS dans le meme test : une vraie fuite rougit, une prose francaise benigne a mot courant suivi d'un point ne rougit pas (KR-235).",
+			"Etant donne le contexte assemble pour chaque role, quand le test de confinement tourne, alors tout chemin de CHAMPS_INJECTES a destination 'ia', la liste DEROGATIONS_AUDIENCE est VIDE et le test l'asserte, et l'ensemble des chemins de l'objet assemble est INCLUS dans la liste blanche du role (inclusion de chemins via feuillesDeLaFixture, aucun seuil numerique -- KR-232/235).",
+			"Etant donne l'ensemble des champs que le modele peut proposer, quand le test d'allow-list tourne, alors il enumere des CHEMINS DE FEUILLE et prouve NOMMEMENT l'exclusion de stats, Revelation.jet.carac, Revelation.jet.tc, confiance_min, intensite, secret, duree, delai et de tout ..._expr -- une exclusion par famille ne compte pas (KR-232).",
+			"Etant donne un champ requis du contexte dont la valeur porte MARQUEUR_A_ECRIRE, quand l'auteur declenche l'assistant, alors le champ est RETIRE du contexte et, si ce retrait vide une partie requise, la demande est REFUSEE en nommant le champ SANS QU'AUCUN APPEL RESEAU NE PARTE.",
+			"Etant donne un dossier inchange, quand l'auteur relance deux fois le meme assistant, alors exactement 2 appels partent et leurs CORPS DE REQUETE SONT IDENTIQUES -- preuve testable de l'absence de memoire.",
+			"Etant donne qu'aucun worker n'est joignable, quand l'auteur declenche un assistant, alors un message explicite apparait et AUCUNE degradation vers un modele local n'a lieu (D2).",
+			"Etant donne la route IA neuve, quand la porte de commit tourne, alors elle porte son propre test sous jest en environnement node, POST figure dans les methodes CORS autorisees, et une garde de taille de corps refuse un corps trop grand avec une reponse JSON (KR-233).",
+			"Etant donne le dossier de reference du depot, quand chaque iteration est livree, alors il reste accepte par validateDossier sans modification hors du perimetre du lot, et les dix sections que cette feature ne possede pas rendent toujours leur etat vide (non-regression nommee, KR-187/199).",
+			"Etant donne le nouveau code, quand npm run lint et tsc --noEmit tournent, alors zero erreur : aucun import direct entre dossier-copilote et une autre feature (KR-184), aucune couleur en dur, et AUCUN fichier de dossier-canon, dossier-fiches ou dossier-registres n'apparait dans la liste de fichiers d'un lot de cette feature."
+		],
+		"brain_contracts": [
+			{
+				"type": "service",
+				"name": "CopiloteService (brain/CopiloteService.ts) -- estDisponible() + demander(role, dossier, cible, signal?) ; resultat en union DISCRIMINEE a QUATRE branches : propose / refuse{champ} (avant tout appel) / indisponible{raison} / illisible{motif}. Meme doctrine qu'EcritureDossier : aucun appelant ne peut lire une proposition sur un echec.",
+				"direction": "provides"
+			},
+			{
+				"type": "type",
+				"name": "brain/copilote/types.ts -- DEUX types distincts : la forme RENDUE PAR LE MODELE (entites designees par RANG, franchit le reseau) et la forme RE-RESOLUE PAR LE CODE (porte un identifiant, ne franchit jamais le reseau). Un type unique est interdit (KR-231).",
+				"direction": "provides"
+			},
+			{
+				"type": "registry",
+				"name": "brain/copilote/contexte.ts -- CHAMPS_INJECTES par role (chemins litteraux), DEROGATIONS_AUDIENCE (VIDE, assertee vide), assemblerContexte qui rend le texte ET la table des rangs. NON re-exporte par brain/index.ts, JAMAIS importe par brain/dossier/.",
+				"direction": "provides"
+			},
+			{
+				"type": "component",
+				"name": "DossierEditorScreen.panneauCopilote -- troisieme prop soeur, signature identique a panneauControles, posee une seule fois a l'iteration 1",
+				"direction": "provides"
+			},
+			{
+				"type": "service",
+				"name": "DossierService.update(id, recette): EcritureDossier -- reutilise SANS changement de signature ni d'ordre ; seul chemin d'ecriture d'une proposition acceptee",
+				"direction": "consumes"
+			},
+			{
+				"type": "service",
+				"name": "controlerDossier(dossier): RapportControles -- le copilote PART du constat du linter n7 (indice-sans-source) et ne rebalaie jamais le dossier lui-meme",
+				"direction": "consumes"
+			},
+			{
+				"type": "registry",
+				"name": "DESTINATION_DES_CHAMPS (brain/dossier/destinations.ts) -- lue en GARDE de test, jamais en PILOTE d'execution ; aucune ecriture, la triade de la Decision A reste fermee",
+				"direction": "consumes"
+			},
+			{
+				"type": "event",
+				"name": "dossier:updated",
+				"direction": "emits",
+				"payload": {
+					"dossierId": "string"
+				}
+			}
+		],
+		"walking_skeleton": "Iteration 1 : la tranche la plus fine qui traverse tout -- un personnage que l'AUTEUR designe, trois champs de prose deja d'audience 'ia' au schema, aucun rang, aucun nombre, aucune sous-entite. Elle fait exister la route worker, le service brain/, le contrat de sortie et sa validation, le rejeu unique, le panneau de diff et le chemin d'acceptation. Les trois iterations suivantes ajoutent UN assistant chacune sur un tuyau deja prouve, dans l'ordre de l'echelle de risque : rangs (indices), puis nombres (fiche complete), puis entites neuves (synopsis). La frontiere se prouve VIDE avant d'etre chargee.",
+		"n": 4,
+		"iterations": [
+			{
+				"id": 1,
+				"goal": "Squelette : l'auteur ouvre une fiche personnage existante, demande au copilote un texte pour un champ de prose (fonction, apparence ou description lue par le joueur), puis l'accepte ou le refuse. Fait exister toute l'infrastructure neuve -- route worker POST /ia/:role, CopiloteService, contrat de sortie type et valide, rejeu exactement une fois puis refus, panneau de diff, ecriture par DossierService.update -- sur le chemin le plus etroit possible : aucun rang, aucun nombre, aucune sous-entite. Porte DES CETTE TRANCHE, sur exigence du role Narratif (de la forme, pas du volume, dix fois plus cher a retrofiter) : l'enveloppe a quatre branches, le filtre MARQUEUR_A_ECRIRE avec sa branche de refus nommant le champ, et la garde d'audience stricte.",
+				"status": "planned"
+			},
+			{
+				"id": 2,
+				"goal": "Tisser les indices : sur un indice que dossier-controles signale deja comme ayant moins de deux detenteurs ou sources, l'auteur demande au copilote qui d'autre pourrait le connaitre, puis accepte ou refuse chaque detenteur propose. Introduit le mecanisme de RANG et sa re-resolution par le code -- et aucun entier ne sort d'un modele dans cette tranche, la certitude etant une enumeration fermee de chaines. Le copilote PART du constat du linter, il ne rebalaie pas le dossier.",
+				"status": "planned"
+			},
+			{
+				"id": 3,
+				"goal": "Completer une fiche, en entier : l'auteur demande au copilote de completer les curseurs de caractere, les repliques types, le plan d'actions ou les relations d'une fiche, puis accepte ou refuse chaque proposition champ par champ. Introduit les NOMBRES (les six curseurs, bloc indivisible) et les sous-entites structurees, sur un chemin d'acceptation deja prouve deux fois. C'est ici que se tranche la forme qui porte six entiers comme une unite (voir open_questions).",
+				"status": "planned"
+			},
+			{
+				"id": 4,
+				"goal": "Eclater le synopsis : depuis le synopsis, l'accroche, le ton et les interdits de ton, l'auteur demande au copilote une distribution de personnages, puis accepte ou refuse chaque fiche proposee. SEUL assistant qui cree -- des brouillons SANS IDENTITE dont le code frappe l'identifiant a l'acceptation, jamais avant -- donc livre en DERNIER, sur un tuyau prouve trois fois. Sans rattachement automatique aux objectifs en v1 (voir resolved_decisions).",
+				"status": "planned"
+			}
+		],
+		"known_risks": [
+			"KR-229 -- la frontiere testable d'une sortie de modele est sa FORME, jamais sa PROSE.",
+			"KR-230 -- le chemin d'echec porte deux proprietes (rejeu exactement une fois, puis etat terminal) donc deux tests ; en redaction, le 'degrade' du SS 2.8 EST le refus, et jamais une reparation partielle.",
+			"KR-231 -- identifiants et creation : le modele designe par RANG, le code frappe l'identifiant a l'acceptation ; deux types distincts, et la table rang-vers-identifiant rendue par l'assembleur, jamais re-derivee.",
+			"KR-232 -- ce qu'un modele VOIT (destinations.ts, sans derogation) et ce qu'il PROPOSE (chemins de feuille, jamais des familles).",
+			"KR-233 -- worker/index.ts sans test ; toute route IA neuve entre avec le sien ; POST manque dans BASE_CORS et ALLOWED_ORIGINS est commente en production.",
+			"KR-234 -- deux portes de refus distinctes, et le refus par validateDossier a l'acceptation est le cas NOMINAL.",
+			"KR-235 -- un instrument non mesure n'est pas un instrument : FORME_IDENTIFIANT est ancree donc inerte sur un blob, et un garde a seuil numerique sans semantique choisie fait rougir du code sain.",
+			"KR-236 -- l'invite vit dans le worker ; garde obligatoire liant l'invite au schema, sinon echec permanent et silencieux.",
+			"Herites et applicables : KR-004 (ordre persistance-puis-evenement), KR-021 (reference pendante exposee), KR-109 (pas de primitive brain/ a un seul appelant), KR-116 (toute entree non fiable est validee a la frontiere), KR-117 (registre unique), KR-171 (un chemin d'echec qui porte de la valeur a son propre critere), KR-184 (aucun import inter-features, injection par App.tsx), KR-187 (les sections non possedees gardent leur etat vide), KR-193 (curseurs = donnee de presentation, hors mutation et hors table doree), KR-195 (appellations : question transverse, non rouverte ici), KR-197/199 (discriminance, un test ne couvre que ce qu'il asserte), KR-215 (allow-list de chemins), KR-223 (MARQUEUR_A_ECRIRE importe, jamais recopie)."
+		]
+	},
+	"implementation": {
+		"iterations_log": [],
+		"resolved_decisions": [
+			"SURFACE -- destination de navigation dediee 'Copilote', troisieme prop soeur de DossierEditorScreen, posee une seule fois a it1. L'alternative (bouton dans chaque panneau de section) est VETOEE : trois features 'done' seraient touchees (propriete exclusive de fichier, KR-200/205). Rendement acquis : des it2, aucun lot ne sort de la feature ni de brain/copilote/.",
+			"CONTEXTE -- destinations.ts gouverne le contexte du copilote EN REDACTION COMME EN JEU, avec ZERO derogation. Les deux roles a effort eleve ont echange leurs positions entre les deux tours ; le motif qui tranche est l'ASYMETRIE DU REGRET, et il a ete apporte par le role qui a cede : une proposition appauvrie se voit le jour meme, un champ moteur entre dans un contexte de redaction ne se voit jamais. Le role Narratif a casse sa propre position en mesurant que son 'toujours charge' du tour 1 commencait par un champ d'audience 'auteur'. Detail : .claude/raffinage/dossier-copilote-cadrage.plan.md, arbitrages A4/A5/A39.",
+			"ECLATER LE SYNOPSIS v1 SANS RATTACHEMENT AUX OBJECTIFS -- consequence directe de la decision precedente : canon.objectifs[] porte sept cles et ZERO d'audience 'ia' (mesure du 2026-09-17), donc sous garde stricte l'assistant recevrait une liste d'objectifs vide. On RETRECIT L'ASSISTANT plutot que d'ouvrir la table : il lit quatre champs 'ia' et propose des personnages sans objectif rattache, l'auteur rattachant a la main.",
+			"DEGRADATION -- en redaction, le 'degrade' du garde-fou SS 2.8 n'a pas d'equivalent : en jeu, degrader c'est une action gratuite et un texte neutre parce qu'un tour doit avancer ; en redaction rien n'avance tout seul, donc LE DEGRADE EST LE REFUS. Le Temps 2 ne doit pas heriter du refus, ni cette feature du texte neutre.",
+			"CREATION D'ENTITE -- le garde-fou 'aucune creation d'entite' du SS 2.8 est reformule en une regle PARAMETREE dont l'unique parametre est l'ensemble des formes de brouillon admises : ferme et non vide en redaction, VIDE en jeu -- et c'est ce vide, pas une seconde regle, qui donne la formulation d'origine. Une regle, un parametre, pas deux regles a tenir en phase.",
+			"INVITE -- elle vit dans le worker, jamais dans le client. Le discriminant n'est pas la lisibilite mais la modifiabilite : un prompt cote client est rejouable par quiconque ouvre les devtools, or c'est le worker qui detient la cle d'API et qui paie. Le client decide QUELLES DONNEES SORTENT, le worker CE QU'ON DEMANDE. Friction acceptee : iterer sur une invite exige un redeploiement.",
+			"CLE D'API -- secret d'environnement du worker. RIEN n'entre dans CloudSettingsService ni dans persistenceKeys.ts, donc aucune entree SENSITIVE neuve et KR-114 n'est pas rouvert. Dit honnetement : la cle de synchronisation est une cle d'espace de noms, pas une autorisation (KR-148) -- quiconque en connait une valide peut bruler du budget modele ; le limiteur de debit est un point d'extension NOMME, non livre.",
+			"MEMOIRE -- aucune, et c'est une PROPRIETE : un appel = un contexte assemble depuis le dossier persiste, plus rien. Une proposition refusee ne laisse aucune trace ; relancer repart de zero et peut legitimement rendre autre chose -- ce n'est pas un bogue, et l'interface ne promet pas le contraire. Point d'extension : une liste explicite et bornee de brouillons refuses passee dans la requete, jamais un historique implicite. Le veto du role Narratif sur ce point n'a ete leve que par l'inscription de ces deux lignes dans cette spec.",
+			"porte_suggeree RETIREE du schema de sortie -- REJETE. L'editeur de portes vit dans dossier-fiches (feature 'done') : ni import (isolation) ni ecriture (propriete de fichier), et elargir la charge utile de onSelectSection rouvrirait nommement BUG-082. Les quatre portes exigent toutes une VALEUR, donc ecrire une revelation partielle reviendrait a poser un seuil du modele ratifie par le silence. Reste : un renvoi de SECTION, et l'avertissement revelation-sans-porte deja livre par le linter n7 fait le rappel -- il n'en faut pas un second.",
+			"CopiloteService SANS ECRAN comme coupe de secours -- REJETE. Meme couche horizontale que le panneau de diff isole, un cran plus bas ; le precedent exportDossier ne s'applique pas, un export etant un geste ponctuel au bouton trivial et preexistant, alors qu'ICI LE COPILOTE EST L'ECRAN. Si une iteration deborde au raffinage, la coupe est VERTICALE (moins de champs), jamais horizontale.",
+			"PANNEAU DE DIFF EN ITERATION INDEPENDANTE -- REJETE : rien a accepter sans un assistant qui produit. Chaque iteration porte son diff. Le test qui distingue cette coupe de la quatrieme iteration retenue n'est pas 'est-ce petit' mais 'est-ce qu'un stub tient lieu de l'autre moitie'.",
+			"QUATRE ITERATIONS, et l'ordre rangs -> nombres -> entites. Le Tech Lead a retire sa quatrieme tranche sur un DECOMPTE DE VOIX deja perime (deux roles venaient de s'y rallier) alors que son motif de fond disait l'inverse et que le role Narratif l'avait mesure independamment : la tranche 'prose seule' est la plus fine possible, aucun rang, aucun nombre, entite designee par l'AUTEUR. L'ordre retenu est celui du PM, justifie par l'echelle de risque que les DEUX roles a effort eleve avaient ecrite chacun de son cote.",
+			"'ECLATER LE SYNOPSIS' EN PREMIERE ITERATION -- REJETE a l'unanimite au tour 2, l'UX ayant retire sa propre proposition ('argument de RENDU, pas de risque d'infrastructure, hors de mon domaine de veto'). C'est le seul assistant qui cree des entites et frappe des identifiants : le plus simple a dessiner est le plus dur a valider. Cout assume, chiffre par le PM : cette tranche vaut de l'ordre du QUART de la valeur de la feature -- la plus spectaculaire, pas la plus utilisee -- et jusqu'a sa livraison un dossier neuf s'ecrit a la main, comme aujourd'hui.",
+			"Field.readOnly -- extension brain/ RETIREE par l'UX elle-meme (prop a un seul appelant, KR-109) au profit d'un bloc statique local. L'objection du Tech Lead (duplication des jetons de Field.tsx) tombe sur les faits : le bloc emploie des jetons DELIBEREMENT differents, ce n'est pas un doublon mais un autre objet visuel, 'ceci n'est pas actif'. Consequence : la question du retrait de l'ordre de tabulation devient SANS OBJET, un div statique n'y etant pas.",
+			"SSE / streaming -- REJETE par trois roles : D2 reserve le flux a la narration du Temps 2, et on ne peut pas valider un schema qu'on affiche en train d'arriver -- afficher avant de valider, c'est montrer a l'auteur ce que le validateur va refuser.",
+			"Evenement copilote:* -- REJETE : aucun abonne ; l'acceptation emet deja dossier:updated, et un second nom obligerait chaque vue a s'abonner deux fois.",
+			"Proposition en attente PERSISTEE -- REJETEE : ce serait un document fantome que validateDossier n'a jamais vu. Elle reste de l'etat d'ECRAN et meurt a la navigation ; point d'extension nomme et non livre : un brouillon sous PersistenceService, JAMAIS un champ du dossier. Et elle ne CAPTURE jamais le dossier : elle capture role, entite, champ, valeur, et s'applique sur le document gele que la recette recoit.",
+			"Reglage auteur de la cle d'API, du modele ou de l'effort -- REJETE (decision n2 du roadmap : un seul modele, un seul effort en v1). Le routeur reste une TABLE dans le worker, une entree par role : point d'extension nomme, pas une abstraction livree.",
+			"Rebalayage des indices par le copilote -- REJETE : controlerDossier livre deja la regle, et une seconde implementation derive au premier changement.",
+			"Un prompt qui recite une regle du jeu -- REJETE : la regle vit dans src/brain/ et docs/REGLES-DU-JEU.md, et elle s'applique AU VALIDATEUR DE SORTIE, jamais en consigne. Mieux servi par l'invite cote worker.",
+			"Un garde de confinement a SEUIL NUMERIQUE -- REJETE, et c'est le role QA qui l'a mesure : aveugle aux nombres et aux etiquettes courtes donc a la totalite du perimetre de veto qu'il pretendait couvrir, faux positif structurel sur deux champs portant la meme phrase, et seuil jamais mesure. Remplace par une INCLUSION DE CHEMINS via feuillesDeLaFixture, deja exportee par couverture.test.ts.",
+			"Le balayage anti-identifiant ECRIT AVEC FORME_IDENTIFIANT -- REJETE : mesure a l'execution, la regex est ANCREE, donc elle rend toujours faux sur une sortie serialisee -- instrument INERTE, vert quoi que le modele produise. La REGLE est retenue, l'INSTRUMENT est a reecrire : un scanner dedie non ancre, avec ses deux canaris, le faux positif sur mots francais courants ayant lui aussi ete mesure.",
+			"code-knowledge.json -- la compaction PRECEDE l'ecriture de cette spec, en tranche outillage separee, et n'est pas embarquee dans le premier lot : /cadrer ecrit les known_risks que CLAUDE.md mandate de mirorer, et la spec s'ecrit AVANT le premier lot -- une compaction embarquee arriverait apres que le fichier a ete pousse plus loin, elle raterait sa cible. Le PM et le Tech Lead avaient echange leurs positions sur ce point ; c'est l'argument d'ORDRE qui a tranche, appuye par la revuabilite d'un diff de compaction isole."
+		],
+		"open_questions": [
+			"La forme qui porte les SIX CURSEURS COMME UNE UNITE. Le contrat de sortie est 'les six ou aucun' -- le bloc de caractere est total quand il est present, et completer une proposition partielle plancherait EN SILENCE les curseurs non rendus, faisant ratifier a l'auteur des valeurs qu'il n'a jamais vues (verifie : les valeurs initiales valent le minimum sur les six). Or une proposition dont la valeur est une chaine scalaire par champ ne peut pas porter six entiers comme une unite, et l'anatomie GROUPE n'aurait alors rien a accepter en bloc. Blocage remonte par l'UX, confirme par le role Narratif. A TRANCHER AU LOT CONTRAT DE L'ITERATION 3, jamais par un ouvrier.",
+			"Le RATTACHEMENT AUTOMATIQUE aux objectifs dans 'Eclater le synopsis'. Reporte, proprietaire n10, et sa condition d'ouverture est ecrite : que la n10 livre une projection d'objectif DERIVEE PAR LE CODE, avec sa propre ligne d'audience -- exactement le mecanisme que destinations.ts promet deja pour les libelles derives. Jusque-la, l'auteur rattache a la main.",
+			"EDITER LE TEXTE 'APRES' AVANT DE L'ACCEPTER. Differe par l'UX aux deux tours ; amelioration ergonomique reelle, a trancher au raffinage d'une iteration, pas au cadrage. Rider du role Narratif a porter si la question revient : le champ editable ne peut JAMAIS etre un champ d'audience 'moteur', sinon le panneau Copilote devient un second editeur de fiche.",
+			"Les DEUX PLAFONDS du meme appel -- la garde de taille de corps du worker (octets HTTP, enveloppe et invite comprises, refuse APRES l'aller-retour) et le budget de contexte cote client (caracteres, refuse AVANT en nommant ce qu'il faut couper). Deux grandeurs distinctes, deux doctrines d'arrondi, et c'est assume ; mais ils bornent le meme appel, donc ils se MESURENT DANS LE MEME LOT (iteration 1), sinon une revue ne peut pas voir que l'un contredit l'autre. Ni l'un ni l'autre n'est mesurable avant que l'assembleur existe -- et la taille BRUTE d'une fixture n'est pas cette mesure.",
+			"Le mot 'drapeau de routage' de l'invariant du role Narratif a ete amende en 'drapeau de routage LU PENDANT UNE PARTIE' apres que le Tech Lead a releve qu'en l'etat l'invariant rejetait la demande de son propre auteur. L'amendement est conserve bien que la demande ait ete retiree : l'invariant part au Temps 2, et sans lui un ouvrier qui lit les deux paragraphes tranche seul."
+		]
+	}
+}

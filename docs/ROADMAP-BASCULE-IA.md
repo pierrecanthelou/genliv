@@ -149,7 +149,7 @@ Huit features. Une phrase de démo par feature, sans « et » : c'est le test de
 | 5 | `dossier-objets` | …tenir le registre des objets de son aventure | 2 | **2/2 — terminée** | 4 rôles | 1 |
 | 6 | `dossier-registres` | …tenir les quêtes, les indices, les événements de son aventure | 5 | **5/5 — terminée** | 4 rôles (5 à it5) | 4 · 5 |
 | 7 | `dossier-controles` | …voir pourquoi son aventure n'est pas encore jouable | 10 | **10/10 — terminée** | 5 rôles | 8 |
-| 8 | `dossier-copilote` | …faire proposer un texte par l'IA, champ par champ | 3 | — | 5 rôles | 6 |
+| 8 | `dossier-copilote` | …faire proposer un texte par l'IA, champ par champ | **4** | — | 5 rôles | 6 |
 
 **Colonne `Statut`** — itérations **livrées / prévues**, *projetées* depuis `plan.iterations[].status` du `specification.json` de la feature : elle se recopie, elle ne se décide pas ici (source unique, mise à jour à l'étape 4 de `docs/WORKFLOW.md` § Build Steps). `—` = pas commencée. Ce tableau ne dit rien d'un raffinage en cours : `2/5` signifie deux itérations **livrées**, pas « rien d'ouvert ».
 
@@ -157,7 +157,6 @@ Huit features. Une phrase de démo par feature, sans « et » : c'est le test de
 
 **1 · `dossier-format`** — schéma `schema: 1`, validateur, dossier de référence écrit à la main (6 PNJ, 5 lieux), import/export JSON. Aucun écran neuf. C'est **le contrat entre les deux temps** : tout le reste en dépend. Y atterrissent la grammaire `…_expr` de D1 et son registre de prédicats, le registre `objets[]` manquant, et les entités que le plan met au schéma sans leur donner de section (`jalons`, `fins`, `meta`). **Correction du cadrage (2026-08-03) : la n° 1 crée, elle ne détruit pas.** J'avais écrit ici qu'elle remplaçait `brain/types.ts` + `kinds.ts` + `BookService` — c'est faux : `types.ts` ne porte pas que le modèle d'arbre, il porte aussi `GameObject`, `SkillRoll`, `MonsterConfig`, `CreatureType`, importés par douze fichiers de `src/player/`, couche déclarée conservée et intouchée en § 0 bis. Un remplacement littéral emporte le combat et la création de personnage. La n° 1 livre le format **en parallèle**, sous ses propres clés, et **scinde** `types.ts` en règles (survivent) / `tree.ts` (condamné). Rayon de cette scission, **mesuré le 2026-08-04** : **26 fichiers**, une ligne d'import chacun — **21 dans `src/brain/`**, **5 dans `src/player/`** (`Edge` seul), et **zéro dans `src/features/`**, qui consomment toutes par le baril `brain/index.ts`. *(J'avais écrit ici « neuf lignes d'import à déplacer dans `src/player/` » : une estimation jamais mesurée, qui confondait le rayon de la scission avec les douze fichiers de `src/player/` important les types de règles — lesquels, eux, ne bougent pas. Le décompte se remesure, il ne se recopie pas.)* La démolition se répartit : la moitié arbre de `BookService` + `kinds.ts` en **n° 2**, `playExport` + `Book`/`Edge` en **n° 9**. Invariant du cadrage : **aucune fonction ne convertit un `Book` en `Dossier` ni l'inverse**, dans aucun sens (KR-167).
 
-> **~~`FEATURE_DIRS` : une feature absente de la liste est exemptée en silence~~ — CLOS le 2026-08-13.** La liste est dérivée du disque, la classe de panne disparaît par construction ; `featureDirs.test.ts` → `lintIsolation.test.ts`. Récit et arbitrages : `CHANGELOG.md` 0.6.19.
 
 **2 · `bascule-editeur`** — la navigation latérale passe de l'arbre à une liste de sections avec compteur de fiches. L'arbre devient jalons + scènes écrites + fins conditionnelles (jalons/fins en LECTURE SEULE dans la liste ; leur écran d'édition, qui engage le registre `DELTAS`, part avec n° 6 — voir § 5). La démolition prévue ici a **déjà eu lieu** (§ 1 ter) : il ne reste que la construction, plus le repointage de `book-library` et `book-creation`. **CORRECTION (cadrage `bascule-editeur`, 2026-08-08)** : le repointage de `tree-canvas` sur le graphe de relations et d'indices n'a pas de données à afficher à ce stade (§ 1 bis) — il est reporté à n° 6 ; `tree-canvas` est démonté (« en sommeil »), pas repointé, par cette feature.
 
@@ -171,7 +170,7 @@ Huit features. Une phrase de démo par feature, sans « et » : c'est le test de
 
 **7 · `dossier-controles`** — le linter d'aventure : un rapport de contrôles, un panneau, des badges par section. Nommée `controles` et non `lint` : dans ce dépôt `npm run lint` désigne ESLint depuis l'itération outillage-1. **10 itérations, terminée le 2026-09-17**, 9 règles livrées — 4 peuvent rendre l'aventure injouable, 4 plafonnent à l'alerte, 1 à l'info — le décompte cible de 11 est caduc depuis it8, voir la spec. Aucun lot contrat sur la triade de la Décision A. Historique des recadrages (3 → 4 au cadrage, 4 → 6 au raffinage d'it3, 6 → 8 au raffinage d'it6 puis d'it7 — deux coupes sur le SENS D'ERREUR —, puis 8 → 10 au raffinage d'it8, première coupe sur le VOLUME : quatre charges tenaient dans une seule itération), mesures et arbitrages : `src/features/dossier-controles/specification.json` et `.claude/raffinage/dossier-controles-it*.revue.md`.
 
-**8 · `dossier-copilote`** — 3 assistants (Éclater le synopsis, Compléter une fiche, Tisser les indices), toujours en proposition, panneau de diff accepté champ par champ. **La « Répétition à blanc » n'est pas ici** : elle simule 20 tours joués par un joueur synthétique, donc elle exige le moteur. Elle est déplacée en n° 16.
+**8 · `dossier-copilote`** — 3 assistants (Éclater le synopsis, Compléter une fiche, Tisser les indices), toujours en proposition, panneau de diff accepté champ par champ. **La « Répétition à blanc » n'est pas ici** : elle simule 20 tours joués par un joueur synthétique, donc elle exige le moteur. Elle est déplacée en n° 16. **CORRECTION (cadrage 2026-09-17) : passe de 3 à 4 itérations** — « Compléter une fiche » se coupe en deux (prose seule, puis champs structurés), l'infrastructure d'appel modèle étant isolée de son plus gros consommateur. Ordre imposé par l'échelle de risque **rangs → nombres → entités** : prose → indices → fiche complète → **synopsis en dernier**, seul assistant qui crée des entités et frappe des identifiants. **Première feature du dépôt à appeler un modèle** : elle pose la route worker `/ia/:role` (D2), l'enveloppe de sortie et le rejeu-une-fois, que le Temps 2 hérite ; contexte sous garde d'audience **stricte, zéro dérogation** (KR-232). Détail et arbitrages : `src/features/dossier-copilote/specification.json`, `.claude/raffinage/dossier-copilote-cadrage.plan.md`.
 
 ---
 
@@ -229,21 +228,18 @@ Relevés en lecture intégrale. Chacun est affecté à la feature qui doit le tr
 
 | Trou | À traiter dans |
 |---|---|
-| ~~Aucun registre `objets[]` racine~~ → tranché : treize racines, `objets[]` comprise | n° 1 · n° 5 |
-| ~~Grammaire des conditions non définie~~ → **D1 tranchée**, voir § 1 | n° 1 |
 | `jalons`, `fins`, `meta` au schéma sans section ni écran — `jalons` et `fins` sont groupées sous `charpente` ; `meta` n'est **pas** une racine (tranché le 2026-08-04). `charpente` n'est plus « **jamais** injectée » mais « **jamais injectée ENTIÈRE** » : une projection nommée en porte **une** feuille — l'`enonce_texte` des jalons **déjà atteints** —, jamais les déclencheurs ni les conditions de fin, qui sont la même règle en français et apprendraient au modèle à provoquer le jalon ou à conduire à la fin | n° 1 (la forme + `enonce_texte`) · n° 2 (la section dans la liste, lecture seule — CORRECTION cadrage `bascule-editeur` 2026-08-08 : l'écran d'édition dépend du registre `DELTAS`, réservé à n° 6) · n° 6 (l'écran d'édition) · n° 9 (la projection) |
 | « Scènes écrites » : le format porte un texte et un drapeau (n° 1), mais leur propriété définissante est un **chemin de code** — une scène verbatim est **émise** par le moteur, jamais demandée au modèle | n° 1 (le champ) · n° 10 (l'émission) |
 | Mapping des 6 curseurs sur CA / IN / IG non donné | n° 4 |
-| ~~Atteignabilité d'un objectif~~ → tranchée le 2026-09-15 (saturation, monde ouvert, KR-224). Calibration : déplacée, le Tier du héros n'est pas au dossier | n° 7 · n° 16 |
 | Échelle de confiance : bornes, valeur initiale, amplitude d'un delta | n° 12 |
 | `ΔT` invoqué pour le calcul d'XP, jamais défini | n° 11 |
 | Choix de posture du monstre « selon sa capacité et son IG » non spécifié | n° 13 — vérifier `combatEngine.ts`, c'est peut-être déjà fait |
-| ~~Format de `evenements[].monstre_ref`~~ → tranché : `bestiaire.<templateId>`, bloquant à l'import et en session | n° 1 |
-| ~~Fournisseur, modèle, clé, coût, latence, hors-ligne~~ → **D2 tranchée**, voir § 1 | n° 10 |
 | Persistance du dossier, bibliothèque multi-livres, `cloud-sync` | n° 1 (forme persistée) · n° 2 (bibliothèque) |
 | Migration `schema: 1` → `schema: 2` | n° 1 |
 | `quetes[].etapes` — laissé en `[ … ]` par le plan de cible. CORRECTION (cadrage `dossier-registres`, 2026-08-17) : périmé depuis la Décision A (`quetes` assignée en bloc à n° 6) | n° 6 (la forme) · n° 9 (l'avancement en session) |
 | Champs laissés en `[ … ]` : `journal[].deltas`, `memoire.faits_etablis` | n° 9 |
+
+> Ce tableau ne liste que les trous **encore ouverts**. Un trou tranché en sort : sa décision vit là où elle a été prise — § 1 pour D1/D2, `code-knowledge.json` pour un KR, `CHANGELOG.md` pour une tranche d'outillage, le `specification.json` de la feature pour le reste.
 
 **Incohérences internes du plan de cible**, à corriger et non à propager : I2 annonce « les trois sections les plus simples » pour quatre sections ; le compteur de règles de lint dit 7 pour 8 règles définies ; la clé `plan` est utilisée deux fois dans l'objet `personnages` — **tranché au cadrage du 2026-08-03** : `portee: 'premier' | 'second'` et `plan_actions[]` ; le préfixe d'identifiant `pnj.` cohabite avec la collection `personnages`.
 
