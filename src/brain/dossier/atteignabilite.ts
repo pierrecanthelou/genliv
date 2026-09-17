@@ -1,10 +1,11 @@
 import type { Delta } from './deltas'
 import type { ExprNode } from './expr'
 import { PREDICATES, type PredicatId } from './predicates'
-import type { Dossier } from './types'
+import type { Dossier, Revelation } from './types'
 
 /**
- * HYPOTHÈSES DATÉES D'ATTEIGNABILITÉ — 2026-09-16, itérations 6 et 7 de la n° 6.
+ * HYPOTHÈSES DATÉES D'ATTEIGNABILITÉ — 2026-09-17, itérations 6, 7 et 9 de la
+ * n° 7.
  *
  * Ce module conclut « le joueur peut obtenir cet indice » sur un document
  * STATIQUE, alors qu'obtenir est un geste de SESSION. L'écart est comblé par des
@@ -32,28 +33,48 @@ import type { Dossier } from './types'
  * `formulation_joueur`, `revele_comment`) et c'est lui qui donne son sens à toute
  * cette analyse.
  *
- * H2 — UNE RACINE EST RÉPUTÉE AMORÇABLE. Ce module sature les ARÊTES ; il
- * n'évalue AUCUNE des portes qui commandent une racine, et les compte donc toutes
- * ouvertes. Ne sont PAS évaluées — liste exhaustive au 2026-09-16, et c'est elle
- * que la tranche « porte morte, producteur fantôme » (n° 8) hérite EN ENTIER :
- *  · les QUATRE portes de `Revelation` sur un savoir (`types.ts`) —
- *    `confiance_min`, `jet`, `contrepartie`, `apres_indice_id` ; `jet` nommément,
- *    parce qu'un dé n'est pas une certitude et que ce module ne lance rien ;
- *  · `savoirs[].revele_si.apres_indice_id`, qui est la SECONDE arête
- *    indice → indice du schéma. La première, `monde.indices[].mene_a[]`, est la
- *    seule que ce module sature. Un lecteur qui croirait le graphe des indices
- *    entièrement saturé se tromperait, et c'est pour lui que cette ligne existe ;
- *  · `charpente.jalons[].declencheur_expr` ABSENT — le jalon ne se déclenche
- *    jamais et son `effet` est un producteur fantôme ;
+ * H2 — UNE RACINE QUE CE MODULE N'ÉVALUE PAS EST RÉPUTÉE AMORÇABLE. DEUX des
+ * quatre portes de `Revelation` sont ÉVALUÉES depuis it9 — `contrepartie` et
+ * `apres_indice_id` —, et la partition vient de H4, pas d'un arbitrage porte par
+ * porte. Ce qui RESTE non évalué, liste exhaustive au 2026-09-17 :
+ *  · `revele_si.confiance_min` — le schéma ne nomme AUCUN écrivain : aucun delta
+ *    du registre ne modifie une confiance. DÉFINITIVEMENT non évaluable, et non
+ *    « pas encore » : sans ce mot, cette liste rétrécirait de zéro à chaque
+ *    itération sans que personne ne le dise ;
+ *  · `revele_si.jet` — l'écrivain est le DÉ, qu'aucun document n'écrit. Son
+ *    verdict serait de surcroît CONSTANT (il existe pour chaque tier un héros qui
+ *    réussit), et l'évaluer importerait la couche des RÈGLES dans le linter du
+ *    dossier — KR-193 / KR-130, interdiction que la suite de ce module constate
+ *    en source plutôt que de la promettre ;
  *  · `monde.conditions.climat[].effets_regles` — aucun moteur ne sait APPLIQUER
  *    un effet de climat (motif écrit à `controles.ts`, non recopié) ;
  *  · l'atteignabilité du PORTEUR d'un effet — récompense d'une quête jamais
- *    donnée, conséquence d'une résolution jamais atteinte.
- * Toutes ces omissions SUR-COMPTENT les producteurs, donc SOUS-GRADUENT le
+ *    donnée, conséquence d'une résolution jamais atteinte ;
+ *  · l'atteignabilité d'un JALON ou d'un ÉVÉNEMENT — le résidu VRAI de la ligne
+ *    fausse ci-dessous. Ce n'est pas l'ABSENCE de `declencheur_expr` qui
+ *    condamne un jalon ; c'est qu'aucun `atteindre_jalon` ne le coche ET
+ *    qu'aucune condition accomplissable ne le déclenche. DEUX écrivains, donc H4
+ *    ne tranche pas d'elle-même, et c'est la ligne `jalon_atteint` de la table
+ *    d'établissement qui attend ce jour-là.
+ *
+ * ET UNE LIGNE QUI N'AVAIT JAMAIS EU SA PLACE DANS CETTE LISTE — corrigée ici,
+ * pas effacée, parce que c'est l'ERREUR qui doit rester lisible : cette liste a
+ * porté « `charpente.jalons[].declencheur_expr` ABSENT — le jalon ne se déclenche
+ * jamais et son `effet` est un producteur fantôme ». C'est FAUX. `types.ts`
+ * déclare cette absence LÉGITIME — « un jalon peut rester coché à la main par le
+ * moteur d'un événement. Absent, la condition n'est jamais vérifiée
+ * automatiquement, et c'est calme » — et `deltas.ts` porte `atteindre_jalon`,
+ * l'écrivain qui le coche. LA CORRECTION EST ÉCRITE POUR QUE L'ERREUR NE SE
+ * REFASSE PAS SUR `Evenement.declencheur_expr`, optionnel POUR LE MÊME MOTIF et
+ * dans les mêmes termes : « un événement peut rester déclenché par la seule main
+ * du narrateur, sans condition formalisée : c'est calme, jamais une alerte ». Un
+ * optionnel dont le schéma nomme l'AUTRE écrivain n'est pas une porte morte ;
+ * c'est H4 qui tranche, et elle tranche aussi ce cas-là.
+ *
+ * Les omissions qui restent SUR-COMPTENT les producteurs, donc SOUS-GRADUENT le
  * constat : sur une règle bloquante, l'erreur permise est le faux négatif, jamais
- * le faux positif. C'est ce qui rend la saturation des arêtes livrable SEULE.
- * Le sens d'erreur de la n° 8 est l'INVERSE : fermer une porte RETIRE une racine.
- * Les faux positifs vivent là-bas, jamais ici — et c'est la raison du découpage.
+ * le faux positif. FERMER une porte fait l'inverse — elle RETIRE une racine —, et
+ * c'est pourquoi les deux portes évaluées le sont sous H4 et sous elle seule.
  *
  * H3 — LE SEUL PRODUCTEUR DE `monde.pnj.<id>.a_dit[]` EST UN `savoirs[]` DU
  * PERSONNAGE PORTEUR. C'est ce qui rend `pnj_a_revele(p, i)` décidable sur un
@@ -66,16 +87,54 @@ import type { Dossier } from './types'
  * encore pour trancher, et la n° 11 pourrait décider que le moteur inscrit
  * aussi `a_dit[]` lorsqu'un indice est révélé À TRAVERS un personnage par un
  * autre chemin — une résolution d'événement jouée en scène, par exemple.
- * C'EST LA SEULE HYPOTHÈSE DE CE FICHIER DONT L'ERREUR IRAIT DANS LE SENS
- * INTERDIT. H1 et H2 ne peuvent que SUR-COMPTER les producteurs, donc
- * sous-graduer le constat ; celle-ci, si la n° 11 la contredit, ferait
- * déclarer sans chemin une condition que le moteur accomplirait — un FAUX
- * POSITIF sous une règle BLOQUANTE. Elle se corrige en UN endroit, la ligne
- * `pnj_a_revele` de la table d'établissement, et nulle part ailleurs.
+ * C'EST L'UNE DES DEUX HYPOTHÈSES DE CE FICHIER DONT L'ERREUR IRAIT DANS LE
+ * SENS INTERDIT — l'autre est H5, et cette phrase a dit « LA SEULE » jusqu'ici :
+ * elle était fausse depuis it7, où `possede_objet` est entré. H1 et H2 ne
+ * peuvent que SUR-COMPTER les producteurs, donc sous-graduer le constat ;
+ * celle-ci, si la n° 11 la contredit, ferait déclarer sans chemin une condition
+ * que le moteur accomplirait — un FAUX POSITIF sous une règle BLOQUANTE. Elle se
+ * corrige en UN endroit, la ligne `pnj_a_revele` de la table d'établissement, et
+ * nulle part ailleurs.
  * COROLLAIRE DE RÉDACTION, sans lequel l'hypothèse ne dit rien : la paire
  * s'évalue JOINTEMENT. Deux feuilles indépendantes — « ce personnage existe »
  * et « cet indice a un producteur » — seraient vraies ensemble sans qu'aucun
  * savoir ne les relie, et le prédicat serait déclaré productible à tort.
+ * ET DEPUIS IT9, LA PAIRE PASSE PAR LA MÊME `porteOuverte` QUE LE COMPTE, avec
+ * l'ensemble FINAL : un savoir gardé derrière une porte qui ne s'ouvrira jamais
+ * ne fait pas parler son porteur. Sans ce resserrement, `pnj_a_revele` serait
+ * resté le seul endroit du module où un savoir compte sans que sa porte soit
+ * regardée — deux lectures du même fait, divergentes.
+ *
+ * H4 — CE QUI DÉCIDE QU'UNE PORTE EST ÉVALUABLE : UN ÉCRIVAIN UNIQUE AU SCHÉMA.
+ * Un fait dont le schéma nomme un écrivain UNIQUE, et dont AUCUNE instance de cet
+ * écrivain n'existe au dossier, est INACCOMPLISSABLE. Un fait dont le schéma ne
+ * nomme AUCUN écrivain n'est pas décidable, et le linter s'y tait. La partition
+ * des quatre portes de `Revelation` en découle, elle n'est pas arbitrée :
+ *  · `contrepartie.objet_id` — écrivain unique `donner_objet`. `Depart` ne porte
+ *    aucun inventaire, et `retirer_objet` partage le même espace de noms en
+ *    écrivant à l'ENVERS : le dériver de `refKinds` compterait une SOUSTRACTION
+ *    comme un don. ÉVALUÉE ;
+ *  · `apres_indice_id` — écrivains : les savoirs, `reveler_indice` et `mene_a`,
+ *    c'est-à-dire l'index que cette fonction construit, SUR-COMPTÉ par H1 et H2.
+ *    ÉVALUÉE, et c'est la SECONDE arête indice → indice du schéma ;
+ *  · `confiance_min`, `jet` — aucun écrivain nommable. NON ÉVALUÉES (H2).
+ * CE QU'ELLE N'EST PAS, et la nuance a été écrite puis retirée par son auteur :
+ * ce n'est PAS « l'ensemble des écrivains est sur-compté ». Cette version-là
+ * condamnerait rétroactivement `possede_objet`, dont l'ensemble est EXACT et non
+ * sur-compté — voir H5.
+ *
+ * H5 — `objetsDonnes` EST EXACT AU SCHÉMA, ET DEUX LIGNES EN DÉPENDENT SOUS UNE
+ * RÈGLE BLOQUANTE : `ETABLISSEMENT.possede_objet` (it7) et `porteOuverte` (it9).
+ * Trois faits, et ils tiennent ENSEMBLE : `donner_objet` est le seul écrivain
+ * d'inventaire du registre, `Depart` n'en porte aucun, et LE NARRATEUR NE TOUCHE
+ * JAMAIS L'INVENTAIRE. C'est cet invariant, et lui seul, qui rend les deux
+ * lectures correctes plutôt que sous-comptées. Le jour où une feature accorde un
+ * inventaire de départ ou une acquisition jouée en scène, CES DEUX LIGNES-LÀ, et
+ * elles seules, sont à reprendre (KR-227).
+ * CE QU'IL NE FAUT PAS EN CONCLURE : que le schéma « ne sait pas exprimer un
+ * inventaire de départ » excuserait l'auteur. C'est l'inverse — il écrit un prix
+ * que le moteur ne pourra pas honorer, et la seule chose qui pourrait l'honorer,
+ * le narrateur, a interdiction de le faire.
  */
 
 /**
@@ -104,6 +163,33 @@ export interface SourceIndice {
 }
 
 /**
+ * CE QUE L'INDEX REND POUR UN INDICE — le COMPTE, et la seule CONFIGURATION du
+ * zéro que le compte ne sait pas dire.
+ *
+ * `retenues` EST LE COMPTE DES TROIS SEUILS, inchangés (`0 → bloquant`,
+ * `1 → alerte`, `≥ 2 → silence`) : la liste ne grandit ni ne rétrécit d'un cran
+ * parce qu'un champ l'accompagne désormais.
+ *
+ * `savoirSousPorteMorte` EST CLASSÉ ICI, JAMAIS RECONSTRUIT PAR L'APPELANT, et
+ * c'est la raison d'être de cette interface : l'appelant devrait sinon relire les
+ * savoirs, réévaluer leurs portes et donc REFAIRE le point fixe pour savoir si
+ * `apres_indice_id` tenait — un second calcul de la même chose, qui dériverait du
+ * premier au premier chemin ajouté. Il vaut `true` quand AU MOINS UN savoir cite
+ * cet indice et que sa porte est fermée ; le `false` ne dit rien d'autre que
+ * « aucun savoir fermé », jamais « aucun savoir ».
+ *
+ * UN BOOLÉEN ET NON UNE UNION DE MOTIFS : la seule chose que l'appelant en fait
+ * est CHOISIR UNE PHRASE, et une union à deux valeurs dont une seule serait lue
+ * est une abstraction posée avant son besoin.
+ */
+export interface ProducteursIndice {
+	/** LE COMPTE des trois seuils — sources retenues APRÈS portes et saturation. */
+	readonly retenues: readonly SourceIndice[]
+	/** Au moins un savoir cite cet indice, et sa porte ne s'ouvrira jamais. */
+	readonly savoirSousPorteMorte: boolean
+}
+
+/**
  * LES QUATRE EMPLACEMENTS D'EFFETS DE RÈGLE du dossier, APLATIS dans l'ordre de
  * `CHEMINS_DE_DELTAS` — récompense de quête, conséquence de résolution, effet de
  * climat, effet de jalon. Lus en ACCÈS TYPÉS, jamais par un marcheur de chemins
@@ -112,7 +198,7 @@ export interface SourceIndice {
  * moteur de traversée du schéma, non typé, qui dériverait en silence de la
  * grammaire figée du premier.
  *
- * UNE SEULE TRAVERSÉE POUR DEUX FILTRES — `reveler_indice` pour les indices
+ * UNE SEULE DÉFINITION DE TRAVERSÉE POUR DEUX FILTRES — `reveler_indice` pour les indices
  * produits, `donner_objet` pour les objets donnés. Deux copies de ces quatre
  * accès dériveraient le jour où un cinquième emplacement entrerait, exactement
  * comme dériveraient deux copies du filtre.
@@ -129,17 +215,108 @@ function effetsDeRegle(dossier: Dossier): readonly Delta[] {
 }
 
 /**
- * L'INDEX DES PRODUCTEURS — pour chaque identifiant d'indice CITÉ quelque part
- * dans le dossier, les sources qui le produisent, ARÊTES SATURÉES.
+ * LES OBJETS QUE LE DOSSIER DONNE — une SEULE définition, DEUX consommateurs : la
+ * porte `contrepartie` d'un savoir et le prédicat `possede_objet`. Deux relevés
+ * du même fait dériveraient l'un de l'autre, et ils le feraient en SILENCE : le
+ * second à diverger continuerait de rendre un ensemble, simplement faux.
  *
- * TROIS ÉTATS ET NON DEUX, et c'est ce qui donne DEUX messages à l'appelant sans
- * qu'un seul champ soit ajouté nulle part :
+ * LE VERBE EST NOMMÉ — `donner_objet`, et lui seul. `retirer_objet` partage
+ * `refKinds: ['objet']` et écrit en NÉGATIF : dériver le producteur de l'espace
+ * de noms compterait une SOUSTRACTION comme un don. Le trou n'est pas
+ * hypothétique — les deux verbes sont au registre aujourd'hui, et un témoin les
+ * sépare.
+ *
+ * AUCUNE MÉMOÏSATION (KR-013/113) : elle se recalcule à chaque appel, comme le
+ * point fixe et comme le rapport qui les consomme.
+ *
+ * EXACTITUDE : voir H5. Cet ensemble n'est pas sous-compté « en attendant mieux »,
+ * il est EXACT au schéma — et c'est une hypothèse datée, pas une propriété du
+ * domaine.
+ */
+function objetsDonnesDe(dossier: Dossier): Set<string> {
+	const objetsDonnes = new Set<string>()
+	for (const effet of effetsDeRegle(dossier)) {
+		if (effet.delta !== 'donner_objet') continue
+		for (const cible of effet.cibles) objetsDonnes.add(cible)
+	}
+	return objetsDonnes
+}
+
+/**
+ * UNE PORTE DE RÉVÉLATION EST-ELLE FRANCHISSABLE ? — le ET des portes ÉVALUÉES
+ * (H4), écrit en SUITE DE GARDES À SORTIE `false` et jamais en `some`.
+ *
+ * LA FORME PORTE LE SENS. Un `some` sur une liste de portes dirait « au moins une
+ * s'ouvre » ; ce qu'il faut est « aucune ne ferme ». Les deux se ressemblent tant
+ * qu'une seule porte est posée et se contredisent dès la seconde — et le schéma en
+ * autorise quatre sur le même savoir. La suite de gardes porte le ET PAR
+ * CONSTRUCTION : chaque ligne ne peut que fermer, jamais ouvrir.
+ *
+ * LES DEUX PORTES NON ÉVALUÉES N'ONT PAS DE GARDE, et leur absence est le fait,
+ * pas un oubli : `confiance_min` et `jet` sont PRÉSENTES au schéma et
+ * indécidables ici (H2/H4). Une garde qui les lirait sans les décider serait une
+ * ligne morte ; une garde qui les fermerait serait un faux positif sous une règle
+ * bloquante.
+ *
+ * LA PORTE VAUT `undefined`, JAMAIS `null`, et c'est MESURÉ dans le produit :
+ * `retirerPorte` SUPPRIME la clé au lieu d'y poser `null`, et le `null` qu'on
+ * trouve dans `BlocSavoirs.tsx` est un modèle de VUE, jamais une valeur écrite au
+ * document. Une garde double `x === undefined || x === null` couvrirait un état
+ * que le schéma n'admet pas, et suggérerait au lecteur suivant qu'il existe.
+ *
+ * `indicesProduits` EST L'ENSEMBLE EN COURS DE CONSTRUCTION quand le point fixe
+ * l'appelle : c'est ce qui entrelace `apres_indice_id` avec `mene_a` au lieu d'en
+ * faire une passe à part. Il est FINAL quand `pnj_a_revele` l'appelle.
+ */
+function porteOuverte(
+	revele_si: Revelation | undefined,
+	indicesProduits: ReadonlySet<string>,
+	objetsDonnes: ReadonlySet<string>,
+): boolean {
+	// AUCUNE PORTE POSÉE — rien ne ferme. « Une porte absente n'est pas une porte
+	// fermée : c'est une porte non posée » (`types.ts`).
+	if (revele_si === undefined) return true
+
+	// LA CONTREPARTIE — un prix que personne ne donne ne se paie jamais.
+	if (revele_si.contrepartie !== undefined && !objetsDonnes.has(revele_si.contrepartie.objet_id)) return false
+
+	// L'INDICE PRÉALABLE — un savoir qui attend un indice hors d'atteinte est hors
+	// d'atteinte. SECONDE arête indice → indice du schéma.
+	if (revele_si.apres_indice_id !== undefined && !indicesProduits.has(revele_si.apres_indice_id)) return false
+
+	return true
+}
+
+/**
+ * L'INDEX DES PRODUCTEURS — pour chaque identifiant d'indice CITÉ quelque part
+ * dans le dossier, les sources qui le produisent, ARÊTES SATURÉES ET PORTES
+ * ÉVALUÉES.
+ *
+ * TROIS ÉTATS ET NON DEUX SUR LE DOMAINE DES CLÉS, et c'est ce qui donne DEUX
+ * messages à l'appelant sans qu'un seul champ soit ajouté nulle part :
  *  · clé ABSENTE — aucune source brute ne cite cet indice : le zéro NU ;
- *  · clé PRÉSENTE, tableau VIDE — des sources brutes le citent, et AUCUNE n'a
- *    survécu à la saturation : le zéro SANS RACINE ;
- *  · clé présente, tableau non vide — le compte, tel que les trois seuils de
+ *  · clé PRÉSENTE, `retenues` VIDE — des sources brutes le citent, et AUCUNE n'a
+ *    survécu aux portes et à la saturation ;
+ *  · clé présente, `retenues` non vide — le compte, tel que les trois seuils de
  *    « indice sans source » le lisent (`0 → bloquant`, `1 → alerte`, `≥ 2 →
  *    silence`).
+ * LE DOMAINE DES CLÉS EST INCHANGÉ PAR IT9 : une porte fermée retire une SOURCE,
+ * jamais une CLÉ — le savoir CITE toujours l'indice. C'est ce qui permet au champ
+ * `savoirSousPorteMorte` de séparer le deuxième état en deux sans en créer un
+ * quatrième.
+ *
+ * LE SECOND ÉTAT SE PARTAGE DÉSORMAIS EN DEUX, ET LA PRIORITÉ EST CE QUI TIENT
+ * LES DEUX PHRASES VRAIES — écrit ici parce que le calcul et le texte se relisent
+ * ENSEMBLE ou dérivent :
+ *  · `savoirSousPorteMorte` VRAI — au moins un savoir tient cet indice derrière
+ *    une porte qui ne s'ouvrira jamais ;
+ *  · `savoirSousPorteMorte` FAUX — alors AUCUN savoir ne cite cet indice (un
+ *    savoir à porte ouverte aurait forcé `retenues` à au moins un), aucun delta
+ *    non plus, donc toutes les sources brutes sont des arêtes `mene_a` et aucune
+ *    ne survit. C'EST EXACTEMENT L'ÉQUIVALENCE dont vit le message « aucun ne
+ *    remonte à une racine », et elle n'est vraie QUE parce que la porte morte est
+ *    lue EN PREMIER. Inverser les deux tests rendrait ce message faux sur un
+ *    indice servi par des savoirs fermés — sans qu'aucun compte ne bouge.
  *
  * LE TROISIÈME ÉTAT N'EST PAS « BOUCLE », ET LA NUANCE A DÉJÀ COÛTÉ UNE PHRASE
  * FAUSSE : en remontant les amonts d'un indice non produit dans un graphe FINI,
@@ -149,75 +326,74 @@ function effetsDeRegle(dossier: Dossier): readonly Delta[] {
  * { id: 'b' }]` la produit sans le moindre cycle. Le cycle n'est qu'un
  * EXEMPLAIRE de « aucun amont atteignable », jamais sa définition.
  *
- * L'ÉQUIVALENCE QUI REND LE SECOND MESSAGE VRAI PAR CONSTRUCTION, écrite ici
- * parce que c'est elle, et non la relecture de la phrase, qui l'empêche de
- * dériver : « tableau VIDE » ÉQUIVAUT à « toutes les sources brutes sont des
- * arêtes `mene_a`, et aucune ne survit ». Une source de famille `savoir` ou
- * `delta` est en effet reconduite TELLE QUELLE par l'étape (d) — elle force donc
- * un compte d'au moins un, et un tableau vide exclut sa présence.
- *
  * Pure, totale, et elle ne ferme sur RIEN — en particulier pas sur `CONTROLES`.
- * C'est cette propriété-là, et non sa taille, qui l'a rendue déplaçable telle
- * quelle.
+ * AUCUNE MÉMOÏSATION (KR-013/113) : point fixe et ensemble d'objets donnés sont
+ * recalculés à chaque appel.
  *
- * CONTRAT D'EXTRACTION D'IT6, TENU : elle a gardé ce NOM en traversant vers ce
- * module, où elle a été DÉPLACÉE puis saturée en DEUX TEMPS SÉPARÉS, la porte
- * passée aux deux. Un déplacement se relit en diff ; une réécriture sous un
- * autre nom passe inaperçue.
- *
- * LES SIX CHEMINS, en UNION et jamais en branches disjointes — deux branches
- * disjointes laissent entre elles un indice à zéro savoir et un seul effet, donc
- * un silence sur le cas même que la règle existe pour attraper :
+ * LES SIX CHEMINS DE L'INDEX BRUT, en UNION et jamais en branches disjointes —
+ * deux branches disjointes laissent entre elles un indice à zéro savoir et un
+ * seul effet, donc un silence sur le cas même que la règle existe pour attraper :
  *  · `monde.personnages[].savoirs[].indice_id` ;
  *  · les QUATRE sites de `CHEMINS_DE_DELTAS` filtrés sur `reveler_indice` —
  *    récompense de quête, conséquence de résolution, effet de climat, effet de
- *    jalon. Leur TRAVERSÉE vit dans `effetsDeRegle`, juste au-dessus, et le
- *    motif du lecteur typé y est écrit UNE fois ;
+ *    jalon. Leur TRAVERSÉE vit dans `effetsDeRegle`, et le motif du lecteur typé
+ *    y est écrit UNE fois ;
  *  · `monde.indices[].mene_a[]`.
  *
  * LE CLIMAT EST COMPTÉ bien qu'aucun moteur ne sache aujourd'hui APPLIQUER un
  * effet de climat : sur une règle bloquante, l'erreur permise est le faux
  * négatif, jamais le faux positif.
  *
- * `mene_a` EST SATURÉ PAR POINT FIXE, JAMAIS PLUS LU À PLAT : une arête ne
- * compte un producteur QUE si son amont est lui-même produit. CE QUE LA LECTURE
- * À PLAT D'IT3 NE COUVRAIT PAS, et que celle-ci couvre : un CYCLE sans aucune
- * source extérieure (`A.mene_a = ['B']`, `B.mene_a = ['A']`) — chacun des deux
- * s'y comptait un producteur et remontait ALERTE, quand il est en vérité hors
- * d'atteinte. Deux assertions livrées basculent donc d'ALERTE à BLOQUANT, et
- * c'est le paiement d'une dette assumée par it3, pas une régression.
+ * UN POINT FIXE UNIQUE, ENTRELACÉ, CROISSANT DEPUIS ∅ — le PLUS PETIT point fixe,
+ * et les trois mots sont chacun une interdiction :
+ *  · UNIQUE — `apres_indice_id` entre dans LA MÊME relaxation que `mene_a`. Une
+ *    passe séparée, ou une couche posée AU-DESSUS de cette fonction, ne verrait
+ *    pas qu'une porte s'ouvre parce qu'une arête vient de livrer son indice ;
+ *  · ENTRELACÉ — et la forme « point fixe d'it6 PUIS soustraction des savoirs à
+ *    porte fermée » est INTERDITE : elle évalue les portes contre l'ensemble
+ *    FINAL sans ré-itérer, si bien qu'un savoir gardé sur un indice que SEUL un
+ *    autre savoir fermé produisait reste compté. Deux savoirs gardés en cascade
+ *    suffisent à l'exhiber, et c'est le témoin de profondeur DEUX de la suite.
+ *    MESURÉ : le témoin de l'entrelacement (une porte qui s'ouvre grâce à une
+ *    arête) laisse CETTE forme-là VERTE — il faut les deux témoins, et le plan
+ *    d'it9 les nomme séparément pour cette raison ;
+ *  · CROISSANT DEPUIS ∅ — jamais le plus GRAND point fixe. Un point fixe
+ *    décroissant, parti de « tout est produit », rend sur un cycle mutuel
+ *    d'`apres_indice_id` deux membres qui se justifient l'un l'autre : un FAUX
+ *    NÉGATIF sous une règle bloquante, exactement ce que ce module refuse.
+ *
+ * `contrepartie` N'INTRODUIT AUCUNE RÉCURSION : `objetsDonnesDe` ne dépend que du
+ * document, jamais de l'ensemble en construction. C'est pourquoi il est calculé
+ * UNE fois, avant la boucle, et passé tel quel.
  *
  * L'ALGORITHME, EN QUATRE TEMPS — et LE PORTEUR DE L'ARÊTE N'Y EST JAMAIS
  * STOCKÉ :
  *  (a) l'index BRUT, par les six chemins ci-dessus ;
- *  (b) `P`, le NOYAU — les indices dont l'index brut porte au moins une source
- *      de famille AUTRE que `mene_a`, c'est-à-dire ceux qu'aucune arête n'a
- *      amenés ;
- *  (c) la RELAXATION par liste de travail, sur les arêtes RELUES dans
- *      `dossier.monde.indices`, jusqu'au POINT FIXE : `x` dans `P` et `y` dans
- *      `x.mene_a` implique `y` dans `P`. Chaque indice entre au plus une fois
- *      dans la liste de travail, ce qui borne la boucle sans compteur de garde ;
- *  (d) la RECONSTRUCTION — les sources non-`mene_a` reconduites telles quelles,
- *      PLUS une entrée `{ famille: 'mene_a' }` par OCCURRENCE d'arête
- *      survivante. PAR OCCURRENCE et non par cible distincte : un `mene_a` qui
- *      cite deux fois la même cible comptait deux fois à plat, et
- *      l'iso-comportement l'exige quand tout est atteignable.
+ *  (b) les OBJETS DONNÉS et les ARÊTES, relus une fois — les deux entrées
+ *      statiques du point fixe ;
+ *  (c) LE POINT FIXE : on répète les TROIS règles — un `reveler_indice` produit
+ *      sa cible ; un savoir à porte ouverte produit son indice ; une arête dont
+ *      l'amont est produit produit sa cible — jusqu'à ce qu'un tour n'ajoute
+ *      plus rien. Chaque tour qui progresse ajoute au moins un identifiant à un
+ *      ensemble fini : la boucle est bornée sans compteur de garde ;
+ *  (d) la RECONSTRUCTION — un `{ famille: 'savoir' }` par savoir à porte
+ *      OUVERTE, les `delta` reconduits TELS QUELS, PLUS un `{ famille: 'mene_a' }`
+ *      par OCCURRENCE d'arête survivante. PAR OCCURRENCE et non par cible
+ *      distincte : un `mene_a` qui cite deux fois la même cible comptait deux
+ *      fois à plat, et l'iso-comportement l'exige quand tout est atteignable.
  *
- * UNE PASSE NE SUFFIT PAS, et c'est la seule raison du point fixe : sur une
- * chaîne dont `monde.indices` est ordonné à rebours, une passe unique en ordre
- * de document verrait un maillon avant que son amont soit entré dans `P`. Un
- * filtre « racine seulement » se tromperait symétriquement, en ne saturant qu'un
- * maillon.
- *
- * IL FAUT QUATRE MAILLONS POUR TENIR CETTE PROMESSE, et le chiffre est MESURÉ,
- * pas choisi : sur une chaîne à trois, un mutant qui GÈLE la borne de la boucle
- * de relaxation à une seule itération reste VERT. Le maillon intermédiaire entre
- * bien dans le `Set` à la première itération sans jamais être dépilé, et l'étape
- * (d) ne teste que l'appartenance FINALE de l'amont — elle ne sait pas combien
- * d'itérations l'y ont mis. Le quatrième maillon est le premier qu'une SECONDE
- * itération est seule à atteindre. `atteignabilite.test.ts` le tient donc sur
- * quatre, et la version à trois de ce commentaire avait traversé deux tours de
- * comité en affirmant une couleur de test que personne n'avait exécutée.
+ * IL FAUT QUATRE MAILLONS POUR TENIR LA PROMESSE DU POINT FIXE SUR `mene_a`, et
+ * le chiffre est MESURÉ, pas choisi : sur une chaîne à trois, un mutant qui GÈLE
+ * la borne de la boucle de relaxation à une seule itération reste VERT. Le
+ * maillon intermédiaire entre bien dans le `Set` à la première itération sans
+ * jamais être dépilé, et l'étape (d) ne teste que l'appartenance FINALE de
+ * l'amont — elle ne sait pas combien d'itérations l'y ont mis. Le quatrième
+ * maillon est le premier qu'une SECONDE itération est seule à atteindre.
+ * `atteignabilite.test.ts` le tient donc sur quatre, et la version à trois de ce
+ * commentaire avait traversé deux tours de comité en affirmant une couleur de
+ * test que personne n'avait exécutée. LA PROFONDEUR DES PORTES EST AUTRE CHOSE ET
+ * VAUT DEUX : une chaîne de PORTES n'est pas une chaîne de RELAXATIONS, et le
+ * chiffre est MESURÉ lui aussi — un seul maillon gardé est indiscernable.
  *
  * ET LE SENS DE L'ARÊTE SE PROUVE À PART : qu'un indice pointe VERS un indice
  * produit ne le produit pas. Aucune chaîne, même longue, ne l'exige — dans une
@@ -225,7 +401,7 @@ function effetsDeRegle(dossier: Dossier): readonly Delta[] {
  * n'a rien à lui propager et reste verte. Il y faut un nœud RELIÉ, et c'est le
  * second témoin de la suite.
  */
-export function producteursParIndice(dossier: Dossier): Map<string, SourceIndice[]> {
+export function producteursParIndice(dossier: Dossier): Map<string, ProducteursIndice> {
 	const producteurs = new Map<string, SourceIndice[]>()
 
 	const ajouter = (indiceId: string, famille: FamilleDeSource): void => {
@@ -234,14 +410,17 @@ export function producteursParIndice(dossier: Dossier): Map<string, SourceIndice
 		else sources.push({ famille })
 	}
 
-	for (const personnage of dossier.monde.personnages) {
-		for (const savoir of personnage.savoirs) ajouter(savoir.indice_id, 'savoir')
-	}
+	// LES SAVOIRS, APLATIS UNE FOIS : le point fixe les relit à chaque tour, et
+	// deux traversées de `monde.personnages` divergeraient sur l'ordre le jour où
+	// l'une des deux se mettrait à filtrer.
+	const savoirs = dossier.monde.personnages.flatMap((personnage) => personnage.savoirs)
+	for (const savoir of savoirs) ajouter(savoir.indice_id, 'savoir')
 
 	// Le filtre sur `reveler_indice` est écrit UNE FOIS, et un balayage de source
 	// tient cette unicité : quatre copies dériveraient le jour où un cinquième
 	// emplacement entrerait.
-	for (const effet of effetsDeRegle(dossier)) {
+	const effets = effetsDeRegle(dossier)
+	for (const effet of effets) {
 		if (effet.delta !== 'reveler_indice') continue
 		for (const cible of effet.cibles) ajouter(cible, 'delta')
 	}
@@ -250,13 +429,12 @@ export function producteursParIndice(dossier: Dossier): Map<string, SourceIndice
 		for (const vise of indice.mene_a ?? []) ajouter(vise, 'mene_a')
 	}
 
-	// (b) LE NOYAU `P` — tout indice qu'au moins une source NON-`mene_a` produit.
-	// C'est le seul endroit où la FAMILLE est lue, et elle l'est comme un test, pas
-	// comme une donnée que l'on conserve.
-	const atteignables = new Set<string>()
-	for (const [indiceId, sources] of producteurs) {
-		if (sources.some((source) => source.famille !== 'mene_a')) atteignables.add(indiceId)
-	}
+	// (b) LES DEUX ENTRÉES STATIQUES DU POINT FIXE.
+	//
+	// LES OBJETS DONNÉS ne dépendent pas de l'ensemble en construction : la porte
+	// `contrepartie` n'introduit aucune récursion, et c'est pourquoi la seule arête
+	// récursive NEUVE d'it9 est `apres_indice_id`.
+	const objetsDonnes = objetsDonnesDe(dossier)
 
 	// LES ARÊTES, RELUES depuis la collection plutôt que stockées à l'index : deux
 	// entrées de même identifiant sont CONCATÉNÉES, jamais écrasées, sinon (d)
@@ -272,17 +450,59 @@ export function producteursParIndice(dossier: Dossier): Map<string, SourceIndice
 		else sortantes.push(...(indice.mene_a ?? []))
 	}
 
-	// (c) LA RELAXATION — liste de travail, curseur qui avance sur un tableau qui
-	// grandit. Le `Set` garantit qu'un indice n'y entre qu'UNE fois : la boucle est
-	// bornée par le nombre d'indices, et le point fixe est atteint quand le curseur
-	// rejoint la fin.
-	const aVisiter = [...atteignables]
-	for (let rang = 0; rang < aVisiter.length; rang += 1) {
-		for (const vise of aretes.get(aVisiter[rang]) ?? []) {
-			if (atteignables.has(vise)) continue
-			atteignables.add(vise)
-			aVisiter.push(vise)
+	// (c) LE POINT FIXE — UNIQUE, ENTRELACÉ, CROISSANT DEPUIS ∅. Les trois règles
+	// sont relues dans LE MÊME tour : un savoir dont la porte s'ouvre parce qu'une
+	// arête vient de livrer son indice préalable entre au tour SUIVANT, et les
+	// arêtes qu'il racine avec lui.
+	const atteignables = new Set<string>()
+	let progresse = true
+	while (progresse) {
+		progresse = false
+
+		// RÈGLE 1 — un `reveler_indice` produit sa cible. Sans porte, sans condition :
+		// ce sont les seules racines INCONDITIONNELLES du dossier.
+		for (const effet of effets) {
+			if (effet.delta !== 'reveler_indice') continue
+			for (const cible of effet.cibles) {
+				if (atteignables.has(cible)) continue
+				atteignables.add(cible)
+				progresse = true
+			}
 		}
+
+		// RÈGLE 2 — un savoir à porte OUVERTE produit son indice. La porte est relue
+		// contre l'ensemble EN COURS, jamais contre un état figé avant la boucle :
+		// c'est cette ligne-ci, et elle seule, qui entrelace `apres_indice_id`.
+		for (const savoir of savoirs) {
+			if (atteignables.has(savoir.indice_id)) continue
+			if (!porteOuverte(savoir.revele_si, atteignables, objetsDonnes)) continue
+			atteignables.add(savoir.indice_id)
+			progresse = true
+		}
+
+		// RÈGLE 3 — une arête dont l'AMONT est produit produit sa cible. Orientée :
+		// qu'un indice pointe VERS un indice produit ne le produit pas.
+		for (const [amont, cibles] of aretes) {
+			if (!atteignables.has(amont)) continue
+			for (const vise of cibles) {
+				if (atteignables.has(vise)) continue
+				atteignables.add(vise)
+				progresse = true
+			}
+		}
+	}
+
+	// LES SAVOIRS, TRIÉS PAR L'ÉTAT FINAL DE LEUR PORTE — et les deux moitiés se
+	// lisent d'un seul parcours : celles qui comptent, et celles qui donnent au
+	// zéro sa configuration.
+	const savoirsOuverts = new Map<string, number>()
+	const sousPorteMorte = new Set<string>()
+	for (const savoir of savoirs) {
+		if (porteOuverte(savoir.revele_si, atteignables, objetsDonnes)) {
+			savoirsOuverts.set(savoir.indice_id, (savoirsOuverts.get(savoir.indice_id) ?? 0) + 1)
+			continue
+		}
+		sousPorteMorte.add(savoir.indice_id)
 	}
 
 	// LES OCCURRENCES D'ARÊTES SURVIVANTES, par cible — une arête ne survit que si
@@ -296,12 +516,17 @@ export function producteursParIndice(dossier: Dossier): Map<string, SourceIndice
 	// (d) LA RECONSTRUCTION, sur le MÊME ensemble de clés que l'index brut : une
 	// clé qui disparaîtrait ici rendrait « servi, mais par aucune racine »
 	// indistinguable de « rien ne le cite », et c'est cette distinction-là qui
-	// porte les deux messages.
-	const satures = new Map<string, SourceIndice[]>()
+	// porte les messages. L'ORDRE DES FAMILLES est celui de l'index brut —
+	// savoirs, deltas, arêtes —, que la reconstruction ne réordonne pas.
+	const satures = new Map<string, ProducteursIndice>()
 	for (const [indiceId, sources] of producteurs) {
-		const retenues = sources.filter((source) => source.famille !== 'mene_a')
+		const retenues: SourceIndice[] = []
+		for (let rang = 0; rang < (savoirsOuverts.get(indiceId) ?? 0); rang += 1) retenues.push({ famille: 'savoir' })
+		for (const source of sources) {
+			if (source.famille === 'delta') retenues.push(source)
+		}
 		for (let rang = 0; rang < (survivantes.get(indiceId) ?? 0); rang += 1) retenues.push({ famille: 'mene_a' })
-		satures.set(indiceId, retenues)
+		satures.set(indiceId, { retenues, savoirSousPorteMorte: sousPorteMorte.has(indiceId) })
 	}
 
 	return satures
@@ -325,8 +550,12 @@ export interface FeuilleInaccomplissable {
  * L'ÉTAT DU DOSSIER réduit à ce que les trois prédicats qui MORDENT ont besoin
  * de lire, calculé UNE fois par condition. Privé, et il le reste :
  * `indicesProduits` n'est qu'une projection de `producteursParIndice` (« au
- * moins un producteur APRÈS saturation »), et l'exporter en ferait un second
- * index à tenir en phase avec le premier.
+ * moins un producteur APRÈS portes et saturation »), et l'exporter en ferait un
+ * second index à tenir en phase avec le premier.
+ *
+ * LES DEUX ENSEMBLES SONT FINAUX ICI, et c'est ce qui autorise `pnj_a_revele` à
+ * appeler la MÊME `porteOuverte` que le point fixe : là-bas l'ensemble grandit
+ * encore, ici il ne bouge plus.
  */
 interface EtatDuDossier {
 	dossier: Dossier
@@ -340,23 +569,30 @@ interface EtatDuDossier {
  * (KR-117) : un huitième prédicat ne compile pas tant que personne n'a décidé ce
  * que le linter en fait.
  *
- * TROIS LIGNES MORDENT, QUATRE SONT « NON ÉVALUÉES À IT7 » — et c'est le mot
+ * TROIS LIGNES MORDENT, QUATRE SONT « NON ÉVALUÉES À IT9 » — et c'est le mot
  * juste, jamais « toujours vraie » : un commentaire plus large que le fait est
- * exactement KR-199. Les deux portes de RACINE (`declencheur_expr` d'un jalon,
- * d'un événement) sont la charge de la tranche « porte morte, producteur
- * fantôme », et les deux prédicats de LIEU relèvent de KR-224 — le schéma n'a
- * aucun graphe de praticabilité, donc « ce lieu est atteint » n'est pas
- * décidable ici. Rendre `true` là où l'on ne sait pas est la seule direction
- * permise sous une règle bloquante.
+ * exactement KR-199. Les deux prédicats de LIEU relèvent de KR-224 — le schéma
+ * n'a aucun graphe de praticabilité, donc « ce lieu est atteint » n'est pas
+ * décidable ici. `jalon_atteint` et `evenement_consomme`, eux, ont DEUX écrivains
+ * chacun — un delta ou la main du narrateur, plus un `declencheur_expr`
+ * OPTIONNEL —, si bien que H4 ne les tranche pas et que H2 les garde en liste.
+ * LA VERSION PRÉCÉDENTE DE CE PARAGRAPHE LES DISAIT « la charge de la tranche
+ * porte morte » : cette tranche est LIVRÉE, et elle ne les prend pas — voir la
+ * correction écrite à H2. Rendre `true` là où l'on ne sait pas est la seule
+ * direction permise sous une règle bloquante.
  *
  * `possede_objet` LIT UN VERBE NOMMÉ, jamais `refKinds.includes('objet')` :
  * `retirer_objet` porte le même espace de noms et est un producteur NÉGATIF —
  * le dériver compterait une SOUSTRACTION comme un don. Le trou n'est pas
  * hypothétique : les deux verbes sont au registre aujourd'hui, et un témoin les
- * sépare.
+ * sépare. Son ensemble est celui de `objetsDonnesDe`, et H5 dit ce qui le rend
+ * EXACT — une hypothèse datée, jamais une propriété du domaine.
  *
  * `pnj_a_revele` s'évalue JOINTEMENT (H3) : la PAIRE, jamais deux feuilles
- * indépendantes.
+ * indépendantes — ET SOUS LA MÊME PORTE QUE LE COMPTE depuis it9. Un savoir
+ * gardé derrière une porte qui ne s'ouvrira jamais ne fait pas parler son
+ * porteur : sans ce resserrement, le même savoir aurait compté zéro producteur
+ * d'un côté et établi la paire de l'autre.
  */
 const ETABLISSEMENT: Record<PredicatId, (etat: EtatDuDossier, cibles: readonly string[]) => boolean> = {
 	possede_objet: (etat, cibles) => etat.objetsDonnes.has(cibles[0]),
@@ -364,7 +600,11 @@ const ETABLISSEMENT: Record<PredicatId, (etat: EtatDuDossier, cibles: readonly s
 	pnj_a_revele: (etat, cibles) =>
 		etat.dossier.monde.personnages.some(
 			(personnage) =>
-				personnage.id === cibles[0] && personnage.savoirs.some((savoir) => savoir.indice_id === cibles[1]),
+				personnage.id === cibles[0] &&
+				personnage.savoirs.some(
+					(savoir) =>
+						savoir.indice_id === cibles[1] && porteOuverte(savoir.revele_si, etat.indicesProduits, etat.objetsDonnes),
+				),
 		),
 	jalon_atteint: () => true,
 	evenement_consomme: () => true,
@@ -474,19 +714,16 @@ function feuilleSansEtablissement(etat: EtatDuDossier, noeud: ExprNode): Feuille
 export function premiereFeuilleInaccomplissable(dossier: Dossier, condition: ExprNode): FeuilleInaccomplissable | null {
 	// LE COMPTE SATURÉ, RÉUTILISÉ TEL QUEL — jamais un second parcours des
 	// producteurs d'indices, qui dériverait du premier au premier chemin ajouté.
+	// Les portes y sont déjà évaluées : c'est la MÊME carte que celle des trois
+	// seuils, jamais une lecture plus généreuse.
 	const indicesProduits = new Set<string>()
-	for (const [indiceId, sources] of producteursParIndice(dossier)) {
-		if (sources.length > 0) indicesProduits.add(indiceId)
+	for (const [indiceId, entree] of producteursParIndice(dossier)) {
+		if (entree.retenues.length > 0) indicesProduits.add(indiceId)
 	}
 
-	// LE VERBE EST NOMMÉ. `retirer_objet` partage `refKinds: ['objet']` et retire
-	// ce que celui-ci donne : dériver le producteur de l'espace de noms compterait
-	// les deux.
-	const objetsDonnes = new Set<string>()
-	for (const effet of effetsDeRegle(dossier)) {
-		if (effet.delta !== 'donner_objet') continue
-		for (const cible of effet.cibles) objetsDonnes.add(cible)
-	}
+	// LES OBJETS DONNÉS, par la SEULE définition du module — second consommateur
+	// de `objetsDonnesDe`, le premier étant la porte `contrepartie` d'un savoir.
+	const objetsDonnes = objetsDonnesDe(dossier)
 
 	return feuilleSansEtablissement({ dossier, indicesProduits, objetsDonnes }, condition)
 }

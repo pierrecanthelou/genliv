@@ -1,5 +1,5 @@
 import { AMORCE, MARQUEUR_A_ECRIRE } from './amorce'
-import { premiereFeuilleInaccomplissable, producteursParIndice } from './atteignabilite'
+import { premiereFeuilleInaccomplissable, producteursParIndice, type ProducteursIndice } from './atteignabilite'
 import { collectIds, defineRegistre, estCleDe, localiserEntite } from './identifiers'
 import type { DossierIssue, DossierIssueCode } from './issues'
 import { SECTIONS, type SectionId } from './sections'
@@ -265,13 +265,31 @@ type SeuilIndice = 'bloquant' | 'alerte'
  *    `alerte` ne nomme pour cette raison AUCUNE famille dans son MESSAGE (« un
  *    seul chemin », jamais « un seul personnage ») — un indice à source unique
  *    peut n'être détenu par personne, et c'est le cas de la fixture des preuves.
+ *
+ * LA CONSIGNE DU SEUIL `bloquant` EST UNIQUE ET VRAIE DES TROIS MESSAGES, et
+ * c'est la contrepartie directe de l'arbitrage d'it6 : la REMÉDIATION se résout
+ * depuis `constat.niveau` SEUL, donc trois textes en exigeraient un discriminant
+ * sur `ConstatControle`, interface exportée par le baril — état illégal
+ * représentable. D'où sa seconde moitié, entrée à it9 : TROIS GESTES SUR LA
+ * PORTE — retirer la porte, changer sa cible, DONNER ce qu'elle réclame.
+ *  · les deux premiers sont ceux que `BlocSavoirs.tsx` offre réellement
+ *    (`LIBELLES_RETRAIT_PORTE`, et un sélecteur de cible par porte) ;
+ *  · LE TROISIÈME N'EST PAS DÉCORATIF, et son absence serait un défaut de
+ *    conception et non de style : sans lui, la règle ENSEIGNERAIT à l'auteur de
+ *    supprimer le prix que son personnage demande, c'est-à-dire que le linter
+ *    appauvrirait la fiction qu'il protège. C'est aussi le geste qu'it7 a
+ *    réellement employé pour la même classe de défaut.
+ * ET C'EST LUI QUI TRAITE L'OBJECTION DE ROUTAGE : le constat se pose sur
+ * l'INDICE quand le fait fautif est sur l'OBJET. Le diagnostic reste sur
+ * l'indice ; le remède nomme l'écran producteur, « (Quêtes, Événements,
+ * Jalons) » — convention déjà employée par `REMEDIATION_OBJECTIF_SANS_CHEMIN`.
  */
 const PROSES_INDICE_SANS_SOURCE: Record<SeuilIndice, ProseControle> = {
 	bloquant: {
 		message:
 			"Aucun personnage, aucun effet et aucun enchaînement ne donne cet indice : le joueur ne pourra jamais l'obtenir.",
 		remediation:
-			"Ancrez la chaîne : confiez cet indice — ou l'un de ceux qui y mènent — à un personnage (Personnages → Savoirs), ou révélez-le par un effet « révèle l'indice ». Un enchaînement depuis un indice lui-même inaccessible ne suffit pas.",
+			"Ancrez la chaîne : confiez cet indice — ou l'un de ceux qui y mènent — à un personnage (Personnages → Savoirs), ou révélez-le par un effet « révèle l'indice ». Un enchaînement depuis un indice lui-même inaccessible ne suffit pas ; et si un savoir le garde déjà derrière une porte, retirez cette porte ou changez sa cible (Personnages → Savoirs), ou donnez ce qu'elle réclame par un effet « donne l'objet » (Quêtes, Événements, Jalons).",
 	},
 	alerte: {
 		message: "Cet indice n'est accessible que par un seul chemin : si le joueur le manque, il devient inaccessible.",
@@ -281,20 +299,21 @@ const PROSES_INDICE_SANS_SOURCE: Record<SeuilIndice, ProseControle> = {
 }
 
 /**
- * LE SECOND MESSAGE DU SEUIL `bloquant` — celui de l'indice que des
+ * LE DEUXIÈME DES TROIS MESSAGES DU SEUIL `bloquant` — celui de l'indice que des
  * enchaînements SERVENT, mais dont AUCUN ne remonte à une racine. UNE CONSTANTE
- * NOMMÉE À PART, jamais une troisième ligne de `PROSES_INDICE_SANS_SOURCE`, et
- * le motif est mécanique :
+ * NOMMÉE À PART, jamais une ligne de plus dans `PROSES_INDICE_SANS_SOURCE`, et le
+ * motif est mécanique :
  *  · cette table est un `Record<SeuilIndice, ProseControle>` TOTAL, indexé par
  *    le NIVEAU et par lui seul. Une troisième clé n'y est pas un niveau, donc
  *    `estSeuilIndice` cesserait d'être une garde de type et la consigne cesserait
- *    de se résoudre depuis `constat.niveau` ;
+ *    de se résoudre depuis `constat.niveau` SEUL ;
  *  · le MESSAGE est gravé dans le constat À L'ÉMISSION, la REMÉDIATION est
- *    résolue PLUS TARD depuis `constat.niveau` SEUL. Deux messages coûtent donc
- *    zéro champ, zéro type ; deux consignes exigeraient un discriminant sur
+ *    résolue PLUS TARD depuis `constat.niveau` SEUL. TROIS messages coûtent donc
+ *    zéro champ, zéro type ; trois consignes exigeraient un discriminant sur
  *    `ConstatControle`, interface exportée par le baril et posable sur les
- *    constats des cinq autres règles — un état illégal représentable. C'est
- *    l'arbitrage d'it6 : DEUX messages, UNE remédiation, vraie des deux côtés.
+ *    constats des sept autres règles — un état illégal représentable. C'est
+ *    l'arbitrage d'it6, reconduit à it9 : TROIS messages, UNE remédiation, vraie
+ *    des trois.
  *
  * IL NE DIT PAS « BOUCLE », ET C'EST UNE CORRECTION DE REVUE, pas une nuance de
  * style. La condition d'émission établit « toutes les sources brutes sont des
@@ -311,15 +330,82 @@ const PROSES_INDICE_SANS_SOURCE: Record<SeuilIndice, ProseControle> = {
  * à DEUX — faux pour l'auto-renvoi et pour les cycles à trois et plus. Une
  * formulation à exceptions plutôt qu'une règle.
  *
- * SA VÉRITÉ EST STRUCTURELLE, pas rédactionnelle : il n'est émis que sous
- * « sources brutes non vides ET compte saturé nul », ce qui ÉQUIVAUT à « toutes
- * les sources sont des enchaînements, et aucun ne remonte à un personnage ou à
- * un effet » — l'équivalence est démontrée à la docstring de
- * `producteursParIndice` (`atteignabilite.ts`), et c'est elle qui empêche cette
- * phrase de dériver. Le texte dit désormais exactement cela, et rien de plus.
+ * SA VÉRITÉ EST STRUCTURELLE, pas rédactionnelle, ET IT9 EN DÉPLACE LA PREUVE
+ * SANS L'AFFAIBLIR — c'est le point qu'il faut lire avant de toucher à l'ordre
+ * des tests ci-dessous. Il était émis sous « sources brutes non vides ET compte
+ * saturé nul », ce qui ÉQUIVALAIT à « toutes les sources sont des enchaînements,
+ * et aucun ne remonte à un personnage ou à un effet ». Cette équivalence
+ * tombait avec les portes : un indice tenu par des savoirs FERMÉS a lui aussi des
+ * sources brutes et un compte nul, et il n'est pas « relié à des enchaînements ».
+ * Elle est RÉTABLIE par la PRIORITÉ — `savoirSousPorteMorte` est lu EN PREMIER —
+ * et par elle seule : reste alors le cas où aucun savoir ne cite l'indice (un
+ * savoir ouvert aurait forcé un compte d'au moins un, un savoir fermé aurait
+ * détourné le message), aucun effet non plus, donc uniquement des enchaînements,
+ * et aucun ne survit. Inverser les deux tests rendrait cette phrase fausse SANS
+ * QU'AUCUN COMPTE NE BOUGE — le seul mode de panne que ce module ne verrait pas.
  */
 const MESSAGE_INDICE_SANS_RACINE =
 	"Cet indice n'est relié qu'à des enchaînements qui ne remontent eux-mêmes à aucun personnage ni à aucun effet : le joueur ne pourra jamais l'obtenir."
+
+/**
+ * LE TROISIÈME MESSAGE DU SEUIL `bloquant` — celui de l'indice dont les seuls
+ * détenteurs sont des savoirs gardés derrière une porte qui ne s'ouvrira jamais.
+ * Même identifiant de règle, même cause (« zéro producteur après saturation »),
+ * seule la CONFIGURATION diffère : un troisième `ControleId` coderait une
+ * configuration, pas une cause (KR-164).
+ *
+ * POURQUOI UN TEXTE NEUF PLUTÔT QU'UN DES DEUX AUTRES, et les deux réemplois
+ * possibles sont FAUX au sens strict — classe BUG-088 :
+ *  · celui de l'orphelin nie qu'aucun personnage ne donne cet indice. Un savoir
+ *    LE CITE bel et bien : la négation serait un diagnostic auto-contradictoire,
+ *    qui redemanderait à l'auteur le geste qu'il vient de faire ;
+ *  · `MESSAGE_INDICE_SANS_RACINE` nomme des ENCHAÎNEMENTS. Ici il n'y en a pas
+ *    nécessairement un seul, et ce n'est pas eux qui ferment la porte.
+ *
+ * « UNE PORTE », INDÉFINI, ET C'EST LE TEXTE DE REPLI QUI VAUT SOUS DEUX PORTES
+ * ÉVALUÉES. Le texte resserré qu'on aurait pu écrire — « attend un autre indice »
+ * — ne serait honnête que si `apres_indice_id` était la seule porte évaluée ;
+ * elle ne l'est pas, `contrepartie` l'est aussi. L'indéfini reste vrai des DEUX
+ * portes, et d'un savoir qui en porterait PLUSIEURS. Il n'y a pas non plus un
+ * texte par TYPE de porte : l'auteur lit la porte sur la fiche du savoir, la
+ * nommer ici dupliquerait son écran dans un rapport.
+ *
+ * CE QUE LA CONDITION D'ÉMISSION ÉTABLIT, mot à mot et sans reste : le compte
+ * saturé est nul, donc AUCUN savoir citant cet indice n'a sa porte ouverte ; et
+ * `savoirSousPorteMorte` dit qu'il en existe au moins un. « N'est confié qu'à des
+ * savoirs dont une porte ne s'ouvrira jamais » est donc vrai ET non vide.
+ *
+ * CE QU'ELLE N'ÉTABLIT PAS, écrit ici plutôt que découvert en revue : dans le cas
+ * MIXTE — des savoirs fermés ET des enchaînements sans racine —, ce message est
+ * celui qui sort, et il ne mentionne pas les enchaînements. Ils sont morts eux
+ * aussi, la conclusion « le joueur ne pourra jamais l'obtenir » reste exacte, et
+ * c'est la REMÉDIATION, unique et vraie des trois causes, qui nomme les deux
+ * gestes. Désigner le savoir plutôt que l'enchaînement est le choix actionnable :
+ * l'auteur a un écran pour la porte, il n'en a pas pour « raciner la chaîne
+ * ailleurs ».
+ */
+const MESSAGE_INDICE_SOUS_PORTE_MORTE =
+	"Cet indice n'est confié qu'à des savoirs dont une porte ne s'ouvrira jamais : le joueur ne pourra jamais l'obtenir."
+
+/**
+ * LEQUEL DES TROIS TEXTES DIT UN COMPTE NUL — LA PRIORITÉ, ÉCRITE UNE FOIS.
+ *
+ * ELLE EST FIGÉE, ET SON ORDRE EST PORTANT. `savoirSousPorteMorte` d'abord : lu
+ * en second, il laisserait « des enchaînements, aucune racine » sortir sur un
+ * indice dont AUCUN enchaînement ne parle, et cette phrase-là deviendrait fausse
+ * SANS QU'AUCUN COMPTE NE BOUGE. La clé PRÉSENTE ensuite — des sources brutes
+ * citent l'indice, et il ne reste qu'elles. Le zéro NU en dernier, seul cas où
+ * rien du dossier ne cite cet indice.
+ *
+ * ELLE PREND L'ENTRÉE ET NON TROIS BOOLÉENS : reconstruire la décision au site
+ * d'appel en ferait une seconde règle de classement, et il y en a déjà une, à
+ * `atteignabilite.ts`, qui a vu les savoirs.
+ */
+function messageDuZero(entree: ProducteursIndice | undefined): string {
+	if (entree?.savoirSousPorteMorte === true) return MESSAGE_INDICE_SOUS_PORTE_MORTE
+	if (entree !== undefined) return MESSAGE_INDICE_SANS_RACINE
+	return PROSES_INDICE_SANS_SOURCE.bloquant.message
+}
 
 /**
  * L'appartenance PROPRE au couple de seuils (KR-175), en GARDE DE TYPE : la
@@ -682,13 +768,21 @@ export const CONTROLES = defineRegistre<ControleDescripteur>()({
 	 * haut, dit qu'une seule source est un goulot. UNE cause, DEUX seuils, jamais
 	 * deux entrées : `0 → bloquant`, `1 → alerte`, `≥ 2 → silence`.
 	 *
-	 * ET DEUX TEXTES SOUS LE SEUIL `bloquant` DEPUIS IT6, toujours sous UN SEUL
-	 * identifiant de règle : la cause est la même (« zéro producteur après
-	 * saturation »), seule sa CONFIGURATION diffère — un indice que rien ne cite,
-	 * un indice que des enchaînements servent sans qu'aucun remonte à une racine
-	 * (une boucle, ou une chaîne dont personne n'a raciné la tête). Un second `ControleId`
-	 * coderait une configuration, pas une cause (KR-164) ; la distinction vit donc
-	 * dans le message, et la consigne reste unique.
+	 * ET TROIS TEXTES SOUS LE SEUIL `bloquant` DEPUIS IT9, toujours sous UN SEUL
+	 * identifiant de règle : la cause est la même (« zéro producteur après portes
+	 * et saturation »), seule sa CONFIGURATION diffère — un indice que rien ne
+	 * cite, un indice que des enchaînements servent sans qu'aucun remonte à une
+	 * racine (une boucle, ou une chaîne dont personne n'a raciné la tête), un
+	 * indice que seuls des savoirs détiennent derrière une porte morte. Un second
+	 * `ControleId` coderait une configuration, pas une cause (KR-164) ; la
+	 * distinction vit donc dans le message, et la consigne reste unique.
+	 *
+	 * LA PRIORITÉ DES TROIS TEXTES EST FIGÉE, et l'ordre est PORTANT, pas
+	 * esthétique : la porte morte d'abord, puis « des sources, aucune racine »,
+	 * puis le zéro nu. C'est cet ordre-là qui rend la deuxième phrase vraie — la
+	 * démonstration est à sa constante —, et c'est lui qui décide du cas MIXTE
+	 * (porte morte ET enchaînements sans racine), arbitré vers la porte morte
+	 * parce que c'est le seul des deux gestes que l'auteur a un écran pour faire.
 	 *
 	 * POURQUOI CETTE RÈGLE PEUT ÊTRE BLOQUANTE alors qu'elle lit une clé
 	 * d'audience `ia` (`savoirs[].indice_id`) : le critère n'est pas l'audience de
@@ -710,27 +804,21 @@ export const CONTROLES = defineRegistre<ControleDescripteur>()({
 			const constats: ConstatControle[] = []
 
 			for (const [index, indice] of dossier.monde.indices.entries()) {
-				// DEUX LECTURES DE LA MÊME CARTE, et c'est tout ce que coûtent les deux
-				// messages du seuil bloquant : la LONGUEUR donne le compte SATURÉ, qui
-				// décide du niveau ; la PRÉSENCE de la clé dit que des sources BRUTES
-				// citent bien cet indice. Rien de la source n'est lu — ni sa famille, ni
-				// son porteur : ce module dit ce qu'on conclut, `atteignabilite.ts` dit
-				// qui produit quoi.
-				const sources = producteurs.get(indice.id)
-				const compte = sources?.length ?? 0
+				// TROIS LECTURES DE LA MÊME ENTRÉE, et c'est tout ce que coûtent les trois
+				// messages du seuil bloquant : la LONGUEUR de `retenues` donne le compte
+				// SATURÉ, qui décide du niveau ; la PRÉSENCE de la clé dit que des sources
+				// BRUTES citent bien cet indice ; `savoirSousPorteMorte` dit qu'un savoir le
+				// détient derrière une porte qui ne s'ouvrira jamais. Rien de la source n'est
+				// lu — ni sa famille, ni son porteur : ce module dit ce qu'on conclut,
+				// `atteignabilite.ts` dit qui produit quoi.
+				const entree = producteurs.get(indice.id)
+				const compte = entree?.retenues.length ?? 0
 				if (compte >= 2) continue
 				const niveau: SeuilIndice = compte === 0 ? 'bloquant' : 'alerte'
-				// « brut ≥ 1 et compte nul » — l'indice est SERVI, mais AUCUN de ses amonts
-				// n'est atteignable. Une source de personnage ou d'effet forcerait un compte
-				// d'au moins un : le cas est donc exactement « des enchaînements, aucune
-				// racine », et c'est cela, et RIEN DE PLUS, que le message affirme. Il ne dit
-				// pas « boucle » : remonter les amonts dans un graphe FINI tombe sur un cycle
-				// OU sur une chaîne non racinée, et la seconde est la configuration courante.
-				const sansRacine = compte === 0 && sources !== undefined
 				constats.push({
 					niveau,
 					section: 'indices',
-					message: sansRacine ? MESSAGE_INDICE_SANS_RACINE : PROSES_INDICE_SANS_SOURCE[niveau].message,
+					message: niveau === 'alerte' ? PROSES_INDICE_SANS_SOURCE.alerte.message : messageDuZero(entree),
 					location: localiserEntite('indice', indice, index),
 					path: 'monde.indices[].id',
 					entityId: indice.id,

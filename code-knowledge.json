@@ -740,6 +740,11 @@
 			"id": "KR-226",
 			"feature": "dossier-controles",
 			"risk": "Le predicat « racine du path differente de la section » est STRUCTURELLEMENT INSATISFIABLE pour la section canon : sections.ts en fait la seule des dix dont la cle n a pas de point. La garde encodait une COINCIDENCE, pas l invariant qu elle nomme : une regle declarant correctement section: 'canon' sur un path en canon.* L AURAIT FAIT ROUGIR EN ETANT JUSTE. (Echeance atteinte a it7 de dossier-controles, ou objectif-sans-chemin EST cette regle : le predicat est REMPLACE par une table path -> section epinglee valeur par valeur, totale par compilation, plus le balayage de source interdisant tout decoupage de chemin, repris DANS LE MEME it. Un temoin en canon.* est desormais ATTENDU, plus interdit.)"
+		},
+		{
+			"id": "KR-227",
+			"feature": "dossier-controles",
+			"risk": "DEUX lignes lisent `objetsDonnes` sous une regle bloquante - `possede_objet` (it7) et `porteOuverte` (it9). L ensemble est EXACT au schema, pas sous-compte : `donner_objet` est le seul ecrivain d inventaire, `Depart` n en porte aucun, et LE NARRATEUR NE TOUCHE JAMAIS L INVENTAIRE - cet invariant, et lui seul, rend les deux lectures correctes. Le jour ou une feature accorde un inventaire de depart ou une acquisition en scene, CES DEUX LIGNES, et elles seules, sont a reprendre. (H5 dans atteignabilite.ts.)"
 		}
 	]
 }

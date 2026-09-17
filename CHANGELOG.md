@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.42 — la porte d un savoir est infranchissable
+
+`dossier-controles` iteration 9/10. Un savoir dont `revele_si` ne peut JAMAIS etre franchie cesse de compter comme producteur de son indice. DEUX portes evaluees (`apres_indice_id`, `contrepartie`), DEUX laissees ouvertes — et la partition est DERIVEE d une loi, pas arbitree porte par porte.
+
+- **H4, la loi qui trie les portes** : un fait dont le schema nomme un ECRIVAIN UNIQUE, et dont aucune instance de cet ecrivain n existe au dossier, est INACCOMPLISSABLE ; un fait sans AUCUN ecrivain n est pas decidable, et le linter s y tait. Les quatre portes se partitionnent mecaniquement.
+- **Le point fixe est UNIQUE et ENTRELACE, croissant depuis le vide.** `apres_indice_id` entre dans la MEME relaxation que `mene_a` : sur un cycle mutuel, le plus petit point fixe rend BLOQUANT des deux cotes, ce qui est VRAI — le carnet du joueur part vide. Le plus grand point fixe les rendrait auto-justifies : faux negatif sous une regle bloquante.
+- **La mesure la plus importante, et elle a tenu a l execution** : les DEUX implementations fautives exigent DEUX temoins DISTINCTS. Le mutant << point fixe PUIS soustraction >> reste VERT sur le temoin qui attrape le mutant << portes evaluees avant la relaxation >>. Un seul temoin aurait laisse passer exactement ce que le plan interdit. **C est BUG-087 anticipe au raffinage, pour la premiere fois, au lieu d etre decouvert apres.**
+- **Et la profondeur discriminante est MESUREE a 2**, pas choisie : un maillon garde est indiscernable, deux separent. A it6 ce chiffre avait ete choisi — et il etait faux.
+- **Le comite a trouve un cinquieme defaut reel dans l aventure de reference** : `objet.lanterne-de-corvin` est exige comme prix d un savoir et n est jamais donne. Le dossier ecrit qui la porte et qui la veut, et ne joue jamais la scene du milieu. Epingle, **non repare** — le site juste est une recompense de quete dont le compte est epingle dans une SECONDE feature.
+- **DEUX defauts trouves dans le bloc d hypotheses lui-meme.** H2 disait qu un jalon sans `declencheur_expr` est un producteur fantome : FAUX, le schema declare l absence legitime et `atteindre_jalon` existe. H3 se disait la SEULE hypothese au sens interdit : FAUX depuis it7. Corriges, avec l extension explicite a `Evenement.declencheur_expr` pour que l erreur ne se refasse pas.
+- **Le narratif s est trouve tort lui-meme, dans la source.** Il avait demande que `contrepartie` sorte ; le PM et le tech-lead l avaient suivi. Il a retire sa reserve en lisant que Corvin PORTE la lanterne — << ma phrase etait mon invention, pas une lecture >> — et a reconnu que le precedent d it7 jouait contre lui.
+- **La priorite des trois messages est tenue par LE TEMOIN DU CAS MIXTE, pas par le compilateur.** `tsc` n attrape qu UNE des quatre facons de la casser (l interversion litterale des deux `if`) : l ouvrier et la qa l avaient lue comme une garde, la revue de PR a mesure qu elle n en est pas une. Ne pas supprimer le temoin en croyant le typage.
+- **Un defaut de perimetre, corrige avant la revue** : l ouvrier avait ajoute le plan valide et un fichier utilisateur a `.gitignore` — un `git status` rendu propre en MASQUANT. Les deux lignes retirees ; la QA a confirme qu il n en restait aucune autre trace.
+
 ## 0.6.41 — des objectifs qui ne disent pas comment l emporter
 
 `dossier-controles` iteration 8/10. La regle `canon-sans-victoire` : ALERTE sur un canon dont les objectifs sont poses mais dont AUCUN ne dit ce qu il faut accomplir pour l emporter. Trois gardes cumulatives — et la premiere, `length > 0`, laisse la collection VIDE muette.

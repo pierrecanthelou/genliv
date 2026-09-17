@@ -5,7 +5,7 @@ import { DELTAS, type Delta } from './deltas'
 import type { ExprNode } from './expr'
 import { PREDICATES, type PredicatId } from './predicates'
 import { CHEMINS_DE_DELTAS, REFERENCES_SIMPLES } from './tables'
-import type { Dossier } from './types'
+import { CONFIANCE_MAX, type Dossier, type Revelation, type Savoir } from './types'
 
 /**
  * L'ATTEIGNABILITÉ DES INDICES — qui produit quoi, arêtes saturées.
@@ -40,7 +40,7 @@ const SOURCE_ATTEIGNABILITE = fs.readFileSync(path.join(__dirname, 'atteignabili
 /** Le COMPTE saturé de chaque identifiant demandé, dans l'ordre demandé. */
 function compteDe(dossier: Dossier, ids: readonly string[]): string[] {
 	const carte = producteursParIndice(dossier)
-	return ids.map((id) => `${id} → ${carte.get(id)?.length ?? 0}`)
+	return ids.map((id) => `${id} → ${carte.get(id)?.retenues.length ?? 0}`)
 }
 
 /**
@@ -51,9 +51,9 @@ function compteDe(dossier: Dossier, ids: readonly string[]): string[] {
  */
 function carteDe(dossier: Dossier): string[] {
 	return [...producteursParIndice(dossier).entries()]
-		.map(([id, sources]) => {
-			const familles = sources.map((source) => source.famille).join('+')
-			return `${id} → ${sources.length === 0 ? '(vide)' : familles}`
+		.map(([id, entree]) => {
+			const familles = entree.retenues.map((source) => source.famille).join('+')
+			return `${id} → ${entree.retenues.length === 0 ? '(vide)' : familles}`
 		})
 		.sort()
 }
@@ -201,14 +201,15 @@ describe('producteursParIndice, la saturation des aretes par point fixe', () => 
 
 		const carte = producteursParIndice(dossier)
 
-		// LES TROIS ÉTATS, et c'est CETTE carte — pas un champ ajouté au constat — qui
-		// donne ses DEUX messages au seuil bloquant : le compte est nul dans les deux
-		// premiers cas, seule la PRÉSENCE de la clé les sépare. Le jour où la
-		// reconstruction laisserait tomber les clés vides, les deux textes
-		// redeviendraient un seul, et rien d'autre ne le dirait.
+		// LES TROIS ÉTATS DE LA CARTE. Depuis it9 le seuil bloquant porte TROIS messages,
+		// et ils ne se lisent PAS tous ici : la carte en sépare DEUX — clé absente contre
+		// clé présente à compte nul — par la seule PRÉSENCE de la clé, et le troisième
+		// vient de `savoirSousPorteMorte`, champ ajouté à l'ENTRÉE D'INDEX (jamais au
+		// constat, qui reste intact). Le jour où la reconstruction laisserait tomber les
+		// clés vides, deux de ces trois textes redeviendraient un seul.
 		expect(
 			['indice.aval', 'indice.orphelin', 'indice.racine'].map(
-				(id) => `${id} → ${carte.has(id)} · ${carte.get(id)?.length ?? 0}`,
+				(id) => `${id} → ${carte.has(id)} · ${carte.get(id)?.retenues.length ?? 0}`,
 			),
 		).toEqual(['indice.aval → true · 0', 'indice.orphelin → false · 0', 'indice.racine → true · 1'])
 
@@ -225,7 +226,7 @@ describe('producteursParIndice, la saturation des aretes par point fixe', () => 
 		const carteDuCycle = producteursParIndice(cycle)
 		expect(
 			['indice.boucle-a', 'indice.boucle-b'].map(
-				(id) => `${id} → ${carteDuCycle.has(id)} · ${carteDuCycle.get(id)?.length ?? 0}`,
+				(id) => `${id} → ${carteDuCycle.has(id)} · ${carteDuCycle.get(id)?.retenues.length ?? 0}`,
 			),
 		).toEqual(['indice.boucle-a → true · 0', 'indice.boucle-b → true · 0'])
 	})
@@ -305,6 +306,336 @@ describe('producteursParIndice, la saturation des aretes par point fixe', () => 
 	})
 })
 
+/**
+ * LES PORTES D'UN SAVOIR — ce que la saturation d'it6 comptait sans le regarder.
+ *
+ * Ce que cette suite prouve et qu'aucune autre ne peut prouver : que le point
+ * fixe est UNIQUE et ENTRELACÉ, c'est-à-dire que `apres_indice_id` et `mene_a`
+ * se relaxent DANS LA MÊME boucle. Les deux implémentations fautives que le plan
+ * d'it9 nomme exigent DEUX témoins DISTINCTS, et c'est MESURÉ, pas déduit :
+ *  · « portes évaluées AVANT la relaxation » rougit sur la chaîne d'ouverture
+ *    (`racine → relais → tardif`) ;
+ *  · « point fixe PUIS soustraction, non ré-itérée » y reste VERTE, et ne rougit
+ *    que sur la CASCADE de deux savoirs gardés.
+ * Un seul témoin laisserait donc passer exactement ce que le plan interdit —
+ * BUG-087 rejoué, attrapé cette fois avant l'essaim.
+ *
+ * LES FIXTURES NE SONT JAMAIS MUTÉES SUR LE DISQUE (KR-156) : chaque témoin est
+ * un CLONE lu du fichier, dont on remplace la collection d'indices et les savoirs
+ * de l'unique personnage.
+ */
+describe('producteursParIndice, les portes d un savoir', () => {
+	/** Un savoir de témoin — `certitude` est requise au schéma et ne décide de rien ici. */
+	function savoir(indiceId: string, revele_si: Revelation): Savoir {
+		return { indice_id: indiceId, certitude: 'sait', revele_si }
+	}
+
+	/** L'objet que la fixture DONNE — récompense de son unique quête. */
+	const OBJET_DONNE = 'objet.clef-de-basalte'
+	/** Un objet du dossier que RIEN ne donne — le prix qu'on ne paiera jamais. */
+	const OBJET_JAMAIS_DONNE = 'objet.lanterne-eteinte'
+
+	/**
+	 * Le clone, PLUS un second objet que personne ne donne. Il EXISTE au dossier —
+	 * une référence pendante serait une anomalie du validateur, et le témoin
+	 * porterait alors sur autre chose que la porte.
+	 */
+	function cloneADeuxObjets(): Dossier {
+		const dossier = clone()
+		dossier.monde.objets = [
+			...dossier.monde.objets,
+			{
+				id: OBJET_JAMAIS_DONNE,
+				nom: 'Une lanterne éteinte',
+				description_joueur: "Une lanterne de fer noirci, froide, dont personne n'a jamais eu l'usage.",
+			},
+		]
+		return dossier
+	}
+
+	it('une contrepartie que personne ne donne ferme la porte, une contrepartie donnee ne la ferme pas', () => {
+		const dossier = cloneADeuxObjets()
+		// DEUX SAVOIRS DANS LE MÊME DOSSIER (KR-197/202), et UN SEUL caractère les
+		// sépare : l'objet réclamé. Un témoin à un seul savoir ne distinguerait pas
+		// une porte évaluée PAR SAVOIR d'un module qui aurait cessé de compter les
+		// savoirs.
+		dossier.monde.indices = [{ id: 'indice.paye' }, { id: 'indice.impaye' }]
+		dossier.monde.personnages[0].savoirs = [
+			savoir('indice.paye', { contrepartie: { objet_id: OBJET_DONNE, consomme: false } }),
+			savoir('indice.impaye', { contrepartie: { objet_id: OBJET_JAMAIS_DONNE, consomme: false } }),
+		]
+
+		// LE FAIT EST LU SUR LA DONNÉE, jamais promis en prose : la récompense de
+		// l'unique quête donne le premier objet et JAMAIS le second. Sans cette ligne,
+		// l'assertion d'après resterait verte le jour où la fixture perdrait sa
+		// récompense — et les deux savoirs tomberaient ensemble pour une raison qu'on
+		// ne saurait pas nommer.
+		expect(
+			dossier.monde.quetes
+				.flatMap((quete) => quete.recompense)
+				.map((effet) => `${effet.delta} → ${effet.cibles.join()}`),
+		).toEqual([`donner_objet → ${OBJET_DONNE}`])
+
+		expect(compteDe(dossier, ['indice.paye', 'indice.impaye'])).toEqual(['indice.paye → 1', 'indice.impaye → 0'])
+
+		// ET LE VERBE DÉCIDE, PAS L'ESPACE DE NOMS : la même récompense passée de
+		// « donne » à « retire » — UN SEUL champ — ferme la première porte à son tour.
+		// `retirer_objet` partage `refKinds: ['objet']` ; une porte dérivée de l'espace
+		// resterait verte ici, en comptant une SOUSTRACTION comme un don.
+		dossier.monde.quetes[0].recompense = [{ delta: 'retirer_objet', cibles: [OBJET_DONNE] }]
+		expect(compteDe(dossier, ['indice.paye', 'indice.impaye'])).toEqual(['indice.paye → 0', 'indice.impaye → 0'])
+	})
+
+	it('une porte d indice s ouvre parce qu une arete vient de livrer son indice prealable', () => {
+		const dossier = clone()
+		// LA CHAÎNE D'OUVERTURE — `racine` (delta) → `relais` (arête) → `tardif`
+		// (savoir gardé SUR `relais`). Le savoir ne peut entrer qu'APRÈS que l'arête a
+		// livré `relais`, c'est-à-dire APRÈS un tour de relaxation.
+		//
+		// LE MUTANT QUE CE TÉMOIN ATTRAPE, et lui seul : « les portes sont évaluées
+		// AVANT la relaxation ». Sous cette forme-là, `relais` n'est pas encore
+		// atteignable quand la porte de `tardif` est lue, le savoir est écarté, et
+		// `indice.tardif` retombe à ZÉRO.
+		dossier.monde.indices = [
+			{ id: 'indice.racine', mene_a: ['indice.relais'] },
+			{ id: 'indice.relais' },
+			{ id: 'indice.tardif' },
+		]
+		// LA SEULE RACINE : l'effet du jalon. Les autres effets du clone visent des
+		// indices qui ne sont plus dans la collection, donc ils ne produisent rien ici.
+		dossier.charpente.jalons[0].effet = [{ delta: 'reveler_indice', cibles: ['indice.racine'] }]
+		dossier.monde.personnages[0].savoirs = [savoir('indice.tardif', { apres_indice_id: 'indice.relais' })]
+
+		expect(compteDe(dossier, ['indice.racine', 'indice.relais', 'indice.tardif'])).toEqual([
+			'indice.racine → 1',
+			'indice.relais → 1',
+			'indice.tardif → 1',
+		])
+
+		// DISCRIMINANT, DANS LE MÊME TEST (KR-197/202) : l'arête retirée — UN SEUL
+		// champ —, `relais` n'est plus livré et la porte de `tardif` se referme. Sans
+		// cette moitié, le `1` ci-dessus serait vert sous un module qui ne lirait
+		// jamais `apres_indice_id`.
+		dossier.monde.indices[0].mene_a = []
+		expect(compteDe(dossier, ['indice.racine', 'indice.relais', 'indice.tardif'])).toEqual([
+			'indice.racine → 1',
+			'indice.relais → 0',
+			'indice.tardif → 0',
+		])
+	})
+
+	it('deux savoirs gardes en cascade sur une cible jamais produite comptent zero tous les deux', () => {
+		const dossier = clone()
+		// LA CASCADE — `mirage` que rien ne produit, `premier` gardé sur `mirage`,
+		// `second` gardé sur `premier`. Aucun delta ne vise ces trois-là : l'effet du
+		// jalon et la conséquence de l'événement visent des indices qui ne sont plus
+		// dans la collection.
+		//
+		// LE MUTANT QUE CE TÉMOIN ATTRAPE, ET QUE LE PRÉCÉDENT LAISSE VERT : « point
+		// fixe d'it6 PUIS soustraction, non ré-itérée ». Cette forme-là compte d'abord
+		// les savoirs SANS regarder leurs portes — `premier` et `second` entrent —,
+		// puis retire ceux dont la porte est fermée CONTRE L'ENSEMBLE FINAL : la porte
+		// de `second` y trouve `premier` et passe pour ouverte. `indice.second` remonte
+		// alors à UN.
+		//
+		// LA PROFONDEUR DEUX EST MESURÉE, PAS CHOISIE : sur un SEUL savoir gardé,
+		// `premier` vaut zéro sous les deux implémentations — la fautive le retire
+		// aussi, sa cible `mirage` n'étant dans aucun ensemble. C'est le SECOND maillon
+		// qui sépare, parce qu'il est le premier dont la porte vise un indice que la
+		// soustraction a déjà retiré. Et c'est une chaîne de PORTES, jamais de
+		// relaxations : le chiffre QUATRE de la chaîne `mene_a` ne s'y transporte pas.
+		dossier.monde.indices = [{ id: 'indice.mirage' }, { id: 'indice.premier' }, { id: 'indice.second' }]
+		dossier.monde.personnages[0].savoirs = [
+			savoir('indice.premier', { apres_indice_id: 'indice.mirage' }),
+			savoir('indice.second', { apres_indice_id: 'indice.premier' }),
+		]
+
+		expect(compteDe(dossier, ['indice.mirage', 'indice.premier', 'indice.second'])).toEqual([
+			'indice.mirage → 0',
+			'indice.premier → 0',
+			'indice.second → 0',
+		])
+
+		// DISCRIMINANT, DANS LE MÊME TEST : `mirage` racinée par l'effet du jalon — UN
+		// SEUL champ —, et LA CASCADE ENTIÈRE s'allume, un maillon par tour. Sans cette
+		// moitié, les trois zéros seraient ceux d'un module qui ne compterait jamais un
+		// savoir gardé.
+		dossier.charpente.jalons[0].effet = [{ delta: 'reveler_indice', cibles: ['indice.mirage'] }]
+		expect(compteDe(dossier, ['indice.mirage', 'indice.premier', 'indice.second'])).toEqual([
+			'indice.mirage → 1',
+			'indice.premier → 1',
+			'indice.second → 1',
+		])
+	})
+
+	it('un cycle d apres_indice_id et un cycle MIXTE comptent zero, jamais un', () => {
+		// LE PLUS PETIT POINT FIXE, ÉPINGLÉ — et c'est la seule ligne qui sépare le
+		// point fixe CROISSANT du point fixe décroissant. Parti de « tout est
+		// produit », le second rendrait ici deux membres qui se justifient l'un
+		// l'autre : un FAUX NÉGATIF sous une règle bloquante.
+		const mutuel = clone()
+		mutuel.monde.indices = [{ id: 'indice.jumeau-a' }, { id: 'indice.jumeau-b' }]
+		mutuel.monde.personnages[0].savoirs = [
+			savoir('indice.jumeau-a', { apres_indice_id: 'indice.jumeau-b' }),
+			savoir('indice.jumeau-b', { apres_indice_id: 'indice.jumeau-a' }),
+		]
+		expect(compteDe(mutuel, ['indice.jumeau-a', 'indice.jumeau-b'])).toEqual([
+			'indice.jumeau-a → 0',
+			'indice.jumeau-b → 0',
+		])
+
+		// LE CYCLE MIXTE — une arête `mene_a` ET une porte `apres_indice_id` sur le
+		// même circuit : `amont` n'est produit que par un savoir gardé sur `aval`, et
+		// `aval` n'est produit que par l'arête d'`amont`. C'est le témoin qui exige que
+		// les DEUX relaxations soient la MÊME : un point fixe qui saturerait les arêtes
+		// dans une passe et les portes dans une autre ne verrait jamais que ce circuit
+		// se referme sur lui-même.
+		const mixte = clone()
+		mixte.monde.indices = [{ id: 'indice.amont', mene_a: ['indice.aval'] }, { id: 'indice.aval' }]
+		mixte.monde.personnages[0].savoirs = [savoir('indice.amont', { apres_indice_id: 'indice.aval' })]
+		mixte.charpente.jalons[0].effet = []
+		expect(compteDe(mixte, ['indice.amont', 'indice.aval'])).toEqual(['indice.amont → 0', 'indice.aval → 0'])
+
+		// DISCRIMINANT, DANS LE MÊME TEST : `aval` racinée par l'effet du jalon — UN
+		// SEUL champ —, la porte d'`amont` s'ouvre, et son arête revit par-dessus.
+		// Sans cette moitié, les quatre zéros ci-dessus seraient ceux d'un module qui
+		// ne compte jamais rien.
+		mixte.charpente.jalons[0].effet = [{ delta: 'reveler_indice', cibles: ['indice.aval'] }]
+		expect(compteDe(mixte, ['indice.amont', 'indice.aval'])).toEqual(['indice.amont → 1', 'indice.aval → 2'])
+	})
+
+	it('les portes se composent en ET, et les deux portes NON evaluees ne ferment jamais', () => {
+		const dossier = clone()
+		// DEUX SAVOIRS DANS LE MÊME DOSSIER, chacun portant DEUX portes — une évaluée,
+		// une non évaluée :
+		//  · `ferme` — porte d'indice FERMÉE (son préalable n'est produit par rien)
+		//    PLUS une `confiance_min`. Le ET par construction le laisse à ZÉRO ;
+		//  · `ouvert` — porte d'indice OUVERTE (son préalable est raciné par l'effet du
+		//    jalon) PLUS un `jet`. Les portes non évaluées ne ferment pas : il compte UN.
+		//
+		// LE MUTANT QUE CE TÉMOIN ATTRAPE : une `porteOuverte` écrite en `some` —
+		// « au moins une porte s'ouvre » — au lieu d'une suite de gardes à sortie
+		// `false`. Les deux formes se ressemblent tant qu'une seule porte est posée et
+		// se contredisent dès la seconde : sous le `some`, la `confiance_min` non
+		// évaluée de `ferme` suffirait à l'ouvrir, et `indice.ferme` remonterait à UN.
+		dossier.monde.indices = [
+			{ id: 'indice.racine' },
+			{ id: 'indice.mirage' },
+			{ id: 'indice.ferme' },
+			{ id: 'indice.ouvert' },
+		]
+		dossier.charpente.jalons[0].effet = [{ delta: 'reveler_indice', cibles: ['indice.racine'] }]
+		dossier.monde.personnages[0].savoirs = [
+			savoir('indice.ferme', { confiance_min: CONFIANCE_MAX, apres_indice_id: 'indice.mirage' }),
+			savoir('indice.ouvert', { jet: { carac: 'CA', tc: 'TC2' }, apres_indice_id: 'indice.racine' }),
+		]
+
+		expect(compteDe(dossier, ['indice.ferme', 'indice.ouvert'])).toEqual(['indice.ferme → 0', 'indice.ouvert → 1'])
+
+		// LES DEUX PORTES NON ÉVALUÉES SONT RÉELLEMENT PRÉSENTES AU TÉMOIN, lu sur la
+		// donnée : sans cette ligne, les deux comptes ci-dessus seraient ceux de deux
+		// savoirs ne portant qu'une porte chacun, et le ET ne serait pas éprouvé.
+		expect(
+			dossier.monde.personnages[0].savoirs.map(
+				(candidat) => `${candidat.indice_id} → ${Object.keys(candidat.revele_si ?? {}).join('+')}`,
+			),
+		).toEqual(['indice.ferme → confiance_min+apres_indice_id', 'indice.ouvert → jet+apres_indice_id'])
+
+		// ET SEULES, LES NON ÉVALUÉES N'EMPÊCHENT RIEN : la porte d'indice de `ferme`
+		// retirée — UN SEUL champ —, sa `confiance_min` reste, et il compte UN. Sans
+		// cette moitié, le zéro ci-dessus serait vert sous une implémentation qui
+		// FERMERAIT sur `confiance_min`.
+		dossier.monde.personnages[0].savoirs[0].revele_si = { confiance_min: CONFIANCE_MAX }
+		expect(compteDe(dossier, ['indice.ferme', 'indice.ouvert'])).toEqual(['indice.ferme → 1', 'indice.ouvert → 1'])
+	})
+
+	it('un savoir dont la porte est morte est CLASSE sous porte morte, sans quitter les cles', () => {
+		const dossier = clone()
+		// LE CHAMP `savoirSousPorteMorte` EST LA SEULE CHOSE QUE LE COMPTE NE SAIT PAS
+		// DIRE, et son appelant ne peut pas le reconstruire sans refaire le point fixe.
+		// Il se prouve donc ICI, à l'unité, et non à travers les trois seuils d'une
+		// règle.
+		dossier.monde.indices = [{ id: 'indice.mirage' }, { id: 'indice.garde' }, { id: 'indice.servi' }]
+		dossier.monde.personnages[0].savoirs = [savoir('indice.garde', { apres_indice_id: 'indice.mirage' })]
+		dossier.charpente.jalons[0].effet = []
+
+		const carte = producteursParIndice(dossier)
+		// LE DOMAINE DES CLÉS EST INCHANGÉ : une porte fermée retire une SOURCE, jamais
+		// une CLÉ — le savoir CITE toujours son indice. `mirage`, que personne ne cite,
+		// reste absent ; `servi`, que personne ne cite non plus, aussi.
+		expect(
+			['indice.garde', 'indice.mirage', 'indice.servi'].map(
+				(id) =>
+					`${id} → ${carte.has(id)} · ${carte.get(id)?.retenues.length ?? 0} · ${carte.get(id)?.savoirSousPorteMorte}`,
+			),
+		).toEqual([
+			'indice.garde → true · 0 · true',
+			'indice.mirage → false · 0 · undefined',
+			'indice.servi → false · 0 · undefined',
+		])
+
+		// DISCRIMINANT, DANS LE MÊME TEST : `mirage` racinée — UN SEUL champ —, la
+		// porte s'ouvre, le compte passe à un ET le classement retombe à `false`. Sans
+		// cette moitié, le `true` ci-dessus serait vert sous un champ câblé en dur.
+		dossier.charpente.jalons[0].effet = [{ delta: 'reveler_indice', cibles: ['indice.mirage'] }]
+		const ouverte = producteursParIndice(dossier)
+		expect(
+			`${ouverte.get('indice.garde')?.retenues.length} · ${ouverte.get('indice.garde')?.savoirSousPorteMorte}`,
+		).toBe('1 · false')
+	})
+
+	it('objetsDonnesDe a UNE definition et DEUX appelants, et rien n est memoise', () => {
+		// UNE DÉFINITION, DEUX APPELANTS — et la ligne de déclaration comprise,
+		// `objetsDonnesDe(` paraît TROIS fois : la définition, la porte `contrepartie`
+		// d'un savoir, le prédicat `possede_objet`. Deux relevés du même fait
+		// dériveraient l'un de l'autre, et ils le feraient en SILENCE : le second à
+		// diverger continuerait de rendre un ensemble, simplement faux.
+		expect(SOURCE_ATTEIGNABILITE.split('function objetsDonnesDe').length - 1).toBe(1)
+		expect(SOURCE_ATTEIGNABILITE.split('objetsDonnesDe(').length - 1).toBe(3)
+
+		// UNE SEULE DÉFINITION DE LA PORTE, pour la même raison et avec un enjeu de
+		// plus : `pnj_a_revele` doit lire LA MÊME porte que le compte, sans quoi le
+		// même savoir compterait zéro producteur d'un côté et établirait la paire de
+		// l'autre. QUATRE occurrences de `porteOuverte(` — la définition, la règle du
+		// point fixe, le classement final, la paire.
+		expect(SOURCE_ATTEIGNABILITE.split('function porteOuverte').length - 1).toBe(1)
+		expect(SOURCE_ATTEIGNABILITE.split('porteOuverte(').length - 1).toBe(4)
+
+		// AUCUNE MÉMOÏSATION (KR-013/113), et c'est prouvé PAR LE COMPORTEMENT plutôt
+		// que par l'absence d'un mot dans la source : le MÊME objet dossier, muté entre
+		// deux appels, rend deux comptes différents. Un cache posé sur sa référence
+		// rendrait ici deux fois le premier.
+		const dossier = clone()
+		dossier.monde.indices = [{ id: 'indice.paye' }]
+		dossier.monde.personnages[0].savoirs = [
+			savoir('indice.paye', { contrepartie: { objet_id: OBJET_DONNE, consomme: false } }),
+		]
+		expect(compteDe(dossier, ['indice.paye'])).toEqual(['indice.paye → 1'])
+		dossier.monde.quetes[0].recompense = []
+		expect(compteDe(dossier, ['indice.paye'])).toEqual(['indice.paye → 0'])
+	})
+
+	it('le module n importe jamais la couche des regles du jeu', () => {
+		// KR-193 / KR-130 — LE LINTER DU DOSSIER N'ÉVALUE PAS `jet`, ET C'EST
+		// CONSTATABLE plutôt que promis. Évaluer un jet exigerait le tier et sa valeur,
+		// donc l'import de la couche des règles dans un module qui ne lance aucun dé ;
+		// et le verdict serait CONSTANT — il existe pour chaque tier un héros qui
+		// réussit. La garde naît verte et le restera : le module n'importe aujourd'hui
+		// que `./deltas`, `./expr`, `./predicates` et `./types`.
+		for (const interdit of ["'../challenge'", 'CHALLENGE_TIERS', 'challengeTierValue']) {
+			expect(`${interdit} → ${SOURCE_ATTEIGNABILITE.includes(interdit)}`).toBe(`${interdit} → false`)
+		}
+
+		// LA SECONDE MOITIÉ, sans laquelle l'interdiction porterait sur un FANTÔME
+		// (classe BUG-090) : les deux symboles nommés EXISTENT bel et bien, et ils
+		// vivent bien derrière ce chemin-là. Un renommage de la couche des règles
+		// rougirait ici, au lieu de laisser trois `not.toContain` verts pour toujours.
+		const SOURCE_CHALLENGE = fs.readFileSync(path.join(__dirname, '..', 'challenge.ts'), 'utf8')
+		expect(SOURCE_CHALLENGE).toContain('export const CHALLENGE_TIERS')
+		expect(SOURCE_CHALLENGE).toContain('export function challengeTierValue')
+	})
+})
+
 describe('le recensement des racines reste borne, et la borne vient des registres', () => {
 	it('G1 les quatre sites de CHEMINS_DE_DELTAS sont tous lus, et les cles viennent de la table', () => {
 		// LA GARDE KR-199 N'EST PAS L'ÉNUMÉRATION, C'EST LA MESURE : le compte vient de
@@ -337,7 +668,7 @@ describe('le recensement des racines reste borne, et la borne vient des registre
 			// quatre resterait vert même si trois d'entre eux n'étaient jamais lus.
 			const dossier = clone()
 			dossier.monde.indices = [{ id: CIBLE_NEUVE }]
-			const compte = (): string => `${chemin} → ${producteursParIndice(dossier).get(CIBLE_NEUVE)?.length ?? 0}`
+			const compte = (): string => `${chemin} → ${producteursParIndice(dossier).get(CIBLE_NEUVE)?.retenues.length ?? 0}`
 
 			// Rouge AVANT, pour que le vert d'après prouve le SITE et non l'absence de
 			// lecture.
@@ -373,9 +704,11 @@ describe('le recensement des racines reste borne, et la borne vient des registre
 		).toEqual([
 			// PRODUCTEUR — un savoir détenu par un personnage. Compté, famille `savoir`.
 			'monde.personnages[].savoirs[].indice_id',
-			// PORTE — la SECONDE arête indice → indice du schéma. NON saturée ici : c'est
-			// une porte de RACINE, charge de la tranche « porte morte, producteur
-			// fantôme » (H2).
+			// PORTE — la SECONDE arête indice → indice du schéma. ÉVALUÉE depuis it9, sous
+			// H4 : elle entre dans la MÊME relaxation que `mene_a`, jamais une passe à part.
+			// (Cette annotation disait l'inverse jusqu'à it9 — « NON saturée ici, charge de
+			// la tranche à venir » — alors que c'est cette tranche-là. Ce qui reste dû est
+			// nommé à H2, et `apres_indice_id` n'y figure plus.)
 			'monde.personnages[].savoirs[].revele_si.apres_indice_id',
 			// PRODUCTEUR — la PREMIÈRE arête indice → indice, la seule que ce module
 			// sature. Comptée par OCCURRENCE, famille `mene_a`.
@@ -435,23 +768,31 @@ describe('premiereFeuilleInaccomplissable, la satisfiabilite d une condition', (
 
 	it('la table d etablissement porte les sept predicats, et dit de CHACUN ce qu elle en fait', () => {
 		// TOTALE PAR COMPILATION — un huitième prédicat ne compile pas tant que
-		// personne n'a décidé ce que le linter en fait — ET TOTALE PAR VALEUR : it8
-		// faisant passer `jalon_atteint` d'une colonne à l'autre fait rougir la ligne
-		// de ce prédicat, au lieu de glisser en silence (KR-199).
+		// personne n'a décidé ce que le linter en fait — ET TOTALE PAR VALEUR : une
+		// itération faisant passer `jalon_atteint` d'une colonne à l'autre fait rougir
+		// la ligne de ce prédicat, au lieu de glisser en silence (KR-199).
 		//
-		// « NON ÉVALUÉE À IT7 », jamais « toujours vraie » : un mot plus large que le
+		// « NON ÉVALUÉE À IT9 », jamais « toujours vraie » : un mot plus large que le
 		// fait est exactement le défaut que cette garde existe pour attraper. Les deux
 		// prédicats de LIEU sont là par KR-224 (monde ouvert, aucun graphe de
-		// praticabilité au schéma), les deux autres par la porte de racine qu'it8
-		// portera.
-		const DECISION: Record<PredicatId, 'mord' | 'non-evaluee-a-it7'> = {
+		// praticabilité au schéma) ; `jalon_atteint` et `evenement_consomme` y sont
+		// parce qu'ils ont DEUX écrivains chacun — un delta ou la main du narrateur,
+		// plus un `declencheur_expr` OPTIONNEL —, si bien que H4 ne les tranche pas.
+		// LA VERSION PRÉCÉDENTE DE CE COMMENTAIRE LES DONNAIT « à la porte de racine
+		// qu'it8 portera » : cette tranche est LIVRÉE et ne les prend pas, et la ligne
+		// de H2 qui les y rangeait était fausse — sa correction est écrite au module.
+		//
+		// LA COLONNE `mord` NE DIT PAS « INCHANGÉE » : `pnj_a_revele` mord toujours,
+		// mais il lit désormais la porte du savoir en plus de la paire. C'est le témoin
+		// « pnj_a_revele lit la MEME porte que le compte » qui l'épingle, pas celui-ci.
+		const DECISION: Record<PredicatId, 'mord' | 'non-evaluee-a-it9'> = {
 			possede_objet: 'mord',
 			indice_connu: 'mord',
 			pnj_a_revele: 'mord',
-			jalon_atteint: 'non-evaluee-a-it7',
-			evenement_consomme: 'non-evaluee-a-it7',
-			lieu_visite: 'non-evaluee-a-it7',
-			lieu_courant_est: 'non-evaluee-a-it7',
+			jalon_atteint: 'non-evaluee-a-it9',
+			evenement_consomme: 'non-evaluee-a-it9',
+			lieu_visite: 'non-evaluee-a-it9',
+			lieu_courant_est: 'non-evaluee-a-it9',
 		}
 
 		// LES SEPT, BALAYÉS DEPUIS LE REGISTRE QUI FAIT FOI — jamais sept littéraux,
@@ -469,7 +810,7 @@ describe('premiereFeuilleInaccomplissable, la satisfiabilite d une condition', (
 			// colonne lisible : ce qui mord, mord faute de producteur.
 			const cibles = PREDICATES[id].refKinds.map((espace) => `${espace}.rien-de-tel`)
 			const verdict = premiereFeuilleInaccomplissable(dossier, { op: 'predicat', predicat: id, cibles })
-			expect(`${id} → ${verdict === null ? 'non-evaluee-a-it7' : 'mord'}`).toBe(`${id} → ${DECISION[id]}`)
+			expect(`${id} → ${verdict === null ? 'non-evaluee-a-it9' : 'mord'}`).toBe(`${id} → ${DECISION[id]}`)
 		}
 	})
 
@@ -528,7 +869,7 @@ describe('premiereFeuilleInaccomplissable, la satisfiabilite d une condition', (
 		// savoir ne les relie (H3). Sans ces deux lignes, l'assertion d'après serait
 		// verte pour une raison qu'on ne saurait pas nommer.
 		expect(dossier.monde.personnages.some((personnage) => personnage.id === 'pnj.aldur-le-sage')).toBe(true)
-		expect(producteursParIndice(dossier).get('indice.cendres-tiedes')?.length).toBe(1)
+		expect(producteursParIndice(dossier).get('indice.cendres-tiedes')?.retenues.length).toBe(1)
 
 		expect(premiereFeuilleInaccomplissable(dossier, PAIRE)).toEqual({
 			predicat: LIBELLE_PAIRE,
@@ -540,6 +881,45 @@ describe('premiereFeuilleInaccomplissable, la satisfiabilite d une condition', (
 		// devient accomplissable. Sans cette moitié, l'assertion ci-dessus resterait
 		// verte sous une ligne qui rendrait TOUJOURS faux.
 		dossier.monde.personnages[0].savoirs[0].indice_id = 'indice.cendres-tiedes'
+		expect(premiereFeuilleInaccomplissable(dossier, PAIRE)).toBeNull()
+	})
+
+	it('pnj_a_revele lit la MEME porte que le compte, jamais un savoir compte a part', () => {
+		const dossier = clone()
+		// LE LIEN EXISTE ET LA PORTE EST MORTE — c'est le seul état qui sépare it9
+		// d'it7, et il n'était prouvé NULLE PART : jusqu'ici la paire se contentait
+		// qu'un savoir relie le personnage à l'indice, sans jamais regarder à quelle
+		// condition ce savoir se révèle. Le même savoir comptait alors ZÉRO producteur
+		// pour l'indice et ÉTABLISSAIT la paire : deux lectures du même fait.
+		dossier.monde.indices = [{ id: 'indice.mirage' }, { id: 'indice.confie' }]
+		dossier.monde.personnages[0].savoirs = [
+			{ indice_id: 'indice.confie', certitude: 'sait', revele_si: { apres_indice_id: 'indice.mirage' } },
+		]
+		// L'effet du jalon visait `sceau-brise`, absent de la nouvelle collection :
+		// rien ne produit `mirage`, donc la porte est fermée.
+		const PAIRE: ExprNode = {
+			op: 'predicat',
+			predicat: 'pnj_a_revele',
+			cibles: ['pnj.aldur-le-sage', 'indice.confie'],
+		}
+
+		// LES DEUX MOITIÉS DU LIEN SONT VRAIES, ET C'EST MESURÉ ICI : le personnage
+		// existe, et un savoir à LUI porte bien cet indice. Sans ces deux lignes,
+		// l'assertion d'après serait verte pour la raison d'it7 — « aucun savoir ne les
+		// relie » — au lieu de la raison d'it9.
+		expect(dossier.monde.personnages.some((personnage) => personnage.id === 'pnj.aldur-le-sage')).toBe(true)
+		expect(dossier.monde.personnages[0].savoirs.map((candidat) => candidat.indice_id)).toEqual(['indice.confie'])
+
+		expect(premiereFeuilleInaccomplissable(dossier, PAIRE)).toEqual({
+			predicat: LIBELLE_PAIRE,
+			cibles: ['pnj.aldur-le-sage', 'indice.confie'],
+		})
+
+		// DISCRIMINANT, DANS LE MÊME TEST : `mirage` racinée par l'effet du jalon — UN
+		// SEUL champ —, la porte s'ouvre et la paire redevient établissable. Sans cette
+		// moitié, le verdict ci-dessus serait vert sous une ligne qui rendrait TOUJOURS
+		// faux.
+		dossier.charpente.jalons[0].effet = [{ delta: 'reveler_indice', cibles: ['indice.mirage'] }]
 		expect(premiereFeuilleInaccomplissable(dossier, PAIRE)).toBeNull()
 	})
 

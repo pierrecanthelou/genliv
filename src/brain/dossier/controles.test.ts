@@ -11,7 +11,7 @@ import {
 	type RapportControles,
 } from './controles'
 import { CURSEURS_INITIAUX, CURSEUR_MIN, CURSEUR_VALUES } from './curseurs'
-import type { Delta } from './deltas'
+import { DELTAS, type Delta } from './deltas'
 import { DESTINATION_DES_CHAMPS } from './destinations'
 import type { ExprNode } from './expr'
 import { estCleDe } from './identifiers'
@@ -125,6 +125,56 @@ function cloneIndiceSansRacine(): Dossier {
 		{ id: 'indice.amont', mene_a: ['indice.aval'] },
 		{ id: 'indice.aval' },
 		{ id: INDICE_ORPHELIN },
+	]
+	return dossier
+}
+
+/** L'indice que seul un savoir à porte morte détient — le témoin du TROISIÈME message. */
+const INDICE_SOUS_PORTE = 'indice.aveu-scelle'
+
+/** Un indice que RIEN du dossier ne produit — la cible morte des portes de témoin. */
+const INDICE_MIRAGE = 'indice.mirage'
+
+/**
+ * Le clone, sa collection d'indices remplacée par le témoin de la PORTE MORTE et
+ * la cible que rien ne produit.
+ *
+ * `INDICE_SOUS_PORTE` est confié à l'unique personnage, derrière une porte
+ * d'indice préalable qui vise `INDICE_MIRAGE` — que rien ne racine, l'effet du
+ * jalon étant vidé et la conséquence de l'événement visant un indice qui n'est
+ * plus dans la collection. Les DEUX identifiants résolvent contre la collection :
+ * une référence pendante serait une anomalie du validateur, c'est-à-dire un état
+ * que le produit ne peut pas atteindre (KR-225), et le témoin porterait alors sur
+ * autre chose que la porte.
+ *
+ * `INDICE_MIRAGE`, lui, n'est cité par personne : il reçoit le PREMIER message,
+ * comme l'orphelin. Deux indices du même témoin, deux textes, tous deux vrais.
+ */
+function cloneIndiceSousPorteMorte(): Dossier {
+	const dossier = clone()
+	dossier.monde.indices = [{ id: INDICE_MIRAGE }, { id: INDICE_SOUS_PORTE }]
+	dossier.monde.personnages[0].savoirs = [
+		{ indice_id: INDICE_SOUS_PORTE, certitude: 'sait', revele_si: { apres_indice_id: INDICE_MIRAGE } },
+	]
+	dossier.charpente.jalons[0].effet = []
+	return dossier
+}
+
+/**
+ * Le clone, son témoin portant LES DEUX configurations à la fois : un savoir à
+ * porte morte ET un enchaînement dont l'amont n'est raciné par personne.
+ *
+ * C'est le cas MIXTE, et il n'est pas théorique — un auteur qui chaîne ses
+ * indices ET confie le dernier à un personnage payant le produit du premier coup.
+ * La priorité des trois textes le tranche vers la PORTE MORTE : c'est le seul des
+ * deux gestes pour lequel l'auteur a un écran.
+ */
+function cloneIndiceMixte(): Dossier {
+	const dossier = cloneIndiceSousPorteMorte()
+	dossier.monde.indices = [
+		{ id: INDICE_MIRAGE },
+		{ id: 'indice.amont-sans-racine', mene_a: [INDICE_SOUS_PORTE] },
+		{ id: INDICE_SOUS_PORTE },
 	]
 	return dossier
 }
@@ -849,8 +899,9 @@ describe('indice-sans-source, un compteur et deux seuils', () => {
 		expect(pourLaRegle(controlerDossier(dossier), 'indice-sans-source')).toEqual([])
 	})
 
-	it('les deux messages du seuil bloquant se distinguent dans le meme dossier', () => {
-		// UNE CAUSE, UN CODE, DEUX TEXTES. Les cinq indices remontent le même `bloquant`
+	it('les deux messages de compte nul SANS porte morte se distinguent dans le meme dossier', () => {
+		// UNE CAUSE, UN CODE, DEUX TEXTES — les deux de CE dossier-ci. Le seuil bloquant en
+		// porte TROIS depuis it9 ; le troisième (porte morte) a son propre témoin, plus bas. Les cinq indices remontent le même `bloquant`
 		// sous le même identifiant de règle — un second `ControleId` coderait une
 		// CONFIGURATION, pas une cause (KR-164). Ce qui les sépare est donc le message,
 		// et c'est ici qu'on le prouve.
@@ -900,6 +951,212 @@ describe('indice-sans-source, un compteur et deux seuils', () => {
 		// SEUL, donc les cinq constats rendent le MÊME geste. Deux consignes exigeraient
 		// un discriminant sur `ConstatControle`, exportée par le baril.
 		expect(new Set(constats.map((constat) => controleRemediation(constat))).size).toBe(1)
+	})
+
+	it('les TROIS messages du seuil bloquant se distinguent, et le cas mixte rend celui de la porte morte', () => {
+		// UNE CAUSE, UN CODE, TROIS TEXTES. Les trois configurations remontent le même
+		// `bloquant` sous le même identifiant de règle — un troisième `ControleId`
+		// coderait une CONFIGURATION, pas une cause (KR-164). Ce qui les sépare est
+		// donc le message, et c'est ici qu'on le prouve.
+		const messagePour = (dossier: Dossier, entityId: string): string => {
+			const constats = pourLaRegle(controlerDossier(dossier), 'indice-sans-source')
+			const trouve = constats.find((constat) => constat.entityId === entityId)
+			return `${trouve?.niveau} · ${trouve?.message}`
+		}
+
+		// TROIS DOSSIERS, TROIS CAUSES DE COMPTE NUL — et chacune est obtenue par la
+		// mutation d'un SEUL clone, jamais par une troisième fixture partagée.
+		const RIEN_NE_LE_CITE = messagePour(cloneIndiceOrphelin(), INDICE_ORPHELIN)
+		const SOUS_PORTE_MORTE = messagePour(cloneIndiceSousPorteMorte(), INDICE_SOUS_PORTE)
+		const SANS_RACINE = messagePour(cloneIndiceSansRacine(), 'indice.aval')
+
+		// LES TROIS SONT BLOQUANTS, ET LES TROIS TEXTES SONT DISTINCTS. Sans la
+		// première moitié, trois messages différents pourraient venir de trois niveaux
+		// différents et la démonstration porterait sur autre chose.
+		for (const [nom, ligne] of Object.entries({ RIEN_NE_LE_CITE, SOUS_PORTE_MORTE, SANS_RACINE })) {
+			expect(`${nom} → ${ligne.startsWith('bloquant · ')}`).toBe(`${nom} → true`)
+		}
+		expect(new Set([RIEN_NE_LE_CITE, SOUS_PORTE_MORTE, SANS_RACINE]).size).toBe(3)
+
+		// LE TEXTE NEUF, MOT POUR MOT — c'est le contrat de design de l'itération, et
+		// il ne se relit nulle part ailleurs. « Une porte », INDÉFINI : le texte
+		// resserré (« attend un autre indice ») ne serait honnête que si
+		// l'indice préalable était la seule porte évaluée, et il y en a DEUX.
+		expect(SOUS_PORTE_MORTE).toBe(
+			"bloquant · Cet indice n'est confié qu'à des savoirs dont une porte ne s'ouvrira jamais : le joueur ne pourra jamais l'obtenir.",
+		)
+
+		// LE CAS MIXTE — un savoir à porte morte ET un enchaînement sans racine sur le
+		// MÊME indice —, et la priorité le tranche vers la porte morte.
+		const mixte = cloneIndiceMixte()
+		expect(messagePour(mixte, INDICE_SOUS_PORTE)).toBe(SOUS_PORTE_MORTE)
+
+		// LES DEUX CONFIGURATIONS SONT RÉELLEMENT PRÉSENTES, LUES SUR LA DONNÉE : un
+		// savoir cite cet indice, et une arête le sert depuis un amont que personne ne
+		// cite — lequel reçoit d'ailleurs le PREMIER message. Sans ces deux lignes, le
+		// « cas mixte » n'en serait peut-être pas un.
+		expect(
+			mixte.monde.personnages.flatMap((personnage) => personnage.savoirs).map((savoir) => savoir.indice_id),
+		).toEqual([INDICE_SOUS_PORTE])
+		expect(
+			mixte.monde.indices.flatMap((indice) => (indice.mene_a ?? []).map((vise) => `${indice.id} → ${vise}`)),
+		).toEqual([`indice.amont-sans-racine → ${INDICE_SOUS_PORTE}`])
+		expect(messagePour(mixte, 'indice.amont-sans-racine')).toBe(RIEN_NE_LE_CITE)
+
+		// LA PRIORITÉ EST CE QUI DÉCIDE, ET SON DISCRIMINANT EST DANS LE MÊME TEST : le
+		// savoir retiré — UN SEUL champ —, il ne reste que l'enchaînement sans racine
+		// et c'est l'AUTRE message qui sort. Sans cette moitié, « le mixte rend la
+		// porte morte » serait vert sous un module qui rendrait TOUJOURS ce texte-là.
+		mixte.monde.personnages[0].savoirs = []
+		expect(messagePour(mixte, INDICE_SOUS_PORTE)).toBe(SANS_RACINE)
+
+		// UNE SEULE CONSIGNE POUR LES TROIS, et c'est la contrepartie de l'arbitrage :
+		// la remédiation se résout depuis `constat.niveau` SEUL, donc trois consignes
+		// exigeraient un discriminant sur `ConstatControle`, exportée par le baril.
+		const consignes = [cloneIndiceOrphelin(), cloneIndiceSousPorteMorte(), cloneIndiceSansRacine()].flatMap((dossier) =>
+			pourLaRegle(controlerDossier(dossier), 'indice-sans-source')
+				.filter((constat) => constat.niveau === 'bloquant')
+				.map(controleRemediation),
+		)
+		expect(consignes.filter((consigne) => consigne === '')).toEqual([])
+		expect(new Set(consignes).size).toBe(1)
+	})
+
+	it('la remediation bloquante porte les TROIS gestes sur la porte, et l ecran nomme les OFFRE', () => {
+		// UNE CONSIGNE QUOI FAIRE SE VÉRIFIE CONTRE CE QUE LE PRODUIT PERMET À LA
+		// VERSION OÙ ELLE EST LIVRÉE (KR-171), jamais contre l'écran qu'on suppose. Le
+		// chemin est construit par `path.join`, jamais à la barre oblique : ce dépôt
+		// tourne aussi sous Windows.
+		const constats = pourLaRegle(controlerDossier(cloneIndiceSousPorteMorte()), 'indice-sans-source')
+		const bloquants = constats.filter((constat) => constat.niveau === 'bloquant')
+		expect(bloquants.length).toBeGreaterThan(0)
+		const REMEDIATION = controleRemediation(bloquants[0])
+
+		// (a) LES TROIS GESTES SUR LA PORTE, et le troisième n'est pas décoratif : sans
+		// lui, la règle ENSEIGNERAIT à l'auteur de supprimer le prix que son personnage
+		// demande — le linter appauvrirait la fiction qu'il protège. C'est aussi le
+		// geste qu'it7 a réellement employé pour la même classe de défaut.
+		const GESTES: Record<string, string> = {
+			retirer: 'retirez cette porte',
+			'changer la cible': 'changez sa cible',
+			donner: "donnez ce qu'elle réclame",
+		}
+		for (const [nom, fragment] of Object.entries(GESTES)) {
+			expect(`${nom} → ${REMEDIATION.includes(fragment)}`).toBe(`${nom} → true`)
+		}
+
+		// (b) L'ÉCRAN NOMMÉ PAR LA CONSIGNE OFFRE LES TROIS GESTES QU'ELLE PROMET —
+		// retirer la porte, et changer sa cible. Il ne les ÉCRIT pas : `BlocSavoirs.tsx`
+		// est présentationnel (voir le commentaire des marques, plus bas).
+		//
+		// L'ARGUMENT RÉFUTÉ, gardé parce qu'il est SÉDUISANT et qu'il a réellement
+		// produit un défaut : « le libellé de retrait ne peut exister que sur une porte
+		// que cet écran sait retirer ». FAUX — le libellé existe parce que la clé est
+		// forcée par le `Record<keyof Revelation, string>` de `LIBELLES_RETRAIT_PORTE`,
+		// pas parce qu'une porte est retirable. C'est ce raisonnement qui a fait écrire
+		// quatre marques ne couvrant que deux lignes (BUG-092). Ne pas le refaire
+		// ailleurs : une marque de source vise un RENDU, un APPEL ou un GESTE.
+		const SOURCE_BLOC_SAVOIRS = fs
+			.readFileSync(
+				path.join(__dirname, '..', '..', 'features', 'dossier-fiches', 'components', 'BlocSavoirs.tsx'),
+				'utf8',
+			)
+			.replace(/\r\n/g, '\n')
+		expect(REMEDIATION).toContain('Personnages → Savoirs')
+		// LES MARQUES SONT DES RENDUS ET DES GESTES, JAMAIS DES CLÉS. Les deux premières
+		// marques de la version d'origine (`contrepartie: `, `apres_indice_id: `) étaient
+		// CREUSES : elles matchaient les deux MÊMES lignes que les libellés — dont elles
+		// sont le préfixe — et ces deux clés sont FORCÉES par le
+		// `Record<keyof Revelation, string>` de `LIBELLES_RETRAIT_PORTE`, donc satisfaites
+		// par la seule compilation. Un `Record` total qui satisfait toujours une marque est
+		// l'énumération échantillonnée de KR-199 avec un échantillon VIDE. BUG-092.
+		//
+		// CE QUE CES QUATRE MARQUES PROUVENT, et c'est exactement ce que la remédiation
+		// promet : l'écran OFFRE LES TROIS GESTES — retirer la porte (les deux `label={…}`
+		// sont des RENDUS, pas des clés de table) et changer sa cible (les deux rappels de
+		// changement). Elles ne prouvent PAS que cet écran « écrit le champ » :
+		// `BlocSavoirs.tsx` est présentationnel, l'écriture vit dans `useEcritureSavoirs.ts`.
+		for (const marque of [
+			'label={LIBELLES_RETRAIT_PORTE.contrepartie}',
+			'label={LIBELLES_RETRAIT_PORTE.apres_indice_id}',
+			'onChangeContrepartieObjet',
+			'onChangeApresIndice',
+		]) {
+			expect(`${marque} → ${SOURCE_BLOC_SAVOIRS.includes(marque)}`).toBe(`${marque} → true`)
+		}
+
+		// (c) « donne l'objet » EST LE LIBELLÉ DE L'AUTEUR, lu dans le registre qui fait
+		// foi et jamais retapé : c'est le mot que ses écrans lui présentent.
+		expect(REMEDIATION).toContain(`« ${DELTAS.donner_objet.label} »`)
+
+		// (d) ET LES TROIS ÉCRANS PRODUCTEURS SONT NOMMÉS PAR LA CONVENTION DÉJÀ EN
+		// PLACE — la même chaîne que la consigne d'it7, vérifiée sur un constat réel de
+		// l'AUTRE règle plutôt que recopiée : deux formulations voisines dériveraient.
+		const CONVENTION = '(Quêtes, Événements, Jalons)'
+		expect(REMEDIATION).toContain(CONVENTION)
+		const objectif = pourLaRegle(controlerDossier(cloneObjectifSansChemin()), 'objectif-sans-chemin')
+		expect(objectif).toHaveLength(1)
+		expect(controleRemediation(objectif[0])).toContain(CONVENTION)
+	})
+
+	it('le dossier de reference porte un defaut d auteur REEL que cette iteration revele, et il n est pas repare', () => {
+		// LE SEUL MOUVEMENT DE LIGNE DE BASE DE L'ITÉRATION, ÉPINGLÉ NOMMÉMENT.
+		// `indice.trace-du-guet` passait SILENCIEUX (deux producteurs) ; il remonte
+		// désormais une ALERTE, parce que l'un des deux — le savoir de Tobin — exige un
+		// prix que personne ne donne. Ce n'est pas un faux positif : c'est une SCÈNE
+		// MANQUANTE du dossier de référence, et elle n'est PAS réparée ici (hors
+		// périmètre — le site narrativement juste est une récompense de quête, dont le
+		// compte est épinglé dans une SECONDE feature).
+		const reference = cloneReference()
+		const constats = pourLaRegle(controlerDossier(reference), 'indice-sans-source')
+		expect(constats.map((constat) => `${constat.entityId} → ${constat.niveau}`)).toEqual([
+			'indice.trace-du-guet → alerte',
+		])
+
+		// LE FAIT, LU SUR LA DONNÉE ET JAMAIS PROMIS EN PROSE — trois lignes, et
+		// chacune est nécessaire :
+		//  (1) un savoir confie bien cet indice, derrière une contrepartie ;
+		const savoirsDuGuet = reference.monde.personnages
+			.flatMap((personnage) => personnage.savoirs)
+			.filter((savoir) => savoir.indice_id === 'indice.trace-du-guet')
+		expect(savoirsDuGuet.map((savoir) => savoir.revele_si?.contrepartie?.objet_id)).toEqual([
+			'objet.lanterne-de-corvin',
+		])
+		//  (2) l'objet EXISTE au dossier — ce n'est donc pas une référence pendante,
+		//      qui relèverait de l'autre canal (KR-217/KR-225), mais bien une scène que
+		//      l'auteur n'a jamais écrite ;
+		expect(reference.monde.objets.map((objet) => objet.id)).toContain('objet.lanterne-de-corvin')
+		//  (3) et AUCUN des quatre emplacements d'effets ne le donne. Les clés SONT les
+		//      chemins de la table qui fait foi : un cinquième emplacement ferait rougir
+		//      cette ligne avant que quiconque ait à se demander s'il est lu (KR-199).
+		const EFFETS: Record<string, (dossier: Dossier) => readonly Delta[]> = {
+			'monde.quetes[].recompense': (dossier) => dossier.monde.quetes.flatMap((quete) => quete.recompense),
+			'monde.evenements[].resolutions[].consequence': (dossier) =>
+				dossier.monde.evenements.flatMap((evenement) =>
+					evenement.resolutions.flatMap((resolution) => resolution.consequence),
+				),
+			'monde.conditions.climat[].effets_regles': (dossier) =>
+				dossier.monde.conditions.climat.flatMap((climat) => climat.effets_regles),
+			'charpente.jalons[].effet': (dossier) => dossier.charpente.jalons.flatMap((jalon) => jalon.effet),
+		}
+		expect(Object.keys(EFFETS)).toEqual(CHEMINS_DE_DELTAS.map((chemin) => chemin.path))
+		const donneurs = Object.values(EFFETS)
+			.flatMap((lire) => lire(reference))
+			.filter((effet) => effet.delta === 'donner_objet' && effet.cibles.includes('objet.lanterne-de-corvin'))
+		expect(donneurs).toEqual([])
+
+		// LA RÉPARATION QU'ON NE FAIT PAS, ÉPROUVÉE EN MÉMOIRE SUR UN CLONE : le
+		// `donner_objet` manquant ajouté à la récompense de la quête, la porte s'ouvre
+		// et l'indice retourne au silence. C'est ce qui prouve que l'alerte vient de la
+		// PORTE et non d'un producteur qu'on aurait cessé de compter — et c'est aussi
+		// la mesure du remède, laissée écrite pour l'itération qui réparera la fixture.
+		// LE FICHIER, LUI, N'EST PAS TOUCHÉ (KR-156) : chaque clone est relu du disque.
+		const repare = cloneReference()
+		repare.monde.quetes[0].recompense = [
+			...repare.monde.quetes[0].recompense,
+			{ delta: 'donner_objet', cibles: ['objet.lanterne-de-corvin'] },
+		]
+		expect(pourLaRegle(controlerDossier(repare), 'indice-sans-source')).toEqual([])
 	})
 
 	it('les quatre sites de deltas sont tous lus', () => {
@@ -1359,6 +1616,12 @@ describe('avertissement-de-validation, le pont vers les avertissements du valida
 
 		const reference = controlerDossier(cloneReference())
 		expect(reference.controles.map(ligne)).toEqual([
+			// LE SEUL MOUVEMENT DE LIGNE DE BASE D'IT9, et c'est un DÉFAUT RÉEL du
+			// dossier de référence — `indice.trace-du-guet`, dont l'un des deux
+			// producteurs exige une lanterne que personne ne donne. Épinglé nommément
+			// par son propre témoin, dans le bloc « indice-sans-source » : ici on ne
+			// tient que le calme d'ensemble.
+			'indice-sans-source · alerte · indices · monde.indices[].id',
 			'depart-desert · bloquant · depart · charpente.depart.lieu_id',
 			SANS_PRESENCE,
 			SANS_PRESENCE,
@@ -1409,6 +1672,10 @@ describe('avertissement-de-validation, le pont vers les avertissements du valida
 			// une relecture humaine, c'est-à-dire par rien (KR-199) : le témoin des
 			// indices sans racine entre donc dans ce balayage le jour où le texte naît.
 			controlerDossier(cloneIndiceSansRacine()),
+			// LE TROISIÈME TEXTE DU SEUIL BLOQUANT, entré avec les portes d'it9, et pour
+			// la MÊME raison — il porte de surcroît la remédiation réécrite, dont la
+			// seconde moitié nomme trois gestes de plus.
+			controlerDossier(cloneIndiceSousPorteMorte()),
 			controlerDossier(cloneSansPresence()),
 			controlerDossier(cloneSansVoix()),
 			// LES DEUX ARITÉS DU MESSAGE D'IT7, et les deux entrent : ce message
