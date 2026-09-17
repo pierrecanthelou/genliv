@@ -267,6 +267,28 @@ function cloneReferenceAvantReparation(): Dossier {
 	return dossier
 }
 
+/**
+ * Le dossier de RÉFÉRENCE, son PREMIER objectif repointé sur une condition d'échec
+ * certainement vraie au tour zéro SANS NÉGATION — un seul champ muté.
+ *
+ * `lieu_courant_est(<charpente.depart.lieu_id>)` est la SEULE forme non niée qui
+ * puisse être certaine-vraie à l'ouverture : c'est le seul fait de session qu'un
+ * champ du document écrive. Le SECOND objectif, lui, n'est pas touché — il porte
+ * DÉJÀ `non(possede_objet(…))`, l'unique témoin réel du dépôt. Les deux polarités
+ * cohabitent donc dans le MÊME dossier, et le départ est lu dans le document
+ * plutôt que recopié : un changement de fixture ne rendrait pas ce témoin muet
+ * en silence.
+ */
+function cloneObjectifPerduALOuverture(): Dossier {
+	const dossier = cloneReference()
+	dossier.canon.objectifs[0].echoue_si_expr = {
+		op: 'predicat',
+		predicat: 'lieu_courant_est',
+		cibles: [dossier.charpente.depart.lieu_id],
+	}
+	return dossier
+}
+
 /** Un texte de N mots, sans aucun sens : seul le DÉCOMPTE est en jeu ici. */
 function texteDe(nombre: number): string {
 	return Array.from({ length: nombre }, (_, rang) => `mot${rang}`).join(' ')
@@ -547,6 +569,12 @@ describe('controlerDossier, le rapport de controles', () => {
 				dossier: cloneObjectifCreux(),
 				sections: { 'canon.objectifs[].reussi_si_texte': 'canon' },
 			},
+			// LA TROISIÈME À S'ENRACINER DANS `canon` — et son témoin porte DEUX constats,
+			// un par polarité, tous deux sur le même chemin et la même section.
+			'objectif-perdu-a-l-ouverture': {
+				dossier: cloneObjectifPerduALOuverture(),
+				sections: { 'canon.objectifs[].echoue_si_expr': 'canon' },
+			},
 			// LE TÉMOIN DU PONT se choisit sur le CONTRASTE : racine `monde`, section
 			// `personnages`, et il ne produit qu'UN avertissement (mesuré). Celui de la
 			// PREUVE VERTICALE D'ALLUMAGE, lui, se choisit sur le COÛT et vit ailleurs :
@@ -608,6 +636,7 @@ describe('controlerDossier, le rapport de controles', () => {
 			'personnage-sans-voix': cloneSansVoix(),
 			'objectif-sans-chemin': cloneObjectifSansChemin(),
 			'canon-sans-victoire': cloneObjectifCreux(),
+			'objectif-perdu-a-l-ouverture': cloneObjectifPerduALOuverture(),
 			'avertissement-de-validation': cloneSansPorte(),
 		}
 
@@ -633,10 +662,9 @@ describe('controlerDossier, le rapport de controles', () => {
 	})
 
 	it('les path sont des cles de DESTINATION_DES_CHAMPS', () => {
-		// LE RAPPORT COMPLET, et sur les témoins des HUIT règles : un balayage du seul
+		// LE RAPPORT COMPLET, et sur les témoins des NEUF règles : un balayage du seul
 		// dossier semé ne verrait que les quatre chemins de l'amorce et laisserait sans
-		// preuve les quatre `path` neufs, alors que son nom promet « les path »
-		// (KR-199).
+		// preuve les `path` neufs, alors que son nom promet « les path » (KR-199).
 		const rapports = [
 			controlerDossier(seme()),
 			controlerDossier(cloneIndiceOrphelin()),
@@ -656,10 +684,14 @@ describe('controlerDossier, le rapport de controles', () => {
 			// d'avertissement. Elle rougirait EN FAISANT SON TRAVAIL — c'est elle qui
 			// force toute règle neuve à entrer dans ce balayage de `path`.
 			controlerDossier(cloneSansPorte()),
+			// LA RÈGLE D'IT10, et son chemin — `canon.objectifs[].echoue_si_expr` — est
+			// DÉJÀ une clé de la table des destinations : elle n'en ajoute aucune, elle
+			// entre dans le balayage qui le prouve.
+			controlerDossier(cloneObjectifPerduALOuverture()),
 		]
 		const controles = rapports.flatMap((rapport) => rapport.controles)
 
-		// Discriminance : les HUIT règles sont représentées dans ce qui est balayé —
+		// Discriminance : les NEUF règles sont représentées dans ce qui est balayé —
 		// le compte se lit dans le registre, jamais en littéral (KR-199).
 		expect(new Set(controles.map((controle) => controle.id)).size).toBe(Object.keys(CONTROLES).length)
 		expect(controles.length).toBeGreaterThan(CHAMPS_SEMES.length)
@@ -1632,6 +1664,12 @@ describe('avertissement-de-validation, le pont vers les avertissements du valida
 			SANS_VOIX,
 			SANS_VOIX,
 			SANS_VOIX,
+			// LE SEUL MOUVEMENT DE LIGNE DE BASE D'IT10, et c'est un VRAI POSITIF du
+			// dossier de référence — `objectif.proteger-le-sceau`, dont la condition
+			// d'échec tient à l'ABSENCE d'un objet que le héros n'a pas encore. Le
+			// dossier neuf reste à quatre lignes et `dossier-minimal.json` à une : leurs
+			// conditions d'échec sont indécidables au tour zéro, jamais certaines.
+			'objectif-perdu-a-l-ouverture · alerte · canon · canon.objectifs[].echoue_si_expr',
 		])
 		expect(reference.jouable).toBe(false)
 
@@ -1644,7 +1682,7 @@ describe('avertissement-de-validation, le pont vers les avertissements du valida
 		}
 	})
 
-	it('les huit regles ecrivent le meme registre de langue, sur les deux colonnes', () => {
+	it('les neuf regles ecrivent le meme registre de langue, sur les deux colonnes', () => {
 		// CE QUE L'AUTEUR NE DOIT JAMAIS LIRE : le glyphe d'un autre registre, une clé
 		// du schéma, une mention de canal, un geste d'import. DISCRIMINANCE ACQUISE
 		// PAR MESURE et non par espoir : les phrases réelles de `condition-sans-expr`
@@ -1689,11 +1727,17 @@ describe('avertissement-de-validation, le pont vers les avertissements du valida
 			// mots interdites de plus (modèle, injouabilité, partie qui ne se conclut pas),
 			// épinglées à part ; ce balayage-ci lui applique en plus le registre commun.
 			controlerDossier(cloneObjectifCreux()),
+			// LES DEUX POLARITÉS DU MESSAGE D'IT10, et les deux entrent, pour la raison
+			// qui a fait entrer les deux arités d'it7 : ce message INTERPOLE un libellé de
+			// prédicat, des noms d'entités ET un segment de polarité. Une seule polarité
+			// balayée en laisserait l'autre tenue par une relecture humaine, c'est-à-dire
+			// par rien (KR-199).
+			controlerDossier(cloneObjectifPerduALOuverture()),
 			...Object.values(TEMOINS_DU_PONT).map((faireLeTemoin) => controlerDossier(faireLeTemoin())),
 		]
 		const controles = rapports.flatMap((rapport) => rapport.controles)
 
-		// Discriminance : les HUIT règles sont représentées dans ce qui est balayé, et
+		// Discriminance : les NEUF règles sont représentées dans ce qui est balayé, et
 		// les DIX sites du pont aussi.
 		expect(new Set(controles.map((controle) => controle.id)).size).toBe(Object.keys(CONTROLES).length)
 		expect(
@@ -1946,6 +1990,12 @@ describe('objectif-sans-chemin, une condition de reussite que rien ne peut etabl
 		// LES DEUX MOITIÉS : sans celle-ci, un module qui n'appellerait rien du tout
 		// passerait les interdictions ci-dessus sans rien prouver.
 		expect(SOURCE_CONTROLES).toContain('premiereFeuilleInaccomplissable')
+
+		// ET LE SECOND LECTEUR D'ARBRE, entré à it10 : la couture tient sur DEUX
+		// verdicts venus d'ailleurs, pas sur un seul. Un `from './tourzero'` ne
+		// l'enfreint ni en lettre ni en esprit — c'est encore du français et des
+		// identifiants qui traversent la frontière, jamais un nœud de condition.
+		expect(SOURCE_CONTROLES).toContain('premiereFeuilleVraieAuTourZero')
 	})
 })
 
@@ -2267,5 +2317,127 @@ describe('canon-sans-victoire, des objectifs qui ne disent pas ce qu il faut acc
 		expect('Posez la condition structurée de réussite (Objectifs → Condition de réussite).').toContain(
 			'Condition de réussite)',
 		)
+	})
+})
+
+describe('objectif-perdu-a-l-ouverture, une condition d echec deja vraie avant le premier tour', () => {
+	it('un objectif perdu a l ouverture alerte, et son voisin sain se tait dans le meme test', () => {
+		// LE DOSSIER DE RÉFÉRENCE, NON MUTÉ (KR-197/202) : ses DEUX objectifs portent
+		// une condition d'échec, et un seul est perdu à l'ouverture. Un test à un seul
+		// objectif ne distinguerait pas une règle qui trie d'une règle qui tire sur
+		// tout ce qui porte le champ.
+		//  · `objectif.reveler-la-vigie` — « l'événement a déjà eu lieu », SANS négation :
+		//    aucun champ du dossier ne dit si un événement est consommé avant le premier
+		//    tour, donc INDÉCIDABLE, donc silence ;
+		//  · `objectif.proteger-le-sceau` — « ne possède pas le sceau », et le héros ne
+		//    possède rien avant d'avoir joué : CERTAIN-VRAI, donc alerte.
+		const dossier = cloneReference()
+		expect(dossier.canon.objectifs).toHaveLength(2)
+
+		const constats = pourLaRegle(controlerDossier(dossier), 'objectif-perdu-a-l-ouverture')
+
+		expect(
+			constats.map((constat) => `${constat.entityId} → ${constat.niveau} · ${constat.section} · ${constat.path}`),
+		).toEqual(['objectif.proteger-le-sceau → alerte · canon · canon.objectifs[].echoue_si_expr'])
+		// Le OÙ désigne l'OBJECTIF, résolu par son nom — jamais son identifiant.
+		expect(constats[0].location).toBe("Objectif « Empêcher l'ouverture du sceau de cendre »")
+		// LE MESSAGE, VERBATIM : il nomme la feuille, son entité, et affirme la valeur
+		// de vérité À CÔTÉ d'un libellé resté positif.
+		expect(constats[0].message).toBe(
+			"Cette condition d'échec tient à « possède l'objet » — Objet « Le sceau de cendre » —, encore faux avant la première action du joueur.",
+		)
+		// LA CONSIGNE, verbatim : un geste PROUVÉ, l'absence de geste DITE, et
+		// l'intention de l'auteur respectée — c'est elle qui interdit un bloquant.
+		expect(controleRemediation(constats[0])).toBe(
+			"Retirez cet objectif, ou gardez-le si cet échec est voulu dès la première scène (Canon → Objectifs des camps) : aucun écran ne permet aujourd'hui de changer sa condition d'échec.",
+		)
+
+		// ALERTE ET JAMAIS BLOQUANT : ce constat-ci ne décide pas de la jouabilité.
+		// Le dossier de référence est déjà injouable par `depart-desert`, donc la
+		// preuve se fait sur le NIVEAU du constat et sur l'ensemble fermé de la règle,
+		// jamais sur la bascule de `jouable` — qui dirait autre chose.
+		expect(CONTROLES['objectif-perdu-a-l-ouverture'].niveaux).toEqual(['alerte'])
+	})
+
+	it('les deux polarites produisent deux messages distincts', () => {
+		// DEUX OBJECTIFS, MÊME DOSSIER, DEUX POLARITÉS. Le premier est repointé sur la
+		// SEULE forme non niée qui puisse être certaine-vraie à l'ouverture — « se
+		// trouve dans le lieu de départ » —, le second n'est pas touché. Sans ce
+		// témoin, la moitié « déjà vrai » du gabarit ne serait tenue par rien.
+		const constats = pourLaRegle(controlerDossier(cloneObjectifPerduALOuverture()), 'objectif-perdu-a-l-ouverture')
+
+		expect(constats.map((constat) => constat.message)).toEqual([
+			"Cette condition d'échec tient à « se trouve dans le lieu » — Lieu « Le Foyer du Guet » —, déjà vrai avant la première action du joueur.",
+			"Cette condition d'échec tient à « possède l'objet » — Objet « Le sceau de cendre » —, encore faux avant la première action du joueur.",
+		])
+
+		// LA POLARITÉ EST LE SEUL SEGMENT QUI CHANGE au-delà de la feuille, et les deux
+		// segments sont EXCLUSIFS : un message qui porterait les deux mots serait un
+		// gabarit qui ne choisit pas.
+		for (const [rang, attendu] of [
+			[0, 'déjà vrai'],
+			[1, 'encore faux'],
+		] as const) {
+			const autre = attendu === 'déjà vrai' ? 'encore faux' : 'déjà vrai'
+			expect(`${rang} → ${constats[rang].message.includes(attendu)}`).toBe(`${rang} → true`)
+			expect(`${rang} → ${constats[rang].message.includes(autre)}`).toBe(`${rang} → false`)
+		}
+
+		// UNE SEULE CONSIGNE POUR LES DEUX, et c'est mécanique : `remediation` reçoit
+		// un constat, qui ne porte PAS la polarité. La re-dériver depuis le `message`
+		// serait lire à distance un texte qu'un autre site décide.
+		expect(controleRemediation(constats[0])).toBe(controleRemediation(constats[1]))
+
+		// NI CLÉ TECHNIQUE, NI IDENTIFIANT BRUT : l'auteur lit le mot que le sélecteur
+		// de conditions lui présente, et le NOM de chaque entité.
+		for (const constat of constats) {
+			for (const interdit of ['possede_objet', 'lieu_courant_est', 'objet.', 'lieu.', 'prédicat', 'tour zéro']) {
+				expect(`${interdit} → ${constat.message.includes(interdit)}`).toBe(`${interdit} → false`)
+			}
+		}
+	})
+
+	it('une cible qui ne resout aucune entite ne produit AUCUN constat', () => {
+		const dossier = cloneReference()
+		// UNE RÉFÉRENCE PENDANTE : cet objet n'existe pas au dossier. C'est une anomalie
+		// du validateur, qu'un dossier PERSISTÉ ne peut pas porter (KR-225) et que le
+		// canal des contrôles ne doit pas DOUBLER (KR-217) — et sans cette garde, le OÙ
+		// du message nommerait une entité qui n'existe pas.
+		dossier.canon.objectifs[1].echoue_si_expr = {
+			op: 'non',
+			enfant: { op: 'predicat', predicat: 'possede_objet', cibles: ['objet.jamais-vu'] },
+		}
+		expect(pourLaRegle(controlerDossier(dossier), 'objectif-perdu-a-l-ouverture')).toEqual([])
+		// ET C'EST BIEN L'AUTRE CANAL QUI PARLE sur ce même dossier : sans cette ligne,
+		// le silence ci-dessus serait indistinguable d'un trou.
+		expect(validateDossier(dossier).errors.map((anomalie) => anomalie.code)).toEqual(['reference-pendante'])
+
+		// DISCRIMINANT, DANS LE MÊME TEST : la même condition sur un identifiant qui
+		// RÉSOUT allume l'alerte. Sans cette moitié, le silence ci-dessus serait celui
+		// d'une règle qui ne parle jamais.
+		dossier.canon.objectifs[1].echoue_si_expr = {
+			op: 'non',
+			enfant: { op: 'predicat', predicat: 'possede_objet', cibles: ['objet.sceau-de-cendre'] },
+		}
+		expect(pourLaRegle(controlerDossier(dossier), 'objectif-perdu-a-l-ouverture')).toHaveLength(1)
+	})
+
+	it('sans condition d echec structuree, et sur une collection vide, la regle se tait', () => {
+		const dossier = cloneReference()
+		delete dossier.canon.objectifs[1].echoue_si_expr
+
+		expect(pourLaRegle(controlerDossier(dossier), 'objectif-perdu-a-l-ouverture')).toEqual([])
+		// C'est `condition-sans-expr` qui parle là, par le pont vers les avertissements
+		// du validateur : deux voyants pour une seule cause seraient KR-217 en sens
+		// inverse.
+		expect(
+			pourLaRegle(controlerDossier(dossier), 'avertissement-de-validation').map((constat) => constat.path),
+		).toEqual(['canon.objectifs[].echoue_si_texte'])
+
+		// LA COLLECTION VIDE — et c'est la raison pour laquelle cette règle ne touche
+		// AUCUN test de feature : elle tire PAR OBJECTIF, donc jamais sur le dossier que
+		// `DossierService.create()` produit.
+		expect(seme().canon.objectifs).toEqual([])
+		expect(pourLaRegle(controlerDossier(seme()), 'objectif-perdu-a-l-ouverture')).toEqual([])
 	})
 })

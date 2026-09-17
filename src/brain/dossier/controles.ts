@@ -3,6 +3,7 @@ import { premiereFeuilleInaccomplissable, producteursParIndice, type Producteurs
 import { collectIds, defineRegistre, estCleDe, localiserEntite } from './identifiers'
 import type { DossierIssue, DossierIssueCode } from './issues'
 import { SECTIONS, type SectionId } from './sections'
+import { premiereFeuilleVraieAuTourZero } from './tourzero'
 import type { Dossier } from './types'
 import { validateDossier } from './validate'
 
@@ -535,6 +536,63 @@ const PROSE_CANON_SANS_VICTOIRE: ProseControle = {
  * pourquoi son constat n'a pas d'`entityId` : il n'y a personne à désigner.
  */
 const LOCATION_CANON_SANS_VICTOIRE = 'CANON · OBJECTIFS — condition de réussite'
+
+/**
+ * LE GABARIT DU CONSTAT « objectif perdu à l'ouverture » — UN SEUL SEGMENT
+ * VARIABLE au-delà de la feuille, et il porte la VALEUR DE VÉRITÉ, jamais une
+ * négation fléchie.
+ *
+ * POURQUOI LE LIBELLÉ RESTE POSITIF, ENTRE GUILLEMETS, et c'est MESURÉ sur les
+ * sept entrées du registre des conditions : elles n'ont pas la même charpente
+ * grammaticale. « possède l'objet » et « se trouve dans le lieu » sont des verbes
+ * nus ; « le jalon est atteint », « le lieu a été visité », « l'événement a déjà
+ * eu lieu », « le personnage a déjà révélé l'indice » portent déjà sujet et
+ * auxiliaire. Aucune insertion de « ne … pas » par position n'est sûre pour les
+ * sept — et ce module reçoit une CHAÎNE OPAQUE, sans moyen de savoir laquelle il
+ * tient. La polarité est donc affirmée À CÔTÉ : « encore faux » ou « déjà vrai ».
+ *
+ * MÊME PATRON QUE `messageObjectifSansChemin`, par APPOSITION : aucun article à
+ * accorder, donc aucun cas spécial pour le seul prédicat à deux cibles du schéma.
+ *
+ * CE QUE CETTE PHRASE NE DIT PAS, ET C'EST MESURÉ : elle N'ANNONCE PAS QUE LE
+ * JOUEUR PERD L'OBJECTIF. `types.ts` déclare la condition d'échec MOTEUR et
+ * jamais injectée — et rien d'autre : ni le moment où le moteur l'évalue, ni si
+ * un échec se VERROUILLE. Sur une condition qui tient à l'ABSENCE d'un objet, le
+ * joueur qui l'obtient au cinquième tour la rend fausse ; « perdu » présupposerait
+ * un verrou que personne n'a décidé. Le linter du Temps 1 n'écrit pas la
+ * sémantique du Temps 2 — le mot vit dans l'identifiant de la règle et dans son
+ * `libelle`, tous deux internes, jamais dans ce que l'auteur lit.
+ */
+function messageObjectifPerduALOuverture(predicat: string, localisations: readonly string[], nie: boolean): string {
+	return `Cette condition d'échec tient à « ${predicat} » — ${localisations.join(', ')} —, ${nie ? 'encore faux' : 'déjà vrai'} avant la première action du joueur.`
+}
+
+/**
+ * UNE SEULE CONSIGNE, CONSTANTE, ET VRAIE SOUS LES DEUX POLARITÉS — et c'est une
+ * contrainte MÉCANIQUE, pas un choix de style : `remediation` reçoit un
+ * `ConstatControle`, qui ne porte PAS la polarité ; la re-dériver depuis la chaîne
+ * `message` serait lire à distance un texte qu'un autre site décide, et deux
+ * entrées de registre pour une seule cause doubleraient l'empreinte de la règle
+ * pour une seconde entrée SANS témoin réel.
+ *
+ * CINQ PROPRIÉTÉS, ET CHACUNE RÉPOND À UNE PHRASE QUI AURAIT ÉTÉ FAUSSE :
+ *  · UN GESTE PROUVÉ — « Retirer l'objectif n°N » existe sur la carte d'objectif,
+ *    vérifié en source ci-dessous ;
+ *  · AUCUN ÉCRAN PRODUCTEUR NOMMÉ, et c'est l'inverse de `objectif-sans-chemin` :
+ *    là-bas la question a un AVENIR, un producteur ajouté change la réponse ; ici
+ *    aucun delta n'a couru PAR CONSTRUCTION, donc « donnez un producteur » serait
+ *    une consigne actionnable, suivie, et sans aucun effet ;
+ *  · L'ABSENCE DE GESTE, DITE et non maquillée — aucun écran n'écrit cette
+ *    condition structurée aujourd'hui ;
+ *  · AUCUNE PROMESSE D'EFFET MOTEUR ;
+ *  · L'INTENTION DE L'AUTEUR RESPECTÉE — « si cet échec est voulu » : un camp déjà
+ *    défait avant la première scène est une forme narrative légitime, et c'est
+ *    aussi ce qui rend cette consigne INCOMPATIBLE avec un niveau bloquant. Un
+ *    dossier déclaré injouable dont la consigne dit « c'est peut-être voulu »
+ *    serait incohérent.
+ */
+const REMEDIATION_OBJECTIF_PERDU_A_L_OUVERTURE =
+	"Retirez cet objectif, ou gardez-le si cet échec est voulu dès la première scène (Canon → Objectifs des camps) : aucun écran ne permet aujourd'hui de changer sa condition d'échec."
 
 /**
  * UN SITE d'avertissement du validateur, et ce que le linter en fait.
@@ -1108,6 +1166,85 @@ export const CONTROLES = defineRegistre<ControleDescripteur>()({
 			]
 		},
 		remediation: () => PROSE_CANON_SANS_VICTOIRE.remediation,
+	},
+
+	/**
+	 * UNE CONDITION D'ÉCHEC DÉJÀ CERTAINEMENT VRAIE AVANT LA PREMIÈRE ACTION DU
+	 * JOUEUR — le quatrième silence des objectifs, et l'INVERSE exact de la règle
+	 * d'it7 : celle-là lit la condition de RÉUSSITE et demande « ce fait peut-il un
+	 * JOUR être établi ? » ; celle-ci lit la condition d'ÉCHEC et demande « ce fait
+	 * l'est-il DÉJÀ ? ». Deux questions, deux modules, aucun paramètre de mode —
+	 * `tourzero.ts` porte la seconde, et son en-tête (H6) dit ce que le document
+	 * détermine et ce qu'il REFUSE de déterminer.
+	 *
+	 * ALERTE, ET JAMAIS BLOQUANT. La doctrine d'it8 exige, pour un bloquant, un
+	 * geste qui RESTAURE la capacité perdue ; ici il n'y en a aucun, et la seule
+	 * consigne honnête autorise à GARDER l'objectif — un camp défait avant que
+	 * l'histoire commence est une forme narrative que l'auteur a le droit d'écrire.
+	 * Une consigne qui dit « c'est peut-être voulu » est incompatible avec un
+	 * document déclaré injouable.
+	 *
+	 * ELLE NE TIRE QUE SUR LE CERTAIN-VRAI. La valuation est TRIVALUÉE : l'indécis
+	 * se tait, et se tait exactement comme le faux. Sous une logique à deux valeurs,
+	 * une cellule « supposée fausse » deviendrait « assertée vraie » dès qu'un `non`
+	 * la traverse — le faux positif que cette règle s'interdit. Le seul canal par
+	 * lequel elle pourrait encore sur-tirer est l'hypothèse « aucun delta avant la
+	 * première action », et il se corrige en UN endroit, dans `tourzero.ts`.
+	 *
+	 * DEUX SILENCES, ET AUCUN N'EST UN OUBLI :
+	 *  · `echoue_si_expr` ABSENT — c'est `condition-sans-expr` qui parle, par le pont
+	 *    vers les avertissements du validateur, et doubler le canal serait KR-217 en
+	 *    sens inverse. Une collection d'objectifs VIDE ne produit rien non plus :
+	 *    cette règle tire PAR OBJECTIF et n'a rien à évaluer sur l'ensemble vide ;
+	 *  · UNE CIBLE QUI NE RÉSOUT AUCUNE ENTITÉ — même geste qu'`objectif-sans-chemin`
+	 *    et pour les mêmes deux raisons : c'est une anomalie `error` du validateur,
+	 *    structurellement absente d'un dossier persisté (KR-225), et le OÙ du message
+	 *    nommerait une entité qui n'existe pas.
+	 *
+	 * LE VERDICT VIENT D'AILLEURS ET DE LÀ SEULEMENT : ce module ne traverse aucun
+	 * arbre de condition, ne connaît aucun identifiant de prédicat et n'importe ni
+	 * le registre des conditions ni leur type. Il conclut et raconte.
+	 */
+	'objectif-perdu-a-l-ouverture': {
+		libelle: "Objectif perdu à l'ouverture",
+		niveaux: ['alerte'],
+		controler: (dossier) => {
+			const constats: ConstatControle[] = []
+			// LES ENTITÉS DU DOSSIER, RELEVÉES UNE FOIS : le message NOMME chaque cible, et
+			// `collectIds` rend le OÙ déjà rédigé — « Objet « Le sceau de cendre » ».
+			const entites = collectIds(dossier)
+
+			for (const [index, objectif] of dossier.canon.objectifs.entries()) {
+				// INFÉRÉ, JAMAIS ANNOTÉ : la couture d'it6 interdit à ce module de nommer le
+				// type des conditions, et une garde de source le tient.
+				const condition = objectif.echoue_si_expr
+				if (condition === undefined) continue
+				const feuille = premiereFeuilleVraieAuTourZero(dossier, condition)
+				if (feuille === null) continue
+
+				// LES CIBLES, LOCALISÉES DANS L'ORDRE où le prédicat les attend. Une seule qui
+				// ne résout pas et la règle se tait : le compte, et non un drapeau, porte la
+				// garde — il dit aussi bien « aucune » que « l'une des deux ».
+				const localisations: string[] = []
+				for (const cible of feuille.cibles) {
+					const entite = entites.find((candidate) => candidate.id === cible)
+					if (entite !== undefined) localisations.push(entite.location)
+				}
+				if (localisations.length !== feuille.cibles.length) continue
+
+				constats.push({
+					niveau: 'alerte',
+					section: 'canon',
+					message: messageObjectifPerduALOuverture(feuille.predicat, localisations, feuille.nie),
+					location: localiserEntite('objectif', objectif, index),
+					path: 'canon.objectifs[].echoue_si_expr',
+					entityId: objectif.id,
+				})
+			}
+
+			return constats
+		},
+		remediation: () => REMEDIATION_OBJECTIF_PERDU_A_L_OUVERTURE,
 	},
 
 	/**

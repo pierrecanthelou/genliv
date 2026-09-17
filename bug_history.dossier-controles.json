@@ -1,4 +1,4 @@
-{
+﻿{
 	"_about": "Archive des defauts de dossier-controles (n 7, EN COURS 3/6) dont la lecon est DEJA PROMUE dans un instrument lui-meme en lecture obligatoire. MEME AXE que bug_history.dossier-fiches.json — le 5e, ne le 2026-08-13 — et applique ici pour la premiere fois a une feature VIVANTE, ce que cet axe permet explicitement : il porte sur la REDONDANCE, jamais sur l'age (precedents BUG-068, BUG-070, BUG-072, BUG-077, archives le jour meme de leur livraison, dossier-fiches etant alors en cours). Une entree promue est relue a chaque iteration SOUS SA FORME PROMUE ; garder le recit a cote, c'est payer la meme lecon deux fois par session. Ne le 2026-09-15 (dossier-controles it3, franchissement du plafond de 10 kio a 11 508 o). PROMOTIONS AYANT JUSTIFIE CHAQUE ENTREE : BUG-082 -> section << Et un REJETE qui vit dans l'ANNEXE d'un role n'existe pas pour l'essaim >> de .claude/skills/raffinage-iteration/SKILL.md, qui le NOMME et porte sa parade actionnable (tout REJETE d'annexe se recopie au registre des desaccords du plan, controle constatable a la porte 2). BUG-083 -> KR-199 de code-knowledge.json, que sa propre mitigation designe (<< Regle deja portee par KR-199 >>) — precedent exact BUG-072, archive sur ce meme motif. BUG-084 -> section << Une affirmation sur la couleur d'un test se MESURE, elle ne se deduit pas >> de la meme skill, qui le NOMME et detaille ses trois occurrences. CE QUI RESTE dans bug_history.json et pourquoi : BUG-074 (correctif NON FAIT, lecon promue nulle part — l'archiver serait l'oublier) et BUG-085 (ecrit le jour meme, leçon pas encore promue). Numerotation des BUG-xxx GLOBALE aux SEPT fichiers, jamais reemployee ; prochain id = max(BUG-xxx) des SEPT, jamais du seul fichier en cours (precedent BUG-062). Ce fichier n'est PAS en lecture obligatoire ; on l'ouvre pour le RECIT d'un defaut dont on a deja rencontre la regle. Historique complet des scissions : CHANGELOG.md.",
 	"bugs": [
 		{
@@ -108,6 +108,54 @@
 			"mitigation": "Regle generalisable, a opposer a toute garde de source : une marque qui porte sur les CLES d une table TOTALE PAR COMPILATION ne mesure rien. Une garde de source vise un RENDU, un APPEL ou un GESTE - jamais une cle qu un type force. Corollaire de lecture : verifier que les marques d un meme balayage ne matchent pas toutes la MEME ligne.",
 			"regression_test": "src/brain/dossier/controles.test.ts - << la remediation bloquante porte les TROIS gestes sur la porte, et l ecran nomme les OFFRE >>",
 			"severity": "major"
+		},
+		{
+			"id": "BUG-093",
+			"date": "2026-09-17",
+			"feature": "dossier-controles",
+			"discovered_at": "iteration-10",
+			"symptom": "Le plan VALIDE affirmait qu un temoin NU tuait la faute << cellules indecidables rendues fausses >>. Faux : le temoin nu reste VERT sous cette faute.",
+			"root_cause": "La mesure d origine etait vraie, mais faite sur un PROTOTYPE assertant le Verdict TRIVALUE interne, ou 'indecidable' et 'faux' sont discernables. Le contrat livre ne rend qu un tir ou un silence, et les deux valeurs s y taisent : dans un contexte sans negation, le temoin nu est aveugle PAR CONSTRUCTION. La phrase a franchi deux tours de comite, la porte mecanique ET la validation humaine, parce qu aucune de ces portes n execute une phrase.",
+			"fix": "Attribution barree et corrigee EN PLACE dans le plan (jamais effacee), avec le tableau des trois mutants mesure sur le code livre. Meme correction dans la revue d iteration.",
+			"mitigation": "KR-228, corollaire (b) : un POUVOIR SEPARATEUR se mesure AU NIVEAU OU LE CONTRAT SERA CONSOMME, jamais un cran en dessous.",
+			"regression_test": "src/brain/dossier/tourzero.test.ts - << chaque predicat indecidable de la table se tait, nu >> et << ... nie >>, les deux ensemble et non l un sans l autre",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-094",
+			"date": "2026-09-17",
+			"feature": "dossier-controles",
+			"discovered_at": "iteration-10",
+			"symptom": "La premiere implementation de tourzero.ts faisait SURVIVRE, verte, l implementation fautive nommee au plan (le `non` de Kleene effondre en negation bivaluee).",
+			"root_cause": "REDONDANCE DE REPRESENTATION : Verdict.temoin valait null exactement quand valeur === 'indecidable' - deux ecritures du MEME fait. Le `non` fautif rendait bien 'vrai', mais SANS temoin, si bien que la regle se taisait quand meme. L instrument etait bon ; c est le CODE qui rendait la faute inobservable. Mode de panne distinct du temoin faible.",
+			"fix": "Le temoin est pose a la feuille QUELLE QUE SOIT sa valeur, et la valeur devient le seul decideur ; le `non` de Kleene passe en Record<Trivalent, Trivalent> total par compilation. Motif ecrit dans la docstring de Verdict.",
+			"mitigation": "A surveiller partout ou un objet porte un champ derivable d un autre : une redondance de representation peut MASQUER un mutant.",
+			"regression_test": "src/brain/dossier/tourzero.test.ts - << chaque predicat indecidable de la table se tait, nie >>",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-095",
+			"date": "2026-09-17",
+			"feature": "dossier-controles",
+			"discovered_at": "iteration-10",
+			"symptom": "README et ROADMAP annoncaient << 9 regles (5 bloquantes, 4 alertes) >> : le compte est faux et la 9e regle disparaissait de la phrase.",
+			"root_cause": "Reliquat du CADRAGE (10 regles visees : 5/4/1) recopie comme un livre. Compte reel du registre : 4 regles peuvent bloquer, 4 plafonnent a l alerte, 1 a l info. L erreur preexistait, mais cette tranche la REECRIVAIT dans les deux index qui survivent a la feature - dans la feature meme dont la doctrine est de balayer le registre plutot que d ecrire un litteral (KR-199).",
+			"fix": "Les deux index portent desormais << 4 peuvent rendre l aventure injouable, 4 plafonnent a l alerte, 1 a l info >>, compte sur le registre.",
+			"mitigation": "Trouve par la revue de PR tech-lead. Un chiffre recopie d un cadrage n est pas une mesure.",
+			"regression_test": "aucun - invariant documentaire, tenu par la relecture (aucun instrument ne verifie un litteral de prose)",
+			"severity": "minor"
+		},
+		{
+			"id": "BUG-096",
+			"date": "2026-09-17",
+			"feature": "dossier-controles",
+			"discovered_at": "iteration-10",
+			"symptom": "Un BOM UTF-8 a ete prepose a features_history.json par le script d ecriture des docs.",
+			"root_cause": "Lecture ET ecriture en 'utf-8-sig' appliquees uniformement aux trois JSON, alors que seul code-knowledge.json en portait un. JSON.parse leverait sur un BOM (seul require() le retire), et le releve de budget compterait trois octets fantomes.",
+			"fix": "Fichier reecrit en UTF-8 sans BOM ; code-knowledge.json conserve le sien, qu il avait deja.",
+			"mitigation": "Verifier l etat d origine (git show HEAD:<fichier> | head -c 3) avant de choisir l encodage d ecriture, jamais l uniformiser par commodite.",
+			"regression_test": "aucun - aucun fichier .ts ne lit features_history.json (verifie)",
+			"severity": "minor"
 		}
 	]
 }

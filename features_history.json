@@ -41,6 +41,61 @@
 				"Un désaccord tranché par la MESURE plutôt que par l'autorité se referme en un tour : le nom du panneau d'it5 (section vs collection) a été réglé quand l'UX est allée compter les huit panneaux livrés et a trouvé le contre-exemple décisif (JALONS & FINS, pluriel d'aucune collection) — elle s'est alors corrigée plus largement que le tech-lead ne le demandait."
 			],
 			"bugs_encountered": []
+		},
+		{
+			"feature": "dossier-controles",
+			"completed_at": "2026-09-17",
+			"goal": "Donner a l auteur un rapport de controles qui lui dit, en continu et localise par section, ce qui empeche encore son aventure d etre jouable - sans jamais refuser une ecriture ni exiger un reimport.",
+			"key_architecture_choices": [
+				"DEUX AXES tenus sur 10 iterations : `severity` (issues.ts) dit si le DOCUMENT peut etre ECRIT, `NiveauControle` si l AVENTURE peut etre JOUEE. Le rapport vit dans un module DISTINCT de validateDossier et ne lit JAMAIS le canal `errors` - un dossier persiste n en porte structurellement aucun (KR-225). Il lit le canal `warnings`, et lui seul, par UNE entree de registre.",
+				"Registre FERME `CONTROLES` : NEUF regles livrees, `ControleId` DERIVE des cles. Une regle de plus est une entree de plus - ZERO fichier d UI touche depuis it5. La cible de 11 regles du plan-cible est caduque depuis it8 ; le compte vivant se lit sur le registre.",
+				"`atteignabilite.ts` (it6) : index des producteurs et son POINT FIXE, unique et partage - deux parcours seraient deux verites. SIX hypotheses datees H1-H6, domiciliees chacune dans le fichier qui les UTILISE, avec leur SENS D ERREUR ecrit. Sur une regle bloquante, l erreur permise est le faux negatif, jamais le faux positif.",
+				"`tourzero.ts` (it10) : la SECONDE question posee au meme arbre - non plus << ce fait peut-il un JOUR etre etabli >> mais << est-il DEJA vrai avant la premiere action >>. Deux modules, deux traversees qui divergent sur le `non`, aucun parametre de mode.",
+				"La section d un controle est DECLAREE par la regle, jamais DERIVEE de son path (KR-219/226) ; le path est une CLE LITTERALE de DESTINATION_DES_CHAMPS, epinglee par un test."
+			],
+			"brain_contracts_added": [
+				{
+					"type": "module",
+					"name": "brain/dossier/controles.ts"
+				},
+				{
+					"type": "module",
+					"name": "brain/dossier/atteignabilite.ts"
+				},
+				{
+					"type": "module",
+					"name": "brain/dossier/tourzero.ts"
+				},
+				{
+					"type": "module",
+					"name": "brain/dossier/pastilles.ts"
+				},
+				{
+					"type": "type",
+					"name": "NiveauControle / Controle / RapportControles / ControleDescripteur"
+				},
+				{
+					"type": "function",
+					"name": "controlerDossier / controleRemediation"
+				}
+			],
+			"lessons_learned": [
+				"UNE AFFIRMATION SUR LA COULEUR D UN TEST SE MESURE, ELLE NE SE DEDUIT PAS - et cette feature l a payee quatre fois (BUG-080, BUG-084, BUG-087, puis it10). Ni les deux tours de comite, ni la porte mecanique, ni la revue de PR n executent une phrase.",
+				"LA VALEUR ATTENDUE N EST PAS LE POUVOIR SEPARATEUR : deux mesures, sur DEUX CODES DIFFERENTS. Et depuis it10, une troisieme precision - le pouvoir separateur se mesure AU NIVEAU OU LE CONTRAT SERA CONSOMME (KR-228).",
+				"UNE REDONDANCE DE REPRESENTATION PEUT MASQUER UN MUTANT : `temoin === null` equivalant a `valeur === 'indecidable'` rendait la faute inobservable alors que l instrument etait bon. Mode de panne neuf, distinct du temoin faible.",
+				"DEUX MESURES QUI DIVERGENT SE TRANCHENT PAR UNE TROISIEME, pas par le role le plus autorise : a it10 la QA en mode B s est trompee la ou l ouvrier avait raison.",
+				"UN ROLE QUI RETIRE PUBLIQUEMENT SON PROPRE MOTIF fait avancer le comite plus vite qu un role qui a raison - trois retraits a it10, dont deux qui ont CONFIRME la position adverse.",
+				"DECOUPER SUR LE SENS D ERREUR, jamais sur le volume : 3 -> 4 -> 6 -> 8 -> 10 iterations, et les deux coupes les plus utiles separaient un faux negatif d un faux positif.",
+				"UNE CAPACITE ABSENTE N ATTEINT LE BLOQUANT QUE SI L EDITEUR OFFRE AUJOURD HUI LE GESTE QUI LA RESTAURE - et une remediation qui nomme une surface dont l inexistence est mesurable est une consigne CIRCULAIRE (BUG-090) ; une qui nomme une surface reelle dont l effet est nul est pire : elle est FAUSSE."
+			],
+			"bugs_encountered": [
+				"BUG-080",
+				"BUG-082",
+				"BUG-084",
+				"BUG-087",
+				"BUG-088",
+				"BUG-090"
+			]
 		}
 	]
 }

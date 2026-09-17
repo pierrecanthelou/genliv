@@ -4,7 +4,7 @@ import { PREDICATES, type PredicatId } from './predicates'
 import type { Dossier, Revelation } from './types'
 
 /**
- * HYPOTHÈSES DATÉES D'ATTEIGNABILITÉ — 2026-09-17, itérations 6, 7 et 9 de la
+ * HYPOTHÈSES DATÉES D'ATTEIGNABILITÉ — 2026-09-17, itérations 6, 7, 9 et 10 de la
  * n° 7.
  *
  * Ce module conclut « le joueur peut obtenir cet indice » sur un document
@@ -131,6 +131,10 @@ import type { Dossier, Revelation } from './types'
  * lectures correctes plutôt que sous-comptées. Le jour où une feature accorde un
  * inventaire de départ ou une acquisition jouée en scène, CES DEUX LIGNES-LÀ, et
  * elles seules, sont à reprendre (KR-227).
+ * DEPUIS IT10, UNE TROISIÈME LIGNE EN DÉPEND, ET ELLE N'EST PAS DANS CE FICHIER :
+ * la cellule `possede_objet` de `VALEUR_AU_TOUR_ZERO` (`tourzero.ts`, H6). Elle ne
+ * LIT pas `objetsDonnes` — elle dépend du même invariant d'inventaire. Trois
+ * lignes, deux fichiers (KR-227).
  * CE QU'IL NE FAUT PAS EN CONCLURE : que le schéma « ne sait pas exprimer un
  * inventaire de départ » excuserait l'auteur. C'est l'inverse — il écrit un prix
  * que le moteur ne pourra pas honorer, et la seule chose qui pourrait l'honorer,
@@ -643,11 +647,17 @@ function aucunVerdict(_operateur: never): null {
 function feuilleSansEtablissement(etat: EtatDuDossier, noeud: ExprNode): FeuilleInaccomplissable | null {
 	switch (noeud.op) {
 		// `non` → `null` SANS DESCENDRE, et c'est la ligne la plus importante des
-		// quatre. Sous une négation, la productibilité de la feuille ne dit RIEN : les
-		// sept prédicats lisent des champs de session qui partent VIDES, si bien que
-		// `non(P)` est vrai au tour zéro. Descendre et inverser allumerait un faux
-		// positif sous une règle BLOQUANTE — la seule direction que tout ce module
-		// s'interdit.
+		// quatre. LE MOTIF ÉCRIT ICI A ÉTÉ FAUX, et il est CORRIGÉ, pas effacé : il
+		// disait « les sept prédicats lisent des champs de session qui partent VIDES,
+		// si bien que `non(P)` est vrai au tour zéro ». `predicates.ts` le contredisait
+		// déjà — `lieu_courant_est` répond `monde.lieu_courant`, une VALEUR et non une
+		// liste, qui vaut `charpente.depart.lieu_id` dès l'ouverture. LA CONCLUSION NE
+		// BOUGE PAS, et son VRAI motif est plus simple : la SATISFIABILITÉ d'une feuille
+		// ne se renverse pas. Descendre et inverser transformerait une improductibilité
+		// — constat solide — en une VÉRITÉ que le document ne porte pas, c'est-à-dire un
+		// faux positif sous une règle bloquante. LA VALEUR AU TOUR ZÉRO, ELLE, DESCEND
+		// DANS LE `non` : c'est une AUTRE question, et elle a son fichier —
+		// `tourzero.ts`, H6. Deux traversées, deux modules, aucun paramètre de mode.
 		case 'non':
 			return null
 

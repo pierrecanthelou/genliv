@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.43 — un objectif perdu avant le premier tour
+
+`dossier-controles` iteration 10/10. **La feature est terminee.** Une condition d echec qui est DEJA vraie a l ouverture rend son objectif ingagnable avant que le joueur ait agi — et le dossier de reference en portait un vrai, `objectif.proteger-le-sceau`, dont l echec tient a un objet que le heros ne possede pas au depart.
+
+- **Une SECONDE question posee au meme arbre, et elle a son fichier.** `atteignabilite.ts` decide << ce fait peut-il un JOUR etre etabli >> ; `tourzero.ts` decide << est-il DEJA vrai avant la premiere action >>. Les deux traversees divergent sur le `non` — l une s y arrete, l autre y descend —, donc DEUX fonctions dans DEUX modules, jamais un parametre de mode. Zero import entre elles, dans les deux sens.
+- **Verdict TRIVALUE (Kleene), et ce n est pas un raffinement de confort** : sous bivalence, la direction d erreur permise NE SURVIT PAS a `non` — une valeur << supposee fausse >> y devient une valeur << assertee vraie >>, c est-a-dire le faux positif que toute la feature s interdit. La trivalence RETIRE deux hypotheses a dater au lieu d en ajouter, a cout nul sur le materiau.
+- **Un veto pose sur UNE cellule, et son contre-exemple etait deja au depot.** Ecrire `evenement_consomme -> 'faux'` affirmait comme certain un fait que `dossier-minimal.json` contredit trente lignes plus haut : son unique evenement se declenche sur le lieu de DEPART. Et le sous-arbre nie existe deja dans le champ VOISIN du meme objectif. **Une cellule dont le contre-exemple est ecrit dans `__fixtures__` n est pas une hypothese, c est une erreur** (KR-228).
+- **La remediation ne nomme aucun ecran producteur, et le motif s est retourne en cours de comite.** Sur `non(possede_objet(X))`, donner l objet au tour 3 ne change RIEN au verdict du tour zero : a t=0 aucun delta n a couru, par construction. Ce ne serait pas une consigne circulaire (BUG-090) mais une consigne FAUSSE — actionnable, suivie, sans effet. Le role qui l exigeait l a retiree apres mesure.
+- **Le plan portait une phrase fausse sur le pouvoir separateur d un temoin, et elle avait franchi deux tours de comite, la porte mecanique ET la validation humaine.** Le temoin << nu >> ne tue pas la faute des cellules indecidables : au niveau du contrat livre, qui ne rend qu un tir ou un silence, `indecidable` et `faux` sont indiscernables sans negation. La mesure d origine etait vraie — sur un PROTOTYPE assertant le verdict trivalue interne. **Un pouvoir separateur se mesure AU NIVEAU OU LE CONTRAT SERA CONSOMME, jamais un cran en dessous.** Corrigee en place, jamais effacee.
+- **Deux mesures ont diverge, et c est une troisieme qui a tranche** : l ouvrier comptait un test rouge sous la troisieme faute, la QA en mode B en comptait deux. Croire la QA — le role dont c est le metier — aurait fige l erreur. L ouvrier avait raison.
+- **Une redondance de representation a MASQUE un mutant**, et c est un mode de panne neuf pour ce depot : `Verdict.temoin === null` equivalait a `valeur === 'indecidable'`, deux ecritures du meme fait, si bien que le `non` fautif rendait bien `'vrai'` mais SANS temoin — et la regle se taisait quand meme. L instrument etait bon ; c est le code qui rendait la faute inobservable.
+- Neuf regles au registre, zero fichier d UI touche depuis it5 : une regle de plus reste une entree de plus. 87 suites / 1280 tests verts.
+
 ## 0.6.42 — la porte d un savoir est infranchissable
 
 `dossier-controles` iteration 9/10. Un savoir dont `revele_si` ne peut JAMAIS etre franchie cesse de compter comme producteur de son indice. DEUX portes evaluees (`apres_indice_id`, `contrepartie`), DEUX laissees ouvertes — et la partition est DERIVEE d une loi, pas arbitree porte par porte.

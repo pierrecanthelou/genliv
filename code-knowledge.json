@@ -219,7 +219,7 @@
 		{
 			"id": "KR-111",
 			"feature": "global-config",
-			"risk": "No raw window.localStorage in feature files - ESLint-enforced, see KR-152. brain/ and player/utils/persist.ts (KR-134) exempt by design."
+			"risk": "Stockage brut en feature : CABLE dans ESLint. Voir KR-152 (la regle et son message) et KR-011."
 		},
 		{
 			"id": "KR-112",
@@ -719,7 +719,7 @@
 		{
 			"id": "KR-222",
 			"feature": "dossier-controles",
-			"risk": "Deux silences indistinguables sont un defaut de classe KR-199. Le signal discriminant est condition-sans-expr, rendu au rapport a it5. PORTEE MESUREE : il ne tire QUE si le jumeau prose est non vide, donc il separe « pas d _expr mais une prose » de « _expr present », et PAS « ni _expr ni prose ». Trou PROPRE AUX OBJECTIFS (reussi_si_texte optionnel, fins[].condition_texte requis)."
+			"risk": "DEUX SILENCES INDISTINGUABLES SONT UN DEFAUT DE CLASSE KR-199 : un signal discriminant doit exister pour chaque etat que l auteur peut atteindre, et sa PORTEE se mesure au site qui l emet, jamais a son nom. Cas source : condition-sans-expr ne separait que deux des trois silences d un objectif. Ferme a it8 de dossier-controles ; detail dans sa spec."
 		},
 		{
 			"id": "KR-223",
@@ -739,12 +739,17 @@
 		{
 			"id": "KR-226",
 			"feature": "dossier-controles",
-			"risk": "Le predicat « racine du path differente de la section » est STRUCTURELLEMENT INSATISFIABLE pour la section canon : sections.ts en fait la seule des dix dont la cle n a pas de point. La garde encodait une COINCIDENCE, pas l invariant qu elle nomme : une regle declarant correctement section: 'canon' sur un path en canon.* L AURAIT FAIT ROUGIR EN ETANT JUSTE. (Echeance atteinte a it7 de dossier-controles, ou objectif-sans-chemin EST cette regle : le predicat est REMPLACE par une table path -> section epinglee valeur par valeur, totale par compilation, plus le balayage de source interdisant tout decoupage de chemin, repris DANS LE MEME it. Un temoin en canon.* est desormais ATTENDU, plus interdit.)"
+			"risk": "UNE GARDE PEUT ENCODER UNE COINCIDENCE PLUTOT QUE L INVARIANT QU ELLE NOMME, et l on ne s en apercoit qu au premier cas JUSTE qu elle fait rougir. Cas source : << racine du path differente de la section >>, structurellement insatisfiable pour la seule section dont la cle n a pas de point. Parade : une table path -> section epinglee valeur par valeur, totale par compilation, plus un balayage de source interdisant tout decoupage de chemin. Echeance atteinte a it7 de dossier-controles ; detail dans sa spec."
 		},
 		{
 			"id": "KR-227",
 			"feature": "dossier-controles",
-			"risk": "DEUX lignes lisent `objetsDonnes` sous une regle bloquante - `possede_objet` (it7) et `porteOuverte` (it9). L ensemble est EXACT au schema, pas sous-compte : `donner_objet` est le seul ecrivain d inventaire, `Depart` n en porte aucun, et LE NARRATEUR NE TOUCHE JAMAIS L INVENTAIRE - cet invariant, et lui seul, rend les deux lectures correctes. Le jour ou une feature accorde un inventaire de depart ou une acquisition en scene, CES DEUX LIGNES, et elles seules, sont a reprendre. (H5 dans atteignabilite.ts.)"
+			"risk": "TROIS lignes dependent de l invariant d inventaire (<< le heros part sans rien, et LE NARRATEUR NE TOUCHE JAMAIS L INVENTAIRE >>), dans DEUX fichiers - et LE VERBE DIFFERE, ce qui est le piege : `ETABLISSEMENT.possede_objet` (it7) et `porteOuverte` (it9) LISENT `objetsDonnes` (atteignabilite.ts) ; `VALEUR_AU_TOUR_ZERO.possede_objet` (it10, tourzero.ts) ne lit RIEN, elle constate un inventaire vide. Une liste fermee devenue fausse est PIRE qu une liste absente. Reveil et clauses : H5 d atteignabilite.ts, H6 de tourzero.ts."
+		},
+		{
+			"id": "KR-228",
+			"feature": "dossier-controles",
+			"risk": "TOUTE CELLULE D UNE TABLE D ETAT D OUVERTURE QUI REND `vrai` OU `faux` NOMME soit le champ du document qui la determine, soit la clause datee qui la suppose ; sans l un des deux, elle vaut `indecidable`. Une cellule dont le CONTRE-EXEMPLE est deja ecrit dans __fixtures__ n est pas une hypothese, c est une erreur. DEUX corollaires : (a) sous une regle qui pourrait bloquer, la direction d erreur permise NE SURVIT PAS a `non` - une valeur supposee y devient ASSERTEE, donc seule une troisieme valeur est stable par negation ; (b) UN POUVOIR SEPARATEUR SE MESURE AU NIVEAU OU LE CONTRAT SERA CONSOMME, jamais un cran en dessous - un temoin qui separe deux valeurs sur un prototype interne peut etre AVEUGLE PAR CONSTRUCTION sur le contrat livre, si celui-ci les rend toutes deux silencieuses. Mesures : .claude/raffinage/dossier-controles-it10.revue.md."
 		}
 	]
 }
