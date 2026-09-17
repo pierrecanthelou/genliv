@@ -5,6 +5,7 @@ import {
 	Card,
 	Field,
 	IconButton,
+	LIBELLE_DES_CHAMPS,
 	IssueList,
 	compterMots,
 	BUDGET_MOTS_CANON,
@@ -14,6 +15,21 @@ import {
 } from '../../../brain'
 import { ObjectifsCanon } from './ObjectifsCanon'
 import { EYEBROW_REFUS } from '../utils/refusMessages'
+
+/**
+ * Le libellé du champ TON et son qualificatif viennent du REGISTRE
+ * `brain/dossier/libelles.ts` depuis l'itération 1 de la n° 8 : le panneau
+ * Copilote NOMME « TON » dans son refus « il manque … pour proposer ce texte »
+ * sans être la fiche d'origine du champ, donc deux features les lisent (KR-109).
+ * L'extraction est PURE — aucune chaîne n'a bougé, et la preuve en est que la
+ * suite de `dossier-canon` est restée verte sans une seule retouche.
+ *
+ * `SYNOPSIS MJ` et `ACCROCHE JOUEUR` restent INLINE juste au-dessus : un seul
+ * lecteur chacun, et `canon.mj.synopsis_mj` n'est jamais requis par le copilote,
+ * donc aucune branche ne peut le nommer. Les promouvoir serait une ligne de
+ * registre sans producteur (KR-235).
+ */
+const TON = LIBELLE_DES_CHAMPS['canon.ton']
 
 export interface PanneauCanonProps {
 	dossierId: string
@@ -232,8 +248,8 @@ export function PanneauCanon({ dossierId }: PanneauCanonProps): JSX.Element | nu
 					</div>
 
 					<Field
-						label="TON"
-						hint="interne — consigne injectée au modèle"
+						label={TON.libelle}
+						hint={TON.hint}
 						multiline
 						rows={2}
 						value={brouillon.ton}

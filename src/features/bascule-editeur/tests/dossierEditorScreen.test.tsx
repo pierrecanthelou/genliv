@@ -622,6 +622,137 @@ describe('DossierEditorScreen', () => {
 			expect(screen.queryByRole('navigation', { name: 'Contrôles' })).toBeNull()
 		})
 	})
+
+	/**
+	 * L'entrée « Copilote » (`dossier-copilote`, itération 1) — prop SŒUR de
+	 * `panneauControles`, même gabarit, même render-prop, même frontière : seul
+	 * `SectionId` la traverse. Sonde LOCALE, jamais le vrai `PanneauCopilote` —
+	 * un test de `bascule-editeur` n'a pas plus le droit d'importer une feature
+	 * sœur que le code source (KR-184), et au moment où ce test est écrit la
+	 * feature n'existe pas encore : c'est précisément ce que le bouchon permet.
+	 */
+	describe('entree Copilote (dossier-copilote iteration 1)', () => {
+		const SONDE_COPILOTE = 'Sonde du panneau Copilote (test bascule-editeur)'
+		const SONDE_OUVRIR_FICHE = 'Sonde : Ouvrir la fiche'
+		function SondePanneauCopilote({ onSelectSection }: { onSelectSection: (section: SectionId) => void }): JSX.Element {
+			return (
+				<div>
+					<p>{SONDE_COPILOTE}</p>
+					<button type="button" onClick={() => onSelectSection('personnages')}>
+						{SONDE_OUVRIR_FICHE}
+					</button>
+				</div>
+			)
+		}
+
+		function rendreAvecLesDeux(brain: Brain, dossierId: string) {
+			render(
+				<BrainProvider brain={brain}>
+					<DossierEditorScreen
+						dossierId={dossierId}
+						panneauControles={() => <p>Sonde Controles</p>}
+						panneauCopilote={(onSelectSection) => <SondePanneauCopilote onSelectSection={onSelectSection} />}
+					/>
+				</BrainProvider>,
+			)
+		}
+
+		it('la sonde du panneau ouvre la section demandee, et elle seule est courante', async () => {
+			const user = userEvent.setup()
+			const brain = createBrain()
+			const dossier = brain.dossiers.create('Un dossier')
+			rendreAvecLesDeux(brain, dossier.id)
+
+			const navSections = screen.getByRole('navigation', { name: 'Sections du dossier' })
+			const lignesSections = within(navSections).getAllByRole('button')
+			// Destination initiale : SECTIONS[0] (Canon), JAMAIS Personnages.
+			expect(lignesSections[0]).toHaveAttribute('aria-current', 'true')
+
+			const navCopilote = screen.getByRole('navigation', { name: 'Copilote' })
+			await user.click(within(navCopilote).getByRole('button', { name: 'Copilote' }))
+			expect(screen.getByText(SONDE_COPILOTE)).toBeInTheDocument()
+
+			// Le lien « → Ouvrir la fiche » de la ligne acceptée : la render-prop reçoit
+			// `onSelectSection` et ne peut exprimer QU'un `SectionId` — jamais
+			// `'copilote'` ni `'controles'`, qui restent locaux à l'écran (BUG-082).
+			await user.click(screen.getByRole('button', { name: SONDE_OUVRIR_FICHE }))
+
+			const lignePersonnages = lignesSections[2]
+			expect(lignePersonnages).toHaveTextContent('Personnages')
+			// ÉGALITÉ STRICTE du tableau filtré, jamais une inclusion : sous Copilote
+			// actif, aucune ligne de section ne doit rester surlignée non plus.
+			const courantes = screen.getAllByRole('button').filter((bouton) => bouton.getAttribute('aria-current') === 'true')
+			expect(courantes).toEqual([lignePersonnages])
+			expect(screen.queryByText(SONDE_COPILOTE)).toBeNull()
+		})
+
+		it('aucune ligne de section n est courante tant que Copilote est actif', async () => {
+			// La MOITIÉ que le test précédent ne prouve pas : l'état INTERMÉDIAIRE.
+			// C'est là que vivait BUG-082 — deux lignes courantes en même temps.
+			const user = userEvent.setup()
+			const brain = createBrain()
+			const dossier = brain.dossiers.create('Un dossier')
+			rendreAvecLesDeux(brain, dossier.id)
+
+			const navCopilote = screen.getByRole('navigation', { name: 'Copilote' })
+			const ligneCopilote = within(navCopilote).getByRole('button', { name: 'Copilote' })
+			await user.click(ligneCopilote)
+
+			const courantes = screen.getAllByRole('button').filter((bouton) => bouton.getAttribute('aria-current') === 'true')
+			expect(courantes).toEqual([ligneCopilote])
+		})
+
+		it('sans panneau Copilote injecte, le landmark Copilote n existe pas', () => {
+			const brain = createBrain()
+			const dossier = brain.dossiers.create('Un dossier')
+			render(
+				<BrainProvider brain={brain}>
+					<DossierEditorScreen dossierId={dossier.id} panneauControles={() => <p>Sonde Controles</p>} />
+				</BrainProvider>,
+			)
+
+			expect(screen.getByRole('navigation', { name: 'Contrôles' })).toBeInTheDocument()
+			expect(screen.queryByRole('navigation', { name: 'Copilote' })).toBeNull()
+		})
+
+		it('l entree Copilote vient APRES l entree Controles', () => {
+			// L'ordre relatif n'est écrit nulle part au contrat de design : il est POSÉ
+			// par l'écran et ÉPINGLÉ ici. Deux entrées sœurs sans ordre fixe se
+			// réordonnent au premier refactor, et personne ne le voit.
+			const brain = createBrain()
+			const dossier = brain.dossiers.create('Un dossier')
+			rendreAvecLesDeux(brain, dossier.id)
+
+			const noms = screen.getAllByRole('navigation').map((landmark) => landmark.getAttribute('aria-label'))
+
+			expect(noms).toEqual(['Sections du dossier', 'Contrôles', 'Copilote'])
+		})
+
+		it('les dix sections gardent leur etat vide quand le panneau Copilote est injecte', async () => {
+			// Critère #8 : cette feature ne possède AUCUNE des dix sections, et son
+			// arrivée ne doit rien changer à ce qu'elles rendent.
+			const user = userEvent.setup()
+			const brain = createBrain()
+			const dossier = brain.dossiers.create('Un dossier')
+			render(
+				<BrainProvider brain={brain}>
+					<DossierEditorScreen
+						dossierId={dossier.id}
+						panneauCopilote={(onSelectSection) => <SondePanneauCopilote onSelectSection={onSelectSection} />}
+					/>
+				</BrainProvider>,
+			)
+
+			const nav = screen.getByRole('navigation', { name: 'Sections du dossier' })
+			const lignes = within(nav).getAllByRole('button')
+			expect(lignes).toHaveLength(TITRES.length)
+
+			for (const [index] of TITRES.entries()) {
+				await user.click(lignes[index])
+				expect(screen.getByText(texteEtatVide(index))).toBeInTheDocument()
+			}
+		})
+	})
 })
 
 describe('racine de composition', () => {

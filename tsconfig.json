@@ -18,6 +18,10 @@
 		"noFallthroughCasesInSwitch": true,
 		"types": ["jest", "node", "@testing-library/jest-dom"]
 	},
-	"include": ["src"],
+	// `worker` entre dans la porte de typage à l'itération 1 de `dossier-copilote` :
+	// le worker porte désormais une route de production (`POST /ia/:role`), ses deux
+	// tests, et la moitié d'une liaison que `tsc` doit voir. MESURÉ avant d'être
+	// écrit — `tsc --noEmit` reste à zéro erreur avec cette ligne.
+	"include": ["src", "worker"],
 	"references": [{ "path": "./tsconfig.node.json" }]
 }

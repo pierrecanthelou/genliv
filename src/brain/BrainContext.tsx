@@ -16,6 +16,7 @@ import {
 } from './UIPreferencesService'
 import { createMonsterLibraryService, type MonsterLibraryService, type SavedMonster } from './MonsterLibraryService'
 import { createCloudSettings, type CloudSettingsService } from './CloudSettingsService'
+import { createCopiloteService, type CopiloteService } from './CopiloteService'
 import { BESTIARY } from './bestiary'
 import type { SyncStatus } from './types'
 
@@ -45,6 +46,18 @@ export interface Brain {
 	monsterLibrary: MonsterLibraryService
 	/** Cloudflare KV worker credentials — raw local, never synced (KR-114). */
 	cloudSettings: CloudSettingsService
+	/**
+	 * Le COPILOTE de rédaction (feature n° 8) — assemble le contexte, appelle la
+	 * route `POST /ia/:role` du worker, valide la FORME de ce qui revient. Il
+	 * n'écrit JAMAIS : l'acceptation passe par `dossiers.update`, déclenchée par un
+	 * geste de l'auteur.
+	 *
+	 * Construit ICI depuis `cloudSettings`, sans option de fabrique : un
+	 * `fetchImpl` injectable ou un `copilote?` dans `CreateBrainOptions` serait une
+	 * injection à UN SEUL appelant (KR-109). Les tests moquent `global.fetch` et
+	 * règlent `setWorkerUrl`/`setSyncKey` — précédent `CloudflareKVTransport.test.ts`.
+	 */
+	copilote: CopiloteService
 }
 
 export interface CreateBrainOptions {
@@ -79,6 +92,10 @@ export function createBrain(options: CreateBrainOptions = {}): Brain {
 	monsterLibrary.seedDefaults(BESTIARY)
 	// Worker credentials — raw local, never synced (KR-114).
 	const cloudSettings = createCloudSettings(local)
+	// Le copilote lit les MÊMES réglages que le transport de synchronisation : une
+	// seule URL de worker, une seule clé, et une disponibilité qui ne sonde jamais
+	// le réseau (`estDisponible`).
+	const copilote = createCopiloteService(cloudSettings)
 	return {
 		events,
 		persistence: sync,
@@ -90,6 +107,7 @@ export function createBrain(options: CreateBrainOptions = {}): Brain {
 		uiPreferences,
 		monsterLibrary,
 		cloudSettings,
+		copilote,
 	}
 }
 

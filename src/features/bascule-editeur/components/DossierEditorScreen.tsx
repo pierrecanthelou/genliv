@@ -19,7 +19,26 @@ import { PanneauSection } from './PanneauSection'
  * feature pour une destination déjà livrée — le défaut `SANS_COMPTE`).
  */
 const DESTINATION_CONTROLES = 'controles' as const
-type DestinationNav = SectionId | typeof DESTINATION_CONTROLES
+/**
+ * TROISIÈME branche, posée par l'itération 1 de `dossier-copilote` — et elle reste
+ * LOCALE au même titre que la deuxième : ni `SectionId`, ni `brain/`. « Copilote »
+ * n'est pas une section du dossier, et l'élargissement ferait de
+ * `PANNEAU_PAR_SECTION` un `Record` réclamant un glyphe et un numéro de feature
+ * pour une destination déjà livrée (défaut `SANS_COMPTE`).
+ */
+const DESTINATION_COPILOTE = 'copilote' as const
+type DestinationNav = SectionId | typeof DESTINATION_CONTROLES | typeof DESTINATION_COPILOTE
+
+/**
+ * VRAI quand la destination courante appartient à la nav des sections. Écrit comme
+ * un garde de TYPE plutôt qu'en comparaison au site d'appel : avec deux
+ * destinations étrangères, un `destination === DESTINATION_CONTROLES ? null : …`
+ * oubliait la seconde et rendait `'copilote'` à `SectionNav` — exactement l'état
+ * illégal de BUG-082, avec une ligne de plus pour l'atteindre.
+ */
+function estSectionId(destination: DestinationNav): destination is SectionId {
+	return destination !== DESTINATION_CONTROLES && destination !== DESTINATION_COPILOTE
+}
 
 export interface DossierEditorScreenProps {
 	dossierId: string
@@ -44,6 +63,19 @@ export interface DossierEditorScreenProps {
 	 * fabriquer l'état illégal de BUG-082.
 	 */
 	panneauControles?: (onSelectSection: (section: SectionId) => void) => ReactNode
+	/**
+	 * Le panneau Copilote (`dossier-copilote`) — prop SŒUR de `panneauControles`,
+	 * de forme IDENTIQUE, et jamais une onzième clé de section : « Copilote » n'est
+	 * pas une section du dossier. Sa nav n'apparaît que si cette prop est injectée.
+	 *
+	 * RENDER-PROP pour la même raison que sa sœur : l'écran fournit le rappel de
+	 * navigation, jamais l'inverse. `SectionId` SEUL traverse la frontière — jamais
+	 * `DestinationNav`, qui reste STRICTEMENT local à ce fichier —, donc le panneau
+	 * Copilote ne peut ni exprimer `'copilote'`, ni fabriquer l'état illégal de
+	 * BUG-082. C'est ce qui rend le lien « → Ouvrir la fiche » possible sans qu'une
+	 * feature connaisse la nav de l'éditeur.
+	 */
+	panneauCopilote?: (onSelectSection: (section: SectionId) => void) => ReactNode
 }
 
 const RAISON_APERCU_DESACTIVE =
@@ -65,7 +97,12 @@ const RAISON_APERCU_DESACTIVE =
  * du registre (`SECTIONS[0]`, Canon) — un choix raisonnable non écrit par le
  * plan d'itération, documenté ici plutôt qu'inventé en silence.
  */
-export function DossierEditorScreen({ dossierId, panneaux, panneauControles }: DossierEditorScreenProps): JSX.Element {
+export function DossierEditorScreen({
+	dossierId,
+	panneaux,
+	panneauControles,
+	panneauCopilote,
+}: DossierEditorScreenProps): JSX.Element {
 	const { router } = useBrain()
 	const dossier = useOpenDossier(dossierId)
 	// UN SEUL état pour « ce qui est affiché », et c'est délibéré : deux `useState`
@@ -103,6 +140,19 @@ export function DossierEditorScreen({ dossierId, panneaux, panneauControles }: D
 	// entier, qui n'a rien à faire de `controles` ni de `jouable` ici.
 	const { parSection } = controlerDossier(dossier)
 
+	/**
+	 * Le panneau courant — une suite de gardes plutôt qu'une cascade de ternaires :
+	 * avec DEUX destinations hors sections, l'expression imbriquée cessait de se
+	 * lire, et c'est exactement le genre d'endroit où la troisième branche se pose
+	 * au mauvais niveau. Le `return` final tombe sur une destination NARROWED à
+	 * `SectionId` par élimination, sans `as`.
+	 */
+	function rendrePanneau(): ReactNode {
+		if (destination === DESTINATION_CONTROLES) return panneauControles?.((section) => setDestination(section))
+		if (destination === DESTINATION_COPILOTE) return panneauCopilote?.((section) => setDestination(section))
+		return panneaux?.[destination] ?? <PanneauSection sectionId={destination} />
+	}
+
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
 			<EditorTopBar
@@ -115,12 +165,12 @@ export function DossierEditorScreen({ dossierId, panneaux, panneauControles }: D
 				<div style={navColumn}>
 					<SectionNav
 						dossier={dossier}
-						selectedId={destination === DESTINATION_CONTROLES ? null : destination}
+						selectedId={estSectionId(destination) ? destination : null}
 						onSelect={setDestination}
 						niveauxParSection={parSection}
 					/>
 					{panneauControles !== undefined && (
-						<nav aria-label="Contrôles" style={controlesNav}>
+						<nav aria-label="Contrôles" style={navHorsSections}>
 							<ListRow
 								title="Contrôles"
 								selected={destination === DESTINATION_CONTROLES}
@@ -128,10 +178,21 @@ export function DossierEditorScreen({ dossierId, panneaux, panneauControles }: D
 							/>
 						</nav>
 					)}
+					{/* « Copilote » vient APRÈS « Contrôles » — ordre posé ici faute d'être
+					    écrit au contrat de design, et épinglé par un test pour qu'il ne
+					    dérive pas d'un rendu à l'autre : les deux entrées sont sœurs, et
+					    deux sœurs sans ordre fixe se réordonnent au premier refactor. */}
+					{panneauCopilote !== undefined && (
+						<nav aria-label="Copilote" style={navHorsSections}>
+							<ListRow
+								title="Copilote"
+								selected={destination === DESTINATION_COPILOTE}
+								onSelect={() => setDestination(DESTINATION_COPILOTE)}
+							/>
+						</nav>
+					)}
 				</div>
-				{destination === DESTINATION_CONTROLES
-					? panneauControles?.((section) => setDestination(section))
-					: (panneaux?.[destination] ?? <PanneauSection sectionId={destination} />)}
+				{rendrePanneau()}
 			</main>
 		</div>
 	)
@@ -158,8 +219,12 @@ const navColumn: CSSProperties = {
 	flexDirection: 'column',
 }
 
-// Séparation du second landmark (§ 3 du plan) : filet + espace, aucun jeton neuf.
-const controlesNav: CSSProperties = {
+// Séparation des landmarks HORS SECTIONS (§ 3 du plan) : filet + espace, aucun
+// jeton neuf. Le MÊME gabarit sert « Contrôles » et « Copilote » — deux entrées
+// sœurs qui ne se ressembleraient plus au premier réglage si chacune portait le
+// sien. Renommé de `controlesNav` à l'itération 1 de `dossier-copilote` : un nom
+// qui désigne le premier de deux appelants se lit comme une exclusivité.
+const navHorsSections: CSSProperties = {
 	borderTop: '1px solid var(--border-rule)',
 	paddingTop: 'var(--space-3)',
 }

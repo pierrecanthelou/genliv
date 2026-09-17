@@ -3,6 +3,7 @@ import path from 'node:path'
 import { validateDossier } from './validate'
 import type { DossierIssue } from './issues'
 import { DESTINATION_DES_CHAMPS } from './destinations'
+import { feuillesDeLaFixture } from './feuilles'
 import {
 	BUDGETS_DE_MOTS,
 	CHAMPS_ENTIERS,
@@ -69,7 +70,8 @@ import { CHARACTERISTIC_VALUES } from '../characteristics'
  *    le voir : il corrompt une feuille EXISTANTE, il n'en change jamais le porteur.
  *  · L'INTÉRIEUR DES ARBRES D'EXPRESSION ET DES EFFETS DE RÈGLE. Le balayage
  *    S'ARRÊTE sur chaque `…_expr` et sur chaque ÉLÉMENT d'un chemin de delta
- *    (voir `CHEMINS_D_ARRET`), et l'ensemble de ces points d'arrêt est DÉRIVÉ de
+ *    (voir `CHEMINS_D_ARRET`, dans `feuilles.ts`), et l'ensemble de ces points
+ *    d'arrêt est DÉRIVÉ de
  *    `FAMILLES_DE_CONDITIONS` et de `CHEMINS_DE_DELTAS`, jamais re-listé. Motif :
  *    un arbre peuplé produit des chemins qui VARIENT avec sa forme, donc une
  *    table de destinations qui ne pourrait jamais être exhaustive ; un effet, lui,
@@ -111,63 +113,6 @@ function lisible(issue: DossierIssue): string {
 	return `${issue.code} → ${issue.path} — ${issue.location}`
 }
 
-export interface FeuilleDeFixture {
-	/** Chemin à indices EFFACÉS : `monde.evenements[].monstre_ref`. */
-	normalise: string
-	/** Chemin réel, indices compris : `monde.evenements[0].monstre_ref`. */
-	concret: string
-	valeur: unknown
-}
-
-/**
- * Les chemins où le balayage S'ARRÊTE — DÉRIVÉS de `FAMILLES_DE_CONDITIONS`, la
- * seule liste de chemins d'expression du dépôt. Une seconde liste, fût-elle
- * identique le jour où elle est écrite, divergerait en silence : une famille
- * ajoutée à la table et pas ici ferait descendre le balayage DANS son arbre, et
- * la table des destinations cesserait de pouvoir être exhaustive.
- */
-const CHEMINS_D_ARRET = new Set([
-	...FAMILLES_DE_CONDITIONS.map((famille) => famille.expr),
-	// Le suffixe `[]` n'est PAS cosmétique, et la sonde l'a établi plutôt que le
-	// raisonnement : sans lui l'arrêt tombe sur le TABLEAU, les lignes `…[]` de
-	// DESTINATION_DES_CHAMPS deviennent MORTES (trois, mesurées — la quatrième, le
-	// climat, porte une liste vide et n'a donc jamais eu de suffixe), et la
-	// corruption cesse d'être PAR ÉLÉMENT. Avec le suffixe, l'arrêt tombe sur
-	// l'ÉLÉMENT : les destinations existantes survivent, et deux effets dans une
-	// même liste restent deux occasions de rougir.
-	...CHEMINS_DE_DELTAS.map((chemin) => `${chemin.path}[]`),
-])
-
-/**
- * Toutes les feuilles terminales d'un document, en pleine profondeur, tableaux
- * inclus. Une feuille est ce qui ne se descend plus : une valeur scalaire, mais
- * aussi un objet ou un tableau VIDE — sinon `effet: [{}]` disparaîtrait du
- * balayage, et c'est exactement le champ que l'itération 2 fige. Un arbre
- * d'expression est une feuille ENTIÈRE, par arrêt dérivé (voir `CHEMINS_D_ARRET`).
- *
- * Les indices sont NORMALISÉS : sans cela, ajouter un second personnage
- * doublerait les chemins et le test échouerait par cardinalité au lieu d'échouer
- * par nom de champ. Chaque INSTANCE est conservée à part, parce que la couverture
- * n'est acquise que si CHACUNE rougit — une règle qui ne contrôlerait que `[0]`
- * passerait sinon pour exhaustive.
- */
-export function feuillesDeLaFixture(valeur: unknown, normalise = '', concret = ''): FeuilleDeFixture[] {
-	if (CHEMINS_D_ARRET.has(normalise)) return [{ normalise, concret, valeur }]
-	if (Array.isArray(valeur) && valeur.length > 0) {
-		return valeur.flatMap((element, index) => feuillesDeLaFixture(element, `${normalise}[]`, `${concret}[${index}]`))
-	}
-	if (estObjetSimple(valeur) && Object.keys(valeur).length > 0) {
-		return Object.entries(valeur).flatMap(([cle, enfant]) =>
-			feuillesDeLaFixture(
-				enfant,
-				normalise === '' ? cle : `${normalise}.${cle}`,
-				concret === '' ? cle : `${concret}.${cle}`,
-			),
-		)
-	}
-	return [{ normalise, concret, valeur }]
-}
-
 /**
  * Les chemins de TOUTES les tables, avec le nom de leur table — le test échoue
  * en NOMMANT la table et le chemin, jamais par un compte (KR-159).
@@ -203,10 +148,6 @@ function estInstancie(cheminDeTable: string, feuilles: readonly string[]): boole
 		(feuille) =>
 			feuille === cheminDeTable || feuille.startsWith(`${cheminDeTable}.`) || feuille.startsWith(`${cheminDeTable}[`),
 	)
-}
-
-function estObjetSimple(valeur: unknown): valeur is Doc {
-	return typeof valeur === 'object' && valeur !== null && !Array.isArray(valeur)
 }
 
 /** Les clés successives d'un chemin concret : `a.b[2].c` → `a`, `b`, 2, `c`. */
@@ -565,7 +506,13 @@ describe('couverture', () => {
 			.filter((nom) => nom.endsWith('.ts'))
 			.filter((nom) => fs.readFileSync(path.join(MODULE_DOSSIER, nom), 'utf8').includes(SIGNATURE))
 
-		expect(porteurs).toEqual(['couverture.test.ts'])
+		// Le porteur unique est `feuilles.ts` depuis le lot contrat de l'itération 1
+		// de `dossier-copilote` : le walker a été PROMU hors de ce fichier de test,
+		// parce qu'importer une fonction depuis une suite exécute cette suite chez
+		// l'importateur (39 `describe`/`it` de plus — mesuré). Le garde ne change pas
+		// de nature : il reste « écrit une seule fois dans le module dossier », et
+		// c'est bien ce fichier-ci qui n'a plus le droit de le porter.
+		expect(porteurs).toEqual(['feuilles.ts'])
 	})
 
 	it('4e assertion : tout chemin de table a une instance dans la fixture, par prefixe normalise', () => {
@@ -1566,10 +1513,16 @@ describe('couverture', () => {
 		// d'effets ajoutée à la table sans l'être ici ferait descendre le balayage DANS
 		// son effet. Construit par morceaux pour que la présence de CE littéral ne
 		// suffise pas à faire passer le test.
+		// Le porteur de la dérivation est `feuilles.ts` depuis la promotion du walker
+		// (lot contrat de l'itération 1 de `dossier-copilote`) ; la garde suit son
+		// sujet, elle ne se périme pas. Les DEUX fichiers restent sous l'interdiction
+		// du littéral : un chemin de delta recopié ici rouvrirait la même divergence.
+		const porteur = fs.readFileSync(path.join(MODULE_DOSSIER, 'feuilles.ts'), 'utf8')
 		const source = fs.readFileSync(path.join(MODULE_DOSSIER, 'couverture.test.ts'), 'utf8')
 		const DERIVATION = ['CHEMINS_DE_DELTAS.map((chemin) => ', '`${chemin.path}[]`', ')'].join('')
 
-		expect(source).toContain(DERIVATION)
+		expect(porteur).toContain(DERIVATION)
+		expect(CHEMINS_DE_DELTAS.filter((delta) => porteur.includes(`'${delta.path}`))).toEqual([])
 		expect(CHEMINS_DE_DELTAS.filter((delta) => source.includes(`'${delta.path}`))).toEqual([])
 	})
 

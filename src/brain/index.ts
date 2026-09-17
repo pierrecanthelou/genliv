@@ -111,6 +111,25 @@ export type { CloudSyncService, CloudTransport, CloudSyncOptions } from './Cloud
 export { createLocalStorageTransport } from './LocalStorageTransport'
 export { createCloudflareKVTransport } from './CloudflareKVTransport'
 export { createCloudSettings, type CloudSettingsService } from './CloudSettingsService'
+// ── Le COPILOTE de rédaction (feature n° 8 `dossier-copilote`) ───────────────
+// Sort le CONTRAT, jamais la fabrique : `createBrain` construit le service, une
+// feature le consomme par `useBrain().copilote`. `RaisonIndisponible` et
+// `MotifIllisible` sortent AVEC `ReponseCopilote` et non pour eux-mêmes — ils sont
+// membres de sa forme publique, et une feature qui doit annoter une branche
+// n'aurait aucun autre moyen de les NOMMER (même motif que `PorteeContreMesure`
+// avec `ContreMesure`).
+// NE SORTENT PAS : `assemblerContexte`, `CHAMPS_INJECTES`, `DEROGATIONS_AUDIENCE`,
+// `PARTIES_REQUISES`, `BUDGET_CARACTERES_CONTEXTE` — aucune feature n'a de raison
+// de composer un contexte elle-même, ni de lire la garde d'audience. Même
+// traitement que `DESTINATION_DES_CHAMPS` et `amorce.ts`.
+// NE SORT PAS NON PLUS : `PropositionRendue`, la forme RÉSEAU. Son seul
+// consommateur légitime est la branche de succès de `validerSortie`, dans
+// `brain/` ; une feature lit `PropositionResolue`, jamais ce que le modèle rend.
+// La ré-exporter donnait une ligne publique sans appelant (KR-109) — retirée.
+export type { CopiloteService, CibleCopilote, ReponseCopilote, RaisonIndisponible } from './CopiloteService'
+export { CHAMPS_PROPOSABLES } from './copilote/types'
+export type { RoleCopilote, ChampProseCle, ChampProseChemin, PropositionResolue } from './copilote/types'
+export type { MotifIllisible } from './copilote/schemaSortie'
 export { createUIPreferencesService } from './UIPreferencesService'
 export type { UIPreferencesService, BookUIPrefs, Viewport, LayoutSpacing } from './UIPreferencesService'
 export { createMonsterLibraryService } from './MonsterLibraryService'
@@ -232,6 +251,16 @@ export type { CurseurId, AffiniteCurseur, CurseurDescripteur } from './dossier/c
 // seconde source que le validateur ne connaîtrait pas (KR-117). Les LIBELLÉS
 // français, eux, restent côté feature — un seul consommateur réel, précédent
 // `sections.ts` (le glyphe et la feature propriétaire n'ont jamais migré ici).
+//
+// AMENDEMENT du lot contrat de l'itération 1 de la n° 8 : la condition « un seul
+// consommateur réel » est TOMBÉE pour QUATRE libellés de champ — `FONCTION`,
+// `APPARENCE`, `DESCRIPTION JOUEUR` (`BlocIdentite.tsx`, `dossier-fiches`) et
+// `TON` (`PanneauCanon.tsx`, `dossier-canon`). Le panneau Copilote les NOMME à
+// l'écran sans être leur fiche d'origine : deux features les lisent, c'est KR-109
+// à la lettre, donc ils vivent dans `brain/dossier/libelles.ts` et sortent ici.
+// La règle ci-dessus vaut TOUJOURS pour les autres : les libellés de `CAMPS`, de
+// `PORTEES`, de `CERTITUDES`, `SYNOPSIS MJ` et `ACCROCHE JOUEUR` restent côté
+// feature, faute d'un second lecteur — une promotion spéculative est une dette.
 // `CAMPS_PERSONNAGE` et `PORTEE_INITIALE` sortent à l'itération 1 de la n° 4 :
 // le premier arme le `SegmentedControl` du camp d'une fiche (re-lister
 // « protagoniste / antagoniste » côté feature en ferait une seconde source que le
@@ -348,6 +377,12 @@ export {
 	localiserEntite,
 } from './dossier/identifiers'
 export type { EspaceDeNoms, EspaceDeNomsDescripteur } from './dossier/identifiers'
+// Le REGISTRE DES LIBELLÉS DE CHAMP — ré-exporté parce que DEUX features le
+// lisent (KR-109) : la fiche d'origine qui rend le champ, et le panneau Copilote
+// qui le NOMME sans être cette fiche. C'est la différence avec `amorce.ts`, que
+// rien n'exporte parce qu'aucune feature ne le lit (KR-223).
+export { LIBELLE_DES_CHAMPS } from './dossier/libelles'
+export type { CheminLibelle, LibelleDeChamp } from './dossier/libelles'
 // `compterMots` sort à la n° 3 (`dossier-canon`), qui en est le SECOND appelant
 // réel : le compteur « n/BUDGET mots » rendu sous les champs de canon. Un compteur
 // d'écran réimplémenté dériverait en silence de la borne qui décide réellement de

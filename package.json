@@ -10,7 +10,7 @@
 		"preview": "vite preview",
 		"typecheck": "tsc --noEmit",
 		"lint": "eslint . --ext .ts,.tsx",
-		"format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
+		"format": "prettier --write \"{src,worker}/**/*.{ts,tsx,css}\"",
 		"test": "jest",
 		"test:mutation": "stryker run",
 		"code": "claude --dangerously-skip-permissions --effort high --continue --fork-session --system-prompt SKILL.md"

@@ -1,11 +1,24 @@
 import { type ChangeEvent, type FocusEvent } from 'react'
-import { Field } from '../../../brain'
+import { Field, LIBELLE_DES_CHAMPS } from '../../../brain'
 import type { BrouillonPersonnage, ChampTexte } from '../hooks/useEcritureIdentite'
 
-const HINT_FONCTION = 'interne — jamais lu par le joueur'
-const HINT_APPARENCE =
-	'interne — jamais lu par le joueur — décrit, ne chiffre pas : la force se règle aux caractéristiques'
-const HINT_DESCRIPTION_JOUEUR = 'lue par le joueur'
+/**
+ * Les trois libellés viennent du REGISTRE `brain/dossier/libelles.ts` depuis
+ * l'itération 1 de la n° 8 : le panneau Copilote NOMME ces trois champs sans être
+ * leur fiche d'origine, donc deux features les lisent (KR-109). L'extraction est
+ * PURE — aucune chaîne n'a bougé, et la preuve en est que la suite de
+ * `dossier-fiches` est restée verte sans une seule retouche.
+ *
+ * TROIS ACCÈS EXPLICITES, jamais un indexage par `ChampTexte` : celui-ci vaut
+ * `keyof BrouillonPersonnage` et inclut `'nom'`, qui n'a pas d'entrée au registre
+ * — ça ne compilerait pas, et ce serait la bonne erreur pour une mauvaise raison.
+ *
+ * Les `PLACEHOLDER_*` ci-dessous NE MIGRENT PAS : ils n'ont qu'un lecteur, cette
+ * fiche. Une promotion spéculative est une dette (KR-235).
+ */
+const FONCTION = LIBELLE_DES_CHAMPS['monde.personnages[].fonction']
+const APPARENCE = LIBELLE_DES_CHAMPS['monde.personnages[].apparence']
+const DESCRIPTION_JOUEUR = LIBELLE_DES_CHAMPS['monde.personnages[].description_joueur']
 
 const PLACEHOLDER_FONCTION = 'Ermite retiré du monde, gardien de la mémoire de Val-Cendre.'
 const PLACEHOLDER_APPARENCE =
@@ -39,8 +52,8 @@ export function BlocIdentite({ brouillon, onChangeChamp, onBlurChamp }: BlocIden
 	return (
 		<>
 			<Field
-				label="FONCTION"
-				hint={HINT_FONCTION}
+				label={FONCTION.libelle}
+				hint={FONCTION.hint}
 				multiline
 				rows={2}
 				placeholder={PLACEHOLDER_FONCTION}
@@ -48,8 +61,8 @@ export function BlocIdentite({ brouillon, onChangeChamp, onBlurChamp }: BlocIden
 				{...champHandlers('fonction')}
 			/>
 			<Field
-				label="APPARENCE"
-				hint={HINT_APPARENCE}
+				label={APPARENCE.libelle}
+				hint={APPARENCE.hint}
 				multiline
 				rows={3}
 				placeholder={PLACEHOLDER_APPARENCE}
@@ -57,8 +70,8 @@ export function BlocIdentite({ brouillon, onChangeChamp, onBlurChamp }: BlocIden
 				{...champHandlers('apparence')}
 			/>
 			<Field
-				label="DESCRIPTION JOUEUR"
-				hint={HINT_DESCRIPTION_JOUEUR}
+				label={DESCRIPTION_JOUEUR.libelle}
+				hint={DESCRIPTION_JOUEUR.hint}
 				multiline
 				rows={3}
 				placeholder={PLACEHOLDER_DESCRIPTION_JOUEUR}

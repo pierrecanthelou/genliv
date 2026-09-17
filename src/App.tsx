@@ -6,6 +6,7 @@ import { ImportDossierButton } from './features/dossier-format'
 import { CreateDossierEntry } from './features/book-creation'
 import { DossierEditorScreen } from './features/bascule-editeur'
 import { PanneauControles } from './features/dossier-controles'
+import { PanneauCopilote } from './features/dossier-copilote'
 import { PanneauCanon, PanneauDepart, PanneauLieux } from './features/dossier-canon'
 import { PanneauPersonnages } from './features/dossier-fiches'
 import { PanneauObjets } from './features/dossier-objets'
@@ -45,6 +46,9 @@ export function App(): JSX.Element {
 				dossierId={route.dossierId}
 				panneauControles={(onSelectSection) => (
 					<PanneauControles dossierId={route.dossierId} onSelectSection={onSelectSection} />
+				)}
+				panneauCopilote={(onSelectSection) => (
+					<PanneauCopilote dossierId={route.dossierId} onSelectSection={onSelectSection} />
 				)}
 				panneaux={{
 					canon: <PanneauCanon dossierId={route.dossierId} />,
