@@ -166,6 +166,16 @@ Trois occurrences dans la seule itération 2 de `dossier-controles`, et les troi
 
 Précédent, et il a coûté deux affirmations fausses signées par deux rôles (`dossier-controles` it6, BUG-087) : le témoin du point fixe devait attraper une relaxation mono-passe et une propagation non orientée. Les **valeurs attendues** avaient bien été mesurées — justes, confirmées à l'unité. Le **pouvoir séparateur**, non : les deux implémentations fautives laissaient les sept tests **verts**. Une chaîne à deux arêtes se sature en une passe (le maillon intermédiaire entre dans l'ensemble sans jamais être dépilé, et la reconstruction ne teste que l'appartenance *finale*) ; et un pairage négatif dont le nœud orphelin est **isolé** n'oppose rien à une arête inversée — il y faut un nœud **relié**. Ni les deux tours, ni la porte mécanique, ni la revue de PR n'exécutent une phrase : seule la QA en mode B, qui a posé les mutants, l'a vu.
 
+### Une ASSERTION DE RÉSULTAT ne remplace une formule que si le SCÉNARIO fait DIVERGER les sources
+
+**Quand un critère préfère « le résultat vaut R » à « le code applique la formule F » — et c'est presque toujours le bon réflexe —, il doit AUSSI nommer le scénario qui fait diverger les sources possibles de R.** Sinon le témoin épingle une **coïncidence** : il garde le CALCUL, jamais LA SOURCE, et reste vert sous l'implémentation fautive qu'il était écrit pour attraper.
+
+*Une formule recopiée ne se vérifie pas, un résultat si* — la règle tient. Ce qu'elle ne dit pas, et qu'il faut ajouter : **un résultat ne discrimine que dans un état du monde où les candidats DONNENT DES RÉSULTATS DIFFÉRENTS.** Le rédacteur du critère doit donc se poser une question de plus : *« quelles sont les deux ou trois façons dont ce résultat pourrait être produit, et mon scénario les sépare-t-il ? »* Si toutes les sources coïncident dans le scénario nominal, le critère exige **explicitement** l'état où elles divergent.
+
+Précédent, et il a coûté le témoin CARDINAL d'une itération (`dossier-copilote` it3b, BUG-113) : le comité avait exigé, contre une formule recopiée, l'assertion de résultat « après N acceptations sur un plan de k étapes, les `etape` valent `1…k+N`, strictement croissants, sans doublon ». Le mutant que le plan ordonnait de voir rouge — le numéro pris sur la liste **gelée** au lieu de la liste **vive** — laissait **les treize tests verts**. Motif : le scénario faisait précéder chaque acceptation d'un « Lancer » qui **re-gèle**, donc les deux sources **coïncidaient toujours** au moment de l'écriture. Or la source ÉTAIT l'invariant — le plan écrivait lui-même qu'« entre la demande et l'acceptation, le plan bouge », et qu'un numéro calculé au mauvais instant est périmé **en silence**. Le seul état séparateur était une **écriture externe entre les deux gestes**, et aucun critère ne l'exigeait. **Le comité avait raison sur le principe ; il lui manquait d'exiger le scénario qui sépare.**
+
+**Test à appliquer à tout critère en `Alors <résultat>`** : écrire les implémentations plausibles, puis chercher l'état du monde où elles ne rendent PAS le même résultat. Cet état-là est le critère. S'il n'en existe aucun, les implémentations sont équivalentes et le choix n'avait pas à être arbitré.
+
 ## Instruments de test — le bon outil pour le bon risque
 
 Le dépôt tourne sur **jest + jsdom + Testing Library**.
