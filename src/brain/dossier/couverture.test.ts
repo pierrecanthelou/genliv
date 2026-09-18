@@ -1426,6 +1426,54 @@ describe('couverture', () => {
 		expect(sansPrefixe(destinations)).toContain(contrat)
 	})
 
+	it('le predicat de verite est present aux DEUX sites, mot pour mot', () => {
+		// QUATRIÈME INSTANCE du même instrument, après `secret` (it5 de la n° 4),
+		// `cede_si` (it8) et `manifestation` (it1 de la n° 6). Il arrive parce que
+		// l'itération 2 de la n° 8 RÉ-ÉCRIT la condition d'état de
+		// `monde.indices[].verite` : le rôle `indice-detenteurs` injecte le champ EN
+		// RÉDACTION, où il n'existe ni session ni moteur pour « constater ». Sans cette
+		// ré-écriture, les deux sites deviendraient FAUX — et leur lecteur désigné est
+		// l'ouvrier de la n° 10, celui qui code la protection du JOUEUR.
+		//
+		// Ce que ce test prouve : la PRÉSENCE du prédicat à ses deux sites, à
+		// l'identique. Ce qu'il ne prouve PAS, et ne peut pas : la JUSTESSE du texte —
+		// revue humaine seule. Le prédicat n'est PAS écrit en littéral ici : il est LU
+		// du JSDoc d'`Indice.verite` puis cherché dans `destinations.ts`. Une troisième
+		// copie se périmerait en silence le jour où les deux autres changeraient
+		// ensemble.
+		const types = fs.readFileSync(path.join(MODULE_DOSSIER, 'types.ts'), 'utf8')
+		const destinations = fs.readFileSync(path.join(MODULE_DOSSIER, 'destinations.ts'), 'utf8')
+
+		const sansPrefixe = (source: string): string =>
+			source.replace(/\r?\n[ \t]*(\*|\/\/) ?/g, ' ').replace(/[ \t]+/g, ' ')
+		const debut = "CONDITION D'ÉTAT — **en JEU**"
+		const fin = '`verite` est `ia` aux deux temps.'
+		const typesAplati = sansPrefixe(types)
+		const depart = typesAplati.indexOf(debut)
+
+		expect(depart).toBeGreaterThan(-1)
+
+		const predicat = typesAplati.slice(depart, typesAplati.indexOf(fin, depart) + fin.length)
+
+		// Discriminant : le prédicat extrait porte bien ses quatre clauses — les DEUX
+		// temps qu'il distingue, la clause (b) qui est la seule testable, et le rappel
+		// que ce n'est pas une dérogation. Sans elles, la comparaison ci-dessous
+		// vaudrait sur une phrase tronquée.
+		expect(predicat).toContain('**en JEU**')
+		expect(predicat).toContain('**En RÉDACTION**')
+		expect(predicat).toContain('aucune prose')
+		expect(predicat).toContain("dérogation d'audience")
+
+		expect(sansPrefixe(destinations)).toContain(predicat)
+	})
+
+	it('la re-ecriture de la condition d etat ne touche pas l audience de verite', () => {
+		// NON-RÉGRESSION, MESURÉE et non supposée : la ré-écriture ci-dessus ne touche
+		// QUE du commentaire. `verite` reste `ia` — aux deux temps, c'est précisément
+		// ce que le prédicat affirme —, donc zéro effet `tsc`, zéro effet runtime.
+		expect(DESTINATION_DES_CHAMPS['monde.indices[].verite']).toBe('ia')
+	})
+
 	it('chaque entree de PREDICATES a au moins une instance dans la fixture', () => {
 		// La fixture est le seul document dont on sait qu'il est complet : c'est elle
 		// qui ferme la boucle. Un prédicat sans instance n'est jamais éprouvé de bout

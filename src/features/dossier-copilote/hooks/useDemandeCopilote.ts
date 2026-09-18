@@ -1,51 +1,53 @@
 import { useEffect, useRef, useState } from 'react'
-import {
-	useBrain,
-	type CibleCopilote,
-	type Dossier,
-	type PropositionResolue,
-	type ReponseCopilote,
-} from '../../../brain'
+import type { EchecCopilote } from '../../../brain'
 
-/** Unique rôle de l'itération 1 — hors périmètre : tout ce qui n'est pas une
- *  fiche personnage. */
-const ROLE = 'personnage-prose' as const
-
-export type EtatDemande =
+/**
+ * QUATRE phases. La machine d'APPEL, et rien d'autre : la phase `'decide'`
+ * SORT (§ 8, TL-13, plan it2) — avec une décision PAR LIGNE (carte 2) elle est
+ * inexprimable, et elle doublait `decisionAffichee`/`decisions`, déjà portés
+ * par la carte. `accepter()`/`refuser()` disparaissent avec elle : MESURÉ,
+ * aucun test de la feature n'assertait `'decide'` avant ce lot — la sortir ne
+ * casse aucun témoin.
+ *
+ * La branche d'échec porte `EchecCopilote` et non la réponse entière :
+ * `'propose'` cesse d'être un statut représentable sur un échec.
+ */
+export type EtatDemande<P> =
 	| { phase: 'repos' }
 	| { phase: 'en-cours' }
-	| { phase: 'proposition'; proposition: PropositionResolue }
-	| { phase: 'echec'; reponse: ReponseCopilote }
-	| { phase: 'decide'; issue: 'accepte' | 'refuse' }
+	| { phase: 'proposition'; proposition: P }
+	| { phase: 'echec'; echec: EchecCopilote }
 
-export interface UseDemandeCopiloteResult {
-	etat: EtatDemande
-	/** Ne fait RIEN si un appel est déjà en vol — le garde est un `enVolRef`, PAS
-	 *  le `disabled` du bouton : deux clics synchrones passent avant le re-rendu
-	 *  (critère 1, mutant obligatoire). */
-	lancer: (cible: CibleCopilote) => void
+export interface UseDemandeCopiloteResult<C, P> {
+	etat: EtatDemande<P>
+	/** Ne fait RIEN si un appel est déjà en vol — le garde est `enVolRef`, PAS le
+	 *  `disabled` du bouton : deux clics synchrones passent avant le re-rendu. */
+	lancer: (cible: C) => void
 	annuler: () => void
-	accepter: () => void
-	refuser: () => void
 }
 
 /**
- * LA BOUCLE « DEMANDER » — lancer/annuler un aller-retour vers le copilote, et
- * rien d'autre. `accepter()`/`refuser()` sont de PURES transitions d'ÉTAT
- * D'ÉCRAN, jamais un appel à `DossierService.update` : l'écriture réelle est
- * orchestrée par `PanneauCopilote.tsx`, qui appelle `accepter()` SEULEMENT
- * après un `update()` réussi — ce qui laisse le panneau garder la proposition
- * affichée (et rendre les anomalies) si le SSOT la refuse (critère 4). Cette
- * séparation est ce qui permet à `EtatDemande` de rester la forme FIGÉE du § 4.1
- * (`{phase:'decide', issue}` ne porte aucune charge d'écriture).
+ * LA BOUCLE « DEMANDER » — GÉNÉRIQUE sur la cible `C` et la proposition `P`,
+ * paramétrée par le `demander` de SON appelant : chaque carte lie son propre
+ * rôle littéral (`copilote.demander('personnage-prose', dossier, cible, signal)`
+ * ou `copilote.demander('indice-detenteurs', dossier, cible, signal)`) avant de
+ * passer la fonction résultante ici — le hook lui-même ne connaît ni le rôle,
+ * ni `useBrain()`, ni `dossier`.
  *
- * `dossier` est un PARAMÈTRE, jamais lu via `useOpenDossier` ici : un seul
- * abonnement au dossier suffit pour tout le panneau (`PanneauCopilote.tsx`),
- * même discipline que `useEcritureIdentite`/`useSocleEcriturePersonnages`.
+ * `demander` est LU AU MOMENT DE L'APPEL, jamais stocké dans un `ref` ni
+ * capturé par un effet (KR-004) : `lancer` est redéfinie à chaque rendu et
+ * capture donc toujours la DERNIÈRE closure passée par l'appelant.
+ *
+ * INCHANGÉS depuis l'itération 1, et à NE PAS réécrire : l'abandon au
+ * démontage, la garde `controleur.signal.aborted` sur la résolution tardive,
+ * la branche `.catch` (une promesse rompue est une indisponibilité), et surtout
+ * le `.finally` qui ne rouvre le garde QUE si `controleurRef.current === controleur`
+ * (BUG-099 — séquence Lancer(A) → Annuler → Lancer(B), son test dédié).
  */
-export function useDemandeCopilote(dossier: Dossier | null): UseDemandeCopiloteResult {
-	const { copilote } = useBrain()
-	const [etat, setEtat] = useState<EtatDemande>({ phase: 'repos' })
+export function useDemandeCopilote<C, P>(
+	demander: (cible: C, signal: AbortSignal) => Promise<{ statut: 'propose'; proposition: P } | EchecCopilote>,
+): UseDemandeCopiloteResult<C, P> {
+	const [etat, setEtat] = useState<EtatDemande<P>>({ phase: 'repos' })
 	// Le garde « un appel en vol » — voir la docstring de `lancer` ci-dessus.
 	const enVolRef = useRef(false)
 	const controleurRef = useRef<AbortController | null>(null)
@@ -58,14 +60,13 @@ export function useDemandeCopilote(dossier: Dossier | null): UseDemandeCopiloteR
 		}
 	}, [])
 
-	function lancer(cible: CibleCopilote): void {
-		if (enVolRef.current || dossier === null) return
+	function lancer(cible: C): void {
+		if (enVolRef.current) return
 		enVolRef.current = true
 		const controleur = new AbortController()
 		controleurRef.current = controleur
 		setEtat({ phase: 'en-cours' })
-		copilote
-			.demander(ROLE, dossier, cible, controleur.signal)
+		demander(cible, controleur.signal)
 			.then((reponse) => {
 				// Un abandon VOULU (Annuler/Échap) a DÉJÀ ramené l'état à `repos` — cette
 				// réponse tardive (« annule ») ne doit rien écraser derrière lui.
@@ -73,16 +74,15 @@ export function useDemandeCopilote(dossier: Dossier | null): UseDemandeCopiloteR
 				setEtat(
 					reponse.statut === 'propose'
 						? { phase: 'proposition', proposition: reponse.proposition }
-						: { phase: 'echec', reponse },
+						: { phase: 'echec', echec: reponse },
 				)
 			})
 			.catch(() => {
-				// `CopiloteService.demander` est TOTAL aujourd'hui : il range toute panne
-				// dans son union et ne rejette jamais. Sans cette branche, le jour où il
-				// rejetterait, la phase resterait `en-cours` POUR TOUJOURS — panneau mort,
-				// sans trace. Une promesse rompue est une indisponibilité comme une autre.
+				// `demander` est TOTAL aujourd'hui : il range toute panne dans son union
+				// et ne rejette jamais. Sans cette branche, le jour où il rejetterait, la
+				// phase resterait `en-cours` POUR TOUJOURS — panneau mort, sans trace.
 				if (controleur.signal.aborted) return
-				setEtat({ phase: 'echec', reponse: { statut: 'indisponible', raison: 'injoignable' } })
+				setEtat({ phase: 'echec', echec: { statut: 'indisponible', raison: 'injoignable' } })
 			})
 			.finally(() => {
 				// LE GARDE EST RENDU PAR L'APPEL COURANT, JAMAIS PAR CELUI QUI SE TERMINE.
@@ -100,13 +100,5 @@ export function useDemandeCopilote(dossier: Dossier | null): UseDemandeCopiloteR
 		setEtat({ phase: 'repos' })
 	}
 
-	function accepter(): void {
-		setEtat({ phase: 'decide', issue: 'accepte' })
-	}
-
-	function refuser(): void {
-		setEtat({ phase: 'decide', issue: 'refuse' })
-	}
-
-	return { etat, lancer, annuler, accepter, refuser }
+	return { etat, lancer, annuler }
 }

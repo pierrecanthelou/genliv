@@ -4,23 +4,29 @@ import {
 	BrainProvider,
 	type Brain,
 	type Dossier,
+	type EchecCopilote,
 	type Personnage,
 	type ReponseCopilote,
 } from '../../../brain'
 import { PanneauCopilote } from '../components/PanneauCopilote'
+import { CARD1_TITRE, CARD2_TITRE } from '../textes'
 
 /**
- * Le panneau Copilote — les trois Card (§ 3.3/3.4), les états vides (§ 3.3),
- * le cycle de chargement/Annuler/Échap (§ 3.5) et les quatre textes
- * discriminés (§ 3.6, critère 3). L'écriture d'acceptation, elle, est éprouvée
- * par `acceptation.test.tsx` — fichier SÉPARÉ (§ 5 du plan, lot `panneau`).
+ * Le panneau Copilote — les trois Card (§ 3.2/4.9 du plan it2), les états
+ * vides, le cycle de chargement/Annuler/Échap (§ 3.5 de l'it1, désormais porté
+ * par `BarreLancer`) et les quatre textes discriminés de la carte 1 (critère
+ * 3, lot 1). L'écriture d'acceptation, elle, est éprouvée par
+ * `acceptation.test.tsx` (carte 1) et `detenteurs.test.tsx` (carte 2, fichier
+ * SÉPARÉ, § 5 du plan).
+ *
+ * DEPUIS L'ITÉRATION 2, DEUX boutons « Lancer » coexistent à l'écran (carte 1
+ * active, carte 2 activée) : toute requête `getByRole('button', {name:
+ * 'Lancer'})` NON cadrée lève `getMultipleElementsFoundError` — ce fichier
+ * cadre systématiquement via `within(screen.getByRole('region', {name:
+ * CARD1_TITRE}))`, le point d'ancrage exposé par `CarteAssistant` (§ 4.9).
  *
  * `brain.copilote` est BOUCHONNÉ directement (objet mutable, même patron que
- * `CopiloteService.test.ts` mockant `global.fetch` à la frontière du dessous) :
- * `BUDGET_CARACTERES_CONTEXTE` n'est pas exporté vers les features (§ 4 du
- * plan), donc un scénario RÉEL de refus « trop-long » n'est pas constructible
- * depuis le code de cette feature — la frontière sur laquelle cette feature a
- * prise est `CopiloteService`, pas le réseau.
+ * `CopiloteService.test.ts` mockant `global.fetch` à la frontière du dessous).
  */
 
 function renderPanel(brain: Brain, dossierId: string) {
@@ -51,8 +57,8 @@ function semerTon(brain: Brain, dossierId: string, ton: string): Dossier {
 	return ecriture.dossier
 }
 
-function bouchonnerCopilote(brain: Brain, demander: jest.Mock): void {
-	brain.copilote = { estDisponible: () => true, demander }
+function bouchonnerCopilote(brain: Brain, demander: jest.Mock, estDisponible = () => true): void {
+	brain.copilote = { estDisponible, demander }
 }
 
 /** Un dossier prêt (ton écrit, un personnage) + le copilote bouchonné sur
@@ -68,37 +74,45 @@ function preparer(demander: jest.Mock): { brain: Brain; unmount: () => void } {
 	return { brain, unmount }
 }
 
+function regionCarte1() {
+	return screen.getByRole('region', { name: CARD1_TITRE })
+}
+
 function choisirChamp(nom: string): void {
-	fireEvent.click(screen.getByRole('radio', { name: nom }))
+	fireEvent.click(within(regionCarte1()).getByRole('radio', { name: nom }))
 }
 
 beforeEach(() => window.localStorage.clear())
 
-describe('PanneauCopilote - trois Card, deux Bientot', () => {
-	it('rend les trois Card ; les deux Bientot portent un Badge muted et aucun bouton Lancer', () => {
+describe('PanneauCopilote - trois Card', () => {
+	it('rend les trois Card ; seule la 3e (Eclater le synopsis) porte un Badge et aucun bouton Lancer', () => {
 		const brain = createBrain()
 		const dossier = brain.dossiers.create('Un dossier')
 		renderPanel(brain, dossier.id)
 
-		expect(screen.getByText('Compléter une fiche')).toBeInTheDocument()
-		expect(screen.getByText('Tisser les indices')).toBeInTheDocument()
-		expect(screen.getByText('Éclater le synopsis')).toBeInTheDocument()
-		expect(screen.getByText('Bientôt — itération 2')).toBeInTheDocument()
+		expect(screen.getByRole('region', { name: 'Compléter une fiche' })).toBeInTheDocument()
+		expect(screen.getByRole('region', { name: 'Tisser les indices' })).toBeInTheDocument()
+		expect(screen.getByRole('region', { name: 'Éclater le synopsis' })).toBeInTheDocument()
+		expect(screen.queryByText('Bientôt — itération 2')).toBeNull()
 		expect(screen.getByText('Bientôt — itération 4')).toBeInTheDocument()
-		// Un seul bouton "Lancer" existe dans tout le panneau : ni Card "Bientôt"
-		// n'en affiche un, grisé ou non (§ 3.4).
-		expect(screen.getAllByRole('button', { name: 'Lancer' })).toHaveLength(1)
+		// DEUX boutons "Lancer" désormais (carte 1, carte 2) ; la carte "Bientôt"
+		// n'en affiche aucun, grisé ou non.
+		expect(screen.getAllByRole('button', { name: 'Lancer' })).toHaveLength(2)
 	})
 })
 
-describe('PanneauCopilote - etats vides', () => {
+describe('PanneauCopilote - etats vides (carte 1)', () => {
 	it('0 personnage : option nommee visible, Lancer desactive avec son title', () => {
+		// `estDisponible` bouchonnée VRAIE : la priorité (a) du § 3.2 point 5 ne
+		// doit pas masquer la raison (b), objet de ce test — isolation de variable.
 		const brain = createBrain()
 		const dossier = brain.dossiers.create('Un dossier')
+		bouchonnerCopilote(brain, jest.fn())
 		renderPanel(brain, dossier.id)
 
-		expect(screen.getByText('Aucun personnage dans ce dossier')).toBeInTheDocument()
-		const lancer = screen.getByRole('button', { name: 'Lancer' })
+		const carte1 = within(regionCarte1())
+		expect(carte1.getByText('Aucun personnage dans ce dossier')).toBeInTheDocument()
+		const lancer = carte1.getByRole('button', { name: 'Lancer' })
 		expect(lancer).toBeDisabled()
 		expect(lancer).toHaveAttribute('title', 'Créez un personnage dans Personnages pour utiliser cet assistant.')
 	})
@@ -107,9 +121,10 @@ describe('PanneauCopilote - etats vides', () => {
 		const brain = createBrain()
 		const dossier = brain.dossiers.create('Un dossier')
 		semerPersonnage(brain, dossier.id, { id: 'pnj.test', portee: 'premier', plan_actions: [], savoirs: [] })
+		bouchonnerCopilote(brain, jest.fn())
 		renderPanel(brain, dossier.id)
 
-		const lancer = screen.getByRole('button', { name: 'Lancer' })
+		const lancer = within(regionCarte1()).getByRole('button', { name: 'Lancer' })
 		expect(lancer).toBeDisabled()
 		expect(lancer).toHaveAttribute('title', 'Choisissez un champ pour activer Lancer.')
 	})
@@ -118,41 +133,44 @@ describe('PanneauCopilote - etats vides', () => {
 		const brain = createBrain()
 		const dossier = brain.dossiers.create('Un dossier')
 		semerPersonnage(brain, dossier.id, { id: 'pnj.test', portee: 'premier', plan_actions: [], savoirs: [] })
+		bouchonnerCopilote(brain, jest.fn())
 		renderPanel(brain, dossier.id)
 
 		choisirChamp('FONCTION')
 
-		const lancer = screen.getByRole('button', { name: 'Lancer' })
+		const lancer = within(regionCarte1()).getByRole('button', { name: 'Lancer' })
 		expect(lancer).not.toBeDisabled()
 	})
 })
 
-describe('PanneauCopilote - chargement, Annuler, Echap', () => {
+describe('PanneauCopilote - chargement, Annuler, Echap (carte 1)', () => {
 	it('au clic sur Lancer : role status apparait avec le texte de chargement, focus sur Annuler', async () => {
 		const demander = jest.fn(() => new Promise<ReponseCopilote>(() => {}))
 		preparer(demander)
 		choisirChamp('FONCTION')
+		const carte1 = within(regionCarte1())
 
-		fireEvent.click(screen.getByRole('button', { name: 'Lancer' }))
+		fireEvent.click(carte1.getByRole('button', { name: 'Lancer' }))
 
-		const region = screen.getByRole('status')
+		const region = carte1.getByRole('status')
 		expect(within(region).getByText('Le copilote réfléchit…')).toBeInTheDocument()
 		const annuler = within(region).getByRole('button', { name: 'Annuler' })
 		await waitFor(() => expect(annuler).toHaveFocus())
-		expect(screen.getByRole('button', { name: 'Lancer' })).toBeDisabled()
+		expect(carte1.getByRole('button', { name: 'Lancer' })).toBeDisabled()
 	})
 
 	it('Echap agit comme Annuler : la region disparait, Lancer redevient actif et reprend le focus', async () => {
 		const demander = jest.fn(() => new Promise<ReponseCopilote>(() => {}))
 		preparer(demander)
 		choisirChamp('FONCTION')
-		fireEvent.click(screen.getByRole('button', { name: 'Lancer' }))
-		const region = screen.getByRole('status')
+		const carte1 = within(regionCarte1())
+		fireEvent.click(carte1.getByRole('button', { name: 'Lancer' }))
+		const region = carte1.getByRole('status')
 
 		fireEvent.keyDown(region, { key: 'Escape' })
 
-		expect(screen.queryByRole('status')).toBeNull()
-		const lancer = screen.getByRole('button', { name: 'Lancer' })
+		expect(carte1.queryByRole('status')).toBeNull()
+		const lancer = carte1.getByRole('button', { name: 'Lancer' })
 		expect(lancer).not.toBeDisabled()
 		await waitFor(() => expect(lancer).toHaveFocus())
 	})
@@ -161,23 +179,24 @@ describe('PanneauCopilote - chargement, Annuler, Echap', () => {
 		const demander = jest.fn(() => new Promise<ReponseCopilote>(() => {}))
 		preparer(demander)
 		choisirChamp('FONCTION')
-		fireEvent.click(screen.getByRole('button', { name: 'Lancer' }))
+		const carte1 = within(regionCarte1())
+		fireEvent.click(carte1.getByRole('button', { name: 'Lancer' }))
 
-		fireEvent.click(screen.getByRole('button', { name: 'Annuler' }))
+		fireEvent.click(carte1.getByRole('button', { name: 'Annuler' }))
 
-		expect(screen.queryByRole('status')).toBeNull()
-		expect(screen.getByRole('button', { name: 'Lancer' })).not.toBeDisabled()
+		expect(carte1.queryByRole('status')).toBeNull()
+		expect(carte1.getByRole('button', { name: 'Lancer' })).not.toBeDisabled()
 	})
 })
 
-describe('PanneauCopilote - un seul appel en vol', () => {
+describe('PanneauCopilote - un seul appel en vol (carte 1)', () => {
 	it('deux clics synchrones sur Lancer ne produisent qu un seul appel a demander', () => {
 		// Promise RETENUE A LA MAIN (jamais résolue pendant ce test) : le garde
 		// mesuré ici est le NOMBRE D'APPELS, pas leur issue.
 		const demander = jest.fn(() => new Promise<ReponseCopilote>(() => {}))
 		preparer(demander)
 		choisirChamp('FONCTION')
-		const lancer = screen.getByRole('button', { name: 'Lancer' })
+		const lancer = within(regionCarte1()).getByRole('button', { name: 'Lancer' })
 
 		// Les DEUX clics dans le MEME act() : React 18 les traite comme un seul lot,
 		// donc le second frappe le DOM AVANT que `disabled` n'ait été re-rendu — le
@@ -192,8 +211,8 @@ describe('PanneauCopilote - un seul appel en vol', () => {
 	})
 })
 
-describe('PanneauCopilote - quatre textes discrimines', () => {
-	const CAS: Array<{ reponse: ReponseCopilote; texteAttendu: string }> = [
+describe('PanneauCopilote - quatre textes discrimines (carte 1)', () => {
+	const CAS: Array<{ reponse: EchecCopilote; texteAttendu: string }> = [
 		{
 			reponse: { statut: 'indisponible', raison: 'injoignable' },
 			texteAttendu: 'Le copilote est indisponible… Réessayez dans un instant.',
@@ -219,9 +238,9 @@ describe('PanneauCopilote - quatre textes discrimines', () => {
 			const demander = jest.fn().mockResolvedValue(cas.reponse)
 			const { unmount } = preparer(demander)
 			choisirChamp('FONCTION')
-			fireEvent.click(screen.getByRole('button', { name: 'Lancer' }))
+			fireEvent.click(within(regionCarte1()).getByRole('button', { name: 'Lancer' }))
 
-			const noeud = await screen.findByText(`⊘ ${cas.texteAttendu}`)
+			const noeud = await within(regionCarte1()).findByText(`⊘ ${cas.texteAttendu}`)
 			// Assertion PAR MOTIF (KR-197/199) : l'unicité seule n'a aucun pouvoir
 			// séparateur sur un branchement motif→texte inversé — un mutant qui
 			// échangerait deux textes resterait invisible à `new Set(...).size===4`
@@ -237,5 +256,26 @@ describe('PanneauCopilote - quatre textes discrimines', () => {
 		}
 
 		expect(new Set(textesRendus).size).toBe(4)
+	})
+})
+
+describe('PanneauCopilote - copilote non configure (critere neuf, § 3.2 point 5)', () => {
+	it('Lancer desactive avec TITRE_COPILOTE_NON_CONFIGURE sur les DEUX cartes', () => {
+		const brain = createBrain()
+		const dossier = brain.dossiers.create('Un dossier')
+		semerTon(brain, dossier.id, 'sec et mefiant')
+		semerPersonnage(brain, dossier.id, { id: 'pnj.test', portee: 'premier', plan_actions: [], savoirs: [] })
+		bouchonnerCopilote(brain, jest.fn(), () => false)
+		renderPanel(brain, dossier.id)
+
+		const TITRE = 'Configurez la synchronisation Cloudflare (pastille en bas à droite) pour utiliser cet assistant.'
+		const lancerCarte1 = within(regionCarte1()).getByRole('button', { name: 'Lancer' })
+		const lancerCarte2 = within(screen.getByRole('region', { name: CARD2_TITRE })).getByRole('button', {
+			name: 'Lancer',
+		})
+		expect(lancerCarte1).toBeDisabled()
+		expect(lancerCarte1).toHaveAttribute('title', TITRE)
+		expect(lancerCarte2).toBeDisabled()
+		expect(lancerCarte2).toHaveAttribute('title', TITRE)
 	})
 })

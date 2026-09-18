@@ -101,19 +101,33 @@ function encodeKey(raw: string): string {
 }
 
 /**
- * LE GABARIT DE SORTIE — le littéral que l'invite incruste, et la SEULE chose sur
- * laquelle le garde KR-236 a le droit de porter.
+ * LES GABARITS DE SORTIE, APPARIÉS AU RÔLE — le littéral que chaque invite
+ * incruste, et la SEULE chose sur laquelle le garde KR-236 a le droit de porter.
  *
  * DUPLIQUÉ depuis `src/brain/copilote/schemaSortie.ts`, et la duplication est
  * DÉLIBÉRÉE : aucun import `worker/` → `src/brain/`, qui traînerait du code client
  * dans le paquet wrangler. La liaison entre les deux exemplaires est un BALAYAGE
- * DE SOURCE (`worker/frontiere.test.ts`), jamais un import de production.
+ * DE SOURCE (`worker/frontiere.test.ts`), jamais un import de production. Le
+ * balayage s'ancre sur l'ENTRÉE et non sur la déclaration, ce qui est aussi ce qui
+ * rend son CANARI CROISÉ écrivable : intervertir les deux gabarits doit rougir.
+ *
+ * ⚠ MÊME FORME D'ÉCRITURE que `src/brain/copilote/schemaSortie.ts` — une entrée par
+ * ligne, une tabulation d'indentation, guillemets simples, virgule finale : c'est
+ * ce que l'expression ancrée du test extrait des DEUX côtés.
+ *
+ * `Record<string, string>` et non `Record<RoleCopilote, string>` : le type de rôle
+ * vit dans le client, et ce fichier n'importe rien de `src/`. La totalité des deux
+ * tables est portée par le test, pas par le compilateur — c'est le prix du paquet
+ * wrangler propre, et il est nommé.
  *
  * NE JAMAIS garder sur la clé nue : `valeur` est un mot français courant, et une
  * invite disant « la valeur du personnage » satisferait `includes('valeur')` sans
  * rien demander au modèle.
  */
-const GABARIT_SORTIE = '{"valeur": "…"}'
+const GABARIT_SORTIE: Record<string, string> = {
+	'personnage-prose': '{"valeur": "…"}',
+	'indice-detenteurs': '{"detenteurs": ["P1", "P2"]}',
+}
 
 /**
  * L'INVITE vit ICI et nulle part ailleurs. Exportée pour le SEUL garde KR-236.
@@ -139,7 +153,7 @@ export const INVITES: Record<string, { systeme: string; max_tokens: number }> = 
 			"Tu assistes l'AUTEUR d'un livre-jeu qui rédige la fiche d'un personnage.",
 			'À partir du contexte fourni, tu rédiges le texte du champ nommé par la demande, et de ce champ seul.',
 			'',
-			`Tu réponds par un objet JSON et rien d'autre, de la forme ${GABARIT_SORTIE} : aucune autre clé, aucun commentaire, aucun texte avant ou après.`,
+			`Tu réponds par un objet JSON et rien d'autre, de la forme ${GABARIT_SORTIE['personnage-prose']} : aucune autre clé, aucun commentaire, aucun texte avant ou après.`,
 			'',
 			"Tu écris une NOTE DE FICHE, à l'adresse de l'auteur : ce texte sera plus tard donné comme contexte à un narrateur, il ne sera jamais lu mot pour mot à un joueur.",
 			"Tu respectes le ton de l'aventure et ses interdits de ton.",
@@ -147,33 +161,75 @@ export const INVITES: Record<string, { systeme: string; max_tokens: number }> = 
 		].join('\n'),
 		max_tokens: 200,
 	},
+	/**
+	 * LE SECOND RÔLE. Ce que cette invite N'A PAS LE DROIT DE RÉCITER, et c'est une
+	 * décision, pas un oubli : le SEUIL de `indice-sans-source` (ni chiffre ni
+	 * paraphrase — un modèle qui le connaît optimise l'EXTINCTION DE L'ALERTE au lieu
+	 * de répondre à la question), le message du contrôle, la table d'audience, le
+	 * sens des trois certitudes, les quatre portes de révélation, les
+	 * caractéristiques, les seuils, les tiers.
+	 *
+	 * « Jamais plus de trois » y figure EN PLUS du contrat, jamais À LA PLACE :
+	 * `PROPOSITIONS_MAX` n'est ni une règle du jeu ni une règle du dossier, c'est la
+	 * FORME DE LA RÉPONSE ATTENDUE, même statut que `max_tokens`. L'invite persuade,
+	 * le validateur décide.
+	 */
+	'indice-detenteurs': {
+		systeme: [
+			"Tu assistes l'AUTEUR d'un livre-jeu qui répartit ce que ses personnages savent.",
+			"La demande te donne UN fait, puis une liste de personnages repérés P1, P2, … Tu désignes ceux qui pourraient plausiblement connaître ce fait, au vu de ce que la liste dit d'eux, et de rien d'autre.",
+			'',
+			`Tu réponds par un objet JSON et rien d'autre, de la forme ${GABARIT_SORTIE['indice-detenteurs']} : aucune autre clé, aucun commentaire, aucun texte avant ou après.`,
+			'',
+			"Chaque élément est un repère de la liste, recopié tel quel, entre guillemets. Tu n'en inventes aucun, tu ne répètes aucun repère, et tu n'en donnes jamais plus de trois.",
+			"Tu en donnes moins, ou aucun, quand la liste ne t'en dit pas assez pour choisir : une liste vide est une réponse juste.",
+			"Tu ne rédiges rien d'autre : ni nom, ni phrase, ni justification.",
+		].join('\n'),
+		// DÉRIVÉ, jamais recopié de 200 : pire cas 3 rangs à deux chiffres
+		// `{"detenteurs": ["P10", "P11", "P12"]}` ≈ 37 car., marge de format ~40 ;
+		// jetons = L/r × 3, arrondi à la centaine — r=3 ⇒ 40, r=2 (pire) ⇒ 60 ⇒ 100.
+		// Robuste au choix du ratio, donc risque de mesure nul.
+		max_tokens: 100,
+	},
 }
 
 /**
  * Plafond HTTP du corps d'un appel IA, en OCTETS — enveloppe et invite comprises.
  *
- * MESURÉ au lot contrat de l'itération 1 (protocole § 4 quater du plan) :
- * `ceil((3 × BUDGET_CARACTERES_CONTEXTE + E) / 1024) × 1024`, où `E` est
- * l'enveloppe en octets — le corps réel moins le texte du contexte, plus l'invite
- * composée. 3 octets par unité de code est la BORNE HAUTE réelle en UTF-8, et
- * elle est MESURÉE : `'€'` (BMP) coûte 3 octets pour UNE unité de code, alors
- * qu'un émoji coûte 4 octets pour DEUX unités, soit 2 par unité. Écrire 4 serait
- * une marge inventée présentée comme une borne.
+ * UN SEUL plafond, calé sur le PIRE RÔLE : la garde worker protège le BUDGET
+ * MODÈLE, c'est le budget CLIENT — lui, PAR RÔLE — qui refuse en amont. Doctrine
+ * non rouverte à l'itération 2.
  *
- * MESURE DU 2026-09-17, sur un corps réel bâti depuis le dossier de référence :
- * corps 1942 octets, texte du contexte 1820 octets, soit 122 octets d'enveloppe
- * JSON ; invite composée 693 octets ; `E = 122 + 693 = 815`. Avec
- * `BUDGET_CARACTERES_CONTEXTE = 6000` :
- * `ceil((3 × 6000 + 815) / 1024) × 1024 = ceil(18,37) × 1024 = 19456`.
+ * `max` sur les rôles de `ceil((3 × budget[rôle] + E[rôle]) / 1024) × 1024`, où `E`
+ * est l'enveloppe en octets : le squelette du corps à contexte vide, plus l'invite
+ * composée. 3 octets par unité de code est la BORNE HAUTE réelle en UTF-8, et elle
+ * est MESURÉE : `'€'` (BMP) coûte 3 octets pour UNE unité de code, alors qu'un
+ * émoji coûte 4 octets pour DEUX unités, soit 2 par unité. Écrire 4 serait une
+ * marge inventée présentée comme une borne. Ce facteur 3 couvre AUSSI l'échappement
+ * JSON du contexte : seuls des caractères ASCII sont échappés, et un échappement
+ * coûte 2 octets pour une unité de code.
  *
- * `worker/frontiere.test.ts` prouve que ce plafond couvre le budget client
- * converti au pire cas d'octets, et ses deux canaris prouvent que le lien est
- * séparateur : retirer 1 Ko au plafond, ou ajouter 400 au budget, le fait rougir.
+ * MESURE DU 2026-09-17, itération 2 :
+ *   `personnage-prose`  — squelette 90 o + invite 693 o ⇒ E = 783 ;
+ *                         ceil((3 × 6000 + 783) / 1024) × 1024 = 19 456
+ *   `indice-detenteurs` — squelette 42 o + invite 808 o ⇒ E = 850 ;
+ *                         ceil((3 × 17000 + 850) / 1024) × 1024 = 52 224
+ *   `max` = 52 224.
+ *
+ * (L'itération 1 relevait `E = 815` pour le rôle prose par la variante « corps réel
+ * moins texte du contexte » ; les deux méthodes donnent le MÊME plafond de 19 456
+ * pour ce rôle, l'écart n'étant que l'échappement des sauts de ligne.)
+ *
+ * `worker/frontiere.test.ts` prouve que ce plafond couvre le budget client de
+ * CHAQUE rôle converti au pire cas d'octets, et ses deux canaris — portés par le
+ * rôle le plus large, DÉRIVÉ par `Math.max`, jamais écrit — prouvent que le lien
+ * est séparateur : retirer 1 Ko au plafond, ou ajouter 400 au budget, le fait
+ * rougir.
  *
  * CE PLAFOND N'EST PAS UN CLIQUET : c'est une borne de refus, re-dérivée par la
  * même formule sur une nouvelle mesure chaque fois que le contexte s'élargit.
  */
-export const TAILLE_MAX_CORPS_IA = 19_456
+export const TAILLE_MAX_CORPS_IA = 52_224
 
 /** Toute réponse de la route `/ia/` est du JSON, y compris ses échecs (KR-233) :
  *  le client lit un motif, jamais une phrase à analyser. */
@@ -185,18 +241,22 @@ function respondIa(corps: unknown, status: number): Response {
  * Le premier bloc de texte d'une réponse de modèle, ou `null` si la charge n'a
  * pas la forme attendue — aucune supposition, aucune levée (KR-116).
  *
- * PROTOCOLE AMONT : **Anthropic Messages**, arrêté le 2026-09-17. La forme lue
- * ici — `content[]`, chaque bloc portant un `text` — EST cet engagement. C'EST LE
- * CHOIX DE L'OUVRIER, PAS UNE DÉCISION DU COMITÉ : le plan d'itération ne nomme
- * aucun fournisseur (§ 9 n° 6 de la revue), et c'est le couple `{systeme,
- * max_tokens}` qu'il fige qui a imposé ce protocole-là. Écrit ICI parce qu'un
- * arbitrage qui ne vit que dans une note de revue est un arbitrage que le
- * prochain lecteur du code ne trouvera pas (BUG-082).
+ * PROTOCOLE AMONT : **Anthropic Messages**, version épinglée `2023-06-01`. La
+ * forme lue ici — `content[]`, chaque bloc portant un `text` — EST cet engagement.
+ * C'EST UNE DÉCISION DE COMITÉ, RATIFIÉE le 2026-09-17 à l'itération 2 : la
+ * question ouverte « quel protocole amont » avait pour condition d'ouverture
+ * l'arrivée d'un SECOND rôle, elle est remplie, et le comité l'a close. Ce n'est
+ * donc plus le choix de l'ouvrier. Écrit ICI parce qu'un arbitrage qui ne vit que
+ * dans une note de revue est un arbitrage que le prochain lecteur du code ne
+ * trouvera pas (BUG-082).
  *
- * SI LE FOURNISSEUR CHANGE : cette fonction et le bloc de requête de `handleIa`
- * (en-têtes + enveloppe) sont les DEUX SEULS endroits à réécrire. Le contrat de
- * la route ne bouge pas — sept branches, réponses JSON, CORS, garde d'octets,
- * sortie rendue telle quelle, garde KR-236 sur `GABARIT_SORTIE`.
+ * CE QUE LA RATIFICATION EXIGE EN RETOUR : le second rôle N'ÉTEND PAS LE COUPLAGE.
+ * Cette fonction et le bloc de requête de `handleIa` (en-têtes + enveloppe) restent
+ * les DEUX SEULS endroits à réécrire si le fournisseur change ; une entrée de
+ * `INVITES` n'apporte que `{systeme, max_tokens}` — ni `tool_use`, ni
+ * `response_format`. Le contrat de la route ne bouge pas — sept branches, réponses
+ * JSON, CORS, garde d'octets, sortie rendue telle quelle, garde KR-236 sur
+ * `GABARIT_SORTIE`.
  */
 function premierTexte(charge: unknown): string | null {
 	if (typeof charge !== 'object' || charge === null) return null
@@ -255,16 +315,19 @@ async function handleIa(request: Request, env: Env, role: string): Promise<Respo
 
 	// 6 et 7 — l'aller-retour amont.
 	//
-	// PROTOCOLE AMONT : **Anthropic Messages**, arrêté le 2026-09-17 — l'en-tête
-	// `x-api-key`, l'en-tête de version `anthropic-version`, et l'enveloppe
+	// PROTOCOLE AMONT : **Anthropic Messages**, version épinglée `2023-06-01` —
+	// l'en-tête `x-api-key`, l'en-tête de version `anthropic-version`, et l'enveloppe
 	// `{model, max_tokens, system, messages}` sont cet engagement, pas une forme
-	// générique. C'EST LE CHOIX DE L'OUVRIER, PAS UNE DÉCISION DU COMITÉ (le plan
-	// ne nomme aucun fournisseur) ; à confirmer avant le premier déploiement.
+	// générique. C'EST UNE DÉCISION DE COMITÉ, RATIFIÉE le 2026-09-17 à l'itération 2
+	// — ce n'est plus le choix de l'ouvrier, et rien n'est « à confirmer » ici.
 	// SI LE FOURNISSEUR CHANGE : ce bloc et `premierTexte` ci-dessus, rien d'autre
 	// — ni les sept branches, ni le JSON, ni le CORS, ni la garde d'octets, ni
 	// KR-236. La version d'API est ÉPINGLÉE et non « la dernière » : un
 	// fournisseur qui fait évoluer sa forme de réponse ne doit pas pouvoir casser
 	// cette route sans qu'on ait touché ce fichier.
+	// CE QUE LE SECOND RÔLE ÉPROUVE ET QUE LE PREMIER N'ÉPROUVAIT PAS : que
+	// `max_tokens` VARIE d'un rôle à l'autre — il est bien lu de `invite.max_tokens`,
+	// jamais d'une constante de ce bloc.
 	//
 	// AUCUN `signal`, AUCUN délai : voir la docstring d'en-tête, § temps mural.
 	try {

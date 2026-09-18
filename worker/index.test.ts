@@ -266,3 +266,111 @@ describe('POST /ia/:role — les sept branches, toutes en JSON', () => {
 		await expect(res.text()).resolves.not.toContain(INVITES[ROLE].systeme)
 	})
 })
+
+describe('POST /ia/indice-detenteurs — la route du second role', () => {
+	const ROLE_2 = 'indice-detenteurs'
+	const URL_IA_2 = `https://genliv.example.workers.dev/ia/${ROLE_2}`
+
+	/** Le corps du SECOND rôle N'A PAS de `champ` : on ne demande pas un champ, on
+	 *  demande QUI. Le squelette le dit, sans quoi le test éprouverait la forme du
+	 *  premier rôle sur l'adresse du second. */
+	function corps2(octets: number): string {
+		const squelette = JSON.stringify({ role: ROLE_2, contexte: '' })
+		const aRemplir = octets - squelette.length
+		if (aRemplir < 0) throw new Error('taille demandée plus petite que le squelette du corps')
+		return JSON.stringify({ role: ROLE_2, contexte: 'x'.repeat(aRemplir) })
+	}
+
+	function demande2(corps: string, options: { methode?: string } = {}): Request {
+		const methode = options.methode ?? 'POST'
+		return new Request(URL_IA_2, {
+			method: methode,
+			headers: { 'Content-Type': 'application/json', 'X-Sync-Key': CLE },
+			body: methode === 'GET' ? undefined : corps,
+		})
+	}
+
+	it('la route du second role repond aux memes branches, toutes en JSON', async () => {
+		// 1 — POST SEUL.
+		const surGet = await worker.fetch(demande2('', { methode: 'GET' }), env())
+		expect(surGet.status).toBe(405)
+		await expect(surGet.json()).resolves.toEqual({ erreur: 'methode' })
+
+		// 2 — un rôle voisin mais absent d'`INVITES` reste inconnu : le second rôle
+		// n'ouvre PAS la route à tout segment de chemin.
+		const inconnu = await worker.fetch(
+			new Request('https://genliv.example.workers.dev/ia/indice-detenteur', {
+				method: 'POST',
+				headers: { 'X-Sync-Key': CLE },
+				body: '{}',
+			}),
+			env(),
+		)
+		expect(inconnu.status).toBe(404)
+		await expect(inconnu.json()).resolves.toEqual({ erreur: 'role-inconnu' })
+
+		// 3 — configuration amont incomplète.
+		const nonConfigure = await worker.fetch(demande2(corps2(200)), env({ IA_API_KEY: undefined }))
+		expect(nonConfigure.status).toBe(503)
+		expect(nonConfigure.headers.get('Content-Type')).toBe('application/json')
+		await expect(nonConfigure.json()).resolves.toEqual({ erreur: 'non-configure' })
+
+		// 4 — le plafond, à ±1 OCTET, sur CE rôle-ci.
+		fetchAmont.mockResolvedValue(amontRendant('{"detenteurs": ["P1"]}'))
+		const juste = await worker.fetch(demande2(corps2(TAILLE_MAX_CORPS_IA)), env())
+		expect(juste.status).toBe(200)
+		const unDeTrop = await worker.fetch(demande2(corps2(TAILLE_MAX_CORPS_IA + 1)), env())
+		expect(unDeTrop.status).toBe(413)
+		expect(unDeTrop.headers.get('Content-Type')).toBe('application/json')
+		await expect(unDeTrop.json()).resolves.toEqual({ erreur: 'trop-grand', limite: TAILLE_MAX_CORPS_IA })
+
+		// 5 — corps illisible.
+		const illisible = await worker.fetch(demande2('{ ceci ne parse pas'), env())
+		expect(illisible.status).toBe(400)
+		await expect(illisible.json()).resolves.toEqual({ erreur: 'corps-illisible' })
+	})
+
+	it('le nominal rend la sortie du second role TELLE QUELLE', async () => {
+		// Délibérément NON conforme au schéma du client : le worker ne valide rien et
+		// ne répare rien — la validation vit là où la donnée entre dans le dossier.
+		const sortieBrute = '{"detenteurs": ["P1", "P1", "P99"], "motif": "un echo interdit"}'
+		fetchAmont.mockResolvedValue(amontRendant(sortieBrute))
+
+		const res = await worker.fetch(demande2(corps2(300)), env())
+
+		expect(res.status).toBe(200)
+		expect(res.headers.get('Content-Type')).toBe('application/json')
+		await expect(res.text()).resolves.toBe(sortieBrute)
+	})
+
+	it('max_tokens VARIE d un role a l autre, et il est lu de l invite', async () => {
+		// CE QUE LE SECOND RÔLE ÉPROUVE ET QUE LE PREMIER N'ÉPROUVAIT PAS : avec un seul
+		// rôle, un `max_tokens` écrit en dur dans `handleIa` aurait été indistinguable
+		// d'une lecture d'`invite.max_tokens`.
+		fetchAmont.mockResolvedValue(amontRendant('{"detenteurs": []}'))
+
+		await worker.fetch(demande2(corps2(300)), env())
+
+		const [url, init] = fetchAmont.mock.calls[0] as [string, RequestInit]
+		expect(url).toBe('https://amont.invalid/messages')
+		const envoye = JSON.parse(String(init.body)) as { system: string; max_tokens: number }
+		expect(envoye.system).toBe(INVITES[ROLE_2].systeme)
+		expect(envoye.max_tokens).toBe(INVITES[ROLE_2].max_tokens)
+		// Le discriminant : les deux rôles ne demandent PAS le même plafond de jetons.
+		expect(INVITES[ROLE_2].max_tokens).not.toBe(INVITES[ROLE].max_tokens)
+	})
+
+	it('le protocole amont reste EPINGLE, et le second role ne l etend pas', async () => {
+		// La ratification du comité (2026-09-17) s'accompagne d'une exigence : le second
+		// rôle N'ÉTEND PAS LE COUPLAGE. Ni `tool_use`, ni `response_format`, et la
+		// version d'API reste épinglée — pas « la dernière ».
+		fetchAmont.mockResolvedValue(amontRendant('{"detenteurs": []}'))
+
+		await worker.fetch(demande2(corps2(300)), env())
+
+		const [, init] = fetchAmont.mock.calls[0] as [string, RequestInit]
+		expect((init.headers as Record<string, string>)['anthropic-version']).toBe('2023-06-01')
+		const envoye = JSON.parse(String(init.body)) as Record<string, unknown>
+		expect(Object.keys(envoye).sort()).toEqual(['max_tokens', 'messages', 'model', 'system'])
+	})
+})

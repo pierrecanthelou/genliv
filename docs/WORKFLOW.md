@@ -348,15 +348,15 @@ Procédure dormante — `genliv_changes/` n'existe pas aujourd'hui ; elle se ré
 
 ## Worker Route Parity
 
-Tout appel `fetch` vers le worker depuis `src/` doit avoir son gestionnaire dans `worker/index.ts` — une route manquante est un 404 silencieux en production. **État réel du dépôt** (à ne pas confondre avec la version générique de cette règle, écrite pour un worker qui n'est pas celui-ci) : le worker fait 111 lignes et n'expose **qu'une famille de routes**, `/kv/:key` en GET/PUT/DELETE, reconnue par `url.pathname.match(/^\/kv\/(.+)$/)` — pas par `pathname === '...'`. Son unique appelant est `brain/CloudflareKVTransport.ts`, qui construit `` `${base}/kv/…` ``. Ni `ROUTE_LIMITS`, ni limiteur de débit, ni route SSE, ni réponse JSON d'IA n'existent ici.
+Tout appel `fetch` vers le worker depuis `src/` doit avoir son gestionnaire dans `worker/index.ts` — une route manquante est un 404 silencieux en production. **Mesuré le 2026-09-18** : 424 lignes, **deux** familles de routes reconnues par `pathname.match` et jamais par `pathname === …` — `/ia/:role` en POST, `/kv/:key` en GET/PUT/DELETE — et **deux** appelants, `brain/CloudflareKVTransport.ts` et `brain/CopiloteService.ts`.
 
-Conséquence pour le relevé : chercher `Cloudflare*Service.ts` ou `workerUrl}/` **manque le seul appelant réel**. Le relevé qui marche :
+Le relevé cherche la **construction d'URL**, jamais l'appel : `CopiloteService` compose son URL dans une variable puis fait `fetch(url, …)`, donc un gabarit ancré sur l'appel le manque.
 
 ```
-grep -rn 'fetch(`\${' src/ --include='*.ts'
+grep -rnE '\$\{(base|workerUrl)[^}]*\}/' src/ --include='*.ts'
 ```
 
-D2 fera arriver les routes IA (une par rôle, SSE pour la narration) : c'est **à ce moment-là** qu'on écrit la vraie liste de contrôle — plafond de corps, garde 413, forme de réponse — mesurée sur le worker qu'on aura, pas recopiée d'un autre projet.
+La liste de contrôle d'une route IA **est livrée**, pas à écrire : plafond de corps en OCTETS, garde 413, 405 sur méthode, 404 sur rôle inconnu, 503 sur amont non configuré, **tout en JSON**. KR-233 fait foi, `worker/index.test.ts` la tient. Non livrés : limiteur de débit, route SSE (Temps 2).
 
 ## Failure Paths
 

@@ -1053,6 +1053,16 @@ export interface Indice extends Entite {
 	 *  dispositif que `plan_actions[].si_bloque` et `savoirs[].revele_comment` : la
 	 *  table dit l'AUDIENCE, le MOMENT est la charge de l'assembleur n° 10.
 	 *
+	 *  CONDITION D'ÉTAT — **en JEU** : le champ n'entre dans le contexte qu'après
+	 *  constat du moteur (carnet d'indices, n° 12). **En RÉDACTION** il n'existe
+	 *  aucune session : la condition n'a pas de sujet, elle ne devient pas
+	 *  « fausse ». Le champ entre alors **si et seulement si** (a) un rôle le nomme
+	 *  **explicitement** dans `CHAMPS_INJECTES`, et (b) le schéma de sortie de ce
+	 *  rôle **ne peut porter aucune prose** — sans quoi la vérité ressortirait
+	 *  paraphrasée dans le dossier, par le seul canal que l'itération 1 a nommé non
+	 *  couvert. Ce n'est **jamais** une dérogation d'audience : `verite` est `ia` aux
+	 *  deux temps.
+	 *
 	 *  À NE PAS CONFONDRE AVEC `formulation_joueur` juste en dessous : celle-ci dit ce
 	 *  que le joueur PERÇOIT, celle-là ce que la perception SIGNIFIE. OPTIONNELLE —
 	 *  absent ≠ vide, un indice en cours de rédaction est un état calme.

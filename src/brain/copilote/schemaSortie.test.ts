@@ -3,7 +3,15 @@ import path from 'node:path'
 import { construireAmorce, MARQUEUR_A_ECRIRE } from '../dossier/amorce'
 import { collectIds, ESPACES_DE_NOMS } from '../dossier/identifiers'
 import type { Dossier } from '../dossier/types'
-import { CLES_SORTIE, GABARIT_SORTIE, porteUnIdentifiant, validerSortie } from './schemaSortie'
+import {
+	CLES_SORTIE,
+	CLES_SORTIE_DETENTEURS,
+	GABARIT_SORTIE,
+	PROPOSITIONS_MAX,
+	porteUnIdentifiant,
+	validerDetenteurs,
+	validerSortie,
+} from './schemaSortie'
 
 /** Un dossier NEUF — c'est `construireAmorce` qui garantit `lieu.amorce`, et
  *  c'est pour ça que le canari de fuite le prend pour terrain : cet identifiant
@@ -92,7 +100,9 @@ describe('validerSortie — les six predicats de forme', () => {
 	it('le gabarit EST le schema', () => {
 		// La seule chose qui relie le littéral incrusté dans l'invite à la liste que
 		// le validateur applique. Sans cette ligne, les deux dériveraient en silence.
-		expect(Object.keys(JSON.parse(GABARIT_SORTIE) as Record<string, unknown>)).toEqual([...CLES_SORTIE])
+		expect(Object.keys(JSON.parse(GABARIT_SORTIE['personnage-prose']) as Record<string, unknown>)).toEqual([
+			...CLES_SORTIE,
+		])
 	})
 })
 
@@ -211,5 +221,167 @@ describe('le scanner anti-identifiant — les deux canaris et les trois mutants'
 
 		expect(porteUnIdentifiant(enCapitale, neuf)).toBe(false)
 		expect(porteUnIdentifiant(enCapitale.toLowerCase(), neuf)).toBe(true)
+	})
+})
+
+describe('validerDetenteurs — les sept predicats de forme du second role', () => {
+	/** La table des rangs telle que l'assembleur la rend, réduite à ses CLÉS : le
+	 *  validateur ne connaît que l'appartenance, jamais les identifiants. */
+	const RANGS: ReadonlySet<string> = new Set(['P1', 'P2', 'P3'])
+	const CLE = CLES_SORTIE_DETENTEURS[0]
+
+	it('1 — ce qui n est pas un objet JSON est refuse, motif schema', () => {
+		for (const brut of [null, undefined, [], ['P1'], 'P1', 42, true]) {
+			expect({ brut, ...validerDetenteurs(brut, RANGS) }).toEqual({ brut, ok: false, motif: 'schema' })
+		}
+	})
+
+	it('2 — l ensemble des cles doit valoir exactement CLES_SORTIE_DETENTEURS', () => {
+		// Une clé MANQUANTE, une clé RENOMMÉE (la panne KR-236 vue du validateur), une
+		// clé SURNUMÉRAIRE — un REFUS, jamais un champ ignoré : l'avaler rendrait la
+		// panne KR-236 muette, et une sortie qui nommerait elle-même l'indice pourrait
+		// nommer le MAUVAIS (KR-231).
+		expect(validerDetenteurs({}, RANGS)).toEqual({ ok: false, motif: 'schema' })
+		expect(validerDetenteurs({ rangs: ['P1'] }, RANGS)).toEqual({ ok: false, motif: 'schema' })
+		expect(validerDetenteurs({ [CLE]: ['P1'], indice_id: 'indice.trace-du-guet' }, RANGS)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+		// Une clé HÉRITÉE ne compte pas : `Object.keys` ne voit que le propre (KR-175).
+		expect(validerDetenteurs(Object.create({ [CLE]: ['P1'] }), RANGS)).toEqual({ ok: false, motif: 'schema' })
+	})
+
+	it('3 — une valeur qui n est pas un tableau est refusee, motif schema', () => {
+		for (const valeur of ['P1', 42, null, { P1: true }, true]) {
+			expect({ valeur, ...validerDetenteurs({ [CLE]: valeur }, RANGS) }).toEqual({ valeur, ok: false, motif: 'schema' })
+		}
+	})
+
+	it('4 — un element non textuel est refuse, motif schema', () => {
+		// 1, 2.5, -1 : le modèle a émis un NOMBRE au lieu d'un jeton. C'est précisément
+		// ce que le préfixe P décourage — et ce que ce prédicat arrête.
+		for (const element of [1, 2.5, -1, null, ['P1'], { rang: 'P1' }]) {
+			expect({ element, ...validerDetenteurs({ [CLE]: [element] }, RANGS) }).toEqual({
+				element,
+				ok: false,
+				motif: 'schema',
+			})
+		}
+	})
+
+	it('5 — longueur 4 refusee, jamais tronquee', () => {
+		// ANTI-COMPLAISANCE (a) : « proposer tout le monde ». Le refus porte sur le LOT
+		// ENTIER — la sortie fautive ne ressort NI tronquée à trois, NI partiellement.
+		const trop = ['P1', 'P2', 'P3', 'P1bis']
+		expect(trop.length).toBeGreaterThan(PROPOSITIONS_MAX)
+
+		const refus = validerDetenteurs({ [CLE]: trop }, new Set([...RANGS, 'P1bis']))
+
+		expect(refus).toEqual({ ok: false, motif: 'schema' })
+		expect(refus).not.toHaveProperty(CLE)
+		// Et EXACTEMENT PROPOSITIONS_MAX passe : sans ce bord, le prédicat pourrait
+		// porter un `>=` pour un `>` sans qu'un test rougisse.
+		expect(validerDetenteurs({ [CLE]: ['P1', 'P2', 'P3'] }, RANGS)).toEqual({
+			ok: true,
+			detenteurs: ['P1', 'P2', 'P3'],
+		})
+	})
+
+	it('6 — doublon non adjacent', () => {
+		// Deux fois le même rang écrirait DEUX savoirs identiques sur le même
+		// personnage. Non adjacent : un garde qui ne comparerait qu'aux voisins
+		// passerait.
+		expect(validerDetenteurs({ [CLE]: ['P1', 'P2', 'P1'] }, RANGS)).toEqual({ ok: false, motif: 'schema' })
+	})
+
+	it('7 — rang de forme legale hors table reelle', () => {
+		// P5 a la FORME d'un rang et n'est PAS dans la table. C'est le discriminant du
+		// choix de conception : la garantie d'un rang est son APPARTENANCE, jamais sa
+		// silhouette (KR-231/KR-235).
+		expect(validerDetenteurs({ [CLE]: ['P5'] }, RANGS)).toEqual({ ok: false, motif: 'rang-inconnu' })
+	})
+
+	it('la liste vide est un SUCCES', () => {
+		// Le prédicat de non-vacuité de l'it1 NE SE TRANSPORTE PAS : il gardait une
+		// prose SCALAIRE, où le vide est une non-réponse ; sur une LISTE le vide EST une
+		// réponse. Punir la réponse honnête est une machine à complaisance.
+		expect(validerDetenteurs({ [CLE]: [] }, RANGS)).toEqual({ ok: true, detenteurs: [] })
+	})
+
+	it('le nominal rend ok avec les jetons, et rien d autre', () => {
+		expect(validerDetenteurs({ [CLE]: ['P2'] }, RANGS)).toEqual({ ok: true, detenteurs: ['P2'] })
+	})
+
+	it('item 1 seul casse rejette le lot ENTIER, jamais P1 tout seul', () => {
+		// LE POUVOIR SÉPARATEUR, ÉCRIT ET NON DÉDUIT (BUG-087) : « la valeur attendue
+		// n'est pas le pouvoir séparateur ». On écrit ICI l'implémentation FAUTIVE que
+		// ce test existe pour attraper — le REPÊCHAGE PARTIEL (§ 8, TL-6) — et on
+		// constate qu'elle rendrait ['P1'], ce que la vraie refuse.
+		const lot = ['P1', 'P9']
+		const mutantRepechage = (rendus: readonly string[]): string[] => rendus.filter((rang) => RANGS.has(rang))
+
+		expect(mutantRepechage(lot)).toEqual(['P1'])
+
+		const refus = validerDetenteurs({ [CLE]: lot }, RANGS)
+
+		expect(refus).toEqual({ ok: false, motif: 'rang-inconnu' })
+		// Rien de la sortie fautive ne survit : l'auteur ne peut pas ratifier une liste
+		// tronquée sans savoir qu'elle l'est.
+		expect(refus).not.toHaveProperty(CLE)
+		expect(JSON.stringify(refus)).not.toContain('P1')
+	})
+
+	it('aucune conversion numerique nulle part', () => {
+		// Number('P1') vaut NaN. Un validateur qui convertirait refuserait donc TOUS les
+		// jetons légitimes — et un validateur qui indexerait arithmétiquement rouvrirait
+		// la classe entière des décalages base-0 / base-1. Le mutant est ÉCRIT, vu faux,
+		// puis laissé ici comme témoin.
+		const mutantNumerique = (rang: string): boolean => Number.isInteger(Number(rang))
+
+		expect(Number('P1')).toBeNaN()
+		expect(mutantNumerique('P1')).toBe(false)
+		// La vraie, elle, accepte — parce qu'elle fait un `Set.has` sur la chaîne telle
+		// quelle.
+		expect(validerDetenteurs({ [CLE]: ['P1'] }, RANGS)).toEqual({ ok: true, detenteurs: ['P1'] })
+
+		// Et le balayage de SOURCE ferme la porte pour de bon : la propriété est
+		// affirmée en docstring, donc elle a besoin d'un test (KR-169).
+		// Les COMMENTAIRES sont retirés d'abord, et ce n'est pas un détail : la
+		// docstring de `validerDetenteurs` NOMME les deux conversions qu'elle
+		// s'interdit, donc un balayage brut rougirait sur la phrase qui dit la règle.
+		const source = fs
+			.readFileSync(path.join(__dirname, 'schemaSortie.ts'), 'utf8')
+			.replace(/\/\*[\s\S]*?\*\//g, '')
+			.replace(/^[ \t]*\/\/.*$/gm, '')
+		expect(source).not.toContain('Number(')
+		expect(source).not.toContain('parseInt')
+		// Discriminant : le balayage porte bien sur du code réel — sans cette ligne, un
+		// retrait de commentaires trop gourmand le rendrait vert sur du vide.
+		expect(source).toContain('export function validerDetenteurs(')
+	})
+
+	it('le schema de sortie ne porte aucune cle de prose', () => {
+		// CLAUSE (b) DE LA CONDITION D'ÉTAT ré-écrite sur `monde.indices[].verite`
+		// (§ 4.7) : le champ n'entre en RÉDACTION que si le schéma de sortie du rôle NE
+		// PEUT PORTER AUCUNE PROSE. Trois lignes, chacune ferme une porte.
+		// (a) aucune clé commune avec le schéma de prose — on ne peut pas passer l'une
+		//     pour l'autre ;
+		expect(CLES_SORTIE_DETENTEURS.filter((cle) => (CLES_SORTIE as readonly string[]).includes(cle))).toEqual([])
+		// (b) la valeur du gabarit est une LISTE de jetons, jamais une chaîne ;
+		const rendu = JSON.parse(GABARIT_SORTIE['indice-detenteurs']) as Record<string, unknown>
+		expect(Object.keys(rendu)).toEqual([...CLES_SORTIE_DETENTEURS])
+		expect(Array.isArray(rendu[CLE])).toBe(true)
+		// (c) et une prose glissée dans la liste est refusée : elle n'appartient à
+		//     aucune table de rangs, et rien ne la repêche.
+		expect(validerDetenteurs({ [CLE]: ['Le sceau a ete brise de l interieur.'] }, RANGS)).toEqual({
+			ok: false,
+			motif: 'rang-inconnu',
+		})
+	})
+
+	it('le gabarit du second role EST son schema', () => {
+		expect(Object.keys(JSON.parse(GABARIT_SORTIE['indice-detenteurs']) as Record<string, unknown>)).toEqual([
+			...CLES_SORTIE_DETENTEURS,
+		])
 	})
 })

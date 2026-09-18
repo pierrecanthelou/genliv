@@ -414,7 +414,7 @@
 		{
 			"id": "KR-159",
 			"feature": "dossier-format",
-			"risk": "UN DECOMPTE CITE DANS UN PLAN DOIT ENONCER SON PREDICAT, PAS SEULEMENT SON NOMBRE -- c'est la lecon principale, et elle a coute deux fois : une estimation jamais mesuree ('neuf') au cadrage, puis du temps en revue faute de dire ce qu'on comptait. Cas : la scission types.ts -> tree.ts, mesuree trois fois le 2026-08-04 (ouvrier, orchestrateur, QA, meme resultat). TROIS DECOMPTES A NE PAS CONFONDRE : (a) 26 fichiers voient LEUR LIGNE D'IMPORT changer -- 21 dans src/brain/, 5 dans src/player/ (Edge seul), ZERO dans src/features/, qui consomment toutes par le baril brain/index.ts ; (b) 23 d'entre eux ne changent QUE ca, les 3 autres portent en plus du contenu contractuel neuf, donc la formule '26 fichiers, une ligne chacun' est FAUSSE pour eux ; (c) 30 = total des fichiers remplaces par le lot contrat. Encore autre chose : les douze fichiers de src/player/ qui importent les types de REGLES, et qui ne bougent pas. Ne jamais reenoncer un de ces nombres sans le remesurer. COROLLAIRE DE CADRAGE : la n1 CREE, elle ne detruit pas -- brain/types.ts porte aussi GameObject, SkillRoll, MonsterConfig, CreatureType, consommes par le runtime joueur declare conserve ; un remplacement litteral emporte le combat et la creation de personnage."
+			"risk": "UN DECOMPTE CITE DANS UN PLAN DOIT ENONCER SON PREDICAT, PAS SEULEMENT SON NOMBRE -- et il se REMESURE avant d'etre reenonce. Une estimation jamais mesuree ('neuf') au cadrage, puis du temps perdu en revue faute de dire CE QU'ON COMPTAIT : le meme perimetre donne des nombres differents selon qu'on compte les fichiers dont la LIGNE D'IMPORT change, ceux qui ne changent QUE ca, ou le total remplace par le lot. COMPACTE le 2026-09-18 (axe _about : une entree qui recopie une mesure ponctuelle se reduit a son invariant portable). Le cas qui a produit la lecon -- la scission types.ts -> tree.ts, mesuree trois fois le 2026-08-04 -- est LIVRE et ne se rejouera pas ; le decompte mesure, AVEC SON PREDICAT, est epingle au critere d'acceptation de src/features/dossier-format/specification.json."
 		},
 		{
 			"id": "KR-160",
@@ -774,7 +774,7 @@
 		{
 			"id": "KR-233",
 			"feature": "dossier-copilote",
-			"risk": "worker/index.ts n'avait AUCUN test au 2026-09-17 et jest.config.cjs ne le voyait pas (testMatch ancre sur src/**). Toute route IA neuve entre dans le MEME lot que son appelant ET recoit son test. MESURE : la pragma jest-environment node expose Request/Response/fetch nativement et un testMatch etendu a worker/** decouvre le fichier (3/3 verts). Deux gardes mesurees a poser : POST manque dans BASE_CORS (preflight refuse = panne SILENCIEUSE, invisible en test unitaire) et ALLOWED_ORIGINS est commente dans wrangler.toml (repli '*' en production)."
+			"risk": "TOUTE ROUTE IA NEUVE ENTRE DANS LE MEME LOT QUE SON APPELANT ET RECOIT SON TEST. worker/ est entre dans la porte de commit a l'it1 de dossier-copilote (jest.config.cjs + tsconfig include ; pragma jest-environment node pour Request/Response/fetch). Gardes a poser sur toute route neuve, mesurees : la methode dans BASE_CORS (un preflight refuse est une panne SILENCIEUSE, invisible en test unitaire) et une garde de taille de corps EN OCTETS rendant du JSON. ALLOWED_ORIGINS reste commente dans wrangler.toml (repli '*' en production) : dette nommee, non corrigee."
 		},
 		{
 			"id": "KR-234",
@@ -789,7 +789,7 @@
 		{
 			"id": "KR-236",
 			"feature": "dossier-copilote",
-			"risk": "L'INVITE VIT DANS LE WORKER, jamais dans le client. Discriminant : la MODIFIABILITE -- un prompt client est rejouable par quiconque ouvre les devtools, or c'est le worker qui detient la cle d'API ; invite cliente + cle serveur = un proxy de modele generaliste sur notre budget. REGLE : le CLIENT decide QUELLES DONNEES SORTENT, le WORKER CE QU'ON DEMANDE. Garde obligatoire : un test asserte que l'invite RENDUE contient le LITTERAL DE GABARIT, JAMAIS la cle nue -- 'valeur' est un mot francais COURANT, et 'la valeur de ce personnage' satisfait includes() sans rien demander (MESURE). Cas negatif obligatoire, sinon les deux moities divergent en un echec PERMANENT ET SILENCIEUX."
+			"risk": "L'INVITE VIT DANS LE WORKER, jamais dans le client (rejouable aux devtools ; c'est le worker qui detient la cle d'API). Le CLIENT decide QUELLES DONNEES SORTENT, le WORKER CE QU'ON DEMANDE. GARDE : un test asserte que l'invite RENDUE contient le LITTERAL DE GABARIT, JAMAIS la cle nue -- 'valeur' est un mot francais COURANT, et 'la valeur de ce personnage' satisfait includes() sans rien demander (MESURE). AMENDE A L'IT2 : des que les gabarits sont indexes PAR ROLE, cette garde reste VERTE sur une table MAL APPARIEE -- deux litteraux presents, corrects, simplement ECHANGES (MESURE). Il en faut TROIS : (1) egalite des ensembles de cles cote brain, cote worker et dans INVITES, qui attrape le role SANS gabarit ; (2) l'appariement role par role ; (3) un CANARI CROISE, intervertir deux gabarits doit ROUGIR -- sans lui 'absent' et 'mal apparie' sont indistinguables, et le mal-apparie est le seul defaut NEUF qu'une table a plusieurs entrees rende possible. Record<Role,string>, extraction du test ancree sur l'ENTREE et non sur la declaration."
 		}
 	]
 }

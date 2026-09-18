@@ -11,30 +11,55 @@
 import { MARQUEUR_A_ECRIRE } from '../dossier/amorce'
 import { ESPACES_DE_NOMS, collectIds } from '../dossier/identifiers'
 import type { Dossier } from '../dossier/types'
-import type { PropositionRendue } from './types'
+import type { DetenteursRendus, PropositionRendue, RangInjecte, RoleCopilote } from './types'
 
 /** Les clés du schéma de sortie, EN VALEUR : le garde KR-236 les énumère à
  *  l'exécution (une `interface` n'existe plus au runtime), et le validateur est
  *  PILOTÉ par cette liste — une seule source, aucune dérive possible. */
 export const CLES_SORTIE = ['valeur'] as const
 
-/**
- * LE LITTÉRAL QUE L'INVITE INCRUSTE — et la SEULE chose sur laquelle le garde
- * KR-236 a le droit de porter. NE JAMAIS garder sur la clé nue : `valeur` est un
- * mot français courant, et une invite disant « la valeur du personnage »
- * satisferait `includes('valeur')` sans rien demander au modèle.
- * DUPLIQUÉ dans `worker/index.ts` — aucun import `worker/` → `src/brain/` : la
- * liaison entre les deux exemplaires est un BALAYAGE DE SOURCE
- * (`worker/frontiere.test.ts`), jamais un import de production.
- */
-export const GABARIT_SORTIE = '{"valeur": "…"}'
+/** L'équivalent pour le rôle `indice-detenteurs`. DEUX registres LITTÉRAUX et non
+ *  un registre paramétré : une déclaration unique à deux formes — une prose
+ *  SCALAIRE et une COLLECTION — n'a aucune raison d'évoluer ensemble (§ 8, TL-3). */
+export const CLES_SORTIE_DETENTEURS = ['detenteurs'] as const
 
-/** QUATRE motifs, un par prédicat qui peut échouer — l'écran ne rend qu'UN texte
+/** LA BORNE DE SORTIE — combien de détenteurs le modèle a le droit de désigner.
+ *  Elle borne la SORTIE et dérive `max_tokens` (worker) ; `CANDIDATS_MAX` borne
+ *  l'ENTRÉE et dérive du budget de contexte. Dimensionner `max_tokens` sur le
+ *  nombre de CANDIDATS financerait une liste que ce contrat refuse. */
+export const PROPOSITIONS_MAX = 3
+
+/**
+ * LE GABARIT, APPARIÉ AU RÔLE — et c'est la moitié de la garde KR-236. Avec deux
+ * constantes séparées, l'appariement rôle → gabarit n'existerait QUE dans le test,
+ * qui en deviendrait un TROISIÈME porteur ; un `Record<RoleCopilote, string>` le
+ * rend TOTAL À LA COMPILATION — un rôle ajouté sans gabarit ne compile pas.
+ *
+ * NE JAMAIS garder sur la clé nue : `valeur` est un mot français courant, et une
+ * invite disant « la valeur du personnage » satisferait `includes('valeur')` sans
+ * rien demander au modèle. C'est le GABARIT que l'invite incruste, et la SEULE
+ * chose sur laquelle le garde a le droit de porter.
+ *
+ * DUPLIQUÉ dans `worker/index.ts` — aucun import `worker/` → `src/brain/`, qui
+ * traînerait du code client dans le paquet wrangler : la liaison est un BALAYAGE
+ * DE SOURCE (`worker/frontiere.test.ts`), jamais un import de production.
+ * ⚠ FORME D'ÉCRITURE IMPOSÉE, identique des DEUX côtés : une entrée par ligne, une
+ * tabulation d'indentation, guillemets simples, virgule finale — c'est ce que
+ * l'expression ancrée du test extrait.
+ */
+export const GABARIT_SORTIE: Record<RoleCopilote, string> = {
+	'personnage-prose': '{"valeur": "…"}',
+	'indice-detenteurs': '{"detenteurs": ["P1", "P2"]}',
+}
+
+/** CINQ motifs, un par prédicat qui peut échouer — l'écran ne rend qu'UN texte
  *  pour toute la famille, mais le motif existe pour que chaque prédicat se prouve
  *  seul. PAS de `'trop-long'` ici : la longueur de la prose n'est pas validée
  *  (doctrine de famille, `dossier/types.ts` — trois proses délibérément non
- *  bornées, KR-203). */
-export type MotifIllisible = 'schema' | 'vide' | 'marqueur' | 'identifiant'
+ *  bornées, KR-203). `'rang-inconnu'` est propre au rôle détenteurs : il localise
+ *  un mutant qui casserait spécifiquement l'APPARTENANCE, là où `'schema'` couvre
+ *  la forme. */
+export type MotifIllisible = 'schema' | 'vide' | 'marqueur' | 'identifiant' | 'rang-inconnu'
 
 /**
  * LE SCANNER ANTI-IDENTIFIANT — forme LÂCHE ∩ APPARTENANCE.
@@ -132,4 +157,77 @@ export function validerSortie(
 	if (porteUnIdentifiant(valeur, dossier)) return { ok: false, motif: 'identifiant' }
 
 	return { ok: true, valeur }
+}
+
+/**
+ * LES PRÉDICATS DE FORME de la sortie `indice-detenteurs`. `rangsConnus` vient de
+ * `ContexteDetenteurs.rangs` : le validateur ne CALCULE aucun rang, il constate une
+ * APPARTENANCE.
+ *
+ * Le type de retour dit littéralement ce qui est atteignable. `'vide'`, `'marqueur'`
+ * et `'identifiant'` sont SANS OBJET ici et ne sont PAS « rejoués par symétrie » :
+ * aucune prose n'est rendue par ce rôle, et un jeton qui passe l'appartenance est
+ * l'une de NOS PROPRES chaînes — `porteUnIdentifiant` n'a aucune cible et n'entre
+ * pas dans cette fonction. Les écrire serait du code mort présenté comme de la
+ * couverture (famille BUG-084, KR-235). Le scanner reste INTACT sur `validerSortie`.
+ *
+ * Les prédicats, dans l'ordre, chacun prouvé seul :
+ *   (1) objet simple (ni tableau, ni null) ..................... 'schema'
+ *   (2) clés = EXACTEMENT `CLES_SORTIE_DETENTEURS` ............. 'schema'
+ *   (3) `Array.isArray(brut.detenteurs)` ....................... 'schema'
+ *   (4) chaque élément est une CHAÎNE .......................... 'schema'
+ *   (5) longueur ≤ `PROPOSITIONS_MAX` — une liste de 6 est un
+ *       REFUS, jamais une troncature ........................... 'schema'
+ *   (6) éléments DISTINCTS (deux savoirs identiques sinon) ..... 'schema'
+ *   (7) chaque élément ∈ `rangsConnus` .................. 'rang-inconnu'
+ *
+ * LA LISTE VIDE EST UN SUCCÈS. Le prédicat de non-vacuité de l'it1 NE SE TRANSPORTE
+ * PAS : il portait sur une prose SCALAIRE, où le vide est une non-réponse ; sur une
+ * LISTE, le vide EST une réponse. Punir la réponse honnête est une machine à
+ * complaisance — un modèle qui ne peut pas dire « personne » nommera quelqu'un.
+ *
+ * Hors bornes, malformé, doublon, `2.5`, `-1`, `"toto"` : le LOT ENTIER est refusé,
+ * donc rejeu une fois puis état terminal. Accepter les rangs valides et jeter les
+ * autres serait une réparation silencieuse — l'auteur ratifierait une liste tronquée
+ * sans savoir qu'elle l'est (§ 8, TL-6).
+ *
+ * AUCUNE CONVERSION NUMÉRIQUE : ni `Number`, ni `parseInt`, ni indexation
+ * arithmétique. L'appartenance est un `Set.has` sur la chaîne telle quelle, et c'est
+ * ce qui supprime la classe entière des décalages base-0 / base-1.
+ */
+export function validerDetenteurs(
+	brut: unknown,
+	rangsConnus: ReadonlySet<RangInjecte>,
+): ({ ok: true } & DetenteursRendus) | { ok: false; motif: 'schema' | 'rang-inconnu' } {
+	// (1) un objet JSON — ni tableau, ni `null`.
+	if (!estObjetSimple(brut)) return { ok: false, motif: 'schema' }
+
+	// (2) l'ensemble des clés vaut EXACTEMENT `CLES_SORTIE_DETENTEURS`.
+	const cles = Object.keys(brut)
+	if (cles.length !== CLES_SORTIE_DETENTEURS.length || !CLES_SORTIE_DETENTEURS.every((cle) => cles.includes(cle))) {
+		return { ok: false, motif: 'schema' }
+	}
+
+	// (3) la clé du schéma porte un TABLEAU — piloté par `CLES_SORTIE_DETENTEURS`.
+	const rendus: unknown = brut[CLES_SORTIE_DETENTEURS[0]]
+	if (!Array.isArray(rendus)) return { ok: false, motif: 'schema' }
+
+	// (4) chaque élément est une CHAÎNE. Un NOMBRE `1` est ici — et c'est le motif du
+	//     préfixe `P` : le jeton ne ressemble à aucun entier, donc le modèle n'est
+	//     jamais invité à en émettre un.
+	if (!rendus.every((element): element is string => typeof element === 'string')) {
+		return { ok: false, motif: 'schema' }
+	}
+
+	// (5) la BORNE DE SORTIE — un REFUS, jamais une troncature (KR-230).
+	if (rendus.length > PROPOSITIONS_MAX) return { ok: false, motif: 'schema' }
+
+	// (6) éléments DISTINCTS — deux fois le même rang écrirait deux savoirs
+	//     identiques sur le même personnage.
+	if (new Set(rendus).size !== rendus.length) return { ok: false, motif: 'schema' }
+
+	// (7) APPARTENANCE — le LOT ENTIER est refusé sur un seul élément fautif.
+	if (!rendus.every((rang) => rangsConnus.has(rang))) return { ok: false, motif: 'rang-inconnu' }
+
+	return { ok: true, detenteurs: rendus }
 }

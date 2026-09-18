@@ -7,12 +7,14 @@
  * `contexte.ts`, l'appel réseau dans `../CopiloteService.ts`.
  */
 
-/** Table FERMÉE, une entrée par assistant. C'est AUSSI le segment de route
- *  (`/ia/personnage-prose`) et la clé de la table d'invites du worker : le nom
- *  encode le TYPE D'ENTITÉ, parce qu'un lieu et un personnage ne partagent aucun
- *  chemin injecté. `fiche-prose` promettrait une généralité qu'il faudrait
+/** DEUX rôles. Le nom se lit ⟨entité CIBLE⟩-⟨ce qu'on demande⟩ — « la prose d'un
+ *  personnage », « les détenteurs d'un indice ». C'est AUSSI le segment de route
+ *  (`/ia/indice-detenteurs`) et la clé des tables d'invites et de gabarits.
+ *
+ *  `'personnage-detenteurs'` a été refusé : il se lirait « les détenteurs d'un
+ *  personnage ». Et `fiche-prose` promettrait une généralité qu'il faudrait
  *  renommer — or renommer coûte une route, une invite et un test. */
-export type RoleCopilote = 'personnage-prose'
+export type RoleCopilote = 'personnage-prose' | 'indice-detenteurs'
 
 /** La CLÉ DE PROPRIÉTÉ dans le document — ce que la recette de `update` écrit. */
 export type ChampProseCle = 'fonction' | 'apparence' | 'description_joueur'
@@ -52,4 +54,35 @@ export interface PropositionResolue {
 	entiteId: string
 	champ: ChampProseChemin
 	texte: string
+}
+
+/** ALIAS DE LISIBILITÉ, et RIEN DE PLUS : `string` ne garantit rien. La SEULE
+ *  garantie d'un rang est son APPARTENANCE à `ContexteDetenteurs.rangs`, constatée
+ *  par `validerDetenteurs`. Forme du jeton : `P1`, `P2`, … `PN` — et le préfixe `P`
+ *  n'est pas décoratif : un `"1"` inviterait le modèle à émettre le NOMBRE `1`,
+ *  autre type JSON, donc un refus `'schema'` évitable.
+ *  AUCUNE conversion numérique nulle part — ni `Number`, ni `parseInt`, ni
+ *  indexation arithmétique : c'est ce qui supprime la classe entière des décalages
+ *  base-0 / base-1. La re-résolution est un `Map.get`. */
+export type RangInjecte = string
+
+/** CE QUE LE MODÈLE REND — franchit le réseau. UNE clé, un tableau de JETONS.
+ *  Aucun identifiant, aucune prose, aucune certitude (KR-231).
+ *
+ *  SON CONSOMMATEUR est la branche de succès de `validerDetenteurs`, exactement
+ *  comme `PropositionRendue` est celui de `validerSortie` : une forme réseau que
+ *  rien ne consomme est une déclaration sans appelant (KR-109).
+ *  NON ré-exportée par `brain/index.ts`. */
+export interface DetenteursRendus {
+	detenteurs: readonly RangInjecte[]
+}
+
+/** CE QUE LE CODE RE-RÉSOUT — ne franchit JAMAIS le réseau. ZÉRO clé commune avec
+ *  `DetenteursRendus` : on ne peut pas passer l'une pour l'autre par mégarde.
+ *  La CERTITUDE n'est pas ici — le code écrit `CERTITUDE_INITIALE`, exactement
+ *  comme l'éditeur quand l'auteur crée un savoir à la main. Un `croit` choisi par
+ *  le modèle serait une information FAUSSE inventée puis ratifiée d'un clic. */
+export interface PropositionDetenteurs {
+	indiceId: string
+	personnageIds: readonly string[]
 }

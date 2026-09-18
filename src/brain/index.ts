@@ -118,18 +118,48 @@ export { createCloudSettings, type CloudSettingsService } from './CloudSettingsS
 // membres de sa forme publique, et une feature qui doit annoter une branche
 // n'aurait aucun autre moyen de les NOMMER (même motif que `PorteeContreMesure`
 // avec `ContreMesure`).
-// NE SORTENT PAS : `assemblerContexte`, `CHAMPS_INJECTES`, `DEROGATIONS_AUDIENCE`,
-// `PARTIES_REQUISES`, `BUDGET_CARACTERES_CONTEXTE` — aucune feature n'a de raison
-// de composer un contexte elle-même, ni de lire la garde d'audience. Même
-// traitement que `DESTINATION_DES_CHAMPS` et `amorce.ts`.
-// NE SORT PAS NON PLUS : `PropositionRendue`, la forme RÉSEAU. Son seul
-// consommateur légitime est la branche de succès de `validerSortie`, dans
-// `brain/` ; une feature lit `PropositionResolue`, jamais ce que le modèle rend.
-// La ré-exporter donnait une ligne publique sans appelant (KR-109) — retirée.
-export type { CopiloteService, CibleCopilote, ReponseCopilote, RaisonIndisponible } from './CopiloteService'
+// NE SORTENT PAS : `assemblerProse`, `assemblerDetenteurs`, `ContexteProse`,
+// `ContexteDetenteurs`, `CHAMPS_INJECTES`, `DEROGATIONS_AUDIENCE`,
+// `PARTIES_REQUISES`, `BUDGET_CARACTERES_CONTEXTE`, `CANDIDATS_MAX` — aucune
+// feature n'a de raison de composer un contexte elle-même, ni de lire la garde
+// d'audience. Même traitement que `DESTINATION_DES_CHAMPS` et `amorce.ts`.
+// NE SORT PAS NON PLUS : `PropositionRendue` ni `DetenteursRendus`, les formes
+// RÉSEAU. Leur seul consommateur légitime est la branche de succès de leur
+// validateur, dans `brain/` ; une feature lit `PropositionResolue` ou
+// `PropositionDetenteurs`, jamais ce que le modèle rend. Les ré-exporter donnerait
+// une ligne publique sans appelant (KR-109).
+// NE SORTENT PAS ENFIN : `RangInjecte`, `validerDetenteurs`, `GABARIT_SORTIE`,
+// `PROPOSITIONS_MAX`. LA TABLE DES RANGS NE SORT JAMAIS DE `brain/copilote/` —
+// KR-231 tenu par la PORTÉE, pas par une convention : une feature qui pourrait la
+// lire pourrait la RE-DÉRIVER, et écrire dans le personnage n° 3 au lieu du n° 2
+// quand le dossier a changé entre l'appel et l'acceptation.
+// `EchecCopilote` sort, elle : c'est la branche d'échec COMMUNE aux deux rôles, et
+// l'état d'écran des deux cartes la porte.
+export type {
+	CopiloteService,
+	CibleCopilote,
+	CibleIndice,
+	ReponseCopilote,
+	ReponseDetenteurs,
+	EchecCopilote,
+	RaisonIndisponible,
+} from './CopiloteService'
 export { CHAMPS_PROPOSABLES } from './copilote/types'
-export type { RoleCopilote, ChampProseCle, ChampProseChemin, PropositionResolue } from './copilote/types'
+export type {
+	RoleCopilote,
+	ChampProseCle,
+	ChampProseChemin,
+	PropositionResolue,
+	PropositionDetenteurs,
+} from './copilote/types'
 export type { MotifIllisible } from './copilote/schemaSortie'
+// `MotifRefusContexte` sort AVEC `EchecCopilote`, même motif que `MotifIllisible` :
+// la carte 2 doit pouvoir NOMMER la branche `'cible-a-ecrire'` ou
+// `'aucun-candidat'` pour en tirer son texte, et elle n'a aucun autre moyen de le
+// faire. Le registre `LIBELLE_DES_CHAMPS` reste à quatre entrées : les motifs SANS
+// charge sont nommés en prose française par la feature, jamais par un libellé
+// d'écran (§ 8, TL-8).
+export type { MotifRefusContexte } from './copilote/contexte'
 export { createUIPreferencesService } from './UIPreferencesService'
 export type { UIPreferencesService, BookUIPrefs, Viewport, LayoutSpacing } from './UIPreferencesService'
 export { createMonsterLibraryService } from './MonsterLibraryService'
