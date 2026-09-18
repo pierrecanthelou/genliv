@@ -127,6 +127,7 @@ function encodeKey(raw: string): string {
 const GABARIT_SORTIE: Record<string, string> = {
 	'personnage-prose': '{"valeur": "…"}',
 	'indice-detenteurs': '{"detenteurs": ["P1", "P2"]}',
+	'personnage-repliques': '{"repliques": ["…", "…"]}',
 }
 
 /**
@@ -191,6 +192,60 @@ export const INVITES: Record<string, { systeme: string; max_tokens: number }> = 
 		// Robuste au choix du ratio, donc risque de mesure nul.
 		max_tokens: 100,
 	},
+	/**
+	 * LE TROISIÈME RÔLE — une LISTE DE PROSE LIBRE, ce qu'aucun des deux précédents ne
+	 * demandait.
+	 *
+	 * QUATRE DÉCISIONS D'ÉCRITURE, à ne pas « corriger » :
+	 *
+	 *  1. « ÉCHANTILLON DE VOIX » énonce la DESTINATION du texte, jamais le champ ni sa
+	 *     doctrine. AUCUN validateur ne peut constater cette propriété (KR-229) :
+	 *     l'invite est le seul endroit qui reste pour la dire.
+	 *  2. LE PIÈGE DE RECOPIE, et c'est le plus coûteux : l'invite du rôle prose écrit
+	 *     « une NOTE DE FICHE » parce que ses proses sont des DESCRIPTIONS. Une réplique
+	 *     est une PHRASE PRONONCÉE — recopier cette ligne-là produirait DES DESCRIPTIONS
+	 *     DE VOIX AU LIEU DE VOIX.
+	 *  3. « trois au plus » figure EN PLUS du contrat, jamais À LA PLACE :
+	 *     `REPLIQUES_PROPOSEES_MAX` est la FORME DE LA RÉPONSE ATTENDUE, même statut que
+	 *     `max_tokens`. L'invite persuade, le validateur décide.
+	 *     ⚠ ELLE NE DIT JAMAIS « DEUX AU PLUS » : `PARLER_REPLIQUES` borne le DOCUMENT,
+	 *     pas la réponse, et le nombre de propositions acceptables varie d'un personnage
+	 *     à l'autre.
+	 *  4. « et au moins une » est la moitié SYMÉTRIQUE de l'it2 : sans elle, l'invite et
+	 *     le validateur se contrediraient — celui-ci refuse la liste vide (rôle de
+	 *     RÉDACTION, la liste vide est une non-réponse).
+	 *
+	 * CE QU'ELLE N'A PAS LE DROIT DE RÉCITER : `PARLER_REPLIQUES` ni son chiffre · le
+	 * nom du champ `parler` · les six curseurs, leurs noms, leur échelle, leur
+	 * paraphrase · les seuils, tiers, caractéristiques · le message ou le seuil d'un
+	 * contrôle · la table d'audience.
+	 */
+	'personnage-repliques': {
+		systeme: [
+			"Tu assistes l'AUTEUR d'un livre-jeu qui règle la façon de parler d'un personnage.",
+			"À partir du contexte fourni, tu proposes des répliques types : de courtes phrases que CE personnage-là pourrait dire, telles qu'il les dirait.",
+			'',
+			`Tu réponds par un objet JSON et rien d'autre, de la forme ${GABARIT_SORTIE['personnage-repliques']} : aucune autre clé, aucun commentaire, aucun texte avant ou après.`,
+			'',
+			'Chaque réplique est un ÉCHANTILLON DE VOIX : elle servira plus tard à faire parler ce personnage dans des scènes que tu ne connais pas, elle ne sera jamais lue telle quelle à un joueur.',
+			'Tu en donnes trois au plus, et au moins une : même quand le contexte est maigre, une fonction et un but suffisent à faire entendre une voix.',
+			'Elles sont toutes différentes, chacune tenant en une ou deux phrases.',
+			"Chaque réplique ne dit que ce que CE personnage sait et dirait lui-même : ni ce que l'auteur sait, ni ce qui va se passer, ni ce qu'un autre personnage tait.",
+			"Tu respectes le ton de l'aventure et ses interdits de ton.",
+			"Tu n'écris jamais d'identifiant, jamais de chiffre de caractéristique, jamais de seuil ni de règle de jeu, jamais le nom d'un autre champ.",
+		].join('\n'),
+		// DÉRIVÉ, jamais recopié de 400, 200 ni 100 : la plus longue réplique ATTESTÉE
+		// sur DEUX SOURCES INDÉPENDANTES fait 74 caractères ; `3 × 74 + 27` d'enveloppe
+		// (`{"repliques": ["", "", ""]}`) ⇒ L ≈ 249 ; jetons = L/r × 3 — r=3 ⇒ 249,
+		// r=2 (PIRE) ⇒ 373,5 ⇒ arrondi à la centaine supérieure, 400.
+		// ⚠ LE RÉSULTAT DÉPEND DU RATIO (300 contre 400) : ce n'est PAS robuste comme
+		// l'était l'entrée détenteurs. On prend le pire, ET ON LE DIT.
+		// MODE D'ÉCHEC NOMMÉ, déclaré ici plutôt que découvert au runtime : trois
+		// répliques très longues feraient TRONQUER le JSON ⇒ refus `schema` côté client
+		// ⇒ rejeu ⇒ état terminal. C'est le BON échec — rien n'est réparé, rien n'est
+		// persisté.
+		max_tokens: 400,
+	},
 }
 
 /**
@@ -215,6 +270,14 @@ export const INVITES: Record<string, { systeme: string; max_tokens: number }> = 
  *   `indice-detenteurs` — squelette 42 o + invite 808 o ⇒ E = 850 ;
  *                         ceil((3 × 17000 + 850) / 1024) × 1024 = 52 224
  *   `max` = 52 224.
+ *
+ * MESURE DU 2026-09-18, itération 3a — LE TROISIÈME RÔLE NE DÉPLACE PAS LE `max`, et
+ * « inchangé » est ici une MESURE, pas une supposition :
+ *   `personnage-repliques` — squelette 44 o + invite 1155 o ⇒ E = 1199 ;
+ *                            ceil((3 × 4000 + 1199) / 1024) × 1024 = 13 312
+ *   `max` sur les TROIS rôles = 52 224, toujours porté par `indice-detenteurs`.
+ * Le rôle neuf est le plus ÉTROIT des trois — dix chemins, UNE fiche, aucun bloc
+ * numéroté, `synopsis_mj` retiré —, donc son plafond propre est le plus bas.
  *
  * (L'itération 1 relevait `E = 815` pour le rôle prose par la variante « corps réel
  * moins texte du contexte » ; les deux méthodes donnent le MÊME plafond de 19 456

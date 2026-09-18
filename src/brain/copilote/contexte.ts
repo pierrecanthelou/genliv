@@ -24,7 +24,7 @@ import type { Dossier } from '../dossier/types'
 // fonction) en créerait un vrai, avec son module à moitié initialisé. Si un jour
 // une valeur doit circuler dans ce sens, elle descend dans `./types` — qui, lui,
 // n'importe rien.
-import type { CibleCopilote, CibleIndice } from '../CopiloteService'
+import type { CibleCopilote, CibleIndice, CibleRepliques } from '../CopiloteService'
 import type { RangInjecte, RoleCopilote } from './types'
 
 /** Les chemins de feuille injectés PAR RÔLE, tous d'audience `'ia'`, chemins à
@@ -64,6 +64,43 @@ export const CHAMPS_INJECTES: Record<RoleCopilote, readonly string[]> = {
 		'monde.personnages[].description_joueur',
 		'monde.personnages[].but.libelle',
 	],
+	/**
+	 * DIX chemins, et le rôle est STRICTEMENT PLUS ÉTROIT que `personnage-prose`.
+	 * TROIS retraits, tous délibérés :
+	 *
+	 *  • `canon.mj.synopsis_mj` — présent chez `personnage-prose`, ABSENT ici. Ce
+	 *    qu'il apporte à l'écriture d'une voix : presque rien. Ce qu'il risque : une
+	 *    réplique qui le PARAPHRASE met du savoir MJ dans une phrase que le Temps 2
+	 *    donnera au rôle ACTEUR et fera PRONONCER — alors qu'une note de fiche est
+	 *    LUE par un narrateur. ASYMÉTRIE DU REGRET (KR-232).
+	 *  • `caractere.cede_si` — prédicat conditionné par RÔLE ; un rôle de rédaction
+	 *    n'est ni narrateur, ni acteur du porteur, ni arbitre : le prédicat n'a pas
+	 *    de sujet, il est INAPPLICABLE, et l'inapplicable ne s'injecte pas.
+	 *    PROPOSER n'est pas INJECTER (§ 8, TL3a-14).
+	 *  • `caractere.curseurs.*` — jamais, veto non contesté.
+	 *
+	 * ET LA CIBLE ELLE-MÊME, `caractere.parler[]`, EST EXCLUE **PAR ABSENCE** de
+	 * cette liste blanche — jamais par un saut à l'exécution. Un chemin listé puis
+	 * systématiquement sauté serait une LIGNE MORTE (KR-235) qu'un bogue de cible
+	 * pourrait ré-ouvrir ; une absence, elle, ne se ré-ouvre pas.
+	 *
+	 * `caractere.jamais` est LA LIMITE : elle borne ce que le personnage peut dire,
+	 * donc elle a sa place dans une demande de répliques.
+	 * `plan_actions[].action` n'est PAS tronqué ici — il n'y a qu'UNE fiche, là où le
+	 * rôle détenteurs en numérote jusqu'à `CANDIDATS_MAX`.
+	 */
+	'personnage-repliques': [
+		'canon.ton',
+		'canon.interdits_ton[]',
+		'canon.partage.accroche_joueur',
+		'monde.personnages[].fonction',
+		'monde.personnages[].apparence',
+		'monde.personnages[].description_joueur',
+		'monde.personnages[].but.libelle',
+		'monde.personnages[].but.pourquoi',
+		'monde.personnages[].caractere.jamais',
+		'monde.personnages[].plan_actions[].action',
+	],
 }
 
 /** La soupape. VIDE, et un test l'asserte vide (KR-232). Zéro dérogation. */
@@ -87,6 +124,12 @@ export const PARTIES_REQUISES: Record<RoleCopilote, readonly CheminLibelle[]> = 
 	 *  motif NEUF ET SANS CHARGE, `'cible-a-ecrire'`, dont le texte d'écran nomme le
 	 *  champ EN PROSE, côté feature. */
 	'indice-detenteurs': ['canon.ton'],
+	/** Le rôle répliques a le MÊME unique requis. Ce qu'il exige EN PLUS — une
+	 *  IDENTITÉ écrite pour le personnage cible — ne passe pas non plus par cette
+	 *  table : ce n'est pas UN champ mais une DISJONCTION sur les sept chemins de
+	 *  fiche, donc rien qu'un `CheminLibelle` puisse nommer. Son refus est le même
+	 *  motif SANS CHARGE, `'cible-a-ecrire'`. */
+	'personnage-repliques': ['canon.ton'],
 }
 
 /**
@@ -152,6 +195,16 @@ export const BUDGET_CARACTERES_CONTEXTE: Record<RoleCopilote, number> = {
 	// vides, sans quoi le nombre relevé est un PLANCHER et non une mesure.
 	// M = 5361 ⇒ ceil(5361 × 3 / 1000) × 1000 = 17000.
 	'indice-detenteurs': 17_000,
+	// MESURÉ le 2026-09-18 à l'itération 3a, sur l'entité de mesure RE-DÉRIVÉE par
+	// `contexte.test.ts` pour CE rôle-ci (le personnage le mieux rempli sur les SEPT
+	// chemins de fiche de ce rôle, greffé du `but` du seul porteur du dossier — la
+	// fixture n'appartient à aucun lot). Protocole de l'it1 : on asserte d'abord que
+	// LES DIX chemins résolvent non vides, sans quoi le nombre relevé est un PLANCHER
+	// et non une mesure.
+	// M = 1200 ⇒ ceil(1200 × 3 / 1000) × 1000 = 4000.
+	// C'est le rôle le plus ÉTROIT des trois, et c'est attendu : dix chemins, UNE
+	// fiche, aucun bloc numéroté, `synopsis_mj` retiré.
+	'personnage-repliques': 4000,
 }
 
 export type MotifRefusContexte =
@@ -260,6 +313,7 @@ function textesRediges(racine: unknown, chemin: string, prefixe: string): string
  *  ce fichier — ce qui varie est le CORPS, pas une donnée. */
 const ROLE_PROSE = 'personnage-prose'
 const ROLE_DETENTEURS = 'indice-detenteurs'
+const ROLE_REPLIQUES = 'personnage-repliques'
 
 /**
  * LE CONTEXTE DU RÔLE PROSE, assemblé pour un dossier et une cible.
@@ -427,4 +481,84 @@ export function assemblerDetenteurs(dossier: Dossier, cible: CibleIndice): Conte
 	if (texte.length > BUDGET_CARACTERES_CONTEXTE[ROLE_DETENTEURS]) return { ok: false, motif: 'trop-long' }
 
 	return { ok: true, texte, entitesInjectees, rangs }
+}
+
+/**
+ * L'ASSEMBLEUR DU TROISIÈME RÔLE — la voix d'UN personnage.
+ *
+ * TROISIÈME FONCTION NOMMÉE, ZÉRO BRANCHE DE RÔLE : ce fichier ne contient toujours
+ * aucun `if (role === …)`. Ce qui varie entre les trois assembleurs est le CORPS,
+ * pas une donnée — les primitives partagées (`textesRediges`, `estRedige`) font la
+ * chirurgie de chaîne une seule fois.
+ *
+ * `ContexteProse` est RÉUTILISÉ SANS ALIAS : un `type ContexteRepliques =
+ * ContexteProse` serait une abstraction à un seul appelant (KR-109), et le renommer
+ * rouvrirait la signature de l'it1 (dette nommée, même rang que `CibleCopilote`).
+ * La forme rendue est exactement celle du rôle prose — une fiche, un texte — parce
+ * que c'est exactement ce qu'elle est.
+ *
+ * REFUS, dans cet ORDRE FIGÉ, tous AVANT le moindre `fetch` :
+ *   1. `a-ecrire`       — `canon.ton` absent ou marqué (charge : `'canon.ton'`)
+ *   2. `cible-a-ecrire` — AUCUN des SEPT chemins de préfixe `monde.personnages[].`
+ *      ne résout non vide (ou la cible ne résout plus du tout). SANS charge.
+ *   3. `trop-long`      — REFUS, jamais de coupe (KR-230).
+ *
+ * `'aucun-candidat'` EST SANS OBJET ici — une seule entité, aucun rang à numéroter.
+ * Ne pas l'écrire : ce serait du code mort présenté comme de la couverture.
+ *
+ * LE REFUS 2, ET C'EST LA SEULE PIÈCE DE MÉCANISME NEUVE DE CETTE TRANCHE. Le
+ * PRÉDICAT de vacuité est réutilisé tel quel — `estRedige` ci-dessus, module-local et
+ * non exportée, appelée par `textesRediges` : rien à exporter, rien à déplacer. Ce
+ * qui est neuf est le QUANTIFICATEUR : l'it2 teste UN chemin nommé
+ * (`CHEMIN_VERITE_CIBLE`), ici c'est une DISJONCTION sur sept chemins. Aucun seuil
+ * numérique n'y entre.
+ *
+ * DISCRIMINANT, écrit pour qu'on ne l'étende pas par symétrie : ON PEUT INVENTER UNE
+ * FONCTION À PARTIR DE RIEN — c'est la page blanche que le but de la feature nomme ;
+ * ON NE PEUT PAS INVENTER UNE VOIX À PARTIR DE RIEN. Le garde vaut pour CE rôle, et
+ * pour lui seul (§ 8, n° 36).
+ */
+export function assemblerRepliques(dossier: Dossier, cible: CibleRepliques): ContexteProse {
+	const chemins = CHAMPS_INJECTES[ROLE_REPLIQUES]
+	const blocs: string[] = []
+	const retenus = new Set<string>()
+
+	// ── LE CANON, global ──────────────────────────────────────────────────────
+	for (const chemin of chemins) {
+		if (chemin.startsWith(PREFIXE_PERSONNAGE)) continue
+		const textes = textesRediges(dossier, chemin, '')
+		if (textes.length === 0) continue
+		retenus.add(chemin)
+		blocs.push(`${chemin}\n${textes.join('\n')}`)
+	}
+
+	// Refus 1 — un champ requis vidé par le filtre refuse AVANT tout appel.
+	for (const requis of PARTIES_REQUISES[ROLE_REPLIQUES]) {
+		if (!retenus.has(requis)) return { ok: false, motif: 'a-ecrire', chemin: requis }
+	}
+
+	// ── LA FICHE CIBLE ────────────────────────────────────────────────────────
+	// Refus 2, première moitié — la cible ne résout plus du tout (le dossier a
+	// changé sous l'écran). MÊME motif que la seconde : « plus de fiche » et « une
+	// fiche sans une ligne » demandent le même geste à l'auteur.
+	const fiche = dossier.monde.personnages.find((candidat) => candidat.id === cible.personnageId)
+	if (fiche === undefined) return { ok: false, motif: 'cible-a-ecrire' }
+
+	const blocsDeLaFiche: string[] = []
+	for (const chemin of chemins) {
+		if (!chemin.startsWith(PREFIXE_PERSONNAGE)) continue
+		const textes = textesRediges(fiche, chemin, PREFIXE_PERSONNAGE)
+		if (textes.length === 0) continue
+		blocsDeLaFiche.push(`${chemin}\n${textes.join('\n')}`)
+	}
+
+	// Refus 2, seconde moitié — LA DISJONCTION : pas UNE ligne d'identité écrite.
+	if (blocsDeLaFiche.length === 0) return { ok: false, motif: 'cible-a-ecrire' }
+	blocs.push(...blocsDeLaFiche)
+
+	const texte = blocs.join('\n\n')
+	// Refus 3 — on refuse, on ne coupe pas.
+	if (texte.length > BUDGET_CARACTERES_CONTEXTE[ROLE_REPLIQUES]) return { ok: false, motif: 'trop-long' }
+
+	return { ok: true, texte, entitesInjectees: [fiche.id] }
 }

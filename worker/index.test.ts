@@ -374,3 +374,132 @@ describe('POST /ia/indice-detenteurs — la route du second role', () => {
 		expect(Object.keys(envoye).sort()).toEqual(['max_tokens', 'messages', 'model', 'system'])
 	})
 })
+
+describe('POST /ia/personnage-repliques — la route du troisieme role', () => {
+	const ROLE_3 = 'personnage-repliques'
+	const URL_IA_3 = `https://genliv.example.workers.dev/ia/${ROLE_3}`
+
+	/** Le corps du TROISIÈME rôle N'A PAS de `champ` non plus : LE RÔLE EST LE CHAMP.
+	 *  Le squelette le dit, sans quoi le test éprouverait la forme du premier rôle sur
+	 *  l'adresse du troisième. */
+	function corps3(octets: number): string {
+		const squelette = JSON.stringify({ role: ROLE_3, contexte: '' })
+		const aRemplir = octets - squelette.length
+		if (aRemplir < 0) throw new Error('taille demandée plus petite que le squelette du corps')
+		return JSON.stringify({ role: ROLE_3, contexte: 'x'.repeat(aRemplir) })
+	}
+
+	function demande3(corps: string, options: { methode?: string } = {}): Request {
+		const methode = options.methode ?? 'POST'
+		return new Request(URL_IA_3, {
+			method: methode,
+			headers: { 'Content-Type': 'application/json', 'X-Sync-Key': CLE },
+			body: methode === 'GET' ? undefined : corps,
+		})
+	}
+
+	it('la route du troisieme role repond aux memes branches, toutes en JSON', async () => {
+		// LA LISTE DE CONTRÔLE KR-233, rejouée entière sur la route neuve : POST seul,
+		// 404 sur rôle inconnu, 503 sur amont non configuré, plafond de corps EN OCTETS
+		// avec 413, corps illisible — et TOUT en JSON.
+
+		// 1 — POST SEUL.
+		const surGet = await worker.fetch(demande3('', { methode: 'GET' }), env())
+		expect(surGet.status).toBe(405)
+		expect(surGet.headers.get('Content-Type')).toBe('application/json')
+		await expect(surGet.json()).resolves.toEqual({ erreur: 'methode' })
+
+		// 2 — un rôle VOISIN mais absent d'`INVITES` reste inconnu : le troisième rôle
+		// n'ouvre PAS la route à tout segment de chemin.
+		const inconnu = await worker.fetch(
+			new Request('https://genliv.example.workers.dev/ia/personnage-replique', {
+				method: 'POST',
+				headers: { 'X-Sync-Key': CLE },
+				body: '{}',
+			}),
+			env(),
+		)
+		expect(inconnu.status).toBe(404)
+		await expect(inconnu.json()).resolves.toEqual({ erreur: 'role-inconnu' })
+
+		// 3 — configuration amont incomplète, sur les TROIS secrets.
+		for (const manquant of ['IA_API_KEY', 'IA_BASE_URL', 'IA_MODEL']) {
+			const res = await worker.fetch(demande3(corps3(200)), env({ [manquant]: undefined }))
+			expect(`${manquant} → ${res.status}`).toBe(`${manquant} → 503`)
+			expect(res.headers.get('Content-Type')).toBe('application/json')
+			await expect(res.json()).resolves.toEqual({ erreur: 'non-configure' })
+		}
+
+		// 4 — le plafond, à ±1 OCTET, sur CE rôle-ci.
+		fetchAmont.mockResolvedValue(amontRendant('{"repliques": ["Une replique."]}'))
+		const juste = await worker.fetch(demande3(corps3(TAILLE_MAX_CORPS_IA)), env())
+		expect(juste.status).toBe(200)
+		const unDeTrop = await worker.fetch(demande3(corps3(TAILLE_MAX_CORPS_IA + 1)), env())
+		expect(unDeTrop.status).toBe(413)
+		expect(unDeTrop.headers.get('Content-Type')).toBe('application/json')
+		await expect(unDeTrop.json()).resolves.toEqual({ erreur: 'trop-grand', limite: TAILLE_MAX_CORPS_IA })
+
+		// 4 bis — la mesure est en OCTETS, jamais en unités de code UTF-16.
+		const rembourrage = '€'.repeat(Math.ceil(TAILLE_MAX_CORPS_IA / 2))
+		const enUtf8 = JSON.stringify({ role: ROLE_3, contexte: rembourrage })
+		expect(enUtf8.length).toBeLessThan(TAILLE_MAX_CORPS_IA)
+		expect(new TextEncoder().encode(enUtf8).length).toBeGreaterThan(TAILLE_MAX_CORPS_IA)
+		expect((await worker.fetch(demande3(enUtf8), env())).status).toBe(413)
+
+		// 5 — corps illisible.
+		const illisible = await worker.fetch(demande3('{ ceci ne parse pas'), env())
+		expect(illisible.status).toBe(400)
+		await expect(illisible.json()).resolves.toEqual({ erreur: 'corps-illisible' })
+
+		// 6 — un amont en échec rend 502, en JSON.
+		fetchAmont.mockReset()
+		fetchAmont.mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({}) } as unknown as Response)
+		const surEchec = await worker.fetch(demande3(corps3(200)), env())
+		expect(surEchec.status).toBe(502)
+		await expect(surEchec.json()).resolves.toEqual({ erreur: 'amont' })
+	})
+
+	it('le nominal rend la sortie du troisieme role TELLE QUELLE', async () => {
+		// Délibérément NON conforme au schéma du client — QUATRE répliques, dont une
+		// vide, plus une clé en trop : le worker ne valide rien et ne répare rien, la
+		// validation vit là où la donnée entre dans le dossier (KR-116).
+		const sortieBrute = '{"repliques": ["Une.", "Deux.", "Trois.", ""], "champ": "un echo interdit"}'
+		fetchAmont.mockResolvedValue(amontRendant(sortieBrute))
+
+		const res = await worker.fetch(demande3(corps3(300)), env())
+
+		expect(res.status).toBe(200)
+		expect(res.headers.get('Content-Type')).toBe('application/json')
+		await expect(res.text()).resolves.toBe(sortieBrute)
+	})
+
+	it('max_tokens du troisieme role est LU de l invite, et differe des deux autres', async () => {
+		fetchAmont.mockResolvedValue(amontRendant('{"repliques": ["Une replique."]}'))
+
+		await worker.fetch(demande3(corps3(300)), env())
+
+		const [url, init] = fetchAmont.mock.calls[0] as [string, RequestInit]
+		expect(url).toBe('https://amont.invalid/messages')
+		const envoye = JSON.parse(String(init.body)) as { system: string; max_tokens: number }
+		expect(envoye.system).toBe(INVITES[ROLE_3].systeme)
+		expect(envoye.max_tokens).toBe(INVITES[ROLE_3].max_tokens)
+		// Le discriminant : les TROIS rôles demandent TROIS plafonds de jetons distincts
+		// — un `max_tokens` écrit en dur dans `handleIa` rougirait ici.
+		const plafonds = Object.keys(INVITES).map((role) => INVITES[role].max_tokens)
+		expect(new Set(plafonds).size).toBe(plafonds.length)
+	})
+
+	it('le protocole amont reste EPINGLE, et le troisieme role ne l etend pas', async () => {
+		// L'exigence de la ratification vaut pour CHAQUE rôle ajouté : ni `tool_use`, ni
+		// `response_format`, et la version d'API reste ÉPINGLÉE — pas « la dernière ».
+		// Une entrée d'`INVITES` n'apporte que `{systeme, max_tokens}`.
+		fetchAmont.mockResolvedValue(amontRendant('{"repliques": ["Une replique."]}'))
+
+		await worker.fetch(demande3(corps3(300)), env())
+
+		const [, init] = fetchAmont.mock.calls[0] as [string, RequestInit]
+		expect((init.headers as Record<string, string>)['anthropic-version']).toBe('2023-06-01')
+		const envoye = JSON.parse(String(init.body)) as Record<string, unknown>
+		expect(Object.keys(envoye).sort()).toEqual(['max_tokens', 'messages', 'model', 'system'])
+	})
+})

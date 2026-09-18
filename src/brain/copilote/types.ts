@@ -7,14 +7,24 @@
  * `contexte.ts`, l'appel réseau dans `../CopiloteService.ts`.
  */
 
-/** DEUX rôles. Le nom se lit ⟨entité CIBLE⟩-⟨ce qu'on demande⟩ — « la prose d'un
- *  personnage », « les détenteurs d'un indice ». C'est AUSSI le segment de route
- *  (`/ia/indice-detenteurs`) et la clé des tables d'invites et de gabarits.
+/** TROIS rôles. Le nom se lit ⟨entité CIBLE⟩-⟨ce qu'on demande⟩ — « la prose d'un
+ *  personnage », « les détenteurs d'un indice », « les répliques d'un personnage ».
+ *  C'est AUSSI le segment de route (`/ia/indice-detenteurs`) et la clé des tables
+ *  d'invites et de gabarits.
  *
  *  `'personnage-detenteurs'` a été refusé : il se lirait « les détenteurs d'un
  *  personnage ». Et `fiche-prose` promettrait une généralité qu'il faudrait
- *  renommer — or renommer coûte une route, une invite et un test. */
-export type RoleCopilote = 'personnage-prose' | 'indice-detenteurs'
+ *  renommer — or renommer coûte une route, une invite et un test.
+ *
+ *  `'personnage-voix'` est ÉCARTÉ : ce qu'on demande n'est pas *une voix*
+ *  (abstraction qui invite une DESCRIPTION de la voix) mais DES RÉPLIQUES. Un seul
+ *  mot traverse le rôle, la clé de fil, le validateur et la borne — aucune surface
+ *  d'« harmonisation » pour un ouvrier.
+ *  ⚠ SANS ACCENT : `'personnage-répliques'` sortirait de la classe `[a-z-]+` de
+ *  l'expression d'extraction (`worker/frontiere.test.ts`) ET de celle de la route
+ *  (`worker/index.ts`), le gabarit ne serait pas extrait, et la totalité rougirait
+ *  PAR LE MAUVAIS MESSAGE. */
+export type RoleCopilote = 'personnage-prose' | 'indice-detenteurs' | 'personnage-repliques'
 
 /** La CLÉ DE PROPRIÉTÉ dans le document — ce que la recette de `update` écrit. */
 export type ChampProseCle = 'fonction' | 'apparence' | 'description_joueur'
@@ -85,4 +95,31 @@ export interface DetenteursRendus {
 export interface PropositionDetenteurs {
 	indiceId: string
 	personnageIds: readonly string[]
+}
+
+/** CE QUE LE MODÈLE REND — franchit le réseau. UNE clé, un tableau de PROSE LIBRE.
+ *  Aucun écho du champ : le RÔLE est le champ, il n'y a rien à nommer.
+ *
+ *  SON CONSOMMATEUR est la branche de succès de `validerRepliques`, exactement
+ *  comme `PropositionRendue` est celui de `validerSortie` : une forme réseau que
+ *  rien ne consomme est une déclaration sans appelant (KR-109).
+ *  NON ré-exportée par `brain/index.ts`. */
+export interface RepliquesRendues {
+	repliques: readonly string[]
+}
+
+/** CE QUE LE CODE RE-RÉSOUT — ne franchit JAMAIS le réseau. ZÉRO clé commune avec
+ *  `RepliquesRendues` : on ne peut pas passer l'une pour l'autre par mégarde
+ *  (KR-231).
+ *
+ *  `ajouts` et NON `textes` : `textes` est à UNE LETTRE de `PropositionResolue.texte`,
+ *  et deux formes de proposition voisines dont les clés se confondent à la lecture
+ *  sont exactement ce que KR-231 ferme.
+ *  `ajouts` et NON `parler` : un champ homonyme du document inviterait
+ *  `{...caractere, parler: proposition.parler}` — un ÉCRASEMENT de ce que l'auteur a
+ *  déjà écrit, là où la sémantique d'écriture de cette liste est l'AJOUT. Le nom
+ *  porte la sémantique d'écriture. */
+export interface PropositionRepliques {
+	personnageId: string
+	ajouts: readonly string[]
 }

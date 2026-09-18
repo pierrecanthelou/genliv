@@ -2,6 +2,7 @@ import { useBrain, useOpenDossier, type SectionId } from '../../../brain'
 import { CARD3_BADGE, CARD3_CORPS, CARD3_TITRE } from '../textes'
 import { CarteAssistant } from './CarteAssistant'
 import { CarteCompleterFiche } from './CarteCompleterFiche'
+import { CarteFaireParler } from './CarteFaireParler'
 import { CarteTisserIndices } from './CarteTisserIndices'
 import { pageStyle } from './styles'
 
@@ -34,6 +35,12 @@ export function PanneauCopilote({ dossierId, onSelectSection }: PanneauCopiloteP
 				onSelectSection={onSelectSection}
 			/>
 			<CarteTisserIndices
+				dossierId={dossierId}
+				dossier={dossier}
+				indisponible={indisponible}
+				onSelectSection={onSelectSection}
+			/>
+			<CarteFaireParler
 				dossierId={dossierId}
 				dossier={dossier}
 				indisponible={indisponible}

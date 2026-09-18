@@ -16,9 +16,14 @@
  * d'API et qui paie.
  */
 import type { CloudSettingsService } from './CloudSettingsService'
-import { assemblerDetenteurs, assemblerProse, type MotifRefusContexte } from './copilote/contexte'
-import { validerDetenteurs, validerSortie, type MotifIllisible } from './copilote/schemaSortie'
-import type { ChampProseChemin, PropositionDetenteurs, PropositionResolue } from './copilote/types'
+import { assemblerDetenteurs, assemblerProse, assemblerRepliques, type MotifRefusContexte } from './copilote/contexte'
+import { validerDetenteurs, validerRepliques, validerSortie, type MotifIllisible } from './copilote/schemaSortie'
+import type {
+	ChampProseChemin,
+	PropositionDetenteurs,
+	PropositionRepliques,
+	PropositionResolue,
+} from './copilote/types'
 import type { Dossier } from './dossier/types'
 
 /** INCHANGÉE, et délibérément NON RENOMMÉE : c'est la cible du rôle PROSE. Le
@@ -36,6 +41,27 @@ export interface CibleCopilote {
 export interface CibleIndice {
 	/** Reste côté client. Ne franchit JAMAIS le réseau (KR-231). */
 	indiceId: string
+}
+
+/**
+ * LA CIBLE DU TROISIÈME RÔLE. `personnageId`, et PAS `entiteId` — ce n'est PAS une
+ * préférence de nommage (§ 8, TL3a-5, veto non contesté).
+ *
+ * Le dispatch de `demander` est un RÉTRÉCISSEMENT STRUCTUREL sur la FORME de la
+ * cible, donc les TROIS cibles doivent être DISJOINTES DEUX À DEUX. Avec `entiteId`,
+ * une cible de répliques partagerait sa seule clé avec `CibleCopilote` : une
+ * VARIABLE de type `CibleCopilote` s'assignerait ici SANS ERREUR — le contrôle
+ * d'excédent de TypeScript ne vaut que sur un LITTÉRAL —, elle retomberait dans la
+ * branche `'champ' in cible`, et on obtiendrait rôle annoncé A, validateur exécuté B,
+ * avec `tsc` vert.
+ *
+ * FAIT AGGRAVANT, LU DANS LE CODE DE L'IT2 : le dernier `return` du dispatch était un
+ * REPLI vers `demanderDetenteurs`, où une troisième cible serait tombée PAR DÉFAUT.
+ * Il est devenu une BRANCHE dans le même lot.
+ */
+export interface CibleRepliques {
+	/** Reste côté client. Ne franchit JAMAIS le réseau (KR-231). */
+	personnageId: string
 }
 
 export type RaisonIndisponible = 'non-configure' | 'injoignable' | 'annule'
@@ -58,6 +84,7 @@ export type EchecCopilote =
  *  sur un échec, c'est le TYPAGE qui l'interdit, pas une convention de rendu. */
 export type ReponseCopilote = { statut: 'propose'; proposition: PropositionResolue } | EchecCopilote
 export type ReponseDetenteurs = { statut: 'propose'; proposition: PropositionDetenteurs } | EchecCopilote
+export type ReponseRepliques = { statut: 'propose'; proposition: PropositionRepliques } | EchecCopilote
 
 /**
  * SURCHARGE SUR LE LITTÉRAL DE RÔLE — le point de contrat le plus chargé de
@@ -92,6 +119,12 @@ export interface CopiloteService {
 		cible: CibleIndice,
 		signal?: AbortSignal,
 	): Promise<ReponseDetenteurs>
+	demander(
+		role: 'personnage-repliques',
+		dossier: Dossier,
+		cible: CibleRepliques,
+		signal?: AbortSignal,
+	): Promise<ReponseRepliques>
 }
 
 /**
@@ -112,6 +145,10 @@ const DELAI_MS = 45_000
 type CorpsDemande =
 	| { role: 'personnage-prose'; champ: ChampProseChemin; contexte: string }
 	| { role: 'indice-detenteurs'; contexte: string }
+	/** SANS `champ`, et ce n'est pas un oubli : LE RÔLE EST LE CHAMP. Il n'y a qu'un
+	 *  seul champ que ce rôle puisse remplir, donc le nommer sur le fil serait un écho
+	 *  que rien n'arbitrerait s'il devenait faux. */
+	| { role: 'personnage-repliques'; contexte: string }
 
 /** Le résultat d'UN aller-retour, avant validation de forme : soit une valeur
  *  brute à valider, soit une indisponibilité qui ne se rejoue JAMAIS. */
@@ -289,11 +326,51 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 		return { statut: 'propose', proposition: { indiceId: cible.indiceId, personnageIds } }
 	}
 
+	async function demanderRepliques(
+		dossier: Dossier,
+		cible: CibleRepliques,
+		signal: AbortSignal | undefined,
+	): Promise<ReponseRepliques> {
+		// LES TROIS REFUS DE CONTEXTE PASSENT AVANT TOUT : `a-ecrire`,
+		// `cible-a-ecrire`, `trop-long` — aucun `fetch` ne part sur aucun des trois.
+		const contexte = assemblerRepliques(dossier, cible)
+		if (!contexte.ok) return refuser(contexte)
+
+		const vers = acheminement('personnage-repliques')
+		if (vers === null) return { statut: 'indisponible', raison: 'non-configure' }
+
+		const corps: CorpsDemande = { role: 'personnage-repliques', contexte: contexte.texte }
+		const issue = await jusquAuRejeuUnique<readonly string[]>(
+			vers.url,
+			vers.entetes,
+			corps,
+			(brut) => {
+				const sortie = validerRepliques(brut, dossier)
+				return sortie.ok ? { ok: true, sortie: sortie.repliques } : { ok: false, motif: sortie.motif }
+			},
+			signal,
+		)
+		if (!issue.ok) return issue.echec
+
+		// RE-RÉSOLUE CÔTÉ CLIENT : `personnageId` vient de l'ÉTAT D'ÉCRAN, jamais de la
+		// réponse (KR-231). `ajouts` porte la SÉMANTIQUE D'ÉCRITURE — la feature les
+		// AJOUTE à `caractere.parler[]`, elle ne les y substitue pas.
+		return { statut: 'propose', proposition: { personnageId: cible.personnageId, ajouts: issue.sortie } }
+	}
+
 	/**
-	 * L'IMPLÉMENTATION À SURCHARGES — deux signatures publiques, un corps élargi,
+	 * L'IMPLÉMENTATION À SURCHARGES — trois signatures publiques, un corps élargi,
 	 * AUCUN `as`. Le dispatch se fait sur la FORME DE LA CIBLE (`'champ' in cible`),
 	 * qui est un rétrécissement réel pour TypeScript, et non sur le rôle : rétrécir
-	 * un paramètre par la valeur d'un AUTRE paramètre exigerait un cast.
+	 * un paramètre par la valeur d'un AUTRE paramètre exigerait un cast. C'est ce
+	 * rétrécissement structurel qui EXIGE que les trois cibles soient DISJOINTES DEUX
+	 * À DEUX — d'où `personnageId` et non `entiteId` (§ 8, TL3a-5).
+	 *
+	 * ⚠ LE DERNIER `return` EST UNE BRANCHE, PLUS UN REPLI. À l'itération 2 il valait
+	 * `return demanderDetenteurs(…)` sans garde : une troisième cible y serait tombée
+	 * PAR DÉFAUT, rôle annoncé A et validateur exécuté B. Le garde `'indiceId' in
+	 * cible` est désormais explicite, si bien que le dernier `return` reçoit une cible
+	 * RÉTRÉCIE À `CibleRepliques` PAR LE COMPILATEUR — et non par la lecture.
 	 *
 	 * `_role` est donc INUTILISÉ, et c'est la conséquence assumée : chaque branche
 	 * privée nomme SON rôle en littéral, ce qui rend le segment de route exact à la
@@ -313,13 +390,20 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 		signal?: AbortSignal,
 	): Promise<ReponseDetenteurs>
 	function demander(
-		_role: 'personnage-prose' | 'indice-detenteurs',
+		role: 'personnage-repliques',
 		dossier: Dossier,
-		cible: CibleCopilote | CibleIndice,
+		cible: CibleRepliques,
 		signal?: AbortSignal,
-	): Promise<ReponseCopilote | ReponseDetenteurs> {
+	): Promise<ReponseRepliques>
+	function demander(
+		_role: 'personnage-prose' | 'indice-detenteurs' | 'personnage-repliques',
+		dossier: Dossier,
+		cible: CibleCopilote | CibleIndice | CibleRepliques,
+		signal?: AbortSignal,
+	): Promise<ReponseCopilote | ReponseDetenteurs | ReponseRepliques> {
 		if ('champ' in cible) return demanderProse(dossier, cible, signal)
-		return demanderDetenteurs(dossier, cible, signal)
+		if ('indiceId' in cible) return demanderDetenteurs(dossier, cible, signal)
+		return demanderRepliques(dossier, cible, signal)
 	}
 
 	return {

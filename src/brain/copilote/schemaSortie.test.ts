@@ -6,12 +6,16 @@ import type { Dossier } from '../dossier/types'
 import {
 	CLES_SORTIE,
 	CLES_SORTIE_DETENTEURS,
+	CLES_SORTIE_REPLIQUES,
 	GABARIT_SORTIE,
 	PROPOSITIONS_MAX,
+	REPLIQUES_PROPOSEES_MAX,
 	porteUnIdentifiant,
 	validerDetenteurs,
+	validerRepliques,
 	validerSortie,
 } from './schemaSortie'
+import type { PropositionRepliques, RepliquesRendues } from './types'
 
 /** Un dossier NEUF — c'est `construireAmorce` qui garantit `lieu.amorce`, et
  *  c'est pour ça que le canari de fuite le prend pour terrain : cet identifiant
@@ -383,5 +387,331 @@ describe('validerDetenteurs — les sept predicats de forme du second role', () 
 		expect(Object.keys(JSON.parse(GABARIT_SORTIE['indice-detenteurs']) as Record<string, unknown>)).toEqual([
 			...CLES_SORTIE_DETENTEURS,
 		])
+	})
+})
+
+// ══ LE TROISIÈME RÔLE — `personnage-repliques` ═══════════════════════════════
+
+describe('types — zero cle commune reseau / resolu', () => {
+	it('RepliquesRendues et PropositionRepliques n ont aucune cle en commun', () => {
+		// KR-231, MOITIÉ 1 — L'INTERSECTION DES CLÉS EST VIDE, constatée en VALEUR sur
+		// deux témoins minimaux. Une `interface` n'existe plus au runtime : ce sont ces
+		// littéraux, ANNOTÉS, qui obligent le compilateur à les tenir à jour.
+		const rendues: RepliquesRendues = { repliques: ['Je ne dis jamais deux fois la meme chose.'] }
+		const resolue: PropositionRepliques = { personnageId: 'pnj.un-personnage', ajouts: ['Une replique.'] }
+
+		expect(Object.keys(rendues).filter((cle) => Object.keys(resolue).includes(cle))).toEqual([])
+		// Discriminant : les deux portent BIEN des clés — sans lui, deux objets vides
+		// satisferaient l'intersection vide (KR-199).
+		expect(Object.keys(rendues).length).toBeGreaterThan(0)
+		expect(Object.keys(resolue).length).toBeGreaterThan(0)
+	})
+
+	it('l affectation croisee ne compile pas', () => {
+		// KR-231, MOITIÉ 2, ET C'EST LE TEST RÉEL : « zéro clé commune » n'est une
+		// GARANTIE que si le compilateur refuse de passer l'une pour l'autre.
+		// `@ts-expect-error` ÉCHOUE À LA COMPILATION si l'erreur attendue n'a PAS lieu.
+		// @ts-expect-error — la forme RÉSEAU affectée à la forme RE-RÉSOLUE.
+		const versResolue: PropositionRepliques = { repliques: ['Une replique.'] }
+		// @ts-expect-error — la forme RE-RÉSOLUE affectée à la forme RÉSEAU.
+		const versRendues: RepliquesRendues = { personnageId: 'pnj.x', ajouts: ['Une replique.'] }
+
+		// Discriminant : les deux affectations BIEN APPARIÉES compilent, elles. Sans
+		// cette moitié, les deux `@ts-expect-error` seraient satisfaits par n'importe
+		// quelle erreur de type, y compris « ce type n'existe pas ».
+		const bonnesRendues: RepliquesRendues = { repliques: ['Une replique.'] }
+		const bonneResolue: PropositionRepliques = { personnageId: 'pnj.x', ajouts: ['Une replique.'] }
+
+		expect([versResolue, versRendues, bonnesRendues, bonneResolue]).toHaveLength(4)
+	})
+})
+
+describe('validerRepliques — les dix predicats de forme du troisieme role', () => {
+	const dossier = dossierDeReference()
+	const CLE = CLES_SORTIE_REPLIQUES[0]
+	/** Deux répliques parfaitement saines : ni identifiant, ni marqueur, ni chiffre. */
+	const SAINE = 'Je vends ce que j entends, et j entends beaucoup.'
+	const SAINE_2 = 'Pose ta bourse, puis pose ta question.'
+
+	it('1 — ce qui n est pas un objet JSON est refuse, motif schema', () => {
+		for (const brut of [null, undefined, [], ['une replique'], 'une replique', 42, true]) {
+			expect({ brut, ...validerRepliques(brut, dossier) }).toEqual({ brut, ok: false, motif: 'schema' })
+		}
+	})
+
+	it('2 — l ensemble des cles doit valoir exactement CLES_SORTIE_REPLIQUES', () => {
+		// Une clé MANQUANTE, une clé RENOMMÉE (la panne KR-236 vue du validateur), une
+		// clé SURNUMÉRAIRE — un REFUS, jamais un champ ignoré : l'avaler rendrait la
+		// panne KR-236 muette, et une sortie qui nommerait elle-même le champ pourrait
+		// nommer le MAUVAIS (KR-231).
+		expect(validerRepliques({}, dossier)).toEqual({ ok: false, motif: 'schema' })
+		expect(validerRepliques({ textes: [SAINE] }, dossier)).toEqual({ ok: false, motif: 'schema' })
+		expect(validerRepliques({ [CLE]: [SAINE], champ: 'monde.personnages[].caractere.parler[]' }, dossier)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+		// Une clé HÉRITÉE ne compte pas : `Object.keys` ne voit que le propre (KR-175).
+		expect(validerRepliques(Object.create({ [CLE]: [SAINE] }), dossier)).toEqual({ ok: false, motif: 'schema' })
+	})
+
+	it('3 — une valeur qui n est pas un tableau est refusee, motif schema', () => {
+		for (const valeur of [SAINE, 42, null, { 0: SAINE }, true]) {
+			expect({ valeur, ...validerRepliques({ [CLE]: valeur }, dossier) }).toEqual({
+				valeur,
+				ok: false,
+				motif: 'schema',
+			})
+		}
+	})
+
+	it('4 — un element non textuel est refuse, motif schema, et JAMAIS converti', () => {
+		// Un `{texte: "…"}` EMBALLÉ meurt ici. La conversion `String(élément)` est
+		// l'anti-patron exact : elle produirait `'[object Object]'` puis la présenterait
+		// à l'auteur comme une réplique.
+		for (const element of [42, null, [SAINE], { texte: SAINE }, true]) {
+			expect({ element, ...validerRepliques({ [CLE]: [element] }, dossier) }).toEqual({
+				element,
+				ok: false,
+				motif: 'schema',
+			})
+		}
+		// Le mutant est ÉCRIT, et vu FAUX : il fabrique une chaîne là où il n'y en a pas.
+		expect(String({ texte: SAINE })).toBe('[object Object]')
+	})
+
+	it('5 — 4 refusees, 3 acceptees : la borne par COMPORTEMENT', () => {
+		// ANTI-COMPLAISANCE : un modèle qui « complète » pour faire nombre. Le refus
+		// porte sur le LOT ENTIER — la sortie ne ressort NI tronquée à trois, NI
+		// partiellement (KR-230).
+		const quatre = [SAINE, SAINE_2, 'Compte tes pieces avant de compter sur moi.', 'Reviens demain, ou ne reviens pas.']
+		expect(quatre.length).toBeGreaterThan(REPLIQUES_PROPOSEES_MAX)
+
+		const refus = validerRepliques({ [CLE]: quatre }, dossier)
+
+		expect(refus).toEqual({ ok: false, motif: 'schema' })
+		expect(refus).not.toHaveProperty(CLE)
+		// Et EXACTEMENT `REPLIQUES_PROPOSEES_MAX` passe : sans ce bord, le prédicat
+		// pourrait porter un `>=` pour un `>` sans qu'un test rougisse.
+		const trois = quatre.slice(0, REPLIQUES_PROPOSEES_MAX)
+		expect(validerRepliques({ [CLE]: trois }, dossier)).toEqual({ ok: true, repliques: trois })
+	})
+
+	it('6 — liste vide refusee, motif vide', () => {
+		// LE DISCRIMINANT DE L'IT3a, et il ne se transporte pas de l'it2 : un rôle de
+		// RÉDACTION écrit un texte que RIEN ne fournit. « Comment parle-t-il ? » a
+		// toujours une réponse dès qu'il existe quelqu'un pour parler — « je n'écris
+		// rien » est une NON-RÉPONSE. Le cas « personne pour parler » est traité AVANT
+		// l'appel, par `cible-a-ecrire`.
+		expect(validerRepliques({ [CLE]: [] }, dossier)).toEqual({ ok: false, motif: 'vide' })
+		// Et le rôle de DÉSIGNATION, lui, n'a PAS bougé : la liste vide y reste un
+		// SUCCÈS. Les deux moitiés sont ici, sinon « amendé » serait indistinguable de
+		// « remplacé ».
+		expect(validerDetenteurs({ detenteurs: [] }, new Set(['P1']))).toEqual({ ok: true, detenteurs: [] })
+	})
+
+	it('7 — element blanc APRES un valide, motif vide, index >= 1', () => {
+		// L'INDEX EST LE POINT : un scanner qui ne regarderait que `[0]` trouverait la
+		// première réplique parfaitement valide et accepterait le lot.
+		const lot = [SAINE, '   ']
+		expect(lot.indexOf('   ')).toBeGreaterThan(0)
+
+		expect(validerRepliques({ [CLE]: lot }, dossier)).toEqual({ ok: false, motif: 'vide' })
+		// Les trois formes de blanc, toutes en position non nulle.
+		for (const blanc of ['', '   ', '\n\t ']) {
+			expect({ blanc, ...validerRepliques({ [CLE]: [SAINE, blanc] }, dossier) }).toEqual({
+				blanc,
+				ok: false,
+				motif: 'vide',
+			})
+		}
+	})
+
+	it('6 et 7 sont DEUX predicats distincts, chacun rougissant seul', () => {
+		// CRITÈRE 3 : les DEUX entrées rendent `vide`, mais elles ne meurent PAS du même
+		// prédicat. La preuve est une NEUTRALISATION : on écrit les deux mutants, et
+		// chacun laisse passer EXACTEMENT UNE des deux entrées — donc aucun des deux
+		// prédicats n'est redondant.
+		const listeVide: string[] = []
+		const blancTardif = [SAINE, '   ']
+
+		// MUTANT A — le prédicat (6) retiré. La liste vide passe, le blanc tardif meurt.
+		const sans6 = (rendues: readonly string[]): 'passe' | 'vide' =>
+			rendues.some((replique) => replique.trim().length === 0) ? 'vide' : 'passe'
+		expect(sans6(listeVide)).toBe('passe')
+		expect(sans6(blancTardif)).toBe('vide')
+
+		// MUTANT B — le prédicat (7) retiré. Le blanc tardif PASSE, la liste vide meurt.
+		const sans7 = (rendues: readonly string[]): 'passe' | 'vide' => (rendues.length === 0 ? 'vide' : 'passe')
+		expect(sans7(blancTardif)).toBe('passe')
+		expect(sans7(listeVide)).toBe('vide')
+
+		// Et la VRAIE refuse les deux : c'est la moitié sans laquelle les mutants
+		// ci-dessus ne prouveraient rien du code livré.
+		expect(validerRepliques({ [CLE]: listeVide }, dossier)).toEqual({ ok: false, motif: 'vide' })
+		expect(validerRepliques({ [CLE]: blancTardif }, dossier)).toEqual({ ok: false, motif: 'vide' })
+	})
+
+	it('8 — doublon apres trim refuse', () => {
+		// MOTIVATION, et elle n'est pas recopiée de l'it2 : deux répliques identiques
+		// sont un REMPLISSAGE — un menu de 2 présenté comme un menu de 3, produit par un
+		// modèle qui « complète » pour atteindre la borne. Et `PARLER_REPLIQUES` vaut
+		// DEUX : un doublon accepté consommerait l'un des deux seuls emplacements du
+		// personnage POUR RIEN. C'est bien une conséquence d'écriture, pas une
+		// coquetterie de forme. (`schemaSortie.ts` n'importe JAMAIS `PARLER_REPLIQUES` :
+		// la borne du DOCUMENT motive ce prédicat, elle ne le paramètre pas.)
+		expect(validerRepliques({ [CLE]: [SAINE, SAINE] }, dossier)).toEqual({ ok: false, motif: 'schema' })
+		// APRÈS `trim()` : deux répliques qui ne diffèrent que par leurs blancs de bord
+		// sont la MÊME réplique une fois écrite dans le document.
+		expect(validerRepliques({ [CLE]: [SAINE, `  ${SAINE}  `] }, dossier)).toEqual({ ok: false, motif: 'schema' })
+		// NON ADJACENT : un garde qui ne comparerait qu'aux voisins passerait.
+		expect(validerRepliques({ [CLE]: [SAINE, SAINE_2, SAINE] }, dossier)).toEqual({ ok: false, motif: 'schema' })
+		// Discriminant : deux répliques réellement différentes passent.
+		expect(validerRepliques({ [CLE]: [SAINE, SAINE_2] }, dossier)).toEqual({ ok: true, repliques: [SAINE, SAINE_2] })
+	})
+
+	it('9 — marqueur a ecrire refuse, constante IMPORTEE', () => {
+		// LE TEST IMPORTE `MARQUEUR_A_ECRIRE` (KR-223) : aucun fichier de feature ni
+		// aucun test n'a le droit d'écrire le glyphe, et le retaper ici ferait de ce
+		// fichier un second porteur de la valeur.
+		expect(validerRepliques({ [CLE]: [`${MARQUEUR_A_ECRIRE} a rediger`] }, dossier)).toEqual({
+			ok: false,
+			motif: 'marqueur',
+		})
+		// EN POSITION NON NULLE, et `includes` plutôt que `startsWith` : l'auteur peut
+		// éditer autour du marqueur.
+		expect(validerRepliques({ [CLE]: [SAINE, `Une phrase, puis ${MARQUEUR_A_ECRIRE} au milieu.`] }, dossier)).toEqual({
+			ok: false,
+			motif: 'marqueur',
+		})
+	})
+
+	it('10 — identifiant en DERNIERE position : le lot ENTIER est refuse', () => {
+		// CRITÈRE 4. L'identifiant est au DERNIER rang, et les précédentes sont saines :
+		// c'est ce qui rend le mutant « ne scanner que `[0]` » observable.
+		const neuf = dossierNeuf()
+		const lot = [SAINE, SAINE_2, CANARI_FUITE]
+		expect(lot.indexOf(CANARI_FUITE)).toBe(lot.length - 1)
+
+		const refus = validerRepliques({ [CLE]: lot }, neuf)
+
+		expect(refus).toEqual({ ok: false, motif: 'identifiant' })
+		// RIEN de la sortie fautive ne survit : ni la liste, ni les éléments sains.
+		expect(refus).not.toHaveProperty(CLE)
+		expect(JSON.stringify(refus)).not.toContain(SAINE)
+	})
+
+	it('les deux canaris de l it1, rejoues sur un element NON-0', () => {
+		// Les canaris de l'it1 gardaient un SCALAIRE : par construction, ils ne portaient
+		// que sur la position 0. Rejoués ici en position ≥ 1, ils prouvent que le scanner
+		// voit TOUTE la liste — et qu'il ne fabrique pas de faux positif pour autant.
+		const neuf = dossierNeuf()
+
+		// CANARI BÉNIN en position 1 : une prose française saine passe.
+		expect(collectIds(neuf).map((collecte) => collecte.id)).not.toContain('objet.favori')
+		expect(validerRepliques({ [CLE]: [SAINE, CANARI_BENIN] }, neuf)).toEqual({
+			ok: true,
+			repliques: [SAINE, CANARI_BENIN],
+		})
+
+		// CANARI FUITE en position 1 : un identifiant RÉELLEMENT du dossier refuse.
+		expect(collectIds(neuf).map((collecte) => collecte.id)).toContain('lieu.amorce')
+		expect(validerRepliques({ [CLE]: [SAINE, CANARI_FUITE] }, neuf)).toEqual({ ok: false, motif: 'identifiant' })
+	})
+
+	it('mutant — ne scanner que l element 0 : la fuite en derniere position s echappe', () => {
+		// LE POUVOIR SÉPARATEUR, ÉCRIT ET NON DÉDUIT (BUG-087). L'implémentation FAUTIVE
+		// est ici, à côté de la vraie, et elle est prouvée fautive sur un lot précis.
+		const neuf = dossierNeuf()
+		const lot = [SAINE, SAINE_2, CANARI_FUITE]
+		const mutantIndexZero = (rendues: readonly string[]): boolean => porteUnIdentifiant(rendues[0], neuf)
+
+		expect(mutantIndexZero(lot)).toBe(false)
+		// … et la vraie, elle, refuse.
+		expect(validerRepliques({ [CLE]: lot }, neuf)).toEqual({ ok: false, motif: 'identifiant' })
+	})
+
+	it('mutant — join avant le scan : un faux positif FABRIQUE a la frontiere', () => {
+		// § 8, n° 22. Deux fragments logés dans DEUX CASES DISTINCTES ne forment pas un
+		// identifiant : aucun lecteur ne les lira collés, ils deviendront deux entrées
+		// SÉPARÉES de `parler[]`. Le lot ci-dessous est SAIN — aucun de ses deux éléments
+		// ne porte d'identifiant — et pourtant le scan sur la concaténation en voit un.
+		const neuf = dossierNeuf()
+		const avant = 'Rien ne bouge, pas meme le lieu.'
+		const apres = 'amorce des ennuis, dit-il en partant.'
+		const lot = [avant, apres]
+
+		// Chaque élément, SEUL, est bénin : c'est ce qui rend le faux positif imputable
+		// au `join` et à rien d'autre.
+		expect(porteUnIdentifiant(avant, neuf)).toBe(false)
+		expect(porteUnIdentifiant(apres, neuf)).toBe(false)
+
+		// LE MUTANT — la concaténation fabrique `lieu.amorce`, qui EST un identifiant de
+		// ce dossier. (Le séparateur vide est celui sous lequel la fabrication se MESURE.
+		// Ce que tout `join` détruit EN PLUS — la LOCALISATION de l'élément fautif — ne
+		// s'observe pas depuis ce contrat, qui ne rend qu'un motif : on ne le revendique
+		// donc pas ici, KR-199.)
+		const mutantJoin = (rendues: readonly string[]): boolean => porteUnIdentifiant(rendues.join(''), neuf)
+		expect(mutantJoin(lot)).toBe(true)
+
+		// … et la vraie, qui scanne PAR ÉLÉMENT, accepte ce lot sain.
+		expect(validerRepliques({ [CLE]: lot }, neuf)).toEqual({ ok: true, repliques: lot })
+	})
+
+	it('mutant — repechage partiel : la vraie refuse le lot, jamais les saines seules', () => {
+		// § 8, TL3a-10, trouvé indépendamment par deux postes : écarter les fautifs en
+		// gardant les autres est une RÉPARATION SILENCIEUSE — l'auteur ratifierait une
+		// liste amputée sans savoir qu'elle l'est. Réparer, c'est interpréter (KR-230).
+		const neuf = dossierNeuf()
+		const lot = [SAINE, CANARI_FUITE]
+		const mutantRepechage = (rendues: readonly string[]): string[] =>
+			rendues.filter((replique) => !porteUnIdentifiant(replique, neuf))
+
+		expect(mutantRepechage(lot)).toEqual([SAINE])
+
+		const refus = validerRepliques({ [CLE]: lot }, neuf)
+
+		expect(refus).toEqual({ ok: false, motif: 'identifiant' })
+		expect(refus).not.toHaveProperty(CLE)
+		expect(JSON.stringify(refus)).not.toContain(SAINE)
+	})
+
+	it('le nominal rend ok avec les repliques, et rien d autre', () => {
+		expect(validerRepliques({ [CLE]: [SAINE] }, dossier)).toEqual({ ok: true, repliques: [SAINE] })
+	})
+
+	it('le gabarit du troisieme role EST son schema', () => {
+		const rendu = JSON.parse(GABARIT_SORTIE['personnage-repliques']) as Record<string, unknown>
+
+		expect(Object.keys(rendu)).toEqual([...CLES_SORTIE_REPLIQUES])
+		// La valeur du gabarit est une LISTE de prose, jamais un scalaire : c'est ce qui
+		// distingue ce rôle du rôle prose, à la lecture de l'invite comme du validateur.
+		expect(Array.isArray(rendu[CLE])).toBe(true)
+		// Et ses clés sont DISJOINTES de celles des deux autres schémas — on ne peut pas
+		// passer une sortie pour une autre.
+		expect(CLES_SORTIE_REPLIQUES.filter((cle) => (CLES_SORTIE as readonly string[]).includes(cle))).toEqual([])
+		expect(CLES_SORTIE_REPLIQUES.filter((cle) => (CLES_SORTIE_DETENTEURS as readonly string[]).includes(cle))).toEqual(
+			[],
+		)
+	})
+
+	it('REPLIQUES_PROPOSEES_MAX ne s aligne JAMAIS sur la borne du document', () => {
+		// § 8, TL3a-7 et n° 24, retirés par leurs auteurs : ce sont DEUX bornes de nature
+		// différente. 3 borne la RÉPONSE du modèle, 2 borne le DOCUMENT. Le nombre de
+		// propositions ACCEPTABLES vaut `PARLER_REPLIQUES − parler.length` et VARIE d'un
+		// personnage à l'autre. La garde est un BALAYAGE DE SOURCE, seul instrument
+		// possible : ce fichier ne doit JAMAIS importer la borne du document.
+		const source = fs.readFileSync(path.join(__dirname, 'schemaSortie.ts'), 'utf8')
+
+		expect(source).not.toContain("from '../dossier/curseurs'")
+		// Les COMMENTAIRES sont retirés d'abord, et ce n'est pas un détail : la docstring
+		// de `REPLIQUES_PROPOSEES_MAX` NOMME la borne qu'elle s'interdit, donc un
+		// balayage brut rougirait sur la phrase qui dit la règle (précédent : le
+		// balayage `Number(`/`parseInt` ci-dessus).
+		const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '')
+		expect(code).not.toContain('PARLER_REPLIQUES')
+		expect(code).not.toContain('curseurs')
+		// Discriminant : le balayage porte bien sur du code réel — sans cette ligne il
+		// serait vert sur un fichier vidé de tout (KR-235).
+		expect(code).toContain('export const REPLIQUES_PROPOSEES_MAX = 3')
 	})
 })

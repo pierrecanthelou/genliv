@@ -89,3 +89,43 @@ export const TEXTE_REFUS_AUCUN_CANDIDAT =
 export const TEXTE_REFUS_TROP_LONG_DETENTEURS =
 	'Le contexte est trop long pour désigner des détenteurs — ce dossier a trop de personnages, ou leurs fiches sont trop longues. Raccourcissez-les, dans Personnages.'
 export const TEXTE_AUCUN_DETENTEUR_TROUVE = "Le copilote n'a trouvé personne d'autre pour cet indice."
+
+/**
+ * Les textes de la carte 4 « Écrire des répliques » (itération 3a — § 3.4 du
+ * plan). RETIRÉS du tour 1 de l'UX, à NE PAS écrire : `LABEL_CHAMP_PARLER`
+ * (plus de `SegmentedControl`), `TEXTE_AUCUNE_REPLIQUE_PROPOSEE` (zéro
+ * producteur — le vide est un REFUS pour ce rôle de rédaction), `MENTION_UNE_REPLIQUE`
+ * (le bloc DÉJÀ ÉCRIT porte déjà l'information). Chaque rôle porte SES PROPRES
+ * textes de refus de contexte et de relance — ne pas réutiliser `MENTION_SAVOIR_CREE`,
+ * `TEXTE_REFUS_TROP_LONG`/`_DETENTEURS`, `TEXTE_REFUS_CIBLE_A_ECRIRE` ou
+ * `MENTION_RELANCE_SANS_MEMOIRE`.
+ */
+export const CARD4_TITRE = 'Écrire des répliques'
+export const CARD4_CORPS = "Propose des répliques types, dans la voix de ce personnage — jusqu'à deux par personnage."
+export const EYEBROW_DEJA_ECRIT = 'DÉJÀ ÉCRIT'
+/** Le bloc « DÉJÀ ÉCRIT » est GELÉ au clic « Lancer » : il décrit l'état du
+ *  personnage AU LANCEMENT, pas son état courant. Tant que rien n'a été accepté,
+ *  les deux coïncident et `MENTION_ZERO_REPLIQUE` (au présent) est vraie. Dès
+ *  qu'une proposition est acceptée, elle devient FAUSSE à l'écran — elle
+ *  voisinerait un badge « Accepté » en disant « n'a encore aucune réplique », et
+ *  contredirait le `title` de « Lancer ». Geler une LISTE est défendable, geler
+ *  une INSTRUCTION PROSPECTIVE ne l'est pas : le passé lève la contradiction sans
+ *  dégeler le bloc. */
+export const MENTION_ZERO_REPLIQUE_AU_LANCER =
+	"Ce personnage n'avait aucune réplique type au lancement de cet assistant."
+export const MENTION_ZERO_REPLIQUE =
+	"Ce personnage n'a encore aucune réplique type — une proposition acceptée s'ajoute, jusqu'à deux au total."
+export const TITRE_REPLIQUES_AU_PLAFOND =
+	'Ce personnage a déjà ses deux répliques type — retirez-en une dans Personnages pour en proposer une autre.'
+export const TITRE_REPLIQUE_PLAFOND_LIGNE = 'Plafond de deux répliques atteint.'
+
+export function eyebrowRepliqueProposee(n: number): string {
+	return `RÉPLIQUE PROPOSÉE ${n}`
+}
+
+export const TEXTE_REFUS_CIBLE_A_ECRIRE_REPLIQUES =
+	"Ce personnage n'a encore aucune identité écrite — complétez d'abord sa fiche, dans Personnages."
+export const TEXTE_REFUS_TROP_LONG_REPLIQUES =
+	"Le contexte est trop long pour proposer des répliques — raccourcissez d'abord la fiche de ce personnage."
+export const MENTION_RELANCE_SANS_MEMOIRE_REPLIQUES =
+	'Chaque lancer repart de zéro : le copilote ne voit pas les répliques déjà écrites de ce personnage, et peut en proposer une très proche.'

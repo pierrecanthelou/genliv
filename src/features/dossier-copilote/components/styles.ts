@@ -183,3 +183,56 @@ export const lienDetenteurStyle: CSSProperties = {
 	color: 'var(--text-body)',
 	cursor: 'pointer',
 }
+
+// ── `LigneReplique` / `CarteFaireParler` (itération 3a) — jetons du § 3.1 du
+// plan UNIQUEMENT (`--border-field`, `--r-md`, `--surface-inset`, `--text-body`,
+// `--text-muted`, `--font-ui`, `--font-mono`, `--fs-body`, `--space-3/4/8`,
+// `--hit-target`) : aucun jeton neuf.
+
+export const conteneurRepliqueStyle: CSSProperties = {
+	display: 'flex',
+	flexDirection: 'column',
+	gap: 'var(--space-3)',
+}
+
+// Le bloc de lecture (§ 3.3) — un `<div>`, PAS un `Field` — partagé par
+// `LigneReplique` et par le bloc « DÉJÀ ÉCRIT » de `CarteFaireParler` : même
+// anatomie qu'une réplique déjà écrite ou proposée, lue et non éditée.
+export const blocLectureRepliqueStyle: CSSProperties = {
+	border: '1px solid var(--border-field)',
+	borderRadius: 'var(--r-md)',
+	background: 'var(--surface-inset)',
+	padding: 'var(--space-3) var(--space-4)',
+	color: 'var(--text-body)',
+	fontFamily: 'var(--font-ui)',
+	fontSize: 'var(--fs-body)',
+	whiteSpace: 'pre-wrap',
+}
+
+export const listeDejaEcritStyle: CSSProperties = {
+	display: 'flex',
+	flexDirection: 'column',
+	gap: 'var(--space-3)',
+}
+
+// « + » désactivé au plafond (§ 3.3) : `IconButton` n'a pas de prop `disabled`
+// (précédent `dossier-objets`, § 8 désaccord n° 9 de l'itération 1 de cette
+// feature) — bouton natif composé LOCALEMENT plutôt que la primitive partagée
+// (KR-109 : on ne la modifie pas pour un seul appelant). Teinte muette avec
+// les jetons du § 3.1, jamais ceux de désactivation de `BarreLancer`
+// (`--text-disabled`/`--surface-sunken`, hors liste).
+export const accepterRepliqueDesactiveStyle: CSSProperties = {
+	width: 'var(--hit-target)',
+	height: 'var(--hit-target)',
+	display: 'inline-flex',
+	alignItems: 'center',
+	justifyContent: 'center',
+	fontFamily: 'var(--font-mono)',
+	fontSize: 'var(--fs-body)',
+	color: 'var(--text-muted)',
+	border: '1px solid var(--border-field)',
+	background: 'var(--surface-inset)',
+	borderRadius: 'var(--r-md)',
+	cursor: 'not-allowed',
+	padding: 0,
+}

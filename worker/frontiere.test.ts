@@ -35,13 +35,30 @@ import fs from 'node:fs'
 import path from 'node:path'
 import worker, { INVITES, TAILLE_MAX_CORPS_IA } from './index'
 import { assemblerDetenteurs, BUDGET_CARACTERES_CONTEXTE } from '../src/brain/copilote/contexte'
-import { validerSortie } from '../src/brain/copilote/schemaSortie'
+import { REPLIQUES_PROPOSEES_MAX, validerRepliques, validerSortie } from '../src/brain/copilote/schemaSortie'
 import { createCopiloteService } from '../src/brain/CopiloteService'
 import type { CloudSettingsService } from '../src/brain/CloudSettingsService'
+import { CURSEURS } from '../src/brain/dossier/curseurs'
 import type { Dossier, Personnage } from '../src/brain/dossier/types'
 
 const ROLE_PROSE = 'personnage-prose'
 const ROLE_DETENTEURS = 'indice-detenteurs'
+const ROLE_REPLIQUES = 'personnage-repliques'
+
+/**
+ * LA BORNE DE SORTIE EN TOUTES LETTRES — le seul pont possible entre l'invite
+ * (worker) et le validateur (client), puisqu'aucun import `worker/` → `src/` n'est
+ * permis en production. Cette table ne vit QUE dans ce test : c'est lui, et lui seul,
+ * qui importe des deux côtés de la frontière.
+ */
+const BORNE_EN_TOUTES_LETTRES: Record<number, string> = { 2: 'deux au plus', 3: 'trois au plus' }
+
+/** L'invite ANNONCE-T-ELLE la borne du validateur ? Isolé pour que son cas négatif
+ *  porte sur la COMPARAISON RÉELLE, et non sur la fabrication de son témoin. */
+function inviteDitLaBorne(systeme: string, borne: number): boolean {
+	const mot = BORNE_EN_TOUTES_LETTRES[borne]
+	return mot !== undefined && systeme.includes(mot)
+}
 const RACINE = path.join(__dirname, '..')
 const PORTEUR_WORKER = path.join(__dirname, 'index.ts')
 const PORTEUR_BRAIN = path.join(RACINE, 'src', 'brain', 'copilote', 'schemaSortie.ts')
@@ -103,10 +120,61 @@ function inviteNommeSonGabarit(role: string, gabarits: Map<string, string>): boo
 	return gabarit !== undefined && INVITES[role].systeme.includes(gabarit)
 }
 
-/** Les deux gabarits INTERVERTIS — en mémoire, aucun fichier n'est touché. */
+/** Les gabarits DÉCALÉS D'UN CRAN — en mémoire, aucun fichier n'est touché.
+ *
+ *  ⚠ MESURÉ INDÉPENDAMMENT PAR DEUX POSTES À L'ITÉRATION 3a : `croiser` est une
+ *  ROTATION de 1, c'est-à-dire un DÉRANGEMENT pour tout n ≥ 2 — elle reste donc verte
+ *  à trois rôles SANS PLUS RIEN PROUVER DE NEUF. À deux rôles, « tout est décalé » et
+ *  « deux sont intervertis » sont le MÊME événement ; à trois ils divergent, et le
+ *  défaut réaliste — deux lignes interverties en éditant — CESSE d'être l'objet de ce
+ *  canari. Elle est CONSERVÉE comme canari de DÉRANGEMENT TOTAL, et le balayage
+ *  exhaustif ci-dessous prend la charge du mal-apparié. */
 function croiser(gabarits: Map<string, string>, roles: readonly string[]): Map<string, string> {
 	const valeurs = roles.map((role) => gabarits.get(role) ?? '')
 	return new Map(roles.map((role, rang) => [role, valeurs[(rang + 1) % roles.length]]))
+}
+
+/** Les gabarits de DEUX rôles échangés, les autres intacts — LA TRANSPOSITION, qui
+ *  est le défaut réaliste d'une table à trois entrées qu'on édite à la main. */
+function transposer(gabarits: Map<string, string>, a: string, b: string): Map<string, string> {
+	const echange = new Map(gabarits)
+	echange.set(a, String(gabarits.get(b)))
+	echange.set(b, String(gabarits.get(a)))
+	return echange
+}
+
+/** LES TROIS PAIRES de rôles, DÉRIVÉES — jamais trois littéraux (KR-117/199). */
+function paires(roles: readonly string[]): Array<[string, string]> {
+	return roles.flatMap((a, rang) => roles.slice(rang + 1).map((b): [string, string] => [a, b]))
+}
+
+/**
+ * LA PRÉCONDITION DU BALAYAGE, et elle s'écrit AVANT lui : AUCUN gabarit n'est
+ * sous-chaîne d'un autre. Sans elle, le filtre ci-dessous rougirait SANS DÉFAUT — une
+ * invite contenant légitimement son propre gabarit contiendrait mécaniquement celui
+ * d'un autre rôle dont le littéral serait un préfixe du sien.
+ * Elle rend LA LISTE des couples fautifs : l'échec nomme les deux rôles.
+ */
+function gabaritsSousChaines(gabarits: Map<string, string>, roles: readonly string[]): string[] {
+	return roles.flatMap((role) =>
+		roles
+			.filter((autre) => autre !== role && String(gabarits.get(role)).includes(String(gabarits.get(autre))))
+			.map((autre) => `${autre} ⊂ ${role}`),
+	)
+}
+
+/**
+ * LE BALAYAGE EXHAUSTIF — l'invite d'un rôle ne contient LE GABARIT D'AUCUN AUTRE
+ * rôle. Il est GÉNÉRIQUE À N, et c'est ce qui le rend supérieur aux transpositions :
+ * il ne dépend ni du nombre de rôles, ni de la forme du mauvais appariement.
+ * Il rend LA LISTE des fuites : l'échec nomme le rôle dont l'invite déborde.
+ */
+function invitesQuiNommentUnAutreGabarit(gabarits: Map<string, string>, roles: readonly string[]): string[] {
+	return roles.flatMap((role) =>
+		roles
+			.filter((autre) => autre !== role && INVITES[role].systeme.includes(String(gabarits.get(autre))))
+			.map((autre) => `invite ${role} → gabarit ${autre}`),
+	)
 }
 
 /** Tous les fichiers TypeScript de `src/` et de `worker/`, chemins joints. */
@@ -200,6 +268,127 @@ describe('un gabarit par role, deux porteurs', () => {
 			// aucun littéral, il les extrait.
 			expect(`${role} → ${porteurs.sort().join(', ')}`).toBe(`${role} → ${attendus.join(', ')}`)
 		}
+	})
+})
+
+describe('le balayage exhaustif — aucune invite ne nomme le gabarit d un AUTRE role', () => {
+	it('precondition — aucun gabarit sous-chaine d un autre', () => {
+		// ELLE S'ÉCRIT D'ABORD, ET C'EST L'ORDRE QUI COMPTE : si un gabarit était
+		// sous-chaîne d'un autre, le balayage suivant rougirait SANS QU'AUCUN DÉFAUT
+		// N'EXISTE — une invite contenant légitimement son propre gabarit contiendrait
+		// mécaniquement celui de l'autre.
+		expect(gabaritsSousChaines(extraire(PORTEUR_BRAIN), ROLES)).toEqual([])
+		// Discriminant : il y a bien plusieurs gabarits à comparer (KR-199).
+		expect(ROLES.length).toBeGreaterThan(1)
+	})
+
+	it('la precondition SAIT echouer — et sur une fabrication qui laisse le balayage VERT', () => {
+		// PREMIÈRE DES DEUX FABRICATIONS DISTINCTES. Le pouvoir séparateur de la
+		// précondition ne serait PAS établi si la MÊME fabrication faisait rougir la
+		// précondition ET le filtre : on ne saurait pas lequel des deux a parlé.
+		// Ces deux littéraux n'apparaissent dans AUCUNE invite, donc seul le rapport
+		// gabarit ↔ gabarit est en cause.
+		const long = 'ZZ-gabarit-fabrique-long'
+		const court = 'ZZ-gabarit-fabrique'
+		const fabriquee = new Map(extraire(PORTEUR_BRAIN)).set(ROLES[0], long).set(ROLES[1], court)
+
+		expect(long.includes(court)).toBe(true)
+		// (a) LA PRÉCONDITION ROUGIT, et elle nomme le couple.
+		expect(gabaritsSousChaines(fabriquee, ROLES)).toContain(`${ROLES[1]} ⊂ ${ROLES[0]}`)
+		// (b) … et LE BALAYAGE, LUI, RESTE VERT sur cette même fabrication : les deux
+		// instruments ne mesurent pas la même chose.
+		expect(invitesQuiNommentUnAutreGabarit(fabriquee, ROLES)).toEqual([])
+	})
+
+	it('aucune invite ne contient le gabarit d un autre role', () => {
+		const reel = extraire(PORTEUR_BRAIN)
+
+		expect(invitesQuiNommentUnAutreGabarit(reel, ROLES)).toEqual([])
+		// LE SECOND CÔTÉ, sans lequel l'assertion négative est INERTE : chaque invite
+		// contient bien LE SIEN. Un balayage vert sur trois invites muettes ne prouverait
+		// rien du tout.
+		expect(ROLES.filter((role) => !INVITES[role].systeme.includes(String(reel.get(role))))).toEqual([])
+	})
+
+	it('chacune des trois transpositions fait rougir le balayage', () => {
+		// SECONDE DES DEUX FABRICATIONS DISTINCTES, et c'est le défaut RÉALISTE : deux
+		// lignes interverties en éditant la table. Les trois paires sont DÉRIVÉES, jamais
+		// écrites — « les trois » prouvé sur trois, pas sur un échantillon (KR-199).
+		const reel = extraire(PORTEUR_BRAIN)
+		const toutes = paires(ROLES)
+		expect(toutes).toHaveLength(3)
+
+		for (const [a, b] of toutes) {
+			const echangee = transposer(reel, a, b)
+			// Le balayage ROUGIT : l'invite de `a` nomme désormais le gabarit de `b`.
+			expect(`${a}↔${b} → ${invitesQuiNommentUnAutreGabarit(echangee, ROLES).length}`).not.toBe(`${a}↔${b} → 0`)
+			// … et la PRÉCONDITION, elle, reste VERTE : une transposition ne fait que
+			// permuter les mêmes valeurs. Les deux instruments restent distincts.
+			expect(gabaritsSousChaines(echangee, ROLES)).toEqual([])
+		}
+	})
+
+	it('la rotation reste le canari du DERANGEMENT TOTAL', () => {
+		// CONSERVÉE, et son rôle est NOMMÉ : à trois rôles elle ne prouve plus le
+		// mal-apparié (une rotation de 1 est un dérangement pour tout n ≥ 2, donc elle
+		// rougit trivialement). Elle garde le cas « toute la table a glissé d'un cran ».
+		const reel = extraire(PORTEUR_BRAIN)
+		const decalee = croiser(reel, ROLES)
+
+		// Le décalage n'a rien perdu : même taille, mêmes valeurs, autre appariement.
+		expect([...decalee.values()].sort()).toEqual([...reel.values()].sort())
+		expect([...decalee.entries()]).not.toEqual([...reel.entries()])
+		// AUCUN rôle ne retrouve son gabarit : c'est ce que « dérangement total » veut
+		// dire, et c'est ce que la rotation garde encore.
+		expect(ROLES.filter((role) => decalee.get(role) === reel.get(role))).toEqual([])
+		expect(ROLES.filter((role) => inviteNommeSonGabarit(role, decalee))).toEqual([])
+	})
+
+	it('la borne de l invite est celle du validateur', () => {
+		// LA DUPLICATION « trois » (worker) / `REPLIQUES_PROPOSEES_MAX` (client) est
+		// INÉVITABLE — aucun import `worker/` → `src/` — et elle n'était PAS gardée. Une
+		// duplication qu'on ne peut pas supprimer se GARDE.
+		// LIMITE DÉCLARÉE : ce garde épingle LE MOT, pas la sémantique.
+		expect(REPLIQUES_PROPOSEES_MAX).toBe(3)
+		expect(inviteDitLaBorne(INVITES[ROLE_REPLIQUES].systeme, REPLIQUES_PROPOSEES_MAX)).toBe(true)
+
+		// CAS NÉGATIF FABRIQUÉ — un `toContain` est INERTE sans lui. (a) une invite qui
+		// annonce une AUTRE borne ne satisfait pas le garde ;
+		const bavarde = 'Tu en donnes deux au plus, et au moins une : le contexte est maigre.'
+		expect(inviteDitLaBorne(bavarde, REPLIQUES_PROPOSEES_MAX)).toBe(false)
+		// (b) et l'invite RÉELLE ne dit JAMAIS « deux au plus » — décision (3) du § 4 bis :
+		// `PARLER_REPLIQUES` borne le DOCUMENT, jamais la réponse, et le nombre de
+		// propositions acceptables VARIE d'un personnage à l'autre.
+		expect(inviteDitLaBorne(INVITES[ROLE_REPLIQUES].systeme, 2)).toBe(false)
+		// … et le mot de la borne 2 EXISTE bien dans la table : sans cette ligne, (b)
+		// serait vrai par absence d'entrée plutôt que par absence dans l'invite.
+		expect(BORNE_EN_TOUTES_LETTRES[2]).toBeDefined()
+		expect(bavarde).toContain(String(BORNE_EN_TOUTES_LETTRES[2]))
+	})
+
+	it('l invite du troisieme role ne recite AUCUN curseur — ni son nom, ni son libelle', () => {
+		// LE VETO CURSEURS, gardé là où il peut l'être. La liste des six est DÉRIVÉE du
+		// registre qui fait foi, jamais re-listée (KR-117) : un septième curseur entrerait
+		// dans ce balayage sans qu'on touche ce test.
+		//
+		// ⚠ CE GARDE EST DÉLIBÉRÉMENT ÉTROIT, et le dire vaut mieux que de l'élargir :
+		// un balayage sur `'parler'` ou `'seuil'` serait un FAUX POSITIF MESURÉ — l'invite
+		// écrit légitimement « la façon de parler d'un personnage » et « jamais de seuil
+		// ni de règle de jeu », qui est l'INTERDICTION elle-même. Un scanner non ancré a
+		// des faux positifs (KR-235) ; le reste de la doctrine du § 4 bis n'est pas
+		// constatable par un instrument (KR-229) et vit en commentaire dans `INVITES`.
+		const systeme = INVITES[ROLE_REPLIQUES].systeme.toLowerCase()
+		const interdits = [
+			...Object.keys(CURSEURS),
+			...Object.values(CURSEURS).map((descripteur) => descripteur.label.toLowerCase()),
+			'curseur',
+		]
+
+		expect(interdits.filter((mot) => systeme.includes(mot))).toEqual([])
+		// Discriminants : la liste balayée n'est pas vide, elle couvre bien les SIX
+		// curseurs, et chaque mot SERAIT détecté s'il y était (KR-199/235).
+		expect(Object.keys(CURSEURS)).toHaveLength(6)
+		expect(interdits.filter((mot) => `${systeme} ${mot}`.includes(mot))).toEqual(interdits)
 	})
 })
 
@@ -353,6 +542,35 @@ describe('le temoin executable — du worker au validateur, dans le meme process
 		// contexte, ce qui revient est un jeton.
 		expect(invite).not.toContain(indice.id)
 	})
+
+	it('temoin executable du troisieme role', async () => {
+		const gabarit = String(extraire(PORTEUR_BRAIN).get(ROLE_REPLIQUES))
+		// La sortie conforme est CONSTRUITE depuis le gabarit extrait — aucun littéral de
+		// clé n'est retapé ici.
+		const cle = Object.keys(JSON.parse(gabarit) as Record<string, unknown>)[0]
+		const REPLIQUES = ['Pose ta bourse, puis pose ta question.', 'Je vends ce que j entends.']
+		const conforme = JSON.stringify({ [cle]: REPLIQUES })
+
+		const dossier = dossierDeReference()
+		const personnage = dossier.monde.personnages.find((p: Personnage) => p.fonction !== undefined)
+		if (personnage === undefined) throw new Error('la fixture ne porte aucun personnage à cibler')
+
+		const { resultat, invite } = await traverser(conforme, () =>
+			createCopiloteService(reglages).demander(ROLE_REPLIQUES, dossier, { personnageId: personnage.id }),
+		)
+
+		expect(invite).toContain(gabarit)
+		expect(resultat).toEqual({
+			statut: 'propose',
+			proposition: { personnageId: personnage.id, ajouts: REPLIQUES },
+		})
+		// Et la même sortie passe le validateur SEUL : les deux moitiés du témoin sont
+		// prouvées séparément, jamais l'une par l'autre (KR-197/199).
+		expect(validerRepliques(JSON.parse(conforme), dossier)).toEqual({ ok: true, repliques: REPLIQUES })
+		// L'identifiant du personnage ne franchit pas le réseau : ce qui part est le
+		// contexte, ce qui revient est de la prose.
+		expect(invite).not.toContain(personnage.id)
+	})
 })
 
 describe('les deux plafonds', () => {
@@ -377,11 +595,49 @@ describe('les deux plafonds', () => {
 	 *  que pour celui qui sature le plafond. */
 	const ROLE_LE_PLUS_LARGE = ROLES.reduce((large, role) => (BUDGETS[role] > BUDGETS[large] ? role : large))
 
-	it('le role le plus large est bien DERIVE par Math.max sur les budgets', () => {
+	/**
+	 * LE PRÉDICAT DU MAXIMUM UNIQUE — isolé pour que ses cas négatifs portent sur LA
+	 * COMPARAISON RÉELLE et non sur la construction de leur propre témoin (KR-235). Il
+	 * rend LA LISTE des rôles qui atteignent le maximum : l'échec NOMME les ex æquo.
+	 */
+	function rolesAuMaximum(budgets: Record<string, number>, roles: readonly string[]): string[] {
+		const large = roles.reduce((max, role) => (budgets[role] > budgets[max] ? role : max))
+		return roles.filter((role) => budgets[role] === budgets[large])
+	}
+
+	it('le maximum est atteint par exactement un role', () => {
 		expect(BUDGETS[ROLE_LE_PLUS_LARGE]).toBe(Math.max(...ROLES.map((role) => BUDGETS[role])))
-		// Discriminant : les deux budgets DIFFÈRENT, donc « le plus large » désigne
-		// quelque chose. Si un jour ils s'égalisaient, cette ligne le dirait.
-		expect(new Set(ROLES.map((role) => BUDGETS[role])).size).toBe(ROLES.length)
+		// CE QUE CETTE LIGNE REMPLACE, ET POURQUOI. Jusqu'à l'itération 3a elle disait
+		// `expect(new Set(ROLES.map(r => BUDGETS[r])).size).toBe(ROLES.length)` — les
+		// budgets DEUX À DEUX DISTINCTS. C'est une PROPRIÉTÉ QUE PERSONNE N'A VOULUE :
+		// rien n'interdit à deux rôles d'avoir la même mesure, et la seule chose dont
+		// les deux canaris ci-dessous ont besoin est que « le plus large » DÉSIGNE
+		// QUELQU'UN. La ligne restait verte PAR ACCIDENT DE LONGUEUR DE FIXTURE — donc
+		// personne ne l'aurait corrigée, et c'est la QUATRIÈME entrée qui aurait payé.
+		expect(rolesAuMaximum(BUDGETS, ROLES)).toEqual([ROLE_LE_PLUS_LARGE])
+		// Et la table porte bien TROIS entrées, une par rôle : un rôle sans budget ne
+		// doit pas passer pour un rôle à budget nul.
+		expect([...Object.keys(BUDGETS)].sort()).toEqual([...ROLES].sort())
+	})
+
+	it('le predicat du maximum unique est SEPARATEUR, et il ne dit QUE ce qu on veut', () => {
+		const etroits = ROLES.filter((role) => role !== ROLE_LE_PLUS_LARGE)
+		expect(etroits.length).toBeGreaterThan(1)
+
+		// CAS NÉGATIF 1 — DEUX RÔLES EX ÆQUO AU MAXIMUM : « le plus large » cesse de
+		// désigner quelqu'un, et les deux canaris de plafond cesseraient de discriminer.
+		// Le prédicat doit rougir, et il NOMME les deux fautifs.
+		const exAequoAuSommet = { ...BUDGETS, [etroits[0]]: BUDGETS[ROLE_LE_PLUS_LARGE] }
+		expect(rolesAuMaximum(exAequoAuSommet, ROLES).length).toBeGreaterThan(1)
+		expect(rolesAuMaximum(exAequoAuSommet, ROLES)).toContain(etroits[0])
+
+		// CAS NÉGATIF 2 — LA MINE ELLE-MÊME, exécutée : DEUX RÔLES ÉTROITS ÉGAUX. C'est
+		// un état parfaitement légitime — deux rôles peuvent avoir la même mesure — et
+		// l'ANCIENNE assertion y ÉCHOUAIT (`Received: 2, Expected: 3`), pendant que la
+		// propriété réellement voulue, elle, TIENT.
+		const deuxEtroitsEgaux = { ...BUDGETS, [etroits[1]]: BUDGETS[etroits[0]] }
+		expect(new Set(ROLES.map((role) => deuxEtroitsEgaux[role])).size).not.toBe(ROLES.length)
+		expect(rolesAuMaximum(deuxEtroitsEgaux, ROLES)).toEqual([ROLE_LE_PLUS_LARGE])
 	})
 
 	describe.each(ROLES)('role %s', (role) => {

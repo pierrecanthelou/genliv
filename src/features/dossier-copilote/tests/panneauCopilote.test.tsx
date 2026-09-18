@@ -97,7 +97,7 @@ describe('PanneauCopilote - trois Card', () => {
 		expect(screen.getByText('Bientôt — itération 4')).toBeInTheDocument()
 		// DEUX boutons "Lancer" désormais (carte 1, carte 2) ; la carte "Bientôt"
 		// n'en affiche aucun, grisé ou non.
-		expect(screen.getAllByRole('button', { name: 'Lancer' })).toHaveLength(2)
+		expect(screen.getAllByRole('button', { name: 'Lancer' })).toHaveLength(3)
 	})
 })
 

@@ -1,101 +1,137 @@
 {
-	"_about": "Defauts de `dossier-copilote` dont la LECON EST DEJA PROMUE dans un instrument en lecture obligatoire (test permanent, KR, critere d'acceptation) -- ils ne sont plus a relire par le travail en cours, mais leur dossier reste consultable. MEME AXE que bug_history.json, applique dans l'autre sens : ce fichier n'est PAS range par feature, il porte le nom de la feature parce que c'est d'elle que viennent ses entrees. Y DEPLACER une entree exige d'ouvrir les _about des DEUX fichiers (precedent : BUG-086, scission fausse corrigee en revue de PR).",
-	"bugs": [
-		{
-			"id": "BUG-097",
-			"date": "2026-09-17",
-			"feature": "dossier-copilote",
-			"discovered_at": "iteration-1",
-			"symptom": "A l'acceptation, un bloc AVANT APPARAIT DE NULLE PART sur une cible vide, portant le texte qu'on vient d'ecrire ; et sur une cible deja redigee, le texte de l'auteur DISPARAIT de l'ecran au moment precis ou il est ecrase. Le diff montre alors A contre A.",
-			"root_cause": "valeurAvant etait RECALCULEE A CHAQUE RENDU depuis useOpenDossier, qui se reveille sur dossier:updated -- c'est-a-dire sur l'effet de bord de l'acceptation elle-meme. Un etat d'ecran derive d'un abonnement qui se reveille sur son PROPRE effet de bord n'affiche pas l'avant, il affiche le resultat. Le plan decrivait valeurAvant comme la valeur actuelle du champ cible sans dire A QUEL INSTANT elle est lue, et le bloc AVANT n'etait conditionne qu'a variante, jamais a decision.",
-			"fix": "valeurAvant devient un ETAT D'ECRAN gele SUR LE GESTE dans handleLancer, jamais relu au rendu ; variante en est derivee. Aucun useEffect : la capture est sur le clic (KR-013/113 respecte).",
-			"mitigation": "Deux temoins mesures ROUGES sur le code d'origine : cible vide => queryByText('AVANT') null apres acceptation ; cible redigee => le bloc porte encore l'ANCIEN texte. Chacun relit d'abord la valeur ECRITE, sinon l'absence du bloc pourrait venir d'une ecriture qui n'a pas eu lieu. Ce que PERSONNE n'avait regarde -- ni l'ouvrier, ni la QA en mode B, ni les deux tours de comite : le rendu APRES decision, tous les temoins existants s'arretant AVANT l'acceptation. CANDIDAT KR, a citer TEL QUEL a la DEUXIEME occurrence : << un etat d'ecran derive EN LIGNE d'un abonnement qui se reveille sur son PROPRE effet de bord n'affiche pas l'avant, il affiche le resultat >>. Complement de KR-013/113, que la regle << calcule en ligne >> ne couvre pas et, prise au pied de la lettre, ENCOURAGE. Pas ecrit en KR ici : une occurrence + un test = un BUG ; KR a la 2e occurrence, dont le lot paiera la compaction (arbitrage de revue de PR, detail au SS 9 de la revue d'iteration).",
-			"regression_test": "src/features/dossier-copilote/tests/acceptation.test.tsx -- describe('acceptation - le AVANT est gele au lancement, pas relu au rendu')",
-			"severity": "major"
-		},
-		{
-			"id": "BUG-098",
-			"date": "2026-09-17",
-			"feature": "dossier-copilote",
-			"discovered_at": "iteration-1",
-			"symptom": "code-knowledge.json prescrivait encore, dans KR-236, le garde que le comite venait de REJETER : un test qui asserte que l'invite de chaque role contient CHAQUE CLE de son schema.",
-			"root_cause": "Le KR a ete ecrit au CADRAGE, avant que le raffinage ne mesure que ce garde est creux ; l'amendement de KR-235 a ete fait dans le meme lot, celui de KR-236 oublie. code-knowledge.json est le SEUL fichier lu EN ENTIER avant d'ecrire du code : laisse tel quel, il enseignait le garde creux au lot contrat de l'it2, qui pose precisement une deuxieme invite.",
-			"fix": "Derniere phrase de KR-236 amendee : le garde porte sur le LITTERAL DE GABARIT, JAMAIS sur la cle nue, avec le motif mesure (valeur est un mot francais courant) et le cas negatif obligatoire. Entree resserree dans le meme geste pour tenir le plafond de 75 kio.",
-			"mitigation": "Preuve executable au depot : worker/frontiere.test.ts prouve qu'une invite disant la valeur de ce personnage satisfait includes(cleNue) et ECHOUE le vrai garde. Regle a tenir : quand un raffinage MESURE qu'un instrument decrit dans un KR est faux, l'amendement du KR part dans le MEME lot que le code -- un KR est de la memoire obligatoire, pas un commentaire. Meme famille que BUG-082 : un arbitrage qui vit dans une note et pas la ou on code.",
-			"regression_test": "worker/frontiere.test.ts -- 'la cle nue ne suffirait pas a satisfaire le garde' (le KR lui-meme n'a pas de test : c'est de la memoire, relue en revue de PR)",
-			"severity": "major"
-		},
-		{
-			"id": "BUG-099",
-			"date": "2026-09-17",
-			"feature": "dossier-copilote",
-			"discovered_at": "iteration-1",
-			"symptom": "Deux defauts latents du meme .then() : (a) enVolRef.current = false etait pose par l'appel QUI SE TERMINE et non par l'appel COURANT, si bien que sur Lancer A puis Annuler puis Lancer B, la resolution de A rouvrait le garde pendant que B etait en vol ; (b) sans .catch ni .finally, un demander() qui rejetterait un jour laissait enVolRef a true ET la phase a en-cours : panneau mort pour le reste de la session, sans trace.",
-			"root_cause": "Le garde en vol etait rendu par une cloture sur l'appel sortant plutot que compare au controleur courant. (a) n'etait pas exploitable aujourd'hui parce que disabled couvre la fenetre -- c'est-a-dire exactement ce que le plan interdit de faire porter au disabled : LE GARDE EST LE REF, disabled n'en est que la face visible.",
-			"fix": "Remise a zero passee en .finally et rendue CONDITIONNELLE (if (controleurRef.current === controleur)), plus un .catch qui range en indisponible/injoignable, garde par signal.aborted pour ne pas ecraser un abandon voulu.",
-			"mitigation": "Temoins mesures ROUGES avant : la sequence a trois temps rendait 3 appels au lieu de 2 ; la promesse rompue laissait phase en-cours. Montes au renderHook et NON sur le panneau -- deliberement : sur le panneau, Lancer est disabled au troisieme temps, donc le test mesurerait disabled. Le temoin verifie aussi que le garde ROUVRE quand B se termine, sans quoi il passerait sur un garde definitivement clos.",
-			"regression_test": "src/features/dossier-copilote/tests/useDemandeCopilote.test.tsx -- describe('useDemandeCopilote - le garde est rendu par l appel courant')",
-			"severity": "minor"
-		},
-		{
-			"id": "BUG-100",
-			"date": "2026-09-17",
-			"feature": "dossier-copilote",
-			"discovered_at": "iteration-1",
-			"symptom": "Le cas negatif un litteral altere d'un caractere fait rougir la comparaison, dans worker/frontiere.test.ts, N'EXECUTAIT JAMAIS la comparaison du garde : expect(altere).not.toBe(reference) est vrai PAR CONSTRUCTION d'altere, et toHaveLength ne mesurait que slice. Temoin decoratif, vert quoi qu'il arrive.",
-			"root_cause": "Le cas negatif a ete ecrit contre la VALEUR alteree au lieu d'etre ecrit contre le PREDICAT DE LIAISON. C'est le mode de panne que KR-235 nomme, applique au garde cense proteger de ce mode de panne -- et les deux autres cas negatifs du meme fichier, eux, sont reels.",
-			"fix": "Predicat memeGabarit(a, b) EXTRAIT, appele par le cas nominal ET par les cas negatifs ; le cas altere l'exerce contre le vrai exemplaire du worker, DANS LES DEUX SENS. Un troisieme cas (un porteur vide fait rougir le predicat) fait entrer la garde d'unicite DANS le predicat, au lieu de la laisser dans une assertion voisine qu'on pourrait retirer sans rougir.",
-			"mitigation": "Sonde posee et retiree : en neutralisant a[0] === b[0] dans memeGabarit, le cas negatif passe ROUGE (1 failed / 11) -- l'ancienne version restait VERTE sous ce meme mutant. Regle a tenir : un cas negatif s'ecrit contre le PREDICAT qu'il pretend eprouver, jamais contre une valeur qu'on vient de fabriquer fausse ; et il se prouve en NEUTRALISANT le predicat, pas en le lisant.",
-			"regression_test": "worker/frontiere.test.ts -- 'un litteral altere fait rougir le predicat de liaison' et 'un porteur vide fait rougir le predicat de liaison'",
-			"severity": "minor"
-		},
-		{
-			"id": "BUG-102",
-			"date": "2026-09-18",
-			"feature": "dossier-copilote",
-			"discovered_at": "iteration-2",
-			"symptom": "« Lancer » restait ACTIF et ne faisait RIEN quand la cible selectionnee avait quitte les constats vifs : `handleLancer` faisait un `find` infructueux et rendait la main sans aucun retour d'ecran. Un CTA primaire mort.",
-			"root_cause": "Meme racine que BUG-101 (une liste gelee lue contre une liste vive) : `desactive` ne regardait que `aucunConstat`, vrai seulement si AUCUN constat ne subsiste.",
-			"fix": "CarteTisserIndices.tsx : `constatVivant` entre dans `desactive`, avec `TITRE_INDICE_PLUS_SIGNALE` -- texte NEUF, hors du § 3.3 du plan, parce que `TITRE_AUCUN_INDICE_SIGNALE` parle du DOSSIER entier et serait faux ici.",
-			"mitigation": "Mutant ecrit et VU ROUGE : la garde `!constatVivant` retiree fait rougir le temoin de BUG-101, qui asserte aussi `toBeDisabled()`.",
-			"regression_test": "src/features/dossier-copilote/tests/detenteurs.test.tsx -- \"a DEUX constats, le Select reste sur la cible gelee…\" (assertion `toBeDisabled`)",
-			"severity": "minor"
-		},
-		{
-			"id": "BUG-103",
-			"date": "2026-09-18",
-			"feature": "dossier-copilote",
-			"discovered_at": "iteration-2",
-			"symptom": "Warning React `act(...)` permanent dans la suite la plus neuve de la feature : le retrait d'indice du temoin « reference orpheline par course » emet `dossier:updated`, donc pose un `setState` hors `act`.",
-			"root_cause": "Un helper qui ECRIT dans le dossier depuis un test de composant traverse l'EventBus et reveille l'abonnement du panneau. `render`/`fireEvent` enveloppent, pas un appel direct au service.",
-			"fix": "detenteurs.test.tsx : `act(() => { retirerIndice(...) })`.",
-			"mitigation": "REGLE PORTABLE : dans un test de composant, tout appel DIRECT a `DossierService.update` (hors `fireEvent`) s'enveloppe dans `act` -- sinon le rendu n'est pas vidé au moment ou le test observe, et le bruit masque le prochain vrai warning.",
-			"regression_test": "src/features/dossier-copilote/tests/detenteurs.test.tsx -- \"reference orpheline par course\" (suite sans warning)",
-			"severity": "minor"
-		},
-		{
-			"id": "BUG-104",
-			"date": "2026-09-18",
-			"feature": "dossier-copilote",
-			"discovered_at": "iteration-2",
-			"symptom": "KR-236 decrivait encore un garde que l'it2 a MESURE insuffisant : avec des gabarits indexes par role, il reste VERT sur une table MAL APPARIEE (deux litteraux presents, corrects, simplement echanges). Et KR-233 portait DEUX constats perimes par l'it1 elle-meme (« worker sans test », « POST manque dans BASE_CORS »), tous deux faux aujourd'hui.",
-			"root_cause": "RECURRENCE DE BUG-098, sous sa forme « incomplet » plutot que « faux ». `code-knowledge.json` est le seul fichier lu EN ENTIER avant d'ecrire du code : l'ouvrier de l'it4, qui pose un TROISIEME role, l'aurait lu, pas `frontiere.test.ts`. Dossier du precedent : BUG-098, bug_history.dossier-copilote.json.",
-			"fix": "KR-236 amende (egalite des trois ensembles de cles, appariement role par role, CANARI CROISE obligatoire) ; KR-233 resserre sur sa seule clause encore actionnable ; la ligne de rappel de `specification.json` corrigee de meme.",
-			"mitigation": "La regle issue de BUG-098 tient et se confirme : quand un raffinage MESURE qu'un instrument decrit dans un KR est faux OU INCOMPLET, l'amendement du KR part dans le MEME lot que le code. Un KR qui decrit un etat revolu enseigne un monde qui n'existe plus.",
-			"regression_test": "Aucun -- un KR ne se teste pas. Garde reelle : worker/frontiere.test.ts (canari croise), qui est ce que le KR decrit desormais.",
-			"severity": "minor"
-		},
-		{
-			"id": "BUG-105",
-			"date": "2026-09-18",
-			"feature": "dossier-copilote",
-			"discovered_at": "iteration-2",
-			"symptom": "Le releve du budget de contexte, mandate par l'etape 4 des Build Steps, n'etait trace nulle part dans le lot : ni bullet de CHANGELOG, ni ligne de revue. Il avait pourtant ete fait, et il avait trouve un DEPASSEMENT.",
-			"root_cause": "Une etape faite mais non ecrite est indistinguable d'une etape sautee, pour quiconque relit le lot. C'est ce qu'a constate la revue de PR, qui ne pouvait pas mesurer elle-meme.",
-			"fix": "CHANGELOG et revue d'iteration portent desormais le releve chiffre et les DEUX compactions qu'il a declenchees (specification.json 69 253 -> 66 079 ; code-knowledge.json 77 593 -> 76 621).",
-			"mitigation": "La definition de fini du plan gagnera une case « releve du budget ECRIT », pas seulement « fait » -- et elle doit excepter `specification.json`, que l'orchestrateur ecrit toujours hors des listes de lots (releve par la QA en mode B comme possible violation de perimetre).",
-			"regression_test": "Aucun -- discipline de lot, aucun instrument ne la constate.",
-			"severity": "minor"
-		}
-	]
+ "_about": "Defauts de `dossier-copilote` dont la LECON EST DEJA PROMUE dans un instrument en lecture obligatoire (test permanent, KR, critere d'acceptation) -- ils ne sont plus a relire par le travail en cours, mais leur dossier reste consultable. MEME AXE que bug_history.json, applique dans l'autre sens : ce fichier n'est PAS range par feature, il porte le nom de la feature parce que c'est d'elle que viennent ses entrees. Y DEPLACER une entree exige d'ouvrir les _about des DEUX fichiers (precedent : BUG-086, scission fausse corrigee en revue de PR).",
+ "bugs": [
+  {
+   "id": "BUG-097",
+   "date": "2026-09-17",
+   "feature": "dossier-copilote",
+   "discovered_at": "iteration-1",
+   "symptom": "A l'acceptation, un bloc AVANT APPARAIT DE NULLE PART sur une cible vide, portant le texte qu'on vient d'ecrire ; et sur une cible deja redigee, le texte de l'auteur DISPARAIT de l'ecran au moment precis ou il est ecrase. Le diff montre alors A contre A.",
+   "root_cause": "valeurAvant etait RECALCULEE A CHAQUE RENDU depuis useOpenDossier, qui se reveille sur dossier:updated -- c'est-a-dire sur l'effet de bord de l'acceptation elle-meme. Un etat d'ecran derive d'un abonnement qui se reveille sur son PROPRE effet de bord n'affiche pas l'avant, il affiche le resultat. Le plan decrivait valeurAvant comme la valeur actuelle du champ cible sans dire A QUEL INSTANT elle est lue, et le bloc AVANT n'etait conditionne qu'a variante, jamais a decision.",
+   "fix": "valeurAvant devient un ETAT D'ECRAN gele SUR LE GESTE dans handleLancer, jamais relu au rendu ; variante en est derivee. Aucun useEffect : la capture est sur le clic (KR-013/113 respecte).",
+   "mitigation": "Deux temoins mesures ROUGES sur le code d'origine : cible vide => queryByText('AVANT') null apres acceptation ; cible redigee => le bloc porte encore l'ANCIEN texte. Chacun relit d'abord la valeur ECRITE, sinon l'absence du bloc pourrait venir d'une ecriture qui n'a pas eu lieu. Ce que PERSONNE n'avait regarde -- ni l'ouvrier, ni la QA en mode B, ni les deux tours de comite : le rendu APRES decision, tous les temoins existants s'arretant AVANT l'acceptation. CANDIDAT KR, a citer TEL QUEL a la DEUXIEME occurrence : << un etat d'ecran derive EN LIGNE d'un abonnement qui se reveille sur son PROPRE effet de bord n'affiche pas l'avant, il affiche le resultat >>. Complement de KR-013/113, que la regle << calcule en ligne >> ne couvre pas et, prise au pied de la lettre, ENCOURAGE. Pas ecrit en KR ici : une occurrence + un test = un BUG ; KR a la 2e occurrence, dont le lot paiera la compaction (arbitrage de revue de PR, detail au SS 9 de la revue d'iteration).",
+   "regression_test": "src/features/dossier-copilote/tests/acceptation.test.tsx -- describe('acceptation - le AVANT est gele au lancement, pas relu au rendu')",
+   "severity": "major"
+  },
+  {
+   "id": "BUG-098",
+   "date": "2026-09-17",
+   "feature": "dossier-copilote",
+   "discovered_at": "iteration-1",
+   "symptom": "code-knowledge.json prescrivait encore, dans KR-236, le garde que le comite venait de REJETER : un test qui asserte que l'invite de chaque role contient CHAQUE CLE de son schema.",
+   "root_cause": "Le KR a ete ecrit au CADRAGE, avant que le raffinage ne mesure que ce garde est creux ; l'amendement de KR-235 a ete fait dans le meme lot, celui de KR-236 oublie. code-knowledge.json est le SEUL fichier lu EN ENTIER avant d'ecrire du code : laisse tel quel, il enseignait le garde creux au lot contrat de l'it2, qui pose precisement une deuxieme invite.",
+   "fix": "Derniere phrase de KR-236 amendee : le garde porte sur le LITTERAL DE GABARIT, JAMAIS sur la cle nue, avec le motif mesure (valeur est un mot francais courant) et le cas negatif obligatoire. Entree resserree dans le meme geste pour tenir le plafond de 75 kio.",
+   "mitigation": "Preuve executable au depot : worker/frontiere.test.ts prouve qu'une invite disant la valeur de ce personnage satisfait includes(cleNue) et ECHOUE le vrai garde. Regle a tenir : quand un raffinage MESURE qu'un instrument decrit dans un KR est faux, l'amendement du KR part dans le MEME lot que le code -- un KR est de la memoire obligatoire, pas un commentaire. Meme famille que BUG-082 : un arbitrage qui vit dans une note et pas la ou on code.",
+   "regression_test": "worker/frontiere.test.ts -- 'la cle nue ne suffirait pas a satisfaire le garde' (le KR lui-meme n'a pas de test : c'est de la memoire, relue en revue de PR)",
+   "severity": "major"
+  },
+  {
+   "id": "BUG-099",
+   "date": "2026-09-17",
+   "feature": "dossier-copilote",
+   "discovered_at": "iteration-1",
+   "symptom": "Deux defauts latents du meme .then() : (a) enVolRef.current = false etait pose par l'appel QUI SE TERMINE et non par l'appel COURANT, si bien que sur Lancer A puis Annuler puis Lancer B, la resolution de A rouvrait le garde pendant que B etait en vol ; (b) sans .catch ni .finally, un demander() qui rejetterait un jour laissait enVolRef a true ET la phase a en-cours : panneau mort pour le reste de la session, sans trace.",
+   "root_cause": "Le garde en vol etait rendu par une cloture sur l'appel sortant plutot que compare au controleur courant. (a) n'etait pas exploitable aujourd'hui parce que disabled couvre la fenetre -- c'est-a-dire exactement ce que le plan interdit de faire porter au disabled : LE GARDE EST LE REF, disabled n'en est que la face visible.",
+   "fix": "Remise a zero passee en .finally et rendue CONDITIONNELLE (if (controleurRef.current === controleur)), plus un .catch qui range en indisponible/injoignable, garde par signal.aborted pour ne pas ecraser un abandon voulu.",
+   "mitigation": "Temoins mesures ROUGES avant : la sequence a trois temps rendait 3 appels au lieu de 2 ; la promesse rompue laissait phase en-cours. Montes au renderHook et NON sur le panneau -- deliberement : sur le panneau, Lancer est disabled au troisieme temps, donc le test mesurerait disabled. Le temoin verifie aussi que le garde ROUVRE quand B se termine, sans quoi il passerait sur un garde definitivement clos.",
+   "regression_test": "src/features/dossier-copilote/tests/useDemandeCopilote.test.tsx -- describe('useDemandeCopilote - le garde est rendu par l appel courant')",
+   "severity": "minor"
+  },
+  {
+   "id": "BUG-100",
+   "date": "2026-09-17",
+   "feature": "dossier-copilote",
+   "discovered_at": "iteration-1",
+   "symptom": "Le cas negatif un litteral altere d'un caractere fait rougir la comparaison, dans worker/frontiere.test.ts, N'EXECUTAIT JAMAIS la comparaison du garde : expect(altere).not.toBe(reference) est vrai PAR CONSTRUCTION d'altere, et toHaveLength ne mesurait que slice. Temoin decoratif, vert quoi qu'il arrive.",
+   "root_cause": "Le cas negatif a ete ecrit contre la VALEUR alteree au lieu d'etre ecrit contre le PREDICAT DE LIAISON. C'est le mode de panne que KR-235 nomme, applique au garde cense proteger de ce mode de panne -- et les deux autres cas negatifs du meme fichier, eux, sont reels.",
+   "fix": "Predicat memeGabarit(a, b) EXTRAIT, appele par le cas nominal ET par les cas negatifs ; le cas altere l'exerce contre le vrai exemplaire du worker, DANS LES DEUX SENS. Un troisieme cas (un porteur vide fait rougir le predicat) fait entrer la garde d'unicite DANS le predicat, au lieu de la laisser dans une assertion voisine qu'on pourrait retirer sans rougir.",
+   "mitigation": "Sonde posee et retiree : en neutralisant a[0] === b[0] dans memeGabarit, le cas negatif passe ROUGE (1 failed / 11) -- l'ancienne version restait VERTE sous ce meme mutant. Regle a tenir : un cas negatif s'ecrit contre le PREDICAT qu'il pretend eprouver, jamais contre une valeur qu'on vient de fabriquer fausse ; et il se prouve en NEUTRALISANT le predicat, pas en le lisant.",
+   "regression_test": "worker/frontiere.test.ts -- 'un litteral altere fait rougir le predicat de liaison' et 'un porteur vide fait rougir le predicat de liaison'",
+   "severity": "minor"
+  },
+  {
+   "id": "BUG-102",
+   "date": "2026-09-18",
+   "feature": "dossier-copilote",
+   "discovered_at": "iteration-2",
+   "symptom": "« Lancer » restait ACTIF et ne faisait RIEN quand la cible selectionnee avait quitte les constats vifs : `handleLancer` faisait un `find` infructueux et rendait la main sans aucun retour d'ecran. Un CTA primaire mort.",
+   "root_cause": "Meme racine que BUG-101 (une liste gelee lue contre une liste vive) : `desactive` ne regardait que `aucunConstat`, vrai seulement si AUCUN constat ne subsiste.",
+   "fix": "CarteTisserIndices.tsx : `constatVivant` entre dans `desactive`, avec `TITRE_INDICE_PLUS_SIGNALE` -- texte NEUF, hors du § 3.3 du plan, parce que `TITRE_AUCUN_INDICE_SIGNALE` parle du DOSSIER entier et serait faux ici.",
+   "mitigation": "Mutant ecrit et VU ROUGE : la garde `!constatVivant` retiree fait rougir le temoin de BUG-101, qui asserte aussi `toBeDisabled()`.",
+   "regression_test": "src/features/dossier-copilote/tests/detenteurs.test.tsx -- \"a DEUX constats, le Select reste sur la cible gelee…\" (assertion `toBeDisabled`)",
+   "severity": "minor"
+  },
+  {
+   "id": "BUG-103",
+   "date": "2026-09-18",
+   "feature": "dossier-copilote",
+   "discovered_at": "iteration-2",
+   "symptom": "Warning React `act(...)` permanent dans la suite la plus neuve de la feature : le retrait d'indice du temoin « reference orpheline par course » emet `dossier:updated`, donc pose un `setState` hors `act`.",
+   "root_cause": "Un helper qui ECRIT dans le dossier depuis un test de composant traverse l'EventBus et reveille l'abonnement du panneau. `render`/`fireEvent` enveloppent, pas un appel direct au service.",
+   "fix": "detenteurs.test.tsx : `act(() => { retirerIndice(...) })`.",
+   "mitigation": "REGLE PORTABLE : dans un test de composant, tout appel DIRECT a `DossierService.update` (hors `fireEvent`) s'enveloppe dans `act` -- sinon le rendu n'est pas vidé au moment ou le test observe, et le bruit masque le prochain vrai warning.",
+   "regression_test": "src/features/dossier-copilote/tests/detenteurs.test.tsx -- \"reference orpheline par course\" (suite sans warning)",
+   "severity": "minor"
+  },
+  {
+   "id": "BUG-104",
+   "date": "2026-09-18",
+   "feature": "dossier-copilote",
+   "discovered_at": "iteration-2",
+   "symptom": "KR-236 decrivait encore un garde que l'it2 a MESURE insuffisant : avec des gabarits indexes par role, il reste VERT sur une table MAL APPARIEE (deux litteraux presents, corrects, simplement echanges). Et KR-233 portait DEUX constats perimes par l'it1 elle-meme (« worker sans test », « POST manque dans BASE_CORS »), tous deux faux aujourd'hui.",
+   "root_cause": "RECURRENCE DE BUG-098, sous sa forme « incomplet » plutot que « faux ». `code-knowledge.json` est le seul fichier lu EN ENTIER avant d'ecrire du code : l'ouvrier de l'it4, qui pose un TROISIEME role, l'aurait lu, pas `frontiere.test.ts`. Dossier du precedent : BUG-098, bug_history.dossier-copilote.json.",
+   "fix": "KR-236 amende (egalite des trois ensembles de cles, appariement role par role, CANARI CROISE obligatoire) ; KR-233 resserre sur sa seule clause encore actionnable ; la ligne de rappel de `specification.json` corrigee de meme.",
+   "mitigation": "La regle issue de BUG-098 tient et se confirme : quand un raffinage MESURE qu'un instrument decrit dans un KR est faux OU INCOMPLET, l'amendement du KR part dans le MEME lot que le code. Un KR qui decrit un etat revolu enseigne un monde qui n'existe plus.",
+   "regression_test": "Aucun -- un KR ne se teste pas. Garde reelle : worker/frontiere.test.ts (canari croise), qui est ce que le KR decrit desormais.",
+   "severity": "minor"
+  },
+  {
+   "id": "BUG-105",
+   "date": "2026-09-18",
+   "feature": "dossier-copilote",
+   "discovered_at": "iteration-2",
+   "symptom": "Le releve du budget de contexte, mandate par l'etape 4 des Build Steps, n'etait trace nulle part dans le lot : ni bullet de CHANGELOG, ni ligne de revue. Il avait pourtant ete fait, et il avait trouve un DEPASSEMENT.",
+   "root_cause": "Une etape faite mais non ecrite est indistinguable d'une etape sautee, pour quiconque relit le lot. C'est ce qu'a constate la revue de PR, qui ne pouvait pas mesurer elle-meme.",
+   "fix": "CHANGELOG et revue d'iteration portent desormais le releve chiffre et les DEUX compactions qu'il a declenchees (specification.json 69 253 -> 66 079 ; code-knowledge.json 77 593 -> 76 621).",
+   "mitigation": "La definition de fini du plan gagnera une case « releve du budget ECRIT », pas seulement « fait » -- et elle doit excepter `specification.json`, que l'orchestrateur ecrit toujours hors des listes de lots (releve par la QA en mode B comme possible violation de perimetre).",
+   "regression_test": "Aucun -- discipline de lot, aucun instrument ne la constate.",
+   "severity": "minor"
+  },
+  {
+   "id": "BUG-109",
+   "date": "2026-09-18",
+   "feature": "dossier-copilote",
+   "discovered_at": "iteration-3a",
+   "symptom": "Au plafond, le repli de focus post-decision visait le bouton << Lancer >> -- que CE MEME RENDU desactive. En navigateur, .focus() sur un bouton `disabled` n'a AUCUN effet : l'auteur au clavier perd sa place au moment exact ou il finit sa tache. Le temoin `repliques.test.tsx` assertait pourtant `toHaveFocus()` dessus et passait, son propre commentaire reconnaissant que << jsdom laisse un focus pose juste avant que son propre disabled ne soit commis >>.",
+   "root_cause": "TROISIEME occurrence de la famille BUG-097/101/106 : un etat derive VIF consomme dans le rendu que son propre geste declenche. `plafondAtteint` derive de `parlerLive`, donc du dossier reveille par `dossier:updated` -- c'est-a-dire par l'acceptation qu'on vient de commettre. La prophylaxie annoncee au SS 3.5 du plan etait complete SUR LES LIGNES et vide SUR LE REPLI : le defaut avait ete DEPLACE de la ligne vers le bouton, pas ferme. Aggravant, et c'est le vrai defaut de methode : un contrat affirme vrai PAR L'ENVIRONNEMENT, exactement le mode de panne que la mitigation de BUG-106 avait interdit nommement -- aucun test ne pouvait donc jamais le dire.",
+   "fix": "Invariant pose et ecrit au site : NE JAMAIS VISER UNE CIBLE QUE CE MEME RENDU DESACTIVE. `LigneRepliqueHandle` gagne `focusRejeter` (ref sur le << x >>, qui n'est JAMAIS desactive -- seule cible de la ligne qui survive au rendu) ; `focoApresDecision` vise ce << x >> au plafond au lieu de << Lancer >>. Aucune primitive partagee touchee (KR-109) : la cible etait dans les fichiers du lot 2 depuis le debut. La docstring du composant, qui decrivait encore l'ancien comportement -- donc le bug --, est corrigee.",
+   "mitigation": "Le temoin n'asserte plus un focus vrai en jsdom seulement : il verifie que << Lancer >> est `toBeDisabled()`, que le << + >> de la ligne suivante l'est aussi et n'a PAS le focus, et que le << x >> est `toBeEnabled()` ET le recoit. Le RESIDU est ECRIT plutot que masque, et il a son propre temoin : quand toutes les lignes sont decidees ET le plafond atteint (3 propositions, 2 acceptees + 1 rejetee), il n'existe AUCUNE cible survivante -- on ne pose alors PAS le focus, et le test asserte que << Lancer >> ne l'a pas. Pouvoir separateur ETABLI : sabotage du repli (retour a `focusLancer`) execute, 2 tests sur 13 vus ROUGES, fichier restaure et re-verifie vert. CONDITION D'OUVERTURE DU RESIDU, a refermer du MEME geste que celui de BUG-106 : la cible honnete serait une cible focalisable en tete de carte, c'est-a-dire le `Select`, qui ne transmet aucun `ref` -- primitive partagee de `brain/components/` qu'un lot de feature n'ouvre pas pour un seul appelant (KR-109). Le jour ou une iteration ouvre legitimement `brain/components/Select.tsx`, LES DEUX residus (BUG-106 cas << acceptation au plafond >> et BUG-109 cas << toutes lignes decidees au plafond >>) se referment ensemble. REFUSE et pourquoi : le lien << Ouvrir la fiche >> de la ligne acceptee est focalisable, mais son onClick est `onSelectSection('personnages')` -- y poser le focus ARME UNE NAVIGATION sur le prochain Entree/Espace, ce qui coute a l'auteur sa place dans l'application ET la proposition encore a l'ecran : strictement PIRE que le residu.",
+   "regression_test": "src/features/dossier-copilote/tests/repliques.test.tsx -- << focus ne cible JAMAIS une ligne desactivee (prophylaxie BUG-106) >> et << au plafond ET toutes les lignes decidees, aucun focus n est pose sur un bouton desactive >>",
+   "severity": "major"
+  },
+  {
+   "id": "BUG-110",
+   "date": "2026-09-18",
+   "feature": "dossier-copilote",
+   "discovered_at": "iteration-3a",
+   "symptom": "Le bloc << DEJA ECRIT >> etant gele au clic Lancer, son etat vide l'etait aussi : sur un personnage a zero replique, l'ecran affichait apres deux acceptations << Ce personnage n'a encore aucune replique type -- une proposition acceptee s'ajoute >> A COTE de deux badges << Accepte >>, pendant que le title de << Lancer >> disait << Ce personnage a deja ses deux repliques type >>.",
+   "root_cause": "Geler une LISTE est defendable -- elle est etiquetee << DEJA ECRIT >> et decrit l'etat au lancement. Geler une INSTRUCTION PROSPECTIVE au present ne l'est pas : elle devient FAUSSE des la premiere acceptation, et se contredit avec un autre element du meme ecran.",
+   "fix": "`MENTION_ZERO_REPLIQUE_AU_LANCER`, au passe, rendue des que `compteurAccepte > 0` ; la mention au present ne subsiste que tant que rien n'a ete accepte. Le bloc n'est PAS degele -- le passe leve la contradiction sans toucher au gel, qui est la parade a BUG-097.",
+   "mitigation": "Le motif est ecrit aux deux sites (la constante dans `textes.ts`, le site de rendu dans `CarteFaireParler.tsx`) : geler une liste, jamais une instruction prospective. CORRECTION DE CETTE ENTREE, relevee par la revue de PR (2e passe) : son champ `regression_test` nommait d'abord la suite du gel (BUG-097), qui est AVEUGLE a ce correctif -- elle seme `parler: ['Ancienne phrase.']`, donc `dejaEcritesGelees` n'est pas vide et la branche `<p>` n'y est JAMAIS rendue. Un `regression_test` qui nomme un temoin aveugle est PIRE qu'un champ vide : il sera cru (lecon BUG-108 -- une contrepartie recoit son propre temoin dans le meme lot ; un commentaire ne garde rien). Pouvoir separateur desormais ETABLI : mutant << ternaire remplace par MENTION_ZERO_REPLIQUE seule >> pose sur le code reel, 1 test sur 13 vu ROUGE, fichier restaure et re-verifie vert.",
+   "regression_test": "src/features/dossier-copilote/tests/repliques.test.tsx -- << personnage sans replique, lancer puis accepter deux propositions : parler porte deux, le dossier reste accepte >> (suite << bout-en-bout (critere 8) >>), ou le personnage part de ZERO replique : la mention au passe est assertee presente et celle au present absente, APRES les deux acceptations.",
+   "severity": "minor"
+  },
+  {
+   "id": "BUG-111",
+   "date": "2026-09-18",
+   "feature": "dossier-copilote",
+   "discovered_at": "iteration-3a",
+   "symptom": "`handleAccepter` portait le garde `if (contexteGele === null) return`, `handleRejeter` non -- alors que tous deux appellent `focoApresDecision`, qui lit `dejaEcritesGelees` et RETOMBE sur le dossier vif quand le gel est nul.",
+   "root_cause": "Inatteignable a cette iteration (une ligne ne s'affiche qu'en phase `proposition`, laquelle implique un `handleLancer` qui a pose le gel), mais l'invariant n'est porte par AUCUN type : c'est une dependance implicite entre deux `useState`, exactement la forme qui a rouvert BUG-101.",
+   "fix": "Meme garde ajoute a `handleRejeter`, avec le motif ecrit au site.",
+   "mitigation": "Le commentaire nomme l'invariant et son precedent, pour qu'un ouvrier futur ne retire pas un garde qui parait mort.",
+   "regression_test": "couvert par la suite `repliques.test.tsx` -- aucun test ne peut atteindre l'etat, ce qui est DIT dans le commentaire plutot que masque par un test artificiel",
+   "severity": "minor"
+  }
+ ]
 }

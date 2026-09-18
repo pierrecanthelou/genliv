@@ -11,7 +11,7 @@
 import { MARQUEUR_A_ECRIRE } from '../dossier/amorce'
 import { ESPACES_DE_NOMS, collectIds } from '../dossier/identifiers'
 import type { Dossier } from '../dossier/types'
-import type { DetenteursRendus, PropositionRendue, RangInjecte, RoleCopilote } from './types'
+import type { DetenteursRendus, PropositionRendue, RangInjecte, RepliquesRendues, RoleCopilote } from './types'
 
 /** Les clés du schéma de sortie, EN VALEUR : le garde KR-236 les énumère à
  *  l'exécution (une `interface` n'existe plus au runtime), et le validateur est
@@ -28,6 +28,29 @@ export const CLES_SORTIE_DETENTEURS = ['detenteurs'] as const
  *  l'ENTRÉE et dérive du budget de contexte. Dimensionner `max_tokens` sur le
  *  nombre de CANDIDATS financerait une liste que ce contrat refuse. */
 export const PROPOSITIONS_MAX = 3
+
+/** L'équivalent pour le rôle `personnage-repliques`. TROIS registres LITTÉRAUX, et
+ *  toujours pas un registre paramétré : `Record<RoleCopilote, …>` n'est légitime que
+ *  si CHAQUE rôle a une entrée qui VEUT DIRE quelque chose — faux ici, le rôle prose
+ *  n'a pas de liste et son entrée serait un mensonge (§ 8, TL3a-6). */
+export const CLES_SORTIE_REPLIQUES = ['repliques'] as const
+
+/** LA FORME DE LA RÉPONSE ATTENDUE — combien de répliques le modèle a le droit de
+ *  proposer. Même statut que `max_tokens` : ce n'est ni une règle du jeu ni une règle
+ *  du dossier, et elle dérive `max_tokens` (worker).
+ *
+ *  ⚠ CE N'EST PAS `PARLER_REPLIQUES` (= 2, `dossier/curseurs.ts`) et elle ne s'y
+ *  aligne JAMAIS. Le nombre de propositions ACCEPTABLES vaut
+ *  `PARLER_REPLIQUES − parler.length` et VARIE d'un personnage à l'autre :
+ *  `PARLER_REPLIQUES` n'est même pas une constante du point de vue de l'invite.
+ *  Borner le validateur à 2 refuserait `schema` une réponse CONFORME à une invite qui
+ *  en demande trois — rejeu, terminal, et RIEN NE ROUGIT.
+ *  CE FICHIER N'IMPORTE JAMAIS `PARLER_REPLIQUES`.
+ *
+ *  ⚠ CE N'EST PAS `PROPOSITIONS_MAX` non plus : celle-ci borne le rôle détenteurs et
+ *  dérive SON `max_tokens`. Même valeur aujourd'hui, aucune raison commune d'évoluer
+ *  — les partager coupleraient deux formes de réponse sans motif. */
+export const REPLIQUES_PROPOSEES_MAX = 3
 
 /**
  * LE GABARIT, APPARIÉ AU RÔLE — et c'est la moitié de la garde KR-236. Avec deux
@@ -50,6 +73,7 @@ export const PROPOSITIONS_MAX = 3
 export const GABARIT_SORTIE: Record<RoleCopilote, string> = {
 	'personnage-prose': '{"valeur": "…"}',
 	'indice-detenteurs': '{"detenteurs": ["P1", "P2"]}',
+	'personnage-repliques': '{"repliques": ["…", "…"]}',
 }
 
 /** CINQ motifs, un par prédicat qui peut échouer — l'écran ne rend qu'UN texte
@@ -230,4 +254,109 @@ export function validerDetenteurs(
 	if (!rendus.every((rang) => rangsConnus.has(rang))) return { ok: false, motif: 'rang-inconnu' }
 
 	return { ok: true, detenteurs: rendus }
+}
+
+/**
+ * LES PRÉDICATS DE FORME de la sortie `personnage-repliques` — une LISTE DE PROSE
+ * LIBRE, ce qu'aucun des deux rôles précédents ne rendait : l'un rend un scalaire
+ * (trois prédicats sur UNE chaîne), l'autre une liste de JETONS (aucun prédicat de
+ * prose). Ce rôle-ci applique les prédicats de prose à CHACUN des N, plus quatre
+ * prédicats de liste. Ce qui est partagé est une PRIMITIVE (`porteUnIdentifiant`,
+ * `estObjetSimple`), jamais un corps paramétré par le rôle (§ 8, TL3a-8).
+ *
+ * `MotifIllisible` est INCHANGÉE — aucun membre neuf. Le type de retour ne nomme que
+ * les motifs ATTEIGNABLES : `'rang-inconnu'` est SANS OBJET ici (aucun jeton, aucune
+ * table d'appartenance), et l'écrire serait du code mort présenté comme de la
+ * couverture (famille BUG-084, KR-235).
+ *
+ * LA LISTE VIDE EST UN REFUS, et « la liste vide est un succès » de l'it2 NE SE
+ * TRANSPORTE PAS. Le discriminant est DÉSIGNATION vs RÉDACTION : un rôle de
+ * DÉSIGNATION choisit dans un ensemble fermé QUE LE CONTEXTE A FOURNI — la question
+ * porte sur un fait du monde, « personne » en est une réponse VRAIE. Un rôle de
+ * RÉDACTION écrit un texte QUE RIEN NE FOURNIT — « comment parle-t-il ? » a toujours
+ * une réponse dès qu'il existe quelqu'un pour parler, donc « je n'écris rien » est
+ * une NON-RÉPONSE, motif `'vide'`. Le cas « il n'y a personne pour parler » est
+ * traité AVANT l'appel, par le refus `'cible-a-ecrire'` de `contexte.ts`.
+ * Test de rattachement, décidable sans rouvrir le débat : le rôle rend-il des JETONS
+ * QUE LE CONTEXTE A FOURNIS (désignation) ou de la PROSE QUE RIEN NE FOURNIT
+ * (rédaction) ?
+ *
+ * Les DIX prédicats, dans l'ordre, chacun prouvable seul :
+ *   (1)  objet simple (ni tableau, ni null) ..................... 'schema'
+ *   (2)  clés = EXACTEMENT `CLES_SORTIE_REPLIQUES` — une clé EN
+ *        TROP est un REFUS, jamais un champ ignoré ............. 'schema'
+ *   (3)  `Array.isArray(brut.repliques)` ....................... 'schema'
+ *   (4)  chaque élément est une CHAÎNE — un `{texte:"…"}` emballé
+ *        meurt ici, et JAMAIS `String(élément)` ................ 'schema'
+ *   (5)  longueur ≤ `REPLIQUES_PROPOSEES_MAX` — un REFUS, jamais
+ *        une troncature (KR-230) .............................. 'schema'
+ *   (6)  longueur ≥ 1 ........................................... 'vide'
+ *   (7)  chaque élément non vide après `trim()` ................. 'vide'
+ *   (8)  éléments DISTINCTS après `trim()` .................... 'schema'
+ *   (9)  aucun `MARQUEUR_A_ECRIRE` (constante IMPORTÉE, KR-223) 'marqueur'
+ *   (10) aucun identifiant du dossier ................... 'identifiant'
+ *
+ * MOTIF DU (8) — deux répliques identiques sont un REMPLISSAGE : un menu de 2
+ * présenté comme un menu de 3, produit par un modèle qui « complète » pour atteindre
+ * la borne. Et `PARLER_REPLIQUES` est un plafond serré : un doublon accepté consomme
+ * l'un des deux seuls emplacements pour rien — c'est bien une conséquence d'écriture.
+ *
+ * SCANNER PAR ÉLÉMENT (`.some`), REFUS PAR LOT. JAMAIS de `join` avant de scanner :
+ * deux fragments logés dans deux cases DISTINCTES ne forment pas un identifiant —
+ * aucun lecteur ne les lira collés, ils deviennent deux entrées séparées de
+ * `parler[]` — et joindre DÉTRUIT LA LOCALISATION de l'élément fautif tout en
+ * fabriquant un faux positif à la frontière des deux éléments (§ 8, n° 22).
+ *
+ * Et REFUS DU LOT ENTIER sur un seul élément fautif : écarter les fautifs en gardant
+ * les autres serait une réparation silencieuse — l'auteur ratifierait une liste
+ * amputée sans le savoir (§ 8, TL3a-10). Réparer, c'est interpréter (KR-230).
+ */
+export function validerRepliques(
+	brut: unknown,
+	dossier: Dossier,
+): ({ ok: true } & RepliquesRendues) | { ok: false; motif: 'schema' | 'vide' | 'marqueur' | 'identifiant' } {
+	// (1) un objet JSON — ni tableau, ni `null`.
+	if (!estObjetSimple(brut)) return { ok: false, motif: 'schema' }
+
+	// (2) l'ensemble des clés vaut EXACTEMENT `CLES_SORTIE_REPLIQUES`.
+	const cles = Object.keys(brut)
+	if (cles.length !== CLES_SORTIE_REPLIQUES.length || !CLES_SORTIE_REPLIQUES.every((cle) => cles.includes(cle))) {
+		return { ok: false, motif: 'schema' }
+	}
+
+	// (3) la clé du schéma porte un TABLEAU — piloté par `CLES_SORTIE_REPLIQUES`.
+	const rendues: unknown = brut[CLES_SORTIE_REPLIQUES[0]]
+	if (!Array.isArray(rendues)) return { ok: false, motif: 'schema' }
+
+	// (4) chaque élément est une CHAÎNE. Un `{texte: "…"}` emballé meurt ici — et
+	//     JAMAIS `String(élément)`, qui fabriquerait `'[object Object]'` et le
+	//     présenterait ensuite à l'auteur comme une réplique.
+	if (!rendues.every((element): element is string => typeof element === 'string')) {
+		return { ok: false, motif: 'schema' }
+	}
+
+	// (5) la BORNE DE SORTIE — un REFUS, jamais une troncature (KR-230).
+	if (rendues.length > REPLIQUES_PROPOSEES_MAX) return { ok: false, motif: 'schema' }
+
+	// (6) la liste vide est une NON-RÉPONSE de rédaction.
+	if (rendues.length === 0) return { ok: false, motif: 'vide' }
+
+	// (7) aucun élément vide une fois les blancs retirés. PAR ÉLÉMENT : un blanc en
+	//     position 2 est aussi fautif qu'en position 0.
+	if (rendues.some((replique) => replique.trim().length === 0)) return { ok: false, motif: 'vide' }
+
+	// (8) éléments DISTINCTS après `trim()` — le remplissage, refusé.
+	const normalisees = rendues.map((replique) => replique.trim())
+	if (new Set(normalisees).size !== normalisees.length) return { ok: false, motif: 'schema' }
+
+	// (9) aucun marqueur d'amorce — constante IMPORTÉE, jamais recopiée (KR-223).
+	//     `includes` et non `startsWith` : les chevrons `⟨ ⟩` ne se tapent pas au
+	//     clavier, donc pas de faux positif.
+	if (rendues.some((replique) => replique.includes(MARQUEUR_A_ECRIRE))) return { ok: false, motif: 'marqueur' }
+
+	// (10) aucun identifiant du dossier. PAR ÉLÉMENT, JAMAIS sur un `join` : voir la
+	//      docstring. Le LOT ENTIER tombe sur un seul élément fautif, où qu'il soit.
+	if (rendues.some((replique) => porteUnIdentifiant(replique, dossier))) return { ok: false, motif: 'identifiant' }
+
+	return { ok: true, repliques: rendues }
 }

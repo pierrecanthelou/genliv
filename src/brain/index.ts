@@ -123,24 +123,33 @@ export { createCloudSettings, type CloudSettingsService } from './CloudSettingsS
 // `PARTIES_REQUISES`, `BUDGET_CARACTERES_CONTEXTE`, `CANDIDATS_MAX` — aucune
 // feature n'a de raison de composer un contexte elle-même, ni de lire la garde
 // d'audience. Même traitement que `DESTINATION_DES_CHAMPS` et `amorce.ts`.
-// NE SORT PAS NON PLUS : `PropositionRendue` ni `DetenteursRendus`, les formes
-// RÉSEAU. Leur seul consommateur légitime est la branche de succès de leur
-// validateur, dans `brain/` ; une feature lit `PropositionResolue` ou
-// `PropositionDetenteurs`, jamais ce que le modèle rend. Les ré-exporter donnerait
-// une ligne publique sans appelant (KR-109).
-// NE SORTENT PAS ENFIN : `RangInjecte`, `validerDetenteurs`, `GABARIT_SORTIE`,
-// `PROPOSITIONS_MAX`. LA TABLE DES RANGS NE SORT JAMAIS DE `brain/copilote/` —
-// KR-231 tenu par la PORTÉE, pas par une convention : une feature qui pourrait la
-// lire pourrait la RE-DÉRIVER, et écrire dans le personnage n° 3 au lieu du n° 2
-// quand le dossier a changé entre l'appel et l'acceptation.
-// `EchecCopilote` sort, elle : c'est la branche d'échec COMMUNE aux deux rôles, et
-// l'état d'écran des deux cartes la porte.
+// NE SORT PAS NON PLUS : `PropositionRendue`, `DetenteursRendus` ni
+// `RepliquesRendues`, les formes RÉSEAU. Leur seul consommateur légitime est la
+// branche de succès de leur validateur, dans `brain/` ; une feature lit
+// `PropositionResolue`, `PropositionDetenteurs` ou `PropositionRepliques`, jamais ce
+// que le modèle rend. Les ré-exporter donnerait une ligne publique sans appelant
+// (KR-109) — et, pour la troisième, la clé `repliques` voisinerait `ajouts` dans le
+// même baril alors que KR-231 exige précisément qu'on ne puisse pas les confondre.
+// NE SORTENT PAS ENFIN : `RangInjecte`, `validerDetenteurs`, `validerRepliques`,
+// `GABARIT_SORTIE`, `PROPOSITIONS_MAX`, `REPLIQUES_PROPOSEES_MAX`. LA TABLE DES
+// RANGS NE SORT JAMAIS DE `brain/copilote/` — KR-231 tenu par la PORTÉE, pas par une
+// convention : une feature qui pourrait la lire pourrait la RE-DÉRIVER, et écrire
+// dans le personnage n° 3 au lieu du n° 2 quand le dossier a changé entre l'appel et
+// l'acceptation. `REPLIQUES_PROPOSEES_MAX` reste dedans elle aussi : elle borne la
+// RÉPONSE DU MODÈLE, et la seule borne dont une feature ait besoin au SITE
+// D'ÉCRITURE est `PARLER_REPLIQUES` (`dossier/curseurs`), qui borne le DOCUMENT et
+// qui est DÉJÀ exportée plus bas — zéro ligne neuve. Les exposer côte à côte
+// inviterait à les aligner, ce que le § 8 (TL3a-7) refuse.
+// `EchecCopilote` sort, elle : c'est la branche d'échec COMMUNE aux trois rôles, et
+// l'état d'écran des trois cartes la porte.
 export type {
 	CopiloteService,
 	CibleCopilote,
 	CibleIndice,
+	CibleRepliques,
 	ReponseCopilote,
 	ReponseDetenteurs,
+	ReponseRepliques,
 	EchecCopilote,
 	RaisonIndisponible,
 } from './CopiloteService'
@@ -151,7 +160,11 @@ export type {
 	ChampProseChemin,
 	PropositionResolue,
 	PropositionDetenteurs,
+	PropositionRepliques,
 } from './copilote/types'
+// `MotifIllisible` est INCHANGÉE à l'itération 3a — le troisième validateur n'ajoute
+// aucun membre : ses quatre motifs atteignables (`schema`, `vide`, `marqueur`,
+// `identifiant`) en sont déjà membres, et `'rang-inconnu'` lui est SANS OBJET.
 export type { MotifIllisible } from './copilote/schemaSortie'
 // `MotifRefusContexte` sort AVEC `EchecCopilote`, même motif que `MotifIllisible` :
 // la carte 2 doit pouvoir NOMMER la branche `'cible-a-ecrire'` ou
