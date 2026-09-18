@@ -7,8 +7,9 @@
  * `contexte.ts`, l'appel réseau dans `../CopiloteService.ts`.
  */
 
-/** TROIS rôles. Le nom se lit ⟨entité CIBLE⟩-⟨ce qu'on demande⟩ — « la prose d'un
- *  personnage », « les détenteurs d'un indice », « les répliques d'un personnage ».
+/** QUATRE rôles. Le nom se lit ⟨entité CIBLE⟩-⟨ce qu'on demande⟩ — « la prose d'un
+ *  personnage », « les détenteurs d'un indice », « les répliques d'un personnage »,
+ *  « le plan d'un personnage ».
  *  C'est AUSSI le segment de route (`/ia/indice-detenteurs`) et la clé des tables
  *  d'invites et de gabarits.
  *
@@ -24,7 +25,7 @@
  *  l'expression d'extraction (`worker/frontiere.test.ts`) ET de celle de la route
  *  (`worker/index.ts`), le gabarit ne serait pas extrait, et la totalité rougirait
  *  PAR LE MAUVAIS MESSAGE. */
-export type RoleCopilote = 'personnage-prose' | 'indice-detenteurs' | 'personnage-repliques'
+export type RoleCopilote = 'personnage-prose' | 'indice-detenteurs' | 'personnage-repliques' | 'personnage-plan'
 
 /** La CLÉ DE PROPRIÉTÉ dans le document — ce que la recette de `update` écrit. */
 export type ChampProseCle = 'fonction' | 'apparence' | 'description_joueur'
@@ -122,4 +123,39 @@ export interface RepliquesRendues {
 export interface PropositionRepliques {
 	personnageId: string
 	ajouts: readonly string[]
+}
+
+/** CE QUE LE MODÈLE REND — franchit le réseau. UNE clé, UNE CHAÎNE (scalaire).
+ *
+ *  SCALAIRE, ET C'EST UNE DÉCISION : une liste bornée à un rendrait « deux »
+ *  REPRÉSENTABLE et ne l'interdirait que par une CONSTANTE ; la forme scalaire le
+ *  rend NON REPRÉSENTABLE — la meilleure garde est celle qui n'existe pas.
+ *
+ *  SON CONSOMMATEUR est la branche de succès de `validerIntention`
+ *  (`schemaSortie.ts`), exactement comme `PropositionRendue` est celui de
+ *  `validerSortie` : une forme réseau que rien ne consomme est une déclaration sans
+ *  appelant (KR-109). NON ré-exportée par `brain/index.ts`. */
+export interface IntentionRendue {
+	intention: string
+}
+
+/** CE QUE LE CODE RE-RÉSOUT — ne franchit JAMAIS le réseau. ZÉRO clé commune avec
+ *  `IntentionRendue` (KR-231).
+ *
+ *  ⚠ DEUX MOTS POUR LA MÊME CHAÎNE, et c'est le précédent `valeur` → `texte` :
+ *  `intention` ENSEIGNE AU MODÈLE ce qu'on attend et ne se confond pas avec le
+ *  champ du document ; `action` NOMME LA DESTINATION et rend la recette d'écriture
+ *  littérale. Quelqu'un « harmonisera » si ce commentaire n'est pas là.
+ *
+ *  `acteurId` et JAMAIS `personnageId` : la proposition est LA CIBLE PLUS LE
+ *  CONTENU (invariant mesuré sur les trois rôles livrés), et la cible de ce rôle
+ *  s'appelle `acteurId` pour que le dispatch structurel de `CopiloteService` reste
+ *  décidable — voir la docstring de `CiblePlan`.
+ *
+ *  `etape` N'EST PAS ICI, et c'est le trait neuf de la tranche : l'entier est posé
+ *  PAR LE CODE, à l'instant de l'écriture, sur la liste VIVE. Le modèle ne le voit
+ *  jamais et n'en rend aucun (doctrine it2, précédent `CERTITUDE_INITIALE`). */
+export interface PropositionPlan {
+	acteurId: string
+	action: string
 }

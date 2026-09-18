@@ -132,6 +132,30 @@
    "mitigation": "Le commentaire nomme l'invariant et son precedent, pour qu'un ouvrier futur ne retire pas un garde qui parait mort.",
    "regression_test": "couvert par la suite `repliques.test.tsx` -- aucun test ne peut atteindre l'etat, ce qui est DIT dans le commentaire plutot que masque par un test artificiel",
    "severity": "minor"
+  },
+  {
+   "id": "BUG-113",
+   "date": "2026-09-18",
+   "feature": "dossier-copilote",
+   "discovered_at": "iteration-3b",
+   "symptom": "MUTANT SURVIVANT SUR LE TEST CARDINAL DE L'ITERATION. Le comite avait exige une ASSERTION DE RESULTAT (<< apres N acceptations sur un plan de k etapes, les etape valent 1..k+N, strictement croissants, sans doublon >>) plutot qu'une formule recopiee. La QA en mode B a pose le mutant que le plan exigeait de voir rouge -- `etape: contexteGele.dejaEcrites.length + 1` au lieu de `p.plan_actions.length + 1` -- et LES TREIZE TESTS SONT RESTES VERTS, toute la suite dossier-copilote comprise.",
+   "root_cause": "Le test faisait preceder CHAQUE acceptation d'un clic << Lancer >>, qui RE-GELE sur l'etat courant : le gel et la liste vive COINCIDAIENT donc TOUJOURS au moment de l'ecriture, et l'assertion etait vraie des DEUX cotes du mutant. Le temoin gardait LE CALCUL (1..k+N), jamais LA SOURCE (vive contre gelee). Or la source EST l'invariant : le plan ecrit que << entre la demande et l'acceptation, LE PLAN BOUGE >>, et que le numero calcule au mauvais instant est perime EN SILENCE -- aucune regle d'unicite n'etant arbitree (tables.ts:398), le SSOT ne refuserait pas le doublon. Le code etait CORRECT ; c'est l'instrument cense le garder demain qui ne gardait rien. QUATRIEME occurrence de la classe << un instrument reste vert en cessant de prouver ce que son nom promet >> (apres frontiere.test.ts:384 a 3a, et les deux pieges conditionnels de 3b).",
+   "fix": "Temoin ajoute a planActions.test.tsx : << une etape ajoutee ENTRE le lancer et l acceptation : etape est pris sur la liste VIVE, pas sur le gel >>. Il instrumente LE SEUL SCENARIO OU LES DEUX SOURCES DIVERGENT -- une ecriture externe (l'auteur ajoute une etape a la main) entre le clic Lancer et le clic Accepter. Gel = 1 etape, document = 2 : la neuve doit valoir 3. Depuis le gel elle vaudrait 2, DOUBLON avec l'etape ajoutee a la main.",
+   "mitigation": "Pouvoir separateur ETABLI, pas suppose : le mutant exact de la QA repose sur le code reel apres l'ajout du temoin ⇒ 1 test sur 14 ROUGE, et c'est le temoin neuf. Fichier restaure depuis copie, porte rejouee verte (100 suites / 1579 tests). LECON A PORTER AU COMITE, et elle generalise : une ASSERTION DE RESULTAT ne remplace une formule que si le scenario de test FAIT DIVERGER les sources possibles du resultat. Sinon elle epingle une coincidence. Le plan avait raison de preferer le resultat a la formule -- il lui manquait d'exiger le scenario qui separe.",
+   "regression_test": "src/features/dossier-copilote/tests/planActions.test.tsx -- << une etape ajoutee ENTRE le lancer et l acceptation : etape est pris sur la liste VIVE, pas sur le gel >> (suite << etape posee par le CODE, 1 a k+N sans doublon >>)",
+   "severity": "major"
+  },
+  {
+   "id": "BUG-114",
+   "date": "2026-09-18",
+   "feature": "dossier-copilote",
+   "discovered_at": "iteration-3b",
+   "symptom": "L'ECRAN DIT << Accepte >> ALORS QUE RIEN N'A ETE ECRIT. Si le personnage GELE disparait du dossier entre le clic << Lancer >> et le clic << Accepter >> (retrait depuis Personnages dans un autre onglet, import, annulation), la recette d'acceptation ne trouve aucun `p.id === cibleId`, rend donc un document INCHANGE, `DossierService.update` repond 'ecrit' -- puisque rien n'est invalide -- et la carte affiche le badge de succes.",
+   "root_cause": "La recette est un `map` sur `personnages` : une cible absente produit un no-op SILENCIEUX, indistinguable d'une ecriture reussie du point de vue du statut rendu. Le statut 'ecrit' dit << le document resultant est valide >>, jamais << la modification demandee a eu lieu >>. FAMILLE PREEXISTANTE, QUATRIEME EXEMPLAIRE : meme motif a CarteFaireParler.tsx (it3a), CarteTisserIndices.tsx (it2) et CarteCompleterFiche.tsx (it1). 3b ne l'introduit pas, elle le reproduit -- fidelement, puisque le plan imposait la recette mot pour mot.",
+   "fix": "AUCUN a 3b, et c'est une decision de perimetre. Le corriger exige de trancher CE QUE 'ecrit' DOIT SIGNIFIER -- soit un statut neuf ('sans-effet'), soit une garde d'existence au site d'appel repliquee sur QUATRE cartes -- et les quatre cartes sont hors du lot 2 (borne a dossier-copilote/** mais les trois autres sont des fichiers livres et intacts, hors liste du SS 5).",
+   "mitigation": "Trouve par la revue de PR, qui a verifie que le motif est IDENTIQUE aux trois cartes precedentes plutot que propre a celle-ci -- c'est ce qui le qualifie en famille et non en defaut de tranche. Portee reelle bornee : la fenetre est celle d'une edition concurrente pendant qu'une proposition est a l'ecran, et aucune donnee n'est perdue ni corrompue -- l'auteur voit un succes pour un geste sans effet, il ne voit pas un dossier faux. CONDITION D'OUVERTURE, decidable : la premiere iteration qui rouvre l'une des quatre cartes pour une autre raison ; elle traite alors LES QUATRE d'un geste, avec le statut arbitre au prealable. Corriger une seule carte creerait une quatrieme convention locale la ou il y en a deja une.",
+   "regression_test": "AUCUN a ce jour, et c'est dit : le temoin exige une edition externe QUI RETIRE LA CIBLE entre Lancer et Accepter. Le temoin de BUG-113, voisin, fabrique bien une ecriture externe dans cet intervalle -- mais il AJOUTE une etape au lieu de RETIRER le personnage, donc il ne peut pas voir ce defaut-ci.",
+   "severity": "minor"
   }
  ]
 }

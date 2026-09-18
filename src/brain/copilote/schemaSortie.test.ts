@@ -6,16 +6,18 @@ import type { Dossier } from '../dossier/types'
 import {
 	CLES_SORTIE,
 	CLES_SORTIE_DETENTEURS,
+	CLES_SORTIE_PLAN,
 	CLES_SORTIE_REPLIQUES,
 	GABARIT_SORTIE,
 	PROPOSITIONS_MAX,
 	REPLIQUES_PROPOSEES_MAX,
 	porteUnIdentifiant,
 	validerDetenteurs,
+	validerIntention,
 	validerRepliques,
 	validerSortie,
 } from './schemaSortie'
-import type { PropositionRepliques, RepliquesRendues } from './types'
+import type { IntentionRendue, PropositionPlan, PropositionRepliques, RepliquesRendues } from './types'
 
 /** Un dossier NEUF — c'est `construireAmorce` qui garantit `lieu.amorce`, et
  *  c'est pour ça que le canari de fuite le prend pour terrain : cet identifiant
@@ -713,5 +715,229 @@ describe('validerRepliques — les dix predicats de forme du troisieme role', ()
 		// Discriminant : le balayage porte bien sur du code réel — sans cette ligne il
 		// serait vert sur un fichier vidé de tout (KR-235).
 		expect(code).toContain('export const REPLIQUES_PROPOSEES_MAX = 3')
+	})
+})
+
+describe('types — zero cle commune reseau / resolu, quatrieme role', () => {
+	it('IntentionRendue et PropositionPlan n ont aucune cle en commun', () => {
+		// KR-231, MOITIÉ 1 — L'INTERSECTION DES CLÉS EST VIDE, constatée en VALEUR sur
+		// deux témoins minimaux ANNOTÉS : une `interface` n'existe plus au runtime.
+		const rendue: IntentionRendue = { intention: 'Remonter au beffroi avant la nuit.' }
+		const resolue: PropositionPlan = { acteurId: 'pnj.un-personnage', action: 'Remonter au beffroi avant la nuit.' }
+
+		expect(Object.keys(rendue).filter((cle) => Object.keys(resolue).includes(cle))).toEqual([])
+		// Discriminant : les deux portent BIEN des clés (KR-199).
+		expect(Object.keys(rendue).length).toBeGreaterThan(0)
+		expect(Object.keys(resolue).length).toBeGreaterThan(0)
+		// ⚠ ET LA MÊME CHAÎNE PORTE DEUX NOMS, délibérément : `intention` enseigne au
+		// modèle, `action` nomme la destination dans le document. C'est ce que le
+		// service re-résout, et ce que personne ne doit « harmoniser ».
+		expect(resolue.action).toBe(rendue.intention)
+	})
+
+	it('l affectation croisee ne compile pas', () => {
+		// KR-231, MOITIÉ 2, ET C'EST LE TEST RÉEL : « zéro clé commune » n'est une
+		// GARANTIE que si le compilateur refuse de passer l'une pour l'autre.
+		// @ts-expect-error — la forme RÉSEAU affectée à la forme RE-RÉSOLUE.
+		const versResolue: PropositionPlan = { intention: 'Une intention.' }
+		// @ts-expect-error — la forme RE-RÉSOLUE affectée à la forme RÉSEAU.
+		const versRendue: IntentionRendue = { acteurId: 'pnj.x', action: 'Une intention.' }
+
+		// Discriminant : les deux affectations BIEN APPARIÉES compilent, elles.
+		const bonneRendue: IntentionRendue = { intention: 'Une intention.' }
+		const bonneResolue: PropositionPlan = { acteurId: 'pnj.x', action: 'Une intention.' }
+
+		expect([versResolue, versRendue, bonneRendue, bonneResolue]).toHaveLength(4)
+	})
+
+	it('PropositionPlan ne porte AUCUN entier — etape est pose par le CODE', () => {
+		// LE TRAIT NEUF DE LA TRANCHE, épinglé au contrat : le modèle ne rend jamais un
+		// entier, et la proposition n'en porte pas non plus. `etape` est posé à
+		// l'écriture, sur la liste VIVE — entre la demande et l'acceptation LE PLAN
+		// BOUGE, donc un numéro calculé à la proposition serait périmé EN SILENCE.
+		const resolue: PropositionPlan = { acteurId: 'pnj.x', action: 'Une intention.' }
+
+		expect(Object.keys(resolue).sort()).toEqual(['acteurId', 'action'])
+		expect(Object.values(resolue).filter((valeur) => typeof valeur !== 'string')).toEqual([])
+		// @ts-expect-error — poser `etape` sur la proposition NE COMPILE PAS.
+		const avecEntier: PropositionPlan = { acteurId: 'pnj.x', action: 'Une intention.', etape: 1 }
+		expect(avecEntier.acteurId).toBe('pnj.x')
+	})
+})
+
+describe('validerIntention — les six predicats de forme du quatrieme role', () => {
+	const dossier = dossierDeReference()
+	const CLE_P = CLES_SORTIE_PLAN[0]
+	const SAINE = 'Remonter au beffroi avant la nuit et y attendre le passage du guetteur.'
+
+	it('1 — ce qui n est pas un objet JSON est refuse, motif schema', () => {
+		for (const brut of [null, undefined, [], ['intention'], 'une chaine', 42, true]) {
+			expect({ brut, ...validerIntention(brut, dossier) }).toEqual({ brut, ok: false, motif: 'schema' })
+		}
+	})
+
+	it('2 — l ensemble des cles doit valoir exactement CLES_SORTIE_PLAN', () => {
+		// Une clé MANQUANTE.
+		expect(validerIntention({}, dossier)).toEqual({ ok: false, motif: 'schema' })
+		// Une clé RENOMMÉE — la panne KR-236 vue depuis le validateur. `action` est
+		// précisément le nom que le VETO a écarté du fil : s'il revenait, il serait
+		// refusé ici.
+		expect(validerIntention({ action: SAINE }, dossier)).toEqual({ ok: false, motif: 'schema' })
+		expect(validerIntention({ intentions: [SAINE] }, dossier)).toEqual({ ok: false, motif: 'schema' })
+		// Une clé HÉRITÉE ne compte pas : `Object.keys` ne voit que le propre (KR-175).
+		expect(validerIntention(Object.create({ [CLE_P]: SAINE }), dossier)).toEqual({ ok: false, motif: 'schema' })
+	})
+
+	it('2 bis — une cle en trop est un REFUS, jamais un champ ignore', () => {
+		// C'EST LE SIGNAL KR-236 LUI-MÊME : le jour où l'invite du worker demande autre
+		// chose que `GABARIT_SORTIE`, c'est ici que ça se voit. Et c'est aussi ce qui
+		// interdit qu'un `etape` rendu par le modèle soit avalé en silence.
+		expect(validerIntention({ [CLE_P]: SAINE, etape: 4 }, dossier)).toEqual({ ok: false, motif: 'schema' })
+		expect(validerIntention({ [CLE_P]: SAINE, duree: 3 }, dossier)).toEqual({ ok: false, motif: 'schema' })
+		expect(validerIntention({ [CLE_P]: SAINE, si_bloque: 'Il renonce.' }, dossier)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+		// Discriminant : la MÊME sortie SANS la clé surnuméraire est acceptée — sans
+		// cette ligne, le refus pourrait venir de la prose (KR-199).
+		expect(validerIntention({ [CLE_P]: SAINE }, dossier)).toEqual({ ok: true, intention: SAINE })
+	})
+
+	it('3 — un TABLEAU est refuse schema, jamais repeche', () => {
+		// LA GARDE DE KR-230, ET C'EST LA PLUS COÛTEUSE À PERDRE. Un `[0]` silencieux
+		// ferait ratifier à l'auteur, d'un clic, une intention que LE CODE a choisie
+		// parmi deux. Réparer, c'est interpréter.
+		expect(validerIntention({ [CLE_P]: ['a', 'b'] }, dossier)).toEqual({ ok: false, motif: 'schema' })
+		// Un tableau d'UN élément meurt ici aussi : ce n'est pas la LONGUEUR qui est
+		// refusée, c'est le TYPE. Sans cette ligne, une borne de liste passerait pour la
+		// garde alors qu'il n'y en a aucune.
+		expect(validerIntention({ [CLE_P]: [SAINE] }, dossier)).toEqual({ ok: false, motif: 'schema' })
+		// Et AUCUNE conversion : ni `String(…)`, qui fabriquerait `'a,b'` ou
+		// `'[object Object]'`, ni un nombre coercé.
+		expect(validerIntention({ [CLE_P]: { texte: SAINE } }, dossier)).toEqual({ ok: false, motif: 'schema' })
+		expect(validerIntention({ [CLE_P]: 42 }, dossier)).toEqual({ ok: false, motif: 'schema' })
+		expect(validerIntention({ [CLE_P]: null }, dossier)).toEqual({ ok: false, motif: 'schema' })
+	})
+
+	it('3 bis — le code ne repeche ni ne convertit : balayage de source', () => {
+		// LE MUTANT QUE LE PLAN EXIGE DE VOIR ROUGE est écrit en dur dans le corps :
+		// `Array.isArray(x) ? x[0] : x`. Le balayage ci-dessous est la garde STATIQUE
+		// qui l'accompagne — les deux mesurent des choses différentes, l'une le
+		// COMPORTEMENT, l'autre l'ABSENCE DE LA PORTE.
+		const source = fs.readFileSync(path.join(__dirname, 'schemaSortie.ts'), 'utf8')
+		// LES COMMENTAIRES SONT RETIRÉS D'ABORD, et ce n'est pas un détail : le corps
+		// NOMME les portes qu'il s'interdit, donc un balayage brut rougirait sur la
+		// phrase qui dit la règle. Précédent mesuré dans ce même fichier, sur le
+		// balayage de `PARLER_REPLIQUES`.
+		const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '')
+		const corps = code.slice(code.indexOf('export function validerIntention('))
+
+		// LES TROIS PORTES, nommées une par une plutôt qu'un balayage vague. `[0]` NU
+		// serait un faux positif MESURÉ : `CLES_SORTIE_PLAN[0]` indexe la LISTE DE CLÉS,
+		// ce qui est légitime et n'a rien à voir avec un repêchage de VALEUR.
+		expect(corps).not.toContain('Array.isArray')
+		expect(corps).not.toContain('String(')
+		expect(corps).not.toContain('intention[')
+		// Discriminants : le balayage porte bien sur du code réel, et `Array.isArray`
+		// EXISTE ailleurs dans le fichier — les validateurs de LISTE l'emploient
+		// légitimement —, donc une découpe fautive ne rendrait pas l'assertion vraie
+		// pour rien (KR-235).
+		expect(corps).toContain('export function validerIntention(')
+		expect(code.slice(0, code.indexOf('export function validerIntention('))).toContain('Array.isArray')
+	})
+
+	it('4 — une chaine vide apres trim est refusee, motif vide', () => {
+		// PRÉDICAT DISTINCT DU (3), ET IL ROUGIT SEUL : la valeur est bien une CHAÎNE.
+		for (const brut of ['', '   ', '\n\t ']) {
+			expect({ brut, ...validerIntention({ [CLE_P]: brut }, dossier) }).toEqual({ brut, ok: false, motif: 'vide' })
+		}
+		// LA NON-RÉPONSE EST UN REFUS, et c'est le test de rattachement de 3a : ce rôle
+		// rend DE LA PROSE QUE RIEN NE FOURNIT ⇒ RÉDACTION. Le cas « rien à prolonger »
+		// est traité AVANT l'appel, par `cible-a-ecrire`.
+		expect(validerIntention({ [CLE_P]: SAINE }, dossier)).toEqual({ ok: true, intention: SAINE })
+	})
+
+	it('5 — le marqueur a ecrire est refuse, constante IMPORTEE', () => {
+		// KR-223 : la constante est IMPORTÉE, jamais recopiée — le test ne peut pas
+		// écrire le glyphe lui-même.
+		expect(validerIntention({ [CLE_P]: `${MARQUEUR_A_ECRIRE} la suite` }, dossier)).toEqual({
+			ok: false,
+			motif: 'marqueur',
+		})
+		// `includes` et non `startsWith` : l'auteur peut éditer autour du marqueur.
+		expect(validerIntention({ [CLE_P]: `Remonter, puis ${MARQUEUR_A_ECRIRE}` }, dossier)).toEqual({
+			ok: false,
+			motif: 'marqueur',
+		})
+		// Discriminant : la même phrase SANS le marqueur passe.
+		expect(validerIntention({ [CLE_P]: 'Remonter, puis la suite' }, dossier).ok).toBe(true)
+	})
+
+	it('6 — un identifiant du dossier est refuse, porteUnIdentifiant reutilisee', () => {
+		// KR-117 : le scanner n'est pas ré-écrit, il est RÉUTILISÉ. Les deux canaris de
+		// l'it1 sont rejoués ici contre l'implémentation réelle.
+		const neuf = dossierNeuf()
+
+		expect(porteUnIdentifiant(CANARI_FUITE, neuf)).toBe(true)
+		expect(validerIntention({ [CLE_P]: CANARI_FUITE }, neuf)).toEqual({ ok: false, motif: 'identifiant' })
+		// CANARI BÉNIN : une prose française saine à mots courants suivis d'un point
+		// n'est PAS refusée — sans lui, un scanner de forme seule passerait pour un
+		// garde (KR-235).
+		expect(porteUnIdentifiant(CANARI_BENIN, neuf)).toBe(false)
+		expect(validerIntention({ [CLE_P]: CANARI_BENIN }, neuf)).toEqual({ ok: true, intention: CANARI_BENIN })
+	})
+
+	it('les six motifs sont DISCRIMINES : chaque predicat rend le SIEN', () => {
+		// KR-197/199 : une liste d'assertions voisines ne prouve pas la discriminance.
+		// Quatre motifs ATTEIGNABLES sur ce rôle, chacun atteint par SA faute.
+		const motifs = [
+			validerIntention(42, dossier),
+			validerIntention({ [CLE_P]: SAINE, etape: 1 }, dossier),
+			validerIntention({ [CLE_P]: ['a'] }, dossier),
+			validerIntention({ [CLE_P]: '  ' }, dossier),
+			validerIntention({ [CLE_P]: MARQUEUR_A_ECRIRE }, dossier),
+			validerIntention({ [CLE_P]: CANARI_FUITE }, dossierNeuf()),
+		].map((issue) => (issue.ok ? 'ACCEPTÉ' : issue.motif))
+
+		expect(motifs).toEqual(['schema', 'schema', 'schema', 'vide', 'marqueur', 'identifiant'])
+		expect(new Set(motifs).size).toBe(4)
+	})
+
+	it('le nominal rend ok avec l intention, et rien d autre', () => {
+		expect(validerIntention({ [CLE_P]: SAINE }, dossier)).toEqual({ ok: true, intention: SAINE })
+	})
+
+	it('le gabarit du quatrieme role EST son schema, et il est SCALAIRE', () => {
+		const rendu = JSON.parse(GABARIT_SORTIE['personnage-plan']) as Record<string, unknown>
+
+		expect(Object.keys(rendu)).toEqual([...CLES_SORTIE_PLAN])
+		// LA VALEUR DU GABARIT EST UN SCALAIRE, jamais une liste : c'est ce qui rend
+		// « deux » NON REPRÉSENTABLE, donc ce qui dispense d'une constante de borne.
+		expect(typeof rendu[CLE_P]).toBe('string')
+		expect(Array.isArray(rendu[CLE_P])).toBe(false)
+		// Et ses clés sont DISJOINTES de celles des trois autres schémas — on ne peut
+		// pas passer une sortie pour une autre.
+		for (const autres of [CLES_SORTIE, CLES_SORTIE_DETENTEURS, CLES_SORTIE_REPLIQUES]) {
+			expect(CLES_SORTIE_PLAN.filter((cle) => (autres as readonly string[]).includes(cle))).toEqual([])
+		}
+	})
+
+	it('AUCUNE constante de borne pour ce role : balayage de source', () => {
+		// LA GARDE DE « LA MEILLEURE GARDE EST CELLE QUI N EXISTE PAS ». Un ouvrier qui
+		// ajouterait `ETAPES_PROPOSEES_MAX` « par symétrie » avec les deux autres rôles
+		// rendrait « deux » représentable, puis l'interdirait par une constante — c'est
+		// le choix que le comité a écarté, et rien d'autre ne le constaterait.
+		const source = fs.readFileSync(path.join(__dirname, 'schemaSortie.ts'), 'utf8')
+		const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '')
+
+		expect(code).not.toContain('ETAPES_PROPOSEES_MAX')
+		expect(code).not.toContain('INTENTIONS_PROPOSEES_MAX')
+		const corps = code.slice(code.indexOf('export function validerIntention('))
+		expect(corps).not.toContain('.length >')
+		// Discriminants : le balayage porte sur du code réel, et les DEUX autres bornes,
+		// elles, y sont bien — sans eux, un fichier vidé rendrait tout vert (KR-235).
+		expect(code).toContain('export const CLES_SORTIE_PLAN')
+		expect(code).toContain('export const REPLIQUES_PROPOSEES_MAX = 3')
+		expect(code).toContain('export const PROPOSITIONS_MAX = 3')
 	})
 })

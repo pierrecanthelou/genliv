@@ -118,16 +118,17 @@ export { createCloudSettings, type CloudSettingsService } from './CloudSettingsS
 // membres de sa forme publique, et une feature qui doit annoter une branche
 // n'aurait aucun autre moyen de les NOMMER (même motif que `PorteeContreMesure`
 // avec `ContreMesure`).
-// NE SORTENT PAS : `assemblerProse`, `assemblerDetenteurs`, `ContexteProse`,
+// NE SORTENT PAS : `assemblerProse`, `assemblerDetenteurs`, `assemblerPlan`,
+// `ContexteProse`,
 // `ContexteDetenteurs`, `CHAMPS_INJECTES`, `DEROGATIONS_AUDIENCE`,
 // `PARTIES_REQUISES`, `BUDGET_CARACTERES_CONTEXTE`, `CANDIDATS_MAX` — aucune
 // feature n'a de raison de composer un contexte elle-même, ni de lire la garde
 // d'audience. Même traitement que `DESTINATION_DES_CHAMPS` et `amorce.ts`.
-// NE SORT PAS NON PLUS : `PropositionRendue`, `DetenteursRendus` ni
-// `RepliquesRendues`, les formes RÉSEAU. Leur seul consommateur légitime est la
+// NE SORT PAS NON PLUS : `PropositionRendue`, `DetenteursRendus`, `RepliquesRendues`
+// ni `IntentionRendue`, les formes RÉSEAU. Leur seul consommateur légitime est la
 // branche de succès de leur validateur, dans `brain/` ; une feature lit
-// `PropositionResolue`, `PropositionDetenteurs` ou `PropositionRepliques`, jamais ce
-// que le modèle rend. Les ré-exporter donnerait une ligne publique sans appelant
+// `PropositionResolue`, `PropositionDetenteurs`, `PropositionRepliques` ou
+// `PropositionPlan`, jamais ce que le modèle rend. Les ré-exporter donnerait une ligne publique sans appelant
 // (KR-109) — et, pour la troisième, la clé `repliques` voisinerait `ajouts` dans le
 // même baril alors que KR-231 exige précisément qu'on ne puisse pas les confondre.
 // NE SORTENT PAS ENFIN : `RangInjecte`, `validerDetenteurs`, `validerRepliques`,
@@ -140,16 +141,18 @@ export { createCloudSettings, type CloudSettingsService } from './CloudSettingsS
 // D'ÉCRITURE est `PARLER_REPLIQUES` (`dossier/curseurs`), qui borne le DOCUMENT et
 // qui est DÉJÀ exportée plus bas — zéro ligne neuve. Les exposer côte à côte
 // inviterait à les aligner, ce que le § 8 (TL3a-7) refuse.
-// `EchecCopilote` sort, elle : c'est la branche d'échec COMMUNE aux trois rôles, et
-// l'état d'écran des trois cartes la porte.
+// `EchecCopilote` sort, elle : c'est la branche d'échec COMMUNE aux quatre rôles, et
+// l'état d'écran des quatre cartes la porte.
 export type {
 	CopiloteService,
 	CibleCopilote,
 	CibleIndice,
 	CibleRepliques,
+	CiblePlan,
 	ReponseCopilote,
 	ReponseDetenteurs,
 	ReponseRepliques,
+	ReponsePlan,
 	EchecCopilote,
 	RaisonIndisponible,
 } from './CopiloteService'
@@ -161,10 +164,12 @@ export type {
 	PropositionResolue,
 	PropositionDetenteurs,
 	PropositionRepliques,
+	PropositionPlan,
 } from './copilote/types'
-// `MotifIllisible` est INCHANGÉE à l'itération 3a — le troisième validateur n'ajoute
-// aucun membre : ses quatre motifs atteignables (`schema`, `vide`, `marqueur`,
-// `identifiant`) en sont déjà membres, et `'rang-inconnu'` lui est SANS OBJET.
+// `MotifIllisible` est INCHANGÉE depuis l'itération 3a — ni le troisième ni le
+// quatrième validateur n'ajoute de membre : leurs quatre motifs atteignables
+// (`schema`, `vide`, `marqueur`, `identifiant`) en sont déjà membres, et
+// `'rang-inconnu'` leur est SANS OBJET.
 export type { MotifIllisible } from './copilote/schemaSortie'
 // `MotifRefusContexte` sort AVEC `EchecCopilote`, même motif que `MotifIllisible` :
 // la carte 2 doit pouvoir NOMMER la branche `'cible-a-ecrire'` ou

@@ -128,6 +128,7 @@ const GABARIT_SORTIE: Record<string, string> = {
 	'personnage-prose': '{"valeur": "…"}',
 	'indice-detenteurs': '{"detenteurs": ["P1", "P2"]}',
 	'personnage-repliques': '{"repliques": ["…", "…"]}',
+	'personnage-plan': '{"intention": "…"}',
 }
 
 /**
@@ -246,6 +247,66 @@ export const INVITES: Record<string, { systeme: string; max_tokens: number }> = 
 		// persisté.
 		max_tokens: 400,
 	},
+	/**
+	 * LE QUATRIÈME RÔLE — la PROCHAINE ÉTAPE d'un plan d'actions. Sa sortie est
+	 * SCALAIRE, ce qu'aucun des trois précédents ne rendait depuis l'it1.
+	 *
+	 * QUATRE DÉCISIONS D'ÉCRITURE, à ne pas « corriger » :
+	 *
+	 *  1. LE PIÈGE DE RECOPIE, ET IL EST PROPRE À CE RÔLE. L'invite répliques écrit
+	 *     « ÉCHANTILLON DE VOIX » : recopiée ici, elle produirait DES RÉPLIQUES.
+	 *     L'invite prose écrit « NOTE DE FICHE » : recopiée ici, elle produirait DES
+	 *     DESCRIPTIONS. La ligne propre à ce rôle est « une INTENTION … ce n'est jamais
+	 *     une phrase qu'il prononce », et AUCUN validateur ne peut constater cette
+	 *     propriété (KR-229) : l'invite est le seul endroit qui reste pour la dire.
+	 *  2. « Tu en proposes UNE, et toujours une » est la moitié SYMÉTRIQUE du prédicat
+	 *     de non-vacuité du validateur, et elle NE CITE AUCUNE CONSTANTE — il n'y en a
+	 *     plus : la sortie est scalaire, « deux » n'est pas représentable.
+	 *  3. « elle n'en répète aucune » est PERSUASIF SEULEMENT. Le prédicat de doublon
+	 *     est hors périmètre (§ 8, n° 12) : rien ne refuse une recopie. L'écran ne doit
+	 *     donc rien promettre de tel non plus.
+	 *  4. LA LIGNE DE LA DURÉE EST LA LIGNE DE L'ITÉRATION. Elle ne dit ni « pas
+	 *     d'horloge », ni `duree`, ni `DUREE_MIN` : elle interdit le motif EN LANGUE
+	 *     NATURELLE, avec trois exemples, et s'arrête à « le temps est compté ailleurs ».
+	 *     C'est le risque MAJEUR du rôle, et il n'est constatable par aucun instrument.
+	 *
+	 * CE QU'ELLE N'A PAS LE DROIT DE RÉCITER : `DUREE_MIN` ni son chiffre · toute unité
+	 * de temps de session · l'existence de `duree`, `si_bloque`, `declencheur_texte`,
+	 * `declencheur_expr` et leurs noms · le langage de conditions D1 · LE NOM DU CHAMP
+	 * `action` OU DE TOUT AUTRE CHAMP · la table d'audience · caractéristiques, seuils,
+	 * tiers · le message ou le seuil d'un contrôle · LE MOT « TOUR », réservé au round
+	 * de combat.
+	 */
+	'personnage-plan': {
+		systeme: [
+			"Tu assistes l'AUTEUR d'un livre-jeu qui écrit le plan d'actions d'un personnage.",
+			"À partir du contexte fourni, tu proposes la PROCHAINE ÉTAPE de ce plan : ce que CE personnage-là entreprend ensuite pour obtenir ce qu'il veut.",
+			'',
+			`Tu réponds par un objet JSON et rien d'autre, de la forme ${GABARIT_SORTIE['personnage-plan']} : aucune autre clé, aucun commentaire, aucun texte avant ou après.`,
+			'',
+			"Cette étape est une INTENTION que le personnage poursuit : elle servira plus tard de consigne à qui le fait agir, elle ne sera jamais lue telle quelle à un joueur, et ce n'est jamais une phrase qu'il prononce.",
+			"Elle prolonge les étapes déjà listées, elle n'en répète aucune, et elle vient après la dernière.",
+			"Tu en proposes UNE, et toujours une : même quand le contexte est maigre, une fonction et un but suffisent à dire ce qu'un personnage entreprend ensuite.",
+			"Elle tient en une phrase et ne porte qu'UNE action.",
+			"Tu n'écris jamais de durée ni de délai — ni « au bout de trois jours », ni « le lendemain », ni « après une semaine » : le temps est compté ailleurs.",
+			"Tu n'écris jamais à quelle condition l'étape commence, ni ce que le personnage fait si elle échoue, ni aucun numéro d'étape.",
+			"Tu respectes le ton de l'aventure et ses interdits de ton.",
+			"Tu n'écris jamais d'identifiant, jamais de chiffre de caractéristique, jamais de seuil ni de règle de jeu, jamais le nom d'un autre champ.",
+		].join('\n'),
+		// DÉRIVÉ, jamais recopié — et surtout PAS de `personnage-prose`, dont la valeur
+		// est la même par COÏNCIDENCE : elle vient d'une mesure SANS RAPPORT (la plus
+		// longue prose d'identité, 146 caractères). Écrit ici parce que, sans cette
+		// phrase, un relecteur croira à une recopie et « harmonisera » un jour.
+		// MESURE DU 2026-09-18, DEUX SOURCES INDÉPENDANTES pour la plus longue étape
+		// attestée : `dossier-reference.json` (`pnj.mira-la-guerisseuse`, étape 1) = 67
+		// caractères ; `dossier-fiches/tests/fichePersonnage.test.tsx:176` = 68. P = 68.
+		// Enveloppe `{"intention": ""}` = 17 ⇒ L = 85 ; jetons = L/r × 3, arrondi à la
+		// centaine supérieure — r=3 ⇒ 100, r=2 (PIRE) ⇒ 127,5 ⇒ 200.
+		// ⚠ LE RÉSULTAT DÉPEND DU RATIO (100 contre 200) : on prend le pire, ET ON LE DIT.
+		// MODE D'ÉCHEC NOMMÉ : une intention très longue ferait TRONQUER le JSON ⇒ refus
+		// `schema` côté client ⇒ rejeu ⇒ état terminal. C'est le BON échec.
+		max_tokens: 200,
+	},
 }
 
 /**
@@ -278,6 +339,18 @@ export const INVITES: Record<string, { systeme: string; max_tokens: number }> = 
  *   `max` sur les TROIS rôles = 52 224, toujours porté par `indice-detenteurs`.
  * Le rôle neuf est le plus ÉTROIT des trois — dix chemins, UNE fiche, aucun bloc
  * numéroté, `synopsis_mj` retiré —, donc son plafond propre est le plus bas.
+ *
+ * MESURE DU 2026-09-18, itération 3b — LES QUATRE RÔLES RE-DÉRIVÉS, et « inchangé »
+ * reste une MESURE :
+ *   `personnage-plan` — squelette 40 o + invite 1399 o ⇒ E = 1439 ;
+ *                       ceil((3 × 4000 + 1439) / 1024) × 1024 = 14 336
+ *   `max` sur les QUATRE rôles = 52 224, toujours porté par `indice-detenteurs`.
+ * Le quatrième rôle a le MÊME budget client que le troisième (4000, mesuré
+ * indépendamment : M = 1022) mais l'invite la plus longue des quatre, d'où un
+ * plafond propre légèrement supérieur — toujours très loin du `max`.
+ * (Le relevé de 3b redonne 45 o pour le squelette `personnage-repliques` là où 3a
+ * notait 44 : l'écart d'UN octet ne déplace ni son plafond propre — 13 312 des deux
+ * façons — ni le `max`. Écrit plutôt que lissé.)
  *
  * (L'itération 1 relevait `E = 815` pour le rôle prose par la variante « corps réel
  * moins texte du contexte » ; les deux méthodes donnent le MÊME plafond de 19 456

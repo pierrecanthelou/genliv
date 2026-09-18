@@ -129,3 +129,35 @@ export const TEXTE_REFUS_TROP_LONG_REPLIQUES =
 	"Le contexte est trop long pour proposer des répliques — raccourcissez d'abord la fiche de ce personnage."
 export const MENTION_RELANCE_SANS_MEMOIRE_REPLIQUES =
 	'Chaque lancer repart de zéro : le copilote ne voit pas les répliques déjà écrites de ce personnage, et peut en proposer une très proche.'
+
+/**
+ * Les textes de la carte 5 « Compléter le plan d'actions » (itération 3b —
+ * § 3.4 du plan). `EYEBROW_PROCHAINE_ETAPE` NE PORTE AUCUN NUMÉRO : un numéro
+ * affiché sur la PROPOSITION serait calculé sur la liste GELÉE, alors que
+ * l'écriture le calcule sur la liste VIVE — si elles divergent, l'écran aurait
+ * menti d'un entier. `eyebrowEtape(n)`, lui, reste : ces numéros-là sont LUS
+ * dans le document, donc vrais.
+ *
+ * `MENTION_RELANCE_PLAN` NE PROMET AUCUN REFUS AUTOMATIQUE — le prédicat de
+ * doublon est hors périmètre (§ 8, n° 12) : elle dit ce qui est LU et ce qui
+ * est OUBLIÉ, rien de plus.
+ */
+export const CARD5_TITRE = "Compléter le plan d'actions"
+export const CARD5_CORPS =
+	"Propose la prochaine étape du plan d'actions de ce personnage — ce qu'il entreprend ensuite pour obtenir ce qu'il veut."
+export const EYEBROW_PROCHAINE_ETAPE = 'PROCHAINE ÉTAPE'
+
+export function eyebrowEtape(n: number): string {
+	return `ÉTAPE ${n}`
+}
+
+export const MENTION_AUCUNE_ETAPE =
+	"Ce personnage n'a encore aucune étape dans son plan d'actions — la première proposée s'ajoute en tête."
+export const MENTION_AUCUNE_ETAPE_AU_LANCER =
+	"Ce personnage n'avait aucune étape dans son plan d'actions au lancement de cet assistant."
+export const MENTION_RELANCE_PLAN =
+	'Le copilote lit les étapes déjà écrites, jamais celles que vous avez refusées : chaque lancer repart de la liste enregistrée.'
+export const TEXTE_REFUS_CIBLE_A_ECRIRE_PLAN =
+	"Ce personnage n'a pas encore d'objectif écrit — complétez d'abord son but, dans Personnages."
+export const TEXTE_REFUS_TROP_LONG_PLAN =
+	"Le contexte est trop long pour proposer une étape — raccourcissez d'abord la fiche de ce personnage."

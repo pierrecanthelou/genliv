@@ -11,7 +11,14 @@
 import { MARQUEUR_A_ECRIRE } from '../dossier/amorce'
 import { ESPACES_DE_NOMS, collectIds } from '../dossier/identifiers'
 import type { Dossier } from '../dossier/types'
-import type { DetenteursRendus, PropositionRendue, RangInjecte, RepliquesRendues, RoleCopilote } from './types'
+import type {
+	DetenteursRendus,
+	IntentionRendue,
+	PropositionRendue,
+	RangInjecte,
+	RepliquesRendues,
+	RoleCopilote,
+} from './types'
 
 /** Les clés du schéma de sortie, EN VALEUR : le garde KR-236 les énumère à
  *  l'exécution (une `interface` n'existe plus au runtime), et le validateur est
@@ -52,6 +59,21 @@ export const CLES_SORTIE_REPLIQUES = ['repliques'] as const
  *  — les partager coupleraient deux formes de réponse sans motif. */
 export const REPLIQUES_PROPOSEES_MAX = 3
 
+/** L'équivalent pour le rôle `personnage-plan`. QUATRE registres LITTÉRAUX, et
+ *  toujours pas un registre paramétré (§ 8, TL3a-6) : le rôle prose n'a pas de
+ *  liste et son entrée serait un mensonge. */
+export const CLES_SORTIE_PLAN = ['intention'] as const
+
+/** ⚠ AUCUNE CONSTANTE DE BORNE POUR CE RÔLE, et c'est délibéré — ne pas en ajouter
+ *  une « par symétrie » avec `PROPOSITIONS_MAX` / `REPLIQUES_PROPOSEES_MAX`.
+ *  La sortie est SCALAIRE : « deux » est NON REPRÉSENTABLE. Une liste bornée à un
+ *  l'aurait rendu représentable et ne l'aurait interdit que par une constante —
+ *  LA MEILLEURE GARDE EST CELLE QUI N'EXISTE PAS. Ni `ETAPES_PROPOSEES_MAX`, ni
+ *  `INTENTIONS_PROPOSEES_MAX` : il n'y a rien à borner.
+ *  Conséquence à ne pas « réparer » non plus : le garde « la borne de l'invite est
+ *  celle du validateur » (`worker/frontiere.test.ts`) ne s'applique pas à ce rôle —
+ *  son symétrique y est écrit à la place : son invite n'annonce AUCUNE borne. */
+
 /**
  * LE GABARIT, APPARIÉ AU RÔLE — et c'est la moitié de la garde KR-236. Avec deux
  * constantes séparées, l'appariement rôle → gabarit n'existerait QUE dans le test,
@@ -74,6 +96,7 @@ export const GABARIT_SORTIE: Record<RoleCopilote, string> = {
 	'personnage-prose': '{"valeur": "…"}',
 	'indice-detenteurs': '{"detenteurs": ["P1", "P2"]}',
 	'personnage-repliques': '{"repliques": ["…", "…"]}',
+	'personnage-plan': '{"intention": "…"}',
 }
 
 /** CINQ motifs, un par prédicat qui peut échouer — l'écran ne rend qu'UN texte
@@ -359,4 +382,73 @@ export function validerRepliques(
 	if (rendues.some((replique) => porteUnIdentifiant(replique, dossier))) return { ok: false, motif: 'identifiant' }
 
 	return { ok: true, repliques: rendues }
+}
+
+/**
+ * LES PRÉDICATS DE FORME de la sortie `personnage-plan` — un SCALAIRE, et son
+ * ancêtre est donc `validerSortie` (rôle PROSE, SIX prédicats), JAMAIS
+ * `validerRepliques` (liste, DIX). La sortie n'étant pas une liste, les quatre
+ * prédicats de liste — `Array.isArray`, la borne, la non-vacuité de liste, les
+ * éléments distincts — n'ont AUCUN sujet ici : les écrire serait recopier le
+ * mauvais ancêtre, c'est-à-dire du code mort présenté comme de la couverture
+ * (famille BUG-084, KR-235).
+ *
+ * `MotifIllisible` est INCHANGÉE — aucun membre neuf. Le type de retour ne nomme que
+ * les motifs ATTEIGNABLES : `'rang-inconnu'` est SANS OBJET ici (aucun jeton, aucune
+ * table d'appartenance).
+ *
+ * Les SIX prédicats, dans l'ordre, chacun prouvable SEUL :
+ *   (1) objet simple (ni tableau, ni null) ..................... 'schema'
+ *   (2) clés = EXACTEMENT `CLES_SORTIE_PLAN` — une clé EN TROP
+ *       est un REFUS, jamais un champ ignoré .................. 'schema'
+ *   (3) la clé porte une CHAÎNE ................................ 'schema'
+ *   (4) non vide après `trim()` .................................. 'vide'
+ *   (5) aucun `MARQUEUR_A_ECRIRE` (constante IMPORTÉE, KR-223) 'marqueur'
+ *   (6) aucun identifiant du dossier .................... 'identifiant'
+ *
+ * ⚠ LE PRÉDICAT (3) EST LA GARDE DE KR-230, ET IL SE PROUVE PAR UN MUTANT.
+ * `{"intention": ["a","b"]}` est REFUSÉ `'schema'` — jamais coercé, JAMAIS `[0]`.
+ * Repêcher le premier élément d'un tableau serait une réparation silencieuse :
+ * l'auteur ratifierait d'un clic une intention dont il ne saurait pas qu'elle a été
+ * choisie par le code. Et JAMAIS `String(brut.intention)` non plus, qui fabriquerait
+ * `'a,b'` ou `'[object Object]'` et le présenterait comme une étape. Réparer, c'est
+ * interpréter (KR-230).
+ *
+ * LA CHAÎNE VIDE EST UN REFUS `'vide'`, et le test de rattachement de l'it3a
+ * s'applique : ce rôle rend DE LA PROSE QUE RIEN NE FOURNIT ⇒ RÉDACTION ⇒ la
+ * non-réponse est un refus. Le cas « il n'y a rien à prolonger » est traité AVANT
+ * l'appel, par le refus `'cible-a-ecrire'` de `contexte/plan.ts`.
+ */
+export function validerIntention(
+	brut: unknown,
+	dossier: Dossier,
+): ({ ok: true } & IntentionRendue) | { ok: false; motif: 'schema' | 'vide' | 'marqueur' | 'identifiant' } {
+	// (1) un objet JSON — ni tableau, ni `null`.
+	if (!estObjetSimple(brut)) return { ok: false, motif: 'schema' }
+
+	// (2) l'ensemble des clés vaut EXACTEMENT `CLES_SORTIE_PLAN`.
+	const cles = Object.keys(brut)
+	if (cles.length !== CLES_SORTIE_PLAN.length || !CLES_SORTIE_PLAN.every((cle) => cles.includes(cle))) {
+		return { ok: false, motif: 'schema' }
+	}
+
+	// (3) la clé du schéma porte une CHAÎNE — piloté par `CLES_SORTIE_PLAN`. Un
+	//     TABLEAU meurt ici, et JAMAIS `[0]`, JAMAIS `String(…)`.
+	if (!CLES_SORTIE_PLAN.every((cle) => typeof brut[cle] === 'string')) return { ok: false, motif: 'schema' }
+
+	const intention = brut[CLES_SORTIE_PLAN[0]] as string
+
+	// (4) non vide une fois les blancs retirés.
+	if (intention.trim().length === 0) return { ok: false, motif: 'vide' }
+
+	// (5) pas le marqueur d'amorce — constante IMPORTÉE, jamais recopiée (KR-223).
+	//     `includes` et non `startsWith` : les chevrons `⟨ ⟩` ne se tapent pas au
+	//     clavier, donc pas de faux positif.
+	if (intention.includes(MARQUEUR_A_ECRIRE)) return { ok: false, motif: 'marqueur' }
+
+	// (6) aucun identifiant du dossier — `porteUnIdentifiant` réutilisée TELLE QUELLE
+	//     (KR-117), jamais une seconde écriture du scanner.
+	if (porteUnIdentifiant(intention, dossier)) return { ok: false, motif: 'identifiant' }
+
+	return { ok: true, intention }
 }

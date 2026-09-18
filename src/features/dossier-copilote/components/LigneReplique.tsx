@@ -40,15 +40,21 @@ export interface LigneRepliqueHandle {
 }
 
 /**
- * La ligne d'une réplique proposée — SŒUR de `LigneDetenteur`, JAMAIS une
- * variante de `LigneProposition` (§ 3.3 du plan d'itération 3a) : ce
- * composant ne porte NI `Field` NI `chemin` NI dépendance à
- * `LIBELLE_DES_CHAMPS` — le texte candidat est de la prose libre, jamais un
- * champ nommé du document. Corollaire du veto TL3a-3, 3ᵉ occurrence : ce
- * composant ne porte pas non plus `label="RÉPLIQUE"` — l'eyebrow
- * `eyebrowRepliqueProposee(n)` est rendu par la CARTE, jamais ici, pour
- * rester invisible à `libelles.test.ts` (qui balaie `label="…"`, pas du texte
- * rendu).
+ * La ligne d'une réplique — OU d'une étape de plan — proposée : DEUX
+ * CONSOMMATEURS, `CarteFaireParler` (itération 3a, une réplique de
+ * `caractere.parler[]`) et `CarteCompleterPlan` (itération 3b, une étape de
+ * `plan_actions[].action`) — RÉEMPLOYÉE TELLE QUELLE pour le second, zéro
+ * ligne de code changée (§ 3.3 du plan d'itération 3b) : `LigneRepliqueProps`
+ * est déjà `{ texte, … }` sans aucun membre propre aux répliques, l'eyebrow
+ * est rendu par la CARTE et les deux props de plafond sont optionnelles.
+ * SŒUR de `LigneDetenteur`, JAMAIS une variante de `LigneProposition` (§ 3.3
+ * du plan d'itération 3a) : ce composant ne porte NI `Field` NI `chemin` NI
+ * dépendance à `LIBELLE_DES_CHAMPS` — le texte candidat est de la prose
+ * libre, jamais un champ nommé du document. Corollaire du veto TL3a-3, 3ᵉ
+ * occurrence : ce composant ne porte pas non plus `label="RÉPLIQUE"` —
+ * l'eyebrow (`eyebrowRepliqueProposee(n)` ou `EYEBROW_PROCHAINE_ETAPE`) est
+ * rendu par la CARTE, jamais ici, pour rester invisible à `libelles.test.ts`
+ * (qui balaie `label="…"`, pas du texte rendu).
  *
  * Bloc de lecture : un `<div>` aux jetons du § 3.1, `white-space: pre-wrap` —
  * jamais un `Field`. Actions identiques à `LigneDetenteur` : `IconButton`

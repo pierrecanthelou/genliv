@@ -2,8 +2,15 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { createBrain } from './BrainContext'
 import type { CloudSettingsService } from './CloudSettingsService'
-import { createCopiloteService, type CibleCopilote, type CibleIndice, type CibleRepliques } from './CopiloteService'
+import {
+	createCopiloteService,
+	type CibleCopilote,
+	type CibleIndice,
+	type CiblePlan,
+	type CibleRepliques,
+} from './CopiloteService'
 import { assemblerDetenteurs } from './copilote/contexte'
+import { GABARIT_SORTIE } from './copilote/schemaSortie'
 import { MARQUEUR_A_ECRIRE } from './dossier/amorce'
 import type { Dossier } from './dossier/types'
 import type { PersistenceService } from './PersistenceService'
@@ -715,42 +722,358 @@ describe('CopiloteService — le troisieme role, aucune memoire', () => {
 	})
 })
 
+// ══ LE QUATRIÈME RÔLE — `personnage-plan` ════════════════════════════════════
+
+const ROLE_PLAN = 'personnage-plan'
+
+/** UNE cible qui RÉSOUT : le personnage porte un `but.libelle` écrit, donc le
+ *  prédicat nommé du refus `cible-a-ecrire` est satisfait. `acteurId`, JAMAIS
+ *  `personnageId` — une cible `{ personnageId }` serait LE MÊME TYPE que
+ *  `CibleRepliques` et tomberait dans `demanderRepliques` avec `tsc` vert. */
+function ciblePlanDeReference(dossier: Dossier): CiblePlan {
+	const personnage = dossier.monde.personnages.find((candidat) => candidat.but?.libelle !== undefined)
+	if (personnage === undefined) throw new Error('la fixture ne porte aucun personnage à but écrit')
+	return { acteurId: personnage.id }
+}
+
+/** LA SORTIE CONFORME EST CONSTRUITE DEPUIS LE GABARIT, jamais retapée : la clé de
+ *  fil ne s'écrit pas deux fois dans le dépôt (KR-236). */
+const CLE_FIL_PLAN = Object.keys(JSON.parse(GABARIT_SORTIE[ROLE_PLAN]) as Record<string, unknown>)[0]
+function sortiePlan(intention: unknown): Record<string, unknown> {
+	return { [CLE_FIL_PLAN]: intention }
+}
+
+const INTENTION_CONFORME = 'Remonter au beffroi avant la nuit et y attendre le passage du guetteur.'
+
+describe('CopiloteService — le quatrieme role, un appel sur reponse conforme', () => {
+	it('temoin executable du 4e role : du service a la proposition, en un seul appel', async () => {
+		// ⚠ CE TÉMOIN EST ÉCRIT ICI, ET C'EST UNE MESURE, PAS UN CHOIX D'EMPLACEMENT :
+		// les témoins exécutables de bout en bout de `worker/frontiere.test.ts` sont
+		// TROIS `it` NOMMÉS, pas un `.each` — le quatrième rôle n'en hérite d'AUCUN, et
+		// rien n'aurait rougi. Sans cette suite-ci, le rôle neuf partirait avec un témoin
+		// de moins que les trois autres.
+		// CE QU'IL COUVRE : service → corps sur le fil → validateur → proposition
+		// RE-RÉSOLUE, la sortie conforme étant CONSTRUITE depuis `GABARIT_SORTIE`.
+		// CE QU'IL NE COUVRE PAS, et c'est écrit plutôt que sous-entendu : la traversée
+		// du worker RÉEL (jsdom n'expose ni `Request` ni `Response`). Cette moitié-là est
+		// portée pour les QUATRE rôles par le `it.each(ROLES)` de `frontiere.test.ts`
+		// (« l'invite réellement composée contient son gabarit ») et par la suite de
+		// route de `worker/index.test.ts`.
+		const dossier = dossierDeReference()
+		const cible = ciblePlanDeReference(dossier)
+		fetchMock.mockResolvedValue(reponseWorker(sortiePlan(INTENTION_CONFORME)))
+
+		const reponse = await createCopiloteService(reglages()).demander(ROLE_PLAN, dossier, cible)
+
+		expect(fetchMock).toHaveBeenCalledTimes(1)
+		expect(reponse).toEqual({
+			statut: 'propose',
+			// `acteurId` vient de l'ÉTAT D'ÉCRAN, jamais de la réponse (KR-231). Et la
+			// clé d'écriture se nomme `action` là où le fil portait `intention` : DEUX
+			// MOTS POUR LA MÊME CHAÎNE, délibérément.
+			proposition: { acteurId: cible.acteurId, action: INTENTION_CONFORME },
+		})
+		// La proposition ne porte AUCUN entier : `etape` est posé par le CODE, à
+		// l'écriture, sur la liste VIVE — le modèle ne le voit jamais.
+		const proposee: Record<string, unknown> = reponse.statut === 'propose' ? { ...reponse.proposition } : {}
+		expect(Object.keys(proposee).sort()).toEqual(['acteurId', 'action'])
+		expect(Object.values(proposee).filter((valeur) => typeof valeur !== 'string')).toEqual([])
+	})
+
+	it('le corps n a PAS de champ, aucun entier, et l identifiant ne franchit JAMAIS le reseau', async () => {
+		const dossier = dossierDeReference()
+		const cible = ciblePlanDeReference(dossier)
+		fetchMock.mockResolvedValue(reponseWorker(sortiePlan(INTENTION_CONFORME)))
+
+		await createCopiloteService(reglages()).demander(ROLE_PLAN, dossier, cible)
+
+		const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+		expect(url).toBe(`${URL_WORKER}/ia/${ROLE_PLAN}`)
+		expect(init.method).toBe('POST')
+		expect((init.headers as Record<string, string>)['X-Sync-Key']).toBe(CLE)
+		const corps = JSON.parse(String(init.body)) as Record<string, unknown>
+		// PAS de `champ` : LE RÔLE EST LE CHAMP. Et AUCUN entier ne franchit le fil.
+		expect(Object.keys(corps).sort()).toEqual(['contexte', 'role'])
+		expect(Object.values(corps).filter((valeur) => typeof valeur !== 'string')).toEqual([])
+		expect(String(init.body)).not.toContain(cible.acteurId)
+		// Le nom de la fiche ne sort pas non plus : `Entite.nom` est d'audience `auteur`,
+		// il n'est dans aucun des neuf chemins injectés (KR-195).
+		const nomme = dossier.monde.personnages.find((candidat) => candidat.id === cible.acteurId)
+		expect(String(nomme?.nom).trim().length).toBeGreaterThan(0)
+		expect(String(init.body)).not.toContain(String(nomme?.nom))
+	})
+
+	it('le PREFIXE deja ecrit part bien sur le fil, dans l ordre — l amendement, vu du service', async () => {
+		// LA CONTREPARTIE DE L'AMENDEMENT, vue à l'endroit où elle se paie : ce rôle est
+		// le seul qui envoie au modèle le contenu du champ qu'il écrit. Le test prouve
+		// d'abord que la fiche EN PORTE, sinon il ne mesure rien.
+		const dossier = dossierDeReference()
+		const cible = ciblePlanDeReference(dossier)
+		const deja = dossier.monde.personnages
+			.find((candidat) => candidat.id === cible.acteurId)
+			?.plan_actions.map((etape) => etape.action)
+			.filter((action) => action.trim() !== '')
+		expect(deja?.length).toBeGreaterThan(0)
+		fetchMock.mockResolvedValue(reponseWorker(sortiePlan(INTENTION_CONFORME)))
+
+		await createCopiloteService(reglages()).demander(ROLE_PLAN, dossier, cible)
+
+		const corps = String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body)
+		expect((deja ?? []).filter((action) => !corps.includes(action))).toEqual([])
+		// … et les `etape` du document, eux, ne partent PAS : ce sont des entiers.
+		expect(corps).not.toContain('etape')
+	})
+
+	it('un TABLEAU rendu est refuse, jamais repeche', async () => {
+		// LA GARDE DE KR-230, VUE DU SERVICE : deux sorties tableau consécutives ⇒ rejeu
+		// unique ⇒ terminal `schema`. À aucun moment `['a','b'][0]` ne devient une
+		// proposition — ce qui serait faire ratifier à l'auteur un choix du CODE.
+		const dossier = dossierDeReference()
+		const cible = ciblePlanDeReference(dossier)
+		fetchMock.mockResolvedValue(reponseWorker(sortiePlan([INTENTION_CONFORME, 'Une seconde intention.'])))
+
+		const reponse = await createCopiloteService(reglages()).demander(ROLE_PLAN, dossier, cible)
+
+		expect(reponse).toEqual({ statut: 'illisible', motif: 'schema' })
+		expect(fetchMock).toHaveBeenCalledTimes(2)
+	})
+
+	it('une chaine vide est un REFUS, jamais un succes', async () => {
+		// Rôle de RÉDACTION : « je n'écris rien » est une NON-RÉPONSE, traitée comme
+		// toute violation de forme — rejeu unique, puis terminal.
+		const dossier = dossierDeReference()
+		const cible = ciblePlanDeReference(dossier)
+		fetchMock.mockResolvedValue(reponseWorker(sortiePlan('   ')))
+
+		const reponse = await createCopiloteService(reglages()).demander(ROLE_PLAN, dossier, cible)
+
+		expect(reponse).toEqual({ statut: 'illisible', motif: 'vide' })
+		expect(fetchMock).toHaveBeenCalledTimes(2)
+	})
+})
+
+describe('CopiloteService — le quatrieme role, le rejeu exactement une fois', () => {
+	it('rejeu une fois : une premiere sortie fautive, puis la seconde passe', async () => {
+		// PROPRIÉTÉ 1 sur 2 (KR-230) : le rejeu a bien lieu, et rien du premier essai
+		// n'est repêché.
+		const dossier = dossierDeReference()
+		const cible = ciblePlanDeReference(dossier)
+		const porteur = dossier.monde.personnages[0]
+		fetchMock
+			.mockResolvedValueOnce(reponseWorker(sortiePlan(`Aller voir ${porteur.id} avant la nuit.`)))
+			.mockResolvedValueOnce(reponseWorker(sortiePlan(INTENTION_CONFORME)))
+
+		const reponse = await createCopiloteService(reglages()).demander(ROLE_PLAN, dossier, cible)
+
+		expect(fetchMock).toHaveBeenCalledTimes(2)
+		expect(reponse).toEqual({
+			statut: 'propose',
+			proposition: { acteurId: cible.acteurId, action: INTENTION_CONFORME },
+		})
+	})
+
+	it('le second echec est TERMINAL, et un troisieme appel n a jamais lieu', async () => {
+		// PROPRIÉTÉ 2 sur 2 (KR-230), prouvée SÉPARÉMENT de la première.
+		const dossier = dossierDeReference()
+		const cible = ciblePlanDeReference(dossier)
+		fetchMock.mockResolvedValue(reponseWorker(sortiePlan(MARQUEUR_A_ECRIRE)))
+
+		const reponse = await createCopiloteService(reglages()).demander(ROLE_PLAN, dossier, cible)
+
+		expect(fetchMock).toHaveBeenCalledTimes(2)
+		expect(reponse).toEqual({ statut: 'illisible', motif: 'marqueur' })
+	})
+
+	it('le motif rendu est celui du SECOND echec, jamais du premier', async () => {
+		const dossier = dossierDeReference()
+		const cible = ciblePlanDeReference(dossier)
+		fetchMock
+			.mockResolvedValueOnce(reponseWorker({ intention: 42 }))
+			.mockResolvedValueOnce(reponseWorker(sortiePlan('')))
+
+		const reponse = await createCopiloteService(reglages()).demander(ROLE_PLAN, dossier, cible)
+
+		expect(reponse).toEqual({ statut: 'illisible', motif: 'vide' })
+	})
+
+	it('sur etat terminal du quatrieme role : update, persistance et bus restent muets', async () => {
+		const { brain, espions } = brainEspionne()
+		const dossier = dossierDeReference()
+		fetchMock.mockResolvedValue(reponseWorker(sortiePlan([])))
+
+		const reponse = await brain.copilote.demander(ROLE_PLAN, dossier, ciblePlanDeReference(dossier))
+
+		expect(reponse).toEqual({ statut: 'illisible', motif: 'schema' })
+		expect(espions.update).not.toHaveBeenCalled()
+		expect(espions.set).not.toHaveBeenCalled()
+		expect(espions.emit).not.toHaveBeenCalled()
+	})
+})
+
+describe('CopiloteService — le quatrieme role, les refus de contexte avant tout appel', () => {
+	it('les trois refus, discrimines, et AUCUN fetch', async () => {
+		const reference = dossierDeReference()
+		const cible = ciblePlanDeReference(reference)
+		const service = createCopiloteService(reglages())
+
+		// 1 — `a-ecrire`, À CHARGE.
+		const sansTon: Dossier = { ...reference, canon: { ...reference.canon, ton: MARQUEUR_A_ECRIRE } }
+		const refusTon = await service.demander(ROLE_PLAN, sansTon, cible)
+
+		// 2 — `cible-a-ecrire`, SANS charge : le PRÉDICAT NOMMÉ sur UN chemin. Le
+		// personnage ci-dessous est richement rédigé PAR AILLEURS — il lui manque
+		// seulement le but, et c'est ce seul manque qui refuse.
+		const sansBut: Dossier = {
+			...reference,
+			monde: {
+				...reference.monde,
+				personnages: reference.monde.personnages.map((personnage) =>
+					personnage.id === cible.acteurId ? { ...personnage, but: undefined } : personnage,
+				),
+			},
+		}
+		const refusCible = await service.demander(ROLE_PLAN, sansBut, cible)
+
+		// 3 — `trop-long`, SANS charge non plus : il pointe la fiche, pas un champ.
+		const enorme: Dossier = {
+			...reference,
+			monde: {
+				...reference.monde,
+				personnages: reference.monde.personnages.map((personnage) =>
+					personnage.id === cible.acteurId ? { ...personnage, fonction: 'x'.repeat(100_000) } : personnage,
+				),
+			},
+		}
+		const refusLong = await service.demander(ROLE_PLAN, enorme, cible)
+
+		expect(refusTon).toEqual({ statut: 'refuse', motif: 'a-ecrire', chemin: 'canon.ton' })
+		expect(refusCible).toEqual({ statut: 'refuse', motif: 'cible-a-ecrire' })
+		expect(refusLong).toEqual({ statut: 'refuse', motif: 'trop-long' })
+		// LES TROIS SONT DISTINCTS DEUX À DEUX — la moitié que le nom promet (KR-199).
+		expect(new Set([refusTon, refusCible, refusLong].map((refus) => JSON.stringify(refus))).size).toBe(3)
+		// ET AUCUN APPEL RÉSEAU N'EST PARTI, pour aucun des trois.
+		expect(fetchMock).not.toHaveBeenCalled()
+	})
+
+	it('le refus de contexte passe AVANT la disponibilite : il nomme ce qui manque', async () => {
+		const reference = dossierDeReference()
+		const dossier: Dossier = { ...reference, canon: { ...reference.canon, ton: MARQUEUR_A_ECRIRE } }
+
+		const reponse = await createCopiloteService(reglages(null, null)).demander(
+			ROLE_PLAN,
+			dossier,
+			ciblePlanDeReference(reference),
+		)
+
+		expect(reponse).toEqual({ statut: 'refuse', motif: 'a-ecrire', chemin: 'canon.ton' })
+		expect(fetchMock).not.toHaveBeenCalled()
+	})
+})
+
+describe('CopiloteService — le quatrieme role, aucune memoire', () => {
+	it('deux lancers, deux corps identiques', async () => {
+		const dossier = dossierDeReference()
+		const cible = ciblePlanDeReference(dossier)
+		fetchMock.mockResolvedValue(reponseWorker(sortiePlan(INTENTION_CONFORME)))
+
+		await createCopiloteService(reglages()).demander(ROLE_PLAN, dossier, cible)
+		await createCopiloteService(reglages()).demander(ROLE_PLAN, dossier, cible)
+
+		expect(fetchMock).toHaveBeenCalledTimes(2)
+		const [premier, second] = fetchMock.mock.calls.map((appel) => String((appel[1] as RequestInit).body))
+		expect(premier).toBe(second)
+		// Ni date, ni identifiant, ni nonce : c'est ce qui rend l'égalité STRICTE
+		// démontrable. Les étapes REFUSÉES ne sont jamais retenues — il n'existe aucune
+		// trace à retenir —, et les étapes ÉCRITES sont relues du document à chaque
+		// lancer. C'est exactement ce que l'écran a le droit de promettre, et rien de
+		// plus : aucun prédicat ne refuse une recopie.
+		expect(premier).not.toContain(cible.acteurId)
+	})
+})
+
 describe('CopiloteService — le couple (role, cible) n est plus representable', () => {
-	it('cible incompatible ne compile pas — les SIX couples illegaux', async () => {
+	it('cible incompatible ne compile pas — les DOUZE couples illegaux', async () => {
 		// LE TEST EST DE TYPE, PAS DE RUNTIME : `@ts-expect-error` échoue à la
 		// COMPILATION si l'erreur attendue n'a PAS lieu. C'est la surcharge sur le
 		// littéral de rôle qui ferme l'état — pas une garde d'exécution.
-		// TROIS rôles × TROIS cibles = neuf couples, dont trois légaux : les SIX autres
-		// sont énumérés ici, aucun échantillonnage (KR-199).
+		// QUATRE rôles × QUATRE cibles = seize couples, dont quatre légaux : les DOUZE
+		// autres sont énumérés ici, aucun échantillonnage (KR-199).
+		// ⚠ LES QUATRE CIBLES SONT DISJOINTES DEUX À DEUX, et c'est ce qui rend ce
+		// tableau complet possible : une quatrième cible `{ personnageId }` aurait été LE
+		// MÊME TYPE que `CibleRepliques`, donc les couples 10 et 12 ci-dessous auraient
+		// COMPILÉ — rôle annoncé A, validateur exécuté B, `tsc` vert (§ 8, n° 3).
 		const dossier = dossierDeReference()
 		fetchMock.mockResolvedValue(reponseWorker(sortieDetenteurs([])))
 		const service = createCopiloteService(reglages())
 		const prose = cibleDeReference(dossier)
 		const indice = cibleIndiceDeReference(dossier)
 		const repliques = cibleRepliquesDeReference(dossier)
+		const plan = ciblePlanDeReference(dossier)
 
-		// @ts-expect-error — 1/6 : une CIBLE DE PROSE sur le rôle détenteurs.
+		// @ts-expect-error — 1/12 : une CIBLE DE PROSE sur le rôle détenteurs.
 		await service.demander(ROLE_DETENTEURS, dossier, prose).catch(() => undefined)
-		// @ts-expect-error — 2/6 : une CIBLE DE PROSE sur le rôle répliques.
+		// @ts-expect-error — 2/12 : une CIBLE DE PROSE sur le rôle répliques.
 		await service.demander(ROLE_REPLIQUES, dossier, prose).catch(() => undefined)
-		// @ts-expect-error — 3/6 : une CIBLE D'INDICE sur le rôle prose.
+		// @ts-expect-error — 3/12 : une CIBLE DE PROSE sur le rôle plan.
+		await service.demander(ROLE_PLAN, dossier, prose).catch(() => undefined)
+		// @ts-expect-error — 4/12 : une CIBLE D'INDICE sur le rôle prose.
 		await service.demander(ROLE, dossier, indice).catch(() => undefined)
-		// @ts-expect-error — 4/6 : une CIBLE D'INDICE sur le rôle répliques.
+		// @ts-expect-error — 5/12 : une CIBLE D'INDICE sur le rôle répliques.
 		await service.demander(ROLE_REPLIQUES, dossier, indice).catch(() => undefined)
-		// @ts-expect-error — 5/6 : une CIBLE DE RÉPLIQUES sur le rôle prose.
+		// @ts-expect-error — 6/12 : une CIBLE D'INDICE sur le rôle plan.
+		await service.demander(ROLE_PLAN, dossier, indice).catch(() => undefined)
+		// @ts-expect-error — 7/12 : une CIBLE DE RÉPLIQUES sur le rôle prose.
 		await service.demander(ROLE, dossier, repliques).catch(() => undefined)
-		// @ts-expect-error — 6/6 : une CIBLE DE RÉPLIQUES sur le rôle détenteurs.
+		// @ts-expect-error — 8/12 : une CIBLE DE RÉPLIQUES sur le rôle détenteurs.
 		await service.demander(ROLE_DETENTEURS, dossier, repliques).catch(() => undefined)
+		// @ts-expect-error — 9/12 : une CIBLE DE RÉPLIQUES sur le rôle plan.
+		await service.demander(ROLE_PLAN, dossier, repliques).catch(() => undefined)
+		// @ts-expect-error — 10/12 : une CIBLE DE PLAN sur le rôle prose.
+		await service.demander(ROLE, dossier, plan).catch(() => undefined)
+		// @ts-expect-error — 11/12 : une CIBLE DE PLAN sur le rôle détenteurs.
+		await service.demander(ROLE_DETENTEURS, dossier, plan).catch(() => undefined)
+		// @ts-expect-error — 12/12 : une CIBLE DE PLAN sur le rôle répliques. C'EST LE
+		// COUPLE QUE `{ personnageId }` AURAIT LAISSÉ PASSER.
+		await service.demander(ROLE_REPLIQUES, dossier, plan).catch(() => undefined)
 		// @ts-expect-error — et un rôle qui n'existe pas.
 		await service.demander('lieu-prose', dossier, prose).catch(() => undefined)
 
-		// Discriminant : les TROIS appels BIEN APPARIÉS compilent, eux. Sans cette
+		// Discriminant : les QUATRE appels BIEN APPARIÉS compilent, eux. Sans cette
 		// moitié, les `@ts-expect-error` ci-dessus seraient satisfaits par n'importe
 		// quelle erreur de type, y compris « `demander` n'existe pas ».
 		await service.demander(ROLE, dossier, prose)
 		await service.demander(ROLE_DETENTEURS, dossier, indice)
 		await service.demander(ROLE_REPLIQUES, dossier, repliques)
+		await service.demander(ROLE_PLAN, dossier, plan)
 		expect(fetchMock).toHaveBeenCalled()
+	})
+
+	it('les quatre cibles sont DISJOINTES DEUX A DEUX, en valeur', () => {
+		// LA PROPRIÉTÉ DONT LE TABLEAU CI-DESSUS DÉPEND, constatée en VALEUR et non
+		// déduite : le dispatch de `demander` rétrécit sur la FORME de la cible, donc
+		// deux cibles qui partageraient leur ensemble de clés seraient LE MÊME TYPE.
+		const dossier = dossierDeReference()
+		const cibles: Record<string, object> = {
+			prose: cibleDeReference(dossier),
+			indice: cibleIndiceDeReference(dossier),
+			repliques: cibleRepliquesDeReference(dossier),
+			plan: ciblePlanDeReference(dossier),
+		}
+		const signatures = Object.values(cibles).map((cible) => Object.keys(cible).sort().join('+'))
+
+		expect(new Set(signatures).size).toBe(signatures.length)
+		// … et AUCUNE clé discriminante n'est partagée : `acteurId` n'apparaît que sur la
+		// cible du plan, `personnageId` que sur celle des répliques.
+		expect(
+			Object.entries(cibles)
+				.filter(([, cible]) => 'acteurId' in cible)
+				.map(([nom]) => nom),
+		).toEqual(['plan'])
+		expect(
+			Object.entries(cibles)
+				.filter(([, cible]) => 'personnageId' in cible)
+				.map(([nom]) => nom),
+		).toEqual(['repliques'])
 	})
 })
 

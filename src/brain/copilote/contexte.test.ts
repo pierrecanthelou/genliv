@@ -6,9 +6,10 @@ import { feuillesDeLaFixture } from '../dossier/feuilles'
 import { LIBELLE_DES_CHAMPS } from '../dossier/libelles'
 import { CERTITUDE_INITIALE, type Dossier, type Personnage, type Portee } from '../dossier/types'
 import { controlerDossier } from '../dossier/controles'
-import type { CibleCopilote, CibleIndice, CibleRepliques } from '../CopiloteService'
+import type { CibleCopilote, CibleIndice, CiblePlan, CibleRepliques } from '../CopiloteService'
 import {
 	assemblerDetenteurs,
+	assemblerPlan,
 	assemblerProse,
 	assemblerRepliques,
 	BUDGET_CARACTERES_CONTEXTE,
@@ -29,6 +30,16 @@ const BUDGET_PROSE = BUDGET_CARACTERES_CONTEXTE[ROLE]
 const PREFIXE_PERSONNAGE = 'monde.personnages[].'
 
 const CHEMIN_REFERENCE = path.join(__dirname, '..', 'dossier', '__fixtures__', 'dossier-reference.json')
+
+/** LES FICHIERS BALAYÉS À LA SOURCE, depuis la scission de `contexte.ts` en dossier.
+ *  MESURE DE L'ÉTAPE A, CONTRE LA PRÉDICTION DU PLAN : la scission ne change AUCUNE
+ *  instruction d'import (les cinq sites écrivent `…/copilote/contexte` sans
+ *  extension), mais ce fichier-ci ne se contente pas d'IMPORTER — deux de ses gardes
+ *  LISENT le module sur DISQUE, et un chemin de disque, lui, se déplace. C'est le
+ *  seul diff de l'étape A hors des fichiers créés. */
+const CHEMIN_CORPS_REPLIQUES = path.join(__dirname, 'contexte', 'repliques.ts')
+const CHEMIN_REGISTRES = path.join(__dirname, 'contexte', 'registres.ts')
+const CHEMIN_NOYAU = path.join(__dirname, 'contexte', 'noyau.ts')
 
 /** Le dossier de RÉFÉRENCE, LU DU DISQUE à chaque appel (KR-156) — jamais un
  *  littéral inline. */
@@ -965,9 +976,9 @@ describe('assemblerRepliques — confinement d audience du troisieme role', () =
 		)
 
 		expect(fautifs).toEqual([])
-		// Discriminant : le balayage voit bien les TROIS entrées — sans lui, un registre
+		// Discriminant : le balayage voit bien les QUATRE entrées — sans lui, un registre
 		// vide le rendrait vert (KR-199).
-		expect(Object.keys(CHAMPS_INJECTES)).toHaveLength(3)
+		expect(Object.keys(CHAMPS_INJECTES)).toHaveLength(4)
 	})
 
 	it('aucun chemin caractere.curseurs.* nulle part', () => {
@@ -978,7 +989,7 @@ describe('assemblerRepliques — confinement d audience du troisieme role', () =
 		)
 
 		expect(fautifs).toEqual([])
-		expect(Object.keys(CHAMPS_INJECTES)).toHaveLength(3)
+		expect(Object.keys(CHAMPS_INJECTES)).toHaveLength(4)
 	})
 
 	it('la cible est absente de la liste blanche', () => {
@@ -991,17 +1002,17 @@ describe('assemblerRepliques — confinement d audience du troisieme role', () =
 		// (a) LA PREUVE QUE L'ABSENCE EST LA SEULE GARDE : le CORPS de l'assembleur ne
 		// contient AUCUN saut nommant la cible — pas de `continue` conditionné par elle,
 		// pas même le mot écrit quelque part. Le balayage est BORNÉ À CE CORPS et non au
-		// fichier : le rôle prose, lui, injecte LÉGITIMEMENT `caractere.parler[]`, et une
-		// garde posée sur le fichier entier encoderait une COÏNCIDENCE plutôt que
-		// l'invariant qu'elle nomme (KR-226).
-		const source = fs.readFileSync(path.join(__dirname, 'contexte.ts'), 'utf8')
+		// dossier : le rôle prose, lui, injecte LÉGITIMEMENT `caractere.parler[]`, et une
+		// garde posée sur les registres encoderait une COÏNCIDENCE plutôt que l'invariant
+		// qu'elle nomme (KR-226).
+		const source = fs.readFileSync(CHEMIN_CORPS_REPLIQUES, 'utf8')
 		const corps = source.slice(source.indexOf('export function assemblerRepliques('))
 		expect(corps).not.toContain('parler')
-		// Discriminant : le balayage porte bien sur du code réel, et le mot EXISTE
-		// ailleurs dans le fichier — sans ces deux lignes, une découpe fautive rendrait
-		// l'assertion vraie pour rien (KR-235).
+		// Discriminant : le balayage porte bien sur du code réel, et le mot EXISTE dans
+		// le registre que ce corps consulte — sans ces deux lignes, une découpe fautive
+		// rendrait l'assertion vraie pour rien (KR-235).
 		expect(corps).toContain('export function assemblerRepliques(')
-		expect(source).toContain(CIBLE)
+		expect(fs.readFileSync(CHEMIN_REGISTRES, 'utf8')).toContain(CIBLE)
 
 		// (b) et le texte assemblé ne porte AUCUNE des répliques déjà écrites — le test
 		// prouve d'abord qu'il en existe, sinon il ne mesure rien. C'est aussi ce qui
@@ -1078,14 +1089,14 @@ describe('assemblerRepliques — les trois refus, et la mesure', () => {
 		// Une seule entité, aucun rang à numéroter : l'écrire serait du code mort
 		// présenté comme de la couverture (famille BUG-084, KR-235). La garde est un
 		// balayage du CORPS de l'assembleur — son unique instrument possible.
-		const source = fs.readFileSync(path.join(__dirname, 'contexte.ts'), 'utf8')
+		const source = fs.readFileSync(CHEMIN_CORPS_REPLIQUES, 'utf8')
 		const corps = source.slice(source.indexOf('export function assemblerRepliques('))
 
 		expect(corps).toContain('cible-a-ecrire')
 		expect(corps).not.toContain('aucun-candidat')
-		// Discriminant : le motif existe bel et bien ailleurs dans le fichier — sans
-		// cette ligne, une découpe fautive rendrait l'assertion vraie pour rien.
-		expect(source).toContain('aucun-candidat')
+		// Discriminant : le motif existe bel et bien dans l'union que ce corps habite —
+		// sans cette ligne, une découpe fautive rendrait l'assertion vraie pour rien.
+		expect(fs.readFileSync(CHEMIN_NOYAU, 'utf8')).toContain('aucun-candidat')
 	})
 
 	it('BUDGET du 3e role, mesure', () => {
@@ -1174,5 +1185,406 @@ describe('assemblerRepliques — les trois refus, et la mesure', () => {
 		const cible = cibleRepliques(entite.id)
 
 		expect(texteRepliques(dossier, cible)).toBe(texteRepliques(dossier, cible))
+	})
+})
+
+// ══ LE QUATRIÈME RÔLE — `personnage-plan` ════════════════════════════════════
+
+const ROLE_PLAN = 'personnage-plan'
+const BUDGET_PLAN = BUDGET_CARACTERES_CONTEXTE[ROLE_PLAN]
+
+const CHEMINS_P = CHAMPS_INJECTES[ROLE_PLAN]
+const CHEMINS_P_DE_FICHE = CHEMINS_P.filter((chemin) => chemin.startsWith(PREFIXE_PERSONNAGE))
+const CHEMINS_P_DE_CANON = CHEMINS_P.filter((chemin) => !chemin.startsWith(PREFIXE_PERSONNAGE))
+
+/** LE CHAMP CIBLE de ce rôle — et le seul des quatre rôles qui l'INJECTE. */
+const CIBLE_PLAN = 'monde.personnages[].plan_actions[].action'
+
+/** LA CIBLE de ce rôle : `acteurId`, JAMAIS `personnageId` — une cible
+ *  `{ personnageId }` serait LE MÊME TYPE que `CibleRepliques` et tomberait dans
+ *  `demanderRepliques` avec `tsc` vert (§ 8, n° 3). */
+function ciblePlan(acteurId: string): CiblePlan {
+	return { acteurId }
+}
+
+/**
+ * L'ENTITÉ DE MESURE DU QUATRIÈME RÔLE — même protocole que l'it1, RE-DÉRIVÉ sur LES
+ * SIX CHEMINS DE FICHE DE CE RÔLE-CI et non recopié du troisième : celui-ci retire
+ * `apparence` et `caractere.parler[]`, et il porte `plan_actions[].action`, que le
+ * rôle répliques porte aussi mais qui est ICI LE CHAMP CIBLE.
+ *
+ * Aucun personnage de `dossier-reference.json` ne remplit les six : le mieux rempli
+ * (`pnj.corvin-le-marchand`, 4/6) n'a pas de `but`, et le seul porteur d'un `but`
+ * (`pnj.selene-la-vigie`) n'a ni `fonction`, ni `description_joueur`, ni `jamais`.
+ * La fixture n'appartient à aucun lot — on ne la touche pas. L'entité est donc
+ * COMPOSÉE, jamais inventée : le mieux rempli, GREFFÉ du `but` du seul porteur.
+ * Toutes les valeurs viennent du document réel.
+ */
+function mesurePlan(): { dossier: Dossier; entite: Personnage } {
+	const reference = dossierDeReference()
+	const personnages = reference.monde.personnages
+	const note = (personnage: Personnage): number => {
+		const remplis = cheminsRemplis(personnage, PREFIXE_PERSONNAGE)
+		return CHEMINS_P_DE_FICHE.filter((chemin) => remplis.has(chemin)).length
+	}
+	const leMieuxRempli = personnages.reduce((meilleur, candidat) =>
+		note(candidat) > note(meilleur) ? candidat : meilleur,
+	)
+	const porteurDeBut = personnages.find((personnage) => personnage.but !== undefined)
+	if (porteurDeBut === undefined) throw new Error('la fixture de référence ne porte aucun `but` : mesure impossible')
+	const entite: Personnage = { ...leMieuxRempli, but: porteurDeBut.but }
+	return {
+		entite,
+		dossier: {
+			...reference,
+			monde: {
+				...reference.monde,
+				personnages: personnages.map((personnage) => (personnage.id === entite.id ? entite : personnage)),
+			},
+		},
+	}
+}
+
+/** Le contexte assemblé, ou l'échec du test s'il a été refusé. */
+function textePlan(dossier: Dossier, cible: CiblePlan): string {
+	const contexte = assemblerPlan(dossier, cible)
+	if (!contexte.ok) throw new Error(`contexte refusé (${contexte.motif}) alors que le test attend un assemblage`)
+	return contexte.texte
+}
+
+describe('assemblerPlan — confinement d audience du quatrieme role', () => {
+	it('confinement du 4e role', () => {
+		expect(CHEMINS_P).toHaveLength(9)
+		// Assertion de VALEUR, jamais d'existence (KR-174) : `toEqual([])` sur les écarts
+		// NOMME le chemin fautif et sa destination réelle.
+		const ecarts = CHEMINS_P.filter((chemin) => DESTINATION_DES_CHAMPS[chemin] !== 'ia').map(
+			(chemin) => `${chemin} → ${DESTINATION_DES_CHAMPS[chemin] ?? 'AUCUNE DESTINATION'}`,
+		)
+		expect(ecarts).toEqual([])
+		// La soupape n'a pas bougé : un QUATRIÈME rôle n'ouvre aucune dérogation
+		// d'audience — les neuf chemins étaient DÉJÀ `ia` (KR-232).
+		expect(DEROGATIONS_AUDIENCE).toEqual([])
+	})
+
+	it('le prefixe est injecte DANS L ORDRE, non tronque', () => {
+		// L'AMENDEMENT DE LA TRANCHE, PROUVÉ. Le champ cible est injecté — première fois
+		// qu'un rôle montre au modèle ce qu'il écrit — parce que `plan_actions[]` est une
+		// SÉQUENCE : le préfixe n'est pas la réponse, c'est la PRÉMISSE de la question.
+		const { dossier, entite } = mesurePlan()
+		// TROIS étapes, toutes venues du document réel (les `action` des porteurs de la
+		// fixture), remises sur la cible DANS UN ORDRE CHOISI : c'est l'ORDRE qui est
+		// éprouvé, donc il ne doit pas être celui de la fixture.
+		const reelles = dossier.monde.personnages
+			.flatMap((personnage) => personnage.plan_actions)
+			.map((etape) => etape.action)
+			.filter((action) => action.trim() !== '')
+		expect(reelles.length).toBeGreaterThanOrEqual(3)
+		const suite = [reelles[2], reelles[0], reelles[1]]
+		const avecSuite: Dossier = {
+			...dossier,
+			monde: {
+				...dossier.monde,
+				personnages: dossier.monde.personnages.map((personnage) =>
+					personnage.id === entite.id
+						? { ...personnage, plan_actions: suite.map((action, rang) => ({ etape: rang + 1, action })) }
+						: personnage,
+				),
+			},
+		}
+
+		const texte = textePlan(avecSuite, ciblePlan(entite.id))
+		const bloc = texte.split('\n\n').find((candidat) => candidat.startsWith(`${CIBLE_PLAN}\n`))
+		expect(bloc).toBeDefined()
+
+		// (a) NON TRONQUÉ : les TROIS y sont, là où le rôle détenteurs, lui, réduit ce
+		//     même chemin à son premier élément.
+		// (b) DANS L'ORDRE DU DOCUMENT : l'égalité porte sur la LISTE, jamais sur une
+		//     appartenance — un `toContain` par élément serait vert sur n'importe quelle
+		//     permutation, c'est-à-dire aveugle à la seule chose qu'on mesure.
+		expect(String(bloc).split('\n').slice(1)).toEqual(suite)
+		// Discriminant : l'ordre éprouvé n'est PAS l'ordre naturel de la fixture — sans
+		// cette ligne, l'égalité pourrait être vraie par coïncidence de tri (KR-199).
+		expect(suite).not.toEqual([reelles[0], reelles[1], reelles[2]])
+		// … et AUCUN entier ne franchit le contexte : le modèle ne voit jamais `etape`.
+		expect(texte).not.toContain('etape')
+	})
+
+	it('la cible n est PAS exclue ici, contrairement aux 3 autres roles', () => {
+		// LA GARDE DE L'AMENDEMENT (KR-235). Il ne dit pas « le champ cible s'injecte » —
+		// il dit « un champ cible ORDONNÉ s'injecte, un champ cible INTERCHANGEABLE non ».
+		// Les DEUX côtés sont donc ici : sans le second, la garde serait verte le jour où
+		// quelqu'un injecterait aussi `caractere.parler[]` dans sa propre demande.
+		expect(CHEMINS_P).toContain(CIBLE_PLAN)
+		expect(CHAMPS_INJECTES[ROLE_REPLIQUES]).not.toContain('monde.personnages[].caractere.parler[]')
+		// Et le rôle prose exclut SA cible à l'exécution, champ par champ : aucune des
+		// trois proses proposables n'apparaît dans sa propre demande.
+		const { dossier, entite } = mesurePlan()
+		const survivants = (Object.keys(CHAMPS_PROPOSABLES) as ChampProseChemin[]).filter((champ) =>
+			texteAssemble(dossier, cibleSur(entite.id, champ)).includes(`${champ}\n`),
+		)
+		expect(survivants).toEqual([])
+	})
+
+	it('synopsis_mj absent ici, PRESENT chez prose', () => {
+		// RETIRÉ POUR POINT DE VUE, ET NON POUR LE TON — le motif N'EST PAS celui de 3a.
+		// Le synopsis porte ce que le personnage NE SAIT PAS : un modèle qui l'a écrit des
+		// étapes qui ANTICIPENT L'INTRIGUE, et la n° 12 les injectera au rôle acteur, qui
+		// joue un personnage QUI DEVINE.
+		// Les DEUX côtés, comme au 3e rôle : une assertion d'absence seule serait verte le
+		// jour où le chemin disparaîtrait des DEUX rôles (KR-199).
+		const SYNOPSIS = 'canon.mj.synopsis_mj'
+
+		expect(CHEMINS_P).not.toContain(SYNOPSIS)
+		expect(CHAMPS_INJECTES['personnage-prose']).toContain(SYNOPSIS)
+
+		const { dossier, entite } = mesurePlan()
+		const synopsis = String(dossier.canon.mj?.synopsis_mj ?? '')
+		expect(synopsis.trim().length).toBeGreaterThan(0)
+		expect(textePlan(dossier, ciblePlan(entite.id))).not.toContain(synopsis)
+		// … là où le rôle prose, lui, l'injecte bel et bien.
+		expect(texteAssemble(dossier, cibleSur(entite.id, 'monde.personnages[].fonction'))).toContain(synopsis)
+	})
+
+	it('apparence et parler absents de ce role, PRESENTS chez prose', () => {
+		// Les DEUX AUTRES RETRAITS, prouvés des deux côtés eux aussi : une apparence ne
+		// dit rien d'une intention, et des répliques ne disent pas ce que le personnage
+		// FAIT — ce serait un canal de paraphrase vers un champ qu'un AUTRE rôle écrit.
+		for (const retire of ['monde.personnages[].apparence', 'monde.personnages[].caractere.parler[]']) {
+			expect(CHEMINS_P).not.toContain(retire)
+			expect(CHAMPS_INJECTES['personnage-prose']).toContain(retire)
+		}
+	})
+
+	it('tout ce que porte le contexte assemble vient d un chemin autorise — LES DEUX COTES', () => {
+		const { dossier, entite } = mesurePlan()
+		const texte = textePlan(dossier, ciblePlan(entite.id))
+
+		const blocs = texte.split('\n\n')
+		const enTetes = blocs.map((bloc) => bloc.split('\n')[0])
+		// (a) les ÉTIQUETTES : aucun bloc ne nomme un chemin hors de la liste.
+		expect(enTetes.filter((chemin) => !CHEMINS_P.includes(chemin))).toEqual([])
+
+		// (b) les VALEURS : chaque ligne de valeur est une feuille du dossier vivant sous
+		// un chemin autorisé. Inclusion de CHEMINS, AUCUN seuil numérique (KR-235).
+		const autorisees = new Set<string>()
+		for (const feuille of feuillesDeLaFixture(dossier)) {
+			if (typeof feuille.valeur !== 'string') continue
+			const surLaFiche = feuille.concret.startsWith(`monde.personnages[${dossier.monde.personnages.indexOf(entite)}]`)
+			const estDeLaFiche = feuille.normalise.startsWith(PREFIXE_PERSONNAGE)
+			if (estDeLaFiche && !surLaFiche) continue
+			if (CHEMINS_P.includes(feuille.normalise)) autorisees.add(feuille.valeur)
+		}
+		const lignesDeValeur = blocs.flatMap((bloc) => bloc.split('\n').slice(1))
+		expect(lignesDeValeur.filter((ligne) => !autorisees.has(ligne))).toEqual([])
+
+		// LE SECOND CÔTÉ DU TÉMOIN, et sans lui l'assertion négative est INERTE : un
+		// contexte VIDE passerait les deux `toEqual([])` ci-dessus sans rien prouver.
+		expect(lignesDeValeur.length).toBeGreaterThan(0)
+		expect(enTetes).toEqual([...CHEMINS_P])
+	})
+
+	it('aucune fiche etrangere n entre dans le contexte', () => {
+		const { dossier, entite } = mesurePlan()
+		const contexte = assemblerPlan(dossier, ciblePlan(entite.id))
+		const texte = textePlan(dossier, ciblePlan(entite.id))
+
+		expect(contexte.ok && contexte.entitesInjectees).toEqual([entite.id])
+		// Les étapes des AUTRES personnages ne sont pas dans le texte — et le test prouve
+		// d'abord qu'il en existe, sinon il ne mesure rien. C'est la contrepartie directe
+		// de l'amendement : on injecte LE préfixe de la cible, jamais celui des voisins.
+		const etrangeres = dossier.monde.personnages
+			.filter((personnage) => personnage.id !== entite.id)
+			.flatMap((personnage) => personnage.plan_actions.map((etape) => etape.action))
+			.filter((action) => action.trim() !== '')
+		expect(etrangeres.length).toBeGreaterThan(0)
+		expect(etrangeres.filter((action) => texte.includes(action))).toEqual([])
+		// Aucun NOM non plus : `Entite.nom` est d'audience `auteur` (KR-195).
+		expect(CHEMINS_P.filter((chemin) => chemin.endsWith('.nom'))).toEqual([])
+	})
+})
+
+describe('assemblerPlan — les trois refus, et la mesure', () => {
+	it('les trois refus, discrimines, 0 fetch', () => {
+		const espionFetch = jest.fn()
+		const avant = globalThis.fetch
+		globalThis.fetch = espionFetch as unknown as typeof fetch
+		try {
+			const { dossier, entite } = mesurePlan()
+			const cible = ciblePlan(entite.id)
+
+			// 1 — `a-ecrire` : le seul motif À CHARGE, et la charge est le chemin.
+			const sansTon: Dossier = { ...dossier, canon: { ...dossier.canon, ton: MARQUEUR_A_ECRIRE } }
+			expect(assemblerPlan(sansTon, cible)).toEqual({ ok: false, motif: 'a-ecrire', chemin: 'canon.ton' })
+
+			// 2 — `cible-a-ecrire` : UN SEUL CHEMIN NOMMÉ, `but.libelle`, et NON la
+			// disjonction à sept chemins du rôle répliques. ON N'INVENTE PAS UN PLAN À
+			// PARTIR DE RIEN : sans but écrit, toute suite d'étapes se vaut et le modèle
+			// inventerait le but en même temps que l'étape.
+			const avecBut = (but: Personnage['but']): Dossier => ({
+				...dossier,
+				monde: {
+					...dossier.monde,
+					personnages: dossier.monde.personnages.map((personnage) =>
+						personnage.id === entite.id ? { ...personnage, but } : personnage,
+					),
+				},
+			})
+			const sansBut = avecBut(undefined)
+			expect(assemblerPlan(sansBut, cible)).toEqual({ ok: false, motif: 'cible-a-ecrire' })
+			// … et le MÊME refus sur un `but.libelle` VIDE, puis MARQUÉ : « absent », « vide »
+			// et « à écrire » demandent le même geste à l'auteur.
+			expect(assemblerPlan(avecBut({ libelle: '   ' }), cible)).toEqual({ ok: false, motif: 'cible-a-ecrire' })
+			expect(assemblerPlan(avecBut({ libelle: MARQUEUR_A_ECRIRE }), cible)).toEqual({
+				ok: false,
+				motif: 'cible-a-ecrire',
+			})
+			// LE DISCRIMINANT DU PRÉDICAT NOMMÉ, et c'est lui qui distingue ce refus de
+			// celui du rôle répliques : une fiche rédigée PAR AILLEURS — fonction,
+			// description joueur, limite, plan — MAIS SANS BUT est refusée quand même. Une
+			// disjonction sur les chemins de fiche l'aurait ACCEPTÉE, et c'est exactement
+			// ce que la ligne suivante constate : le rôle répliques, lui, l'assemble.
+			const fiche = sansBut.monde.personnages.find((personnage) => personnage.id === entite.id)
+			expect(cheminsRemplis(fiche, PREFIXE_PERSONNAGE).size).toBeGreaterThan(3)
+			expect(assemblerRepliques(sansBut, cibleRepliques(entite.id)).ok).toBe(true)
+			// Une cible qui ne résout plus du tout emprunte le MÊME refus.
+			expect(assemblerPlan(dossier, ciblePlan('pnj.jamais-existe'))).toEqual({
+				ok: false,
+				motif: 'cible-a-ecrire',
+			})
+
+			// 3 — `trop-long` : AUCUNE charge, il pointe la fiche, pas un champ.
+			const enorme: Dossier = {
+				...dossier,
+				monde: {
+					...dossier.monde,
+					personnages: dossier.monde.personnages.map((personnage) =>
+						personnage.id === entite.id ? { ...personnage, fonction: 'x'.repeat(BUDGET_PLAN + 1) } : personnage,
+					),
+				},
+			}
+			expect(assemblerPlan(enorme, cible)).toEqual({ ok: false, motif: 'trop-long' })
+
+			// LES TROIS SONT DISTINCTS DEUX À DEUX — c'est la moitié que le nom du test
+			// promet et qu'une liste d'assertions voisines ne prouverait pas (KR-199).
+			const motifs = [assemblerPlan(sansTon, cible), assemblerPlan(sansBut, cible), assemblerPlan(enorme, cible)].map(
+				(refus) => (refus.ok ? 'ASSEMBLÉ' : refus.motif),
+			)
+			expect(new Set(motifs).size).toBe(3)
+			// ET L'ORDRE EST FIGÉ : un dossier qui cumule les trois défauts rend le PREMIER
+			// motif, jamais un autre — sans quoi l'écran nommerait le mauvais geste.
+			const cumul: Dossier = {
+				...enorme,
+				canon: { ...enorme.canon, ton: MARQUEUR_A_ECRIRE },
+				monde: {
+					...enorme.monde,
+					personnages: enorme.monde.personnages.map((personnage) =>
+						personnage.id === entite.id ? { ...personnage, but: undefined } : personnage,
+					),
+				},
+			}
+			expect(assemblerPlan(cumul, cible)).toEqual({ ok: false, motif: 'a-ecrire', chemin: 'canon.ton' })
+
+			// ET AUCUN APPEL RÉSEAU N'EST PARTI, pour aucun des cas ci-dessus.
+			expect(espionFetch).not.toHaveBeenCalled()
+		} finally {
+			globalThis.fetch = avant
+		}
+	})
+
+	it('aucun-candidat est SANS OBJET pour ce role, et n est pas ecrit', () => {
+		// Une seule entité, aucun rang à numéroter : l'écrire serait du code mort
+		// présenté comme de la couverture (famille BUG-084, KR-235).
+		const source = fs.readFileSync(path.join(__dirname, 'contexte', 'plan.ts'), 'utf8')
+		const corps = source.slice(source.indexOf('export function assemblerPlan('))
+
+		expect(corps).toContain('cible-a-ecrire')
+		expect(corps).not.toContain('aucun-candidat')
+		// Discriminant : le motif existe bel et bien dans l'union que ce corps habite —
+		// sans cette ligne, une découpe fautive rendrait l'assertion vraie pour rien.
+		expect(fs.readFileSync(CHEMIN_NOYAU, 'utf8')).toContain('aucun-candidat')
+	})
+
+	it('BUDGET du 4e role, mesure', () => {
+		const { dossier, entite } = mesurePlan()
+
+		// TEMPS 1 — NON-VACUITÉ, chemin par chemin, NOMMÉE (jamais un compte). Sans elle,
+		// `M` est un PLANCHER et le budget qu'on en dérive protège moins qu'il ne prétend.
+		const remplisDuCanon = cheminsRemplis(dossier)
+		const remplisDeLaFiche = cheminsRemplis(entite, PREFIXE_PERSONNAGE)
+		const vides = [
+			...CHEMINS_P_DE_CANON.filter((chemin) => !remplisDuCanon.has(chemin)),
+			...CHEMINS_P_DE_FICHE.filter((chemin) => !remplisDeLaFiche.has(chemin)),
+		]
+		expect(vides).toEqual([])
+
+		// TEMPS 2 — `M`. Le champ cible EST injecté ici : il n'y a donc pas de demande à
+		// maximiser sur plusieurs champs, il n'y a qu'un seul contexte possible.
+		const M = textePlan(dossier, ciblePlan(entite.id)).length
+		expect(M).toBeGreaterThan(0)
+
+		// TEMPS 3 — la formule. Facteur 3 (décision datée du comité), arrondi au millier
+		// supérieur : l'arrondi EST la marge. Ce n'est PAS un cliquet.
+		expect(BUDGET_PLAN).toBe(Math.ceil((M * 3) / 1000) * 1000)
+
+		// ⚠ LA COÏNCIDENCE, ÉPINGLÉE PLUTÔT QUE SUBIE : ce budget VAUT celui du rôle
+		// répliques, et il n'en est PAS recopié — les deux `M` diffèrent, et c'est ce que
+		// ces deux lignes prouvent. Sans elles, une recopie et une mesure seraient
+		// indistinguables (KR-235).
+		const mesureTroisieme = mesureRepliques()
+		expect(BUDGET_PLAN).toBe(BUDGET_REPLIQUES)
+		expect(M).not.toBe(texteRepliques(mesureTroisieme.dossier, cibleRepliques(mesureTroisieme.entite.id)).length)
+
+		// Et les DEUX autres rôles n'ont PAS bougé : c'est tout l'objet du `Record`.
+		expect(BUDGET_PROSE).toBe(6000)
+		expect(BUDGET_DETENTEURS).toBe(17_000)
+	})
+
+	it('exactement BUDGET caracteres passe, un caractere de plus est refuse', () => {
+		// LE CANARI DE PLAFOND, à ±1 CARACTÈRE — un plafond dont personne n'a éprouvé les
+		// deux bords est une intention, pas une borne.
+		const { dossier, entite } = mesurePlan()
+		const cible = ciblePlan(entite.id)
+		const avecFonction = (fonction: string): Dossier => ({
+			...dossier,
+			monde: {
+				...dossier.monde,
+				personnages: dossier.monde.personnages.map((personnage) =>
+					personnage.id === entite.id ? { ...personnage, fonction } : personnage,
+				),
+			},
+		})
+		const socle = textePlan(avecFonction('x'), cible).length - 1
+
+		expect(textePlan(avecFonction('x'.repeat(BUDGET_PLAN - socle)), cible)).toHaveLength(BUDGET_PLAN)
+		expect(assemblerPlan(avecFonction('x'.repeat(BUDGET_PLAN - socle)), cible).ok).toBe(true)
+		expect(assemblerPlan(avecFonction('x'.repeat(BUDGET_PLAN - socle + 1)), cible)).toEqual({
+			ok: false,
+			motif: 'trop-long',
+		})
+	})
+
+	it('un champ marque est RETIRE, jamais remplace par une chaine vide', () => {
+		const { dossier, entite } = mesurePlan()
+		const marque: Dossier = {
+			...dossier,
+			monde: {
+				...dossier.monde,
+				personnages: dossier.monde.personnages.map((personnage) =>
+					personnage.id === entite.id ? { ...personnage, fonction: `${MARQUEUR_A_ECRIRE} à décrire` } : personnage,
+				),
+			},
+		}
+
+		const texte = textePlan(marque, ciblePlan(entite.id))
+
+		expect(texte).not.toContain('monde.personnages[].fonction')
+		expect(texte).not.toContain(MARQUEUR_A_ECRIRE)
+	})
+
+	it('deux assemblages de la meme cible sur un dossier inchange sont strictement egaux', () => {
+		const { dossier, entite } = mesurePlan()
+		const cible = ciblePlan(entite.id)
+
+		expect(textePlan(dossier, cible)).toBe(textePlan(dossier, cible))
 	})
 })

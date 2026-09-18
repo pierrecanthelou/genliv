@@ -310,13 +310,20 @@ describe('le balayage exhaustif — aucune invite ne nomme le gabarit d un AUTRE
 		expect(ROLES.filter((role) => !INVITES[role].systeme.includes(String(reel.get(role))))).toEqual([])
 	})
 
-	it('chacune des trois transpositions fait rougir le balayage', () => {
+	it('chacune des transpositions fait rougir le balayage', () => {
 		// SECONDE DES DEUX FABRICATIONS DISTINCTES, et c'est le défaut RÉALISTE : deux
-		// lignes interverties en éditant la table. Les trois paires sont DÉRIVÉES, jamais
-		// écrites — « les trois » prouvé sur trois, pas sur un échantillon (KR-199).
+		// lignes interverties en éditant la table. Les paires sont DÉRIVÉES, jamais
+		// écrites — « chacune » prouvé sur TOUTES, pas sur un échantillon (KR-199).
 		const reel = extraire(PORTEUR_BRAIN)
 		const toutes = paires(ROLES)
-		expect(toutes).toHaveLength(3)
+		// FORME FERMÉE C(n,2), INDÉPENDANTE DE L'ALGORITHME DE `paires` : ce n'est donc
+		// PAS un témoin fabriqué depuis son propre sujet, et il est GÉNÉRIQUE À N — plus
+		// jamais à ré-éditer. Le littéral `3` qu'il remplace disait la même chose EN
+		// SILENCE, et il aura fallu un quatrième rôle pour s'en apercevoir.
+		expect(toutes).toHaveLength((ROLES.length * (ROLES.length - 1)) / 2)
+		// … et les paires sont DEUX À DEUX DISTINCTES, ce que le littéral ne RENDAIT pas :
+		// une `paires` qui rendrait n fois le même couple aurait le bon COMPTE.
+		expect(new Set(toutes.map(([a, b]) => `${a}↔${b}`)).size).toBe(toutes.length)
 
 		for (const [a, b] of toutes) {
 			const echangee = transposer(reel, a, b)
@@ -364,6 +371,33 @@ describe('le balayage exhaustif — aucune invite ne nomme le gabarit d un AUTRE
 		// serait vrai par absence d'entrée plutôt que par absence dans l'invite.
 		expect(BORNE_EN_TOUTES_LETTRES[2]).toBeDefined()
 		expect(bavarde).toContain(String(BORNE_EN_TOUTES_LETTRES[2]))
+
+		// ── LE QUATRIÈME RÔLE : LE COUPLE SYMÉTRIQUE ─────────────────────────────
+		// Il n'a AUCUNE borne, et ce n'est pas un oubli : sa sortie est SCALAIRE, donc
+		// « deux » n'est pas REPRÉSENTABLE — la meilleure garde est celle qui n'existe
+		// pas. Le garde apparié est donc l'inverse du précédent : le gabarit porte une
+		// CHAÎNE, et l'invite n'annonce AUCUNE des bornes en toutes lettres.
+		const ROLE_PLAN = 'personnage-plan'
+		const gabarits = extraire(PORTEUR_BRAIN)
+		const valeurPlan = Object.values(JSON.parse(String(gabarits.get(ROLE_PLAN))) as Record<string, unknown>)[0]
+		expect(Array.isArray(valeurPlan)).toBe(false)
+		expect(typeof valeurPlan).toBe('string')
+		const bornesAnnoncees = Object.keys(BORNE_EN_TOUTES_LETTRES).filter((borne) =>
+			inviteDitLaBorne(INVITES[ROLE_PLAN].systeme, Number(borne)),
+		)
+		expect(bornesAnnoncees).toEqual([])
+
+		// CAS NÉGATIF, LES DEUX MOITIÉS — sans elles les deux assertions ci-dessus sont
+		// INERTES. (a) le prédicat de forme SAIT distinguer : le gabarit du rôle
+		// répliques, lui, porte bien une LISTE ;
+		const valeurListe = Object.values(JSON.parse(String(gabarits.get(ROLE_REPLIQUES))) as Record<string, unknown>)[0]
+		expect(Array.isArray(valeurListe)).toBe(true)
+		// (b) et le balayage des bornes SAIT rougir : une invite de plan qui en
+		// annoncerait une serait attrapée.
+		const planBavard = 'Tu en proposes trois au plus, et au moins une.'
+		expect(
+			Object.keys(BORNE_EN_TOUTES_LETTRES).filter((borne) => inviteDitLaBorne(planBavard, Number(borne))),
+		).not.toEqual([])
 	})
 
 	it('l invite du troisieme role ne recite AUCUN curseur — ni son nom, ni son libelle', () => {
@@ -615,8 +649,8 @@ describe('les deux plafonds', () => {
 		// QUELQU'UN. La ligne restait verte PAR ACCIDENT DE LONGUEUR DE FIXTURE — donc
 		// personne ne l'aurait corrigée, et c'est la QUATRIÈME entrée qui aurait payé.
 		expect(rolesAuMaximum(BUDGETS, ROLES)).toEqual([ROLE_LE_PLUS_LARGE])
-		// Et la table porte bien TROIS entrées, une par rôle : un rôle sans budget ne
-		// doit pas passer pour un rôle à budget nul.
+		// Et la table porte bien UNE ENTRÉE PAR RÔLE : un rôle sans budget ne doit pas
+		// passer pour un rôle à budget nul.
 		expect([...Object.keys(BUDGETS)].sort()).toEqual([...ROLES].sort())
 	})
 
@@ -633,10 +667,25 @@ describe('les deux plafonds', () => {
 
 		// CAS NÉGATIF 2 — LA MINE ELLE-MÊME, exécutée : DEUX RÔLES ÉTROITS ÉGAUX. C'est
 		// un état parfaitement légitime — deux rôles peuvent avoir la même mesure — et
-		// l'ANCIENNE assertion y ÉCHOUAIT (`Received: 2, Expected: 3`), pendant que la
-		// propriété réellement voulue, elle, TIENT.
-		const deuxEtroitsEgaux = { ...BUDGETS, [etroits[1]]: BUDGETS[etroits[0]] }
-		expect(new Set(ROLES.map((role) => deuxEtroitsEgaux[role])).size).not.toBe(ROLES.length)
+		// la propriété réellement voulue, elle, TIENT.
+		//
+		// ⚠ RÉ-ARMÉE À L'IT3b, ET ELLE ÉTAIT DEVENUE INERTE. `personnage-plan` MESURE
+		// 4000, comme `personnage-repliques` : l'égalité que cette fabrication devait
+		// CRÉER existait donc DÉJÀ, et l'ancienne précondition
+		// (`new Set(...).size !== ROLES.length`) était vraie AVANT toute fabrication —
+		// vérifié en RETIRANT la fabrication, le test restait VERT. Un garde qui cesse
+		// de mesurer en restant vert est exactement ce que KR-235 nomme.
+		// La réparation : on choisit le couple de rôles étroits dont les budgets
+		// DIFFÈRENT — DÉRIVÉ, jamais écrit —, et la précondition porte désormais sur ce
+		// que la fabrication A FAIT, pas sur une propriété globale de la table.
+		const couple = paires(etroits).find(([a, b]) => BUDGETS[a] !== BUDGETS[b])
+		if (couple === undefined) throw new Error('tous les rôles étroits ont le même budget : la mine est infabricable')
+		const [source, cible] = couple
+		const deuxEtroitsEgaux = { ...BUDGETS, [cible]: BUDGETS[source] }
+		// LA FABRICATION A BIEN EU LIEU — les deux étaient distincts, ils ne le sont plus.
+		expect(BUDGETS[source]).not.toBe(BUDGETS[cible])
+		expect(deuxEtroitsEgaux[source]).toBe(deuxEtroitsEgaux[cible])
+		// … et la propriété voulue TIENT sous cette égalité fabriquée.
 		expect(rolesAuMaximum(deuxEtroitsEgaux, ROLES)).toEqual([ROLE_LE_PLUS_LARGE])
 	})
 

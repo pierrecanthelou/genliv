@@ -16,11 +16,24 @@
  * d'API et qui paie.
  */
 import type { CloudSettingsService } from './CloudSettingsService'
-import { assemblerDetenteurs, assemblerProse, assemblerRepliques, type MotifRefusContexte } from './copilote/contexte'
-import { validerDetenteurs, validerRepliques, validerSortie, type MotifIllisible } from './copilote/schemaSortie'
+import {
+	assemblerDetenteurs,
+	assemblerPlan,
+	assemblerProse,
+	assemblerRepliques,
+	type MotifRefusContexte,
+} from './copilote/contexte'
+import {
+	validerDetenteurs,
+	validerIntention,
+	validerRepliques,
+	validerSortie,
+	type MotifIllisible,
+} from './copilote/schemaSortie'
 import type {
 	ChampProseChemin,
 	PropositionDetenteurs,
+	PropositionPlan,
 	PropositionRepliques,
 	PropositionResolue,
 } from './copilote/types'
@@ -64,6 +77,31 @@ export interface CibleRepliques {
 	personnageId: string
 }
 
+/**
+ * LA CIBLE DU QUATRIÈME RÔLE.
+ *
+ * ⚠ `acteurId` et JAMAIS `personnageId` : le dispatch rétrécit sur la FORME de la
+ * cible, et `CibleRepliques` est `{ personnageId }` NUE. Une quatrième cible
+ * `{ personnageId }` serait LE MÊME TYPE — la surcharge déclarée l'accepterait,
+ * l'implémentation la ferait tomber dans `demanderRepliques` : rôle annoncé A,
+ * validateur exécuté B, `tsc` VERT. C'est le veto TL3a-5 au mot près, retrouvé
+ * INDÉPENDAMMENT par les deux postes à effort élevé au raffinage de 3b.
+ *
+ * Le mot vient du dépôt : `dossier/types.ts:362` glose déjà `plan_actions[].action`
+ * par « ce que le rôle ACTEUR joue ».
+ *
+ * ⚠ DETTE DATÉE, avec sa condition d'ouverture écrite : `acteurId` ne nomme aucune
+ * entité du dossier — c'est un SYNONYME assumé et borné. L'itération 3c cible AUSSI
+ * un personnage ; un TROISIÈME synonyme est le signal, et 3c ne fabriquera pas
+ * `protagonisteId` : elle basculera les cinq cibles sur une UNION ÉTIQUETÉE, dans
+ * SON lot contrat. Jamais 3b — le faire ici ferait saigner ce lot dans
+ * `src/features/**`.
+ */
+export interface CiblePlan {
+	/** Reste côté client. Ne franchit JAMAIS le réseau (KR-231). */
+	acteurId: string
+}
+
 export type RaisonIndisponible = 'non-configure' | 'injoignable' | 'annule'
 
 /** LES TROIS BRANCHES D'ÉCHEC, extraites : rigoureusement les mêmes pour tous les
@@ -85,6 +123,7 @@ export type EchecCopilote =
 export type ReponseCopilote = { statut: 'propose'; proposition: PropositionResolue } | EchecCopilote
 export type ReponseDetenteurs = { statut: 'propose'; proposition: PropositionDetenteurs } | EchecCopilote
 export type ReponseRepliques = { statut: 'propose'; proposition: PropositionRepliques } | EchecCopilote
+export type ReponsePlan = { statut: 'propose'; proposition: PropositionPlan } | EchecCopilote
 
 /**
  * SURCHARGE SUR LE LITTÉRAL DE RÔLE — le point de contrat le plus chargé de
@@ -125,6 +164,7 @@ export interface CopiloteService {
 		cible: CibleRepliques,
 		signal?: AbortSignal,
 	): Promise<ReponseRepliques>
+	demander(role: 'personnage-plan', dossier: Dossier, cible: CiblePlan, signal?: AbortSignal): Promise<ReponsePlan>
 }
 
 /**
@@ -149,6 +189,10 @@ type CorpsDemande =
 	 *  seul champ que ce rôle puisse remplir, donc le nommer sur le fil serait un écho
 	 *  que rien n'arbitrerait s'il devenait faux. */
 	| { role: 'personnage-repliques'; contexte: string }
+	/** SANS `champ` non plus, MÊME motif — et sans le moindre entier : le modèle ne
+	 *  voit JAMAIS le numéro d'étape, que le code posera sur la liste VIVE à
+	 *  l'acceptation. */
+	| { role: 'personnage-plan'; contexte: string }
 
 /** Le résultat d'UN aller-retour, avant validation de forme : soit une valeur
  *  brute à valider, soit une indisponibilité qui ne se rejoue JAMAIS. */
@@ -358,6 +402,40 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 		return { statut: 'propose', proposition: { personnageId: cible.personnageId, ajouts: issue.sortie } }
 	}
 
+	async function demanderPlan(
+		dossier: Dossier,
+		cible: CiblePlan,
+		signal: AbortSignal | undefined,
+	): Promise<ReponsePlan> {
+		// LES TROIS REFUS DE CONTEXTE PASSENT AVANT TOUT : `a-ecrire`,
+		// `cible-a-ecrire`, `trop-long` — aucun `fetch` ne part sur aucun des trois.
+		const contexte = assemblerPlan(dossier, cible)
+		if (!contexte.ok) return refuser(contexte)
+
+		const vers = acheminement('personnage-plan')
+		if (vers === null) return { statut: 'indisponible', raison: 'non-configure' }
+
+		const corps: CorpsDemande = { role: 'personnage-plan', contexte: contexte.texte }
+		const issue = await jusquAuRejeuUnique<string>(
+			vers.url,
+			vers.entetes,
+			corps,
+			(brut) => {
+				const sortie = validerIntention(brut, dossier)
+				return sortie.ok ? { ok: true, sortie: sortie.intention } : { ok: false, motif: sortie.motif }
+			},
+			signal,
+		)
+		if (!issue.ok) return issue.echec
+
+		// RE-RÉSOLUE CÔTÉ CLIENT : `acteurId` vient de l'ÉTAT D'ÉCRAN, jamais de la
+		// réponse (KR-231). DEUX MOTS POUR LA MÊME CHAÎNE, et c'est voulu : le modèle
+		// rend une `intention` (ce qu'on lui enseigne), le code re-résout une `action`
+		// (la destination dans le document). Ne pas « harmoniser » — voir
+		// `copilote/types.ts`.
+		return { statut: 'propose', proposition: { acteurId: cible.acteurId, action: issue.sortie } }
+	}
+
 	/**
 	 * L'IMPLÉMENTATION À SURCHARGES — trois signatures publiques, un corps élargi,
 	 * AUCUN `as`. Le dispatch se fait sur la FORME DE LA CIBLE (`'champ' in cible`),
@@ -368,9 +446,10 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 	 *
 	 * ⚠ LE DERNIER `return` EST UNE BRANCHE, PLUS UN REPLI. À l'itération 2 il valait
 	 * `return demanderDetenteurs(…)` sans garde : une troisième cible y serait tombée
-	 * PAR DÉFAUT, rôle annoncé A et validateur exécuté B. Le garde `'indiceId' in
-	 * cible` est désormais explicite, si bien que le dernier `return` reçoit une cible
-	 * RÉTRÉCIE À `CibleRepliques` PAR LE COMPILATEUR — et non par la lecture.
+	 * PAR DÉFAUT, rôle annoncé A et validateur exécuté B. Les gardes `'indiceId' in
+	 * cible` et `'acteurId' in cible` sont désormais explicites, si bien que le dernier
+	 * `return` reçoit une cible RÉTRÉCIE À `CibleRepliques` PAR LE COMPILATEUR — et non
+	 * par la lecture. QUATRE BRANCHES, AUCUN REPLI.
 	 *
 	 * `_role` est donc INUTILISÉ, et c'est la conséquence assumée : chaque branche
 	 * privée nomme SON rôle en littéral, ce qui rend le segment de route exact à la
@@ -396,13 +475,20 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 		signal?: AbortSignal,
 	): Promise<ReponseRepliques>
 	function demander(
-		_role: 'personnage-prose' | 'indice-detenteurs' | 'personnage-repliques',
+		role: 'personnage-plan',
 		dossier: Dossier,
-		cible: CibleCopilote | CibleIndice | CibleRepliques,
+		cible: CiblePlan,
 		signal?: AbortSignal,
-	): Promise<ReponseCopilote | ReponseDetenteurs | ReponseRepliques> {
+	): Promise<ReponsePlan>
+	function demander(
+		_role: 'personnage-prose' | 'indice-detenteurs' | 'personnage-repliques' | 'personnage-plan',
+		dossier: Dossier,
+		cible: CibleCopilote | CibleIndice | CibleRepliques | CiblePlan,
+		signal?: AbortSignal,
+	): Promise<ReponseCopilote | ReponseDetenteurs | ReponseRepliques | ReponsePlan> {
 		if ('champ' in cible) return demanderProse(dossier, cible, signal)
 		if ('indiceId' in cible) return demanderDetenteurs(dossier, cible, signal)
+		if ('acteurId' in cible) return demanderPlan(dossier, cible, signal)
 		return demanderRepliques(dossier, cible, signal)
 	}
 

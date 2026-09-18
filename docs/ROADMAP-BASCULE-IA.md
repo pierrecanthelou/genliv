@@ -149,7 +149,7 @@ Huit features. Une phrase de démo par feature, sans « et » : c'est le test de
 | 5 | `dossier-objets` | …tenir le registre des objets de son aventure | 2 | **2/2 — terminée** | 4 rôles | 1 |
 | 6 | `dossier-registres` | …tenir les quêtes, les indices, les événements de son aventure | 5 | **5/5 — terminée** | 4 rôles (5 à it5) | 4 · 5 |
 | 7 | `dossier-controles` | …voir pourquoi son aventure n'est pas encore jouable | 10 | **10/10 — terminée** | 5 rôles | 8 |
-| 8 | `dossier-copilote` | …faire proposer un texte par l'IA, champ par champ | **6** | **3/6** | 5 rôles | 6 |
+| 8 | `dossier-copilote` | …faire proposer un texte par l'IA, champ par champ | **6** | **4/6** | 5 rôles | 6 |
 
 **Colonne `Statut`** — itérations **livrées / prévues**, *projetées* depuis `plan.iterations[].status` du `specification.json` de la feature : elle se recopie, elle ne se décide pas ici (source unique, mise à jour à l'étape 4 de `docs/WORKFLOW.md` § Build Steps). `—` = pas commencée. Ce tableau ne dit rien d'un raffinage en cours : `2/5` signifie deux itérations **livrées**, pas « rien d'ouvert ».
 

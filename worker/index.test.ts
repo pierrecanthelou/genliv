@@ -483,10 +483,20 @@ describe('POST /ia/personnage-repliques — la route du troisieme role', () => {
 		const envoye = JSON.parse(String(init.body)) as { system: string; max_tokens: number }
 		expect(envoye.system).toBe(INVITES[ROLE_3].systeme)
 		expect(envoye.max_tokens).toBe(INVITES[ROLE_3].max_tokens)
-		// Le discriminant : les TROIS rôles demandent TROIS plafonds de jetons distincts
-		// — un `max_tokens` écrit en dur dans `handleIa` rougirait ici.
+		// Le discriminant : les plafonds NE SONT PAS TOUS ÉGAUX — un `max_tokens` écrit
+		// en dur dans `handleIa` rougirait sur au moins un rôle.
+		// ⚠ CETTE LIGNE DISAIT « deux à deux distincts » JUSQU'À L'IT3b, ET C'ÉTAIT UNE
+		// PROPRIÉTÉ QUE PERSONNE N'AVAIT VOULUE : elle tenait PAR ACCIDENT DE MESURE. Le
+		// quatrième rôle dérive 200, la même valeur que `personnage-prose`, par
+		// COÏNCIDENCE de deux dérivations sans aucun rapport (146 caractères de prose
+		// d'identité là-bas, 68 caractères d'étape ici). Exiger la distinction deux à
+		// deux aurait forcé à INVENTER un chiffre pour faire verdir un test — précédent
+		// exact : `frontiere.test.ts:384`, réparée à 3a pour ce motif.
 		const plafonds = Object.keys(INVITES).map((role) => INVITES[role].max_tokens)
-		expect(new Set(plafonds).size).toBe(plafonds.length)
+		expect(new Set(plafonds).size).toBeGreaterThan(1)
+		// … et le pouvoir séparateur LOCAL est conservé : CE rôle-ci diffère bien du
+		// premier, donc le plafond envoyé ne peut pas venir d'une constante de bloc.
+		expect(INVITES[ROLE_3].max_tokens).not.toBe(INVITES[ROLE].max_tokens)
 	})
 
 	it('le protocole amont reste EPINGLE, et le troisieme role ne l etend pas', async () => {
@@ -501,5 +511,180 @@ describe('POST /ia/personnage-repliques — la route du troisieme role', () => {
 		expect((init.headers as Record<string, string>)['anthropic-version']).toBe('2023-06-01')
 		const envoye = JSON.parse(String(init.body)) as Record<string, unknown>
 		expect(Object.keys(envoye).sort()).toEqual(['max_tokens', 'messages', 'model', 'system'])
+	})
+})
+
+describe('POST /ia/personnage-plan — la route du quatrieme role', () => {
+	const ROLE_4 = 'personnage-plan'
+	const URL_IA_4 = `https://genliv.example.workers.dev/ia/${ROLE_4}`
+
+	/** Le corps du QUATRIÈME rôle n'a PAS de `champ` non plus : LE RÔLE EST LE CHAMP.
+	 *  Et il ne porte AUCUN entier — le modèle ne voit jamais un numéro d'étape. */
+	function corps4(octets: number): string {
+		const squelette = JSON.stringify({ role: ROLE_4, contexte: '' })
+		const aRemplir = octets - squelette.length
+		if (aRemplir < 0) throw new Error('taille demandée plus petite que le squelette du corps')
+		return JSON.stringify({ role: ROLE_4, contexte: 'x'.repeat(aRemplir) })
+	}
+
+	function demande4(corps: string, options: { methode?: string } = {}): Request {
+		const methode = options.methode ?? 'POST'
+		return new Request(URL_IA_4, {
+			method: methode,
+			headers: { 'Content-Type': 'application/json', 'X-Sync-Key': CLE },
+			body: methode === 'GET' ? undefined : corps,
+		})
+	}
+
+	it('la route du quatrieme role repond aux memes branches, toutes en JSON', async () => {
+		// LA LISTE DE CONTRÔLE KR-233, rejouée entière sur la route neuve : POST seul,
+		// 404 sur rôle inconnu, 503 sur amont non configuré, plafond de corps EN OCTETS
+		// avec 413, corps illisible — et TOUT en JSON.
+
+		// 1 — POST SEUL.
+		const surGet = await worker.fetch(demande4('', { methode: 'GET' }), env())
+		expect(surGet.status).toBe(405)
+		expect(surGet.headers.get('Content-Type')).toBe('application/json')
+		await expect(surGet.json()).resolves.toEqual({ erreur: 'methode' })
+
+		// 2 — un rôle VOISIN mais absent d'`INVITES` reste inconnu : le quatrième rôle
+		// n'ouvre PAS la route à tout segment de chemin.
+		const inconnu = await worker.fetch(
+			new Request('https://genliv.example.workers.dev/ia/personnage-plans', {
+				method: 'POST',
+				headers: { 'X-Sync-Key': CLE },
+				body: '{}',
+			}),
+			env(),
+		)
+		expect(inconnu.status).toBe(404)
+		await expect(inconnu.json()).resolves.toEqual({ erreur: 'role-inconnu' })
+
+		// 3 — configuration amont incomplète, sur les TROIS secrets.
+		for (const manquant of ['IA_API_KEY', 'IA_BASE_URL', 'IA_MODEL']) {
+			const res = await worker.fetch(demande4(corps4(200)), env({ [manquant]: undefined }))
+			expect(`${manquant} → ${res.status}`).toBe(`${manquant} → 503`)
+			expect(res.headers.get('Content-Type')).toBe('application/json')
+			await expect(res.json()).resolves.toEqual({ erreur: 'non-configure' })
+		}
+
+		// 4 — le plafond, à ±1 OCTET, sur CE rôle-ci.
+		fetchAmont.mockResolvedValue(amontRendant('{"intention": "Remonter au beffroi."}'))
+		const juste = await worker.fetch(demande4(corps4(TAILLE_MAX_CORPS_IA)), env())
+		expect(juste.status).toBe(200)
+		const unDeTrop = await worker.fetch(demande4(corps4(TAILLE_MAX_CORPS_IA + 1)), env())
+		expect(unDeTrop.status).toBe(413)
+		expect(unDeTrop.headers.get('Content-Type')).toBe('application/json')
+		await expect(unDeTrop.json()).resolves.toEqual({ erreur: 'trop-grand', limite: TAILLE_MAX_CORPS_IA })
+
+		// 4 bis — la mesure est en OCTETS, jamais en unités de code UTF-16.
+		const rembourrage = '€'.repeat(Math.ceil(TAILLE_MAX_CORPS_IA / 2))
+		const enUtf8 = JSON.stringify({ role: ROLE_4, contexte: rembourrage })
+		expect(enUtf8.length).toBeLessThan(TAILLE_MAX_CORPS_IA)
+		expect(new TextEncoder().encode(enUtf8).length).toBeGreaterThan(TAILLE_MAX_CORPS_IA)
+		expect((await worker.fetch(demande4(enUtf8), env())).status).toBe(413)
+
+		// 5 — corps illisible.
+		const illisible = await worker.fetch(demande4('{ ceci ne parse pas'), env())
+		expect(illisible.status).toBe(400)
+		await expect(illisible.json()).resolves.toEqual({ erreur: 'corps-illisible' })
+
+		// 6 — un amont en échec rend 502, en JSON.
+		fetchAmont.mockReset()
+		fetchAmont.mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({}) } as unknown as Response)
+		const surEchec = await worker.fetch(demande4(corps4(200)), env())
+		expect(surEchec.status).toBe(502)
+		await expect(surEchec.json()).resolves.toEqual({ erreur: 'amont' })
+	})
+
+	it('le nominal rend la sortie du quatrieme role TELLE QUELLE', async () => {
+		// Délibérément NON conforme au schéma du client — un TABLEAU là où le client
+		// attend une CHAÎNE, plus une clé en trop : le worker ne valide rien et ne
+		// répare rien, la validation vit là où la donnée entre dans le dossier (KR-116).
+		// C'est aussi le contre-exemple qui montre que le repêchage `[0]` ne peut PAS
+		// venir du worker : il ne touche pas à ce corps.
+		const sortieBrute = '{"intention": ["Une.", "Deux."], "etape": 4}'
+		fetchAmont.mockResolvedValue(amontRendant(sortieBrute))
+
+		const res = await worker.fetch(demande4(corps4(300)), env())
+
+		expect(res.status).toBe(200)
+		expect(res.headers.get('Content-Type')).toBe('application/json')
+		await expect(res.text()).resolves.toBe(sortieBrute)
+	})
+
+	it('max_tokens du quatrieme role est LU de l invite, et sa COINCIDENCE est epinglee', async () => {
+		fetchAmont.mockResolvedValue(amontRendant('{"intention": "Remonter au beffroi."}'))
+
+		await worker.fetch(demande4(corps4(300)), env())
+
+		const [url, init] = fetchAmont.mock.calls[0] as [string, RequestInit]
+		expect(url).toBe('https://amont.invalid/messages')
+		const envoye = JSON.parse(String(init.body)) as { system: string; max_tokens: number }
+		expect(envoye.system).toBe(INVITES[ROLE_4].systeme)
+		expect(envoye.max_tokens).toBe(INVITES[ROLE_4].max_tokens)
+		// ⚠ LA COÏNCIDENCE, ÉPINGLÉE PLUTÔT QUE SUBIE : ce plafond VAUT celui du premier
+		// rôle, et il n'en est PAS recopié — les deux dérivations n'ont aucun rapport.
+		// Écrit ici pour qu'un relecteur ne « l'harmonise » pas, et pour que le jour où
+		// l'une des deux change, personne ne croie devoir changer l'autre.
+		expect(INVITES[ROLE_4].max_tokens).toBe(INVITES[ROLE].max_tokens)
+		// Le pouvoir séparateur est donc porté ailleurs : ce rôle-ci diffère bien des
+		// DEUX autres, donc le plafond envoyé ne peut pas venir d'une constante de bloc.
+		expect(INVITES[ROLE_4].max_tokens).not.toBe(INVITES['indice-detenteurs'].max_tokens)
+		expect(INVITES[ROLE_4].max_tokens).not.toBe(INVITES['personnage-repliques'].max_tokens)
+	})
+
+	it('le protocole amont reste EPINGLE, et le quatrieme role ne l etend pas', async () => {
+		// L'exigence de la ratification vaut pour CHAQUE rôle ajouté : ni `tool_use`, ni
+		// `response_format`, et la version d'API reste ÉPINGLÉE — pas « la dernière ».
+		fetchAmont.mockResolvedValue(amontRendant('{"intention": "Remonter au beffroi."}'))
+
+		await worker.fetch(demande4(corps4(300)), env())
+
+		const [, init] = fetchAmont.mock.calls[0] as [string, RequestInit]
+		expect((init.headers as Record<string, string>)['anthropic-version']).toBe('2023-06-01')
+		const envoye = JSON.parse(String(init.body)) as Record<string, unknown>
+		expect(Object.keys(envoye).sort()).toEqual(['max_tokens', 'messages', 'model', 'system'])
+	})
+
+	it('l invite du quatrieme role n ecrit AUCUN nom de champ du plan d actions', async () => {
+		// LE VETO TL3b-1, gardé là où il peut l'être : la clé réseau NOMME LA FORME,
+		// jamais le champ, et le § F de l'invite interdit de réciter le nom d'un champ.
+		// Les quatre noms ci-dessous sont ceux des champs HORS PÉRIMÈTRE plus celui de
+		// la DESTINATION — leur absence est ce qui rend l'écart visible si quelqu'un
+		// « aide » le modèle en nommant le champ.
+		const systeme = INVITES[ROLE_4].systeme.toLowerCase()
+		const interdits = ['si_bloque', 'declencheur_texte', 'declencheur_expr', 'plan_actions', 'duree']
+
+		expect(interdits.filter((mot) => systeme.includes(mot))).toEqual([])
+		// Discriminants : la liste balayée n'est pas vide, et chaque mot SERAIT détecté
+		// s'il y était (KR-199/235).
+		expect(interdits.length).toBeGreaterThan(0)
+		expect(interdits.filter((mot) => `${systeme} ${mot}`.includes(mot))).toEqual(interdits)
+		// ⚠ GARDE DÉLIBÉRÉMENT ÉTROIT, et le dire vaut mieux que de l'élargir : balayer
+		// « action » ou « étape » serait un FAUX POSITIF MESURÉ — l'invite écrit
+		// légitimement « ne porte qu'UNE action » et « la PROCHAINE ÉTAPE ». Le reste de
+		// la doctrine du § 4 bis n'est constatable par aucun instrument (KR-229) et vit
+		// en commentaire dans `INVITES`.
+		expect(systeme).toContain('action')
+		expect(systeme).toContain('étape')
+	})
+
+	it('l invite du quatrieme role INTERDIT la duree en langue naturelle, sans nommer aucune constante', async () => {
+		// LA LIGNE DE L'ITÉRATION, et c'est le risque MAJEUR du rôle : à qui l'on demande
+		// des étapes, un modèle écrit « au bout de trois jours ». Cela entrerait dans
+		// `action`, et la n° 12 l'injecterait au rôle acteur, qui jouerait un temps QUE
+		// LE MOTEUR N'A JAMAIS COMPTÉ. Aucun validateur ne le constate (KR-229) :
+		// L'INVITE EST LE SEUL ENDROIT QUI RESTE pour l'interdire.
+		const systeme = INVITES[ROLE_4].systeme
+
+		expect(systeme).toContain('au bout de trois jours')
+		expect(systeme).toContain('le lendemain')
+		expect(systeme).toContain('après une semaine')
+		expect(systeme).toContain('le temps est compté ailleurs')
+		// … et elle ne récite NI la constante du dépôt, NI son chiffre, NI le mot
+		// « tour », réservé au round de combat.
+		expect(systeme).not.toContain('DUREE_MIN')
+		expect(systeme.toLowerCase()).not.toContain('tour')
 	})
 })
