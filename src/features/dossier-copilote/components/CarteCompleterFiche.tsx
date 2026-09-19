@@ -77,7 +77,7 @@ export function CarteCompleterFiche({
 }: CarteCompleterFicheProps): JSX.Element {
 	const { copilote, dossiers } = useBrain()
 	const demande = useDemandeCopilote<CibleCopilote, PropositionResolue>((cible, signal) =>
-		copilote.demander(ROLE, dossier, cible, signal),
+		copilote.demander(dossier, cible, signal),
 	)
 
 	const [personnageIdChoisi, setPersonnageIdChoisi] = useState<string | null>(null)
@@ -122,7 +122,7 @@ export function CarteCompleterFiche({
 		// Lu une seule fois, ICI : c'est la valeur que la proposition remplacera, et
 		// le dossier n'a pas encore bougé.
 		setValeurAvantGelee(personnageParId(personnageId)?.[CHAMPS_PROPOSABLES[champChoisi]])
-		demande.lancer({ entiteId: personnageId, champ: champChoisi })
+		demande.lancer({ role: ROLE, entiteId: personnageId, champ: champChoisi })
 	}
 
 	const propositionCourante: PropositionResolue | undefined =

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { INTENSITE_INITIALE } from '../../../brain'
 import type { Personnage, Relation, Presence } from '../../../brain'
 import type { SocleEcriture } from './useSocleEcriturePersonnages'
 
@@ -41,7 +42,12 @@ export interface BrouillonPresence {
 function seedRelation(personnage: Personnage, index: number): BrouillonRelation {
 	const relation = (personnage.relations ?? [])[index]
 	return relation === undefined
-		? { cible_id: '', lien: '', intensite: 0, secret: false }
+		? // PREMIER DES DEUX SITES DE LA GRAINE (l'autre est `handleAjouterRelation`) :
+			// `INTENSITE_INITIALE` est IMPORTÉE de `brain/`, jamais un `0` en dur (KR-165).
+			// Les DEUX ont été repointés dans le même geste — une graine à deux domiciles
+			// diverge EN SILENCE, et c'est le seul mode de panne qu'aucun test existant ne
+			// verrait, puisque les deux valaient `0`.
+			{ cible_id: '', lien: '', intensite: INTENSITE_INITIALE, secret: false }
 		: {
 				cible_id: relation.cible_id,
 				lien: relation.lien,
@@ -134,7 +140,11 @@ export function useEcritureRelationsPresence(socle: SocleEcriture | null): UseEc
 			if (pourPersonnage[index] !== undefined) return prev
 			return {
 				...prev,
-				[id]: { ...pourPersonnage, [index]: { cible_id: cibleId, lien: '', intensite: 0, secret: false } },
+				// SECOND DES DEUX SITES DE LA GRAINE (l'autre est `seedRelation`) — KR-165.
+				[id]: {
+					...pourPersonnage,
+					[index]: { cible_id: cibleId, lien: '', intensite: INTENSITE_INITIALE, secret: false },
+				},
 			}
 		})
 	}

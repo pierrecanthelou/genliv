@@ -129,6 +129,7 @@ const GABARIT_SORTIE: Record<string, string> = {
 	'indice-detenteurs': '{"detenteurs": ["P1", "P2"]}',
 	'personnage-repliques': '{"repliques": ["…", "…"]}',
 	'personnage-plan': '{"intention": "…"}',
+	'personnage-relations': '{"rapports": [{"envers": "P1", "nature": "…"}, {"envers": "P3", "nature": "…"}]}',
 }
 
 /**
@@ -307,6 +308,97 @@ export const INVITES: Record<string, { systeme: string; max_tokens: number }> = 
 		// `schema` côté client ⇒ rejeu ⇒ état terminal. C'est le BON échec.
 		max_tokens: 200,
 	},
+	/**
+	 * LE CINQUIÈME RÔLE — et LE PREMIER RÔLE MIXTE : sa sortie porte À LA FOIS un JETON
+	 * de désignation (`envers`) et de la PROSE (`nature`), ce qu'aucun des quatre
+	 * précédents ne demandait. C'est ce qui rend son invite dangereuse à écrire : les
+	 * deux moitiés ont chacune leur piège de recopie, et ils s'annulent mutuellement.
+	 *
+	 * SEPT DÉCISIONS D'ÉCRITURE, à ne pas « corriger » :
+	 *
+	 *  1. ⚠ LE PIÈGE DE RECOPIE, ET IL EST LE PLUS COÛTEUX DU DÉPÔT : `indice-detenteurs`
+	 *     est l'AUTRE rôle à rangs, donc le jumeau structurel APPARENT. Sa ligne « Tu ne
+	 *     rédiges rien d'autre : ni nom, ni phrase, ni justification » recopiée ici
+	 *     TUERAIT LE SEUL CHAMP `ia` de ce rôle — `nature` manquerait, le validateur
+	 *     classerait `schema`, rejeu, état terminal. UN RÔLE QUI NE PEUT JAMAIS RÉUSSIR,
+	 *     ET RIEN NE ROUGIRAIT AU DÉPÔT : les tests de forme passeraient tous, seule la
+	 *     production le dirait. Sa jumelle (« une liste vide est une réponse juste »)
+	 *     produirait le même néant par l'autre bout, le validateur refusant ici la liste
+	 *     vide.
+	 *  2. RUNNER-UP : le JSDoc de `Relation.lien` dit « même famille que
+	 *     `plan_actions[].action` », ce qui invite à recopier « une INTENTION » (3b) —
+	 *     c'est-à-dire une ACTION DATABLE qui cesse d'être vraie une fois faite, gelée
+	 *     dans un champ que le moteur traite en FAIT PERMANENT. Même famille ≠ même
+	 *     chose : UNE INTENTION SE FAIT, UN LIEN S'ÉPROUVE. La queue « ni une chose qu'il
+	 *     entreprend » ferme LES DEUX recopies SANS prononcer le mot « intention ».
+	 *  3. « trois au plus » figure EN PLUS du contrat, jamais À LA PLACE :
+	 *     `RELATIONS_PROPOSEES_MAX` est la FORME DE LA RÉPONSE ATTENDUE, même statut que
+	 *     `max_tokens`. L'invite persuade, le validateur décide. Le garde apparié de
+	 *     `worker/frontiere.test.ts` s'applique : le mot doit s'y trouver LITTÉRALEMENT,
+	 *     et aucune AUTRE borne en toutes lettres ne doit s'y trouver.
+	 *  4. « et au moins une » est la moitié SYMÉTRIQUE du prédicat de non-vacuité :
+	 *     sans elle, l'invite et le validateur se contrediraient.
+	 *  5. ⚠ « ne renvoie à aucune des autres que tu proposes » — LIGNE NEUVE, PROPRE À LA
+	 *     LISTE, et c'est LA CONTREPARTIE EXIGÉE de la concession « liste » contre
+	 *     « scalaire ». Trois liens d'un seul jet forment une CONSTELLATION ; l'auteur en
+	 *     accepte deux et en refuse un, et il reste une prose qui renvoie à une relation
+	 *     qui n'existe pas. LA MOITIÉ VALIDATEUR EST DÉLIBÉRÉMENT ABSENTE (KR-229) :
+	 *     aucun prédicat ne peut le constater, donc L'ÉCRAN NE DOIT RIEN PROMETTRE DE TEL.
+	 *  6. « jamais ce que l'autre éprouve en retour » — la relation est un fait DU
+	 *     PORTEUR, jamais de la PAIRE. Le document range la ligne chez celui qui
+	 *     l'éprouve ; une nature réciproque écrirait la moitié de quelqu'un d'autre.
+	 *  7. ⚠ LA LIGNE DU DEGRÉ INTERDIT LE CHIFFRE ET L'ÉCHELLE, PAS LA CHARGE
+	 *     ÉMOTIONNELLE. Le JSDoc de `Relation.lien` dit que la prose REMPLACE le chiffre —
+	 *     « reste neutre » VIDERAIT LE CHAMP DE CE POUR QUOI IL EXISTE. Un seuil de jeu en
+	 *     dépend (§ 8, n° 48) : un degré rendu par le modèle déplacerait une règle du jeu
+	 *     dans un prompt.
+	 *
+	 * CE QU'ELLE N'A PAS LE DROIT DE RÉCITER : `INTENSITE_MIN`/`INTENSITE_MAX` · le nom
+	 * `intensite` et toute paraphrase de degré · l'existence de `secret`, `cible_id`,
+	 * `relations` · LE NOM DU CHAMP `lien` · ⚠ LE SEUIL `intensite >= 1` du transfert
+	 * d'indice hors caméra — un modèle qui le connaît écrirait des liens POUR OUVRIR CE
+	 * CANAL · la table d'audience · `CANDIDATS_MAX` · seuils, tiers · LE MOT « TOUR ».
+	 */
+	'personnage-relations': {
+		systeme: [
+			"Tu assistes l'AUTEUR d'un livre-jeu qui règle ce qui attache un personnage aux autres.",
+			"La demande te donne UNE fiche de personnage, puis une liste d'autres personnages repérés P1, P2, … Tu désignes ceux à qui celui de la fiche est attaché, et tu écris pour chacun ce qui les attache.",
+			'',
+			`Tu réponds par un objet JSON et rien d'autre, de la forme ${GABARIT_SORTIE['personnage-relations']} : aucune autre clé, aucun commentaire, aucun texte avant ou après.`,
+			'',
+			"Chaque repère est recopié tel quel depuis la liste, entre guillemets ; tu n'en inventes aucun et tu ne désignes jamais deux fois le même.",
+			"Chaque nature est une DIDASCALIE : elle dit ce que celui de la fiche éprouve envers l'autre et ce qui l'y a mené ; elle servira plus tard de consigne à qui le fait agir, et elle ne sera jamais lue telle quelle à un joueur.",
+			"Tu en donnes trois au plus, et au moins une : même quand la liste est maigre, une fonction et un but suffisent à dire ce qui rapproche ou sépare deux personnes d'une même histoire.",
+			"Chaque nature ne dit que ce que CE personnage-là éprouve, jamais ce que l'autre éprouve en retour.",
+			'Chaque nature se tient seule : elle ne parle que de ces deux personnes et ne renvoie à aucune des autres que tu proposes.',
+			'Tu dis par les mots la force de ce qui les attache, jamais par un chiffre ni par une échelle.',
+			'Tu ne donnes de nom à personne : dans ces phrases, ces deux-là se disent « il », « elle », « son frère », « celle qui tient la forge », jamais par un nom.',
+			"Chaque nature tient en une phrase, et ce n'est jamais une phrase qu'il prononce ni une chose qu'il entreprend.",
+			"Tu respectes le ton de l'aventure et ses interdits de ton.",
+			"Tu n'écris jamais d'identifiant, jamais de chiffre de caractéristique, jamais de seuil ni de règle de jeu, jamais le nom d'un autre champ.",
+		].join('\n'),
+		// DÉRIVÉ, jamais recopié — et ⚠ IL NE COÏNCIDE AVEC AUCUNE VALEUR LIVRÉE (200,
+		// 100, 400, 200), ce qu'aucune des quatre entrées précédentes n'a eu à écrire :
+		// les trois qui coïncidaient devaient le DIRE, celle-ci doit dire qu'elle ne
+		// coïncide pas, sinon un relecteur cherchera de quelle autre elle a été tirée.
+		// MESURE DU 2026-09-19, RE-COMPTÉE PROGRAMMATIQUEMENT, DEUX SOURCES INDÉPENDANTES
+		// pour la plus longue `relations[].lien` attestée : `dossier-reference.json`
+		// (`pnj.corvin-le-marchand` → `pnj.mira-la-guerisseuse`) = 109 caractères ;
+		// `dossier-minimal.json` = 109 également. P = 109 — le tour 1 du comité disait
+		// 110, RE-COMPTÉ C'EST 109.
+		// Enveloppe : le pire cas de rang est `P10` (`CANDIDATS_MAX` = 8 aujourd'hui, donc
+		// deux chiffres est déjà un majorant), sur TROIS éléments — 101 octets sous la
+		// forme compacte que produit un modèle, 113 sous la forme ESPACÉE du gabarit.
+		// L = 3 × 109 + 113 = 440 ; jetons = L/r × 3, arrondi à la centaine supérieure —
+		// r=3 ⇒ 500, r=2 (PIRE) ⇒ 660 ⇒ 700.
+		// ⚠ LE RÉSULTAT DÉPEND DU RATIO (500 contre 700) : on prend le pire, ET ON LE DIT.
+		// Il ne dépend EN REVANCHE PAS de la forme d'enveloppe : la variante compacte
+		// donne L = 428 ⇒ 642 ⇒ 700, le même palier.
+		// MODE D'ÉCHEC NOMMÉ : trois `nature` très longues feraient TRONQUER le JSON ⇒
+		// refus `schema` côté client ⇒ rejeu ⇒ état terminal. C'est le BON échec — rien
+		// n'est réparé, rien n'est persisté.
+		max_tokens: 700,
+	},
 }
 
 /**
@@ -362,10 +454,27 @@ export const INVITES: Record<string, { systeme: string; max_tokens: number }> = 
  * est séparateur : retirer 1 Ko au plafond, ou ajouter 400 au budget, le fait
  * rougir.
  *
+ * MESURE DU 2026-09-19, itération 3c — ⚠ LE PLAFOND BOUGE POUR LA PREMIÈRE FOIS, et
+ * c'est bien une MESURE et non un desserrage : les CINQ rôles sont re-dérivés par la
+ * MÊME formule, et le `max` change de porteur.
+ *   `personnage-relations` — squelette 45 o + invite 1859 o ⇒ E = 1904 ;
+ *                            ceil((3 × 17000 + 1904) / 1024) × 1024 = 53 248
+ *   `max` sur les CINQ rôles = 53 248, désormais porté par `personnage-relations`.
+ * CE QUI A CHANGÉ, ET POURQUOI CE N'EST PAS UN RELÂCHEMENT : le rôle neuf a le MÊME
+ * budget client que `indice-detenteurs` (17 000, mesuré indépendamment — M = 5357
+ * contre 5361) MAIS L'INVITE LA PLUS LONGUE DES CINQ (1859 o contre 808). Son plafond
+ * propre dépasse donc l'ancien `max` de 1024 octets exactement, et le `max` le suit.
+ * Relevé des cinq plafonds propres : 19 456 · 52 224 · 13 312 · 14 336 · 53 248.
+ * ⚠ CONSÉQUENCE SUR LE GARDE : « le rôle le plus large » de `worker/frontiere.test.ts`
+ * se dérivait du BUDGET ; deux rôles étant désormais ex æquo sur cette grandeur, il se
+ * dérive du PIRE CAS EN OCTETS — la grandeur que ce plafond borne réellement, et la
+ * seule sur laquelle les deux canaris de séparation puissent dire quelque chose.
+ *
  * CE PLAFOND N'EST PAS UN CLIQUET : c'est une borne de refus, re-dérivée par la
- * même formule sur une nouvelle mesure chaque fois que le contexte s'élargit.
+ * même formule sur une nouvelle mesure chaque fois que le contexte s'élargit. « Il n'a
+ * pas bougé » a été une MESURE à 3a et à 3b ; « il bouge » en est une ici.
  */
-export const TAILLE_MAX_CORPS_IA = 52_224
+export const TAILLE_MAX_CORPS_IA = 53_248
 
 /** Toute réponse de la route `/ia/` est du JSON, y compris ses échecs (KR-233) :
  *  le client lit un motif, jamais une phrase à analyser. */

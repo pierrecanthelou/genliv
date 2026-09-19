@@ -34,8 +34,14 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import worker, { INVITES, TAILLE_MAX_CORPS_IA } from './index'
-import { assemblerDetenteurs, BUDGET_CARACTERES_CONTEXTE } from '../src/brain/copilote/contexte'
-import { REPLIQUES_PROPOSEES_MAX, validerRepliques, validerSortie } from '../src/brain/copilote/schemaSortie'
+import { assemblerDetenteurs, assemblerRelations, BUDGET_CARACTERES_CONTEXTE } from '../src/brain/copilote/contexte'
+import {
+	RELATIONS_PROPOSEES_MAX,
+	REPLIQUES_PROPOSEES_MAX,
+	validerRelations,
+	validerRepliques,
+	validerSortie,
+} from '../src/brain/copilote/schemaSortie'
 import { createCopiloteService } from '../src/brain/CopiloteService'
 import type { CloudSettingsService } from '../src/brain/CloudSettingsService'
 import { CURSEURS } from '../src/brain/dossier/curseurs'
@@ -44,6 +50,7 @@ import type { Dossier, Personnage } from '../src/brain/dossier/types'
 const ROLE_PROSE = 'personnage-prose'
 const ROLE_DETENTEURS = 'indice-detenteurs'
 const ROLE_REPLIQUES = 'personnage-repliques'
+const ROLE_RELATIONS = 'personnage-relations'
 
 /**
  * LA BORNE DE SORTIE EN TOUTES LETTRES — le seul pont possible entre l'invite
@@ -398,6 +405,25 @@ describe('le balayage exhaustif — aucune invite ne nomme le gabarit d un AUTRE
 		expect(
 			Object.keys(BORNE_EN_TOUTES_LETTRES).filter((borne) => inviteDitLaBorne(planBavard, Number(borne))),
 		).not.toEqual([])
+
+		// ── LE CINQUIÈME RÔLE : LE GARDE S'APPLIQUE TEL QUEL ─────────────────────
+		// Sa sortie est une LISTE BORNÉE, donc il retombe sous le couple du rôle
+		// répliques et non sous le symétrique du rôle plan. `RELATIONS_PROPOSEES_MAX`
+		// n'est PAS partagée avec `REPLIQUES_PROPOSEES_MAX` (§ 8, n° 26) : même valeur
+		// aujourd'hui, aucune raison commune d'évoluer — et c'est bien la borne DE CE
+		// RÔLE-LÀ que son invite annonce.
+		expect(RELATIONS_PROPOSEES_MAX).toBe(3)
+		expect(inviteDitLaBorne(INVITES[ROLE_RELATIONS].systeme, RELATIONS_PROPOSEES_MAX)).toBe(true)
+		// … et AUCUNE AUTRE borne en toutes lettres ne s'y trouve : une invite qui
+		// annoncerait « deux au plus » contredirait le validateur en silence.
+		expect(inviteDitLaBorne(INVITES[ROLE_RELATIONS].systeme, 2)).toBe(false)
+		// Discriminant : les DEUX bornes de la table sont éprouvées sur cette invite,
+		// jamais une seule — et le mot de la borne 2 existe bel et bien.
+		expect(
+			Object.keys(BORNE_EN_TOUTES_LETTRES).filter((borne) =>
+				inviteDitLaBorne(INVITES[ROLE_RELATIONS].systeme, Number(borne)),
+			),
+		).toEqual(['3'])
 	})
 
 	it('l invite du troisieme role ne recite AUCUN curseur — ni son nom, ni son libelle', () => {
@@ -519,7 +545,8 @@ describe('le temoin executable — du worker au validateur, dans le meme process
 		if (personnage === undefined) throw new Error('la fixture ne porte aucun personnage à cibler')
 
 		const { resultat, invite } = await traverser(conforme, () =>
-			createCopiloteService(reglages).demander(ROLE_PROSE, dossier, {
+			createCopiloteService(reglages).demander(dossier, {
+				role: ROLE_PROSE,
 				entiteId: personnage.id,
 				champ: 'monde.personnages[].fonction',
 			}),
@@ -547,7 +574,7 @@ describe('le temoin executable — du worker au validateur, dans le meme process
 
 		// La table des rangs vient de l'ASSEMBLEUR, jamais re-dérivée (KR-231) : c'est
 		// elle qui dit qui `P1` désigne, et c'est ce que le service doit re-résoudre.
-		const contexte = assemblerDetenteurs(dossier, { indiceId: indice.id })
+		const contexte = assemblerDetenteurs(dossier, { role: ROLE_DETENTEURS, indiceId: indice.id })
 		if (!contexte.ok) throw new Error(`contexte refusé (${contexte.motif}) : le témoin ne peut pas partir`)
 		const premier = String(contexte.rangs.get('P1'))
 		// Discriminants : `P1` désigne un personnage RÉEL du dossier, qui ne détient pas
@@ -564,7 +591,7 @@ describe('le temoin executable — du worker au validateur, dans le meme process
 		const conforme = JSON.stringify({ [cle]: ['P1'] })
 
 		const { resultat, invite } = await traverser(conforme, () =>
-			createCopiloteService(reglages).demander(ROLE_DETENTEURS, dossier, { indiceId: indice.id }),
+			createCopiloteService(reglages).demander(dossier, { role: ROLE_DETENTEURS, indiceId: indice.id }),
 		)
 
 		expect(invite).toContain(gabarit)
@@ -590,7 +617,7 @@ describe('le temoin executable — du worker au validateur, dans le meme process
 		if (personnage === undefined) throw new Error('la fixture ne porte aucun personnage à cibler')
 
 		const { resultat, invite } = await traverser(conforme, () =>
-			createCopiloteService(reglages).demander(ROLE_REPLIQUES, dossier, { personnageId: personnage.id }),
+			createCopiloteService(reglages).demander(dossier, { role: ROLE_REPLIQUES, personnageId: personnage.id }),
 		)
 
 		expect(invite).toContain(gabarit)
@@ -604,6 +631,52 @@ describe('le temoin executable — du worker au validateur, dans le meme process
 		// L'identifiant du personnage ne franchit pas le réseau : ce qui part est le
 		// contexte, ce qui revient est de la prose.
 		expect(invite).not.toContain(personnage.id)
+	})
+
+	it('temoin executable du cinquieme role — le SEUL role MIXTE', async () => {
+		// CE QUE CE TÉMOIN COUVRE ET QU'AUCUN AUTRE NE COUVRE : un élément qui porte À LA
+		// FOIS un JETON re-résolu par `Map.get` et de la PROSE rendue telle quelle,
+		// traversant le worker RÉEL puis le validateur, dans le MÊME processus.
+		const gabarit = String(extraire(PORTEUR_BRAIN).get(ROLE_RELATIONS))
+		const cle = Object.keys(JSON.parse(gabarit) as Record<string, unknown>)[0]
+
+		const dossier = dossierDeReference()
+		const personnage = dossier.monde.personnages.find((p: Personnage) => p.fonction !== undefined)
+		if (personnage === undefined) throw new Error('la fixture ne porte aucun personnage à cibler')
+
+		// La table des rangs vient de l'ASSEMBLEUR, jamais re-dérivée (KR-231) : c'est
+		// elle qui dit qui `P1` désigne, et c'est ce que le service doit re-résoudre.
+		const contexte = assemblerRelations(dossier, { role: ROLE_RELATIONS, personnageId: personnage.id })
+		if (!contexte.ok) throw new Error(`contexte refusé (${contexte.motif}) : le témoin ne peut pas partir`)
+		const premier = String(contexte.rangs.get('P1'))
+		// Discriminants : `P1` désigne un personnage RÉEL, qui n'est NI le porteur NI une
+		// cible déjà liée — sans eux, l'égalité finale serait vraie par construction.
+		expect(dossier.monde.personnages.map((p: Personnage) => p.id)).toContain(premier)
+		expect(premier).not.toBe(personnage.id)
+		expect((personnage.relations ?? []).map((relation) => relation.cible_id)).not.toContain(premier)
+
+		const NATURE = 'Il lui doit une dette ancienne, et il evite de croiser son regard depuis.'
+		const conforme = JSON.stringify({ [cle]: [{ envers: 'P1', nature: NATURE }] })
+
+		const { resultat, invite } = await traverser(conforme, () =>
+			createCopiloteService(reglages).demander(dossier, { role: ROLE_RELATIONS, personnageId: personnage.id }),
+		)
+
+		expect(invite).toContain(gabarit)
+		expect(resultat).toEqual({
+			statut: 'propose',
+			proposition: { personnageId: personnage.id, ajouts: [{ cibleId: premier, lien: NATURE }] },
+		})
+		// Et la même sortie passe le validateur SEUL : les deux moitiés du témoin sont
+		// prouvées séparément, jamais l'une par l'autre (KR-197/199).
+		expect(validerRelations(JSON.parse(conforme), new Set(contexte.rangs.keys()), dossier)).toEqual({
+			ok: true,
+			sortie: { rapports: [{ envers: 'P1', nature: NATURE }] },
+		})
+		// Ni l'identifiant du porteur ni celui de la cible ne franchissent le réseau : ce
+		// qui part est le contexte, ce qui revient est un JETON et de la PROSE.
+		expect(invite).not.toContain(personnage.id)
+		expect(invite).not.toContain(premier)
 	})
 })
 
@@ -624,10 +697,35 @@ describe('les deux plafonds', () => {
 
 	const pireCasDe = (role: string, budget: number): number => octets('€'.repeat(budget)) + octets(enveloppe(role))
 
-	/** LE RÔLE LE PLUS LARGE — DÉRIVÉ, jamais écrit. Sur le rôle étroit, les deux
+	/**
+	 * LE PIRE CAS DE CHAQUE RÔLE, EN OCTETS — la grandeur que `TAILLE_MAX_CORPS_IA`
+	 * borne RÉELLEMENT, et c'est elle, depuis l'itération 3c, qui désigne « le plus
+	 * large ».
+	 *
+	 * ⚠ AMENDÉ, ET SUR UNE MESURE : jusqu'ici « le plus large » se dérivait du seul
+	 * BUDGET. `personnage-relations` a EXACTEMENT le même budget qu'`indice-detenteurs`
+	 * (17 000, deux mesures indépendantes — M = 5357 contre 5361), si bien que le
+	 * maximum du budget est atteint par DEUX rôles et ne désigne plus personne. Or ce
+	 * n'est pas le budget qui sature le plafond : c'est `3 × budget + enveloppe`, et
+	 * l'enveloppe du rôle neuf est LA PLUS LONGUE DES CINQ (invite de 1859 o contre
+	 * 808). Sur le PIRE CAS, le maximum est de nouveau atteint par UN SEUL rôle — et
+	 * c'est `personnage-relations`, celui qui porte désormais le plafond.
+	 *
+	 * CE QUE L'AMENDEMENT ÉVITE, et c'est le motif : un « plus large » choisi sur le
+	 * budget aurait rendu `indice-detenteurs` (premier des deux ex æquo dans l'ordre du
+	 * registre), dont le pire cas est 1054 octets SOUS celui du rôle neuf — les deux
+	 * canaris de séparation auraient alors mesuré un rôle QUI NE SATURE PLUS RIEN, en
+	 * restant verts. Même classe de défaut que celui réparé à 3a sur ce même bloc : une
+	 * garde qui cesse de mesurer sans jamais rougir (KR-235).
+	 */
+	const PIRES_CAS: Record<string, number> = Object.fromEntries(
+		ROLES.map((role) => [role, pireCasDe(role, BUDGETS[role])]),
+	)
+
+	/** LE RÔLE LE PLUS LARGE — DÉRIVÉ, jamais écrit. Sur un rôle étroit, les deux
 	 *  canaris ci-dessous resteraient verts en ne discriminant rien : ils ne valent
 	 *  que pour celui qui sature le plafond. */
-	const ROLE_LE_PLUS_LARGE = ROLES.reduce((large, role) => (BUDGETS[role] > BUDGETS[large] ? role : large))
+	const ROLE_LE_PLUS_LARGE = ROLES.reduce((large, role) => (PIRES_CAS[role] > PIRES_CAS[large] ? role : large))
 
 	/**
 	 * LE PRÉDICAT DU MAXIMUM UNIQUE — isolé pour que ses cas négatifs portent sur LA
@@ -640,7 +738,7 @@ describe('les deux plafonds', () => {
 	}
 
 	it('le maximum est atteint par exactement un role', () => {
-		expect(BUDGETS[ROLE_LE_PLUS_LARGE]).toBe(Math.max(...ROLES.map((role) => BUDGETS[role])))
+		expect(PIRES_CAS[ROLE_LE_PLUS_LARGE]).toBe(Math.max(...ROLES.map((role) => PIRES_CAS[role])))
 		// CE QUE CETTE LIGNE REMPLACE, ET POURQUOI. Jusqu'à l'itération 3a elle disait
 		// `expect(new Set(ROLES.map(r => BUDGETS[r])).size).toBe(ROLES.length)` — les
 		// budgets DEUX À DEUX DISTINCTS. C'est une PROPRIÉTÉ QUE PERSONNE N'A VOULUE :
@@ -648,10 +746,21 @@ describe('les deux plafonds', () => {
 		// les deux canaris ci-dessous ont besoin est que « le plus large » DÉSIGNE
 		// QUELQU'UN. La ligne restait verte PAR ACCIDENT DE LONGUEUR DE FIXTURE — donc
 		// personne ne l'aurait corrigée, et c'est la QUATRIÈME entrée qui aurait payé.
-		expect(rolesAuMaximum(BUDGETS, ROLES)).toEqual([ROLE_LE_PLUS_LARGE])
-		// Et la table porte bien UNE ENTRÉE PAR RÔLE : un rôle sans budget ne doit pas
-		// passer pour un rôle à budget nul.
+		// ⚠ AMENDÉE À L'IT3c, ET SUR LA MESURE QU'ELLE-MÊME AVAIT ANNONCÉE : elle portait
+		// sur `BUDGETS`, et la CINQUIÈME entrée l'a fait rougir — `personnage-relations`
+		// mesure 17 000 comme `indice-detenteurs`. « Rien n'interdit à deux rôles d'avoir
+		// la même mesure » : c'était vrai, et c'est arrivé. Elle porte désormais sur le
+		// PIRE CAS EN OCTETS, qui EST la grandeur bornée par le plafond — et sur laquelle
+		// le maximum est de nouveau atteint par un seul rôle.
+		expect(rolesAuMaximum(PIRES_CAS, ROLES)).toEqual([ROLE_LE_PLUS_LARGE])
+		// … et LE BUDGET, LUI, EST BIEN EX ÆQUO : sans cette ligne, on ne saurait pas que
+		// l'amendement ci-dessus mesure quelque chose de NEUF plutôt que la même chose
+		// autrement (KR-235).
+		expect(rolesAuMaximum(BUDGETS, ROLES).length).toBeGreaterThan(1)
+		// Et les DEUX tables portent bien UNE ENTRÉE PAR RÔLE : un rôle sans budget ne
+		// doit pas passer pour un rôle à budget nul.
 		expect([...Object.keys(BUDGETS)].sort()).toEqual([...ROLES].sort())
+		expect([...Object.keys(PIRES_CAS)].sort()).toEqual([...ROLES].sort())
 	})
 
 	it('le predicat du maximum unique est SEPARATEUR, et il ne dit QUE ce qu on veut', () => {
@@ -661,7 +770,7 @@ describe('les deux plafonds', () => {
 		// CAS NÉGATIF 1 — DEUX RÔLES EX ÆQUO AU MAXIMUM : « le plus large » cesse de
 		// désigner quelqu'un, et les deux canaris de plafond cesseraient de discriminer.
 		// Le prédicat doit rougir, et il NOMME les deux fautifs.
-		const exAequoAuSommet = { ...BUDGETS, [etroits[0]]: BUDGETS[ROLE_LE_PLUS_LARGE] }
+		const exAequoAuSommet = { ...PIRES_CAS, [etroits[0]]: PIRES_CAS[ROLE_LE_PLUS_LARGE] }
 		expect(rolesAuMaximum(exAequoAuSommet, ROLES).length).toBeGreaterThan(1)
 		expect(rolesAuMaximum(exAequoAuSommet, ROLES)).toContain(etroits[0])
 
@@ -675,15 +784,21 @@ describe('les deux plafonds', () => {
 		// (`new Set(...).size !== ROLES.length`) était vraie AVANT toute fabrication —
 		// vérifié en RETIRANT la fabrication, le test restait VERT. Un garde qui cesse
 		// de mesurer en restant vert est exactement ce que KR-235 nomme.
-		// La réparation : on choisit le couple de rôles étroits dont les budgets
+		// La réparation : on choisit le couple de rôles étroits dont les valeurs
 		// DIFFÈRENT — DÉRIVÉ, jamais écrit —, et la précondition porte désormais sur ce
 		// que la fabrication A FAIT, pas sur une propriété globale de la table.
-		const couple = paires(etroits).find(([a, b]) => BUDGETS[a] !== BUDGETS[b])
-		if (couple === undefined) throw new Error('tous les rôles étroits ont le même budget : la mine est infabricable')
+		// ⚠ RE-VÉRIFIÉE À L'IT3c, PARCE QUE LE BUDGET NEUF RETOMBE SUR 17 000 : sur
+		// `BUDGETS` la mine serait de nouveau menacée d'inertie (deux couples y sont déjà
+		// égaux). Sur `PIRES_CAS` les cinq valeurs sont DEUX À DEUX DISTINCTES — les
+		// enveloppes diffèrent toutes —, donc la fabrication CRÉE bien une égalité qui
+		// n'existait pas. Le `throw` ci-dessous reste la garde explicite du jour où ce ne
+		// serait plus vrai : le risque existe, il n'est pas silencieux.
+		const couple = paires(etroits).find(([a, b]) => PIRES_CAS[a] !== PIRES_CAS[b])
+		if (couple === undefined) throw new Error('tous les rôles étroits ont le même pire cas : la mine est infabricable')
 		const [source, cible] = couple
-		const deuxEtroitsEgaux = { ...BUDGETS, [cible]: BUDGETS[source] }
+		const deuxEtroitsEgaux = { ...PIRES_CAS, [cible]: PIRES_CAS[source] }
 		// LA FABRICATION A BIEN EU LIEU — les deux étaient distincts, ils ne le sont plus.
-		expect(BUDGETS[source]).not.toBe(BUDGETS[cible])
+		expect(PIRES_CAS[source]).not.toBe(PIRES_CAS[cible])
 		expect(deuxEtroitsEgaux[source]).toBe(deuxEtroitsEgaux[cible])
 		// … et la propriété voulue TIENT sous cette égalité fabriquée.
 		expect(rolesAuMaximum(deuxEtroitsEgaux, ROLES)).toEqual([ROLE_LE_PLUS_LARGE])

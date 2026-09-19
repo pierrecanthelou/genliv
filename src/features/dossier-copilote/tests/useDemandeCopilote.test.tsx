@@ -7,9 +7,16 @@ import { useDemandeCopilote } from '../hooks/useDemandeCopilote'
  * (précédent de l'itération 1, BUG-099). Le hook est GÉNÉRIQUE depuis
  * l'itération 2 (§ 4.8 du plan) : plus de `useBrain()`, plus de `dossier` en
  * paramètre — `demander` est directement la fonction `(cible, signal) =>
- * Promise<...>` que chaque carte compose depuis `copilote.demander(ROLE, ...)`.
+ * Promise<...>` que chaque carte compose depuis
+ * `copilote.demander(dossier, cible, signal)`.
  * Ce fichier bouchonne `demander` DIRECTEMENT, sans `BrainProvider` : la boucle
  * d'appel ne connaît plus rien du dossier ni du service.
+ *
+ * ⚠ LE `Cible` LOCAL CI-DESSOUS N'EST PAS `CibleIndice` DU CONTRAT, et il ne l'a
+ * jamais été : le hook est générique, donc son témoin fabrique SA PROPRE forme de
+ * cible. C'est ce qui fait que l'union étiquetée de l'itération 3c — le rôle
+ * devenu une clé de la cible — ne touche pas une ligne de ce fichier : ce qui est
+ * éprouvé ici est LA MACHINE D'APPEL, jamais le contrat de `CopiloteService`.
  *
  * `renderHook` plutôt qu'un panneau : un bouton désactivé rendrait la séquence
  * à trois temps du premier `describe` INEXÉCUTABLE, donc le test trivialement

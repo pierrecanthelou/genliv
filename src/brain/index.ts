@@ -124,15 +124,18 @@ export { createCloudSettings, type CloudSettingsService } from './CloudSettingsS
 // `PARTIES_REQUISES`, `BUDGET_CARACTERES_CONTEXTE`, `CANDIDATS_MAX` — aucune
 // feature n'a de raison de composer un contexte elle-même, ni de lire la garde
 // d'audience. Même traitement que `DESTINATION_DES_CHAMPS` et `amorce.ts`.
-// NE SORT PAS NON PLUS : `PropositionRendue`, `DetenteursRendus`, `RepliquesRendues`
-// ni `IntentionRendue`, les formes RÉSEAU. Leur seul consommateur légitime est la
+// NE SORT PAS NON PLUS : `PropositionRendue`, `DetenteursRendus`, `RepliquesRendues`,
+// `IntentionRendue` ni `RapportsRendus`/`RapportRendu`, les formes RÉSEAU. Leur seul
+// consommateur légitime est la
 // branche de succès de leur validateur, dans `brain/` ; une feature lit
-// `PropositionResolue`, `PropositionDetenteurs`, `PropositionRepliques` ou
-// `PropositionPlan`, jamais ce que le modèle rend. Les ré-exporter donnerait une ligne publique sans appelant
+// `PropositionResolue`, `PropositionDetenteurs`, `PropositionRepliques`,
+// `PropositionPlan` ou `PropositionRelations`, jamais ce que le modèle rend. Les ré-exporter donnerait une ligne publique sans appelant
 // (KR-109) — et, pour la troisième, la clé `repliques` voisinerait `ajouts` dans le
 // même baril alors que KR-231 exige précisément qu'on ne puisse pas les confondre.
 // NE SORTENT PAS ENFIN : `RangInjecte`, `validerDetenteurs`, `validerRepliques`,
-// `GABARIT_SORTIE`, `PROPOSITIONS_MAX`, `REPLIQUES_PROPOSEES_MAX`. LA TABLE DES
+// `validerRelations`, `GABARIT_SORTIE`, `PROPOSITIONS_MAX`, `REPLIQUES_PROPOSEES_MAX`,
+// `RELATIONS_PROPOSEES_MAX`, `CLES_SORTIE_RELATIONS`.
+// LA TABLE DES
 // RANGS NE SORT JAMAIS DE `brain/copilote/` — KR-231 tenu par la PORTÉE, pas par une
 // convention : une feature qui pourrait la lire pourrait la RE-DÉRIVER, et écrire
 // dans le personnage n° 3 au lieu du n° 2 quand le dossier a changé entre l'appel et
@@ -141,18 +144,20 @@ export { createCloudSettings, type CloudSettingsService } from './CloudSettingsS
 // D'ÉCRITURE est `PARLER_REPLIQUES` (`dossier/curseurs`), qui borne le DOCUMENT et
 // qui est DÉJÀ exportée plus bas — zéro ligne neuve. Les exposer côte à côte
 // inviterait à les aligner, ce que le § 8 (TL3a-7) refuse.
-// `EchecCopilote` sort, elle : c'est la branche d'échec COMMUNE aux quatre rôles, et
-// l'état d'écran des quatre cartes la porte.
+// `EchecCopilote` sort, elle : c'est la branche d'échec COMMUNE aux cinq rôles, et
+// l'état d'écran des cinq cartes la porte.
 export type {
 	CopiloteService,
 	CibleCopilote,
 	CibleIndice,
 	CibleRepliques,
 	CiblePlan,
+	CibleRelations,
 	ReponseCopilote,
 	ReponseDetenteurs,
 	ReponseRepliques,
 	ReponsePlan,
+	ReponseRelations,
 	EchecCopilote,
 	RaisonIndisponible,
 } from './CopiloteService'
@@ -165,11 +170,14 @@ export type {
 	PropositionDetenteurs,
 	PropositionRepliques,
 	PropositionPlan,
+	PropositionRelations,
+	LienResolu,
 } from './copilote/types'
-// `MotifIllisible` est INCHANGÉE depuis l'itération 3a — ni le troisième ni le
-// quatrième validateur n'ajoute de membre : leurs quatre motifs atteignables
-// (`schema`, `vide`, `marqueur`, `identifiant`) en sont déjà membres, et
-// `'rang-inconnu'` leur est SANS OBJET.
+// `MotifIllisible` est INCHANGÉE depuis l'itération 3a — aucun des trois validateurs
+// suivants n'ajoute de membre. Le CINQUIÈME est le premier à la nommer EN ENTIER dans
+// son type de retour, et c'est une PREUVE et non un élargissement : ses cinq motifs
+// sont tous atteignables, `'rang-inconnu'` compris, parce qu'il est le premier rôle à
+// rendre À LA FOIS un jeton et de la prose.
 export type { MotifIllisible } from './copilote/schemaSortie'
 // `MotifRefusContexte` sort AVEC `EchecCopilote`, même motif que `MotifIllisible` :
 // la carte 2 doit pouvoir NOMMER la branche `'cible-a-ecrire'` ou
@@ -243,6 +251,14 @@ export { autoSlot } from './BookService'
 // l'échelle d'un sentiment d'auteur à celle d'un état de session. Leur registre dérivé
 // `INTENSITES` reste dedans, comme `CONFIANCES` : c'est une table de validation, aucun
 // écran ne choisit une intensité dans une liste.
+// MÊME RÈGLE pour l'itération 3c de la n° 8 : `INTENSITE_INITIALE` sort parce qu'elle
+// est la valeur SEMÉE quand une relation est créée — par l'éditeur manuel comme par
+// l'acceptation d'une proposition du copilote. Reconstruite côté feature, elle serait un
+// `0` en dur au site d'écriture (KR-165) ; et le piège est ici le MÊME qu'à l'itération
+// 6 avec `CONFIANCE_INITIALE_PORTE` : `INTENSITE_MIN`, exportée juste au-dessus, vaut
+// `-3` et signifie HOSTILITÉ — une feature qui la prendrait « puisqu'elle est déjà là »
+// écrirait une inimitié que personne n'a posée. ⚠ VALEUR D'ÉCRITURE : `intensite ??
+// INTENSITE_INITIALE` sur un chemin de LECTURE est interdit, voir sa docstring.
 // MÊME RÈGLE pour l'itération 6 : `CONFIANCE_INITIALE_PORTE` sort parce qu'elle est la
 // valeur SEMÉE quand l'auteur ouvre la porte de confiance d'un savoir — une graine
 // reconstruite côté feature serait un nombre en dur au site de saisie (KR-165), et
@@ -280,6 +296,7 @@ export {
 	DUREE_MIN,
 	INTENSITE_MIN,
 	INTENSITE_MAX,
+	INTENSITE_INITIALE,
 } from './dossier/types'
 export {
 	CURSEURS,

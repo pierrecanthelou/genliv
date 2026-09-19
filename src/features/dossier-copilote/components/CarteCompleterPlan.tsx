@@ -108,7 +108,7 @@ export function CarteCompleterPlan({
 }: CarteCompleterPlanProps): JSX.Element {
 	const { copilote, dossiers } = useBrain()
 	const demande = useDemandeCopilote<CiblePlan, PropositionPlan>((cible, signal) =>
-		copilote.demander(ROLE, dossier, cible, signal),
+		copilote.demander(dossier, cible, signal),
 	)
 
 	const [personnageIdChoisi, setPersonnageIdChoisi] = useState<string | null>(null)
@@ -154,7 +154,7 @@ export function CarteCompleterPlan({
 		setContexteGele({ personnageId, dejaEcrites: planLive.map((e) => e.action) })
 		setDecision(undefined)
 		setRefusEcriture(null)
-		demande.lancer({ acteurId: personnageId })
+		demande.lancer({ role: ROLE, acteurId: personnageId })
 	}
 
 	function handleAccepter(texte: string): void {

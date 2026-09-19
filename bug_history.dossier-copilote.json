@@ -156,6 +156,30 @@
    "mitigation": "Trouve par la revue de PR, qui a verifie que le motif est IDENTIQUE aux trois cartes precedentes plutot que propre a celle-ci -- c'est ce qui le qualifie en famille et non en defaut de tranche. Portee reelle bornee : la fenetre est celle d'une edition concurrente pendant qu'une proposition est a l'ecran, et aucune donnee n'est perdue ni corrompue -- l'auteur voit un succes pour un geste sans effet, il ne voit pas un dossier faux. CONDITION D'OUVERTURE, decidable : la premiere iteration qui rouvre l'une des quatre cartes pour une autre raison ; elle traite alors LES QUATRE d'un geste, avec le statut arbitre au prealable. Corriger une seule carte creerait une quatrieme convention locale la ou il y en a deja une.",
    "regression_test": "AUCUN a ce jour, et c'est dit : le temoin exige une edition externe QUI RETIRE LA CIBLE entre Lancer et Accepter. Le temoin de BUG-113, voisin, fabrique bien une ecriture externe dans cet intervalle -- mais il AJOUTE une etape au lieu de RETIRER le personnage, donc il ne peut pas voir ce defaut-ci.",
    "severity": "minor"
+  },
+  {
+   "id": "BUG-115",
+   "date": "2026-09-19",
+   "feature": "dossier-copilote",
+   "discovered_at": "iteration-3c",
+   "symptom": "UN GARDE ANTI-SOUSTRACTION RESTAIT VERT SUR LE DEFAUT MEME QU'IL NOMME. Le balayage de source qui interdit d'ecrire CHEMINS_CANDIDAT comme une soustraction (`filter(c => c !== 'but.pourquoi')`) passait au vert quand cette soustraction etait reellement ecrite. Seul le test d'inclusion, voisin, rougissait -- donc le defaut aurait ete diagnostique comme une erreur d'inclusion, et le garde specifique aurait ete cru bon.",
+   "root_cause": "`declarationDesCheminsCandidat()` decoupait la source de `= [` a `\\n]` : UN DECOUPAGE QUI SUPPOSE LA FORME LITTERALE DE CE QU'IL EPROUVE. Sur la forme filtree, il n'y a plus de `= [` a cet endroit, `indexOf` tombait sur une occurrence PLUS LOIN dans le fichier, et le garde analysait alors un fragment sans rapport. Famille KR-235 et BUG-084 : un instrument qui cesse de mesurer sans jamais rougir. Le vert etant ce que l'instrument produit, la panne est invisible.",
+   "fix": "Decoupage de `const CHEMINS_CANDIDAT` a la ligne blanche suivante -- il ne suppose rien de la forme eprouvee. Motif ecrit au site, dans le corps de la fonction.",
+   "mitigation": "Deux discriminants ajoutes AU GARDE LUI-MEME : il asserte que le fragment extrait contient bien `const CHEMINS_CANDIDAT` et le prefixe des personnages, donc une decoupe fautive rend l'assertion vraie SUR UNE LISTE VIDE impossible a confondre avec un succes. Mesure, non deduit : le filtre negatif a ete repose DEUX FOIS -- par l'ouvrier qui a trouve le defaut, puis PAR L'ORCHESTRATEUR apres que la QA en mode B eut declare n'avoir qu'INSPECTE ce garde. Trois tests rouges au second passage, dont nommement celui qui porte le nom du garde.",
+   "regression_test": "src/brain/copilote/contexte.test.ts -- 'CHEMINS_CANDIDAT est une LISTE POSITIVE, jamais une soustraction' ; vu rouge sur le mutant, vert apres restauration (69/69).",
+   "severity": "major"
+  },
+  {
+   "id": "BUG-116",
+   "date": "2026-09-19",
+   "feature": "dossier-copilote",
+   "discovered_at": "iteration-3c",
+   "symptom": "QUATRE SYMBOLES EXPOSES PAR brain/index.ts CONTRE SA PROPRE DOCTRINE ECRITE, avec ZERO appelant. `RapportRendu`, `RapportsRendus` (formes RESEAU) et `CLES_SORTIE_RELATIONS`, `RELATIONS_PROPOSEES_MAX` (bornes de SORTIE) sortaient du baril, alors que le fichier documente explicitement que ni les unes ni les autres n'en sortent -- et que les QUATRE roles livres le respectent sans exception.",
+   "root_cause": "DEFAUT DE PLAN, PAS D'EXECUTION : le SS 5 << Signature EXPOSEE >> du plan d'it3c a ete ecrit par l'orchestrateur depuis un gabarit, SANS CONFRONTER chaque symbole a la doctrine du fichier qui allait le porter. Aucune porte du raffinage ne pouvait l'attraper -- ni les deux tours, ni la porte mecanique, ni la fiche de validation NE LISENT LE FICHIER CIBLE. L'ouvrier a suivi le plan, ce qui etait son devoir, et a ecrit une exception motivee dont LA CLAUSE DE SORTIE (<< a rouvrir des qu'une iteration constate zero appelant cote feature >>) ETAIT SATISFAITE A L'INSTANT OU IL L'ECRIVAIT, par sa propre mesure.",
+   "fix": "Les quatre symboles retires du baril et le 5e role ajoute aux deux listes << NE SORT PAS >> existantes, sans plaidoirie neuve. Corrige ENTRE LES DEUX LOTS, l'orchestrateur ayant garde le lot consommateur en attente le temps de lire le compte rendu du contrat.",
+   "mitigation": "Deux regles, portees au RETOUR-COMITE de la revue it3c. (1) Avant d'ecrire un SS << Signature exposee >>, LIRE LE BARIL et verifier que chaque symbole y a un precedent, ou nommer pourquoi il n'en a pas. (2) NE PAS LANCER LE LOT CONSOMMATEUR avant d'avoir lu le compte rendu du lot contrat : corriger un contrat entre les deux lots coute zero, apres ca coute un lot. L'argument << le lot 2 ne peut plus demander >> est FAUX tant qu'il n'a pas demarre.",
+   "regression_test": "AUCUN, et c'est dit : l'invariant est une DOCTRINE DE FICHIER, pas une propriete executable -- un test qui enumererait les exports interdits serait un second domicile de la doctrine, qui deriverait au premier amendement (KR-109). Verifie par grep sur src/features et src/player : zero occurrence des quatre symboles, mesure trois fois.",
+   "severity": "minor"
   }
  ]
 }

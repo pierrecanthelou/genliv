@@ -4,13 +4,14 @@ import { MARQUEUR_A_ECRIRE } from '../dossier/amorce'
 import { DESTINATION_DES_CHAMPS } from '../dossier/destinations'
 import { feuillesDeLaFixture } from '../dossier/feuilles'
 import { LIBELLE_DES_CHAMPS } from '../dossier/libelles'
-import { CERTITUDE_INITIALE, type Dossier, type Personnage, type Portee } from '../dossier/types'
+import { CERTITUDE_INITIALE, INTENSITE_INITIALE, type Dossier, type Personnage, type Portee } from '../dossier/types'
 import { controlerDossier } from '../dossier/controles'
-import type { CibleCopilote, CibleIndice, CiblePlan, CibleRepliques } from '../CopiloteService'
+import type { CibleCopilote, CibleIndice, CiblePlan, CibleRelations, CibleRepliques } from '../CopiloteService'
 import {
 	assemblerDetenteurs,
 	assemblerPlan,
 	assemblerProse,
+	assemblerRelations,
 	assemblerRepliques,
 	BUDGET_CARACTERES_CONTEXTE,
 	CANDIDATS_MAX,
@@ -109,7 +110,7 @@ function mesure(): { dossier: Dossier; entite: Personnage } {
 }
 
 function cibleSur(entiteId: string, champ: ChampProseChemin): CibleCopilote {
-	return { entiteId, champ }
+	return { role: ROLE, entiteId, champ }
 }
 
 /** Le contexte assemblé, ou l'échec du test s'il a été refusé — aucune branche de
@@ -474,7 +475,7 @@ function mesureDetenteurs(): {
 				personnages: [detenteur, ...candidats],
 			},
 		},
-		cible: { indiceId: indiceCible.id },
+		cible: { role: ROLE_DETENTEURS, indiceId: indiceCible.id },
 		detenteurId: detenteur.id,
 		// `premier` d'abord, puis l'ordre du document — le détenteur, lui, n'y est pas.
 		rangsAttendus: [
@@ -676,13 +677,13 @@ describe('assemblerDetenteurs — confinement d audience du second role', () => 
 			const reference = dossierDeReference()
 			const nu = reference.monde.indices.find((indice) => indice.verite === undefined)
 			expect(nu).toBeDefined()
-			expect(assemblerDetenteurs(reference, { indiceId: String(nu?.id) })).toEqual({
+			expect(assemblerDetenteurs(reference, { role: ROLE_DETENTEURS, indiceId: String(nu?.id) })).toEqual({
 				ok: false,
 				motif: 'cible-a-ecrire',
 			})
 			// Une cible qui ne résout plus du tout emprunte le MÊME refus : « pas de
 			// vérité écrite » et « plus d'indice du tout » demandent le même geste.
-			expect(assemblerDetenteurs(dossier, { indiceId: 'indice.jamais-existe' })).toEqual({
+			expect(assemblerDetenteurs(dossier, { role: ROLE_DETENTEURS, indiceId: 'indice.jamais-existe' })).toEqual({
 				ok: false,
 				motif: 'cible-a-ecrire',
 			})
@@ -711,7 +712,7 @@ describe('assemblerDetenteurs — confinement d audience du second role', () => 
 			// promet et qu'une liste d'assertions voisines ne prouverait pas.
 			const motifs = [
 				assemblerDetenteurs(sansTon, cible),
-				assemblerDetenteurs(reference, { indiceId: String(nu?.id) }),
+				assemblerDetenteurs(reference, { role: ROLE_DETENTEURS, indiceId: String(nu?.id) }),
 				assemblerDetenteurs(tousDetenteurs, cible),
 				assemblerDetenteurs(enorme, cible),
 			].map((refus) => (refus.ok ? 'ASSEMBLÉ' : refus.motif))
@@ -824,8 +825,11 @@ describe('assemblerDetenteurs — confinement d audience du second role', () => 
 		expect(reference.monde.indices.find((indice) => indice.id === cibleId)?.verite).toBeUndefined()
 		// Le refus AVANT / l'assemblage APRÈS : c'est exactement ce que l'enrichissement
 		// achète, et rien d'autre.
-		expect(assemblerDetenteurs(reference, { indiceId: cibleId })).toEqual({ ok: false, motif: 'cible-a-ecrire' })
-		expect(assemblerDetenteurs(clone, { indiceId: cibleId }).ok).toBe(true)
+		expect(assemblerDetenteurs(reference, { role: ROLE_DETENTEURS, indiceId: cibleId })).toEqual({
+			ok: false,
+			motif: 'cible-a-ecrire',
+		})
+		expect(assemblerDetenteurs(clone, { role: ROLE_DETENTEURS, indiceId: cibleId }).ok).toBe(true)
 	})
 })
 
@@ -840,7 +844,7 @@ const CHEMINS_R_DE_CANON = CHEMINS_R.filter((chemin) => !chemin.startsWith(PREFI
 
 /** LA CIBLE de ce rôle : `personnageId`, JAMAIS `entiteId` (§ 8, TL3a-5). */
 function cibleRepliques(personnageId: string): CibleRepliques {
-	return { personnageId }
+	return { role: ROLE_REPLIQUES, personnageId }
 }
 
 /**
@@ -976,9 +980,9 @@ describe('assemblerRepliques — confinement d audience du troisieme role', () =
 		)
 
 		expect(fautifs).toEqual([])
-		// Discriminant : le balayage voit bien les QUATRE entrées — sans lui, un registre
-		// vide le rendrait vert (KR-199).
-		expect(Object.keys(CHAMPS_INJECTES)).toHaveLength(4)
+		// Discriminant : le balayage voit bien les CINQ entrées — sans lui, un registre
+		// vide le rendrait vert (KR-199). Le compte suit le registre, qui fait foi.
+		expect(Object.keys(CHAMPS_INJECTES)).toHaveLength(5)
 	})
 
 	it('aucun chemin caractere.curseurs.* nulle part', () => {
@@ -989,7 +993,7 @@ describe('assemblerRepliques — confinement d audience du troisieme role', () =
 		)
 
 		expect(fautifs).toEqual([])
-		expect(Object.keys(CHAMPS_INJECTES)).toHaveLength(4)
+		expect(Object.keys(CHAMPS_INJECTES)).toHaveLength(5)
 	})
 
 	it('la cible est absente de la liste blanche', () => {
@@ -1204,7 +1208,7 @@ const CIBLE_PLAN = 'monde.personnages[].plan_actions[].action'
  *  `{ personnageId }` serait LE MÊME TYPE que `CibleRepliques` et tomberait dans
  *  `demanderRepliques` avec `tsc` vert (§ 8, n° 3). */
 function ciblePlan(acteurId: string): CiblePlan {
-	return { acteurId }
+	return { role: ROLE_PLAN, acteurId }
 }
 
 /**
@@ -1586,5 +1590,584 @@ describe('assemblerPlan — les trois refus, et la mesure', () => {
 		const cible = ciblePlan(entite.id)
 
 		expect(textePlan(dossier, cible)).toBe(textePlan(dossier, cible))
+	})
+})
+
+// ══ LE CINQUIÈME RÔLE — `personnage-relations` ═══════════════════════════════
+
+const ROLE_RELATIONS = 'personnage-relations'
+const BUDGET_RELATIONS = BUDGET_CARACTERES_CONTEXTE[ROLE_RELATIONS]
+
+const CHEMINS_REL = CHAMPS_INJECTES[ROLE_RELATIONS]
+const CHEMINS_REL_DE_FICHE = CHEMINS_REL.filter((chemin) => chemin.startsWith(PREFIXE_PERSONNAGE))
+const CHEMINS_REL_DE_CANON = CHEMINS_REL.filter((chemin) => !chemin.startsWith(PREFIXE_PERSONNAGE))
+
+/** LE CHEMIN DE LA SCISSION — injecté chez le PORTEUR, jamais chez un CANDIDAT. */
+const CHEMIN_POURQUOI = 'monde.personnages[].but.pourquoi'
+/** L'EN-TÊTE DU BLOC DU PORTEUR — `FICHE`, jamais `PERSONNAGE` (collision de rangs). */
+const EN_TETE_PORTEUR = 'FICHE'
+const CHEMIN_CORPS_RELATIONS = path.join(__dirname, 'contexte', 'relations.ts')
+
+/** LA CIBLE de ce rôle — ÉTIQUETÉE depuis l'itération 3c : sa charge est celle de
+ *  `CibleRepliques` MOT POUR MOT, et c'est le `role` qui les sépare. */
+function cibleRelations(personnageId: string): CibleRelations {
+	return { role: ROLE_RELATIONS, personnageId }
+}
+
+/** LES CINQ valeurs réelles les plus longues du dossier, une par chemin de fiche de ce
+ *  rôle — toutes LUES du document, jamais écrites ici (mêmes motifs que le 2ᵉ rôle). */
+function valeursRelations(reference: Dossier): Record<string, string> {
+	return Object.fromEntries(CHEMINS_REL_DE_FICHE.map((chemin) => [chemin, valeurLaPlusLongue(reference, chemin)]))
+}
+
+/** Une fiche COMPLÈTE sur les CINQ chemins du rôle. `nom` vient d'un personnage réel :
+ *  c'est ce qui rend le témoin « aucun nom n'est injecté » capable d'échouer. */
+function fichePleine(
+	modele: Personnage,
+	id: string,
+	portee: Portee,
+	valeurs: Record<string, string>,
+	pourquoi: string,
+): Personnage {
+	return {
+		id,
+		nom: modele.nom,
+		portee,
+		savoirs: [],
+		plan_actions: [{ etape: 1, action: valeurs['monde.personnages[].plan_actions[].action'] }],
+		fonction: valeurs['monde.personnages[].fonction'],
+		description_joueur: valeurs['monde.personnages[].description_joueur'],
+		but: { libelle: valeurs['monde.personnages[].but.libelle'], pourquoi },
+	}
+}
+
+/**
+ * LE DOSSIER DE MESURE DU CINQUIÈME RÔLE — COMPOSÉ PAR LE TEST, jamais inventé, et
+ * jamais la fixture (qui n'appartient à aucun lot de cette itération).
+ *
+ * `nbCandidats` est un PARAMÈTRE, et c'est délibéré : la MESURE du budget exige
+ * `CANDIDATS_MAX` SATURÉ, alors que le critère « `rangs.size === N−2` » exige au
+ * contraire que la TRONCATURE NE MORDE PAS — sinon `N−2` et `CANDIDATS_MAX`
+ * coïncideraient et le test ne dirait plus lequel des deux a parlé (KR-199).
+ *
+ * ⚠ LE `but.pourquoi` DES CANDIDATS EST NON VIDE ET DISTINCT de celui du porteur :
+ * c'est le témoin du critère n° 1. La valeur est réelle elle aussi — la plus longue
+ * `monde.indices[].verite` du dossier —, choisie parce que ce chemin n'est injecté par
+ * AUCUN des huit de ce rôle : sa présence dans le texte assemblé ne pourrait donc venir
+ * que de la fuite qu'on cherche.
+ */
+function construireRelations(nbCandidats: number): {
+	dossier: Dossier
+	cible: CibleRelations
+	porteurId: string
+	lieeId: string
+	pourquoiDuPorteur: string
+	pourquoiDesCandidats: string
+	rangsAttendus: string[]
+} {
+	const reference = dossierDeReference()
+	const valeurs = valeursRelations(reference)
+	const modeles = reference.monde.personnages
+	const pourquoiDuPorteur = valeurs[CHEMIN_POURQUOI]
+	const pourquoiDesCandidats = valeurLaPlusLongue(reference, 'monde.indices[].verite')
+
+	const candidats = Array.from({ length: nbCandidats }, (_, rang) =>
+		fichePleine(
+			modeles[rang % modeles.length],
+			`${modeles[rang % modeles.length].id}-c${rang}`,
+			// Les portées ALTERNENT : sans cela, « `premier` d'abord, puis l'ordre du
+			// document » serait indistinguable de « l'ordre du document » tout court.
+			rang % 2 === 0 ? 'second' : 'premier',
+			valeurs,
+			pourquoiDesCandidats,
+		),
+	)
+	const liee = candidats[0]
+	const porteur: Personnage = {
+		...fichePleine(modeles[0], 'pnj.le-porteur', 'premier', valeurs, pourquoiDuPorteur),
+		// `INTENSITE_INITIALE` est IMPORTÉE, jamais un `0` retapé (KR-165).
+		relations: [{ cible_id: liee.id, lien: valeurs[CHEMIN_POURQUOI], intensite: INTENSITE_INITIALE }],
+	}
+	const enLice = candidats.filter((candidat) => candidat.id !== liee.id)
+
+	return {
+		dossier: {
+			...reference,
+			monde: { ...reference.monde, personnages: [porteur, ...candidats] },
+		},
+		cible: cibleRelations(porteur.id),
+		porteurId: porteur.id,
+		lieeId: liee.id,
+		pourquoiDuPorteur,
+		pourquoiDesCandidats,
+		// `premier` d'abord, puis l'ordre du document — le porteur et la cible déjà liée
+		// n'y sont PAS.
+		rangsAttendus: [
+			...enLice.filter((candidat) => candidat.portee === 'premier').map((candidat) => candidat.id),
+			...enLice.filter((candidat) => candidat.portee !== 'premier').map((candidat) => candidat.id),
+		].slice(0, CANDIDATS_MAX),
+	}
+}
+
+/** Le contexte assemblé, ou l'échec du test s'il a été refusé. */
+function contexteRelations(
+	dossier: Dossier,
+	cible: CibleRelations,
+): { texte: string; entitesInjectees: readonly string[]; rangs: ReadonlyMap<string, string> } {
+	const contexte = assemblerRelations(dossier, cible)
+	if (!contexte.ok) throw new Error(`contexte refusé (${contexte.motif}) alors que le test attend un assemblage`)
+	return contexte
+}
+
+/** LES QUATRE CHEMINS DE CANDIDAT, EXTRAITS DE LA SOURCE. `CHEMINS_CANDIDAT` est une
+ *  const LOCALE à `./contexte/relations.ts` — elle n'a aucun consommateur hors de ce
+ *  corps, et l'exporter pour un seul test en ferait une ligne publique sans appelant
+ *  (KR-109). Le test la LIT donc là où elle vit, exactement comme les balayages de
+ *  source des itérations précédentes. */
+function declarationDesCheminsCandidat(): string {
+	const source = fs.readFileSync(CHEMIN_CORPS_RELATIONS, 'utf8')
+	const debut = source.indexOf('const CHEMINS_CANDIDAT')
+	// ⚠ LE DÉCOUPAGE VA DE LA DÉCLARATION À LA LIGNE BLANCHE QUI LA SUIT, et NON d'un
+	// `= [` à son `]` : MESURÉ en posant le mutant du § 5.1-9, un découpage qui SUPPOSE
+	// la forme littérale ne trouve plus rien sur la forme FILTRÉE — il tombe sur un `= [`
+	// plus loin dans le fichier et le balayage anti-soustraction devient VERT sur le
+	// défaut même qu'il nomme. Le découpage ne doit rien supposer de la forme qu'il
+	// éprouve (KR-235).
+	return source.slice(debut, source.indexOf('\n\n', debut))
+}
+
+function cheminsCandidatExtraits(): string[] {
+	return [...declarationDesCheminsCandidat().matchAll(/'([^']+)'/g)].map((trouve) => trouve[1])
+}
+
+describe('assemblerRelations — confinement d audience du cinquieme role', () => {
+	it('confinement du 5e role', () => {
+		expect(CHEMINS_REL).toHaveLength(8)
+		// Assertion de VALEUR, jamais d'existence (KR-174) : `toEqual([])` sur les écarts
+		// NOMME le chemin fautif et sa destination réelle.
+		const ecarts = CHEMINS_REL.filter((chemin) => DESTINATION_DES_CHAMPS[chemin] !== 'ia').map(
+			(chemin) => `${chemin} → ${DESTINATION_DES_CHAMPS[chemin] ?? 'AUCUNE DESTINATION'}`,
+		)
+		expect(ecarts).toEqual([])
+		// La soupape n'a pas bougé : un CINQUIÈME rôle n'ouvre aucune dérogation
+		// d'audience — les huit chemins étaient DÉJÀ `ia` (KR-232).
+		expect(DEROGATIONS_AUDIENCE).toEqual([])
+	})
+
+	it('CHEMINS_CANDIDAT est INCLUS dans l union des huit', () => {
+		// PREMIER DES DEUX TESTS, et il rougit si l'UNION RÉTRÉCIT.
+		const extraits = cheminsCandidatExtraits()
+
+		expect(extraits).toHaveLength(4)
+		expect(extraits.filter((chemin) => !CHEMINS_REL.includes(chemin))).toEqual([])
+		// Discriminant : l'extraction a bien lu du code réel — une découpe fautive
+		// rendrait l'inclusion vraie sur une liste vide (KR-235).
+		expect(declarationDesCheminsCandidat()).toContain(PREFIXE_PERSONNAGE)
+		expect(declarationDesCheminsCandidat()).toContain('const CHEMINS_CANDIDAT')
+	})
+
+	it('but.pourquoi est ABSENT des candidats — le canari, qui ne se deduit PAS du premier', () => {
+		// SECOND DES DEUX TESTS. Le premier resterait VERT le jour où quelqu'un
+		// « harmoniserait » les deux ensembles en donnant aux candidats les cinq chemins
+		// du porteur : l'inclusion serait toujours vraie. Celui-ci, lui, rougirait.
+		const extraits = cheminsCandidatExtraits()
+
+		expect(extraits).not.toContain(CHEMIN_POURQUOI)
+		// … et le chemin EXISTE bien dans l'union : sans cette ligne, le canari serait
+		// vrai par ABSENCE DE L'UNION plutôt que par absence de la liste des candidats.
+		expect(CHEMINS_REL).toContain(CHEMIN_POURQUOI)
+		// … et les candidats en portent STRICTEMENT MOINS que le porteur.
+		expect(extraits.length).toBeLessThan(CHEMINS_REL_DE_FICHE.length)
+	})
+
+	it('CHEMINS_CANDIDAT est une LISTE POSITIVE, jamais une soustraction', () => {
+		// LE MUTANT QUE LE PLAN EXIGE DE VOIR ROUGE, et AUCUN TEST DE COMPORTEMENT NE
+		// PEUT LE VOIR : `chemins.filter((c) => c !== 'monde.personnages[].but.pourquoi')`
+		// rend EXACTEMENT la même liste aujourd'hui — l'inclusion et le canari ci-dessus
+		// resteraient tous deux VERTS. Il RÉ-ÉLARGIRAIT TOUT SEUL au NEUVIÈME chemin que
+		// l'union gagnerait, sans que rien ne rougisse. Le balayage de SOURCE est donc son
+		// SEUL instrument possible (KR-235, famille de la garde inerte).
+		const declaration = declarationDesCheminsCandidat()
+
+		expect(declaration).not.toContain('filter')
+		expect(declaration).not.toContain('!==')
+		expect(declaration).not.toContain('CHAMPS_INJECTES')
+		// … et les QUATRE littéraux y sont, un par un, jamais un compte.
+		for (const chemin of cheminsCandidatExtraits()) expect(declaration).toContain(`'${chemin}'`)
+		// Discriminant : le mot `filter` EXISTE bel et bien dans ce fichier — la sélection
+		// des candidats l'emploie légitimement —, donc une découpe trop large rendrait
+		// l'assertion fausse, et une découpe trop étroite ne la rendrait pas vraie pour
+		// rien.
+		expect(fs.readFileSync(CHEMIN_CORPS_RELATIONS, 'utf8')).toContain('.filter(')
+	})
+
+	it('le but.pourquoi du PORTEUR entre, celui d un CANDIDAT JAMAIS — sur le TEXTE assemble', () => {
+		// CRITÈRE 1, ET C'EST LE TÉMOIN QUI COMPTE : une assertion sur les LISTES seules
+		// resterait VERTE sur une boucle qui ignore la liste. Celui-ci porte sur le texte.
+		const { dossier, cible, pourquoiDuPorteur, pourquoiDesCandidats } = construireRelations(CANDIDATS_MAX + 1)
+		const { texte } = contexteRelations(dossier, cible)
+
+		// Les deux valeurs sont NON VIDES et DISTINCTES — sans cette moitié, l'assertion
+		// d'absence serait vraie par construction.
+		expect(pourquoiDuPorteur.trim().length).toBeGreaterThan(0)
+		expect(pourquoiDesCandidats.trim().length).toBeGreaterThan(0)
+		expect(pourquoiDesCandidats).not.toBe(pourquoiDuPorteur)
+		// … et les candidats en portent BIEN un au document : c'est ce qui rend la fuite
+		// possible, donc le test capable d'échouer.
+		const candidats = dossier.monde.personnages.filter((personnage) => personnage.id !== cible.personnageId)
+		expect(candidats.filter((candidat) => candidat.but?.pourquoi === pourquoiDesCandidats).length).toBeGreaterThan(0)
+
+		expect(texte).toContain(pourquoiDuPorteur)
+		expect(texte).not.toContain(pourquoiDesCandidats)
+	})
+
+	it('aucun nom n est injecte', () => {
+		// KR-195 : `Entite.nom` est d'audience `auteur`. (a) aucun des huit chemins ne
+		// résout vers un `nom` ;
+		expect(CHEMINS_REL.filter((chemin) => chemin.endsWith('.nom'))).toEqual([])
+
+		// (b) et le texte réellement assemblé n'en porte aucun. Le test prouve d'abord
+		// qu'il EXISTE des noms à trouver, sinon il ne mesure rien.
+		const { dossier, cible } = construireRelations(CANDIDATS_MAX + 1)
+		const { texte } = contexteRelations(dossier, cible)
+		const noms = dossier.monde.personnages
+			.map((personnage) => personnage.nom)
+			.filter((nom): nom is string => typeof nom === 'string' && nom.trim() !== '')
+
+		expect(noms.length).toBeGreaterThan(0)
+		expect(noms.filter((nom) => texte.includes(nom))).toEqual([])
+	})
+
+	it('l en-tete du porteur est FICHE, jamais PERSONNAGE', () => {
+		// § 8, n° 36 : un en-tête commençant par `P` ENTRE EN COLLISION avec l'alphabet
+		// des rangs — `{"envers":"PERSONNAGE"}` serait classé `rang-inconnu`, rejoué, puis
+		// terminal. Un rôle qui échoue sur une réponse de bonne foi.
+		const { dossier, cible } = construireRelations(4)
+		const { texte, rangs } = contexteRelations(dossier, cible)
+		const enTetes = texte.split('\n\n').map((bloc) => bloc.split('\n')[0])
+
+		expect(enTetes).toContain(EN_TETE_PORTEUR)
+		// L'en-tête du porteur n'appartient PAS à l'alphabet des rangs, et il ne commence
+		// même pas par la lettre qui l'ouvre.
+		expect(rangs.has(EN_TETE_PORTEUR)).toBe(false)
+		expect(EN_TETE_PORTEUR.startsWith('P')).toBe(false)
+		// Et le corps n'écrit nulle part le mot rejeté.
+		expect(fs.readFileSync(CHEMIN_CORPS_RELATIONS, 'utf8')).not.toContain("'PERSONNAGE'")
+		// Aucun en-tête hors de la liste autorisée : le canon, `FICHE`, les rangs.
+		expect(
+			enTetes.filter((entete) => !CHEMINS_REL.includes(entete) && entete !== EN_TETE_PORTEUR && !rangs.has(entete)),
+		).toEqual([])
+	})
+
+	it('le porteur est EXCLU des rangs, la cible deja liee aussi — rangs.size vaut N moins 2', () => {
+		// CRITÈRE 2. `nbCandidats` est choisi POUR QUE LA TRONCATURE NE MORDE PAS : sinon
+		// `N−2` et `CANDIDATS_MAX` coïncideraient et le test ne dirait pas lequel a parlé.
+		const { dossier, cible, porteurId, lieeId, rangsAttendus } = construireRelations(4)
+		const { texte, entitesInjectees, rangs } = contexteRelations(dossier, cible)
+		const N = dossier.monde.personnages.length
+
+		expect(N - 2).toBeLessThan(CANDIDATS_MAX)
+		expect(rangs.size).toBe(N - 2)
+		// AUCUN rang ne résout le porteur — et ce n'est PAS un doublon qu'on éviterait par
+		// hygiène : `nom` n'étant jamais injecté, le modèle croirait que `FICHE` et `Pn`
+		// sont DEUX PERSONNES, et écrirait une FICTION FAUSSE que ni le validateur ni
+		// l'écran ne pourraient voir (§ 8, n° 6).
+		expect([...rangs.values()]).not.toContain(porteurId)
+		// … ni la cible DÉJÀ LIÉE : un doublon cesse d'être REPRÉSENTABLE.
+		expect([...rangs.values()]).not.toContain(lieeId)
+		expect(texte).not.toContain(lieeId)
+		// Et elle était bien liée, avec du CONTENU à injecter : sans cette moitié, le test
+		// serait vert sur un personnage que rien n'aurait retenu de toute façon.
+		const porteur = dossier.monde.personnages.find((personnage) => personnage.id === porteurId)
+		expect(porteur?.relations?.map((relation) => relation.cible_id)).toEqual([lieeId])
+		expect(dossier.monde.personnages.find((personnage) => personnage.id === lieeId)?.fonction).toBeDefined()
+
+		// ÉGALITÉ, jamais inclusion — le porteur EN TÊTE, puis les rangs dans l'ordre.
+		expect(entitesInjectees).toEqual([porteurId, ...rangs.values()])
+		expect(entitesInjectees[0]).toBe(porteurId)
+		// `P2` résout le DEUXIÈME identifiant de la table — AUCUNE conversion numérique,
+		// c'est un `Map.get` sur la chaîne telle quelle.
+		expect(rangs.get('P2')).toBe([...rangs.values()][1])
+		expect([...rangs.keys()]).toEqual(rangsAttendus.map((_, rang) => `P${rang + 1}`))
+		expect([...rangs.values()]).toEqual(rangsAttendus)
+	})
+
+	it('les rangs suivent premier d abord, puis l ordre du document, et portee n est jamais injectee', () => {
+		const { dossier, cible, rangsAttendus } = construireRelations(CANDIDATS_MAX + 1)
+		const { texte, rangs } = contexteRelations(dossier, cible)
+
+		expect([...rangs.values()]).toEqual(rangsAttendus)
+		expect(rangs.size).toBe(CANDIDATS_MAX)
+		expect(texte).not.toContain('portee')
+		expect(texte).not.toContain('premier')
+	})
+
+	it('un candidat sans aucune ligne ne consomme pas de rang', () => {
+		// Un bloc de rang sans une seule ligne enseignerait « celui-là n'a rien », ce qui
+		// est une AFFIRMATION ; le repli est le SILENCE.
+		const { dossier, cible } = construireRelations(4)
+		const muet: Personnage = { id: 'pnj.muet', portee: 'premier', plan_actions: [], savoirs: [] }
+		const avecMuet: Dossier = {
+			...dossier,
+			monde: { ...dossier.monde, personnages: [...dossier.monde.personnages, muet] },
+		}
+
+		const { texte, rangs, entitesInjectees } = contexteRelations(avecMuet, cible)
+
+		expect([...rangs.values()]).not.toContain(muet.id)
+		expect(entitesInjectees).not.toContain(muet.id)
+		// Les rangs restent CONTIGUS : `P1`, `P2`, … sans trou.
+		expect([...rangs.keys()]).toEqual([...rangs.keys()].map((_, rang) => `P${rang + 1}`))
+		expect(rangs.size).toBeGreaterThan(0)
+		// Et AUCUN bloc de rang n'est vide — un bloc à une seule ligne serait exactement
+		// le mode de panne visé.
+		const blocsDeRang = texte.split('\n\n').filter((bloc) => /^P\d+$/.test(bloc.split('\n')[0]))
+		expect(blocsDeRang).toHaveLength(rangs.size)
+		expect(blocsDeRang.filter((bloc) => bloc.split('\n').length < 3)).toEqual([])
+	})
+
+	it('le plan est TRONQUE chez un candidat, NON tronque chez le porteur', () => {
+		const { dossier, cible, porteurId, rangsAttendus } = construireRelations(4)
+		const premiere = valeurLaPlusLongue(dossierDeReference(), 'monde.personnages[].plan_actions[].action')
+		// LA SECONDE ÉTAPE VIENT D'UN CHEMIN QUE CE RÔLE N'INJECTE NULLE PART — mesuré :
+		// prise sous `but.libelle`, elle entrerait dans le bloc du candidat PAR CE
+		// CHEMIN-LÀ, et le témoin rougirait sans qu'aucune troncature ait manqué.
+		const seconde = valeurLaPlusLongue(dossierDeReference(), 'monde.indices[].formulation_joueur')
+		const deuxEtapes = [
+			{ etape: 1, action: premiere },
+			{ etape: 2, action: seconde },
+		]
+		const bavard: Dossier = {
+			...dossier,
+			monde: {
+				...dossier.monde,
+				personnages: dossier.monde.personnages.map((personnage) =>
+					personnage.id === porteurId || personnage.id === rangsAttendus[0]
+						? { ...personnage, plan_actions: deuxEtapes }
+						: personnage,
+				),
+			},
+		}
+
+		const { texte } = contexteRelations(bavard, cible)
+		const blocs = texte.split('\n\n')
+		const blocPorteur = String(blocs.find((bloc) => bloc.startsWith(`${EN_TETE_PORTEUR}\n`)))
+		const blocCandidat = String(blocs.find((bloc) => /^P1\n/.test(bloc)))
+
+		// LE PORTEUR porte les DEUX étapes — il n'y a qu'une fiche, et ce qu'il entreprend
+		// est ce qui le lie aux autres.
+		expect(blocPorteur).toContain(premiere)
+		expect(blocPorteur).toContain(seconde)
+		// LE CANDIDAT n'en porte qu'UNE — troncature de LISTE, à son premier élément.
+		expect(blocCandidat).toContain(premiere)
+		expect(blocCandidat).not.toContain(seconde)
+		// JAMAIS DE CHAÎNE : chaque ligne de valeur est une valeur ENTIÈRE. Une troncature
+		// de chaîne produirait une ligne qui n'est valeur de rien.
+		const valeursAutorisees = new Set(
+			feuillesDeLaFixture(bavard)
+				.filter((feuille) => typeof feuille.valeur === 'string')
+				.map((feuille) => String(feuille.valeur)),
+		)
+		const lignesDeValeur = blocs
+			.flatMap((bloc) => bloc.split('\n'))
+			.filter((ligne) => !CHEMINS_REL.includes(ligne) && !/^P\d+$/.test(ligne) && ligne !== EN_TETE_PORTEUR)
+		expect(lignesDeValeur.filter((ligne) => !valeursAutorisees.has(ligne))).toEqual([])
+		expect(lignesDeValeur.length).toBeGreaterThan(0)
+	})
+
+	it('un champ marque est RETIRE, jamais remplace par une chaine vide', () => {
+		const { dossier, cible, porteurId } = construireRelations(4)
+		const marque: Dossier = {
+			...dossier,
+			monde: {
+				...dossier.monde,
+				personnages: dossier.monde.personnages.map((personnage) =>
+					personnage.id === porteurId
+						? { ...personnage, description_joueur: `${MARQUEUR_A_ECRIRE} à décrire` }
+						: personnage,
+				),
+			},
+		}
+
+		const { texte } = contexteRelations(marque, cible)
+
+		expect(texte).not.toContain(MARQUEUR_A_ECRIRE)
+		const blocPorteur = String(texte.split('\n\n').find((bloc) => bloc.startsWith(`${EN_TETE_PORTEUR}\n`)))
+		expect(blocPorteur).not.toContain('monde.personnages[].description_joueur')
+	})
+
+	it('deux assemblages de la meme cible sur un dossier inchange sont strictement egaux', () => {
+		const { dossier, cible } = construireRelations(4)
+
+		expect(contexteRelations(dossier, cible).texte).toBe(contexteRelations(dossier, cible).texte)
+	})
+})
+
+describe('assemblerRelations — les QUATRE refus, et la mesure', () => {
+	it('les quatre refus, discrimines, 0 fetch', () => {
+		// ⚠ PREMIER RÔLE À UTILISER LES QUATRE MOTIFS — aucun motif neuf, aucune charge
+		// neuve. Les quatre sont éprouvés DANS LE MÊME TEST, et prouvés DISTINCTS DEUX À
+		// DEUX : une liste d'assertions voisines ne prouverait pas la discriminance
+		// (KR-197/199).
+		const espionFetch = jest.fn()
+		const avant = globalThis.fetch
+		globalThis.fetch = espionFetch as unknown as typeof fetch
+		try {
+			const { dossier, cible, porteurId } = construireRelations(4)
+
+			// 1 — `a-ecrire` : le seul motif À CHARGE, et la charge est le chemin.
+			const sansTon: Dossier = { ...dossier, canon: { ...dossier.canon, ton: MARQUEUR_A_ECRIRE } }
+			expect(assemblerRelations(sansTon, cible)).toEqual({ ok: false, motif: 'a-ecrire', chemin: 'canon.ton' })
+
+			// 2 — `cible-a-ecrire`, SANS charge : la DISJONCTION sur les chemins de fiche du
+			// PORTEUR — un lien peut naître d'une fonction, d'une réputation OU d'un but.
+			const muet: Personnage = { id: 'pnj.sans-identite', portee: 'premier', plan_actions: [], savoirs: [] }
+			const avecMuet: Dossier = {
+				...dossier,
+				monde: { ...dossier.monde, personnages: [...dossier.monde.personnages, muet] },
+			}
+			expect(assemblerRelations(avecMuet, cibleRelations(muet.id))).toEqual({ ok: false, motif: 'cible-a-ecrire' })
+			// Une cible qui ne résout plus du tout emprunte le MÊME refus.
+			expect(assemblerRelations(dossier, cibleRelations('pnj.jamais-existe'))).toEqual({
+				ok: false,
+				motif: 'cible-a-ecrire',
+			})
+
+			// 3 — `aucun-candidat`, SANS charge : le porteur est DÉJÀ lié à tout le monde.
+			const tousLies: Dossier = {
+				...dossier,
+				monde: {
+					...dossier.monde,
+					personnages: dossier.monde.personnages.map((personnage) =>
+						personnage.id === porteurId
+							? {
+									...personnage,
+									relations: dossier.monde.personnages
+										.filter((autre) => autre.id !== porteurId)
+										.map((autre) => ({
+											cible_id: autre.id,
+											lien: 'Un lien deja ecrit.',
+											intensite: INTENSITE_INITIALE,
+										})),
+								}
+							: personnage,
+					),
+				},
+			}
+			expect(assemblerRelations(tousLies, cible)).toEqual({ ok: false, motif: 'aucun-candidat' })
+			// … et le MÊME refus quand le porteur est SEUL au dossier : « tous sont déjà
+			// liés » et « il est seul » demandent le même geste à l'auteur.
+			const seul: Dossier = {
+				...dossier,
+				monde: {
+					...dossier.monde,
+					personnages: dossier.monde.personnages.filter((personnage) => personnage.id === porteurId),
+				},
+			}
+			expect(assemblerRelations(seul, cible)).toEqual({ ok: false, motif: 'aucun-candidat' })
+
+			// 4 — `trop-long` : AUCUNE charge, il pointe la fiche, pas un champ.
+			// ⚠ LE LEVIER EST `canon.partage.accroche_joueur`, ET NON `canon.mj.synopsis_mj` :
+			// ce rôle N'INJECTE PAS le synopsis (retiré POUR POINT DE VUE), donc le gonfler
+			// n'allongerait rien et le refus ne partirait jamais — un test vert qui ne mesure
+			// pas le refus qu'il nomme (KR-199).
+			const enorme: Dossier = {
+				...dossier,
+				canon: {
+					...dossier.canon,
+					partage: { ...dossier.canon.partage, accroche_joueur: 'x'.repeat(BUDGET_RELATIONS + 1) },
+				},
+			}
+			expect(assemblerRelations(enorme, cible)).toEqual({ ok: false, motif: 'trop-long' })
+
+			// LES QUATRE SONT DISTINCTS DEUX À DEUX.
+			const motifs = [
+				assemblerRelations(sansTon, cible),
+				assemblerRelations(avecMuet, cibleRelations(muet.id)),
+				assemblerRelations(tousLies, cible),
+				assemblerRelations(enorme, cible),
+			].map((refus) => (refus.ok ? 'ASSEMBLÉ' : refus.motif))
+			expect(new Set(motifs).size).toBe(4)
+
+			// ET L'ORDRE EST FIGÉ : un dossier qui cumule les quatre défauts rend le PREMIER
+			// motif, jamais un autre — sans quoi l'écran nommerait le mauvais geste.
+			const cumul: Dossier = {
+				...enorme,
+				canon: { ...enorme.canon, ton: MARQUEUR_A_ECRIRE },
+				monde: {
+					...enorme.monde,
+					personnages: enorme.monde.personnages.filter((personnage) => personnage.id === porteurId),
+				},
+			}
+			expect(assemblerRelations(cumul, cible)).toEqual({ ok: false, motif: 'a-ecrire', chemin: 'canon.ton' })
+
+			// ET AUCUN APPEL RÉSEAU N'EST PARTI, pour aucun des cas ci-dessus.
+			expect(espionFetch).not.toHaveBeenCalled()
+		} finally {
+			globalThis.fetch = avant
+		}
+	})
+
+	it('BUDGET du 5e role, mesure', () => {
+		const { dossier, cible, porteurId, rangsAttendus } = construireRelations(CANDIDATS_MAX + 1)
+
+		// TEMPS 1 — NON-VACUITÉ, chemin par chemin, NOMMÉE (jamais un compte). Sans elle,
+		// `M` est un PLANCHER et le budget qu'on en dérive protège moins qu'il ne prétend.
+		// LES HUIT sont éprouvés : les trois du canon, les CINQ du porteur.
+		const porteur = dossier.monde.personnages.find((personnage) => personnage.id === porteurId)
+		const unCandidat = dossier.monde.personnages.find((personnage) => personnage.id === rangsAttendus[0])
+		const remplisDuCanon = cheminsRemplis(dossier)
+		const remplisDuPorteur = cheminsRemplis(porteur, PREFIXE_PERSONNAGE)
+		const vides = [
+			...CHEMINS_REL_DE_CANON.filter((chemin) => !remplisDuCanon.has(chemin)),
+			...CHEMINS_REL_DE_FICHE.filter((chemin) => !remplisDuPorteur.has(chemin)),
+		]
+		expect(vides).toEqual([])
+		// … et les QUATRE chemins d'un candidat résolvent non vides eux aussi, sinon `M`
+		// serait un plancher par l'autre bout.
+		const remplisDuCandidat = cheminsRemplis(unCandidat, PREFIXE_PERSONNAGE)
+		expect(cheminsCandidatExtraits().filter((chemin) => !remplisDuCandidat.has(chemin))).toEqual([])
+
+		// TEMPS 2 — `M`, `CANDIDATS_MAX` SATURÉ. La saturation fait partie du protocole :
+		// mesurer à 3 candidats donnerait un budget que le 4ᵉ ferait exploser.
+		const contexte = contexteRelations(dossier, cible)
+		expect(contexte.rangs.size).toBe(CANDIDATS_MAX)
+		const M = contexte.texte.length
+		expect(M).toBeGreaterThan(0)
+
+		// TEMPS 3 — la formule. Facteur 3 (décision datée du comité), arrondi au millier
+		// supérieur : l'arrondi EST la marge. Ce n'est PAS un cliquet — et SI LA MESURE
+		// DÉPLAÎT, ON BAISSE `CANDIDATS_MAX`, JAMAIS LE BUDGET.
+		expect(BUDGET_RELATIONS).toBe(Math.ceil((M * 3) / 1000) * 1000)
+
+		// Et les QUATRE autres rôles n'ont PAS bougé : c'est tout l'objet du `Record` — un
+		// scalaire partagé aurait desserré la garde d'un rôle par la mesure d'un autre,
+		// sans un seul test rouge (KR-235).
+		expect(BUDGET_PROSE).toBe(6000)
+		expect(BUDGET_DETENTEURS).toBe(17_000)
+		expect(BUDGET_REPLIQUES).toBe(4000)
+		expect(BUDGET_PLAN).toBe(4000)
+	})
+
+	it('exactement BUDGET caracteres passe, un caractere de plus est refuse', () => {
+		// LE CANARI DE PLAFOND, à ±1 CARACTÈRE — un plafond dont personne n'a éprouvé les
+		// deux bords est une intention, pas une borne.
+		const { dossier, cible } = construireRelations(CANDIDATS_MAX + 1)
+		// LE LEVIER EST UN CHEMIN RÉELLEMENT INJECTÉ PAR CE RÔLE — le synopsis ne l'est
+		// pas, et viser dessus mesurerait un texte de longueur constante.
+		const avecAccroche = (accroche: string): Dossier => ({
+			...dossier,
+			canon: { ...dossier.canon, partage: { ...dossier.canon.partage, accroche_joueur: accroche } },
+		})
+		const socle = contexteRelations(avecAccroche('x'), cible).texte.length - 1
+
+		expect(contexteRelations(avecAccroche('x'.repeat(BUDGET_RELATIONS - socle)), cible).texte).toHaveLength(
+			BUDGET_RELATIONS,
+		)
+		expect(assemblerRelations(avecAccroche('x'.repeat(BUDGET_RELATIONS - socle)), cible).ok).toBe(true)
+		expect(assemblerRelations(avecAccroche('x'.repeat(BUDGET_RELATIONS - socle + 1)), cible)).toEqual({
+			ok: false,
+			motif: 'trop-long',
+		})
 	})
 })

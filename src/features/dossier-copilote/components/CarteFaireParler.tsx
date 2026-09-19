@@ -110,7 +110,7 @@ export function CarteFaireParler({
 }: CarteFaireParlerProps): JSX.Element {
 	const { copilote, dossiers } = useBrain()
 	const demande = useDemandeCopilote<CibleRepliques, PropositionRepliques>((cible, signal) =>
-		copilote.demander(ROLE, dossier, cible, signal),
+		copilote.demander(dossier, cible, signal),
 	)
 
 	const [personnageIdChoisi, setPersonnageIdChoisi] = useState<string | null>(null)
@@ -167,7 +167,7 @@ export function CarteFaireParler({
 		setContexteGele({ personnageId, dejaEcrites: parlerLive })
 		setDecisions({})
 		setRefusEcriture(null)
-		demande.lancer({ personnageId })
+		demande.lancer({ role: ROLE, personnageId })
 	}
 
 	// Le focus IMPÉRATIF post-décision (§ 3.5) : la prochaine ligne NON DÉCIDÉE

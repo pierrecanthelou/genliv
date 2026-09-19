@@ -7,17 +7,29 @@ import {
 	CLES_SORTIE,
 	CLES_SORTIE_DETENTEURS,
 	CLES_SORTIE_PLAN,
+	CLES_SORTIE_RELATIONS,
 	CLES_SORTIE_REPLIQUES,
 	GABARIT_SORTIE,
 	PROPOSITIONS_MAX,
+	RELATIONS_PROPOSEES_MAX,
 	REPLIQUES_PROPOSEES_MAX,
 	porteUnIdentifiant,
 	validerDetenteurs,
 	validerIntention,
+	validerRelations,
 	validerRepliques,
 	validerSortie,
 } from './schemaSortie'
-import type { IntentionRendue, PropositionPlan, PropositionRepliques, RepliquesRendues } from './types'
+import type {
+	IntentionRendue,
+	LienResolu,
+	PropositionPlan,
+	PropositionRelations,
+	PropositionRepliques,
+	RapportRendu,
+	RapportsRendus,
+	RepliquesRendues,
+} from './types'
 
 /** Un dossier NEUF — c'est `construireAmorce` qui garantit `lieu.amorce`, et
  *  c'est pour ça que le canari de fuite le prend pour terrain : cet identifiant
@@ -29,6 +41,35 @@ function dossierNeuf(): Dossier {
 function dossierDeReference(): Dossier {
 	const chemin = path.join(__dirname, '..', 'dossier', '__fixtures__', 'dossier-reference.json')
 	return JSON.parse(fs.readFileSync(chemin, 'utf8')) as Dossier
+}
+
+/** LA SOURCE DU MODULE, COMMENTAIRES RETIRÉS — et ce n'est pas un détail : les
+ *  docstrings NOMMENT les portes que le code s'interdit, donc un balayage brut
+ *  rougirait sur la phrase qui dit la règle. */
+function codeSansCommentaires(): string {
+	return fs
+		.readFileSync(path.join(__dirname, 'schemaSortie.ts'), 'utf8')
+		.replace(/\/\*[\s\S]*?\*\//g, '')
+		.replace(/^[ \t]*\/\/.*$/gm, '')
+}
+
+/**
+ * LE CORPS D'UNE FONCTION NOMMÉE, BORNÉ À ELLE — du `export function <nom>(` jusqu'au
+ * prochain `export` de premier niveau.
+ *
+ * ⚠ AMENDÉ À L'IT3c, ET C'EST UN CAS KR-226 ARRIVÉ À ÉCHÉANCE. Les deux balayages de
+ * l'it3b découpaient `code.slice(code.indexOf('export function validerIntention('))`,
+ * c'est-à-dire JUSQU'À LA FIN DU FICHIER : cela ne valait que parce que
+ * `validerIntention` en était la DERNIÈRE fonction. La garde encodait donc une
+ * COÏNCIDENCE — « ce qui suit » — plutôt que l'invariant qu'elle nomme — « le corps de
+ * cette fonction-ci ». Le CINQUIÈME validateur, écrit après elle, l'a fait rougir SANS
+ * AUCUN DÉFAUT : il emploie légitimement `Array.isArray` et une borne `.length >`.
+ * Mesuré au moment de l'écrire : 2 tests rouges sur 65, tous deux sur ce découpage.
+ */
+function corpsDe(code: string, nom: string): string {
+	const debut = code.indexOf(`export function ${nom}(`)
+	const suite = code.indexOf('\nexport ', debut + 1)
+	return suite === -1 ? code.slice(debut) : code.slice(debut, suite)
 }
 
 /** LES DEUX CANARIS, épinglés LITTÉRALEMENT — ce sont eux qui ont levé le veto de
@@ -824,13 +865,11 @@ describe('validerIntention — les six predicats de forme du quatrieme role', ()
 		// `Array.isArray(x) ? x[0] : x`. Le balayage ci-dessous est la garde STATIQUE
 		// qui l'accompagne — les deux mesurent des choses différentes, l'une le
 		// COMPORTEMENT, l'autre l'ABSENCE DE LA PORTE.
-		const source = fs.readFileSync(path.join(__dirname, 'schemaSortie.ts'), 'utf8')
-		// LES COMMENTAIRES SONT RETIRÉS D'ABORD, et ce n'est pas un détail : le corps
-		// NOMME les portes qu'il s'interdit, donc un balayage brut rougirait sur la
-		// phrase qui dit la règle. Précédent mesuré dans ce même fichier, sur le
-		// balayage de `PARLER_REPLIQUES`.
-		const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '')
-		const corps = code.slice(code.indexOf('export function validerIntention('))
+		// LES COMMENTAIRES SONT RETIRÉS D'ABORD, et le corps est BORNÉ À SA FONCTION —
+		// voir `corpsDe`, amendé à l'it3c parce que le découpage « jusqu'à la fin du
+		// fichier » encodait une coïncidence (KR-226).
+		const code = codeSansCommentaires()
+		const corps = corpsDe(code, 'validerIntention')
 
 		// LES TROIS PORTES, nommées une par une plutôt qu'un balayage vague. `[0]` NU
 		// serait un faux positif MESURÉ : `CLES_SORTIE_PLAN[0]` indexe la LISTE DE CLÉS,
@@ -844,6 +883,9 @@ describe('validerIntention — les six predicats de forme du quatrieme role', ()
 		// pour rien (KR-235).
 		expect(corps).toContain('export function validerIntention(')
 		expect(code.slice(0, code.indexOf('export function validerIntention('))).toContain('Array.isArray')
+		// … ET LE CORPS S'ARRÊTE BIEN À SA FONCTION : sans cette ligne, le découpage
+		// pourrait de nouveau courir jusqu'à la fin du fichier sans que rien ne le dise.
+		expect(corps).not.toContain('export function validerRelations(')
 	})
 
 	it('4 — une chaine vide apres trim est refusee, motif vide', () => {
@@ -927,16 +969,521 @@ describe('validerIntention — les six predicats de forme du quatrieme role', ()
 		// ajouterait `ETAPES_PROPOSEES_MAX` « par symétrie » avec les deux autres rôles
 		// rendrait « deux » représentable, puis l'interdirait par une constante — c'est
 		// le choix que le comité a écarté, et rien d'autre ne le constaterait.
-		const source = fs.readFileSync(path.join(__dirname, 'schemaSortie.ts'), 'utf8')
-		const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '')
+		const code = codeSansCommentaires()
 
 		expect(code).not.toContain('ETAPES_PROPOSEES_MAX')
 		expect(code).not.toContain('INTENTIONS_PROPOSEES_MAX')
-		const corps = code.slice(code.indexOf('export function validerIntention('))
+		const corps = corpsDe(code, 'validerIntention')
 		expect(corps).not.toContain('.length >')
+		// … et le découpage s'arrête bien à cette fonction : `validerRelations`, écrite
+		// après elle, porte LÉGITIMEMENT une borne de liste (KR-226).
+		expect(corps).not.toContain('export function validerRelations(')
+		expect(corpsDe(code, 'validerRelations')).toContain('.length >')
 		// Discriminants : le balayage porte sur du code réel, et les DEUX autres bornes,
 		// elles, y sont bien — sans eux, un fichier vidé rendrait tout vert (KR-235).
 		expect(code).toContain('export const CLES_SORTIE_PLAN')
+		expect(code).toContain('export const REPLIQUES_PROPOSEES_MAX = 3')
+		expect(code).toContain('export const PROPOSITIONS_MAX = 3')
+	})
+})
+
+// ══ LE CINQUIÈME RÔLE — `personnage-relations` ═══════════════════════════════
+
+describe('types — zero cle commune reseau / resolu, cinquieme role, AUX DEUX NIVEAUX', () => {
+	it('RapportsRendus et PropositionRelations n ont aucune cle en commun — niveau LISTE', () => {
+		// KR-231, MOITIÉ 1, PREMIER NIVEAU — constatée en VALEUR sur deux témoins
+		// minimaux ANNOTÉS : une `interface` n'existe plus au runtime.
+		const rendus: RapportsRendus = { rapports: [{ envers: 'P1', nature: 'Il lui doit une dette.' }] }
+		const resolue: PropositionRelations = {
+			personnageId: 'pnj.un-personnage',
+			ajouts: [{ cibleId: 'pnj.un-autre', lien: 'Il lui doit une dette.' }],
+		}
+
+		expect(Object.keys(rendus).filter((cle) => Object.keys(resolue).includes(cle))).toEqual([])
+		// Discriminant : les deux portent BIEN des clés (KR-199).
+		expect(Object.keys(rendus).length).toBeGreaterThan(0)
+		expect(Object.keys(resolue).length).toBeGreaterThan(0)
+	})
+
+	it('RapportRendu et LienResolu n ont aucune cle en commun — niveau ELEMENT', () => {
+		// KR-231 AU SECOND NIVEAU, et c'est NEUF : les quatre rôles précédents portaient
+		// des listes de SCALAIRES, donc leur frontière n'avait qu'un étage. Un rôle mixte
+		// en a DEUX, et le second est le plus facile à oublier.
+		const rendu: RapportRendu = { envers: 'P1', nature: 'Il lui doit une dette.' }
+		const resolu: LienResolu = { cibleId: 'pnj.un-autre', lien: 'Il lui doit une dette.' }
+
+		expect(Object.keys(rendu).filter((cle) => Object.keys(resolu).includes(cle))).toEqual([])
+		expect(Object.keys(rendu).length).toBeGreaterThan(0)
+		expect(Object.keys(resolu).length).toBeGreaterThan(0)
+		// ⚠ ET LA MÊME CHAÎNE PORTE DEUX NOMS, délibérément : `nature` enseigne au modèle,
+		// `lien` nomme la destination dans le document. C'est ce que le service
+		// re-résout, et ce que personne ne doit « harmoniser ».
+		expect(resolu.lien).toBe(rendu.nature)
+	})
+
+	it('l affectation croisee ne compile pas, AUX DEUX NIVEAUX', () => {
+		// KR-231, MOITIÉ 2, ET C'EST LE TEST RÉEL : « zéro clé commune » n'est une
+		// GARANTIE que si le compilateur refuse de passer l'une pour l'autre.
+		// @ts-expect-error — la forme RÉSEAU affectée à la forme RE-RÉSOLUE (liste).
+		const versResolue: PropositionRelations = { rapports: [{ envers: 'P1', nature: 'Une nature.' }] }
+		// @ts-expect-error — la forme RE-RÉSOLUE affectée à la forme RÉSEAU (liste).
+		const versRendus: RapportsRendus = { personnageId: 'pnj.x', ajouts: [] }
+		// @ts-expect-error — l'ÉLÉMENT réseau affecté à l'ÉLÉMENT re-résolu.
+		const elementVersResolu: LienResolu = { envers: 'P1', nature: 'Une nature.' }
+		// @ts-expect-error — l'ÉLÉMENT re-résolu affecté à l'ÉLÉMENT réseau.
+		const elementVersRendu: RapportRendu = { cibleId: 'pnj.x', lien: 'Une nature.' }
+
+		// Discriminant : les affectations BIEN APPARIÉES compilent, elles. Sans cette
+		// moitié, les `@ts-expect-error` seraient satisfaits par n'importe quelle erreur
+		// de type, y compris « ce type n'existe pas ».
+		const bonsRendus: RapportsRendus = { rapports: [{ envers: 'P1', nature: 'Une nature.' }] }
+		const bonneResolue: PropositionRelations = { personnageId: 'pnj.x', ajouts: [] }
+
+		expect([versResolue, versRendus, elementVersResolu, elementVersRendu, bonsRendus, bonneResolue]).toHaveLength(6)
+	})
+
+	it('LienResolu ne porte NI intensite NI secret — la symetrie EST l arbitrage', () => {
+		// § 2 du plan : `intensite` est ÉCRITE PARCE QUE REQUISE (le code la pose,
+		// `INTENSITE_INITIALE`), `secret` est OMIS PARCE QU'OPTIONNEL (KR-221 — on ne sème
+		// pas un optionnel que l'auteur n'a pas posé). Aucun des deux ne traverse ce
+		// contrat, et pour DEUX raisons différentes.
+		const resolu: LienResolu = { cibleId: 'pnj.x', lien: 'Une nature.' }
+
+		expect(Object.keys(resolu).sort()).toEqual(['cibleId', 'lien'])
+		expect(Object.values(resolu).filter((valeur) => typeof valeur !== 'string')).toEqual([])
+		// @ts-expect-error — poser `intensite` sur la forme re-résolue NE COMPILE PAS.
+		const avecIntensite: LienResolu = { cibleId: 'pnj.x', lien: 'Une nature.', intensite: 0 }
+		// @ts-expect-error — poser `secret` non plus.
+		const avecSecret: LienResolu = { cibleId: 'pnj.x', lien: 'Une nature.', secret: true }
+		expect([avecIntensite.cibleId, avecSecret.cibleId]).toEqual(['pnj.x', 'pnj.x'])
+	})
+})
+
+describe('validerRelations — les DOUZE predicats de forme du cinquieme role', () => {
+	const dossier = dossierDeReference()
+	const CLE_R = CLES_SORTIE_RELATIONS[0]
+	/** La table des rangs telle que l'assembleur la rend, réduite à ses CLÉS : le
+	 *  validateur ne connaît que l'appartenance, jamais les identifiants. */
+	const RANGS: ReadonlySet<string> = new Set(['P1', 'P2', 'P3', 'P4'])
+	/** Deux natures parfaitement saines : ni identifiant, ni marqueur, ni chiffre. */
+	const SAINE = 'Il lui doit une dette ancienne, et il evite de croiser son regard depuis.'
+	const SAINE_2 = 'Elle le tient pour un bavard, et ne lui confie jamais rien qui compte.'
+	const rapport = (envers: string, nature: string): Record<string, unknown> => ({ envers, nature })
+	const sortie = (rapports: unknown): Record<string, unknown> => ({ [CLE_R]: rapports })
+
+	it('1 — ce qui n est pas un objet JSON est refuse, motif schema', () => {
+		for (const brut of [null, undefined, [], [rapport('P1', SAINE)], 'P1', 42, true]) {
+			expect({ brut, ...validerRelations(brut, RANGS, dossier) }).toEqual({ brut, ok: false, motif: 'schema' })
+		}
+	})
+
+	it('2 — l ensemble des cles doit valoir exactement CLES_SORTIE_RELATIONS', () => {
+		// Une clé MANQUANTE, une clé RENOMMÉE (la panne KR-236 vue du validateur), une
+		// clé SURNUMÉRAIRE — un REFUS, jamais un champ ignoré.
+		// ⚠ `liens` est PRÉCISÉMENT le nom que le veto a écarté du fil : s'il revenait,
+		// il serait refusé ici.
+		expect(validerRelations({}, RANGS, dossier)).toEqual({ ok: false, motif: 'schema' })
+		expect(validerRelations({ liens: [rapport('P1', SAINE)] }, RANGS, dossier)).toEqual({ ok: false, motif: 'schema' })
+		expect(validerRelations({ [CLE_R]: [rapport('P1', SAINE)], personnageId: 'pnj.x' }, RANGS, dossier)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+		// Une clé HÉRITÉE ne compte pas : `Object.keys` ne voit que le propre (KR-175).
+		expect(validerRelations(Object.create({ [CLE_R]: [rapport('P1', SAINE)] }), RANGS, dossier)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+	})
+
+	it('3 — une valeur qui n est pas un tableau est refusee, motif schema', () => {
+		for (const valeur of [SAINE, 42, null, rapport('P1', SAINE), true]) {
+			expect({ valeur, ...validerRelations(sortie(valeur), RANGS, dossier) }).toEqual({
+				valeur,
+				ok: false,
+				motif: 'schema',
+			})
+		}
+	})
+
+	it('4 — un element qui n est pas un objet a EXACTEMENT deux cles est refuse, motif schema', () => {
+		// LE SECOND NIVEAU DE SCHÉMA, que les quatre rôles précédents n'avaient pas : un
+		// élément nu, un élément à clé manquante, à clé renommée, ou à clé EN TROP.
+		// ⚠ La clé en trop est un REFUS, jamais un champ ignoré : c'est ce qui interdit
+		// qu'un `intensite` rendu par le modèle soit avalé en silence.
+		const fautifs: unknown[] = [
+			SAINE,
+			42,
+			null,
+			['P1', SAINE],
+			{ envers: 'P1' },
+			{ nature: SAINE },
+			{ vers: 'P1', nature: SAINE },
+			{ envers: 'P1', lien: SAINE },
+			{ envers: 'P1', nature: SAINE, intensite: 2 },
+			{ envers: 'P1', nature: SAINE, secret: true },
+		]
+		for (const element of fautifs) {
+			expect({ element, ...validerRelations(sortie([element]), RANGS, dossier) }).toEqual({
+				element,
+				ok: false,
+				motif: 'schema',
+			})
+		}
+		// Discriminant : le MÊME élément sans la clé surnuméraire est accepté — sans cette
+		// ligne, le refus pourrait venir d'ailleurs (KR-199).
+		expect(validerRelations(sortie([rapport('P1', SAINE)]), RANGS, dossier)).toEqual({
+			ok: true,
+			sortie: { rapports: [{ envers: 'P1', nature: SAINE }] },
+		})
+	})
+
+	it('5 — une valeur d element non textuelle est refusee, et JAMAIS convertie', () => {
+		// UN TABLEAU MEURT ICI, et JAMAIS `[0]`, JAMAIS `String(…)` : repêcher ou coercer
+		// ferait ratifier à l'auteur une valeur que LE CODE aurait choisie (KR-230).
+		const fautifs: Array<Record<string, unknown>> = [
+			{ envers: 'P1', nature: 42 },
+			{ envers: 'P1', nature: null },
+			{ envers: 'P1', nature: [SAINE] },
+			{ envers: 'P1', nature: { texte: SAINE } },
+			{ envers: 1, nature: SAINE },
+			{ envers: ['P1'], nature: SAINE },
+			{ envers: null, nature: SAINE },
+		]
+		for (const element of fautifs) {
+			expect({ element, ...validerRelations(sortie([element]), RANGS, dossier) }).toEqual({
+				element,
+				ok: false,
+				motif: 'schema',
+			})
+		}
+		// LES DEUX MUTANTS SONT ÉCRITS, ET VUS FAUX : ils fabriquent une valeur là où il
+		// n'y en a pas.
+		expect(String({ texte: SAINE })).toBe('[object Object]')
+		expect([SAINE, SAINE_2][0]).toBe(SAINE)
+		// … et le balayage de SOURCE ferme la porte pour de bon : le corps de ce
+		// validateur n'emploie NI `String(`, NI un repêchage d'indice de valeur.
+		const corps = corpsDe(codeSansCommentaires(), 'validerRelations')
+		expect(corps).not.toContain('String(')
+		expect(corps).not.toContain('rendus[0]')
+		expect(corps).not.toContain('elements[0]')
+		expect(corps).not.toContain('rapports[0]')
+		// Discriminant : le balayage porte bien sur du code réel, et il s'arrête à cette
+		// fonction (KR-226).
+		expect(corps).toContain('export function validerRelations(')
+		expect(corps).not.toContain('export function validerIntention(')
+	})
+
+	it('6 — quatre rapports refuses, trois acceptes : la borne par COMPORTEMENT', () => {
+		// REFUS, JAMAIS TRONCATURE (KR-230) : la sortie ne ressort NI coupée à trois, NI
+		// partiellement.
+		const quatre = [
+			rapport('P1', SAINE),
+			rapport('P2', SAINE_2),
+			rapport('P3', 'Il le croit mort depuis des annees.'),
+			rapport('P4', 'Elle lui a promis le silence, et le regrette.'),
+		]
+		expect(quatre.length).toBeGreaterThan(RELATIONS_PROPOSEES_MAX)
+
+		const refus = validerRelations(sortie(quatre), RANGS, dossier)
+
+		expect(refus).toEqual({ ok: false, motif: 'schema' })
+		expect(refus).not.toHaveProperty('sortie')
+		// Et EXACTEMENT `RELATIONS_PROPOSEES_MAX` passe : sans ce bord, le prédicat
+		// pourrait porter un `>=` pour un `>` sans qu'un test rougisse.
+		const trois = quatre.slice(0, RELATIONS_PROPOSEES_MAX)
+		expect(validerRelations(sortie(trois), RANGS, dossier).ok).toBe(true)
+	})
+
+	it('7 — la liste vide est un REFUS vide, JAMAIS un succes — la regle du cas MIXTE', () => {
+		// CRITÈRE 4, PREMIÈRE ENTRÉE : `vide`, ET NON `schema`. C'est la RÈGLE DE
+		// TRANCHAGE DU CAS MIXTE appliquée : l'acceptation d'un élément écrit au dossier
+		// une PROSE RÉDIGÉE PAR LE MODÈLE (`Relation.lien`), donc RÉDACTION, donc la
+		// non-réponse est un refus.
+		// ⚠ LE CRITÈRE N'EST PAS L'AUDIENCE `'ia'` : `savoirs[].certitude` EST `'ia'` et
+		// son rôle — détenteurs — est une DÉSIGNATION, où la liste vide reste un SUCCÈS.
+		// Les DEUX moitiés sont ici, sinon « amendé » serait indistinguable de
+		// « remplacé ».
+		expect(validerRelations(sortie([]), RANGS, dossier)).toEqual({ ok: false, motif: 'vide' })
+		expect(validerDetenteurs({ detenteurs: [] }, new Set(['P1']))).toEqual({ ok: true, detenteurs: [] })
+	})
+
+	it('8 — une nature blanche APRES une saine, motif vide, index >= 1', () => {
+		// L'INDEX EST LE POINT : un scanner qui ne regarderait que `[0]` trouverait la
+		// première nature parfaitement valide et accepterait le lot.
+		const lot = [rapport('P1', SAINE), rapport('P2', '   ')]
+		expect(lot.findIndex((element) => String(element.nature).trim() === '')).toBeGreaterThan(0)
+
+		expect(validerRelations(sortie(lot), RANGS, dossier)).toEqual({ ok: false, motif: 'vide' })
+		// Les trois formes de blanc, toutes en position non nulle.
+		for (const blanc of ['', '   ', '\n\t ']) {
+			expect({
+				blanc,
+				...validerRelations(sortie([rapport('P1', SAINE), rapport('P2', blanc)]), RANGS, dossier),
+			}).toEqual({ blanc, ok: false, motif: 'vide' })
+		}
+	})
+
+	it('7 et 8 sont DEUX predicats distincts, chacun rougissant seul', () => {
+		// La preuve est une NEUTRALISATION : on écrit les deux mutants, et chacun laisse
+		// passer EXACTEMENT UNE des deux entrées — donc aucun des deux n'est redondant.
+		const listeVide: Array<Record<string, unknown>> = []
+		const blancTardif = [rapport('P1', SAINE), rapport('P2', '   ')]
+
+		// MUTANT A — le prédicat (7) retiré. La liste vide passe, le blanc tardif meurt.
+		const sans7 = (rapports: Array<Record<string, unknown>>): 'passe' | 'vide' =>
+			rapports.some((element) => String(element.nature).trim().length === 0) ? 'vide' : 'passe'
+		expect(sans7(listeVide)).toBe('passe')
+		expect(sans7(blancTardif)).toBe('vide')
+
+		// MUTANT B — le prédicat (8) retiré. Le blanc tardif PASSE, la liste vide meurt.
+		const sans8 = (rapports: Array<Record<string, unknown>>): 'passe' | 'vide' =>
+			rapports.length === 0 ? 'vide' : 'passe'
+		expect(sans8(blancTardif)).toBe('passe')
+		expect(sans8(listeVide)).toBe('vide')
+
+		// Et la VRAIE refuse les deux.
+		expect(validerRelations(sortie(listeVide), RANGS, dossier)).toEqual({ ok: false, motif: 'vide' })
+		expect(validerRelations(sortie(blancTardif), RANGS, dossier)).toEqual({ ok: false, motif: 'vide' })
+	})
+
+	it('9 — deux rapports vers le MEME envers sont refuses, motif schema', () => {
+		// CRITÈRE 4, TROISIÈME ENTRÉE : deux fois le même rang écrirait DEUX relations
+		// vers le même personnage. NON ADJACENT : un garde qui ne comparerait qu'aux
+		// voisins passerait.
+		expect(validerRelations(sortie([rapport('P1', SAINE), rapport('P1', SAINE_2)]), RANGS, dossier)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+		expect(
+			validerRelations(
+				sortie([rapport('P1', SAINE), rapport('P2', SAINE_2), rapport('P1', 'Une troisieme.')]),
+				RANGS,
+				dossier,
+			),
+		).toEqual({ ok: false, motif: 'schema' })
+	})
+
+	it('9 bis — DEUX FRERES PORTENT LEGITIMEMENT LE MEME LIEN : natures identiques ACCEPTEES', () => {
+		// ⚠ LE SEUL PRÉDICAT D'UNICITÉ RECEVABLE PORTE SUR `envers`, JAMAIS SUR `nature`
+		// (§ 8, n° 45). Écrit pour que personne ne « symétrise » avec les prédicats de
+		// doublon des rôles détenteurs et répliques, qui portent sur la seule valeur
+		// qu'un élément ait. Ici, deux frères sont deux relations DIFFÉRENTES.
+		const memeNature = [rapport('P1', SAINE), rapport('P2', SAINE)]
+
+		expect(validerRelations(sortie(memeNature), RANGS, dossier)).toEqual({
+			ok: true,
+			sortie: {
+				rapports: [
+					{ envers: 'P1', nature: SAINE },
+					{ envers: 'P2', nature: SAINE },
+				],
+			},
+		})
+		// LE MUTANT « natures distinctes », ÉCRIT ET VU FAUX sur ce lot PARFAITEMENT
+		// LÉGITIME : il refuserait une réponse juste.
+		const mutantNaturesDistinctes = (rapports: Array<Record<string, unknown>>): boolean =>
+			new Set(rapports.map((element) => element.nature)).size !== rapports.length
+		expect(mutantNaturesDistinctes(memeNature)).toBe(true)
+		// … et le balayage de SOURCE : le corps n'a qu'UNE garde d'unicité, et elle porte
+		// sur les jetons.
+		const corps = corpsDe(codeSansCommentaires(), 'validerRelations')
+		expect(corps).toContain('new Set(designes)')
+		expect(corps.match(/new Set\(/g) ?? []).toHaveLength(1)
+	})
+
+	it('10 — le marqueur a ecrire est refuse, constante IMPORTEE', () => {
+		// KR-223 : la constante est IMPORTÉE, jamais recopiée — le test ne peut pas
+		// écrire le glyphe lui-même.
+		expect(validerRelations(sortie([rapport('P1', `${MARQUEUR_A_ECRIRE} a rediger`)]), RANGS, dossier)).toEqual({
+			ok: false,
+			motif: 'marqueur',
+		})
+		// EN POSITION NON NULLE, et `includes` plutôt que `startsWith`.
+		expect(
+			validerRelations(
+				sortie([rapport('P1', SAINE), rapport('P2', `Une phrase, puis ${MARQUEUR_A_ECRIRE} au milieu.`)]),
+				RANGS,
+				dossier,
+			),
+		).toEqual({ ok: false, motif: 'marqueur' })
+	})
+
+	it('11 — un identifiant en DERNIERE position : le lot ENTIER est refuse', () => {
+		// L'identifiant est au DERNIER rang, et les précédentes sont saines : c'est ce qui
+		// rend le mutant « ne scanner que `[0]` » observable.
+		const neuf = dossierNeuf()
+		const lot = [rapport('P1', SAINE), rapport('P2', SAINE_2), rapport('P3', CANARI_FUITE)]
+
+		const refus = validerRelations(sortie(lot), RANGS, neuf)
+
+		expect(refus).toEqual({ ok: false, motif: 'identifiant' })
+		// RIEN de la sortie fautive ne survit : ni la liste, ni les éléments sains.
+		expect(refus).not.toHaveProperty('sortie')
+		expect(JSON.stringify(refus)).not.toContain(SAINE)
+		// CANARI BÉNIN en position 1 : une prose française saine PASSE — sans lui, un
+		// scanner de forme seule passerait pour un garde (KR-235).
+		expect(validerRelations(sortie([rapport('P1', SAINE), rapport('P2', CANARI_BENIN)]), RANGS, neuf).ok).toBe(true)
+	})
+
+	it('11 bis — mutant « ne scanner que l element 0 », et mutant « join avant le scan »', () => {
+		// LE POUVOIR SÉPARATEUR, ÉCRIT ET NON DÉDUIT (BUG-087). Les implémentations
+		// FAUTIVES sont ici, à côté de la vraie, et chacune est prouvée fautive sur un lot
+		// précis.
+		const neuf = dossierNeuf()
+
+		// MUTANT A — `[0]` : la fuite en dernière position s'échappe.
+		const lot = [rapport('P1', SAINE), rapport('P2', SAINE_2), rapport('P3', CANARI_FUITE)]
+		const mutantIndexZero = (rapports: Array<Record<string, unknown>>): boolean =>
+			porteUnIdentifiant(String(rapports[0].nature), neuf)
+		expect(mutantIndexZero(lot)).toBe(false)
+		expect(validerRelations(sortie(lot), RANGS, neuf)).toEqual({ ok: false, motif: 'identifiant' })
+
+		// MUTANT B — `join` avant le scan : un FAUX POSITIF FABRIQUÉ à la frontière. Deux
+		// fragments logés dans deux `nature` DISTINCTES ne forment pas un identifiant —
+		// ils deviendront deux relations SÉPARÉES.
+		const avant = 'Rien ne bouge, pas meme le lieu.'
+		const apres = 'amorce des ennuis, dit-il en partant.'
+		const sain = [rapport('P1', avant), rapport('P2', apres)]
+		expect(porteUnIdentifiant(avant, neuf)).toBe(false)
+		expect(porteUnIdentifiant(apres, neuf)).toBe(false)
+		const mutantJoin = (rapports: Array<Record<string, unknown>>): boolean =>
+			porteUnIdentifiant(rapports.map((element) => String(element.nature)).join(''), neuf)
+		expect(mutantJoin(sain)).toBe(true)
+		// … et la vraie, qui scanne PAR ÉLÉMENT, accepte ce lot sain.
+		expect(validerRelations(sortie(sain), RANGS, neuf).ok).toBe(true)
+		// … et le balayage de SOURCE : aucun `join` dans ce corps.
+		expect(corpsDe(codeSansCommentaires(), 'validerRelations')).not.toContain('.join(')
+	})
+
+	it('11 ter — `envers` n est JAMAIS passe au scanner d identifiants', () => {
+		// ⚠ VETO DES DEUX POSTES À EFFORT ÉLEVÉ (§ 8, n° 21), écrit pour que personne ne
+		// « symétrise ». Le jeton est L'UNE DE NOS PROPRES CHAÎNES, et son appartenance
+		// est constatée par le prédicat (12) : l'y passer serait DU CODE MORT PRÉSENTÉ
+		// COMME DE LA COUVERTURE (famille BUG-084, KR-235).
+		const neuf = dossierNeuf()
+		// Un rang qui SERAIT un identifiant du dossier n'existe pas — c'est nous qui
+		// frappons les rangs —, donc la garde se constate à la SOURCE : le scanner n'est
+		// appelé que sur `nature`.
+		const corps = corpsDe(codeSansCommentaires(), 'validerRelations')
+		const appels = corps.match(/porteUnIdentifiant\([^)]*\)/g) ?? []
+
+		expect(appels).toHaveLength(1)
+		expect(appels[0]).toContain('nature')
+		expect(appels[0]).not.toContain('envers')
+		// Le marqueur d'amorce non plus n'est cherché que dans la prose : c'est un
+		// marqueur de PROSE, il n'a pas de sujet sur un jeton.
+		const marqueurs = corps.match(/\.includes\(MARQUEUR_A_ECRIRE\)/g) ?? []
+		expect(marqueurs).toHaveLength(1)
+		// Discriminant : le scanner EXISTE bien et il MORD — sans cette ligne, « un seul
+		// appel » serait vrai sur un corps qui n'en ferait aucun (KR-199).
+		expect(porteUnIdentifiant(CANARI_FUITE, neuf)).toBe(true)
+		expect(corps).toContain('porteUnIdentifiant(')
+	})
+
+	it('12 — un rang de forme legale hors table reelle : rang-inconnu, JAMAIS schema', () => {
+		// CRITÈRE 4, DEUXIÈME ENTRÉE. `FICHE` est l'EN-TÊTE DU PORTEUR : le modèle qui le
+		// désignerait aurait la forme mais pas l'appartenance — et c'est le motif qui doit
+		// sortir, pas `schema`.
+		expect(validerRelations(sortie([rapport('FICHE', SAINE)]), RANGS, dossier)).toEqual({
+			ok: false,
+			motif: 'rang-inconnu',
+		})
+		// P9 a la FORME d'un rang et n'est PAS dans la table : la garantie d'un rang est
+		// son APPARTENANCE, jamais sa silhouette (KR-231/KR-235).
+		expect(validerRelations(sortie([rapport('P9', SAINE)]), RANGS, dossier)).toEqual({
+			ok: false,
+			motif: 'rang-inconnu',
+		})
+		// LE LOT ENTIER tombe sur un seul jeton fautif — et le REPÊCHAGE PARTIEL, écrit
+		// ici, rendrait le rapport sain : c'est ce que la vraie refuse.
+		const lot = [rapport('P1', SAINE), rapport('P9', SAINE_2)]
+		const mutantRepechage = (rapports: Array<Record<string, unknown>>): Array<Record<string, unknown>> =>
+			rapports.filter((element) => RANGS.has(String(element.envers)))
+		expect(mutantRepechage(lot)).toEqual([rapport('P1', SAINE)])
+		const refus = validerRelations(sortie(lot), RANGS, dossier)
+		expect(refus).toEqual({ ok: false, motif: 'rang-inconnu' })
+		// ⚠ ACCEPTER `envers` EN JETANT `nature` — ou l'inverse — FERAIT RATIFIER UNE
+		// RELATION À MOITIÉ INVENTÉE PAR LE CODE. Rien de la sortie fautive ne survit.
+		expect(refus).not.toHaveProperty('sortie')
+		expect(JSON.stringify(refus)).not.toContain(SAINE)
+	})
+
+	it('AUCUNE conversion numerique : P2 n est pas 2', () => {
+		// `Number('P2')` vaut NaN. Un validateur qui convertirait refuserait TOUS les
+		// jetons légitimes, et un validateur qui indexerait arithmétiquement rouvrirait la
+		// classe entière des décalages base-0 / base-1.
+		expect(Number('P2')).toBeNaN()
+		expect(validerRelations(sortie([rapport('P2', SAINE)]), RANGS, dossier).ok).toBe(true)
+		// Le balayage de SOURCE du fichier entier reste vert (`Number(` / `parseInt`), il
+		// est porté par la suite du second rôle.
+		expect(corpsDe(codeSansCommentaires(), 'validerRelations')).not.toContain('Number(')
+	})
+
+	it('les CINQ motifs sont ATTEIGNABLES et DISCRIMINES — la preuve d aucun predicat mort', () => {
+		// ⚠ PREMIER VALIDATEUR DONT LE TYPE DE RETOUR NOMME `MotifIllisible` EN ENTIER, et
+		// c'est une PREUVE, pas une affirmation : chacun des cinq est atteint par SA faute.
+		const neuf = dossierNeuf()
+		const motifs = [
+			validerRelations(42, RANGS, dossier),
+			validerRelations(sortie([]), RANGS, dossier),
+			validerRelations(sortie([rapport('P1', `${MARQUEUR_A_ECRIRE} a rediger`)]), RANGS, dossier),
+			validerRelations(sortie([rapport('P1', CANARI_FUITE)]), RANGS, neuf),
+			validerRelations(sortie([rapport('P9', SAINE)]), RANGS, dossier),
+		].map((issue) => (issue.ok ? 'ACCEPTÉ' : issue.motif))
+
+		expect(motifs).toEqual(['schema', 'vide', 'marqueur', 'identifiant', 'rang-inconnu'])
+		expect(new Set(motifs).size).toBe(5)
+	})
+
+	it('le nominal rend ok avec la sortie, et rien d autre', () => {
+		const rapports = [rapport('P1', SAINE), rapport('P3', SAINE_2)]
+
+		expect(validerRelations(sortie(rapports), RANGS, dossier)).toEqual({
+			ok: true,
+			sortie: {
+				rapports: [
+					{ envers: 'P1', nature: SAINE },
+					{ envers: 'P3', nature: SAINE_2 },
+				],
+			},
+		})
+	})
+
+	it('le gabarit du cinquieme role EST son schema, AUX DEUX NIVEAUX', () => {
+		const rendu = JSON.parse(GABARIT_SORTIE['personnage-relations']) as Record<string, unknown>
+
+		// NIVEAU 1 — la clé de premier niveau.
+		expect(Object.keys(rendu)).toEqual([...CLES_SORTIE_RELATIONS])
+		// NIVEAU 2 — la valeur est une LISTE d'OBJETS à deux clés, jamais de scalaires :
+		// c'est ce qui distingue ce rôle des quatre autres, à la lecture de l'invite comme
+		// du validateur.
+		const elements = rendu[CLES_SORTIE_RELATIONS[0]] as Array<Record<string, unknown>>
+		expect(Array.isArray(elements)).toBe(true)
+		expect(elements.length).toBeGreaterThan(1)
+		for (const element of elements) expect(Object.keys(element).sort()).toEqual(['envers', 'nature'])
+		// ⚠ LE GABARIT MONTRE `P1` PUIS `P3` : les rangs sont des ADRESSES, jamais un
+		// ordre à parcourir. Un gabarit `P1`,`P2` inviterait le modèle à répondre « les
+		// premiers de la liste » plutôt que « ceux-là ».
+		expect(elements.map((element) => element.envers)).toEqual(['P1', 'P3'])
+		// Et ses clés sont DISJOINTES de celles des quatre autres schémas — on ne peut pas
+		// passer une sortie pour une autre.
+		for (const autres of [CLES_SORTIE, CLES_SORTIE_DETENTEURS, CLES_SORTIE_REPLIQUES, CLES_SORTIE_PLAN]) {
+			expect(CLES_SORTIE_RELATIONS.filter((cle) => (autres as readonly string[]).includes(cle))).toEqual([])
+		}
+	})
+
+	it('RELATIONS_PROPOSEES_MAX n est PARTAGEE avec aucune autre borne : balayage de source', () => {
+		// § 8, n° 26 : même valeur que `PROPOSITIONS_MAX` et `REPLIQUES_PROPOSEES_MAX`
+		// aujourd'hui, AUCUNE raison commune d'évoluer. Le corps de ce validateur ne lit
+		// QUE la sienne — sans quoi une borne changée en déplacerait trois.
+		const corps = corpsDe(codeSansCommentaires(), 'validerRelations')
+
+		expect(corps).toContain('RELATIONS_PROPOSEES_MAX')
+		expect(corps).not.toContain('PROPOSITIONS_MAX)')
+		expect(corps).not.toContain('REPLIQUES_PROPOSEES_MAX')
+		// … et les trois constantes existent bel et bien, SÉPARÉMENT.
+		const code = codeSansCommentaires()
+		expect(code).toContain('export const RELATIONS_PROPOSEES_MAX = 3')
 		expect(code).toContain('export const REPLIQUES_PROPOSEES_MAX = 3')
 		expect(code).toContain('export const PROPOSITIONS_MAX = 3')
 	})

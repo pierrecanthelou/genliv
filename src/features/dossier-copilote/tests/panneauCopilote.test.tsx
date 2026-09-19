@@ -92,12 +92,13 @@ describe('PanneauCopilote - trois Card', () => {
 
 		expect(screen.getByRole('region', { name: 'Compléter une fiche' })).toBeInTheDocument()
 		expect(screen.getByRole('region', { name: 'Tisser les indices' })).toBeInTheDocument()
+		expect(screen.getByRole('region', { name: 'Compléter les relations' })).toBeInTheDocument()
 		expect(screen.getByRole('region', { name: 'Éclater le synopsis' })).toBeInTheDocument()
 		expect(screen.queryByText('Bientôt — itération 2')).toBeNull()
 		expect(screen.getByText('Bientôt — itération 4')).toBeInTheDocument()
-		// DEUX boutons "Lancer" désormais (carte 1, carte 2) ; la carte "Bientôt"
-		// n'en affiche aucun, grisé ou non.
-		expect(screen.getAllByRole('button', { name: 'Lancer' })).toHaveLength(4)
+		// CINQ boutons "Lancer" désormais (cartes 1, 2, 4, 5, 6) ; la carte
+		// "Bientôt" n'en affiche aucun, grisé ou non.
+		expect(screen.getAllByRole('button', { name: 'Lancer' })).toHaveLength(5)
 	})
 })
 

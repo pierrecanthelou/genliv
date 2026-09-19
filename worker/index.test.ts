@@ -688,3 +688,219 @@ describe('POST /ia/personnage-plan — la route du quatrieme role', () => {
 		expect(systeme.toLowerCase()).not.toContain('tour')
 	})
 })
+
+describe('POST /ia/personnage-relations — la route du cinquieme role', () => {
+	const ROLE_5 = 'personnage-relations'
+	const URL_IA_5 = `https://genliv.example.workers.dev/ia/${ROLE_5}`
+
+	/** Le corps du CINQUIÈME rôle n'a PAS de `champ` non plus : LE RÔLE EST LE CHAMP.
+	 *  Et il ne porte AUCUNE intensité — le modèle ne voit jamais le nombre, que le code
+	 *  pose à l'acceptation (`INTENSITE_INITIALE`). */
+	function corps5(octets: number): string {
+		const squelette = JSON.stringify({ role: ROLE_5, contexte: '' })
+		const aRemplir = octets - squelette.length
+		if (aRemplir < 0) throw new Error('taille demandée plus petite que le squelette du corps')
+		return JSON.stringify({ role: ROLE_5, contexte: 'x'.repeat(aRemplir) })
+	}
+
+	function demande5(corps: string, options: { methode?: string } = {}): Request {
+		const methode = options.methode ?? 'POST'
+		return new Request(URL_IA_5, {
+			method: methode,
+			headers: { 'Content-Type': 'application/json', 'X-Sync-Key': CLE },
+			body: methode === 'GET' ? undefined : corps,
+		})
+	}
+
+	it('la route du cinquieme role repond aux memes branches, toutes en JSON', async () => {
+		// LA LISTE DE CONTRÔLE KR-233, rejouée entière sur la route neuve : POST seul,
+		// 404 sur rôle inconnu, 503 sur amont non configuré, plafond de corps EN OCTETS
+		// avec 413, corps illisible — et TOUT en JSON.
+
+		// 1 — POST SEUL.
+		const surGet = await worker.fetch(demande5('', { methode: 'GET' }), env())
+		expect(surGet.status).toBe(405)
+		expect(surGet.headers.get('Content-Type')).toBe('application/json')
+		await expect(surGet.json()).resolves.toEqual({ erreur: 'methode' })
+
+		// 2 — un rôle VOISIN mais absent d'`INVITES` reste inconnu : le cinquième rôle
+		// n'ouvre PAS la route à tout segment de chemin.
+		const inconnu = await worker.fetch(
+			new Request('https://genliv.example.workers.dev/ia/personnage-relation', {
+				method: 'POST',
+				headers: { 'X-Sync-Key': CLE },
+				body: '{}',
+			}),
+			env(),
+		)
+		expect(inconnu.status).toBe(404)
+		await expect(inconnu.json()).resolves.toEqual({ erreur: 'role-inconnu' })
+
+		// 3 — configuration amont incomplète, sur les TROIS secrets.
+		for (const manquant of ['IA_API_KEY', 'IA_BASE_URL', 'IA_MODEL']) {
+			const res = await worker.fetch(demande5(corps5(200)), env({ [manquant]: undefined }))
+			expect(`${manquant} → ${res.status}`).toBe(`${manquant} → 503`)
+			expect(res.headers.get('Content-Type')).toBe('application/json')
+			await expect(res.json()).resolves.toEqual({ erreur: 'non-configure' })
+		}
+
+		// 4 — le plafond, à ±1 OCTET, sur CE rôle-ci. ⚠ C'est le rôle qui SATURE le
+		// plafond depuis l'itération 3c : son pire cas est le plus grand des cinq.
+		fetchAmont.mockResolvedValue(amontRendant('{"rapports": [{"envers": "P1", "nature": "Un lien."}]}'))
+		const juste = await worker.fetch(demande5(corps5(TAILLE_MAX_CORPS_IA)), env())
+		expect(juste.status).toBe(200)
+		const unDeTrop = await worker.fetch(demande5(corps5(TAILLE_MAX_CORPS_IA + 1)), env())
+		expect(unDeTrop.status).toBe(413)
+		expect(unDeTrop.headers.get('Content-Type')).toBe('application/json')
+		await expect(unDeTrop.json()).resolves.toEqual({ erreur: 'trop-grand', limite: TAILLE_MAX_CORPS_IA })
+
+		// 4 bis — la mesure est en OCTETS, jamais en unités de code UTF-16.
+		const rembourrage = '€'.repeat(Math.ceil(TAILLE_MAX_CORPS_IA / 2))
+		const enUtf8 = JSON.stringify({ role: ROLE_5, contexte: rembourrage })
+		expect(enUtf8.length).toBeLessThan(TAILLE_MAX_CORPS_IA)
+		expect(new TextEncoder().encode(enUtf8).length).toBeGreaterThan(TAILLE_MAX_CORPS_IA)
+		expect((await worker.fetch(demande5(enUtf8), env())).status).toBe(413)
+
+		// 5 — corps illisible.
+		const illisible = await worker.fetch(demande5('{ ceci ne parse pas'), env())
+		expect(illisible.status).toBe(400)
+		await expect(illisible.json()).resolves.toEqual({ erreur: 'corps-illisible' })
+
+		// 6 — un amont en échec rend 502, en JSON.
+		fetchAmont.mockReset()
+		fetchAmont.mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({}) } as unknown as Response)
+		const surEchec = await worker.fetch(demande5(corps5(200)), env())
+		expect(surEchec.status).toBe(502)
+		await expect(surEchec.json()).resolves.toEqual({ erreur: 'amont' })
+	})
+
+	it('le nominal rend la sortie du cinquieme role TELLE QUELLE', async () => {
+		// Délibérément NON conforme au schéma du client — QUATRE rapports, dont un au
+		// rang inconnu, un doublon, une `nature` vide, plus une clé en trop DANS
+		// l'élément : le worker ne valide rien et ne répare rien, la validation vit là où
+		// la donnée entre dans le dossier (KR-116). C'est aussi le contre-exemple qui
+		// montre que les DOUZE prédicats ne peuvent PAS venir du worker.
+		const sortieBrute =
+			'{"rapports": [{"envers": "P1", "nature": "Une."}, {"envers": "P1", "nature": ""}, {"envers": "P99", "nature": "Trois.", "intensite": 2}, {"envers": "P4", "nature": "Quatre."}]}'
+		fetchAmont.mockResolvedValue(amontRendant(sortieBrute))
+
+		const res = await worker.fetch(demande5(corps5(300)), env())
+
+		expect(res.status).toBe(200)
+		expect(res.headers.get('Content-Type')).toBe('application/json')
+		await expect(res.text()).resolves.toBe(sortieBrute)
+	})
+
+	it('max_tokens du cinquieme role est LU de l invite, et il ne COINCIDE avec AUCUN autre', async () => {
+		// ⚠ BLOC ÉCRIT À LA MAIN, comme les quatre précédents — MESURÉ : ce fichier
+		// n'a AUCUNE dérivation par rôle du `max_tokens`, chaque route livre le sien.
+		// Le cinquième n'en hérite donc de rien.
+		fetchAmont.mockResolvedValue(amontRendant('{"rapports": [{"envers": "P1", "nature": "Un lien."}]}'))
+
+		await worker.fetch(demande5(corps5(300)), env())
+
+		const [url, init] = fetchAmont.mock.calls[0] as [string, RequestInit]
+		expect(url).toBe('https://amont.invalid/messages')
+		const envoye = JSON.parse(String(init.body)) as { system: string; max_tokens: number }
+		expect(envoye.system).toBe(INVITES[ROLE_5].systeme)
+		expect(envoye.max_tokens).toBe(INVITES[ROLE_5].max_tokens)
+		// ⚠ AUCUNE COÏNCIDENCE — et c'est ce qu'aucune des QUATRE entrées précédentes
+		// n'a eu à écrire : deux d'entre elles doivent DIRE qu'elles coïncident, celle-ci
+		// doit dire qu'elle ne coïncide avec RIEN. Sans cette ligne, un relecteur
+		// chercherait de quelle autre valeur elle a été tirée — et n'en trouverait pas.
+		const autres = Object.keys(INVITES).filter((role) => role !== ROLE_5)
+		expect(autres.filter((role) => INVITES[role].max_tokens === INVITES[ROLE_5].max_tokens)).toEqual([])
+		// Discriminant : la comparaison porte bien sur les QUATRE autres — sans lui, une
+		// liste vide rendrait l'assertion vraie pour rien (KR-199/235).
+		expect(autres).toHaveLength(4)
+	})
+
+	it('le protocole amont reste EPINGLE, et le cinquieme role ne l etend pas', async () => {
+		// L'exigence de la ratification vaut pour CHAQUE rôle ajouté : ni `tool_use`, ni
+		// `response_format`, et la version d'API reste ÉPINGLÉE — pas « la dernière ».
+		fetchAmont.mockResolvedValue(amontRendant('{"rapports": [{"envers": "P1", "nature": "Un lien."}]}'))
+
+		await worker.fetch(demande5(corps5(300)), env())
+
+		const [, init] = fetchAmont.mock.calls[0] as [string, RequestInit]
+		expect((init.headers as Record<string, string>)['anthropic-version']).toBe('2023-06-01')
+		const envoye = JSON.parse(String(init.body)) as Record<string, unknown>
+		expect(Object.keys(envoye).sort()).toEqual(['max_tokens', 'messages', 'model', 'system'])
+	})
+
+	it('l invite du cinquieme role n ecrit AUCUN nom de champ de relations[]', async () => {
+		// LE VETO DE DOMAINE, gardé là où il peut l'être : la clé réseau NOMME LA FORME
+		// (`rapports`, `envers`, `nature`), jamais le champ. Les cinq mots ci-dessous
+		// sont les QUATRE champs de `Relation` plus le nom de la collection — leur
+		// absence est ce qui rend l'écart visible si quelqu'un « aide » le modèle en
+		// nommant le champ, ou pire en lui apprenant l'existence de `secret`.
+		const systeme = INVITES[ROLE_5].systeme.toLowerCase()
+		const interdits = ['intensite', 'intensité', 'secret', 'cible_id', 'relations', 'lien']
+
+		expect(interdits.filter((mot) => systeme.includes(mot))).toEqual([])
+		// Discriminants : la liste balayée n'est pas vide, et chaque mot SERAIT détecté
+		// s'il y était (KR-199/235).
+		expect(interdits.length).toBeGreaterThan(0)
+		expect(interdits.filter((mot) => `${systeme} ${mot}`.includes(mot))).toEqual(interdits)
+		// ⚠ GARDE DÉLIBÉRÉMENT ÉTROIT, ET SA LIMITE EST DÉCLARÉE ICI PLUTÔT QU'ÉLARGIE :
+		// balayer « tour » — que le § « interdit de réciter » nomme pourtant — serait un
+		// FAUX POSITIF MESURÉ, l'invite écrivant légitimement « ce que l'autre éprouve en
+		// reTOUR ». Un scanner non ancré a des faux positifs (KR-235), et une garde qui
+		// apprend à modifier le témoin est pire que pas de garde.
+		expect(systeme).toContain('retour')
+		expect(systeme).toContain('tour')
+	})
+
+	it('l invite du cinquieme role INTERDIT le chiffre et l echelle, SANS interdire la charge', async () => {
+		// LA DÉCISION 7 DU § 4 bis, et c'est le point où une « harmonisation » coûterait
+		// le plus cher : `Relation.lien` REMPLACE le chiffre côté prose. Une consigne
+		// « reste neutre » viderait le champ de ce pour quoi il existe, et un degré rendu
+		// par le modèle déplacerait une règle du jeu dans un prompt — un seuil en dépend.
+		const systeme = INVITES[ROLE_5].systeme
+
+		expect(systeme).toContain('jamais par un chiffre ni par une échelle')
+		// … et elle dit bien que la FORCE se dit, elle ne l'interdit pas.
+		expect(systeme).toContain('Tu dis par les mots la force de ce qui les attache')
+		// ⚠ LE PIÈGE DE RECOPIE n° 1, ÉPINGLÉ : la ligne du rôle détenteurs, recopiée
+		// ici, TUERAIT LE SEUL CHAMP `ia` de ce rôle — et RIEN d'autre ne rougirait.
+		expect(INVITES['indice-detenteurs'].systeme).toContain("Tu ne rédiges rien d'autre")
+		expect(systeme).not.toContain("Tu ne rédiges rien d'autre")
+		expect(systeme).not.toContain('une liste vide est une réponse juste')
+		// ⚠ LE PIÈGE DE RECOPIE n° 2 : « une INTENTION » (rôle plan) produirait une
+		// action datable gelée dans un champ que le moteur traite en fait permanent. La
+		// queue livrée ferme les DEUX recopies sans prononcer le mot.
+		expect(INVITES['personnage-plan'].systeme).toContain('une INTENTION')
+		expect(systeme).not.toContain('une INTENTION')
+		expect(systeme).toContain("ni une chose qu'il entreprend")
+		// LE GARDE DE SOURCE CONTRE LE NOMMAGE — substitut du scanner de noms propres,
+		// rejeté parce que L'INSTRUMENT EST INVERSÉ : `nom` n'étant injecté nulle part,
+		// il rougirait sur une prose JUSTE et resterait vert sur le nom INVENTÉ.
+		// ⚠ SA LIMITE EST DÉCLARÉE DANS LE TEST : il épingle LA PRÉSENCE DE LA CONSIGNE,
+		// JAMAIS SON OBÉISSANCE. Aucun instrument du dépôt ne constate la seconde
+		// (KR-229), et le dire vaut mieux que de laisser croire le contraire.
+		expect(systeme).toContain('Tu ne donnes de nom à personne')
+		// CAS NÉGATIF FABRIQUÉ, sans lequel le `toContain` ci-dessus est INERTE.
+		const sansConsigne = systeme.split('\n').filter((ligne) => !ligne.startsWith('Tu ne donnes de nom'))
+		expect(sansConsigne.join('\n')).not.toContain('Tu ne donnes de nom à personne')
+		expect(sansConsigne.length).toBe(systeme.split('\n').length - 1)
+	})
+
+	it('l invite du cinquieme role porte la CONTREPARTIE de la liste, que nul predicat ne garde', async () => {
+		// § 4 bis, décision 5 — LA LIGNE NEUVE, propre à la LISTE, et la contrepartie
+		// exigée de la concession « liste » contre « scalaire » : trois liens d'un seul
+		// jet forment une CONSTELLATION, l'auteur en accepte deux et en refuse un, et il
+		// reste une prose qui renvoie à une relation qui n'existe pas.
+		// ⚠ LA MOITIÉ VALIDATEUR EST DÉLIBÉRÉMENT ABSENTE (KR-229) : aucun prédicat ne
+		// peut constater qu'une `nature` renvoie à une autre proposition du même lot.
+		// L'ÉCRAN NE DOIT DONC RIEN PROMETTRE DE TEL — c'est écrit ici parce que c'est le
+		// seul endroit du dépôt où la propriété existe.
+		const systeme = INVITES[ROLE_5].systeme
+
+		expect(systeme).toContain('ne renvoie à aucune des autres que tu proposes')
+		// … et la moitié SYMÉTRIQUE du prédicat (7) : le validateur refuse la liste vide,
+		// donc l'invite doit en demander au moins une, sinon les deux se contrediraient.
+		expect(systeme).toContain('et au moins une')
+		// … et la relation est un fait DU PORTEUR, jamais de la PAIRE.
+		expect(systeme).toContain("jamais ce que l'autre éprouve en retour")
+	})
+})

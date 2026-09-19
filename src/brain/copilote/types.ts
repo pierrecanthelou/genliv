@@ -7,11 +7,13 @@
  * `contexte.ts`, l'appel réseau dans `../CopiloteService.ts`.
  */
 
-/** QUATRE rôles. Le nom se lit ⟨entité CIBLE⟩-⟨ce qu'on demande⟩ — « la prose d'un
+/** CINQ rôles. Le nom se lit ⟨entité CIBLE⟩-⟨ce qu'on demande⟩ — « la prose d'un
  *  personnage », « les détenteurs d'un indice », « les répliques d'un personnage »,
- *  « le plan d'un personnage ».
- *  C'est AUSSI le segment de route (`/ia/indice-detenteurs`) et la clé des tables
- *  d'invites et de gabarits.
+ *  « le plan d'un personnage », « les relations d'un personnage ».
+ *  C'est AUSSI le segment de route (`/ia/indice-detenteurs`), la clé des tables
+ *  d'invites et de gabarits, ET — depuis l'itération 3c — LE DISCRIMINANT de l'union
+ *  étiquetée des cibles (`CopiloteService.ts`) : un même littéral porte le rôle
+ *  annoncé et le rôle exécuté, si bien que les deux ne peuvent plus diverger.
  *
  *  `'personnage-detenteurs'` a été refusé : il se lirait « les détenteurs d'un
  *  personnage ». Et `fiche-prose` promettrait une généralité qu'il faudrait
@@ -25,7 +27,15 @@
  *  l'expression d'extraction (`worker/frontiere.test.ts`) ET de celle de la route
  *  (`worker/index.ts`), le gabarit ne serait pas extrait, et la totalité rougirait
  *  PAR LE MAUVAIS MESSAGE. */
-export type RoleCopilote = 'personnage-prose' | 'indice-detenteurs' | 'personnage-repliques' | 'personnage-plan'
+export type RoleCopilote =
+	| 'personnage-prose'
+	| 'indice-detenteurs'
+	| 'personnage-repliques'
+	| 'personnage-plan'
+	/** SANS ACCENT, même motif que `'personnage-repliques'` : la classe `[a-z-]+` de
+	 *  la route (`worker/index.ts`) et celle de l'expression d'extraction
+	 *  (`worker/frontiere.test.ts`) ne connaissent pas les accents. */
+	| 'personnage-relations'
 
 /** La CLÉ DE PROPRIÉTÉ dans le document — ce que la recette de `update` écrit. */
 export type ChampProseCle = 'fonction' | 'apparence' | 'description_joueur'
@@ -158,4 +168,75 @@ export interface IntentionRendue {
 export interface PropositionPlan {
 	acteurId: string
 	action: string
+}
+
+/**
+ * CE QUE LE MODÈLE REND, ÉLÉMENT PAR ÉLÉMENT — franchit le réseau. LE PREMIER
+ * ÉLÉMENT MIXTE du dépôt : un JETON de désignation (`envers`) ET de la PROSE
+ * (`nature`) dans le même objet. Aucun rôle livré avant l'itération 3c ne rendait
+ * les deux.
+ *
+ * `envers`, et JAMAIS `vers` : c'est le mot que l'écran rend déjà (`EYEBROW_ENVERS`)
+ * — un mot, une notion, des deux côtés de la frontière — et c'est la préposition du
+ * sentiment DIRIGÉ, là où `vers` est directionnel.
+ *
+ * ⚠ `envers` N'EST JAMAIS PASSÉ AU SCANNER D'IDENTIFIANTS. Le jeton est l'une de NOS
+ * PROPRES chaînes, constatée par appartenance à la table des rangs : l'y passer
+ * serait du code mort présenté comme de la couverture (famille BUG-084, KR-235).
+ */
+export interface RapportRendu {
+	envers: RangInjecte
+	nature: string
+}
+
+/** CE QUE LE MODÈLE REND — franchit le réseau. UNE clé, une LISTE d'éléments mixtes.
+ *
+ *  `rapports`, et JAMAIS `liens` : `liens` est le PLURIEL EXACT du champ `lien`, donc
+ *  nommer le champ (veto de l'itération 3b) — et la confusion à UNE LETTRE est
+ *  précisément ce que KR-231 ferme. Les quatre clés livrées avant celle-ci diffèrent
+ *  toutes de leur champ de destination ; un quasi-synonyme est légitime, le mot du
+ *  champ non.
+ *
+ *  SON CONSOMMATEUR est la branche de succès de `validerRelations`
+ *  (`schemaSortie.ts`), exactement comme `PropositionRendue` est celui de
+ *  `validerSortie` : une forme réseau que rien ne consomme est une déclaration sans
+ *  appelant (KR-109). */
+export interface RapportsRendus {
+	rapports: readonly RapportRendu[]
+}
+
+/**
+ * CE QUE LE CODE RE-RÉSOUT, ÉLÉMENT PAR ÉLÉMENT — ne franchit JAMAIS le réseau.
+ * `cibleId` sort d'un `Map.get` sur la table des rangs RENDUE PAR L'ASSEMBLEUR,
+ * jamais re-dérivée (KR-231).
+ *
+ * ZÉRO CLÉ COMMUNE avec `RapportRendu` — {`envers`,`nature`} ∩ {`cibleId`,`lien`} = ∅.
+ * C'est KR-231 au NIVEAU DE L'ÉLÉMENT, et il s'ajoute à celui du niveau de la liste :
+ * un rôle mixte porte DEUX frontières, pas une.
+ *
+ * `lien` NOMME LA DESTINATION dans le document (`Relation.lien`), là où le fil
+ * portait `nature` — même précédent que `intention` → `action` au rôle plan, et pour
+ * la même raison : `nature` ENSEIGNE AU MODÈLE ce qu'on attend, `lien` rend la
+ * recette d'écriture littérale. Ne pas « harmoniser ».
+ *
+ * `intensite` N'EST PAS ICI, et `secret` NON PLUS : la première est POSÉE PAR LE CODE
+ * (`INTENSITE_INITIALE`, `dossier/types.ts`) parce qu'elle est REQUISE, la seconde est
+ * OMISE parce qu'elle est OPTIONNELLE (KR-221 — on ne sème pas un optionnel que
+ * l'auteur n'a pas posé). La symétrie EST l'arbitrage, et elle se lit ici.
+ */
+export interface LienResolu {
+	cibleId: string
+	lien: string
+}
+
+/** CE QUE LE CODE RE-RÉSOUT — ne franchit JAMAIS le réseau. ZÉRO clé commune avec
+ *  `RapportsRendus` (KR-231).
+ *
+ *  `ajouts` et NON `relations` : un champ homonyme du document inviterait
+ *  `{...personnage, relations: proposition.relations}` — un ÉCRASEMENT de ce que
+ *  l'auteur a déjà écrit, là où la sémantique d'écriture de cette liste est l'AJOUT.
+ *  Le nom porte la sémantique d'écriture, précédent `PropositionRepliques.ajouts`. */
+export interface PropositionRelations {
+	personnageId: string
+	ajouts: readonly LienResolu[]
 }

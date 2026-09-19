@@ -140,6 +140,50 @@ export const CHAMPS_INJECTES: Record<RoleCopilote, readonly string[]> = {
 		'monde.personnages[].caractere.jamais',
 		'monde.personnages[].plan_actions[].action',
 	],
+	/**
+	 * HUIT chemins, et ILS SONT L'UNION DE DEUX ENSEMBLES — c'est le seul rôle dont
+	 * cette entrée ne décrive pas UNE liste de lignes injectées, mais la RÉUNION de ce
+	 * que voit le PORTEUR (les cinq de préfixe personnage) et de ce que voient les
+	 * CANDIDATS (quatre d'entre eux, `CHEMINS_CANDIDAT`, const LOCALE à
+	 * `./relations.ts`). C'est cette union seule que voit le confinement KR-232 : tout
+	 * ce qui entre dans le contexte, pour l'un ou pour l'autre, est ici.
+	 *
+	 * ⚠ `monde.personnages[].but.pourquoi` EST LA LIGNE DE LA SCISSION : il entre chez
+	 * le PORTEUR — c'est de lui qu'on demande ce qu'il éprouve — et JAMAIS chez les
+	 * candidats, où ce serait le pourquoi privé de huit inconnus pour une valeur
+	 * discriminante que `but.libelle` donne déjà.
+	 *
+	 * QUATRE RETRAITS, et leurs motifs ne sont PAS ceux des rôles précédents :
+	 *
+	 *  • `canon.mj.synopsis_mj` — POINT DE VUE, motif de 3b : le synopsis porte ce que
+	 *    les personnages NE SAVENT PAS, et un lien écrit depuis lui serait un lien que
+	 *    le porteur ne peut pas avoir éprouvé.
+	 *  • ⚠ `caractere.jamais` — MOTIF NEUF (§ 8, n° 34), et il ne se déduit d'aucun
+	 *    précédent : `jamais` borne un COMPORTEMENT, or UN LIEN EST ÉPROUVÉ, PAS AGI.
+	 *    L'injecter invite à écrire le lien comme une ACTION que le personnage
+	 *    refuserait — « il ne lui parlerait jamais » au lieu de « il le méprise ».
+	 *  • `apparence` — une apparence ne dit rien de ce qui attache deux personnes.
+	 *  • `caractere.parler[]` — des répliques ne disent pas ce qu'il ÉPROUVE, et ce
+	 *    serait un canal de paraphrase vers un champ qu'un AUTRE rôle écrit.
+	 *
+	 * `cede_si`, `caractere.curseurs.*` : précédents 3a/3b inchangés, jamais injectés.
+	 * `relations[]` N'EST PAS INJECTÉ (§ 8, n° 18) — sans appellation re-projetée
+	 * (n° 10), « son créancier » SANS DIRE DE QUI n'est pas seulement inutile, il est
+	 * ACTIF : le modèle le rattacherait à l'un des `Pn` affichés. `presence[]`,
+	 * `savoirs[]`, `stats`, `camp`, `portee`, `nom` : hors tranche ou jamais.
+	 * ⚠ ET LA CIBLE ELLE-MÊME, `relations[].lien`, EST EXCLUE PAR ABSENCE de cette
+	 * liste — jamais par un saut à l'exécution (KR-235).
+	 */
+	'personnage-relations': [
+		'canon.ton',
+		'canon.interdits_ton[]',
+		'canon.partage.accroche_joueur',
+		'monde.personnages[].fonction',
+		'monde.personnages[].description_joueur',
+		'monde.personnages[].but.libelle',
+		'monde.personnages[].but.pourquoi',
+		'monde.personnages[].plan_actions[].action',
+	],
 }
 
 /** La soupape. VIDE, et un test l'asserte vide (KR-232). Zéro dérogation. */
@@ -175,6 +219,14 @@ export const PARTIES_REQUISES: Record<RoleCopilote, readonly CheminLibelle[]> = 
 	 *  du refus, exactement comme la `verite` du rôle détenteurs. Son refus est le
 	 *  même motif SANS CHARGE, `'cible-a-ecrire'`. */
 	'personnage-plan': ['canon.ton'],
+	/** Le rôle relations a le MÊME unique requis. Ce qu'il exige EN PLUS — une IDENTITÉ
+	 *  écrite pour le PORTEUR — ne passe pas non plus par cette table : ce n'est pas UN
+	 *  champ mais une DISJONCTION sur ses chemins de fiche, donc rien qu'un
+	 *  `CheminLibelle` puisse nommer. Son refus est le même motif SANS CHARGE,
+	 *  `'cible-a-ecrire'`. Et ce qu'il exige ENCORE en plus — au moins un candidat
+	 *  numérotable — est le motif `'aucun-candidat'`, qui ne nomme pas davantage un
+	 *  champ : il pointe le DOSSIER. */
+	'personnage-relations': ['canon.ton'],
 }
 
 /** LA VARIABLE LIBRE de la borne de contexte — combien de candidats au plus sont
@@ -244,4 +296,34 @@ export const BUDGET_CARACTERES_CONTEXTE: Record<RoleCopilote, number> = {
 	// rôles étroits égaux » de `worker/frontiere.test.ts` devenait INERTE — vraie AVANT
 	// d'être fabriquée — et a été ré-armée sur un couple dont les budgets DIFFÈRENT.
 	'personnage-plan': 4000,
+	// MESURÉ le 2026-09-19 à l'itération 3c, `CANDIDATS_MAX` SATURÉ, sur un dossier
+	// COMPOSÉ PAR `contexte.test.ts` depuis les valeurs réelles de
+	// `dossier-reference.json` — la fixture n'appartient à aucun lot, et aucun de ses
+	// personnages ne porte à la fois les cinq chemins de fiche et huit voisins complets.
+	// Protocole de l'it1, ÉLARGI aux DEUX ENSEMBLES : on asserte d'abord que LES HUIT
+	// chemins de l'union résolvent non vides — les trois du canon et les CINQ du porteur
+	// — PUIS que les QUATRE chemins d'un candidat résolvent non vides eux aussi, sans
+	// quoi le nombre relevé serait un PLANCHER par l'un ou l'autre bout.
+	// M = 5357 ⇒ ceil(5357 × 3 / 1000) × 1000 = 17000.
+	//
+	// ⚠ LA COÏNCIDENCE, ÉPINGLÉE PLUTÔT QUE SUBIE — SECONDE INSTANCE, après celle de
+	// `personnage-plan` à 3b : ce budget VAUT celui d'`indice-detenteurs`, ET IL N'EN EST
+	// PAS RECOPIÉ. `M` vaut 5361 là-bas et 5357 ici, deux mesures INDÉPENDANTES qui
+	// tombent dans le même millier après arrondi — et il n'y a là rien d'étonnant, les
+	// deux rôles numérotant `CANDIDATS_MAX` candidats sur quatre chemins chacun. C'est
+	// écrit parce que la coïncidence invite précisément à la recopie que le `Record` par
+	// rôle existe pour interdire (KR-235), et `contexte.test.ts` l'épingle en constatant
+	// que les DEUX `M` DIFFÈRENT.
+	//
+	// ⚠ CONSÉQUENCE MESURÉE ET TRAITÉE DANS LE MÊME LOT : ce rôle a le MÊME budget que
+	// le plus large mais L'INVITE LA PLUS LONGUE DES CINQ (1859 o contre 808), donc c'est
+	// LUI, désormais, qui sature `TAILLE_MAX_CORPS_IA` — lequel BOUGE pour la première
+	// fois (52 224 → 53 248, `worker/index.ts`). Et le « rôle le plus large » de
+	// `worker/frontiere.test.ts` cesse de se dériver du BUDGET pour se dériver du PIRE
+	// CAS EN OCTETS, qui est la grandeur que le plafond borne réellement.
+	//
+	// SI LA MESURE AVAIT DÉPLU, ON AURAIT BAISSÉ `CANDIDATS_MAX`, JAMAIS LE BUDGET. Elle
+	// ne déplaît pas : 17 000 est la valeur d'un rôle déjà livré, et le plafond worker
+	// qui en découle reste très en deçà de ce qu'un fournisseur accepte.
+	'personnage-relations': 17_000,
 }

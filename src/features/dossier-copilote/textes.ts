@@ -161,3 +161,40 @@ export const TEXTE_REFUS_CIBLE_A_ECRIRE_PLAN =
 	"Ce personnage n'a pas encore d'objectif écrit — complétez d'abord son but, dans Personnages."
 export const TEXTE_REFUS_TROP_LONG_PLAN =
 	"Le contexte est trop long pour proposer une étape — raccourcissez d'abord la fiche de ce personnage."
+
+/**
+ * Les textes de la carte 6 « Compléter les relations » (itération 3c — § 3.4
+ * du plan). PREMIER rôle mixte : `EYEBROW_ENVERS` précède un JETON (désignation
+ * par rang, résolu par `LigneRelation`) et `eyebrowRelationProposee(n)` — rendu
+ * par la CARTE, jamais par la ligne (§ 3.3, corollaire TL3a-3, 4ᵉ occurrence) —
+ * précède de la PROSE (`lien`). Les QUATRE motifs de refus de contexte sont
+ * TOUS atteignables ici (première carte dans ce cas) : `a-ecrire` reste le
+ * générique `texteRefusAEcrire`, les trois autres ont leur texte propre.
+ *
+ * `MENTION_RELATION_CREEE` dit la PARITÉ avec l'éditeur manuel, jamais une
+ * exception : le chemin d'écriture manuel pose déjà `intensite: 0` à la main
+ * (§ 8, désaccord n° 14, révisé par son autrice).
+ */
+export const CARD6_TITRE = 'Compléter les relations'
+export const CARD6_CORPS =
+	'Propose un autre personnage de ce dossier que celui-ci connaît, et la nature de ce qui les lie.'
+export const EYEBROW_ENVERS = 'ENVERS'
+
+export function eyebrowRelationProposee(n: number): string {
+	return `RELATION PROPOSÉE ${n}`
+}
+
+export const MENTION_AUCUNE_RELATION =
+	"Ce personnage n'a encore aucune relation connue — la première proposée s'ajoute."
+export const MENTION_AUCUNE_RELATION_AU_LANCER =
+	"Ce personnage n'avait aucune relation connue au lancement de cet assistant."
+export const MENTION_RELATION_CREEE =
+	'Comme une relation ajoutée à la main, celle-ci est enregistrée avec une intensité neutre — à régler ensuite dans la fiche (Personnages → Relations).'
+export const TEXTE_CIBLE_INTROUVABLE = 'Personnage introuvable — référence rompue.'
+export const TEXTE_PORTEUR_DISPARU = "Ce personnage a été retiré du dossier depuis le lancement — relancez l'assistant."
+export const TEXTE_REFUS_CIBLE_A_ECRIRE_RELATIONS =
+	"Ce personnage n'a encore aucune fiche écrite — complétez-la d'abord, dans Personnages."
+export const TEXTE_REFUS_AUCUN_CANDIDAT_RELATIONS =
+	"Ce dossier n'a pas d'autre personnage à lui lier — tous sont déjà liés, ou il est seul."
+export const TEXTE_REFUS_TROP_LONG_RELATIONS =
+	"Le contexte est trop long pour proposer des relations — raccourcissez d'abord les fiches de ce dossier."

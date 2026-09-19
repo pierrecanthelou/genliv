@@ -99,7 +99,7 @@ export function CarteTisserIndices({
 }: CarteTisserIndicesProps): JSX.Element {
 	const { copilote, dossiers } = useBrain()
 	const demande = useDemandeCopilote<CibleIndice, PropositionDetenteurs>((cible, signal) =>
-		copilote.demander(ROLE, dossier, cible, signal),
+		copilote.demander(dossier, cible, signal),
 	)
 
 	const [constatIdChoisi, setConstatIdChoisi] = useState<string | null>(null)
@@ -169,7 +169,7 @@ export function CarteTisserIndices({
 		setContexteGele({ indiceId: constat.entityId, constat, options: constatsLive })
 		setDecisions({})
 		setRefusEcriture(null)
-		demande.lancer({ indiceId: constat.entityId })
+		demande.lancer({ role: ROLE, indiceId: constat.entityId })
 	}
 
 	// Le focus IMPÉRATIF post-décision (§ 3.5) : la prochaine ligne NON DÉCIDÉE,

@@ -28,11 +28,17 @@ export interface UseDemandeCopiloteResult<C, P> {
 
 /**
  * LA BOUCLE « DEMANDER » — GÉNÉRIQUE sur la cible `C` et la proposition `P`,
- * paramétrée par le `demander` de SON appelant : chaque carte lie son propre
- * rôle littéral (`copilote.demander('personnage-prose', dossier, cible, signal)`
- * ou `copilote.demander('indice-detenteurs', dossier, cible, signal)`) avant de
- * passer la fonction résultante ici — le hook lui-même ne connaît ni le rôle,
- * ni `useBrain()`, ni `dossier`.
+ * paramétrée par le `demander` de SON appelant : chaque carte compose
+ * `copilote.demander(dossier, cible, signal)` avant de passer la fonction
+ * résultante ici — le hook lui-même ne connaît ni le rôle, ni `useBrain()`, ni
+ * `dossier`.
+ *
+ * ⚠ DEPUIS L'ITÉRATION 3c, LE RÔLE N'EST PLUS UN PARAMÈTRE DE `demander` : il est
+ * L'ÉTIQUETTE DE LA CIBLE (`{ role: 'personnage-prose', entiteId, champ }`), donc
+ * il voyage DANS le `C` de ce hook. Rien ne change ici — le hook ne lisait déjà
+ * pas le rôle —, mais la conséquence est écrite pour qu'on ne la redécouvre pas :
+ * c'est la CARTE qui pose l'étiquette au moment du `lancer`, et le couple
+ * (rôle, charge) ne peut plus diverger puisqu'il n'est plus deux valeurs.
  *
  * `demander` est LU AU MOMENT DE L'APPEL, jamais stocké dans un `ref` ni
  * capturé par un effet (KR-004) : `lancer` est redéfinie à chaque rendu et

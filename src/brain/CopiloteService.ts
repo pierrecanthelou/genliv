@@ -20,12 +20,14 @@ import {
 	assemblerDetenteurs,
 	assemblerPlan,
 	assemblerProse,
+	assemblerRelations,
 	assemblerRepliques,
 	type MotifRefusContexte,
 } from './copilote/contexte'
 import {
 	validerDetenteurs,
 	validerIntention,
+	validerRelations,
 	validerRepliques,
 	validerSortie,
 	type MotifIllisible,
@@ -34,15 +36,49 @@ import type {
 	ChampProseChemin,
 	PropositionDetenteurs,
 	PropositionPlan,
+	PropositionRelations,
 	PropositionRepliques,
 	PropositionResolue,
+	LienResolu,
 } from './copilote/types'
 import type { Dossier } from './dossier/types'
 
-/** INCHANGÉE, et délibérément NON RENOMMÉE : c'est la cible du rôle PROSE. Le
- *  renommage en `CibleProse` est une dette NOMMÉE, à payer par la première
- *  itération qui touche à la fois le hook et ce fichier. */
+/**
+ * L'UNION ÉTIQUETÉE DES CINQ CIBLES — le contrat le plus chargé de l'itération 3c, et
+ * il REMPLACE le paramètre `role` de `demander`.
+ *
+ * MOTIF, MESURÉ ET NON SUPPOSÉ : jusqu'à 3b le dispatch rétrécissait sur la FORME de
+ * la cible et le dernier `return` recevait `CibleRepliques` par élimination. Une
+ * cinquième cible `{ personnageId }` — celle du rôle RELATIONS — aurait été LE MÊME
+ * TYPE que `CibleRepliques` : la surcharge déclarée l'aurait acceptée, l'implémentation
+ * l'aurait fait tomber dans `demanderRepliques`, et on aurait eu RÔLE ANNONCÉ A,
+ * VALIDATEUR EXÉCUTÉ B, avec `tsc` VERT. C'est le signal, écrit d'avance par 3b, que le
+ * dispatch structurel avait daté.
+ *
+ * CE QUE L'ÉTIQUETTE ACHÈTE, et rien de plus :
+ *  1. `(rôle, cible)` CESSE D'ÊTRE DEUX PORTEURS, donc cesse de POUVOIR diverger par
+ *     construction — il n'y a plus deux valeurs à tenir en phase ;
+ *  2. le `switch (cible.role)` de l'implémentation porte une garde `never`, si bien
+ *     qu'un SIXIÈME rôle sans branche NE COMPILE PAS, là où les gardes `'x' in cible`
+ *     étaient explicites PAR CONVENTION, sans preuve d'exhaustivité ;
+ *  3. le paramètre `_role` inutilisé disparaît.
+ *
+ * ⚠ LE RISQUE NEUF QU'ELLE CRÉE, ET SA PARADE : `cible.role` porte LE MÊME NOM que
+ * `CorpsDemande.role`. Un `{ ...cible, contexte }` mettrait donc `personnageId`,
+ * `indiceId` ou `champ` SUR LE FIL (KR-231). PARADE : chaque branche privée ÉCRIT SON
+ * LITTÉRAL de corps, et un témoin asserte le corps par `toEqual`, JAMAIS par inclusion.
+ *
+ * ⚠ `acteurId` N'EST PAS RENOMMÉ (§ 8, n° 23) : l'étiquette rend le synonyme
+ * INOFFENSIF — `CiblePlan` et `CibleRelations` ne peuvent plus se confondre même si
+ * elles partageaient leur charge —, et le renommage tirerait `planActions.test.tsx`
+ * dans le lot contrat. Une dette fermée par conception n'est plus une dette.
+ */
+
+/** INCHANGÉE dans sa CHARGE, et délibérément NON RENOMMÉE : c'est la cible du rôle
+ *  PROSE. Le renommage en `CibleProse` est une dette NOMMÉE (§ 8, n° 44), dont la
+ *  condition d'ouverture — un SECOND rôle de prose pure — n'est pas échue. */
 export interface CibleCopilote {
+	role: 'personnage-prose'
 	/** Reste côté client. Ne franchit JAMAIS le réseau (KR-231). */
 	entiteId: string
 	champ: ChampProseChemin
@@ -52,27 +88,16 @@ export interface CibleCopilote {
  *  demande QUI. Un `champ?` optionnel sur une cible commune rendrait représentable
  *  « une demande de prose sans champ » (§ 8, TL-1). */
 export interface CibleIndice {
+	role: 'indice-detenteurs'
 	/** Reste côté client. Ne franchit JAMAIS le réseau (KR-231). */
 	indiceId: string
 }
 
-/**
- * LA CIBLE DU TROISIÈME RÔLE. `personnageId`, et PAS `entiteId` — ce n'est PAS une
- * préférence de nommage (§ 8, TL3a-5, veto non contesté).
- *
- * Le dispatch de `demander` est un RÉTRÉCISSEMENT STRUCTUREL sur la FORME de la
- * cible, donc les TROIS cibles doivent être DISJOINTES DEUX À DEUX. Avec `entiteId`,
- * une cible de répliques partagerait sa seule clé avec `CibleCopilote` : une
- * VARIABLE de type `CibleCopilote` s'assignerait ici SANS ERREUR — le contrôle
- * d'excédent de TypeScript ne vaut que sur un LITTÉRAL —, elle retomberait dans la
- * branche `'champ' in cible`, et on obtiendrait rôle annoncé A, validateur exécuté B,
- * avec `tsc` vert.
- *
- * FAIT AGGRAVANT, LU DANS LE CODE DE L'IT2 : le dernier `return` du dispatch était un
- * REPLI vers `demanderDetenteurs`, où une troisième cible serait tombée PAR DÉFAUT.
- * Il est devenu une BRANCHE dans le même lot.
- */
+/** LA CIBLE DU TROISIÈME RÔLE. `personnageId`, et PAS `entiteId` — le motif d'origine
+ *  (§ 8, TL3a-5) était la DISJONCTION STRUCTURELLE des charges ; depuis 3c c'est
+ *  l'étiquette qui la porte, et le nom reste parce qu'il est le bon. */
 export interface CibleRepliques {
+	role: 'personnage-repliques'
 	/** Reste côté client. Ne franchit JAMAIS le réseau (KR-231). */
 	personnageId: string
 }
@@ -80,26 +105,34 @@ export interface CibleRepliques {
 /**
  * LA CIBLE DU QUATRIÈME RÔLE.
  *
- * ⚠ `acteurId` et JAMAIS `personnageId` : le dispatch rétrécit sur la FORME de la
- * cible, et `CibleRepliques` est `{ personnageId }` NUE. Une quatrième cible
- * `{ personnageId }` serait LE MÊME TYPE — la surcharge déclarée l'accepterait,
- * l'implémentation la ferait tomber dans `demanderRepliques` : rôle annoncé A,
- * validateur exécuté B, `tsc` VERT. C'est le veto TL3a-5 au mot près, retrouvé
- * INDÉPENDAMMENT par les deux postes à effort élevé au raffinage de 3b.
- *
- * Le mot vient du dépôt : `dossier/types.ts:362` glose déjà `plan_actions[].action`
- * par « ce que le rôle ACTEUR joue ».
- *
- * ⚠ DETTE DATÉE, avec sa condition d'ouverture écrite : `acteurId` ne nomme aucune
- * entité du dossier — c'est un SYNONYME assumé et borné. L'itération 3c cible AUSSI
- * un personnage ; un TROISIÈME synonyme est le signal, et 3c ne fabriquera pas
- * `protagonisteId` : elle basculera les cinq cibles sur une UNION ÉTIQUETÉE, dans
- * SON lot contrat. Jamais 3b — le faire ici ferait saigner ce lot dans
- * `src/features/**`.
+ * `acteurId` vient du dépôt : `dossier/types.ts` glose déjà `plan_actions[].action`
+ * par « ce que le rôle ACTEUR joue ». Ce n'était PAS un choix de style à 3b mais la
+ * seule façon de rendre la charge disjointe de `CibleRepliques` ; depuis 3c
+ * l'étiquette suffirait, et c'est précisément pour cela qu'on NE LE RENOMME PAS —
+ * `planActions.test.tsx` entrerait dans le lot contrat pour du churn pur (§ 8, n° 23).
  */
 export interface CiblePlan {
+	role: 'personnage-plan'
 	/** Reste côté client. Ne franchit JAMAIS le réseau (KR-231). */
 	acteurId: string
+}
+
+/**
+ * LA CIBLE DU CINQUIÈME RÔLE — et sa CHARGE est celle de `CibleRepliques`, MOT POUR
+ * MOT. C'est délibéré, et c'est la démonstration de l'union étiquetée : deux rôles
+ * visent LA MÊME ENTITÉ pour en écrire DEUX CHAMPS DIFFÉRENTS, donc leur charge ne
+ * peut pas les distinguer — seule l'étiquette le peut.
+ *
+ * ⚠ `porteurId` EST REJETÉ (§ 8, n° 22) : ce serait un TROISIÈME synonyme de
+ * `personnageId` pour désigner un personnage, c'est-à-dire exactement le travers que
+ * l'étiquette vient de rendre inutile. Le mot `porteur` reste dans la PROSE des
+ * docstrings, où il dit « celui dont on complète les relations » face aux
+ * « candidats » — il ne devient jamais une clé.
+ */
+export interface CibleRelations {
+	role: 'personnage-relations'
+	/** Reste côté client. Ne franchit JAMAIS le réseau (KR-231). */
+	personnageId: string
 }
 
 export type RaisonIndisponible = 'non-configure' | 'injoignable' | 'annule'
@@ -124,47 +157,36 @@ export type ReponseCopilote = { statut: 'propose'; proposition: PropositionResol
 export type ReponseDetenteurs = { statut: 'propose'; proposition: PropositionDetenteurs } | EchecCopilote
 export type ReponseRepliques = { statut: 'propose'; proposition: PropositionRepliques } | EchecCopilote
 export type ReponsePlan = { statut: 'propose'; proposition: PropositionPlan } | EchecCopilote
+export type ReponseRelations = { statut: 'propose'; proposition: PropositionRelations } | EchecCopilote
 
 /**
- * SURCHARGE SUR LE LITTÉRAL DE RÔLE — le point de contrat le plus chargé de
- * l'itération. Trois raisons, dans l'ordre :
+ * SURCHARGE SUR LA CIBLE ÉTIQUETÉE — le point de contrat le plus chargé de
+ * l'itération, et LE PARAMÈTRE `role` A DISPARU. Trois raisons, dans l'ordre :
  *
- *  1. `demander('indice-detenteurs', d, { entiteId, champ })` est une ERREUR DE
- *     COMPILATION : le couple (rôle, cible) cesse d'être un état représentable.
- *  2. Le type de retour reste EXACT par branche : la carte 1 ne rétrécit jamais au
+ *  1. `demander(d, { role: 'indice-detenteurs', entiteId, champ })` est une ERREUR DE
+ *     COMPILATION : le couple (rôle, charge) cesse d'être un état représentable — et
+ *     il cesse même d'être DEUX VALEURS, donc de pouvoir diverger.
+ *  2. Le type de retour reste EXACT par branche : une carte ne rétrécit jamais au
  *     runtime une proposition dont elle connaît la forme à la compilation.
- *  3. Elle N'AJOUTE AUCUN MEMBRE à l'interface. MESURÉ : les trois suites de la
- *     feature bouchonnent par `brain.copilote = { estDisponible, demander }` avec
- *     `demander` annoté `jest.Mock` NU. Un MEMBRE de plus rend ces trois littéraux
- *     incomplets et le lot contrat ne passe plus `tsc` SEUL ; une SURCHARGE passe.
+ *  3. Elle N'AJOUTE AUCUN MEMBRE à l'interface. MESURÉ à 3a et RE-MESURÉ à 3c : les
+ *     suites de la feature bouchonnent par `brain.copilote = { estDisponible,
+ *     demander }` avec `demander` annoté `jest.Mock` NU. Un MEMBRE de plus rend ces
+ *     littéraux incomplets et le lot contrat ne passe plus `tsc` SEUL ; une SURCHARGE
+ *     passe.
  *
- * ⚠ Un appelant qui détient `role: RoleCopilote` (union, non littéral) ne satisfait
- * AUCUNE surcharge. C'est voulu : chaque carte connaît son rôle statiquement.
+ * ⚠ Un appelant qui détient une cible élargie à l'union des cinq ne satisfait AUCUNE
+ * surcharge. C'est voulu : chaque carte connaît son rôle statiquement.
  */
 export interface CopiloteService {
 	/** VRAI si l'URL du worker ET la clé de synchronisation sont réglées.
 	 *  AUCUN appel réseau : une disponibilité qui sonde le réseau ferait
 	 *  clignoter un bouton au rendu. */
 	estDisponible(): boolean
-	demander(
-		role: 'personnage-prose',
-		dossier: Dossier,
-		cible: CibleCopilote,
-		signal?: AbortSignal,
-	): Promise<ReponseCopilote>
-	demander(
-		role: 'indice-detenteurs',
-		dossier: Dossier,
-		cible: CibleIndice,
-		signal?: AbortSignal,
-	): Promise<ReponseDetenteurs>
-	demander(
-		role: 'personnage-repliques',
-		dossier: Dossier,
-		cible: CibleRepliques,
-		signal?: AbortSignal,
-	): Promise<ReponseRepliques>
-	demander(role: 'personnage-plan', dossier: Dossier, cible: CiblePlan, signal?: AbortSignal): Promise<ReponsePlan>
+	demander(dossier: Dossier, cible: CibleCopilote, signal?: AbortSignal): Promise<ReponseCopilote>
+	demander(dossier: Dossier, cible: CibleIndice, signal?: AbortSignal): Promise<ReponseDetenteurs>
+	demander(dossier: Dossier, cible: CibleRepliques, signal?: AbortSignal): Promise<ReponseRepliques>
+	demander(dossier: Dossier, cible: CiblePlan, signal?: AbortSignal): Promise<ReponsePlan>
+	demander(dossier: Dossier, cible: CibleRelations, signal?: AbortSignal): Promise<ReponseRelations>
 }
 
 /**
@@ -181,7 +203,13 @@ const DELAI_MS = 45_000
 /** PRIVÉ. CE QUI PART SUR LE FIL — ni date, ni identifiant, ni nonce. C'est ce qui
  *  rend « deux lancers ⇒ deux corps identiques » démontrable par égalité stricte.
  *  UNION et non `champ?` : le rôle détenteurs n'a pas de champ, et un optionnel
- *  rendrait représentable « une demande de prose sans champ ». */
+ *  rendrait représentable « une demande de prose sans champ ».
+ *
+ *  ⚠ SON `role` PORTE LE MÊME NOM QUE `Cible*.role` DEPUIS 3c, ET CE N'EST PAS UNE
+ *  INVITATION À L'ÉTALER. `{ ...cible, contexte }` compilerait, produirait le bon
+ *  `role`, ET METTRAIT `personnageId`/`indiceId`/`champ` SUR LE FIL (KR-231). Chaque
+ *  branche privée ÉCRIT DONC SON LITTÉRAL, et un témoin asserte le corps par `toEqual`,
+ *  jamais par inclusion — une inclusion resterait verte sur la clé en trop. */
 type CorpsDemande =
 	| { role: 'personnage-prose'; champ: ChampProseChemin; contexte: string }
 	| { role: 'indice-detenteurs'; contexte: string }
@@ -193,6 +221,9 @@ type CorpsDemande =
 	 *  voit JAMAIS le numéro d'étape, que le code posera sur la liste VIVE à
 	 *  l'acceptation. */
 	| { role: 'personnage-plan'; contexte: string }
+	/** SANS `champ` non plus, MÊME motif — et sans la moindre INTENSITÉ : le modèle ne
+	 *  voit jamais le nombre, que le code pose à l'acceptation (`INTENSITE_INITIALE`). */
+	| { role: 'personnage-relations'; contexte: string }
 
 /** Le résultat d'UN aller-retour, avant validation de forme : soit une valeur
  *  brute à valider, soit une indisponibilité qui ne se rejoue JAMAIS. */
@@ -436,60 +467,101 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 		return { statut: 'propose', proposition: { acteurId: cible.acteurId, action: issue.sortie } }
 	}
 
+	async function demanderRelations(
+		dossier: Dossier,
+		cible: CibleRelations,
+		signal: AbortSignal | undefined,
+	): Promise<ReponseRelations> {
+		// LES QUATRE REFUS DE CONTEXTE PASSENT AVANT TOUT — `a-ecrire`,
+		// `cible-a-ecrire`, `aucun-candidat`, `trop-long` : PREMIER RÔLE À LES UTILISER
+		// TOUS LES QUATRE, et aucun motif neuf n'est créé pour autant.
+		const contexte = assemblerRelations(dossier, cible)
+		if (!contexte.ok) return refuser(contexte)
+
+		const vers = acheminement('personnage-relations')
+		if (vers === null) return { statut: 'indisponible', raison: 'non-configure' }
+
+		// La table des rangs ne sort JAMAIS de `brain/` : le validateur n'en reçoit que
+		// les CLÉS, et la re-résolution se fait ici, sur la table RENDUE PAR
+		// L'ASSEMBLEUR — jamais re-dérivée (KR-231).
+		const rangsConnus: ReadonlySet<string> = new Set(contexte.rangs.keys())
+		// LITTÉRAL ÉCRIT, JAMAIS `{ ...cible, contexte }` : la cible porte désormais un
+		// `role` du même nom, et l'étalement mettrait `personnageId` sur le fil (KR-231).
+		const corps: CorpsDemande = { role: 'personnage-relations', contexte: contexte.texte }
+		const issue = await jusquAuRejeuUnique(
+			vers.url,
+			vers.entetes,
+			corps,
+			(brut) => validerRelations(brut, rangsConnus, dossier),
+			signal,
+		)
+		if (!issue.ok) return issue.echec
+
+		// RE-RÉSOLUE CÔTÉ CLIENT, ÉLÉMENT PAR ÉLÉMENT : `personnageId` vient de l'ÉTAT
+		// D'ÉCRAN et chaque `cibleId` d'un `Map.get` sur la table de CET assemblage-ci
+		// (KR-231). `Map.get` est PARTIEL, et la branche `undefined` est INATTEIGNABLE —
+		// `validerRelations` vient de constater l'appartenance de CHAQUE jeton à CETTE
+		// table —, mais l'alternative est un `!` ou un `as`, c'est-à-dire l'endroit exact
+		// où le compilateur cesse de protéger (KR-175). AUCUNE conversion numérique.
+		const ajouts: LienResolu[] = []
+		for (const rapport of issue.sortie.rapports) {
+			const identifiant = contexte.rangs.get(rapport.envers)
+			if (identifiant !== undefined) ajouts.push({ cibleId: identifiant, lien: rapport.nature })
+		}
+		// `ajouts` porte la SÉMANTIQUE D'ÉCRITURE — la feature les AJOUTE à `relations[]`,
+		// elle ne les y substitue pas. `intensite` n'est PAS ici : le code la pose au site
+		// d'écriture (`INTENSITE_INITIALE`), et `secret` est OMIS (KR-221).
+		return { statut: 'propose', proposition: { personnageId: cible.personnageId, ajouts } }
+	}
+
 	/**
-	 * L'IMPLÉMENTATION À SURCHARGES — trois signatures publiques, un corps élargi,
-	 * AUCUN `as`. Le dispatch se fait sur la FORME DE LA CIBLE (`'champ' in cible`),
-	 * qui est un rétrécissement réel pour TypeScript, et non sur le rôle : rétrécir
-	 * un paramètre par la valeur d'un AUTRE paramètre exigerait un cast. C'est ce
-	 * rétrécissement structurel qui EXIGE que les trois cibles soient DISJOINTES DEUX
-	 * À DEUX — d'où `personnageId` et non `entiteId` (§ 8, TL3a-5).
+	 * L'IMPLÉMENTATION À SURCHARGES — cinq signatures publiques, un corps élargi,
+	 * AUCUN `as`, ET PLUS AUCUN PARAMÈTRE `role`.
 	 *
-	 * ⚠ LE DERNIER `return` EST UNE BRANCHE, PLUS UN REPLI. À l'itération 2 il valait
-	 * `return demanderDetenteurs(…)` sans garde : une troisième cible y serait tombée
-	 * PAR DÉFAUT, rôle annoncé A et validateur exécuté B. Les gardes `'indiceId' in
-	 * cible` et `'acteurId' in cible` sont désormais explicites, si bien que le dernier
-	 * `return` reçoit une cible RÉTRÉCIE À `CibleRepliques` PAR LE COMPILATEUR — et non
-	 * par la lecture. QUATRE BRANCHES, AUCUN REPLI.
+	 * LE DISPATCH SE FAIT SUR L'ÉTIQUETTE, jamais plus sur la forme. Ce que cela change,
+	 * et c'est la raison d'être du lot : jusqu'à 3b le dernier `return` recevait
+	 * `CibleRepliques` PAR ÉLIMINATION, donc une cinquième cible `{ personnageId }` y
+	 * serait tombée PAR DÉFAUT — rôle annoncé A, validateur exécuté B, `tsc` vert. Avec
+	 * l'étiquette, `CibleRelations` et `CibleRepliques` portent LA MÊME CHARGE et restent
+	 * pourtant DISJOINTES.
 	 *
-	 * `_role` est donc INUTILISÉ, et c'est la conséquence assumée : chaque branche
-	 * privée nomme SON rôle en littéral, ce qui rend le segment de route exact à la
-	 * compilation plutôt que recopié d'un paramètre élargi à l'union. Le couple
-	 * (rôle, cible) ne peut pas diverger — les surcharges l'ont déjà fermé.
+	 * ⚠ LA GARDE `never` EST LA PREUVE D'EXHAUSTIVITÉ, et elle remplace une convention :
+	 * un SIXIÈME rôle ajouté à `RoleCopilote` sans branche ici NE COMPILE PAS. Les gardes
+	 * `'x' in cible` de 3b étaient explicites, mais rien ne disait au compilateur qu'elles
+	 * étaient complètes.
+	 *
+	 * Chaque branche privée nomme SON rôle en littéral — segment de route et corps de
+	 * demande sont donc exacts à la compilation, jamais recopiés d'un paramètre élargi.
 	 */
+	function demander(dossier: Dossier, cible: CibleCopilote, signal?: AbortSignal): Promise<ReponseCopilote>
+	function demander(dossier: Dossier, cible: CibleIndice, signal?: AbortSignal): Promise<ReponseDetenteurs>
+	function demander(dossier: Dossier, cible: CibleRepliques, signal?: AbortSignal): Promise<ReponseRepliques>
+	function demander(dossier: Dossier, cible: CiblePlan, signal?: AbortSignal): Promise<ReponsePlan>
+	function demander(dossier: Dossier, cible: CibleRelations, signal?: AbortSignal): Promise<ReponseRelations>
 	function demander(
-		role: 'personnage-prose',
 		dossier: Dossier,
-		cible: CibleCopilote,
+		cible: CibleCopilote | CibleIndice | CibleRepliques | CiblePlan | CibleRelations,
 		signal?: AbortSignal,
-	): Promise<ReponseCopilote>
-	function demander(
-		role: 'indice-detenteurs',
-		dossier: Dossier,
-		cible: CibleIndice,
-		signal?: AbortSignal,
-	): Promise<ReponseDetenteurs>
-	function demander(
-		role: 'personnage-repliques',
-		dossier: Dossier,
-		cible: CibleRepliques,
-		signal?: AbortSignal,
-	): Promise<ReponseRepliques>
-	function demander(
-		role: 'personnage-plan',
-		dossier: Dossier,
-		cible: CiblePlan,
-		signal?: AbortSignal,
-	): Promise<ReponsePlan>
-	function demander(
-		_role: 'personnage-prose' | 'indice-detenteurs' | 'personnage-repliques' | 'personnage-plan',
-		dossier: Dossier,
-		cible: CibleCopilote | CibleIndice | CibleRepliques | CiblePlan,
-		signal?: AbortSignal,
-	): Promise<ReponseCopilote | ReponseDetenteurs | ReponseRepliques | ReponsePlan> {
-		if ('champ' in cible) return demanderProse(dossier, cible, signal)
-		if ('indiceId' in cible) return demanderDetenteurs(dossier, cible, signal)
-		if ('acteurId' in cible) return demanderPlan(dossier, cible, signal)
-		return demanderRepliques(dossier, cible, signal)
+	): Promise<ReponseCopilote | ReponseDetenteurs | ReponseRepliques | ReponsePlan | ReponseRelations> {
+		switch (cible.role) {
+			case 'personnage-prose':
+				return demanderProse(dossier, cible, signal)
+			case 'indice-detenteurs':
+				return demanderDetenteurs(dossier, cible, signal)
+			case 'personnage-repliques':
+				return demanderRepliques(dossier, cible, signal)
+			case 'personnage-plan':
+				return demanderPlan(dossier, cible, signal)
+			case 'personnage-relations':
+				return demanderRelations(dossier, cible, signal)
+			default: {
+				// LA GARDE D'EXHAUSTIVITÉ : si l'union gagne un membre sans branche, cette
+				// affectation ne compile plus. C'est une erreur de COMPILATION, jamais un
+				// repli d'exécution — il n'y a rien à faire d'un rôle qu'on ne connaît pas.
+				const _exhaustif: never = cible
+				return _exhaustif
+			}
+		}
 	}
 
 	return {

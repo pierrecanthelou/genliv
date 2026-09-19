@@ -16,6 +16,8 @@ import type {
 	IntentionRendue,
 	PropositionRendue,
 	RangInjecte,
+	RapportRendu,
+	RapportsRendus,
 	RepliquesRendues,
 	RoleCopilote,
 } from './types'
@@ -64,7 +66,39 @@ export const REPLIQUES_PROPOSEES_MAX = 3
  *  liste et son entrée serait un mensonge. */
 export const CLES_SORTIE_PLAN = ['intention'] as const
 
-/** ⚠ AUCUNE CONSTANTE DE BORNE POUR CE RÔLE, et c'est délibéré — ne pas en ajouter
+/** L'équivalent pour le rôle `personnage-relations`. CINQ registres LITTÉRAUX, et
+ *  toujours pas un registre paramétré (§ 8, n° 25, 5ᵉ refus) : le rôle prose n'a pas
+ *  de liste et son entrée serait un mensonge.
+ *
+ *  ⚠ `rapports`, et JAMAIS `liens` : `liens` est le PLURIEL EXACT du champ `lien`,
+ *  donc nommer le champ — veto de l'itération 3b — plus la confusion À UNE LETTRE que
+ *  KR-231 ferme. Les quatre clés livrées avant celle-ci diffèrent toutes de leur champ
+ *  de destination ; un quasi-synonyme est légitime, le mot du champ non.
+ *
+ *  ⚠ SON GABARIT MONTRE `P1` PUIS `P3`, et ce n'est pas une coquille : les rangs sont
+ *  des ADRESSES, jamais un ordre à parcourir. Un gabarit `P1`,`P2` inviterait le
+ *  modèle à répondre « les premiers de la liste » plutôt que « ceux-là ». */
+export const CLES_SORTIE_RELATIONS = ['rapports'] as const
+
+/** Les DEUX clés d'un ÉLÉMENT de `rapports` — le SECOND niveau de schéma, que les
+ *  quatre rôles précédents n'avaient pas : leurs listes portaient des scalaires.
+ *  Le validateur est PILOTÉ par cette liste, exactement comme il l'est par
+ *  `CLES_SORTIE_RELATIONS` au premier niveau : une seule source, aucune dérive.
+ *  NON exportée — son seul consommateur est le validateur ci-dessous. */
+const CLES_RAPPORT = ['envers', 'nature'] as const
+
+/** LA BORNE DE SORTIE du rôle `personnage-relations` — combien de relations le
+ *  modèle a le droit de proposer d'un seul jet. Même statut que `max_tokens` : ni
+ *  règle du jeu, ni règle du dossier, c'est la FORME DE LA RÉPONSE ATTENDUE.
+ *
+ *  ⚠ ELLE N'EST PAS PARTAGÉE avec `PROPOSITIONS_MAX` ni `REPLIQUES_PROPOSEES_MAX`
+ *  (§ 8, n° 26) : même valeur aujourd'hui, AUCUNE raison commune d'évoluer — les
+ *  partager coupleraient trois formes de réponse sans motif.
+ *  ⚠ ELLE NE BORNE PAS LE DOCUMENT : `relations[]` n'a AUCUN plafond de schéma, et
+ *  la borne contraint la PROPOSITION, jamais ce que l'auteur peut écrire à la main. */
+export const RELATIONS_PROPOSEES_MAX = 3
+
+/** ⚠ AUCUNE CONSTANTE DE BORNE POUR LE RÔLE PLAN, et c'est délibéré — ne pas en ajouter
  *  une « par symétrie » avec `PROPOSITIONS_MAX` / `REPLIQUES_PROPOSEES_MAX`.
  *  La sortie est SCALAIRE : « deux » est NON REPRÉSENTABLE. Une liste bornée à un
  *  l'aurait rendu représentable et ne l'aurait interdit que par une constante —
@@ -97,6 +131,7 @@ export const GABARIT_SORTIE: Record<RoleCopilote, string> = {
 	'indice-detenteurs': '{"detenteurs": ["P1", "P2"]}',
 	'personnage-repliques': '{"repliques": ["…", "…"]}',
 	'personnage-plan': '{"intention": "…"}',
+	'personnage-relations': '{"rapports": [{"envers": "P1", "nature": "…"}, {"envers": "P3", "nature": "…"}]}',
 }
 
 /** CINQ motifs, un par prédicat qui peut échouer — l'écran ne rend qu'UN texte
@@ -156,6 +191,18 @@ export function porteUnIdentifiant(texte: string, dossier: Dossier): boolean {
 
 function estObjetSimple(valeur: unknown): valeur is Record<string, unknown> {
 	return typeof valeur === 'object' && valeur !== null && !Array.isArray(valeur)
+}
+
+/** LE SECOND NIVEAU DE SCHÉMA — un ÉLÉMENT de `rapports` est un objet simple dont
+ *  l'ensemble des clés vaut EXACTEMENT `CLES_RAPPORT`. PRIMITIVE PARTAGÉE avec le
+ *  premier niveau (`estObjetSimple`), jamais un corps paramétré par le rôle : une
+ *  clé en trop y est un REFUS au même titre qu'au premier niveau, parce que c'est le
+ *  signal KR-236 — le jour où l'invite du worker demande autre chose que
+ *  `GABARIT_SORTIE`, c'est ici que ça se voit. */
+function estRapportBrut(element: unknown): element is Record<string, unknown> {
+	if (!estObjetSimple(element)) return false
+	const cles = Object.keys(element)
+	return cles.length === CLES_RAPPORT.length && CLES_RAPPORT.every((cle) => cles.includes(cle))
 }
 
 /**
@@ -451,4 +498,141 @@ export function validerIntention(
 	if (porteUnIdentifiant(intention, dossier)) return { ok: false, motif: 'identifiant' }
 
 	return { ok: true, intention }
+}
+
+/**
+ * LES PRÉDICATS DE FORME de la sortie `personnage-relations` — LE PREMIER RÔLE MIXTE :
+ * chaque élément porte un JETON de désignation (`envers`, mécanisme de l'it2) ET de la
+ * PROSE (`nature`, mécanisme de 3a/3b). Aucun des quatre rôles précédents ne rendait
+ * les deux, et c'est ce qui donne à ce validateur DEUX niveaux de schéma là où les
+ * autres n'en ont qu'un.
+ *
+ * ⚠ PREMIER VALIDATEUR DONT LE TYPE DE RETOUR NOMME `MotifIllisible` EN ENTIER, et les
+ * CINQ motifs y sont ATTEIGNABLES — `'rang-inconnu'` par le prédicat (12), les quatre
+ * autres par les prédicats de forme et de prose. C'est la PREUVE qu'aucun prédicat
+ * n'est mort, pas une affirmation : le type ne nomme que ce qui peut sortir.
+ *
+ * RÈGLE DE TRANCHAGE DU CAS MIXTE, écrite pour qu'on ne la re-dérive pas — un rôle qui
+ * rend à la fois un jeton et de la prose se range selon CE QUE L'ACCEPTATION D'UN
+ * ÉLÉMENT ÉCRIT AU DOSSIER : une prose RÉDIGÉE PAR LE MODÈLE ⇒ RÉDACTION ⇒ liste vide
+ * = REFUS ; des handles re-résolus et des valeurs posées par le code ⇒ DÉSIGNATION ⇒
+ * liste vide = SUCCÈS. `Relation.lien` est écrit par le modèle, donc RÉDACTION, donc
+ * LA LISTE VIDE EST UN REFUS `'vide'` (prédicat 7).
+ * ⚠ LE CRITÈRE PORTE SUR « RÉDIGÉE PAR LE MODÈLE », JAMAIS SUR L'AUDIENCE `'ia'` :
+ * `savoirs[].certitude` EST `'ia'` alors que le rôle détenteurs, qui l'écrit, est une
+ * DÉSIGNATION — le code la pose. Un critère écrit « champ `ia` » classerait détenteurs
+ * en rédaction et CONTREDIRAIT UN RÔLE LIVRÉ.
+ *
+ * LES DOUZE PRÉDICATS, dans l'ordre, chacun prouvable SEUL :
+ *   (1)  objet simple (ni tableau, ni null) ..................... 'schema'
+ *   (2)  clés = EXACTEMENT `CLES_SORTIE_RELATIONS` .............. 'schema'
+ *   (3)  `Array.isArray(brut.rapports)` ........................ 'schema'
+ *   (4)  chaque élément est un objet simple dont les clés valent
+ *        EXACTEMENT `CLES_RAPPORT` — une clé en trop est un REFUS,
+ *        jamais un champ ignoré ................................ 'schema'
+ *   (5)  les DEUX valeurs sont des CHAÎNES — un tableau meurt
+ *        ici, et JAMAIS `[0]`, JAMAIS `String(…)` .............. 'schema'
+ *   (6)  longueur ≤ `RELATIONS_PROPOSEES_MAX` — un REFUS,
+ *        jamais une troncature (KR-230) ........................ 'schema'
+ *   (7)  longueur ≥ 1 ........................................... 'vide'
+ *   (8)  chaque `nature` non vide après `trim()` ................ 'vide'
+ *   (9)  `envers` DISTINCTS .................................... 'schema'
+ *   (10) aucun `MARQUEUR_A_ECRIRE` (constante IMPORTÉE, KR-223) 'marqueur'
+ *   (11) aucun identifiant du dossier, PAR ÉLÉMENT ....... 'identifiant'
+ *   (12) chaque `envers` ∈ `rangsConnus` ................ 'rang-inconnu'
+ *
+ * ⚠ LE PRÉDICAT (9) PORTE SUR `envers`, JAMAIS SUR `nature` (§ 8, n° 45) : DEUX FRÈRES
+ * PORTENT LÉGITIMEMENT LE MÊME LIEN, et un prédicat « natures distinctes » refuserait
+ * une réponse juste. Écrit ici pour que personne ne « symétrise » avec les prédicats de
+ * doublon des rôles détenteurs et répliques, qui, eux, portent sur la seule valeur
+ * qu'un élément ait.
+ *
+ * ⚠ `envers` N'EST JAMAIS PASSÉ À `porteUnIdentifiant` (§ 8, n° 21, veto des deux
+ * postes à effort élevé) : le jeton est L'UNE DE NOS PROPRES CHAÎNES, et son
+ * appartenance est constatée par le prédicat (12). L'y passer serait du code mort
+ * présenté comme de la couverture (famille BUG-084, KR-235). De même pour (10) : le
+ * marqueur d'amorce est un marqueur de PROSE, il n'a pas de sujet sur un jeton.
+ *
+ * ⚠ SCANNER PAR ÉLÉMENT, REFUS PAR LOT. JAMAIS de `join` avant de scanner : deux
+ * fragments logés dans deux `nature` DISTINCTES ne forment pas un identifiant — ils
+ * deviennent deux relations séparées —, et joindre DÉTRUIT LA LOCALISATION tout en
+ * fabriquant un faux positif à la frontière des deux éléments.
+ *
+ * REFUS DU LOT ENTIER sur un seul élément fautif : accepter `envers` en jetant
+ * `nature` ferait RATIFIER UNE RELATION À MOITIÉ INVENTÉE PAR LE CODE, et écarter les
+ * fautifs en gardant les autres serait une réparation silencieuse — l'auteur
+ * ratifierait une liste amputée sans le savoir. Réparer, c'est interpréter (KR-230).
+ *
+ * `rangsConnus` vient de `ContexteDetenteurs.rangs` (rendue par `assemblerRelations`) :
+ * le validateur ne CALCULE aucun rang, il constate une APPARTENANCE — et AUCUNE
+ * conversion numérique nulle part, l'appartenance est un `Set.has` sur la chaîne telle
+ * quelle.
+ */
+export function validerRelations(
+	brut: unknown,
+	rangsConnus: ReadonlySet<RangInjecte>,
+	dossier: Dossier,
+): { ok: true; sortie: RapportsRendus } | { ok: false; motif: MotifIllisible } {
+	// (1) un objet JSON — ni tableau, ni `null`.
+	if (!estObjetSimple(brut)) return { ok: false, motif: 'schema' }
+
+	// (2) l'ensemble des clés vaut EXACTEMENT `CLES_SORTIE_RELATIONS`.
+	const cles = Object.keys(brut)
+	if (cles.length !== CLES_SORTIE_RELATIONS.length || !CLES_SORTIE_RELATIONS.every((cle) => cles.includes(cle))) {
+		return { ok: false, motif: 'schema' }
+	}
+
+	// (3) la clé du schéma porte un TABLEAU — piloté par `CLES_SORTIE_RELATIONS`.
+	const rendus: unknown = brut[CLES_SORTIE_RELATIONS[0]]
+	if (!Array.isArray(rendus)) return { ok: false, motif: 'schema' }
+	const elements: unknown[] = rendus
+
+	// (4) chaque élément est un objet simple dont les clés valent EXACTEMENT
+	//     `CLES_RAPPORT`. Une chaîne nue, un `null`, un tableau ou une clé en trop
+	//     meurent ici : c'est le SECOND niveau du signal KR-236.
+	if (!elements.every(estRapportBrut)) return { ok: false, motif: 'schema' }
+
+	// (5) les DEUX valeurs sont des CHAÎNES — piloté par `CLES_RAPPORT`. Un TABLEAU
+	//     meurt ici, et JAMAIS `[0]`, JAMAIS `String(…)` : repêcher ou coercer ferait
+	//     ratifier à l'auteur une valeur que LE CODE aurait choisie.
+	if (!elements.every((element) => CLES_RAPPORT.every((cle) => typeof element[cle] === 'string'))) {
+		return { ok: false, motif: 'schema' }
+	}
+	const rapports: RapportRendu[] = elements.map((element) => ({
+		envers: element[CLES_RAPPORT[0]] as string,
+		nature: element[CLES_RAPPORT[1]] as string,
+	}))
+
+	// (6) la BORNE DE SORTIE — un REFUS, jamais une troncature (KR-230).
+	if (rapports.length > RELATIONS_PROPOSEES_MAX) return { ok: false, motif: 'schema' }
+
+	// (7) la liste vide est une NON-RÉPONSE de rédaction — voir la règle de tranchage
+	//     du cas mixte, en tête de fonction.
+	if (rapports.length === 0) return { ok: false, motif: 'vide' }
+
+	// (8) aucune `nature` vide une fois les blancs retirés. PAR ÉLÉMENT : un blanc en
+	//     position 2 est aussi fautif qu'en position 0.
+	if (rapports.some((rapport) => rapport.nature.trim().length === 0)) return { ok: false, motif: 'vide' }
+
+	// (9) `envers` DISTINCTS — deux fois le même rang écrirait deux relations vers le
+	//     même personnage. JAMAIS sur `nature` : deux frères portent légitimement le
+	//     même lien.
+	const designes = rapports.map((rapport) => rapport.envers)
+	if (new Set(designes).size !== designes.length) return { ok: false, motif: 'schema' }
+
+	// (10) aucun marqueur d'amorce dans la prose — constante IMPORTÉE, jamais
+	//      recopiée (KR-223). `includes` et non `startsWith` : les chevrons `⟨ ⟩` ne se
+	//      tapent pas au clavier, donc pas de faux positif.
+	if (rapports.some((rapport) => rapport.nature.includes(MARQUEUR_A_ECRIRE))) return { ok: false, motif: 'marqueur' }
+
+	// (11) aucun identifiant du dossier dans la prose. PAR ÉLÉMENT, JAMAIS sur un
+	//      `join` — et JAMAIS sur `envers`, qui est l'une de nos propres chaînes.
+	if (rapports.some((rapport) => porteUnIdentifiant(rapport.nature, dossier))) {
+		return { ok: false, motif: 'identifiant' }
+	}
+
+	// (12) APPARTENANCE — le LOT ENTIER est refusé sur un seul jeton fautif.
+	if (!designes.every((envers) => rangsConnus.has(envers))) return { ok: false, motif: 'rang-inconnu' }
+
+	return { ok: true, sortie: { rapports } }
 }

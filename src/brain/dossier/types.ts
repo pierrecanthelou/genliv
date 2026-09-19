@@ -184,6 +184,37 @@ export const INTENSITE_MIN = -3
 export const INTENSITE_MAX = 3
 
 /**
+ * L'INTENSITÉ SEMÉE À L'ÉCRITURE quand une relation est créée — par l'éditeur manuel
+ * comme par l'acceptation d'une proposition du copilote.
+ *
+ * ⚠ LE POINT NEUTRE, JAMAIS LE PLANCHER. `INTENSITE_MIN` vaut `-3` et signifie
+ * HOSTILITÉ : le prendre pour graine — « puisqu'il est déjà exporté » — écrirait une
+ * inimitié que personne n'a posée, et le seuil que la n° 12 lira (`intensite >= 1`) la
+ * classerait ensuite dans la moitié basse d'une échelle que l'auteur n'a pas réglée.
+ * `0` est le point d'où l'on ne conclut rien.
+ *
+ * QUATRIÈME INSTANCE D'UNE DOCTRINE ÉCRITE — `STATS_INITIALES`,
+ * `CONFIANCE_INITIALE_PORTE`, `CURSEURS_INITIAUX` : une graine vit dans `brain/`, et un
+ * `0` en dur au site d'écriture est KR-165. Elle n'est pas neuve ici, elle est
+ * APPLIQUÉE : le chemin d'écriture manuel posait DEUX littéraux `0` (le brouillon de
+ * ligne et le geste d'ajout, `useEcritureRelationsPresence.ts`), et une graine à deux
+ * domiciles diverge EN SILENCE — c'est le seul mode de panne qu'aucun test existant ne
+ * verrait, puisque les deux valent `0` aujourd'hui.
+ *
+ * ⚠ VALEUR D'ÉCRITURE, JAMAIS UN REPLI DE LECTURE — même doctrine que
+ * `STATS_INITIALES` : `intensite ?? INTENSITE_INITIALE` est INTERDIT. Le champ est
+ * REQUIS au schéma, donc son absence n'est pas « neutre », c'est un document invalide,
+ * et un repli de lecture ferait passer un refus d'import pour une relation tiède.
+ *
+ * AUCUNE SECTION DE `docs/REGLES-DU-JEU.md` NE LA PORTE, et c'est le MÊME constat que
+ * pour `INTENSITE_MIN`/`INTENSITE_MAX` juste au-dessus : ce n'est pas encore une
+ * mécanique de jeu, aucun code ne lit ce nombre. Le jour où la n° 12 écrit le seuil du
+ * plan de cible, la doc des règles passe EN PREMIER (KR-130), puis la table dorée, puis
+ * le code — jamais l'inverse.
+ */
+export const INTENSITE_INITIALE = 0
+
+/**
  * Le PLANCHER d'une caractéristique — l'autre borne de l'échelle, dont le plafond
  * est `CHARACTERISTIC_MAX` (`characteristics.ts`). Constante NOMMÉE, jamais un `1`
  * en dur au site de validation ni au site de saisie (KR-165).
@@ -646,8 +677,19 @@ export interface Relation {
 	 * et d'un seul ; et un champ absent se traite comme `false`.
 	 *
 	 * La table dit l'AUDIENCE, le MOMENT est la charge de l'assembleur n° 10 — même
-	 * dispositif que `si_bloque`, et ZÉRO mécanisme de code en itération 5 : aucun
-	 * assembleur n'existe encore à exercer.
+	 * dispositif que `si_bloque`.
+	 *
+	 * ⚠ CORRIGÉ LE 2026-09-19 (itération 3c de la n° 8) — LA JUSTIFICATION, JAMAIS LE
+	 * PRÉDICAT, qui n'est pas amendé d'une virgule. Cette phrase disait « ZÉRO mécanisme
+	 * de code en itération 5 : aucun assembleur n'existe encore à exercer ». C'est
+	 * devenu FACTUELLEMENT FAUX — CINQ assembleurs existent (`brain/copilote/contexte/`)
+	 * —, et une justification fausse est un piège : le prochain lecteur en conclurait que
+	 * le prédicat est déjà exercé quelque part, ou qu'il ne l'est plus faute d'objet. LA
+	 * RAISON RÉELLE, elle, tient : les cinq assembleurs livrés servent des rôles
+	 * d'ÉCRITURE — ils demandent à l'auteur de compléter sa fiche — alors que ce prédicat
+	 * parle des rôles de LECTURE (acteur, narrateur, arbitre) qui n'existeront qu'à la
+	 * n° 10. Aucun des cinq n'injecte `relations[]`, et ce n'est donc pas ici que
+	 * `secret` se vérifie.
 	 */
 	secret?: boolean
 }
