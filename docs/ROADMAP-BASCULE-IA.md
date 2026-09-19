@@ -1,211 +1,186 @@
 # Roadmap — bascule « arbre de choix » → « dossier d'aventure joué par une IA »
 
 > Source : `docs/PLAN-BASCULE-IA.dc.html` (le plan de cible) + les deux prompts d'intention de l'auteur.
-> Ce document est le **plan exécutable** : il traduit la cible en features au sens de ce dépôt, dans un ordre tenable.
-> Il **remplace** l'ancien `docs/ROADMAP.md` (modèle en paliers horizontaux de l'éditeur d'arbre), supprimé le 2026-08-03 avec le reste du tri — il est dans l'historique git si besoin.
+> Ce document est le **plan exécutable** et un **index**, jamais un journal : il dit ce qui reste à faire et qui le porte. Le raisonnement d'une décision livrée vit dans le `specification.json` de sa feature et dans `.claude/raffinage/<feature>-it<N>.revue.md` ; l'histoire des recadrages vit dans `CHANGELOG.md` et dans git.
 >
-> **Les trois décisions bloquantes (D1, D2, D3) sont tranchées le 2026-08-03.** § 1 les enregistre ; la carte D3 feature par feature est en § 1 bis, et le tri qu'elle commande est **exécuté** (voir le journal de bascule en § 1 ter).
+> **Compacté le 2026-09-19** (budget de contexte, `docs/WORKFLOW.md`) : le § 1 ter « journal de bascule », les corrections de cadrage feature par feature et les trous déjà tranchés sont sortis d'ici. Rien de contraignant n'a été perdu — ce qui suit est la totalité de ce qui engage un cadrage à venir.
 
 ---
 
 ## 0 — Ce qui est déjà tranché
 
-Tiré des prompts de l'auteur et des arbitrages du plan de bascule. Ne pas rouvrir sans motif.
+Ne pas rouvrir sans motif.
 
 | # | Décision | Portée |
 |---|---|---|
 | 1 | **Pas de migration.** Aucun livre existant ; le format d'arbre n'est pas maintenu en parallèle. Le dossier JSON est le seul format persisté. | tout |
-| 2 | **Un seul modèle, un seul niveau d'effort en v1**, mais le code prévoit un **routeur de modèle et d'effort**. On part simple, l'évolution est prévue dans la structure, pas livrée. | Temps 2 |
-| 3 | **On part sur du simple, facilement modifiable dans le code.** Vaut comme règle de tranchage : à chaque fourche, la version la plus bête qui marche, pourvu que le point d'extension soit nommé. | tout |
-| 4 | **L'IA ne lance jamais les dés** et ne modifie jamais une statistique. Elle *demande* un jet, le moteur le résout, elle raconte. Hasard, PV, PE, inventaire, XP restent du code déterministe, testable, rejouable. | tout |
-| 5 | **L'arbre est conservé, pas supprimé** — il change de nature : jalons facultatifs, scènes écrites, fins conditionnelles. Le canevas existant est **repointé** sur un graphe de relations et d'indices : même composant, autre source de données. | Temps 1 |
-| 6 | **Identifiants stables partout** (`pnj.aldur`, `lieu.caverne-basse`, `indice.sceau-brise`). Toute relation, condition ou révélation pointe un identifiant, jamais un nom libre. C'est ce qui rend le lint et la validation des sorties IA possibles. | tout |
-| 7 | **Le dossier est en lecture seule pendant la partie.** Tout ce qui bouge vit dans un second JSON (session), porteur de la graine aléatoire et du journal. | Temps 2 |
+| 2 | **Un seul modèle, un seul niveau d'effort en v1**, mais le code prévoit un **routeur de modèle et d'effort** — point d'extension nommé, pas abstraction livrée. | Temps 2 |
+| 3 | **La version la plus bête qui marche**, à chaque fourche, pourvu que le point d'extension soit nommé. | tout |
+| 4 | **L'IA ne lance jamais les dés** et ne modifie jamais une statistique. Elle *demande* un jet, le moteur le résout, elle raconte. Hasard, PV, PE, inventaire, XP restent du code déterministe. | tout |
+| 5 | **L'arbre est conservé, pas supprimé** — il change de nature : le canevas est repointé sur un graphe de lieux, d'accès et d'indices (§ 2 bis, D10–D11). | Temps 1 |
+| 6 | **Identifiants stables partout** (`pnj.aldur`, `lieu.caverne-basse`). Toute relation, condition ou révélation pointe un identifiant, jamais un nom libre. | tout |
+| 7 | **Le dossier est en lecture seule pendant la partie.** Tout ce qui bouge vit dans un second JSON (session), porteur de la graine et du journal. | Temps 2 |
 
-## 0 bis — L'existant qu'on garde (et que le plan de bascule ignore)
+### D1 — Le langage de conditions : **un champ pour chaque**
 
-Le plan de cible a été écrit sans nommer une seule feature du dépôt. Or il y en a **treize** dans `src/features/`, plus un **runtime joueur de ~4 400 lignes** dans `src/player/`. Ce runtime n'est pas à écrire : il est à **repointer**.
-
-| Existant | Lignes | Sort |
-|---|---|---|
-| `player/engine/combatEngine.ts` + `combatTypes` + `capacityEffects` + `useCombat` + `CombatScreen` | ~1 500 | **conservé tel quel.** Le combat est déjà piloté par le code. Le Temps 2 n'y ajoute qu'un commentaire IA par round. |
-| `player/engine/charCreation.ts` + `heroGen.ts` + `CharacterCreationScreen` | ~475 | **conservé.** La création de personnage (2D4 + 1D4 réparti) existe ; le plan la laissait en trou. |
-| `player/engine/actionEngine.ts`, `sessionEngine.ts`, `usePlaySession.ts`, `PlayerRuntime.tsx` | ~1 000 | **repointés** : la source passe d'un arbre de nœuds à un dossier + jalons. C'est le cœur de `moteur-dossier`. |
-| `player/components/XpShopScreen`, `EndScreen`, `HeroStatusBar`, `persist.ts` | ~440 | **conservés**, branchés sur l'état de session. |
-| `player/components/NodeScreen`, `ChoiceList`, `DecorScreen`, `PnjScreen`, `TrapScreen` | ~765 | **remplacés** par la boucle narrative (champ libre au lieu d'une liste de boutons). |
-| `brain/` : `challenge.ts`, `combat.ts`, `xp.ts`, `characteristics.ts`, `bestiary.ts`, `equipment.ts`, `monsterCapacities.ts` | — | **conservés, intouchés.** Ce sont les règles ; elles sont désormais tenues par le score de mutation (`npm run test:mutation`, `break: 80`). |
-
----
-
-## 1 — Les trois décisions bloquantes — **tranchées le 2026-08-03**
-
-Elles étaient courtes à trancher et coûteuses à repousser, parce qu'elles atterrissent toutes dans la première feature, qui est le contrat entre les deux temps. Ne pas les rouvrir sans motif.
-
-### D1 — Le langage de conditions → **un champ pour chaque**
-
-Le schéma compte **six** familles de conditions : `canon.objectifs[].reussi_si` / `.echoue_si`, `fins[].condition`, `jalons[].declencheur`, `evenements[].declencheur`, `personnages[].plan_actions[].declencheur`, `contre_mesures[].declencheur`. *(Le plan de cible en comptait sept ; le cadrage du 2026-08-03 a fait sortir `savoirs[].revele_si` — un `jet` n'évalue pas, il **émet** une demande qui change le tour. Aplati en prédicat booléen, il forcerait l'évaluateur à lancer le dé, ce que la décision n° 4 interdit. C'est un type à part, `Revelation` à portes fermées.)* « Langage lisible » seul ne suffisait pas : « tester les conditions de fin » est dans la colonne **code** du plan (§ 2.1 étape 7), et le linter doit décider si un objectif est **atteignable**, ce qui exige du calculable.
-
-**Décision** : chacune des six familles porte **deux champs**, pas un.
+Les **six** familles de conditions (`canon.objectifs[].reussi_si` / `.echoue_si`, `charpente.fins[].condition`, `charpente.jalons[].declencheur`, `monde.evenements[].declencheur`, `monde.personnages[].plan_actions[].declencheur`, `.contre_mesures[].declencheur`) portent chacune **deux champs** :
 
 | Champ | Pour qui | Rôle |
 |---|---|---|
-| `…_texte` | l'auteur | phrase en français, écrite en premier et relue par l'auteur (et par le linter n° 7). **Jamais injectée** — corrigé par la décision B et par `destinations.ts` : c'est `…_expr` en français, et l'injecter met la même règle dans le code **et** dans le prompt. |
-| `…_expr` | le moteur | expression évaluable, seule autorité sur ce qui se déclenche. Facultative — absente, la condition n'est jamais déclenchée automatiquement (elle reste une intention narrative). |
+| `…_texte` | l'auteur | phrase en français, écrite en premier. **Jamais injectée** — c'est `…_expr` en français, et l'injecter mettrait la même règle dans le code **et** dans le prompt. |
+| `…_expr` | le moteur | **arbre JSON, jamais une chaîne, et il n'existe aucun parseur** : `{ op: 'et' / 'ou' / 'non' / 'pred' }`, prédicats du registre fermé `PREDICATES`. L'auteur ne saisit jamais d'expression — `label` pilote le `Select`, `refKinds` le `TargetPicker`. Facultative : absente, la condition ne se déclenche jamais automatiquement. |
 
-Conséquences à tenir au cadrage de `dossier-format` :
+Un `…_expr` pointant un identifiant inconnu est une **erreur bloquante** du linter ; un `…_texte` sans `…_expr` sur une fin ou un objectif est une **alerte**. `savoirs[].revele_si` n'est PAS de cette famille : un `jet` n'évalue pas, il **émet** une demande qui change le tour (décision n° 4) — c'est `Revelation`, à portes fermées.
 
-- **Le moteur ne lit jamais `…_texte` pour décider**, et **le modèle ne le lit pas non plus** : les deux champs du couple restent hors du contexte injecté (réciproque posée par la décision B, tenue par `destinations.ts`). C'est la même frontière que la décision n° 4 (l'IA ne lance pas les dés) appliquée aux conditions.
-- `…_expr` est **un arbre JSON, jamais une chaîne**, et **il n'existe aucun parseur** (cadrage du 2026-08-03) : `{ op: 'et' | 'ou' | 'non' | 'pred' }`, prédicats sur identifiants stables tirés d'un registre fermé. Supprimer la chaîne supprime la grammaire à spécifier, versionner et tester, toute la classe des erreurs de syntaxe, et la question de la syntaxe montrée à l'auteur — le registre `PREDICATES` pilote directement le rendu des formulaires (`label` → `Select`, `refKinds` → `TargetPicker`). L'auteur ne saisit jamais d'expression.
-- Un `…_expr` présent référençant un identifiant inconnu est une **erreur bloquante** du linter (n° 7), pas un avertissement — c'est ce que D1 achète.
-- Un `…_texte` sans `…_expr` sur une **fin** ou un **objectif** est une **alerte** du linter : l'aventure reste jouable, mais rien ne la terminera automatiquement.
+### D2 — Les appels IA passent tous par le worker
 
-### D2 — Où vivent les appels IA → **tous par le worker**
+Clé d'API jamais côté client ; une route par rôle IA ; SSE pour la narration au Temps 2. Chaque route neuve suit la checklist **Worker Route Parity** de `docs/WORKFLOW.md` (KR-233 fait foi, `worker/index.test.ts` la tient). Le hors-ligne n'est pas traité : sans worker joignable, le mode jeu s'arrête sur un message, il ne dégrade pas vers un narrateur local.
 
-**Décision** : confirmée telle qu'elle était proposée. Les appels IA passent par `worker/index.ts` ; la clé d'API n'atteint jamais le client ; une route par rôle IA ; réponses en SSE pour la narration. Le « routeur de modèle et d'effort » (décision n° 2) est un **point d'extension nommé dans le worker**, pas une abstraction livrée en v1.
+### D3 — Versionnement
 
-Chaque route nouvelle suit la checklist **Worker Route Parity** de `docs/WORKFLOW.md` — handler, entrée `ROUTE_LIMITS`, rate limit KV, garde de taille de corps, forme de réponse alignée sur le service `brain/`. Le hors-ligne n'est pas traité en v1 : sans worker joignable, le mode jeu s'arrête proprement sur un message, il ne dégrade pas vers un narrateur local.
+`0.6.x` = **Temps 1 et sa dette** (features n° 1–8 et § 2 bis), `0.7.x` = **Temps 2** (n° 9–16). **PATCH +1 par itération livrée**, dans l'ordre de ce document. Les corrections de bogue ne bumpent pas seules. Plancher de session : PATCH +1 minimum.
 
-### D3 — Le sort des features existantes, et le versionnement → **carte appliquée**
+### Décision A (2026-08-04) — chaque racine reçoit sa forme dans la feature qui l'édite
 
-**Décision** : la carte est en § 1 bis, et le tri qu'elle commande est exécuté immédiatement (§ 1 ter) plutôt que reporté à la feature n° 2 — l'app n'est pas en service, la démolition n'a donc pas à attendre son remplacement.
-
-**Versionnement** : le modèle en paliers horizontaux (`0.MINOR` = un palier traversant *toutes* les features) est **retiré**. Il ne survivait pas à l'arrivée de seize features neuves au stade squelette pendant que les anciennes sont à l'itération 4. À la place :
-
-- `0.6.x` = **Temps 1** (l'éditeur produit un dossier), `0.7.x` = **Temps 2** (le moteur joue le dossier) ;
-- **PATCH +1 par itération de feature livrée**, dans l'ordre de ce document ;
-- les corrections de bogue ne bumpent pas seules, elles se replient dans l'itération qui les a produites ;
-- plancher de session inchangé : toute session bump au minimum PATCH +1.
+Corollaire non négociable (veto tech-lead), **toujours en vigueur** : `brain/dossier/types.ts`, `destinations.ts` et `validate.ts` ne sont **jamais** dans un lot de type `feature`. Toute tranche qui touche le schéma ouvre un lot `contrat`, **seul et en premier**.
 
 ---
 
-## 1 bis — La carte D3, feature par feature
+## 0 bis — L'existant qu'on garde
 
-Treize features au départ. **Cinq survivent**, huit sont supprimées. La colonne « pourquoi » dit ce qui, dans la bascule, décide du sort.
+`src/player/` porte un **runtime joueur de ~4 400 lignes** qui n'est pas à écrire mais à **repointer**.
 
-| Feature | Lignes | Sort | Pourquoi |
-|---|---|---|---|
-| `tree-canvas` | 1 703 | **en sommeil ; repointage NON ASSIGNÉ** | Décision n° 5 : même composant, autre source (nœuds + arêtes → relations + indices), mais AUCUNE feature ne le porte plus. Reste sur disque, intact, non repointé : il est câblé sur `BookNode`/`Edge` condamnés, sa démolition est planifiée en n° 9, et aucun instrument ne couvre pan/zoom/layout. `lieux[].acces` reste sans propriétaire. Historique des deux recadrages (n° 2 → n° 6, puis retrait du périmètre de n° 6) et motifs : `src/features/dossier-registres/specification.json` (KR-204/205). |
-| `book-library` | 842 | **repointée** (n° 2) | La bibliothèque liste désormais des dossiers d'aventure. Vignette = illustration du canon, plus la couverture du `sommaire`. |
-| `cloud-sync` | 598 | **repointée** (n° 1) | Le transport, la file hors-ligne et la résolution de conflit sont agnostiques du document. Seule la forme persistée change. |
-| `book-creation` | 346 | **repointée** (n° 2) | Créer un dossier vide au lieu d'amorcer un arbre à deux nœuds. |
-| `play-mode` | 95 | **repointée** (n° 9) | Coquille modale au-dessus de `src/player/` ; elle suit le runtime. |
-| `outline-view` | 1 907 | **supprimée** | Affiche l'arborescence indentée d'un arbre qui n'existe plus. Remplacée par la liste de sections (n° 2). |
-| `action-decor` | 1 251 | **supprimée** | Câblée sur le type de nœud `décor`. L'`ObjectEditor` qu'elle utilisait vit déjà dans `brain/components/` : c'est la graine de `dossier-objets` (n° 5). |
-| `node-editor` | 1 218 | **supprimée** | Édite un nœud d'arbre par type. Les formulaires du dossier (n° 3 à 6) n'en partagent ni l'anatomie ni les champs. |
-| `choice-linking` | 994 | **supprimée** | Câble des choix ; les choix disparaissent au profit du champ libre. |
-| `action-pnj` | 901 | **supprimée** | Le PNJ devient une **fiche** de 8 blocs (n° 4), pas une action attachée à un nœud. |
-| `action-monster` | 807 | **supprimée** | Le bestiaire et `MonsterLibraryService` sont dans `brain/` et restent ; seule l'attache au nœud part. |
-| `book-export` | 559 | **supprimée** | Exporte un `genliv-play` bâti sur nœuds + arêtes et importe le format scénario. Les deux formats sont abandonnés (décision n° 1 : pas de migration). |
-| `action-trap` | 361 | **supprimée** | Idem `action-pnj` : le piège devient une entrée de registre, pas une action de nœud. |
-
-**Ce qui n'est pas dans la carte et ne bouge pas** : `src/brain/` (règles, services, primitives) et `src/player/` (runtime joueur, ~4 400 lignes) — voir § 0 bis. Le runtime est **repointé au Temps 2**, jamais supprimé : ses écrans de combat, de création de personnage et de boutique d'XP survivent tels quels, seuls `NodeScreen` / `ChoiceList` / `DecorScreen` / `PnjScreen` / `TrapScreen` cèdent la place à la boucle narrative en n° 10.
-
-## 1 ter — Journal de bascule (2026-08-03)
-
-Le tri commandé par D3, exécuté. À lire avant de cadrer `dossier-format` : plusieurs points ci-dessous **sont** du travail de la n° 1.
-
-**Supprimé — code** : les 8 features ci-dessus (~9 500 lignes, tests et `specification.json` compris) ; `brain/ActionRegistry.ts` et `brain/SlotRegistry.ts`, devenus des registres sans inscrivant ; `brain/utils/scenarioExport.ts` et `BookService.importBook()`, seul chemin d'entrée du format scénario ; les trois événements de `EventBus` devenus sans émetteur ni observateur (`action:changed`, `monster:savedToLibrary`, `book:exported`) ; le chemin « Centrer dans l'arbre » de `tree-canvas` (`RevealRequest`, la prop `reveal`, l'effet de recentrage, `useViewport.centerOn`), dont l'unique producteur était `outline-view` ; les préférences d'affichage de l'ancienne vue plan (`viewMode`, `outlineCollapsed`, `outlineDisplayMode`) dans `UIPreferencesService` ; le sélecteur arbre ↔ plan de `EditorTopBar`.
-
-**Le modèle d'arbre survit sans producteur.** Les champs d'action de `brain/types.ts` (`actionType`, `decor`, `pnj`, `monster`, `trap`, `Edge.prereq`, `Edge.countdown`) et les écritures correspondantes de `BookService` (`updateNode`, `addEdge`, `updateEdge`, `addChoiceBranch`, `deleteNode`) n'ont plus **aucun appelant d'interface** : seules des fixtures de test les atteignent. Les branches de `bookHealth.ts`, `playExport.ts` et `automaticEdges.ts` qui en dépendent ne sont donc plus prouvées sur un chemin réel. C'est le prix assumé de garder le modèle pour que la n° 1 ait un point de comparaison — **mais il faut le savoir en cadrant la n° 1 : la couverture de ces fichiers ne vaut plus garantie d'usage.**
-
-**Supprimé — documents** : `PROMPT_SCENE_IA.md` et sa copie `public/` (prompt du format scénario abandonné — la règle « triplet lié » de `CLAUDE.md` tombe avec) ; `docs/ROADMAP.md` (périmé, remplacé par ce document) ; les bundles de livraison déjà appliqués (`claude-design/`, `livraison/`, `specifications-jeu/`) ; les copies périmées dans `design_handoff_gamebook_editor/` (`features/`, `CLAUDE.md`, `code-knowledge.json`) ; les artefacts locaux (`dist/`, `reports/`, captures, exports de scénario).
-
-**Promu dans le dépôt** — quatre documents contraignants ne vivaient que dans des dossiers ignorés par git, dont la source de vérité des règles du jeu (KR-130) :
-
-| Document | Venait de | Rôle |
+| Existant | Lignes | Sort |
 |---|---|---|
-| `docs/REGLES-DU-JEU.md` | `specifications-jeu/` | **Source de vérité des règles** (KR-130). Toute ambiguïté de mécanique se tranche ici avant le code. |
-| `docs/REGLES-PLAY.md` | `specifications-jeu/REGLES-PLAY-A-COMPLETER.md` | Complément d'orchestration du mode jeu. |
-| `docs/EXIGENCE-APERCU-DU-JEU.md` | `specifications-jeu/` | Le CTA « Aperçu du jeu » et l'exigence de **runtime extractible** — contraignante pour les n° 9 et 15. |
-| `docs/PLAN-BASCULE-IA.dc.html` | `claude-design/project/` | Le plan de cible, source de ce document. |
-| `docs/SPEC-game-system.json` | `features/` (racine) | La spec du pack de règles — elle documentait la seule couche que la roadmap déclare conservée et intouchée, depuis un dossier racine que plus rien ne référençait. |
+| `player/engine/combatEngine.ts` + `combatTypes` + `capacityEffects` + `useCombat` + `CombatScreen` | ~1 500 | **conservé tel quel.** Le Temps 2 n'y ajoute qu'un commentaire IA par round (n° 13). |
+| `player/engine/charCreation.ts` + `heroGen.ts` + `CharacterCreationScreen` | ~475 | **conservé.** 2D4 + 1D4 réparti ; le plan de cible la laissait en trou. |
+| `player/engine/actionEngine.ts`, `sessionEngine.ts`, `usePlaySession.ts`, `PlayerRuntime.tsx` | ~1 000 | **repointés** sur le dossier + les jalons — c'est le cœur de la n° 9. |
+| `player/components/XpShopScreen`, `EndScreen`, `HeroStatusBar`, `persist.ts` | ~440 | **conservés**, branchés sur l'état de session. |
+| `player/components/NodeScreen`, `ChoiceList`, `DecorScreen`, `PnjScreen`, `TrapScreen` | ~765 | **remplacés** par la boucle narrative (n° 10). |
+| `brain/challenge.ts`, `combat.ts`, `xp.ts`, `characteristics.ts`, `bestiary.ts`, `equipment.ts`, `monsterCapacities.ts` | — | **conservés, intouchés.** Tenus par le score de mutation. |
 
-**Outillage réaligné** : `.eslintrc.cjs` — `FEATURE_DIRS` réduit aux cinq survivants, et le sélecteur d'import dynamique construit depuis cette même liste au lieu de la répéter en dur *(cette liste codée en dur a disparu le 2026-08-13 : elle est dérivée du disque — voir § 2, n° 1)*. Les prompts d'agents et de commandes qui citaient `features/README.md` (supprimé) sont repointés sur ce document : `/cadrer`, la skill `raffinage-iteration`, les agents `pm-produit` et `tech-lead` — dont l'invariant « les `action-*` s'enregistrent auprès d'`ActionRegistry` », devenu producteur de faux positifs.
-
-`.gitignore` ne masque plus `docs/` (`WORKFLOW.md` y est pourtant importé par `CLAUDE.md` à chaque session) ; seul le bundle `claude-design/`, re-téléchargeable, reste ignoré.
-
-**Laissé debout volontairement**, parce que `dossier-format` (n° 1) doit les remplacer et non les trouver déjà démolis :
-
-- `brain/types.ts` + `kinds.ts` + `BookService` — tout le modèle d'arbre. C'est **l'objet du contrat de la n° 1** ; le démonter avant d'avoir le format cible ne laisserait rien à quoi comparer.
-- `brain/utils/playExport.ts` — `src/player/types.ts` en dépend pour son `AdventureDocument`. Il tombe quand la n° 9 repointe le runtime sur le dossier.
-- `brain/utils/download.ts` (`downloadJson` / `downloadText` / `slugifyFilename`) — plus aucun appelant depuis la disparition de `book-export`. La n° 1 livre `exportDossier` au contrat (testé, sans écran) mais **aucune affordance de téléchargement** — décision close en it5 (`resolved_decisions`), reportée à la n° 2, seule feature dont une surface (`LibraryScreen`) pourrait lister des dossiers. `download.ts` reste donc sans appelant jusque-là.
-- `brain/MonsterLibraryService.ts` + le `seedDefaults(BESTIARY)` de `createBrain()` — **producteur sans lecteur** : le bestiaire s'écrit une fois dans le stockage local (garde KR-132, pas de ré-injection) pour une librairie qu'aucun écran n'ouvre plus. Repris par la n° 6, dont les événements se branchent sur ce même bestiaire.
-- `brain/components/` — huit primitives sans consommateur (`ObjectEditor`, `OutcomesEditor`, `Stepper`, `TargetPicker`, `ImageUpload`, `Toggle`, `Select`, `Card`). Ce sont les briques des formulaires du dossier (n° 3 à 6) ; `ObjectEditor` est nommément la graine de la n° 5.
-- Les clés de préférences de l'ancienne vue plan déjà écrites chez un développeur (`viewMode`, `outlineCollapsed`, `outlineDisplayMode`) ne sont plus lues, mais `UIPreferencesService.commit()` les **recopie à chaque écriture** puisqu'il étale l'objet chargé. Aucune migration due (décision n° 1 : aucun livre existant) ; pas de routine de nettoyage non plus — une abstraction à un seul appelant est une dette. C'est la n° 2 qui réécrit `BookUIPrefs` et les fera disparaître.
-- L'écran d'édition est désormais une **coquille** : barre + canevas d'arbre, sans panneau d'édition. Il tient jusqu'à la n° 2, il ne prétend à rien de plus.
+**Encore debout, avec leur date de démolition** : `brain/types.ts` (moitié arbre) + `kinds.ts` + `BookService` + `brain/utils/playExport.ts` + `buildAdventureDocument` + `src/features/play-mode/` → tous en **n° 9**, seule propriétaire d'extinction (KR-181), **y compris la ligne d'avis « vos anciens livres restent stockés »** de la bibliothèque, à retirer dans le même lot que sa donnée source. `src/features/tree-canvas/` n'est pas de cette liste : il est **repointé** en D10–D11, pas démoli.
 
 ---
 
-## 2 — Temps 1 · l'éditeur produit un dossier
+## 1 — Temps 1 · l'éditeur produit un dossier — **terminé**
 
-Huit features. Une phrase de démo par feature, sans « et » : c'est le test de dimensionnement.
+Huit features, **48 itérations livrées**, `0.6.50`.
 
-| # | Feature | « À la fin, l'auteur peut… » | Itér. | Statut | Comité | Dépend de |
+| # | Feature | « À la fin, l'auteur peut… » | Itér. | Statut |
+|---|---|---|---|---|
+| 1 | `dossier-format` | …importer un dossier d'aventure validé contre un schéma versionné | 5 | **5/5 ✅** |
+| 2 | `bascule-editeur` | …naviguer dans son aventure par une liste de sections | 3 | **3/3 ✅** |
+| 3 | `dossier-canon` | …rédiger la vérité immuable de son histoire | 4 | **4/4 ✅** |
+| 4 | `dossier-fiches` | …écrire une fiche de personnage exploitable par l'IA | 8 | **8/8 ✅** |
+| 5 | `dossier-objets` | …tenir le registre des objets de son aventure | 2 | **2/2 ✅** |
+| 6 | `dossier-registres` | …tenir les quêtes, les indices, les événements de son aventure | 5 | **5/5 ✅** |
+| 7 | `dossier-controles` | …voir pourquoi son aventure n'est pas encore jouable | 10 | **10/10 ✅** — 9 règles livrées ; le décompte cible de 11 est caduc depuis it8 |
+| 8 | `dossier-copilote` | …faire proposer un texte par l'IA, champ par champ | 6 | **6/6 ✅** — 7 assistants ; pose la route `/ia/:role`, l'enveloppe de sortie et le rejeu-une-fois, dont le Temps 2 hérite |
+
+**Colonne `Statut`** — itérations **livrées / prévues**, *projetées* depuis `plan.iterations[].status` du `specification.json` : elle se recopie, elle ne se décide pas ici (source unique, étape 4 des Build Steps). Ce tableau ne dit rien d'un raffinage en cours.
+
+---
+
+## 2 bis — Temps 1 bis · la dette du Temps 1 — **le travail en cours**
+
+Onze tranches, `0.6.51` → `0.6.61`. Chacune ferme une dette que le Temps 1 a laissée **sans propriétaire** : elle n'apparaîtrait dans aucun cadrage à venir si elle n'était pas écrite ici. Ordre = dépendances d'abord, puis coût croissant. **Une tranche à la fois**, même rituel que les features.
+
+| # | Tranche | « À la fin… » | Itér. | Statut | Comité | Dépend de |
 |---|---|---|---|---|---|---|
-| 1 | `dossier-format` | …importer un dossier d'aventure validé contre un schéma versionné | **5** | **5/5 — terminée** | 5 rôles | — |
-| 2 | `bascule-editeur` | …naviguer dans son aventure par une liste de sections | 3 | **3/3 — terminée** | 5 rôles | 1 |
-| 3 | `dossier-canon` | …rédiger la vérité immuable de son histoire | 4 | **4/4 — terminée** | 4 rôles | 2 |
-| 4 | `dossier-fiches` | …écrire une fiche de personnage exploitable par l'IA | 8 | **8/8 — terminée** | 5 rôles | 3 |
-| 5 | `dossier-objets` | …tenir le registre des objets de son aventure | 2 | **2/2 — terminée** | 4 rôles | 1 |
-| 6 | `dossier-registres` | …tenir les quêtes, les indices, les événements de son aventure | 5 | **5/5 — terminée** | 4 rôles (5 à it5) | 4 · 5 |
-| 7 | `dossier-controles` | …voir pourquoi son aventure n'est pas encore jouable | 10 | **10/10 — terminée** | 5 rôles | 8 |
-| 8 | `dossier-copilote` | …faire proposer un texte par l'IA, champ par champ | **6** | **6/6 ✅** | 5 rôles | 6 |
+| D1 | `dette-correctifs` *(hors cycle)* | …plus aucune consigne de remédiation ne nomme une surface inexistante | 1 | — | 4 rôles | — |
+| D2 | `dossier-canon` it5 | …relier ses lieux les uns aux autres | 1 | — | 4 rôles | — |
+| D3 | `dossier-canon` it6 | …composer l'inventaire de départ du héros | 1 | — | 4 rôles | — |
+| D4 | `dossier-registres` it6 | …retirer une entrée de ses registres | 1 | — | 4 rôles | — |
+| D5 | `dossier-registres` it7 | …voir signalée une intrigue laissée en second plan | 1 | — | 5 rôles | D4 |
+| D6 | `book-library` it4 | …renommer et dupliquer un dossier | 1 | — | 4 rôles | — |
+| D7 | `dossier-controles` it11 | …sauter au champ fautif depuis le panneau Contrôles | 1 | — | 4 rôles | — |
+| D8 | `outillage-2` *(hors cycle)* | *(outillage)* le score de mutation cesse de mentir sur `combat.ts` | 1 | — | tech-lead | — |
+| D9 | `outillage-3` *(hors cycle)* | *(outillage)* le canevas devient vérifiable par un instrument | 1 | — | tech-lead | D8 |
+| D10 | `tree-canvas` it7 | …voir son aventure comme un graphe de lieux et d'accès | 1 | — | 4 rôles | D2 · D9 |
+| D11 | `tree-canvas` it8 | …y lire aussi les personnages, leurs relations et le chaînage des indices | 1 | — | 4 rôles | D10 |
 
-**Colonne `Statut`** — itérations **livrées / prévues**, *projetées* depuis `plan.iterations[].status` du `specification.json` de la feature : elle se recopie, elle ne se décide pas ici (source unique, mise à jour à l'étape 4 de `docs/WORKFLOW.md` § Build Steps). `—` = pas commencée. Ce tableau ne dit rien d'un raffinage en cours : `2/5` signifie deux itérations **livrées**, pas « rien d'ouvert ».
+**D1 · `dette-correctifs`** — quatre défauts connus, aucun lié, tous dans des fichiers déjà livrés ; un lot par feature touchée, propriété disjointe. (a) **BUG-090** (major) : la remédiation de `condition-sans-expr` envoie l'auteur vers une surface dont it7 a mesuré l'inexistence **dans le même fichier** — consigne circulaire ; on réécrit le texte vers une surface qui existe, on ne construit pas la surface. (b) Un passage de tabulation dans un champ de prose vide **écrit la chaîne vide** là où il y avait un absent, et émet `dossier:updated` — le `commit()` des `Panneau*` doit distinguer absent et vide. (c) Un `nom` d'entité **non textuel** (`nom: 42`) traverse `validateDossier` : dernier écart type/validateur connu, lot `contrat`. (d) `EYEBROW_REFUS` / `TEXTE_ABSENT` sont recopiés **à l'identique dans trois features** — promotion vers `brain/components/` (KR-109). **Charge de tenue incluse** : `book-library` et `cloud-sync` passent à `status: "done"` (toutes leurs itérations le sont depuis leur repointage) ; `book-creation` (2 logs / 3 itérations) et `tree-canvas` (3 / 6) reçoivent leurs `iterations_log` manquants.
 
-> **Décision A du 2026-08-04 — la forme complète des racines n'est plus portée par la n° 1.** Mesure faite sur le schéma cible § 1.4 (~100 champs terminaux) : chaque racine reçoit sa **forme complète dans la feature qui l'édite** — `canon` en **n° 3**, `personnages` (9 blocs) en **n° 4**, `objets` en **n° 5**, `indices`/`quetes`/`evenements`/`conditions` en **n° 6**. `lieux` est en **n° 3** (`dossier-canon` it4, CORRECTION 2026-08-10) ; `lieux[].acces` et les références croisées restent en n° 4/5/6 (détail et motifs : `dossier-canon`/`dossier-fiches` `specification.json`, `resolved_decisions`). Conséquence : **`dossier-format` reste à cinq itérations**, le contrat n'étant pleinement figé qu'à la n° 6. Corollaire non négociable (veto tech-lead) : `brain/dossier/types.ts`, `destinations.ts` et `validate.ts` ne sont **jamais** dans un lot de type `feature` — toute feature qui ajoute un champ au schéma ouvre un lot `contrat`, seul et en premier.
+**D2 · `dossier-canon` it5 — `lieux[].acces`** — la seule dette du Temps 1 qui en bloque deux autres, et la seule référence croisée de `Lieu` qu'aucun prédicat n'exprime (§ 4). Assignée par erreur de proximité à la n° 5 puis refusée (KR-200), déclarée impossible en n° 6 (KR-205), reconfirmée sans propriétaire par la n° 7 : **elle revient à `dossier-canon`, qui possède `PanneauLieux.tsx` et `FicheLieu.tsx`**. Forme déjà tranchée au raffinage d'it3 de la n° 1, à ne pas re-débattre : **arête ORIENTÉE**, une entrée = un sens, un passage réciproque = deux entrées (une bidirectionnalité implicite obligerait linter, canevas et moteur à matérialiser l'arête inverse à chaque lecture — KR-013). Lot `contrat` d'abord. **Effet de bord à tenir dans la même tranche** : `atteignabilite.ts` câble aujourd'hui une **hypothèse de monde ouvert** (KR-224) faute de graphe à interroger, et le bloquant « lieu de départ désert » repose sur cette prémisse — la tranche qui livre le graphe lève l'hypothèse, ou écrit pourquoi elle la garde.
 
-**1 · `dossier-format`** — schéma `schema: 1`, validateur, dossier de référence écrit à la main (6 PNJ, 5 lieux), import/export JSON. Aucun écran neuf. C'est **le contrat entre les deux temps** : tout le reste en dépend. Y atterrissent la grammaire `…_expr` de D1 et son registre de prédicats, le registre `objets[]` manquant, et les entités que le plan met au schéma sans leur donner de section (`jalons`, `fins`, `meta`). **Correction du cadrage (2026-08-03) : la n° 1 crée, elle ne détruit pas.** J'avais écrit ici qu'elle remplaçait `brain/types.ts` + `kinds.ts` + `BookService` — c'est faux : `types.ts` ne porte pas que le modèle d'arbre, il porte aussi `GameObject`, `SkillRoll`, `MonsterConfig`, `CreatureType`, importés par douze fichiers de `src/player/`, couche déclarée conservée et intouchée en § 0 bis. Un remplacement littéral emporte le combat et la création de personnage. La n° 1 livre le format **en parallèle**, sous ses propres clés, et **scinde** `types.ts` en règles (survivent) / `tree.ts` (condamné). Rayon de cette scission, **mesuré le 2026-08-04** : **26 fichiers**, une ligne d'import chacun — **21 dans `src/brain/`**, **5 dans `src/player/`** (`Edge` seul), et **zéro dans `src/features/`**, qui consomment toutes par le baril `brain/index.ts`. *(J'avais écrit ici « neuf lignes d'import à déplacer dans `src/player/` » : une estimation jamais mesurée, qui confondait le rayon de la scission avec les douze fichiers de `src/player/` important les types de règles — lesquels, eux, ne bougent pas. Le décompte se remesure, il ne se recopie pas.)* La démolition se répartit : la moitié arbre de `BookService` + `kinds.ts` en **n° 2**, `playExport` + `Book`/`Edge` en **n° 9**. Invariant du cadrage : **aucune fonction ne convertit un `Book` en `Dossier` ni l'inverse**, dans aucun sens (KR-167).
+**D3 · `dossier-canon` it6 — `depart.inventaire_initial`** — `Charpente.Depart` ne porte que `lieu_id` et `texte_ouverture_joueur` ; rien ne dit avec quoi le héros commence. C'est le **seul placement initial légitime** du dossier (sur le héros, jamais dans un lieu — § 4), et la n° 9 en a besoin pour amorcer l'inventaire de session. Écran : `PanneauDepart.tsx`. Lot `contrat` d'abord.
 
+**D4 · `dossier-registres` it6 — le retrait** — les six registres de la feature (indices, quêtes, événements, climats, jalons, fins) sont **en ajout seul** : aucun `RetirerXDialog`, contrairement à `dossier-objets` et `dossier-fiches` qui en ont chacune reçu un. Action dangereuse au sens de `docs/WORKFLOW.md` → dialogue de confirmation, `color="error"`, chemin « Annuler » nommé. Le refus par référence pendante au SSOT est déjà couvert depuis la n° 4 it6 — cette tranche le consomme, elle ne le réécrit pas.
 
-**2 · `bascule-editeur`** — la navigation latérale passe de l'arbre à une liste de sections avec compteur de fiches. L'arbre devient jalons + scènes écrites + fins conditionnelles (jalons/fins en LECTURE SEULE dans la liste ; leur écran d'édition, qui engage le registre `DELTAS`, part avec n° 6 — voir § 5). La démolition prévue ici a **déjà eu lieu** (§ 1 ter) : il ne reste que la construction, plus le repointage de `book-library` et `book-creation`. **CORRECTION (cadrage `bascule-editeur`, 2026-08-08)** : le repointage de `tree-canvas` sur le graphe de relations et d'indices n'a pas de données à afficher à ce stade (§ 1 bis) — il est reporté à n° 6 ; `tree-canvas` est démonté (« en sommeil »), pas repointé, par cette feature.
+**D5 · `dossier-registres` it7 — « Intrigue en second plan »** — les deux moitiés reviennent **ensemble**, et la même feature les porte : `Indice.portee` (`PORTEES_INDICE = ['canon','quete']`) existe dans le type **sans écran ni lecteur** depuis la n° 6, et la règle de lint du plan-cible § 1.6 qui devait la consommer n'a jamais été écrite. L'écran est dans `PanneauIndices.tsx` / `FicheIndice.tsx` (lot feature) ; la règle est dans `brain/dossier/controles.ts` (lot contrat) — **aucun fichier de `dossier-controles` n'est touché**, son panneau rend le rapport génériquement. Dixième règle du linter. Comité à 5 rôles : la règle décide de ce qui entre dans un contexte de modèle.
 
-**3 · `dossier-canon`** — sections 01 synopsis & canon (synopsis MJ vs accroche joueur), 02 objectifs des camps, 07 lieux, 10 point de départ. **CORRECTION (cadrage dossier-canon, 2026-08-10)** : passe de 3 à 4 itérations (Canon · Départ · Objectifs · Lieux) — Objectifs et Lieux ouvrent chacun un lot contrat de schéma disjoint (`camp` sur `Objectif` ; création du type `Lieu`), qui ne cohabitent jamais dans une même itération.
+**D6 · `book-library` it4 — renommer et dupliquer** — `DossierService.rename` / `duplicate` n'existent pas ; ils étaient laissés dehors « tant que personne ne les appelle », propriétaire écrit comme « la prochaine feature qui touche `book-library` ». C'est celle-ci. Précédent exact à imiter : `book-library` avait elle-même reçu `rename`/`duplicate` après son walking skeleton, pas dedans.
 
-**4 · `dossier-fiches`** — sections 03 et 04. **Le gros morceau**, et le plan de cible le dit deux fois : « l'écran le plus important du produit ». 8 blocs, deux axes `camp` × `plan`, 6 curseurs de caractère, l'éditeur de plan d'actions, l'éditeur de savoirs à 4 portes, le sélecteur de relations à intensité signée. Un seul formulaire pour tous les personnages. **Terminée le 2026-08-16, 8/8 itérations** (cadrée à 5, redécoupée à 6 puis 8 au raffinage — détail : `src/features/dossier-fiches/specification.json`, `resolved_decisions`). Mapping des 6 curseurs sur CA/IN/IG posé dans `brain/dossier/curseurs.ts` (donnée de présentation, KR-193, hors mutation et hors table dorée).
+**D7 · `dossier-controles` it11 — le saut au champ fautif** — déclaré sans lot étanche possible au cadrage du 2026-09-15 parce qu'il traverse les `Panneau*` de quatre features. **Il l'est avec le motif que `docs/WORKFLOW.md` documente déjà** (« Cross-feature UI action registration ») : un registre dans `brain/` où chaque section inscrit son gestionnaire de focus, que le panneau Contrôles appelle par identifiant de champ. Une itération, cinq lots à propriété disjointe — le registre, puis un lot par feature adoptante. La valeur noop par défaut garde chaque section sûre tant qu'elle n'a pas adopté, donc les lots tombent dans n'importe quel ordre. **Reste hors périmètre, explicitement** : le routage vers la section du *remède* — s'il arrive un jour, le critère de navigation d'it4 sera SUPERSEDED, jamais régressé.
 
-**5 · `dossier-objets`** — était **absente du plan de cible** : `objet_id` y était référencé à quatre endroits sans qu'aucun tableau racine ne le définisse, alors que `CLAUDE.md` en fait une règle de domaine. `action-decor` est supprimée, mais l'`ObjectEditor` qu'elle utilisait vivait dans `brain/components/` et a servi de graine de motif (jamais réutilisé comme écran — ses contrôles mécaniques appartiennent au modèle condamné). **Terminée le 2026-08-16, 2/2 itérations** : `Objet extends Entite { description_joueur?: string }`, registre liste + fiche, réordonnancement composé par la feature (jamais une prop sur `ListRow.tsx`), retrait refusé au SSOT sans aucun lot contrat (le refus par référence pendante était déjà couvert depuis dossier-fiches it6) — détail : `src/features/dossier-objets/specification.json`, `resolved_decisions`.
+**D8 · `outillage-2`** — sa spécification **est écrite** et ne se réécrit pas : `.claude/raffinage/outillage-it1.revue.md` porte la table de correspondance complète (les numéros de ligne du dépôt **après** le lot A, pas ceux du plan). **21 tests**, concentrés sur `combat.ts`, seul fichier sous les 80 % (**62,50 %**, 20 survivants + 7 sans couverture). Deux charges de plus, au même endroit : le **`rng` non seedé de `combat.ts:107`** — mutant `ObjectLiteral` qui fait retomber le tirage sur `Math.random`, cause identifiée du ±1 mutant entre deux runs, à corriger en passant un `rng` explicite plutôt qu'en s'appuyant sur le défaut ; et **BUG-035** — `var(--surface-raised)`, référencé dans `ImageUpload.tsx:185`, n'existe dans aucun fichier de `src/styles/tokens/`, avec la règle ESLint qui manque pour détecter un token qui ne résout vers rien. `thresholds.break` se relève de +5 sur la mesure finale, plafond 90, et **aucun fichier ne recule** (lecture à ±1 mutant près).
 
-**6 · `dossier-registres`** — sections 05 quêtes, 06 indices, 08 événements (deux listes séparées par l'interrupteur « lié à l'histoire », branchées sur le bestiaire existant), 09 climat & conditions, et l'écran d'édition des jalons & fins (§5 : dépend du registre `DELTAS` que cette feature introduit). **CORRECTION (cadrage `dossier-registres`, 2026-08-17)** : « + son graphe » retiré — repointage visuel hors périmètre (§1 bis, `tree-canvas` ; détail KR-204). `indices[].mene_a` se rend en liste textuelle. Passée à 5 itérations (jalons & fins ajoutés, absents de la phrase de démo d'origine).
+**D9 · `outillage-3`** — le **troisième instrument de vérification**, différé depuis l'origine : des specs navigateur pour le canevas. Il cesse d'être différable au moment exact où D10 rouvre `tree-canvas` — 1 703 lignes de Dagre, de culling de viewport et de drag de sous-arbre qu'aucun test ne couvre, et que jsdom ne *peut* pas couvrir puisqu'il ne calcule aucun layout (même mur que la largeur rendue d'un badge composé, non vérifiée par personne depuis la n° 7 it2). Une seconde charge y tient, de même nature — **aucun instrument ne vérifie l'unicité des `BUG-xxx` à travers les sept fichiers `bug_history*.json`** : la règle ne vit que dans leurs `_about` et a déjà dérivé en silence une fois (précédent BUG-062).
 
-**7 · `dossier-controles`** — le linter d'aventure : un rapport de contrôles, un panneau, des badges par section. Nommée `controles` et non `lint` : dans ce dépôt `npm run lint` désigne ESLint depuis l'itération outillage-1. **10 itérations, terminée le 2026-09-17**, 9 règles livrées — 4 peuvent rendre l'aventure injouable, 4 plafonnent à l'alerte, 1 à l'info — le décompte cible de 11 est caduc depuis it8, voir la spec. Aucun lot contrat sur la triade de la Décision A. Historique des recadrages (3 → 4 au cadrage, 4 → 6 au raffinage d'it3, 6 → 8 au raffinage d'it6 puis d'it7 — deux coupes sur le SENS D'ERREUR —, puis 8 → 10 au raffinage d'it8, première coupe sur le VOLUME : quatre charges tenaient dans une seule itération), mesures et arbitrages : `src/features/dossier-controles/specification.json` et `.claude/raffinage/dossier-controles-it*.revue.md`.
+**D10 · `tree-canvas` it7 — le graphe de lieux et d'accès** — la décision n° 5 tenue enfin : même composant, autre source. Le canevas cesse de lire `BookNode`/`Edge` et lit `monde.lieux[]` + `lieux[].acces` (arêtes orientées, D2). C'est ce qui justifie rétroactivement de l'avoir gardé sur disque, intact, plutôt que supprimé puis reconstruit. Sa `specification.json` perd la mention « en sommeil ».
 
-**8 · `dossier-copilote`** — 3 assistants (Éclater le synopsis, Compléter une fiche, Tisser les indices), toujours en proposition, panneau de diff accepté champ par champ. **La « Répétition à blanc » n'est pas ici** : elle simule 20 tours joués par un joueur synthétique, donc elle exige le moteur. Elle est déplacée en n° 16. **6 itérations** — découpage corrigé deux fois (3 → 4 au cadrage du 2026-09-17, 4 → 6 au raffinage de l'it3 le 2026-09-18, dont une tranche **supprimée par veto** : les curseurs de caractère ne sont pas proposables). Motifs dans la spec. Ordre imposé par l'échelle de risque **rangs → nombres → entités**, le synopsis en dernier, seul assistant qui crée des entités et frappe des identifiants. **Première feature du dépôt à appeler un modèle** : elle pose la route worker `/ia/:role` (D2), l'enveloppe de sortie et le rejeu-une-fois, que le Temps 2 hérite ; contexte sous garde d'audience **stricte, zéro dérogation** (KR-232). Détail et arbitrages : `src/features/dossier-copilote/specification.json`, `.claude/raffinage/dossier-copilote-cadrage.plan.md`.
+**D11 · `tree-canvas` it8 — les personnages, les relations, les indices** — la seconde couche du même canevas : les personnages placés par `presence[].lieu_id`, leurs `relations[]` à intensité signée, et le chaînage `indices[].mene_a` que la n° 6 rend aujourd'hui en liste textuelle. Rien de neuf au schéma — **lot `contrat` interdit dans cette tranche** : s'il en faut un, c'est qu'elle a dérivé.
 
 ---
 
 ## 3 — Temps 2 · le moteur joue le dossier
 
+Le Temps 2 ne commence qu'une fois le § 2 bis clos, sur go explicite. `0.7.x`.
+
 | # | Feature | « À la fin, le joueur peut… » | Itér. | Statut | Comité | Dépend de |
 |---|---|---|---|---|---|---|
-| 9 | `moteur-dossier` | …jouer une session pilotée par un dossier, sans IA | 4 | — | 5 rôles | 1 |
+| 9 | `moteur-dossier` | …jouer une session pilotée par un dossier, sans IA | 4 | — | 5 rôles | D3 · D11 |
 | 10 | `moteur-interprete` | …écrire ce qu'il veut faire en langage libre | 4 | — | 5 rôles | 9 |
-| 11 | `moteur-arbitre` | …voir le code lancer le dé que l'IA a demandé | 3 | — | 5 rôles | 10 |
-| 12 | `moteur-acteurs` | …parler à un PNJ qui ne révèle que ce qu'il sait | 4 | — | 5 rôles | 11 · 4 |
+| 11 | `moteur-arbitre` | …voir le code lancer le dé que l'IA a demandé | 3 | — | 5 rôles | 10 · D8 |
+| 12 | `moteur-acteurs` | …parler à un PNJ qui ne révèle que ce qu'il sait | 4 | — | 5 rôles | 11 |
 | 13 | `moteur-combat` | …lire un combat raconté que l'IA n'arbitre pas | 2 | — | 5 rôles | 11 |
 | 14 | `moteur-horloge` | …découvrir que le monde a avancé sans lui | 3 | — | 5 rôles | 12 |
 | 15 | `moteur-fins` | …reprendre sa partie là où il l'a laissée | 3 | — | 5 rôles | 14 |
 | 16 | `dossier-repetition` | *(auteur)* …faire jouer son aventure par un joueur synthétique | 2 | — | 5 rôles | 10 · 7 |
 
-**9 · `moteur-dossier`** — machine à états, JSON de session (10 clés racine), horloge, journal, application des deltas, console de commandes typées. Aucune génération de texte : on valide la mécanique seule. **Beaucoup plus petit que ce que le plan laisse croire** : `sessionEngine`, `actionEngine`, `usePlaySession` et `PlayerRuntime` existent — c'est un repointage de la source, pas une écriture.
+**9 · `moteur-dossier`** — machine à états, JSON de session (10 clés racine), horloge, journal, application des deltas, console de commandes typées. Aucune génération de texte : on valide la mécanique seule. **Beaucoup plus petit que le plan de cible ne le laisse croire** — `sessionEngine`, `actionEngine`, `usePlaySession` et `PlayerRuntime` existent. Porte aussi, et c'est du travail réel : **toute la démolition du modèle d'arbre** (§ 0 bis), le branchement de `RapportControles.jouable` sur `previewDisabledReason` du CTA « Aperçu du jeu » (désactivé en dur aujourd'hui), le refus d'ouvrir une partie sur un `texte_ouverture_joueur` encore marqué `MARQUEUR_A_ECRIRE`, la **projection des jalons atteints** (leur `enonce_texte` seul, jamais les déclencheurs ni les conditions de fin), l'avancement de `quetes[].etapes`, et les deux champs que le plan de cible laisse en `[ … ]` : `journal[].deltas` et `memoire.faits_etablis`. La contrainte de **runtime extractible** de `docs/EXIGENCE-APERCU-DU-JEU.md` s'applique à toute la feature.
 
-**10 · `moteur-interprete`** — rôles R1 (interprète) et R3 (narrateur), cadrage de contexte, mémoire à trois niveaux (5 derniers tours intégraux / résumé glissant réécrit tous les 10 tours / faits établis jamais résumés). Pose l'infrastructure de prompt et les garde-fous du § 2.8 : sortie structurée obligatoire, aucune création d'entité, anti-complaisance, budget par tour.
+**10 · `moteur-interprete`** — rôles R1 (interprète) et R3 (narrateur), cadrage de contexte, mémoire à trois niveaux (5 derniers tours intégraux / résumé glissant réécrit tous les 10 tours / faits établis jamais résumés). Pose les garde-fous du § 2.8 : sortie structurée obligatoire, aucune création d'entité, anti-complaisance, budget par tour. **C'est ici que la « scène écrite » devient réelle** : sa propriété définissante est un chemin de code — une prose verbatim est **émise** par le moteur, jamais demandée au modèle. Porte aussi le **balayage du budget de contexte des onze chemins de prose `ia`** — un seul balayage, jamais trois chemins bornés sur onze, sous peine que le silence cesse de signifier « sous budget » ; avertissement non bloquant, aucune migration.
 
-**11 · `moteur-arbitre`** — rôle R2, protocole à deux appels (l'IA annonce le jet, le moteur le lance, un second appel raconte l'issue avec la marge). Branchement sur `challenge.ts` et `xp.ts`. Panneau de dés.
+**11 · `moteur-arbitre`** — rôle R2, protocole à deux appels (l'IA annonce le jet, le moteur le lance, un second appel raconte l'issue avec la marge). Branchement sur `challenge.ts` et `xp.ts`. Panneau de dés. **Définit `ΔT`**, invoqué par le plan de cible pour le calcul d'XP et jamais défini — dans `docs/REGLES-DU-JEU.md` d'abord (KR-130), puis `rules.golden.test.ts`, puis le code. Touche les quatre fichiers mutés : `npm run test:mutation` au-dessus du `break` en vigueur.
 
-**12 · `moteur-acteurs`** — rôle R4, un appel par PNJ qui parle, savoirs filtrés par point de vue, conditions de révélation, échelle de confiance, carnet d'indices. C'est ce lot qui consomme les blocs 3, 6 et 7 de la fiche produite en n° 4.
+**12 · `moteur-acteurs`** — rôle R4, un appel par PNJ qui parle, savoirs filtrés par point de vue, conditions de révélation, carnet d'indices. Consomme les blocs 3, 6 et 7 de la fiche produite en n° 4. **Définit l'échelle de confiance** (bornes, valeur initiale, amplitude d'un delta), **arrête les valeurs de `PorteeContreMesure`** (`'personnage' | 'groupe' | 'lieu'`, posées par la n° 4 sans consommateur) et **écrit le contrat de sortie « R4 · acteur »** (`{replique, indices_reveles, delta_confiance}`, échec → rejeu puis repli déterministe), esquissé au raffinage d'it5 de la n° 4 et volontairement non figé alors.
 
-**13 · `moteur-combat`** — **petit lot** : `combatEngine.ts` fait déjà tout. L'IA commente chaque round en 2–3 phrases à partir du log d'assaut, gère la sortie de combat. Une capacité spéciale de monstre reste du code, jamais une consigne de prompt.
+**13 · `moteur-combat`** — **petit lot** : `combatEngine.ts` fait déjà tout. L'IA commente chaque round en 2–3 phrases à partir du log d'assaut, gère la sortie de combat. Une capacité spéciale de monstre reste du code, jamais une consigne de prompt. **Vérifier `combatEngine.ts` avant de spécifier** le choix de posture du monstre « selon sa capacité et son IG » : c'est peut-être déjà fait.
 
-**14 · `moteur-horloge`** — avancement des étapes de plan des PNJ, transfert d'indice entre PNJ co-localisés, armement des contre-mesures, application du climat, résumé perceptible au narrateur.
+**14 · `moteur-horloge`** — avancement des étapes de plan des PNJ, transfert d'indice entre PNJ co-localisés, armement des contre-mesures, résumé perceptible au narrateur. **Rend enfin vrai le § 09 du plan de cible**, explicitement non tenu à la fin du Temps 1 : `Climat.effets_regles` est une donnée que rien ne sait appliquer — cette feature lui donne son **instant d'application** et son **idempotence**, et consomme `Climat.duree`, dont l'allumage et l'extinction (`horloge.climat_actif`) sont un état de SESSION, jamais du dossier (KR-207).
 
 **15 · `moteur-fins`** — conditions de fin, mort du personnage, reprise, rejeu par graine, bouton « lancer le test » depuis l'éditeur. C'est ce bouton qui referme la boucle auteur → joueur.
 
+**16 · `dossier-repetition`** — vingt tours joués par un joueur synthétique. Dispose donc d'un héros réel plutôt que d'une référence inventée : c'est ce qui rend calculable la règle **« Difficulté non calibrée »**, reportée ici depuis la n° 7.
+
 ---
 
-## 4 — Comment on exécute
+## 4 — Ce qui est CLOS et ne se rouvre pas
 
-Une feature à la fois, jamais deux en parallèle.
+Relevé au balayage du 2026-09-19. Ces points ont traversé plusieurs cadrages comme « trous » ; ils sont tranchés **sans travail**, et les rouvrir coûterait une seconde source de vérité.
+
+| Point | Décision |
+|---|---|
+| **Références croisées de `Lieu`** vers personnages / objets / indices / événements | **Aucun champ, jamais.** Le lien personnage↔lieu **existe déjà** (`presence[].lieu_id`) ; les trois autres s'expriment en **déclencheur**, par le prédicat `lieu_courant_est` (un objet entre en jeu par un `Delta`, un indice par une `Revelation`, un événement par son `declencheur_expr`). Un tableau stocké en serait l'inverse, que rien ne re-synchronise — **cinquième occurrence** de l'anti-patron déjà rejeté pour `tier` (KR-192), `Quete.lie_au_canon` (KR-206), `scene`/`obstacle`/`monstre`, et `Indice.portee` comme classement. Seul `acces` survit : la topologie n'est exprimable par aucun prédicat (→ D2). |
+| **`rattachement.quete_id`** sur un personnage de second plan | **Aucun champ.** `Quete.donneur_id` porte déjà le lien personnage↔quête ; l'inverse se calcule au rendu (KR-013). Si la n° 12 a besoin d'un rattachement d'une autre nature que « donneur », elle l'ouvrira avec son consommateur nommé. |
+| **Possession d'un objet par un personnage**, jet requis pour l'utiliser | **Hors du dossier.** Un inventaire est un état de SESSION (décision n° 7) ; son unique contrepartie Temps 1 est `depart.inventaire_initial` (→ D3). Un objet n'a pas de lieu : il entre en jeu par un `Delta`, jamais par une position initiale. |
+| **Migration `schema: 1` → `schema: 2`** | **Aucun chemin, et c'est définitif pour `schema: 1`** (KR-160/191) : une migration n'est pas testable avant qu'un schéma 2 existe, et le seul critère recevable — le rejet de toute valeur autre que 1, avec un code distinct — est livré. Conséquence assumée, à connaître avant d'ajouter un champ : **tout champ ajouté à `schema: 1` est optionnel à vie**, un champ requis de plus invaliderait rétroactivement tout dossier déjà écrit. Le jour où une rupture est nécessaire, elle crée `schema: 2` et son convertisseur, tous deux propriété de la feature qui rompt. |
+| **`savoirs[].revele_si` comme septième famille de conditions** | Hors D1, définitivement : un `jet` émet une demande, il n'évalue pas. Type à part (`Revelation`, portes fermées). |
+| **Éditer le texte « après » avant de l'accepter** (copilote) | Différé par l'UX à quatre tours de comité successifs ; le `Field` « APRÈS » reste en lecture seule, `onChange` explicite et commenté. Amélioration réelle, à rouvrir sur un besoin exprimé, pas avant. |
+
+---
+
+## 5 — Hors périmètre
+
+Mode multi-joueur · internationalisation · thème sombre · accessibilité (décision projet ; l'opérabilité clavier reste exigée comme ergonomie de rédaction) · undo / historique d'édition · le routage vers la section du remède dans le panneau Contrôles (D7).
+
+---
+
+## 6 — Comment on exécute
+
+Une tranche à la fois, jamais deux en parallèle, dans l'ordre de ce document : **§ 2 bis D1 → D11, puis § 3 n° 9 → n° 16.**
 
 ```
 /cadrer <feature> "<intention en une phrase>"   → specification.json + découpage en itérations
@@ -214,37 +189,14 @@ Une feature à la fois, jamais deux en parallèle.
 /essaim   <feature> n                           → exécution + intégration + qa + dossier de revue
 ```
 
-**Ne pas cadrer plusieurs features d'avance.** Le format bougera au contact du code : tout ce qui aura été cadré avant sera à refaire. `dossier-format` d'abord, jusqu'au bout de ses itérations, puis la suivante.
+Les tranches **hors cycle de feature** (D1, D8, D9) n'ont pas de `/cadrer` : leur périmètre est écrit ci-dessus, elles entrent directement en `/raffiner` et journalisent dans `CHANGELOG.md` + `bug_history.*.json`, sans `specification.json` propre.
 
-**Composition du comité** : les 4 rôles socles partout, **plus `narratif-ia`** dès qu'une feature touche le dossier d'aventure, le moteur, les prompts ou le mode jeu — soit les n° 1, 4, 7, 8, et tout le Temps 2.
+**Ne pas cadrer plusieurs features d'avance.** Le format bouge au contact du code : tout ce qui aura été cadré avant sera à refaire.
 
-**Définition de fini** : celle de `templates/plan-iteration.md`. Toute itération touchant `challenge`, `combat`, `xp` ou `characteristics` passe `npm run test:mutation` au-dessus de `break: 80`.
+**Composition du comité** : les 4 rôles socles partout, **plus `narratif-ia`** dès qu'une tranche touche le dossier d'aventure, le moteur, les prompts ou le mode jeu — soit D5 et tout le § 3.
 
----
+**Définition de fini** : celle de `templates/plan-iteration.md`. Toute itération touchant `challenge`, `combat`, `xp` ou `characteristics` passe `npm run test:mutation` au-dessus du `break` en vigueur.
 
-## 5 — Les trous du plan de cible, à combler au cadrage
+**Au franchissement d'un plafond de contexte** (`docs/WORKFLOW.md`), la compaction se fait **dans le lot qui l'a franchi**. Pour ce document, la moitié qui part est l'archive — motifs d'une décision livrée, corrections de cadrage, historique des recadrages — jamais les colonnes `Statut` ni le § 4.
 
-Relevés en lecture intégrale. Chacun est affecté à la feature qui doit le traiter.
-
-| Trou | À traiter dans |
-|---|---|
-| `jalons`, `fins`, `meta` au schéma sans section ni écran — `jalons` et `fins` sont groupées sous `charpente` ; `meta` n'est **pas** une racine (tranché le 2026-08-04). `charpente` n'est plus « **jamais** injectée » mais « **jamais injectée ENTIÈRE** » : une projection nommée en porte **une** feuille — l'`enonce_texte` des jalons **déjà atteints** —, jamais les déclencheurs ni les conditions de fin, qui sont la même règle en français et apprendraient au modèle à provoquer le jalon ou à conduire à la fin | n° 1 (la forme + `enonce_texte`) · n° 2 (la section dans la liste, lecture seule — CORRECTION cadrage `bascule-editeur` 2026-08-08 : l'écran d'édition dépend du registre `DELTAS`, réservé à n° 6) · n° 6 (l'écran d'édition) · n° 9 (la projection) |
-| « Scènes écrites » : le format porte un texte et un drapeau (n° 1), mais leur propriété définissante est un **chemin de code** — une scène verbatim est **émise** par le moteur, jamais demandée au modèle | n° 1 (le champ) · n° 10 (l'émission) |
-| Mapping des 6 curseurs sur CA / IN / IG non donné | n° 4 |
-| Échelle de confiance : bornes, valeur initiale, amplitude d'un delta | n° 12 |
-| `ΔT` invoqué pour le calcul d'XP, jamais défini | n° 11 |
-| Choix de posture du monstre « selon sa capacité et son IG » non spécifié | n° 13 — vérifier `combatEngine.ts`, c'est peut-être déjà fait |
-| Persistance du dossier, bibliothèque multi-livres, `cloud-sync` | n° 1 (forme persistée) · n° 2 (bibliothèque) |
-| Migration `schema: 1` → `schema: 2` | n° 1 |
-| `quetes[].etapes` — laissé en `[ … ]` par le plan de cible. CORRECTION (cadrage `dossier-registres`, 2026-08-17) : périmé depuis la Décision A (`quetes` assignée en bloc à n° 6) | n° 6 (la forme) · n° 9 (l'avancement en session) |
-| Champs laissés en `[ … ]` : `journal[].deltas`, `memoire.faits_etablis` | n° 9 |
-
-> Ce tableau ne liste que les trous **encore ouverts**. Un trou tranché en sort : sa décision vit là où elle a été prise — § 1 pour D1/D2, `code-knowledge.json` pour un KR, `CHANGELOG.md` pour une tranche d'outillage, le `specification.json` de la feature pour le reste.
-
-**Incohérences internes du plan de cible**, à corriger et non à propager : I2 annonce « les trois sections les plus simples » pour quatre sections ; le compteur de règles de lint dit 7 pour 8 règles définies ; la clé `plan` est utilisée deux fois dans l'objet `personnages` — **tranché au cadrage du 2026-08-03** : `portee: 'premier' | 'second'` et `plan_actions[]` ; le préfixe d'identifiant `pnj.` cohabite avec la collection `personnages`.
-
----
-
-## 6 — Hors périmètre de cette roadmap
-
-Mode multi-joueur · internationalisation · thème sombre · accessibilité (décision projet : retirée du cadre, l'opérabilité clavier reste exigée comme ergonomie de rédaction) · undo/historique d'édition · le troisième instrument de vérification différé (specs navigateur pour le canevas, cf. skill `raffinage-iteration`).
+> **Ce fichier n'est pas dans le périmètre Prettier du dépôt** (`npm run format` ne vise que `{src,worker}/**/*.{ts,tsx,css}`). Ne pas lancer `prettier --write` dessus : l'alignement des tables lui coûterait ~8 kio de budget de contexte pour zéro lisibilité.

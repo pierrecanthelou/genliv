@@ -11,7 +11,6 @@ CRITICAL: the test + `tsc --noEmit` gate before every commit is **enforced deter
 Default to React with **TypeScript**. All source files use `.ts`/`.tsx`. Explicit types on public interfaces and hook return values; infer elsewhere.
 
 - **HTML**: Semantic elements, no divitis. ARIA attributes where native semantics are insufficient. PWA oriented.
-- **CSS**:
 - **JS/JSX**: ES2020+, React 18+, hooks only (no class components). `async/await`, optional chaining, nullish coalescing.
 - **Build**: Vite. No other build tool unless asked.
 - **No unnecessary dependencies**: prefer React built-ins and native browser APIs before reaching for a library.
@@ -34,8 +33,8 @@ Default to React with **TypeScript**. All source files use `.ts`/`.tsx`. Explici
 
 ```
 ...                         # config files (vite.config.js, .eslintrc.cjs, .prettierrc, package.json, ...)
-bug_history.json            # bugs surfaced during a feature's quality loop (review/test) or after merge, with mitigation
-features_history.json       # what was built and how, to inform future work
+bug_history*.json           # append-only, scindés par feature (schémas plus bas)
+features_history*.json      # idem — ce qui a été construit et comment
 src/
     index.html              # Vite entry HTML
     style.css               # global CSS (reset, custom properties, typography)
@@ -125,9 +124,9 @@ const persistence = {
 ```
 
 When adding a new method to `PersistenceService`, immediately scan all test mocks and add the stub.
-Add to `coveragePathIgnorePatterns` in jest config — do not write artificial tests for:
-
 ### Coverage Exclusions
+
+Add to `coveragePathIgnorePatterns` in jest config — do not write artificial tests for:
 
 - All `index.ts` barrel re-export files (no logic to test)
 
@@ -152,7 +151,7 @@ Avoid apostrophes in `describe`/`it` label strings — they terminate JS templat
 
 **Garde-fou par fichier** : recopier les 4 scores du reporter `clear-text` dans la revue d'itération. **Aucun fichier ne recule** — `combat.ts` et `challenge.ts` nommément suivis. Un score global qui monte pendant qu'un fichier descend est un échec, pas un progrès. Pas de script maison pour ça : une abstraction à un seul appelant est une dette.
 
-**Le score varie de ±1 mutant d'un run à l'autre — ne le lis pas à la décimale.** Mesuré sur 5 exécutions le 2026-08-02 : 81,40 % quatre fois, 81,01 % une fois. La cause est identifiée : le mutant `ObjectLiteral` de `combat.ts:107` remplace `{ shield: …, rng }` par `{}`, ce qui fait retomber `rng` sur son défaut `Math.random` non seedé — le test qui devrait le tuer dépend alors d'un tirage réel. Conséquences pratiques : comparer deux scores à moins d'un demi-point ne veut rien dire, et le garde-fou « aucun fichier ne recule » se lit **à ±1 mutant près**, sinon il produira de fausses alertes. Le correctif de fond est de passer un `rng` explicite dans ce test plutôt que de s'appuyer sur le défaut ; à traiter quand `outillage-2` touchera ce mutant.
+**Le score varie de ±1 mutant d'un run à l'autre — ne le lis pas à la décimale.** Comparer deux scores à moins d'un demi-point ne veut rien dire, et le garde-fou « aucun fichier ne recule » se lit **à ±1 mutant près**, sinon il produit de fausses alertes. Cause identifiée et correctif assigné : roadmap § 2 bis, tranche **D8 `outillage-2`** (le `rng` non seedé de `combat.ts:107`).
 
 **`RuntimeError` : zéro toléré** sur les 4 fichiers de logique. Stryker les exclut du dénominateur : ils **rétrécissent la base en silence** et le score cesse d'être lisible tant qu'ils sont là. C'est une panne d'instrument, pas un résultat — on la répare, on ne la contourne pas.
 
@@ -181,8 +180,7 @@ Every `setTimeout` (and `setInterval`) that calls `setState` or any other side-e
    ```
 
 4. **Chained timers** (inner `setTimeout` inside an outer one) count as separate timers. If the inner id overwrites the ref (common for a two-phase show/hide indicator), the outer `useEffect` cleanup still cancels whichever is currently pending. Verify the chain produces no dangling id.
-5. **`useEffect`-local timers**: if a `setTimeout` is created inside a `useEffect`, return `() => clearTimeout(id)` from that same effect instead of using a ref.
-6. **Fire-and-forget timers that touch no state** (e.g. `scrollIntoView`) are low-risk but must still be cleaned when inside a `useEffect` — use the returned cleanup, not a separate ref.
+5. **`useEffect`-local timers**: return `() => clearTimeout(id)` from that same effect instead of using a ref — y compris pour un timer qui ne touche aucun état (`scrollIntoView`) : faible risque, jamais dispensé.
 
 **Scan rule**: before committing any hook or component that contains `setTimeout`, search the file for all `setTimeout` calls and verify each one is either (a) tracked in a ref with a matching `useEffect` cleanup, or (b) returned directly from a `useEffect`. Untracked timers are bugs.
 
@@ -190,7 +188,7 @@ Every `setTimeout` (and `setInterval`) that calls `setState` or any other side-e
 
 ### Hover-reveal row actions
 
-Les actions d'une ligne se révèlent au survol **en CSS seul**, jamais par un état `isHovered` : `.hover-action { opacity: 0 }` et `.row:hover .hover-action { opacity: 1 }`, dans le module CSS de la ligne, avec les tokens du design system. (L'ancienne version de cette section donnait un extrait MUI `sx` / `IconButton` : il n'y a **pas** de MUI dans ce dépôt, la règle valait, l'exemple non.)
+Les actions d'une ligne se révèlent au survol **en CSS seul**, jamais par un état `isHovered` : `.hover-action { opacity: 0 }` et `.row:hover .hover-action { opacity: 1 }`, dans le module CSS de la ligne, avec les tokens du design system.
 
 ### Cross-feature UI action registration
 
@@ -202,10 +200,10 @@ registerAction(action: { id, label, icon, onTrigger }) => () => void  // returns
 actions: Action[]
 ```
 
-- Context provided by the feature that owns the UI surface (e.g. `NotesProvider` for the notes editor BubbleMenu).
+- Context provided by the feature that owns the UI surface.
 - Consumers call `registerAction` in a `useEffect` — the return value is the cleanup (KR-004 stable-ref for any callback that closes over mutable state).
-- The noop default on the context keeps all consumers safe when rendered outside the provider.
-- This pattern was used for `NotesSelectionContext` (pensine + todo registering BubbleMenu actions on the notes editor).
+- The noop default on the context keeps all consumers safe when rendered outside the provider, so adopters can land in any order.
+- C'est ce motif qui rend faisable la tranche **D7** du roadmap (saut au champ fautif depuis le panneau Contrôles), déclarée impossible tant qu'on la voyait comme un lot traversant quatre features.
 
 ## What to Avoid
 
@@ -243,7 +241,7 @@ The horizontal-slice model (MINOR = a capability tier crossing *every* feature) 
 
 `package.json` follows **0.MINOR.PATCH**:
 
-- **MINOR = one of the two temps.** `0.6.x` = **Temps 1** (the editor produces an adventure dossier, features n° 1–8). `0.7.x` = **Temps 2** (the engine plays the dossier, features n° 9–16).
+- **MINOR = one of the two temps.** `0.6.x` = **Temps 1** (the editor produces an adventure dossier, features n° 1–8) **et sa dette** (roadmap § 2 bis, tranches D1–D11). `0.7.x` = **Temps 2** (the engine plays the dossier, features n° 9–16).
 - **PATCH = one feature iteration shipped**, in the order of `docs/ROADMAP-BASCULE-IA.md`. Each iteration committed to `main` → PATCH +1.
 - Advance features in the documented order (dependencies first); never two features in parallel.
 - Bug fixes do not bump the version on their own — they fold into the feature/iteration that introduced them.
@@ -284,9 +282,9 @@ Charger par référence plutôt que tout charger est ce qui évite le contexte m
 | `bug_history.json` | normale | 8 259 o | **10 kio** (10 240) | ~1,93 kio |
 | `features_history.json` | normale | 5 966 o | **10 kio** (10 240) | ~4,17 kio |
 | `specification.json`, **par feature** | normale | 66 436 o (max : `dossier-format`) | **65 kio** (66 560) | ~0,12 kio |
-| `docs/ROADMAP-BASCULE-IA.md` | **défaut** | 35 050 o | **35 kio** (35 840) | ~0,77 kio |
+| `docs/ROADMAP-BASCULE-IA.md` | **défaut** | 27 809 o *(2026-09-19)* | **30 kio** (30 720) | ~2,84 kio |
 
-Le roadmap est un **index**, pas un journal : sa croissance est un défaut, pas un fonctionnement normal. Il mélange index (tableaux § 2/§ 3) et archive (§ 1 ter, lignes barrées du § 5, corrections de cadrage) — c'est cette moitié-là qui part dans les `specification.json` au franchissement, jamais la colonne `Statut`.
+Le roadmap est un **index**, pas un journal : sa croissance est un défaut, pas un fonctionnement normal. **Compacté le 2026-09-19** (35 671 → 27 809 o, plafond re-dérivé 35 → 30 kio) : l'archive en est sortie une première fois, et c'est elle — motifs d'une décision livrée, corrections de cadrage, historique des recadrages — qui repart au prochain franchissement, jamais les colonnes `Statut` ni le § 4 « Ce qui est CLOS ». **Le markdown n'est pas dans le périmètre Prettier** (`npm run format` ne vise que `{src,worker}/**/*.{ts,tsx,css}`) : un `prettier --write` sur ces fichiers repadde les tables et coûte ~8 kio de budget pour rien.
 
 **Le plafond ne monte jamais** — cliquet inversé de celui du score de mutation. Après une compaction il se **re-dérive vers le bas** sur la nouvelle mesure ; il ne se desserre pas parce qu'une itération avait beaucoup à dire. Le franchir ne bloque pas la livraison : il déclenche une compaction **dans le même lot que la doc** (Build Steps, étape 4). Reporter la compaction au lot suivant, c'est ne jamais la faire.
 
@@ -311,7 +309,7 @@ Before diagnosing any bug or answering "is this a bug?" questions:
 2. Read `bug_history.json` — check for prior related bugs and their root causes.
 3. Read `features_history.json` — check lessons learned.
 4. Only then read the code.
-5. When the bug is visual and in a view that has a paired counterpart (DayView ↔ WeekView), immediately check the other view too — rendering fields added to one are frequently missing from the other (KR-079).
+5. When the bug is visual and the surface has siblings (les `Panneau*` / `Fiche*` d'une même famille de registre), immediately check them too — a rendering field added to one is frequently missing from the others (KR-079).
 
 Do not form a hypothesis from the code alone before cross-referencing the spec. The spec is the source of truth for intended behavior.
 
@@ -319,7 +317,7 @@ Do not form a hypothesis from the code alone before cross-referencing the spec. 
 
 ## Build Steps — one feature iteration at a time
 
-We build the app one feature at a time, in the order of `docs/ROADMAP-BASCULE-IA.md`: `0.6.x` for Temps 1 (n° 1–8), `0.7.x` for Temps 2 (n° 9–16). Each feature is scoped with `/cadrer`, then each of its iterations goes `/raffiner` → `/essaim`. **Build exactly one iteration, then STOP** — never chain features in a single run.
+We build the app one tranche at a time, in the order of `docs/ROADMAP-BASCULE-IA.md`: `0.6.x` for Temps 1 (n° 1–8, **livré**) and its debt (§ 2 bis, D1–D11), `0.7.x` for Temps 2 (n° 9–16). Each feature is scoped with `/cadrer`, then each of its iterations goes `/raffiner` → `/essaim`; the out-of-cycle tranches (D1, D8, D9) skip `/cadrer` — their scope is written in § 2 bis. **Build exactly one iteration, then STOP** — never chain tranches in a single run.
 
 ### The per-feature unit (one PATCH bump, one stop)
 
@@ -342,9 +340,7 @@ When the last feature of a temps ships, the app is runnable end to end at that d
 
 ## Design Patch Processing
 
-Procédure dormante — `genliv_changes/` n'existe pas aujourd'hui ; elle se réveille seule le jour où des `.patch` y sont déposés. Traiter alors **avant tout autre travail**, dans l'ordre alphabétique des noms de fichier : dépouiller l'enveloppe mbox (à partir du premier `diff --git`) et passer le reste à `git apply` — **jamais `git am`**, qui committe tout seul ; puis, patch par patch, la boucle qualité des Build Steps (auto-revue, corrections toutes portées à `bug_history.json`, `tsc --noEmit` + tests), commit, suppression du `.patch` traité, patch suivant. Tout traité → **stop, validation humaine**.
-
-**Hunk rejeté** : jamais de forçage. Rapporter le conflit, montrer le hunk et l'état du fichier, attendre les instructions.
+Procédure dormante — `genliv_changes/` n'existe pas ; elle se réveille seule si des `.patch` y sont déposés. Traiter alors **avant tout autre travail**, par ordre alphabétique : dépouiller l'enveloppe mbox (à partir du premier `diff --git`), `git apply` — **jamais `git am`**, qui committe tout seul — puis, patch par patch, la boucle qualité des Build Steps, commit, suppression du `.patch`, suivant. Tout traité → **stop, validation humaine**. **Hunk rejeté** : jamais de forçage — rapporter le conflit, montrer le hunk, attendre les instructions.
 
 ## Worker Route Parity
 

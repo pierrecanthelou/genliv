@@ -4,7 +4,7 @@ Persistent project context for Claude Code. Read `README.md` in this handoff for
 
 ## Engineering workflow (always-on — read first)
 
-The binding build process — walking-skeleton-first build steps, feature branch → quality-loop review gate → merge, versioning rules, testing patterns, and the `specification.json` / `bug_history.json` / `features_history.json` schemas — is imported below so it loads every session. Follow it for every change; do not wait to be reminded.
+The binding build process — build steps, the quality gate (tech-lead PR → user review → commit **directly to `main`**, no feature branch), versioning, testing patterns and the JSON schemas — is imported below so it loads every session. Follow it for every change; do not wait to be reminded.
 
 @docs/WORKFLOW.md
 
@@ -12,11 +12,11 @@ The on-demand **design system** (tokens, primitives, wireframe fidelity, asset g
 
 ## What we're building
 
-> ### ⚠ Bascule IA en cours — lire `docs/ROADMAP-BASCULE-IA.md` avant tout travail neuf
+> ### ⚠ Où en est la bascule — lire `docs/ROADMAP-BASCULE-IA.md` avant tout travail neuf
 >
-> The product is moving from **« a book = a tree of nodes + edges »** to **« an adventure dossier played by an AI »**. The three blocking decisions (D1 condition language, D2 where the AI calls live, D3 the fate of the existing features) were settled on **2026-08-03**, and the deletion they commanded is **done**: eight features are gone, five survive to be repointed (roadmap § 1 bis / § 1 ter).
+> **Temps 1 est livré** (2026-09-19, `0.6.50`) : l'éditeur produit un **dossier d'aventure**, huit features, 48 itérations. Le travail en cours est le **§ 2 bis du roadmap — la dette du Temps 1**, onze tranches `D1` → `D11` en `0.6.x`, qui ferment ce que le Temps 1 a laissé sans propriétaire. Le **Temps 2** (le moteur joue le dossier, n° 9–16, `0.7.x`) ne commence qu'ensuite, sur go explicite.
 >
-> Consequences for the rules below: the **Domain rules** section still describes the tree model, which is what the surviving code implements *today* — it holds until feature n° 1 `dossier-format` replaces `brain/types.ts` + `BookService`, and it is that feature's job to rewrite this section. Do not extrapolate the dossier format from it, and do not delete the tree model ahead of n° 1.
+> Le modèle d'arbre (`BookNode` / `Edge` / `BookService` / `kinds.ts` / `playExport.ts`) **survit sans aucun producteur d'interface** : seules des fixtures de test l'atteignent, sa couverture ne vaut plus garantie d'usage, et sa démolition appartient à la **n° 9**, seule propriétaire d'extinction (KR-181). Ne rien y ajouter, ne pas le démolir en avance.
 
 An **authoring tool** for « livres dont vous êtes le héros » (gamebooks). The editor lets an author build an adventure, edit each screen, and model encounters, skill rolls, combat, traps, and hidden item prerequisites. Scope = **editor/authoring mode only** in Temps 1; the play engine is Temps 2.
 
@@ -34,21 +34,25 @@ The rules layer (`challenge.ts`, `combat.ts`, `xp.ts`, `characteristics.ts`) is 
 
 ## Domain rules (non-negotiable)
 
-- Node types: `sommaire` (root), `choix`, `pnj`, `décor` (prendre/écouter/fouiller), `piège`, `monstre`, `fin` (victoire/échec), `mort`.
-- Every new book is seeded with **exactly two nodes**: a `sommaire` (empty text zone, root) + an **isolated, locked** `mort` node (0 edges; not deletable/duplicable; only its text is editable). Never auto-link `mort` on create.
-- **`sommaire` and `mort` are structural screens** (KR-055): **no « libellé du choix », no « action requise », no « fin victoire/échec »**. `mort` additionally has **no outgoing choices**. Editable fields: `sommaire` → text + illustration (book cover thumbnail in library, full-width header in play mode); `mort` → text only. Enforced in the node-editor panel (`illustration` section gated on `node.kind !== 'mort'`; action/end-toggle sections gated on `!structural`) *and* in `BookService.updateNode` (structural nodes accept `{ text, illustration }`; locked nodes accept only `{ text }`).
-- **Structural screens are never authored choice targets** (KR-067): the `sommaire` root has **no incoming choices** and the `mort` leaf is reached **only automatically at the end of a combat**, never via a `choice`/`relink`. Enforced at the SSOT (`BookService.addEdge` rejects a `sommaire`/`mort` target) *and* in the relink picker (excluded from candidates). The future automatic combat→`mort` link uses a dedicated path, not the manual edge API.
-- Edges carry `kind`: `choice` | `relink` | `flee`. A *choice* is the labelled button in a parent screen that leads to a child screen.
-- Objects always carry a **name (internal)** + a **player-facing description**. Skill rolls resolve to **réussite / échec** (the only semantic colors).
-- Format-specific mechanics: objects can accomplish/reinforce interactions; an inventory object can be a **hidden prerequisite** on a choice; some actions change screen without being a choice; choices can be under a **countdown**.
-- All references (objects, monsters, node targets) are **by stable id, never by name**. Surface dangling references; never silently break them.
+Le document est un **dossier d'aventure** — `Dossier`, `schema: 1`, trois racines : `canon` (vérité MJ / accroche joueur / objectifs par camp), `monde` (personnages, lieux, objets, indices, quêtes, événements, conditions), `charpente` (départ, jalons, fins). **`src/brain/dossier/types.ts` fait foi** ; ne jamais extrapoler une forme, l'y lire.
+
+- **Lot `contrat` obligatoire** : `types.ts`, `destinations.ts` et `validate.ts` ne sont **jamais** dans un lot de type `feature`. Toute tranche qui touche le schéma ouvre un lot `contrat`, seul et en premier (Décision A, veto tech-lead).
+- **Aucun chemin de migration en `schema: 1`** (KR-160/191) : **tout champ ajouté est optionnel à vie**. Un champ requis de plus invaliderait rétroactivement tout dossier déjà écrit.
+- **Audience avant injection** : `destinations.ts` dit pour qui chaque feuille est écrite — `auteur`, `ia` ou `moteur`. Un champ `auteur` n'entre dans **aucun** contexte de modèle ; rien ne s'injecte sans sa ligne de destination (garde stricte, zéro dérogation, KR-232).
+- **Conditions** : couple `…_texte` (auteur, jamais injecté) / `…_expr` (**arbre JSON, jamais une chaîne, aucun parseur**), prédicats du registre fermé `PREDICATES`. L'auteur ne saisit jamais d'expression.
+- **L'IA ne lance jamais les dés** et ne modifie aucune statistique : elle demande un jet, le moteur le résout, elle raconte.
+- **Deux proses seulement sont émises verbatim** : `charpente.depart.texte_ouverture_joueur` et `charpente.fins[].texte`. Tout le reste est injecté, jamais récité.
+- **Jamais de champ dérivable stocké** (KR-013) — une seconde source de vérité que rien ne re-synchronise. Cinq précédents rejetés : `tier` (KR-192), `Quete.lie_au_canon` (KR-206), `scene`/`obstacle`/`monstre`, `Indice.portee` comme classement, les références croisées de `Lieu` (roadmap § 4).
+- Les objets portent un **nom (interne)** + une **`description_joueur`**. Les jets se résolvent en **réussite / échec** (seules couleurs sémantiques).
+- **Toute référence est un identifiant stable**, jamais un nom libre. Une référence pendante est **refusée au SSOT**, jamais silencieusement rompue.
+- Tout retrait d'entité est une **action dangereuse** : dialogue de confirmation, `color="error"`, chemin « Annuler » nommé.
 
 ## Architecture
 
 - Features are **isolated**: a feature talks to the rest **only through `brain/` contracts** (services, events, registries). Never import one feature from another. *Enforced by ESLint dans les **trois** sens — feature→feature, `brain/`→feature, `player/`→feature — sur une liste dérivée du disque ; preuve : `lintIsolation.test.ts`. Importer `src/player/**` reste légal.*
-- **Single source of truth**: the book lives in `BookService`. Canvas and preview are *views* — never hold a private copy.
-- Surviving features: `tree-canvas`, `book-library`, `cloud-sync`, `book-creation`, `play-mode`. All five are **repointed** by the bascule, none is finished as-is.
-- Build order = the order of `docs/ROADMAP-BASCULE-IA.md` (n° 1 `dossier-format` first — it is the contract between the two temps). One feature at a time, never two in parallel.
+- **Single source of truth**: the dossier lives in `DossierService`. Panels, canvas and preview are *views* — never hold a private copy.
+- Thirteen features on disk: the eight of Temps 1 (`dossier-*` + `bascule-editeur`) and the five survivors of the bascule — `book-library`, `cloud-sync`, `book-creation` (repointées, livrées), `tree-canvas` (en sommeil jusqu'à D10) et `play-mode` (suit le runtime, n° 9).
+- Build order = the order of `docs/ROADMAP-BASCULE-IA.md`: § 2 bis `D1` → `D11`, then § 3 n° 9 → n° 16. One tranche at a time, never two in parallel.
 
 ## Cross-cutting engineering rules
 
@@ -57,7 +61,7 @@ The rules layer (`challenge.ts`, `combat.ts`, `xp.ts`, `characteristics.ts`) is 
 - **Persistence only via `PersistenceService` / `persistenceKeys.ts`** — no raw `localStorage` in feature code (KR-011/111). *Enforced: `no-restricted-globals` + `no-restricted-properties` on `src/features/**` (tests excluded).*
 - **Derived state is computed inline**, not mirrored through `useEffect` (KR-013/113). *Not enforceable — review heuristic only.*
 - **Empty states**: every empty element/list/input shows an inviting placeholder (example value, write-here prompt, dashed « + Ajouter… »). Never a blank void.
-- Events to emit/observe — the list is `AppEvents` in `brain/EventBus.ts`, which is authoritative; keep this line aligned with it: `book:created|opened|updated|deleted`, `node:created|updated|deleted|selected`, `edge:created|updated|deleted`, `sync:status`, `sync:conflict`. Fire navigation/events only **after persistence resolves**, in order.
+- Events to emit/observe — the list is `AppEvents` in `brain/EventBus.ts`, which is authoritative; keep this line aligned with it: `dossier:created|opened|updated|deleted`, `sync:status`, `sync:conflict`, plus les `book:*` / `node:*` / `edge:*` de l'arbre condamné, sans émetteur d'interface et démolis en n° 9. Fire navigation/events only **after persistence resolves**, in order.
 
 ## Design fidelity rules
 
