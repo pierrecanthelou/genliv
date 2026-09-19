@@ -17,7 +17,7 @@ Ne pas rouvrir sans motif.
 | 2 | **Un seul modèle, un seul niveau d'effort en v1**, mais le code prévoit un **routeur de modèle et d'effort** — point d'extension nommé, pas abstraction livrée. | Temps 2 |
 | 3 | **La version la plus bête qui marche**, à chaque fourche, pourvu que le point d'extension soit nommé. | tout |
 | 4 | **L'IA ne lance jamais les dés** et ne modifie jamais une statistique. Elle *demande* un jet, le moteur le résout, elle raconte. Hasard, PV, PE, inventaire, XP restent du code déterministe. | tout |
-| 5 | **L'arbre est conservé, pas supprimé** — il change de nature : le canevas est repointé sur un graphe de lieux, d'accès et d'indices (§ 2 bis, D10–D11). | Temps 1 |
+| 5 | **L'arbre est conservé, pas supprimé** — il change de nature. Le canevas reste sur disque, en sommeil ; son repointage sur un graphe de lieux et d'accès est **différé après le Temps 2** (§ 2 bis), rien n'en dépendant. | Temps 1 |
 | 6 | **Identifiants stables partout** (`pnj.aldur`, `lieu.caverne-basse`). Toute relation, condition ou révélation pointe un identifiant, jamais un nom libre. | tout |
 | 7 | **Le dossier est en lecture seule pendant la partie.** Tout ce qui bouge vit dans un second JSON (session), porteur de la graine et du journal. | Temps 2 |
 
@@ -59,7 +59,7 @@ Corollaire non négociable (veto tech-lead), **toujours en vigueur** : `brain/do
 | `player/components/NodeScreen`, `ChoiceList`, `DecorScreen`, `PnjScreen`, `TrapScreen` | ~765 | **remplacés** par la boucle narrative (n° 10). |
 | `brain/challenge.ts`, `combat.ts`, `xp.ts`, `characteristics.ts`, `bestiary.ts`, `equipment.ts`, `monsterCapacities.ts` | — | **conservés, intouchés.** Tenus par le score de mutation. |
 
-**Encore debout, avec leur date de démolition** : `brain/types.ts` (moitié arbre) + `kinds.ts` + `BookService` + `brain/utils/playExport.ts` + `buildAdventureDocument` + `src/features/play-mode/` → tous en **n° 9**, seule propriétaire d'extinction (KR-181), **y compris la ligne d'avis « vos anciens livres restent stockés »** de la bibliothèque, à retirer dans le même lot que sa donnée source. `src/features/tree-canvas/` n'est pas de cette liste : il est **repointé** en D10–D11, pas démoli.
+**Encore debout, avec leur date de démolition** : `brain/types.ts` (moitié arbre) + `kinds.ts` + `BookService` + `brain/utils/playExport.ts` + `buildAdventureDocument` + `src/features/play-mode/` → tous en **n° 9**, seule propriétaire d'extinction (KR-181), **y compris la ligne d'avis « vos anciens livres restent stockés »** de la bibliothèque, à retirer dans le même lot que sa donnée source. `src/features/tree-canvas/` n'est pas de cette liste : il est **repointé après le Temps 2** (§ 2 bis), pas démoli.
 
 ---
 
@@ -82,45 +82,50 @@ Huit features, **48 itérations livrées**, `0.6.50`.
 
 ---
 
-## 2 bis — Temps 1 bis · la dette du Temps 1 — **le travail en cours**
+## 2 bis — La dette du Temps 1
 
-Onze tranches, `0.6.51` → `0.6.61`. Chacune ferme une dette que le Temps 1 a laissée **sans propriétaire** : elle n'apparaîtrait dans aucun cadrage à venir si elle n'était pas écrite ici. Ordre = dépendances d'abord, puis coût croissant. **Une tranche à la fois**, même rituel que les features.
+**Corrigé le 2026-09-19, au premier `/raffiner`.** La version précédente de cette section ordonnançait onze tranches `D1` → `D11`. Passées au contrôle de taille de la skill `raffinage-iteration`, **trois sur onze** étaient correctement dimensionnées ; appliqué à la lettre, le découpage en donnait ~25. La faute n'était pas le dimensionnement : c'était d'avoir **ordonnancé un inventaire**. Onze dettes recensées ne font pas onze itérations dues avant le Temps 2.
 
-| # | Tranche | « À la fin… » | Itér. | Statut | Comité | Dépend de |
-|---|---|---|---|---|---|---|
-| D1 | `dette-correctifs` *(hors cycle)* | …plus aucune consigne de remédiation ne nomme une surface inexistante | 1 | — | 4 rôles | — |
-| D2 | `dossier-canon` it5 | …relier ses lieux les uns aux autres | 1 | — | 4 rôles | — |
-| D3 | `dossier-canon` it6 | …composer l'inventaire de départ du héros | 1 | — | 4 rôles | — |
-| D4 | `dossier-registres` it6 | …retirer une entrée de ses registres | 1 | — | 4 rôles | — |
-| D5 | `dossier-registres` it7 | …voir signalée une intrigue laissée en second plan | 1 | — | 5 rôles | D4 |
-| D6 | `book-library` it4 | …renommer et dupliquer un dossier | 1 | — | 4 rôles | — |
-| D7 | `dossier-controles` it11 | …sauter au champ fautif depuis le panneau Contrôles | 1 | — | 4 rôles | — |
-| D8 | `outillage-2` *(hors cycle)* | *(outillage)* le score de mutation cesse de mentir sur `combat.ts` | 1 | — | tech-lead | — |
-| D9 | `outillage-3` *(hors cycle)* | *(outillage)* le canevas devient vérifiable par un instrument | 1 | — | tech-lead | D8 |
-| D10 | `tree-canvas` it7 | …voir son aventure comme un graphe de lieux et d'accès | 1 | — | 4 rôles | D2 · D9 |
-| D11 | `tree-canvas` it8 | …y lire aussi les personnages, leurs relations et le chaînage des indices | 1 | — | 4 rôles | D10 |
+Ce que ce § 2 bis dit maintenant : **deux tranches se paient avant le Temps 2**, tout le reste est une **dette à déclencheur** — attachée au moment où quelqu'un rouvre son fichier, idiome que ce dépôt pratique déjà (« le premier lot qui rouvrira X »). Ce n'est pas un report : un calendrier que personne ne tient est moins fiable qu'un déclencheur qui part tout seul.
 
-**D1 · `dette-correctifs`** — quatre défauts connus, aucun lié, tous dans des fichiers déjà livrés ; un lot par feature touchée, propriété disjointe. (a) **BUG-090** (major) : la remédiation de `condition-sans-expr` envoie l'auteur vers une surface dont it7 a mesuré l'inexistence **dans le même fichier** — consigne circulaire ; on réécrit le texte vers une surface qui existe, on ne construit pas la surface. (b) Un passage de tabulation dans un champ de prose vide **écrit la chaîne vide** là où il y avait un absent, et émet `dossier:updated` — le `commit()` des `Panneau*` doit distinguer absent et vide. (c) Un `nom` d'entité **non textuel** (`nom: 42`) traverse `validateDossier` : dernier écart type/validateur connu, lot `contrat`. (d) `EYEBROW_REFUS` / `TEXTE_ABSENT` sont recopiés **à l'identique dans trois features** — promotion vers `brain/components/` (KR-109). **Charge de tenue incluse** : `book-library` et `cloud-sync` passent à `status: "done"` (toutes leurs itérations le sont depuis leur repointage) ; `book-creation` (2 logs / 3 itérations) et `tree-canvas` (3 / 6) reçoivent leurs `iterations_log` manquants.
+### Le chemin bloquant — 2 tranches, `0.6.51` → `0.6.52`
 
-**D2 · `dossier-canon` it5 — `lieux[].acces`** — la seule dette du Temps 1 qui en bloque deux autres, et la seule référence croisée de `Lieu` qu'aucun prédicat n'exprime (§ 4). Assignée par erreur de proximité à la n° 5 puis refusée (KR-200), déclarée impossible en n° 6 (KR-205), reconfirmée sans propriétaire par la n° 7 : **elle revient à `dossier-canon`, qui possède `PanneauLieux.tsx` et `FicheLieu.tsx`**. Forme déjà tranchée au raffinage d'it3 de la n° 1, à ne pas re-débattre : **arête ORIENTÉE**, une entrée = un sens, un passage réciproque = deux entrées (une bidirectionnalité implicite obligerait linter, canevas et moteur à matérialiser l'arête inverse à chaque lecture — KR-013). Lot `contrat` d'abord. **Effet de bord à tenir dans la même tranche** : `atteignabilite.ts` câble aujourd'hui une **hypothèse de monde ouvert** (KR-224) faute de graphe à interroger, et le bloquant « lieu de départ désert » repose sur cette prémisse — la tranche qui livre le graphe lève l'hypothèse, ou écrit pourquoi elle la garde.
+| # | Tranche | « À la fin… » | Statut | Comité | Dépend de |
+|---|---|---|---|---|---|
+| B1 | `dossier-canon` it5 | …relier ses lieux les uns aux autres | — | 5 rôles | — |
+| B2 | `outillage-2` *(hors cycle)* | *(outillage)* le score de mutation cesse de mentir sur `combat.ts` | — | tech-lead | — |
 
-**D3 · `dossier-canon` it6 — `depart.inventaire_initial`** — `Charpente.Depart` ne porte que `lieu_id` et `texte_ouverture_joueur` ; rien ne dit avec quoi le héros commence. C'est le **seul placement initial légitime** du dossier (sur le héros, jamais dans un lieu — § 4), et la n° 9 en a besoin pour amorcer l'inventaire de session. Écran : `PanneauDepart.tsx`. Lot `contrat` d'abord.
+**B1 · `lieux[].acces`** — pas bloquante au sens strict, mais la n° 9 doit **choisir son modèle de déplacement** : sans topologie elle code le monde ouvert (KR-224, déjà câblé dans `atteignabilite.ts` faute de graphe), et l'ajouter ensuite réécrit son moteur de déplacement. On paie avant, pas après. Sans propriétaire depuis trois cadrages (refusée en n° 5, KR-200 ; impossible en n° 6, KR-205 ; reconfirmée par la n° 7) : elle revient à `dossier-canon`, qui possède `PanneauLieux.tsx` et `FicheLieu.tsx`. Forme déjà tranchée au raffinage d'it3 de la n° 1, à ne pas re-débattre : **arête ORIENTÉE**, une entrée = un sens, un passage réciproque = deux entrées (KR-013). Lot `contrat` d'abord — et il **arme le rider `validate.ts`** (ci-dessous). **La levée de KR-224 dans le linter n'est PAS dans cette tranche** : poser le champ et corriger `atteignabilite.ts` sont deux démonstrations, donc deux itérations ; la seconde passe en dette à déclencheur.
 
-**D4 · `dossier-registres` it6 — le retrait** — les six registres de la feature (indices, quêtes, événements, climats, jalons, fins) sont **en ajout seul** : aucun `RetirerXDialog`, contrairement à `dossier-objets` et `dossier-fiches` qui en ont chacune reçu un. Action dangereuse au sens de `docs/WORKFLOW.md` → dialogue de confirmation, `color="error"`, chemin « Annuler » nommé. Le refus par référence pendante au SSOT est déjà couvert depuis la n° 4 it6 — cette tranche le consomme, elle ne le réécrit pas.
+**B2 · `outillage-2`** — la seule dette qui bloque pour de bon. La n° 11 touche `challenge.ts` et `xp.ts`, donc **relève `break` de 80 à 85** (cliquet, `docs/WORKFLOW.md`) ; le score global est à 81,40 % et `combat.ts` traîne à **62,50 %** — la porte ne passerait pas. Spécification **déjà écrite**, à ne pas réécrire : `.claude/raffinage/outillage-it1.revue.md` porte la table de correspondance complète (numéros de ligne **après** le lot A). **21 tests — donc au moins deux lots** : le seuil mesuré à l'itération précédente est de 12 tests par lot, au-delà un lot ne passe plus la porte isolément. Plus le **`rng` non seedé de `combat.ts:107`**, mutant `ObjectLiteral` qui fait retomber le tirage sur `Math.random` et cause le ±1 mutant entre deux runs. Hors périmètre : la règle ESLint du token non résolu (BUG-035), qui est un autre instrument.
 
-**D5 · `dossier-registres` it7 — « Intrigue en second plan »** — les deux moitiés reviennent **ensemble**, et la même feature les porte : `Indice.portee` (`PORTEES_INDICE = ['canon','quete']`) existe dans le type **sans écran ni lecteur** depuis la n° 6, et la règle de lint du plan-cible § 1.6 qui devait la consommer n'a jamais été écrite. L'écran est dans `PanneauIndices.tsx` / `FicheIndice.tsx` (lot feature) ; la règle est dans `brain/dossier/controles.ts` (lot contrat) — **aucun fichier de `dossier-controles` n'est touché**, son panneau rend le rapport génériquement. Dixième règle du linter. Comité à 5 rôles : la règle décide de ce qui entre dans un contexte de modèle.
+### La dette à déclencheur — rien n'est planifié, tout est armé
 
-**D6 · `book-library` it4 — renommer et dupliquer** — `DossierService.rename` / `duplicate` n'existent pas ; ils étaient laissés dehors « tant que personne ne les appelle », propriétaire écrit comme « la prochaine feature qui touche `book-library` ». C'est celle-ci. Précédent exact à imiter : `book-library` avait elle-même reçu `rename`/`duplicate` après son walking skeleton, pas dedans.
+Chaque ligne part **toute seule** quand son déclencheur se présente. Le lot qui le fait partir l'absorbe ; il ne la reporte pas une seconde fois.
 
-**D7 · `dossier-controles` it11 — le saut au champ fautif** — déclaré sans lot étanche possible au cadrage du 2026-09-15 parce qu'il traverse les `Panneau*` de quatre features. **Il l'est avec le motif que `docs/WORKFLOW.md` documente déjà** (« Cross-feature UI action registration ») : un registre dans `brain/` où chaque section inscrit son gestionnaire de focus, que le panneau Contrôles appelle par identifiant de champ. Une itération, cinq lots à propriété disjointe — le registre, puis un lot par feature adoptante. La valeur noop par défaut garde chaque section sûre tant qu'elle n'a pas adopté, donc les lots tombent dans n'importe quel ordre. **Reste hors périmètre, explicitement** : le routage vers la section du *remède* — s'il arrive un jour, le critère de navigation d'it4 sera SUPERSEDED, jamais régressé.
+| Dette | Portée mesurée | Déclencheur armé |
+|---|---|---|
+| **Scission de `controles.ts`** (1 348 l.) — refactor à **vert trompeur**, deux gardes bornées par `indexOf` | `brain/dossier/controles.ts` | le premier lot qui rouvre ce fichier après la n° 7 |
+| **BUG-090** (major) — remédiation circulaire de `condition-sans-expr` : elle renvoie vers un champ qui écrit la prose ayant déclenché l'avertissement, et **aucune surface n'écrit `reussi_si_expr`** (0 occurrence). Se règle en cessant de promettre une condition structurée, **pas** en construisant l'écran | idem | idem — part avec la scission |
+| **Rider `validate.ts`** — (a) les 4 sites d'avertissement appellent `anomalie` sans `entityId`, d'où des lignes jumelles indésignables ; (b) `designerSavoir` met un identifiant dans la prose de l'auteur | `brain/dossier/validate.ts` | le premier lot qui rouvre ce fichier — donc **B1** |
+| **`nom` non textuel** — `nom: 42` traverse `validateDossier` (mesuré par sonde le 2026-09-19) | idem | idem |
+| **Chaîne vide au blur** — quitter un champ de prose vide écrit `''` là où il y avait un **absent**, et émet `dossier:updated`. Prouvé sur `dossier-registres` ; **non mesuré** sur les 3 autres features, qui ont la même forme | les chemins d'écriture de 4 features | le premier lot qui rouvre un `Panneau*`/`Fiche*` de la feature concernée — **le mesurer d'abord, corriger la feature entière ensuite** |
+| **Constantes de refus** — `EYEBROW_REFUS`/`TEXTE_ABSENT` déclarées **10 fois dans 4 features** (KR-109/110) ; seule `dossier-canon` a un module partagé | 10 sites + `brain/` | le premier lot qui rouvre l'un des 9 `Fiche*` fautifs |
+| **`depart.inventaire_initial`** — absent de `Charpente.Depart` | `types.ts` + `PanneauDepart.tsx` | un besoin réel. **Gratuit à ajouter plus tard** : tout champ de `schema: 1` est optionnel à vie |
+| **Retrait dans les registres** — les 6 registres de la n° 6 sont en **ajout seul**. Précédent mesuré : `dossier-objets` a passé **une itération entière sur un seul** registre ; six en une est hors d'échelle. `PanneauJalonsFins` (435 l.) dépasse déjà le signal de scission de 400 l. | 11 fichiers, 3 012 l. | un besoin exprimé de l'auteur — **une tranche par registre**, jamais un lot global |
+| **`Indice.portee` + règle « Intrigue en second plan »** — le type existe, l'écran et la règle non | `FicheIndice` + `controles.ts` | un besoin exprimé — **après** la scission de `controles.ts` |
+| **Levée de KR-224** — l'hypothèse de monde ouvert reste câblée, et le bloquant « lieu de départ désert » repose sur une prémisse qu'aucun instrument ne vérifie | `atteignabilite.ts` (739 l.) | **B1 livrée** (le graphe existe alors) |
+| **Renommer / dupliquer un dossier** — `DossierService.rename`/`duplicate` n'existent pas ; **deux capacités, deux tranches** | `book-library` | un besoin exprimé |
+| **Saut au champ fautif** depuis le panneau Contrôles — faisable par le motif « Cross-feature UI action registration » de `docs/WORKFLOW.md` (registre `brain/`, défaut noop, adoptants dans n'importe quel ordre), mais **10 panneaux adoptants dans 4 features** : jamais une tranche, au moins trois | registre `brain/` + 10 `Panneau*` | un besoin exprimé |
+| **BUG-035** — `var(--surface-raised)` n'existe dans aucun `tokens/*.css`, et rien ne détecte un token qui ne résout vers rien | `ImageUpload.tsx` + une règle ESLint | le premier lot qui touche `ImageUpload.tsx` |
+| **Unicité des `BUG-xxx`** à travers les **sept** `bug_history*.json` — la règle ne vit que dans leurs `_about` et a déjà dérivé en silence une fois (BUG-062) | un instrument à écrire | le prochain franchissement de plafond d'un `bug_history*` |
+| **Tenue des specs** — `book-library` et `cloud-sync` sont `in-progress` alors que toutes leurs itérations sont `done` ; `book-creation` (2 logs / 3 itér.) et `tree-canvas` (3 / 6) ont un `iterations_log` incomplet | 4 fichiers JSON, zéro code | la prochaine étape 4 des Build Steps |
 
-**D8 · `outillage-2`** — sa spécification **est écrite** et ne se réécrit pas : `.claude/raffinage/outillage-it1.revue.md` porte la table de correspondance complète (les numéros de ligne du dépôt **après** le lot A, pas ceux du plan). **21 tests**, concentrés sur `combat.ts`, seul fichier sous les 80 % (**62,50 %**, 20 survivants + 7 sans couverture). Deux charges de plus, au même endroit : le **`rng` non seedé de `combat.ts:107`** — mutant `ObjectLiteral` qui fait retomber le tirage sur `Math.random`, cause identifiée du ±1 mutant entre deux runs, à corriger en passant un `rng` explicite plutôt qu'en s'appuyant sur le défaut ; et **BUG-035** — `var(--surface-raised)`, référencé dans `ImageUpload.tsx:185`, n'existe dans aucun fichier de `src/styles/tokens/`, avec la règle ESLint qui manque pour détecter un token qui ne résout vers rien. `thresholds.break` se relève de +5 sur la mesure finale, plafond 90, et **aucun fichier ne recule** (lecture à ±1 mutant près).
+### Le repointage de `tree-canvas` — **après le Temps 2**
 
-**D9 · `outillage-3`** — le **troisième instrument de vérification**, différé depuis l'origine : des specs navigateur pour le canevas. Il cesse d'être différable au moment exact où D10 rouvre `tree-canvas` — 1 703 lignes de Dagre, de culling de viewport et de drag de sous-arbre qu'aucun test ne couvre, et que jsdom ne *peut* pas couvrir puisqu'il ne calcule aucun layout (même mur que la largeur rendue d'un badge composé, non vérifiée par personne depuis la n° 7 it2). Une seconde charge y tient, de même nature — **aucun instrument ne vérifie l'unicité des `BUG-xxx` à travers les sept fichiers `bug_history*.json`** : la règle ne vit que dans leurs `_about` et a déjà dérivé en silence une fois (précédent BUG-062).
+Décision du 2026-09-19. **Rien n'en dépend** : ni une feature du Temps 2, ni une règle de contrôle, ni le moteur. Et il coûte le double — **1 131 lignes** non-test à repointer (Dagre, culling de viewport, drag de sous-arbre) **plus une pile de test qui n'existe pas** : `docs/WORKFLOW.md` nomme Playwright pour l'E2E, il n'est **pas installé** et il n'y a aucun dossier e2e. Repointer un composant que rien ne couvre, sur une pile à choisir, pour une vue dont personne n'a besoin, est l'inverse de l'ordre de construction.
 
-**D10 · `tree-canvas` it7 — le graphe de lieux et d'accès** — la décision n° 5 tenue enfin : même composant, autre source. Le canevas cesse de lire `BookNode`/`Edge` et lit `monde.lieux[]` + `lieux[].acces` (arêtes orientées, D2). C'est ce qui justifie rétroactivement de l'avoir gardé sur disque, intact, plutôt que supprimé puis reconstruit. Sa `specification.json` perd la mention « en sommeil ».
-
-**D11 · `tree-canvas` it8 — les personnages, les relations, les indices** — la seconde couche du même canevas : les personnages placés par `presence[].lieu_id`, leurs `relations[]` à intensité signée, et le chaînage `indices[].mene_a` que la n° 6 rend aujourd'hui en liste textuelle. Rien de neuf au schéma — **lot `contrat` interdit dans cette tranche** : s'il en faut un, c'est qu'elle a dérivé.
+La **décision n° 5 tient** : l'arbre est conservé, pas supprimé — `src/features/tree-canvas/` reste sur disque, intact, en sommeil, et la n° 9 ne le démolit pas (§ 0 bis). Le jour où on le rouvre, ce sera dans cet ordre : choisir la pile de test navigateur, puis le graphe des lieux et de leurs accès, puis les personnages, puis les relations, puis le chaînage des indices — **cinq tranches, jamais deux**.
 
 ---
 
@@ -130,9 +135,9 @@ Le Temps 2 ne commence qu'une fois le § 2 bis clos, sur go explicite. `0.7.x`.
 
 | # | Feature | « À la fin, le joueur peut… » | Itér. | Statut | Comité | Dépend de |
 |---|---|---|---|---|---|---|
-| 9 | `moteur-dossier` | …jouer une session pilotée par un dossier, sans IA | 4 | — | 5 rôles | D3 · D11 |
+| 9 | `moteur-dossier` | …jouer une session pilotée par un dossier, sans IA | 4 | — | 5 rôles | B1 |
 | 10 | `moteur-interprete` | …écrire ce qu'il veut faire en langage libre | 4 | — | 5 rôles | 9 |
-| 11 | `moteur-arbitre` | …voir le code lancer le dé que l'IA a demandé | 3 | — | 5 rôles | 10 · D8 |
+| 11 | `moteur-arbitre` | …voir le code lancer le dé que l'IA a demandé | 3 | — | 5 rôles | 10 · **B2** |
 | 12 | `moteur-acteurs` | …parler à un PNJ qui ne révèle que ce qu'il sait | 4 | — | 5 rôles | 11 |
 | 13 | `moteur-combat` | …lire un combat raconté que l'IA n'arbitre pas | 2 | — | 5 rôles | 11 |
 | 14 | `moteur-horloge` | …découvrir que le monde a avancé sans lui | 3 | — | 5 rôles | 12 |
@@ -163,9 +168,9 @@ Relevé au balayage du 2026-09-19. Ces points ont traversé plusieurs cadrages c
 
 | Point | Décision |
 |---|---|
-| **Références croisées de `Lieu`** vers personnages / objets / indices / événements | **Aucun champ, jamais.** Le lien personnage↔lieu **existe déjà** (`presence[].lieu_id`) ; les trois autres s'expriment en **déclencheur**, par le prédicat `lieu_courant_est` (un objet entre en jeu par un `Delta`, un indice par une `Revelation`, un événement par son `declencheur_expr`). Un tableau stocké en serait l'inverse, que rien ne re-synchronise — **cinquième occurrence** de l'anti-patron déjà rejeté pour `tier` (KR-192), `Quete.lie_au_canon` (KR-206), `scene`/`obstacle`/`monstre`, et `Indice.portee` comme classement. Seul `acces` survit : la topologie n'est exprimable par aucun prédicat (→ D2). |
+| **Références croisées de `Lieu`** vers personnages / objets / indices / événements | **Aucun champ, jamais.** Le lien personnage↔lieu **existe déjà** (`presence[].lieu_id`) ; les trois autres s'expriment en **déclencheur**, par le prédicat `lieu_courant_est` (un objet entre en jeu par un `Delta`, un indice par une `Revelation`, un événement par son `declencheur_expr`). Un tableau stocké en serait l'inverse, que rien ne re-synchronise — **cinquième occurrence** de l'anti-patron déjà rejeté pour `tier` (KR-192), `Quete.lie_au_canon` (KR-206), `scene`/`obstacle`/`monstre`, et `Indice.portee` comme classement. Seul `acces` survit : la topologie n'est exprimable par aucun prédicat (→ B1). |
 | **`rattachement.quete_id`** sur un personnage de second plan | **Aucun champ.** `Quete.donneur_id` porte déjà le lien personnage↔quête ; l'inverse se calcule au rendu (KR-013). Si la n° 12 a besoin d'un rattachement d'une autre nature que « donneur », elle l'ouvrira avec son consommateur nommé. |
-| **Possession d'un objet par un personnage**, jet requis pour l'utiliser | **Hors du dossier.** Un inventaire est un état de SESSION (décision n° 7) ; son unique contrepartie Temps 1 est `depart.inventaire_initial` (→ D3). Un objet n'a pas de lieu : il entre en jeu par un `Delta`, jamais par une position initiale. |
+| **Possession d'un objet par un personnage**, jet requis pour l'utiliser | **Hors du dossier.** Un inventaire est un état de SESSION (décision n° 7) ; son unique contrepartie Temps 1 est `depart.inventaire_initial` (§ 2 bis, dette à déclencheur). Un objet n'a pas de lieu : il entre en jeu par un `Delta`, jamais par une position initiale. |
 | **Migration `schema: 1` → `schema: 2`** | **Aucun chemin, et c'est définitif pour `schema: 1`** (KR-160/191) : une migration n'est pas testable avant qu'un schéma 2 existe, et le seul critère recevable — le rejet de toute valeur autre que 1, avec un code distinct — est livré. Conséquence assumée, à connaître avant d'ajouter un champ : **tout champ ajouté à `schema: 1` est optionnel à vie**, un champ requis de plus invaliderait rétroactivement tout dossier déjà écrit. Le jour où une rupture est nécessaire, elle crée `schema: 2` et son convertisseur, tous deux propriété de la feature qui rompt. |
 | **`savoirs[].revele_si` comme septième famille de conditions** | Hors D1, définitivement : un `jet` émet une demande, il n'évalue pas. Type à part (`Revelation`, portes fermées). |
 | **Éditer le texte « après » avant de l'accepter** (copilote) | Différé par l'UX à quatre tours de comité successifs ; le `Field` « APRÈS » reste en lecture seule, `onChange` explicite et commenté. Amélioration réelle, à rouvrir sur un besoin exprimé, pas avant. |
@@ -174,13 +179,13 @@ Relevé au balayage du 2026-09-19. Ces points ont traversé plusieurs cadrages c
 
 ## 5 — Hors périmètre
 
-Mode multi-joueur · internationalisation · thème sombre · accessibilité (décision projet ; l'opérabilité clavier reste exigée comme ergonomie de rédaction) · undo / historique d'édition · le routage vers la section du remède dans le panneau Contrôles (D7).
+Mode multi-joueur · internationalisation · thème sombre · accessibilité (décision projet ; l'opérabilité clavier reste exigée comme ergonomie de rédaction) · undo / historique d'édition · le routage vers la section du remède dans le panneau Contrôles.
 
 ---
 
 ## 6 — Comment on exécute
 
-Une tranche à la fois, jamais deux en parallèle, dans l'ordre de ce document : **§ 2 bis D1 → D11, puis § 3 n° 9 → n° 16.**
+Une tranche à la fois, jamais deux en parallèle, dans l'ordre de ce document : **§ 2 bis B1 puis B2, puis § 3 n° 9 → n° 16.**
 
 ```
 /cadrer <feature> "<intention en une phrase>"   → specification.json + découpage en itérations
@@ -189,11 +194,11 @@ Une tranche à la fois, jamais deux en parallèle, dans l'ordre de ce document :
 /essaim   <feature> n                           → exécution + intégration + qa + dossier de revue
 ```
 
-Les tranches **hors cycle de feature** (D1, D8, D9) n'ont pas de `/cadrer` : leur périmètre est écrit ci-dessus, elles entrent directement en `/raffiner` et journalisent dans `CHANGELOG.md` + `bug_history.*.json`, sans `specification.json` propre.
+Les tranches **hors cycle de feature** (B2, et toute dette à déclencheur qui part seule) n'ont pas de `/cadrer` : leur périmètre est écrit ci-dessus, elles entrent directement en `/raffiner` et journalisent dans `CHANGELOG.md` + `bug_history.*.json`, sans `specification.json` propre.
 
 **Ne pas cadrer plusieurs features d'avance.** Le format bouge au contact du code : tout ce qui aura été cadré avant sera à refaire.
 
-**Composition du comité** : les 4 rôles socles partout, **plus `narratif-ia`** dès qu'une tranche touche le dossier d'aventure, le moteur, les prompts ou le mode jeu — soit D5 et tout le § 3.
+**Composition du comité** : les 4 rôles socles partout, **plus `narratif-ia`** dès qu'une tranche touche le dossier d'aventure, le moteur, les prompts ou le mode jeu — soit **B1** (elle ajoute un champ au dossier, donc une ligne d'audience) et tout le § 3.
 
 **Définition de fini** : celle de `templates/plan-iteration.md`. Toute itération touchant `challenge`, `combat`, `xp` ou `characteristics` passe `npm run test:mutation` au-dessus du `break` en vigueur.
 

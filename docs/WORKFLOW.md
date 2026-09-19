@@ -151,7 +151,7 @@ Avoid apostrophes in `describe`/`it` label strings — they terminate JS templat
 
 **Garde-fou par fichier** : recopier les 4 scores du reporter `clear-text` dans la revue d'itération. **Aucun fichier ne recule** — `combat.ts` et `challenge.ts` nommément suivis. Un score global qui monte pendant qu'un fichier descend est un échec, pas un progrès. Pas de script maison pour ça : une abstraction à un seul appelant est une dette.
 
-**Le score varie de ±1 mutant d'un run à l'autre — ne le lis pas à la décimale.** Comparer deux scores à moins d'un demi-point ne veut rien dire, et le garde-fou « aucun fichier ne recule » se lit **à ±1 mutant près**, sinon il produit de fausses alertes. Cause identifiée et correctif assigné : roadmap § 2 bis, tranche **D8 `outillage-2`** (le `rng` non seedé de `combat.ts:107`).
+**Le score varie de ±1 mutant d'un run à l'autre — ne le lis pas à la décimale.** Comparer deux scores à moins d'un demi-point ne veut rien dire, et le garde-fou « aucun fichier ne recule » se lit **à ±1 mutant près**, sinon il produit de fausses alertes. Cause identifiée et correctif assigné : roadmap § 2 bis, tranche **B2 `outillage-2`** (le `rng` non seedé de `combat.ts:107`).
 
 **`RuntimeError` : zéro toléré** sur les 4 fichiers de logique. Stryker les exclut du dénominateur : ils **rétrécissent la base en silence** et le score cesse d'être lisible tant qu'ils sont là. C'est une panne d'instrument, pas un résultat — on la répare, on ne la contourne pas.
 
@@ -203,7 +203,7 @@ actions: Action[]
 - Context provided by the feature that owns the UI surface.
 - Consumers call `registerAction` in a `useEffect` — the return value is the cleanup (KR-004 stable-ref for any callback that closes over mutable state).
 - The noop default on the context keeps all consumers safe when rendered outside the provider, so adopters can land in any order.
-- C'est ce motif qui rend faisable la tranche **D7** du roadmap (saut au champ fautif depuis le panneau Contrôles), déclarée impossible tant qu'on la voyait comme un lot traversant quatre features.
+- C'est ce motif qui rend faisable le saut au champ fautif depuis le panneau Contrôles (roadmap § 2 bis, dette à déclencheur), déclaré impossible tant qu'on le voyait comme un lot traversant quatre features — il reste **au moins trois tranches**, dix panneaux devant l'adopter.
 
 ## What to Avoid
 
@@ -237,11 +237,11 @@ actions: Action[]
 
 ## Versioning — les deux temps de la bascule IA
 
-The horizontal-slice model (MINOR = a capability tier crossing *every* feature) was **retired on 2026-08-03** by decision D3: it does not survive sixteen new features arriving at skeleton stage while the surviving ones sit at iteration 4. See `docs/ROADMAP-BASCULE-IA.md` for the live plan.
+The horizontal-slice model was **retired on 2026-08-03** (decision D3). `docs/ROADMAP-BASCULE-IA.md` is the live plan.
 
 `package.json` follows **0.MINOR.PATCH**:
 
-- **MINOR = one of the two temps.** `0.6.x` = **Temps 1** (the editor produces an adventure dossier, features n° 1–8) **et sa dette** (roadmap § 2 bis, tranches D1–D11). `0.7.x` = **Temps 2** (the engine plays the dossier, features n° 9–16).
+- **MINOR = one of the two temps.** `0.6.x` = **Temps 1** (the editor produces an adventure dossier, features n° 1–8) **et sa dette** (roadmap § 2 bis). `0.7.x` = **Temps 2** (the engine plays the dossier, features n° 9–16).
 - **PATCH = one feature iteration shipped**, in the order of `docs/ROADMAP-BASCULE-IA.md`. Each iteration committed to `main` → PATCH +1.
 - Advance features in the documented order (dependencies first); never two features in parallel.
 - Bug fixes do not bump the version on their own — they fold into the feature/iteration that introduced them.
@@ -282,9 +282,9 @@ Charger par référence plutôt que tout charger est ce qui évite le contexte m
 | `bug_history.json` | normale | 8 259 o | **10 kio** (10 240) | ~1,93 kio |
 | `features_history.json` | normale | 5 966 o | **10 kio** (10 240) | ~4,17 kio |
 | `specification.json`, **par feature** | normale | 66 436 o (max : `dossier-format`) | **65 kio** (66 560) | ~0,12 kio |
-| `docs/ROADMAP-BASCULE-IA.md` | **défaut** | 27 809 o *(2026-09-19)* | **30 kio** (30 720) | ~2,84 kio |
+| `docs/ROADMAP-BASCULE-IA.md` | **défaut** | 26 929 o *(2026-09-19)* | **30 kio** (30 720) | ~3,70 kio |
 
-Le roadmap est un **index**, pas un journal : sa croissance est un défaut, pas un fonctionnement normal. **Compacté le 2026-09-19** (35 671 → 27 809 o, plafond re-dérivé 35 → 30 kio) : l'archive en est sortie une première fois, et c'est elle — motifs d'une décision livrée, corrections de cadrage, historique des recadrages — qui repart au prochain franchissement, jamais les colonnes `Statut` ni le § 4 « Ce qui est CLOS ». **Le markdown n'est pas dans le périmètre Prettier** (`npm run format` ne vise que `{src,worker}/**/*.{ts,tsx,css}`) : un `prettier --write` sur ces fichiers repadde les tables et coûte ~8 kio de budget pour rien.
+Le roadmap est un **index**, pas un journal : sa croissance est un défaut, pas un fonctionnement normal. **Compacté le 2026-09-19** (35 671 → 26 929 o, plafond re-dérivé 35 → 30 kio) : l'archive en est sortie une première fois, et c'est elle — motifs d'une décision livrée, corrections de cadrage, historique des recadrages — qui repart au prochain franchissement, jamais les colonnes `Statut` ni le § 4 « Ce qui est CLOS ». **Le markdown n'est pas dans le périmètre Prettier** (`npm run format` ne vise que `{src,worker}/**/*.{ts,tsx,css}`) : un `prettier --write` sur ces fichiers repadde les tables et coûte ~8 kio de budget pour rien.
 
 **Le plafond ne monte jamais** — cliquet inversé de celui du score de mutation. Après une compaction il se **re-dérive vers le bas** sur la nouvelle mesure ; il ne se desserre pas parce qu'une itération avait beaucoup à dire. Le franchir ne bloque pas la livraison : il déclenche une compaction **dans le même lot que la doc** (Build Steps, étape 4). Reporter la compaction au lot suivant, c'est ne jamais la faire.
 
@@ -317,7 +317,7 @@ Do not form a hypothesis from the code alone before cross-referencing the spec. 
 
 ## Build Steps — one feature iteration at a time
 
-We build the app one tranche at a time, in the order of `docs/ROADMAP-BASCULE-IA.md`: `0.6.x` for Temps 1 (n° 1–8, **livré**) and its debt (§ 2 bis, D1–D11), `0.7.x` for Temps 2 (n° 9–16). Each feature is scoped with `/cadrer`, then each of its iterations goes `/raffiner` → `/essaim`; the out-of-cycle tranches (D1, D8, D9) skip `/cadrer` — their scope is written in § 2 bis. **Build exactly one iteration, then STOP** — never chain tranches in a single run.
+We build the app one tranche at a time, in the order of `docs/ROADMAP-BASCULE-IA.md`: `0.6.x` for Temps 1 (n° 1–8, **livré**) and its debt (§ 2 bis: `B1`, `B2`), `0.7.x` for Temps 2 (n° 9–16). Each feature is scoped with `/cadrer`, then each of its iterations goes `/raffiner` → `/essaim`; an out-of-cycle tranche (`B2`) skips `/cadrer` — its scope is written in § 2 bis. **Build exactly one iteration, then STOP** — never chain tranches in a single run.
 
 ### The per-feature unit (one PATCH bump, one stop)
 

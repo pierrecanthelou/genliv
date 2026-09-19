@@ -14,11 +14,11 @@ The on-demand **design system** (tokens, primitives, wireframe fidelity, asset g
 
 > ### ⚠ Où en est la bascule — lire `docs/ROADMAP-BASCULE-IA.md` avant tout travail neuf
 >
-> **Temps 1 est livré** (2026-09-19, `0.6.50`) : l'éditeur produit un **dossier d'aventure**, huit features, 48 itérations. Le travail en cours est le **§ 2 bis du roadmap — la dette du Temps 1**, onze tranches `D1` → `D11` en `0.6.x`, qui ferment ce que le Temps 1 a laissé sans propriétaire. Le **Temps 2** (le moteur joue le dossier, n° 9–16, `0.7.x`) ne commence qu'ensuite, sur go explicite.
+> **Temps 1 est livré** (2026-09-19, `0.6.50`) : l'éditeur produit un **dossier d'aventure**, huit features, 48 itérations. Le travail en cours est le **§ 2 bis du roadmap — la dette du Temps 1** : **deux tranches bloquantes** (`B1` `lieux[].acces`, `B2` `outillage-2`) en `0.6.x`, puis une **dette à déclencheur** que rien ne planifie — chaque ligne part quand un lot rouvre son fichier. Le **Temps 2** (le moteur joue le dossier, n° 9–16, `0.7.x`) ne commence qu'ensuite, sur go explicite.
 >
 > Le modèle d'arbre (`BookNode` / `Edge` / `BookService` / `kinds.ts` / `playExport.ts`) **survit sans aucun producteur d'interface** : seules des fixtures de test l'atteignent, sa couverture ne vaut plus garantie d'usage, et sa démolition appartient à la **n° 9**, seule propriétaire d'extinction (KR-181). Ne rien y ajouter, ne pas le démolir en avance.
 
-An **authoring tool** for « livres dont vous êtes le héros » (gamebooks). The editor lets an author build an adventure, edit each screen, and model encounters, skill rolls, combat, traps, and hidden item prerequisites. Scope = **editor/authoring mode only** in Temps 1; the play engine is Temps 2.
+An **authoring tool** for « livres dont vous êtes le héros » (gamebooks). The author writes an **adventure dossier** — canon, personnages, lieux, objets, indices, quêtes, événements, fins — that an AI then plays. Temps 1 = authoring only; the play engine is Temps 2.
 
 **Language: French throughout** (UI copy + domain terms). Do not translate to English.
 
@@ -51,8 +51,8 @@ Le document est un **dossier d'aventure** — `Dossier`, `schema: 1`, trois raci
 
 - Features are **isolated**: a feature talks to the rest **only through `brain/` contracts** (services, events, registries). Never import one feature from another. *Enforced by ESLint dans les **trois** sens — feature→feature, `brain/`→feature, `player/`→feature — sur une liste dérivée du disque ; preuve : `lintIsolation.test.ts`. Importer `src/player/**` reste légal.*
 - **Single source of truth**: the dossier lives in `DossierService`. Panels, canvas and preview are *views* — never hold a private copy.
-- Thirteen features on disk: the eight of Temps 1 (`dossier-*` + `bascule-editeur`) and the five survivors of the bascule — `book-library`, `cloud-sync`, `book-creation` (repointées, livrées), `tree-canvas` (en sommeil jusqu'à D10) et `play-mode` (suit le runtime, n° 9).
-- Build order = the order of `docs/ROADMAP-BASCULE-IA.md`: § 2 bis `D1` → `D11`, then § 3 n° 9 → n° 16. One tranche at a time, never two in parallel.
+- Thirteen features on disk: the eight of Temps 1 (`dossier-*` + `bascule-editeur`) and the five survivors of the bascule — `book-library`, `cloud-sync`, `book-creation` (repointées, livrées), `tree-canvas` (en sommeil, repointage différé après le Temps 2) et `play-mode` (suit le runtime, n° 9).
+- Build order = the order of `docs/ROADMAP-BASCULE-IA.md`: § 2 bis `B1` then `B2`, then § 3 n° 9 → n° 16. One tranche at a time, never two in parallel.
 
 ## Cross-cutting engineering rules
 
