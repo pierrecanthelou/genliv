@@ -34,10 +34,17 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import worker, { INVITES, TAILLE_MAX_CORPS_IA } from './index'
-import { assemblerDetenteurs, assemblerRelations, BUDGET_CARACTERES_CONTEXTE } from '../src/brain/copilote/contexte'
 import {
+	assemblerDetenteurs,
+	assemblerDistribution,
+	assemblerRelations,
+	BUDGET_CARACTERES_CONTEXTE,
+} from '../src/brain/copilote/contexte'
+import {
+	FICHES_PROPOSEES_MAX,
 	RELATIONS_PROPOSEES_MAX,
 	REPLIQUES_PROPOSEES_MAX,
+	validerDistribution,
 	validerRelations,
 	validerRepliques,
 	validerSortie,
@@ -51,6 +58,7 @@ const ROLE_PROSE = 'personnage-prose'
 const ROLE_DETENTEURS = 'indice-detenteurs'
 const ROLE_REPLIQUES = 'personnage-repliques'
 const ROLE_RELATIONS = 'personnage-relations'
+const ROLE_DISTRIBUTION = 'monde-distribution'
 
 /**
  * LA BORNE DE SORTIE EN TOUTES LETTRES — le seul pont possible entre l'invite
@@ -424,6 +432,31 @@ describe('le balayage exhaustif — aucune invite ne nomme le gabarit d un AUTRE
 				inviteDitLaBorne(INVITES[ROLE_RELATIONS].systeme, Number(borne)),
 			),
 		).toEqual(['3'])
+
+		// ── LE SIXIÈME RÔLE : LE GARDE S'ÉTEND SANS TOUCHER LA TABLE ─────────
+		// ⚠ `'trois au plus'` EXISTAIT DÉJÀ dans `BORNE_EN_TOUTES_LETTRES` — la table ne
+		// gagne AUCUNE entrée à l'itération 4. Mais un garde qui s'étend tout seul est un
+		// garde que personne n'a ARMÉ : sans les lignes ci-dessous, le sixième rôle
+		// n'aurait AUCUN témoin liant SON invite à SA borne, et rien ne rougirait.
+		expect(FICHES_PROPOSEES_MAX).toBe(3)
+		expect(inviteDitLaBorne(INVITES[ROLE_DISTRIBUTION].systeme, FICHES_PROPOSEES_MAX)).toBe(true)
+		// … et AUCUNE AUTRE borne en toutes lettres ne s'y trouve : une invite qui
+		// annoncerait << deux au plus >> contredirait le validateur EN SILENCE.
+		expect(inviteDitLaBorne(INVITES[ROLE_DISTRIBUTION].systeme, 2)).toBe(false)
+		expect(
+			Object.keys(BORNE_EN_TOUTES_LETTRES).filter((borne) =>
+				inviteDitLaBorne(INVITES[ROLE_DISTRIBUTION].systeme, Number(borne)),
+			),
+		).toEqual(['3'])
+		// CAS NÉGATIF FABRIQUÉ, sans lequel les trois lignes ci-dessus sont INERTES : une
+		// invite de distribution qui annoncerait l'AUTRE borne est attrapée.
+		const distributionBavarde = 'Tu en donnes deux au plus, et au moins une : une histoire suppose quelqu un.'
+		expect(inviteDitLaBorne(distributionBavarde, FICHES_PROPOSEES_MAX)).toBe(false)
+		expect(inviteDitLaBorne(distributionBavarde, 2)).toBe(true)
+		// … et la BORNE DE CE RÔLE-LÀ n'est partagée avec aucune autre (§ 8, n° 42) : même
+		// valeur aujourd'hui, aucune raison commune d'évoluer. Les QUATRE constantes sont
+		// lues séparément ici, jamais l'une pour l'autre.
+		expect([REPLIQUES_PROPOSEES_MAX, RELATIONS_PROPOSEES_MAX, FICHES_PROPOSEES_MAX]).toEqual([3, 3, 3])
 	})
 
 	it('l invite du troisieme role ne recite AUCUN curseur — ni son nom, ni son libelle', () => {
@@ -677,6 +710,51 @@ describe('le temoin executable — du worker au validateur, dans le meme process
 		// qui part est le contexte, ce qui revient est un JETON et de la PROSE.
 		expect(invite).not.toContain(personnage.id)
 		expect(invite).not.toContain(premier)
+	})
+
+	it('temoin executable du sixieme role — le SEUL role de CREATION', async () => {
+		// CE QUE CE TÉMOIN COUVRE ET QU'AUCUN AUTRE NE COUVRE : une sortie dont
+		// l'acceptation fera NAÎTRE une entité, traversant le worker RÉEL puis le
+		// validateur, dans le MÊME processus — et une proposition qui, à l'arrivée, ne
+		// porte AUCUN identifiant.
+		const gabarit = String(extraire(PORTEUR_BRAIN).get(ROLE_DISTRIBUTION))
+		const cle = Object.keys(JSON.parse(gabarit) as Record<string, unknown>)[0]
+
+		const dossier = dossierDeReference()
+		// ⚠ AUCUNE CIBLE À RÉSOUDRE : la charge est VIDE, et c'est la différence avec les
+		// cinq témoins précédents, qui devaient tous désigner une entité de la fixture.
+		const contexte = assemblerDistribution(dossier, { role: ROLE_DISTRIBUTION })
+		if (!contexte.ok) throw new Error(`contexte refusé (${contexte.motif}) : le témoin ne peut pas partir`)
+
+		const PLACE = 'Passeur du gue bas, le seul a connaitre le fond par tous les temps.'
+		const POURSUITE = 'Racheter la barque que son pere avait mise en gage, avant les pluies.'
+		const conforme = JSON.stringify({ [cle]: [{ place: PLACE, poursuite: POURSUITE }] })
+
+		const { resultat, invite } = await traverser(conforme, () =>
+			createCopiloteService(reglages).demander(dossier, { role: ROLE_DISTRIBUTION }),
+		)
+
+		expect(invite).toContain(gabarit)
+		// ⚠ LE RENOMMAGE DE DESTINATION EST LA SEULE RE-RÉSOLUTION : `place` → `fonction`,
+		// `poursuite` → `but.libelle`. Et la proposition NE PORTE AUCUN IDENTIFIANT DE
+		// CIBLE — la cible est le dossier.
+		expect(resultat).toEqual({
+			statut: 'propose',
+			proposition: { ajouts: [{ fonction: PLACE, but: { libelle: POURSUITE } }] },
+		})
+		// Et la même sortie passe le validateur SEUL : les deux moitiés du témoin sont
+		// prouvées séparément, jamais l'une par l'autre (KR-197/199).
+		expect(validerDistribution(JSON.parse(conforme), dossier)).toEqual({
+			ok: true,
+			sortie: { distribution: [{ place: PLACE, poursuite: POURSUITE }] },
+		})
+		// ⚠ AUCUN IDENTIFIANT NE FRANCHIT LE RÉSEAU, dans AUCUN SENS : ni dans l'invite
+		// composée, ni dans ce qui revient. Le code frappera l'identifiant à
+		// l'ACCEPTATION, côté écran, et jamais avant.
+		const identifiants = dossier.monde.personnages.map((p: Personnage) => p.id)
+		expect(identifiants.length).toBeGreaterThan(0)
+		expect(identifiants.filter((id) => invite.includes(id))).toEqual([])
+		expect(JSON.stringify(resultat)).not.toContain('"id"')
 	})
 })
 

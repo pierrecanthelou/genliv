@@ -7,9 +7,10 @@
  * `contexte.ts`, l'appel réseau dans `../CopiloteService.ts`.
  */
 
-/** CINQ rôles. Le nom se lit ⟨entité CIBLE⟩-⟨ce qu'on demande⟩ — « la prose d'un
+/** SIX rôles. Le nom se lit ⟨entité CIBLE⟩-⟨ce qu'on demande⟩ — « la prose d'un
  *  personnage », « les détenteurs d'un indice », « les répliques d'un personnage »,
- *  « le plan d'un personnage », « les relations d'un personnage ».
+ *  « le plan d'un personnage », « les relations d'un personnage », « la distribution
+ *  du monde ».
  *  C'est AUSSI le segment de route (`/ia/indice-detenteurs`), la clé des tables
  *  d'invites et de gabarits, ET — depuis l'itération 3c — LE DISCRIMINANT de l'union
  *  étiquetée des cibles (`CopiloteService.ts`) : un même littéral porte le rôle
@@ -36,6 +37,17 @@ export type RoleCopilote =
 	 *  la route (`worker/index.ts`) et celle de l'expression d'extraction
 	 *  (`worker/frontiere.test.ts`) ne connaissent pas les accents. */
 	| 'personnage-relations'
+	/**
+	 * LE SIXIÈME, ET LE SEUL DONT L'ENTITÉ CIBLE N'EXISTE PAS ENCORE.
+	 *
+	 * ⚠ `'monde-'` ET JAMAIS `'synopsis-'` : la convention des cinq livrés se lit
+	 * ⟨entité CIBLE⟩-⟨ce qu'on demande⟩, et `synopsis-` nommerait LA SOURCE — ce
+	 * qu'aucun rôle ne fait. Une clé de route se nomme par sa DESTINATION, qui ne
+	 * bouge pas, là où le contexte a bougé à chaque itération ; et `monde-` est le
+	 * seul préfixe qui dise « aucune entité cible ».
+	 * SANS ACCENT, même motif que ses deux voisins.
+	 */
+	| 'monde-distribution'
 
 /** La CLÉ DE PROPRIÉTÉ dans le document — ce que la recette de `update` écrit. */
 export type ChampProseCle = 'fonction' | 'apparence' | 'description_joueur'
@@ -239,4 +251,92 @@ export interface LienResolu {
 export interface PropositionRelations {
 	personnageId: string
 	ajouts: readonly LienResolu[]
+}
+
+/**
+ * CE QUE LE MODÈLE REND, ÉLÉMENT PAR ÉLÉMENT — franchit le réseau. LE PREMIER ÉLÉMENT
+ * DE PROSE PURE À DEUX CHAMPS : deux textes libres dans le même objet, là où l'élément
+ * mixte de l'it3c portait un jeton ET une prose.
+ *
+ * `place`, et JAMAIS `fonction` : la clé réseau NOMME LA FORME, jamais le champ (règle
+ * du dépôt, mesurée sur les cinq rôles livrés). `metier` a été refusé — il RÉTRÉCIT, un
+ * seigneur n'a pas de métier —, et ⚠ `role` est une COLLISION FRONTALE avec
+ * `CorpsDemande.role` et avec l'étiquette `Cible*.role` : le même mot porterait le rôle
+ * de la demande et la charge d'un personnage.
+ *
+ * `poursuite`, et JAMAIS `but` (nom du champ) : `objectif` est pris (KR-198, la clé
+ * voisine `objectif_id` est une RÉFÉRENCE moteur) et `quete` est à la fois une
+ * collection du dossier ET un espace de noms d'identifiants — il MORDRAIT le scanner
+ * d'identifiants.
+ *
+ * ⚠ AUCUNE FENTE DE DÉSIGNATION — ni rang, ni handle, et c'est ce qui borne PAR LA
+ * FORME le seul risque que ce rôle ne peut pas faire constater : une `poursuite` qui
+ * renverrait à une autre proposition du même lot reste confinée dans la prose que
+ * l'auteur lit avant d'accepter, et ne peut pas produire de pointeur cassé. C'est la
+ * différence avec l'it3c. Qu'on lui ajoute un rang, et la parade tombe.
+ *
+ * SON CONSOMMATEUR est la branche de succès de `validerDistribution`
+ * (`schemaSortie.ts`) : une forme réseau que rien ne consomme est une déclaration sans
+ * appelant (KR-109). NON ré-exportée par `brain/index.ts`.
+ */
+export interface FicheReseau {
+	place: string
+	poursuite: string
+}
+
+/** CE QUE LE MODÈLE REND — franchit le réseau. UNE clé, une LISTE d'éléments de prose.
+ *
+ *  `distribution` : LE MOT DE LA DÉMO. Pas `personnages` — c'est le nom de la
+ *  collection, donc nommer le champ (veto de l'itération 3b) — et pas `fiches`, qui est
+ *  un mot d'écran.
+ *
+ *  NON ré-exportée par `brain/index.ts` : aucune feature ne lit ce que le modèle rend. */
+export interface DistributionRendue {
+	distribution: readonly FicheReseau[]
+}
+
+/**
+ * CE QUE LE CODE RE-RÉSOUT, ÉLÉMENT PAR ÉLÉMENT — ne franchit JAMAIS le réseau. ZÉRO
+ * clé commune avec `FicheReseau` : {`place`,`poursuite`} ∩ {`fonction`,`but`} = ∅. C'est
+ * KR-231 au NIVEAU DE L'ÉLÉMENT, et il s'ajoute à celui du niveau de la liste.
+ *
+ * ⚠ ELLE N'EST PAS ASSIGNABLE À `Personnage`, ET C'EST UN INVARIANT DE COMPILATION, PAS
+ * UNE CONVENTION : `Personnage` exige QUATRE champs (`id`, `portee`, `plan_actions`,
+ * `savoirs`) qu'aucune fente de ce type ne porte. « Le brouillon est SANS IDENTITÉ »
+ * cesse donc d'être une promesse de docstring — `const p: Personnage = brouillon` ne
+ * compile pas.
+ * ⚠ MAIS `tsc` TIENT LA FORME, JAMAIS LE MOMENT : un précalcul des N identifiants À
+ * CÔTÉ du brouillon compilerait parfaitement. C'est pourquoi le site d'appel de
+ * `frapperIdentifiant` est tenu par un ESPION, côté feature, et non par ce type.
+ *
+ * ⚠ ÉCRITE À LA MAIN ET FERMÉE — jamais `Pick<Personnage, …>` ni `Partial` ni `Omit` :
+ * toute dérivation SUIVRAIT le schéma, et le jour où `Personnage` gagne une prose, le
+ * modèle gagnerait un champ sans qu'une ligne change ici.
+ *
+ * ⚠ `but: { libelle: string }` ET NON `But` : `But` autorise `pourquoi` et `echeance`,
+ * c'est-à-dire deux champs que personne ne valide dans ce contrat. La forme écrite ici
+ * est assignable à `But` sans lui être égale — c'est exactement ce qu'on veut.
+ *
+ * `fonction` et `but.libelle` NOMMENT LA DESTINATION dans le document, là où le fil
+ * portait `place` et `poursuite` — même précédent que `intention` → `action` au rôle
+ * plan et que `nature` → `lien` au rôle relations. Ne pas « harmoniser ».
+ */
+export interface FicheBrouillon {
+	fonction: string
+	but: { libelle: string }
+}
+
+/** CE QUE LE CODE RE-RÉSOUT — ne franchit JAMAIS le réseau. ZÉRO clé commune avec
+ *  `DistributionRendue` (KR-231).
+ *
+ *  ⚠ PREMIÈRE PROPOSITION SANS IDENTIFIANT DE CIBLE. L'invariant des cinq rôles livrés
+ *  — « la proposition est LA CIBLE PLUS LE CONTENU » — ne s'applique pas : LA CIBLE EST
+ *  LE DOSSIER. Ne pas ajouter de `dossierId` « par symétrie » : il n'aurait aucun
+ *  lecteur, et le dossier ouvert est déjà celui de l'écran.
+ *
+ *  `ajouts` et NON `distribution` : le nom porte la SÉMANTIQUE D'ÉCRITURE — la feature
+ *  AJOUTE à `monde.personnages[]`, une acceptation à la fois. Précédents
+ *  `PropositionRepliques.ajouts` et `PropositionRelations.ajouts`. */
+export interface PropositionDistribution {
+	ajouts: readonly FicheBrouillon[]
 }

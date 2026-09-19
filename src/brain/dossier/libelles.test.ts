@@ -7,6 +7,10 @@ import { LIBELLE_DES_CHAMPS, type CheminLibelle } from './libelles'
 const RACINE_SRC = path.join(__dirname, '..', '..')
 const BLOC_IDENTITE = path.join(RACINE_SRC, 'features', 'dossier-fiches', 'components', 'BlocIdentite.tsx')
 const PANNEAU_CANON = path.join(RACINE_SRC, 'features', 'dossier-canon', 'components', 'PanneauCanon.tsx')
+/** TROISIÈME fiche d'origine, entrée à l'itération 4 de la n° 8 : elle cède le libellé
+ *  de `but.libelle` à la 6ᵉ carte du copilote, qui rend DEUX proses par fiche proposée
+ *  et doit les distinguer. */
+const BLOC_PLAN_ACTIONS = path.join(RACINE_SRC, 'features', 'dossier-fiches', 'components', 'BlocPlanActions.tsx')
 const REGISTRE = path.join(__dirname, 'libelles.ts')
 
 const CHEMINS = Object.keys(LIBELLE_DES_CHAMPS) as CheminLibelle[]
@@ -36,22 +40,33 @@ function porteursDe(litteral: string): string[] {
 }
 
 describe('LIBELLE_DES_CHAMPS — le registre lui-meme', () => {
-	it('quatre entrees, pas une de plus', () => {
+	it('six entrees, pas une de plus', () => {
 		// PARTIEL PAR CONSTRUCTION : ce n'est PAS `destinations.ts`, il n'y a aucune
 		// garde d'exhaustivité. N'entre ici qu'un champ nommé par un écran qui n'est
 		// pas sa fiche d'origine ET réellement atteignable par une branche de code.
-		expect(CHEMINS).toHaveLength(4)
+		// ⚠ DEUX ENTRÉES DE PLUS À L'ITÉRATION 4 DE LA N° 8, et leur condition (b) est
+		// ÉCHUE plutôt que forcée : `canon.mj.synopsis_mj` devient le PREMIER requis du
+		// rôle `monde-distribution`, donc une branche peut enfin le NOMMER ;
+		// `monde.personnages[].but.libelle` est l'un des deux libellés que la 6ᵉ carte
+		// doit rendre pour distinguer ses deux proses.
+		expect(CHEMINS).toHaveLength(6)
 		expect(CHEMINS.sort()).toEqual(
 			[
 				'canon.ton',
+				'canon.mj.synopsis_mj',
 				'monde.personnages[].apparence',
+				'monde.personnages[].but.libelle',
 				'monde.personnages[].description_joueur',
 				'monde.personnages[].fonction',
 			].sort(),
 		)
+		// ⚠ `canon.partage.accroche_joueur` N'Y EST TOUJOURS PAS, et ce n'est pas un
+		// oubli (§ 8, n° 25) : elle est INJECTÉE mais JAMAIS REQUISE, donc aucune branche
+		// ne peut la nommer — ce serait une ligne de registre SANS PRODUCTEUR (KR-235).
+		expect(CHEMINS).not.toContain('canon.partage.accroche_joueur')
 	})
 
-	it('les quatre paires sont les chaines EXACTES des fiches d origine', () => {
+	it('les six paires sont les chaines EXACTES des fiches d origine', () => {
 		// ÉPINGLAGE VALEUR PAR VALEUR. L'extraction est PURE : aucune chaîne n'a été
 		// reformulée, ni suffixée, ni mise en phrase. Si l'une d'elles doit changer un
 		// jour, c'est ici qu'elle change — et les deux fiches suivent, puisqu'elles la
@@ -71,6 +86,16 @@ describe('LIBELLE_DES_CHAMPS — le registre lui-meme', () => {
 		expect(LIBELLE_DES_CHAMPS['canon.ton']).toEqual({
 			libelle: 'TON',
 			hint: 'interne — consigne injectée au modèle',
+		})
+		// LES DEUX ENTRÉES DE L'ITÉRATION 4, épinglées de la même façon : extraction PURE,
+		// aucune chaîne reformulée, ni suffixée, ni mise en phrase (KR-117).
+		expect(LIBELLE_DES_CHAMPS['canon.mj.synopsis_mj']).toEqual({
+			libelle: 'SYNOPSIS MJ',
+			hint: 'interne — la vérité complète',
+		})
+		expect(LIBELLE_DES_CHAMPS['monde.personnages[].but.libelle']).toEqual({
+			libelle: "CE QU'IL VEUT",
+			hint: "interne — prose de jeu d'acteur, jamais lue telle quelle par le joueur",
 		})
 	})
 
@@ -95,18 +120,25 @@ describe('LIBELLE_DES_CHAMPS — le veto d encapsulation', () => {
 	it('chaque fiche d origine ne retape plus les chaines des champs qu elle a cedes', () => {
 		/**
 		 * LE VETO SE DÉCLENCHE À LA PREMIÈRE RECOPIE, et il porte sur le couple
-		 * (fichier, champ cédé) — jamais sur « les huit chaînes dans les deux
+		 * (fichier, champ cédé) — jamais sur « les douze chaînes dans les trois
 		 * fichiers ». Le raccourci serait FAUX, mesuré : `PanneauCanon.tsx` porte
 		 * encore `lue par le joueur`, mais pour ACCROCHE JOUEUR, un AUTRE champ, qui
-		 * reste inline et intouché. Une garde qui confond « la même chaîne » et « le
-		 * même champ » fait rougir un code sain.
+		 * reste inline et intouché ; `BlocPlanActions.tsx` porte encore `interne — …`
+		 * pour POURQUOI et ÉCHÉANCE, deux autres champs. Une garde qui confond « la
+		 * même chaîne » et « le même champ » fait rougir un code sain.
+		 *
+		 * ⚠ C'EST CE VETO QUI REND LA CO-PROPRIÉTÉ FORCÉE : poser une entrée au
+		 * registre sans repointer sa fiche d'origine le fait ROUGIR, donc il n'existe
+		 * AUCUN état vert intermédiaire entre les deux — ce qui interdit d'en faire
+		 * deux lots.
 		 */
 		const cedes: ReadonlyArray<readonly [string, readonly CheminLibelle[]]> = [
 			[
 				BLOC_IDENTITE,
 				['monde.personnages[].fonction', 'monde.personnages[].apparence', 'monde.personnages[].description_joueur'],
 			],
-			[PANNEAU_CANON, ['canon.ton']],
+			[PANNEAU_CANON, ['canon.ton', 'canon.mj.synopsis_mj']],
+			[BLOC_PLAN_ACTIONS, ['monde.personnages[].but.libelle']],
 		]
 
 		for (const [fichier, chemins] of cedes) {
@@ -117,10 +149,10 @@ describe('LIBELLE_DES_CHAMPS — le veto d encapsulation', () => {
 		}
 	})
 
-	it('et les deux fiches LISENT bien le registre, au lieu de ne rien rendre', () => {
+	it('et les TROIS fiches LISENT bien le registre, au lieu de ne rien rendre', () => {
 		// Discriminant du test précédent : sans cette ligne, supprimer les trois
 		// `Field` de la fiche le rendrait vert. Un vide passe toute interdiction.
-		for (const fichier of [BLOC_IDENTITE, PANNEAU_CANON]) {
+		for (const fichier of [BLOC_IDENTITE, PANNEAU_CANON, BLOC_PLAN_ACTIONS]) {
 			const source = fs.readFileSync(fichier, 'utf8')
 			expect(`${path.basename(fichier)} → ${source.includes('LIBELLE_DES_CHAMPS')}`).toBe(
 				`${path.basename(fichier)} → true`,
@@ -128,7 +160,7 @@ describe('LIBELLE_DES_CHAMPS — le veto d encapsulation', () => {
 		}
 	})
 
-	it('aucun fichier de src ne retape un des quatre libelles en prop label', () => {
+	it('aucun fichier de src ne retape un des six libelles en prop label', () => {
 		// La forme surveillée est la PROP, pas le mot : « FONCTION » apparaît en prose
 		// dans des commentaires du dépôt, et une garde qui rougit sur de la prose est
 		// désactivée dans le mois. `label="TON"` ailleurs qu'ici serait, lui, une
@@ -139,10 +171,15 @@ describe('LIBELLE_DES_CHAMPS — le veto d encapsulation', () => {
 		}
 	})
 
-	it('les deux qualificatifs UNIQUES ne vivent que dans le registre', () => {
+	it('les TROIS qualificatifs UNIQUES ne vivent que dans le registre', () => {
 		// Ces deux-là n'avaient qu'un porteur AVANT la promotion, et n'en ont qu'un
 		// APRÈS : l'unicité est donc assertable, et elle l'est.
-		for (const chemin of ['monde.personnages[].apparence', 'canon.ton'] as CheminLibelle[]) {
+		// ⚠ `canon.mj.synopsis_mj` REJOINT CE GROUPE à l'itération 4 : son qualificatif
+		// n'avait qu'UN porteur avant la promotion, et il n'en a qu'UN après — mesuré,
+		// pas supposé. Celui de `but.libelle`, lui, tombe dans le groupe de FAMILLE
+		// ci-dessous : c'est la même mesure, et elle classe les deux entrées neuves
+		// dans des groupes DIFFÉRENTS.
+		for (const chemin of ['monde.personnages[].apparence', 'canon.ton', 'canon.mj.synopsis_mj'] as CheminLibelle[]) {
 			const hint = LIBELLE_DES_CHAMPS[chemin].hint
 			expect(`${chemin} → ${JSON.stringify(porteursDe(hint).map((f) => path.basename(f)))}`).toBe(
 				`${chemin} → ${JSON.stringify([path.basename(REGISTRE)])}`,
@@ -150,27 +187,33 @@ describe('LIBELLE_DES_CHAMPS — le veto d encapsulation', () => {
 		}
 	})
 
-	it('les deux qualificatifs de FAMILLE ne sont PAS uniques, et c est mesure', () => {
+	it('les TROIS qualificatifs de FAMILLE ne sont PAS uniques, et c est mesure', () => {
 		/**
 		 * LA LIMITE DU VETO, écrite plutôt que passée sous silence.
 		 *
-		 * « chaque chaîne vit ici et nulle part ailleurs » est FAUX de deux des huit
-		 * chaînes, et c'est mesuré, pas supposé : `interne — jamais lu par le joueur`
-		 * et `lue par le joueur` sont des qualificatifs de FAMILLE, portés par
-		 * plusieurs fiches qui n'ont aucun rapport avec le copilote (les trois proses
-		 * d'un lieu, les lignes rouges d'un caractère, la description d'un objet,
-		 * la formulation d'un indice, l'accroche du canon…).
+		 * « chaque chaîne vit ici et nulle part ailleurs » est FAUX de trois des douze
+		 * chaînes, et c'est mesuré, pas supposé : `interne — jamais lu par le joueur`,
+		 * `lue par le joueur` et `interne — prose de jeu d'acteur, jamais lue telle
+		 * quelle par le joueur` sont des qualificatifs de FAMILLE, portés par plusieurs
+		 * fiches qui n'ont aucun rapport avec le copilote (les trois proses d'un lieu,
+		 * les lignes rouges d'un caractère, la description d'un objet, la formulation
+		 * d'un indice, l'accroche du canon, la nature d'une relation…).
 		 *
 		 * Asserter leur unicité ferait rougir un code SAIN au premier champ interne
 		 * ajouté, et le correctif évident serait de modifier le témoin : une garde qui
 		 * apprend à modifier son témoin est PIRE que pas de garde (KR-235). Ce qui est
-		 * gardé est donc l'invariant vrai — les deux fiches PROMUES ne les redisent
+		 * gardé est donc l'invariant vrai — les TROIS fiches PROMUES ne les redisent
 		 * plus (test ci-dessus) — et ce test-ci EXISTE pour que personne ne croie
 		 * l'unicité acquise.
 		 */
+		// ⚠ `monde.personnages[].but.libelle` REJOINT CE GROUPE-CI, et c'est une MESURE :
+		// son qualificatif est porté par `BlocCaractere.tsx` et `BlocRelations.tsx` pour
+		// d'AUTRES champs de prose de jeu d'acteur. Asserter son unicité ferait rougir un
+		// code SAIN au premier champ de la même famille ajouté ailleurs.
 		for (const chemin of [
 			'monde.personnages[].fonction',
 			'monde.personnages[].description_joueur',
+			'monde.personnages[].but.libelle',
 		] as CheminLibelle[]) {
 			const porteurs = porteursDe(LIBELLE_DES_CHAMPS[chemin].hint)
 			expect(porteurs).toContain(REGISTRE)

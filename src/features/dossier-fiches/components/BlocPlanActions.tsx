@@ -1,5 +1,13 @@
 import { useEffect, useRef, type ChangeEvent, type CSSProperties, type FocusEvent } from 'react'
-import { Field, Stepper, IconButton, HIT_TARGET_MIN, DUREE_MIN, type Personnage } from '../../../brain'
+import {
+	Field,
+	Stepper,
+	IconButton,
+	HIT_TARGET_MIN,
+	DUREE_MIN,
+	LIBELLE_DES_CHAMPS,
+	type Personnage,
+} from '../../../brain'
 import {
 	boutonPointilleStyle,
 	eyebrowStyle,
@@ -22,7 +30,20 @@ const LEGENDE_PLAN_ACTIONS =
 	"Suite d'étapes vers l'objectif — chacune avec son intention, son déclencheur et une porte de sortie si le joueur bloque le personnage."
 const LEGENDE_CONTRE_MESURES = 'Réservé aux antagonistes — actions armées en réaction à ce que le joueur déclenche.'
 
-const HINT_BUT_LIBELLE = "interne — prose de jeu d'acteur, jamais lue telle quelle par le joueur"
+/**
+ * Le libellé de `but.libelle` et son qualificatif viennent du REGISTRE
+ * `brain/dossier/libelles.ts` depuis l'itération 4 de la n° 8 : la 6ᵉ carte du
+ * panneau Copilote rend DEUX proses par fiche proposée — la fonction et ce que la
+ * personne veut — et doit les DISTINGUER sans être la fiche d'origine d'aucune des
+ * deux. Deux features les lisent donc (KR-109), et l'extraction est PURE : aucune
+ * chaîne n'a bougé.
+ *
+ * `POURQUOI` et `ÉCHÉANCE` restent INLINE : un seul lecteur chacun, et aucun rôle du
+ * copilote ne les propose ni ne les requiert — les promouvoir serait deux lignes de
+ * registre sans producteur (KR-235).
+ */
+const BUT_LIBELLE = LIBELLE_DES_CHAMPS['monde.personnages[].but.libelle']
+
 const HINT_BUT_POURQUOI = "interne — motivation, si elle mérite d'être dite"
 const HINT_BUT_ECHEANCE = "interne — note d'auteur, jamais lue par le modèle"
 const PLACEHOLDER_BUT_LIBELLE = 'Retrouver le sceau brisé et le remettre en place avant que la brume ne revienne.'
@@ -151,8 +172,8 @@ export function BlocPlanActions({
 				<span style={eyebrowStyle}>OBJECTIF PERSONNEL</span>
 				<div style={sousSectionStyle}>
 					<Field
-						label="CE QU'IL VEUT"
-						hint={HINT_BUT_LIBELLE}
+						label={BUT_LIBELLE.libelle}
+						hint={BUT_LIBELLE.hint}
 						multiline
 						rows={2}
 						placeholder={PLACEHOLDER_BUT_LIBELLE}

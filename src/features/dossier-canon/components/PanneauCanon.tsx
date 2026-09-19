@@ -24,12 +24,18 @@ import { EYEBROW_REFUS } from '../utils/refusMessages'
  * L'extraction est PURE — aucune chaîne n'a bougé, et la preuve en est que la
  * suite de `dossier-canon` est restée verte sans une seule retouche.
  *
- * `SYNOPSIS MJ` et `ACCROCHE JOUEUR` restent INLINE juste au-dessus : un seul
- * lecteur chacun, et `canon.mj.synopsis_mj` n'est jamais requis par le copilote,
- * donc aucune branche ne peut le nommer. Les promouvoir serait une ligne de
- * registre sans producteur (KR-235).
+ * ⚠ `SYNOPSIS MJ` A REJOINT LE REGISTRE à l'itération 4 de la n° 8, et sa
+ * condition d'entrée est ÉCHUE plutôt que forcée : le rôle `monde-distribution`
+ * en fait son PREMIER requis, donc le panneau Copilote le NOMME dans son refus
+ * « il manque … ». La phrase qui disait « aucune branche ne peut le nommer »
+ * était vraie jusqu'à cette itération ; elle ne l'est plus.
+ *
+ * `ACCROCHE JOUEUR` reste INLINE, et ne doit pas suivre « puisqu'on y est » : elle
+ * est injectée au modèle mais JAMAIS REQUISE, donc aucune branche ne peut la
+ * nommer — ce serait une ligne de registre sans producteur (KR-235).
  */
 const TON = LIBELLE_DES_CHAMPS['canon.ton']
+const SYNOPSIS = LIBELLE_DES_CHAMPS['canon.mj.synopsis_mj']
 
 export interface PanneauCanonProps {
 	dossierId: string
@@ -217,8 +223,8 @@ export function PanneauCanon({ dossierId }: PanneauCanonProps): JSX.Element | nu
 				<div style={champsStyle}>
 					<div>
 						<Field
-							label="SYNOPSIS MJ"
-							hint="interne — la vérité complète"
+							label={SYNOPSIS.libelle}
+							hint={SYNOPSIS.hint}
 							multiline
 							rows={6}
 							value={brouillon.synopsis_mj}

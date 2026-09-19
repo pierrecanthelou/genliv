@@ -125,16 +125,22 @@ export { createCloudSettings, type CloudSettingsService } from './CloudSettingsS
 // feature n'a de raison de composer un contexte elle-même, ni de lire la garde
 // d'audience. Même traitement que `DESTINATION_DES_CHAMPS` et `amorce.ts`.
 // NE SORT PAS NON PLUS : `PropositionRendue`, `DetenteursRendus`, `RepliquesRendues`,
-// `IntentionRendue` ni `RapportsRendus`/`RapportRendu`, les formes RÉSEAU. Leur seul
+// `IntentionRendue`, ni `RapportsRendus`/`RapportRendu`, ni
+// `DistributionRendue`/`FicheReseau`, les formes RÉSEAU. Leur seul
 // consommateur légitime est la
 // branche de succès de leur validateur, dans `brain/` ; une feature lit
 // `PropositionResolue`, `PropositionDetenteurs`, `PropositionRepliques`,
-// `PropositionPlan` ou `PropositionRelations`, jamais ce que le modèle rend. Les ré-exporter donnerait une ligne publique sans appelant
+// `PropositionPlan`, `PropositionRelations` ou `PropositionDistribution`, jamais ce
+// que le modèle rend. Les ré-exporter donnerait une ligne publique sans appelant
 // (KR-109) — et, pour la troisième, la clé `repliques` voisinerait `ajouts` dans le
 // même baril alors que KR-231 exige précisément qu'on ne puisse pas les confondre.
 // NE SORTENT PAS ENFIN : `RangInjecte`, `validerDetenteurs`, `validerRepliques`,
-// `validerRelations`, `GABARIT_SORTIE`, `PROPOSITIONS_MAX`, `REPLIQUES_PROPOSEES_MAX`,
-// `RELATIONS_PROPOSEES_MAX`, `CLES_SORTIE_RELATIONS`.
+// `validerRelations`, `validerDistribution`, `GABARIT_SORTIE`, `PROPOSITIONS_MAX`,
+// `REPLIQUES_PROPOSEES_MAX`, `RELATIONS_PROPOSEES_MAX`, `CLES_SORTIE_RELATIONS`,
+// `FICHES_PROPOSEES_MAX`, `CLES_SORTIE_DISTRIBUTION`, `DEJA_ECRITS_MAX`.
+// ⚠ `DEJA_ECRITS_MAX` EST UNE BORNE DE CONTEXTE, comme `CANDIDATS_MAX` et
+// `BUDGET_CARACTERES_CONTEXTE` : rien de `brain/copilote/contexte/` ne sort de
+// `brain/`, une feature n'assemblant jamais de contexte elle-même.
 // LA TABLE DES
 // RANGS NE SORT JAMAIS DE `brain/copilote/` — KR-231 tenu par la PORTÉE, pas par une
 // convention : une feature qui pourrait la lire pourrait la RE-DÉRIVER, et écrire
@@ -144,8 +150,12 @@ export { createCloudSettings, type CloudSettingsService } from './CloudSettingsS
 // D'ÉCRITURE est `PARLER_REPLIQUES` (`dossier/curseurs`), qui borne le DOCUMENT et
 // qui est DÉJÀ exportée plus bas — zéro ligne neuve. Les exposer côte à côte
 // inviterait à les aligner, ce que le § 8 (TL3a-7) refuse.
-// `EchecCopilote` sort, elle : c'est la branche d'échec COMMUNE aux cinq rôles, et
-// l'état d'écran des cinq cartes la porte.
+// `EchecCopilote` sort, elle : c'est la branche d'échec COMMUNE aux six rôles, et
+// l'état d'écran des six cartes la porte.
+// ⚠ `FicheBrouillon` SORT, et c'est la SEULE forme neuve de l'itération 4 à sortir :
+// elle n'est PAS une forme réseau — c'est la forme RE-RÉSOUTE, celle que la carte lit
+// pour rendre ses deux proses et dont elle compose la recette d'écriture. Son voisinage
+// avec `FicheReseau`, qui ne sort pas, est exactement la frontière de KR-231.
 export type {
 	CopiloteService,
 	CibleCopilote,
@@ -153,11 +163,13 @@ export type {
 	CibleRepliques,
 	CiblePlan,
 	CibleRelations,
+	CibleDistribution,
 	ReponseCopilote,
 	ReponseDetenteurs,
 	ReponseRepliques,
 	ReponsePlan,
 	ReponseRelations,
+	ReponseDistribution,
 	EchecCopilote,
 	RaisonIndisponible,
 } from './CopiloteService'
@@ -171,20 +183,28 @@ export type {
 	PropositionRepliques,
 	PropositionPlan,
 	PropositionRelations,
+	PropositionDistribution,
+	FicheBrouillon,
 	LienResolu,
 } from './copilote/types'
-// `MotifIllisible` est INCHANGÉE depuis l'itération 3a — aucun des trois validateurs
+// `MotifIllisible` est INCHANGÉE depuis l'itération 3a — aucun des quatre validateurs
 // suivants n'ajoute de membre. Le CINQUIÈME est le premier à la nommer EN ENTIER dans
 // son type de retour, et c'est une PREUVE et non un élargissement : ses cinq motifs
 // sont tous atteignables, `'rang-inconnu'` compris, parce qu'il est le premier rôle à
 // rendre À LA FOIS un jeton et de la prose.
+// ⚠ ET LE SIXIÈME NE LA NOMME PAS EN ENTIER, ce qui laisse la phrase ci-dessus VRAIE :
+// `monde-distribution` ne rend AUCUN jeton, donc `'rang-inconnu'` y est SANS OBJET et
+// son type de retour ne nomme que QUATRE motifs. Ne pas « harmoniser » les deux lignes
+// — la différence est la mesure (famille BUG-084, KR-235).
 export type { MotifIllisible } from './copilote/schemaSortie'
 // `MotifRefusContexte` sort AVEC `EchecCopilote`, même motif que `MotifIllisible` :
 // la carte 2 doit pouvoir NOMMER la branche `'cible-a-ecrire'` ou
 // `'aucun-candidat'` pour en tirer son texte, et elle n'a aucun autre moyen de le
-// faire. Le registre `LIBELLE_DES_CHAMPS` reste à quatre entrées : les motifs SANS
-// charge sont nommés en prose française par la feature, jamais par un libellé
-// d'écran (§ 8, TL-8).
+// faire. Le registre `LIBELLE_DES_CHAMPS` passe à SIX entrées à l'itération 4 —
+// `canon.mj.synopsis_mj` et `monde.personnages[].but.libelle` y entrent, leur condition
+// d'ouverture étant échue —, mais la doctrine ne bouge pas : les motifs SANS charge
+// restent nommés en prose française par la feature, jamais par un libellé d'écran
+// (§ 8, TL-8).
 export type { MotifRefusContexte } from './copilote/contexte'
 export { createUIPreferencesService } from './UIPreferencesService'
 export type { UIPreferencesService, BookUIPrefs, Viewport, LayoutSpacing } from './UIPreferencesService'

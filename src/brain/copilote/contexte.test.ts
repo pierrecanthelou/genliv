@@ -6,9 +6,17 @@ import { feuillesDeLaFixture } from '../dossier/feuilles'
 import { LIBELLE_DES_CHAMPS } from '../dossier/libelles'
 import { CERTITUDE_INITIALE, INTENSITE_INITIALE, type Dossier, type Personnage, type Portee } from '../dossier/types'
 import { controlerDossier } from '../dossier/controles'
-import type { CibleCopilote, CibleIndice, CiblePlan, CibleRelations, CibleRepliques } from '../CopiloteService'
+import type {
+	CibleCopilote,
+	CibleDistribution,
+	CibleIndice,
+	CiblePlan,
+	CibleRelations,
+	CibleRepliques,
+} from '../CopiloteService'
 import {
 	assemblerDetenteurs,
+	assemblerDistribution,
 	assemblerPlan,
 	assemblerProse,
 	assemblerRelations,
@@ -16,6 +24,7 @@ import {
 	BUDGET_CARACTERES_CONTEXTE,
 	CANDIDATS_MAX,
 	CHAMPS_INJECTES,
+	DEJA_ECRITS_MAX,
 	DEROGATIONS_AUDIENCE,
 	PARTIES_REQUISES,
 } from './contexte'
@@ -980,9 +989,9 @@ describe('assemblerRepliques — confinement d audience du troisieme role', () =
 		)
 
 		expect(fautifs).toEqual([])
-		// Discriminant : le balayage voit bien les CINQ entrées — sans lui, un registre
+		// Discriminant : le balayage voit bien les SIX entrées — sans lui, un registre
 		// vide le rendrait vert (KR-199). Le compte suit le registre, qui fait foi.
-		expect(Object.keys(CHAMPS_INJECTES)).toHaveLength(5)
+		expect(Object.keys(CHAMPS_INJECTES)).toHaveLength(6)
 	})
 
 	it('aucun chemin caractere.curseurs.* nulle part', () => {
@@ -993,7 +1002,7 @@ describe('assemblerRepliques — confinement d audience du troisieme role', () =
 		)
 
 		expect(fautifs).toEqual([])
-		expect(Object.keys(CHAMPS_INJECTES)).toHaveLength(5)
+		expect(Object.keys(CHAMPS_INJECTES)).toHaveLength(6)
 	})
 
 	it('la cible est absente de la liste blanche', () => {
@@ -2169,5 +2178,499 @@ describe('assemblerRelations — les QUATRE refus, et la mesure', () => {
 			ok: false,
 			motif: 'trop-long',
 		})
+	})
+})
+
+// ══ LE SIXIÈME RÔLE — `monde-distribution` ══════════════════════════════════
+
+const ROLE_DISTRIBUTION = 'monde-distribution'
+const BUDGET_DISTRIBUTION = BUDGET_CARACTERES_CONTEXTE[ROLE_DISTRIBUTION]
+
+const CHEMINS_DIS = CHAMPS_INJECTES[ROLE_DISTRIBUTION]
+const CHEMINS_DIS_DE_FICHE = CHEMINS_DIS.filter((chemin) => chemin.startsWith(PREFIXE_PERSONNAGE))
+const CHEMINS_DIS_DE_CANON = CHEMINS_DIS.filter((chemin) => !chemin.startsWith(PREFIXE_PERSONNAGE))
+
+/** L'EN-TÊTE DU BLOC DES DÉJÀ ÉCRITS — `DEJA ECRIT`, jamais `P…` ni `FICHE`. */
+const EN_TETE_DEJA_ECRIT = 'DEJA ECRIT'
+const CHEMIN_SYNOPSIS = 'canon.mj.synopsis_mj'
+const CHEMIN_FONCTION = 'monde.personnages[].fonction'
+const CHEMIN_CORPS_DISTRIBUTION = path.join(__dirname, 'contexte', 'distribution.ts')
+
+/** ⚠ LA CIBLE DE CE RÔLE EST À CHARGE VIDE — la seule des six. Ce n'est pas une
+ *  fonction paramétrée parce qu'il n'y a RIEN à paramétrer : la cible est le dossier. */
+const CIBLE_DISTRIBUTION: CibleDistribution = { role: ROLE_DISTRIBUTION }
+
+/**
+ * LE DOSSIER DE MESURE DU SIXIÈME RÔLE — COMPOSÉ PAR LE TEST, jamais inventé, et jamais
+ * la fixture (qui n'appartient à aucun lot de cette itération).
+ *
+ * MOTIF DE LA COMPOSITION, MESURÉ : `dossier-reference.json` ne porte que DEUX
+ * personnages à `fonction` rédigée, là où `DEJA_ECRITS_MAX` en admet DOUZE. Mesurer sur
+ * la fixture intacte donnerait un `M` qui n'a jamais vu la borne saturée, c'est-à-dire
+ * un PLANCHER et non une mesure — et le budget qu'on en dériverait protégerait moins
+ * qu'il ne le prétend.
+ *
+ * `nbEcrits` est un PARAMÈTRE, pour la même raison qu'au cinquième rôle : la MESURE
+ * exige `DEJA_ECRITS_MAX` SATURÉ, alors que le témoin de troncature exige au contraire
+ * qu'on puisse la faire MORDRE et NE PAS mordre — sinon « douze » et « tous » seraient
+ * indistinguables (KR-199).
+ *
+ * ⚠ LES PERSONNAGES MUETS SONT DÉLIBÉRÉS : `nbMuets` fiches SANS `fonction` sont
+ * intercalées EN TÊTE. Elles n'excluent rien, donc elles ne doivent NI entrer dans le
+ * bloc NI consommer une place de la borne — c'est le témoin du « filtre avant
+ * troncature ». La valeur de `fonction` est LUE du document, jamais écrite ici.
+ */
+function construireDistribution(
+	nbEcrits: number,
+	nbMuets = 0,
+): { dossier: Dossier; fonction: string; ecritsAttendus: string[] } {
+	const reference = dossierDeReference()
+	const fonction = valeurLaPlusLongue(reference, CHEMIN_FONCTION)
+	const modeles = reference.monde.personnages
+
+	const ecrits = Array.from(
+		{ length: nbEcrits },
+		(_, rang): Personnage => ({
+			id: `pnj.ecrit-${rang}`,
+			nom: modeles[rang % modeles.length].nom,
+			// Les portées ALTERNENT : sans cela, « `premier` d'abord, puis l'ordre du
+			// document » serait indistinguable de « l'ordre du document » tout court.
+			portee: rang % 2 === 0 ? 'second' : 'premier',
+			plan_actions: [],
+			savoirs: [],
+			fonction,
+		}),
+	)
+	const muets = Array.from(
+		{ length: nbMuets },
+		(_, rang): Personnage => ({
+			id: `pnj.muet-${rang}`,
+			// `premier` pour qu'ils soient en TÊTE de l'ordre : s'ils consommaient une
+			// place de la borne, ils la prendraient AVANT les fiches écrites.
+			portee: 'premier',
+			plan_actions: [],
+			savoirs: [],
+		}),
+	)
+
+	return {
+		dossier: { ...reference, monde: { ...reference.monde, personnages: [...muets, ...ecrits] } },
+		fonction,
+		// `premier` d'abord, puis l'ordre du document — les muets n'y sont PAS.
+		ecritsAttendus: [
+			...ecrits.filter((personnage) => personnage.portee === 'premier').map((personnage) => personnage.id),
+			...ecrits.filter((personnage) => personnage.portee !== 'premier').map((personnage) => personnage.id),
+		].slice(0, DEJA_ECRITS_MAX),
+	}
+}
+
+/** Le contexte assemblé, ou l'échec du test s'il a été refusé. */
+function contexteDistribution(dossier: Dossier): { texte: string; entitesInjectees: readonly string[] } {
+	const contexte = assemblerDistribution(dossier, CIBLE_DISTRIBUTION)
+	if (!contexte.ok) throw new Error(`contexte refusé (${contexte.motif}) alors que le test attend un assemblage`)
+	return contexte
+}
+
+describe('assemblerDistribution — confinement d audience du sixieme role', () => {
+	it('confinement du 6e role — CINQ chemins, tous ia, soupape vide', () => {
+		// CRITÈRE 1, PREMIÈRE MOITIÉ.
+		expect(CHEMINS_DIS).toHaveLength(5)
+		// Assertion de VALEUR, jamais d'existence (KR-174) : `toEqual([])` sur les écarts
+		// NOMME le chemin fautif et sa destination réelle.
+		const ecarts = CHEMINS_DIS.filter((chemin) => DESTINATION_DES_CHAMPS[chemin] !== 'ia').map(
+			(chemin) => `${chemin} → ${DESTINATION_DES_CHAMPS[chemin] ?? 'AUCUNE DESTINATION'}`,
+		)
+		expect(ecarts).toEqual([])
+		// La soupape n'a pas bougé : un SIXIÈME rôle n'ouvre aucune dérogation (KR-232).
+		expect(DEROGATIONS_AUDIENCE).toEqual([])
+		// La liste exacte, épinglée : QUATRE du canon, UN de fiche.
+		expect([...CHEMINS_DIS].sort()).toEqual(
+			[
+				'canon.mj.synopsis_mj',
+				'canon.ton',
+				'canon.interdits_ton[]',
+				'canon.partage.accroche_joueur',
+				'monde.personnages[].fonction',
+			].sort(),
+		)
+	})
+
+	it('le SYNOPSIS est injecte ici, et c est le RENVERSEMENT assume', () => {
+		// ⚠ `canon.mj.synopsis_mj` est RETIRÉ des rôles 3a, 3b et 3c « pour point de
+		// vue », et INJECTÉ ici comme SOURCE. Le test épingle LES DEUX CÔTÉS : sans la
+		// seconde moitié, « injecté ici » serait indistinguable d'« injecté partout ».
+		expect(CHEMINS_DIS).toContain(CHEMIN_SYNOPSIS)
+		expect(CHAMPS_INJECTES['personnage-prose']).toContain(CHEMIN_SYNOPSIS)
+		for (const role of ['personnage-repliques', 'personnage-plan', 'personnage-relations'] as const) {
+			expect(`${role} → ${CHAMPS_INJECTES[role].includes(CHEMIN_SYNOPSIS)}`).toBe(`${role} → false`)
+		}
+
+		// … et il est RÉELLEMENT dans le texte assemblé, pas seulement dans la liste.
+		const { dossier } = construireDistribution(3)
+		const texte = contexteDistribution(dossier).texte
+		expect(texte).toContain(CHEMIN_SYNOPSIS)
+		expect(texte).toContain(String(dossier.canon.mj.synopsis_mj))
+	})
+
+	it('description_joueur et but.libelle sont ABSENTS — les deux retraits aux motifs PROPRES', () => {
+		// CRITÈRE 1 : les deux retraits sont éprouvés SUR LE TEXTE ASSEMBLÉ, pas seulement
+		// sur la liste blanche — une liste juste et une boucle qui lit ailleurs ne se
+		// distinguent que là.
+		expect(CHEMINS_DIS).not.toContain('monde.personnages[].description_joueur')
+		expect(CHEMINS_DIS).not.toContain('monde.personnages[].but.libelle')
+
+		const reference = dossierDeReference()
+		const publiques = valeurLaPlusLongue(reference, 'monde.personnages[].description_joueur')
+		const vouloirs = valeurLaPlusLongue(reference, 'monde.personnages[].but.libelle')
+		const fonction = valeurLaPlusLongue(reference, CHEMIN_FONCTION)
+		// Les trois valeurs existent bel et bien au dossier — sinon les absences
+		// ci-dessous seraient vraies pour rien (KR-199).
+		expect(publiques.length).toBeGreaterThan(0)
+		expect(vouloirs.length).toBeGreaterThan(0)
+
+		const dossier: Dossier = {
+			...reference,
+			monde: {
+				...reference.monde,
+				personnages: [
+					{
+						id: 'pnj.tout-rempli',
+						portee: 'premier',
+						plan_actions: [],
+						savoirs: [],
+						fonction,
+						description_joueur: publiques,
+						but: { libelle: vouloirs },
+					},
+				],
+			},
+		}
+		const texte = contexteDistribution(dossier).texte
+
+		// La `fonction` EST là — discriminant : sans elle, un assembleur qui n'injecterait
+		// RIEN de la fiche passerait les deux absences.
+		expect(texte).toContain(fonction)
+		expect(texte).not.toContain(publiques)
+		expect(texte).not.toContain(vouloirs)
+	})
+
+	it('le bloc DEJA ECRIT porte l en-tete exact et AUCUN rang', () => {
+		// CRITÈRE 1 : `DEJA ECRIT`, jamais `P…` ni `FICHE` (§ 8, n° 40).
+		const { dossier, fonction } = construireDistribution(3)
+		const texte = contexteDistribution(dossier).texte
+
+		const blocs = texte.split('\n\n')
+		const enTetes = blocs.map((bloc) => bloc.split('\n')[0])
+		expect(enTetes).toContain(EN_TETE_DEJA_ECRIT)
+		// AUCUN RANG nulle part — ni en en-tête, ni en ligne. Le motif est double : une
+		// table de rangs serait un instrument SANS CONSOMMATEUR (KR-235) et une invitation
+		// à la référence croisée.
+		expect(texte).not.toMatch(/^P\d+$/m)
+		expect(enTetes).not.toContain('FICHE')
+		// Le bloc porte les fonctions, et RIEN d'autre : son en-tête puis N lignes.
+		const bloc = blocs.find((candidat) => candidat.startsWith(EN_TETE_DEJA_ECRIT))
+		expect(bloc?.split('\n').slice(1)).toEqual([fonction, fonction, fonction])
+	})
+
+	it('zero deja ecrit : le bloc est ABSENT, jamais vide — et aucun refus ne part', () => {
+		// ⚠ CRITÈRE 1, SECONDE MOITIÉ, ET CRITÈRE 2 : UN MONDE VIDE EST LE CAS NOMINAL de
+		// ce rôle — c'est le premier geste après l'écriture du synopsis. Un bloc vide
+		// enseignerait « personne n'existe », ce qui est une AFFIRMATION ; le repli est le
+		// SILENCE.
+		const reference = dossierDeReference()
+		const vide: Dossier = { ...reference, monde: { ...reference.monde, personnages: [] } }
+
+		const contexte = assemblerDistribution(vide, CIBLE_DISTRIBUTION)
+
+		expect(contexte.ok).toBe(true)
+		expect(contexte.ok && contexte.entitesInjectees).toEqual([])
+		expect(contexte.ok && contexte.texte).not.toContain(EN_TETE_DEJA_ECRIT)
+		// Et le texte n'est pas vide pour autant : le canon est bien là.
+		expect(contexte.ok && contexte.texte).toContain(CHEMIN_SYNOPSIS)
+
+		// … et le MÊME résultat avec des personnages tous MUETS : « personne » et
+		// « personne d'écrit » demandent le même silence.
+		const { dossier: muets } = construireDistribution(0, 4)
+		const avecMuets = assemblerDistribution(muets, CIBLE_DISTRIBUTION)
+		expect(avecMuets.ok).toBe(true)
+		expect(avecMuets.ok && avecMuets.texte).not.toContain(EN_TETE_DEJA_ECRIT)
+	})
+
+	it('le FILTRE precede la TRONCATURE : un muet ne consomme aucune place de la borne', () => {
+		// ⚠ LE SENS MÊME DE `DEJA_ECRITS_MAX`, et il DIFFÈRE de `CANDIDATS_MAX` : celle-ci
+		// borne les EXCLUS, celle-là les candidats EXAMINÉS. Les muets sont posés EN TÊTE
+		// de l'ordre (`portee: 'premier'`) : s'ils consommaient des places, ils les
+		// prendraient aux fiches écrites, et le bloc en porterait MOINS que douze.
+		const { dossier, ecritsAttendus } = construireDistribution(DEJA_ECRITS_MAX, 5)
+
+		const contexte = contexteDistribution(dossier)
+
+		expect(contexte.entitesInjectees).toHaveLength(DEJA_ECRITS_MAX)
+		expect(contexte.entitesInjectees).toEqual(ecritsAttendus)
+		// AUCUN muet n'est audité ni injecté.
+		expect(contexte.entitesInjectees.filter((id) => id.startsWith('pnj.muet-'))).toEqual([])
+		// LE MUTANT, ÉCRIT À CÔTÉ DE LA VRAIE et prouvé fautif sur ce dossier précis :
+		// tronquer AVANT de filtrer rendrait MOINS de douze exclusions.
+		const mutantTronqueAvant = dossier.monde.personnages
+			.slice(0, DEJA_ECRITS_MAX)
+			.filter((personnage) => (personnage.fonction ?? '').trim() !== '')
+		expect(mutantTronqueAvant.length).toBeLessThan(DEJA_ECRITS_MAX)
+	})
+
+	it('la troncature MORD a DEJA_ECRITS_MAX, et portee SELECTIONNE sans etre injectee', () => {
+		// Le témoin exige que la troncature morde RÉELLEMENT : `nbEcrits > DEJA_ECRITS_MAX`.
+		const { dossier, ecritsAttendus } = construireDistribution(DEJA_ECRITS_MAX + 4)
+
+		const contexte = contexteDistribution(dossier)
+
+		expect(dossier.monde.personnages.length).toBeGreaterThan(DEJA_ECRITS_MAX)
+		expect(contexte.entitesInjectees).toHaveLength(DEJA_ECRITS_MAX)
+		// `premier` d'abord, puis l'ordre du document — mécanisme de 3c réutilisé tel quel.
+		expect(contexte.entitesInjectees).toEqual(ecritsAttendus)
+		const premiers = dossier.monde.personnages.filter((personnage) => personnage.portee === 'premier')
+		expect(premiers.length).toBeGreaterThan(0)
+		expect(contexte.entitesInjectees.slice(0, premiers.length)).toEqual(premiers.map((p) => p.id))
+		// ⚠ `portee` SÉLECTIONNE et n'est JAMAIS injectée — elle est d'audience `moteur`.
+		expect(contexte.texte).not.toContain('premier')
+		expect(contexte.texte).not.toContain('second')
+		expect(DESTINATION_DES_CHAMPS['monde.personnages[].portee']).toBe('moteur')
+	})
+
+	it('aucun nom n est injecte, et aucun identifiant non plus', () => {
+		// KR-195 : `nom` n'est jamais injecté. Les fiches composées en PORTENT un, tiré du
+		// document — sans quoi ce témoin serait vrai par absence.
+		const { dossier } = construireDistribution(4)
+		const texte = contexteDistribution(dossier).texte
+
+		const noms = dossier.monde.personnages
+			.map((personnage) => personnage.nom)
+			.filter((nom): nom is string => typeof nom === 'string' && nom.trim() !== '')
+		expect(noms.length).toBeGreaterThan(0)
+		expect(noms.filter((nom) => texte.includes(nom))).toEqual([])
+		// Et aucun identifiant de personnage non plus : le modèle ne peut désigner personne.
+		expect(dossier.monde.personnages.filter((personnage) => texte.includes(personnage.id))).toEqual([])
+	})
+
+	it('tout ce que porte le contexte assemble vient d un chemin autorise', () => {
+		const { dossier, fonction } = construireDistribution(3)
+		const texte = contexteDistribution(dossier).texte
+
+		const blocs = texte.split('\n\n')
+		const enTetes = blocs.map((bloc) => bloc.split('\n')[0])
+		// (a) les ÉTIQUETTES : un chemin autorisé, ou l'en-tête du bloc négatif, et rien
+		// d'autre.
+		expect(enTetes.filter((enTete) => !CHEMINS_DIS.includes(enTete) && enTete !== EN_TETE_DEJA_ECRIT)).toEqual([])
+
+		// (b) les VALEURS : chaque ligne de valeur est une feuille du dossier vivant sous
+		// un chemin autorisé. Inclusion de CHEMINS, AUCUN seuil numérique (KR-235).
+		const autorisees = new Set<string>([fonction])
+		for (const feuille of feuillesDeLaFixture(dossier)) {
+			if (typeof feuille.valeur !== 'string') continue
+			if (CHEMINS_DIS.includes(feuille.normalise)) autorisees.add(feuille.valeur)
+		}
+		const lignesDeValeur = blocs.flatMap((bloc) => bloc.split('\n').slice(1))
+		expect(lignesDeValeur.filter((ligne) => !autorisees.has(ligne))).toEqual([])
+		// Discriminant : sans cette ligne, un contexte VIDE passerait les deux assertions.
+		expect(lignesDeValeur.length).toBeGreaterThan(0)
+	})
+
+	it('un champ marque est RETIRE, jamais remplace par une chaine vide', () => {
+		const { dossier } = construireDistribution(3)
+		const marque: Dossier = {
+			...dossier,
+			canon: { ...dossier.canon, partage: { ...dossier.canon.partage, accroche_joueur: MARQUEUR_A_ECRIRE } },
+		}
+
+		const texte = contexteDistribution(marque).texte
+
+		expect(texte).not.toContain('canon.partage.accroche_joueur')
+		expect(texte).not.toContain(MARQUEUR_A_ECRIRE)
+		// RETRAIT, jamais substitution : aucun bloc d'une seule ligne ne subsiste.
+		expect(texte.split('\n\n').filter((bloc) => bloc.split('\n').length < 2)).toEqual([])
+	})
+
+	it('deux assemblages sur un dossier inchange sont strictement egaux', () => {
+		const { dossier } = construireDistribution(5)
+		expect(contexteDistribution(dossier).texte).toBe(contexteDistribution(dossier).texte)
+	})
+})
+
+describe('assemblerDistribution — les DEUX refus, et les DEUX inatteignables', () => {
+	it('les deux refus, discrimines, 0 fetch — et le SYNOPSIS est nomme AVANT le ton', () => {
+		// CRITÈRE 2. ⚠ PREMIER RÔLE À DEUX REQUIS, et L'ORDRE DÉCIDE CE QUE L'ÉCRAN NOMME.
+		const espionFetch = jest.fn()
+		const avant = globalThis.fetch
+		globalThis.fetch = espionFetch as unknown as typeof fetch
+		try {
+			const { dossier } = construireDistribution(3)
+
+			// 1 — `a-ecrire('canon.mj.synopsis_mj')` : LA CHARGE NEUVE. Sur cinq rôles, le
+			// `chemin` de ce motif n'avait JAMAIS PU VALOIR QUE `'canon.ton'` — c'est ici
+			// qu'il prend sa SECONDE valeur, et c'est la différence entre une CHARGE et une
+			// constante déguisée.
+			const sansSynopsis: Dossier = {
+				...dossier,
+				canon: { ...dossier.canon, mj: { ...dossier.canon.mj, synopsis_mj: MARQUEUR_A_ECRIRE } },
+			}
+			expect(assemblerDistribution(sansSynopsis, CIBLE_DISTRIBUTION)).toEqual({
+				ok: false,
+				motif: 'a-ecrire',
+				chemin: CHEMIN_SYNOPSIS,
+			})
+
+			// 2 — `a-ecrire('canon.ton')` : le filtre générique des six rôles.
+			const sansTon: Dossier = { ...dossier, canon: { ...dossier.canon, ton: MARQUEUR_A_ECRIRE } }
+			expect(assemblerDistribution(sansTon, CIBLE_DISTRIBUTION)).toEqual({
+				ok: false,
+				motif: 'a-ecrire',
+				chemin: 'canon.ton',
+			})
+
+			// 3 — `trop-long` : AUCUNE charge, il pointe la fiche, pas un champ.
+			const enorme: Dossier = {
+				...dossier,
+				canon: { ...dossier.canon, mj: { ...dossier.canon.mj, synopsis_mj: 'x'.repeat(BUDGET_DISTRIBUTION + 1) } },
+			}
+			expect(assemblerDistribution(enorme, CIBLE_DISTRIBUTION)).toEqual({ ok: false, motif: 'trop-long' })
+
+			// ⚠ L'ORDRE EST FIGÉ, ET C'EST LE CŒUR DU CRITÈRE : un dossier à qui manquent
+			// LES DEUX requis s'entend nommer LE SYNOPSIS, jamais le ton — le manque le plus
+			// SPÉCIFIQUE à cette carte avant le manque GÉNÉRIQUE.
+			const cumul: Dossier = {
+				...enorme,
+				canon: {
+					...enorme.canon,
+					ton: MARQUEUR_A_ECRIRE,
+					mj: { ...enorme.canon.mj, synopsis_mj: MARQUEUR_A_ECRIRE },
+				},
+			}
+			expect(assemblerDistribution(cumul, CIBLE_DISTRIBUTION)).toEqual({
+				ok: false,
+				motif: 'a-ecrire',
+				chemin: CHEMIN_SYNOPSIS,
+			})
+			// LE MUTANT DE L'ORDRE, écrit à côté de la vraie : la table INVERSÉE nommerait
+			// le ton. C'est cet ordre-là, et lui seul, que l'écran rend.
+			expect([...PARTIES_REQUISES[ROLE_DISTRIBUTION]]).toEqual([CHEMIN_SYNOPSIS, 'canon.ton'])
+			expect([...PARTIES_REQUISES[ROLE_DISTRIBUTION]].reverse()[0]).toBe('canon.ton')
+
+			// LES TROIS REFUS SONT DISTINCTS DEUX À DEUX — la moitié que le nom promet.
+			const motifs = [
+				assemblerDistribution(sansSynopsis, CIBLE_DISTRIBUTION),
+				assemblerDistribution(sansTon, CIBLE_DISTRIBUTION),
+				assemblerDistribution(enorme, CIBLE_DISTRIBUTION),
+			].map((refus) => (refus.ok ? 'ASSEMBLÉ' : JSON.stringify(refus)))
+			expect(new Set(motifs).size).toBe(3)
+
+			// ET AUCUN APPEL RÉSEAU N'EST PARTI, pour aucun des cas ci-dessus.
+			expect(espionFetch).not.toHaveBeenCalled()
+		} finally {
+			globalThis.fetch = avant
+		}
+	})
+
+	it('cible-a-ecrire et aucun-candidat sont INATTEIGNABLES ici, et c est ASSERTE', () => {
+		// ⚠ CRITÈRE 2, SECONDE MOITIÉ — À DIRE, PAS À TAIRE (famille BUG-084, KR-235).
+		// Les deux motifs EXISTENT dans `MotifRefusContexte` et sont produits par d'autres
+		// rôles ; ce rôle-ci ne peut en produire aucun, et la preuve porte sur les états
+		// qui les produiraient ailleurs.
+		const reference = dossierDeReference()
+		const etats: Array<[string, Dossier]> = [
+			// Le monde VIDE — l'état qui donnerait `aucun-candidat` au rôle relations, et qui
+			// est LE CAS NOMINAL de celui-ci.
+			['monde vide', { ...reference, monde: { ...reference.monde, personnages: [] } }],
+			// Un monde de personnages SANS UNE LIGNE — l'état qui donnerait `cible-a-ecrire`
+			// aux rôles répliques et relations.
+			['tous muets', construireDistribution(0, 6).dossier],
+			// Un monde peuplé et rédigé — le cas heureux.
+			['peuple', construireDistribution(3).dossier],
+		]
+
+		const motifs = etats.map(([nom, dossier]) => {
+			const contexte = assemblerDistribution(dossier, CIBLE_DISTRIBUTION)
+			return `${nom} → ${contexte.ok ? 'ASSEMBLÉ' : contexte.motif}`
+		})
+
+		expect(motifs).toEqual(['monde vide → ASSEMBLÉ', 'tous muets → ASSEMBLÉ', 'peuple → ASSEMBLÉ'])
+		// … et le CORPS ne porte NI l'un NI l'autre motif : une branche qu'aucun état ne
+		// peut atteindre se constate à la SOURCE.
+		const corps = fs.readFileSync(CHEMIN_CORPS_DISTRIBUTION, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+		expect(corps).not.toContain("motif: 'cible-a-ecrire'")
+		expect(corps).not.toContain("motif: 'aucun-candidat'")
+		// Discriminants : les deux motifs EXISTENT bel et bien ailleurs — sans eux, les
+		// deux absences ci-dessus seraient vraies pour rien (KR-199).
+		const corpsRelations = fs.readFileSync(CHEMIN_CORPS_RELATIONS, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+		expect(corpsRelations).toContain("motif: 'cible-a-ecrire'")
+		expect(corpsRelations).toContain("motif: 'aucun-candidat'")
+		// … et le corps de ce rôle-ci porte bien SES deux refus : l'absence n'est pas celle
+		// d'un assembleur qui ne refuserait rien.
+		expect(corps).toContain("motif: 'a-ecrire'")
+		expect(corps).toContain("motif: 'trop-long'")
+	})
+
+	it('BUDGET du 6e role, mesure', () => {
+		// CRITÈRE 5, PREMIÈRE MOITIÉ.
+		const { dossier, ecritsAttendus } = construireDistribution(DEJA_ECRITS_MAX + 1)
+
+		// TEMPS 1 — NON-VACUITÉ, chemin par chemin, NOMMÉE (jamais un compte). Sans elle,
+		// `M` est un PLANCHER et le budget qu'on en dérive protège moins qu'il ne prétend.
+		// LES CINQ sont éprouvés : les QUATRE du canon, et celui de fiche.
+		const unEcrit = dossier.monde.personnages.find((personnage) => personnage.id === ecritsAttendus[0])
+		const remplisDuCanon = cheminsRemplis(dossier)
+		const remplisDeLEcrit = cheminsRemplis(unEcrit, PREFIXE_PERSONNAGE)
+		const vides = [
+			...CHEMINS_DIS_DE_CANON.filter((chemin) => !remplisDuCanon.has(chemin)),
+			...CHEMINS_DIS_DE_FICHE.filter((chemin) => !remplisDeLEcrit.has(chemin)),
+		]
+		expect(vides).toEqual([])
+
+		// TEMPS 2 — `M`, `DEJA_ECRITS_MAX` SATURÉ. La saturation fait partie du protocole :
+		// mesurer à deux déjà écrits — ce que la fixture intacte porte — donnerait un
+		// budget que le troisième ferait exploser.
+		const contexte = contexteDistribution(dossier)
+		expect(contexte.entitesInjectees).toHaveLength(DEJA_ECRITS_MAX)
+		const M = contexte.texte.length
+		expect(M).toBeGreaterThan(0)
+
+		// TEMPS 3 — la formule. Facteur 3 (décision datée du comité), arrondi au millier
+		// supérieur : l'arrondi EST la marge. SI LA MESURE AVAIT DÉPLU, ON AURAIT BAISSÉ
+		// `DEJA_ECRITS_MAX`, JAMAIS LE BUDGET.
+		expect(BUDGET_DISTRIBUTION).toBe(Math.ceil((M * 3) / 1000) * 1000)
+
+		// Et les CINQ autres rôles n'ont PAS bougé : c'est tout l'objet du `Record`.
+		expect(BUDGET_PROSE).toBe(6000)
+		expect(BUDGET_DETENTEURS).toBe(17_000)
+		expect(BUDGET_REPLIQUES).toBe(4000)
+		expect(BUDGET_PLAN).toBe(4000)
+		expect(BUDGET_RELATIONS).toBe(17_000)
+		// ⚠ ET CELUI-CI NE COÏNCIDE AVEC AUCUN DES CINQ — première entrée du registre à
+		// pouvoir l'écrire. Les deux précédentes devaient DIRE qu'elles coïncidaient.
+		expect([BUDGET_PROSE, BUDGET_DETENTEURS, BUDGET_REPLIQUES, BUDGET_PLAN, BUDGET_RELATIONS]).not.toContain(
+			BUDGET_DISTRIBUTION,
+		)
+	})
+
+	it('exactement BUDGET caracteres passe, un caractere de plus est refuse', () => {
+		// LE CANARI DE PLAFOND, à ±1 CARACTÈRE — un plafond dont personne n'a éprouvé les
+		// deux bords est une intention, pas une borne.
+		const { dossier } = construireDistribution(DEJA_ECRITS_MAX + 1)
+		// LE LEVIER EST LE SYNOPSIS, chemin RÉELLEMENT injecté par ce rôle — et c'est le
+		// contraire du rôle relations, où viser le synopsis aurait mesuré un texte de
+		// longueur constante.
+		const avecSynopsis = (synopsis: string): Dossier => ({
+			...dossier,
+			canon: { ...dossier.canon, mj: { ...dossier.canon.mj, synopsis_mj: synopsis } },
+		})
+		const socle = contexteDistribution(avecSynopsis('x')).texte.length - 1
+
+		expect(contexteDistribution(avecSynopsis('x'.repeat(BUDGET_DISTRIBUTION - socle))).texte).toHaveLength(
+			BUDGET_DISTRIBUTION,
+		)
+		expect(assemblerDistribution(avecSynopsis('x'.repeat(BUDGET_DISTRIBUTION - socle)), CIBLE_DISTRIBUTION).ok).toBe(
+			true,
+		)
+		expect(
+			assemblerDistribution(avecSynopsis('x'.repeat(BUDGET_DISTRIBUTION - socle + 1)), CIBLE_DISTRIBUTION),
+		).toEqual({ ok: false, motif: 'trop-long' })
 	})
 })

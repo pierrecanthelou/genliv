@@ -184,6 +184,55 @@ export const CHAMPS_INJECTES: Record<RoleCopilote, readonly string[]> = {
 		'monde.personnages[].but.pourquoi',
 		'monde.personnages[].plan_actions[].action',
 	],
+	/**
+	 * CINQ chemins — la liste la plus COURTE des six rôles, et le seul dont la source
+	 * soit le CANON plutôt qu'une fiche.
+	 *
+	 * ⚠ `canon.mj.synopsis_mj` EST LA SOURCE, et son injection est un RENVERSEMENT
+	 * assumé : il a été RETIRÉ des rôles 3a, 3b et 3c « pour point de vue ». LE MOTIF
+	 * EST DÉCIDABLE, et c'est un test de rattachement : LA PROSE RENDUE SERA-T-ELLE UN
+	 * JOUR JOUÉE, PRONONCÉE OU ÉPROUVÉE PAR QUELQU'UN ? Oui ⇒ retrait (une réplique se
+	 * prononce, une étape s'agit, un lien s'éprouve). Non — c'est une NOTE DE FICHE lue
+	 * par un narrateur ⇒ injection (it1, it4). Précédent livré qui le confirme :
+	 * `personnage-prose` reçoit DÉJÀ `synopsis_mj`. Et le discriminant du coût : là-bas
+	 * HUIT chemins de fiche bornent la prose, ici ZÉRO — 0 contre 8 est un discriminant,
+	 * pas une pente.
+	 *
+	 * ⚠ `monde.personnages[].fonction` EST UNE LISTE NÉGATIVE, et c'est le seul emploi
+	 * de ce genre au dépôt : les `fonction` DÉJÀ ÉCRITES entrent pour que le modèle NE
+	 * LES REPROPOSE PAS. Elle est REQUISE et non « cuttable », sur deux faits : (1) LE
+	 * DOUBLON N'EST PAS VISIBLE — les acceptés s'affichent dans `PanneauPersonnages`,
+	 * PAS dans la carte, et sans `nom` l'auteur devrait comparer DEUX PROSES DE MÉMOIRE
+	 * ENTRE DEUX PANNEAUX : ce n'est pas un coût visible, c'est un coût RAPPELÉ ; (2)
+	 * sans borne nommée, le budget ci-dessous serait un PLANCHER et non une mesure.
+	 *
+	 * RETRAITS, AUX MOTIFS PROPRES — aucun ne se déduit d'un rôle précédent :
+	 *  • `description_joueur` — MONTRER HUIT RÉPUTATIONS PUBLIQUES INVITE À EN ÉCRIRE
+	 *    UNE, et c'est le canal que l'arbitrage du second champ vient de fermer en
+	 *    sortant `description_joueur` de la SORTIE (KR-229 : la parade est la FORME).
+	 *  • ⚠ `but.libelle` — C'EST LA MOITIÉ DE CE QUE LE MODÈLE ÉCRIT. L'injecter ferait
+	 *    écrire « autour » des buts déjà ratifiés : une CONSTELLATION de la distribution
+	 *    acceptée, exactement la panne que 3c a nommée. La dé-duplication se joue sur la
+	 *    PLACE, jamais sur le vouloir.
+	 *  • `apparence`, `caractere.*`, `plan_actions[].action`, `relations[]`, `savoirs[]`,
+	 *    `presence[]` — hors tranche.
+	 *  • `stats`, `camp`, `portee`, `nom`, `objectif_id` — `moteur` ou `auteur`.
+	 *  • `canon.objectifs[]` — ZÉRO clé d'audience `'ia'` (mesuré) : sous garde stricte,
+	 *    le modèle recevrait une liste vide. Ratifie « v1 sans rattachement aux
+	 *    objectifs ».
+	 *
+	 * ⚠ AUCUN RANG, AUCUNE TABLE DE RANGS : rien ne désigne personne ici. Une table
+	 * serait un instrument SANS CONSOMMATEUR (KR-235) ET une invitation à la référence
+	 * croisée — or c'est l'ABSENCE de fente de désignation qui borne, par la forme, le
+	 * seul risque que ce rôle ne peut pas faire constater.
+	 */
+	'monde-distribution': [
+		'canon.mj.synopsis_mj',
+		'canon.ton',
+		'canon.interdits_ton[]',
+		'canon.partage.accroche_joueur',
+		'monde.personnages[].fonction',
+	],
 }
 
 /** La soupape. VIDE, et un test l'asserte vide (KR-232). Zéro dérogation. */
@@ -227,6 +276,23 @@ export const PARTIES_REQUISES: Record<RoleCopilote, readonly CheminLibelle[]> = 
 	 *  numérotable — est le motif `'aucun-candidat'`, qui ne nomme pas davantage un
 	 *  champ : il pointe le DOSSIER. */
 	'personnage-relations': ['canon.ton'],
+	/**
+	 * ⚠ LE PREMIER RÔLE À DEUX REQUIS, et ce n'est pas un détail de forme. Sur les cinq
+	 * rôles livrés, le `chemin` de `'a-ecrire'` N'A JAMAIS PU VALOIR QUE `'canon.ton'` :
+	 * cette entrée lui donne SA SECONDE VALEUR, ce qui est la différence entre une
+	 * CHARGE et une constante déguisée. `MotifRefusContexte` reste INCHANGÉE, à quatre
+	 * membres — aucun motif neuf.
+	 *
+	 * ⚠ L'ORDRE DÉCIDE QUEL CHAMP L'ÉCRAN NOMME, et LE SYNOPSIS EST PREMIER : le manque
+	 * le plus SPÉCIFIQUE à cette carte avant le filtre GÉNÉRIQUE des six rôles. On nomme
+	 * le SUJET manquant, pas le STYLE.
+	 *
+	 * ⚠ `'cible-a-ecrire'` ET `'aucun-candidat'` SONT INATTEIGNABLES POUR CE RÔLE, ET
+	 * C'EST À DIRE PLUTÔT QU'À TAIRE. `'cible-a-ecrire'` signifie « l'entité CIBLE n'a
+	 * rien d'écrit » : ici la cible est `monde.personnages[]`, VIDE PAR DÉFINITION. Et
+	 * UN MONDE VIDE EST LE CAS NOMINAL — c'est le premier geste après l'écriture du
+	 * synopsis. Les recopier « par symétrie » REFUSERAIT L'USAGE PRINCIPAL DU RÔLE. */
+	'monde-distribution': ['canon.mj.synopsis_mj', 'canon.ton'],
 }
 
 /** LA VARIABLE LIBRE de la borne de contexte — combien de candidats au plus sont
@@ -235,6 +301,28 @@ export const PARTIES_REQUISES: Record<RoleCopilote, readonly CheminLibelle[]> = 
  *  MONTE JAMAIS LE BUDGET. Elle borne l'ENTRÉE, là où `PROPOSITIONS_MAX`
  *  (`schemaSortie.ts`) borne la SORTIE. */
 export const CANDIDATS_MAX = 8
+
+/**
+ * LA VARIABLE LIBRE DU RÔLE `monde-distribution` — combien de `fonction` DÉJÀ ÉCRITES
+ * au plus entrent dans le bloc `DEJA ECRIT`. Le budget de ce rôle en est la DÉRIVÉE,
+ * et la même règle s'applique : SI LA MESURE DE `M` DÉPLAÎT, ON BAISSE CETTE
+ * CONSTANTE — ON NE MONTE JAMAIS LE BUDGET.
+ *
+ * ⚠ CONSTANTE PROPRE, JAMAIS `CANDIDATS_MAX` (§ 8, n° 41, 6ᵉ refus du registre
+ * partagé) : LE SENS EST INVERSE. `CANDIDATS_MAX` borne des DÉSIGNABLES — ce que le
+ * modèle a le droit de choisir ; celle-ci borne des EXCLUS — ce qu'il n'a pas le droit
+ * de reproposer. Les partager coupleraient deux quantités que rien ne fait évoluer
+ * ensemble.
+ *
+ * MOTIF PROPRE DE LA VALEUR, et il n'est pas tiré de la précédente : la boucle visée
+ * est « presser, accepter jusqu'à trois, presser encore » — QUATRE pressions × TROIS
+ * fiches = 12.
+ *
+ * ⚠ LIMITE DÉCLARÉE : une borne de CONTEXTE n'est PAS une garantie d'unicité. Au-delà
+ * de douze déjà écrits, un doublon redevient possible et AUCUN PRÉDICAT NE LE CONSTATE
+ * (KR-229) — l'écran ne promet donc rien de tel.
+ */
+export const DEJA_ECRITS_MAX = 12
 
 /**
  * LA BORNE DE REFUS DU CONTEXTE, EN CARACTÈRES (`String.length`, UTF-16), mesurée
@@ -326,4 +414,24 @@ export const BUDGET_CARACTERES_CONTEXTE: Record<RoleCopilote, number> = {
 	// ne déplaît pas : 17 000 est la valeur d'un rôle déjà livré, et le plafond worker
 	// qui en découle reste très en deçà de ce qu'un fournisseur accepte.
 	'personnage-relations': 17_000,
+	// MESURÉ le 2026-09-19 à l'itération 4, `DEJA_ECRITS_MAX` SATURÉ, sur un dossier
+	// COMPOSÉ PAR `contexte.test.ts` depuis les valeurs réelles de
+	// `dossier-reference.json` — la fixture n'appartient à aucun lot, et elle ne porte
+	// que DEUX personnages à `fonction` écrite, là où la borne en admet douze.
+	// Protocole de l'it1 : on asserte d'abord que LES CINQ chemins résolvent non vides,
+	// sans quoi le nombre relevé serait un PLANCHER et non une mesure.
+	// M = 2560 ⇒ ceil(2560 × 3 / 1000) × 1000 = 8000.
+	//
+	// ⚠ AUCUNE COÏNCIDENCE, et c'est la PREMIÈRE entrée du registre qui puisse l'écrire :
+	// 8000 ne vaut aucun des cinq budgets livrés (6000 · 17 000 · 4000 · 4000 · 17 000).
+	// Les deux entrées précédentes devaient DIRE qu'elles coïncidaient ; celle-ci doit
+	// dire qu'elle ne coïncide avec rien, sinon un relecteur cherchera de quelle autre
+	// elle a été tirée — et n'en trouvera pas.
+	//
+	// POSITION DU RÔLE : il est le TROISIÈME des six par la largeur, et c'est attendu —
+	// cinq chemins seulement, mais DOUZE blocs de `fonction` et le synopsis entier, là
+	// où les deux rôles étroits n'ont qu'UNE fiche et pas de synopsis.
+	//
+	// SI LA MESURE AVAIT DÉPLU, ON AURAIT BAISSÉ `DEJA_ECRITS_MAX`, JAMAIS LE BUDGET.
+	'monde-distribution': 8000,
 }

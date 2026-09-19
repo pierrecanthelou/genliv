@@ -2,27 +2,34 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { construireAmorce, MARQUEUR_A_ECRIRE } from '../dossier/amorce'
 import { collectIds, ESPACES_DE_NOMS } from '../dossier/identifiers'
-import type { Dossier } from '../dossier/types'
+import type { But, Dossier, Personnage } from '../dossier/types'
 import {
 	CLES_SORTIE,
 	CLES_SORTIE_DETENTEURS,
+	CLES_SORTIE_DISTRIBUTION,
 	CLES_SORTIE_PLAN,
 	CLES_SORTIE_RELATIONS,
 	CLES_SORTIE_REPLIQUES,
+	FICHES_PROPOSEES_MAX,
 	GABARIT_SORTIE,
 	PROPOSITIONS_MAX,
 	RELATIONS_PROPOSEES_MAX,
 	REPLIQUES_PROPOSEES_MAX,
 	porteUnIdentifiant,
 	validerDetenteurs,
+	validerDistribution,
 	validerIntention,
 	validerRelations,
 	validerRepliques,
 	validerSortie,
 } from './schemaSortie'
 import type {
+	DistributionRendue,
+	FicheBrouillon,
+	FicheReseau,
 	IntentionRendue,
 	LienResolu,
+	PropositionDistribution,
 	PropositionPlan,
 	PropositionRelations,
 	PropositionRepliques,
@@ -1486,5 +1493,576 @@ describe('validerRelations — les DOUZE predicats de forme du cinquieme role', 
 		expect(code).toContain('export const RELATIONS_PROPOSEES_MAX = 3')
 		expect(code).toContain('export const REPLIQUES_PROPOSEES_MAX = 3')
 		expect(code).toContain('export const PROPOSITIONS_MAX = 3')
+	})
+})
+
+describe('types — zero cle commune reseau / resolu, sixieme role, AUX DEUX NIVEAUX', () => {
+	it('DistributionRendue et PropositionDistribution n ont aucune cle en commun — niveau LISTE', () => {
+		// KR-231 au niveau de la LISTE : `{distribution}` ∩ `{ajouts}` = ∅.
+		const reseau: DistributionRendue = { distribution: [{ place: 'Une charge.', poursuite: 'Un vouloir.' }] }
+		const resolue: PropositionDistribution = { ajouts: [{ fonction: 'Une charge.', but: { libelle: 'Un vouloir.' } }] }
+
+		const communes = Object.keys(reseau).filter((cle) => Object.keys(resolue).includes(cle))
+
+		expect(communes).toEqual([])
+		expect(Object.keys(reseau)).toEqual(['distribution'])
+		expect(Object.keys(resolue)).toEqual(['ajouts'])
+		// ⚠ ET LA PROPOSITION NE PORTE AUCUN IDENTIFIANT DE CIBLE — première des six, et
+		// ce n'est pas une omission : LA CIBLE EST LE DOSSIER. Ne pas ajouter de
+		// `dossierId` « par symétrie » avec les cinq autres.
+		expect(Object.keys(resolue)).not.toContain('dossierId')
+		expect(Object.keys(resolue)).toHaveLength(1)
+	})
+
+	it('FicheReseau et FicheBrouillon n ont aucune cle en commun — niveau ELEMENT', () => {
+		// KR-231 au niveau de l'ÉLÉMENT : `{place,poursuite}` ∩ `{fonction,but}` = ∅. Un
+		// rôle à deux niveaux porte DEUX frontières, pas une.
+		const reseau: FicheReseau = { place: 'Une charge.', poursuite: 'Un vouloir.' }
+		const resolue: FicheBrouillon = { fonction: 'Une charge.', but: { libelle: 'Un vouloir.' } }
+
+		const communes = Object.keys(reseau).filter((cle) => Object.keys(resolue).includes(cle))
+
+		expect(communes).toEqual([])
+		expect(Object.keys(reseau).sort()).toEqual(['place', 'poursuite'])
+		expect(Object.keys(resolue).sort()).toEqual(['but', 'fonction'])
+	})
+
+	it('l affectation croisee ne compile pas, AUX DEUX NIVEAUX', () => {
+		// LE TEST EST DE TYPE, PAS DE RUNTIME : `@ts-expect-error` échoue à la
+		// COMPILATION si l'erreur attendue n'a PAS lieu.
+		// @ts-expect-error — une forme RÉSEAU ne s'assigne pas à une forme RÉSOLUE (liste).
+		const croiseA: PropositionDistribution = { distribution: [] }
+		// @ts-expect-error — et réciproquement.
+		const croiseB: DistributionRendue = { ajouts: [] }
+		// @ts-expect-error — niveau ÉLÉMENT, dans un sens…
+		const croiseC: FicheBrouillon = { place: 'x', poursuite: 'y' }
+		// @ts-expect-error — … et dans l'autre.
+		const croiseD: FicheReseau = { fonction: 'x', but: { libelle: 'y' } }
+
+		expect([croiseA, croiseB, croiseC, croiseD]).toHaveLength(4)
+	})
+
+	it('FicheBrouillon N EST PAS assignable a Personnage — un INVARIANT DE COMPILATION', () => {
+		// ⚠ LE TÉMOIN CENTRAL DE LA TRANCHE. « Le brouillon est SANS IDENTITÉ » cesse
+		// d'être une convention de docstring : `Personnage` exige QUATRE champs (`id`,
+		// `portee`, `plan_actions`, `savoirs`) qu'aucune fente de `FicheBrouillon` ne
+		// porte, donc l'affectation NE COMPILE PAS.
+		const brouillon: FicheBrouillon = { fonction: 'Une charge.', but: { libelle: 'Un vouloir.' } }
+		// @ts-expect-error — les QUATRE requis manquent.
+		const p: Personnage = brouillon
+
+		// ⚠ ET LA MOITIÉ QUI DIT CE QUE CE TÉMOIN NE COUVRE PAS : `tsc` tient LA FORME,
+		// JAMAIS LE MOMENT. Un précalcul des identifiants À CÔTÉ du brouillon compile
+		// parfaitement — la preuve est ci-dessous, et c'est pour cela que le site d'appel
+		// de `frapperIdentifiant` est tenu par un ESPION côté feature, jamais par ce type.
+		const precalculLegalPourTsc: Array<{ brouillon: FicheBrouillon; idPrecalcule: string }> = [
+			{ brouillon, idPrecalcule: 'pnj.precalcule' },
+		]
+		expect(precalculLegalPourTsc).toHaveLength(1)
+		expect(p).toBe(brouillon)
+		// Les QUATRE requis de `Personnage`, énumérés : c'est le prédicat du décompte,
+		// jamais le nombre seul (KR-159).
+		const complet: Personnage = { id: 'pnj.x', portee: 'premier', plan_actions: [], savoirs: [] }
+		expect(Object.keys(complet).sort()).toEqual(['id', 'plan_actions', 'portee', 'savoirs'])
+		expect(Object.keys(brouillon).filter((cle) => Object.keys(complet).includes(cle))).toEqual([])
+	})
+
+	it('FicheBrouillon ne porte AUCUN optionnel seme, et son but n est PAS un But', () => {
+		// KR-221 : `nom`, `camp`, `objectif_id`, `apparence`, `description_joueur`,
+		// `stats`, `but.pourquoi`, `but.echeance`, `contre_mesures`, `relations`,
+		// `presence`, `caractere` sont ABSENTS — jamais semés.
+		const brouillon: FicheBrouillon = { fonction: 'Une charge.', but: { libelle: 'Un vouloir.' } }
+		const absents = [
+			'nom',
+			'camp',
+			'objectif_id',
+			'apparence',
+			'description_joueur',
+			'stats',
+			'contre_mesures',
+			'relations',
+			'presence',
+			'caractere',
+			'portee',
+			'id',
+		]
+		expect(absents.filter((cle) => Object.keys(brouillon).includes(cle))).toEqual([])
+		expect(Object.keys(brouillon.but)).toEqual(['libelle'])
+		expect(Object.keys(brouillon.but)).not.toContain('pourquoi')
+		expect(Object.keys(brouillon.but)).not.toContain('echeance')
+		// Discriminant : la liste balayée n'est pas vide et chaque clé SERAIT détectée si
+		// elle y était (KR-199/235).
+		expect(absents.length).toBeGreaterThan(0)
+		expect(absents.filter((cle) => [...Object.keys(brouillon), cle].includes(cle))).toEqual(absents)
+
+		// ⚠ `but: { libelle }` EST ASSIGNABLE À `But` SANS LUI ÊTRE ÉGALE, et c'est
+		// exactement l'arbitrage : réutiliser `But` rouvrirait `pourquoi` et `echeance`,
+		// deux champs que ce contrat ne valide pas.
+		const versBut: But = brouillon.but
+		expect(versBut.libelle).toBe('Un vouloir.')
+		// @ts-expect-error — l'inverse est FAUX : un `But` complet ne s'assigne pas à la
+		// fente fermée du brouillon.
+		const versBrouillon: FicheBrouillon['but'] = { libelle: 'x', pourquoi: 'y' }
+		expect(versBrouillon.libelle).toBe('x')
+	})
+})
+
+describe('validerDistribution — les DOUZE predicats de forme du sixieme role', () => {
+	const dossier = dossierDeReference()
+	const CLE_D = CLES_SORTIE_DISTRIBUTION[0]
+	/** Deux proses parfaitement saines : ni identifiant, ni marqueur, ni chiffre. */
+	const PLACE = 'Marchande du quai bas, la seule qui accepte encore les billets du Nord.'
+	const PLACE_2 = 'Capitaine de la garde de nuit, en poste depuis la dernière crue.'
+	const POURSUITE = 'Racheter la dette de son frere avant que le prochain convoi ne parte.'
+	const POURSUITE_2 = 'Faire rouvrir la porte basse, que le conseil a murée sans le consulter.'
+	const fiche = (place: string, poursuite: string): Record<string, unknown> => ({ place, poursuite })
+	const sortie = (fiches: unknown): Record<string, unknown> => ({ [CLE_D]: fiches })
+
+	it('1 — ce qui n est pas un objet JSON est refuse, motif schema', () => {
+		for (const brut of [null, undefined, [], [fiche(PLACE, POURSUITE)], PLACE, 42, true]) {
+			expect({ brut, ...validerDistribution(brut, dossier) }).toEqual({ brut, ok: false, motif: 'schema' })
+		}
+	})
+
+	it('2 — l ensemble des cles doit valoir exactement CLES_SORTIE_DISTRIBUTION', () => {
+		// Une clé MANQUANTE, une clé RENOMMÉE (la panne KR-236 vue du validateur), une
+		// clé SURNUMÉRAIRE — un REFUS, jamais un champ ignoré.
+		// ⚠ `personnages` et `fiches` sont PRÉCISÉMENT les deux noms que le veto a
+		// écartés du fil : s'ils revenaient, ils seraient refusés ici.
+		expect(validerDistribution({}, dossier)).toEqual({ ok: false, motif: 'schema' })
+		expect(validerDistribution({ personnages: [fiche(PLACE, POURSUITE)] }, dossier)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+		expect(validerDistribution({ fiches: [fiche(PLACE, POURSUITE)] }, dossier)).toEqual({ ok: false, motif: 'schema' })
+		expect(validerDistribution({ [CLE_D]: [fiche(PLACE, POURSUITE)], dossierId: 'aventure' }, dossier)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+		// Une clé HÉRITÉE ne compte pas : `Object.keys` ne voit que le propre (KR-175).
+		expect(validerDistribution(Object.create({ [CLE_D]: [fiche(PLACE, POURSUITE)] }), dossier)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+	})
+
+	it('3 — une valeur qui n est pas un tableau est refusee, motif schema', () => {
+		for (const valeur of [PLACE, 42, null, fiche(PLACE, POURSUITE), true]) {
+			expect({ valeur, ...validerDistribution(sortie(valeur), dossier) }).toEqual({
+				valeur,
+				ok: false,
+				motif: 'schema',
+			})
+		}
+	})
+
+	it('4 — un element qui n est pas un objet a deux cles est refuse, motif schema', () => {
+		// Une chaîne nue, un `null`, un tableau, un objet à UNE clé — tous meurent ici.
+		for (const element of [PLACE, null, 42, [], [PLACE, POURSUITE], { place: PLACE }, { poursuite: POURSUITE }]) {
+			expect({ element, ...validerDistribution(sortie([element]), dossier) }).toEqual({
+				element,
+				ok: false,
+				motif: 'schema',
+			})
+		}
+		// EN POSITION NON NULLE : un garde qui ne regarderait que `[0]` accepterait le lot.
+		expect(validerDistribution(sortie([fiche(PLACE, POURSUITE), PLACE_2]), dossier)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+	})
+
+	it('12 — une cle EN TROP au SECOND niveau est un REFUS, jamais un champ ignore', () => {
+		// ⚠ LE SIGNAL KR-236 AU SECOND NIVEAU, et c'est la moitié de `estFicheBrute` que
+		// le prédicat (4) ne prouve pas : là-bas la clé MANQUE, ici elle est EN TROP.
+		// Le jour où l'invite du worker demande autre chose que `GABARIT_SORTIE`, c'est
+		// ICI que ça se voit.
+		const enTrop = { place: PLACE, poursuite: POURSUITE, nom: 'Le Marchand' }
+		expect(validerDistribution(sortie([enTrop]), dossier)).toEqual({ ok: false, motif: 'schema' })
+		// `portee` est le cas le plus dangereux : une donnée de MOTEUR que le modèle
+		// choisirait. Elle est refusée comme les autres.
+		expect(validerDistribution(sortie([{ place: PLACE, poursuite: POURSUITE, portee: 'premier' }]), dossier)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+		// EN POSITION NON NULLE, et la fiche 0 parfaitement saine.
+		expect(validerDistribution(sortie([fiche(PLACE, POURSUITE), enTrop]), dossier)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+		// Discriminant : LA MÊME fiche sans la clé en trop PASSE — sans lui, ce refus
+		// pourrait venir de n'importe quel autre prédicat (KR-199).
+		expect(validerDistribution(sortie([fiche(PLACE, POURSUITE)]), dossier).ok).toBe(true)
+	})
+
+	it('5 — une valeur d element non textuelle est refusee, et JAMAIS convertie', () => {
+		// UN TABLEAU MEURT ICI, sur CHACUNE des deux clés — et JAMAIS `[0]`, JAMAIS
+		// `String(…)` : repêcher ou coercer ferait ratifier à l'auteur une valeur que LE
+		// CODE aurait choisie.
+		for (const valeur of [[PLACE], 42, null, true, { texte: PLACE }]) {
+			expect({ valeur, ...validerDistribution(sortie([{ place: valeur, poursuite: POURSUITE }]), dossier) }).toEqual({
+				valeur,
+				ok: false,
+				motif: 'schema',
+			})
+			expect({ valeur, ...validerDistribution(sortie([{ place: PLACE, poursuite: valeur }]), dossier) }).toEqual({
+				valeur,
+				ok: false,
+				motif: 'schema',
+			})
+		}
+		// LES DEUX MUTANTS, ÉCRITS À CÔTÉ DE LA VRAIE et prouvés fautifs sur ce lot.
+		const fautive = { place: [PLACE, PLACE_2], poursuite: POURSUITE }
+		const mutantIndexZero = (element: Record<string, unknown>): string => (element.place as string[])[0]
+		expect(mutantIndexZero(fautive)).toBe(PLACE)
+		const mutantString = (element: Record<string, unknown>): string => String(element.place)
+		expect(mutantString(fautive)).toBe(`${PLACE},${PLACE_2}`)
+		expect(mutantString({ place: { a: 1 }, poursuite: POURSUITE })).toBe('[object Object]')
+		// … et la VRAIE refuse.
+		expect(validerDistribution(sortie([fautive]), dossier)).toEqual({ ok: false, motif: 'schema' })
+		// … et le balayage de SOURCE : ce corps ne repêche ni ne convertit. LES PORTES
+		// SONT NOMMÉES UNE PAR UNE plutôt qu'un balayage vague — `[0]` NU serait un FAUX
+		// POSITIF MESURÉ, `CLES_FICHE[0]` indexant la LISTE DE CLÉS, ce qui est légitime
+		// et n'a rien à voir avec un repêchage de VALEUR (même constat qu'au 4ᵉ rôle).
+		const corps = corpsDe(codeSansCommentaires(), 'validerDistribution')
+		expect(corps).not.toContain('String(')
+		expect(corps).not.toContain('place[')
+		expect(corps).not.toContain('poursuite[')
+		// Discriminants : le balayage porte bien sur du code réel, et il S'ARRÊTE à sa
+		// fonction — sans quoi il pourrait courir jusqu'à la fin du fichier sans que rien
+		// ne le dise (KR-226).
+		expect(corps).toContain('export function validerDistribution(')
+		expect(corps).not.toContain('export function validerRelations(')
+	})
+
+	it('6 — quatre fiches refusees, trois acceptees : la borne par COMPORTEMENT', () => {
+		// UN REFUS, JAMAIS UNE TRONCATURE (KR-230) : repêcher les trois premières ferait
+		// RATIFIER UNE DISTRIBUTION AMPUTÉE SANS QUE L'AUTEUR LE SACHE.
+		const trois = [fiche(PLACE, POURSUITE), fiche(PLACE_2, POURSUITE_2), fiche('Une troisieme charge.', 'Un tiers.')]
+		const quatre = [...trois, fiche('Une quatrieme charge.', 'Un quart.')]
+
+		expect(validerDistribution(sortie(trois), dossier).ok).toBe(true)
+		const refus = validerDistribution(sortie(quatre), dossier)
+		expect(refus).toEqual({ ok: false, motif: 'schema' })
+		// ⚠ RIEN de la sortie fautive ne survit : ni la liste, ni les trois fiches saines.
+		expect(refus).not.toHaveProperty('sortie')
+		expect(JSON.stringify(refus)).not.toContain(PLACE)
+		// LE MUTANT DE TRONCATURE, écrit à côté de la vraie et prouvé fautif : il rendrait
+		// une distribution de trois là où le modèle en a proposé quatre.
+		const mutantTroncature = (fiches: Array<Record<string, unknown>>): Array<Record<string, unknown>> =>
+			fiches.slice(0, FICHES_PROPOSEES_MAX)
+		expect(mutantTroncature(quatre)).toHaveLength(FICHES_PROPOSEES_MAX)
+		expect(mutantTroncature(quatre)).toEqual(trois)
+		// La borne éprouvée est bien CELLE DE CE RÔLE : balayage de SOURCE (§ 8, n° 42).
+		const corps = corpsDe(codeSansCommentaires(), 'validerDistribution')
+		expect(corps).toContain('FICHES_PROPOSEES_MAX')
+		expect(corps).not.toContain('PROPOSITIONS_MAX)')
+		expect(corps).not.toContain('REPLIQUES_PROPOSEES_MAX')
+		expect(corps).not.toContain('RELATIONS_PROPOSEES_MAX')
+		expect(codeSansCommentaires()).toContain('export const FICHES_PROPOSEES_MAX = 3')
+	})
+
+	it('7 — la liste vide est un REFUS vide, JAMAIS un succes — la CREATION n a pas de troisieme cas', () => {
+		// CRITÈRE 3, PREMIÈRE ENTRÉE. ⚠ `vide`, ET NON `schema`.
+		// LE CRITÈRE UNIQUE : la liste vide porte-t-elle une information que le code n'a
+		// pas ? En CRÉATION, IL N'EXISTE AUCUN ENSEMBLE DE CANDIDATS À ÉPUISER — c'est le
+		// motif même pour lequel `'aucun-candidat'` est écarté de ce rôle —, donc la
+		// vacuité NE PEUT RIEN SIGNIFIER ⇒ REFUS. Le troisième cas N'A PAS D'INSTANCE.
+		expect(validerDistribution(sortie([]), dossier)).toEqual({ ok: false, motif: 'vide' })
+		// LES DEUX AUTRES MOITIÉS, dans le MÊME test — sinon « la création est un cas à
+		// part » serait indistinguable de « la création est la rédaction ».
+		expect(validerDetenteurs({ detenteurs: [] }, new Set(['P1']))).toEqual({ ok: true, detenteurs: [] })
+		expect(validerRepliques({ repliques: [] }, dossier)).toEqual({ ok: false, motif: 'vide' })
+	})
+
+	it('8 — une prose blanche APRES une saine, motif vide, index >= 1, SUR LES DEUX CHAMPS', () => {
+		// L'INDEX EST LE POINT : un scanner qui ne regarderait que `[0]` trouverait la
+		// première fiche parfaitement valide et accepterait le lot. LE CHAMP AUSSI : un
+		// scanner qui ne regarderait que `place` laisserait passer une `poursuite` vide.
+		for (const blanc of ['', '   ', '\n\t ']) {
+			expect({
+				blanc,
+				champ: 'place',
+				...validerDistribution(sortie([fiche(PLACE, POURSUITE), fiche(blanc, POURSUITE_2)]), dossier),
+			}).toEqual({ blanc, champ: 'place', ok: false, motif: 'vide' })
+			expect({
+				blanc,
+				champ: 'poursuite',
+				...validerDistribution(sortie([fiche(PLACE, POURSUITE), fiche(PLACE_2, blanc)]), dossier),
+			}).toEqual({ blanc, champ: 'poursuite', ok: false, motif: 'vide' })
+		}
+		// LE MUTANT « ne scanner que `place` », écrit à côté de la vraie et prouvé fautif.
+		const lot = [fiche(PLACE, POURSUITE), fiche(PLACE_2, '   ')]
+		const mutantPlaceSeule = (fiches: Array<Record<string, unknown>>): boolean =>
+			fiches.some((element) => String(element.place).trim().length === 0)
+		expect(mutantPlaceSeule(lot)).toBe(false)
+		expect(validerDistribution(sortie(lot), dossier)).toEqual({ ok: false, motif: 'vide' })
+	})
+
+	it('7 et 8 sont DEUX predicats distincts, chacun rougissant seul', () => {
+		// La preuve est une NEUTRALISATION : on écrit les deux mutants, et chacun laisse
+		// passer EXACTEMENT UNE des deux entrées — donc aucun des deux n'est redondant.
+		const listeVide: Array<Record<string, unknown>> = []
+		const blancTardif = [fiche(PLACE, POURSUITE), fiche(PLACE_2, '   ')]
+
+		// MUTANT A — le prédicat (7) retiré. La liste vide passe, le blanc tardif meurt.
+		const sans7 = (fiches: Array<Record<string, unknown>>): 'passe' | 'vide' =>
+			fiches.some((element) => String(element.poursuite).trim().length === 0) ? 'vide' : 'passe'
+		expect(sans7(listeVide)).toBe('passe')
+		expect(sans7(blancTardif)).toBe('vide')
+
+		// MUTANT B — le prédicat (8) retiré. Le blanc tardif PASSE, la liste vide meurt.
+		const sans8 = (fiches: Array<Record<string, unknown>>): 'passe' | 'vide' => (fiches.length === 0 ? 'vide' : 'passe')
+		expect(sans8(blancTardif)).toBe('passe')
+		expect(sans8(listeVide)).toBe('vide')
+
+		// Et la VRAIE refuse les deux.
+		expect(validerDistribution(sortie(listeVide), dossier)).toEqual({ ok: false, motif: 'vide' })
+		expect(validerDistribution(sortie(blancTardif), dossier)).toEqual({ ok: false, motif: 'vide' })
+	})
+
+	it('9 — LE COUPLE identique est refuse, et LES DEUX demi-doublons sont ACCEPTES', () => {
+		// ⚠ CRITÈRE 3, DEUXIÈME ENTRÉE, ET LE PRÉDICAT NEUF DE L'ITÉRATION. Il porte sur
+		// LE COUPLE, jamais sur une seule clé, et ses TROIS TÉMOINS sont ici, dans le
+		// MÊME test — sans les deux derniers, un prédicat sur une seule clé passerait
+		// pour bon tout en REFUSANT UNE RÉPONSE JUSTE.
+
+		// TÉMOIN 1 — couple identique ⇒ REJET. C'est du REMPLISSAGE : un menu de un
+		// présenté comme un menu de deux.
+		expect(validerDistribution(sortie([fiche(PLACE, POURSUITE), fiche(PLACE, POURSUITE)]), dossier)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+		// NON ADJACENT : un garde qui ne comparerait qu'aux voisins passerait.
+		expect(
+			validerDistribution(
+				sortie([fiche(PLACE, POURSUITE), fiche(PLACE_2, POURSUITE_2), fiche(PLACE, POURSUITE)]),
+				dossier,
+			),
+		).toEqual({ ok: false, motif: 'schema' })
+
+		// TÉMOIN 2 — MÊME `place`, `poursuite` DIFFÉRENTE ⇒ ACCEPTÉ. DEUX GARDES
+		// PARTAGENT LÉGITIMEMENT UNE PLACE : ce sont deux personnes, pas un doublon.
+		expect(validerDistribution(sortie([fiche(PLACE, POURSUITE), fiche(PLACE, POURSUITE_2)]), dossier)).toEqual({
+			ok: true,
+			sortie: {
+				distribution: [
+					{ place: PLACE, poursuite: POURSUITE },
+					{ place: PLACE, poursuite: POURSUITE_2 },
+				],
+			},
+		})
+
+		// TÉMOIN 3 — MÊME `poursuite`, `place` DIFFÉRENTE ⇒ ACCEPTÉ. Deux prétendants
+		// veulent légitimement la même chose — c'est même ce qui fait une intrigue.
+		expect(validerDistribution(sortie([fiche(PLACE, POURSUITE), fiche(PLACE_2, POURSUITE)]), dossier)).toEqual({
+			ok: true,
+			sortie: {
+				distribution: [
+					{ place: PLACE, poursuite: POURSUITE },
+					{ place: PLACE_2, poursuite: POURSUITE },
+				],
+			},
+		})
+	})
+
+	it('9 bis — LE MUTANT DU COUPLE : une unicite reduite a UNE SEULE CLE refuserait une reponse juste', () => {
+		// ⚠ LE MUTANT QUE LE PLAN EXIGE DE VOIR ROUGE, écrit à côté de la vraie et prouvé
+		// fautif SUR LES DEUX DEMI-DOUBLONS — c'est-à-dire sur des lots PARFAITEMENT
+		// LÉGITIMES. Un prédicat sur une seule clé ne « durcit » pas le contrat : il
+		// REFUSE UNE RÉPONSE JUSTE, et rien à l'écran ne dirait pourquoi.
+		const memePlace = [fiche(PLACE, POURSUITE), fiche(PLACE, POURSUITE_2)]
+		const memePoursuite = [fiche(PLACE, POURSUITE), fiche(PLACE_2, POURSUITE)]
+		const coupleIdentique = [fiche(PLACE, POURSUITE), fiche(PLACE, POURSUITE)]
+
+		const mutantPlaceSeule = (fiches: Array<Record<string, unknown>>): boolean =>
+			new Set(fiches.map((element) => element.place)).size !== fiches.length
+		const mutantPoursuiteSeule = (fiches: Array<Record<string, unknown>>): boolean =>
+			new Set(fiches.map((element) => element.poursuite)).size !== fiches.length
+
+		// LES DEUX MUTANTS REFUSENT un lot que la VRAIE accepte : le pouvoir séparateur
+		// est ÉTABLI, pas supposé.
+		expect(mutantPlaceSeule(memePlace)).toBe(true)
+		expect(validerDistribution(sortie(memePlace), dossier).ok).toBe(true)
+		expect(mutantPoursuiteSeule(memePoursuite)).toBe(true)
+		expect(validerDistribution(sortie(memePoursuite), dossier).ok).toBe(true)
+		// … et sur le couple identique, les trois sont d'accord — ce qui montre que les
+		// mutants ne sont pas simplement inertes.
+		expect(mutantPlaceSeule(coupleIdentique)).toBe(true)
+		expect(mutantPoursuiteSeule(coupleIdentique)).toBe(true)
+		expect(validerDistribution(sortie(coupleIdentique), dossier).ok).toBe(false)
+
+		// … et le balayage de SOURCE : le corps n'a qu'UNE garde d'unicité, et elle porte
+		// sur le COUPLE, jamais sur une projection d'une seule clé.
+		const corps = corpsDe(codeSansCommentaires(), 'validerDistribution')
+		expect(corps).toContain('new Set(couples)')
+		expect(corps.match(/new Set\(/g) ?? []).toHaveLength(1)
+	})
+
+	it('10 — le marqueur a ecrire est refuse SUR LES DEUX PROSES, constante IMPORTEE', () => {
+		// KR-223 : la constante est IMPORTÉE, jamais recopiée — le test ne peut pas
+		// écrire le glyphe lui-même.
+		expect(validerDistribution(sortie([fiche(`${MARQUEUR_A_ECRIRE} a rediger`, POURSUITE)]), dossier)).toEqual({
+			ok: false,
+			motif: 'marqueur',
+		})
+		expect(validerDistribution(sortie([fiche(PLACE, `${MARQUEUR_A_ECRIRE} a rediger`)]), dossier)).toEqual({
+			ok: false,
+			motif: 'marqueur',
+		})
+		// EN POSITION NON NULLE, et `includes` plutôt que `startsWith`.
+		expect(
+			validerDistribution(
+				sortie([fiche(PLACE, POURSUITE), fiche(PLACE_2, `Une phrase, puis ${MARQUEUR_A_ECRIRE} au milieu.`)]),
+				dossier,
+			),
+		).toEqual({ ok: false, motif: 'marqueur' })
+	})
+
+	it('11 — un identifiant en DERNIERE position et sur le SECOND champ : le lot ENTIER est refuse', () => {
+		// L'identifiant est au DERNIER rang ET sur la seconde prose : c'est ce qui rend
+		// observables À LA FOIS le mutant « ne scanner que `[0]` » et le mutant « ne
+		// scanner que `place` ».
+		const neuf = dossierNeuf()
+		const lot = [fiche(PLACE, POURSUITE), fiche(PLACE_2, POURSUITE_2), fiche('Une charge saine.', CANARI_FUITE)]
+
+		const refus = validerDistribution(sortie(lot), neuf)
+
+		expect(refus).toEqual({ ok: false, motif: 'identifiant' })
+		// RIEN de la sortie fautive ne survit : ni la liste, ni les fiches saines.
+		expect(refus).not.toHaveProperty('sortie')
+		expect(JSON.stringify(refus)).not.toContain(PLACE)
+		// … et la même fuite sur `place` est refusée elle aussi.
+		expect(validerDistribution(sortie([fiche(CANARI_FUITE, POURSUITE)]), neuf)).toEqual({
+			ok: false,
+			motif: 'identifiant',
+		})
+		// CANARI BÉNIN sur les DEUX champs : une prose française saine PASSE — sans lui,
+		// un scanner de forme seule passerait pour un garde (KR-235).
+		expect(validerDistribution(sortie([fiche(CANARI_BENIN, CANARI_BENIN)]), neuf).ok).toBe(true)
+	})
+
+	it('11 bis — mutants « element 0 seul », « place seule » et « join avant le scan »', () => {
+		// LE POUVOIR SÉPARATEUR, ÉCRIT ET NON DÉDUIT (BUG-087). Les implémentations
+		// FAUTIVES sont ici, à côté de la vraie, et chacune est prouvée fautive sur un lot
+		// précis.
+		const neuf = dossierNeuf()
+
+		// MUTANT A — `[0]` : la fuite en dernière position s'échappe.
+		const lot = [fiche(PLACE, POURSUITE), fiche(PLACE_2, POURSUITE_2), fiche('Une charge saine.', CANARI_FUITE)]
+		const mutantIndexZero = (fiches: Array<Record<string, unknown>>): boolean =>
+			porteUnIdentifiant(String(fiches[0].place), neuf) || porteUnIdentifiant(String(fiches[0].poursuite), neuf)
+		expect(mutantIndexZero(lot)).toBe(false)
+		expect(validerDistribution(sortie(lot), neuf)).toEqual({ ok: false, motif: 'identifiant' })
+
+		// MUTANT B — `place` SEULE : la fuite logée dans `poursuite` s'échappe. Propre à
+		// ce rôle, dont chaque élément porte DEUX proses scannables.
+		const mutantPlaceSeule = (fiches: Array<Record<string, unknown>>): boolean =>
+			fiches.some((element) => porteUnIdentifiant(String(element.place), neuf))
+		expect(mutantPlaceSeule(lot)).toBe(false)
+
+		// MUTANT C — `join` avant le scan : un FAUX POSITIF FABRIQUÉ à la frontière. Deux
+		// fragments logés dans deux champs DISTINCTS ne forment pas un identifiant — ils
+		// deviendront deux proses de deux fiches SÉPARÉES.
+		const avant = 'Gardienne du seuil, elle ne quitte jamais le lieu.'
+		const apres = 'amorce des ennuis, dit-on au village, et elle le sait.'
+		const sain = [fiche(avant, apres)]
+		expect(porteUnIdentifiant(avant, neuf)).toBe(false)
+		expect(porteUnIdentifiant(apres, neuf)).toBe(false)
+		const mutantJoin = (fiches: Array<Record<string, unknown>>): boolean =>
+			porteUnIdentifiant(fiches.flatMap((element) => [String(element.place), String(element.poursuite)]).join(''), neuf)
+		expect(mutantJoin(sain)).toBe(true)
+		// … et la vraie, qui scanne PAR ÉLÉMENT ET PAR CHAMP, accepte ce lot sain.
+		expect(validerDistribution(sortie(sain), neuf).ok).toBe(true)
+		// … et le balayage de SOURCE : aucun `join` dans ce corps.
+		expect(corpsDe(codeSansCommentaires(), 'validerDistribution')).not.toContain('.join(')
+	})
+
+	it('11 ter — le scanner est appele SUR LES DEUX PROSES, et sur rien d autre', () => {
+		const neuf = dossierNeuf()
+		const corps = corpsDe(codeSansCommentaires(), 'validerDistribution')
+		const appels = corps.match(/porteUnIdentifiant\([^)]*\)/g) ?? []
+
+		// DEUX appels, un par prose — et aucun sur autre chose : ce rôle n'a aucun jeton.
+		expect(appels).toHaveLength(2)
+		expect(appels.filter((appel) => appel.includes('fiche.place'))).toHaveLength(1)
+		expect(appels.filter((appel) => appel.includes('fiche.poursuite'))).toHaveLength(1)
+		// Le marqueur d'amorce est cherché dans les deux proses lui aussi.
+		expect(corps.match(/\.includes\(MARQUEUR_A_ECRIRE\)/g) ?? []).toHaveLength(2)
+		// Discriminant : le scanner EXISTE bien et il MORD — sans cette ligne, « deux
+		// appels » serait vrai sur un corps qui n'en ferait aucun (KR-199).
+		expect(porteUnIdentifiant(CANARI_FUITE, neuf)).toBe(true)
+		expect(corps).toContain('porteUnIdentifiant(')
+	})
+
+	it('QUATRE motifs ATTEIGNABLES, et rang-inconnu est SANS OBJET — jamais rejoue par symetrie', () => {
+		// ⚠ CRITÈRE 3, TROISIÈME ENTRÉE. Le type de retour ne nomme que ce qui peut
+		// sortir, et chacun des quatre est atteint par SA faute.
+		const neuf = dossierNeuf()
+		const motifs = [
+			validerDistribution(42, dossier),
+			validerDistribution(sortie([]), dossier),
+			validerDistribution(sortie([fiche(PLACE, `${MARQUEUR_A_ECRIRE} a rediger`)]), dossier),
+			validerDistribution(sortie([fiche(PLACE, CANARI_FUITE)]), neuf),
+		].map((issue) => (issue.ok ? 'ACCEPTÉ' : issue.motif))
+
+		expect(motifs).toEqual(['schema', 'vide', 'marqueur', 'identifiant'])
+		expect(new Set(motifs).size).toBe(4)
+
+		// ⚠ `'rang-inconnu'` EST SANS OBJET ICI, ET C'EST ASSERTÉ PLUTÔT QUE TU : aucun
+		// jeton, aucune table d'appartenance. L'écrire « par symétrie » avec le
+		// cinquième rôle serait du code mort présenté comme de la couverture (BUG-084).
+		const corps = corpsDe(codeSansCommentaires(), 'validerDistribution')
+		expect(corps).not.toContain('rang-inconnu')
+		expect(corps).not.toContain('rangsConnus')
+		// Discriminants : le motif EXISTE bel et bien dans `MotifIllisible`, et le
+		// cinquième validateur le produit — sans eux, l'absence serait vraie pour rien.
+		expect(corpsDe(codeSansCommentaires(), 'validerRelations')).toContain('rang-inconnu')
+		expect(codeSansCommentaires()).toContain("'identifiant' | 'rang-inconnu'")
+		// ⚠ ET LE SIXIÈME NE NOMME PAS `MotifIllisible` EN ENTIER, là où le cinquième est
+		// le seul à le faire : la différence est une MESURE, pas une irrégularité.
+		expect(corps).not.toContain('MotifIllisible')
+		expect(corpsDe(codeSansCommentaires(), 'validerRelations')).toContain('MotifIllisible')
+	})
+
+	it('le nominal rend ok avec la sortie, et rien d autre', () => {
+		const fiches = [fiche(PLACE, POURSUITE), fiche(PLACE_2, POURSUITE_2)]
+
+		expect(validerDistribution(sortie(fiches), dossier)).toEqual({
+			ok: true,
+			sortie: {
+				distribution: [
+					{ place: PLACE, poursuite: POURSUITE },
+					{ place: PLACE_2, poursuite: POURSUITE_2 },
+				],
+			},
+		})
+	})
+
+	it('le gabarit du sixieme role EST son schema, AUX DEUX NIVEAUX', () => {
+		const rendu = JSON.parse(GABARIT_SORTIE['monde-distribution']) as Record<string, unknown>
+
+		// NIVEAU 1 — la clé de premier niveau.
+		expect(Object.keys(rendu)).toEqual([...CLES_SORTIE_DISTRIBUTION])
+		// NIVEAU 2 — la valeur est une LISTE d'OBJETS à deux clés, jamais de scalaires.
+		const elements = rendu[CLES_SORTIE_DISTRIBUTION[0]] as Array<Record<string, unknown>>
+		expect(Array.isArray(elements)).toBe(true)
+		expect(elements.length).toBeGreaterThan(1)
+		for (const element of elements) expect(Object.keys(element).sort()).toEqual(['place', 'poursuite'])
+		// ⚠ LE GABARIT NE PORTE AUCUN RANG, à la différence de celui du cinquième rôle :
+		// ce rôle n'a AUCUNE FENTE DE DÉSIGNATION, et c'est ce qui borne PAR LA FORME la
+		// référence croisée (KR-229).
+		expect(GABARIT_SORTIE['monde-distribution']).not.toMatch(/P\d/)
+		// Et ses clés sont DISJOINTES de celles des cinq autres schémas — on ne peut pas
+		// passer une sortie pour une autre.
+		for (const autres of [
+			CLES_SORTIE,
+			CLES_SORTIE_DETENTEURS,
+			CLES_SORTIE_REPLIQUES,
+			CLES_SORTIE_PLAN,
+			CLES_SORTIE_RELATIONS,
+		]) {
+			expect(CLES_SORTIE_DISTRIBUTION.filter((cle) => (autres as readonly string[]).includes(cle))).toEqual([])
+		}
 	})
 })

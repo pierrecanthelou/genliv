@@ -1,101 +1,102 @@
 {
-	"_about": "Les features livrées au TEMPS COURANT — bascule IA, versions 0.6.x. Ce fichier est la source VIVANTE : une feature y entre à sa complétion, en repart vers features_history.0.6.x-anterieures.json dès que ses leçons sont promues en KR de code-knowledge.json ET que le plafond de 10 kio (docs/WORKFLOW.md, § Budget de contexte) est de nouveau franchi. Il ne se compacte pas, il se SCINDE. Dernière scission : 2026-08-19 (dossier-fiches et dossier-objets partis à l'archive). Antérieurs à la bascule : features_history.0.5.json.",
-	"features": [
-		{
-			"feature": "dossier-registres",
-			"completed_at": "2026-08-19",
-			"goal": "Donner à l'auteur les cinq derniers écrans de registre de son dossier — indices (avec leur chaînage en liste textuelle), jalons & fins, quêtes, événements, climats — de sorte que chaque identifiant déjà référencé ailleurs dans le schéma cesse d'être une référence orpheline et que la dernière racine du dossier soit refermée.",
-			"key_architecture_choices": [
-				"Découpage en TRANCHES DE SCHÉMA (KR-210, hérité de KR-190) tenu sur les 5 itérations sans exception : un seul lot contrat par itération, jamais deux en parallèle, toujours seul et en premier. Aucune itération n'a eu besoin d'un worktree — 2 lots séquentiels à chaque fois, et le mode « sans essaim » s'est révélé le bon choix cinq fois de suite sur ce codebase.",
-				"EditeurEffets (né it3, premier éditeur de Delta[] du dépôt, local à la feature — KR-109) réutilisé par it4 SANS UNE LIGNE MODIFIÉE, puis délibérément NON utilisé par it5. La généricité promise à it3 (sur DELTAS[].refKinds.length) reste non vérifiable : les 4 entrées de DELTAS sont toutes d'arité 1.",
-				"Un anti-patron rejeté QUATRE fois dans la même feature — un champ à énumération fermée sans consommateur réel : tier (KR-192, hérité), Quete.lie_au_canon, Indice.portee (posée au type sans écran), Evenement.nature (rejetée au complet). À la 4e occurrence, c'est devenu un rejet par défaut : on dérive ou on écarte, on ne garde pas « au cas où ».",
-				"Trois gestes de création distincts selon ce que le validateur exige, et il faut lire la table AVANT de copier le geste voisin : commit immédiat d'une entité quasi nue (it1 indices, it3 quêtes, it4 événements, it5 climats) ; brouillon différé quand un CHAMPS_REQUIS refuse la chaîne vide (it2 jalons/fins, it4 résolutions) — KR-214 ; et l'écriture explicite d'une clé obligatoire à la création (effets_regles: [], resolutions: []), qui n'est ni l'un ni l'autre.",
-				"La feature a fermé trois trous latents de brain/ que personne ne cherchait, chacun trouvé en lisant le code avant d'écrire : 3 trous de validation sur la première liste de références du schéma (it1, KR-212), un registre non exporté gardé par un test-grep qu'il fallait réécrire en allow-list nommée plutôt que contourner (it3, KR-215), et une clé de destination sans suffixe [] dont personne n'avait tiré la conséquence (it5)."
-			],
-			"brain_contracts_added": [
-				{
-					"type": "type",
-					"name": "brain/dossier/types.ts — Indice (verite, formulation_joueur, mene_a[]), Fin.texte, Quete (donneur_id, consigne, etapes, echeance) + EtapeQuete, Evenement.lie_a_histoire, Climat (duree: number, manifestation: string) — tous additifs, optionnels"
-				},
-				{
-					"type": "function",
-					"name": "brain/utils/references.ts — avecOrpheline(), promue depuis dossier-fiches (KR-110)"
-				},
-				{
-					"type": "registry",
-					"name": "LISTES_OPTIONNELLES_TEXTUELLES (tables.ts) — ferme 3 trous par la même cause (KR-212)"
-				},
-				{
-					"type": "constant",
-					"name": "DELTAS exporté de brain/index.ts sous allow-list nommée (KR-215) ; PREFIXE_BESTIAIRE ; BUDGET_MOTS_MANIFESTATION"
-				},
-				{
-					"type": "component",
-					"name": "features/dossier-registres/components/EditeurEffets — local à la feature, 2 appelants internes (KR-109)"
-				}
-			],
-			"lessons_learned": [
-				"UN MOTIF FAUX PEUT SOUTENIR UNE CONCLUSION JUSTE PENDANT QUATRE ITÉRATIONS SANS QUE PERSONNE NE LE VOIE. « KR-208 interdit un éditeur d'effets sur Climat » a été écrit au cadrage, recopié dans le design_contract, et était faux — il n'est tombé qu'au raffinage d'it5, parce qu'un rôle minoritaire a LU le KR au lieu de le citer. Même famille que KR-176 (un seuil sans source dont la répétition crée l'autorité) : la citation d'un KR n'est pas sa lecture, et un refus juste pour un motif faux cède au premier contradicteur sérieux.",
-				"Le rôle narratif-ia n'était convoqué qu'aux itérations « moteur/prompt » ; à it5, convoqué pour une question d'AUDIENCE, il a fourni le motif réel du seul refus structurant ET la seule proposition INNOVATION. Critère de convocation à élargir : toute itération qui pose ou déplace une ligne de destinations.ts, pas seulement celles qui touchent un prompt.",
-				"Une preuve d'ABSENCE ne s'appuie jamais sur la liste de fichiers d'un lot : ce n'est pas un instrument rejouable après le merge. Trouvé par la QA au tour 2 d'it5, contre une formulation que deux autres rôles avaient déjà signée — et la sonde de discriminance (injecter le composant, vérifier que le test rougit) l'a confirmé.",
-				"Un désaccord tranché par la MESURE plutôt que par l'autorité se referme en un tour : le nom du panneau d'it5 (section vs collection) a été réglé quand l'UX est allée compter les huit panneaux livrés et a trouvé le contre-exemple décisif (JALONS & FINS, pluriel d'aucune collection) — elle s'est alors corrigée plus largement que le tech-lead ne le demandait."
-			],
-			"bugs_encountered": []
-		},
-		{
-			"feature": "dossier-controles",
-			"completed_at": "2026-09-17",
-			"goal": "Donner a l auteur un rapport de controles qui lui dit, en continu et localise par section, ce qui empeche encore son aventure d etre jouable - sans jamais refuser une ecriture ni exiger un reimport.",
-			"key_architecture_choices": [
-				"DEUX AXES tenus sur 10 iterations : `severity` (issues.ts) dit si le DOCUMENT peut etre ECRIT, `NiveauControle` si l AVENTURE peut etre JOUEE. Le rapport vit dans un module DISTINCT de validateDossier et ne lit JAMAIS le canal `errors` - un dossier persiste n en porte structurellement aucun (KR-225). Il lit le canal `warnings`, et lui seul, par UNE entree de registre.",
-				"Registre FERME `CONTROLES` : NEUF regles livrees, `ControleId` DERIVE des cles. Une regle de plus est une entree de plus - ZERO fichier d UI touche depuis it5. La cible de 11 regles du plan-cible est caduque depuis it8 ; le compte vivant se lit sur le registre.",
-				"`atteignabilite.ts` (it6) : index des producteurs et son POINT FIXE, unique et partage - deux parcours seraient deux verites. SIX hypotheses datees H1-H6, domiciliees chacune dans le fichier qui les UTILISE, avec leur SENS D ERREUR ecrit. Sur une regle bloquante, l erreur permise est le faux negatif, jamais le faux positif.",
-				"`tourzero.ts` (it10) : la SECONDE question posee au meme arbre - non plus << ce fait peut-il un JOUR etre etabli >> mais << est-il DEJA vrai avant la premiere action >>. Deux modules, deux traversees qui divergent sur le `non`, aucun parametre de mode.",
-				"La section d un controle est DECLAREE par la regle, jamais DERIVEE de son path (KR-219/226) ; le path est une CLE LITTERALE de DESTINATION_DES_CHAMPS, epinglee par un test."
-			],
-			"brain_contracts_added": [
-				{
-					"type": "module",
-					"name": "brain/dossier/controles.ts"
-				},
-				{
-					"type": "module",
-					"name": "brain/dossier/atteignabilite.ts"
-				},
-				{
-					"type": "module",
-					"name": "brain/dossier/tourzero.ts"
-				},
-				{
-					"type": "module",
-					"name": "brain/dossier/pastilles.ts"
-				},
-				{
-					"type": "type",
-					"name": "NiveauControle / Controle / RapportControles / ControleDescripteur"
-				},
-				{
-					"type": "function",
-					"name": "controlerDossier / controleRemediation"
-				}
-			],
-			"lessons_learned": [
-				"UNE AFFIRMATION SUR LA COULEUR D UN TEST SE MESURE, ELLE NE SE DEDUIT PAS - et cette feature l a payee quatre fois (BUG-080, BUG-084, BUG-087, puis it10). Ni les deux tours de comite, ni la porte mecanique, ni la revue de PR n executent une phrase.",
-				"LA VALEUR ATTENDUE N EST PAS LE POUVOIR SEPARATEUR : deux mesures, sur DEUX CODES DIFFERENTS. Et depuis it10, une troisieme precision - le pouvoir separateur se mesure AU NIVEAU OU LE CONTRAT SERA CONSOMME (KR-228).",
-				"UNE REDONDANCE DE REPRESENTATION PEUT MASQUER UN MUTANT : `temoin === null` equivalant a `valeur === 'indecidable'` rendait la faute inobservable alors que l instrument etait bon. Mode de panne neuf, distinct du temoin faible.",
-				"DEUX MESURES QUI DIVERGENT SE TRANCHENT PAR UNE TROISIEME, pas par le role le plus autorise : a it10 la QA en mode B s est trompee la ou l ouvrier avait raison.",
-				"UN ROLE QUI RETIRE PUBLIQUEMENT SON PROPRE MOTIF fait avancer le comite plus vite qu un role qui a raison - trois retraits a it10, dont deux qui ont CONFIRME la position adverse.",
-				"DECOUPER SUR LE SENS D ERREUR, jamais sur le volume : 3 -> 4 -> 6 -> 8 -> 10 iterations, et les deux coupes les plus utiles separaient un faux negatif d un faux positif.",
-				"UNE CAPACITE ABSENTE N ATTEINT LE BLOQUANT QUE SI L EDITEUR OFFRE AUJOURD HUI LE GESTE QUI LA RESTAURE - et une remediation qui nomme une surface dont l inexistence est mesurable est une consigne CIRCULAIRE (BUG-090) ; une qui nomme une surface reelle dont l effet est nul est pire : elle est FAUSSE."
-			],
-			"bugs_encountered": [
-				"BUG-080",
-				"BUG-082",
-				"BUG-084",
-				"BUG-087",
-				"BUG-088",
-				"BUG-090"
-			]
-		}
-	]
+ "_about": "Les features livrées au TEMPS COURANT — bascule IA, versions 0.6.x. Ce fichier est la source VIVANTE : une feature y entre à sa complétion, en repart vers features_history.0.6.x-anterieures.json dès que ses leçons sont promues en KR de code-knowledge.json ET que le plafond de 10 kio (docs/WORKFLOW.md, § Budget de contexte) est de nouveau franchi. Il ne se compacte pas, il se SCINDE. Dernière scission : 2026-08-19 (dossier-fiches et dossier-objets partis à l'archive). Antérieurs à la bascule : features_history.0.5.json.",
+ "features": [
+  {
+   "feature": "dossier-controles",
+   "completed_at": "2026-09-17",
+   "goal": "Donner a l auteur un rapport de controles qui lui dit, en continu et localise par section, ce qui empeche encore son aventure d etre jouable - sans jamais refuser une ecriture ni exiger un reimport.",
+   "key_architecture_choices": [
+    "DEUX AXES tenus sur 10 iterations : `severity` (issues.ts) dit si le DOCUMENT peut etre ECRIT, `NiveauControle` si l AVENTURE peut etre JOUEE. Le rapport vit dans un module DISTINCT de validateDossier et ne lit JAMAIS le canal `errors` - un dossier persiste n en porte structurellement aucun (KR-225). Il lit le canal `warnings`, et lui seul, par UNE entree de registre.",
+    "Registre FERME `CONTROLES` : NEUF regles livrees, `ControleId` DERIVE des cles. Une regle de plus est une entree de plus - ZERO fichier d UI touche depuis it5. La cible de 11 regles du plan-cible est caduque depuis it8 ; le compte vivant se lit sur le registre.",
+    "`atteignabilite.ts` (it6) : index des producteurs et son POINT FIXE, unique et partage - deux parcours seraient deux verites. SIX hypotheses datees H1-H6, domiciliees chacune dans le fichier qui les UTILISE, avec leur SENS D ERREUR ecrit. Sur une regle bloquante, l erreur permise est le faux negatif, jamais le faux positif.",
+    "`tourzero.ts` (it10) : la SECONDE question posee au meme arbre - non plus << ce fait peut-il un JOUR etre etabli >> mais << est-il DEJA vrai avant la premiere action >>. Deux modules, deux traversees qui divergent sur le `non`, aucun parametre de mode.",
+    "La section d un controle est DECLAREE par la regle, jamais DERIVEE de son path (KR-219/226) ; le path est une CLE LITTERALE de DESTINATION_DES_CHAMPS, epinglee par un test."
+   ],
+   "brain_contracts_added": [
+    {
+     "type": "module",
+     "name": "brain/dossier/controles.ts"
+    },
+    {
+     "type": "module",
+     "name": "brain/dossier/atteignabilite.ts"
+    },
+    {
+     "type": "module",
+     "name": "brain/dossier/tourzero.ts"
+    },
+    {
+     "type": "module",
+     "name": "brain/dossier/pastilles.ts"
+    },
+    {
+     "type": "type",
+     "name": "NiveauControle / Controle / RapportControles / ControleDescripteur"
+    },
+    {
+     "type": "function",
+     "name": "controlerDossier / controleRemediation"
+    }
+   ],
+   "lessons_learned": [
+    "UNE AFFIRMATION SUR LA COULEUR D UN TEST SE MESURE, ELLE NE SE DEDUIT PAS - et cette feature l a payee quatre fois (BUG-080, BUG-084, BUG-087, puis it10). Ni les deux tours de comite, ni la porte mecanique, ni la revue de PR n executent une phrase.",
+    "LA VALEUR ATTENDUE N EST PAS LE POUVOIR SEPARATEUR : deux mesures, sur DEUX CODES DIFFERENTS. Et depuis it10, une troisieme precision - le pouvoir separateur se mesure AU NIVEAU OU LE CONTRAT SERA CONSOMME (KR-228).",
+    "UNE REDONDANCE DE REPRESENTATION PEUT MASQUER UN MUTANT : `temoin === null` equivalant a `valeur === 'indecidable'` rendait la faute inobservable alors que l instrument etait bon. Mode de panne neuf, distinct du temoin faible.",
+    "DEUX MESURES QUI DIVERGENT SE TRANCHENT PAR UNE TROISIEME, pas par le role le plus autorise : a it10 la QA en mode B s est trompee la ou l ouvrier avait raison.",
+    "UN ROLE QUI RETIRE PUBLIQUEMENT SON PROPRE MOTIF fait avancer le comite plus vite qu un role qui a raison - trois retraits a it10, dont deux qui ont CONFIRME la position adverse.",
+    "DECOUPER SUR LE SENS D ERREUR, jamais sur le volume : 3 -> 4 -> 6 -> 8 -> 10 iterations, et les deux coupes les plus utiles separaient un faux negatif d un faux positif.",
+    "UNE CAPACITE ABSENTE N ATTEINT LE BLOQUANT QUE SI L EDITEUR OFFRE AUJOURD HUI LE GESTE QUI LA RESTAURE - et une remediation qui nomme une surface dont l inexistence est mesurable est une consigne CIRCULAIRE (BUG-090) ; une qui nomme une surface reelle dont l effet est nul est pire : elle est FAUSSE."
+   ],
+   "bugs_encountered": [
+    "BUG-080",
+    "BUG-082",
+    "BUG-084",
+    "BUG-087",
+    "BUG-088",
+    "BUG-090"
+   ]
+  },
+  {
+   "feature": "dossier-copilote",
+   "completed_at": "2026-09-19",
+   "goal": "Donner a l auteur un copilote de redaction qui PROPOSE et n ECRIT JAMAIS : six assistants dont chaque suggestion est acceptee ou refusee champ par champ, l acceptation passant par DossierService.update et par lui seul, de sorte qu aucun texte n entre dans le dossier sans le geste de l auteur.",
+   "key_architecture_choices": [
+    "SIX ROLES, UNE SEULE METHODE : demander(dossier, cible, signal), surchargee sur une UNION ETIQUETEE a six branches avec garde never. La forme a ete atteinte en deux temps -- surcharge sur le litteral de role a l it2 (contrainte d outillage : les bouchons de test interdisaient un membre de plus), puis union etiquetee a 3c, sur une MESURE : deux cibles structurellement identiques faisaient tomber le dispatch dans la mauvaise branche, role annonce A et validateur execute B, tsc vert.",
+    "LA FRONTIERE CODE/IA EST TENUE PAR LA FORME, JAMAIS PAR L INVITE. Le modele ne frappe jamais un identifiant : il designe par RANG (jeton de chaine re-resolu par Map.get, table qui ne sort jamais de brain/copilote/), ou il ne designe rien du tout. KR-231 est tenu a DEUX niveaux et par la PORTEE, pas par une convention.",
+    "L AUDIENCE GOUVERNE LE CONTEXTE, STRICTEMENT : destinations.ts fait foi, DEROGATIONS_AUDIENCE est restee VIDE sur les six roles. Ce qu un modele VOIT et ce qu on lui DONNE sont deux listes (KR-232).",
+    "TROIS DOCTRINES ECRITES PAR L USAGE, chacune amendant la precedente : DESIGNATION vs REDACTION (3a) dit quand une liste vide est un succes ; l INJECTION DU CHAMP CIBLE DEPEND DE SON ORDRE, pas de son audience (3b) ; et la REGLE DU CAS MIXTE (3c) range un role qui rend a la fois un jeton et de la prose. L it4 les a unifiees sous UN critere : la liste vide porte-t-elle une information que le code n a pas ?",
+    "LA CREATION D ENTITE EST UNE REGLE PARAMETREE, pas un interdit : le modele rend un BROUILLON SANS IDENTITE, le code frappe l identifiant a l acceptation. Et c est un invariant de COMPILATION -- FicheBrouillon n est pas assignable a Personnage -- double d un ESPION sur le SITE D APPEL, parce que tsc tient la FORME et jamais le MOMENT."
+   ],
+   "brain_contracts_added": [
+    {
+     "type": "service",
+     "name": "CopiloteService"
+    }
+   ],
+   "lessons_learned": [
+    "UNE AFFIRMATION SUR LA COULEUR D UN TEST SE MESURE. Quatre defauts majeurs de cette feature sont la meme famille : un instrument qui produit du vert. BUG-113 (le temoin gardait le calcul, jamais la source), BUG-115 (un garde qui restait vert sur le defaut qu il nomme, parce que son decoupage SUPPOSAIT la forme eprouvee), le temoin d ordre creux de l it4, et le piege de 3b devenu inerte par coincidence de mesure. AUCUN n a ete trouve par une relecture : tous par un mutant pose.",
+    "CE QU UN VERIFICATEUR DECLARE N AVOIR QU INSPECTE, L ORCHESTRATEUR L EXECUTE. A 3c la QA a ete honnete sur un garde qu elle n avait pas rejoue -- c etait precisement celui qui avait un antecedent de vert silencieux. Le re-poser a coute trois commandes.",
+    "CORRIGER UN CONTRAT ENTRE LES DEUX LOTS COUTE ZERO ; APRES, CA COUTE UN LOT. L orchestrateur qui garde le lot consommateur en attente le temps de lire le compte rendu du contrat s offre une fenetre gratuite -- elle a servi a 3c (BUG-116) et elle est devenue la regle.",
+    "UNE SIGNATURE QU UN PLAN FIGE SE CONFRONTE A LA DOCTRINE DU FICHIER QUI VA LA PORTER, jamais recopiee d un gabarit. Aucune porte du raffinage ne lit le fichier cible : ni les deux tours, ni la porte mecanique, ni la fiche de validation.",
+    "LES DEUX POSTES A EFFORT ELEVE ONT ECHANGE LEURS POSITIONS A TROIS ITERATIONS SUR QUATRE. L arbitrage se fait SUR L ARGUMENT, jamais sur le mouvement -- et deux fois, un role a retire son propre veto en reconnaissant qu il etait hors de son domaine, ce qui a produit de meilleures decisions que le veto n en aurait obtenu.",
+    "LE BUDGET DE CONTEXTE SE PAIE A LA FIN. La spec de cette feature a du etre compactee trois fois puis SCINDEE (plan d un cote, implementation de l autre) : les decisions livrees se reduisent a leur phrase d arbitrage plus le renvoi a leur revue, et c est la revue qui est le dossier."
+   ],
+   "bugs_encountered": [
+    "BUG-097",
+    "BUG-098",
+    "BUG-099",
+    "BUG-106",
+    "BUG-107",
+    "BUG-108",
+    "BUG-109",
+    "BUG-110",
+    "BUG-111",
+    "BUG-113",
+    "BUG-114",
+    "BUG-115",
+    "BUG-116",
+    "BUG-117"
+   ]
+  }
+ ]
 }

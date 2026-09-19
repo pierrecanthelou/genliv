@@ -18,6 +18,7 @@
 import type { CloudSettingsService } from './CloudSettingsService'
 import {
 	assemblerDetenteurs,
+	assemblerDistribution,
 	assemblerPlan,
 	assemblerProse,
 	assemblerRelations,
@@ -26,6 +27,7 @@ import {
 } from './copilote/contexte'
 import {
 	validerDetenteurs,
+	validerDistribution,
 	validerIntention,
 	validerRelations,
 	validerRepliques,
@@ -34,7 +36,9 @@ import {
 } from './copilote/schemaSortie'
 import type {
 	ChampProseChemin,
+	FicheBrouillon,
 	PropositionDetenteurs,
+	PropositionDistribution,
 	PropositionPlan,
 	PropositionRelations,
 	PropositionRepliques,
@@ -135,6 +139,28 @@ export interface CibleRelations {
 	personnageId: string
 }
 
+/**
+ * LA CIBLE DU SIXIÈME RÔLE — ⚠ LA PREMIÈRE À CHARGE VIDE, et ce n'est pas un oubli :
+ * CE RÔLE NE CIBLE AUCUNE ENTITÉ EXISTANTE. Sa source est le canon, et ce qu'il produit
+ * n'existe pas encore. L'étiquette porte donc, à elle seule, tout ce que la cible a à
+ * dire.
+ *
+ * ⚠ NE PAS LUI AJOUTER DE `dossierId` « PAR SYMÉTRIE » avec les cinq autres charges :
+ * le dossier est déjà le premier paramètre de `demander`, il n'aurait aucun lecteur, et
+ * une clé sans lecteur sur une cible est exactement la ligne que KR-109 refuse.
+ *
+ * ⚠ L'INVARIANT DES CINQ RÔLES LIVRÉS — « la proposition est LA CIBLE PLUS LE CONTENU »
+ * — NE S'APPLIQUE PAS ICI : la cible EST le dossier. `PropositionDistribution` ne porte
+ * donc aucun identifiant de cible, et ce n'est pas une omission à réparer.
+ *
+ * ⚠ ELLE RESTE UNE INTERFACE, et non un alias `{ role: 'monde-distribution' }` écrit au
+ * site d'appel : c'est l'étiquette qui sépare les six branches du dispatch, et un type
+ * nommé est ce qui rend la 6ᵉ surcharge lisible aux DEUX sites.
+ */
+export interface CibleDistribution {
+	role: 'monde-distribution'
+}
+
 export type RaisonIndisponible = 'non-configure' | 'injoignable' | 'annule'
 
 /** LES TROIS BRANCHES D'ÉCHEC, extraites : rigoureusement les mêmes pour tous les
@@ -158,6 +184,7 @@ export type ReponseDetenteurs = { statut: 'propose'; proposition: PropositionDet
 export type ReponseRepliques = { statut: 'propose'; proposition: PropositionRepliques } | EchecCopilote
 export type ReponsePlan = { statut: 'propose'; proposition: PropositionPlan } | EchecCopilote
 export type ReponseRelations = { statut: 'propose'; proposition: PropositionRelations } | EchecCopilote
+export type ReponseDistribution = { statut: 'propose'; proposition: PropositionDistribution } | EchecCopilote
 
 /**
  * SURCHARGE SUR LA CIBLE ÉTIQUETÉE — le point de contrat le plus chargé de
@@ -187,6 +214,10 @@ export interface CopiloteService {
 	demander(dossier: Dossier, cible: CibleRepliques, signal?: AbortSignal): Promise<ReponseRepliques>
 	demander(dossier: Dossier, cible: CiblePlan, signal?: AbortSignal): Promise<ReponsePlan>
 	demander(dossier: Dossier, cible: CibleRelations, signal?: AbortSignal): Promise<ReponseRelations>
+	/** ⚠ LA 6ᵉ SURCHARGE SE POSE AUX DEUX SITES — ici (l'interface publique) ET sur
+	 *  l'implémentation plus bas. En oublier un rend l'appel impossible côté feature
+	 *  alors que `tsc` reste vert sur `brain/`. */
+	demander(dossier: Dossier, cible: CibleDistribution, signal?: AbortSignal): Promise<ReponseDistribution>
 }
 
 /**
@@ -224,6 +255,14 @@ type CorpsDemande =
 	/** SANS `champ` non plus, MÊME motif — et sans la moindre INTENSITÉ : le modèle ne
 	 *  voit jamais le nombre, que le code pose à l'acceptation (`INTENSITE_INITIALE`). */
 	| { role: 'personnage-relations'; contexte: string }
+	/** SANS `champ`, et SANS RIEN D'AUTRE : la cible de ce rôle est VIDE, donc le corps
+	 *  se réduit à l'étiquette et au contexte.
+	 *  ⚠ `{ ...cible, contexte }` RESTE INTERDIT ICI, ET C'EST EXACTEMENT PARCE QU'IL
+	 *  SERAIT INOFFENSIF : la charge étant vide, il ne fuiterait rien — et c'est
+	 *  précisément ce qui le ferait généraliser aux cinq autres, où il met
+	 *  `personnageId`, `indiceId` ou `champ` SUR LE FIL (KR-231). Littéral ÉCRIT, et un
+	 *  témoin qui asserte le corps par `toEqual`, jamais par inclusion. */
+	| { role: 'monde-distribution'; contexte: string }
 
 /** Le résultat d'UN aller-retour, avant validation de forme : soit une valeur
  *  brute à valider, soit une indisponibilité qui ne se rejoue JAMAIS. */
@@ -514,8 +553,54 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 		return { statut: 'propose', proposition: { personnageId: cible.personnageId, ajouts } }
 	}
 
+	async function demanderDistribution(
+		dossier: Dossier,
+		cible: CibleDistribution,
+		signal: AbortSignal | undefined,
+	): Promise<ReponseDistribution> {
+		// LES DEUX REFUS DE CONTEXTE PASSENT AVANT TOUT — `a-ecrire` (SYNOPSIS d'abord,
+		// TON ensuite : l'ordre décide ce que l'écran nomme) puis `trop-long`. ⚠ SEULEMENT
+		// DEUX : `'cible-a-ecrire'` et `'aucun-candidat'` sont INATTEIGNABLES pour ce
+		// rôle — il n'a pas d'entité cible, et UN MONDE VIDE EST SON CAS NOMINAL.
+		const contexte = assemblerDistribution(dossier, cible)
+		if (!contexte.ok) return refuser(contexte)
+
+		const vers = acheminement('monde-distribution')
+		if (vers === null) return { statut: 'indisponible', raison: 'non-configure' }
+
+		// LITTÉRAL ÉCRIT, JAMAIS `{ ...cible, contexte }` : inoffensif ici (la charge est
+		// vide), et c'est justement pourquoi il serait généralisé aux cinq autres (KR-231).
+		const corps: CorpsDemande = { role: 'monde-distribution', contexte: contexte.texte }
+		const issue = await jusquAuRejeuUnique(
+			vers.url,
+			vers.entetes,
+			corps,
+			(brut) => validerDistribution(brut, dossier),
+			signal,
+		)
+		if (!issue.ok) return issue.echec
+
+		// RE-RÉSOLUE CÔTÉ CLIENT, ÉLÉMENT PAR ÉLÉMENT — et ⚠ IL N'Y A RIEN À RE-RÉSOUDRE
+		// DEPUIS L'ÉTAT D'ÉCRAN : ce rôle ne porte aucun identifiant de cible, puisque LA
+		// CIBLE EST LE DOSSIER. Ce que le code fait ici est un RENOMMAGE DE DESTINATION —
+		// `place` → `fonction`, `poursuite` → `but.libelle` —, exactement le précédent
+		// `intention` → `action` et `nature` → `lien`.
+		// ⚠ AUCUN IDENTIFIANT N'EST FRAPPÉ ICI, ET C'EST LE TRAIT DE LA TRANCHE : le
+		// brouillon est SANS IDENTITÉ jusqu'au clic d'acceptation, où l'écran appelle
+		// `frapperIdentifiant('pnj')`. Un précalcul à cet endroit-ci compilerait
+		// parfaitement — `tsc` tient la FORME, jamais le MOMENT — et c'est pourquoi le
+		// site d'appel est tenu par un espion, côté feature.
+		const ajouts: FicheBrouillon[] = issue.sortie.distribution.map((fiche) => ({
+			fonction: fiche.place,
+			but: { libelle: fiche.poursuite },
+		}))
+		// `ajouts` porte la SÉMANTIQUE D'ÉCRITURE — la feature les AJOUTE à
+		// `monde.personnages[]`, une acceptation à la fois, jamais en bloc.
+		return { statut: 'propose', proposition: { ajouts } }
+	}
+
 	/**
-	 * L'IMPLÉMENTATION À SURCHARGES — cinq signatures publiques, un corps élargi,
+	 * L'IMPLÉMENTATION À SURCHARGES — six signatures publiques, un corps élargi,
 	 * AUCUN `as`, ET PLUS AUCUN PARAMÈTRE `role`.
 	 *
 	 * LE DISPATCH SE FAIT SUR L'ÉTIQUETTE, jamais plus sur la forme. Ce que cela change,
@@ -526,9 +611,11 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 	 * pourtant DISJOINTES.
 	 *
 	 * ⚠ LA GARDE `never` EST LA PREUVE D'EXHAUSTIVITÉ, et elle remplace une convention :
-	 * un SIXIÈME rôle ajouté à `RoleCopilote` sans branche ici NE COMPILE PAS. Les gardes
+	 * un SEPTIÈME rôle ajouté à `RoleCopilote` sans branche ici NE COMPILE PAS. Les gardes
 	 * `'x' in cible` de 3b étaient explicites, mais rien ne disait au compilateur qu'elles
-	 * étaient complètes.
+	 * étaient complètes. ⚠ ELLE A SERVI : le SIXIÈME rôle l'a fait rougir aux deux sites
+	 * de l'itération 4 — la promesse écrite à 3c était donc exécutable, et elle a été
+	 * exécutée plutôt que crue.
 	 *
 	 * Chaque branche privée nomme SON rôle en littéral — segment de route et corps de
 	 * demande sont donc exacts à la compilation, jamais recopiés d'un paramètre élargi.
@@ -538,11 +625,16 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 	function demander(dossier: Dossier, cible: CibleRepliques, signal?: AbortSignal): Promise<ReponseRepliques>
 	function demander(dossier: Dossier, cible: CiblePlan, signal?: AbortSignal): Promise<ReponsePlan>
 	function demander(dossier: Dossier, cible: CibleRelations, signal?: AbortSignal): Promise<ReponseRelations>
+	/** ⚠ LE SECOND DES DEUX SITES de la 6ᵉ surcharge — l'autre est sur l'interface
+	 *  `CopiloteService` ci-dessus. */
+	function demander(dossier: Dossier, cible: CibleDistribution, signal?: AbortSignal): Promise<ReponseDistribution>
 	function demander(
 		dossier: Dossier,
-		cible: CibleCopilote | CibleIndice | CibleRepliques | CiblePlan | CibleRelations,
+		cible: CibleCopilote | CibleIndice | CibleRepliques | CiblePlan | CibleRelations | CibleDistribution,
 		signal?: AbortSignal,
-	): Promise<ReponseCopilote | ReponseDetenteurs | ReponseRepliques | ReponsePlan | ReponseRelations> {
+	): Promise<
+		ReponseCopilote | ReponseDetenteurs | ReponseRepliques | ReponsePlan | ReponseRelations | ReponseDistribution
+	> {
 		switch (cible.role) {
 			case 'personnage-prose':
 				return demanderProse(dossier, cible, signal)
@@ -554,6 +646,8 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 				return demanderPlan(dossier, cible, signal)
 			case 'personnage-relations':
 				return demanderRelations(dossier, cible, signal)
+			case 'monde-distribution':
+				return demanderDistribution(dossier, cible, signal)
 			default: {
 				// LA GARDE D'EXHAUSTIVITÉ : si l'union gagne un membre sans branche, cette
 				// affectation ne compile plus. C'est une erreur de COMPILATION, jamais un

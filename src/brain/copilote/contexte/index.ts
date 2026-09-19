@@ -21,6 +21,7 @@ export {
 	BUDGET_CARACTERES_CONTEXTE,
 	CANDIDATS_MAX,
 	CHAMPS_INJECTES,
+	DEJA_ECRITS_MAX,
 	DEROGATIONS_AUDIENCE,
 	PARTIES_REQUISES,
 } from './registres'
@@ -30,3 +31,4 @@ export { assemblerDetenteurs } from './detenteurs'
 export { assemblerRepliques } from './repliques'
 export { assemblerPlan } from './plan'
 export { assemblerRelations } from './relations'
+export { assemblerDistribution } from './distribution'

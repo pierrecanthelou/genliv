@@ -9,7 +9,7 @@ import {
 	type ReponseCopilote,
 } from '../../../brain'
 import { PanneauCopilote } from '../components/PanneauCopilote'
-import { CARD1_TITRE, CARD2_TITRE } from '../textes'
+import { CARD1_TITRE, CARD2_TITRE, CARD3_TITRE } from '../textes'
 
 /**
  * Le panneau Copilote — les trois Card (§ 3.2/4.9 du plan it2), les états
@@ -84,8 +84,8 @@ function choisirChamp(nom: string): void {
 
 beforeEach(() => window.localStorage.clear())
 
-describe('PanneauCopilote - trois Card', () => {
-	it('rend les trois Card ; seule la 3e (Eclater le synopsis) porte un Badge et aucun bouton Lancer', () => {
+describe('PanneauCopilote - six Card', () => {
+	it('rend les six Card, toutes ACTIVES depuis l iteration 4 : aucun Badge, aucun placeholder', () => {
 		const brain = createBrain()
 		const dossier = brain.dossiers.create('Un dossier')
 		renderPanel(brain, dossier.id)
@@ -95,10 +95,10 @@ describe('PanneauCopilote - trois Card', () => {
 		expect(screen.getByRole('region', { name: 'Compléter les relations' })).toBeInTheDocument()
 		expect(screen.getByRole('region', { name: 'Éclater le synopsis' })).toBeInTheDocument()
 		expect(screen.queryByText('Bientôt — itération 2')).toBeNull()
-		expect(screen.getByText('Bientôt — itération 4')).toBeInTheDocument()
-		// CINQ boutons "Lancer" désormais (cartes 1, 2, 4, 5, 6) ; la carte
-		// "Bientôt" n'en affiche aucun, grisé ou non.
-		expect(screen.getAllByRole('button', { name: 'Lancer' })).toHaveLength(5)
+		expect(screen.queryByText('Bientôt — itération 4')).toBeNull()
+		// SIX boutons "Lancer" désormais (cartes 1, 2, 3, 4, 5, 6) : plus aucune
+		// carte "Bientôt" sans bouton.
+		expect(screen.getAllByRole('button', { name: 'Lancer' })).toHaveLength(6)
 	})
 })
 
@@ -261,7 +261,7 @@ describe('PanneauCopilote - quatre textes discrimines (carte 1)', () => {
 })
 
 describe('PanneauCopilote - copilote non configure (critere neuf, § 3.2 point 5)', () => {
-	it('Lancer desactive avec TITRE_COPILOTE_NON_CONFIGURE sur les DEUX cartes', () => {
+	it('Lancer desactive avec TITRE_COPILOTE_NON_CONFIGURE sur les TROIS cartes', () => {
 		const brain = createBrain()
 		const dossier = brain.dossiers.create('Un dossier')
 		semerTon(brain, dossier.id, 'sec et mefiant')
@@ -274,9 +274,14 @@ describe('PanneauCopilote - copilote non configure (critere neuf, § 3.2 point 5
 		const lancerCarte2 = within(screen.getByRole('region', { name: CARD2_TITRE })).getByRole('button', {
 			name: 'Lancer',
 		})
+		const lancerCarte3 = within(screen.getByRole('region', { name: CARD3_TITRE })).getByRole('button', {
+			name: 'Lancer',
+		})
 		expect(lancerCarte1).toBeDisabled()
 		expect(lancerCarte1).toHaveAttribute('title', TITRE)
 		expect(lancerCarte2).toBeDisabled()
 		expect(lancerCarte2).toHaveAttribute('title', TITRE)
+		expect(lancerCarte3).toBeDisabled()
+		expect(lancerCarte3).toHaveAttribute('title', TITRE)
 	})
 })

@@ -180,6 +180,30 @@
    "mitigation": "Deux regles, portees au RETOUR-COMITE de la revue it3c. (1) Avant d'ecrire un SS << Signature exposee >>, LIRE LE BARIL et verifier que chaque symbole y a un precedent, ou nommer pourquoi il n'en a pas. (2) NE PAS LANCER LE LOT CONSOMMATEUR avant d'avoir lu le compte rendu du lot contrat : corriger un contrat entre les deux lots coute zero, apres ca coute un lot. L'argument << le lot 2 ne peut plus demander >> est FAUX tant qu'il n'a pas demarre.",
    "regression_test": "AUCUN, et c'est dit : l'invariant est une DOCTRINE DE FICHIER, pas une propriete executable -- un test qui enumererait les exports interdits serait un second domicile de la doctrine, qui deriverait au premier amendement (KR-109). Verifie par grep sur src/features et src/player : zero occurrence des quatre symboles, mesure trois fois.",
    "severity": "minor"
+  },
+  {
+   "id": "BUG-117",
+   "date": "2026-09-19",
+   "feature": "dossier-copilote",
+   "discovered_at": "iteration-4",
+   "symptom": "UN COMMENTAIRE DE BUDGET AFFIRMAIT L'ABSENCE DE COINCIDENCE EN CITANT UN CHIFFRE QUI N'EST PAS LE BUDGET POSE. contexte/registres.ts:425 ecrivait << 9000 ne vaut aucun des cinq budgets livres >> alors que la constante reellement posee, et la mesure ecrite DEUX LIGNES PLUS HAUT (M = 2560 => 8000), valent 8000. L'affirmation reste vraie pour 8000 -- c'est le NOMBRE qui est perime, reste d'un brouillon anterieur.",
+   "root_cause": "Le commentaire a ete redige avant que la mesure ne soit faite, puis la mesure a ete ecrite au-dessus sans que la phrase de non-coincidence ne soit relue. FAMILLE PREEXISTANTE, ET L'EMPLACEMENT EST L'AGGRAVANT : c'est la ligne meme que le plan d'iteration exige << mesuree, jamais deduite >>. Un relecteur qui la croit cherche d'ou vient 9000 et ne trouve rien -- exactement l'effet que la phrase existe pour empecher. Meme famille que BUG-110 (une mention gelee devenue fausse) : le code est juste, le texte ment.",
+   "fix": "Le chiffre du commentaire passe a 8000, aligne sur la mesure ecrite deux lignes plus haut et sur la constante.",
+   "mitigation": "AUCUNE GARDE AUTOMATIQUE, et c'est dit plutot que masque : un test qui comparerait le nombre cite dans un commentaire a la constante serait un balayage de source sur de la prose libre -- hors frontiere testable (KR-229), et il rougirait sur les commentaires qui citent LEGITIMEMENT les cinq autres budgets. La parade reste la relecture du couple mesure/affirmation quand l'une des deux est ecrite apres l'autre.",
+   "regression_test": "AUCUN, et c'est dit : le test de budget est DYNAMIQUE (il recalcule depuis la fixture et ne cable aucun chiffre en dur), donc il etait VERT et le restait -- c'est precisement pourquoi seul un oeil humain, ici la QA en mode B qui avait re-derive M=2560 par une sonde independante, pouvait voir l'ecart.",
+   "severity": "minor"
+  },
+  {
+   "id": "BUG-118",
+   "date": "2026-09-19",
+   "feature": "dossier-copilote",
+   "discovered_at": "iteration-4",
+   "symptom": "LES DEUX QUESTIONS OUVERTES DE FIN DE FEATURE PORTAIENT LES CHIFFRES D'AVANT LA MESURE, dans le canal PROSPECTIF que le proprietaire de la n10 lira. Elles annoncaient schemaSortie.ts a 638 l. avec une projection [728 ; 795] et << cinq lignes de marge au pire >> (mesure reelle : 799, marge UNE), et CopiloteService.ts en projection ~630 pour 574 mesurees (mesure reelle : 668). Un lecteur de la n10 aurait conclu qu'il disposait de cinq lignes et de soixante, alors qu'il en a UNE et CENT TRENTE-DEUX. Un troisieme constat, sur la meme tranche : un critere d'acceptation decrivait l'exception de registre inter-features comme << UNIQUE, BORNEE et NON RENOUVELABLE, refermee des l'it2 >> alors que l'it4 venait de la jouer une SECONDE fois.",
+   "root_cause": "LES VALEURS MESUREES AVAIENT BIEN ETE ECRITES -- mais dans deviations_from_plan et dans la revue, c'est-a-dire AU PASSE ET AU BON ENDROIT POUR UN LECTEUR DU DIFF, jamais dans le canal que lit celui qui HERITERA de la dette. Le << releve obligatoire >> dont dependait la ratification de la derogation etait donc ecrit au mauvais TEMPS et au mauvais ENDROIT. MEME CLASSE QUE BUG-117, logue le meme jour -- un chiffre perime a cote de sa mesure -- avec une consequence plus grande : BUG-117 trompait un relecteur, celui-ci trompe un HERITIER. Et la meme classe que BUG-110 : le code est juste, le texte ment.",
+   "fix": "Les deux open_questions reecrites AU PRESENT MESURE, avec leur condition d'ouverture reelle : schemaSortie.ts 799/800, la prochaine ligne declenche la scission pre-nommee ; CopiloteService.ts 668 l., le 6e role ayant coute +94, la marge vaut UN role et la condition devient << le 7e role, obligatoirement >>. Le critere d'acceptation amende : l'exception n'est pas non renouvelable, elle est CONDITIONNELLE, et sa condition est decidable (aucun etat vert intermediaire entre poser l'entree et repointer la fiche).",
+   "mitigation": "REGLE ECRITE DANS L'OPEN_QUESTION ELLE-MEME, et elle vient d'une arithmetique trouvee par le tech-lead en revue de PR : UNE CONDITION D'OUVERTURE S'ECRIT LA OU LA LIRA CELUI QUI LA DECLENCHERA -- au site quand le site peut la porter, DANS LA SPEC quand l'ecrire au site declencherait la condition. Ici une note de trois lignes dans schemaSortie.ts le porterait a 802 et DECLENCHERAIT LE BLOQUEUR QU'ELLE ANNONCE. Corollaire general : un report qui cite un chiffre le cite MESURE, jamais PROJETE, une fois la livraison faite.",
+   "regression_test": "AUCUN POSSIBLE, et c'est dit : comparer un chiffre cite dans une prose de spec a une mesure de fichier est un balayage sur du texte libre -- hors frontiere testable (KR-229), et il rougirait sur toutes les entrees qui citent LEGITIMEMENT une projection d'epoque. Trouve par la revue de PR tech-lead, qui est la seule porte du cycle a relire le canal prospectif contre les mesures livrees.",
+   "severity": "major"
   }
  ]
 }

@@ -32,8 +32,7 @@ export const CARD2_CORPS_ACTIF =
 	"Propose qui d'autre pourrait connaître un indice qui manque de détenteurs ou de sources."
 
 export const CARD3_TITRE = 'Éclater le synopsis'
-export const CARD3_BADGE = 'Bientôt — itération 4'
-export const CARD3_CORPS = "Proposera une distribution de personnages à partir du synopsis, de l'accroche et du ton."
+export const CARD3_CORPS = "Propose une distribution de personnages à partir du synopsis, de l'accroche et du ton."
 
 /** Les QUATRE textes de § 3.6 — jamais confondus. Les deux premiers sont des
  *  constantes fixes ; les deux derniers (refus de contexte) partagent
@@ -198,3 +197,35 @@ export const TEXTE_REFUS_AUCUN_CANDIDAT_RELATIONS =
 	"Ce dossier n'a pas d'autre personnage à lui lier — tous sont déjà liés, ou il est seul."
 export const TEXTE_REFUS_TROP_LONG_RELATIONS =
 	"Le contexte est trop long pour proposer des relations — raccourcissez d'abord les fiches de ce dossier."
+
+/**
+ * Les textes de la carte 3 « Éclater le synopsis » (itération 4 — § 3.4 du
+ * plan). SEUL ASSISTANT QUI CRÉE : `MENTION_PERSONNAGE_SANS_NOM` est une
+ * mention PERMANENTE, jamais conditionnelle à une acceptation — l'auteur doit
+ * le savoir AVANT d'accepter (même patron que `MENTION_RELATION_CREEE`,
+ * rendue en dehors de tout branchement de phase).
+ *
+ * `eyebrowPersonnagePropose(n)` est CALCULÉE PAR LA CARTE et rendue PAR LA
+ * LIGNE (`LigneFichePersonnage.eyebrow`) — même précédent que
+ * `eyebrowRelationProposee`, sauf qu'ici il n'y a qu'UN eyebrow par ligne, pas
+ * deux : ce rôle ne porte aucun jeton de désignation (§ 3.3 du plan).
+ *
+ * ⚠ ÉCART ASSUMÉ : `TEXTE_REFUS_TROP_LONG_DISTRIBUTION` n'est PAS nommé au
+ * § 3.4 du plan (qui ne couvre que `a-ecrire`, via `texteRefusAEcrire`, et
+ * retire explicitement tout texte dédié pour le synopsis manquant). Le motif
+ * `'trop-long'` reste pourtant un chemin RÉEL d'`assemblerDistribution`
+ * (§ 4.3), et `'cible-a-ecrire'`/`'aucun-candidat'` restent des membres du
+ * type `MotifRefusContexte` bien qu'inatteignables ici. Ce texte sert de
+ * repli aux TROIS, exactement comme `TEXTE_REFUS_TROP_LONG` le fait déjà pour
+ * `CarteCompleterFiche` sur ses propres motifs inatteignables — à confirmer
+ * ou remplacer par le comité, la revue de ce lot le signale nommément.
+ */
+export const TEXTE_REFUS_TROP_LONG_DISTRIBUTION =
+	"Le contexte est trop long pour proposer une distribution — raccourcissez d'abord le synopsis, dans Canon."
+
+export function eyebrowPersonnagePropose(n: number): string {
+	return `PERSONNAGE PROPOSÉ ${n}`
+}
+
+export const MENTION_PERSONNAGE_SANS_NOM =
+	"Un personnage accepté n'a pas encore de nom — donnez-lui-en un dans sa fiche (Personnages → Identité)."

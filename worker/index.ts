@@ -130,6 +130,7 @@ const GABARIT_SORTIE: Record<string, string> = {
 	'personnage-repliques': '{"repliques": ["…", "…"]}',
 	'personnage-plan': '{"intention": "…"}',
 	'personnage-relations': '{"rapports": [{"envers": "P1", "nature": "…"}, {"envers": "P3", "nature": "…"}]}',
+	'monde-distribution': '{"distribution": [{"place": "…", "poursuite": "…"}, {"place": "…", "poursuite": "…"}]}',
 }
 
 /**
@@ -399,6 +400,97 @@ export const INVITES: Record<string, { systeme: string; max_tokens: number }> = 
 		// n'est réparé, rien n'est persisté.
 		max_tokens: 700,
 	},
+	/**
+	 * LE SIXIÈME RÔLE — ET LE SEUL QUI FASSE NAÎTRE QUELQU'UN. Les cinq précédents
+	 * écrivent dans une entité qui existe ; celui-ci part du SYNOPSIS et propose des
+	 * personnes que l'histoire suppose. Sa sortie est une LISTE d'objets à DEUX PROSES,
+	 * sans le moindre jeton — rien, ici, ne désigne rien.
+	 *
+	 * CINQ DÉCISIONS D'ÉCRITURE, à ne pas « corriger » :
+	 *
+	 *  1. ⚠ LE PIÈGE DE RECOPIE, ET IL EST LE PLUS COÛTEUX DE L'ITÉRATION. La ligne de
+	 *     nommage de `personnage-relations` cite « celle qui tient la forge » comme
+	 *     désignation LÉGITIME. Recopiée ici, elle AUTORISERAIT LA PÉRIPHRASE PAR LA
+	 *     CHARGE — c'est-à-dire LA SEULE ERREUR DE RÉFÉRENCE QUE CE RÔLE PUISSE
+	 *     COMMETTRE, puisque la charge EST ce qu'il écrit. La ligne d'ici interdit donc
+	 *     NOMMÉMENT le nom, la charge ET la périphrase, et elle ne donne aucun exemple.
+	 *  2. ⚠ RUNNER-UP, ET IL TUERAIT LE RÔLE : la ligne de `indice-detenteurs` « Tu ne
+	 *     rédiges rien d'autre : ni nom, ni phrase, ni justification » emporterait LES
+	 *     DEUX CHAMPS QUI TRAVERSENT — un rôle qui NE PEUT JAMAIS RÉUSSIR, et RIEN NE
+	 *     ROUGIRAIT AU DÉPÔT : tous les tests de forme passeraient, seule la production
+	 *     le dirait. Sa jumelle (« une liste vide est une réponse juste ») produirait le
+	 *     même néant par l'autre bout, le validateur refusant ici la liste vide.
+	 *  3. « une INTENTION … ce qu'il entreprend ensuite » (`personnage-plan`) GÈLERAIT
+	 *     UNE ACTION DATABLE dans un champ que le moteur lit comme un VOULOIR PERMANENT.
+	 *     La queue « ce n'est jamais ce qu'elle s'apprête à faire ensuite » ferme la
+	 *     recopie SANS prononcer le mot « intention ».
+	 *  4. ⚠ LA LIGNE DU VISAGE RESTE, ET ELLE DEVIENT STRUCTURELLE : « ni son visage, ni
+	 *     sa voix, ni ce qui se raconte d'elle » bloque `apparence`, bloque
+	 *     `description_joueur`, et REFERME LE CANAL synopsis → prose publique. C'est une
+	 *     CEINTURE SUR UNE BRETELLE maintenant que le champ public est sorti de la
+	 *     SORTIE (KR-229 : la parade est la FORME) — et elle ne coûte rien.
+	 *  5. « trois au plus, et au moins une » figure EN PLUS du contrat, jamais À LA
+	 *     PLACE. `FICHES_PROPOSEES_MAX` est la FORME DE LA RÉPONSE ATTENDUE, même statut
+	 *     que `max_tokens` : l'invite persuade, le validateur décide. Le garde apparié de
+	 *     `worker/frontiere.test.ts` s'applique — le mot doit s'y trouver LITTÉRALEMENT,
+	 *     et aucune AUTRE borne en toutes lettres ne doit s'y trouver. « et au moins
+	 *     une » est la moitié SYMÉTRIQUE du prédicat de non-vacuité : sans elle, l'invite
+	 *     et le validateur se contrediraient.
+	 *
+	 * CE QU'ELLE N'A PAS LE DROIT DE RÉCITER : `FICHES_PROPOSEES_MAX` · `DEJA_ECRITS_MAX`
+	 * · toute AUTRE borne en toutes lettres · les noms de champs (`fonction`, `but`,
+	 * `libelle`, `portee`, `camp`, `objectif_id`, `plan_actions`, `savoirs`, `apparence`,
+	 * `description_joueur`) · ⚠ LE FAIT QUE LE CODE FRAPPE UN IDENTIFIANT — un modèle qui
+	 * le sait écrirait « le futur pnj.x » · la table d'audience · le langage de
+	 * conditions D1 · seuils, tiers, caractéristiques · LE MOT « TOUR ».
+	 * ⚠ LIMITE DU BALAYAGE, DÉCLARÉE ICI ET DANS LE TEST : le mot `nom` FIGURE
+	 * légitimement dans l'invite (« Tu ne donnes de nom à personne », « jamais le nom
+	 * d'un autre champ ») — c'est L'INTERDICTION elle-même. Un balayage dessus serait un
+	 * FAUX POSITIF MESURÉ (KR-235), et une garde qui apprend à modifier son témoin est
+	 * pire que pas de garde.
+	 */
+	'monde-distribution': {
+		systeme: [
+			"Tu assistes l'AUTEUR d'un livre-jeu qui cherche qui peuple son histoire.",
+			'À partir du contexte fourni, tu proposes des personnes que cette histoire-là suppose : ce que chacune est dans ce monde, et ce que chacune veut.',
+			'',
+			`Tu réponds par un objet JSON et rien d'autre, de la forme ${GABARIT_SORTIE['monde-distribution']} : aucune autre clé, aucun commentaire, aucun texte avant ou après.`,
+			'',
+			"Chaque PLACE dit ce que cette personne est parmi les autres — sa charge, son rang, ce qui la fait tenir là. Elle ne dit ni son visage, ni sa voix, ni ce qui se raconte d'elle.",
+			"Chaque POURSUITE dit ce que cette personne VEUT et tient à obtenir ; ce n'est jamais ce qu'elle s'apprête à faire ensuite, ni une phrase qu'elle prononce.",
+			"Tu en donnes trois au plus, et au moins une : une histoire suppose toujours quelqu'un.",
+			'Tu ne proposes personne que le contexte énumère déjà, et deux de tes propositions ne sont jamais la même personne.',
+			"Chaque proposition se tient SEULE : elle ne parle que d'une personne, et ne renvoie à aucune des autres que tu proposes — ni par un nom, ni par une charge, ni par une périphrase.",
+			"Tu ne donnes de nom à personne et tu n'en inventes aucun : celui qui te lit les nommera lui-même.",
+			'Ces textes serviront plus tard de consigne à qui fait vivre ces personnes ; ils ne seront jamais lus tels quels à un joueur.',
+			"Tu respectes le ton de l'aventure et ses interdits de ton.",
+			"Tu n'écris jamais d'identifiant, jamais de chiffre de caractéristique, jamais de seuil ni de règle de jeu, jamais le nom d'un autre champ.",
+		].join('\n'),
+		// DÉRIVÉ, jamais recopié — et ⚠ IL NE COÏNCIDE AVEC AUCUNE VALEUR LIVRÉE (200,
+		// 100, 400, 200, 700), comme la CINQUIÈME entrée : il faut le DIRE, sinon un
+		// relecteur cherchera de quelle autre valeur il a été tiré.
+		// MESURE DU 2026-09-19, RE-COMPTÉE PROGRAMMATIQUEMENT, DEUX SOURCES INDÉPENDANTES
+		// POUR CHACUNE DES DEUX PROSES — c'est le premier rôle dont un ÉLÉMENT porte deux
+		// proses, donc `P` est une SOMME et non un maximum :
+		//   `place`     ← la plus longue `fonction` attestée : `dossier-reference.json`
+		//                 (`pnj.corvin-le-marchand`) = 140 ; `dossier-minimal.json`
+		//                 (`pnj.aldur-le-sage`) = 132. P_place = 140.
+		//   `poursuite` ← la plus longue `but.libelle` attestée :
+		//                 `dossier-reference.json` (`pnj.selene-la-vigie`) = 88 ;
+		//                 `dossier-minimal.json` (`pnj.aldur-le-sage`) = 75.
+		//                 P_poursuite = 88.
+		// Enveloppe sur TROIS éléments : 114 octets sous la forme ESPACÉE du gabarit,
+		// 102 sous la forme compacte que produit un modèle.
+		// L = 3 × (140 + 88) + 114 = 798 ; jetons = L/r × 3, arrondi à la centaine
+		// supérieure — r=3 ⇒ 798 ⇒ 800, r=2 (PIRE) ⇒ 1197 ⇒ 1200.
+		// ⚠ LE RÉSULTAT DÉPEND DU RATIO (800 contre 1200) : on prend le pire, ET ON LE
+		// DIT. Il ne dépend EN REVANCHE PAS de la forme d'enveloppe : la variante compacte
+		// donne L = 786 ⇒ 1179 ⇒ 1200, le même palier.
+		// MODE D'ÉCHEC NOMMÉ : trois fiches très longues feraient TRONQUER le JSON ⇒ refus
+		// `schema` côté client ⇒ rejeu ⇒ état terminal. C'est le BON échec — rien n'est
+		// réparé, rien n'est persisté.
+		max_tokens: 1200,
+	},
 }
 
 /**
@@ -470,9 +562,20 @@ export const INVITES: Record<string, { systeme: string; max_tokens: number }> = 
  * dérive du PIRE CAS EN OCTETS — la grandeur que ce plafond borne réellement, et la
  * seule sur laquelle les deux canaris de séparation puissent dire quelque chose.
  *
+ * MESURE DU 2026-09-19, itération 4 — LES SIX RÔLES RE-DÉRIVÉS, et ⚠ « INCHANGÉ » EST
+ * UNE MESURE, PAS UN DÉFAUT DE RELEVÉ :
+ *   `monde-distribution` — squelette 43 o + invite 1599 o ⇒ E = 1642 ;
+ *                          ceil((3 × 8000 + 1642) / 1024) × 1024 = 26 624
+ *   `max` sur les SIX rôles = 53 248, TOUJOURS porté par `personnage-relations`.
+ * Relevé des six plafonds propres : 19 456 · 52 224 · 13 312 · 14 336 · 53 248 · 26 624.
+ * POURQUOI LE RÔLE NEUF NE DÉPLACE PAS LE `max`, alors qu'il porte l'invite la DEUXIÈME
+ * plus longue des six (1599 o) : son budget client est de 8000, soit moins de la moitié
+ * des 17 000 du rôle qui sature — et c'est `3 × budget` qui domine largement `E`. Le
+ * plafond reste donc là où 3c l'a posé, et c'est un CONSTAT, pas une reconduction.
+ *
  * CE PLAFOND N'EST PAS UN CLIQUET : c'est une borne de refus, re-dérivée par la
  * même formule sur une nouvelle mesure chaque fois que le contexte s'élargit. « Il n'a
- * pas bougé » a été une MESURE à 3a et à 3b ; « il bouge » en est une ici.
+ * pas bougé » a été une MESURE à 3a, à 3b et ici ; « il bouge » en a été une à 3c.
  */
 export const TAILLE_MAX_CORPS_IA = 53_248
 

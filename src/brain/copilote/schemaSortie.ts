@@ -13,6 +13,8 @@ import { ESPACES_DE_NOMS, collectIds } from '../dossier/identifiers'
 import type { Dossier } from '../dossier/types'
 import type {
 	DetenteursRendus,
+	DistributionRendue,
+	FicheReseau,
 	IntentionRendue,
 	PropositionRendue,
 	RangInjecte,
@@ -98,6 +100,24 @@ const CLES_RAPPORT = ['envers', 'nature'] as const
  *  la borne contraint la PROPOSITION, jamais ce que l'auteur peut écrire à la main. */
 export const RELATIONS_PROPOSEES_MAX = 3
 
+/** L'équivalent pour le rôle `monde-distribution`. SIX registres LITTÉRAUX, et toujours
+ *  pas un registre paramétré (§ 8, n° 25, 6ᵉ refus) : le rôle prose n'a pas de liste.
+ *  ⚠ `distribution`, et JAMAIS `personnages` — NOM DE LA COLLECTION, donc nommer le
+ *  champ (veto 3b) — ni `fiches`, mot d'écran. C'est LE MOT DE LA DÉMO. */
+export const CLES_SORTIE_DISTRIBUTION = ['distribution'] as const
+
+/** Les DEUX clés d'un ÉLÉMENT de `distribution` — SECOND niveau de schéma, le deuxième
+ *  du dépôt après `CLES_RAPPORT`. Le validateur en est PILOTÉ : une seule source.
+ *  NON exportée — son seul consommateur est le validateur ci-dessous. */
+const CLES_FICHE = ['place', 'poursuite'] as const
+
+/** LA BORNE DE SORTIE du rôle `monde-distribution`. Même statut que `max_tokens` : ni
+ *  règle du jeu ni règle du dossier, c'est la FORME DE LA RÉPONSE ATTENDUE.
+ *  ⚠ NON PARTAGÉE avec les trois autres bornes (§ 8, n° 42, 7ᵉ refus) : même valeur
+ *  aujourd'hui, aucune raison commune d'évoluer. ⚠ ELLE NE BORNE PAS LE DOCUMENT —
+ *  `monde.personnages[]` n'a aucun plafond de schéma. */
+export const FICHES_PROPOSEES_MAX = 3
+
 /** ⚠ AUCUNE CONSTANTE DE BORNE POUR LE RÔLE PLAN, et c'est délibéré — ne pas en ajouter
  *  une « par symétrie » avec `PROPOSITIONS_MAX` / `REPLIQUES_PROPOSEES_MAX`.
  *  La sortie est SCALAIRE : « deux » est NON REPRÉSENTABLE. Une liste bornée à un
@@ -132,6 +152,7 @@ export const GABARIT_SORTIE: Record<RoleCopilote, string> = {
 	'personnage-repliques': '{"repliques": ["…", "…"]}',
 	'personnage-plan': '{"intention": "…"}',
 	'personnage-relations': '{"rapports": [{"envers": "P1", "nature": "…"}, {"envers": "P3", "nature": "…"}]}',
+	'monde-distribution': '{"distribution": [{"place": "…", "poursuite": "…"}, {"place": "…", "poursuite": "…"}]}',
 }
 
 /** CINQ motifs, un par prédicat qui peut échouer — l'écran ne rend qu'UN texte
@@ -203,6 +224,17 @@ function estRapportBrut(element: unknown): element is Record<string, unknown> {
 	if (!estObjetSimple(element)) return false
 	const cles = Object.keys(element)
 	return cles.length === CLES_RAPPORT.length && CLES_RAPPORT.every((cle) => cles.includes(cle))
+}
+
+/** Un ÉLÉMENT de `distribution` : objet simple dont les clés valent EXACTEMENT
+ *  `CLES_FICHE`. PRIMITIVE PARTAGÉE avec le premier niveau (`estObjetSimple`), jamais
+ *  un corps paramétré par le rôle. Elle porte les prédicats (4) ET (12) : `cles.length`
+ *  refuse la clé EN TROP — signal KR-236 au second niveau — et `every(includes)` la clé
+ *  MANQUANTE ; les deux moitiés se prouvent séparément. */
+function estFicheBrute(element: unknown): element is Record<string, unknown> {
+	if (!estObjetSimple(element)) return false
+	const cles = Object.keys(element)
+	return cles.length === CLES_FICHE.length && CLES_FICHE.every((cle) => cles.includes(cle))
 }
 
 /**
@@ -635,4 +667,133 @@ export function validerRelations(
 	if (!designes.every((envers) => rangsConnus.has(envers))) return { ok: false, motif: 'rang-inconnu' }
 
 	return { ok: true, sortie: { rapports } }
+}
+
+/**
+ * LES PRÉDICATS DE FORME de la sortie `monde-distribution` — LE PREMIER RÔLE DE
+ * CRÉATION : chaque élément est une FICHE ENTIÈRE, deux proses libres dans le même
+ * objet, dont l'acceptation fera NAÎTRE une entité. Deux niveaux de schéma comme au
+ * rôle relations, mais AUCUN jeton : rien ne désigne rien.
+ *
+ * ⚠ QUATRE MOTIFS ATTEIGNABLES, PAS CINQ — le type de retour ne nomme que ce qui peut
+ * sortir. `'rang-inconnu'` est SANS OBJET (aucun jeton, aucune table d'appartenance) et
+ * l'écrire « par symétrie » avec le rôle relations serait du code mort présenté comme
+ * de la couverture (famille BUG-084, KR-235). `MotifIllisible` reste INCHANGÉE, et ce
+ * sixième validateur NE LA NOMME PAS EN ENTIER : le cinquième reste le seul à le faire.
+ *
+ * ⚠ LA RÈGLE DE TRANCHAGE DU VIDE, ET IL N'Y A PAS DE TROISIÈME CAS. Critère unique :
+ * LA LISTE VIDE PORTE-T-ELLE UNE INFORMATION QUE LE CODE N'A PAS ? DÉSIGNATION — le
+ * code a fourni l'ensemble, « aucun ne convient » est UNE RÉPONSE ⇒ SUCCÈS. RÉDACTION —
+ * « je n'ai rien écrit » est une NON-EXÉCUTION, le code savait déjà qu'il n'y avait
+ * rien ⇒ REFUS. CRÉATION (ici) — ⚠ IL N'EXISTE AUCUN ENSEMBLE DE CANDIDATS À ÉPUISER,
+ * motif même pour lequel `'aucun-candidat'` est écarté de ce rôle : SANS ENSEMBLE, LA
+ * VACUITÉ NE PEUT RIEN SIGNIFIER ⇒ REFUS `'vide'`. Le troisième cas ne se referme pas
+ * par convention, IL N'A PAS D'INSTANCE. Sa moitié SYMÉTRIQUE est la ligne d'invite
+ * « trois au plus, et au moins une » : qui renverserait ce prédicat devrait la faire
+ * tomber dans le même lot.
+ *
+ * LES DOUZE PRÉDICATS, dans l'ordre, chacun prouvable SEUL :
+ *   (1) objet simple (ni tableau, ni null) ...................... 'schema'
+ *   (2) clés = EXACTEMENT `CLES_SORTIE_DISTRIBUTION` ............ 'schema'
+ *   (3) `Array.isArray(brut.distribution)` ..................... 'schema'
+ *   (4) chaque élément est un objet simple à deux clés .......... 'schema'
+ *   (5) les DEUX valeurs sont des CHAÎNES — un tableau meurt
+ *       ici, et JAMAIS `[0]`, JAMAIS `String(…)` ............... 'schema'
+ *   (6) longueur ≤ `FICHES_PROPOSEES_MAX` — REFUS, jamais une
+ *       troncature (KR-230) .................................... 'schema'
+ *   (7) longueur ≥ 1 ............................................. 'vide'
+ *   (8) les DEUX proses non vides après `trim()` ................. 'vide'
+ *   (9) éléments DISTINCTS SUR LE COUPLE ....................... 'schema'
+ *  (10) aucun `MARQUEUR_A_ECRIRE` sur les DEUX (KR-223) ....... 'marqueur'
+ *  (11) aucun identifiant, par élément ET par champ ....... 'identifiant'
+ *  (12) aucune clé EN TROP au SECOND niveau — KR-236 .......... 'schema'
+ * (4) et (12) sont les deux moitiés de `estFicheBrute`, prouvées séparément.
+ *
+ * ⚠ LE PRÉDICAT (9) EST NEUF ET NE SE SYMÉTRISE PAS : il porte sur LE COUPLE, jamais
+ * sur une seule clé. DEUX GARDES PARTAGENT LÉGITIMEMENT UNE `place`, deux prétendants
+ * une `poursuite` — seul le COUPLE identique est du REMPLISSAGE, et un prédicat sur une
+ * seule clé REFUSERAIT UNE RÉPONSE JUSTE. D'où ses TROIS témoins : couple identique ⇒
+ * rejet ; même `place`, `poursuite` différente ⇒ accepté ; l'inverse ⇒ accepté. Le
+ * `trim()` suit le prédicat de doublon du rôle répliques — deux proses ne diffèrent pas
+ * par un blanc de bord.
+ *
+ * ⚠ SCANNER PAR ÉLÉMENT ET PAR CHAMP, REFUS PAR LOT, JAMAIS de `join` avant le scan :
+ * deux fragments logés dans deux champs DISTINCTS ne forment pas un identifiant, et
+ * joindre DÉTRUIT LA LOCALISATION en fabriquant un faux positif à la frontière. REFUS
+ * DU LOT ENTIER sur un seul élément fautif : repêcher les fiches valides ferait RATIFIER
+ * UNE DISTRIBUTION AMPUTÉE SANS QUE L'AUTEUR LE SACHE (KR-230), et accepter `place` en
+ * jetant `poursuite` ferait naître une entité à moitié inventée PAR LE CODE — LA FICHE
+ * EST INDIVISIBLE, du validateur jusqu'à l'écran. ⚠ ET CE QU'AUCUN PRÉDICAT NE
+ * CONSTATE, écrit plutôt que tu : qu'une `poursuite` renvoie à une AUTRE proposition du
+ * même lot, et qu'une fiche redise un personnage déjà écrit au-delà de la borne de
+ * contexte — hors frontière testable (KR-229), l'écran ne promet rien de tel. */
+export function validerDistribution(
+	brut: unknown,
+	dossier: Dossier,
+): { ok: true; sortie: DistributionRendue } | { ok: false; motif: 'schema' | 'vide' | 'marqueur' | 'identifiant' } {
+	// (1) un objet JSON — ni tableau, ni `null`.
+	if (!estObjetSimple(brut)) return { ok: false, motif: 'schema' }
+
+	// (2) l'ensemble des clés vaut EXACTEMENT `CLES_SORTIE_DISTRIBUTION`.
+	const cles = Object.keys(brut)
+	if (cles.length !== CLES_SORTIE_DISTRIBUTION.length || !CLES_SORTIE_DISTRIBUTION.every((cle) => cles.includes(cle))) {
+		return { ok: false, motif: 'schema' }
+	}
+
+	// (3) la clé du schéma porte un TABLEAU — piloté par `CLES_SORTIE_DISTRIBUTION`.
+	const rendues: unknown = brut[CLES_SORTIE_DISTRIBUTION[0]]
+	if (!Array.isArray(rendues)) return { ok: false, motif: 'schema' }
+	const elements: unknown[] = rendues
+
+	// (4) et (12) — chaque élément est un objet simple dont les clés valent EXACTEMENT
+	//     `CLES_FICHE`. Une chaîne nue, un `null`, un tableau meurent par (4) ; une clé
+	//     EN TROP meurt par (12), qui est le SECOND niveau du signal KR-236.
+	if (!elements.every(estFicheBrute)) return { ok: false, motif: 'schema' }
+
+	// (5) les DEUX valeurs sont des CHAÎNES — piloté par `CLES_FICHE`. Un TABLEAU meurt
+	//     ici, et JAMAIS `[0]`, JAMAIS `String(…)`.
+	if (!elements.every((element) => CLES_FICHE.every((cle) => typeof element[cle] === 'string'))) {
+		return { ok: false, motif: 'schema' }
+	}
+	const fiches: FicheReseau[] = elements.map((element) => ({
+		place: element[CLES_FICHE[0]] as string,
+		poursuite: element[CLES_FICHE[1]] as string,
+	}))
+
+	// (6) la BORNE DE SORTIE — un REFUS, jamais une troncature (KR-230).
+	if (fiches.length > FICHES_PROPOSEES_MAX) return { ok: false, motif: 'schema' }
+
+	// (7) la liste vide est une NON-RÉPONSE — voir la règle de tranchage en tête de
+	//     fonction : en CRÉATION il n'existe aucun ensemble de candidats à épuiser.
+	if (fiches.length === 0) return { ok: false, motif: 'vide' }
+
+	// (8) les DEUX proses de CHAQUE élément sont non vides après `trim()`. PAR ÉLÉMENT
+	//     ET PAR CHAMP : un blanc en `poursuite` de l'élément 2 est aussi fautif qu'un
+	//     blanc en `place` de l'élément 0.
+	if (fiches.some((fiche) => fiche.place.trim().length === 0 || fiche.poursuite.trim().length === 0)) {
+		return { ok: false, motif: 'vide' }
+	}
+
+	// (9) éléments DISTINCTS SUR LE COUPLE, jamais sur une seule clé : deux gardes
+	//     partagent légitimement une `place`, deux prétendants une `poursuite` — seul le
+	//     COUPLE identique est du remplissage.
+	const couples = fiches.map((fiche) => JSON.stringify([fiche.place.trim(), fiche.poursuite.trim()]))
+	if (new Set(couples).size !== couples.length) return { ok: false, motif: 'schema' }
+
+	// (10) aucun marqueur d'amorce, SUR LES DEUX PROSES — constante IMPORTÉE, jamais
+	//      recopiée (KR-223).
+	if (fiches.some((fiche) => fiche.place.includes(MARQUEUR_A_ECRIRE) || fiche.poursuite.includes(MARQUEUR_A_ECRIRE))) {
+		return { ok: false, motif: 'marqueur' }
+	}
+
+	// (11) aucun identifiant du dossier, PAR ÉLÉMENT ET PAR CHAMP — JAMAIS sur un
+	//      `join`, qui détruirait la localisation et fabriquerait un faux positif à la
+	//      frontière de deux textes.
+	if (
+		fiches.some((fiche) => porteUnIdentifiant(fiche.place, dossier) || porteUnIdentifiant(fiche.poursuite, dossier))
+	) {
+		return { ok: false, motif: 'identifiant' }
+	}
+
+	return { ok: true, sortie: { distribution: fiches } }
 }
