@@ -1,0 +1,9 @@
+# Tour 1 — pm-produit — `dossier-canon` it5 (tranche B1, `lieux[].acces`)
+
+**RISQUE** — Le vrai risque n'est pas le champ `acces` lui-même (forme déjà tranchée, précédent `mene_a[]` mesuré et réel — vérifié : `FicheIndice.tsx` + KR-212/KR-213 dans `dossier-registres/specification.json`) : c'est le rider `validate.ts` qui vient s'y agripper. Le cadrage le présente comme « point ouvert soumis au comité », mais le roadmap § 2 bis (dette à déclencheur, ligne « Rider `validate.ts` ») l'a déjà écrit comme réglé — « déclencheur armé : donc B1 ». Ces deux textes se contredisent, et si le comité tranche par défaut du côté « on est déjà dedans », l'itération dérive d'une phrase de démo (« relier ses lieux ») vers deux réparations orthogonales (accès + lisibilité des anomalies existantes).
+
+**OBJECTION** — La définition telle qu'écrite ne dit pas si le rider est dedans. Le goal reformulé « à la fin, l'auteur peut relier ses lieux les uns aux autres » n'a besoin, pour être vrai et démontrable, que d'anomalies *neuves* (auto-référence, cible pendante sur `acces`) correctement outillées — pas de la réparation des 4 sites d'avertissement préexistants ni de `designerSavoir`. Ces deux correctifs ne servent aucun critère observable de cette itération.
+
+**PROPOSITION** — Le lot contrat construit les nouvelles anomalies d'`acces` avec `entityId` dès l'écriture (coût marginal nul, pas de dette ajoutée). Le rider — les 4 sites existants + `designerSavoir` — reste hors périmètre de B1, réputé non résolu, reporté à son propre lot déclenché plus tard. Rien d'autre ne bouge : contrat (`types.ts`, `destinations.ts`, `validate.ts`, tests) puis feature (`FicheLieu.tsx`, `PanneauLieux.tsx`), 2 lots, motif identique à it3/it4.
+
+**VERDICT** — recevable sous réserve (rider exclu explicitement du lot contrat).

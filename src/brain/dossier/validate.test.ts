@@ -1883,6 +1883,9 @@ describe('validateDossier', () => {
 		'monde.personnages[].caractere.parler': (doc, valeur) => {
 			caractere(doc).parler = valeur
 		},
+		'monde.lieux[].acces': (doc, valeur) => {
+			arr(obj(doc.monde).lieux)[0].acces = valeur
+		},
 	}
 
 	it('les listes optionnelles textuelles ont toutes leur poseur, aucune de plus', () => {
@@ -3125,6 +3128,17 @@ describe('validateDossier, les references simples', () => {
 			chemin: 'monde.quetes[0].donneur_id',
 			location: 'Quête « Retrouver la clef de basalte »',
 		},
+		// LA DIXIÈME (itération 5 de la n° 3) — LA TOPOLOGIE, et la SECONDE dont la
+		// feuille est un élément de liste. Le OÙ est le lieu PORTEUR de l'accès, jamais
+		// le lieu visé : c'est sur sa fiche que l'auteur doit aller corriger, exactement
+		// comme `relations[].cible_id` nomme le porteur de la relation.
+		'monde.lieux[].acces[]': {
+			poser: (doc, id) => {
+				arr(obj(doc.monde).lieux)[0].acces = [id]
+			},
+			chemin: 'monde.lieux[0].acces[0]',
+			location: 'Lieu « Val-Cendre »',
+		},
 	}
 
 	it('depart.lieu_id reste signale quand monde.lieux est une racine ABSENTE', () => {
@@ -3375,6 +3389,146 @@ describe('validateDossier, les references simples', () => {
 		expect(anomalie?.code).toBe('identifiant-invalide')
 		expect(anomalie?.message).toContain('« Indice »')
 		expect(codes(resultat.errors)).not.toContain('reference-pendante')
+	})
+
+	/** L'accès à la LISTE des accès du premier lieu — nommé une fois, comme `meneA`. */
+	const accesDuPremierLieu = (doc: Doc): unknown[] => arr(obj(doc.monde).lieux)[0].acces as unknown[]
+
+	it('acces ne cree JAMAIS l inverse, sur deux lieux DISTINCTS', () => {
+		// CRITÈRE #1 de l'itération 5 de la n° 3, KR-013. L'arête est ORIENTÉE : écrire
+		// A → B ne touche PAS `B.acces`, et un passage réciproque coûte DEUX entrées.
+		//
+		// DEUX LIEUX DISTINCTS, et c'est la moitié qui fait le test : sur un lieu seul,
+		// « l'inverse n'a pas été écrit » et « l'écriture a eu lieu au bon endroit »
+		// seraient indiscernables — le témoin épinglerait une coïncidence, pas la règle.
+		// La fixture minimale n'en porte qu'un : le second est ajouté ICI, au document
+		// en mémoire, jamais au fichier.
+		const doc = fixture()
+		const lieux = arr(obj(doc.monde).lieux)
+		lieux.push({ id: 'lieu.gouffre-scelle', nom: 'Le Gouffre scellé' })
+		expect(lieux.map((l) => l.id)).toEqual(['lieu.val-cendre', 'lieu.gouffre-scelle'])
+
+		lieux[0].acces = ['lieu.gouffre-scelle']
+
+		const resultat = validateDossier(doc)
+		const geles = resultat.dossier?.monde.lieux
+
+		expect(resultat.ok).toBe(true)
+		expect(resultat.errors.filter((e) => e.path.startsWith('monde.lieux'))).toEqual([])
+		expect(geles?.[0].acces).toEqual(['lieu.gouffre-scelle'])
+		// L'INVERSE N'EXISTE NULLE PART : ni stocké, ni DÉRIVÉ au gel. La clé est
+		// ABSENTE du lieu cible, pas seulement vide — un `[]` fabriqué par une
+		// dérivation serait déjà une seconde source de vérité sur la topologie, et
+		// `acces` cesserait d'être orienté sans que rien ne le dise.
+		expect(geles?.[1].acces).toBeUndefined()
+		expect(Object.keys(geles?.[1] ?? {})).toEqual(['id', 'nom'])
+	})
+
+	it('un lieu peut s acceder LUI-MEME : aucune anomalie', () => {
+		// CRITÈRE #3, KR-194, épinglé au SSOT — même doctrine que `mene_a` juste
+		// au-dessus et que `relations[].cible_id` : l'espace visé est `lieu`, donc le
+		// porteur y résout comme n'importe quel autre lieu. C'est la moitié CONTRAT de
+		// l'arbitrage du raffinage ; l'autre (la self-exclusion de la ligne d'AJOUT) est
+		// une règle d'ÉCRAN, et elle ne doit RIEN changer ici.
+		//
+		// LA FIXTURE MINIMALE PORTE DÉJÀ CETTE ARÊTE, et il faut le savoir en lisant ce
+		// test : elle n'a qu'UN lieu, et trois gardes exigent une instance d'`acces`
+		// là — `couverture.test.ts` (« aucune ligne morte dans DESTINATION_DES_CHAMPS »
+		// et « tout chemin de table a une instance dans la fixture ») et
+		// `suffisance.test.ts` (« aucune cle en trop face a dossier-minimal »). L'unique
+		// instance possible y est donc RÉFLEXIVE. L'écriture ci-dessous restate cette
+		// valeur plutôt qu'elle ne la change ; ce que le test épingle reste entier — une
+		// garde d'auto-référence ajoutée au SSOT le ferait rougir.
+		const doc = fixture()
+		expect(arr(obj(doc.monde).lieux)[0].acces).toEqual(['lieu.val-cendre'])
+		arr(obj(doc.monde).lieux)[0].acces = ['lieu.val-cendre']
+
+		const resultat = validateDossier(doc)
+
+		expect(resultat.errors.filter((e) => e.path.startsWith('monde.lieux[0].acces'))).toEqual([])
+		expect(resultat.ok).toBe(true)
+		expect(resultat.dossier?.monde.lieux[0].acces).toEqual(['lieu.val-cendre'])
+	})
+
+	it('une chaine VIDE dans acces est refusee, jamais une reference calme', () => {
+		// CRITÈRE #4 — il exerce la borne `!reference.path.endsWith('[]')` de
+		// `validate.ts` : l'exemption « chaîne vide = calme » vaut pour un champ
+		// SCALAIRE optionnel (`objectif_id`), où `''` est ce qu'écrit un « aucun » de
+		// sélecteur. Sur un ÉLÉMENT DE LISTE, la PRÉSENCE même de l'élément signale une
+		// référence — un `acces: ['']` n'est pas « aucun passage », c'est une entrée
+		// corrompue, et `avecOrpheline()` rend la liste d'options INCHANGÉE sur une
+		// valeur vide : le `<select>` de la fiche y résoudrait au premier lieu venu, à
+		// l'insu de l'auteur.
+		const doc = fixture()
+		arr(obj(doc.monde).lieux)[0].acces = ['']
+
+		const resultat = validateDossier(doc)
+		const surLElement = resultat.errors.find((e) => e.path === 'monde.lieux[0].acces[0]')
+
+		expect(resultat.ok).toBe(false)
+		expect(surLElement?.code).toBe('identifiant-invalide')
+		// Le OÙ est le LIEU porteur, résolu par son nom, jamais le repli de la table.
+		expect(surLElement?.location).toBe('Lieu « Val-Cendre »')
+	})
+
+	it('acces orphelin isole au bon rang, sans toucher le voisin qui resout', () => {
+		// DISCRIMINANCE (KR-197/199/202), sur la MÊME liste : une cible qui résout ET
+		// une cible qui ne résout pas. Sans la première, une boucle qui signalerait TOUS
+		// les éléments resterait verte ; sans la seconde, le rang ne serait jamais
+		// éprouvé. C'est ce que la boucle générique de `REFERENCES_SIMPLES` ne peut pas
+		// dire — elle ne pose qu'un élément.
+		const doc = fixture()
+		arr(obj(doc.monde).lieux)[0].acces = ['lieu.val-cendre', 'lieu.nulle-part']
+
+		const resultat = validateDossier(doc)
+		const surLaListe = resultat.errors.filter((e) => e.path.startsWith('monde.lieux[0].acces'))
+
+		expect(resultat.ok).toBe(false)
+		expect(surLaListe.map((e) => `${e.code} → ${e.path} — ${e.location}`)).toEqual([
+			'reference-pendante → monde.lieux[0].acces[1] — Lieu « Val-Cendre »',
+		])
+		expect(surLaListe[0].entityId).toBe('lieu.nulle-part')
+		expect(accesDuPremierLieu(doc)).toHaveLength(2)
+	})
+
+	it('le dossier de reference ENRICHI de 3 acces reste accepte, et une seule corruption remonte', () => {
+		// CRITÈRE #5, MÊME FORME que le test jumeau de `mene_a` plus bas et pour la même
+		// raison (BUG-072) : « le dossier enrichi reste accepté sans régression » et
+		// « une entrée fautive est refusée » ne valent que prouvées ENSEMBLE, sur le
+		// MÊME document et dans le MÊME résultat.
+		//
+		// LES TROIS ENTRÉES SONT NOMMÉES, et le compte n'est pas décoratif : DEUX
+		// d'entre elles ne font qu'UN passage réciproque (Foyer ↔ marché), la TROISIÈME
+		// est un aller simple (Foyer → tour) dont la tour ne porte AUCUN inverse. C'est
+		// ce que la fixture doit rendre visible — la réciprocité coûte deux entrées.
+		const doc = JSON.parse(fs.readFileSync(CHEMIN_REFERENCE, 'utf8')) as Doc
+		const lieux = arr(obj(doc.monde).lieux)
+		expect(lieux.map((lieu) => `${lieu.id} → ${JSON.stringify(lieu.acces ?? null)}`)).toEqual([
+			'lieu.foyer-du-guet → ["lieu.marche-des-cendres","lieu.tour-effondree"]',
+			'lieu.marche-des-cendres → ["lieu.foyer-du-guet"]',
+			'lieu.tour-effondree → null',
+			'lieu.crypte-scellee → null',
+			'lieu.vigie-du-nord → null',
+		])
+
+		const intact = validateDossier(JSON.parse(fs.readFileSync(CHEMIN_REFERENCE, 'utf8')))
+
+		expect(intact.errors.map((e) => `${e.code} → ${e.path} — ${e.location}`)).toEqual([])
+		expect(intact.warnings.map((e) => `${e.code} → ${e.path} — ${e.location}`)).toEqual([])
+		expect(intact.ok).toBe(true)
+
+		// Discriminant : la SECONDE entrée du premier lieu, corrompue, remonte SEULE et
+		// au bon rang. Sans elle, une référence que le validateur ne traverserait pas
+		// satisferait l'assertion ci-dessus par simple silence.
+		;(lieux[0].acces as string[])[1] = 'lieu.nulle-part'
+
+		const resultat = validateDossier(doc)
+
+		expect(resultat.ok).toBe(false)
+		expect(resultat.errors.map((e) => `${e.code} → ${e.path} — ${e.location}`)).toEqual([
+			'reference-pendante → monde.lieux[0].acces[1] — Lieu « Le Foyer du Guet »',
+		])
+		expect(resultat.warnings).toEqual([])
 	})
 
 	it('objectif_id et apres_indice_id : la chaine VIDE reste calme, la NON-CHAINE devient bloquante', () => {

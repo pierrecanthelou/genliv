@@ -255,9 +255,10 @@
 				"nom": "Le Foyer du Guet",
 				"description": "Le village serré autour de son beffroi éteint : un marché de cendres, une forge, la maison de la guérisseuse, et la route du nord qui monte vers la tour.",
 				"ambiance": "On y parle bas du feu de la tour, et personne ne lève les yeux vers le beffroi.",
-				"dangers": "Rien n'y menace le corps : Corvin surveille les allées et venues et monnaie ce qu'il apprend."
+				"dangers": "Rien n'y menace le corps : Corvin surveille les allées et venues et monnaie ce qu'il apprend.",
+				"acces": ["lieu.marche-des-cendres", "lieu.tour-effondree"]
 			},
-			{ "id": "lieu.marche-des-cendres", "nom": "Le marché des cendres" },
+			{ "id": "lieu.marche-des-cendres", "nom": "Le marché des cendres", "acces": ["lieu.foyer-du-guet"] },
 			{
 				"id": "lieu.tour-effondree",
 				"nom": "La tour effondrée",

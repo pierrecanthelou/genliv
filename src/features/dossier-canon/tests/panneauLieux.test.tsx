@@ -1,7 +1,10 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import fs from 'fs'
+import path from 'path'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createBrain, BrainProvider, type Brain, type Dossier, type Lieu } from '../../../brain'
 import { PanneauLieux } from '../components/PanneauLieux'
+import { FicheLieu, type BrouillonLieu } from '../components/FicheLieu'
 
 /**
  * L'écran Lieux — liste `ListRow` à gauche, fiche à droite (§3 du plan
@@ -33,6 +36,20 @@ function semerLieu(brain: Brain, dossierId: string, lieu: Lieu): Dossier {
 		charpente: d.charpente,
 	}))
 	if (ecriture.statut !== 'ecrit') throw new Error(`Seed refuse par le validateur : ${ecriture.statut}`)
+	return ecriture.dossier
+}
+
+/**
+ * Écrit `acces` sur un lieu DÉJÀ SEMÉ, par le CHEMIN PUBLIC (`dossiers.update()`) —
+ * même doctrine que `semerLieu` : jamais un `persistence.set` derrière le service.
+ */
+function ecrireAcces(brain: Brain, dossierId: string, lieuId: string, acces: string[]): Dossier {
+	const ecriture = brain.dossiers.update(dossierId, (d) => ({
+		canon: d.canon,
+		monde: { ...d.monde, lieux: d.monde.lieux.map((l) => (l.id === lieuId ? { ...l, acces } : l)) },
+		charpente: d.charpente,
+	}))
+	if (ecriture.statut !== 'ecrit') throw new Error(`Ecriture acces refusee : ${ecriture.statut}`)
 	return ecriture.dossier
 }
 
@@ -356,5 +373,216 @@ describe('PanneauLieux', () => {
 		// lieu.amorce re-verifie l etat REEL du refus.
 		await user.click(laLigne('lieu.amorce'))
 		expect(screen.getByRole('status')).toHaveTextContent("CE CHANGEMENT N'A PAS ÉTÉ ENREGISTRÉ")
+	})
+
+	/**
+	 * Section « ACCÈS DEPUIS CE LIEU » (itération 5, §3 du plan). Deux lieux au
+	 * dossier, et une auto-référence LÉGALE (KR-194) posée sur lieu.amorce — le
+	 * lieu COURANT au moment du rendu — pour verifier les DEUX moities du
+	 * critere #6 dans le meme test : exclue de la ligne d AJOUT, presente dans
+	 * une ligne DEJA ECRITE.
+	 */
+	it('la section des acces rend ses textes et exclut le lieu courant', () => {
+		const brain = createBrain()
+		const dossier = brain.dossiers.create('Un dossier')
+		semerLieu(brain, dossier.id, { id: 'lieu.val-cendre', nom: 'Val-Cendre' })
+		ecrireAcces(brain, dossier.id, 'lieu.amorce', ['lieu.amorce'])
+		renderPanel(brain, dossier.id)
+
+		expect(screen.getByText('ACCÈS DEPUIS CE LIEU')).toBeInTheDocument()
+		expect(
+			screen.getByText(
+				"Les lieux que l'on peut rejoindre depuis celui-ci — un passage dans l'autre sens ne se déduit pas : ajoutez-le depuis l'autre lieu.",
+			),
+		).toBeInTheDocument()
+
+		// Ligne DEJA ECRITE (l acces de lieu.amorce vers lui-meme) : le lieu
+		// courant y reste present, resolu, jamais "introuvable".
+		const selectExistant = screen.getByRole('combobox', { name: 'LIEU CIBLE' })
+		expect(selectExistant).toHaveValue('lieu.amorce')
+		expect(within(selectExistant).getByText('Lieu n°1 (sans nom)')).toBeInTheDocument()
+
+		// Ligne D AJOUT : le lieu courant EN EST EXCLU (self-exclusion), l autre
+		// lieu du dossier y reste.
+		const selectAjout = screen.getByRole('combobox', { name: 'Ajouter un accès vers un autre lieu' })
+		expect(within(selectAjout).queryByText('Lieu n°1 (sans nom)')).toBeNull()
+		expect(within(selectAjout).getByText('Lieu « Val-Cendre »')).toBeInTheDocument()
+	})
+
+	/**
+	 * KR-013, sur le CHEMIN D'ÉCRITURE RÉEL — le témoin contrat
+	 * `acces ne cree JAMAIS l inverse` (brain/dossier/validate.test.ts) mute un
+	 * document à la main et appelle `validateDossier` : il n'emprunte jamais
+	 * `handleAjouterAcces`. Ce test-ci clique le `Select` d'ajout (même chemin
+	 * que l'auteur) et assertionne sur la CIBLE, jamais seulement sur la
+	 * source — c'est cette moitié qui manquait pour que l'invariant soit gardé
+	 * là où il pourrait être violé (revue QA mode B, itération 5).
+	 */
+	it('ajouter un acces ne modifie jamais la cible (KR-013)', async () => {
+		const user = userEvent.setup()
+		const brain = createBrain()
+		const dossier = brain.dossiers.create('Un dossier')
+		semerLieu(brain, dossier.id, { id: 'lieu.val-cendre', nom: 'Val-Cendre' })
+		renderPanel(brain, dossier.id)
+
+		// lieu.amorce (affiche par defaut) ajoute un acces vers lieu.val-cendre,
+		// uniquement par le Select d'ajout -- le meme chemin que l'auteur.
+		await user.selectOptions(
+			screen.getByRole('combobox', { name: 'Ajouter un accès vers un autre lieu' }),
+			'lieu.val-cendre',
+		)
+
+		const lieux = lire(brain, dossier.id).monde.lieux
+		expect(lieux.find((l) => l.id === 'lieu.amorce')?.acces).toEqual(['lieu.val-cendre'])
+		// La CIBLE ne doit porter AUCUN acces en retour -- aucun inverse stocke
+		// ni derive (KR-013).
+		expect(lieux.find((l) => l.id === 'lieu.val-cendre')?.acces).toBeUndefined()
+	})
+
+	it('ajouter, changer et retirer un acces committent chacun un seul appel', async () => {
+		const user = userEvent.setup()
+		const brain = createBrain()
+		const dossier = brain.dossiers.create('Un dossier')
+		semerLieu(brain, dossier.id, { id: 'lieu.val-cendre', nom: 'Val-Cendre' })
+		semerLieu(brain, dossier.id, { id: 'lieu.tour', nom: 'Tour' })
+		renderPanel(brain, dossier.id)
+		const updateSpy = jest.spyOn(brain.dossiers, 'update')
+
+		await user.selectOptions(
+			screen.getByRole('combobox', { name: 'Ajouter un accès vers un autre lieu' }),
+			'lieu.val-cendre',
+		)
+		expect(updateSpy).toHaveBeenCalledTimes(1)
+		expect(lire(brain, dossier.id).monde.lieux.find((l) => l.id === 'lieu.amorce')?.acces).toEqual(['lieu.val-cendre'])
+		// La ligne d ajout retombe a '' apres l ajout (precedent FicheIndice.tsx).
+		expect(screen.getByRole('combobox', { name: 'Ajouter un accès vers un autre lieu' })).toHaveValue('')
+
+		const selectExistant = screen.getByRole('combobox', { name: 'LIEU CIBLE' })
+		await user.selectOptions(selectExistant, 'lieu.tour')
+		expect(updateSpy).toHaveBeenCalledTimes(2)
+		expect(lire(brain, dossier.id).monde.lieux.find((l) => l.id === 'lieu.amorce')?.acces).toEqual(['lieu.tour'])
+
+		await user.click(screen.getByRole('button', { name: "Retirer l'accès vers Lieu « Tour »" }))
+		expect(updateSpy).toHaveBeenCalledTimes(3)
+		expect(lire(brain, dossier.id).monde.lieux.find((l) => l.id === 'lieu.amorce')?.acces).toEqual([])
+	})
+
+	it('l ordre de tabulation traverse les acces', async () => {
+		const user = userEvent.setup()
+		const brain = createBrain()
+		const dossier = brain.dossiers.create('Un dossier')
+		semerLieu(brain, dossier.id, { id: 'lieu.tour', nom: 'Tour' })
+		semerLieu(brain, dossier.id, { id: 'lieu.val-cendre', nom: 'Val-Cendre', acces: ['lieu.amorce', 'lieu.tour'] })
+		renderPanel(brain, dossier.id)
+
+		await user.click(laLigne('lieu.val-cendre'))
+
+		const champDangers = screen.getByRole('textbox', { name: /dangers/i })
+		const selects = screen.getAllByRole('combobox', { name: 'LIEU CIBLE' })
+		expect(selects).toHaveLength(2)
+		const retirerLigne0 = screen.getByRole('button', { name: "Retirer l'accès vers Lieu n°1 (sans nom)" })
+		const retirerLigne1 = screen.getByRole('button', { name: "Retirer l'accès vers Lieu « Tour »" })
+		const selectAjout = screen.getByRole('combobox', { name: 'Ajouter un accès vers un autre lieu' })
+		const retirerLieu = screen.getByRole('button', { name: 'Retirer le lieu « Val-Cendre »' })
+
+		champDangers.focus()
+		expect(champDangers).toHaveFocus()
+
+		await user.tab()
+		expect(selects[0]).toHaveFocus()
+		await user.tab()
+		expect(retirerLigne0).toHaveFocus()
+		await user.tab()
+		expect(selects[1]).toHaveFocus()
+		await user.tab()
+		expect(retirerLigne1).toHaveFocus()
+		await user.tab()
+		expect(selectAjout).toHaveFocus()
+		await user.tab()
+		expect(retirerLieu).toHaveFocus()
+	})
+
+	/**
+	 * BUG-078 — test-grep de non-régression (précédent `retraitObjet.test.tsx`,
+	 * dossier-objets it2) : la recherche DOM distante
+	 * (`querySelector('button[aria-label^="Retirer le lieu"]')`) est retirée,
+	 * remplacée par `ficheRef.current?.focusRetirer()` (`FicheLieuHandle`). Le
+	 * focus qui SUIT réellement un retrait est déjà éprouvé par
+	 * « retirer un lieu non reference... » plus haut dans ce fichier.
+	 */
+	it('le retrait d un lieu ne cherche plus le bouton par aria-label (BUG-078)', () => {
+		const source = fs.readFileSync(path.join(__dirname, '..', 'components', 'PanneauLieux.tsx'), 'utf8')
+		expect(source).not.toContain('querySelector')
+		expect(source).toContain('focusRetirer')
+	})
+})
+
+/**
+ * `FicheLieu` — composant PUREMENT DE RENDU, éprouvé isolément pour la
+ * discriminance orphelin/valide (critère #7) : un `acces` corrompu à un id
+ * inexistant est REFUSÉ par `validateDossier` (`reference-pendante`, erreur
+ * bloquante) — ce scénario n'est donc atteignable QUE par un rendu direct à
+ * props construites, jamais via `DossierService.update()` réel. Précédent
+ * exact : `panneauIndices.test.tsx` « FicheIndice - section MENE A (rendu
+ * pur) » (même cause racine, même doctrine KR-021).
+ */
+describe('FicheLieu - section ACCES (rendu pur)', () => {
+	const handlers = {
+		onChangeChamp: jest.fn(),
+		onBlurChamp: jest.fn(),
+		onAjouterAcces: jest.fn(),
+		onChangerAcces: jest.fn(),
+		onRetirerAcces: jest.fn(),
+		onRetirer: jest.fn(),
+	}
+	const brouillonVide: BrouillonLieu = { nom: '', description: '', ambiance: '', dangers: '' }
+
+	beforeEach(() => {
+		Object.values(handlers).forEach((fn) => fn.mockClear())
+	})
+
+	it('une cible retiree ailleurs reste designable', () => {
+		const lieuA: Lieu = { id: 'lieu.a', nom: 'A', acces: ['lieu.b-disparu'] }
+
+		render(
+			<FicheLieu
+				lieu={lieuA}
+				lieux={[lieuA]}
+				index={0}
+				brouillon={{ ...brouillonVide, nom: 'A' }}
+				refus={null}
+				nomInputRef={{ current: null }}
+				{...handlers}
+			/>,
+		)
+
+		const select = screen.getByRole('combobox', { name: 'LIEU CIBLE' })
+		expect(select).toHaveValue('lieu.b-disparu')
+		expect(within(select).getByText('Lieu introuvable — lieu.b-disparu')).toBeInTheDocument()
+		expect(
+			screen.getByRole('button', { name: "Retirer l'accès vers Lieu introuvable — lieu.b-disparu" }),
+		).toBeInTheDocument()
+	})
+
+	it('etat vide de section: moins de deux lieux et aucun acces ecrit', () => {
+		const lieuSeul: Lieu = { id: 'lieu.seul', nom: 'Seul' }
+
+		render(
+			<FicheLieu
+				lieu={lieuSeul}
+				lieux={[lieuSeul]}
+				index={0}
+				brouillon={{ ...brouillonVide, nom: 'Seul' }}
+				refus={null}
+				nomInputRef={{ current: null }}
+				{...handlers}
+			/>,
+		)
+
+		expect(
+			screen.getByText('Aucun autre lieu à relier — ajoutez-en un second avec « + Ajouter un lieu… ».'),
+		).toBeInTheDocument()
+		expect(screen.queryByRole('combobox', { name: 'Ajouter un accès vers un autre lieu' })).toBeNull()
+		expect(screen.queryByRole('combobox', { name: 'LIEU CIBLE' })).toBeNull()
 	})
 })

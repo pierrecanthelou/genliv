@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.6.52 — relier ses lieux les uns aux autres
+
+`dossier-canon` iteration 5 — **premiere tranche du Temps 1 bis** (roadmap § 2 bis, B1). L'auteur relie enfin ses lieux : section « ACCES DEPUIS CE LIEU » dans la fiche d'un lieu, ajout, changement et retrait d'un acces sortant. **Arete ORIENTEE** — un passage reciproque coute deux entrees, une par lieu, et l'ecran le dit. 2 lots sequentiels. **102 suites / 1750 tests.**
+
+- **La dette la plus ancienne du Temps 1 est payee.** `lieux[].acces` etait sans proprietaire depuis trois cadrages : refusee en n° 5 (KR-200), declaree impossible en n° 6 (KR-205), reconfirmee orpheline par la n° 7. Elle revient a `dossier-canon`, qui possede les ecrans Lieu.
+- **Un veto retire sur une mesure, pas sur un compromis.** `narratif-ia` exigeait un objet `{vers_lieu_id, description}` pour que le narrateur du Temps 2 sache decrire les issues ; il l'a retire au tour 2 en mesurant que `Lieu` porte **deja trois proses `ia`** — une prose par arete aurait ete une seconde source de verite sur le meme fait. La QA avait par ailleurs chiffre que la testabilite ne discriminait **pas** les deux formes : le choix s'est joue sur le seul besoin narratif.
+- **Deux premisses mesurees fausses, une de chaque cote.** « Une arete orientee impose un objet » : faux, `mene_a[]` en est une, en `string[]`. « Une forme structuree serait une 7e famille D1 » : faux aussi, D1 ne regit que les couples `…_texte`/`…_expr`. Aucune des deux n'a survecu a une verification.
+- **Le critere cardinal etait vert sans rien garder.** Le temoin de KR-013 mutait le document a la main puis appelait `validateDossier` — il ne gardait pas le chemin d'ecriture, seul endroit ou l'invariant peut etre viole. La QA en mode B a ecrit le mutant (ecriture symetrique dans `handleAjouterAcces`) : **550 tests verts, mutant compris**. Ferme dans le meme lot par un temoin sur le chemin reel, **dont le pouvoir separateur est demontre** dans les deux sens.
+- **BUG-078 corrige au passage** : `PanneauLieux` ne cherche plus le bouton de retrait par `querySelector('[aria-label…]')` — `FicheLieu` expose `focusRetirer()` via `useImperativeHandle`. Sans ca, l'iteration en creait la 4e occurrence.
+- **Le plan validé avait tort sur un fichier**, et l'ouvrier s'est arrete au lieu de s'elargir : trois gardes d'instanciation exigeaient que `dossier-minimal.json` porte une instance d'`acces`. Il a mesure les **deux** remedes, applique le moins couteux (une ligne), et restaure le fichier avant de rendre.
+
+## 0.6.51 — la dette cesse d'etre un calendrier, elle devient des declencheurs
+
+Lot documentaire, aucun `.ts` touche. Le § 2 bis du roadmap ordonnait onze tranches `D1` -> `D11` ; passees au controle de taille de la skill `raffinage-iteration`, **trois sur onze** etaient correctement dimensionnees. La faute n'etait pas le dimensionnement mais d'avoir **ordonnance un inventaire** : deux tranches seulement bloquent quelque chose (`B1` `lieux[].acces`, `B2` `outillage-2`), tout le reste devient une **dette a declencheur** — l'idiome que ce depot pratique deja. Le repointage de `tree-canvas` part **apres le Temps 2** : rien n'en depend et il coute une pile de test a choisir. Roadmap 35 671 -> 26 929 o, plafond re-derive 35 -> 30 kio ; `CLAUDE.md` decrivait encore l'editeur d'arbre, reecrit sur le dossier.
+
 ## 0.6.50 — le seul assistant qui cree
 
 `dossier-copilote` iteration 4/6 — **DERNIERE ITERATION DE LA FEATURE, qui passe a `done`**. Une sixieme carte fait **eclater le synopsis en une distribution de personnages** : jusqu'a TROIS fiches, chacune portant **la PLACE** que la personne occupe et **ce qu'elle POURSUIT**, acceptees une par une — et **chaque acceptation CREE un personnage**, le code frappant l'identifiant a cet instant-la et jamais avant. Deux lots sequentiels. **102 suites / 1734 tests.**

@@ -144,7 +144,8 @@
 				"nom": "Val-Cendre",
 				"description": "Un bourg de toits bas serré autour de l'auberge du Fanal, à une demi-journée de marche du Gouffre scellé.",
 				"ambiance": "Une pluie de cendres tièdes tombe sans discontinuer ; les conversations s'arrêtent quand un inconnu pousse une porte.",
-				"dangers": "Les gobelins rôdent aux abords du Fanal dès la nuit tombée."
+				"dangers": "Les gobelins rôdent aux abords du Fanal dès la nuit tombée.",
+				"acces": ["lieu.val-cendre"]
 			}
 		],
 		"objets": [

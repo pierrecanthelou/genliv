@@ -65,13 +65,13 @@ Corollaire non négociable (veto tech-lead), **toujours en vigueur** : `brain/do
 
 ## 1 — Temps 1 · l'éditeur produit un dossier — **terminé**
 
-Huit features, **48 itérations livrées**, `0.6.50`.
+Huit features, **48 itérations livrées**, `0.6.50`. L'itération 5 de `dossier-canon` n'entre **pas** dans ce décompte : elle appartient au Temps 1 bis (§ 2 bis, tranche B1).
 
 | # | Feature | « À la fin, l'auteur peut… » | Itér. | Statut |
 |---|---|---|---|---|
 | 1 | `dossier-format` | …importer un dossier d'aventure validé contre un schéma versionné | 5 | **5/5 ✅** |
 | 2 | `bascule-editeur` | …naviguer dans son aventure par une liste de sections | 3 | **3/3 ✅** |
-| 3 | `dossier-canon` | …rédiger la vérité immuable de son histoire | 4 | **4/4 ✅** |
+| 3 | `dossier-canon` | …rédiger la vérité immuable de son histoire | 4 **(+1)** | **4/4 ✅** — plus l'**it5**, livrée au Temps 1 bis (§ 2 bis, B1) : la spec est à `n: 5`, 5/5 |
 | 4 | `dossier-fiches` | …écrire une fiche de personnage exploitable par l'IA | 8 | **8/8 ✅** |
 | 5 | `dossier-objets` | …tenir le registre des objets de son aventure | 2 | **2/2 ✅** |
 | 6 | `dossier-registres` | …tenir les quêtes, les indices, les événements de son aventure | 5 | **5/5 ✅** |
@@ -92,7 +92,7 @@ Ce que ce § 2 bis dit maintenant : **deux tranches se paient avant le Temps 2**
 
 | # | Tranche | « À la fin… » | Statut | Comité | Dépend de |
 |---|---|---|---|---|---|
-| B1 | `dossier-canon` it5 | …relier ses lieux les uns aux autres | — | 5 rôles | — |
+| B1 | `dossier-canon` it5 | …relier ses lieux les uns aux autres | **1/1 ✅** | 5 rôles | — |
 | B2 | `outillage-2` *(hors cycle)* | *(outillage)* le score de mutation cesse de mentir sur `combat.ts` | — | tech-lead | — |
 
 **B1 · `lieux[].acces`** — pas bloquante au sens strict, mais la n° 9 doit **choisir son modèle de déplacement** : sans topologie elle code le monde ouvert (KR-224, déjà câblé dans `atteignabilite.ts` faute de graphe), et l'ajouter ensuite réécrit son moteur de déplacement. On paie avant, pas après. Sans propriétaire depuis trois cadrages (refusée en n° 5, KR-200 ; impossible en n° 6, KR-205 ; reconfirmée par la n° 7) : elle revient à `dossier-canon`, qui possède `PanneauLieux.tsx` et `FicheLieu.tsx`. Forme déjà tranchée au raffinage d'it3 de la n° 1, à ne pas re-débattre : **arête ORIENTÉE**, une entrée = un sens, un passage réciproque = deux entrées (KR-013). Lot `contrat` d'abord — et il **arme le rider `validate.ts`** (ci-dessous). **La levée de KR-224 dans le linter n'est PAS dans cette tranche** : poser le champ et corriger `atteignabilite.ts` sont deux démonstrations, donc deux itérations ; la seconde passe en dette à déclencheur.
@@ -107,7 +107,7 @@ Chaque ligne part **toute seule** quand son déclencheur se présente. Le lot qu
 |---|---|---|
 | **Scission de `controles.ts`** (1 348 l.) — refactor à **vert trompeur**, deux gardes bornées par `indexOf` | `brain/dossier/controles.ts` | le premier lot qui rouvre ce fichier après la n° 7 |
 | **BUG-090** (major) — remédiation circulaire de `condition-sans-expr` : elle renvoie vers un champ qui écrit la prose ayant déclenché l'avertissement, et **aucune surface n'écrit `reussi_si_expr`** (0 occurrence). Se règle en cessant de promettre une condition structurée, **pas** en construisant l'écran | idem | idem — part avec la scission |
-| **Rider `validate.ts`** — (a) les 4 sites d'avertissement appellent `anomalie` sans `entityId`, d'où des lignes jumelles indésignables ; (b) `designerSavoir` met un identifiant dans la prose de l'auteur | `brain/dossier/validate.ts` | le premier lot qui rouvre ce fichier — donc **B1** |
+| **Rider `validate.ts`** — (a) les 4 sites d'avertissement appellent `anomalie` sans `entityId`, d'où des lignes jumelles indésignables ; (b) `designerSavoir` met un identifiant dans la prose de l'auteur | `brain/dossier/validate.ts` | le premier lot qui rouvre ce fichier. **Ce n'est PAS B1** — mesuré au raffinage d'it5 : `acces` ne demande aucune ligne de `validate.ts`, la machinerie générique traite déjà un chemin à deux `[]` (`validate.ts:422`). La version précédente de cette ligne posait une prémisse fausse. |
 | **`nom` non textuel** — `nom: 42` traverse `validateDossier` (mesuré par sonde le 2026-09-19) | idem | idem |
 | **Chaîne vide au blur** — quitter un champ de prose vide écrit `''` là où il y avait un **absent**, et émet `dossier:updated`. Prouvé sur `dossier-registres` ; **non mesuré** sur les 3 autres features, qui ont la même forme | les chemins d'écriture de 4 features | le premier lot qui rouvre un `Panneau*`/`Fiche*` de la feature concernée — **le mesurer d'abord, corriger la feature entière ensuite** |
 | **Constantes de refus** — `EYEBROW_REFUS`/`TEXTE_ABSENT` déclarées **10 fois dans 4 features** (KR-109/110) ; seule `dossier-canon` a un module partagé | 10 sites + `brain/` | le premier lot qui rouvre l'un des 9 `Fiche*` fautifs |

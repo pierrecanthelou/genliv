@@ -395,6 +395,19 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	'monde.lieux[].description': 'ia',
 	'monde.lieux[].ambiance': 'ia',
 	'monde.lieux[].dangers': 'ia',
+	// LA TOPOLOGIE — `moteur`. Un identifiant est un HANDLE : le code résout, le
+	// modèle reçoit le CONTENU du lieu sous l'audience de CE lieu-là, jamais la clé
+	// (même règle que `charpente.depart.lieu_id`, `presence[].lieu_id`, `mene_a[]`).
+	// Injectée telle quelle, la liste des cibles donnerait au narrateur la CARTE : il
+	// narrerait un raccourci vers un lieu à deux sauts, ou nommerait une destination
+	// que le joueur n'a aucun moyen de connaître.
+	// C'est aussi la seule AUTORITÉ sur le déplacement : le moteur refuse toute
+	// destination absente de cette liste, MÊME SI LA PROSE L'A RACONTÉE. La règle vit
+	// ICI, en DONNÉE (liste fermée) — jamais en consigne de prompt.
+	// L'ÉTIQUETTE d'une sortie dans le contexte de la n° 10 n'est PAS tranchée ici :
+	// c'est le `nom` de la cible (KR-195, arbitrage transverse propriété de la n° 10)
+	// ou une prose par arête (`acces[].description`, non livrée — voir open_questions).
+	'monde.lieux[].acces[]': 'moteur',
 	'monde.objets[].id': 'moteur',
 	'monde.objets[].nom': 'auteur',
 	// LA PROSE D'UN OBJET est `ia`, et la question s'est posée contre `auteur`

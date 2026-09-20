@@ -961,9 +961,12 @@ export interface Personnage extends Entite {
  * le joueur ne lit aucun des trois tel quel — les proses émises mot pour mot sont
  * `texte_ouverture_joueur` et, depuis l'itération 2 de la n° 6, `Fin.texte`.
  *
- * `acces` et toute référence croisée (personnages, objets, indices, événements
- * présents) appartiennent aux features qui possèdent ces collections (n° 4/5/6)
- * — décision A du 2026-08-04, aucune forme anticipée ici.
+ * `acces` — la TOPOLOGIE — est posé par l'itération 5 de la n° 3 `dossier-canon`,
+ * qui possède les deux écrans du lieu. Il était sans propriétaire depuis trois
+ * cadrages (refusé en n° 5, KR-200 ; impossible en n° 6, KR-205), et la décision A
+ * du 2026-08-04 n'en anticipait aucune forme. Toute AUTRE référence croisée
+ * (personnages, objets, indices, événements présents) reste aux features qui
+ * possèdent ces collections (n° 4/5/6) — cette décision-là ne bouge pas.
  */
 export interface Lieu extends Entite {
 	/** IA — ce qu'est le lieu, ce qu'on y voit, où il se situe.
@@ -980,6 +983,38 @@ export interface Lieu extends Entite {
 	 *  Exemple : « Un piège à lanière tendu près de l'autel ; les échos attirent
 	 *  parfois un loup des cendres. » */
 	dangers?: string
+	/** MOTEUR — LES LIEUX QUE L'ON PEUT REJOINDRE DEPUIS CELUI-CI. Références vers
+	 *  `monde.lieux[].id` : un identifiant est un HANDLE, résolu par le code, jamais
+	 *  injecté tel quel — même règle que `charpente.depart.lieu_id`,
+	 *  `presence[].lieu_id` et `mene_a[]`. Une référence orpheline est EXPOSÉE par
+	 *  `validateDossier`, jamais filtrée au rendu (KR-021).
+	 *
+	 *  L'ARÊTE EST ORIENTÉE : une entrée = UN SENS, et un passage réciproque coûte
+	 *  DEUX entrées, une sur chaque lieu. AUCUN inverse n'est stocké, AUCUN n'est
+	 *  dérivé (KR-013) — écrire A → B ne touche jamais `B.acces`, ni au schéma, ni
+	 *  au service, ni à l'écran. La liste « ACCESSIBLE DEPUIS » qui lirait les arêtes
+	 *  ENTRANTES n'est pas livrée, et elle ne changera rien à cette règle.
+	 *
+	 *  SECONDE LISTE DE RÉFÉRENCES DU SCHÉMA, après `monde.indices[].mene_a[]`, dont
+	 *  elle est la jumelle exacte : deux suffixes `[]` dans `REFERENCES_SIMPLES`
+	 *  (donc une anomalie PAR ÉLÉMENT fautif, jamais une pour la liste entière) et
+	 *  une ligne de `LISTES_OPTIONNELLES_TEXTUELLES` — la liste elle-même doit ÊTRE
+	 *  une liste quand elle est là, sans quoi le panneau qui la parcourt lèverait sur
+	 *  un document accepté.
+	 *
+	 *  L'AUTO-RÉFÉRENCE EST LÉGALE et ne porte AUCUNE garde ici (même doctrine que
+	 *  `Relation.cible_id` et `mene_a[]`, KR-194) : l'espace visé est `lieu`, donc le
+	 *  porteur lui-même y RÉSOUT, et ne doit jamais s'afficher orphelin. La
+	 *  self-exclusion arbitrée au raffinage vit à l'ÉCRAN, sur la seule ligne
+	 *  d'AJOUT, et nulle part ailleurs.
+	 *
+	 *  AUCUNE GARDE DE DOUBLON non plus, limite ASSUMÉE et identique à celle de
+	 *  `mene_a` : le dédoublonnage se fera à l'INJECTION, charge de la n° 10.
+	 *
+	 *  OPTIONNELLE, et la LISTE VIDE est un état CALME : un lieu d'où l'on ne part
+	 *  vers nulle part est une impasse jouable, jamais une anomalie.
+	 *  Exemple : `['lieu.tour-effondree']`. */
+	acces?: string[]
 }
 
 /**

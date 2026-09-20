@@ -471,9 +471,10 @@ export const LISTES_OPTIONNELLES_STRUCTUREES: readonly ChampRequis[] = [
  * deux mondes : le validateur est la frontière de confiance, pas l'écran.
  *
  * ELLE NE CONTRÔLE PAS LA TEXTUALITÉ DE SES ÉLÉMENTS, et c'est délibéré :
- *  · pour `mene_a`, l'élément est DÉJÀ gardé — c'est une ligne de
- *    `REFERENCES_SIMPLES` (`monde.indices[].mene_a[]`), et un élément non textuel y
- *    est `identifiant-invalide` depuis l'itération 1 de la n° 6. Le contrôler ici
+ *  · pour `mene_a` — et pour `acces`, sa jumelle exacte —, l'élément est DÉJÀ gardé
+ *    — c'est une ligne de `REFERENCES_SIMPLES` (`monde.indices[].mene_a[]`,
+ *    `monde.lieux[].acces[]`), et un élément non textuel y est
+ *    `identifiant-invalide` depuis l'itération 1 de la n° 6. Le contrôler ici
  *    produirait deux anomalies pour une seule cause (KR-164) ;
  *  · pour `caractere.parler`, un élément présent mais non textuel tombe sous la
  *    QUESTION OUVERTE déjà possédée par la n° 2 `bascule-editeur` (« une table
@@ -493,6 +494,9 @@ export const LISTES_OPTIONNELLES_STRUCTUREES: readonly ChampRequis[] = [
 export const LISTES_OPTIONNELLES_TEXTUELLES: readonly ChampRequis[] = [
 	{ path: 'monde.indices[].mene_a', location: 'Indices' },
 	{ path: 'monde.personnages[].caractere.parler', location: 'Personnages' },
+	// LA TOPOLOGIE (itération 5 de la n° 3) — jumelle exacte de `mene_a` : même
+	// contrat de CONTENEUR ici, même ligne d'élément dans `REFERENCES_SIMPLES`.
+	{ path: 'monde.lieux[].acces', location: 'Lieux' },
 ]
 
 /**
@@ -544,10 +548,11 @@ export interface ReferenceSimple {
 }
 
 /**
- * Les NEUF références simples du schéma 1 — quatre posées par la n° 1, la
+ * Les DIX références simples du schéma 1 — quatre posées par la n° 1, la
  * cinquième (`personnages[].objectif_id`) par l'itération 1 de la n° 4, les deux
  * suivantes par son itération 5, la huitième (`indices[].mene_a[]`) par l'itération 1
- * de la n° 6 et la dernière (`quetes[].donneur_id`) par son itération 3. Toutes
+ * de la n° 6, la neuvième (`quetes[].donneur_id`) par son itération 3 et la dernière
+ * (`lieux[].acces[]`) par l'itération 5 de la n° 3. Toutes
  * bloquantes quand elles ne résolvent pas : une référence orpheline est EXPOSÉE,
  * jamais silencieuse (KR-021). Le nombre est à REMESURER, jamais à recopier d'ici
  * (KR-159).
@@ -620,6 +625,28 @@ export const REFERENCES_SIMPLES: readonly ReferenceSimple[] = [
 	// définition d'une référence, pas un effet de bord — l'écran qui retire le
 	// personnage doit RENDRE le refus, jamais l'avaler (KR-183).
 	{ path: 'monde.quetes[].donneur_id', espace: 'pnj', location: 'Quêtes' },
+	// LA DIXIÈME (itération 5 de la n° 3) — LA TOPOLOGIE, et la SECONDE dont la
+	// feuille est un ÉLÉMENT DE LISTE : `sitesDe` produit un site PAR ÉLÉMENT, donc
+	// une anomalie par élément fautif et jamais une pour la liste entière. Elle
+	// n'apporte AUCUNE mécanique neuve — `mene_a[]` a livré avec elle les deux
+	// correctifs que cette forme exigeait (`feuilleDe` sur un chemin à `[]`, et la
+	// résolution qui se taisait sur une valeur non textuelle).
+	//
+	// SANS `sujet`, comme les sept autres sans décision de rédaction écrite : le
+	// repli dérivé écrit « Le champ « acces » », qui nomme le champ que l'auteur
+	// vient d'éditer.
+	//
+	// AUCUNE GARDE D'AUTO-RÉFÉRENCE (KR-194, précédents `relations[].cible_id` et
+	// `mene_a[]`) : l'espace visé est `lieu`, donc le porteur lui-même y résout comme
+	// n'importe quel autre lieu. Un lieu qui se pointe lui-même est accepté et doit
+	// s'afficher RÉSOLU — l'exclusion arbitrée au raffinage est une règle d'ÉCRAN,
+	// sur la seule ligne d'ajout.
+	//
+	// CONSÉQUENCE EN AVAL, la même que pour les cinquième, sixième et neuvième : un
+	// lieu vers lequel un accès mène ne pourra plus être retiré en silence. C'est la
+	// définition d'une référence, pas un effet de bord — l'écran qui retire le lieu
+	// doit RENDRE le refus, jamais l'avaler (KR-183).
+	{ path: 'monde.lieux[].acces[]', espace: 'lieu', location: 'Lieux' },
 ]
 
 /**

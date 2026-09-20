@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
 	useBrain,
 	useOpenDossier,
@@ -9,7 +9,18 @@ import {
 	type EcritureDossier,
 	type DossierIssue,
 } from '../../../brain'
-import { FicheLieu, type BrouillonLieu } from './FicheLieu'
+import { FicheLieu, type BrouillonLieu, type FicheLieuHandle } from './FicheLieu'
+import {
+	pageStyle,
+	colonneListeStyle,
+	colonneFicheStyle,
+	eyebrowStyle,
+	listeStyle,
+	boutonAjouterStyle,
+	emptyStateStyle,
+	emptyGlyphStyle,
+	emptyTextStyle,
+} from './styles'
 
 /**
  * Le refus en cours, indexé par le lieu dont l'écriture l'a produit — sans cet
@@ -77,6 +88,12 @@ const TEXTE_VIDE = 'Aucun lieu — cliquez « + Ajouter un lieu… » pour comme
  * API DOM impérative), même famille que `ImportDossierDialog.tsx`
  * (`dossier-format`).
  *
+ * CIBLE DU FOCUS post-retrait (BUG-078, corrigé à l'itération 5) : ce panneau
+ * ne cherche PLUS le bouton de retrait dans le DOM — c'est un détail
+ * d'implémentation de `FicheLieu`, pas le sien. Il DEMANDE
+ * (`ficheRef.current?.focusRetirer()`, `FicheLieuHandle`), même motif que
+ * `PanneauObjets.tsx`/`FicheObjetHandle` (dossier-objets it2).
+ *
  * Rend `null` si le dossier est absent : l'écran parent affiche déjà
  * « Dossier introuvable. ».
  */
@@ -90,13 +107,13 @@ export function PanneauLieux({ dossierId }: PanneauLieuxProps): JSX.Element | nu
 	const [refus, setRefus] = useState<RefusEnCours | null>(null)
 	const [intentionFocus, setIntentionFocus] = useState<'nom' | 'retirer' | null>(null)
 	const nomInputRef = useRef<HTMLInputElement>(null)
-	const panneauRef = useRef<HTMLDivElement>(null)
+	const ficheRef = useRef<FicheLieuHandle>(null)
 
 	useEffect(() => {
 		if (intentionFocus === 'nom') {
 			nomInputRef.current?.focus()
 		} else if (intentionFocus === 'retirer') {
-			panneauRef.current?.querySelector<HTMLButtonElement>('button[aria-label^="Retirer le lieu"]')?.focus()
+			ficheRef.current?.focusRetirer()
 		}
 		if (intentionFocus !== null) setIntentionFocus(null)
 	}, [intentionFocus])
@@ -216,6 +233,35 @@ export function PanneauLieux({ dossierId }: PanneauLieuxProps): JSX.Element | nu
 		)
 	}
 
+	/** Remplace `acces` du lieu `id` — les trois gestes de la section « ACCÈS
+	 *  DEPUIS CE LIEU » partagent cette seule écriture. AUCUN inverse stocké
+	 *  ni dérivé (KR-013) : `acces` n'entre pas dans `BrouillonLieu`, le
+	 *  `Select` committe directement, précédent `presence[].lieu_id`. */
+	function commitAcces(id: string, acces: string[]): void {
+		commit(
+			dossierActuel.monde.lieux.map((lieu) => (lieu.id === id ? { ...lieu, acces } : lieu)),
+			id,
+		)
+	}
+
+	function handleAjouterAcces(id: string, cibleId: string): void {
+		if (cibleId === '') return
+		const lieu = dossierActuel.monde.lieux.find((l) => l.id === id)
+		commitAcces(id, [...(lieu?.acces ?? []), cibleId])
+	}
+
+	function handleChangerAcces(id: string, rang: number, cibleId: string): void {
+		const lieu = dossierActuel.monde.lieux.find((l) => l.id === id)
+		const acces = (lieu?.acces ?? []).map((valeur, i) => (i === rang ? cibleId : valeur))
+		commitAcces(id, acces)
+	}
+
+	function handleRetirerAcces(id: string, rang: number): void {
+		const lieu = dossierActuel.monde.lieux.find((l) => l.id === id)
+		const acces = (lieu?.acces ?? []).filter((_, i) => i !== rang)
+		commitAcces(id, acces)
+	}
+
 	// Équivalent exact de `dossier.monde.lieux.length === 0` (voir le calcul de
 	// `lieuAffiche` plus haut) — mais brancher sur LA MÊME valeur que le reste
 	// de la fonction utilise donne à TypeScript le rétrécissement `Lieu` (non
@@ -247,7 +293,7 @@ export function PanneauLieux({ dossierId }: PanneauLieuxProps): JSX.Element | nu
 		refus !== null && refus.lieuId === lieuAffiche.id ? { statut: refus.statut, issues: refus.issues } : null
 
 	return (
-		<div style={pageStyle} ref={panneauRef}>
+		<div style={pageStyle}>
 			<div style={colonneListeStyle}>
 				<span style={eyebrowStyle}>{EYEBROW_SECTION}</span>
 				<div style={listeStyle}>
@@ -268,97 +314,21 @@ export function PanneauLieux({ dossierId }: PanneauLieuxProps): JSX.Element | nu
 
 			<div style={colonneFicheStyle}>
 				<FicheLieu
+					ref={ficheRef}
 					lieu={lieuAffiche}
+					lieux={dossier.monde.lieux}
 					index={indexAffiche}
 					brouillon={brouillon}
 					refus={refusAffiche}
 					nomInputRef={nomInputRef}
 					onChangeChamp={(champ, valeur) => handleChangeChamp(lieuAffiche.id, champ, valeur)}
 					onBlurChamp={(champ, valeur) => handleBlurChamp(lieuAffiche.id, champ, valeur)}
+					onAjouterAcces={(cibleId) => handleAjouterAcces(lieuAffiche.id, cibleId)}
+					onChangerAcces={(rang, cibleId) => handleChangerAcces(lieuAffiche.id, rang, cibleId)}
+					onRetirerAcces={(rang) => handleRetirerAcces(lieuAffiche.id, rang)}
 					onRetirer={() => handleRetirer(lieuAffiche.id)}
 				/>
 			</div>
 		</div>
 	)
-}
-
-const pageStyle: CSSProperties = {
-	flex: 1,
-	minHeight: 0,
-	boxSizing: 'border-box',
-	display: 'flex',
-	gap: 'var(--space-8)',
-	padding: 'var(--space-8)',
-	overflowY: 'auto',
-}
-
-const colonneListeStyle: CSSProperties = {
-	width: 320,
-	flexShrink: 0,
-	display: 'flex',
-	flexDirection: 'column',
-	gap: 'var(--space-3)',
-}
-
-const colonneFicheStyle: CSSProperties = {
-	flex: 1,
-	minWidth: 0,
-}
-
-const eyebrowStyle: CSSProperties = {
-	display: 'block',
-	fontFamily: 'var(--font-mono)',
-	fontSize: 'var(--fs-eyebrow)',
-	color: 'var(--text-label)',
-	letterSpacing: 'var(--track-eyebrow)',
-	marginBottom: 'var(--space-2)',
-}
-
-const listeStyle: CSSProperties = {
-	display: 'flex',
-	flexDirection: 'column',
-	gap: 'var(--space-3)',
-}
-
-const boutonAjouterStyle: CSSProperties = {
-	display: 'flex',
-	alignItems: 'center',
-	justifyContent: 'center',
-	width: '100%',
-	boxSizing: 'border-box',
-	minHeight: 'var(--hit-target)',
-	padding: '7px 10px',
-	border: '1.5px dashed var(--accent)',
-	borderRadius: 'var(--r-md)',
-	background: 'var(--accent-bg)',
-	color: 'var(--accent)',
-	fontFamily: 'var(--font-ui)',
-	fontSize: 'var(--fs-body)',
-	cursor: 'pointer',
-}
-
-const emptyStateStyle: CSSProperties = {
-	display: 'flex',
-	flexDirection: 'column',
-	alignItems: 'center',
-	textAlign: 'center',
-	gap: 'var(--space-3)',
-	border: '1.5px dashed var(--border-field)',
-	borderRadius: 'var(--r-xl)',
-	background: 'var(--surface-inset)',
-	padding: 'var(--space-10) var(--space-8)',
-	maxWidth: 480,
-	margin: 'auto',
-}
-
-const emptyGlyphStyle: CSSProperties = {
-	fontSize: 'var(--fs-h1)',
-	color: 'var(--text-faint)',
-	lineHeight: 1,
-}
-
-const emptyTextStyle: CSSProperties = {
-	margin: 0,
-	color: 'var(--text-muted)',
-	lineHeight: 'var(--lh-body)',
 }
