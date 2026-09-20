@@ -59,7 +59,15 @@ Corollaire non négociable (veto tech-lead), **toujours en vigueur** : `brain/do
 | `player/components/NodeScreen`, `ChoiceList`, `DecorScreen`, `PnjScreen`, `TrapScreen` | ~765 | **remplacés** par la boucle narrative (n° 10). |
 | `brain/challenge.ts`, `combat.ts`, `xp.ts`, `characteristics.ts`, `bestiary.ts`, `equipment.ts`, `monsterCapacities.ts` | — | **conservés, intouchés.** Tenus par le score de mutation. |
 
-**Encore debout, avec leur date de démolition** : `brain/types.ts` (moitié arbre) + `kinds.ts` + `BookService` + `brain/utils/playExport.ts` + `buildAdventureDocument` + `src/features/play-mode/` → tous en **n° 9**, seule propriétaire d'extinction (KR-181), **y compris la ligne d'avis « vos anciens livres restent stockés »** de la bibliothèque, à retirer dans le même lot que sa donnée source. `src/features/tree-canvas/` n'est pas de cette liste : il est **repointé après le Temps 2** (§ 2 bis), pas démoli.
+**Encore debout — et KR-181 est AMENDÉ, mesuré au cadrage de la n° 9 (2026-09-20).** La n° 9 est propriétaire d'extinction des **consommateurs** du modèle d'arbre, **jamais du modèle** : `tree-canvas`, que la décision n° 5 conserve, le lit via le baril `brain/` sur **5 de ses 6 fichiers non-test**, et `brain/hooks.ts` s'abonne à **8 des 11** événements `book:*`/`node:*`/`edge:*`.
+
+| Sort | Modules |
+|---|---|
+| **Éteints en n° 9** | `brain/utils/playExport.ts` · `buildAdventureDocument` · les 5 écrans de nœud de `src/player/components/` · les parties arbre de `sessionEngine` / `actionEngine` / `usePlaySession` |
+| **Survivent** — extinction avec le repointage de `tree-canvas`, après le Temps 2 | `brain/types.ts` (moitié arbre) · `kinds.ts` · `tree.ts` · `BookService` · les 4 hooks de `brain/hooks.ts` · `automaticEdges.ts` · `NodeBadge` · les 11 événements · `Router {name:'editor'}` · `src/EditorScreen.tsx` (unique point de montage de `tree-canvas`) |
+| **Repointé, pas démoli** | `src/features/play-mode/` — `CLAUDE.md` le range parmi les survivants (« suit le runtime, n° 9 ») ; il devient le domicile du shell de test, de la console et du journal, qui ne descendent **jamais** dans `src/player/` (copié en entier à l'extraction) |
+
+La donnée source survivant, **la ligne d'avis « vos anciens livres restent stockés » reste vraie** : son retrait redevient un choix produit, pas une conséquence technique. `src/features/tree-canvas/` reste **repointé après le Temps 2** (§ 2 bis), pas démoli.
 
 ---
 
@@ -139,7 +147,7 @@ Le Temps 2 ne commence qu'une fois le § 2 bis clos, sur go explicite. `0.7.x`.
 
 | # | Feature | « À la fin, le joueur peut… » | Itér. | Statut | Comité | Dépend de |
 |---|---|---|---|---|---|---|
-| 9 | `moteur-dossier` | …jouer une session pilotée par un dossier, sans IA | 4 | — | 5 rôles | B1 |
+| 9 | `moteur-dossier` | …jouer une session pilotée par un dossier, sans IA | 4 | **0/4** — cadrée | 5 rôles | B1 |
 | 10 | `moteur-interprete` | …écrire ce qu'il veut faire en langage libre | 4 | — | 5 rôles | 9 |
 | 11 | `moteur-arbitre` | …voir le code lancer le dé que l'IA a demandé | 3 | — | 5 rôles | 10 · **B2** |
 | 12 | `moteur-acteurs` | …parler à un PNJ qui ne révèle que ce qu'il sait | 4 | — | 5 rôles | 11 |
@@ -148,7 +156,7 @@ Le Temps 2 ne commence qu'une fois le § 2 bis clos, sur go explicite. `0.7.x`.
 | 15 | `moteur-fins` | …reprendre sa partie là où il l'a laissée | 3 | — | 5 rôles | 14 |
 | 16 | `dossier-repetition` | *(auteur)* …faire jouer son aventure par un joueur synthétique | 2 | — | 5 rôles | 10 · 7 |
 
-**9 · `moteur-dossier`** — machine à états, JSON de session (10 clés racine), horloge, journal, application des deltas, console de commandes typées. Aucune génération de texte : on valide la mécanique seule. **Beaucoup plus petit que le plan de cible ne le laisse croire** — `sessionEngine`, `actionEngine`, `usePlaySession` et `PlayerRuntime` existent. Porte aussi, et c'est du travail réel : **toute la démolition du modèle d'arbre** (§ 0 bis), le branchement de `RapportControles.jouable` sur `previewDisabledReason` du CTA « Aperçu du jeu » (désactivé en dur aujourd'hui), le refus d'ouvrir une partie sur un `texte_ouverture_joueur` encore marqué `MARQUEUR_A_ECRIRE`, la **projection des jalons atteints** (leur `enonce_texte` seul, jamais les déclencheurs ni les conditions de fin), l'avancement de `quetes[].etapes`, et les deux champs que le plan de cible laisse en `[ … ]` : `journal[].deltas` et `memoire.faits_etablis`. La contrainte de **runtime extractible** de `docs/EXIGENCE-APERCU-DU-JEU.md` s'applique à toute la feature.
+**9 · `moteur-dossier`** — **cadrée le 2026-09-20**, 4 itérations : (1) lire le texte d'ouverture dans une partie lancée depuis l'éditeur, (2) se déplacer par `lieux[].acces`, (3) voir un jalon s'atteindre parce que sa condition est devenue vraie, (4) éteindre les consommateurs du modèle d'arbre (§ 0 bis). Aucune génération de texte, et un test dérivé du disque le **prouve** au lieu de l'affirmer. Porte le premier **évaluateur d'`ExprNode`** et le premier `appliquerDelta` — que `RapportControles.jouable` conditionne, non par ergonomie mais comme **précondition de correction** d'un évaluateur bivalent — plus l'amendement de `tourzero.ts` : la n° 9 prend les deux décisions que H6 déclare non prises, et la première met la table en défaut **sans que rien ne rougisse**. **Sortis du périmètre** : `quetes[].etapes` (aucun delta ni prédicat n'atteint l'état de quête) et `memoire.faits_etablis` (n° 10) — `memoire` n'est qu'une **clé racine typée `null`**. Le reste — 17 `KR`, 43 arbitrages, les contrats `brain/` — est dans la spec et dans `.claude/raffinage/moteur-dossier-cadrage.plan.md`.
 
 **10 · `moteur-interprete`** — rôles R1 (interprète) et R3 (narrateur), cadrage de contexte, mémoire à trois niveaux (5 derniers tours intégraux / résumé glissant réécrit tous les 10 tours / faits établis jamais résumés). Pose les garde-fous du § 2.8 : sortie structurée obligatoire, aucune création d'entité, anti-complaisance, budget par tour. **C'est ici que la « scène écrite » devient réelle** : sa propriété définissante est un chemin de code — une prose verbatim est **émise** par le moteur, jamais demandée au modèle. Porte aussi le **balayage du budget de contexte des onze chemins de prose `ia`** — un seul balayage, jamais trois chemins bornés sur onze, sous peine que le silence cesse de signifier « sous budget » ; avertissement non bloquant, aucune migration.
 
