@@ -67,6 +67,36 @@ export function dossierKey(dossierId: string): string {
 }
 
 /**
+ * La SESSION d'une partie jouée sur un dossier (n° 9 `moteur-dossier`) —
+ * l'`EtatSession` de `brain/dossier/session.ts`, une clé par dossier.
+ *
+ * NAMESPACE PROPRE, ET SURTOUT PAS SOUS `genliv:dossier:` : ce préfixe-là réserve
+ * `:` au découpage du DOCUMENT (`dossierContentKey` / `dossierImageKey`) et sert
+ * de balayage de liste (`DossierService.ts`, `keys(DOSSIER_KEY_PREFIX)`). Une
+ * session n'est pas une tranche du document, et une clé de session rangée là
+ * entrerait dans ce balayage. `DossierService` filtre déjà les clés porteuses
+ * d'un `:` — mais on ne s'appuie pas sur une garde incidente écrite pour un
+ * autre besoin.
+ *
+ * Écrite par la feature `play-mode` via `PersistenceService` (KR-011/111) — pas
+ * par `src/player/`, qui reste extractible et ne connaît aucun service.
+ *
+ * ⚠ CETTE CLÉ ENTRE DANS LA FILE DE SYNCHRONISATION CLOUD, et personne ne l'a
+ * décidé : `useBrain().persistence` est le décorateur (`CloudSyncService`), qui
+ * pousse toute clé non-livre. Les trois autres familles d'état PAR APPAREIL —
+ * `UI_PREFS_KEY_PREFIX` (KR-022), `MONSTER_LIBRARY_KEY`, `CLOUDSYNC_WORKER_URL_KEY`
+ * — passent, elles, par le magasin BRUT. La question appartient au port de
+ * stockage de la n° 9 it2 (`open_questions` de sa spec), qui doit aussi traiter
+ * la suppression distante : `CloudSyncService.remove()` n'est pas propagé.
+ */
+export const DOSSIER_SESSION_KEY_PREFIX = `${PERSISTENCE_PREFIX}:session:dossier:`
+
+/** Storage key for one dossier's play session, keyed by the dossier's stable id. */
+export function dossierSessionKey(dossierId: string): string {
+	return `${DOSSIER_SESSION_KEY_PREFIX}${dossierId}`
+}
+
+/**
  * The cloud-sync OFFLINE QUEUE: writes pushed-but-not-yet-confirmed, persisted
  * LOCALLY (in the genliv namespace, not the transport's fake-remote namespace)
  * so pending changes survive a reload and flush on reconnect (cloud-sync iter 2).

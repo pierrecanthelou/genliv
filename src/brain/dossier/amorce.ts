@@ -28,9 +28,13 @@ import { DOSSIER_SCHEMA, type Dossier } from './types'
  * appartient au moteur (n° 9). Cette itération pose la constante et la
  * discipline, rien de plus.
  *
- * Ce module n'est PAS ré-exporté par `brain/index.ts` : aucun consommateur hors
- * de `brain/` avant les n° 7 et n° 9 — même traitement que `DELTAS` et
- * `DESTINATION_DES_CHAMPS`.
+ * Ce module n'est PAS ré-exporté par `brain/index.ts`, et il ne l'est TOUJOURS
+ * PAS depuis qu'une feature le lit — nuance à ne pas perdre. Depuis la n° 9 it1,
+ * `features/play-mode/components/EcranPartie.tsx` importe `MARQUEUR_A_ECRIRE` EN
+ * PROFONDEUR : le texte de refus d'ouverture se COMPOSE depuis la constante au
+ * lieu de retaper le glyphe, qui serait une seconde source de vérité (KR-223).
+ * UN lecteur nommé, hors baril : l'ouvrir en ferait une offre aux treize features.
+ * Même traitement que `DELTAS` et `DESTINATION_DES_CHAMPS`.
  */
 
 /**

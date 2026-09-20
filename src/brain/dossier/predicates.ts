@@ -46,7 +46,7 @@ export interface PredicatDescripteur {
  * seconde liste à tenir en phase (KR-117).
  */
 export const PREDICATES = defineRegistre<PredicatDescripteur>()({
-	/** Y répond : l'inventaire de session — déjà lu par `sessionEngine.filterChoicesByPrereq`. */
+	/** Y répond : `monde.objets_possedes[]` (`session.ts`) — SEUL inventaire de session ; celui de l'arbre est condamné. */
 	possede_objet: { label: "possède l'objet", refKinds: ['objet'] },
 	/** Y répond : `monde.indices_connus[]`, alimenté par la sortie R4 du protocole de révélation. */
 	indice_connu: { label: "connaît l'indice", refKinds: ['indice'] },

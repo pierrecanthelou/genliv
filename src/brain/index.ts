@@ -464,8 +464,13 @@ export {
 export type { EspaceDeNoms, EspaceDeNomsDescripteur } from './dossier/identifiers'
 // Le REGISTRE DES LIBELLÉS DE CHAMP — ré-exporté parce que DEUX features le
 // lisent (KR-109) : la fiche d'origine qui rend le champ, et le panneau Copilote
-// qui le NOMME sans être cette fiche. C'est la différence avec `amorce.ts`, que
-// rien n'exporte parce qu'aucune feature ne le lit (KR-223).
+// qui le NOMME sans être cette fiche. C'est la différence avec le module d'amorce,
+// qui reste HORS baril bien qu'une feature le lise désormais : depuis la n° 9 it1,
+// `features/play-mode/components/EcranPartie.tsx` importe sa constante de marqueur
+// EN PROFONDEUR, pour COMPOSER le texte de refus au lieu de recopier le glyphe
+// (KR-223). Un seul lecteur nommé, délibérément non offert aux treize features.
+// (Les noms de ce module ne s'écrivent pas ici, même en commentaire : sa garde
+// interdit la CHAÎNE dans la source du baril, et un grep ne lit pas les intentions.)
 export { LIBELLE_DES_CHAMPS } from './dossier/libelles'
 export type { CheminLibelle, LibelleDeChamp } from './dossier/libelles'
 // `compterMots` sort à la n° 3 (`dossier-canon`), qui en est le SECOND appelant
@@ -506,6 +511,31 @@ export type { NiveauControle, Controle, ControleId, RapportControles } from './d
 // décision, jamais la table — un consommateur qui la lirait en ferait un second site
 // de décision, et c'est précisément la divergence que cette descente ferme.
 export { pastilleNiveau, badgeSection } from './dossier/pastilles'
+// ── L'ÉTAT DE SESSION (feature n° 9 `moteur-dossier`, itération 1) ───────────
+// Sort ce que la feature `play-mode` MONTE et PERSISTE : la forme de la session,
+// la fonction pure qui l'ouvre, et la fonction qui compose sa clé de stockage.
+// Reste dedans, même règle que `PREDICATES`, `DELTAS` et la table d'audience du
+// dossier : `DESTINATION_DES_CHAMPS_DE_SESSION` — aucun consommateur hors de
+// `brain/dossier/` avant la n° 10, qui bâtira son contexte à partir d'elle, et
+// une table d'audience exportée trop tôt se fait lire comme une permission.
+// `dossierSessionKey` sort avec le type qu'elle range : la session est écrite par
+// une FEATURE, qui n'a pas le droit d'écrire une clé en dur (KR-011/111).
+export { SCHEMA_SESSION, ouvrirSession } from './dossier/session'
+export type {
+	EtatSession,
+	EtatMonde,
+	EtatPnj,
+	EntreeJournal,
+	RoleJournal,
+	RefusOuverture,
+	ResultatOuverture,
+} from './dossier/session'
+// `dossierSessionKey` SEULE : `DOSSIER_SESSION_KEY_PREFIX` n'a aucun appelant hors
+// de sa propre déclaration, et une ligne publique sans appelant est la dette que ce
+// baril refuse ailleurs (KR-109). Le préfixe sortira avec le premier `keys(prefix)`
+// — la reprise de session, n° 9 it2. `BOOK_KEY_PREFIX` et `dossierKey` ne sont, eux,
+// pas ici non plus.
+export { dossierSessionKey } from './persistenceKeys'
 export type { DossierService, DossierResume, CorpsDossier, EcritureDossier } from './DossierService'
 export type { SelectionService } from './SelectionService'
 export { effectiveKind, endLabel } from './utils/nodeKind'

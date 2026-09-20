@@ -163,13 +163,26 @@ describe('DossierEditorScreen', () => {
 		expect(screen.getByRole('heading', { name: "La Caverne d'Aldûr" })).toBeInTheDocument()
 		expect(screen.getByRole('button', { name: 'Mes dossiers' })).toBeInTheDocument()
 
+		// LA RAISON EST DÉSORMAIS DÉRIVÉE DES CONTRÔLES (§ 3.A du plan d'itération 1
+		// de `moteur-dossier`, KR-245) : un dossier fraîchement créé porte EXACTEMENT
+		// UN contrôle bloquant — la prose d'ouverture encore marquée, les trois autres
+		// proses semées étant classées `alerte` par `controles.ts` — donc l'infobulle
+		// vaut son `message`, SANS suffixe. L'ancienne chaîne fixe
+		// (`RAISON_APERCU_DESACTIVE`) est morte avec son unique usage : elle cessait
+		// d'être vraie au premier contrôle ajouté.
+		//
+		// FRAGMENTS, jamais la phrase entière recopiée — le texte français appartient
+		// à `brain/dossier/controles.ts` (même doctrine que
+		// `dossier-controles/tests/panneauControles.test.tsx`), et le marqueur lui-même
+		// n'est écrit NULLE PART ici : un seul fichier de `src/` porte sa valeur
+		// (KR-223).
 		const apercu = screen.getByRole('button', { name: 'Aperçu du jeu' })
 		expect(apercu).toBeDisabled()
-		expect(apercu).toHaveAttribute(
-			'title',
-			'Aperçu du jeu — disponible quand le mode jeu sera repointé sur le dossier (feature n° 9)',
-		)
-		expect(apercu).toHaveAttribute('title', expect.stringContaining('feature n° 9'))
+		const raison = apercu.getAttribute('title') ?? ''
+		expect(raison.startsWith('Ce texte porte encore le marqueur')).toBe(true)
+		expect(raison.endsWith('le moteur le lira au joueur mot pour mot, marqueur compris.')).toBe(true)
+		expect(raison).not.toMatch(/de plus/)
+		expect(raison).not.toMatch(/feature n° 9/)
 
 		// Ni compteur de noeuds ni « + Noeud » : un dossier n'a pas de noeuds.
 		expect(screen.queryByRole('button', { name: /nœud/i })).toBeNull()
@@ -532,6 +545,144 @@ describe('DossierEditorScreen', () => {
 			await user.keyboard(' ')
 			expect(lignes[5]).toHaveAttribute('aria-current', 'true')
 			expect(screen.getByText(texteEtatVide(5))).toBeInTheDocument()
+		})
+	})
+
+	/**
+	 * LE CTA « Aperçu du jeu » — itération 1 de `moteur-dossier` (§ 3.A du plan),
+	 * critères 2 et 3.
+	 *
+	 * `EditorTopBar` n'est touchée par AUCUN lot de cette itération (§ 8, D-6 :
+	 * l'enveloppe `<span title>` qui rendrait l'infobulle visible par-dessus un
+	 * `<button disabled>` est REPORTÉE, faute d'instrument navigateur — jsdom
+	 * ignore l'infobulle). Le `title` s'asserte donc SUR LE BOUTON, jamais sur une
+	 * enveloppe. Et c'est l'ABSENCE d'`onPreview` qui désactive le bouton
+	 * (`EditorTopBar:126`), jamais la présence d'une raison : les deux assertions
+	 * sont distinctes et toutes deux tenues ici.
+	 *
+	 * AUCUN `toHaveStyle` : en jsdom, `toHaveStyle({ color: 'var(--x)' })` est vert
+	 * sur n'importe quoi (BUG-084). L'instrument est l'attribut `title` et l'état
+	 * `disabled`, deux valeurs que jsdom rend réellement.
+	 */
+	describe('CTA Apercu du jeu (moteur-dossier iteration 1)', () => {
+		const OUVERTURE_REDIGEE = 'Le vent siffle sur la lande grise ; la porte du sanctuaire bâille déjà.'
+
+		/**
+		 * Des indices qu'aucun savoir, aucun effet et aucun enchaînement ne produit —
+		 * UN contrôle bloquant chacun (`indice-sans-source`, seuil zéro), et la règle
+		 * vient APRÈS `amorce-non-redigee` dans le registre, donc jamais en premier
+		 * tant que la prose d'ouverture est marquée.
+		 */
+		function indicesOrphelins(nombre: number): Dossier['monde']['indices'] {
+			return Array.from({ length: nombre }, (_, rang) => ({
+				id: `indice.trace-oubliee-${rang + 1}`,
+				nom: `Une trace dans la cendre n°${rang + 1}`,
+			}))
+		}
+
+		/**
+		 * Une copie du dossier RÉEL (spread, jamais un littéral inline — KR-156) dont
+		 * seuls deux leviers bougent : la prose d'ouverture et le nombre d'indices
+		 * orphelins. Le texte d'ouverture MARQUÉ se relit sur le dossier créé et ne
+		 * s'écrit jamais ici (KR-223).
+		 */
+		function etat(dossier: Dossier, ouverture: string, indices: number, horodatage: string): Dossier {
+			return {
+				...dossier,
+				monde: { ...dossier.monde, indices: indicesOrphelins(indices) },
+				charpente: {
+					...dossier.charpente,
+					depart: { ...dossier.charpente.depart, texte_ouverture_joueur: ouverture },
+				},
+				updatedAt: horodatage,
+			}
+		}
+
+		/**
+		 * Écrit DERRIÈRE le service PUIS émet (KR-004) — même patron que les tests de
+		 * badge ci-dessus. Aucun `rerender()` : le seul ressort du nouveau rendu est
+		 * l'événement, donc le MONTAGE ne change jamais de toute la séquence.
+		 */
+		function publier(brain: Brain, prochain: Dossier): void {
+			act(() => {
+				brain.persistence.set(dossierKey(prochain.id), prochain)
+				brain.events.emit('dossier:updated', { dossierId: prochain.id })
+			})
+		}
+
+		/**
+		 * CRITÈRE 2 — la raison est une LECTURE DÉRIVÉE, relue à chaque rendu
+		 * (KR-245, KR-013/113). QUATRE états sur UN SEUL montage, et c'est l'absence
+		 * de remontage qui fait le pouvoir séparateur : un miroir posé par un
+		 * `useEffect` rendrait encore, à l'état 2, la raison de l'état 1.
+		 */
+		it('la raison suit l etat courant sans remontage: suffixe du RESTE, premier bloquant courant, puis plus de raison', () => {
+			const brain = createBrain()
+			const dossier = brain.dossiers.create('Un dossier injouable')
+			renderScreen(brain, dossier.id)
+
+			const apercu = screen.getByRole('button', { name: 'Aperçu du jeu' })
+
+			// ÉTAT 1 — TROIS bloquants : la prose d'ouverture encore marquée (première
+			// règle du registre) plus deux indices orphelins.
+			publier(brain, etat(dossier, dossier.charpente.depart.texte_ouverture_joueur, 2, '2026-09-20T09:00:00.000Z'))
+			expect(apercu).toBeDisabled()
+			const raison1 = apercu.getAttribute('title') ?? ''
+			expect(raison1.startsWith('Ce texte porte encore le marqueur')).toBe(true)
+			// Le suffixe compte le RESTE (3 − 1), jamais le total.
+			expect(raison1.endsWith('marqueur compris. (et 2 de plus)')).toBe(true)
+			// UN SEUL message, jamais une concaténation des trois.
+			expect(raison1).not.toMatch(/aucun enchaînement ne donne cet indice/)
+
+			// ÉTAT 2 — la prose est rédigée : le PREMIER bloquant change de règle ET de
+			// message, sur le MÊME montage. C'EST L'ÉTAT SÉPARATEUR.
+			publier(brain, etat(dossier, OUVERTURE_REDIGEE, 2, '2026-09-20T10:00:00.000Z'))
+			expect(apercu).toBeDisabled()
+			const raison2 = apercu.getAttribute('title') ?? ''
+			expect(raison2).toMatch(/aucun enchaînement ne donne cet indice/)
+			expect(raison2.startsWith('Ce texte porte encore le marqueur')).toBe(false)
+			expect(raison2.endsWith(' (et 1 de plus)')).toBe(true)
+
+			// ÉTAT 3 — UN SEUL bloquant : le MÊME message, sans suffixe. L'égalité
+			// COMPOSÉE épingle le suffixe au caractère près — une espace, la
+			// parenthèse, le compte — sans tenir en double une phrase qui appartient à
+			// `brain/dossier/controles.ts`.
+			publier(brain, etat(dossier, OUVERTURE_REDIGEE, 1, '2026-09-20T11:00:00.000Z'))
+			expect(apercu).toBeDisabled()
+			const raison3 = apercu.getAttribute('title') ?? ''
+			expect(raison2).toBe(`${raison3} (et 1 de plus)`)
+			expect(raison3).not.toMatch(/de plus/)
+
+			// ÉTAT 4 — plus aucun bloquant : la raison DISPARAÎT. Aucune chaîne de
+			// repli — « injouable sans raison » n'existe pas, `jouable` EST « aucun
+			// bloquant » — et c'est la présence d'`onPreview` qui rallume le bouton,
+			// dont `EditorTopBar` rend alors son propre `title`.
+			publier(brain, etat(dossier, OUVERTURE_REDIGEE, 0, '2026-09-20T12:00:00.000Z'))
+			expect(apercu).toBeEnabled()
+			expect(apercu).toHaveAttribute('title', 'Aperçu du jeu')
+		})
+
+		/**
+		 * CRITÈRE 3 — la moitié ÉDITEUR du câblage bout en bout (l'autre moitié, le
+		 * montage du shell sur la route, appartient à `play-mode`). Les DEUX états
+		 * sont éprouvés dans le MÊME test (KR-197/202) : sans le cas désactivé, un CTA
+		 * cliquable sur dossier injouable resterait vert.
+		 */
+		it('clic sur Apercu du jeu: navigation vers la route partie; desactive, il ne navigue nulle part', async () => {
+			const user = userEvent.setup()
+			const brain = createBrain()
+			const dossier = brain.dossiers.create('Un dossier a jouer')
+			renderScreen(brain, dossier.id)
+
+			const apercu = screen.getByRole('button', { name: 'Aperçu du jeu' })
+			expect(apercu).toBeDisabled()
+			await user.click(apercu)
+			expect(brain.router.current()).toEqual({ name: 'home' })
+
+			publier(brain, etat(dossier, OUVERTURE_REDIGEE, 0, '2026-09-20T09:00:00.000Z'))
+			expect(apercu).toBeEnabled()
+			await user.click(apercu)
+			expect(brain.router.current()).toEqual({ name: 'partie', dossierId: dossier.id })
 		})
 	})
 

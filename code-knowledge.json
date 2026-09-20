@@ -74,7 +74,7 @@
 		{
 			"id": "KR-052",
 			"feature": "node-editor",
-			"risk": "Feature node-editor supprimee le 2026-08-03, code inexistant. Le motif nom interne + description joueur qu'elle imposait est repris et documente par dossier-objets/specification.json (feature terminee, champ object_editor_ecarte) ; brain/components/ObjectEditor.tsx lui-meme n'est plus qu'un precedent de champs, condamne avec le modele d'arbre (demolition n9)."
+			"risk": "Feature node-editor supprimee le 2026-08-03. Invariant portable : nom interne + description joueur, repris par dossier-objets/specification.json. Mecanisme condamne (demolition n9)."
 		},
 		{
 			"id": "KR-053",
@@ -89,7 +89,7 @@
 		{
 			"id": "KR-055",
 			"feature": "node-editor",
-			"risk": "Sommaire (racine) et Mort (feuille) sont des ecrans STRUCTURELS. L'invariant complet -- champs editables, absence de choix sortants sur mort, double application panneau + SSOT -- est ecrit dans CLAUDE.md SS Domain rules, fichier charge a CHAQUE session : ne pas le recopier ici, une seconde redaction derive. Il vit au SSOT (BookService.updateNode, kinds.ts) jusqu'au remplacement par dossier-format (n1) puis la demolition en n9."
+			"risk": "Sommaire (racine) et Mort (feuille) sont des ecrans STRUCTURELS du modele d'ARBRE. Invariant complet dans CLAUDE.md, regles de domaine, charge a chaque session : ne pas le recopier. SSOT BookService.updateNode / kinds.ts, condamnes (demolition n9)."
 		},
 		{
 			"id": "KR-060",
@@ -104,7 +104,7 @@
 		{
 			"id": "KR-062",
 			"feature": "choice-linking",
-			"risk": "Feature choice-linking supprimee le 2026-08-03. La regle de domaine generale qu'elle appliquait (reference par id stable, jamais par nom ; toute reference pendante surfacee, jamais silencieuse) reste en vigueur (CLAUDE.md, regles de domaine). Le mecanisme specifique (collectObjects sur le catalogue du livre) vivait dans src/brain/BookService.ts/tree.ts/utils/objects.ts, condamne (demolition n9)."
+			"risk": "Feature choice-linking supprimee le 2026-08-03. Invariant portable : reference par identifiant stable, jamais par nom ; toute reference pendante surfacee — il vit dans CLAUDE.md, regles de domaine. Mecanisme condamne (demolition n9)."
 		},
 		{
 			"id": "KR-063",
@@ -129,7 +129,7 @@
 		{
 			"id": "KR-067",
 			"feature": "choice-linking",
-			"risk": "Les ecrans STRUCTURELS ne sont jamais des cibles de choix redigees : la racine sommaire n'a aucun choix entrant et la feuille mort n'est atteinte QU'automatiquement en fin de combat. L'invariant complet est ecrit dans CLAUDE.md SS Domain rules, charge a CHAQUE session : ne pas le recopier ici. Applique au SSOT (BookService.addEdge refuse une cible sommaire/mort) et dans le selecteur de relink. Historique (deriveAutomaticEdges, piege/decor fatal -> Mort) : ROADMAP SS 1 ter ou git log."
+			"risk": "Un ecran STRUCTUREL n'est jamais la cible d'un choix redige. Invariant complet dans CLAUDE.md, regles de domaine, charge a chaque session : ne pas le recopier. Applique au SSOT (BookService.addEdge) ; historique dans ROADMAP SS 1 ter ou git log. Modele d'arbre condamne (n9)."
 		},
 		{
 			"id": "KR-068",
@@ -254,7 +254,7 @@
 		{
 			"id": "KR-118",
 			"feature": "choice-linking",
-			"risk": "Feature choice-linking supprimee le 2026-08-03 ; le picker de prerequis cache limitait les objets proposes a la lignee du noeud (collectLineageObjects, jamais tout le catalogue), avec un flag « hors lignee » distinct d'une reference introuvable. Vivait dans src/brain/utils/objects.ts, condamne (demolition n9) -- le concept de choix/lignee n'existe plus dans le modele dossier."
+			"risk": "Feature choice-linking supprimee le 2026-08-03 ; son picker de prerequis bornait les objets a la lignee du noeud. Le concept de lignee n'existe pas dans le modele dossier ; code condamne (demolition n9)."
 		},
 		{
 			"id": "KR-119",
@@ -289,7 +289,7 @@
 		{
 			"id": "KR-134",
 			"feature": "play-mode",
-			"risk": "SESSION SAVE STATE : la session de jeu persiste via PersistenceService sous une cle PAR LIVRE, enregistree dans persistenceKeys.ts (KR-011). INVARIANTS PORTABLES : les transitoires de combat (etat du round courant) ne sont JAMAIS persistes, et la sauvegarde n'a lieu qu'aux TRANSITIONS de noeud ; l'ensemble des noeuds visites est porte par la session (anti-farm), pas par le document. La liste exacte des champs sauvegardes vit dans src/player/utils/persist.ts -- la recopier ici la ferait deriver au premier repointage (n9)."
+			"risk": "SESSION PERSISTEE : deux sessions, deux cles, et la seconde a rendu la premiere caduque. ARBRE (condamne n9) : src/player/utils/persist.ts ecrit window.localStorage EN DIRECT sous une cle PAR LIVRE que persistenceKeys.ts duplique en commentaire — la duplication meurt avec son proprietaire, elle ne se refactore pas. DOSSIER (n9 it1) : PersistenceService + dossierSessionKey, ecrit par la FEATURE, jamais par src/player/ (extractibilite). INVARIANT PORTABLE : les transitoires de combat ne sont JAMAIS persistes ; la liste des champs sauvegardes vit dans le type, jamais recopiee ici."
 		},
 		{
 			"id": "KR-135",
@@ -790,6 +790,11 @@
 			"id": "KR-236",
 			"feature": "dossier-copilote",
 			"risk": "L'INVITE VIT DANS LE WORKER, jamais dans le client (rejouable aux devtools ; c'est le worker qui detient la cle d'API). Le CLIENT decide QUELLES DONNEES SORTENT, le WORKER CE QU'ON DEMANDE. GARDE : un test asserte que l'invite RENDUE contient le LITTERAL DE GABARIT, JAMAIS la cle nue -- 'valeur' est un mot francais COURANT, et 'la valeur de ce personnage' satisfait includes() sans rien demander (MESURE). AMENDE A L'IT2 : des que les gabarits sont indexes PAR ROLE, cette garde reste VERTE sur une table MAL APPARIEE -- deux litteraux presents, corrects, simplement ECHANGES (MESURE). Il en faut TROIS : (1) egalite des ensembles de cles cote brain, cote worker et dans INVITES, qui attrape le role SANS gabarit ; (2) l'appariement role par role ; (3) un CANARI CROISE, intervertir deux gabarits doit ROUGIR -- sans lui 'absent' et 'mal apparie' sont indistinguables, et le mal-apparie est le seul defaut NEUF qu'une table a plusieurs entrees rende possible. Record<Role,string>, extraction du test ancree sur l'ENTREE et non sur la declaration."
+		},
+		{
+			"id": "KR-254",
+			"feature": "moteur-dossier",
+			"risk": "LES SEPT CHAMPS D'EtatMonde SONT REQUIS ET TOTAUX DES LE PREMIER LOT contrat — exception NOMMEE a KR-249, dont l'unite d'admission est ici `monde` et non ses champs. La totalite est la PRECONDITION de la bivalence de l'evaluateur (KR-238 : il LEVE, il ne rend jamais false) ; six champs poses optionnels le resteraient A VIE (KR-251) et laisseraient six branches undefined sous un aiguillage qui doit lever. COROLLAIRE : une cle RACINE sans consommateur se reserve (memoire: null, proprietaire n10) ; une cle NON RACINE ne se reserve PAS (horloge.climat_actif, pnj.<id>.confiance non declares, un commentaire nomme leur proprietaire) — KR-251 rendra leur ajout optionnel a vie, donc la reservation n'achete rien qu'un commentaire ne donne."
 		}
 	]
 }

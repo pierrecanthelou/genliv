@@ -71,9 +71,13 @@ describe('AMORCE, les textes semes par create()', () => {
 	it('l amorce ne sort pas du baril brain/index.ts', () => {
 		const baril = fs.readFileSync(path.join(RACINE_SRC, 'brain', 'index.ts'), 'utf8')
 
-		// Même règle que `DELTAS` et `DESTINATION_DES_CHAMPS` : aucun consommateur hors
-		// de `brain/` avant les n° 7 et n° 9. Le jour où l'un d'eux voudra la lire, il
-		// devra SUPPRIMER ce test — c'est-à-dire prendre la décision au lieu de la subir.
+		// Même règle que `DELTAS` et `DESTINATION_DES_CHAMPS`. CE TEST GARDE LE BARIL,
+		// PAS L'IMPORT PROFOND — nuance mesurée depuis la n° 9 it1 :
+		// `features/play-mode/components/EcranPartie.tsx` lit la constante du marqueur
+		// EN PROFONDEUR, et ce test tient toujours, parce que l'offrir aux treize
+		// features n'est pas la même décision que la laisser lire à UN appelant nommé.
+		// Ce qui ferait tomber ce test, c'est ouvrir le baril — et ce serait, alors,
+		// une décision prise au lieu d'être subie.
 		expect(baril).not.toContain('MARQUEUR_A_ECRIRE')
 		expect(baril).not.toContain('construireAmorce')
 		expect(baril).not.toContain('dossier/amorce')

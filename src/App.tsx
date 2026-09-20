@@ -5,6 +5,7 @@ import { SyncIndicator, ConflictDialog } from './features/cloud-sync'
 import { ImportDossierButton } from './features/dossier-format'
 import { CreateDossierEntry } from './features/book-creation'
 import { DossierEditorScreen } from './features/bascule-editeur'
+import { EcranPartie } from './features/play-mode'
 import { PanneauControles } from './features/dossier-controles'
 import { PanneauCopilote } from './features/dossier-copilote'
 import { PanneauCanon, PanneauDepart, PanneauLieux } from './features/dossier-canon'
@@ -63,6 +64,16 @@ export function App(): JSX.Element {
 					'jalons-fins': <PanneauJalonsFins dossierId={route.dossierId} />,
 				}}
 			/>
+		) : route.name === 'partie' ? (
+			// La route `partie` (n° 9 `moteur-dossier`, itération 1) monte le shell de
+			// `play-mode` sur le MÊME `dossierId` — c'est le seul rendez-vous entre
+			// l'éditeur et le moteur, et c'est ce qui rend la jonction possible sans
+			// un seul import croisé : `bascule-editeur` navigue, la racine monte.
+			// Keyé par `dossierId` pour la même raison que les deux branches
+			// au-dessus : un changement de dossier remonte le shell, donc re-gèle le
+			// dossier et rouvre une session (le dossier est GELÉ à l'ouverture,
+			// arbitrage n° 7).
+			<EcranPartie key={route.dossierId} dossierId={route.dossierId} />
 		) : (
 			<LibraryScreen createEntry={<CreateDossierEntry />} importEntry={<ImportDossierButton />} />
 		)

@@ -35,9 +35,31 @@ import type { Dossier } from './types'
  * désormais, dans DEUX fichiers (KR-227).
  *
  * CE QUE H6 REFUSE DE DIRE. `lieu_visite`, `jalon_atteint` et `evenement_consomme`
- * restent `indecidable`, parce que deux décisions que la n° 9 n'a PAS prises les
- * gouvernent : (i) le moteur résout-il les `declencheur_expr` AVANT la première
- * action ? (ii) le lieu de départ compte-t-il comme VISITÉ ?
+ * restent `indecidable`, parce que deux décisions les gouvernent : (i) le moteur
+ * résout-il les `declencheur_expr` AVANT la première action ? (ii) le lieu de
+ * départ compte-t-il comme VISITÉ ?
+ *
+ * ⚠ LA N° 9 LES A PRISES, ET CE BLOC NE DIT PLUS QU'ELLE NE LES A PAS PRISES
+ * (KR-252, itération 1 de `moteur-dossier`). (ii) est tranchée ET LIVRÉE :
+ * `ouvrirSession` pose `lieux_visites = [charpente.depart.lieu_id]` — un héros
+ * dans un lieu qu'il n'a jamais visité est un état incohérent, pas une décision
+ * en attente. (i) est tranchée et sera livrée avec les jalons : le moteur
+ * résoudra les `declencheur_expr` à l'ouverture, et la chaîne écrite au dépôt
+ * (`dossier-minimal.json` : départ `lieu.val-cendre` → `jalon.premiere-nuit` sur
+ * `lieu_visite(val-cendre)` → effet `reveler_indice(sceau-brise)`) mettra alors
+ * `indice_connu: 'faux'` en défaut DANS LA SEULE DIRECTION QUE CE FICHIER
+ * S'INTERDIT, le faux positif.
+ *
+ * AUCUNE CELLULE N'EST AMENDÉE ICI, ET C'EST MESURÉ, PAS PRUDENT : les DEUX
+ * corrections partent ENSEMBLE dans le lot `contrat` de l'itération 3, où
+ * l'édition de la table attendue de `tourzero.test.ts` se paie UNE fois. Tant que
+ * le moteur n'applique aucun effet de jalon à l'ouverture, `indice_connu: 'faux'`
+ * reste VRAI de l'état que `ouvrirSession` produit — propriété qui n'était
+ * affirmée par personne et qu'un instrument constate désormais :
+ * `tourzeroOracle.test.ts` confronte cette table à cet état, cellule par cellule.
+ * `lieu_visite`, elle, est déjà EN RETARD sur l'état — sans rien faire rougir,
+ * puisqu'une cellule `indecidable` ne tire pas et que l'oracle ne l'asserte pas.
+ *
  * `evenement_consomme` est `indecidable` POUR UN CONTRE-EXEMPLE ÉCRIT, pas par
  * prudence : `dossier-minimal.json` déclenche `evenement.embuscade-du-fanal` sur
  * `lieu_courant_est('lieu.val-cendre')`, qui EST son lieu de départ — et le
@@ -56,9 +78,13 @@ import type { Dossier } from './types'
  * y vaut `true` par IGNORANCE, ici `'vrai'` par DÉTERMINATION. Deux tables, deux
  * questions ; elles ne fusionnent pas.
  *
- * CE QU'ELLE N'EST PAS : H6 NE SPÉCIFIE AUCUN ÉTAT DE SESSION. La mémoire de
- * session appartient à la n° 9 ; ce module dit seulement ce que le DOCUMENT en
- * détermine. La discipline tient en une phrase : TOUTE CELLULE `vrai`/`faux` NOMME
+ * CE QU'ELLE N'EST PAS : H6 NE SPÉCIFIE AUCUN ÉTAT DE SESSION — ET CET ÉTAT A
+ * DÉSORMAIS UNE ADRESSE, `brain/dossier/session.ts` (`EtatSession` / `EtatMonde`,
+ * itération 1 de la n° 9). Ce module dit seulement ce que le DOCUMENT en
+ * détermine ; c'est l'autre fichier qui dit ce qu'une partie SAIT. Chaque cellule
+ * ci-dessous nomme en JSDoc le champ d'`EtatMonde` qu'elle value, de sorte que le
+ * chaînage des deux se relise sans les rapprocher à la main.
+ * La discipline tient en une phrase : TOUTE CELLULE `vrai`/`faux` NOMME
  * soit le champ du document qui la détermine, soit la clause de H6 qui la suppose ;
  * sans l'un des deux, la cellule vaut `indecidable`.
  */
@@ -106,6 +132,8 @@ type Trivalent = 'vrai' | 'faux' | 'indecidable'
  */
 const VALEUR_AU_TOUR_ZERO: Record<PredicatId, (dossier: Dossier, cibles: readonly string[]) => Trivalent> = {
 	/**
+	 * VALUE `monde.lieu_courant` (`session.ts`) — une valeur, pas une liste.
+	 *
 	 * LE SEUL CHAMP DU DOCUMENT QUI ÉCRIVE UN FAIT DE SESSION, et la ligne qui
 	 * interdit le faux positif : sans elle, `non(lieu_courant_est(<départ>))`
 	 * deviendrait certain-vrai sur tout dossier, alors qu'il est certain-FAUX.
@@ -120,6 +148,8 @@ const VALEUR_AU_TOUR_ZERO: Record<PredicatId, (dossier: Dossier, cibles: readonl
 		return cibles[0] === depart ? 'vrai' : 'faux'
 	},
 	/**
+	 * VALUE `monde.objets_possedes` (`session.ts`) — vide à l'ouverture.
+	 *
 	 * H6, clause « aucun delta avant la première action », PLUS H5
 	 * d'`atteignabilite.ts` — CITÉE, jamais recopiée : `donner_objet` est le seul
 	 * écrivain d'inventaire, `Depart` n'en porte aucun, et le narrateur n'y touche
@@ -128,15 +158,26 @@ const VALEUR_AU_TOUR_ZERO: Record<PredicatId, (dossier: Dossier, cibles: readonl
 	 * règle, et c'est contre lui que son niveau se choisit.
 	 */
 	possede_objet: () => 'faux',
-	/** H6, même clause : `monde.indices_connus[]` part vide. Aucun contre-exemple au dépôt. */
+	/**
+	 * VALUE `monde.indices_connus` (`session.ts`).
+	 *
+	 * H6, même clause : la liste part vide. Aucun contre-exemple au dépôt AUJOURD'HUI
+	 * — et c'est la cellule que la décision (i) mettra en défaut à l'itération 3,
+	 * voir le bloc H6 ci-dessus.
+	 */
 	indice_connu: () => 'faux',
 	/**
+	 * VALUE `monde.pnj.<id>.a_dit` (`session.ts`) — `pnj` part à `{}`, et une clé
+	 * absente est un état LÉGAL, jamais un trou.
+	 *
 	 * H3 d'`atteignabilite.ts`, CITÉE : l'unique producteur de `monde.pnj.<id>.a_dit[]`
 	 * est un savoir livré en dialogue — c'est-à-dire une scène JOUÉE, qui n'a pas eu
 	 * lieu au tour zéro.
 	 */
 	pnj_a_revele: () => 'faux',
 	/**
+	 * VALUE `monde.evenements_consommes` (`session.ts`).
+	 *
 	 * AUCUN CHAMP, ET UN CONTRE-EXEMPLE ÉCRIT AU DÉPÔT — voir H6. Une cellule dont
 	 * le contre-exemple vit dans `__fixtures__` n'est pas une hypothèse : c'est une
 	 * erreur. Coût de la prudence : nul, `ou('indecidable', 'faux')` se tait
@@ -144,11 +185,20 @@ const VALEUR_AU_TOUR_ZERO: Record<PredicatId, (dossier: Dossier, cibles: readonl
 	 */
 	evenement_consomme: () => 'indecidable',
 	/**
-	 * AUCUN CHAMP — deux écrivains, dont un `declencheur_expr` que la n° 9 pourrait
-	 * résoudre avant le premier tour.
+	 * VALUE `monde.jalons_atteints` (`session.ts`).
+	 *
+	 * AUCUN CHAMP — deux écrivains, dont un `declencheur_expr` que la n° 9 RÉSOUDRA
+	 * avant le premier tour (décision (i), livrée à l'itération 3).
 	 */
 	jalon_atteint: () => 'indecidable',
-	/** AUCUN CHAMP — le statut du lieu de DÉPART n'est tranché nulle part. */
+	/**
+	 * VALUE `monde.lieux_visites` (`session.ts`).
+	 *
+	 * AUCUN CHAMP — et le statut du lieu de DÉPART, lui, EST tranché depuis
+	 * l'itération 1 de la n° 9 : `ouvrirSession` l'y met. Cellule EN RETARD sur
+	 * l'état, dans le sens permis (elle se tait) ; corrigée à l'itération 3, avec
+	 * l'autre.
+	 */
 	lieu_visite: () => 'indecidable',
 }
 

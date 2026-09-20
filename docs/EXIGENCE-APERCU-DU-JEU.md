@@ -46,7 +46,7 @@ Permettre à l'auteur de **jouer immédiatement** l'aventure qu'il est en train 
 
 ### 6. Autonomie et extractibilité du runtime
 - Le runtime (`src/player/`) embarque le **bloc de stats complet** du monstre et l'**effet d'équipement** des objets via l'`AdventureDocument` — il ne dépend d'aucun export préalable ni d'aucun service éditeur.
-- Il peut être **extrait et déployé indépendamment** (autre webapp, app mobile) : copier `src/player/` + les modules `brain/` purs (characteristics, combat, xp, challenge, equipment, monsterCapacities). `AdventureDocument` est l'unique point d'entrée.
+- Il peut être **extrait et déployé indépendamment** (autre webapp, app mobile) : copier `src/player/` + les modules `brain/` purs (characteristics, combat, xp, challenge, equipment, monsterCapacities), plus les modules purs du **dossier d'aventure** : `brain/dossier/types.ts`, `brain/dossier/amorce.ts`, `brain/dossier/session.ts`, `brain/dossier/sessionDestinations.ts` (n° 9 `moteur-dossier`, itération 1 — aucun service, aucune persistance, aucun composant), **plus leurs dépendances de type**, qui ne sont pas facultatives : `types.ts` type-importe `expr.ts`, `deltas.ts` et `curseurs.ts`, et `sessionDestinations.ts` type-importe `destinations.ts` — sans eux la copie ne compile pas. `sessionDestinations.ts` voyage non pour être exécuté mais parce qu'il est **le contrat d'audience de l'état de session** : la surface extraite qui branchera un modèle en aura besoin avant d'injecter quoi que ce soit. `AdventureDocument` est l'unique point d'entrée.
 - `book-export` produit le même `AdventureDocument` pour la version publiée : le format est unique, le runtime est unique.
 
 ## Maquette de référence

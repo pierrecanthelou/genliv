@@ -1,0 +1,38 @@
+# Tour 2 — QA — `moteur-dossier` it1
+
+**1 · STATUT.** Objection « critère 3 » : **MAINTENUE sur la lettre, RETIRÉE sur la conclusion.** Je demandais de sortir `tourzero.ts` d'it1 ; l'oracle du narratif fait mieux — aucune cellule ne bouge, donc « reste verte sans avoir été modifiée » devient **vrai et constatable au diff**, et le lot gagne un instrument au lieu d'un report. Conséquence sur l'annexe A : **`R src/brain/dossier/tourzero.test.ts` sort de L1** (sinon le critère s'auto-viole), `tourzero.ts` n'y reste qu'en **docstring**. Objection « critère 5 » (replay) : **MAINTENUE** — journal vide, deux inits coïncident sans déterminisme.
+
+**2 · C-1, nommément.** Vous avez raison, mes deux phrases tiraient en sens opposé, et l'une était **fausse** : j'ai confondu « aucun fichier de test » et « aucun instrument ». L'instrument existe — `BrainProvider` + RTL, précédent `dossierEditorScreen.test.tsx:104`. Donc la jonction **est** testable, et découper la supprimerait. **Je ne demande pas de découpe : dérogation nommée, RETENUE.** Réserve : je n'ai pas mesuré que `App` monte en RTL (10 panneaux, services) ; le lot le mesure **avant** de s'engager. S'il ne monte pas, la jonction s'écrit « vérifiée par personne » — pas contrebandée en vert.
+
+**3 · C-2, MESURÉ** (sonde jetable, arbre restauré, `git status` propre).
+- **(a) Écrivable aujourd'hui, et sans exporter `VALEUR_AU_TOUR_ZERO`** : la cellule se lit par l'API publique — `premiereFeuilleVraieAuTourZero(d, P) ≠ null` ⇒ `'vrai'` ; sur `non(P)` ⇒ `'faux'` ; sinon `indecidable`. KR-237 (« privé au module ») **tient** ; aucun contrat n'est élargi.
+- **(b) VERT** sur la table non amendée, `dossier-minimal.json`, session d'ouverture d'it1 (tous les champs vides, `pnj: {}`). **6 cellules assertées** (mesuré : 1 `lieu_courant_est` vrai, 1 objet, 2 indices, 2 `pnj×indice`), 15 couples indécidables non assertés.
+- **(c) ROUGE** sous le mutant nommé, avec le champ en clair : `indice_connu(indice.sceau-brise) · table=faux · etat=true`.
+- **Mesure de plus, non demandée et qui tranche** : le mutant de **direction it2** (`lieux_visites = [depart]`) laisse l'oracle **VERT**. L'asymétrie du narratif est donc **mesurée, pas supposée** — l'oracle couvre (i), **jamais** (ii). La décision (ii) gardera son amendement de cellule en it2, et il fera rougir `tourzero.test.ts` (M1) : un **troisième lot `contrat`** reste dû en it2.
+
+**4 · C-3.** Observable, instrument trivial — mais « aucune valeur `'ia'` » **passe aussi sur une table vide**. Forme exigée : `[...new Set(Object.values(TABLE))].sort()` **égal exactement** `['moteur']`, plus la non-vacuité par compilation. Patron maison : `tourzero.test.ts:271`.
+
+**5 · C-9. Confirmé** — les deux gardes sont des lignes de **définition de fini** du lot `contrat` : `expr.test.ts:420` (toute `.ts` non-test de `brain/dossier/` dont la **source, commentaires compris**, porte `op === '` ou `switch (…op)` entre dans la liste close — sonde ROUGE) et `couverture.test.ts:515` (`porteurs === ['feuilles.ts']` — sonde ROUGE). Corollaire : L1 **importe** le walker de `feuilles.ts`, il ne le réécrit pas.
+
+**6 · C-5.** Mon point ne tombe pas, il **change de nature** : sans port, il n'y a plus rien d'invérifiable côté surface extraite — mais l'arbitrage n°14 dit « la session est **persistée dès it1** », et KR-251 en tire sa raison d'être. Si `persist.ts` sort du périmètre, **dites laquelle des deux part** : la persistance d'it1, ou le port. En l'état, rien n'écrit la session et KR-251 n'a aucun témoin possible en it1.
+
+---
+
+## Critères d'it1 révisés — 8, tenables
+
+| # | Étant donné / Quand / Alors | Niveau | Fichier | Mutant |
+|---|---|---|---|---|
+| 1 | **ÉD** un dossier dont `texte_ouverture_joueur` porte `MARQUEUR_A_ECRIRE` **et** son jumeau réécrit **Q** on ouvre une session sur chacun **A** le premier est refusé, le second accepté, **dans le même test** ; le refus **dérive** de `controlerDossier().jouable` et nomme le premier contrôle bloquant — aucune seconde règle de marqueur (KR-244, objection PM 2, M2) | unitaire | `src/brain/dossier/session.test.ts` | — |
+| 2 | **ÉD** deux `RapportControles` (jouable `false` → `true`) sur le **même montage, sans remontage** **Q** re-rendu, puis clic **A** `previewDisabledReason` = `message` du 1ᵉʳ bloquant + « (et {n} de plus) » **à l'état courant**, puis `navigate({name:'partie',dossierId})` — l'absence de remontage est l'état séparateur : un miroir rendrait la 1ʳᵉ valeur (KR-245) | composant | `src/features/bascule-editeur/tests/dossierEditorScreen.test.tsx` | **oui** — raison recopiée dans un `useEffect` → ROUGE. Lot `bascule-editeur` |
+| 3 | **ÉD** la route `partie` atteinte **directement**, dossier `jouable=false` puis `true` **Q** montage du shell **A** refus nommé, puis montage — la porte n'est pas contournable par l'URL (KR-239) | composant | `src/features/play-mode/tests/porteJouable.test.tsx` | **oui** — garde retirée du **shell**, conservée au CTA → ROUGE. Lot `play-mode` |
+| 4 | **ÉD** une session d'ouverture **Q** rendu **A** `charpente.depart.texte_ouverture_joueur` verbatim, chaîne **exacte**, dans `OutcomeBlock`, et le journal porte **zéro** entrée | composant | `src/features/play-mode/tests/ouvertureVerbatim.test.tsx` | — |
+| 5 | **ÉD** un dossier dont le départ **n'est pas le premier de `monde.lieux[]`** **Q** initialisation **A** `monde.lieu_courant === charpente.depart.lieu_id` — sans cette fixture, « départ » et « premier lieu » coïncident (BUG-113) | unitaire | `src/brain/dossier/session.test.ts` | — |
+| 6 | **ÉD** `__fixtures__/dossier-minimal.json` et la session d'ouverture d'it1 **Q** confrontation prédicat par prédicat **A** **aucune** cellule `'vrai'`/`'faux'` ne contredit l'état, sur **≥ 6 cellules assertées** (non-vacuité, mesurée à 6) ; les `indecidable` ne sont pas assertés ; `tourzero.test.ts` **n'est pas modifié** (constatable au diff) | contrat | **NOUVEAU** `src/brain/dossier/tourzeroOracle.test.ts` | **oui** — `indices_connus = ['indice.sceau-brise']` → ROUGE (mesuré). Lot `contrat` |
+| 7 | **ÉD** `DESTINATION_DES_CHAMPS_DE_SESSION` et une fixture de session **saturée** **Q** balayage pleine profondeur **A** échec **par nom de champ** sur tout champ sans ligne ; exhaustivité **par compilation** ; `[...new Set(valeurs)]` vaut **exactement** `['moteur']` — zéro ligne `ia` (C-3) ; `memoire` typée `null` ; aucun `pnj.<id>.sait` (`@ts-expect-error`) ; walker **importé** de `feuilles.ts` | contrat | `src/brain/dossier/sessionDestinations.test.ts` | — |
+| 8 | **ÉD** la liste des fichiers de la feature **dérivée du disque** (modèle `lintIsolation.test.ts`) **Q** balayage **A** zéro `fetch`, zéro import de `CopiloteService`, zéro URL `/ia/` (KR-250) | contrat/feature | `src/features/play-mode/tests/moteurSansIA.test.ts` | **oui** — import ajouté → ROUGE → retiré, **dans le lot qui le livre** |
+
+**Hors it1 (non-critères)** : replay déterministe (it2) ; amendement de cellule `lieu_visite` (it2, avec son 3ᵉ lot `contrat`) ; `indice_connu` (it3) ; évaluateur, deltas, console, `JournalRow`, jalons, démolition.
+
+**Définition de fini** : Prettier → `tsc` → ESLint → jest verts ; les 8 témoins écrits et passants ; les **4 mutants exécutés, ROUGE consigné** dans la revue ; `tourzero.test.ts`, `expr.test.ts:420`, `couverture.test.ts:515`, `controles.test.ts` verts **sans modification** ; pas de `test:mutation` (KR-243 écrit noir sur blanc dans la revue).
+
+**VERDICT — recevable sous réserve** : (a) `tourzero.test.ts` retiré de L1 ; (b) le lot mesure la montabilité d'`App` avant de promettre la jonction ; (c) C-5 tranché — persistance d'it1 **ou** port, l'un des deux part.

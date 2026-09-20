@@ -78,9 +78,6 @@ export interface DossierEditorScreenProps {
 	panneauCopilote?: (onSelectSection: (section: SectionId) => void) => ReactNode
 }
 
-const RAISON_APERCU_DESACTIVE =
-	'Aperçu du jeu — disponible quand le mode jeu sera repointé sur le dossier (feature n° 9)'
-
 /**
  * Écran d'édition d'un dossier d'aventure — fichier NEUF de bascule-editeur,
  * jamais une branche ajoutée à `src/EditorScreen.tsx` (chemin Book, condamné
@@ -136,9 +133,28 @@ export function DossierEditorScreen({
 	// justifierait. `useMemo` attend une MESURE, jamais une intuition : le jour
 	// où un dossier réel rendra ce balayage visible au profilage, c'est cette
 	// mesure-là qui décidera, pas cette phrase.
-	// `parSection` SEUL est propagé à `SectionNav` — jamais le `RapportControles`
-	// entier, qui n'a rien à faire de `controles` ni de `jouable` ici.
-	const { parSection } = controlerDossier(dossier)
+	//
+	// La DÉSTRUCTURATION S'ÉLARGIT à l'itération 1 de `moteur-dossier` (§ 3.A du
+	// plan) : `controles` et `jouable` alimentent le CTA « Aperçu du jeu ». UN SEUL
+	// appel, celui-ci — un second recalculerait le rapport deux fois par rendu pour
+	// deux lectures du même fait. `parSection` reste le SEUL morceau propagé à
+	// `SectionNav`, qui n'a toujours rien à faire des deux autres.
+	const { parSection, controles, jouable } = controlerDossier(dossier)
+
+	// LE TEXTE SEUL est dérivé ici. `jouable` reste LA PORTE et n'est JAMAIS
+	// recalculé en « aucun bloquant » : `controles.ts` le dérive « ICI ET NULLE PART
+	// AILLEURS » (KR-013), et une vue qui le refabriquerait en ferait une seconde
+	// règle de jouabilité. Le suffixe compte le RESTE (`length - 1`), jamais le
+	// total, et « de plus » est invariable — pas de `plural` à appeler. Aucune
+	// chaîne de repli non plus : « injouable sans raison » n'est pas un état
+	// atteignable, `jouable` EST « aucun bloquant » (KR-245).
+	const bloquants = controles.filter((controle) => controle.niveau === 'bloquant')
+	const raisonApercu =
+		bloquants.length === 0
+			? undefined
+			: bloquants.length === 1
+				? bloquants[0].message
+				: `${bloquants[0].message} (et ${bloquants.length - 1} de plus)`
 
 	/**
 	 * Le panneau courant — une suite de gardes plutôt qu'une cascade de ternaires :
@@ -159,7 +175,12 @@ export function DossierEditorScreen({
 				title={dossier.titre}
 				backLabel="Mes dossiers"
 				onBack={() => router.navigate({ name: 'home' })}
-				previewDisabledReason={RAISON_APERCU_DESACTIVE}
+				// C'est l'ABSENCE d'`onPreview` qui désactive le bouton
+				// (`EditorTopBar:126` fait `disabled={!onPreview}`), jamais la présence
+				// d'une raison : le passer inconditionnellement livrerait un CTA
+				// cliquable sur un dossier injouable.
+				onPreview={jouable ? () => router.navigate({ name: 'partie', dossierId }) : undefined}
+				previewDisabledReason={raisonApercu}
 			/>
 			<main style={body}>
 				<div style={navColumn}>

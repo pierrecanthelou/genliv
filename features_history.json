@@ -70,6 +70,46 @@
    "bugs_encountered": [
     "BUG-078 (corrige)"
    ]
+  },
+  {
+   "feature": "moteur-dossier (it1, première tranche du Temps 2)",
+   "completed_at": "2026-09-20",
+   "goal": "L'auteur lit le texte d'ouverture de son dossier dans une partie lancée depuis l'éditeur.",
+   "key_architecture_choices": [
+    "Le rendez-vous éditeur ↔ moteur est une VARIANTE DE `Route`, pas une famille d'événements : des événements n'auraient aucun abonné externe, alors qu'une route en a déjà un. C'est ce qui rend la jonction possible sans un seul import croisé entre `bascule-editeur` et `play-mode`.",
+    "`ouvrirSession` est pure et vit dans `brain/dossier/session.ts` — contrainte d'un instrument EXISTANT (`expr.test.ts:420` borne à `brain/dossier/` la liste close des lecteurs d'`ExprNode`), pas d'une préférence. Corollaire : `src/player/` ne reçoit aucun fichier, et le port de stockage attend son premier appelant (it2).",
+    "La table d'audience de session naît avec ZÉRO ligne `ia`, tenue par une assertion que la n° 10 devra supprimer : une ligne `ia` est une autorisation, pas une prévision, et les lignes d'audience se corrigent en commentaire, jamais en valeur."
+   ],
+   "brain_contracts_added": [
+    {
+     "type": "type",
+     "name": "brain/dossier/session.ts — EtatSession, EtatMonde, EtatPnj, EntreeJournal, RoleJournal, ResultatOuverture"
+    },
+    {
+     "type": "service",
+     "name": "brain/dossier/session.ts — ouvrirSession (pure, graine injectée)"
+    },
+    {
+     "type": "registry",
+     "name": "brain/dossier/sessionDestinations.ts — DESTINATION_DES_CHAMPS_DE_SESSION"
+    },
+    {
+     "type": "type",
+     "name": "brain/Router.ts — Route |= { name: 'partie'; dossierId }"
+    },
+    {
+     "type": "service",
+     "name": "brain/persistenceKeys.ts — DOSSIER_SESSION_KEY_PREFIX, dossierSessionKey"
+    }
+   ],
+   "lessons_learned": [
+    "Rejouer au dépôt l'affirmation la plus load-bearing du tour 1 AVANT d'ouvrir le tour 2 a changé la forme de l'itération : elle était fausse, deux rôles s'y appuyaient, et le tech-lead a reconnu avoir mesuré l'ABSENCE d'un amendement pour couvrir sa PRÉSENCE (BUG-087).",
+    "La QA en mode B a trouvé un trou que les trois ouvriers ET l'intégrateur n'avaient pas vu, en cherchant le pouvoir séparateur MANQUANT plutôt qu'en rejouant les mutants annoncés. « Quel mutant personne ne m'a demandé de poser ? » est la question qui distingue le mode B d'une relecture.",
+    "Un plan peut se tromper sur une signature EXISTANTE (`dossier === undefined` contre `Dossier | null`) : « mesure d'abord » vaut aussi pour les signatures dont le comité dicte un test d'égalité."
+   ],
+   "bugs_encountered": [
+    "BUG-119 (pré-existant, hors périmètre, consigné et non corrigé)"
+   ]
   }
  ]
 }
