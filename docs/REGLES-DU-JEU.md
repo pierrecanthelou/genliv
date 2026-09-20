@@ -81,6 +81,10 @@ Réussite = obtenir un résultat de dés **inférieur ou égal** à la caractér
 
 > `Rand(a,b)` = entier aléatoire uniforme dans `[a, b]` inclus. Un **bouclier** ajoute `+1D4` à l'AT en posture **Défensive** (§ 3 — Équipement).
 >
+> **AT égales** — si les deux AT sont identiques, l'assaut est **nul** : l'Écart vaut 0, la
+> qualité est **Manqué** (multiplicateur ×0) et aucun dégât n'est infligé de part ni d'autre.
+> La suite — rejouer un round — est de l'orchestration : `docs/REGLES-PLAY.md` § D2.
+>
 > **Garde aiguisée** : après **3 parades consécutives** d'un combattant (Défensive remportée), son **adversaire gagne +2 à la MC** pour le reste du combat (le compteur de parades est remis à zéro). Décourage la tortue défensive.
 
 ### Calcul des dégâts (Puissance de Frappe — PF)
@@ -96,6 +100,12 @@ Puis multipliée selon l'**Écart** entre les deux scores d'attaque (`AT_vainque
 | 2–3 | Coup franc | ×1 | — |
 | 4–5 | Coup magistral | ×1.5 | — |
 | ≥6 | Coup critique | ×2 | **dégrade l'armure cible de 1 point** |
+
+> L'Écart se mesure entre un vainqueur et un perdant **désignés** : il est toujours ≥ 1. La
+> fonction qui classe les bandes est néanmoins **totale** — en deçà de 1, elle rend la qualité
+> **Manqué** (×0, aucun dégât), le cas de l'égalité d'AT ci-dessus. La résolution d'un assaut
+> n'appelle jamais la fonction en deçà de 1 : l'égalité est traitée avant, et pose elle-même la
+> qualité **Manqué**.
 
 Dégâts finaux subis = `PF − Réduction_protection` (cf. ci-dessous). On arrondit **au calcul final uniquement**.
 

@@ -30,7 +30,7 @@ The `.dc.html` files are **HTML design references** (look + behaviour). Recreate
 
 `docs/REGLES-DU-JEU.md` is the **single source of truth for every game mechanic** (KR-130): characteristics, challenge tiers, combat arithmetic, XP. Never settle a rule ambiguity from the code — go back to that file, correct it there, then propagate to `src/brain/`. `docs/REGLES-PLAY.md` is its orchestration complement for play mode.
 
-The rules layer (`challenge.ts`, `combat.ts`, `xp.ts`, `characteristics.ts`) is held by the mutation score: any iteration touching one of those four runs `npm run test:mutation` above `break: 80`, and `src/brain/rules.golden.test.ts` pins value by value everything the mutation config neutralises.
+The rules layer (`challenge.ts`, `combat.ts`, `xp.ts`, `characteristics.ts`) is held by the mutation score: any iteration touching one of those four runs `npm run test:mutation` above `break: 90`, and `src/brain/rules.golden.test.ts` pins value by value everything the mutation config neutralises.
 
 ## Domain rules (non-negotiable)
 

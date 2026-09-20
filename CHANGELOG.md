@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.53 — le score de mutation cesse de mentir sur combat.ts
+
+Tranche hors cycle **B2 `outillage-2`** (roadmap § 2 bis) — trois lots, deux vagues, **zero ligne de production touchee** dans `combat.ts`/`challenge.ts`/`xp.ts`/`characteristics.ts`. Quatre fichiers de test neufs (`combat.test.ts`, `challenge.test.ts`, `characteristics.test.ts`, `xp.test.ts`), deux notes ajoutees a `docs/REGLES-DU-JEU.md` § 3 (borne de la bande d'Ecart, egalite des AT). **258 mutants, 100.00% sur les 4 fichiers** (257 tues + 1 timeout, zero survivant, zero erreur), mesure sur deux runs complets identiques au mutant pres. `break` releve au plafond du cliquet : **90** (`low: 90`, `high: 95`). **106 suites / 1770 tests.**
+
+- **Le seuil est une transcription, pas une cible.** `break = min(floor(score/5) x 5, 90)` : la liste des 48 mutants nommes au cadrage etait fermee, aucun 49e n'a ete chasse pour faire monter un chiffre.
+- **Refuse : quatre "equivalents" qui etaient des negations.** `combat.ts:107:74`/`107:75`/`108:74`/`108:75` (`!!attacker.shield` face a `!attacker.shield`) avaient ete proposes a l'annotation `Stryker disable` par la QA au tour 1 ; mesure faite, le `replacement` porte le noeud interne, pas la ligne resultante — les quatre sont tues par un test borne (`rng` fixe, bouclier vrai), aucun n'est equivalent.
+- **Refuse : le mock global de `Math.random`.** Tuer `107:64`/`108:64` par `jest.spyOn(Math, 'random')` aurait tue 2 mutants contre 7 pour la borne deja ecrite, ne prouve qu'un seul tirage au lieu de tout tirage, et son mode de panne est vert (`restoreMocks` absent des trois configs jest).
+- **Refuse : la ligne `<= 0` en tete de la table d'Ecart.** L'en-tete definit l'Ecart comme `AT_vainqueur - AT_perdant` ; y ecrire "<= 0" y affirme du faux. Remplacee par une note de borne sous la table, plus le paragraphe manquant sur l'egalite des AT (transcrit de `docs/REGLES-PLAY.md` § D2, aucune seconde source creee).
+- **Le +/-1 mutant de `combat.ts:107` est solde par les tests, pas par un seed.** `rng` reste optionnel dans `computeAT` (signature `brain/` inchangee) ; la borne explicite (rng fixe, bouclier vrai, MC distincts) tue les six mutants nommement, sur les deux runs, a l'identique.
+- **Documentation compactee dans le meme geste** : le couple `CLAUDE.md` + `docs/WORKFLOW.md` net -39 o (marge 159 -> 198 o), en retirant la duplication `tempDirName`/`cleanTempDir` deja commentee dans `stryker.config.mjs`. Correction de numerotation `bug_history*.json` : la regle visait "sept" fichiers et en oubliait un huitieme, deja porteur du maximum global — le prochain `BUG-xxx` aurait ete un doublon.
+
 ## 0.6.52 — relier ses lieux les uns aux autres
 
 `dossier-canon` iteration 5 — **premiere tranche du Temps 1 bis** (roadmap § 2 bis, B1). L'auteur relie enfin ses lieux : section « ACCES DEPUIS CE LIEU » dans la fiche d'un lieu, ajout, changement et retrait d'un acces sortant. **Arete ORIENTEE** — un passage reciproque coute deux entrees, une par lieu, et l'ecran le dit. 2 lots sequentiels. **102 suites / 1750 tests.**

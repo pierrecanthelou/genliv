@@ -145,13 +145,16 @@ Avoid apostrophes in `describe`/`it` label strings — they terminate JS templat
 **Cliquet du seuil** — `thresholds.break` ne descend jamais.
 
 - Valeur posée le 2026-08-02 sur une mesure : score 81,40 % → `break: 80`, `low: 80`, `high: 90`.
+- Relevée le 2026-09-20 (B2 `outillage-2`) sur une mesure : score 100,00 % → `break: 90` (plafond), `low: 90`, `high: 95`.
 - Toute itération qui touche l'un des 4 fichiers relève `break` de **+5**, plafond **90**. Jamais desserré.
 - Le seuil s'écrit toujours `floor(score mesuré / 5) × 5` — aucun chiffre non mesuré dans la config.
 - Au-delà du plafond, tout survivant restant doit porter un `// Stryker disable next-line <Mutator>: <justification>`. Un survivant non annoté est un défaut de revue, pas un défaut de seuil.
 
 **Garde-fou par fichier** : recopier les 4 scores du reporter `clear-text` dans la revue d'itération. **Aucun fichier ne recule** — `combat.ts` et `challenge.ts` nommément suivis. Un score global qui monte pendant qu'un fichier descend est un échec, pas un progrès. Pas de script maison pour ça : une abstraction à un seul appelant est une dette.
 
-**Le score varie de ±1 mutant d'un run à l'autre — ne le lis pas à la décimale.** Comparer deux scores à moins d'un demi-point ne veut rien dire, et le garde-fou « aucun fichier ne recule » se lit **à ±1 mutant près**, sinon il produit de fausses alertes. Cause identifiée et correctif assigné : roadmap § 2 bis, tranche **B2 `outillage-2`** (le `rng` non seedé de `combat.ts:107`).
+**Le score peut varier de ±1 mutant d'un run à l'autre si un test laisse `rng` sur son défaut `Math.random` non seedé** (`combat.ts:107`) — le garde-fou « aucun fichier ne recule » se lit alors **à ±1 mutant près**, jamais à la décimale.
+
+Un mutant n'est équivalent qu'après un essai de meurtre écrit et échoué ; l'équivalence se lit sur la ligne mutée reconstruite, jamais sur le champ `replacement`.
 
 **`RuntimeError` : zéro toléré** sur les 4 fichiers de logique. Stryker les exclut du dénominateur : ils **rétrécissent la base en silence** et le score cesse d'être lisible tant qu'ils sont là. C'est une panne d'instrument, pas un résultat — on la répare, on ne la contourne pas.
 
@@ -159,7 +162,7 @@ Avoid apostrophes in `describe`/`it` label strings — they terminate JS templat
 
 **Sens d'écriture d'une valeur de registre : `docs/REGLES-DU-JEU.md` → `rules.golden.test.ts` → le code.** Cette règle est permanente et vaut pour **toute entrée ajoutée ou modifiée** dans un registre couvert par la table dorée (`BESTIARY`, `CHALLENGE_TIERS`, `CHARACTERISTICS`, libellés de `POSTURES`) — un monstre de plus au bestiaire la déclenche autant que la mise en place initiale. On ouvre la section de la doc des règles, qui fait foi (KR-130), on écrit la valeur dorée depuis elle, et la revue d'itération **cite la section d'où vient la valeur**. Une valeur recopiée depuis le code — ou depuis le `received` qu'affiche un test rouge — rend la table verte et fausse : elle **fige le défaut au lieu de le verrouiller** — seul mode de panne que cet instrument ne peut pas voir, le vert étant ce qu'il produit. Valeur absente de la doc : on corrige la doc, jamais l'inverse.
 
-Deux réglages à ne pas « corriger » : `tempDirName: "stryker-tmp"` **sans point** (avec `.stryker-tmp`, le `testMatch` ancré sur `<rootDir>/src/**` ne traverse pas un segment commençant par un point, jest voit zéro test et Stryker sort sur `No tests were executed`) et `cleanTempDir: true` (seule protection de `npm run lint` contre le bac à sable). Artefacts produits : `reports/mutation/index.html` + `mutation.json`, gitignorés.
+Deux réglages à ne pas « corriger » — `tempDirName` (sans point) et `cleanTempDir` — rationale déjà commentée dans `stryker.config.mjs`, non redupliquée ici. Artefacts produits : `reports/mutation/index.html` + `mutation.json`, gitignorés.
 
 ## Timer Safety in Hooks and Components
 
@@ -298,7 +301,7 @@ Compacter n'est pas supprimer : c'est déplacer là où c'est lu au bon moment.
 
 - **`code-knowledge.json`** — le moins cher : un KR dont l'invariant est **passé en règle ESLint** (KR-011/111, imports inter-features, couleurs en dur) renvoie à la règle et à son message, il ne redécrit ni le risque ni la parade. Un invariant câblé est une ligne — le linter le rappellera mieux que le fichier.
 - **`specification.json`** — boucle de mémoire de la skill `raffinage-iteration` : une décision livrée se réduit à sa phrase d'arbitrage + le renvoi à `.claude/raffinage/<feature>-it<N>.revue.md`, qui porte déjà le raisonnement. La revue est le dossier, la spec en est l'index.
-- **`bug_history.json`, `features_history.json`** — append-only : ils ne se compactent pas, ils **se scindent** — sur l'axe écrit dans leurs `_about`, à ouvrir avant tout déplacement (historique : CHANGELOG.md). Id = max(BUG-xxx) des **sept** fichiers, jamais d'un seul (précédent : BUG-062). Pas avant le plafond.
+- **`bug_history.json`, `features_history.json`** — append-only : ils ne se compactent pas, ils **se scindent** — sur l'axe écrit dans leurs `_about`, à ouvrir avant tout déplacement (historique : CHANGELOG.md). Id = max(BUG-xxx) des **huit** fichiers, jamais d'un seul (précédent : BUG-062). Pas avant le plafond.
 - **`CLAUDE.md` + `docs/WORKFLOW.md`** — **déjà à saturation**, délibérément : une règle qui entre ici **en remplace une**, ou part dans la spec de sa feature / le prompt de l'agent qui l'applique. Transverse et stable, elle a sa place ; propre à une feature, jamais. Un invariant câblé s'y écrit **en une ligne qui nomme l'outil**, sans re-lister ce que l'outil vérifie.
 
 ## Bug Investigation

@@ -135,11 +135,11 @@ export default {
 	// réelle : score 81,40 % → `break: 80`. Toute itération qui MODIFIE l'un des 4
 	// fichiers relève `break` de +5, plafond 90.
 	//
-	// Le score varie de ±1 mutant d'un run à l'autre (mesuré sur 5 exécutions le
-	// 2026-08-02 : 81,40 % quatre fois, 81,01 % une fois) — NE PAS LE LIRE À LA
-	// DÉCIMALE. Cause identifiée : le mutant `ObjectLiteral` de `combat.ts:107`
-	// remplace `{ shield: …, rng }` par `{}`, ce qui fait retomber `rng` sur son
-	// défaut `Math.random` non seedé. Conséquence pratique : le garde-fou « aucun
-	// fichier ne recule » se lit À ±1 MUTANT PRÈS, sinon il produit de fausses alertes.
-	thresholds: { high: 90, low: 80, break: 80 },
+	// Relevée le 2026-09-20 (tranche B2 `outillage-2`, bornes de test ajoutées sur les
+	// 4 fichiers, zéro ligne de production changée) : score 100,00 % sur les 4 fichiers,
+	// deux runs complets identiques au mutant près → `break: 90` (plafond atteint),
+	// `low: 90`, `high: 95`. Le garde-fou « aucun fichier ne recule » peut encore se lire
+	// à ±1 mutant près si un test futur laisse `rng` sur son défaut `Math.random` non
+	// seedé (`combat.ts:107`) — voir `docs/WORKFLOW.md` § Score de mutation.
+	thresholds: { high: 95, low: 90, break: 90 },
 }
