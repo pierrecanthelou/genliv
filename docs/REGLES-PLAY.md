@@ -175,7 +175,11 @@ Les 23 capacités sont aujourd'hui du **texte**. Pour le moteur, chacune doit de
 
 ## J. Horloge de session (dossier d'aventure)
 
-**J1. Unité du pas d'horloge.** `monde.personnages[].plan_actions[].duree` et `contre_mesures[].delai` comptent des **pas d'horloge de session** — des entiers ≥ `DUREE_MIN`, dont le contrat et les motifs vivent dans la docstring de `DUREE_MIN` (`src/brain/dossier/types.ts`). ✍️ *Ce que vaut UN pas n'est pas tranché ici : propriété de la feature n° 9 `moteur-dossier` (n° 14 pour son avancement). Le mot « tour » reste réservé au round de combat par `REGLES-DU-JEU.md`.*
+**J1. Unité du pas d'horloge.** `monde.personnages[].plan_actions[].duree` et `contre_mesures[].delai` comptent des **pas d'horloge de session** — des entiers ≥ `DUREE_MIN`, dont le contrat et les motifs vivent dans la docstring de `DUREE_MIN` (`src/brain/dossier/types.ts`).
+
+**Tranché par la feature n° 9 `moteur-dossier`, itération 2 (2026-09-20) : un (1) pas d'horloge de session = une (1) commande de joueur ACCEPTÉE par le moteur.** Une commande refusée ne consomme aucun pas. Une commande acceptée dont l'état du monde ne bouge pas — déplacement auto-référent — en consomme un : c'est la DEMANDE qui compte, jamais l'effet. Une conséquence enchaînée par le moteur dans la même résolution (jalon franchi, événement consommé) n'ajoute **jamais** de pas, sans quoi `plan_actions[].duree` cesserait d'être prévisible pour l'auteur qui l'écrit. Le pas n'a **aucune durée de fiction** : il ne se convertit ni en heures ni en journées, et aucune date n'en est dérivée.
+
+**Le mot « tour » reste réservé au round de combat par `REGLES-DU-JEU.md` ; le pas de session se dit « pas ».** Les champs `EtatSession.horloge.tour` et `journal[].tour` portent ce mot par **dette de nommage gelée à l'itération 1** — `schema: 1` n'ayant aucun chemin de migration (KR-160/191), ils ne seront pas renommés. Ce n'est **pas** une levée de la réserve : aucun champ neuf, aucun libellé d'écran, aucune prose ne reprennent le mot — l'écran de partie affiche le numéro nu (`#7`).
 
 ---
 

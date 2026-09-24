@@ -15,6 +15,9 @@ export interface FieldProps {
 	ariaLabel?: string
 	/** Renders a textarea instead of an input. */
 	multiline?: boolean
+	/** Bascule la BOÎTE (input ET textarea) de `var(--font-ui)` à `var(--font-mono)`.
+	 *  Le libellé est déjà mono et ne bouge pas. Défaut : false. */
+	mono?: boolean
 	rows?: number
 	id?: string
 	autoFocus?: boolean
@@ -45,6 +48,7 @@ export function Field({
 	placeholder,
 	ariaLabel,
 	multiline = false,
+	mono = false,
 	rows = 2,
 	id,
 	autoFocus = false,
@@ -53,6 +57,10 @@ export function Field({
 	onKeyDown,
 	onBlur,
 }: FieldProps): JSX.Element {
+	// Composition EN LIGNE : `shared` reste un `const` de module (une seule anatomie
+	// de boîte), et seule la famille typographique varie. ADDITIVE — les appelants
+	// qui ne passent pas `mono` gardent exactement `shared`.
+	const boite: CSSProperties = { ...shared, fontFamily: mono ? 'var(--font-mono)' : shared.fontFamily }
 	const textareaRef = useRef<HTMLTextAreaElement>(null)
 	// 4× cap snapshotted once at mount (browser-computed rows height).
 	// Legitimate useEffects: both sync with imperative DOM APIs (offsetHeight / scrollHeight).
@@ -104,7 +112,7 @@ export function Field({
 					onChange={onChange}
 					onKeyDown={onKeyDown}
 					onBlur={onBlur}
-					style={{ ...shared, overflowY: 'auto' }}
+					style={{ ...boite, overflowY: 'auto' }}
 				/>
 			) : (
 				<input
@@ -118,7 +126,7 @@ export function Field({
 					onChange={onChange}
 					onKeyDown={onKeyDown}
 					onBlur={onBlur}
-					style={shared}
+					style={boite}
 				/>
 			)}
 		</label>

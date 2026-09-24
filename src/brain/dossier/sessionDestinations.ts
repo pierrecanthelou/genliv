@@ -60,6 +60,7 @@ type CheminDeFeuilleDeSession =
 	| 'journal[].tour'
 	| 'journal[].role'
 	| 'journal[].texte'
+	| 'journal[].origine'
 
 export const DESTINATION_DES_CHAMPS_DE_SESSION: Readonly<
 	Record<keyof EtatSession | CheminDeFeuilleDeSession, Destination>
@@ -126,10 +127,26 @@ export const DESTINATION_DES_CHAMPS_DE_SESSION: Readonly<
 	'journal[].tour': 'moteur',
 	'journal[].role': 'moteur',
 	/**
-	 * `'moteur'` EN it1, et la prévision reste ICI, en commentaire : la n° 10 la
-	 * bascule à `'ia'` DANS le lot qui livre son assembleur ET sa borne de résumé.
-	 * Avant cela, ce serait une autorisation dormante — signée par une itération
-	 * qui n'a aucun moyen de la tenir.
+	 * `'moteur'`, ET LA PRÉVISION D'it1 EST RÉVOQUÉE — EN COMMENTAIRE, JAMAIS EN
+	 * VALEUR (KR-195/196). L'itération 1 annonçait que la n° 10 basculerait cette
+	 * ligne à `'ia'` ; l'itération 2 la corrige, parce que le journal qu'elle livre
+	 * est un RELEVÉ D'ÉTAT et rien d'autre : ses `texte` ne portent que des verbes
+	 * du registre clos, des noms de champs d'`EtatMonde`, des identifiants du
+	 * dossier et quatre séparateurs. Pas un mot que l'auteur a tapé, pas un
+	 * caractère que le joueur a tapé.
+	 *
+	 * ET LA BASCULE EN BLOC EST IMPOSSIBLE, pas seulement indésirable : cette table
+	 * est indexée par CHEMIN, donc elle ne peut pas discriminer par valeur de
+	 * `role` — basculer la ligne ouvrirait AUSSI les entrées `joueur`. La n° 10
+	 * donnera à sa prose SON PROPRE CHEMIN, avec sa propre ligne.
 	 */
 	'journal[].texte': 'moteur',
+	/**
+	 * LA CAUSE d'une entrée — une clé du registre CLOS des commandes, donc un
+	 * HANDLE, au même titre que `dossier_id` ou `monde.lieu_courant`. Optionnelle
+	 * À VIE (KR-251) : une entrée écrite par it1 ne la porte pas, et c'est un état
+	 * LÉGAL, pas un trou. Instanciée dans `__fixtures__/session-saturee.ts` — sans
+	 * instance, cette ligne serait morte le jour même où elle est écrite.
+	 */
+	'journal[].origine': 'moteur',
 }

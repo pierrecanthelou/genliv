@@ -17,6 +17,8 @@ import {
 import { createMonsterLibraryService, type MonsterLibraryService, type SavedMonster } from './MonsterLibraryService'
 import { createCloudSettings, type CloudSettingsService } from './CloudSettingsService'
 import { createCopiloteService, type CopiloteService } from './CopiloteService'
+import { createMagasinDeSession } from './MagasinDeSession'
+import type { MagasinDeSession } from './dossier/session'
 import { BESTIARY } from './bestiary'
 import type { SyncStatus } from './types'
 
@@ -46,6 +48,13 @@ export interface Brain {
 	monsterLibrary: MonsterLibraryService
 	/** Cloudflare KV worker credentials — raw local, never synced (KR-114). */
 	cloudSettings: CloudSettingsService
+	/**
+	 * LA SESSION D'UNE PARTIE (n° 9 `moteur-dossier`, itération 2) — port étroit
+	 * (`ecrire` seule) sur le magasin BRUT, jamais le décorateur de
+	 * synchronisation : une session est un état PAR APPAREIL, au même titre que
+	 * `uiPreferences`, `monsterLibrary` et `cloudSettings` (KR-022).
+	 */
+	sessions: MagasinDeSession
 	/**
 	 * Le COPILOTE de rédaction (feature n° 8) — assemble le contexte, appelle la
 	 * route `POST /ia/:role` du worker, valide la FORME de ce qui revient. Il
@@ -92,6 +101,10 @@ export function createBrain(options: CreateBrainOptions = {}): Brain {
 	monsterLibrary.seedDefaults(BESTIARY)
 	// Worker credentials — raw local, never synced (KR-114).
 	const cloudSettings = createCloudSettings(local)
+	// La session d'une partie passe par le magasin BRUT, comme les trois services
+	// étroits ci-dessus : elle ne part JAMAIS dans la file de synchronisation
+	// (KR-022). `local` reste privé à cette fabrique — aucune porte brute sur `Brain`.
+	const sessions = createMagasinDeSession(local)
 	// Le copilote lit les MÊMES réglages que le transport de synchronisation : une
 	// seule URL de worker, une seule clé, et une disponibilité qui ne sonde jamais
 	// le réseau (`estDisponible`).
@@ -107,6 +120,7 @@ export function createBrain(options: CreateBrainOptions = {}): Brain {
 		uiPreferences,
 		monsterLibrary,
 		cloudSettings,
+		sessions,
 		copilote,
 	}
 }

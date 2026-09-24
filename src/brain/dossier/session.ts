@@ -1,4 +1,12 @@
 import { MARQUEUR_A_ECRIRE } from './amorce'
+// CYCLE DE TYPE SEUL, ET IL DOIT LE RESTER : `commandes.ts` type-importe
+// `EtatSession` d'ici, et ce module-ci type-importe `CommandeId` de lui.
+// `import type` est EFFACÉ à l'émission, donc il n'existe AUCUN cycle au
+// runtime — mais transformer cette ligne en import de VALEUR (une constante, une
+// fonction) en créerait un vrai, avec son module à moitié initialisé. Précédent
+// mesuré au dépôt, dont la docstring porte le même avertissement :
+// `src/brain/copilote/contexte/prose.ts:11-19`. Ne jamais transformer cette ligne.
+import type { CommandeId } from './commandes'
 import type { Dossier } from './types'
 
 /**
@@ -44,6 +52,20 @@ export interface EntreeJournal {
 	readonly tour: number
 	readonly role: RoleJournal
 	readonly texte: string
+	/**
+	 * LA CAUSE, clé du registre CLOS des commandes — jamais de la prose, jamais une
+	 * chaîne libre (KR-247/248). Optionnel À VIE (KR-251).
+	 *
+	 * PRÉSENT SUR L'ENTRÉE QUI PORTE L'EFFET (`role: 'moteur'`), ABSENT SUR CELLE
+	 * QUI PORTE LA DEMANDE (`role: 'joueur'`), dont le `texte` contient déjà le
+	 * verbe en clair — l'y stocker serait un dérivable stocké (KR-013).
+	 * Invariant : `journal.every(e => e.origine === undefined || e.role === 'moteur')`.
+	 *
+	 * ÉCRIT par `commandes.ts`, LU par `JournalRow` — les deux chemins de code
+	 * existent dans CETTE itération, ce qui est la condition d'admission elle-même
+	 * (KR-249) et non une commodité.
+	 */
+	readonly origine?: CommandeId
 	// `deltas?` est AJOUTÉ EN it3, OPTIONNEL À VIE (KR-251). Ne pas le déclarer ici :
 	// aucun chemin de code de cette itération ne l'écrit ni ne le lit.
 }
@@ -110,11 +132,13 @@ export interface EtatMonde {
  * LA SESSION ENTIÈRE — huit clés racines, exhaustives par compilation pour la
  * table d'audience de `sessionDestinations.ts`.
  *
- * CE CONTRAT GÈLE L'ÉCRITURE, ET LA LECTURE N'APPARTIENT PAS À L'ITÉRATION 1.
- * Trois points, écrits ici plutôt que découverts par la n° 9 it2, qui les tranche :
+ * CE CONTRAT GÈLE L'ÉCRITURE, ET LA LECTURE N'APPARTIENT NI À L'ITÉRATION 1 NI À
+ * L'ITÉRATION 2 : celle-ci livre le PORT (`MagasinDeSession`, `ecrire` seule) et
+ * REPORTE la reprise — `lire`, `effacer` et `validerSession` entrent avec elle.
+ * Trois points, écrits ici pour l'itération de la reprise, qui les tranchera :
  *  1. `useSessionPersistee` écrit AU MONTAGE, donc ouvrir un aperçu ÉCRASE la
- *     session persistée du dossier avant toute question. La reprise (it2) doit
- *     décider AVANT d'écrire, pas après ;
+ *     session persistée du dossier avant toute question. La reprise doit décider
+ *     AVANT d'écrire, pas après ;
  *  2. `dossier_maj` existe pour que cette décision soit possible — voir son champ ;
  *  3. AUCUN `validerSession` n'existe encore. Le magasin est une frontière de
  *     confiance (KR-116, précédent `DossierService.get` qui revalide à chaque
@@ -141,18 +165,18 @@ export interface EtatSession {
 	 * l'édite entre deux aperçus ; une session écrite sans estampille ne saurait
 	 * JAMAIS que le dossier a bougé sous elle, et KR-251 rendrait le champ ajouté
 	 * plus tard `optionnel à vie` — donc « session sans estampille » resterait un
-	 * état légal pour toujours. Aucun code ne la lit avant la reprise (it2), qui
+	 * état légal pour toujours. Aucun code ne la lit avant l'itération de la reprise, qui
 	 * refusera de reprendre une session dont l'estampille ne correspond plus.
 	 * Ce n'est PAS un champ dérivable (KR-013) : `dossier.updatedAt` est la valeur
 	 * D'AUJOURD'HUI, celle-ci est celle de L'OUVERTURE — deux instants, deux faits.
 	 *
-	 * TROIS CLAUSES POUR it2, écrites ici parce qu'elles coûtent trois lignes
+	 * TROIS CLAUSES POUR L'ITÉRATION DE LA REPRISE, écrites ici parce qu'elles coûtent trois lignes
 	 * aujourd'hui et sont irréversibles plus tard :
 	 *  1. On compare à `DossierService.get(dossier_id)?.updatedAt`, et « dossier
 	 *     introuvable » est une issue DISTINCTE de « estampille périmée » — deux
 	 *     causes, deux chemins, comme le refus `dossier_introuvable` déjà à l'écran.
 	 *  2. ON NE RÉ-ESTAMPILLE JAMAIS EN PLACE. Le mode de panne le plus probable
-	 *     d'it2 est de « réparer » la reprise en rafraîchissant ce champ sur une
+	 *     de cette itération-là est de « réparer » la reprise en rafraîchissant ce champ sur une
 	 *     session existante : ce serait blanchir une session périmée. **Seul
 	 *     `ouvrirSession` écrit ce champ.**
 	 *  3. La réconciliation cloud est un écrivain LÉGITIME d'`updatedAt` (adoption
@@ -184,6 +208,33 @@ export interface EtatSession {
 	 * représentable avant elle.
 	 */
 	readonly memoire: null
+}
+
+/**
+ * LE PORT DE STOCKAGE DE SESSION — TYPE PUR, donc extractible avec `src/player/`.
+ *
+ * SON MOTIF A CHANGÉ, ET C'EST ÉCRIT POUR QUE PERSONNE N'HÉRITE DU PÉRIMÉ : il ne
+ * se justifie PAS par l'extractibilité (dont la prémisse n'est pas armée —
+ * `src/player/` ne reçoit aucun fichier en it2 non plus), mais par la FRONTIÈRE
+ * magasin BRUT / décorateur de synchronisation, qu'aucune feature ne peut
+ * franchir autrement : `useBrain().persistence` EST le décorateur, et toute clé
+ * non-livre qui y passe part dans la file de synchronisation. La session d'une
+ * partie est un état PAR APPAREIL, au même titre que les préférences d'interface
+ * (KR-022), la librairie de monstres et les réglages du worker.
+ *
+ * SA SUBSTITUABILITÉ EST VÉRIFIABLE AUJOURD'HUI, et c'est ce qui le distingue
+ * d'une abstraction spéculative : `MagasinDeSession.test.ts` construit un `Brain`
+ * dont le transport ne résout jamais, écrit une session, et constate que la file
+ * reste à zéro — PUIS qu'une écriture de dossier la fait monter à un, sans quoi
+ * l'assertion serait vraie par construction (BUG-084).
+ */
+export interface MagasinDeSession {
+	/** Range la session sous la clé du dossier joué. Synchrone : l'écriture est résolue au retour (KR-004). */
+	ecrire(dossierId: string, session: EtatSession): void
+	// `lire` / `effacer` : PAS ENCORE. Ajouter une méthode à une interface est
+	// ADDITIF ; contrairement à un champ persisté (KR-251), elle ne se paie pas
+	// d'être ajoutée plus tard. Elles entrent avec la REPRISE et son
+	// `validerSession` (KR-116) — deux méthodes sans appelant seraient KR-109.
 }
 
 /**

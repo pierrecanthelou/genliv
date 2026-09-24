@@ -30,7 +30,7 @@ import { DOSSIER_SCHEMA, type Dossier } from './types'
  *
  * Ce module n'est PAS ré-exporté par `brain/index.ts`, et il ne l'est TOUJOURS
  * PAS depuis qu'une feature le lit — nuance à ne pas perdre. Depuis la n° 9 it1,
- * `features/play-mode/components/EcranPartie.tsx` importe `MARQUEUR_A_ECRIRE` EN
+ * `features/play-mode/components/EcranRefus.tsx` importe `MARQUEUR_A_ECRIRE` EN
  * PROFONDEUR : le texte de refus d'ouverture se COMPOSE depuis la constante au
  * lieu de retaper le glyphe, qui serait une seconde source de vérité (KR-223).
  * UN lecteur nommé, hors baril : l'ouvrir en ferait une offre aux treize features.

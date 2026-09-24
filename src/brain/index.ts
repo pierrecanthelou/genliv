@@ -466,7 +466,7 @@ export type { EspaceDeNoms, EspaceDeNomsDescripteur } from './dossier/identifier
 // lisent (KR-109) : la fiche d'origine qui rend le champ, et le panneau Copilote
 // qui le NOMME sans être cette fiche. C'est la différence avec le module d'amorce,
 // qui reste HORS baril bien qu'une feature le lise désormais : depuis la n° 9 it1,
-// `features/play-mode/components/EcranPartie.tsx` importe sa constante de marqueur
+// `features/play-mode/components/EcranRefus.tsx` importe sa constante de marqueur
 // EN PROFONDEUR, pour COMPOSER le texte de refus au lieu de recopier le glyphe
 // (KR-223). Un seul lecteur nommé, délibérément non offert aux treize features.
 // (Les noms de ce module ne s'écrivent pas ici, même en commentaire : sa garde
@@ -530,10 +530,33 @@ export type {
 	RefusOuverture,
 	ResultatOuverture,
 } from './dossier/session'
+// ── LES COMMANDES DE JOUEUR (itération 2) ────────────────────────────────────
+// Sortent les TROIS FONCTIONS PURES que la console appelle, et les types de leurs
+// résultats. `COMMANDES` et `CommandeDescripteur` RESTENT DEDANS, même règle que
+// `PREDICATES`, `DELTAS` et les deux tables d'audience : la console rend le
+// message que le MOTEUR a composé, elle ne re-liste jamais ce que le registre
+// décide (Déméter, T-8), et `JournalRow` rend `origine` TEL QUEL sans le
+// recomposer. `CommandeId` sort, lui : il est le type du champ `origine` d'une
+// `EntreeJournal`, que la feature manipule.
+//
+// ET LA PARITÉ AVEC CES TROIS-LÀ EST INSTRUMENTÉE, PAS AFFIRMÉE (revue de PR
+// d'it2) : chacun d'eux a son test-grep, et cette ligne en promettait un que
+// `COMMANDES` n'avait pas. Il existe désormais — `commandes.test.ts`, « la
+// frontière du baril est instrumentée » — et il balaie `src/features/**`
+// COMMENTAIRES RETIRÉS, sur `COMMANDES` et sur `createMagasinDeSession`. Le
+// contournement qu'il ferme n'est pas théorique : `createMagasinDeSession(
+// useBrain().persistence)` remettrait les sessions dans la file de
+// synchronisation et annulerait l'arbitrage d'audience de cette itération.
+export { analyserSaisie, destinationsPossibles, executerCommande } from './dossier/commandes'
+export type { Commande, CommandeId, RefusCommande, ResultatSaisie, ResultatCommande } from './dossier/commandes'
+// LE PORT DE STOCKAGE DE SESSION — le TYPE seul. `createMagasinDeSession` reste
+// dedans : une feature consomme `useBrain().sessions`, elle ne construit jamais un
+// service (la fabrique n'a qu'un appelant, la racine de composition — KR-109).
+export type { MagasinDeSession } from './dossier/session'
 // `dossierSessionKey` SEULE : `DOSSIER_SESSION_KEY_PREFIX` n'a aucun appelant hors
 // de sa propre déclaration, et une ligne publique sans appelant est la dette que ce
 // baril refuse ailleurs (KR-109). Le préfixe sortira avec le premier `keys(prefix)`
-// — la reprise de session, n° 9 it2. `BOOK_KEY_PREFIX` et `dossierKey` ne sont, eux,
+// — la reprise de session, l'itération qui la livrera. `BOOK_KEY_PREFIX` et `dossierKey` ne sont, eux,
 // pas ici non plus.
 export { dossierSessionKey } from './persistenceKeys'
 export type { DossierService, DossierResume, CorpsDossier, EcritureDossier } from './DossierService'

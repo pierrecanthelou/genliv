@@ -78,16 +78,25 @@ export function dossierKey(dossierId: string): string {
  * d'un `:` — mais on ne s'appuie pas sur une garde incidente écrite pour un
  * autre besoin.
  *
- * Écrite par la feature `play-mode` via `PersistenceService` (KR-011/111) — pas
- * par `src/player/`, qui reste extractible et ne connaît aucun service.
+ * Écrite par la feature `play-mode` via le PORT `MagasinDeSession`
+ * (`brain/MagasinDeSession.ts`) — pas par `src/player/`, qui reste extractible et
+ * ne connaît aucun service, et plus jamais par une feature qui composerait la clé
+ * elle-même (KR-011/111).
  *
- * ⚠ CETTE CLÉ ENTRE DANS LA FILE DE SYNCHRONISATION CLOUD, et personne ne l'a
- * décidé : `useBrain().persistence` est le décorateur (`CloudSyncService`), qui
- * pousse toute clé non-livre. Les trois autres familles d'état PAR APPAREIL —
- * `UI_PREFS_KEY_PREFIX` (KR-022), `MONSTER_LIBRARY_KEY`, `CLOUDSYNC_WORKER_URL_KEY`
- * — passent, elles, par le magasin BRUT. La question appartient au port de
- * stockage de la n° 9 it2 (`open_questions` de sa spec), qui doit aussi traiter
- * la suppression distante : `CloudSyncService.remove()` n'est pas propagé.
+ * CETTE CLÉ N'ENTRE PAS DANS LA FILE DE SYNCHRONISATION CLOUD, ET C'EST MAINTENANT
+ * UNE DÉCISION — la n° 9 it2 l'a tranchée : une session de partie est un état PAR
+ * APPAREIL, au même titre que les trois autres familles qui passent déjà par le
+ * magasin BRUT (`UI_PREFS_KEY_PREFIX`, KR-022 ; `MONSTER_LIBRARY_KEY` ;
+ * `CLOUDSYNC_WORKER_URL_KEY`). Le port est câblé sur `local` dans `BrainContext`,
+ * jamais sur le décorateur `CloudSyncService`, et `MagasinDeSession.test.ts`
+ * l'épingle : file à zéro après une écriture de session, à un après une écriture
+ * de dossier, DANS LE MÊME TEST.
+ *
+ * ⚠ CE QUE CELA FERME, ET IL FAUT LE DIRE : la suppression distante ne se pose
+ * plus (`CloudSyncService.remove()` n'est pas propagé, KR-182), puisque rien de
+ * cette famille de clés ne part au loin. Une session ne suit donc PAS l'auteur
+ * d'un appareil à l'autre — c'est le prix assumé, identique à celui des
+ * préférences d'interface.
  */
 export const DOSSIER_SESSION_KEY_PREFIX = `${PERSISTENCE_PREFIX}:session:dossier:`
 

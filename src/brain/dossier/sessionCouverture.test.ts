@@ -40,7 +40,7 @@ import { DESTINATION_DES_CHAMPS_DE_SESSION } from './sessionDestinations'
 const DISPENSES_DE_FEUILLE: Readonly<Record<string, string>> = {
 	horloge: 'clé racine porteuse — son unique feuille est `horloge.tour`',
 	monde: 'clé racine porteuse — ses sept feuilles sont déclarées une à une',
-	journal: 'clé racine porteuse — ses trois feuilles sont déclarées une à une',
+	journal: 'clé racine porteuse — ses quatre feuilles sont déclarées une à une',
 }
 
 const CLES_DE_LA_TABLE = new Set(Object.keys(DESTINATION_DES_CHAMPS_DE_SESSION))
@@ -131,7 +131,7 @@ describe('DESTINATION_DES_CHAMPS_DE_SESSION, exhaustivite', () => {
 
 		// Et les listes sont bien balayées PAR ÉLÉMENT : une session d'OUVERTURE, dont
 		// toutes les listes sont vides, rendrait `monde.lieux_visites` SANS le suffixe,
-		// et les onze lignes de feuille seraient mortes le jour même (§ 8, D-15).
+		// et les douze lignes de feuille seraient mortes le jour même (§ 8, D-15).
 		expect(normalises).toContain('monde.lieux_visites[]')
 		expect(normalises).toContain('journal[].texte')
 	})

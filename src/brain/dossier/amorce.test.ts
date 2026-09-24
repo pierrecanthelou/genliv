@@ -73,7 +73,7 @@ describe('AMORCE, les textes semes par create()', () => {
 
 		// Même règle que `DELTAS` et `DESTINATION_DES_CHAMPS`. CE TEST GARDE LE BARIL,
 		// PAS L'IMPORT PROFOND — nuance mesurée depuis la n° 9 it1 :
-		// `features/play-mode/components/EcranPartie.tsx` lit la constante du marqueur
+		// `features/play-mode/components/EcranRefus.tsx` lit la constante du marqueur
 		// EN PROFONDEUR, et ce test tient toujours, parce que l'offrir aux treize
 		// features n'est pas la même décision que la laisser lire à UN appelant nommé.
 		// Ce qui ferait tomber ce test, c'est ouvrir le baril — et ce serait, alors,
