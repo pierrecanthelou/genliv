@@ -1,7 +1,7 @@
-{
+﻿{
 	"feature": "book-library",
 	"created_at": "2026-06-16",
-	"status": "in-progress",
+	"status": "done",
 	"design_reference": "Editeur Livre-Jeu - Wireframes.dc.html § 01 step 1 « ACCUEIL DE L'APP » : « Mes livres » + a grid of book cards, the dashed accent card creating a book. Component anatomy + tokens from the design system (styles.css): card = surfaces/Card, delete = forms/IconButton (danger), confirmation = surfaces/Modal over a scrim with an error-toned confirm. Low-fi wireframe fidelity, light theme only.",
 	"superseded_note": "REPOINTÉE par bascule-editeur itération 1 (2026-08-08, .claude/raffinage/bascule-editeur-it1.revue.md) : plan.goal, plan.acceptance_criteria, plan.walking_skeleton et plan.brain_contracts ci-dessous décrivent le Book-era code (grille de Book, BookService, useBooks, BookCard) — REMPLACÉ dans son intégralité par une bibliothèque de Dossier (DossierService.list/remove, DossierResume, DossierCard). Source de vérité de l'état RÉEL : src/features/bascule-editeur/specification.json (implementation.iterations_log id 1). Ce bloc plan/implementation N'EST PAS réécrit (c'est l'archive du walking-skeleton au 3ᵉ itération Book-era) — c'est un renvoi, pas une correction.",
 	"plan": {
@@ -17,11 +17,37 @@
 			"The screen renders strictly from design-system tokens/components (Card, IconButton, Modal), light theme; the confirm button is error-toned for the dangerous action; >=44px hit targets."
 		],
 		"brain_contracts": [
-			{ "type": "service", "name": "BookService", "direction": "consumes" },
-			{ "type": "service", "name": "Router", "direction": "consumes" },
-			{ "type": "service", "name": "BookService.deleteBook", "direction": "consumes" },
-			{ "type": "event", "name": "book:opened", "direction": "emits", "payload": { "bookId": "string" } },
-			{ "type": "event", "name": "book:deleted", "direction": "emits", "payload": { "bookId": "string" } }
+			{
+				"type": "service",
+				"name": "BookService",
+				"direction": "consumes"
+			},
+			{
+				"type": "service",
+				"name": "Router",
+				"direction": "consumes"
+			},
+			{
+				"type": "service",
+				"name": "BookService.deleteBook",
+				"direction": "consumes"
+			},
+			{
+				"type": "event",
+				"name": "book:opened",
+				"direction": "emits",
+				"payload": {
+					"bookId": "string"
+				}
+			},
+			{
+				"type": "event",
+				"name": "book:deleted",
+				"direction": "emits",
+				"payload": {
+					"bookId": "string"
+				}
+			}
 		],
 		"walking_skeleton": "LibraryScreen (the home route) lists books from useBooks() as a grid of BookCards. Clicking a card calls openBook + Router.navigate to the editor. A card's ✕ opens a DeleteBookDialog (confirmation); confirming calls BookService.deleteBook, which persists the removal then emits book:deleted, and the live list drops the card. The create affordance (CreateBookEntry from book-creation) is composed in by App as a prop. Wired entirely through brain.",
 		"n": 3,
@@ -44,8 +70,8 @@
 		],
 		"known_risks": [
 			"KR-070 — Deleting a book is a dangerous, irreversible action: always gate behind a confirmation dialog (name the book, error-toned confirm, labelled Annuler) and route the delete through BookService.deleteBook (persist-remove then book:deleted, KR-004) — never a raw removal.",
-			"KR-071 — The library list is a VIEW over BookService via useBooks (recomputed only on book:created/book:deleted), never a private copy (re-asserts KR-020/013); deleting the currently-open book could leave the editor on a dangling route — guarded in iteration 2.",
-			"KR-072 — book-creation and book-library compose at the app root (LibraryScreen receives the create affordance as a prop); neither imports the other (feature isolation).",
+			"KR-071 — The library list is a VIEW over BookService via useBooks (recomputed only on book:created/book:deleted), never a private copy (re-asserts KR-020/013); deleting the currently-open book could leave the editor on a dangling route — guarded in iteration 2. — ETAT AU 2026-09-24, corps descendu de code-knowledge.json (precedent KR-095) : The library list is a VIEW over BookService via useBooks (recomputed only on book:created/book:deleted, cached snapshot for useSyncExternalStore), never a private copy (re-asserts KR-020/013). Search/sort over it must be DERIVED INLINE (filter + sort a COPY — never mutate the cached snapshot array, or useSyncExternalStore's stable reference breaks). Deleting the currently-open book could leave the editor on a dangling route — guarded (iteration 2) at the COMPOSITION ROOT (App subscribes to book:deleted, reads the router route fresh in the handler, navigates home if the deleted id is open in the editor), not in the feature, so no feature owns cross-route navigation and there is no stale-closure route dependency.",
+			"KR-072 — book-creation and book-library compose at the app root (LibraryScreen receives the create affordance as a prop); neither imports the other (feature isolation). — ETAT AU 2026-09-24, corps descendu de code-knowledge.json (precedent KR-095) : book-creation and book-library compose at the app root: LibraryScreen receives the create affordance as a prop (<CreateBookEntry/>); neither feature imports the other (feature isolation). Same composition-root seam as the ActionRegistry/SlotRegistry, for a sibling screen rather than a panel region.",
 			"KR-004 — book:opened/book:deleted fire only AFTER the persistence read/removal resolves, in order; listeners always observe a consistent store.",
 			"KR-011 — No raw window.localStorage; list and delete go through PersistenceService via BookService only."
 		]

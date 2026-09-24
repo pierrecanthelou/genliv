@@ -96,16 +96,19 @@ Huit features, **48 itérations livrées**, `0.6.50`. L'itération 5 de `dossier
 
 Ce que ce § 2 bis dit maintenant : **deux tranches se paient avant le Temps 2**, tout le reste est une **dette à déclencheur** — attachée au moment où quelqu'un rouvre son fichier, idiome que ce dépôt pratique déjà (« le premier lot qui rouvrira X »). Ce n'est pas un report : un calendrier que personne ne tient est moins fiable qu'un déclencheur qui part tout seul.
 
-### Le chemin bloquant — 2 tranches, `0.6.51` → `0.6.52`
+### Le chemin bloquant — 3 tranches, `0.6.51` → `0.7.2`
 
 | # | Tranche | « À la fin… » | Statut | Comité | Dépend de |
 |---|---|---|---|---|---|
 | B1 | `dossier-canon` it5 | …relier ses lieux les uns aux autres | **1/1 ✅** | 5 rôles | — |
 | B2 | `outillage-2` *(hors cycle)* | *(outillage)* le score de mutation cesse de mentir sur `combat.ts` | **1/1 ✅** | tech-lead | — |
+| B3 | `budget-de-contexte` *(hors cycle)* | *(outillage)* `code-knowledge.json` retrouve sa marge, les 17 KR de la n°9 sont mirrorés | **2/2 ✅** | tech-lead | — |
 
-**B1 · `lieux[].acces`** — pas bloquante au sens strict, mais la n° 9 doit **choisir son modèle de déplacement** : sans topologie elle code le monde ouvert (KR-224, déjà câblé dans `atteignabilite.ts` faute de graphe), et l'ajouter ensuite réécrit son moteur de déplacement. On paie avant, pas après. Sans propriétaire depuis trois cadrages (refusée en n° 5, KR-200 ; impossible en n° 6, KR-205 ; reconfirmée par la n° 7) : elle revient à `dossier-canon`, qui possède `PanneauLieux.tsx` et `FicheLieu.tsx`. Forme déjà tranchée au raffinage d'it3 de la n° 1, à ne pas re-débattre : **arête ORIENTÉE**, une entrée = un sens, un passage réciproque = deux entrées (KR-013). Lot `contrat` d'abord — et il **arme le rider `validate.ts`** (ci-dessous). **La levée de KR-224 dans le linter n'est PAS dans cette tranche** : poser le champ et corriger `atteignabilite.ts` sont deux démonstrations, donc deux itérations ; la seconde passe en dette à déclencheur.
+**B1 · `lieux[].acces`** — livrée le 2026-09-19 (`0.6.52`). Sans propriétaire depuis trois cadrages (KR-200, KR-205), revient à `dossier-canon` : arête **ORIENTÉE** (KR-013). Détail : `CHANGELOG.md` `0.6.52`, `.claude/raffinage/dossier-canon-it5.revue.md`.
 
 **B2 · `outillage-2`** — **livrée le 2026-09-20** (`0.6.53`). Les 48 mutants survivants sont tombés : score global **100 %** (258 notés), `combat.ts` de 62,50 % à **100 %**, et le cliquet `break` passe de 80 à **90**, son plafond. Le ±1 entre deux runs — le `rng` non seedé de `combat.ts:107` — est soldé par une borne de test, **zéro ligne de production modifiée**. Dossier : `.claude/raffinage/outillage-it2.revue.md`.
+
+**B3 · `budget-de-contexte`** — livrée le 2026-09-24 (`0.7.2`). Deux lots (`contrat` puis journal) : compaction + scission de `code-knowledge.json`, mirroring des 17 `KR-237`…`KR-253`, plancher `5 × la plus grosse entrée` pour les fichiers append-only (`docs/WORKFLOW.md`). La dette « Unicité des `BUG-xxx` » ci-dessous est CLOSE : l'instrument existe (`src/brain/codeKnowledge.test.ts`). `moteur-dossier` it3 peut s'ouvrir. Dossier : `.claude/raffinage/budget-it1.revue.md`.
 
 ### La dette à déclencheur — rien n'est planifié, tout est armé
 
@@ -113,6 +116,7 @@ Chaque ligne part **toute seule** quand son déclencheur se présente. Le lot qu
 
 | Dette | Portée mesurée | Déclencheur armé |
 |---|---|---|
+| **`BUG-055` à `BUG-058` sont AMBIGUS** — quatre ids pour **huit** défauts distincts, récidive de BUG-062 dans les deux sens. L'instrument réclamé par l'ancienne ligne existe (`codeKnowledge.test.ts`, assertion 5, égalité EXACTE) ; c'est la **renumérotation** qui reste impayée | `bug_history.features-terminees.json`, `bug_history.dossier-canon.json` | le premier lot qui rouvre une entrée citant l'un des quatre. BUG-123 |
 | **Scission de `controles.ts`** (1 348 l.) — refactor à **vert trompeur**, deux gardes bornées par `indexOf` | `brain/dossier/controles.ts` | le premier lot qui rouvre ce fichier après la n° 7 |
 | **BUG-090** (major) — remédiation circulaire de `condition-sans-expr` : elle renvoie vers un champ qui écrit la prose ayant déclenché l'avertissement, et **aucune surface n'écrit `reussi_si_expr`** (0 occurrence). Se règle en cessant de promettre une condition structurée, **pas** en construisant l'écran | idem | idem — part avec la scission |
 | **Rider `validate.ts`** — (a) les 4 sites d'avertissement appellent `anomalie` sans `entityId`, d'où des lignes jumelles indésignables ; (b) `designerSavoir` met un identifiant dans la prose de l'auteur | `brain/dossier/validate.ts` | le premier lot qui rouvre ce fichier. **Ce n'est PAS B1** — mesuré au raffinage d'it5 : `acces` ne demande aucune ligne de `validate.ts`, la machinerie générique traite déjà un chemin à deux `[]` (`validate.ts:422`). La version précédente de cette ligne posait une prémisse fausse. |
@@ -126,8 +130,7 @@ Chaque ligne part **toute seule** quand son déclencheur se présente. Le lot qu
 | **Renommer / dupliquer un dossier** — `DossierService.rename`/`duplicate` n'existent pas ; **deux capacités, deux tranches** | `book-library` | un besoin exprimé |
 | **Saut au champ fautif** depuis le panneau Contrôles — faisable par le motif « Cross-feature UI action registration » de `docs/WORKFLOW.md` (registre `brain/`, défaut noop, adoptants dans n'importe quel ordre), mais **10 panneaux adoptants dans 4 features** : jamais une tranche, au moins trois | registre `brain/` + 10 `Panneau*` | un besoin exprimé |
 | **BUG-035** — `var(--surface-raised)` n'existe dans aucun `tokens/*.css`, et rien ne détecte un token qui ne résout vers rien | `ImageUpload.tsx` + une règle ESLint | le premier lot qui touche `ImageUpload.tsx` |
-| **Unicité des `BUG-xxx`** à travers les **huit** `bug_history*.json` — la règle ne vit que dans leurs `_about` et a déjà dérivé en silence une fois (BUG-062) | un instrument à écrire | le prochain franchissement de plafond d'un `bug_history*` |
-| **Tenue des specs** — `book-library` et `cloud-sync` sont `in-progress` alors que toutes leurs itérations sont `done` ; `book-creation` (2 logs / 3 itér.) et `tree-canvas` (3 / 6) ont un `iterations_log` incomplet | 4 fichiers JSON, zéro code | la prochaine étape 4 des Build Steps |
+| **Tenue des specs** — `book-creation` (2 logs / 3 itér.) et `tree-canvas` (3 / 6) ont un `iterations_log` incomplet. Le volet `status` est **absorbé par `B3`** : `book-library` et `cloud-sync` sont passées `done` | 2 fichiers JSON, zéro code | le premier lot qui rouvre l'une des deux |
 | **Fusion de `gameSystem.test.ts`** (B2 `outillage-2`) avec les quatre fichiers-modules, dont il devient un agrégat hérité. ⚠ **`gameSystem.test.ts:86` est le SEUL tueur du mutant `margin >= 3 → > 3` de `xp.ts:48`** (marge exactement 3, bande équilibré) : la fusion reprend cette borne **avant** de geler ou démanteler le fichier, sinon le score retombe sous 90 — et le cliquet, lui, ne redescend pas | `src/brain/gameSystem.test.ts` | la n° 11, quand elle rouvrira `challenge.ts`/`xp.ts` |
 | **Égalité d'AT × compteur de Garde aiguisée** (D2-bis, `docs/REGLES-PLAY.md`) — rien ne l'implémente ni ne la teste | `combatEngine.ts` (moteur, Temps 2) | la n° 11, quand elle écrira la boucle de round de `combatEngine.ts` |
 | **Test instable `panneauPersonnages.test.tsx:800`** — rouge ~1 run sur 5, vert relancé seul ; cause non établie (hypothèse `capacityEffects.test.ts` infirmée par sonde, 12/12 verts) | `src/features/dossier-fiches/tests/panneauPersonnages.test.tsx` | le prochain lot qui rouvre `dossier-fiches` |

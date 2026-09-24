@@ -1,5 +1,5 @@
 ﻿{
-	"_about": "Single source of cross-feature known risks for the Â« Ã‰diteur de livre dont vous Ãªtes le hÃ©ros Â». Aggregated from every features/*/specification.json plus the global engineering rules in SKILL.md/CLAUDE.md. Banded ids: 0xx = per-feature domain risks (stable, gaps expected); 1xx = global cross-cutting engineering rules. Ids are stable references â€” never renumber; append new ones at the next free id within the right band. AXE DE COMPACTION (2026-09-17) : une entree qui RECOPIE une mecanique de jeu, un registre de donnees, ou un paragraphe d'un fichier deja charge a chaque session se reduit a son invariant portable + le renvoi vers la source de verite (KR-117/KR-159 appliques a ce fichier). Un invariant vivant ne se supprime jamais ; l'archivage par feature supprimee reste ECARTE.",
+	"_about": "Source unique des risques connus transverses de l'editeur de livres dont vous etes le heros, agregee depuis chaque src/features/*/specification.json et les regles d'ingenierie de CLAUDE.md / docs/WORKFLOW.md. Bandes : 0xx = domaine par feature (trous attendus), 1xx et 2xx = transverse. LES IDS SONT STABLES, jamais renumerotes. AXE DE COMPACTION (2026-09-17, rejoue le 2026-09-24) : une entree qui RECOPIE une regle de jeu, un registre ou un paragraphe deja charge a chaque session se reduit a son invariant portable + le renvoi a sa source ; quand celle-ci est une spec, le CORPS Y DESCEND (precedent KR-095) et « Corps : spec <feature> » designe src/features/<feature>/specification.json, ouvert a l'ouverture de son iteration. Un invariant vivant ne se supprime jamais. FICHIER FRERE (scission du 2026-09-24) : code-knowledge.arbre-condamne.json porte les 28 entrees des features supprimees le 2026-08-03, seules du registre sans spec cible ; PAS en lecture obligatoire, deux declencheurs de relecture — la demolition de frontiere de la n9 (KR-181 amende par KR-240) et tout repointage de tree-canvas. Aucun id n'a disparu ni change : src/brain/codeKnowledge.test.ts tient l'unicite sur l'union des deux fichiers et le miroir de tout id cite dans un plan.known_risks.",
 	"known_risks": [
 		{
 			"id": "KR-001",
@@ -34,17 +34,17 @@
 		{
 			"id": "KR-020",
 			"feature": "tree-canvas",
-			"risk": "The canvas is a VIEW, not the model: never mutate node/edge data locally; all changes go through BookService so outline-view and game-preview stay consistent. Local-only edits desync the visualizations."
+			"risk": "Le canevas est une VUE, jamais le modele : aucune mutation locale, tout passe par le SSOT. Corps : spec tree-canvas."
 		},
 		{
 			"id": "KR-021",
 			"feature": "tree-canvas",
-			"risk": "Orphaned edges (source/target node deleted) must be dropped or visibly flagged, never rendered as a line to nowhere or a crash. Reconcile on every render / node:deleted."
+			"risk": "Une arete orpheline se retire ou se signale, jamais un trait vers nulle part ni un plantage. Corps : spec tree-canvas."
 		},
 		{
 			"id": "KR-022",
 			"feature": "tree-canvas",
-			"risk": "Pan/zoom and canvas<->outline view-mode are UI preferences (UIPreferencesService), explicitly NOT part of the synced book document; pushing them to CloudSyncService causes spurious conflicts (cloud-first boundary)."
+			"risk": "Pan/zoom et mode de vue sont des preferences d'INTERFACE, hors du document synchronise : les pousser fabrique des conflits fantomes. Corps : spec tree-canvas."
 		},
 		{
 			"id": "KR-023",
@@ -54,82 +54,12 @@
 		{
 			"id": "KR-024",
 			"feature": "tree-canvas",
-			"risk": "Node selection is the single source of truth in the brain SelectionService (promoted from tree-canvas local state). Canvas and node-editor both read via useSelectedNode and write via selection.select; the service is the sole emitter of node:selected and clears on book:opened. No feature keeps a competing copy (avoids two-panel desync)."
+			"risk": "La selection de noeud est unique dans le SelectionService de brain/ ; aucune feature n'en garde de copie concurrente. Corps : spec tree-canvas."
 		},
 		{
 			"id": "KR-025",
 			"feature": "tree-canvas",
 			"risk": "L etat de vue de l editeur (pan/zoom, noeud glisse) est PAR APPAREIL et ne touche jamais le document. COMPACTE le 2026-09-15, meme motif que KR-023 : feature en sommeil. Detail integral : src/features/tree-canvas/specification.json."
-		},
-		{
-			"id": "KR-050",
-			"feature": "node-editor",
-			"risk": "node-editor supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
-		},
-		{
-			"id": "KR-051",
-			"feature": "node-editor",
-			"risk": "Feature node-editor supprimee le 2026-08-03, code inexistant. Cite par src/brain/kinds.ts:16 pour dire ce que kinds.ts N'EST PAS (le registre de types de noeuds/aretes n'est pas ActionRegistry) -- seule raison de garder cette entree au lieu du stub standard."
-		},
-		{
-			"id": "KR-052",
-			"feature": "node-editor",
-			"risk": "Feature node-editor supprimee le 2026-08-03. Invariant portable : nom interne + description joueur, repris par dossier-objets/specification.json. Mecanisme condamne (demolition n9)."
-		},
-		{
-			"id": "KR-053",
-			"feature": "node-editor",
-			"risk": "node-editor supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
-		},
-		{
-			"id": "KR-054",
-			"feature": "node-editor",
-			"risk": "Feature node-editor supprimee le 2026-08-03 ; le derive-badge Fin (effectiveKind/endLabel, une seule source via node:updated) vit dans src/brain/tree.ts + src/brain/utils/nodeKind.ts, condamne avec le modele d'arbre (demolition n9)."
-		},
-		{
-			"id": "KR-055",
-			"feature": "node-editor",
-			"risk": "Sommaire (racine) et Mort (feuille) sont des ecrans STRUCTURELS du modele d'ARBRE. Invariant complet dans CLAUDE.md, regles de domaine, charge a chaque session : ne pas le recopier. SSOT BookService.updateNode / kinds.ts, condamnes (demolition n9)."
-		},
-		{
-			"id": "KR-060",
-			"feature": "choice-linking",
-			"risk": "Feature choice-linking supprimee le 2026-08-03 ; l'invariant (aretes creees/supprimees seulement via BookService, jamais localement -- re-affirme KR-020) vivait dans src/brain/BookService.ts, condamne (demolition n9). Mort sans arete sortante reste couvert par KR-055."
-		},
-		{
-			"id": "KR-061",
-			"feature": "choice-linking",
-			"risk": "Feature choice-linking supprimee le 2026-08-03 ; les gardes anti-doublon et anti-self-link du relink (identite = from+to+kind) vivaient dans src/brain/BookService.ts + tree.ts, condamnes (demolition n9)."
-		},
-		{
-			"id": "KR-062",
-			"feature": "choice-linking",
-			"risk": "Feature choice-linking supprimee le 2026-08-03. Invariant portable : reference par identifiant stable, jamais par nom ; toute reference pendante surfacee — il vit dans CLAUDE.md, regles de domaine. Mecanisme condamne (demolition n9)."
-		},
-		{
-			"id": "KR-063",
-			"feature": "choice-linking",
-			"risk": "Feature choice-linking supprimee le 2026-08-03, code inexistant (Edge.countdown, ChoiceCountdownEditor, TargetPicker). Detail historique : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
-		},
-		{
-			"id": "KR-064",
-			"feature": "choice-linking",
-			"risk": "choice-linking supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
-		},
-		{
-			"id": "KR-065",
-			"feature": "choice-linking",
-			"risk": "Feature choice-linking supprimee le 2026-08-03, code inexistant (regle countdown + prerequis cache combines sur un meme choix). Detail : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
-		},
-		{
-			"id": "KR-066",
-			"feature": "choice-linking",
-			"risk": "choice-linking supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
-		},
-		{
-			"id": "KR-067",
-			"feature": "choice-linking",
-			"risk": "Un ecran STRUCTUREL n'est jamais la cible d'un choix redige. Invariant complet dans CLAUDE.md, regles de domaine, charge a chaque session : ne pas le recopier. Applique au SSOT (BookService.addEdge) ; historique dans ROADMAP SS 1 ter ou git log. Modele d'arbre condamne (n9)."
 		},
 		{
 			"id": "KR-068",
@@ -139,52 +69,27 @@
 		{
 			"id": "KR-070",
 			"feature": "book-library",
-			"risk": "Deleting a book is a dangerous, irreversible action: always gate behind a confirmation dialog (name the book, error-toned confirm, labelled Annuler) and route the delete through BookService.deleteBook (persist-remove then book:deleted, KR-004) — never a raw removal."
+			"risk": "Supprimer un livre est une action dangereuse : confirmation nommant le livre, color=error, Annuler, suppression par le SSOT (KR-004). Corps : spec book-library."
 		},
 		{
 			"id": "KR-071",
 			"feature": "book-library",
-			"risk": "The library list is a VIEW over BookService via useBooks (recomputed only on book:created/book:deleted, cached snapshot for useSyncExternalStore), never a private copy (re-asserts KR-020/013). Search/sort over it must be DERIVED INLINE (filter + sort a COPY — never mutate the cached snapshot array, or useSyncExternalStore's stable reference breaks). Deleting the currently-open book could leave the editor on a dangling route — guarded (iteration 2) at the COMPOSITION ROOT (App subscribes to book:deleted, reads the router route fresh in the handler, navigates home if the deleted id is open in the editor), not in the feature, so no feature owns cross-route navigation and there is no stale-closure route dependency."
+			"risk": "La liste est une VUE ; recherche et tri se derivent sur une COPIE, et supprimer le livre ouvert est garde a la RACINE DE COMPOSITION. Corps : spec book-library."
 		},
 		{
 			"id": "KR-072",
 			"feature": "book-library",
-			"risk": "book-creation and book-library compose at the app root: LibraryScreen receives the create affordance as a prop (<CreateBookEntry/>); neither feature imports the other (feature isolation). Same composition-root seam as the ActionRegistry/SlotRegistry, for a sibling screen rather than a panel region."
-		},
-		{
-			"id": "KR-080",
-			"feature": "outline-view",
-			"risk": "Feature outline-view supprimee le 2026-08-03, code inexistant. L'algorithme cycle-safe qu'elle documentait vit desormais dans tree-canvas/layout/geometry.ts (feature dormante), qui cite explicitement ce KR dans sa propre specification.json -- lire celle-ci pour le detail, pas cette entree."
-		},
-		{
-			"id": "KR-081",
-			"feature": "outline-view",
-			"risk": "outline-view supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
-		},
-		{
-			"id": "KR-090",
-			"feature": "action-decor",
-			"risk": "Feature action-decor supprimee le 2026-08-03, code inexistant. La graine qu'elle documentait (ObjectEditor -> dossier-objets, n5) est desormais actee dans dossier-objets/specification.json (feature terminee, champ object_editor_ecarte). Detail historique : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
-		},
-		{
-			"id": "KR-091",
-			"feature": "action-monster",
-			"risk": "reussite/echec are the ONLY semantic outcomes/colours (green/red), never invented elsewhere. Registry: brain/outcomes.ts ROLL_OUTCOMES (Record<RollOutcome,{label,tone}>, KR-117 instance) - still live, cited by src/brain/types.ts:105/152 and OutcomesEditor.tsx. action-monster itself was deleted 2026-08-03; the registry survives, shared by other roll editors."
-		},
-		{
-			"id": "KR-092",
-			"feature": "action-trap",
-			"risk": "Feature action-trap supprimee le 2026-08-03 (bascule IA) - code inexistant, ce risque n'a plus d'objet aujourd'hui. Detail historique : docs/ROADMAP-BASCULE-IA.md § 1 ter (journal de bascule), ou git log avant la suppression."
+			"risk": "book-creation et book-library se composent a la racine de l'app : aucune des deux n'importe l'autre. Corps : spec book-library."
 		},
 		{
 			"id": "KR-093",
 			"feature": "cloud-sync",
-			"risk": "CloudSyncService est un Decorateur sur PersistenceService (Liskov), cable une fois dans createBrain -- les features restent inchangees. Il est LOCAL-FIRST : get/set/keys/remove touchent le magasin local SYNCHRONEMENT, donc l'app marche hors ligne et l'ecriture resout avant tout evenement ou navigation (KR-004). La poussee cloud est best-effort en arriere-plan : elle ne bloque ni ne reordonne JAMAIS l'ecriture locale, et une poussee echouee CONSERVE l'ecriture locale (status -> error). Sans transport, le magasin est `offline` et n'emet sync:status que sur un CHANGEMENT reel (pas de bruit par ecriture). Seul le document livre passe par la persistance : l'etat d'interface n'est jamais synchronise (KR-022) ; les identifiants d'un transport reel sont SENSITIVE (KR-114)."
+			"risk": "Decorateur LOCAL-FIRST : l'ecriture locale resout avant tout evenement ou navigation (KR-004), la poussee cloud ne la bloque ni ne la reordonne jamais. Corps : spec cloud-sync."
 		},
 		{
 			"id": "KR-094",
 			"feature": "cloud-sync",
-			"risk": "Le CloudTransport est choisi par CIBLE DE BUILD a la racine de composition (main.tsx) ; une seule interface, donc le code applicatif est agnostique de la cible et les tests restent hors ligne par defaut (createBrain transport-optionnel). Les poussees sont DEBOUNCEES + GROUPEES : set() ecrit local synchronement puis coalesce dans une carte en attente, vidangee apres la fenetre ; le statut passe syncing -> synced/error UNE FOIS PAR LOT ; le minuteur de vidange est suivi et annule a la replanification. book:opened declenche une reconciliation DERNIER-ECRIT-GAGNE par updatedAt. INVARIANT CENTRAL : une copie cloud plus recente est adoptee en ecrivant le magasin local SOUS-JACENT, JAMAIS le set decore -- sinon on repousse ce qu'on vient de tirer, boucle d'echo. La reconciliation est le SEUL endroit ou le decorateur connait le livre. Etend KR-093."
+			"risk": "Transport choisi par cible de BUILD ; la reconciliation ecrit le magasin SOUS-JACENT, jamais le set decore — sinon boucle d'echo. Corps : spec cloud-sync."
 		},
 		{
 			"id": "KR-095",
@@ -192,29 +97,19 @@
 			"risk": "Offline queue, reconciliation et statut par livre de CloudSyncService. Corps deplace dans src/features/cloud-sync/specification.json (known_risks) au franchissement du plafond de code-knowledge.json le 2026-08-13 : cloud-sync est une feature survivante mais REPOINTEE par la bascule, aucun travail en cours ne la lit, et sa spec est ouverte a l'ouverture de son iteration. Etend KR-093/094."
 		},
 		{
-			"id": "KR-096",
-			"feature": "action-pnj",
-			"risk": "action-pnj supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
-		},
-		{
-			"id": "KR-097",
-			"feature": "action-monster",
-			"risk": "action-monster supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
-		},
-		{
 			"id": "KR-098",
 			"feature": "cloud-sync",
-			"risk": "CONFLIT : la reconciliation ne doit PAS faire dernier-ecrit-gagne en silence quand les DEUX cotes ont diverge. Conflit = le local a des editions NON POUSSEES ET le cloud est PLUS RECENT ; alors on range la copie cloud EN MEMOIRE, transitoire, jamais persistee, on N'ECRASE PAS le local, et on emet sync:conflict. Un local propre + un cloud plus recent garde l'adoption LWW. resolveConflict ecrit sous le magasin LOCAL, jamais le set decore (pas d'echo). resolveConflict et reconcile sont les DEUX seuls endroits ou le decorateur connait le livre (KR-094)."
+			"risk": "CONFLIT : deux cotes diverges, pas de dernier-ecrit-gagne silencieux — le local n'est jamais ecrase, sync:conflict est emis. Corps : spec cloud-sync."
 		},
 		{
 			"id": "KR-109",
 			"feature": "global-config",
-			"risk": "Any presentational component consumed by more than one feature belongs in brain/components/ and is re-exported from brain/components/index.ts. A component living in a feature but imported by another is a cross-feature violation — move it."
+			"risk": "Un composant de presentation consomme par plus d'une feature vit dans brain/components/ ; l'import depuis une feature soeur est refuse par ESLint (KR-151)."
 		},
 		{
 			"id": "KR-110",
 			"feature": "global-config",
-			"risk": "Any utility used by more than one feature belongs in brain/utils/, never in a feature's own utils/. Importing from a sibling feature's utils/ is a cross-feature violation."
+			"risk": "Un utilitaire consomme par plus d'une feature vit dans brain/utils/ ; l'import depuis une feature soeur est refuse par ESLint (KR-151)."
 		},
 		{
 			"id": "KR-111",
@@ -229,7 +124,7 @@
 		{
 			"id": "KR-113",
 			"feature": "global-config",
-			"risk": "No useEffect-synced mirrors of props/derived state; never use // eslint-disable react-hooks/exhaustive-deps to mask a stale closure — fix the root cause (stable refs, recompute inline)."
+			"risk": "Pas de miroir d'etat derive par useEffect. UNE SEULE MOITIE est cablee — exhaustive-deps a 'error', son eslint-disable interdit ; l'etat derive n'a VOLONTAIREMENT aucune regle : KR-153, docs/WORKFLOW.md etape 5."
 		},
 		{
 			"id": "KR-114",
@@ -252,124 +147,89 @@
 			"risk": "Un ensemble FERME (un type union fixe) vit dans UN Record<Union, Descripteur>, source unique des donnees ET du comportement par variante ; on en DERIVE les listes d'options, libelles, drapeaux et textes, et on ne re-liste JAMAIS les litteraux ni ne branche sur l'union par des echelles if (x === 'a') ... / x === 'a' ? ... : ... . Cela elimine Duplicated Code, Repeated Switch, Shotgun Surgery et Primitive Obsession, et honore Open/Closed + SRP : ajouter une variante est UNE entree, zero edition chez les consommateurs. En TypeScript ce Record pilote par la donnee EST le 'replace conditional with polymorphism' d'un domaine serialise en JSON : Record<Union, ...> pour l'exhaustivite a la compilation -- JAMAIS Partial<Record<...>>, qui laisse des trous muets -- et on derive l'union depuis les cles (keyof typeof + une fabrique defineX) quand le registre doit etre la source de l'ensemble lui-meme. Quand une variante porte du COMPORTEMENT, il devient un CHAMP du descripteur ({ label, apply, test, ... }), jamais un if/switch au site d'appel."
 		},
 		{
-			"id": "KR-118",
-			"feature": "choice-linking",
-			"risk": "Feature choice-linking supprimee le 2026-08-03 ; son picker de prerequis bornait les objets a la lignee du noeud. Le concept de lignee n'existe pas dans le modele dossier ; code condamne (demolition n9)."
-		},
-		{
-			"id": "KR-119",
-			"feature": "book-export",
-			"risk": "book-export supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
-		},
-		{
-			"id": "KR-120",
-			"feature": "book-export",
-			"risk": "book-export supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
-		},
-		{
 			"id": "KR-130",
 			"feature": "game-system",
-			"risk": "REGLES-DU-JEU.md is the SINGLE SOURCE OF TRUTH for all game mechanics. Two coherence corrections are baked in relative to the original brief: (1) the enduranceMalus ordering is most-severe-first (PEâ‰¤0 â†’ âˆ’3; PE<EN/5 â†’ âˆ’2; PE<EN/3 â†’ âˆ’1; else 0), not the reverse; (2) the challenge dice are harmonised across Â§1/Â§2/Â§3 (1D6/2D5/3D4/4D4). Never resolve a game-rule ambiguity from the code — go back to REGLES-DU-JEU.md first and propagate the correction there before updating the implementation."
+			"risk": "docs/REGLES-DU-JEU.md est la SOURCE DE VERITE UNIQUE de toute mecanique de jeu : ne jamais arbitrer une ambiguite depuis le code — corriger la doc d'abord, propager ensuite vers src/brain/. Ses deux corrections de coherence (ordre des malus d'endurance, des de challenge harmonises) y sont ECRITES : note de tete, § 1 « Endurance (PE) », § 2 « Les Challenges »."
 		},
 		{
 			"id": "KR-131",
 			"feature": "game-system",
-			"risk": "AUTHORING vs PLAY split: the EDITOR stores only the SCHEMA of a game rule (which caractéristique is tested, which Tier de Challenge, which monster stat block); the RUNTIME computes PV, PE, combat rounds, XP, and all dice outcomes. Pure play-mode helpers (resolveChallenge, resolveAssault, combatXp, etc.) live in brain/ as injectable-RNG pure functions so they are unit-testable without a play runtime; the editor imports ONLY the TYPE/REGISTRY parts (CHARACTERISTICS, CHALLENGE_TIERS, WEAPONS, etc.) to build its pickers. Never let the editor call play-mode resolvers — that is a play-mode concern and violates the authoring/play seam."
+			"risk": "SEPARATION REDACTION / JEU : l'EDITEUR ne stocke que le SCHEMA d'une regle (quelle caracteristique, quel Tier, quel bloc de stats) ; le RUNTIME calcule PV, PE, rounds, XP et les des. Les resolveurs purs a RNG injectable vivent dans brain/ pour rester testables sans runtime ; l'editeur n'importe que les TYPES et REGISTRES, et n'appelle JAMAIS un resolveur de jeu."
 		},
 		{
 			"id": "KR-132",
 			"feature": "game-system",
-			"risk": "BESTIARY SEED IS IDEMPOTENT AND DELETION-SAFE: MonsterLibraryService.seedDefaults(BESTIARY) is guarded by the MONSTER_LIBRARY_SEEDED_KEY flag. Once the flag is set (first successful seed), seedDefaults() is a no-op on every subsequent launch — a user who deletes bestiary entries does NOT get them re-injected. Tests must suppress the auto-seed by pre-setting the flag in beforeEach (window.localStorage.setItem('genliv:monster-library:seeded', 'true')) so the library starts empty and assertions on library contents remain deterministic."
+			"risk": "SEMIS DU BESTIAIRE IDEMPOTENT ET SUR A LA SUPPRESSION : seedDefaults est garde par un drapeau, donc une entree supprimee par l'auteur n'est JAMAIS re-injectee. Consequence de test : pre-poser le drapeau en beforeEach, sinon la bibliotheque ne part pas vide et les assertions cessent d'etre deterministes."
 		},
 		{
 			"id": "KR-133",
 			"feature": "play-mode",
-			"risk": "MONSTER CAPACITÃ‰S AS PLAY REGISTRY: capacités must be a KR-117 registry (MONSTER_CAPACITIES) mapping each capacity id to { trigger: CapacitéTrigger, apply: CapacitéEffect } — never an if/switch in the combat loop. The `capacity` string on MonsterConfig identifies the variant; the play runtime dispatches through the registry. Adding a new capacité effect = one registry entry, zero consumer edits. Source decisions: REGLES-PLAY-A-COMPLETER.md Â§ H."
+			"risk": "Les capacites de monstre sont un registre KR-117, jamais un if/switch dans la boucle de combat. Corps : spec play-mode."
 		},
 		{
 			"id": "KR-134",
 			"feature": "play-mode",
-			"risk": "SESSION PERSISTEE : deux sessions, deux cles, et la seconde a rendu la premiere caduque. ARBRE (condamne n9) : src/player/utils/persist.ts ecrit window.localStorage EN DIRECT sous une cle PAR LIVRE que persistenceKeys.ts duplique en commentaire — la duplication meurt avec son proprietaire, elle ne se refactore pas. DOSSIER (n9 it1) : PersistenceService + dossierSessionKey, ecrit par la FEATURE, jamais par src/player/ (extractibilite). INVARIANT PORTABLE : les transitoires de combat ne sont JAMAIS persistes ; la liste des champs sauvegardes vit dans le type, jamais recopiee ici."
+			"risk": "SESSION PERSISTEE : jamais les transitoires de combat ; ecrite par la FEATURE, jamais par src/player/ (extractibilite). Corps : spec play-mode."
 		},
 		{
 			"id": "KR-135",
 			"feature": "play-mode",
-			"risk": "CREATURE TYPE DRIVES AI : creatureType est une cle de registre KR-117 (CREATURE_TYPES, src/brain/creatureTypes.ts) dont le descripteur porte le seuil et la strategie de fuite, les poids de posture a bas PV et les traits passifs. NE JAMAIS deduire le type d'une creature de son NOM ni du TEXTE d'une capacite. La classification des monstres et les regles de fuite ne se recopient PAS ici : docs/REGLES-DU-JEU.md fait foi (KR-130) et src/brain/rules.golden.test.ts les epingle valeur par valeur -- une troisieme copie derive au premier reglage."
+			"risk": "creatureType est une cle de registre KR-117 : ne JAMAIS deduire le type d'une creature de son nom ni du texte d'une capacite. Corps : spec play-mode."
 		},
 		{
 			"id": "KR-136",
 			"feature": "play-mode",
-			"risk": "MODIFICATEURS D'ARME MAGIQUE ET D'ARGENT : `magic: n` s'ajoute au MC du porteur ET au PF de base ; `silver: true` met l'armure effective de la cible a 0, UNIQUEMENT pour les monstres dont le descripteur MONSTER_CAPACITIES porte le drapeau prevu. INVARIANT PORTABLE : ne JAMAIS tester un templateId ni un nom de monstre au site d'appel -- le drapeau du descripteur est la seule porte (meme regle que KR-135). Les valeurs et la liste des monstres concernes ne se recopient pas ici : docs/REGLES-DU-JEU.md fait foi (KR-130), rules.golden.test.ts les epingle."
+			"risk": "Armes magiques et d'argent : aucun test de templateId ni de nom au site d'appel, le drapeau du descripteur est la seule porte. Corps : spec play-mode."
 		},
 		{
 			"id": "KR-137",
 			"feature": "play-mode",
-			"risk": "PERMANENT ARMOR BONUS IN SESSION NOT HERO: `permanentArmorBonus` lives on SessionEquipmentState, not HeroState, so PNJ 'defense' gift bonuses survive combat without touching hero caracs. Must be applied in BOTH heroArmourEffective (combatEngine.ts) AND heroArmour (capacityEffects.ts) — these are separate helper functions. When adding new armor computation helpers, always include permanentArmorBonus."
+			"risk": "Le bonus d'armure permanent vit sur l'equipement de SESSION, pas sur le heros, et s'applique dans TOUTES les fonctions d'armure. Corps : spec play-mode."
 		},
 		{
 			"id": "KR-138",
 			"feature": "play-mode",
-			"risk": "PREREQ FILTERING IS CANONICAL IN sessionEngine.listChoices: `filterChoicesByPrereq` is called inside listChoices so all callers automatically get filtered results. Never filter choice edges outside of sessionEngine — the single-source guarantees consistency. Empty objectId ('' — unconfigured prereq) â†’ hide the choice (safe default, not an error)."
+			"risk": "Le filtrage par prerequis est canonique DANS listChoices ; un prerequis non configure CACHE le choix, defaut sur. Corps : spec play-mode."
 		},
 		{
 			"id": "KR-139",
 			"feature": "play-mode",
-			"risk": "COUNTDOWN TIMER IN CHOICE LIST — TIMER SAFETY: Each countdown choice gets its own setInterval tracked in a useRef, cancelled in the useEffect cleanup. The dep array uses primitive values (delay, fallback) extracted from the edge object — not the edge object itself — to avoid unnecessary restarts. onChoice is stable-reffed (onChoiceRef.current = onChoice) so interval callbacks never close over stale references."
+			"risk": "Compte a rebours : un intervalle PAR choix, suivi en ref et annule au nettoyage ; deps sur des PRIMITIVES, jamais l'objet arete. Corps : spec play-mode."
 		},
 		{
 			"id": "KR-140",
 			"feature": "play-mode",
-			"risk": "EN CARAC UPGRADE MUST ALSO INCREMENT peMax: peMax = EN (Â§ 1, heroGen.ts). When applyCaracUpgrade is called with carac='EN', both pvMax (+1 via FO+AG+EN formula) AND peMax (+1) must be incremented. Forgetting peMax leaves the endurance ceiling permanently frozen at creation value. CaracUpgradeInfo.peMaxDelta carries this flag (1 for EN, 0 for all others)."
+			"risk": "Monter la caracteristique EN incremente AUSSI peMax : l'oublier gele le plafond d'endurance a sa valeur de creation. Corps : spec play-mode."
 		},
 		{
 			"id": "KR-141",
 			"feature": "play-mode",
-			"risk": "OBJECT REINFORCEMENT : ReinforcementBonus.rollBonus s'ajoute a la caracteristique EFFECTIVE du heros pour un jet ; le joueur choisit 0 ou 1 objet applicable AVANT le jet, un seul par phase d'action. rollBonus est le 4e parametre de resolveTrap / resolveTakeableRoll (apres rng, defaut 0) -- les signatures de test existantes ne bougent pas. Un bonus retombe a 0 se serialise en undefined (serialisation propre). Les ecrans qui le rendaient (TrapScreen, DecorScreen, ReinforcementPicker) sont remplaces par la boucle narrative en n10 ; seul le contrat de resolution survit."
-		},
-		{
-			"id": "KR-142",
-			"feature": "action-trap",
-			"risk": "TRAP INVENTORY LOSS : l'invariant portable est la PROTECTION -- GameObject.scenario marque les objets critiques a l'intrigue, JAMAIS retires par une perte de categorie ; seule une perte CIBLEE par identifiant peut les viser. computeInventoryLoss() (actionEngine.ts) est le resolveur PUR canonique, et l'absence du champ sur un noeud persiste vaut 'aucune perte', donc aucune migration. Les quatre valeurs de l'enumeration vivent dans le type ; les recopier ici les ferait deriver. Feature supprimee le 2026-08-03, ses ecrans partent en n10."
-		},
-		{
-			"id": "KR-143",
-			"feature": "book-export",
-			"risk": "book-export supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
+			"risk": "Renforcement d'objet : bonus sur la caracteristique EFFECTIVE, 0 ou 1 objet choisi AVANT le jet. Les ecrans partent en n10. Corps : spec play-mode."
 		},
 		{
 			"id": "KR-144",
 			"feature": "tree-canvas",
-			"risk": "DAGRE AUTO-LAYOUT : Dagre rend des coordonnees de CENTRE -- toujours convertir en coin haut-gauche puis appliquer un decalage global, sinon la disposition derive d'une demi-boite. NE JAMAIS appeler dagre.layout sur un graphe VIDE : garder le garde sur la taille. Les noeuds isoles ne passent pas par Dagre, ils sont places en grille. Les deux premieres phrases sont les seuls invariants portables ; le reste (BFS depuis sommaire, bouton de reinitialisation, cles de preferences) decrit tree-canvas, EN SOMMEIL et cable sur un modele condamne (demolition n9) -- ne pas s'y fier."
-		},
-		{
-			"id": "KR-145",
-			"feature": "book-export",
-			"risk": "Une validation structurelle se rend EN CONTINU, jamais au seul moment de l'export : checkBookHealth (bookHealth.ts) est PURE et signale en permanence les impasses et les aretes pendantes ; useBookHealth la memoise sur BOOK_MUTATION_EVENT ; la racine sommaire est EXEMPTE (un livre neuf commence non connecte). Feature book-export supprimee le 2026-08-03 ; la validation lui a survecu et est condamnee avec le modele d'arbre (demolition n9). C'est la premiere phrase qui est l'invariant portable -- dossier-controles (n7) l'a rejouee sur le dossier."
-		},
-		{
-			"id": "KR-146",
-			"feature": "outline-view",
-			"risk": "outline-view supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
+			"risk": "DAGRE rend des coordonnees de CENTRE — convertir en coin haut-gauche ; jamais dagre.layout sur un graphe VIDE. Corps : spec tree-canvas."
 		},
 		{
 			"id": "KR-147",
 			"feature": "node-editor",
-			"risk": "FLEX-COLUMN SCROLL SHELL (motif generique, survit a node-editor supprime le 2026-08-03, BUG-015) : dans un conteneur flex-column a overflow:hidden, l'enfant scrollable a besoin de flex:1 ET minHeight:0 en plus d'overflowY:auto, sinon il grandit a son contenu et le scroll est un no-op (sections basses coupees sans avertissement). Patron : panelShell={display:flex,flexDirection:column,height:'100%',overflow:hidden}, panelBody={flex:1,minHeight:0,overflowY:auto}. Applicable a tout futur panneau scrollable du dossier."
+			"risk": "COQUILLE DE DEFILEMENT FLEX-COLUMN, motif generique : dans un conteneur flex-column a overflow:hidden, l'enfant scrollable exige flex:1 ET minHeight:0 en plus d'overflowY:auto, sinon il grandit a son contenu et le defilement est un no-op — sections basses coupees sans avertissement. BUG-015."
 		},
 		{
 			"id": "KR-148",
 			"feature": "cloud-sync",
-			"risk": "CLOUDFLARE KV TRANSPORT — KEY AS NAMESPACE: the sync key the user enters in the settings UI is base64-encoded inside the worker and used as a KV prefix `{encodedKey}:{dataKey}`. This means: (1) the key is NOT a password checked by the server — it IS the namespace; anyone who knows the key can read/write that namespace; (2) the user must keep the same key on every device; (3) deleting the key from the settings does not delete data from KV. When a user 'disables' sync, they lose the key locally — they must back it up externally. Never treat the sync key as a server-side authentication token; it is a personal shared secret used for data isolation only."
+			"risk": "CLE DE SYNCHRO = NAMESPACE, PAS UN MOT DE PASSE : qui la connait lit et ecrit l'espace, et la retirer n'efface rien au cloud. Corps : spec cloud-sync."
 		},
 		{
 			"id": "KR-149",
 			"feature": "cloud-sync",
-			"risk": "LES REGLAGES CLOUD SONT STOCKES DANS LE MAGASIN LOCAL BRUT, JAMAIS SYNCHRONISES (KR-022/KR-114) : CloudSettingsService passe toujours par le PersistenceService local, jamais par le decorateur de synchronisation, et createBrain les lit par la meme instance AVANT d'instancier le transport. MOTIF, et c'est l'invariant portable : des identifiants ranges dans la couche de synchronisation exigeraient que le transport soit initialise avant que ses propres identifiants soient connus -- une dependance de demarrage CIRCULAIRE. Ne jamais router un identifiant cloud par le decorateur."
+			"risk": "Les reglages cloud passent par le PersistenceService LOCAL : par le decorateur, le transport precederait ses propres identifiants. Corps : spec cloud-sync."
 		},
 		{
 			"id": "KR-150",
 			"feature": "cloud-sync",
-			"risk": "CLES D'IMAGES ORPHELINES EN KV : BookService.deleteNode nettoie le magasin local atomiquement (KR-004) mais ne purge PAS les entrees cloud des images du noeud ni le manifeste. Ni updateNode ni addNode ne re-poussent le manifeste corrige : seul le prochain set(bookKey) complet (qui declenche queueBookSplit) le repare. Gaspillage de stockage ACCEPTE et date, pas un defaut a redecouvrir ; une iteration cloud-sync future doit soit queueBookSplit apres deleteNode, soit livrer une etape de nettoyage dediee."
+			"risk": "CLES D'IMAGES ORPHELINES EN KV : deleteNode nettoie le local, jamais le cloud — gaspillage ACCEPTE et date. Corps : spec cloud-sync."
 		},
 		{
 			"id": "KR-151",
@@ -535,6 +395,16 @@
 			"id": "KR-183",
 			"feature": "dossier-canon",
 			"risk": "DossierService.update(id, recette): EcritureDossier (absent|refuse|ecrit) - refus n'ecrit RIEN, warnings sur ecriture reussie DOIVENT etre rendus a l'ecran, pas seulement retournes."
+		},
+		{
+			"id": "KR-184",
+			"feature": "dossier-canon",
+			"risk": "Aucune importation croisee dossier-canon <-> bascule-editeur, dans aucun sens : le remplacement d'un panneau passe par la racine de composition ou une prop optionnelle. Corps : spec dossier-canon."
+		},
+		{
+			"id": "KR-185",
+			"feature": "dossier-canon",
+			"risk": "TargetPicker n'est PAS generalise : il importe encore les modules d'arbre condamnes (KR-181) et son autre branche n'a plus d'appelant ; un choix parmi 1 a 5 entites prend Select. Corps : spec dossier-canon."
 		},
 		{
 			"id": "KR-186",
@@ -792,9 +662,109 @@
 			"risk": "L'INVITE VIT DANS LE WORKER, jamais dans le client (rejouable aux devtools ; c'est le worker qui detient la cle d'API). Le CLIENT decide QUELLES DONNEES SORTENT, le WORKER CE QU'ON DEMANDE. GARDE : un test asserte que l'invite RENDUE contient le LITTERAL DE GABARIT, JAMAIS la cle nue -- 'valeur' est un mot francais COURANT, et 'la valeur de ce personnage' satisfait includes() sans rien demander (MESURE). AMENDE A L'IT2 : des que les gabarits sont indexes PAR ROLE, cette garde reste VERTE sur une table MAL APPARIEE -- deux litteraux presents, corrects, simplement ECHANGES (MESURE). Il en faut TROIS : (1) egalite des ensembles de cles cote brain, cote worker et dans INVITES, qui attrape le role SANS gabarit ; (2) l'appariement role par role ; (3) un CANARI CROISE, intervertir deux gabarits doit ROUGIR -- sans lui 'absent' et 'mal apparie' sont indistinguables, et le mal-apparie est le seul defaut NEUF qu'une table a plusieurs entrees rende possible. Record<Role,string>, extraction du test ancree sur l'ENTREE et non sur la declaration."
 		},
 		{
+			"id": "KR-237",
+			"feature": "moteur-dossier",
+			"risk": "DEUX EVALUATEURS D'ExprNode, JAMAIS UN : trivalent pour un DOCUMENT sans etat (et prive a son module), bivalent pour un ETAT reel, plus l'atteignabilite. La duplication apparente est la bonne reponse. Corps : spec moteur-dossier."
+		},
+		{
+			"id": "KR-238",
+			"feature": "moteur-dossier",
+			"risk": "L'EVALUATEUR BIVALENT LEVE, IL NE REND JAMAIS false SUR UNE ENTREE NON RECONNUE : sous un `non`, un repli en false produit true — faux positif sur une condition de FIN (KR-228). Temoin ecrit AVEC son mutant. Corps : spec moteur-dossier."
+		},
+		{
+			"id": "KR-239",
+			"feature": "moteur-dossier",
+			"risk": "La jouabilite rendue par les controles EST LA PRECONDITION DE CORRECTION du bivalent : la porte se verifie AU MONTAGE DU SHELL, pas au seul CTA — tout chemin qui l'evite rouvre le faux positif. Corps : spec moteur-dossier."
+		},
+		{
+			"id": "KR-240",
+			"feature": "moteur-dossier",
+			"risk": "KR-181 EST AMENDE : la n9 eteint les CONSOMMATEURS du modele d'arbre, JAMAIS LE MODELE — tree.ts, kinds.ts, BookService, les 11 evenements et la route editeur survivent. Preuve sur la FRONTIERE NOMMEE, jamais par la couverture. Corps : spec moteur-dossier."
+		},
+		{
+			"id": "KR-241",
+			"feature": "moteur-dossier",
+			"risk": "L'ETAT DE SESSION A SA PROPRE TABLE D'AUDIENCE, ET ELLE ENTRE AVEC SON GARDE : module pur a part, exhaustif PAR COMPILATION, JAMAIS fusionne dans destinations.ts, qui ne couvre que le DOSSIER. Corps : spec moteur-dossier."
+		},
+		{
+			"id": "KR-242",
+			"feature": "moteur-dossier",
+			"risk": "« UNE PARTIE REJOUABLE BUG POUR BUG » N'EST PAS OBSERVABLE : rien ici ne rejoue un process. Testable seulement reformule en REPLAY DETERMINISTE INTRA-PROCESS ; sinon le critere s'ecrit NON VERIFIE. Corps : spec moteur-dossier."
+		},
+		{
+			"id": "KR-243",
+			"feature": "moteur-dossier",
+			"risk": "L'EVALUATEUR, LES DELTAS ET LE MOTEUR DE SESSION SONT HORS DU SCORE DE MUTATION, borne a 4 fichiers de regles, alors qu'ils portent une logique de signe : jest + RTL est leur UNIQUE instrument, et la revue l'ECRIT. Corps : spec moteur-dossier."
+		},
+		{
+			"id": "KR-244",
+			"feature": "moteur-dossier",
+			"risk": "LE REFUS D'OUVERTURE SUR UN MARQUEUR A ECRIRE se teste par OPPOSITION d'un dossier marque et d'un dossier reecrit DANS LE MEME TEST (KR-197/202). Seul le texte d'ouverture bloque le lancement. Corps : spec moteur-dossier."
+		},
+		{
+			"id": "KR-245",
+			"feature": "moteur-dossier",
+			"risk": "Le motif de desactivation de l'apercu EST UNE LECTURE DERIVEE PURE du rapport de controles (KR-013/113), et son texte est le message du PREMIER controle bloquant suffixe « (et {n} de plus) » — jamais une chaine fixe. Corps : spec moteur-dossier."
+		},
+		{
+			"id": "KR-246",
+			"feature": "moteur-dossier",
+			"risk": "LA PROJECTION DES JALONS N'EXPOSE QUE SON ENONCE, garde PAR VALEUR et non par forme : type NOMINAL, jamais un Jalon filtre ni un Pick<>, qui se re-elargissent d'un mot en revue. Corps : spec moteur-dossier."
+		},
+		{
+			"id": "KR-247",
+			"feature": "moteur-dossier",
+			"risk": "UN JOURNAL DE DELTAS PORTE LE DEMANDE ET L'OBSERVE, sinon « pas demande » et « demande sans effet » sont indistinguables. SCENARIO SEPARATEUR OBLIGATOIRE : un delta demande DEUX FOIS. Corps : spec moteur-dossier."
+		},
+		{
+			"id": "KR-248",
+			"feature": "moteur-dossier",
+			"risk": "LE JOURNAL EST UN CONSTAT, JAMAIS UNE ENTREE DU REJEU : relire ses deltas masque un bug d'application, rejoue depuis son propre resultat ; on rejoue depuis (dossier + graine + entrees joueur). L'origine est un identifiant ferme. Corps : spec moteur-dossier."
+		},
+		{
+			"id": "KR-249",
+			"feature": "moteur-dossier",
+			"risk": "LA CLE RACINE EST LE POINT D'EXTENSION NOMME ; LA FORME INTERNE NE L'EST PAS : un champ de session n'entre que si un chemin de code l'ECRIT et un autre le LIT, sinon on reserve la cle racine a null, proprietaire nomme. Corps : spec moteur-dossier."
+		},
+		{
+			"id": "KR-250",
+			"feature": "moteur-dossier",
+			"risk": "« AUCUNE GENERATION DE TEXTE » EST LA PROPRIETE DEFINISSANTE DE LA n9, ET RIEN NE LA VERIFIE SANS TEST : balayage d'une liste DERIVEE DU DISQUE, prouve PAR SON MUTANT dans le lot qui le livre. Corps : spec moteur-dossier."
+		},
+		{
+			"id": "KR-251",
+			"feature": "moteur-dossier",
+			"risk": "TOUT CHAMP DE SESSION AJOUTE APRES LE PREMIER LOT contrat EST OPTIONNEL A VIE (KR-160/191 transpose) : schema:1 n'a aucune migration et la session est PERSISTEE des l'it1 — undefined y est un etat LEGAL. Corps : spec moteur-dossier."
+		},
+		{
+			"id": "KR-252",
+			"feature": "moteur-dossier",
+			"risk": "tourzero.ts PORTE UNE DETTE DE CORRECTION ARMEE PAR LA DECISION, pas par l'ouverture du fichier : elle ne se range pas avec les dettes a declencheur. ET RIEN NE ROUGIT SI ON NE LE TOUCHE PAS, mesure. Corps : spec moteur-dossier."
+		},
+		{
+			"id": "KR-253",
+			"feature": "moteur-dossier",
+			"risk": "monde.pnj.<id>.sait N'ENTRE PAS, NI COMME CHAMP NI COMME CLE RESERVEE — 6e occurrence de KR-013 : le savoir d'un PNJ est determine par le dossier, en lecture seule, et un transfert futur sera un DELTA. Corps : spec moteur-dossier."
+		},
+		{
 			"id": "KR-254",
 			"feature": "moteur-dossier",
 			"risk": "LES SEPT CHAMPS D'EtatMonde SONT REQUIS ET TOTAUX DES LE PREMIER LOT contrat — exception NOMMEE a KR-249, dont l'unite d'admission est ici `monde` et non ses champs. La totalite est la PRECONDITION de la bivalence de l'evaluateur (KR-238 : il LEVE, il ne rend jamais false) ; six champs poses optionnels le resteraient A VIE (KR-251) et laisseraient six branches undefined sous un aiguillage qui doit lever. COROLLAIRE : une cle RACINE sans consommateur se reserve (memoire: null, proprietaire n10) ; une cle NON RACINE ne se reserve PAS (horloge.climat_actif, pnj.<id>.confiance non declares, un commentaire nomme leur proprietaire) — KR-251 rendra leur ajout optionnel a vie, donc la reservation n'achete rien qu'un commentaire ne donne."
+		},
+		{
+			"id": "KR-255",
+			"feature": "cross-cutting",
+			"risk": "UNE ANCRE DE MOT SUR LE textContent D'UN CONTENEUR NE SEPARE RIEN : le DOM concatene sans separateur, la frontiere n'existe jamais et l'assertion echoue PAR CONSTRUCTION — verte sous ce qu'elle devait attraper. Parade : par LIGNE, sur outerHTML, drapeau `i`. BUG-120."
+		},
+		{
+			"id": "KR-256",
+			"feature": "cross-cutting",
+			"risk": "QUAND UNE TRANCHE ECRIT UNE REGLE ET DU CODE QUI EN DEPEND, relire le code A LA LUMIERE DE LA REGLE QU'ELLE VIENT D'ECRIRE : l'incoherence est INTERNE a la tranche, et aucun test ne l'attrape tant que l'etat qui la revele n'existe pas. BUG-121."
+		},
+		{
+			"id": "KR-257",
+			"feature": "cross-cutting",
+			"risk": "UN CONTENU A ECHAPPEMENTS ECRIT PAR HEREDOC SHELL PUIS CHAINE NON BRUTE PERD UN NIVEAU A CHAQUE COUCHE, EN SILENCE : le fichier s'ecrit, le test tourne, le motif ne matche jamais. Tout antislash passe par l'outil d'edition de fichier. BUG-122."
 		}
 	]
 }

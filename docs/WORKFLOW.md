@@ -276,20 +276,20 @@ Trois strates de lecture obligatoire, chacune avec son coût :
 
 Charger par référence plutôt que tout charger est ce qui évite le contexte monolithique — KR dans la spec de leur feature, lecture du comité bornée à 3–6 fichiers, canon narratif injecté par identifiant. Aucun garde-fou automatique : ces fichiers n'ont que des écrivains, et l'un d'eux ne rétrécit que si quelqu'un le décide. La discipline s'y relâche **sans bruit** — d'où un plafond chiffré plutôt qu'une intention.
 
-**Mesure d'abord, plafond ensuite**, même doctrine que le score de mutation. Formule posée avant la mesure : `plafond = ceil(mesure ÷ 5 kio) × 5 kio`. **L'arrondi EST la marche — il n'y en a pas d'autre** : n'ajoute jamais 5 kio « parce que ce fichier-là grossit normalement », ce serait re-desserrer le plafond que le cliquet vient de resserrer. Mesure du **2026-08-13** (1 kio = 1024 o). **On mesure les octets EN LF, ceux que quelqu'un a tapés** : `core.autocrlf=true` rend la copie de travail en CRLF, et le couple toujours-chargé y pèse ~480 o que personne n'a écrits — assez pour simuler un dépassement et déclencher une compaction pour rien :
+**Mesure d'abord, plafond ensuite**, même doctrine que le score de mutation. Formule, plancher ajouté le 2026-09-24 (`B3`) : `plafond = max( ceil(mesure ÷ 5 kio) × 5 kio , ceil(5 × la plus grosse entrée ÷ 5 kio) × 5 kio )`, le second terme ne valant QUE pour les fichiers **append-only** (`bug_history*`, `features_history*`) : un plafond de trois entrées sur un fichier qui ne fait QUE croître est un décor, pas un cliquet. Mesure du **2026-08-13**, re-mesuré le **2026-09-24** (1 kio = 1024 o). **On mesure les octets EN LF, ceux que quelqu'un a tapés** : `core.autocrlf=true` rend la copie de travail en CRLF, et le couple toujours-chargé y pèse ~480 o non écrits — assez pour simuler un dépassement pour rien :
 
 | Fichier | Croissance | Mesuré | Plafond | Marge |
 | --- | --- | ---: | ---: | ---: |
-| `CLAUDE.md` + `docs/WORKFLOW.md` (couple) | défaut | 45 994 o | **45 kio** (46 080) | **86 o** |
-| `code-knowledge.json` | normale | 76 564 o | **75 kio** (76 800) | ~0,23 kio |
-| `bug_history.json` | normale | 4 945 o | **5 kio** (5 120) | ~0,17 kio |
-| `features_history.json` | normale | 5 966 o | **10 kio** (10 240) | ~4,17 kio |
-| `specification.json`, **par feature** | normale | 66 436 o (max : `dossier-format`) | **65 kio** (66 560) | ~0,12 kio |
-| `docs/ROADMAP-BASCULE-IA.md` | **défaut** | 26 929 o *(2026-09-19)* | **30 kio** (30 720) | ~3,70 kio |
+| `CLAUDE.md` + `docs/WORKFLOW.md` (couple) | défaut | 46 066 o | **45 kio** (46 080) | **14 o** |
+| `code-knowledge.json` | normale | 67 649 o | **70 kio** (71 680) | ~3,94 kio |
+| `bug_history.json` | **plancher** (BUG-120) | 9 712 o | **10 kio** (10 240) | ~0,52 kio |
+| `features_history.json` | **plancher** (`dossier-copilote`) | 11 934 o | **25 kio** (25 600) | ~13,35 kio |
+| `specification.json`, **par feature** | normale | 66 487 o (max : `dossier-format` ; 2e : `dossier-canon` 66 276 o) | **65 kio** (66 560) | **73 o** |
+| `docs/ROADMAP-BASCULE-IA.md` | **défaut** | 30 660 o | **30 kio** (30 720) | **60 o** |
 
 Le roadmap est un **index**, pas un journal : sa croissance est un défaut, pas un fonctionnement normal. **Compacté le 2026-09-19** (35 671 → 26 929 o, plafond re-dérivé 35 → 30 kio) : l'archive en est sortie une première fois, et c'est elle — motifs d'une décision livrée, corrections de cadrage, historique des recadrages — qui repart au prochain franchissement, jamais les colonnes `Statut` ni le § 4 « Ce qui est CLOS ». **Le markdown n'est pas dans le périmètre Prettier** (`npm run format` ne vise que `{src,worker}/**/*.{ts,tsx,css}`) : un `prettier --write` sur ces fichiers repadde les tables et coûte ~8 kio de budget pour rien.
 
-**Le plafond ne monte jamais** — cliquet inversé de celui du score de mutation. Après une compaction il se **re-dérive vers le bas** sur la nouvelle mesure ; il ne se desserre pas parce qu'une itération avait beaucoup à dire. Le franchir ne bloque pas la livraison : il déclenche une compaction **dans le même lot que la doc** (Build Steps, étape 4). Reporter la compaction au lot suivant, c'est ne jamais la faire.
+**Le plafond ne monte jamais PAR LA MESURE** — cliquet inversé de celui du score de mutation. Après une compaction il se **re-dérive vers le bas** sur la nouvelle mesure ; il ne se desserre pas parce qu'une itération avait beaucoup à dire. Seul le **plancher** append-only le relève. Le franchir ne bloque pas la livraison : il déclenche une compaction **dans le même lot que la doc** (Build Steps, étape 4). Reporter la compaction au lot suivant, c'est ne jamais la faire.
 
 Relevé — pas de script maison (abstraction à un seul appelant) :
 

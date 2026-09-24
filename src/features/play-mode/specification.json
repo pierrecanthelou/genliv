@@ -1,4 +1,4 @@
-{
+﻿{
   "feature": "play-mode",
   "created_at": "2026-06-22",
   "status": "in-progress",
@@ -68,27 +68,121 @@
         "direction": "emits",
         "note": "KR-135: maps CreatureType → { fleeThresholdPct, fleeStrategy, postureBias, passiveFlags }."
       },
-      { "type": "service", "name": "BookService", "direction": "consumes" },
-      { "type": "service", "name": "PersistenceService", "direction": "consumes" },
-      { "type": "service", "name": "EventBus", "direction": "consumes" },
-      { "type": "registry", "name": "CHARACTERISTICS", "direction": "consumes" },
-      { "type": "registry", "name": "CHALLENGE_TIERS", "direction": "consumes" },
-      { "type": "registry", "name": "WEAPONS", "direction": "consumes" },
-      { "type": "registry", "name": "PROTECTIONS", "direction": "consumes" },
-      { "type": "data", "name": "BESTIARY", "direction": "consumes" },
-      { "type": "module", "name": "combat.ts (resolveAssault, pfBase, maitriseDesCoups)", "direction": "consumes" },
-      { "type": "module", "name": "xp.ts (combatXp, challengeXp, characteristicUpgradeCost)", "direction": "consumes" },
-      { "type": "module", "name": "challenge.ts (resolveChallenge)", "direction": "consumes" }
+      {
+        "type": "service",
+        "name": "BookService",
+        "direction": "consumes"
+      },
+      {
+        "type": "service",
+        "name": "PersistenceService",
+        "direction": "consumes"
+      },
+      {
+        "type": "service",
+        "name": "EventBus",
+        "direction": "consumes"
+      },
+      {
+        "type": "registry",
+        "name": "CHARACTERISTICS",
+        "direction": "consumes"
+      },
+      {
+        "type": "registry",
+        "name": "CHALLENGE_TIERS",
+        "direction": "consumes"
+      },
+      {
+        "type": "registry",
+        "name": "WEAPONS",
+        "direction": "consumes"
+      },
+      {
+        "type": "registry",
+        "name": "PROTECTIONS",
+        "direction": "consumes"
+      },
+      {
+        "type": "data",
+        "name": "BESTIARY",
+        "direction": "consumes"
+      },
+      {
+        "type": "module",
+        "name": "combat.ts (resolveAssault, pfBase, maitriseDesCoups)",
+        "direction": "consumes"
+      },
+      {
+        "type": "module",
+        "name": "xp.ts (combatXp, challengeXp, characteristicUpgradeCost)",
+        "direction": "consumes"
+      },
+      {
+        "type": "module",
+        "name": "challenge.ts (resolveChallenge)",
+        "direction": "consumes"
+      }
     ],
     "events": [
-      { "name": "play:started", "direction": "emits", "payload": { "bookId": "string" } },
-      { "name": "play:nodeEntered", "direction": "emits", "payload": { "nodeId": "string", "peRecovered": "number" } },
-      { "name": "play:heroUpdated", "direction": "emits", "payload": { "hero": "HeroState" } },
-      { "name": "play:combatStarted", "direction": "emits", "payload": { "monsterName": "string" } },
-      { "name": "play:combatEnded", "direction": "emits", "payload": { "outcome": "'victory'|'defeat'", "xp": "number?", "loot": "GameObject?" } },
-      { "name": "play:challengeResolved", "direction": "emits", "payload": { "outcome": "RollOutcome", "xp": "number?" } },
-      { "name": "play:ended", "direction": "emits", "payload": { "outcome": "'victory'|'failure'|'death'" } },
-      { "name": "play:saved", "direction": "emits", "payload": {} }
+      {
+        "name": "play:started",
+        "direction": "emits",
+        "payload": {
+          "bookId": "string"
+        }
+      },
+      {
+        "name": "play:nodeEntered",
+        "direction": "emits",
+        "payload": {
+          "nodeId": "string",
+          "peRecovered": "number"
+        }
+      },
+      {
+        "name": "play:heroUpdated",
+        "direction": "emits",
+        "payload": {
+          "hero": "HeroState"
+        }
+      },
+      {
+        "name": "play:combatStarted",
+        "direction": "emits",
+        "payload": {
+          "monsterName": "string"
+        }
+      },
+      {
+        "name": "play:combatEnded",
+        "direction": "emits",
+        "payload": {
+          "outcome": "'victory'|'defeat'",
+          "xp": "number?",
+          "loot": "GameObject?"
+        }
+      },
+      {
+        "name": "play:challengeResolved",
+        "direction": "emits",
+        "payload": {
+          "outcome": "RollOutcome",
+          "xp": "number?"
+        }
+      },
+      {
+        "name": "play:ended",
+        "direction": "emits",
+        "payload": {
+          "outcome": "'victory'|'failure'|'death'"
+        }
+      },
+      {
+        "name": "play:saved",
+        "direction": "emits",
+        "payload": {}
+      }
     ],
     "walking_skeleton": "Load a book → render sommaire text → show outgoing choices (no filtering yet) → clicking a choice navigates to the next node → +5 PE applied → basic hero state (caracs generated, PV=FO+AG+EN, PE=EN) persisted → one auto-save per book. Combat/action resolution and character creation screen deferred to later iterations.",
     "n": 6,
@@ -125,13 +219,17 @@
       }
     ],
     "known_risks": [
-      "KR-133 — MONSTER CAPACITÉS AS PLAY REGISTRY: capacités must be a KR-117 registry (MONSTER_CAPACITIES) mapping each capacity id to { trigger: CapacitéTrigger, apply: CapacitéEffect } — never an if/switch in the combat loop. Adding a capacité effect = one new registry entry, zero consumer edits.",
-      "KR-134 — SESSION SAVE STATE: play session persists via PersistenceService with per-book key `genliv:play:session:{bookId}` (registered in persistenceKeys.ts, KR-011). State includes the visited-node set for anti-farm. Battle transients (current-round state) are NOT persisted; saves happen only at node transitions.",
-      "KR-135 — CREATURE TYPE DRIVES AI: `creatureType` on MonsterStatBlock is a KR-117 registry key (CREATURE_TYPES) whose descriptor carries flee threshold %, flee strategy (roll-based / chance / never), posture-weight overrides at low HP, and passive trait flags (e.g. immuneToFatigue). Never infer creature type from name or capacity text. Bestiary seeds the correct type for all 23 canonical monsters.",
-      "KR-136 — MAGIC AND SILVER WEAPON MODIFIERS: `magic: n` on EquipmentEffect.arme adds n to wielder MC (before AT computation) AND n to PF_base (before écart × posture multiplier). `silver: true` sets the target's effective armour to 0, ONLY for monsters whose MONSTER_CAPACITIES descriptor includes `bypassedBySilver: true`. Never check templateId or name at call sites.",
+      "KR-133 — MONSTER CAPACITÉS AS PLAY REGISTRY: capacités must be a KR-117 registry (MONSTER_CAPACITIES) mapping each capacity id to { trigger: CapacitéTrigger, apply: CapacitéEffect } — never an if/switch in the combat loop. Adding a capacité effect = one new registry entry, zero consumer edits. — CONSTAT DU 2026-09-24 (tranche `B3`) : la source que cette entrée citait, `REGLES-PLAY-A-COMPLETER.md` § H, **n'existe pas** ; `src/player/engine/combatEngine.ts:3` la cite encore. Aucun substitut n'a été inventé : à reprendre par qui possède la doctrine de jeu.",
+      "KR-134 — SESSION SAVE STATE: play session persists via PersistenceService with per-book key `genliv:play:session:{bookId}` (registered in persistenceKeys.ts, KR-011). State includes the visited-node set for anti-farm. Battle transients (current-round state) are NOT persisted; saves happen only at node transitions. — ETAT AU 2026-09-24, corps descendu de code-knowledge.json (precedent KR-095) : SESSION PERSISTEE : deux sessions, deux cles, et la seconde a rendu la premiere caduque. ARBRE (condamne n9) : src/player/utils/persist.ts ecrit window.localStorage EN DIRECT sous une cle PAR LIVRE que persistenceKeys.ts duplique en commentaire — la duplication meurt avec son proprietaire, elle ne se refactore pas. DOSSIER (n9 it1) : PersistenceService + dossierSessionKey, ecrit par la FEATURE, jamais par src/player/ (extractibilite). INVARIANT PORTABLE : les transitoires de combat ne sont JAMAIS persistes ; la liste des champs sauvegardes vit dans le type, jamais recopiee ici.",
+      "KR-135 — CREATURE TYPE DRIVES AI: `creatureType` on MonsterStatBlock is a KR-117 registry key (CREATURE_TYPES) whose descriptor carries flee threshold %, flee strategy (roll-based / chance / never), posture-weight overrides at low HP, and passive trait flags (e.g. immuneToFatigue). Never infer creature type from name or capacity text. Bestiary seeds the correct type for all 23 canonical monsters. — ETAT AU 2026-09-24, corps descendu de code-knowledge.json (precedent KR-095) : CREATURE TYPE DRIVES AI : creatureType est une cle de registre KR-117 (CREATURE_TYPES, src/brain/creatureTypes.ts) dont le descripteur porte le seuil et la strategie de fuite, les poids de posture a bas PV et les traits passifs. NE JAMAIS deduire le type d'une creature de son NOM ni du TEXTE d'une capacite. La classification des monstres et les regles de fuite ne se recopient PAS ici : docs/REGLES-DU-JEU.md fait foi (KR-130) et src/brain/rules.golden.test.ts les epingle valeur par valeur -- une troisieme copie derive au premier reglage.",
+      "KR-136 — MAGIC AND SILVER WEAPON MODIFIERS: `magic: n` on EquipmentEffect.arme adds n to wielder MC (before AT computation) AND n to PF_base (before écart × posture multiplier). `silver: true` sets the target's effective armour to 0, ONLY for monsters whose MONSTER_CAPACITIES descriptor includes `bypassedBySilver: true`. Never check templateId or name at call sites. — ETAT AU 2026-09-24, corps descendu de code-knowledge.json (precedent KR-095) : MODIFICATEURS D'ARME MAGIQUE ET D'ARGENT : `magic: n` s'ajoute au MC du porteur ET au PF de base ; `silver: true` met l'armure effective de la cible a 0, UNIQUEMENT pour les monstres dont le descripteur MONSTER_CAPACITIES porte le drapeau prevu. INVARIANT PORTABLE : ne JAMAIS tester un templateId ni un nom de monstre au site d'appel -- le drapeau du descripteur est la seule porte (meme regle que KR-135). Les valeurs et la liste des monstres concernes ne se recopient pas ici : docs/REGLES-DU-JEU.md fait foi (KR-130), rules.golden.test.ts les epingle.",
       "KR-131 (re-assert) — Editor must never call play resolvers. PlaySessionService and CombatEngine are play-only; importing them from any editor feature is a violation of the authoring/play seam.",
       "KR-117 (re-assert) — Every closed set introduced by play mode (CreatureType, CapacitéTrigger, flee strategies) must be a registry with descriptor data + eventual behaviour fields. No if/switch at call sites.",
-      "KR-141 — OBJECT REINFORCEMENT (AC C5): ReinforcementBonus.rollBonus on a GameObject adds to the hero's effective characteristic value for a skill roll (trap or décor prendre). The player picks 0 or 1 object before the roll; `rollBonus` is the 4th param on resolveTrap/resolveTakeableRoll (after `rng`, default 0) so existing test signatures need no update. TrapScreen: if trap.roll exists, start in pick phase (result=null); resolve on 'Affronter' click. DecorScreen: ReinforcementPicker above object list; rollBonus injected into resolveTakeableRoll per click. ObjectEditor: Stepper 0–5 for rollBonus (authored in brain/components, KR-052). Author sets reinforcementBonus on any GameObject; the play runtime only reads it."
+      "KR-141 — OBJECT REINFORCEMENT (AC C5): ReinforcementBonus.rollBonus on a GameObject adds to the hero's effective characteristic value for a skill roll (trap or décor prendre). The player picks 0 or 1 object before the roll; `rollBonus` is the 4th param on resolveTrap/resolveTakeableRoll (after `rng`, default 0) so existing test signatures need no update. TrapScreen: if trap.roll exists, start in pick phase (result=null); resolve on 'Affronter' click. DecorScreen: ReinforcementPicker above object list; rollBonus injected into resolveTakeableRoll per click. ObjectEditor: Stepper 0–5 for rollBonus (authored in brain/components, KR-052). Author sets reinforcementBonus on any GameObject; the play runtime only reads it. — ETAT AU 2026-09-24, corps descendu de code-knowledge.json (precedent KR-095) : OBJECT REINFORCEMENT : ReinforcementBonus.rollBonus s'ajoute a la caracteristique EFFECTIVE du heros pour un jet ; le joueur choisit 0 ou 1 objet applicable AVANT le jet, un seul par phase d'action. rollBonus est le 4e parametre de resolveTrap / resolveTakeableRoll (apres rng, defaut 0) -- les signatures de test existantes ne bougent pas. Un bonus retombe a 0 se serialise en undefined (serialisation propre). Les ecrans qui le rendaient (TrapScreen, DecorScreen, ReinforcementPicker) sont remplaces par la boucle narrative en n10 ; seul le contrat de resolution survit.",
+      "KR-137 — PERMANENT ARMOR BONUS IN SESSION NOT HERO: `permanentArmorBonus` lives on SessionEquipmentState, not HeroState, so PNJ 'defense' gift bonuses survive combat without touching hero caracs. Must be applied in BOTH heroArmourEffective (combatEngine.ts) AND heroArmour (capacityEffects.ts) — these are separate helper functions. When adding new armor computation helpers, always include permanentArmorBonus.",
+      "KR-138 — PREREQ FILTERING IS CANONICAL IN sessionEngine.listChoices: `filterChoicesByPrereq` is called inside listChoices so all callers automatically get filtered results. Never filter choice edges outside of sessionEngine — the single-source guarantees consistency. Empty objectId ('' — unconfigured prereq) â†’ hide the choice (safe default, not an error).",
+      "KR-139 — COUNTDOWN TIMER IN CHOICE LIST — TIMER SAFETY: Each countdown choice gets its own setInterval tracked in a useRef, cancelled in the useEffect cleanup. The dep array uses primitive values (delay, fallback) extracted from the edge object — not the edge object itself — to avoid unnecessary restarts. onChoice is stable-reffed (onChoiceRef.current = onChoice) so interval callbacks never close over stale references.",
+      "KR-140 — EN CARAC UPGRADE MUST ALSO INCREMENT peMax: peMax = EN (Â§ 1, heroGen.ts). When applyCaracUpgrade is called with carac='EN', both pvMax (+1 via FO+AG+EN formula) AND peMax (+1) must be incremented. Forgetting peMax leaves the endurance ceiling permanently frozen at creation value. CaracUpgradeInfo.peMaxDelta carries this flag (1 for EN, 0 for all others)."
     ]
   },
   "implementation": {

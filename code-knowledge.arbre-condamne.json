@@ -1,0 +1,145 @@
+{
+	"_about": "ARCHIVE — les 28 risques connus des features supprimees le 2026-08-03 par la decision D3 (node-editor, choice-linking, outline-view, action-decor/monster/trap/pnj, book-export). Scindes de code-knowledge.json le 2026-09-24 au franchissement de son plafond de contexte (docs/WORKFLOW.md, § Budget de contexte) : elles decrivent du code qui n'existe plus ET n'ont aucun specification.json cible ou faire descendre leur corps, seules de tout le registre dans ce cas. COMPACTER N'EST PAS SUPPRIMER : aucune entree n'a ete reecrite, resumee ni renumerotee, et src/brain/codeKnowledge.test.ts asserte qu'aucun id n'apparait deux fois dans l'union des deux fichiers. CE FICHIER N'EST PAS EN LECTURE OBLIGATOIRE — seul code-knowledge.json l'est. DEUX declencheurs de relecture, et pas d'autres : (1) la demolition de frontiere de la n9 moteur-dossier, proprietaire d'extinction des CONSOMMATEURS du modele d'arbre et jamais du modele (KR-181 amende par KR-240) — ces 28 entrees sont ce que leurs anciens proprietaires disaient de brain/tree.ts, kinds.ts, BookService, automaticEdges.ts, bookHealth.ts et des 11 evenements node:*/edge:*, que la n9 demolira ou laissera debout ; (2) tout repointage futur de tree-canvas, en sommeil et cable sur BookNode/Edge. PRECEDENT DE DEFAUT A NE PAS REJOUER : la compaction du 2026-08-13 avait REDUIT 28 de ces entrees a « code inexistant, ce risque n'a plus d'objet », faux pour 16 d'entre elles dont l'invariant vivait toujours au SSOT — recit dans bug_history.dossier-canon.json. D'ou le deplacement INTEGRAL, sans une ligne reecrite. UNE entree des features supprimees N'EST PAS ici, et c'est delibere : KR-147 (coquille de defilement flex-column) est un motif GENERIQUE cite par deux features VIVANTES (dossier-registres, play-mode) et reste dans code-knowledge.json.",
+	"known_risks": [
+		{
+			"id": "KR-050",
+			"feature": "node-editor",
+			"risk": "node-editor supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
+		},
+		{
+			"id": "KR-051",
+			"feature": "node-editor",
+			"risk": "Feature node-editor supprimee le 2026-08-03, code inexistant. Cite par src/brain/kinds.ts:16 pour dire ce que kinds.ts N'EST PAS (le registre de types de noeuds/aretes n'est pas ActionRegistry) -- seule raison de garder cette entree au lieu du stub standard."
+		},
+		{
+			"id": "KR-052",
+			"feature": "node-editor",
+			"risk": "Feature node-editor supprimee le 2026-08-03. Invariant portable : nom interne + description joueur, repris par dossier-objets/specification.json. Mecanisme condamne (demolition n9)."
+		},
+		{
+			"id": "KR-053",
+			"feature": "node-editor",
+			"risk": "node-editor supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
+		},
+		{
+			"id": "KR-054",
+			"feature": "node-editor",
+			"risk": "Feature node-editor supprimee le 2026-08-03 ; le derive-badge Fin (effectiveKind/endLabel, une seule source via node:updated) vit dans src/brain/tree.ts + src/brain/utils/nodeKind.ts, condamne avec le modele d'arbre (demolition n9)."
+		},
+		{
+			"id": "KR-055",
+			"feature": "node-editor",
+			"risk": "Sommaire (racine) et Mort (feuille) sont des ecrans STRUCTURELS du modele d'ARBRE. Invariant complet dans CLAUDE.md, regles de domaine, charge a chaque session : ne pas le recopier. SSOT BookService.updateNode / kinds.ts, condamnes (demolition n9)."
+		},
+		{
+			"id": "KR-060",
+			"feature": "choice-linking",
+			"risk": "Feature choice-linking supprimee le 2026-08-03 ; l'invariant (aretes creees/supprimees seulement via BookService, jamais localement -- re-affirme KR-020) vivait dans src/brain/BookService.ts, condamne (demolition n9). Mort sans arete sortante reste couvert par KR-055."
+		},
+		{
+			"id": "KR-061",
+			"feature": "choice-linking",
+			"risk": "Feature choice-linking supprimee le 2026-08-03 ; les gardes anti-doublon et anti-self-link du relink (identite = from+to+kind) vivaient dans src/brain/BookService.ts + tree.ts, condamnes (demolition n9)."
+		},
+		{
+			"id": "KR-062",
+			"feature": "choice-linking",
+			"risk": "Feature choice-linking supprimee le 2026-08-03. Invariant portable : reference par identifiant stable, jamais par nom ; toute reference pendante surfacee — il vit dans CLAUDE.md, regles de domaine. Mecanisme condamne (demolition n9)."
+		},
+		{
+			"id": "KR-063",
+			"feature": "choice-linking",
+			"risk": "Feature choice-linking supprimee le 2026-08-03, code inexistant (Edge.countdown, ChoiceCountdownEditor, TargetPicker). Detail historique : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
+		},
+		{
+			"id": "KR-064",
+			"feature": "choice-linking",
+			"risk": "choice-linking supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
+		},
+		{
+			"id": "KR-065",
+			"feature": "choice-linking",
+			"risk": "Feature choice-linking supprimee le 2026-08-03, code inexistant (regle countdown + prerequis cache combines sur un meme choix). Detail : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
+		},
+		{
+			"id": "KR-066",
+			"feature": "choice-linking",
+			"risk": "choice-linking supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
+		},
+		{
+			"id": "KR-067",
+			"feature": "choice-linking",
+			"risk": "Un ecran STRUCTUREL n'est jamais la cible d'un choix redige. Invariant complet dans CLAUDE.md, regles de domaine, charge a chaque session : ne pas le recopier. Applique au SSOT (BookService.addEdge) ; historique dans ROADMAP SS 1 ter ou git log. Modele d'arbre condamne (n9)."
+		},
+		{
+			"id": "KR-080",
+			"feature": "outline-view",
+			"risk": "Feature outline-view supprimee le 2026-08-03, code inexistant. L'algorithme cycle-safe qu'elle documentait vit desormais dans tree-canvas/layout/geometry.ts (feature dormante), qui cite explicitement ce KR dans sa propre specification.json -- lire celle-ci pour le detail, pas cette entree."
+		},
+		{
+			"id": "KR-081",
+			"feature": "outline-view",
+			"risk": "outline-view supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
+		},
+		{
+			"id": "KR-090",
+			"feature": "action-decor",
+			"risk": "Feature action-decor supprimee le 2026-08-03, code inexistant. La graine qu'elle documentait (ObjectEditor -> dossier-objets, n5) est desormais actee dans dossier-objets/specification.json (feature terminee, champ object_editor_ecarte). Detail historique : docs/ROADMAP-BASCULE-IA.md § 1 ter ou git log avant suppression."
+		},
+		{
+			"id": "KR-091",
+			"feature": "action-monster",
+			"risk": "reussite/echec are the ONLY semantic outcomes/colours (green/red), never invented elsewhere. Registry: brain/outcomes.ts ROLL_OUTCOMES (Record<RollOutcome,{label,tone}>, KR-117 instance) - still live, cited by src/brain/types.ts:105/152 and OutcomesEditor.tsx. action-monster itself was deleted 2026-08-03; the registry survives, shared by other roll editors."
+		},
+		{
+			"id": "KR-092",
+			"feature": "action-trap",
+			"risk": "Feature action-trap supprimee le 2026-08-03 (bascule IA) - code inexistant, ce risque n'a plus d'objet aujourd'hui. Detail historique : docs/ROADMAP-BASCULE-IA.md § 1 ter (journal de bascule), ou git log avant la suppression."
+		},
+		{
+			"id": "KR-096",
+			"feature": "action-pnj",
+			"risk": "action-pnj supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
+		},
+		{
+			"id": "KR-097",
+			"feature": "action-monster",
+			"risk": "action-monster supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
+		},
+		{
+			"id": "KR-118",
+			"feature": "choice-linking",
+			"risk": "Feature choice-linking supprimee le 2026-08-03 ; son picker de prerequis bornait les objets a la lignee du noeud. Le concept de lignee n'existe pas dans le modele dossier ; code condamne (demolition n9)."
+		},
+		{
+			"id": "KR-119",
+			"feature": "book-export",
+			"risk": "book-export supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
+		},
+		{
+			"id": "KR-120",
+			"feature": "book-export",
+			"risk": "book-export supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
+		},
+		{
+			"id": "KR-142",
+			"feature": "action-trap",
+			"risk": "TRAP INVENTORY LOSS : l'invariant portable est la PROTECTION -- GameObject.scenario marque les objets critiques a l'intrigue, JAMAIS retires par une perte de categorie ; seule une perte CIBLEE par identifiant peut les viser. computeInventoryLoss() (actionEngine.ts) est le resolveur PUR canonique, et l'absence du champ sur un noeud persiste vaut 'aucune perte', donc aucune migration. Les quatre valeurs de l'enumeration vivent dans le type ; les recopier ici les ferait deriver. Feature supprimee le 2026-08-03, ses ecrans partent en n10."
+		},
+		{
+			"id": "KR-143",
+			"feature": "book-export",
+			"risk": "book-export supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
+		},
+		{
+			"id": "KR-145",
+			"feature": "book-export",
+			"risk": "Une validation structurelle se rend EN CONTINU, jamais au seul moment de l'export : checkBookHealth (bookHealth.ts) est PURE et signale en permanence les impasses et les aretes pendantes ; useBookHealth la memoise sur BOOK_MUTATION_EVENT ; la racine sommaire est EXEMPTE (un livre neuf commence non connecte). Feature book-export supprimee le 2026-08-03 ; la validation lui a survecu et est condamnee avec le modele d'arbre (demolition n9). C'est la premiere phrase qui est l'invariant portable -- dossier-controles (n7) l'a rejouee sur le dossier."
+		},
+		{
+			"id": "KR-146",
+			"feature": "outline-view",
+			"risk": "outline-view supprimee le 2026-08-03 — sans objet. Roadmap § 1 ter."
+		}
+	]
+}

@@ -47,6 +47,18 @@
 			"mitigation": "Regle portable : tout contenu portant un backslash s'ecrit avec l'outil d'edition de fichier, jamais par heredoc shell. Et un motif de test se PROUVE par sa discriminance dans LES DEUX SENS (il matche ce qu'il doit, il ne matche pas ce qu'il ne doit pas) -- les deux assertions sont posees dans `commandes.test.ts`.",
 			"regression_test": "src/brain/dossier/commandes.test.ts -- « aucune feature n importe COMMANDES ni createMagasinDeSession » (les 4 assertions de discriminance)",
 			"severity": "minor"
+		},
+		{
+			"id": "BUG-123",
+			"date": "2026-09-24",
+			"feature": "budget-de-contexte",
+			"discovered_at": "iteration-1",
+			"symptom": "BUG-055, BUG-056, BUG-057 et BUG-058 portent chacun DEUX defauts DIFFERENTS : quatre de dossier-format (2026-08-08, bug_history.features-terminees.json) et quatre de dossier-canon (2026-08-10, bug_history.dossier-canon.json). Recidive EXACTE de BUG-062, deux jours plus tard, dans les deux sens -- trouve par src/brain/codeKnowledge.test.ts (assertion 5), pose dans le lot 1 de la tranche B3 budget-de-contexte.",
+			"root_cause": "Le prochain id a chaque fois ete pris au max du SEUL fichier en cours d edition, jamais des huit -- exactement la regle que BUG-062 avait deja fait enfreindre, sans qu aucun instrument ne la tienne entre les deux.",
+			"fix": "Non corrige -- renumeroter un id est HORS PERIMETRE de la tranche B3 (lot 2 s interdit explicitement toute renumerotation d id, KR ou BUG). Les quatre ids restent donc AMBIGUS partout ou ils sont cites : nommer BUG-057 seul ne designe pas un defaut, mais deux, dans deux features differentes -- c est le cout reel que cette entree laisse impaye.",
+			"mitigation": "src/brain/codeKnowledge.test.ts (assertion 5) epingle les QUATRE collisions par egalite EXACTE (COLLISIONS_CONNUES) : une cinquieme collision fait rougir le test, et reparer l une des quatre (donc renumeroter) le fait rougir aussi -- ce qui force a retirer la ligne au lieu de l oublier.",
+			"regression_test": "src/brain/codeKnowledge.test.ts -- assertion 5 (deja verte -- COLLISIONS_CONNUES fige les quatre existantes sans les absoudre)",
+			"severity": "major"
 		}
 	],
 	"_about": "Les defauts que le TRAVAIL EN COURS relira -- bascule IA, 0.6.x. AXE D'APPARTENANCE, et c'est le seul : un travail en cours le relira-t-il, ET sa lecon est-elle deja promue dans un instrument lui-meme en lecture obligatoire (critere d'acceptation, KR, regle ESLint, test permanent) ? Si la lecon est promue, l'entree part a l'archive -- la garder ici la ferait relire deux fois. JAMAIS << de quelle feature vient l'entree >> : un fichier qui porte le nom d'une feature n'est pas pour autant range PAR feature, et confondre les deux a deja coute une scission fausse (BUG-086, corrige en revue de PR). Ce fichier ne se compacte pas, il se SCINDE -- et avant tout deplacement, on OUVRE les _about des DEUX fichiers. RESTE ICI quoi qu'il arrive : BUG-074, dont le correctif n'est TOUJOURS PAS FAIT et dont la lecon n'est promue nulle part -- l'archiver serait l'oublier ; il a deja ete archive par erreur une fois. NUMEROTATION GLOBALE aux HUIT fichiers, jamais reemployee : prochain id = max(BUG-xxx) des HUIT, jamais du seul fichier en cours (precedent BUG-062). OU SONT LES AUTRES : bug_history.0.5.json (BUG-001 a 027) · bug_history.features-terminees.json (features done hors bascule) · bug_history.dossier-canon.json · bug_history.dossier-fiches.json · bug_history.dossier-registres.json · bug_history.dossier-controles.json · bug_history.dossier-copilote.json. HISTORIQUE COMPLET DES SCISSIONS : CHANGELOG.md -- il n'est pas recopie ici, c'est lui qui le porte."
