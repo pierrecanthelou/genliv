@@ -96,19 +96,22 @@ Huit features, **48 itérations livrées**, `0.6.50`. L'itération 5 de `dossier
 
 Ce que ce § 2 bis dit maintenant : **deux tranches se paient avant le Temps 2**, tout le reste est une **dette à déclencheur** — attachée au moment où quelqu'un rouvre son fichier, idiome que ce dépôt pratique déjà (« le premier lot qui rouvrira X »). Ce n'est pas un report : un calendrier que personne ne tient est moins fiable qu'un déclencheur qui part tout seul.
 
-### Le chemin bloquant — 3 tranches, `0.6.51` → `0.7.2`
+### Le chemin bloquant — 4 tranches, `0.6.51` → `0.7.4`
 
 | # | Tranche | « À la fin… » | Statut | Comité | Dépend de |
 |---|---|---|---|---|---|
 | B1 | `dossier-canon` it5 | …relier ses lieux les uns aux autres | **1/1 ✅** | 5 rôles | — |
 | B2 | `outillage-2` *(hors cycle)* | *(outillage)* le score de mutation cesse de mentir sur `combat.ts` | **1/1 ✅** | tech-lead | — |
 | B3 | `budget-de-contexte` *(hors cycle)* | *(outillage)* `code-knowledge.json` retrouve sa marge, les 17 KR de la n°9 sont mirrorés | **2/2 ✅** | tech-lead | — |
+| B4 | `eol-lf` *(hors cycle)* | *(outillage)* tout worktree neuf rend la porte verte | **1/1 ✅** | tech-lead | — |
 
-**B1 · `lieux[].acces`** — livrée le 2026-09-19 (`0.6.52`). Sans propriétaire depuis trois cadrages (KR-200, KR-205), revient à `dossier-canon` : arête **ORIENTÉE** (KR-013). Détail : `CHANGELOG.md` `0.6.52`, `.claude/raffinage/dossier-canon-it5.revue.md`.
+**B1 · `lieux[].acces`** — livrée le 2026-09-19 (`0.6.52`), `dossier-canon` it5 : arête **ORIENTÉE** (KR-013), sans propriétaire depuis trois cadrages (KR-200, KR-205). Dossier : `.claude/raffinage/dossier-canon-it5.revue.md`.
 
-**B2 · `outillage-2`** — **livrée le 2026-09-20** (`0.6.53`). Les 48 mutants survivants sont tombés : score global **100 %** (258 notés), `combat.ts` de 62,50 % à **100 %**, et le cliquet `break` passe de 80 à **90**, son plafond. Le ±1 entre deux runs — le `rng` non seedé de `combat.ts:107` — est soldé par une borne de test, **zéro ligne de production modifiée**. Dossier : `.claude/raffinage/outillage-it2.revue.md`.
+**B2 · `outillage-2`** — livrée le 2026-09-20 (`0.6.53`) : score de mutation **100 %** (258 notés), `combat.ts` de 62,50 % à 100 %, cliquet `break` 80 → **90** (plafond). **Zéro ligne de production modifiée.** Dossier : `.claude/raffinage/outillage-it2.revue.md`.
 
-**B3 · `budget-de-contexte`** — livrée le 2026-09-24 (`0.7.2`). Deux lots (`contrat` puis journal) : compaction + scission de `code-knowledge.json`, mirroring des 17 `KR-237`…`KR-253`, plancher `5 × la plus grosse entrée` pour les fichiers append-only (`docs/WORKFLOW.md`). La dette « Unicité des `BUG-xxx` » ci-dessous est CLOSE : l'instrument existe (`src/brain/codeKnowledge.test.ts`). Dossier : `.claude/raffinage/budget-it1.revue.md`.
+**B3 · `budget-de-contexte`** — livrée le 2026-09-24 (`0.7.2`) : compaction et scission de `code-knowledge.json`, mirroring des 17 `KR-237`…`KR-253`, **plancher `5 × la plus grosse entrée`** pour les fichiers append-only. La dette « Unicité des `BUG-xxx` » est CLOSE (`src/brain/codeKnowledge.test.ts`). Dossier : `.claude/raffinage/budget-it1.revue.md`.
+
+**B4 · `eol-lf`** — livrée le 2026-09-24 (`0.7.4`), **découverte au raffinage de la n° 9 it4, pas par un test** : `core.autocrlf=true` rendait la porte **verte en local et rouge dans tout worktree neuf** — donc chez chaque ouvrier `/essaim`. Un `.gitattributes` ferme la classe que six rustines locales n'avaient pas fermée. **Zéro ligne de test modifiée.** BUG-127. Dossier : `.claude/raffinage/eol-lf.revue.md`.
 
 ### La dette à déclencheur — rien n'est planifié, tout est armé
 
@@ -200,7 +203,7 @@ Mode multi-joueur · internationalisation · thème sombre · accessibilité (d�
 
 ## 6 — Comment on exécute
 
-Une tranche à la fois, jamais deux en parallèle, dans l'ordre de ce document : **§ 2 bis B1 puis B2, puis § 3 n° 9 → n° 16.**
+Une tranche à la fois, jamais deux en parallèle, dans l'ordre de ce document : **§ 2 bis B1 → B4, puis § 3 n° 9 → n° 16.**
 
 ```
 /cadrer <feature> "<intention en une phrase>"   → specification.json + découpage en itérations
@@ -209,7 +212,7 @@ Une tranche à la fois, jamais deux en parallèle, dans l'ordre de ce document :
 /essaim   <feature> n                           → exécution + intégration + qa + dossier de revue
 ```
 
-Les tranches **hors cycle de feature** (B2, et toute dette à déclencheur qui part seule) n'ont pas de `/cadrer` : leur périmètre est écrit ci-dessus, elles entrent directement en `/raffiner` et journalisent dans `CHANGELOG.md` + `bug_history.*.json`, sans `specification.json` propre.
+Les tranches **hors cycle de feature** (B2–B4, et toute dette à déclencheur qui part seule) n'ont pas de `/cadrer` : leur périmètre est écrit ci-dessus, elles entrent directement en `/raffiner` et journalisent dans `CHANGELOG.md` + `bug_history.*.json`, sans `specification.json` propre.
 
 **Ne pas cadrer plusieurs features d'avance.** Le format bouge au contact du code : tout ce qui aura été cadré avant sera à refaire.
 

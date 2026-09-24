@@ -1,0 +1,19 @@
+# Fins de ligne — LF dans le dépôt ET dans la copie de travail.
+#
+# POURQUOI (mesuré le 2026-09-24, BUG-127) : `core.autocrlf=true` rendait du CRLF à
+# TOUT checkout neuf — donc dans le worktree de chaque ouvrier `/essaim` — pendant
+# que la copie de travail principale était en LF. Les tests qui LISENT LEURS PROPRES
+# SOURCES sur disque y changeaient de base : `contexte.test.ts:1745` découpe par
+# `indexOf('\n\n')`, qui ne trouve rien dans un `\r\n\r\n`, rend -1, et fait avaler
+# au balayage tout le reste du fichier. Porte rouge en worktree neuf, verte dans la
+# copie principale — 4 tests sur 1870, et un instrument dont le PÉRIMÈTRE dépendait
+# du checkout.
+#
+# CE QUE ÇA REMPLACE : six rustines locales `.replace(/\r\n/g, '\n')` semées dans
+# cinq fichiers de test (`atteignabilite`, `controles` ×3, `evaluate`, `tourzero`).
+# La classe avait donc été rencontrée cinq fois et jamais fermée. On la ferme ici,
+# une fois, au lieu de la rustiner au site suivant.
+#
+# `text=auto` et non `text` : git détecte lui-même le binaire (polices, images), que
+# `text` corromprait au checkout sans que rien ne rougisse avant le `build`.
+* text=auto eol=lf
