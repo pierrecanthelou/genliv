@@ -61,6 +61,9 @@ type CheminDeFeuilleDeSession =
 	| 'journal[].role'
 	| 'journal[].texte'
 	| 'journal[].origine'
+	| 'journal[].deltas[].delta'
+	| 'journal[].deltas[].cibles[]'
+	| 'journal[].deltas[].effet'
 
 export const DESTINATION_DES_CHAMPS_DE_SESSION: Readonly<
 	Record<keyof EtatSession | CheminDeFeuilleDeSession, Destination>
@@ -149,4 +152,17 @@ export const DESTINATION_DES_CHAMPS_DE_SESSION: Readonly<
 	 * instance, cette ligne serait morte le jour même où elle est écrite.
 	 */
 	'journal[].origine': 'moteur',
+
+	// ── Les effets de règle portés par une entrée (itération 3) ────────────────
+	// TROIS FEUILLES, TOUTES `'moteur'`, et aucune n'est un candidat à la bascule :
+	// un identifiant d'effet est une clé de registre CLOS, ses cibles sont des
+	// handles du dossier, et `effet` est un constat à deux valeurs. Rien de tout
+	// cela n'est de la fiction — ce que le modèle lira d'un indice révélé est
+	// `monde.indices[].verite`, qui porte déjà SA ligne `'ia'` dans `destinations.ts`.
+	/** Clé du registre CLOS des effets — un HANDLE, au même titre que `journal[].origine`. */
+	'journal[].deltas[].delta': 'moteur',
+	/** Handles du dossier, DANS L'ORDRE de `refKinds` — jamais un nom libre. */
+	'journal[].deltas[].cibles[]': 'moteur',
+	/** Le CONSTAT d'application, deux valeurs closes (KR-247). */
+	'journal[].deltas[].effet': 'moteur',
 }

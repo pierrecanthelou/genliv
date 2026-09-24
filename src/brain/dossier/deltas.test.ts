@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { DELTAS, collectDeltaRefs, validateDelta, type SiteDelta } from './deltas'
+import { DELTAS, DELTA_DU_JALON_ATTEINT, collectDeltaRefs, validateDelta, type SiteDelta } from './deltas'
+import type { FaitsDeSession } from './faits'
 import { COLLECTIONS_IDENTIFIEES } from './identifiers'
 import { PREDICATES } from './predicates'
 import type { DossierIssue, DossierIssueCode } from './issues'
@@ -135,6 +136,106 @@ describe('DELTAS, les proprietes que le registre achete', () => {
 		expect(collectDeltaRefs(EFFET)).toHaveLength(1)
 	})
 
+	it('chaque descripteur porte un ecrit, et l ecrit RESPECTE la sémantique d ensemble', () => {
+		// KR-117 : le comportement est un CHAMP du descripteur, jamais un `switch` au
+		// site d'appel — un cinquième effet ne compile pas tant que personne n'a dit ce
+		// qu'il écrit. BALAYÉ DEPUIS LE REGISTRE (KR-199), jamais quatre littéraux.
+		//
+		// ⚠ LA PROPRIÉTÉ QUI COMPTE EST L'IDENTITÉ DE RÉFÉRENCE : `ecrit` rend le MÊME
+		// objet quand rien ne change, et c'est cela — cela seul — qui rend
+		// `effet: 'sans_effet'` MÉCANIQUE plutôt que déclaratif chez `appliquerDelta`
+		// (KR-247). Un descripteur qui rendrait toujours un objet neuf ferait de ce
+		// constat un mensonge sans qu'aucune signature ne bouge.
+		const VIDE: FaitsDeSession = {
+			lieu_courant: 'lieu.val-cendre',
+			lieux_visites: ['lieu.val-cendre'],
+			objets_possedes: [],
+			indices_connus: [],
+			jalons_atteints: [],
+			evenements_consommes: [],
+			pnj: {},
+		}
+		const CIBLE: Record<keyof typeof DELTAS, string[]> = {
+			donner_objet: ['objet.clef-de-basalte'],
+			retirer_objet: ['objet.clef-de-basalte'],
+			reveler_indice: ['indice.sceau-brise'],
+			atteindre_jalon: ['jalon.premiere-nuit'],
+		}
+
+		for (const [id, descripteur] of Object.entries(DELTAS)) {
+			const cibles = CIBLE[id as keyof typeof DELTAS]
+			const premier = descripteur.ecrit(VIDE, cibles)
+			const second = descripteur.ecrit(premier, cibles)
+
+			// LE SECOND APPEL NE CHANGE RIEN — sémantique d'ENSEMBLE, jamais de liste.
+			expect(`${id} → ${second === premier}`).toBe(`${id} → true`)
+			// ET LES FAITS D'ENTRÉE SONT INTACTS : le descripteur ne mute jamais son argument.
+			expect(`${id} → ${JSON.stringify(VIDE.objets_possedes)}`).toBe(`${id} → []`)
+		}
+
+		// Discriminance (KR-199) : trois des quatre écrivent RÉELLEMENT — sans cette
+		// moitié, la boucle serait verte sur quatre descripteurs qui ne feraient rien.
+		// Le quatrième (`retirer_objet`) ne peut pas écrire sur un inventaire vide,
+		// c'est le sens même de sa règle de référence.
+		expect(DELTAS.donner_objet.ecrit(VIDE, CIBLE.donner_objet).objets_possedes).toEqual(CIBLE.donner_objet)
+		expect(DELTAS.reveler_indice.ecrit(VIDE, CIBLE.reveler_indice).indices_connus).toEqual(CIBLE.reveler_indice)
+		expect(DELTAS.atteindre_jalon.ecrit(VIDE, CIBLE.atteindre_jalon).jalons_atteints).toEqual(CIBLE.atteindre_jalon)
+		expect(DELTAS.retirer_objet.ecrit(VIDE, CIBLE.retirer_objet)).toBe(VIDE)
+	})
+
+	it('DELTA_DU_JALON_ATTEINT designe la SEULE entree qui ecrive jalons_atteints', () => {
+		// A-9 / KR-013 : `jalons_atteints` n'a QU'UN écrivain. La passe à point fixe ne
+		// l'étend jamais en direct — elle DEMANDE cet effet-ci comme n'importe quel
+		// autre —, et la constante existe pour que `evaluate.ts` puisse le nommer sans
+		// écrire d'identifiant de registre en chaîne (KR-117).
+		//
+		// LE BALAYAGE EST DÉRIVÉ DU REGISTRE : un cinquième effet qui toucherait
+		// `jalons_atteints` ferait rougir cette ligne, et c'est exactement la seconde
+		// source de vérité qu'on refuse.
+		const VIDE: FaitsDeSession = {
+			lieu_courant: 'lieu.val-cendre',
+			lieux_visites: [],
+			objets_possedes: [],
+			indices_connus: [],
+			jalons_atteints: [],
+			evenements_consommes: [],
+			pnj: {},
+		}
+		const ecrivains = (Object.keys(DELTAS) as (keyof typeof DELTAS)[]).filter(
+			(id) => DELTAS[id].ecrit(VIDE, ['jalon.premiere-nuit']).jalons_atteints.length > 0,
+		)
+
+		expect(ecrivains).toEqual([DELTA_DU_JALON_ATTEINT])
+		expect(DELTAS[DELTA_DU_JALON_ATTEINT].refKinds).toEqual(['jalon'])
+	})
+
+	it('aucun effet du registre ne porte un operande pnj, et c est ce qui tient pnj_a_revele a faux au tour zero', () => {
+		// LA PRÉMISSE A ÉTÉ RÉTRÉCIE PAR L'ITÉRATION 3, ET RIEN NE LA MESURAIT.
+		// Avant it3, `pnj_a_revele: 'faux'` reposait sur la clause LARGE de H6 (aucun
+		// delta avant la première action). it3 tue cette clause — un `effet[]` de jalon
+		// s'applique DÈS L'OUVERTURE — et lui substitue une prémisse ÉTROITE :
+		// `reveler_indice` est d'arité 1, sans opérande `pnj`. Ses DEUX voisines ont été
+		// dégradées en `indecidable` pour ce motif exact ; celle-ci reste DÉTERMINÉE.
+		//
+		// LA GARDE SŒUR NE COUVRE PAS CE CAS, mesuré : « tout `refKinds` de DELTAS est
+		// inclus dans l'union des `refKinds` de PREDICATES » laisse passer `'pnj'`, qui
+		// EST dans cette union (`predicates.ts`, `pnj_a_revele`). Un delta à opérande
+		// `pnj` traverserait donc toute la suite.
+		//
+		// CE QUE SA VIOLATION COÛTERAIT : `non(pnj_a_revele(…))` deviendrait certain-vrai
+		// à tort — le FAUX POSITIF, seule direction d'erreur que `tourzero.ts` s'interdit
+		// — et TROIS instruments deviendraient MUETS, pas rouges : le témoin Kleene `FAUX`
+		// de `tourzero.test.ts` et les deux usages de `FEUILLE_ENCORE_FAUSSE` de
+		// `controles.test.ts`. Un témoin qui se tait ne se voit pas. KR-259.
+		const ids = Object.keys(DELTAS) as (keyof typeof DELTAS)[]
+
+		expect(ids.filter((id) => DELTAS[id].refKinds.includes('pnj'))).toEqual([])
+
+		// Discriminance : le motif sait trouver un `refKinds` réel, donc le vide ci-dessus
+		// est un constat et non une recherche qui échoue toujours (BUG-084).
+		expect(ids.filter((id) => DELTAS[id].refKinds.includes('jalon'))).toEqual([DELTA_DU_JALON_ATTEINT])
+	})
+
 	it('aucun acces a DELTAS hors estCleDe', () => {
 		// La propriété se lit dans la SOURCE : aucune signature ne la porte (KR-169).
 		const deltas = enPositionDeCode(source('deltas.ts'))
@@ -151,8 +252,12 @@ describe('DELTAS, les proprietes que le registre achete', () => {
 		expect(indexations.length).toBeGreaterThan(0)
 		expect([...new Set(indexations)]).toEqual(['DELTAS[delta]'])
 
-		// Hors de `deltas.ts`, une seule indexation dans tout le module, et par une
-		// valeur DÉJÀ typée `DeltaId` — produite par un collecteur qui, lui, a gardé.
+		// Hors de `deltas.ts`, DEUX indexations dans tout le module, toutes deux par une
+		// valeur DÉJÀ TYPÉE `DeltaId` — l'une produite par un collecteur qui, lui, a
+		// gardé (`validate.ts`), l'autre portée par le champ `delta` d'un `Delta` que le
+		// validateur a déjà accepté (`evaluate.ts`, itération 3 de la n° 9). Le typage
+		// est ce qui les dispense d'`estCleDe` : elles n'indexent jamais une valeur
+		// venue telle quelle du fichier de l'auteur.
 		const ailleurs = fs
 			.readdirSync(MODULE_DOSSIER)
 			.filter((nom) => nom.endsWith('.ts') && nom !== 'deltas.ts' && !nom.endsWith('.test.ts'))
@@ -160,7 +265,7 @@ describe('DELTAS, les proprietes que le registre achete', () => {
 				(enPositionDeCode(source(nom)).match(/DELTAS\[[^\]]*\]/g) ?? []).map((acces) => `${nom} → ${acces}`),
 			)
 
-		expect(ailleurs).toEqual(['validate.ts → DELTAS[ref.delta]'])
+		expect(ailleurs).toEqual(['evaluate.ts → DELTAS[delta.delta]', 'validate.ts → DELTAS[ref.delta]'])
 	})
 
 	it('DELTAS n est reference hors brain/dossier/ que par un porteur de l allow-list nommee', () => {

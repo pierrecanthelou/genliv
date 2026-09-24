@@ -367,6 +367,19 @@ describe('le module dossier, proprietes statiques', () => {
 	 */
 	const TOUR_ZERO = 'tourzero.ts'
 
+	/**
+	 * LE QUATRIÈME LECTEUR, entré à l'itération 3 de la n° 9 — et son arrivée a été
+	 * mesurée ROUGE sur la ligne du recensement AVANT que celle-ci ne soit amendée
+	 * (la seule création du fichier fait rougir `lecteurs`, sans qu'aucune autre
+	 * assertion bouge). Il répond à la TROISIÈME question — « ce fait est-il vrai
+	 * MAINTENANT, contre un état réel ? » —, il est BIVALENT là où `tourzero.ts` est
+	 * trivalent, et il LÈVE sur une entrée non reconnue là où les deux autres se
+	 * taisent (KR-238). Trois sémantiques, trois fichiers : les fusionner
+	 * supprimerait l'indécidable, dont dépend la direction d'erreur du linter
+	 * (KR-237).
+	 */
+	const EVALUATEUR = 'evaluate.ts'
+
 	function source(nom: string): string {
 		return fs.readFileSync(path.join(MODULE_DOSSIER, nom), 'utf8')
 	}
@@ -417,7 +430,7 @@ describe('le module dossier, proprietes statiques', () => {
 		// de fichiers. Un quatrième lecteur dont le nom se serait glissé ailleurs dans
 		// l'ordre alphabétique aurait fait rougir cette ligne POUR LA MAUVAISE RAISON,
 		// et un relecteur pressé aurait re-trié l'attendu au lieu de lire le nom neuf.
-		expect([...lecteurs].sort()).toEqual([ATTEIGNABILITE, SITE_DE_LA_GRAMMAIRE, TOUR_ZERO].sort())
+		expect([...lecteurs].sort()).toEqual([ATTEIGNABILITE, EVALUATEUR, SITE_DE_LA_GRAMMAIRE, TOUR_ZERO].sort())
 
 		// L'EXEMPTION SE DÉRIVE DE LA FRONTIÈRE DE TYPAGE, JAMAIS D'UN NOM DE FICHIER :
 		// est dispensé de la condition celui qui lit un arbre `unknown`, parce
@@ -427,10 +440,10 @@ describe('le module dossier, proprietes statiques', () => {
 		// mériter de la même façon.
 		const semantiques = lecteurs.filter((nom) => !source(nom).includes('noeud: unknown'))
 
-		// Discriminance (KR-199) : la boucle ci-dessous porte sur DEUX fichiers depuis
-		// l'itération 10, et on le dit — une liste vide la rendrait vraie sans rien
-		// prouver. Triée des deux côtés, même motif qu'au-dessus.
-		expect([...semantiques].sort()).toEqual([ATTEIGNABILITE, TOUR_ZERO].sort())
+		// Discriminance (KR-199) : la boucle ci-dessous porte sur TROIS fichiers depuis
+		// l'itération 3 de la n° 9, et on le dit — une liste vide la rendrait vraie
+		// sans rien prouver. Triée des deux côtés, même motif qu'au-dessus.
+		expect([...semantiques].sort()).toEqual([ATTEIGNABILITE, EVALUATEUR, TOUR_ZERO].sort())
 
 		// UNE FERMETURE PAR AIGUILLAGE, et non une par FICHIER : un second `switch`
 		// ajouté demain dans le même module, sans `default` fermé, passerait un
@@ -452,6 +465,7 @@ describe('le module dossier, proprietes statiques', () => {
 		expect(source(SITE_DE_LA_GRAMMAIRE)).toContain('noeud: unknown')
 		expect(source(ATTEIGNABILITE)).toContain('noeud: ExprNode')
 		expect(source(TOUR_ZERO)).toContain('noeud: ExprNode')
+		expect(source(EVALUATEUR)).toContain('noeud: ExprNode')
 	})
 
 	it('aucune fonction de parsing d expression dans brain/dossier/', () => {

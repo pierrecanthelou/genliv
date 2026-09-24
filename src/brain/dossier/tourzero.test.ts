@@ -104,12 +104,22 @@ function ligne(feuille: FeuilleVraieAuTourZero | null): string {
 type ValeurAuTourZero = 'vrai' | 'faux' | 'indecidable'
 
 const VALEUR_ATTENDUE: Record<PredicatId, ValeurAuTourZero> = {
-	possede_objet: 'faux',
-	indice_connu: 'faux',
+	// `indecidable` DEPUIS L'ITÉRATION 3 DE LA N° 9 : la clause de H6 « aucun delta
+	// avant la première action » est tombée, et `Jalon.effet` admet `donner_objet`
+	// comme `reveler_indice`.
+	possede_objet: 'indecidable',
+	indice_connu: 'indecidable',
+	// INCHANGÉE, motif réécrit côté module : un point fixe dont ce module ne tient
+	// aucune copie.
 	jalon_atteint: 'indecidable',
-	lieu_visite: 'indecidable',
+	// `'vrai'` POUR LA CIBLE ÉGALE AU DÉPART, comme sa jumelle — c'est cette cible
+	// que le balayage lui donne (`cibleDe('lieu')` EST le départ du dossier
+	// fabriqué). Ses deux autres bras ont leur propre témoin, juste en dessous.
+	lieu_visite: 'vrai',
 	lieu_courant_est: 'vrai',
 	evenement_consomme: 'indecidable',
+	// `'faux'` CONSERVÉE PAR MESURE : `reveler_indice` est d'arité 1, sans opérande
+	// `pnj`, donc aucun `effet[]` de jalon ne peut écrire `a_dit`.
 	pnj_a_revele: 'faux',
 }
 
@@ -182,10 +192,55 @@ describe('premiereFeuilleVraieAuTourZero, la valuation a l ouverture', () => {
 		expect(premiereFeuilleVraieAuTourZero(fabrique(), surUnLieu)).not.toBeNull()
 	})
 
+	it('lieu_visite a les MEMES trois bras que sa jumelle, depart pose ou non', () => {
+		// LA CELLULE DEVENUE TRIVALENTE À L'ITÉRATION 3 DE LA N° 9 : `ouvrirSession`
+		// pose `lieux_visites = [depart]`, donc le document DÉTERMINE ce fait. Le
+		// balayage des sept n'en exerce QUE le premier bras — `cibleDe('lieu')` EST le
+		// départ du dossier fabriqué —, si bien que les deux autres ne seraient tenus
+		// par rien sans ce témoin-ci.
+		const dossier = fabrique()
+		const visite = (cible: string): ExprNode => ({ op: 'predicat', predicat: 'lieu_visite', cibles: [cible] })
+
+		// (a) UN AUTRE LIEU, départ posé et résolu — certain-FAUX nu, donc certain-VRAI
+		// nié, et le témoin porte `nie`.
+		expect(ligne(premiereFeuilleVraieAuTourZero(dossier, visite(LIEU_AILLEURS)))).toBe('silence')
+		expect(premiereFeuilleVraieAuTourZero(dossier, nier(visite(LIEU_AILLEURS)))).toEqual({
+			predicat: PREDICATES.lieu_visite.label,
+			cibles: [LIEU_AILLEURS],
+			nie: true,
+		})
+
+		// (b) LE TROISIÈME BRAS — un départ NON POSÉ ne détermine pas davantage quel
+		// lieu le héros n'a PAS visité : les DEUX polarités se taisent. Sans lui, ce
+		// dossier rendrait `non(lieu_visite(X))` certain-VRAI, un faux positif sur un
+		// document qui ne dit rien.
+		const DEPARTS_NON_POSES: Record<string, string> = { vide: '', pendant: 'lieu.jamais-pose' }
+		for (const [nom, lieuId] of Object.entries(DEPARTS_NON_POSES)) {
+			const sansDepart = fabrique()
+			sansDepart.charpente.depart.lieu_id = lieuId
+			for (const [polarite, condition] of [
+				['nu', visite(LIEU_DU_DEPART)],
+				['nié', nier(visite(LIEU_DU_DEPART))],
+			] as const) {
+				const feuille = premiereFeuilleVraieAuTourZero(sansDepart, condition)
+				expect(`${nom} · ${polarite} → ${ligne(feuille)}`).toBe(`${nom} · ${polarite} → silence`)
+			}
+		}
+
+		// DISCRIMINANCE, DANS LE MÊME TEST (KR-199) : le premier bras parle, lui. Sans
+		// cette ligne, les cinq silences ci-dessus seraient ceux d'une cellule qui ne
+		// rend jamais `'vrai'`.
+		expect(premiereFeuilleVraieAuTourZero(dossier, visite(LIEU_DU_DEPART))).toEqual({
+			predicat: PREDICATES.lieu_visite.label,
+			cibles: [LIEU_DU_DEPART],
+			nie: false,
+		})
+	})
+
 	it('chaque predicat indecidable de la table se tait, nu', () => {
 		// LE BALAYAGE PORTE SUR LES SEPT, et la table dit ce que chacun doit rendre :
-		// une feuille NUE ne parle que si sa cellule vaut `'vrai'`. Les trois
-		// indécidables sont le SUJET de ce test ; les quatre autres y sont la
+		// une feuille NUE ne parle que si sa cellule vaut `'vrai'`. Les quatre
+		// indécidables sont le SUJET de ce test ; les trois autres y sont la
 		// discriminance, dans le même balayage — un test qui n'exercerait que des
 		// cellules muettes serait vert sur une fonction qui ne rend jamais rien.
 		const dossier = fabrique()
@@ -224,13 +279,22 @@ describe('premiereFeuilleVraieAuTourZero, la valuation a l ouverture', () => {
 	it('les connecteurs suivent Kleene, et le temoin est celui du PREMIER enfant qui decide', () => {
 		const dossier = fabrique()
 		const VRAI = lieuCourant(dossier.charpente.depart.lieu_id)
-		const FAUX = feuilleNue('possede_objet')
-		const INDECIS = feuilleNue('lieu_visite')
+		// ⚠ LE TÉMOIN `FAUX` A ÉTÉ RÉASSIGNÉ À L'ITÉRATION 3 DE LA N° 9, et c'est une
+		// DÉPENDANCE CACHÉE qu'il faut voir pour ne pas la recasser : ce test utilisait
+		// `possede_objet` comme CONSTANTE FAUSSE pour prouver la propagation `et`/`ou`,
+		// alors qu'il prouve tout autre chose que la valeur de cette cellule. Corriger
+		// la cellule casse donc un témoin qui n'en parle pas. Le remplaçant doit rester
+		// DÉTERMINISTE-`'faux'` sous les quatre cellules corrigées : `pnj_a_revele` est
+		// le seul candidat, et c'est mesuré — `evenement_consomme` et `jalon_atteint`
+		// sont indécidables, `lieu_visite` et `lieu_courant_est` valent `'vrai'` sur la
+		// cible que `feuilleNue` leur donne.
+		const FAUX = feuilleNue('pnj_a_revele')
+		const INDECIS = feuilleNue('evenement_consomme')
 		const NON_FAUX = nier(FAUX)
 		const verdict = (condition: ExprNode): string => ligne(premiereFeuilleVraieAuTourZero(dossier, condition))
 
 		const VRAI_NU = `${PREDICATES.lieu_courant_est.label} · ${dossier.charpente.depart.lieu_id} · nu`
-		const FAUX_NIE = `${PREDICATES.possede_objet.label} · ${cibleDe('objet')} · nié`
+		const FAUX_NIE = `${PREDICATES.pnj_a_revele.label} · ${cibleDe('pnj')}, ${cibleDe('indice')} · nié`
 
 		// `et` — VRAI si TOUS le sont, et le témoin est celui du PREMIER enfant. Les
 		// deux enfants sont vrais pour des raisons DIFFÉRENTES — une détermination du
@@ -291,18 +355,33 @@ describe('premiereFeuilleVraieAuTourZero, la valuation a l ouverture', () => {
 		}
 	})
 
-	it('les deux lecteurs semantiques d arbre ne s importent jamais, dans aucun sens', () => {
-		// LA MESURE QUI A TRANCHÉ LE DOMICILE DE CE MODULE : les deux traversées ne
+	it('les trois lecteurs semantiques d arbre ne s importent jamais, dans aucun sens', () => {
+		// LA MESURE QUI A TRANCHÉ LE DOMICILE DE CE MODULE : les traversées ne
 		// partagent AUCUNE machinerie — seulement `ExprNode` et `PREDICATES`, deux
 		// contrats publics. Une dépendance dans l'un ou l'autre sens serait le premier
-		// pas vers le paramètre de mode qu'un lecteur futur poserait sur deux
-		// traversées quasi jumelles.
-		expect(source('tourzero.ts')).not.toContain("from './atteignabilite'")
-		expect(source('atteignabilite.ts')).not.toContain("from './tourzero'")
+		// pas vers le paramètre de mode qu'un lecteur futur poserait sur des traversées
+		// quasi jumelles — et ce serait la fusion des évaluateurs que KR-237 interdit.
+		//
+		// TROIS DEPUIS L'ITÉRATION 3 DE LA N° 9 : `evaluate.ts` est entré, BIVALENT et
+		// contre un état réel. SIX INTERDICTIONS, les couples ORDONNÉS des trois
+		// modules — le compte est dérivé, jamais six littéraux, de sorte qu'un
+		// quatrième lecteur ne puisse pas entrer sans que ce test le dise.
+		const SEMANTIQUES = ['tourzero.ts', 'atteignabilite.ts', 'evaluate.ts']
+		const couples = SEMANTIQUES.flatMap((porteur) =>
+			SEMANTIQUES.filter((cible) => cible !== porteur).map((cible) => [porteur, cible] as const),
+		)
 
-		// LES DEUX MOITIÉS : sans celle-ci, deux fichiers vides passeraient les
-		// interdictions ci-dessus sans rien prouver.
-		expect(source('tourzero.ts')).toContain("from './predicates'")
-		expect(source('atteignabilite.ts')).toContain("from './predicates'")
+		expect(couples).toHaveLength(6)
+		for (const [porteur, cible] of couples) {
+			const importe = source(porteur).includes(`from './${cible.replace('.ts', '')}'`)
+			expect(`${porteur} → ${cible} : ${importe}`).toBe(`${porteur} → ${cible} : false`)
+		}
+
+		// L'AUTRE MOITIÉ : sans elle, trois fichiers vides passeraient les six
+		// interdictions ci-dessus sans rien prouver. Les trois lisent bien le MÊME
+		// registre public, et c'est tout ce qu'ils partagent.
+		for (const nom of SEMANTIQUES) {
+			expect(`${nom} → ${source(nom).includes("from './predicates'")}`).toBe(`${nom} → true`)
+		}
 	})
 })

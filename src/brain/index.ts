@@ -530,6 +530,16 @@ export type {
 	RefusOuverture,
 	ResultatOuverture,
 } from './dossier/session'
+// ── LE JOURNAL DES EFFETS DE RÈGLE (itération 3) ─────────────────────────────
+// SORT `DeltaJournalise` SEUL, et c'est tout ce qui sort d'`evaluate.ts` : c'est le
+// type du champ `deltas` d'une `EntreeJournal`, que `JournalRow` rend en pastilles.
+// RESTENT DEDANS — `FaitsDeSession`, `evaluerExpr`, `appliquerDelta`,
+// `resoudreJalons`, `projeterJalonsAtteints`, `JalonAtteint`, `JalonResolu` : une
+// feature qui les tiendrait pourrait DÉCIDER une règle du jeu hors du moteur, et la
+// projection porte de surcroît une prose d'audience `'ia'` (`enonce_texte`), qu'un
+// export offrirait aux treize features sans garde. Même règle que `PREDICATES`,
+// `DELTAS` et les deux tables d'audience.
+export type { DeltaJournalise } from './dossier/evaluate'
 // ── LES COMMANDES DE JOUEUR (itération 2) ────────────────────────────────────
 // Sortent les TROIS FONCTIONS PURES que la console appelle, et les types de leurs
 // résultats. `COMMANDES` et `CommandeDescripteur` RESTENT DEDANS, même règle que

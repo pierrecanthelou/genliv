@@ -22,10 +22,14 @@ import type { Dossier } from './types'
  *  · `dossier-reference.json` porte `lieu.foyer-du-guet` avec DEUX accès, donc une
  *    cible en SECONDE position — une implémentation qui prendrait `acces[0]`
  *    rendrait un résultat différent ;
- *  · le même dossier porte une ASYMÉTRIE réelle : `foyer-du-guet → tour-effondree`
- *    existe, `tour-effondree → foyer-du-guet` non. Sans elle, une résolution qui
+ *  · le même dossier porte une ASYMÉTRIE réelle : `tour-effondree → vigie-du-nord`
+ *    existe, `vigie-du-nord → tour-effondree` non. Sans elle, une résolution qui
  *    regarderait les arêtes ENTRANTES serait indistinguable d'une résolution
- *    orientée ;
+ *    orientée. ⚠ CE N'EST PLUS LE COUPLE `foyer ↔ tour`, et le déplacement est une
+ *    CONSÉQUENCE MESURÉE de l'arête ajoutée à l'itération 3 de la n° 9
+ *    (`tour-effondree.acces`), sans laquelle `lieu.vigie-du-nord` serait
+ *    inatteignable et le jalon de ce dossier injouable. L'asymétrie n'a pas été
+ *    perdue : elle a reculé d'un cran vers le nord ;
  *  · `dossier-minimal.json` porte l'AUTO-RÉFÉRENCE `lieu.val-cendre → lui-même`,
  *    donc un déplacement accepté dont le monde ne bouge pas.
  *
@@ -73,6 +77,15 @@ function messageDe(resultat: ResultatSaisie | ResultatCommande): string {
 function executer(dossier: Dossier, session: EtatSession, saisie: string): ResultatCommande {
 	return executerCommande(dossier, session, commandeDe(saisie))
 }
+
+/**
+ * La longueur de sous-chaîne cherchée dans la clause de NON-RÉCITATION. Elle est
+ * NOMMÉE parce qu'elle contraint (KR-176) : trop courte, elle produirait des faux
+ * positifs sur des mots français communs ; plus longue que la plus COURTE des trois
+ * proses du jalon de référence (`nom`, 17 caractères), elle rendrait la garde
+ * partiellement inerte. Sa non-vacuité est assertée à côté de la boucle.
+ */
+const SEUIL_DE_SOUS_CHAINE = 12
 
 describe('executerCommande, le deplacement accepte', () => {
 	it('deplacement le long d un acces oriente, cible en SECONDE position', () => {
@@ -150,12 +163,14 @@ describe('executerCommande, le deplacement accepte', () => {
 describe('executerCommande, les deux refus de resolution', () => {
 	it('refus sur une arete asymetrique — et aucun pas consomme', () => {
 		const dossier = lire(CHEMIN_REFERENCE)
-		// On ARRIVE à `lieu.tour-effondree` par le produit lui-même, puis on tente le
-		// retour : l'arête est ORIENTÉE, et `tour-effondree` n'a pas d'`acces`.
-		const arrive = sessionDe(executer(dossier, ouverture(dossier), 'ALLER lieu.tour-effondree'))
+		// On MONTE jusqu'à `lieu.vigie-du-nord` par le produit lui-même, en deux pas,
+		// puis on tente le retour : l'arête est ORIENTÉE, et `vigie-du-nord` n'a pas
+		// d'`acces`.
+		const tour = sessionDe(executer(dossier, ouverture(dossier), 'ALLER lieu.tour-effondree'))
+		const arrive = sessionDe(executer(dossier, tour, 'ALLER lieu.vigie-du-nord'))
 		const avant = JSON.stringify(arrive)
 
-		const resultat = executer(dossier, arrive, 'ALLER lieu.foyer-du-guet')
+		const resultat = executer(dossier, arrive, 'ALLER lieu.tour-effondree')
 
 		expect(resultat.ok).toBe(false)
 		expect(resultat.ok === false && resultat.refus).toBe('acces_absent')
@@ -169,15 +184,15 @@ describe('executerCommande, les deux refus de resolution', () => {
 		// session — c'est la signature figée du plan (§ 4) — donc la propriété
 		// « même référence » se prouve sur l'ARGUMENT : il est intact, champ par champ.
 		expect(JSON.stringify(arrive)).toBe(avant)
-		expect(arrive.monde.lieu_courant).toBe('lieu.tour-effondree')
-		expect(arrive.monde.lieux_visites).toEqual(['lieu.foyer-du-guet', 'lieu.tour-effondree'])
-		expect(arrive.horloge.tour).toBe(1)
-		expect(arrive.journal).toHaveLength(2)
+		expect(arrive.monde.lieu_courant).toBe('lieu.vigie-du-nord')
+		expect(arrive.monde.lieux_visites).toEqual(['lieu.foyer-du-guet', 'lieu.tour-effondree', 'lieu.vigie-du-nord'])
+		expect(arrive.horloge.tour).toBe(2)
 	})
 
 	it('impasse : acces absent ou vide — un refus CALME, jamais une anomalie', () => {
 		const dossier = lire(CHEMIN_REFERENCE)
-		const arrive = sessionDe(executer(dossier, ouverture(dossier), 'ALLER lieu.tour-effondree'))
+		const tour = sessionDe(executer(dossier, ouverture(dossier), 'ALLER lieu.tour-effondree'))
+		const arrive = sessionDe(executer(dossier, tour, 'ALLER lieu.vigie-du-nord'))
 
 		// (a) `acces` ABSENT — l'état de la fixture, tel quel.
 		expect(destinationsPossibles(dossier, arrive)).toEqual([])
@@ -186,20 +201,21 @@ describe('executerCommande, les deux refus de resolution', () => {
 		// part est une impasse jouable (`types.ts`, docstring de `Lieu.acces`), et les
 		// deux formes doivent être indistinguables pour l'appelant.
 		const avecListeVide = lire(CHEMIN_REFERENCE)
-		const cul = avecListeVide.monde.lieux.find((lieu) => lieu.id === 'lieu.tour-effondree')
-		if (cul === undefined) throw new Error('fixture : `lieu.tour-effondree` a disparu')
+		const cul = avecListeVide.monde.lieux.find((lieu) => lieu.id === 'lieu.vigie-du-nord')
+		if (cul === undefined) throw new Error('fixture : `lieu.vigie-du-nord` a disparu')
 		cul.acces = []
 
 		expect(destinationsPossibles(avecListeVide, arrive)).toEqual([])
 
 		// Et la commande est REFUSÉE dans les deux cas — elle ne LÈVE jamais, et
 		// n'écrit rien : aucune entrée de journal, aucun pas.
+		const journalAvant = arrive.journal.length
 		for (const variante of [dossier, avecListeVide]) {
-			const resultat = executer(variante, arrive, 'ALLER lieu.foyer-du-guet')
+			const resultat = executer(variante, arrive, 'ALLER lieu.tour-effondree')
 			expect(resultat.ok === false && resultat.refus).toBe('acces_absent')
 		}
-		expect(arrive.horloge.tour).toBe(1)
-		expect(arrive.journal).toHaveLength(2)
+		expect(arrive.horloge.tour).toBe(2)
+		expect(arrive.journal).toHaveLength(journalAvant)
 	})
 
 	it('reference pendante NOMMEE — et l ordre des deux refus', () => {
@@ -322,6 +338,137 @@ describe('analyserSaisie, les deux refus d analyse', () => {
 		expect(messageDe(analyserSaisie(SAISIE))).toBe(
 			'Commande inconnue : « ALER lieu.foret-noire ». Commandes disponibles : ALLER.',
 		)
+	})
+})
+
+describe('executerCommande, la passe des jalons', () => {
+	/** Le jalon du dossier de référence, lu du document — jamais recopié en littéral. */
+	function jalonDeReference(dossier: Dossier) {
+		const jalon = dossier.charpente.jalons.find((candidat) => candidat.declencheur_expr !== undefined)
+		if (jalon === undefined) throw new Error('fixture : plus aucun jalon à `declencheur_expr`')
+		return jalon
+	}
+
+	it('un jalon devenu vrai EN COURS de partie ecrit UNE ligne, au MEME tour', () => {
+		// CRITÈRE 3, MOITIÉ MOTEUR — le rendu est l'affaire du lot `play-mode`. C'est le
+		// SEUL scénario du dépôt où une condition devient vraie PENDANT la partie :
+		// `jalon.premiere-vigie` se déclenche sur `lieu_visite(lieu.vigie-du-nord)`, et
+		// la vigie n'est atteignable qu'en DEUX pas depuis le départ.
+		const dossier = lire(CHEMIN_REFERENCE)
+		const depart = ouverture(dossier)
+
+		// L'ÉTAT SÉPARATEUR : rien n'est atteint à l'ouverture, ni après le PREMIER pas.
+		expect(depart.monde.jalons_atteints).toEqual([])
+		const tour1 = sessionDe(executer(dossier, depart, 'ALLER lieu.tour-effondree'))
+		expect(tour1.monde.jalons_atteints).toEqual([])
+		expect(tour1.journal).toHaveLength(2)
+
+		const tour2 = sessionDe(executer(dossier, tour1, 'ALLER lieu.vigie-du-nord'))
+
+		// UNE SEULE ENTRÉE DE PLUS, ET ELLE PORTE LE MÊME `tour` QUE LA COMMANDE : une
+		// conséquence enchaînée n'ajoute jamais un pas (§ J1).
+		expect(tour2.horloge.tour).toBe(2)
+		expect(tour2.journal.slice(2)).toEqual([
+			{ tour: 2, role: 'joueur', texte: '> ALLER lieu.vigie-du-nord' },
+			{
+				tour: 2,
+				role: 'moteur',
+				texte: 'lieu_courant : lieu.tour-effondree → lieu.vigie-du-nord',
+				origine: 'aller',
+			},
+			{
+				tour: 2,
+				role: 'moteur',
+				texte: 'jalons_atteints : jalon.premiere-vigie',
+				deltas: [
+					{ delta: 'atteindre_jalon', cibles: ['jalon.premiere-vigie'], effet: 'applique' },
+					{ delta: 'reveler_indice', cibles: ['indice.pas-dans-la-cendre'], effet: 'applique' },
+				],
+			},
+		])
+
+		// PAS D'`origine` SUR LA LIGNE DE JALON — pas « présente et indéfinie » :
+		// `toEqual` ne distingue pas les deux, cette ligne si. Le registre des commandes
+		// est ce qu'un JOUEUR peut TAPER, et un jalon franchi n'en est pas.
+		expect('origine' in tour2.journal[4]).toBe(false)
+
+		// ET L'ÉTAT A BOUGÉ : la marque et l'effet, tous deux.
+		expect(tour2.monde.jalons_atteints).toEqual(['jalon.premiere-vigie'])
+		expect(tour2.monde.indices_connus).toEqual(['indice.pas-dans-la-cendre'])
+	})
+
+	it('le texte du jalon est RECONSTRUIT — ni enonce_texte, ni nom d auteur', () => {
+		// LE VOCABULAIRE EST CLOS : noms de champs d'`EtatMonde`, identifiants
+		// `espace.slug`, et les séparateurs `>`, `:`, `→`. Le `→` reste réservé à une
+		// transition SCALAIRE — une appartenance d'ensemble n'en porte pas.
+		//
+		// MUTANT NOMMÉ, ÉCRIT, VU ROUGE, RÉVOQUÉ : composer le texte avec `jalon.nom`
+		// au lieu de l'identifiant. `enonce_texte` serait pire encore — une TROISIÈME
+		// prose émise verbatim, alors que le dossier n'en compte que deux.
+		const dossier = lire(CHEMIN_REFERENCE)
+		const jalon = jalonDeReference(dossier)
+		const session = ['ALLER lieu.tour-effondree', 'ALLER lieu.vigie-du-nord'].reduce(
+			(courante, saisie) => sessionDe(executer(dossier, courante, saisie)),
+			ouverture(dossier),
+		)
+
+		const ligneDuJalon = session.journal[4]
+		expect(ligneDuJalon.texte).toBe(`jalons_atteints : ${jalon.id}`)
+		expect(ligneDuJalon.texte).not.toContain('→')
+
+		// AUCUNE LIGNE du journal ne porte une sous-chaîne des deux proses qui ne
+		// sortent pas — `enonce_texte` est d'audience `ia`, `nom` d'audience `auteur`.
+		// L'échec nomme la ligne ET la prose, jamais un booléen.
+		for (const [rang, entree] of session.journal.entries()) {
+			for (const [champ, prose] of [
+				['enonce_texte', jalon.enonce_texte],
+				['declencheur_texte', jalon.declencheur_texte],
+				['nom', jalon.nom ?? ''],
+			] as const) {
+				if (prose === '') continue
+				expect(`${rang} · ${champ} → ${entree.texte.includes(prose.slice(0, SEUIL_DE_SOUS_CHAINE))}`).toBe(
+					`${rang} · ${champ} → false`,
+				)
+			}
+		}
+		// Discriminance des trois proses : elles ne sont pas vides, sinon la boucle
+		// ci-dessus ne chercherait rien.
+		expect(
+			[jalon.enonce_texte, jalon.declencheur_texte, jalon.nom ?? ''].every(
+				(prose) => prose.length > SEUIL_DE_SOUS_CHAINE,
+			),
+		).toBe(true)
+	})
+
+	it('la passe tourne apres une commande ACCEPTEE, jamais apres un refus', () => {
+		// UN REFUS N'A RIEN CHANGÉ AU MONDE, donc aucune condition n'a pu devenir
+		// vraie : rejouer la passe serait du travail pour rien ET une occasion de lever
+		// sur un chemin qui n'écrit rien (KR-238/239).
+		//
+		// LE TÉMOIN SE MONTE SUR UN DOSSIER QUI ATTEINDRAIT UN JALON SI LA PASSE
+		// TOURNAIT : sans cela, le silence d'après refus serait vrai d'un dossier sans
+		// jalon déclenchable, c'est-à-dire de rien.
+		const dossier = lire(CHEMIN_REFERENCE)
+		const jalon = jalonDeReference(dossier)
+		jalon.declencheur_expr = { op: 'predicat', predicat: 'lieu_visite', cibles: ['lieu.foyer-du-guet'] }
+
+		// (a) LE REFUS — la cible n'est pas un accès du lieu courant. L'argument est
+		// intact, champ par champ : ni jalon, ni ligne de journal, ni pas.
+		const depart = ouverture(lire(CHEMIN_REFERENCE))
+		const avant = JSON.stringify(depart)
+		const refus = executer(dossier, depart, 'ALLER lieu.crypte-scellee')
+
+		expect(refus.ok === false && refus.refus).toBe('acces_absent')
+		expect(JSON.stringify(depart)).toBe(avant)
+		expect(depart.monde.jalons_atteints).toEqual([])
+		expect(depart.journal).toEqual([])
+
+		// (b) DISCRIMINANCE, DANS LE MÊME TEST : la MÊME session, une commande ACCEPTÉE,
+		// et le même jalon part. Sans cette moitié, le silence de (a) serait celui d'une
+		// passe qu'on aurait débranchée des deux côtés.
+		const accepte = sessionDe(executer(dossier, depart, 'ALLER lieu.marche-des-cendres'))
+		expect(accepte.monde.jalons_atteints).toEqual([jalon.id])
+		expect(accepte.journal).toHaveLength(3)
 	})
 })
 

@@ -1,5 +1,7 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import { AMORCE, MARQUEUR_A_ECRIRE, construireAmorce } from './amorce'
-import { SCHEMA_SESSION, ouvrirSession, type EtatSession } from './session'
+import { SCHEMA_SESSION, ouvrirSession, type EntreeJournal, type EtatSession } from './session'
 import type { Dossier } from './types'
 
 /**
@@ -13,12 +15,26 @@ import type { Dossier } from './types'
  *    départ » et « le premier lieu déclaré » NE COÏNCIDENT PAS — sinon le témoin
  *    épingle une coïncidence (BUG-113).
  *
- * LE DOSSIER EST FABRIQUÉ, jamais lu du disque : les deux fixtures partagées ont
- * un départ posé sur leur unique lieu, donc aucune ne porte l'état séparateur du
- * second critère. Même choix, même motif que `tourzero.test.ts`.
+ * LE DOSSIER EST FABRIQUÉ pour les valeurs d'ouverture, jamais lu du disque : les
+ * deux fixtures partagées ont un départ posé sur leur unique lieu, donc aucune ne
+ * porte l'état séparateur du second critère. Même choix, même motif que
+ * `tourzero.test.ts`.
+ *
+ * ⚠ SAUF POUR LES JALONS D'OUVERTURE (itération 3), qui se prouvent au CONTRAIRE
+ * sur les DEUX fixtures du disque : la chaîne « départ → condition vraie → effet »
+ * y est écrite, et c'est un fait du dépôt, pas un montage de test. La fabriquer
+ * prouverait le comportement sur un dossier que personne n'a jamais écrit.
  */
 
 const MAINTENANT = '2026-09-20T10:00:00.000Z'
+
+/** Une fixture du disque, LUE à chaque appel — jamais mutée en place (KR-156). */
+function fixture(nom: string): Dossier {
+	return JSON.parse(fs.readFileSync(path.join(__dirname, '__fixtures__', nom), 'utf8')) as Dossier
+}
+
+const dossierMinimal = (): Dossier => fixture('dossier-minimal.json')
+const dossierReference = (): Dossier => fixture('dossier-reference.json')
 
 /** Le dossier semé — ses quatre proses portent le marqueur, celle d'ouverture comprise. */
 function marque(): Dossier {
@@ -111,8 +127,14 @@ describe('ouvrirSession, les valeurs a l ouverture', () => {
 	})
 
 	it('les sept champs du monde partent tous vides, sauf les deux que le depart determine', () => {
-		// La TOTALITÉ est la précondition de la bivalence d'it3 : un champ manquant y
-		// ferait une branche `undefined` sous un aiguillage qui doit lever.
+		// La TOTALITÉ est la précondition de la bivalence d'it3 (KR-254) : un champ
+		// manquant y ferait une branche `undefined` sous un aiguillage qui doit lever.
+		//
+		// LE DOSSIER EST CELUI DU SEED, ET SA LISTE DE JALONS EST VIDE — ce qui est
+		// exactement ce que ce témoin doit exercer depuis l'itération 3 : « tous vides »
+		// n'est vrai QU'À DÉFAUT DE JALON DÉCLENCHABLE. Le cas contraire a son propre
+		// témoin, juste en dessous.
+		expect(reecrit().charpente.jalons).toEqual([])
 		const session = sessionDe(departEnSecondeposition())
 
 		expect(session.monde).toEqual({
@@ -124,6 +146,32 @@ describe('ouvrirSession, les valeurs a l ouverture', () => {
 			evenements_consommes: [],
 			pnj: {},
 		})
+	})
+
+	it('les jalons d ouverture sont RESOLUS avant la premiere action', () => {
+		// CRITÈRE 4, MOITIÉ MOTEUR — décision (i) de H6 (`tourzero.ts`), tranchée à
+		// l'itération 1 et LIVRÉE ici (KR-252). La chaîne est ÉCRITE AU DÉPÔT, et c'est
+		// pour ça que ce témoin lit la fixture plutôt que de fabriquer : départ
+		// `lieu.val-cendre` → `jalon.premiere-nuit` se déclenche sur
+		// `lieu_visite(lieu.val-cendre)`, vrai dès l'ouverture puisque
+		// `lieux_visites = [depart]` → effet `reveler_indice(indice.sceau-brise)`.
+		const session = sessionDe(dossierMinimal())
+
+		expect(session.monde.jalons_atteints).toEqual(['jalon.premiere-nuit'])
+		expect(session.monde.indices_connus).toEqual(['indice.sceau-brise'])
+
+		// ET LE JOURNAL RESTE VIDE : aucune entrée n'est écrite à l'ouverture (retenu à
+		// l'itération 1, inchangé). Il n'y a pas de tour zéro à raconter.
+		expect(session.journal).toEqual([])
+		expect(session.horloge).toEqual({ tour: 0 })
+
+		// DISCRIMINANCE (KR-199) : le dossier de RÉFÉRENCE, lui, n'atteint RIEN à
+		// l'ouverture — son seul jalon à condition vise un lieu qu'il faut aller
+		// visiter. Sans cette ligne, les deux assertions ci-dessus seraient vraies d'un
+		// moteur qui pré-remplirait tout ce qu'il trouve.
+		const reference = sessionDe(dossierReference())
+		expect(reference.monde.jalons_atteints).toEqual([])
+		expect(reference.monde.indices_connus).toEqual([])
 	})
 
 	it('pnj part a {} meme quand le dossier declare des personnages', () => {
@@ -177,6 +225,37 @@ describe('ouvrirSession, les valeurs a l ouverture', () => {
 		expect(Object.keys(session).sort()).toEqual(
 			['dossier_id', 'dossier_maj', 'graine_alea', 'horloge', 'journal', 'memoire', 'monde', 'schema'].sort(),
 		)
+	})
+
+	it('une entree de journal SANS deltas reste legale — undefined n est pas []', () => {
+		// KR-251 : tout champ de session ajouté après le premier lot `contrat` est
+		// OPTIONNEL À VIE — `schema: 1` n'a aucun chemin de migration, et la session est
+		// PERSISTÉE depuis l'itération 1. Une entrée écrite par l'itération 2, relue
+		// telle quelle, doit rester lisible sans convertisseur.
+		//
+		// `undefined` ET `[]` NE SONT PAS LE MÊME ÉTAT, et c'est la distinction que ce
+		// témoin épingle : « cette entrée n'a demandé aucun effet » n'est pas « cette
+		// entrée a demandé zéro effet ». `toEqual` ne les sépare pas ; `in` si.
+		const it2: EntreeJournal = { tour: 1, role: 'moteur', texte: 'lieu_courant : lieu.a → lieu.b', origine: 'aller' }
+		const it3: EntreeJournal = {
+			tour: 1,
+			role: 'moteur',
+			texte: 'jalons_atteints : jalon.premiere-nuit',
+			deltas: [{ delta: 'atteindre_jalon', cibles: ['jalon.premiere-nuit'], effet: 'applique' }],
+		}
+
+		expect('deltas' in it2).toBe(false)
+		expect(it2.deltas).toBeUndefined()
+		// Le ROUND-TRIP de persistance : la clé absente le reste, elle ne se remplit pas
+		// d'un tableau vide au passage.
+		const relue = JSON.parse(JSON.stringify([it2, it3])) as EntreeJournal[]
+		expect('deltas' in relue[0]).toBe(false)
+		expect(relue[0]).toEqual(it2)
+
+		// Discriminance (KR-199) : la clé PRÉSENTE survit au même round-trip. Sans cette
+		// moitié, les lignes ci-dessus seraient vraies d'un champ que rien n'écrit.
+		expect('deltas' in relue[1]).toBe(true)
+		expect(relue[1]).toEqual(it3)
 	})
 
 	it('elle est PURE — elle ne touche pas le dossier et rend un etat neuf a chaque appel', () => {

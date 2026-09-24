@@ -21,13 +21,22 @@ import type { EtatSession } from '../session'
  * deux, elle doit COLLAPSER deux chemins concrets en un chemin normalisé, et le
  * test le constate.
  *
- * DEUX ENTRÉES DE JOURNAL, une par membre de `RoleJournal`, ET UN SEUL PAS : les
- * deux portent `tour: 7` — une demande et son effet. Une seule entrée ne
- * prouverait pas que les feuilles de journal sont balayées pour chaque ligne, et
- * la couverture n'est acquise que si CHAQUE instance rougit. Seule celle qui
- * porte l'EFFET porte `origine` : l'invariant est
+ * TROIS ENTRÉES DE JOURNAL — les DEUX membres de `RoleJournal` sont représentés,
+ * et la troisième est celle qui porte des `deltas` (itération 3). LES TROIS
+ * PORTENT `tour: 7`, UN SEUL PAS : une demande, son effet, et la conséquence de
+ * règle qu'il a déclenchée — une conséquence enchaînée n'ajoute jamais un pas
+ * (`docs/REGLES-PLAY.md` § J1). Une seule entrée ne prouverait pas que les
+ * feuilles de journal sont balayées pour chaque ligne, et la couverture n'est
+ * acquise que si CHAQUE instance rougit. Seule celle qui porte le DÉPLACEMENT
+ * porte `origine` : l'invariant est
  * `journal.every(e => e.origine === undefined || e.role === 'moteur')`, et une
- * fixture qui le violerait enseignerait la faute.
+ * fixture qui le violerait enseignerait la faute. La troisième n'en porte pas —
+ * un jalon franchi n'est pas une commande qu'un joueur a tapée.
+ *
+ * LES DEUX VALEURS D'`effet` SONT INSTANCIÉES, et ce n'est pas du zèle : une
+ * fixture qui ne montrerait que `'applique'` laisserait `'sans_effet'` sans un
+ * seul exemplaire au dépôt, c'est-à-dire sans modèle à copier — et c'est
+ * précisément la valeur dont KR-247 dit qu'elle se confond avec « pas demandé ».
  *
  * LES DEUX `texte` SONT DES RELEVÉS D'ÉTAT. Cette fixture est le SEUL exemplaire
  * de ligne de journal du dépôt : elle est donc LE MODÈLE, et ce qu'elle montre
@@ -63,6 +72,15 @@ export const SESSION_SATUREE: EtatSession = {
 	journal: [
 		{ tour: 7, role: 'joueur', texte: '> ALLER lieu.val-cendre' },
 		{ tour: 7, role: 'moteur', texte: 'lieu_courant : lieu.le-fanal → lieu.val-cendre', origine: 'aller' },
+		{
+			tour: 7,
+			role: 'moteur',
+			texte: 'jalons_atteints : jalon.premiere-nuit',
+			deltas: [
+				{ delta: 'atteindre_jalon', cibles: ['jalon.premiere-nuit'], effet: 'applique' },
+				{ delta: 'reveler_indice', cibles: ['indice.sceau-brise'], effet: 'sans_effet' },
+			],
+		},
 	],
 	memoire: null,
 }

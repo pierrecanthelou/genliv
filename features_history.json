@@ -146,6 +146,39 @@
 			"bugs_encountered": [
 				"BUG-120"
 			]
+		},
+		{
+			"feature": "moteur-dossier (it3, le jalon qui s'atteint en cours de partie)",
+			"completed_at": "2026-09-24",
+			"goal": "L'auteur voit un jalon de son dossier s'atteindre EN COURS DE PARTIE, parce que sa condition est devenue vraie.",
+			"key_architecture_choices": [
+				"TROIS évaluateurs d'`ExprNode`, jamais un (KR-237) : `tourzero.ts` trivalent value un DOCUMENT, `atteignabilite.ts` décide la satisfiabilité, et `evaluate.ts` (N) value un ÉTAT — bivalent, et il LÈVE sur une entrée non reconnue (KR-238).",
+				"`faits.ts` (N) sans AUCUN import : seul domicile possible d'un type que deux registres frères doivent nommer sans se dépendre. Corps d'`EtatMonde` déplacé, jamais recopié.",
+				"`lit` / `ecrit` en champs de descripteur (KR-117). `ecrit` rend la MÊME RÉFÉRENCE quand rien ne change : l'idempotence est dérivée par `===`, jamais déclarée.",
+				"Un seul écrivain pour `jalons_atteints` : le descripteur `atteindre_jalon`. Point fixe BORNÉ par `charpente.jalons.length` — la terminaison est un compteur.",
+				"La projection reste DANS `brain/dossier/` : zéro consommateur, et l'exporter ouvrirait `enonce_texte` à toutes les features sans garde. Seul `DeltaJournalise` sort du baril."
+			],
+			"brain_contracts_added": [
+				{
+					"type": "type",
+					"name": "DeltaJournalise"
+				},
+				{
+					"type": "type",
+					"name": "EntreeJournal.deltas?"
+				}
+			],
+			"lessons_learned": [
+				"UNE PHRASE DE PORTÉE EST UNE AFFIRMATION SUR LA COULEUR D'UN TEST DÉGUISÉE. « Seul lecteur de X du dépôt » prédit qu'un grep ne rend qu'une ligne : ça se mesure. Le plan en portait une, fausse à trois modules près, dans le plan même dont le § 7 recopie la règle. Et une docstring qui sur-affirme NE ROUGIT JAMAIS — c'est la seule chose qu'un relecteur lira (BUG-124, KR-258).",
+				"CITER UNE PRÉCONDITION N'EST PAS L'EXERCER. Le comité a mesuré l'atteignabilité du jalon dans le graphe des accès — et a fait entrer une arête pour ça — mais personne n'a rejoué la porte `jouable` en amont, que le plan nomme pourtant à l'arbitrage A-8. La fixture du critère n'était pas jouable (BUG-125).",
+				"UN TÉMOIN PEUT DÉPENDRE D'UNE PROPRIÉTÉ DE REGISTRE QUE RIEN NE GARDE : trois instruments reposent sur `pnj_a_revele: 'faux'`, vrai seulement parce que `reveler_indice` est d'arité 1. Un changement d'arité les rendrait MUETS, pas rouges (KR-259).",
+				"L'ORDRE CAUSAL PEUT COÏNCIDER AVEC L'ORDRE ALPHABÉTIQUE, et alors un tri est indétectable : sur la fixture, `atteindre_jalon` précède ses voisins. Le témoin qui sépare est celui monté sur une entrée FABRIQUÉE, pas celui du scénario — vérifié par la QA en mode B.",
+				"UN APPEND-ONLY AU PLAFOND SE SCINDE SUR LA REDONDANCE, JAMAIS SUR L'ÂGE : BUG-120 et BUG-121, promus en KR, sont partis ; BUG-124 et BUG-125, non promus, sont restés. Une feature VIVANTE y a droit — 3ᵉ application de l'axe."
+			],
+			"bugs_encountered": [
+				"BUG-124",
+				"BUG-125"
+			]
 		}
 	]
 }

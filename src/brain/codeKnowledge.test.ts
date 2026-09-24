@@ -15,7 +15,9 @@ import path from 'node:path'
  *  3. une scission qui casse un JSON en silence (BUG-086) ;
  *  4. BUG-074 archive par erreur alors que son correctif reste a faire ;
  *  5. un id BUG reemploye parce qu il a ete pris dans UN fichier et non dans les
- *     huit (BUG-062).
+ *     neuf (BUG-062, BUG-123). NEUF depuis la scission du 2026-09-24
+ *     (`bug_history.moteur-dossier.json`) — le glob la prend seul, seul le
+ *     PLANCHER se releve a la main, et il ne redescend jamais.
  *
  * PERIMETRE DERIVE DU DISQUE (precedents maison : `lintIsolation.test.ts`,
  * `moteurSansIA.test.ts`). Une liste ecrite a la main exempterait en silence
@@ -33,7 +35,7 @@ const FEATURES = path.join(RACINE, 'src', 'features')
 
 /** Mesures du 2026-09-24. Les planchers gardent la mesure, pas le chiffre exact. */
 const PLANCHER_FICHIERS_REGISTRE = 2
-const PLANCHER_FICHIERS_BUGS = 8
+const PLANCHER_FICHIERS_BUGS = 9
 const PLANCHER_SPECS = 13
 const PLANCHER_IDS_KR = 150
 const PLANCHER_IDS_BUG = 100
@@ -175,7 +177,7 @@ describe('code-knowledge — le registre des risques connus', () => {
 	// fait rougir, et une collision reparee AUSSI — auquel cas on retire la ligne.
 	const COLLISIONS_CONNUES = ['BUG-055', 'BUG-056', 'BUG-057', 'BUG-058']
 
-	it('nintroduit aucune collision dide BUG neuve sur les huit journaux', () => {
+	it('nintroduit aucune collision dide BUG neuve sur TOUS les journaux du disque', () => {
 		expect(doublons(idsDesBugs().map(({ id }) => id))).toEqual(COLLISIONS_CONNUES)
 	})
 

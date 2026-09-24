@@ -32,14 +32,31 @@ import { validateDossier } from './validate'
  * mentir sur l'état. Ce fichier ne dit donc jamais « la table devrait décider
  * ici » ; il dit seulement « là où elle décide, elle a raison ».
  *
- * ASYMÉTRIE MESURÉE, ET NON SUPPOSÉE : l'oracle couvre la décision (i) — les
- * `declencheur_expr` résolus avant la première action, dont `indice_connu` est le
- * consommateur au dépôt — et JAMAIS la décision (ii) — le lieu de départ
- * compte-t-il comme visité. Sous le mutant de direction d'it2
- * (`lieux_visites = [depart]`), cet oracle reste VERT, parce que la cellule
- * `lieu_visite` est `indecidable` et qu'une cellule muette n'est pas assertée.
- * Les deux cellules partent ensemble dans le lot `contrat` d'it3 ; ce fichier
- * n'en amende aucune, et `tourzero.test.ts` reste 8/8 sans avoir été modifié.
+ * CE QU'IL A ATTRAPÉ, ET CE QU'IL NE POUVAIT PAS ATTRAPER — relevé à l'itération 3
+ * de la n° 9, où les deux décisions de H6 ont été livrées ensemble.
+ *
+ * IL A ATTRAPÉ LA DÉCISION (i). Le moteur corrigé — `ouvrirSession` résout les
+ * `declencheur_expr` avant la première action — et la cellule NON corrigée, cet
+ * oracle rougit NOMMÉMENT, sur la ligne exacte :
+ * `indice_connu(indice.sceau-brise) · table faux → état true`. Pendant ce
+ * temps-là, `tourzero.test.ts` restait VERT, 8/8 : il compare la table à un double
+ * d'elle-même, et deux écritures du même choix restent d'accord même quand le
+ * choix est faux. C'est LA mesure qui justifie l'existence de ce fichier ; elle
+ * n'est plus une prévision.
+ *
+ * IL N'A PAS PU ATTRAPER LA DÉCISION (ii) — le lieu de départ compte-t-il comme
+ * visité. Sous le mutant de direction d'it2 (`lieux_visites = [depart]`), cet
+ * oracle restait VERT, parce que la cellule `lieu_visite` était `indecidable` et
+ * qu'une cellule muette N'EST PAS ASSERTÉE. La correction de cette cellule-là ne
+ * pouvait donc venir que d'une DÉCISION, jamais d'un instrument (KR-252) — et
+ * l'asymétrie n'est pas un défaut de l'oracle, c'est la contrepartie exacte de sa
+ * solidité : il ne dit jamais « la table devrait décider ici ».
+ *
+ * CE QU'IL NE DIRA JAMAIS, ET QU'IL FAUT DONC RELIRE À LA MAIN : les QUATRE
+ * cellules `indecidable` ne sont CONFRONTÉES À AUCUN ÉTAT RÉEL. Elles SONT bien
+ * épinglées — par `VALEUR_ATTENDUE` dans `tourzero.test.ts` — mais contre un
+ * DOUBLE D'ELLES-MÊMES : cet épinglage prouve la COHÉRENCE, jamais la JUSTESSE.
+ * Leur justesse se prouve par l'ABSENCE d'assertion ici, jamais par un test vert.
  */
 
 const CHEMIN_FIXTURE = path.join(__dirname, '__fixtures__', 'dossier-minimal.json')
@@ -142,10 +159,21 @@ describe('tourzero, confronte a l etat rendu par ouvrirSession', () => {
 		expect(observees).toEqual(assertions)
 
 		// NON-VACUITÉ (KR-199) : sans cette ligne, un balayage qui ne produirait aucune
-		// cellule décidée passerait pour une confrontation réussie. Mesuré à SIX au
-		// raffinage — 1 `lieu_courant_est` vrai, 1 objet, 2 indices, 2 paires
-		// personnage × indice —, les trois cellules indécidables restant muettes.
-		expect(assertions.length).toBeGreaterThanOrEqual(6)
+		// cellule décidée passerait pour une confrontation réussie.
+		//
+		// LE PLANCHER SE RE-DÉRIVE SUR LA MESURE, JAMAIS SUR UNE ESTIMATION, et il
+		// DESCEND quand des cellules deviennent indécidables — c'est le prix, écrit, de
+		// la correction d'it3. Il valait SIX avant elle (1 `lieu_courant_est`, 1 objet,
+		// 2 indices, 2 paires personnage × indice) ; `possede_objet` et `indice_connu`
+		// étant passés à `indecidable`, il vaut QUATRE, mesuré sur cette fixture :
+		//   lieu_visite(lieu.val-cendre) · table vrai → état true
+		//   lieu_courant_est(lieu.val-cendre) · table vrai → état true
+		//   pnj_a_revele(pnj.aldur-le-sage, indice.cendres-tiedes) · table faux → état false
+		//   pnj_a_revele(pnj.aldur-le-sage, indice.sceau-brise) · table faux → état false
+		// `lieu_visite` est ENTRÉE dans le décompte au moment même où les deux autres
+		// en sortaient : la confrontation n'a pas seulement rétréci, elle a changé de
+		// cellules.
+		expect(assertions.length).toBeGreaterThanOrEqual(4)
 
 		// Et CHAQUE prédicat a été balayé au moins une fois : une dérivation de cibles
 		// qui se viderait en silence réduirait la confrontation sans rien faire rougir

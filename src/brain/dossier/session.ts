@@ -1,4 +1,6 @@
 import { MARQUEUR_A_ECRIRE } from './amorce'
+import { resoudreJalons, type DeltaJournalise } from './evaluate'
+import type { FaitsDeSession } from './faits'
 // CYCLE DE TYPE SEUL, ET IL DOIT LE RESTER : `commandes.ts` type-importe
 // `EtatSession` d'ici, et ce module-ci type-importe `CommandeId` de lui.
 // `import type` est EFFACÉ à l'émission, donc il n'existe AUCUN cycle au
@@ -66,67 +68,29 @@ export interface EntreeJournal {
 	 * (KR-249) et non une commodité.
 	 */
 	readonly origine?: CommandeId
-	// `deltas?` est AJOUTÉ EN it3, OPTIONNEL À VIE (KR-251). Ne pas le déclarer ici :
-	// aucun chemin de code de cette itération ne l'écrit ni ne le lit.
+	/**
+	 * LES EFFETS DE RÈGLE QUE CETTE ENTRÉE PORTE — le demandé ET l'observé
+	 * (KR-247). Optionnel À VIE (KR-251), et `undefined` JAMAIS `[]` : une entrée
+	 * qui n'en porte pas n'en a pas demandé, ce qui n'est pas la même chose qu'en
+	 * avoir demandé zéro. Une session écrite par l'itération 2, relue telle quelle,
+	 * reste légale.
+	 *
+	 * ÉCRIT par `commandes.ts` (une entrée par jalon atteint), LU par `JournalRow`
+	 * qui en rend une pastille par élément, DANS L'ORDRE et sans filtrage — les deux
+	 * chemins de code existent dans CETTE itération, ce qui est la condition
+	 * d'admission elle-même (KR-249).
+	 */
+	readonly deltas?: readonly DeltaJournalise[]
 }
 
 /**
- * Ce que la partie sait d'UN personnage. `a_dit` est le SEUL champ, et c'est
- * mesuré : `pnj_a_revele` répond à `monde.pnj.<id>.a_dit[]` et à rien d'autre.
- *
- * `sait` est REFUSÉ, ni comme champ ni comme clé réservée (KR-253) : aucun
- * prédicat ne le lit, aucun delta ne peut l'écrire, et le savoir d'un personnage
- * est entièrement déterminé par `monde.personnages[].savoirs[]` du dossier, en
- * lecture seule pendant la partie. Le réserver légitimerait un dérivé stocké.
- *
- * `confiance` : propriétaire n° 12, NON DÉCLARÉE — ce n'est pas une clé RACINE,
- * donc KR-249 ne la réserve pas, et KR-251 la rendra optionnelle à vie le jour
- * venu. La réserver ici l'écrirait sur CHAQUE entrée, à jamais.
+ * `EtatMonde` ET `EtatPnj` VIVENT DANS `faits.ts` DEPUIS L'ITÉRATION 3, et ce
+ * module les RÉ-EXPORTE sous leurs noms historiques : ce sont le MÊME type, jamais
+ * deux qui se ressemblent. Le corps a été DÉPLACÉ, pas recopié — motif écrit là-bas
+ * (deux registres frères doivent pouvoir le nommer sans dépendre de ce module-ci,
+ * qui type-importe déjà `commandes.ts`).
  */
-export interface EtatPnj {
-	readonly a_dit: readonly string[]
-}
-
-/**
- * SEPT CHAMPS, TOUS REQUIS — un par prédicat de `PREDICATES`, dans l'ordre du
- * registre, et chacun nommé par la docstring de son prédicat.
- *
- * LA TOTALITÉ EST LA PRÉCONDITION DE LA BIVALENCE d'it3 : six champs optionnels y
- * feraient six branches `undefined` sous un aiguillage qui doit LEVER, et « un
- * état bien formé décide les sept prédicats » cesserait d'être représentable.
- * L'unité d'admission de KR-249 est ici `monde`, PAS ses champs — exception
- * nommée, écrite pour être retrouvée.
- */
-export interface EtatMonde {
-	/**
-	 * Y répond : `lieu_courant_est`. `string`, JAMAIS `string | null` — un nullable
-	 * serait une seconde représentation de « partie non ouverte », que la porte
-	 * `jouable` interdit déjà : état illégal représentable.
-	 */
-	readonly lieu_courant: string
-	/** Y répond : `lieu_visite`. */
-	readonly lieux_visites: readonly string[]
-	/**
-	 * Y répond : `possede_objet`. LE SEUL INVENTAIRE DE SESSION.
-	 * `SessionEquipmentState.inventory` (`src/player/types.ts`) est l'inventaire de
-	 * la session d'ARBRE, orphelin à l'itération 4 : l'itération qui compose un
-	 * héros (n° 11) se repointe ICI et n'en redéclare pas un second.
-	 */
-	readonly objets_possedes: readonly string[]
-	/** Y répond : `indice_connu`. */
-	readonly indices_connus: readonly string[]
-	/** Y répond : `jalon_atteint`. */
-	readonly jalons_atteints: readonly string[]
-	/** Y répond : `evenement_consomme`. */
-	readonly evenements_consommes: readonly string[]
-	/**
-	 * Y répond : `pnj_a_revele`. `{}` À L'OUVERTURE, jamais une entrée par
-	 * `monde.personnages[]` : pré-semer serait une copie dérivée d'une collection du
-	 * dossier (KR-013). La lecture se fait `pnj[p]?.a_dit.includes(i) ?? false` —
-	 * CLÉ ABSENTE = ÉTAT LÉGAL, jamais un trou.
-	 */
-	readonly pnj: Readonly<Record<string, EtatPnj>>
-}
+export type { FaitsDeSession as EtatMonde, EtatPnj } from './faits'
 
 /**
  * LA SESSION ENTIÈRE — huit clés racines, exhaustives par compilation pour la
@@ -200,7 +164,8 @@ export interface EtatSession {
 	 * hors de la réserve de KR-249, optionnelle à vie le jour venu (KR-251).
 	 */
 	readonly horloge: { readonly tour: number }
-	readonly monde: EtatMonde
+	/** `FaitsDeSession` EST `EtatMonde` — même type, deux noms, un seul corps (`faits.ts`). */
+	readonly monde: FaitsDeSession
 	readonly journal: readonly EntreeJournal[]
 	/**
 	 * CLÉ RACINE RÉSERVÉE, propriétaire n° 10 — typée `null` : la politique de
@@ -249,9 +214,16 @@ export type ResultatOuverture =
 	| { readonly ok: false; readonly refus: RefusOuverture }
 
 /**
- * OUVRIR UNE PARTIE — PURE, totale, synchrone. Aucune persistance, aucune
- * horloge système, aucun tirage : `graine_alea` est REQUISE et INJECTÉE, jamais
- * un `Math.random()` ici (rejouabilité, KR-242).
+ * OUVRIR UNE PARTIE — PURE, synchrone, et TOTALE **sur un dossier accepté par
+ * `validateDossier`**. Aucune persistance, aucune horloge système, aucun tirage :
+ * `graine_alea` est REQUISE et INJECTÉE, jamais un `Math.random()` ici
+ * (rejouabilité, KR-242).
+ *
+ * ⚠ LA TOTALITÉ EST DÉSORMAIS CONDITIONNELLE, et c'est écrit plutôt que découvert :
+ * depuis l'itération 3, cette fonction résout les `declencheur_expr` des jalons, et
+ * `evaluerExpr` LÈVE sur une entrée non reconnue (KR-238). Aucun `catch` ne
+ * l'entoure — il rouvrirait le faux positif que ce choix ferme. La parade est la
+ * porte `jouable` des contrôles, vérifiée AU MONTAGE du shell (KR-239).
  *
  * LE REFUS SUR LE MARQUEUR EST PLUS GROSSIER QUE `controles.ts`, JAMAIS PLUS FIN :
  * il teste UN champ — `charpente.depart.texte_ouverture_joueur` — et ne
@@ -270,6 +242,17 @@ export type ResultatOuverture =
  * visité est un état INCOHÉRENT, que l'évaluateur bivalent d'it3 rapporterait
  * fidèlement ; et l'ouverture DÉCRIT ce lieu verbatim, que `[]` ferait re-décrire
  * comme une découverte au passage suivant.
+ *
+ * LES JALONS SONT RÉSOLUS AVANT LA PREMIÈRE ACTION — décision (i) de H6
+ * (`tourzero.ts`), tranchée à l'itération 1 et LIVRÉE ici : un jalon dont la
+ * condition est déjà vraie du seul fait du lieu de départ est atteint à
+ * l'ouverture, avec ses effets. C'est le MÊME corps que celui d'après chaque
+ * commande (`resoudreJalons`), et la conséquence est mesurable au dépôt —
+ * `dossier-minimal.json` ouvre avec `indice.sceau-brise` connu.
+ *
+ * ⚠ AUCUNE ENTRÉE DE JOURNAL N'EST ÉCRITE À L'OUVERTURE : le journal démarre vide
+ * (retenu à l'itération 1, inchangé). La passe rend ses `atteints`, et cet
+ * appelant-ci ne les journalise pas — il n'y a pas de tour zéro à raconter.
  */
 export function ouvrirSession(dossier: Dossier, options: { graine_alea: number }): ResultatOuverture {
 	if (dossier.charpente.depart.texte_ouverture_joueur.includes(MARQUEUR_A_ECRIRE)) {
@@ -277,6 +260,16 @@ export function ouvrirSession(dossier: Dossier, options: { graine_alea: number }
 	}
 
 	const depart = dossier.charpente.depart.lieu_id
+
+	const ouverture = resoudreJalons(dossier, {
+		lieu_courant: depart,
+		lieux_visites: [depart],
+		objets_possedes: [],
+		indices_connus: [],
+		jalons_atteints: [],
+		evenements_consommes: [],
+		pnj: {},
+	})
 
 	return {
 		ok: true,
@@ -286,15 +279,7 @@ export function ouvrirSession(dossier: Dossier, options: { graine_alea: number }
 			dossier_maj: dossier.updatedAt,
 			graine_alea: options.graine_alea,
 			horloge: { tour: 0 },
-			monde: {
-				lieu_courant: depart,
-				lieux_visites: [depart],
-				objets_possedes: [],
-				indices_connus: [],
-				jalons_atteints: [],
-				evenements_consommes: [],
-				pnj: {},
-			},
+			monde: ouverture.faits,
 			journal: [],
 			memoire: null,
 		},

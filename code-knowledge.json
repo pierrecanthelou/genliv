@@ -765,6 +765,16 @@
 			"id": "KR-257",
 			"feature": "cross-cutting",
 			"risk": "UN CONTENU A ECHAPPEMENTS ECRIT PAR HEREDOC SHELL PUIS CHAINE NON BRUTE PERD UN NIVEAU A CHAQUE COUCHE, EN SILENCE : le fichier s'ecrit, le test tourne, le motif ne matche jamais. Tout antislash passe par l'outil d'edition de fichier. BUG-122."
+		},
+		{
+			"id": "KR-258",
+			"feature": "cross-cutting",
+			"risk": "UNE PHRASE DE PORTÉE (« seul lecteur / seul porteur de X DU DÉPÔT ») EST UNE AFFIRMATION SUR LA COULEUR D'UN TEST DÉGUISÉE : elle prédit qu'un grep ne rend qu'une ligne, donc elle SE MESURE avant d'entrer dans un plan ou une docstring. Le plan d'it3 en portait une, fausse à trois modules près ; l'ouvrier l'a recopiée en docstring, où elle était fausse dans ses DEUX moitiés. Une docstring qui sur-affirme NE ROUGIT JAMAIS, et c'est la seule chose qu'un relecteur lira. Écrire la portée réellement tenue (« dans `src/brain/dossier/` »), jamais la portée espérée. BUG-124."
+		},
+		{
+			"id": "KR-259",
+			"feature": "moteur-dossier",
+			"risk": "UN TÉMOIN QUI S'APPUIE SUR L'ARITÉ D'UN DELTA OU D'UN PRÉDICAT DÉPEND D'UNE PROPRIÉTÉ QUE RIEN NE GARDE : `pnj_a_revele` ne vaut `'faux'` au tour zéro que parce que `reveler_indice` est d'arité 1 et sans opérande `pnj`. TROIS instruments en dépendent déjà (le témoin Kleene `FAUX` de `tourzero.test.ts` et deux de `controles.test.ts`), et AUCUN ne rougirait si le registre passait le delta à l'arité 2 : ils deviendraient muets, pas rouges. Tout témoin qui choisit un prédicat « déterministe-faux » NOMME la propriété de registre dont il dépend, et la revue la recopie tant qu'aucun test ne la tient. Corps : spec moteur-dossier."
 		}
 	]
 }

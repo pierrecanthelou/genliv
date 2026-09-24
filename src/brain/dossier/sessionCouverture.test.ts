@@ -1,6 +1,6 @@
 import { SESSION_SATUREE } from './__fixtures__/session-saturee'
 import { feuillesDeLaFixture } from './feuilles'
-import type { EtatPnj, EtatSession } from './session'
+import type { EtatMonde, EtatPnj, EtatSession } from './session'
 import { DESTINATION_DES_CHAMPS_DE_SESSION } from './sessionDestinations'
 
 /**
@@ -40,7 +40,7 @@ import { DESTINATION_DES_CHAMPS_DE_SESSION } from './sessionDestinations'
 const DISPENSES_DE_FEUILLE: Readonly<Record<string, string>> = {
 	horloge: 'clé racine porteuse — son unique feuille est `horloge.tour`',
 	monde: 'clé racine porteuse — ses sept feuilles sont déclarées une à une',
-	journal: 'clé racine porteuse — ses quatre feuilles sont déclarées une à une',
+	journal: 'clé racine porteuse — ses sept feuilles sont déclarées une à une',
 }
 
 const CLES_DE_LA_TABLE = new Set(Object.keys(DESTINATION_DES_CHAMPS_DE_SESSION))
@@ -131,9 +131,68 @@ describe('DESTINATION_DES_CHAMPS_DE_SESSION, exhaustivite', () => {
 
 		// Et les listes sont bien balayées PAR ÉLÉMENT : une session d'OUVERTURE, dont
 		// toutes les listes sont vides, rendrait `monde.lieux_visites` SANS le suffixe,
-		// et les douze lignes de feuille seraient mortes le jour même (§ 8, D-15).
+		// et les quinze lignes de feuille seraient mortes le jour même (§ 8, D-15).
 		expect(normalises).toContain('monde.lieux_visites[]')
 		expect(normalises).toContain('journal[].texte')
+
+		// ET LE BALAYAGE DESCEND DANS LES `deltas` D'UNE ENTRÉE (itération 3) : ce sont
+		// des objets DANS une liste DANS une liste, la seule imbrication de ce genre de
+		// toute la session. Sans ces lignes, les trois lignes de table neuves seraient
+		// tenues par « aucune ligne morte » et par rien qui nomme le chemin.
+		expect(normalises).toContain('journal[].deltas[].delta')
+		expect(normalises).toContain('journal[].deltas[].cibles[]')
+		expect(normalises).toContain('journal[].deltas[].effet')
+	})
+})
+
+describe('EtatMonde, les sept champs restent REQUIS et chacun garde sa ligne', () => {
+	it('un monde ampute d un champ ne compile pas, et les sept ont une ligne d audience', () => {
+		// KR-254 — LA TOTALITÉ EST LA PRÉCONDITION DE LA BIVALENCE (KR-238). Six champs
+		// posés optionnels le resteraient À VIE (KR-251) et laisseraient six branches
+		// `undefined` sous un aiguillage qui doit LEVER. `@ts-expect-error` ÉCHOUE À LA
+		// COMPILATION si l'erreur attendue n'a PAS lieu : c'est le seul instrument qui
+		// épingle une exigence de présence.
+		//
+		// LE CHAMP AMPUTÉ EST `pnj`, ET C'EST LE PIRE CAS À DESSEIN : c'est le seul dont
+		// la lecture tolère une CLÉ absente (`pnj[p]` peut manquer), si bien qu'un
+		// relecteur pourrait croire que le CHAMP lui-même l'est aussi.
+		// @ts-expect-error — `pnj` manquant sur un `EtatMonde`.
+		const ampute: EtatMonde = {
+			lieu_courant: 'lieu.val-cendre',
+			lieux_visites: [],
+			objets_possedes: [],
+			indices_connus: [],
+			jalons_atteints: [],
+			evenements_consommes: [],
+		}
+		// Discriminant : la forme COMPLÈTE compile, elle. Sans cette moitié, la
+		// directive serait satisfaite par n'importe quelle erreur de type, y compris
+		// « ce type n'existe pas ».
+		const complet: EtatMonde = { ...ampute, pnj: {} }
+
+		// ET CHACUN DES SEPT A SA LIGNE D'AUDIENCE, balayée depuis l'objet COMPLET —
+		// jamais sept littéraux (KR-117/199). C'est ce qui attraperait un
+		// `monde.pnj.<id>.sait` glissé au passage : une feuille sans ligne échoue.
+		//
+		// LA LIGNE D'UN CHAMP EST CELLE DE SA FEUILLE, et le suffixe varie : `[]` pour
+		// une liste, `.<id>.a_dit[]` pour le `Record` des personnages, rien pour le
+		// scalaire. On cherche donc un PRÉFIXE — comparer à `monde.<champ>` nu ferait
+		// rougir cinq champs sains, et le corriger en retirant le `[]` de la table
+		// rendrait les lignes mortes (§ 8, D-15).
+		const champs = Object.keys(complet)
+		const ligneDe = (champ: string): string[] =>
+			[...CLES_DE_LA_TABLE].filter(
+				(cle) => cle === `monde.${champ}` || cle.startsWith(`monde.${champ}[`) || cle.startsWith(`monde.${champ}.`),
+			)
+
+		expect(champs).toHaveLength(7)
+		for (const champ of champs) {
+			expect(`${champ} → ${ligneDe(champ).length}`).toBe(`${champ} → 1`)
+		}
+		// Discriminance du préfixe : un champ que la table ne déclare pas — exactement
+		// ce que `monde.pnj.<id>.sait` serait — n'a AUCUNE ligne. Sans elle, la boucle
+		// ci-dessus serait verte sur un filtre qui rendrait toujours un élément.
+		expect(ligneDe('sait')).toEqual([])
 	})
 })
 

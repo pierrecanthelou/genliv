@@ -13,30 +13,6 @@
 			"severity": "major"
 		},
 		{
-			"id": "BUG-120",
-			"date": "2026-09-24",
-			"feature": "moteur-dossier",
-			"discovered_at": "iteration-2",
-			"symptom": "Le temoin du critere 4 « aucune ligne n'affiche le mot tour » etait VERT sous les deux implementations fautives qu'il etait ecrit pour attraper. Trouve par la QA en mode B, sur le mutant que le plan prescrivait lui-meme de poser.",
-			"root_cause": "DEUX causes independantes sur la meme ligne, `expect(journal.textContent).not.toMatch(/\\btour\\b/)`. (1) PORTEE : `textContent` d'une SECTION concatene les noeuds de texte SANS separateur, donc le mot rendu se colle au precedent (`JOURNALtour 1...`, `...bassetour 1...`) et `\\b` ne trouve jamais de frontiere AVANT lui — l'ancre echoue par construction, jamais par absence du mot. (2) CASSE : sans le drapeau `i`, `Tour 1` ne matchait pas non plus. Le test echouait bien sous les mutants, mais a la ligne SUIVANTE (`getByText('#1')`), qui teste le format du prefixe et non la clause — le critere etait donc protege PAR ACCIDENT, et une regression laissant `#{n}` intact tout en ecrivant le mot ailleurs (libelle, `aria-label`, `title`) serait passee inapercue.",
-			"fix": "src/features/play-mode/tests/deplacement.test.tsx — l'assertion passe de la SECTION a CHAQUE LIGNE, de `textContent` a `outerHTML` (qui voit aussi les attributs), et gagne le drapeau `i`. Trois clauses, trois trous distincts fermes.",
-			"mitigation": "Les trois mutants ont ete ecrits et vus ROUGES SUR LA LIGNE CORRIGEE, pas sur une voisine : `Tour {n}`, `tour {n}`, et un troisieme que personne n'avait demande — le mot en `aria-label` seul avec `#{n}` intact, qui isole precisement la clause (2) de la portee `outerHTML`. Motif ecrit en commentaire au-dessus de l'assertion pour qu'un futur « nettoyage » vers `textContent` ne la reouvre pas en silence.",
-			"regression_test": "src/features/play-mode/tests/deplacement.test.tsx — « l etat vide du journal cede la place aux lignes, [aller] sur la seule ligne moteur, jamais le mot tour »",
-			"severity": "major"
-		},
-		{
-			"id": "BUG-121",
-			"date": "2026-09-24",
-			"feature": "moteur-dossier",
-			"discovered_at": "iteration-2",
-			"symptom": "La cle de liste des lignes de journal, `${entree.tour}-${entree.role}`, se dupliquera des it3. Trouve en revue de PR.",
-			"root_cause": "INCOHERENCE INTERNE A LA TRANCHE, pas une dette future : `docs/REGLES-PLAY.md` § J1 -- ECRIT PAR LE MEME COMMIT -- pose qu'une consequence enchainee par le moteur (jalon franchi, evenement consomme) n'ajoute AUCUN pas. Deux entrees `{tour: N, role: 'moteur'}` arrivent donc des it3, et la cle n'est unique que tant qu'un pas ne produit qu'une entree `moteur`. Le code et la regle qui l'invalide partaient ensemble.",
-			"fix": "`EcranPartie.tsx` -- cle sur l'INDEX, avec le motif ecrit : le journal est APPEND-ONLY, jamais reordonne ni filtre ni insere au milieu, donc l'index EST stable. Un champ `seq` persiste serait un derivable stocke (KR-013), ecarte nommement.",
-			"mitigation": "Regle portable : quand une tranche ecrit une REGLE et du CODE qui en depend, relire le code A LA LUMIERE DE LA REGLE QU'ELLE VIENT D'ECRIRE, pas de celle qui existait avant. Aucun test ne pouvait l'attraper -- avec un seul verbe, un pas ne produit jamais deux entrees `moteur`.",
-			"regression_test": "Aucun -- non separable avant it3 (aucun etat du monde ne produit deux entrees `moteur` d'un meme pas). Ecrit comme non verifie plutot que compte vert.",
-			"severity": "major"
-		},
-		{
 			"id": "BUG-122",
 			"date": "2026-09-24",
 			"feature": "outillage",
@@ -59,7 +35,31 @@
 			"mitigation": "src/brain/codeKnowledge.test.ts (assertion 5) epingle les QUATRE collisions par egalite EXACTE (COLLISIONS_CONNUES) : une cinquieme collision fait rougir le test, et reparer l une des quatre (donc renumeroter) le fait rougir aussi -- ce qui force a retirer la ligne au lieu de l oublier.",
 			"regression_test": "src/brain/codeKnowledge.test.ts -- assertion 5 (deja verte -- COLLISIONS_CONNUES fige les quatre existantes sans les absoudre)",
 			"severity": "major"
+		},
+		{
+			"id": "BUG-124",
+			"date": "2026-09-24",
+			"feature": "moteur-dossier",
+			"discovered_at": "iteration-3",
+			"symptom": "Le plan d it3 (SS 7) commandait un test-grep << evaluate.ts, SEUL LECTEUR de charpente.jalons du depot >>. Mesure faite par le lot contrat : ils sont TROIS en position de code (atteignabilite.ts:217 pour les effet[], sections.ts:144 pour le compte, evaluate.ts). Le test serait ne ROUGE. L ouvrier a repete l affirmation en docstring (evaluate.ts), ou elle est fausse dans ses DEUX moities : atteignabilite.ts:217 lit .effet, et dossier-registres/hooks/useEcritureJalons.ts:21 lit .enonce_texte.",
+			"root_cause": "L orchestrateur a ecrit une affirmation sur la couleur d un test sans la mesurer -- dans le plan meme dont le SS 7 recopie la regle << une affirmation sur la couleur d un test se MESURE, elle ne se deduit pas >>. Une portee (<< du depot >>) est une affirmation de couleur deguisee : elle predit qu un grep ne rend qu une ligne.",
+			"fix": "Garde remplacee par une forme plus forte ET vraie : recensement par valeur des trois porteurs de .charpente.jalons, plus porteur UNIQUE de .enonce_texte et de .declencheur_expr -- c est cela que KR-246 protege. Docstring evaluate.ts reecrite sur la portee reelle (<< dans src/brain/dossier/ >>), en nommant les deux lecteurs qui la bornent.",
+			"mitigation": "La sonde de discriminance de la garde a ete posee par la QA en mode B : une lecture ajoutee dans sections.ts la fait rougir nommement. Lecon a porter au comite : une phrase de PORTEE (<< seul X du depot >>) se mesure par grep avant d entrer au plan, au meme titre qu une couleur de test.",
+			"regression_test": "src/brain/dossier/evaluate.test.ts -- la SEMANTIQUE d un jalon n a qu un lecteur",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-125",
+			"date": "2026-09-24",
+			"feature": "moteur-dossier",
+			"discovered_at": "iteration-3",
+			"symptom": "Le critere 3 du plan d it3 s ouvrait sur << Etant donne dossier-reference.json >>. Mesure faite par le lot 2 : cette fixture n est PAS jouable -- un controle bloquant depart-desert (<< Aucun personnage n est present au lieu de depart >>). La porte KR-239 refusait le shell avant toute commande, donc le critere etait INSATISFIABLE tel qu il a ete signe.",
+			"root_cause": "Le comite a mesure l ATTEIGNABILITE du jalon dans le graphe des acces (reserve n 1 du narratif, qui a fait entrer l arete A-1) et s est arrete la : personne n a rejoue la PORTE en amont. Le plan nomme pourtant KR-239 comme precondition de correction de l evaluateur, a l arbitrage A-8 -- la precondition etait citee, jamais exercee.",
+			"fix": "Non corrige dans la fixture -- le disque n est pas touche. Le temoin seme un habitant au lieu de depart par brain.dossiers.update (chemin public, par spread), technique precedente du depot (avecUnAcces / avecOuverture, KR-156). Le scenario du critere reste mot pour mot celui du plan.",
+			"mitigation": "La precondition est MESUREE dans le temoin lui-meme -- jouable false avant semis, true apres -- donc elle rougira le jour ou depart-desert changera, au lieu de casser trois rebonds plus loin. Le << Etant donne >> reel est ecrit dans la revue : dossier-reference PLUS un habitant place au depart.",
+			"regression_test": "src/features/play-mode/tests/jalonAuJournal.test.tsx -- ecrit la ligne du jalon au meme tour que la commande",
+			"severity": "major"
 		}
 	],
-	"_about": "Les defauts que le TRAVAIL EN COURS relira -- bascule IA, 0.6.x. AXE D'APPARTENANCE, et c'est le seul : un travail en cours le relira-t-il, ET sa lecon est-elle deja promue dans un instrument lui-meme en lecture obligatoire (critere d'acceptation, KR, regle ESLint, test permanent) ? Si la lecon est promue, l'entree part a l'archive -- la garder ici la ferait relire deux fois. JAMAIS << de quelle feature vient l'entree >> : un fichier qui porte le nom d'une feature n'est pas pour autant range PAR feature, et confondre les deux a deja coute une scission fausse (BUG-086, corrige en revue de PR). Ce fichier ne se compacte pas, il se SCINDE -- et avant tout deplacement, on OUVRE les _about des DEUX fichiers. RESTE ICI quoi qu'il arrive : BUG-074, dont le correctif n'est TOUJOURS PAS FAIT et dont la lecon n'est promue nulle part -- l'archiver serait l'oublier ; il a deja ete archive par erreur une fois. NUMEROTATION GLOBALE aux HUIT fichiers, jamais reemployee : prochain id = max(BUG-xxx) des HUIT, jamais du seul fichier en cours (precedent BUG-062). OU SONT LES AUTRES : bug_history.0.5.json (BUG-001 a 027) · bug_history.features-terminees.json (features done hors bascule) · bug_history.dossier-canon.json · bug_history.dossier-fiches.json · bug_history.dossier-registres.json · bug_history.dossier-controles.json · bug_history.dossier-copilote.json. HISTORIQUE COMPLET DES SCISSIONS : CHANGELOG.md -- il n'est pas recopie ici, c'est lui qui le porte."
+	"_about": "Les defauts que le TRAVAIL EN COURS relira -- bascule IA, 0.6.x. AXE D'APPARTENANCE, et c'est le seul : un travail en cours le relira-t-il, ET sa lecon est-elle deja promue dans un instrument lui-meme en lecture obligatoire (critere d'acceptation, KR, regle ESLint, test permanent) ? Si la lecon est promue, l'entree part a l'archive -- la garder ici la ferait relire deux fois. JAMAIS << de quelle feature vient l'entree >> : un fichier qui porte le nom d'une feature n'est pas pour autant range PAR feature, et confondre les deux a deja coute une scission fausse (BUG-086, corrige en revue de PR). Ce fichier ne se compacte pas, il se SCINDE -- et avant tout deplacement, on OUVRE les _about des DEUX fichiers. RESTE ICI quoi qu'il arrive : BUG-074, dont le correctif n'est TOUJOURS PAS FAIT et dont la lecon n'est promue nulle part -- l'archiver serait l'oublier ; il a deja ete archive par erreur une fois. NUMEROTATION GLOBALE aux NEUF fichiers, jamais reemployee : prochain id = max(BUG-xxx) des NEUF, jamais du seul fichier en cours (precedents BUG-062, BUG-123). OU SONT LES AUTRES : bug_history.0.5.json (BUG-001 a 027) · bug_history.features-terminees.json (features done hors bascule) · bug_history.dossier-canon.json · bug_history.dossier-fiches.json · bug_history.dossier-registres.json · bug_history.dossier-controles.json · bug_history.dossier-copilote.json · bug_history.moteur-dossier.json (ne le 2026-09-24). HISTORIQUE COMPLET DES SCISSIONS : CHANGELOG.md -- il n'est pas recopie ici, c'est lui qui le porte."
 }

@@ -1,3 +1,4 @@
+import type { FaitsDeSession } from './faits'
 import type { DossierIssue, DossierIssueCode } from './issues'
 import {
 	decrireValeur,
@@ -39,11 +40,15 @@ import {
  *
  * Ce module n'importe NI `expr.ts` NI `predicates.ts` : deux registres frères ne
  * se dépendent pas. `SiteDelta` est donc recopié de `SiteExpr` — extraction au
- * troisième. L'ordre des modules reste acyclique : `identifiers` → `issues` →
- * `predicates` → `expr` → `deltas` → `types` → `tables` → `validate`.
+ * troisième. Ils partagent `faits.ts`, qui n'importe RIEN et n'est donc pas une
+ * arête entre eux. L'ordre des modules reste acyclique : `identifiers` →
+ * `issues` → `faits` → `predicates` → `expr` → `deltas` → `types` → `tables` →
+ * `validate`.
  *
- * APPLIQUER un delta n'est pas d'ici : `applyDelta` arrive en n° 9, et comme
- * CHAMP DU DESCRIPTEUR, jamais comme un `switch` (KR-117).
+ * APPLIQUER un delta est d'ici DEPUIS L'ITÉRATION 3 DE LA N° 9, et c'est bien un
+ * CHAMP DU DESCRIPTEUR (`ecrit`), jamais un `switch` (KR-117) — ce que la
+ * docstring d'it1 annonçait. La fonction qui l'appelle et JOURNALISE son effet,
+ * elle, vit dans `evaluate.ts` : ce module reste le registre, pas le moteur.
  */
 export interface DeltaDescripteur {
 	/** Libellé français — la valeur du `Select` des n° 3/6/7. Jamais une syntaxe. */
@@ -56,26 +61,98 @@ export interface DeltaDescripteur {
 	 * mécanique plutôt que conventionnel.
 	 */
 	refKinds: readonly EspaceDeNoms[]
+	/**
+	 * CE QUE L'EFFET ÉCRIT DANS LES FAITS — un CHAMP du descripteur, jamais un
+	 * aiguillage au site d'appel (KR-117) : un cinquième effet ne compile pas tant
+	 * que personne n'a dit ce qu'il écrit.
+	 *
+	 * ⚠ ELLE REND LA MÊME RÉFÉRENCE QUAND RIEN NE CHANGE, et ce n'est pas une
+	 * optimisation : c'est ce qui rend `effet: 'sans_effet'` MÉCANIQUE plutôt que
+	 * déclaratif — `appliquerDelta` le dérive par `===`, sans qu'aucun descripteur
+	 * n'ait à l'annoncer. Un descripteur qui rendrait toujours un objet neuf ferait
+	 * de « demandé sans effet » et « demandé » deux états indistinguables, ce que
+	 * KR-247 refuse. Précédent au dépôt : `commandes.ts`, dont `lieux_visites` rend
+	 * la liste d'entrée quand le lieu y est déjà.
+	 */
+	ecrit: (faits: FaitsDeSession, cibles: readonly string[]) => FaitsDeSession
+}
+
+/**
+ * LES TROIS LISTES D'IDENTIFIANTS QU'UN EFFET SAIT ÉCRIRE. `lieu_courant` n'y est
+ * pas (aucun effet ne déplace le héros, `deplacer_vers` est écarté) et
+ * `evenements_consommes` non plus (`consommer_evenement` l'est aussi) : cette
+ * union est un RELEVÉ des quatre entrées ci-dessous, pas une permission.
+ */
+type ChampDeListe = 'objets_possedes' | 'indices_connus' | 'jalons_atteints'
+
+/**
+ * L'AJOUT À SÉMANTIQUE D'ENSEMBLE — et LA MÊME RÉFÉRENCE si l'identifiant y est
+ * déjà. C'est cette ligne, et elle seule, qui rend l'idempotence OBSERVABLE : deux
+ * jalons qui révèlent le même indice produisent `'applique'` puis `'sans_effet'`,
+ * sans qu'aucun appelant n'ait à comparer des listes.
+ */
+function avecAjout(faits: FaitsDeSession, champ: ChampDeListe, id: string): FaitsDeSession {
+	const liste = faits[champ]
+	return liste.includes(id) ? faits : { ...faits, [champ]: [...liste, id] }
+}
+
+/** Le RETRAIT, même règle de référence : une liste qui ne porte pas l'identifiant n'est pas remplacée. */
+function avecRetrait(faits: FaitsDeSession, champ: ChampDeListe, id: string): FaitsDeSession {
+	const liste = faits[champ]
+	return liste.includes(id) ? { ...faits, [champ]: liste.filter((present) => present !== id) } : faits
 }
 
 export const DELTAS = defineRegistre<DeltaDescripteur>()({
 	/** Écrit l'inventaire de session — déjà muté par `actionEngine.applyGift` (`inventoryAdd`). */
-	donner_objet: { label: "donne l'objet", refKinds: ['objet'] },
+	donner_objet: {
+		label: "donne l'objet",
+		refKinds: ['objet'],
+		ecrit: (faits, cibles) => avecAjout(faits, 'objets_possedes', cibles[0]),
+	},
 	/** Écrit l'inventaire de session — déjà muté par `actionEngine.computeInventoryLoss`. */
-	retirer_objet: { label: "retire l'objet", refKinds: ['objet'] },
+	retirer_objet: {
+		label: "retire l'objet",
+		refKinds: ['objet'],
+		ecrit: (faits, cibles) => avecRetrait(faits, 'objets_possedes', cibles[0]),
+	},
 	/**
 	 * Écrit la liste des indices connus — lue par `indice_connu` SEUL. Il n'écrit
 	 * JAMAIS le carnet d'un personnage, et c'est mécanique : son arité est 1, il
 	 * n'a aucun opérande `pnj` par lequel nommer QUI a parlé (H3,
 	 * `atteignabilite.ts`).
 	 */
-	reveler_indice: { label: "révèle l'indice", refKinds: ['indice'] },
-	/** Écrit la liste des jalons atteints — lue par `jalon_atteint`. */
-	atteindre_jalon: { label: 'marque le jalon atteint', refKinds: ['jalon'] },
+	reveler_indice: {
+		label: "révèle l'indice",
+		refKinds: ['indice'],
+		ecrit: (faits, cibles) => avecAjout(faits, 'indices_connus', cibles[0]),
+	},
+	/**
+	 * Écrit la liste des jalons atteints — lue par `jalon_atteint`.
+	 *
+	 * ⚠ SEUL ÉCRIVAIN DE `jalons_atteints` DANS TOUT LE DÉPÔT. La passe à point fixe
+	 * de `resoudreJalons` ne l'étend JAMAIS en direct : deux écrivains du même champ
+	 * seraient la seconde source de vérité que KR-013 refuse, et l'idempotence d'un
+	 * jalon déjà atteint cesserait d'être mécanique.
+	 */
+	atteindre_jalon: {
+		label: 'marque le jalon atteint',
+		refKinds: ['jalon'],
+		ecrit: (faits, cibles) => avecAjout(faits, 'jalons_atteints', cibles[0]),
+	},
 })
 
 /** L'union des identifiants d'effet, DÉRIVÉE du registre — jamais re-listée. */
 export type DeltaId = keyof typeof DELTAS
+
+/**
+ * L'EFFET QUI MARQUE UN JALON ATTEINT, NOMMÉ ICI ET NULLE PART AILLEURS.
+ *
+ * `resoudreJalons` doit l'émettre, et il ne peut pas le NOMMER : `evaluate.ts` ne
+ * porte aucun identifiant de registre en chaîne — sans quoi le moteur redeviendrait
+ * un site de décision par littéral, à côté du registre (KR-117). La constante fait
+ * voyager la clé depuis son domicile, typée, sans rouvrir cette porte.
+ */
+export const DELTA_DU_JALON_ATTEINT: DeltaId = 'atteindre_jalon'
 
 /**
  * La forme persistée d'un effet de règle. `cibles` reste un TABLEAU même à

@@ -1,0 +1,41 @@
+{
+	"_about": "Archive des defauts de moteur-dossier (n 9, EN COURS 3/4) dont la lecon est DEJA PROMUE dans un instrument lui-meme en lecture obligatoire. MEME AXE que bug_history.dossier-controles.json et bug_history.dossier-fiches.json : il porte sur la REDONDANCE, JAMAIS sur l'age -- une feature VIVANTE y a droit, et c'est la troisieme fois qu'on l'y applique. Une entree promue est relue a chaque iteration SOUS SA FORME PROMUE ; garder le recit a cote, c'est payer la meme lecon deux fois par session. Ne le 2026-09-24 (moteur-dossier it3, franchissement du plafond de bug_history.json : 13 101 / 10 240 o). CE FICHIER N'EST PAS EN LECTURE OBLIGATOIRE -- seul bug_history.json l'est. NE PARTENT PAS ICI les entrees dont la lecon n'est promue nulle part (BUG-124, BUG-125 y sont restees pour cette raison, pas par oubli). NUMEROTATION GLOBALE aux NEUF fichiers desormais, jamais reemployee : prochain id = max(BUG-xxx) des NEUF (precedents BUG-062, BUG-123). HISTORIQUE DES SCISSIONS : CHANGELOG.md.",
+	"bugs": [
+		{
+			"id": "BUG-120",
+			"date": "2026-09-24",
+			"feature": "moteur-dossier",
+			"discovered_at": "iteration-2",
+			"symptom": "Le temoin du critere 4 « aucune ligne n'affiche le mot tour » etait VERT sous les deux implementations fautives qu'il etait ecrit pour attraper. Trouve par la QA en mode B, sur le mutant que le plan prescrivait lui-meme de poser.",
+			"root_cause": "DEUX causes independantes sur la meme ligne, `expect(journal.textContent).not.toMatch(/\\btour\\b/)`. (1) PORTEE : `textContent` d'une SECTION concatene les noeuds de texte SANS separateur, donc le mot rendu se colle au precedent (`JOURNALtour 1...`, `...bassetour 1...`) et `\\b` ne trouve jamais de frontiere AVANT lui — l'ancre echoue par construction, jamais par absence du mot. (2) CASSE : sans le drapeau `i`, `Tour 1` ne matchait pas non plus. Le test echouait bien sous les mutants, mais a la ligne SUIVANTE (`getByText('#1')`), qui teste le format du prefixe et non la clause — le critere etait donc protege PAR ACCIDENT, et une regression laissant `#{n}` intact tout en ecrivant le mot ailleurs (libelle, `aria-label`, `title`) serait passee inapercue.",
+			"fix": "src/features/play-mode/tests/deplacement.test.tsx — l'assertion passe de la SECTION a CHAQUE LIGNE, de `textContent` a `outerHTML` (qui voit aussi les attributs), et gagne le drapeau `i`. Trois clauses, trois trous distincts fermes.",
+			"mitigation": "Les trois mutants ont ete ecrits et vus ROUGES SUR LA LIGNE CORRIGEE, pas sur une voisine : `Tour {n}`, `tour {n}`, et un troisieme que personne n'avait demande — le mot en `aria-label` seul avec `#{n}` intact, qui isole precisement la clause (2) de la portee `outerHTML`. Motif ecrit en commentaire au-dessus de l'assertion pour qu'un futur « nettoyage » vers `textContent` ne la reouvre pas en silence.",
+			"regression_test": "src/features/play-mode/tests/deplacement.test.tsx — « l etat vide du journal cede la place aux lignes, [aller] sur la seule ligne moteur, jamais le mot tour »",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-121",
+			"date": "2026-09-24",
+			"feature": "moteur-dossier",
+			"discovered_at": "iteration-2",
+			"symptom": "La cle de liste des lignes de journal, `${entree.tour}-${entree.role}`, se dupliquera des it3. Trouve en revue de PR.",
+			"root_cause": "INCOHERENCE INTERNE A LA TRANCHE, pas une dette future : `docs/REGLES-PLAY.md` § J1 -- ECRIT PAR LE MEME COMMIT -- pose qu'une consequence enchainee par le moteur (jalon franchi, evenement consomme) n'ajoute AUCUN pas. Deux entrees `{tour: N, role: 'moteur'}` arrivent donc des it3, et la cle n'est unique que tant qu'un pas ne produit qu'une entree `moteur`. Le code et la regle qui l'invalide partaient ensemble.",
+			"fix": "`EcranPartie.tsx` -- cle sur l'INDEX, avec le motif ecrit : le journal est APPEND-ONLY, jamais reordonne ni filtre ni insere au milieu, donc l'index EST stable. Un champ `seq` persiste serait un derivable stocke (KR-013), ecarte nommement.",
+			"mitigation": "Regle portable : quand une tranche ecrit une REGLE et du CODE qui en depend, relire le code A LA LUMIERE DE LA REGLE QU'ELLE VIENT D'ECRIRE, pas de celle qui existait avant. Aucun test ne pouvait l'attraper -- avec un seul verbe, un pas ne produit jamais deux entrees `moteur`.",
+			"regression_test": "Aucun -- non separable avant it3 (aucun etat du monde ne produit deux entrees `moteur` d'un meme pas). Ecrit comme non verifie plutot que compte vert.",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-126",
+			"date": "2026-09-24",
+			"feature": "moteur-dossier",
+			"discovered_at": "iteration-3",
+			"symptom": "tourzero.ts rendait pnj_a_revele DETERMINEE a 'faux' sur une premisse que l iteration 3 venait elle-meme de RETRECIR, et que rien ne mesurait. Avant it3 la cellule reposait sur la clause LARGE de H6 (aucun delta avant la premiere action) ; it3 tue cette clause -- un effet[] de jalon s applique des l ouverture -- et lui substitue la premisse ETROITE << reveler_indice est d arite 1, sans operande pnj >>. Ses DEUX voisines ont ete degradees en indecidable pour ce motif exact ; celle-ci est restee determinee.",
+			"root_cause": "La premisse a ete recopiee VERBATIM en quatre endroits (tourzero.ts, tourzero.test.ts, controles.test.ts, revue SS 5) sans etre mesuree une seule fois. Et la garde soeur ne la couvrait pas, mesure faite : << tout refKinds de DELTAS est inclus dans l union des refKinds de PREDICATES >> laisse passer 'pnj', qui EST dans cette union (predicates.ts, pnj_a_revele). Un delta a operande pnj traversait toute la suite.",
+			"fix": "Garde derivee du registre ajoutee a deltas.test.ts, a cote de sa soeur : aucun DeltaId ne porte 'pnj' dans refKinds, plus sa moitie discriminante sur 'jalon'. La docstring de la cellule NOMME le test qui la tient. Trouve par la revue de PR tech-lead, sur le diff non committe.",
+			"mitigation": "Pouvoir separateur MESURE, pas deduit : reveler_indice passe a refKinds ['pnj','indice'] fait rougir la garde NOMMEMENT (3 echecs, la neuve en tete), fichier restaure et md5 verifie. Sans elle, une violation future aurait rendu non(pnj_a_revele(...)) certain-vrai a tort -- le FAUX POSITIF, seule direction d erreur que tourzero.ts s interdit -- et fait TAIRE trois temoins au lieu de les faire rougir : le temoin Kleene FAUX et les deux usages de FEUILLE_ENCORE_FAUSSE.",
+			"regression_test": "src/brain/dossier/deltas.test.ts -- aucun effet du registre ne porte un operande pnj, et c est ce qui tient pnj_a_revele a faux au tour zero",
+			"severity": "major"
+		}
+	]
+}

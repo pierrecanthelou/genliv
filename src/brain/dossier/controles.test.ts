@@ -268,16 +268,40 @@ function cloneReferenceAvantReparation(): Dossier {
 }
 
 /**
- * Le dossier de RÉFÉRENCE, son PREMIER objectif repointé sur une condition d'échec
- * certainement vraie au tour zéro SANS NÉGATION — un seul champ muté.
+ * La feuille NIÉE qui reste certaine-vraie au tour zéro APRÈS l'itération 3 de la
+ * n° 9 — `pnj_a_revele` est le SEUL prédicat dont la cellule vaille encore
+ * `'faux'`, donc le seul dont la négation soit certaine-vraie.
+ *
+ * ⚠ ELLE REMPLACE `non(possede_objet(objet.sceau-de-cendre))`, et c'est une
+ * CONSÉQUENCE MESURÉE : `possede_objet` est passé à `'indecidable'` parce qu'un
+ * `effet[]` de jalon peut remplir l'inventaire avant la première action. Sa
+ * justification, elle, n'a pas bougé — `reveler_indice` est d'arité 1, sans
+ * opérande `pnj`, donc aucun jalon ne peut faire parler un personnage.
+ */
+const FEUILLE_ENCORE_FAUSSE: ExprNode = {
+	op: 'non',
+	enfant: {
+		op: 'predicat',
+		predicat: 'pnj_a_revele',
+		cibles: ['pnj.corvin-le-marchand', 'indice.lettre-de-la-vigie'],
+	},
+}
+
+/**
+ * Le dossier de RÉFÉRENCE, ses DEUX objectifs repointés sur une condition d'échec
+ * certainement vraie au tour zéro — une par POLARITÉ, un seul champ muté chacun.
  *
  * `lieu_courant_est(<charpente.depart.lieu_id>)` est la SEULE forme non niée qui
  * puisse être certaine-vraie à l'ouverture : c'est le seul fait de session qu'un
- * champ du document écrive. Le SECOND objectif, lui, n'est pas touché — il porte
- * DÉJÀ `non(possede_objet(…))`, l'unique témoin réel du dépôt. Les deux polarités
- * cohabitent donc dans le MÊME dossier, et le départ est lu dans le document
- * plutôt que recopié : un changement de fixture ne rendrait pas ce témoin muet
- * en silence.
+ * champ du document écrive. Le départ est LU dans le document plutôt que recopié —
+ * un changement de fixture ne rendrait pas ce témoin muet en silence.
+ *
+ * ⚠ LE SECOND OBJECTIF EST DÉSORMAIS MUTÉ, LUI AUSSI, et ce n'est pas un choix de
+ * confort : il portait `non(possede_objet(…))`, l'unique témoin RÉEL du dépôt, et
+ * l'itération 3 de la n° 9 a rendu cette cellule indécidable. Le témoin de la
+ * polarité « encore faux » ne pouvait donc plus venir de la fixture non mutée — et
+ * la perte de ce vrai positif est assertée EN NÉGATIF plus bas, jamais laissée
+ * passer en silence.
  */
 function cloneObjectifPerduALOuverture(): Dossier {
 	const dossier = cloneReference()
@@ -286,6 +310,7 @@ function cloneObjectifPerduALOuverture(): Dossier {
 		predicat: 'lieu_courant_est',
 		cibles: [dossier.charpente.depart.lieu_id],
 	}
+	dossier.canon.objectifs[1].echoue_si_expr = FEUILLE_ENCORE_FAUSSE
 	return dossier
 }
 
@@ -1664,12 +1689,15 @@ describe('avertissement-de-validation, le pont vers les avertissements du valida
 			SANS_VOIX,
 			SANS_VOIX,
 			SANS_VOIX,
-			// LE SEUL MOUVEMENT DE LIGNE DE BASE D'IT10, et c'est un VRAI POSITIF du
-			// dossier de référence — `objectif.proteger-le-sceau`, dont la condition
-			// d'échec tient à l'ABSENCE d'un objet que le héros n'a pas encore. Le
-			// dossier neuf reste à quatre lignes et `dossier-minimal.json` à une : leurs
-			// conditions d'échec sont indécidables au tour zéro, jamais certaines.
-			'objectif-perdu-a-l-ouverture · alerte · canon · canon.objectifs[].echoue_si_expr',
+			// ⚠ LA LIGNE D'IT10 A DISPARU À L'ITÉRATION 3 DE LA N° 9, ET C'EST ÉCRIT
+			// PLUTÔT QUE CONSTATÉ. Elle épinglait un VRAI POSITIF du dossier de référence
+			// — `objectif.proteger-le-sceau`, dont la condition d'échec tient à l'ABSENCE
+			// d'un objet que le héros n'a pas encore. La cellule qui le décidait
+			// (`possede_objet`) est passée à `'indecidable'` : un `effet[]` de jalon peut
+			// désormais remplir l'inventaire avant la première action, et affirmer
+			// « encore faux » serait un FAUX POSITIF — la seule direction d'erreur que
+			// cette règle s'interdise. RÉGRESSION PRODUIT ASSUMÉE, dans la direction
+			// permise (le silence), et assertée en négatif dans le bloc de la règle.
 		])
 		expect(reference.jouable).toBe(false)
 
@@ -2321,17 +2349,48 @@ describe('canon-sans-victoire, des objectifs qui ne disent pas ce qu il faut acc
 })
 
 describe('objectif-perdu-a-l-ouverture, une condition d echec deja vraie avant le premier tour', () => {
-	it('un objectif perdu a l ouverture alerte, et son voisin sain se tait dans le meme test', () => {
-		// LE DOSSIER DE RÉFÉRENCE, NON MUTÉ (KR-197/202) : ses DEUX objectifs portent
-		// une condition d'échec, et un seul est perdu à l'ouverture. Un test à un seul
-		// objectif ne distinguerait pas une règle qui trie d'une règle qui tire sur
-		// tout ce qui porte le champ.
-		//  · `objectif.reveler-la-vigie` — « l'événement a déjà eu lieu », SANS négation :
-		//    aucun champ du dossier ne dit si un événement est consommé avant le premier
-		//    tour, donc INDÉCIDABLE, donc silence ;
-		//  · `objectif.proteger-le-sceau` — « ne possède pas le sceau », et le héros ne
-		//    possède rien avant d'avoir joué : CERTAIN-VRAI, donc alerte.
+	it('le vrai positif du dossier de reference est PERDU depuis it3 de la n 9, et c est asserte', () => {
+		// LA PERTE EST ASSERTÉE EN NÉGATIF, JAMAIS LAISSÉE PASSER EN SILENCE. Avant
+		// l'itération 3 de la n° 9, `objectif.proteger-le-sceau` — « ne possède pas le
+		// sceau » — était le SEUL vrai positif RÉEL du dépôt pour cette règle. La
+		// cellule `possede_objet` du tour zéro est passée à `'indecidable'` : un
+		// `effet[]` de jalon peut remplir l'inventaire avant la première action, donc
+		// « encore faux » n'est plus certain. La règle se tait.
+		//
+		// CE TEST EXISTE POUR QUE CE SILENCE AIT UN PROPRIÉTAIRE : le jour où quelqu'un
+		// rendra la cellule décidable — un champ de session à l'ouverture, un
+		// `Depart.inventaire` —, il rougira ici avant de rougir en production.
 		const dossier = cloneReference()
+		expect(dossier.canon.objectifs).toHaveLength(2)
+		expect(dossier.canon.objectifs[1].echoue_si_expr).toEqual({
+			op: 'non',
+			enfant: { op: 'predicat', predicat: 'possede_objet', cibles: ['objet.sceau-de-cendre'] },
+		})
+
+		expect(pourLaRegle(controlerDossier(dossier), 'objectif-perdu-a-l-ouverture')).toEqual([])
+
+		// DISCRIMINANCE, DANS LE MÊME TEST (KR-199) : la règle n'est pas éteinte — la
+		// MÊME polarité, sur la SEULE feuille encore certaine-fausse au tour zéro, la
+		// fait parler. Sans cette moitié, le silence ci-dessus serait indistinguable
+		// d'une règle qu'on aurait débranchée.
+		dossier.canon.objectifs[1].echoue_si_expr = FEUILLE_ENCORE_FAUSSE
+		expect(
+			pourLaRegle(controlerDossier(dossier), 'objectif-perdu-a-l-ouverture').map((constat) => constat.entityId),
+		).toEqual(['objectif.proteger-le-sceau'])
+	})
+
+	it('un objectif perdu a l ouverture alerte, et son voisin sain se tait dans le meme test', () => {
+		// LE DOSSIER DE RÉFÉRENCE, UN SEUL CHAMP MUTÉ (KR-197/202) : ses DEUX objectifs
+		// portent une condition d'échec, et un seul est perdu à l'ouverture. Un test à
+		// un seul objectif ne distinguerait pas une règle qui trie d'une règle qui tire
+		// sur tout ce qui porte le champ.
+		//  · `objectif.reveler-la-vigie` — « l'événement a déjà eu lieu », SANS négation,
+		//    NON TOUCHÉ : aucun champ du dossier ne dit si un événement est consommé
+		//    avant le premier tour, donc INDÉCIDABLE, donc silence ;
+		//  · `objectif.proteger-le-sceau` — « le personnage n'a pas révélé l'indice », et
+		//    aucun jalon ne peut faire parler un personnage : CERTAIN-VRAI, donc alerte.
+		const dossier = cloneReference()
+		dossier.canon.objectifs[1].echoue_si_expr = FEUILLE_ENCORE_FAUSSE
 		expect(dossier.canon.objectifs).toHaveLength(2)
 
 		const constats = pourLaRegle(controlerDossier(dossier), 'objectif-perdu-a-l-ouverture')
@@ -2344,7 +2403,7 @@ describe('objectif-perdu-a-l-ouverture, une condition d echec deja vraie avant l
 		// LE MESSAGE, VERBATIM : il nomme la feuille, son entité, et affirme la valeur
 		// de vérité À CÔTÉ d'un libellé resté positif.
 		expect(constats[0].message).toBe(
-			"Cette condition d'échec tient à « possède l'objet » — Objet « Le sceau de cendre » —, encore faux avant la première action du joueur.",
+			"Cette condition d'échec tient à « le personnage a déjà révélé l'indice » — Personnage « Corvin le Marchand », Indice « Une lettre signée de la Vigie » —, encore faux avant la première action du joueur.",
 		)
 		// LA CONSIGNE, verbatim : un geste PROUVÉ, l'absence de geste DITE, et
 		// l'intention de l'auteur respectée — c'est elle qui interdit un bloquant.
@@ -2360,15 +2419,17 @@ describe('objectif-perdu-a-l-ouverture, une condition d echec deja vraie avant l
 	})
 
 	it('les deux polarites produisent deux messages distincts', () => {
-		// DEUX OBJECTIFS, MÊME DOSSIER, DEUX POLARITÉS. Le premier est repointé sur la
-		// SEULE forme non niée qui puisse être certaine-vraie à l'ouverture — « se
-		// trouve dans le lieu de départ » —, le second n'est pas touché. Sans ce
-		// témoin, la moitié « déjà vrai » du gabarit ne serait tenue par rien.
+		// DEUX OBJECTIFS, MÊME DOSSIER, DEUX POLARITÉS, DEUX ARITÉS. Le premier est
+		// repointé sur la SEULE forme non niée qui puisse être certaine-vraie à
+		// l'ouverture — « se trouve dans le lieu de départ » —, le second sur la SEULE
+		// feuille dont la négation le soit encore après l'itération 3 de la n° 9. Sans
+		// ce témoin, la moitié « déjà vrai » du gabarit ne serait tenue par rien — et la
+		// moitié « encore faux » ne le serait plus par la fixture non mutée.
 		const constats = pourLaRegle(controlerDossier(cloneObjectifPerduALOuverture()), 'objectif-perdu-a-l-ouverture')
 
 		expect(constats.map((constat) => constat.message)).toEqual([
 			"Cette condition d'échec tient à « se trouve dans le lieu » — Lieu « Le Foyer du Guet » —, déjà vrai avant la première action du joueur.",
-			"Cette condition d'échec tient à « possède l'objet » — Objet « Le sceau de cendre » —, encore faux avant la première action du joueur.",
+			"Cette condition d'échec tient à « le personnage a déjà révélé l'indice » — Personnage « Corvin le Marchand », Indice « Une lettre signée de la Vigie » —, encore faux avant la première action du joueur.",
 		])
 
 		// LA POLARITÉ EST LE SEUL SEGMENT QUI CHANGE au-delà de la feuille, et les deux
@@ -2391,7 +2452,15 @@ describe('objectif-perdu-a-l-ouverture, une condition d echec deja vraie avant l
 		// NI CLÉ TECHNIQUE, NI IDENTIFIANT BRUT : l'auteur lit le mot que le sélecteur
 		// de conditions lui présente, et le NOM de chaque entité.
 		for (const constat of constats) {
-			for (const interdit of ['possede_objet', 'lieu_courant_est', 'objet.', 'lieu.', 'prédicat', 'tour zéro']) {
+			for (const interdit of [
+				'pnj_a_revele',
+				'lieu_courant_est',
+				'pnj.',
+				'indice.',
+				'lieu.',
+				'prédicat',
+				'tour zéro',
+			]) {
 				expect(`${interdit} → ${constat.message.includes(interdit)}`).toBe(`${interdit} → false`)
 			}
 		}
@@ -2399,13 +2468,19 @@ describe('objectif-perdu-a-l-ouverture, une condition d echec deja vraie avant l
 
 	it('une cible qui ne resout aucune entite ne produit AUCUN constat', () => {
 		const dossier = cloneReference()
-		// UNE RÉFÉRENCE PENDANTE : cet objet n'existe pas au dossier. C'est une anomalie
+		// UNE RÉFÉRENCE PENDANTE : ce lieu n'existe pas au dossier. C'est une anomalie
 		// du validateur, qu'un dossier PERSISTÉ ne peut pas porter (KR-225) et que le
 		// canal des contrôles ne doit pas DOUBLER (KR-217) — et sans cette garde, le OÙ
 		// du message nommerait une entité qui n'existe pas.
+		//
+		// LA FEUILLE EST CHOISIE POUR QU'ELLE PARLERAIT SI ELLE RÉSOLVAIT : le témoin
+		// portait `non(possede_objet(…))`, devenu INDÉCIDABLE à l'itération 3 de la
+		// n° 9, si bien que le silence serait devenu vrai POUR LA MAUVAISE RAISON — la
+		// garde de résolution n'aurait plus rien mesuré. `lieu_courant_est` sur un lieu
+		// qui n'est pas le départ est certain-FAUX, donc sa négation certaine-VRAIE.
 		dossier.canon.objectifs[1].echoue_si_expr = {
 			op: 'non',
-			enfant: { op: 'predicat', predicat: 'possede_objet', cibles: ['objet.jamais-vu'] },
+			enfant: { op: 'predicat', predicat: 'lieu_courant_est', cibles: ['lieu.jamais-vu'] },
 		}
 		expect(pourLaRegle(controlerDossier(dossier), 'objectif-perdu-a-l-ouverture')).toEqual([])
 		// ET C'EST BIEN L'AUTRE CANAL QUI PARLE sur ce même dossier : sans cette ligne,
@@ -2417,7 +2492,7 @@ describe('objectif-perdu-a-l-ouverture, une condition d echec deja vraie avant l
 		// d'une règle qui ne parle jamais.
 		dossier.canon.objectifs[1].echoue_si_expr = {
 			op: 'non',
-			enfant: { op: 'predicat', predicat: 'possede_objet', cibles: ['objet.sceau-de-cendre'] },
+			enfant: { op: 'predicat', predicat: 'lieu_courant_est', cibles: ['lieu.marche-des-cendres'] },
 		}
 		expect(pourLaRegle(controlerDossier(dossier), 'objectif-perdu-a-l-ouverture')).toHaveLength(1)
 	})

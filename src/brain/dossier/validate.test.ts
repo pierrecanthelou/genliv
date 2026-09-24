@@ -3491,22 +3491,30 @@ describe('validateDossier, les references simples', () => {
 		expect(accesDuPremierLieu(doc)).toHaveLength(2)
 	})
 
-	it('le dossier de reference ENRICHI de 3 acces reste accepte, et une seule corruption remonte', () => {
+	it('le dossier de reference ENRICHI de 5 acces reste accepte, et une seule corruption remonte', () => {
 		// CRITÈRE #5, MÊME FORME que le test jumeau de `mene_a` plus bas et pour la même
 		// raison (BUG-072) : « le dossier enrichi reste accepté sans régression » et
 		// « une entrée fautive est refusée » ne valent que prouvées ENSEMBLE, sur le
 		// MÊME document et dans le MÊME résultat.
 		//
-		// LES TROIS ENTRÉES SONT NOMMÉES, et le compte n'est pas décoratif : DEUX
-		// d'entre elles ne font qu'UN passage réciproque (Foyer ↔ marché), la TROISIÈME
-		// est un aller simple (Foyer → tour) dont la tour ne porte AUCUN inverse. C'est
-		// ce que la fixture doit rendre visible — la réciprocité coûte deux entrées.
+		// LES CINQ ENTRÉES SONT NOMMÉES, et le compte n'est pas décoratif : QUATRE
+		// d'entre elles ne font que DEUX passages réciproques (Foyer ↔ marché,
+		// Foyer ↔ tour), la CINQUIÈME est un aller simple (tour → vigie) dont la vigie
+		// ne porte AUCUN inverse. C'est ce que la fixture doit rendre visible — la
+		// réciprocité coûte deux entrées, et l'asymétrie est ce sur quoi
+		// `commandes.test.ts` fonde son témoin de résolution ORIENTÉE.
+		//
+		// LA CINQUIÈME EST ENTRÉE À L'ITÉRATION 3 DE LA N° 9, avec l'arête
+		// `tour → vigie` qui la porte : sans elle, `lieu.vigie-du-nord` est INATTEIGNABLE
+		// depuis le départ, et c'est la cible du seul jalon à `declencheur_expr` de ce
+		// dossier — la démonstration « un jalon s'atteint EN COURS de partie » serait
+		// insatisfiable. Une ARÊTE, et rien d'autre : aucun jalon neuf, aucun effet neuf.
 		const doc = JSON.parse(fs.readFileSync(CHEMIN_REFERENCE, 'utf8')) as Doc
 		const lieux = arr(obj(doc.monde).lieux)
 		expect(lieux.map((lieu) => `${lieu.id} → ${JSON.stringify(lieu.acces ?? null)}`)).toEqual([
 			'lieu.foyer-du-guet → ["lieu.marche-des-cendres","lieu.tour-effondree"]',
 			'lieu.marche-des-cendres → ["lieu.foyer-du-guet"]',
-			'lieu.tour-effondree → null',
+			'lieu.tour-effondree → ["lieu.foyer-du-guet","lieu.vigie-du-nord"]',
 			'lieu.crypte-scellee → null',
 			'lieu.vigie-du-nord → null',
 		])

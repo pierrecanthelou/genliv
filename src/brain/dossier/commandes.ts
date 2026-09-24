@@ -29,6 +29,7 @@
  * MODULE PUR, sans dépendance de service : il part avec `src/player/` le jour de
  * l'extraction (`docs/EXIGENCE-APERCU-DU-JEU.md` § 6).
  */
+import { resoudreJalons } from './evaluate'
 import { defineRegistre, type EspaceDeNoms } from './identifiers'
 import type { EtatSession } from './session'
 import type { Dossier } from './types'
@@ -230,7 +231,59 @@ const TRANSITIONS: Record<CommandeId, Transition> = {
 }
 
 /**
- * EXÉCUTER UNE COMMANDE ANALYSÉE — PURE, totale, synchrone.
+ * LA CONSÉQUENCE DE RÈGLE D'UNE COMMANDE ACCEPTÉE — les jalons devenus vrais, et
+ * la ligne de journal qui les raconte.
+ *
+ * UNE ENTRÉE PAR JALON ATTEINT, et jamais deux : le `texte` nomme le champ
+ * d'`EtatMonde` et l'identifiant, les `deltas` portent les effets EN DONNÉE. Une
+ * seconde entrée qui les redirait en prose les ferait vivre DEUX fois, et un
+ * consommateur qui lirait les deux compterait chaque révélation deux fois.
+ *
+ * MÊME `tour` QUE LA COMMANDE : une conséquence enchaînée n'ajoute jamais un pas
+ * (`docs/REGLES-PLAY.md` § J1). C'est la DEMANDE du joueur qui consomme le pas.
+ *
+ * PAS D'`origine` : le registre des commandes est ce qu'un JOUEUR peut TAPER, et
+ * un jalon franchi n'en est pas. L'itération qui voudra attribuer une cause moteur
+ * ajoutera SON propre champ optionnel avec SA propre ligne d'audience.
+ *
+ * LE TEXTE EST RECONSTRUIT : nom de champ d'`EtatMonde` + `:` + identifiant.
+ * JAMAIS `enonce_texte` (audience `ia` — ce serait une troisième prose émise
+ * verbatim), JAMAIS `jalons[].nom` (audience `auteur` — un mot que l'auteur a
+ * tapé). Le `→` reste réservé à une transition scalaire : une appartenance
+ * d'ensemble n'en porte pas.
+ */
+function avecJalonsResolus(dossier: Dossier, session: EtatSession): EtatSession {
+	const resolution = resoudreJalons(dossier, session.monde)
+	if (resolution.atteints.length === 0) return session
+
+	return {
+		...session,
+		monde: resolution.faits,
+		journal: [
+			...session.journal,
+			...resolution.atteints.map((atteint) => ({
+				tour: session.horloge.tour,
+				role: 'moteur' as const,
+				texte: `jalons_atteints : ${atteint.jalon_id}`,
+				deltas: atteint.deltas,
+			})),
+		],
+	}
+}
+
+/**
+ * EXÉCUTER UNE COMMANDE ANALYSÉE — PURE, synchrone, et TOTALE **sur un dossier
+ * accepté par `validateDossier`**.
+ *
+ * ⚠ LA TOTALITÉ EST DÉSORMAIS CONDITIONNELLE, et c'est écrit plutôt que découvert :
+ * la passe des jalons appelle `evaluerExpr`, qui LÈVE sur une entrée non reconnue
+ * (KR-238). Aucun `catch` ici — il rouvrirait le faux positif que ce choix ferme,
+ * et lever sur un chemin utilisateur donne un écran blanc : la parade est la porte
+ * `jouable` des contrôles, vérifiée AU MONTAGE du shell (KR-239), jamais un repli.
+ *
+ * LA PASSE NE TOURNE QUE SUR UNE COMMANDE ACCEPTÉE — un refus n'a rien changé au
+ * monde, donc aucune condition n'a pu devenir vraie : la rejouer serait du travail
+ * pour rien ET une occasion de lever sur un chemin qui n'écrit rien.
  *
  * UN REFUS NE CONSOMME AUCUN PAS : il ne touche aucun champ, n'écrit aucune ligne
  * de journal, et NE REND AUCUNE SESSION — l'appelant garde la sienne, qui est la
@@ -246,5 +299,7 @@ const TRANSITIONS: Record<CommandeId, Transition> = {
  * phrase : c'est la phrase qui était un raccourci.
  */
 export function executerCommande(dossier: Dossier, session: EtatSession, commande: Commande): ResultatCommande {
-	return TRANSITIONS[commande.commande](dossier, session, commande)
+	const resultat = TRANSITIONS[commande.commande](dossier, session, commande)
+	if (!resultat.ok) return resultat
+	return { ok: true, session: avecJalonsResolus(dossier, resultat.session) }
 }

@@ -280,12 +280,12 @@ Charger par référence plutôt que tout charger est ce qui évite le contexte m
 
 | Fichier | Croissance | Mesuré | Plafond | Marge |
 | --- | --- | ---: | ---: | ---: |
-| `CLAUDE.md` + `docs/WORKFLOW.md` (couple) | défaut | 46 066 o | **45 kio** (46 080) | **14 o** |
-| `code-knowledge.json` | normale | 67 649 o | **70 kio** (71 680) | ~3,94 kio |
-| `bug_history.json` | **plancher** (BUG-120) | 9 712 o | **10 kio** (10 240) | ~0,52 kio |
-| `features_history.json` | **plancher** (`dossier-copilote`) | 11 934 o | **25 kio** (25 600) | ~13,35 kio |
+| `CLAUDE.md` + `docs/WORKFLOW.md` (couple) | défaut | 46 063 o | **45 kio** (46 080) | **17 o** |
+| `code-knowledge.json` | normale | 69 042 o | **70 kio** (71 680) | ~2,58 kio |
+| `bug_history.json` | **plancher** (BUG-124) | 9 678 o | **10 kio** (10 240) | ~0,55 kio |
+| `features_history.json` | **plancher** (`dossier-copilote`) | 14 950 o | **25 kio** (25 600) | ~10,40 kio |
 | `specification.json`, **par feature** | normale | 66 487 o (max : `dossier-format` ; 2e : `dossier-canon` 66 276 o) | **65 kio** (66 560) | **73 o** |
-| `docs/ROADMAP-BASCULE-IA.md` | **défaut** | 30 660 o | **30 kio** (30 720) | **60 o** |
+| `docs/ROADMAP-BASCULE-IA.md` | **défaut** | 30 184 o | **30 kio** (30 720) | 536 o |
 
 Le roadmap est un **index**, pas un journal : sa croissance est un défaut, pas un fonctionnement normal. **Compacté le 2026-09-19** (35 671 → 26 929 o, plafond re-dérivé 35 → 30 kio) : l'archive en est sortie une première fois, et c'est elle — motifs d'une décision livrée, corrections de cadrage, historique des recadrages — qui repart au prochain franchissement, jamais les colonnes `Statut` ni le § 4 « Ce qui est CLOS ». **Le markdown n'est pas dans le périmètre Prettier** (`npm run format` ne vise que `{src,worker}/**/*.{ts,tsx,css}`) : un `prettier --write` sur ces fichiers repadde les tables et coûte ~8 kio de budget pour rien.
 
