@@ -7,8 +7,10 @@
  * `tree.ts` importe les configurations d'action de `./types` — jamais l'inverse.
  * `types.ts` porte les types de RÈGLES (`GameObject`, `SkillRoll`, `MonsterConfig`,
  * `CreatureType`…) que `src/player/` consomme et qui SURVIVENT à la bascule ;
- * l'arbre, lui, est condamné (n° 2 pour la moitié `BookService` + `kinds.ts`,
- * n° 9 pour `playExport` + `Book`/`Edge`).
+ * l'arbre, lui, est condamné — n° 2 a éteint la moitié `BookService` + `kinds.ts`,
+ * n° 9 it4 a éteint ses CONSOMMATEURS de jeu (`playExport`, le runtime joueur),
+ * jamais le MODÈLE lui-même (`Book`/`Edge` survivent, KR-240) : sa démolition
+ * reste propriété de la n° 9, non planifiée ici.
  *
  * C'est cette asymétrie qui rend KR-167 vérifiable : tant que `Dossier` et
  * `BookNode` partagent un fichier, le premier qui écrit `objets: GameObject[]` a

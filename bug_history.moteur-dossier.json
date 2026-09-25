@@ -1,5 +1,5 @@
 {
-	"_about": "Archive des defauts de moteur-dossier (n 9, EN COURS 3/4) dont la lecon est DEJA PROMUE dans un instrument lui-meme en lecture obligatoire. MEME AXE que bug_history.dossier-controles.json et bug_history.dossier-fiches.json : il porte sur la REDONDANCE, JAMAIS sur l'age -- une feature VIVANTE y a droit, et c'est la troisieme fois qu'on l'y applique. Une entree promue est relue a chaque iteration SOUS SA FORME PROMUE ; garder le recit a cote, c'est payer la meme lecon deux fois par session. Ne le 2026-09-24 (moteur-dossier it3, franchissement du plafond de bug_history.json : 13 101 / 10 240 o). CE FICHIER N'EST PAS EN LECTURE OBLIGATOIRE -- seul bug_history.json l'est. NE PARTENT PAS ICI les entrees dont la lecon n'est promue nulle part (BUG-124, BUG-125 y sont restees pour cette raison, pas par oubli). NUMEROTATION GLOBALE aux NEUF fichiers desormais, jamais reemployee : prochain id = max(BUG-xxx) des NEUF (precedents BUG-062, BUG-123). HISTORIQUE DES SCISSIONS : CHANGELOG.md.",
+	"_about": "Archive des defauts de moteur-dossier (n 9, TERMINEE 4/4 le 2026-09-25) dont la lecon est DEJA PROMUE dans un instrument lui-meme en lecture obligatoire. MEME AXE que bug_history.dossier-controles.json et bug_history.dossier-fiches.json : il porte sur la REDONDANCE, JAMAIS sur l'age -- une feature TERMINEE y a toujours droit. Une entree promue est relue a chaque iteration SOUS SA FORME PROMUE ; garder le recit a cote, c'est payer la meme lecon deux fois par session. Ne le 2026-09-24 (moteur-dossier it3, franchissement du plafond de bug_history.json : 13 101 / 10 240 o). CE FICHIER N'EST PAS EN LECTURE OBLIGATOIRE -- seul bug_history.json l'est. NE PARTENT PAS ICI les entrees dont la lecon n'est promue nulle part (BUG-124, BUG-125 y sont restees pour cette raison, pas par oubli). NUMEROTATION GLOBALE aux NEUF fichiers desormais, jamais reemployee : prochain id = max(BUG-xxx) des NEUF (precedents BUG-062, BUG-123, BUG-129). HISTORIQUE DES SCISSIONS : CHANGELOG.md.",
 	"bugs": [
 		{
 			"id": "BUG-120",
@@ -36,6 +36,18 @@
 			"mitigation": "Pouvoir separateur MESURE, pas deduit : reveler_indice passe a refKinds ['pnj','indice'] fait rougir la garde NOMMEMENT (3 echecs, la neuve en tete), fichier restaure et md5 verifie. Sans elle, une violation future aurait rendu non(pnj_a_revele(...)) certain-vrai a tort -- le FAUX POSITIF, seule direction d erreur que tourzero.ts s interdit -- et fait TAIRE trois temoins au lieu de les faire rougir : le temoin Kleene FAUX et les deux usages de FEUILLE_ENCORE_FAUSSE.",
 			"regression_test": "src/brain/dossier/deltas.test.ts -- aucun effet du registre ne porte un operande pnj, et c est ce qui tient pnj_a_revele a faux au tour zero",
 			"severity": "major"
+		},
+		{
+			"id": "BUG-129",
+			"date": "2026-09-25",
+			"feature": "moteur-dossier",
+			"discovered_at": "iteration-4",
+			"symptom": "Le lot contrat d it4 (extinction-arbre) annoncait au SS 4 bis du plan le retrait TOTAL de PlayNode de src/player/types.ts. Au retrait complet, tsc --noEmit rougissait (TS2305, module introuvable) sur un fichier HORS du lot.",
+			"root_cause": "Le comite de raffinage avait mesure les appelants de PlayNode sur le MODELE d arbre (brain/tree.ts) mais pas sur les orphelins conserves de src/player/ (~4 400 lignes, hors de tout lot, roadmap SS 2 bis) : EndScreen.tsx, dont le seul appelant reel (PlayerRuntime.tsx) etait lui-meme demoli par ce lot, importe encore PlayNode. Verifie dans les 9 transcripts de raffinage : EndScreen.tsx n y est cite qu en ligne de LOC orpheline, jamais comme consommateur de type.",
+			"fix": "PlayNode redefini localement et minimalement dans src/player/types.ts (interface PlayNode { text: string }, le seul champ lu par EndScreen.tsx), SANS reimport de brain/tree -- un reimport aurait fait remonter de 0 a 1 le critere 2 du plan (imports src/player/** -> brain/tree, mesure a zero).",
+			"mitigation": "Applique une regle deja existante (dev-contrat.md, regle 2 : chercher les appelants avant d ecrire, meme hors du modele explicitement nomme par le plan), pas une regle neuve -- d ou l archivage direct plutot qu une entree dans bug_history.json. Ratifie par la QA en mode B (contexte neuf) : EndScreen.tsx confirme appelant reel, tsc verifie vert, critere 2 confirme a zero import.",
+			"regression_test": "aucun -- tsc --noEmit est l instrument qui tient ce point ; EndScreen.tsx n a pas de test qui rend son import de PlayNode observable.",
+			"severity": "minor"
 		}
 	]
 }

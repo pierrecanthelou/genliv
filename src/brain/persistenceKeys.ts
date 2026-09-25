@@ -144,13 +144,6 @@ export const MONSTER_LIBRARY_KEY = `${PERSISTENCE_PREFIX}:monster-library`
 export const MONSTER_LIBRARY_SEEDED_KEY = `${PERSISTENCE_PREFIX}:monster-library:seeded`
 
 /**
- * Per-book PLAY SESSION key prefix used by `src/player/utils/persist.ts` directly
- * (the play runtime cannot depend on PersistenceService — it must be extractible).
- * Documented here for auditability (KR-011/134). Full key = `${prefix}{bookId}`.
- */
-export const PLAY_SESSION_KEY_PREFIX = `${PERSISTENCE_PREFIX}:play:session:`
-
-/**
  * Cloudflare Worker URL entered by the user in the cloud-sync settings form.
  * Stored in the RAW local store (not cloud-synced) — it is the endpoint for
  * the sync itself, so syncing it would be circular (KR-022).

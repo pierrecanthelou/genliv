@@ -36,8 +36,29 @@ const RACINES_DU_PERIMETRE = [
 	path.join(RACINE_SRC, 'brain', 'dossier'),
 ]
 
-/** Total mesuré le 2026-09-20 : 47 fichiers non-test. Le seuil garde la mesure, pas le chiffre. */
+/**
+ * Total mesuré le 2026-09-25 (`moteur-dossier` it4, après extinction des
+ * consommateurs de jeu du modèle d'arbre), VENTILÉ par racine : `player` 14 ·
+ * `play-mode` 8 · `brain/dossier` 26 = **48** fichiers non-test. Le seuil garde
+ * la mesure, pas le chiffre.
+ */
 const PLANCHER_DE_NON_VACUITE = 20
+
+/**
+ * Plancher PAR RACINE (A-7, `moteur-dossier` it4) — `floor(mesure/5)×5` sur la
+ * mesure ci-dessus, calculé PAR RACINE et non globalement : un plancher global
+ * de 20 est déjà satisfait par `brain/dossier` (26) SEUL, donc **aveugle** si
+ * `player` s'effondrait en silence jusqu'à 1 fichier — `PLANCHER_DE_NON_VACUITE`
+ * reste un filet global, celui-ci est le garde qui distingue les trois racines.
+ * `floor(n/5)×5 = 10` pour tout `n` de 10 à 14 : ce plancher ne certifie donc
+ * rien de plus fin que « cette racine n'a pas été vidée par mégarde » — il ne
+ * prouve jamais qu'un lot de démolition s'est arrêté exactement au bon endroit.
+ */
+const PLANCHER_PAR_RACINE: Readonly<Record<string, number>> = {
+	player: 10,
+	'play-mode': 5,
+	dossier: 25,
+}
 
 function fichiersDeProduction(racine: string): string[] {
 	return fs
@@ -74,12 +95,19 @@ const FICHIERS = RACINES_DU_PERIMETRE.flatMap(fichiersDeProduction)
 const relatif = (chemin: string): string => path.relative(RACINE_SRC, chemin).split(path.sep).join('/')
 
 describe('le moteur de la n 9 ne genere aucun texte (KR-250)', () => {
-	it('le perimetre derive du disque est NON VIDE, et chacune de ses trois racines aussi', () => {
-		// Sans cette assertion, les trois balayages ci-dessous seraient verts sur une
-		// liste vide — un renommage de répertoire suffirait à éteindre l'instrument
-		// sans qu'une seule suite rougisse (BUG-084).
+	it('le perimetre derive du disque respecte son plancher, PAR RACINE (A-7), et le plancher global aussi', () => {
+		// Sans ces assertions, les balayages ci-dessous seraient verts sur une liste
+		// vide — un renommage de répertoire suffirait à éteindre l'instrument sans
+		// qu'une seule suite rougisse (BUG-084). Le plancher PAR RACINE distingue en
+		// plus un effondrement d'une seule racine que le plancher global (26 dans
+		// brain/dossier seul) ne verrait pas passer (A-7).
 		for (const racine of RACINES_DU_PERIMETRE) {
-			expect(`${relatif(racine)} → ${fichiersDeProduction(racine).length > 0}`).toBe(`${relatif(racine)} → true`)
+			const nom = path.basename(racine)
+			const plancher = PLANCHER_PAR_RACINE[nom]
+			const compte = fichiersDeProduction(racine).length
+			expect(`${relatif(racine)} → ${compte} >= ${plancher} → ${compte >= plancher}`).toBe(
+				`${relatif(racine)} → ${compte} >= ${plancher} → true`,
+			)
 		}
 		expect(FICHIERS.length).toBeGreaterThanOrEqual(PLANCHER_DE_NON_VACUITE)
 	})

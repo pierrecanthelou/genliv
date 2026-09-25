@@ -2,11 +2,22 @@
 
 > Statut : **exigence éditeur** (générateur d'aventure). Le **bouton « Aperçu du jeu » existe déjà** dans la barre d'outils de l'éditeur ; il s'agit de le **brancher sur le runtime de jeu autonome** et d'en faire un aller-retour fluide.
 
+> ⚠ **Document partiellement obsolète depuis `moteur-dossier` it4 (2026-09-25)** — le pipeline
+> livre → `AdventureDocument` → runtime qu'il décrit n'a plus de producteur : `buildAdventureDocument`
+> et le format `AdventureDocument`/`PlayExport` sont supprimés avec leurs deux seuls lecteurs
+> (`usePlaySession.ts`, `PlayerModal.tsx`), et le CTA qui les déclenchait est désactivé (KR-240).
+> **Restent fausses, non réécrites ici** — une réécriture de fond est hors périmètre d'it4 (A-21),
+> propriété de la n° 15 `moteur-fins` : l. 7 (« chargées sous forme d'un `AdventureDocument` »),
+> l. 11 (le paragraphe `AdventureDocument`/`buildAdventureDocument`), l. 62 (le critère
+> d'acceptation citant `buildAdventureDocument(book)`). **Corrigées ci-dessous** : l. 9 (liste des
+> modules `brain/` réellement importés par `src/player/`) et la fin de l. 49 (le point d'entrée du
+> bundle extractible, qui n'existe plus).
+
 ## Contrainte architecturale fondamentale
 
 > **Le runtime de jeu est un module autonome et extractible** — il n'importe rien de l'éditeur. La même unité de code alimente à la fois l'« Aperçu du jeu » de l'éditeur **et** les futures surfaces de distribution (autre webapp, application mobile). Les aventures lui sont **chargées** sous forme d'un `AdventureDocument` ; il ne lit jamais le `BookService` ni aucun service brain de l'éditeur directement.
 >
-> **Isolation :** `src/player/` n'importe que les fonctions pures `brain/` (characteristics.ts, combat.ts, xp.ts, challenge.ts, equipment.ts) — jamais les features ni les services. Ces fonctions pures font partie du bundle extractible.
+> **Isolation :** `src/player/` n'importe que les fonctions pures et les types `brain/` (characteristics.ts, combat.ts, xp.ts, challenge.ts, equipment.ts, types.ts, monsterCapacities.ts, creatureTypes.ts — mesuré au balayage des spécificateurs d'import, 2026-09-25) — jamais les features ni les services. Ces modules font partie du bundle extractible.
 >
 > **`AdventureDocument`** (défini dans `src/player/types.ts`) = le format chargé par le runtime. Pour l'« Aperçu du jeu », l'éditeur le construit depuis le book en mémoire via `buildAdventureDocument(book)` (sans export sur disque). Pour la version publiée, `book-export` produit ce même format.
 
@@ -46,7 +57,7 @@ Permettre à l'auteur de **jouer immédiatement** l'aventure qu'il est en train 
 
 ### 6. Autonomie et extractibilité du runtime
 - Le runtime (`src/player/`) embarque le **bloc de stats complet** du monstre et l'**effet d'équipement** des objets via l'`AdventureDocument` — il ne dépend d'aucun export préalable ni d'aucun service éditeur.
-- Il peut être **extrait et déployé indépendamment** (autre webapp, app mobile) : copier `src/player/` + les modules `brain/` purs (characteristics, combat, xp, challenge, equipment, monsterCapacities), plus les modules purs du **dossier d'aventure** : `brain/dossier/types.ts`, `brain/dossier/amorce.ts`, `brain/dossier/session.ts`, `brain/dossier/sessionDestinations.ts` (n° 9 `moteur-dossier`, itération 1), `brain/dossier/commandes.ts` (itération 2), et `brain/dossier/faits.ts` + `brain/dossier/evaluate.ts` (itération 3) — aucun service, aucune persistance, aucun composant —, **plus leurs dépendances**, qui ne sont pas facultatives : `types.ts` type-importe `expr.ts`, `deltas.ts` et `curseurs.ts`, et `sessionDestinations.ts` type-importe `destinations.ts`. `commandes.ts` en ajoute une de plus, et elle est EN VALEUR, pas en type : il importe `defineRegistre` de `brain/dossier/identifiers.ts`, qui importe lui-même `brain/utils/id.ts` — deux fichiers de plus à copier, dits ici plutôt que découverts le jour de l'extraction. `evaluate.ts` en ajoute **une seule**, également EN VALEUR : `brain/dossier/predicates.ts` (les descripteurs `lit`) ; `deltas.ts` (les descripteurs `ecrit`) voyageait déjà comme dépendance de `types.ts`, et `faits.ts` **n'importe rien du tout** — c'est sa raison d'être. Sans eux la copie ne compile pas. `sessionDestinations.ts` voyage non pour être exécuté mais parce qu'il est **le contrat d'audience de l'état de session** : la surface extraite qui branchera un modèle en aura besoin avant d'injecter quoi que ce soit. `AdventureDocument` est l'unique point d'entrée.
+- Il peut être **extrait et déployé indépendamment** (autre webapp, app mobile) : copier `src/player/` + les modules `brain/` purs (characteristics, combat, xp, challenge, equipment, monsterCapacities), plus les modules purs du **dossier d'aventure** : `brain/dossier/types.ts`, `brain/dossier/amorce.ts`, `brain/dossier/session.ts`, `brain/dossier/sessionDestinations.ts` (n° 9 `moteur-dossier`, itération 1), `brain/dossier/commandes.ts` (itération 2), et `brain/dossier/faits.ts` + `brain/dossier/evaluate.ts` (itération 3) — aucun service, aucune persistance, aucun composant —, **plus leurs dépendances**, qui ne sont pas facultatives : `types.ts` type-importe `expr.ts`, `deltas.ts` et `curseurs.ts`, et `sessionDestinations.ts` type-importe `destinations.ts`. `commandes.ts` en ajoute une de plus, et elle est EN VALEUR, pas en type : il importe `defineRegistre` de `brain/dossier/identifiers.ts`, qui importe lui-même `brain/utils/id.ts` — deux fichiers de plus à copier, dits ici plutôt que découverts le jour de l'extraction. `evaluate.ts` en ajoute **une seule**, également EN VALEUR : `brain/dossier/predicates.ts` (les descripteurs `lit`) ; `deltas.ts` (les descripteurs `ecrit`) voyageait déjà comme dépendance de `types.ts`, et `faits.ts` **n'importe rien du tout** — c'est sa raison d'être. Sans eux la copie ne compile pas. `sessionDestinations.ts` voyage non pour être exécuté mais parce qu'il est **le contrat d'audience de l'état de session** : la surface extraite qui branchera un modèle en aura besoin avant d'injecter quoi que ce soit. Le point d'entrée du bundle n'est plus `AdventureDocument` — supprimé par `moteur-dossier` it4 avec ses deux seuls lecteurs (KR-240) — et reste à définir, propriété de la n° 15 `moteur-fins`.
 - `book-export` produit le même `AdventureDocument` pour la version publiée : le format est unique, le runtime est unique.
 
 ## Maquette de référence

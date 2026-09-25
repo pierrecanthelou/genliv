@@ -1,7 +1,7 @@
 {
 	"feature": "moteur-dossier",
 	"created_at": "2026-09-20",
-	"status": "in-progress",
+	"status": "done",
 	"design_reference": "docs/PLAN-BASCULE-IA.dc.html § 2.3 (le tour de jeu en sept étapes), § 2.4 « L'état de session » (lignes 376-402 — les 10 clés racine, dont journal[].deltas et memoire.faits_etablis laissés en [ … ]) et iterMoteur J1 (« Boucle sèche, sans IA : machine à états, session JSON, horloge, journal, application des deltas, pilotés par une console de commandes typées. Aucune génération de texte : on valide la mécanique seule »). docs/ROADMAP-BASCULE-IA.md § 3 ligne 9 et son paragraphe. docs/EXIGENCE-APERCU-DU-JEU.md — la contrainte de runtime extractible s'applique à TOUTE la feature. LE PLAN DE CIBLE EST PARTIELLEMENT PÉRIMÉ, et le cadrage le corrige à trois endroits : (a) quetes[].etapes en sort (aucun delta ni prédicat n'atteint l'état de quête, quete_achevee est écarté nommément dans predicates.ts) ; (b) memoire n'est qu'une CLÉ RACINE typée null, sa forme interne appartenant à la n°10 ; (c) attente n'entre que VARIANTE PAR VARIANTE, l'union complète posant trois états illégaux représentables. La forme qui fait foi est src/brain/dossier/types.ts pour le dossier et src/brain/dossier/session.ts (créé par it1) pour la session. Surfaces existantes réutilisées : le CTA « Aperçu du jeu » de brain/components/EditorTopBar.tsx (prop previewDisabledReason déjà là, aujourd'hui désactivée en dur par DossierEditorScreen.tsx:158), et src/features/play-mode/components/PlayerModal.tsx (un seul fichier au répertoire), REPOINTÉ et non démoli.",
 	"plan": {
 		"goal": "Donner au joueur une session entièrement pilotée par le dossier d'aventure — état de session persisté, horloge, journal, application des deltas, évaluation des conditions — SANS qu'une seule ligne soit générée par un modèle, de sorte que la mécanique soit validée seule avant que la n°10 y branche l'IA, et que les registres PREDICATES et DELTAS, posés au Temps 1 sans consommateur, en acquièrent enfin un.",
@@ -105,7 +105,7 @@
 			{
 				"id": 4,
 				"goal": "Le modèle d'arbre n'a plus aucun consommateur de jeu : brain/utils/playExport.ts, brain/utils/buildAdventureDocument.ts, les cinq écrans de nœud et les parties arbre de sessionEngine/actionEngine/usePlaySession disparaissent, sans que la suite de tree-canvas soit modifiée. DÉROGATION NOMMÉE au cadrage : cette itération n'a aucune phrase « à la fin, l'auteur peut… » — c'est un jalon d'ingénierie assumé, précédent B2 `outillage-2`, sur lequel le PM et le tech-lead ont convergé indépendamment.",
-				"status": "planned"
+				"status": "done"
 			}
 		],
 		"known_risks": [
@@ -203,6 +203,22 @@
 					"unit": "121 suites / 1869 tests verts",
 					"e2e": "critère 3 en RTL : la ligne de jalon et ses pastilles rendues à l'écran ; score de mutation NON lancé (KR-243, aucun des 4 fichiers mutés au diff)"
 				}
+			},
+			{
+				"id": 4,
+				"label": "iteration-4",
+				"completed_at": "2026-09-25",
+				"architecture_choices": [
+					"Lot unique `contrat`, séquentiel, sans worktree ni intégrateur (à N=1 la règle est vraie par vacuité). Fermeture mesurée à 22 fichiers contre les 10 nommés au goal initial — corrigé au § 1 (KR-258)."
+				],
+				"deviations_from_plan": [
+					"`PlayNode` survit, redéfini localement et minimalement dans `types.ts` (sans réimport de `brain/tree`, critère 2 préservé) au lieu du retrait total annoncé au § 4 bis : `EndScreen.tsx`, orphelin hors-lot non mesuré, l'importe encore. Ratifié par la QA. Voir BUG-129."
+				],
+				"test_coverage": {
+					"unit": "118 suites / 1829 tests verts — delta exact -3 suites/-41 tests, exactement les trois suites du lot démoli (playExport, sessionEngine, persist)",
+					"e2e": "aucun instrument E2E au dépôt ; aucun test ne rend EditorScreen (critère 5 non vérifiable, constaté)",
+					"mutation": "non lancé — aucun des 4 fichiers mutés au diff (KR-243)"
+				}
 			}
 		],
 		"resolved_decisions": [
@@ -278,7 +294,8 @@
 			"L'infobulle du CTA désactivé : un <button disabled> ne déclenche pas son title natif dans Chrome/Safari, ce qui rendrait la formule KR-245 invisible exactement quand elle sert. Correctif connu (enveloppe <span title> dans EditorTopBar.tsx), mais AUCUN instrument du dépôt ne mesure la prémisse — jsdom ignore l'infobulle, pas de Playwright. Propriétaire : le prochain raffinage. Déclencheur : un relevé navigateur consigné (Chrome + Firefox, dossier non jouable, survol du CTA). Tant qu'il n'existe pas, EditorTopBar.tsx n'est touché par aucun lot (D-6). [it2 : l'UX, propriétaire, a statué — le correctif n'entre PAS sans sa prémisse mesurée ; EditorTopBar.tsx reste hors de tout lot.]",
 			"L'EXPORT au baril de projeterJalonsAtteints / JalonAtteint — REFUSE en it3 (zero consommateur ; exporter une valeur qui porte enonce_texte a toutes les features sans garde ouvre le verbatim sans que rien ne rougisse). La fonction et son temoin vivent dans brain/dossier/. Proprietaire n° 10, avec son premier consommateur, sa borne d'agregat et son comportement sur handle pendant.",
 			"LA SURFACE D'EDITION de charpente.jalons[].declencheur_expr et .effet[] — mesure : ZERO ecrivain dans src/features/**. 2e occurrence de BUG-090, pas son armement. Proprietaire dossier-registres, qui possede FicheJalon.tsx ; la faire entrer en n° 9 traverserait une seconde feature hors lot contrat.",
-			"« UN HANDLE PENDANT S'EXPOSE, JAMAIS IL NE SE FILTRE » pour la projection des jalons — AUCUN KR du depot ne porte cette exigence (KR-021 vise l'arete orpheline de tree-canvas, pas une reference pendante de jalon). Ecrite en toutes lettres au plan it3 § 4 bis ; a ARMER par la n° 10 avec son propre KR."
+			"« UN HANDLE PENDANT S'EXPOSE, JAMAIS IL NE SE FILTRE » pour la projection des jalons — AUCUN KR du depot ne porte cette exigence (KR-021 vise l'arete orpheline de tree-canvas, pas une reference pendante de jalon). Ecrite en toutes lettres au plan it3 § 4 bis ; a ARMER par la n° 10 avec son propre KR.",
+			"REGLES-PLAY.md § A (A4/E3 : +5 PE par changement de lieu, B3 : equipement de depart) — sans implementation dans src/ apres it4, bandeau pose au fichier. Proprietaire n° 11, successeur commande.aller. Corps : plan it4 § 8, A-6."
 		]
 	}
 }

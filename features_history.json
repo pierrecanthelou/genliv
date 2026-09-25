@@ -179,6 +179,24 @@
 				"BUG-124",
 				"BUG-125"
 			]
+		},
+		{
+			"feature": "moteur-dossier (it4, l'extinction des consommateurs du modele d'arbre)",
+			"completed_at": "2026-09-25",
+			"goal": "Le modele d'arbre n'a plus aucun consommateur de jeu -- 24 fichiers, lot unique `contrat`, sans phrase de demo autoportante (derogation nommee au cadrage).",
+			"key_architecture_choices": [
+				"Fermeture mesuree a 22 fichiers (24 avec les deux tests de contrat), contre les 10 nommes au goal initial du plan -- corrige avant le lot (KR-258). `actionEngine.ts` confirme a 0 partie arbre sur 346 lignes, `tree.ts`/`kinds.ts`/`BookService` intouches (KR-240 : la n 9 eteint les CONSOMMATEURS, jamais le MODELE).",
+				"Lot sequentiel unique, sans worktree ni integrateur -- le prerequis bloquant SS 0 bis (CRLF/worktree neuf) etait deja resolu par la tranche hors cycle eol-lf (B4, 0.7.4) le jour meme ou le plan a ete ouvert a validation humaine."
+			],
+			"brain_contracts_added": [],
+			"lessons_learned": [
+				"UNE FERMETURE DE CONSOMMATEURS MESUREE SUR LE MODELE PEUT MANQUER UN APPELANT REEL DANS DU CODE ORPHELIN CONSERVE HORS DE TOUT LOT : EndScreen.tsx, jamais mesure par le comite (cite seulement comme ligne de LOC orpheline dans les 9 transcripts de raffinage), importait encore PlayNode. Trouve par le grep systematique de dev-contrat avant ecriture, pas par la mesure du comite (BUG-129).",
+				"UNE MESURE ECRITE AU PLAN PEUT ETRE CADUQUE LE JOUR MEME DE SA REDACTION. Le SS 0 bis affirmait 'aucun .gitattributes n'existe' ; la tranche hors cycle qui le cree avait deja ete committee la veille au soir, avant l'ouverture du tour de validation humaine.",
+				"UNE DEMOLITION SANS PHRASE DE DEMO SE PROUVE PAR UNE LIGNE DE FERMETURE CHIFFREE (22 fichiers, delta exact -3 suites/-41 tests, 0 import residuel), jamais par un scenario utilisateur -- derogation assumee des le cadrage, PM et tech-lead convergents independamment."
+			],
+			"bugs_encountered": [
+				"BUG-129"
+			]
 		}
 	]
 }

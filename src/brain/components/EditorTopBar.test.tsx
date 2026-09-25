@@ -76,8 +76,10 @@ describe('EditorTopBar, le bouton Apercu du jeu', () => {
 		const apercu = screen.getByRole('button', { name: 'Aperçu du jeu' })
 
 		expect(apercu).toBeDisabled()
-		// Mot pour mot le texte d'avant l'élargissement : c'est la moitié « écran Book »
-		// du critère #5, l'autre vivant dans le test de l'écran dossier.
+		// Le DÉFAUT du composant, épinglé en ISOLATION : depuis la n° 9 it4, plus aucun
+		// écran ne s'en remet à lui — l'écran livre-arbre passe `RAISON_APERCU_LIVRE`,
+		// l'écran dossier sa propre raison. Ce cas garde sous témoin le défaut de
+		// `EditorTopBar.tsx:71` tant que D-6 ne l'a pas corrigé.
 		expect(apercu).toHaveAttribute('title', 'Aperçu du jeu — mode lecture (hors éditeur)')
 	})
 

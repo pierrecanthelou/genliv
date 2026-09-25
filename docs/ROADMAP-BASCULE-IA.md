@@ -54,7 +54,8 @@ Corollaire non négociable (veto tech-lead), **toujours en vigueur** : `brain/do
 |---|---|---|
 | `player/engine/combatEngine.ts` + `combatTypes` + `capacityEffects` + `useCombat` + `CombatScreen` | ~1 500 | **conservé tel quel.** Le Temps 2 n'y ajoute qu'un commentaire IA par round (n° 13). |
 | `player/engine/charCreation.ts` + `heroGen.ts` + `CharacterCreationScreen` | ~475 | **conservé.** 2D4 + 1D4 réparti ; le plan de cible la laissait en trou. |
-| `player/engine/actionEngine.ts`, `sessionEngine.ts`, `usePlaySession.ts`, `PlayerRuntime.tsx` | ~1 000 | **repointés** sur le dossier + les jalons — c'est le cœur de la n° 9. |
+| `player/engine/actionEngine.ts` | 346 | **conservé intact** — 0 partie arbre, mesuré en n° 9 it4. |
+| `sessionEngine.ts`, `usePlaySession.ts`, `PlayerRuntime.tsx` | ~770 | **supprimés en n° 9 it4** (100 % arbre) ; remplacés par `brain/dossier/session.ts`/`commandes.ts` (it1-it2). |
 | `player/components/XpShopScreen`, `EndScreen`, `HeroStatusBar`, `persist.ts` | ~440 | **conservés**, branchés sur l'état de session. |
 | `player/components/NodeScreen`, `ChoiceList`, `DecorScreen`, `PnjScreen`, `TrapScreen` | ~765 | **remplacés** par la boucle narrative (n° 10). |
 | `brain/challenge.ts`, `combat.ts`, `xp.ts`, `characteristics.ts`, `bestiary.ts`, `equipment.ts`, `monsterCapacities.ts` | — | **conservés, intouchés.** Tenus par le score de mutation. |
@@ -63,7 +64,7 @@ Corollaire non négociable (veto tech-lead), **toujours en vigueur** : `brain/do
 
 | Sort | Modules |
 |---|---|
-| **Éteints en n° 9** | `brain/utils/playExport.ts` · `buildAdventureDocument` · les 5 écrans de nœud de `src/player/components/` · les parties arbre de `sessionEngine` / `actionEngine` / `usePlaySession` |
+| **Éteints en n° 9 it4 ✅** | `brain/utils/playExport.ts` · `buildAdventureDocument` · les 5 écrans de nœud · `sessionEngine`/`usePlaySession` (100 % arbre) ; `actionEngine.ts` survit, 0 partie arbre mesurée |
 | **Survivent** — extinction avec le repointage de `tree-canvas`, après le Temps 2 | `brain/types.ts` (moitié arbre) · `kinds.ts` · `tree.ts` · `BookService` · les 4 hooks de `brain/hooks.ts` · `automaticEdges.ts` · `NodeBadge` · les 11 événements · `Router {name:'editor'}` · `src/EditorScreen.tsx` (unique point de montage de `tree-canvas`) |
 | **Repointé, pas démoli** | `src/features/play-mode/` — `CLAUDE.md` le range parmi les survivants (« suit le runtime, n° 9 ») ; il devient le domicile du shell de test, de la console et du journal, qui ne descendent **jamais** dans `src/player/` (copié en entier à l'extraction) |
 
@@ -153,7 +154,7 @@ Le Temps 2 ne commence qu'une fois le § 2 bis clos, sur go explicite. `0.7.x`.
 
 | # | Feature | « À la fin, le joueur peut… » | Itér. | Statut | Comité | Dépend de |
 |---|---|---|---|---|---|---|
-| 9 | `moteur-dossier` | …jouer une session pilotée par un dossier, sans IA | 4 | **3/4** — it3 livrée (`0.7.3`) | 5 rôles | B1 |
+| 9 | `moteur-dossier` | …jouer une session pilotée par un dossier, sans IA | 4 | **4/4 ✅** — it4 livrée (`0.7.5`) | 5 rôles | B1 |
 | 10 | `moteur-interprete` | …écrire ce qu'il veut faire en langage libre | 4 | — | 5 rôles | 9 |
 | 11 | `moteur-arbitre` | …voir le code lancer le dé que l'IA a demandé | 3 | — | 5 rôles | 10 · **B2** |
 | 12 | `moteur-acteurs` | …parler à un PNJ qui ne révèle que ce qu'il sait | 4 | — | 5 rôles | 11 |
@@ -162,7 +163,7 @@ Le Temps 2 ne commence qu'une fois le § 2 bis clos, sur go explicite. `0.7.x`.
 | 15 | `moteur-fins` | …reprendre sa partie là où il l'a laissée | 3 | — | 5 rôles | 14 |
 | 16 | `dossier-repetition` | *(auteur)* …faire jouer son aventure par un joueur synthétique | 2 | — | 5 rôles | 10 · 7 |
 
-**9 · `moteur-dossier`** — **cadrée le 2026-09-20**, 4 itérations : (1) lire le texte d'ouverture, (2) se déplacer par `lieux[].acces`, (3) voir un jalon s'atteindre parce que sa condition est devenue vraie, (4) éteindre les consommateurs du modèle d'arbre (§ 0 bis). Aucune génération de texte, et un test dérivé du disque le **prouve** au lieu de l'affirmer. Porte le premier **évaluateur d'`ExprNode`** et le premier `appliquerDelta` — que `RapportControles.jouable` conditionne non par ergonomie mais comme **précondition de correction** d'un évaluateur bivalent — plus l'amendement de `tourzero.ts`. **it1 livrée le 2026-09-20** (`0.7.0`) : le CTA s'allume, le texte d'ouverture est lu verbatim. **it2 livrée le 2026-09-24** (`0.7.1`) : la console pose son unique verbe `ALLER`, le héros se déplace, et `§ J1` de `REGLES-PLAY.md` reçoit sa réponse **avant le code** — 1 pas = 1 commande acceptée. **it3 livrée le 2026-09-24** (`0.7.3`) : `evaluerExpr` **lève** au lieu de rendre `false` (KR-238), `resoudreJalons` résout en **point fixe borné**, et le jalon atteint écrit **une** ligne de journal avec ses pastilles d'effet ; les quatre cellules de `tourzero.ts` sont amendées ensemble, plancher d'oracle re-dérivé à 4. **Sortis du périmètre** : `quetes[].etapes` et `memoire.faits_etablis` (n° 10) — `memoire` n'est qu'une **clé racine typée `null`** ; la **surface d'édition** de `declencheur_expr`/`effet[]` part à `dossier-registres` (2ᵉ occurrence de BUG-090). Motifs, arbitrages et refus : `.claude/raffinage/moteur-dossier-cadrage.plan.md` et les revues `…-it1/-it2/-it3.revue.md` — la spec en est l'index.
+**9 · `moteur-dossier` — TERMINÉE (4/4), `0.7.5`.** Cadrée le 2026-09-20, 4 itérations : lire le texte d'ouverture (**it1**, `0.7.0`), se déplacer par `lieux[].acces` (**it2**, `0.7.1`), voir un jalon s'atteindre parce que sa condition est devenue vraie (**it3**, `0.7.3`), éteindre les consommateurs du modèle d'arbre (**it4**, `0.7.5`, § 0 bis — 24 fichiers, sans phrase de démo, dérogation nommée). Aucune génération de texte, prouvé par un test dérivé du disque. Porte le premier évaluateur d'`ExprNode` bivalent, qui **lève** au lieu de rendre `false` (KR-238), et le premier `appliquerDelta` — que `RapportControles.jouable` conditionne comme **précondition de correction**, pas comme ergonomie. `actionEngine.ts` confirmé à **0 partie arbre** en it4 (KR-240 : la n° 9 éteint les consommateurs, jamais le modèle). Sortis du périmètre : `quetes[].etapes`/`memoire.faits_etablis` (n° 10), `REGLES-PLAY.md` § A4/E3/B3 (n° 11). Motifs, arbitrages, refus : `.claude/raffinage/moteur-dossier-cadrage.plan.md` et les revues `…-it1/-it2/-it3/-it4.revue.md` — la spec en est l'index.
 
 **10 · `moteur-interprete`** — rôles R1 (interprète) et R3 (narrateur), cadrage de contexte, mémoire à trois niveaux (5 derniers tours intégraux / résumé glissant réécrit tous les 10 tours / faits établis jamais résumés). Pose les garde-fous du § 2.8 : sortie structurée obligatoire, aucune création d'entité, anti-complaisance, budget par tour. **C'est ici que la « scène écrite » devient réelle** : sa propriété définissante est un chemin de code — une prose verbatim est **émise** par le moteur, jamais demandée au modèle. Porte aussi le **balayage du budget de contexte des onze chemins de prose `ia`** — un seul balayage, jamais trois chemins bornés sur onze, sous peine que le silence cesse de signifier « sous budget » ; avertissement non bloquant, aucune migration.
 

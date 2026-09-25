@@ -1,8 +1,6 @@
-import { useState, useMemo } from 'react'
-import { useBrain, useOpenBook, useBookHealth, EditorTopBar, buildAdventureDocument } from './brain'
+import { useMemo } from 'react'
+import { useBrain, useOpenBook, useBookHealth, EditorTopBar } from './brain'
 import { TreeCanvas, AutoLayoutButton, SpacingToggle } from './features/tree-canvas'
-import { PlayerModal } from './features/play-mode/components/PlayerModal'
-import type { AdventureDocument } from './player/types'
 
 /**
  * Editor shell — the composition root for the editor route (§ 02/03). It owns
@@ -13,10 +11,12 @@ import type { AdventureDocument } from './player/types'
  * adventure dossier replaces it in roadmap n° 2 `bascule-editeur`; the canvas is
  * repointed onto the relations-and-clues graph rather than the node tree.
  */
+const RAISON_APERCU_LIVRE =
+	"Aperçu indisponible — un livre ne se joue plus ; l'aperçu se lance depuis un dossier d'aventure."
+
 export function EditorScreen({ bookId }: { bookId: string }): JSX.Element {
 	const { books, router, selection } = useBrain()
 	const book = useOpenBook(bookId)
-	const [adventure, setAdventure] = useState<AdventureDocument | null>(null)
 
 	// Live structural health (KR-145): dead-ends and dangling edge targets always visible.
 	const liveWarnings = useBookHealth(bookId)
@@ -38,11 +38,6 @@ export function EditorScreen({ bookId }: { bookId: string }): JSX.Element {
 		if (node !== null) selection.select(bookId, node.id)
 	}
 
-	function handlePreview(): void {
-		if (book === null) return
-		setAdventure(buildAdventureDocument(book))
-	}
-
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
 			<EditorTopBar
@@ -56,9 +51,8 @@ export function EditorScreen({ bookId }: { bookId: string }): JSX.Element {
 						<AutoLayoutButton bookId={bookId} />
 					</span>
 				}
-				onPreview={handlePreview}
+				previewDisabledReason={RAISON_APERCU_LIVRE}
 			/>
-			<PlayerModal adventure={adventure} onClose={() => setAdventure(null)} />
 			<div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
 				<div style={{ flex: 1, minWidth: 0 }}>
 					<TreeCanvas warnedNodeIds={warnedNodeIds} />

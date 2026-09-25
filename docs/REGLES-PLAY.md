@@ -8,6 +8,18 @@
 
 ## A. Boucle de jeu (traversée du livre)
 
+> ⚠ **Deux règles de cette section sans AUCUNE implémentation dans `src/` après `moteur-dossier`
+> it4 (2026-09-25)** — mesuré : 0 site restant. **A4/E3** — le **+5 PE par changement de lieu**
+> (cette section, A4 ; `docs/REGLES-DU-JEU.md:43`, § « Endurance (PE) », clause Récupération) — et
+> **B3** — l'**équipement de départ** — étaient portés par `defaultSessionFields()`
+> (`src/player/hooks/usePlaySession.ts`), supprimé avec le reste du runtime éteint par ce lot
+> (KR-240) ; leurs 11 sites disparaissent avec lui. `docs/REGLES-DU-JEU.md` reste **inchangé**
+> (KR-130 : la règle tient, seule son implémentation manque). **Propriétaire : la n° 11
+> `moteur-arbitre`** — successeur désigné : `commande.aller` (le seul verbe qui traverse un
+> changement de lieu, `brain/dossier/commandes.ts`, `moteur-dossier` it2), qui devra porter le +5 PE
+> le jour où l'état de session portera un héros (KR-249 : `EtatSession.heros` n'existe pas avant la
+> n° 11 — l'ouvrir ici violerait KR-249, A-22).
+
 **A1. Point de départ.** Le jeu démarre sur le nœud `sommaire` (racine). ✍️ *Défaut : OK.*
 
 **A2. Affichage d'un écran.** À chaque nœud : afficher `text`, puis résoudre l'`actionType` requis (décor / pnj / piège / monstre) **avant** de proposer les choix sortants. Le joueur doit pouvoir utiliser les objets à sa disposition (un objet, une utilisation) ✍️ *Défaut : OK — l'action requise se résout d'abord ; les choix n'apparaissent qu'ensuite.*

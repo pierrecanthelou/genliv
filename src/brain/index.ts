@@ -594,16 +594,7 @@ export { collectObjects, collectLineageObjects, findObject } from './utils/objec
 // (KR-021). Même seuil que `localiserEntite`, `compterMots` et `frapperIdentifiant`.
 export { avecOrpheline } from './utils/references'
 export { deriveAutomaticEdges, deriveMonsterEdges } from './utils/automaticEdges'
-export {
-	exportBookForPlay,
-	PLAY_EXPORT_FORMAT,
-	PLAY_EXPORT_VERSION,
-	type PlayExport,
-	type PlayNode,
-	type PlayWarning,
-} from './utils/playExport'
 export { downloadJson, downloadText, slugifyFilename } from './utils/download'
-export { buildAdventureDocument } from './utils/buildAdventureDocument'
 export type { NodeKindDescriptor, EdgeKindDescriptor, BadgeMark } from './kinds'
 export { useOpenBook, useBooks, useBookHealth, useDossiers, useOpenDossier } from './hooks'
 export { type StructuralWarning, type StructuralWarningCode } from './utils/bookHealth'
