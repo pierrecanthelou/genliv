@@ -32,3 +32,10 @@ export { assemblerRepliques } from './repliques'
 export { assemblerPlan } from './plan'
 export { assemblerRelations } from './relations'
 export { assemblerDistribution } from './distribution'
+// LE SEPTIÈME ASSEMBLEUR (n° 10, `moteur-interprete`) — HORS DE LA COUTURE
+// COMMUNE : il ne partage AUCUN registre de `./registres` (voir la docstring de
+// tête d'`./interprete.ts`), donc `SAISIE_CARACTERES_MAX` sort AVEC lui plutôt
+// que de rejoindre `CANDIDATS_MAX`/`DEJA_ECRITS_MAX` ci-dessus, qui restent
+// exclusivement `Record<RoleCopilote, …>`-adjacents.
+export { assemblerInterprete, SAISIE_CARACTERES_MAX } from './interprete'
+export type { ContexteInterprete } from './interprete'

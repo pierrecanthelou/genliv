@@ -19,6 +19,7 @@ import type { CloudSettingsService } from './CloudSettingsService'
 import {
 	assemblerDetenteurs,
 	assemblerDistribution,
+	assemblerInterprete,
 	assemblerPlan,
 	assemblerProse,
 	assemblerRelations,
@@ -29,6 +30,7 @@ import {
 	validerDetenteurs,
 	validerDistribution,
 	validerIntention,
+	validerInterprete,
 	validerRelations,
 	validerRepliques,
 	validerSortie,
@@ -37,14 +39,18 @@ import {
 import type {
 	ChampProseChemin,
 	FicheBrouillon,
+	InterpretationRendue,
+	LienResolu,
 	PropositionDetenteurs,
 	PropositionDistribution,
 	PropositionPlan,
 	PropositionRelations,
 	PropositionRepliques,
 	PropositionResolue,
-	LienResolu,
+	SortieInterprete,
 } from './copilote/types'
+import { resoudreInterpretation } from './dossier/interprete'
+import type { EtatSession } from './dossier/session'
 import type { Dossier } from './dossier/types'
 
 /**
@@ -161,6 +167,31 @@ export interface CibleDistribution {
 	role: 'monde-distribution'
 }
 
+/**
+ * LA CIBLE DU SEPTIÈME RÔLE — `interprete` (n° 10, `moteur-interprete`), et la
+ * PREMIÈRE dont `role` N'EST PAS UN MEMBRE DE `RoleCopilote` (`copilote/types.ts`,
+ * SIX rôles, INCHANGÉ à ce lot — voir la docstring de tête de
+ * `copilote/contexte/interprete.ts` pour le motif complet). Rien ne l'exige :
+ * les cinq `Cible*` précédentes ne référencent JAMAIS `RoleCopilote`
+ * elles-mêmes, chacune porte son propre littéral, et c'est le `switch` de
+ * l'implémentation ci-dessous qui les distingue — un rôle de plus y ajoute
+ * une branche, jamais une extension de type ailleurs.
+ *
+ * `session: EtatSession`, PAS `lieuCourant: string` : l'assembleur a besoin de
+ * `destinationsPossibles(dossier, session)` ET de `session.attente`, et
+ * `executerCommande` (appelé par `apresInterpretation`) doit recevoir CE MÊME
+ * instantané (KR-265) — deux paramètres divergeraient dès qu'un tour bouge
+ * entre les deux lectures.
+ */
+export interface CibleInterprete {
+	role: 'interprete'
+	/** Reste côté client jusqu'à l'assemblage — ne franchit le réseau
+	 *  qu'en dernière position du contexte, normalisée (KR-231 : aucun rang,
+	 *  aucun identifiant ne s'y glisse tel quel). */
+	saisie: string
+	session: EtatSession
+}
+
 export type RaisonIndisponible = 'non-configure' | 'injoignable' | 'annule'
 
 /** LES TROIS BRANCHES D'ÉCHEC, extraites : rigoureusement les mêmes pour tous les
@@ -185,6 +216,11 @@ export type ReponseRepliques = { statut: 'propose'; proposition: PropositionRepl
 export type ReponsePlan = { statut: 'propose'; proposition: PropositionPlan } | EchecCopilote
 export type ReponseRelations = { statut: 'propose'; proposition: PropositionRelations } | EchecCopilote
 export type ReponseDistribution = { statut: 'propose'; proposition: PropositionDistribution } | EchecCopilote
+/** LE SEPTIÈME RÔLE — SEUL DE LA FAMILLE À PORTER `SortieInterprete` PLUTÔT
+ *  QU'UNE `Proposition*` : ce rôle ne PROPOSE rien à ratifier d'un clic, il
+ *  TRADUIT une action en cours de partie (KR-013 : `apresInterpretation`,
+ *  `brain/dossier/interprete.ts`, est la seule décideuse de ce qu'il en advient). */
+export type ReponseInterprete = { statut: 'propose'; proposition: SortieInterprete } | EchecCopilote
 
 /**
  * SURCHARGE SUR LA CIBLE ÉTIQUETÉE — le point de contrat le plus chargé de
@@ -218,6 +254,8 @@ export interface CopiloteService {
 	 *  l'implémentation plus bas. En oublier un rend l'appel impossible côté feature
 	 *  alors que `tsc` reste vert sur `brain/`. */
 	demander(dossier: Dossier, cible: CibleDistribution, signal?: AbortSignal): Promise<ReponseDistribution>
+	/** ⚠ LA 7ᵉ SURCHARGE, MÊME RÈGLE — deux sites, ici et sur l'implémentation. */
+	demander(dossier: Dossier, cible: CibleInterprete, signal?: AbortSignal): Promise<ReponseInterprete>
 }
 
 /**
@@ -263,6 +301,12 @@ type CorpsDemande =
 	 *  `personnageId`, `indiceId` ou `champ` SUR LE FIL (KR-231). Littéral ÉCRIT, et un
 	 *  témoin qui asserte le corps par `toEqual`, jamais par inclusion. */
 	| { role: 'monde-distribution'; contexte: string }
+	/** LE SEPTIÈME RÔLE — SANS `champ` non plus, MÊME motif : la cible porte `saisie`
+	 *  et `session`, et NI L'UNE NI L'AUTRE NE FRANCHIT LE RÉSEAU TELLE QUELLE — la
+	 *  saisie n'entre dans `contexte` qu'APRÈS normalisation, en dernière position, et
+	 *  `session` ne sort JAMAIS de `brain/` (KR-231). `{ ...cible, contexte }` resterait
+	 *  interdit ici pour la même raison qu'aux six autres. */
+	| { role: 'interprete'; contexte: string }
 
 /** Le résultat d'UN aller-retour, avant validation de forme : soit une valeur
  *  brute à valider, soit une indisponibilité qui ne se rejoue JAMAIS. */
@@ -600,6 +644,65 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 	}
 
 	/**
+	 * LE SEPTIÈME RÔLE — `interprete`. TROIS TRAITS QUI LE DISTINGUENT DES SIX
+	 * PRÉCÉDENTS, ET AUCUN N'EST UN OUBLI :
+	 *  1. AUCUN refus de contexte n'est ATTEIGNABLE ici (`canon.ton` n'est pas
+	 *     requis — § 8 désaccord 22 du plan d'itération) : `assemblerInterprete`
+	 *     ne rend jamais `'a-ecrire'`/`'cible-a-ecrire'`/`'aucun-candidat'`, SEUL
+	 *     `'trop-long'` l'est (saisie > 300 caractères) ;
+	 *  2. LE COURT-CIRCUIT `sans_commande` SANS APPEL : si `tables.gestes` est
+	 *     vide (aucun geste satisfiable au tour courant), la réponse part SANS
+	 *     `fetch` — narratif-ia, tour 1, annexe A : « ce court-circuit s'éteint
+	 *     de lui-même quand `agir` (arité 0) entrera en it2 » ;
+	 *  3. LA RÉ-RÉSOLUTION N'EST PAS INLINE : elle est déléguée à
+	 *     `resoudreInterpretation` (`brain/dossier/interprete.ts`), qui PORTE
+	 *     aussi `apresInterpretation` — deux fonctions d'un même module, l'une
+	 *     appelée ICI (après validation), l'autre appelée par la feature (après
+	 *     `demander`). Sa branche `RefusInterprete` est THÉORIQUEMENT
+	 *     INATTEIGNABLE (mêmes tables que `validerInterprete` vient de
+	 *     consulter) et dégradée en `illisible`/`'schema'`, gardée par défense
+	 *     (KR-175) plutôt que jamais écrite.
+	 */
+	async function demanderInterprete(
+		dossier: Dossier,
+		cible: CibleInterprete,
+		signal: AbortSignal | undefined,
+	): Promise<ReponseInterprete> {
+		const contexte = assemblerInterprete(dossier, cible)
+		if (!contexte.ok) return refuser(contexte)
+
+		if (contexte.tables.gestes.size === 0) {
+			return { statut: 'propose', proposition: { lecture: 'sans_commande', gestes_possibles: [] } }
+		}
+
+		const vers = acheminement('interprete')
+		if (vers === null) return { statut: 'indisponible', raison: 'non-configure' }
+
+		const corps: CorpsDemande = { role: 'interprete', contexte: contexte.texte }
+		const issue = await jusquAuRejeuUnique<InterpretationRendue>(
+			vers.url,
+			vers.entetes,
+			corps,
+			(brut) => validerInterprete(brut, contexte.tables, dossier),
+			signal,
+		)
+		if (!issue.ok) return issue.echec
+
+		const resolue = resoudreInterpretation(contexte.tables, issue.sortie)
+		// `'type' in resolue`, PAS `resolue.type === …` : `SortieInterprete` et
+		// `RefusInterprete` discriminent sur des CLÉS DIFFÉRENTES (`lecture` vs
+		// `type`), et `in` narrows l'union sans qu'aucun membre n'ait besoin de
+		// porter la clé de l'autre.
+		if ('type' in resolue) {
+			// THÉORIQUEMENT INATTEIGNABLE (voir docstring) — dégradé dans le MÊME
+			// vocabulaire que le reste du rejeu, jamais un état neuf inventé pour
+			// une branche qui ne doit jamais s'exécuter.
+			return { statut: 'illisible', motif: 'schema' }
+		}
+		return { statut: 'propose', proposition: resolue }
+	}
+
+	/**
 	 * L'IMPLÉMENTATION À SURCHARGES — six signatures publiques, un corps élargi,
 	 * AUCUN `as`, ET PLUS AUCUN PARAMÈTRE `role`.
 	 *
@@ -611,11 +714,14 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 	 * pourtant DISJOINTES.
 	 *
 	 * ⚠ LA GARDE `never` EST LA PREUVE D'EXHAUSTIVITÉ, et elle remplace une convention :
-	 * un SEPTIÈME rôle ajouté à `RoleCopilote` sans branche ici NE COMPILE PAS. Les gardes
-	 * `'x' in cible` de 3b étaient explicites, mais rien ne disait au compilateur qu'elles
-	 * étaient complètes. ⚠ ELLE A SERVI : le SIXIÈME rôle l'a fait rougir aux deux sites
-	 * de l'itération 4 — la promesse écrite à 3c était donc exécutable, et elle a été
-	 * exécutée plutôt que crue.
+	 * un rôle ajouté SANS BRANCHE ici NE COMPILE PAS — l'union qu'elle ferme est celle
+	 * des `Cible*` de ce fichier, PAS `RoleCopilote` (`copilote/types.ts`) : `interprete`
+	 * (7ᵉ rôle, n° 10) EN EST LA PREUVE, puisqu'il n'étend PAS `RoleCopilote` et fait
+	 * pourtant rougir cette garde s'il perd sa branche. Les gardes `'x' in cible` de 3b
+	 * étaient explicites, mais rien ne disait au compilateur qu'elles étaient complètes.
+	 * ⚠ ELLE A SERVI : le SIXIÈME rôle l'a fait rougir aux deux sites de l'itération 4 —
+	 * la promesse écrite à 3c était donc exécutable, et elle a été exécutée plutôt que
+	 * crue.
 	 *
 	 * Chaque branche privée nomme SON rôle en littéral — segment de route et corps de
 	 * demande sont donc exacts à la compilation, jamais recopiés d'un paramètre élargi.
@@ -628,12 +734,27 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 	/** ⚠ LE SECOND DES DEUX SITES de la 6ᵉ surcharge — l'autre est sur l'interface
 	 *  `CopiloteService` ci-dessus. */
 	function demander(dossier: Dossier, cible: CibleDistribution, signal?: AbortSignal): Promise<ReponseDistribution>
+	/** ⚠ LE SECOND DES DEUX SITES de la 7ᵉ surcharge — idem. */
+	function demander(dossier: Dossier, cible: CibleInterprete, signal?: AbortSignal): Promise<ReponseInterprete>
 	function demander(
 		dossier: Dossier,
-		cible: CibleCopilote | CibleIndice | CibleRepliques | CiblePlan | CibleRelations | CibleDistribution,
+		cible:
+			| CibleCopilote
+			| CibleIndice
+			| CibleRepliques
+			| CiblePlan
+			| CibleRelations
+			| CibleDistribution
+			| CibleInterprete,
 		signal?: AbortSignal,
 	): Promise<
-		ReponseCopilote | ReponseDetenteurs | ReponseRepliques | ReponsePlan | ReponseRelations | ReponseDistribution
+		| ReponseCopilote
+		| ReponseDetenteurs
+		| ReponseRepliques
+		| ReponsePlan
+		| ReponseRelations
+		| ReponseDistribution
+		| ReponseInterprete
 	> {
 		switch (cible.role) {
 			case 'personnage-prose':
@@ -648,6 +769,8 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 				return demanderRelations(dossier, cible, signal)
 			case 'monde-distribution':
 				return demanderDistribution(dossier, cible, signal)
+			case 'interprete':
+				return demanderInterprete(dossier, cible, signal)
 			default: {
 				// LA GARDE D'EXHAUSTIVITÉ : si l'union gagne un membre sans branche, cette
 				// affectation ne compile plus. C'est une erreur de COMPILATION, jamais un

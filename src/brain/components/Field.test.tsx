@@ -81,3 +81,35 @@ describe('Field, la propriete mono', () => {
 		expect(apres.replace('var(--font-mono)', 'var(--font-ui)')).toBe(avant)
 	})
 })
+
+describe('Field, disabled et maxLength — attributs HTML réels', () => {
+	it('disabled produit l attribut HTML disabled, pas un habillage visuel seul', () => {
+		render(<Field ariaLabel="test" disabled value="" onChange={() => {}} />)
+		const input = screen.getByLabelText('test') as HTMLInputElement
+		expect(input.disabled).toBe(true)
+	})
+
+	it('disabled vaut faux par defaut', () => {
+		render(<Field ariaLabel="test" value="" onChange={() => {}} />)
+		const input = screen.getByLabelText('test') as HTMLInputElement
+		expect(input.disabled).toBe(false)
+	})
+
+	it('maxLength produit l attribut HTML maxLength, sur l input', () => {
+		render(<Field ariaLabel="test" maxLength={300} value="" onChange={() => {}} />)
+		const input = screen.getByLabelText('test') as HTMLInputElement
+		expect(input.maxLength).toBe(300)
+	})
+
+	it('maxLength produit l attribut HTML maxLength, sur le textarea', () => {
+		render(<Field ariaLabel="test" multiline maxLength={300} value="" onChange={() => {}} />)
+		const textarea = screen.getByLabelText('test') as HTMLTextAreaElement
+		expect(textarea.maxLength).toBe(300)
+	})
+
+	it('disabled fonctionne avec le textarea aussi', () => {
+		render(<Field ariaLabel="test" multiline disabled value="" onChange={() => {}} />)
+		const textarea = screen.getByLabelText('test') as HTMLTextAreaElement
+		expect(textarea.disabled).toBe(true)
+	})
+})

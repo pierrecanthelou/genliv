@@ -24,16 +24,19 @@ import { DESTINATION_DES_CHAMPS_DE_SESSION } from './sessionDestinations'
  * ── CE QUE CE BALAYAGE NE COUVRE PAS ────────────────────────────────────────
  * Nommé ici plutôt que découvert plus tard (KR-173) :
  *  · LES CONTENEURS. `feuillesDeLaFixture` ne rend JAMAIS un objet non vide comme
- *    feuille : `horloge`, `monde` et `journal` n'ont donc aucune instance, et
- *    leurs trois lignes de table sont des DISPENSES DÉCLARÉES, pas des lignes
+ *    feuille : `horloge`, `monde`, `journal` et `attente` (depuis le lot `contrat`
+ *    de la n° 10, `moteur-interprete`) n'ont donc aucune instance, et leurs
+ *    QUATRE lignes de table sont des DISPENSES DÉCLARÉES, pas des lignes
  *    mortes. Elles existent pour l'exhaustivité par compilation ;
  *  · L'AUDIENCE RÉELLE. La table déclare une intention et force une déclaration ;
- *    elle ne démontre pas le confinement, aucun assembleur n'existant avant la
- *    n° 10. La moitié CODE de cette preuve est `moteurSansIA.test.ts`.
+ *    elle ne démontre pas le confinement — la moitié CODE de cette preuve est
+ *    `moteurSansIA.test.ts`, et pour `attente.question`/`attente.saisie`
+ *    spécifiquement, `assemblerInterprete` (`copilote/contexte/interprete.ts`)
+ *    est le premier assembleur qui les injecte réellement.
  */
 
 /**
- * LES TROIS DISPENSES, avec leur motif — modèle `SANS_DESTINATION` de
+ * LES QUATRE DISPENSES, avec leur motif — modèle `SANS_DESTINATION` de
  * `couverture.test.ts`. Elles vivent DANS le test et non dans la table : une
  * dispense est un fait sur l'instrument, pas une audience.
  */
@@ -41,6 +44,7 @@ const DISPENSES_DE_FEUILLE: Readonly<Record<string, string>> = {
 	horloge: 'clé racine porteuse — son unique feuille est `horloge.tour`',
 	monde: 'clé racine porteuse — ses sept feuilles sont déclarées une à une',
 	journal: 'clé racine porteuse — ses sept feuilles sont déclarées une à une',
+	attente: 'clé racine porteuse — ses trois feuilles (`type`, `question`, `saisie`) sont déclarées une à une',
 }
 
 const CLES_DE_LA_TABLE = new Set(Object.keys(DESTINATION_DES_CHAMPS_DE_SESSION))
@@ -110,9 +114,10 @@ describe('DESTINATION_DES_CHAMPS_DE_SESSION, exhaustivite', () => {
 
 		expect(racines.filter((cle) => !CLES_DE_LA_TABLE.has(cle))).toEqual([])
 		// Discriminance : un balayage vide rendrait la ligne ci-dessus vraie sans rien
-		// prouver. Huit racines, et elles sont nommées dans le contrat — `dossier_maj`
-		// est la huitième, entrée à la revue de PR (2ᵉ exemption nommée à KR-249).
-		expect(racines).toHaveLength(8)
+		// prouver. NEUF racines depuis le lot `contrat` de la n° 10 — `dossier_maj`
+		// est la huitième, entrée à la revue de PR (2ᵉ exemption nommée à KR-249),
+		// `attente` la neuvième, optionnelle à vie (KR-251) mais bien INSTANCIÉE ici.
+		expect(racines).toHaveLength(9)
 	})
 
 	it('le balayage descend reellement, et la normalisation COLLAPSE les cles de Record', () => {
@@ -197,33 +202,33 @@ describe('EtatMonde, les sept champs restent REQUIS et chacun garde sa ligne', (
 })
 
 describe('DESTINATION_DES_CHAMPS_DE_SESSION, la valeur des lignes', () => {
-	it('toutes les lignes valent moteur, et aucune ne vaut autre chose', () => {
+	it('les valeurs sont EXACTEMENT {ia, moteur}, et aucune autre', () => {
 		// ASSERTION DE VALEUR, PAS D'EXISTENCE (KR-174) : « ce champ a une destination »
 		// ne dit rien tant qu'on n'a pas dit LAQUELLE. L'ensemble des valeurs est
 		// épinglé, donc une ligne basculée à `auteur` rougit ici comme une basculée à
-		// `ia`.
-		expect([...new Set(Object.values(DESTINATION_DES_CHAMPS_DE_SESSION))]).toEqual(['moteur'])
+		// n'importe quelle troisième valeur.
+		//
+		// ⚠ CETTE ASSERTION VALAIT `['moteur']` SEULE JUSQU'AU LOT `CONTRAT` DE LA
+		// n° 10 (`moteur-interprete`) — corrigée EN VALEUR ici, PARCE QUE LA TABLE A
+		// RÉELLEMENT BOUGÉ (KR-195/196 : la ligne, elle, se serait corrigée en
+		// commentaire ; ce qui change ici est la MESURE, pas l'intention déclarée).
+		// La voisine ci-dessous, elle, était écrite pour être SUPPRIMÉE par ce même
+		// lot — elle l'est.
+		expect([...new Set(Object.values(DESTINATION_DES_CHAMPS_DE_SESSION))].sort()).toEqual(['ia', 'moteur'])
 	})
 
-	it('aucune ligne ia — et cette assertion est ecrite POUR ETRE SUPPRIMEE', () => {
-		// ⚠ LIGNE À DURÉE DE VIE NOMMÉE. La n° 10 la supprime DANS le lot qui livre son
-		// assembleur ET sa borne de résumé — pas avant, pas séparément : sa suppression
-		// EST la traversée de frontière, et elle se lit en diff.
-		//
-		// Ce qu'elle achète par rapport à l'assertion d'ensemble ci-dessus : celle-là
-		// dit « la table n'a pas bougé », celle-ci dit POURQUOI une valeur en
-		// particulier est interdite aujourd'hui. Une ligne `ia` est une AUTORISATION,
-		// pas une prévision, et les lignes d'audience se corrigent en commentaire,
-		// jamais en valeur (KR-195/196).
-		//
-		// C'est la moitié DONNÉES de ce que `moteurSansIA.test.ts` fait côté CODE : un
+	it('les lignes ia sont EXACTEMENT {attente.question, attente.saisie}, ni plus ni moins', () => {
+		// LA MOITIÉ DONNÉES de ce que `moteurSansIA.test.ts` fait côté CODE : un
 		// balayage de source ne voit pas une autorisation d'audience, et une
-		// autorisation d'audience ne voit pas un appel réseau.
-		expect(Object.values(DESTINATION_DES_CHAMPS_DE_SESSION).every((d) => d !== 'ia')).toBe(true)
+		// autorisation d'audience ne voit pas un appel réseau. Cette assertion-ci
+		// nomme l'ENSEMBLE EXACT plutôt que de constater une non-vacuité : une
+		// troisième ligne basculée à `ia` par erreur doit rougir ICI, par son nom.
+		const lignesIa = Object.entries(DESTINATION_DES_CHAMPS_DE_SESSION)
+			.filter(([, destination]) => destination === 'ia')
+			.map(([chemin]) => chemin)
+			.sort()
 
-		// Discriminance : sans cette ligne, la précédente serait vraie sur une table
-		// VIDE, qui n'autoriserait rien parce qu'elle ne déclarerait rien.
-		expect(Object.keys(DESTINATION_DES_CHAMPS_DE_SESSION).length).toBeGreaterThan(0)
+		expect(lignesIa).toEqual(['attente.question', 'attente.saisie'])
 	})
 })
 

@@ -533,15 +533,24 @@ describe('la frontiere du baril est instrumentee, pas conventionnelle', () => {
 	const RACINE_FEATURES = path.join(__dirname, '..', '..', 'features')
 	const INTERDITS = ['COMMANDES', 'createMagasinDeSession']
 
+	/**
+	 * EXCLUSION NOMMÉE — n° 10 `moteur-interprete` lot 2 (KR-260).
+	 * `useTourDeJeu.ts` est le SEUL fichier autorisé à importer COMMANDES
+	 * pour convertir CommandeId → label.
+	 */
+	const FICHIERS_EXCLUS = [path.join(RACINE_FEATURES, 'play-mode', 'hooks', 'useTourDeJeu.ts')]
+
 	function fichiersDeFeature(racine: string): string[] {
 		return fs.readdirSync(racine, { withFileTypes: true }).flatMap((entree) => {
 			const chemin = path.join(racine, entree.name)
 			if (entree.isDirectory()) return fichiersDeFeature(chemin)
+			// Exclure les fichiers test du balayage
+			if (/\.test\.tsx?$/.test(entree.name)) return []
 			return /\.tsx?$/.test(entree.name) ? [chemin] : []
 		})
 	}
 
-	it('aucune feature n importe COMMANDES ni createMagasinDeSession', () => {
+	it('aucune feature n importe COMMANDES ni createMagasinDeSession (sauf exclusion nommee)', () => {
 		const fichiers = fichiersDeFeature(RACINE_FEATURES)
 		// Non-vacuité : le balayage voit réellement le disque.
 		expect(fichiers.length).toBeGreaterThan(50)
@@ -559,6 +568,10 @@ describe('la frontiere du baril est instrumentee, pas conventionnelle', () => {
 			source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')
 
 		const coupables = fichiers.filter((fichier) => {
+			// EXCLUSION NOMMÉE
+			const estExclu = FICHIERS_EXCLUS.some((exclu) => fichier === exclu)
+			if (estExclu) return false
+
 			const code = sansCommentaires(fs.readFileSync(fichier, 'utf8'))
 			return INTERDITS.some((nom) => code.includes(nom))
 		})

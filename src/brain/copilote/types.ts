@@ -6,6 +6,12 @@
  * validation de forme vit dans `schemaSortie.ts`, l'assemblage du contexte dans
  * `contexte.ts`, l'appel réseau dans `../CopiloteService.ts`.
  */
+// `Commande`/`CommandeId` UNIQUEMENT — `dossier/commandes.ts` n'importe rien de
+// `copilote/`, donc AUCUN cycle, ni de type ni de valeur. `import type` reste la
+// bonne forme malgré tout : ce module ne consomme que la FORME de `Commande`,
+// jamais son registre (`COMMANDES`, `executerCommande`), qui vit dans
+// `interprete.ts` et `schemaSortie.ts`.
+import type { Commande, CommandeId } from '../dossier/commandes'
 
 /** SIX rôles. Le nom se lit ⟨entité CIBLE⟩-⟨ce qu'on demande⟩ — « la prose d'un
  *  personnage », « les détenteurs d'un indice », « les répliques d'un personnage »,
@@ -340,3 +346,118 @@ export interface FicheBrouillon {
 export interface PropositionDistribution {
 	ajouts: readonly FicheBrouillon[]
 }
+
+/**
+ * LE SEPTIÈME RÔLE — `interprete` (n° 10, `moteur-interprete`) — ET LE PREMIER
+ * QUI N'ENTRE PAS DANS `RoleCopilote`. Ce rôle NE PASSE PAS par les registres
+ * `Record<RoleCopilote, …>` de `contexte/registres.ts` (`CHAMPS_INJECTES`,
+ * `PARTIES_REQUISES`, `BUDGET_CARACTERES_CONTEXTE`) : son contexte n'est ni une
+ * fiche d'entité ni une prose de rédaction, c'est une TRADUCTION D'ACTION sur
+ * un graphe de lieux, et l'ajouter à ces registres aurait exigé une 7ᵉ entrée
+ * partout, y COMPRIS dans des fichiers hors du lot `contrat` de cette
+ * itération (`contexte/registres.ts`, `worker/frontiere.test.ts`). Voir le
+ * compte rendu de lot pour le détail de ce choix et son coût si on le renverse.
+ *
+ * CE QUE LE MODÈLE REND — franchit le réseau. TROIS FORMES DISJOINTES, jamais
+ * une clé en commun avec `SortieInterprete` (résolu) ni avec `Commande`
+ * (domaine) : KR-231 au niveau du RÔLE ENTIER, pas seulement de l'élément.
+ * NON ré-exportée par `brain/index.ts` — précédent : les six formes réseau qui
+ * la précèdent.
+ *
+ * `{geste, designe}` — un geste rangé (`G1…`) et ses cibles rangées (`P1…`),
+ * dans L'ORDRE ATTENDU par `COMMANDES[id].refKinds` — jamais un `Commande` :
+ * `geste`/`designe` sont des RANGS, `Commande.commande`/`Commande.cibles` sont
+ * des IDENTIFIANTS résolus. Le pont est `resoudreInterpretation`
+ * (`brain/dossier/interprete.ts`), et lui seul.
+ *
+ * `{precision}` — une question de clarification, prose contrainte (validée par
+ * `validerInterprete`).
+ *
+ * `{sans_commande: true}` — aucune des deux formes ci-dessus ne s'applique.
+ * SCALAIRE ET NON UNE LISTE VIDE : narrower que « une liste de gestes rendus
+ * vide », ce serait représentable de deux façons pour dire la même chose.
+ */
+export type InterpretationRendue =
+	| { readonly geste: RangInjecte; readonly designe: readonly RangInjecte[] }
+	| { readonly precision: string }
+	| { readonly sans_commande: true }
+
+/**
+ * CE QUE LE CODE RE-RÉSOUT — ne franchit JAMAIS le réseau. LE SEUL TYPE QUE LA
+ * FEATURE (`play-mode`) VOIT : `interprete.ts` ni `CopiloteService.ts` ne
+ * laissent jamais fuiter `InterpretationRendue` au-delà de leur frontière.
+ *
+ * ZÉRO CLÉ COMMUNE avec `InterpretationRendue` : `{geste,designe,precision,
+ * sans_commande} ∩ {lecture,commande,question,gestes_possibles} = ∅` (KR-231).
+ * `Commande` N'EST PAS UNE VIOLATION DE CETTE RÈGLE malgré son nom partagé
+ * avec le champ `commande` : elle n'apparaît que NESTÉE sous
+ * `SortieInterprete.commande`, un type produit UNIQUEMENT par
+ * `resoudreInterpretation` après re-résolution complète — jamais la forme
+ * brute reçue du réseau.
+ *
+ * `lecture: 'commande'` — traduite en déplacement reconnu, prête pour
+ * `executerCommande` (même entonnoir que la console, KR-013).
+ *
+ * `lecture: 'clarification'` — R1 ne peut pas trancher seul ; `question` est
+ * la prose VERBATIM qu'elle a rédigée (audience `'ia'` côté session dès
+ * qu'elle repart au tour suivant, jamais recopiée à l'écran comme une fiche).
+ *
+ * `lecture: 'sans_commande'` — hors `COMMANDES`, ou court-circuit sans geste
+ * satisfiable. `gestes_possibles` NOMME CE QUI ÉTAIT RÉELLEMENT ATTEIGNABLE au
+ * tour courant (les clés dont `tables.gestes` portait une entrée) — jamais le
+ * registre complet : un geste dont aucune cible n'existait n'est jamais
+ * annoncé comme possible (précédent `GABARIT_NON_RECONNU`, `play-mode`, it2).
+ */
+export type SortieInterprete =
+	| { readonly lecture: 'commande'; readonly commande: Commande }
+	| { readonly lecture: 'clarification'; readonly question: string }
+	| { readonly lecture: 'sans_commande'; readonly gestes_possibles: readonly CommandeId[] }
+
+/**
+ * LES TABLES DE RÉ-RÉSOLUTION DU RÔLE `interprete` — rendues par
+ * `assemblerInterprete` (`contexte/interprete.ts`), UNE FOIS, AVANT la boucle
+ * de rejeu. `validerInterprete` (`schemaSortie.ts`) les CONSULTE pour
+ * l'appartenance (`Map.has`) ; `resoudreInterpretation`
+ * (`brain/dossier/interprete.ts`) les CONSULTE pour la résolution
+ * (`Map.get`) — LA MÊME PAIRE DE TABLES POUR LES DEUX GESTES, jamais deux
+ * dérivations qui pourraient diverger (KR-013).
+ *
+ * NE SORT JAMAIS de `brain/` — précédent exact `ContexteDetenteursRendu.rangs`
+ * (`contexte/noyau.ts`) : une feature qui pourrait la lire pourrait la
+ * RE-DÉRIVER, et désigner le mauvais lieu quand le dossier a changé entre
+ * l'appel et l'exécution.
+ */
+export interface TablesInterprete {
+	/** `P1…` → `Lieu.id`, les seuls lieux à la fois ACCESSIBLES et DÉCRITS. */
+	readonly lieux: ReadonlyMap<RangInjecte, string>
+	/** `G1…` → `CommandeId`, les seules commandes SATISFIABLES au tour courant
+	 *  (au moins une cible rangée pour chacun de leurs `refKinds`). */
+	readonly gestes: ReadonlyMap<RangInjecte, CommandeId>
+}
+
+/**
+ * L'AVIS QUE LE JOUEUR VOIT — rendu par `apresInterpretation`
+ * (`brain/dossier/interprete.ts`), seule décideuse. Union FERMÉE : une carte
+ * qui la rétrécit totalement n'a aucun bras muet.
+ *
+ * `{type:'aucun'}` — commande acceptée, rien à afficher (it1 : pas de prose).
+ * `{type:'non_reconnu'; gestes_possibles}` — voir `SortieInterprete.sans_commande`
+ * ci-dessus, même charge, même règle de dérivation.
+ * `{type:'clarification'; question}` — `PRÉCISEZ` ⇔ cette union vaut ce membre
+ * ⇔ `session.attente !== undefined` : les trois sont un SEUL invariant, jamais
+ * trois à tenir en phase (KR-013).
+ * `{type:'reformuler'}` — anti-boucle (KR-264, une attente déjà pendante) OU
+ * sortie illisible après un rejeu OU `canon.ton` non écrit (dégradation
+ * silencieuse retenue, § 8 désaccord 22 du plan d'itération) : même texte fixe
+ * pour les trois, l'auteur n'a pas à distinguer leurs causes à l'écran.
+ * `{type:'refus_moteur'}` — `executerCommande` a refusé une commande pourtant
+ * validée (inatteignable par construction, gardé par défense KR-175) ou la
+ * réponse reçue n'était pas une proposition (panne réseau/contexte, gardé par
+ * défense pour la même raison).
+ */
+export type AvisInterprete =
+	| { readonly type: 'aucun' }
+	| { readonly type: 'non_reconnu'; readonly gestes_possibles: readonly CommandeId[] }
+	| { readonly type: 'clarification'; readonly question: string }
+	| { readonly type: 'reformuler' }
+	| { readonly type: 'refus_moteur' }

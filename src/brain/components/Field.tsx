@@ -21,6 +21,8 @@ export interface FieldProps {
 	rows?: number
 	id?: string
 	autoFocus?: boolean
+	disabled?: boolean
+	maxLength?: number
 	inputRef?: Ref<HTMLInputElement>
 	onChange?: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void
 	onKeyDown?: (e: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => void
@@ -52,6 +54,8 @@ export function Field({
 	rows = 2,
 	id,
 	autoFocus = false,
+	disabled = false,
+	maxLength,
 	inputRef,
 	onChange,
 	onKeyDown,
@@ -106,6 +110,8 @@ export function Field({
 					ref={textareaRef}
 					id={id}
 					rows={rows}
+					disabled={disabled}
+					maxLength={maxLength}
 					value={value}
 					placeholder={placeholder}
 					aria-label={ariaLabel}
@@ -120,6 +126,8 @@ export function Field({
 					type="text"
 					ref={inputRef}
 					autoFocus={autoFocus}
+					disabled={disabled}
+					maxLength={maxLength}
 					value={value}
 					placeholder={placeholder}
 					aria-label={ariaLabel}

@@ -50,6 +50,17 @@ import type { EtatSession } from '../session'
  * références n'est résolue : sa seule fonction est de porter une valeur sous
  * CHAQUE chemin de feuille de la session. Les identifiants sont empruntés à
  * `dossier-minimal.json` pour rester lisibles, rien de plus.
+ *
+ * `attente` INSTANCIÉE depuis le lot `contrat` de la n° 10 (`moteur-interprete`) :
+ * quatrième racine porteuse de la table d'audience, et ses deux feuilles
+ * (`question`/`saisie`) sont les DEUX PREMIÈRES lignes `'ia'` de ce fichier —
+ * sans instance ici, les quatre chemins (`attente`, `.type`, `.question`,
+ * `.saisie`) seraient des lignes MORTES le jour même où ils sont écrits, même
+ * précédent que `journal[].deltas[].*` à l'itération 3. `question` finit par
+ * un point d'interrogation et tient sous 120 caractères (borne réelle du
+ * validateur, `PRECISION_CARACTERES_MAX`) ; `saisie` est la forme NORMALISÉE
+ * (espaces collapsés) qu'`assemblerInterprete` aurait injectée — même doctrine
+ * que le reste du fichier : une valeur PLAUSIBLE, jamais un dossier réel.
  */
 export const SESSION_SATUREE: EtatSession = {
 	schema: 1,
@@ -83,4 +94,9 @@ export const SESSION_SATUREE: EtatSession = {
 		},
 	],
 	memoire: null,
+	attente: {
+		type: 'clarification',
+		question: 'Voulez-vous rejoindre le marché des cendres ou la tour effondrée ?',
+		saisie: 'je vais au marche',
+	},
 }

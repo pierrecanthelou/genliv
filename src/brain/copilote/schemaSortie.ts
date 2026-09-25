@@ -9,12 +9,14 @@
  * est une entrée non fiable au même titre que le fournisseur qu'il relaie.
  */
 import { MARQUEUR_A_ECRIRE } from '../dossier/amorce'
+import { COMMANDES } from '../dossier/commandes'
 import { ESPACES_DE_NOMS, collectIds } from '../dossier/identifiers'
 import type { Dossier } from '../dossier/types'
 import type {
 	DetenteursRendus,
 	DistributionRendue,
 	FicheReseau,
+	InterpretationRendue,
 	IntentionRendue,
 	PropositionRendue,
 	RangInjecte,
@@ -22,6 +24,7 @@ import type {
 	RapportsRendus,
 	RepliquesRendues,
 	RoleCopilote,
+	TablesInterprete,
 } from './types'
 
 /** Les clés du schéma de sortie, EN VALEUR : le garde KR-236 les énumère à
@@ -796,4 +799,163 @@ export function validerDistribution(
 	}
 
 	return { ok: true, sortie: { distribution: fiches } }
+}
+
+/**
+ * LA BORNE DE SORTIE du rôle `interprete` — combien de caractères une question
+ * de clarification peut porter. VALEUR DE DÉCISION du comité (2026-09-25), pas
+ * une mesure : narratif-ia, tour 1. Contrainte assumée : une question tenant à
+ * l'écran d'un `OutcomeBlock` sans défiler.
+ */
+export const PRECISION_CARACTERES_MAX = 120
+
+/**
+ * LE SCANNER ANTI-RANG — forme LÂCHE `\b[PG]\d+\b` ∩ APPARTENANCE À L'UNE OU
+ * L'AUTRE TABLE, exactement le même CROISEMENT forme-lâche/appartenance que
+ * `porteUnIdentifiant` ci-dessus, mais sur les JETONS de ce rôle plutôt que sur
+ * les identifiants du dossier : une précision qui recopie « P2 » ou « G1 »
+ * ferait dire au moteur, une fois exécuté, une désignation que l'auteur n'a
+ * jamais relue — personne ne relit une clarification en JEU, contrairement à
+ * une proposition de rédaction (§ 8 du plan d'itération, désaccord 9/annexe E).
+ *
+ * DEUX TABLES, UNE SEULE FONCTION : `tables.gestes` et `tables.lieux` sont deux
+ * `Map` distinctes, et un jeton qui appartient à L'UNE OU L'AUTRE est un
+ * rang — l'appartenance croisée n'a pas de sens ici, contrairement à
+ * `porteUnIdentifiant` où un seul ensemble (`ESPACES_DE_NOMS`) suffit.
+ *
+ * Exportée pour les trois mutants obligatoires du plan (§ 4 ter), comme
+ * `porteUnIdentifiant`.
+ */
+export function porteUnRang(texte: string, tables: TablesInterprete): boolean {
+	for (const trouve of texte.matchAll(/\b[PG]\d+\b/g)) {
+		if (tables.lieux.has(trouve[0]) || tables.gestes.has(trouve[0])) return true
+	}
+	return false
+}
+
+/**
+ * LES PRÉDICATS DE FORME de la sortie `interprete` — LE SEPTIÈME RÔLE, ET LE
+ * PREMIER À TROIS FORMES DISJOINTES AU PREMIER NIVEAU (`geste`, `precision`,
+ * `sans_commande`) plutôt qu'un schéma unique : la sortie EST une union, pas un
+ * objet à clés optionnelles — une clé d'une forme mêlée à une clé d'une autre
+ * est un REFUS `schema`, jamais une forme « qui gagne ».
+ *
+ * `tables` VIENT DE L'ASSEMBLEUR (`assemblerInterprete`), CALCULÉE UNE SEULE
+ * FOIS AVANT LA BOUCLE DE REJEU — jamais re-dérivée : c'est elle qui dit ce que
+ * `G1`/`P1` désignent, à CET appel-ci.
+ *
+ * LES PRÉDICATS, dans l'ordre, chacun prouvable SEUL :
+ *  BRANCHE `{geste, designe}` :
+ *   (1) objet simple, clés EXACTEMENT `{geste, designe}` ......... 'schema'
+ *   (2) `geste` est une CHAÎNE appartenant à `tables.gestes` — PAS
+ *       de normalisation de casse : `g1` est refusé ............. 'schema'
+ *   (3) `designe` est un TABLEAU de chaînes DISTINCTES ........... 'schema'
+ *   (4) `designe.length === COMMANDES[id].refKinds.length` — SEUL
+ *       DÉCIDEUR de l'arité sur ce chemin (KR-013) ............... 'schema'
+ *   (5) chaque élément de `designe` ∈ `tables.lieux` ....... 'rang-inconnu'
+ *  BRANCHE `{precision}` :
+ *   (6) objet simple, clé UNIQUE `precision`, une CHAÎNE ......... 'schema'
+ *   (7) non vide une fois les blancs retirés ........................ 'vide'
+ *   (8) ≤ `PRECISION_CARACTERES_MAX`, ET `trimEnd()` finit par
+ *       `'?'` .......................................................... 'schema'
+ *   (9) aucun `MARQUEUR_A_ECRIRE` ................................. 'marqueur'
+ *  (10) aucun identifiant du dossier (`porteUnIdentifiant`) ... 'identifiant'
+ *  (11) aucun rang de CET appel (`porteUnRang`) ............... 'identifiant'
+ *  (12) `tables.lieux.size >= 2` — une clarification n'a de sens
+ *       QUE si elle départage au moins deux lieux réels ............ 'schema'
+ *  BRANCHE `{sans_commande}` :
+ *  (13) objet simple, clé UNIQUE `sans_commande`, valeur
+ *       `=== true` ..................................................... 'schema'
+ *
+ * ⚠ LE PRÉDICAT (11) EST LA GARDE DE KR-231 : IL NE PASSE JAMAIS
+ * `porteUnIdentifiant` sur les rangs eux-mêmes (§ 8, n° 21, précédent) — les
+ * rangs sont L'UNE DE NOS PROPRES CHAÎNES, leur appartenance se constate par
+ * `Map.has`, jamais par le scanner d'identifiants du dossier.
+ *
+ * ⚠ (4) NE REVÉRIFIE RIEN QUE (2) N'AIT DÉJÀ ÉTABLI : `tables.gestes.get`
+ * N'EST APPELÉ QU'ICI, et `interprete.ts` (re-résolution) ne revérifie PAS
+ * l'arité — un second décideur divergerait du premier (KR-013, précédent
+ * `analyserSaisie`/`TRANSITIONS.aller`, `commandes.ts`).
+ */
+export function validerInterprete(
+	brut: unknown,
+	tables: TablesInterprete,
+	dossier: Dossier,
+): { ok: true; sortie: InterpretationRendue } | { ok: false; motif: MotifIllisible } {
+	// (1) un objet JSON — ni tableau, ni `null`.
+	if (!estObjetSimple(brut)) return { ok: false, motif: 'schema' }
+
+	const cles = Object.keys(brut)
+
+	// ── BRANCHE `sans_commande` ────────────────────────────────────────────
+	if (cles.length === 1 && cles[0] === 'sans_commande') {
+		// (13) la valeur est EXACTEMENT `true`, sinon `schema` — un `false` ou
+		// une chaîne ne se « repêche » pas.
+		if (brut.sans_commande !== true) return { ok: false, motif: 'schema' }
+		return { ok: true, sortie: { sans_commande: true } }
+	}
+
+	// ── BRANCHE `precision` ────────────────────────────────────────────────
+	if (cles.length === 1 && cles[0] === 'precision') {
+		// (6) la clé unique porte une CHAÎNE.
+		if (typeof brut.precision !== 'string') return { ok: false, motif: 'schema' }
+		const precision = brut.precision
+
+		// (7) non vide une fois les blancs retirés.
+		if (precision.trim().length === 0) return { ok: false, motif: 'vide' }
+
+		// (8) ≤ 120 caractères, ET finit par « ? » une fois la fin nettoyée —
+		// une seule question, pas un paragraphe.
+		if (precision.length > PRECISION_CARACTERES_MAX || !precision.trimEnd().endsWith('?')) {
+			return { ok: false, motif: 'schema' }
+		}
+
+		// (9) pas le marqueur d'amorce — constante IMPORTÉE, jamais recopiée (KR-223).
+		if (precision.includes(MARQUEUR_A_ECRIRE)) return { ok: false, motif: 'marqueur' }
+
+		// (10) aucun identifiant du dossier.
+		if (porteUnIdentifiant(precision, dossier)) return { ok: false, motif: 'identifiant' }
+
+		// (11) aucun rang de CET appel — scanner PROPRE à ce rôle.
+		if (porteUnRang(precision, tables)) return { ok: false, motif: 'identifiant' }
+
+		// (12) une clarification n'a de sens que si elle départage AU MOINS
+		// deux lieux réels — sinon la question ne ferait que reformuler le
+		// seul choix déjà connu (§ 8, désaccord 11 du plan d'itération).
+		if (tables.lieux.size < 2) return { ok: false, motif: 'schema' }
+
+		return { ok: true, sortie: { precision } }
+	}
+
+	// ── BRANCHE `{geste, designe}` ─────────────────────────────────────────
+	// (1 bis) clés EXACTEMENT `{geste, designe}` — clés mêlées ou en trop :
+	// `schema`, jamais un champ ignoré (signal KR-236 de ce rôle-ci aussi).
+	if (cles.length !== 2 || !cles.includes('geste') || !cles.includes('designe')) {
+		return { ok: false, motif: 'schema' }
+	}
+
+	// (2) `geste` est une CHAÎNE appartenant à `tables.gestes` — PAS de
+	// normalisation de casse : `Map.get` est sensible à la casse par
+	// construction, et c'est la garde elle-même.
+	if (typeof brut.geste !== 'string') return { ok: false, motif: 'schema' }
+	const commandeId = tables.gestes.get(brut.geste)
+	if (commandeId === undefined) return { ok: false, motif: 'schema' }
+
+	// (3) `designe` est un TABLEAU de chaînes DISTINCTES.
+	const designe: unknown = brut.designe
+	if (!Array.isArray(designe) || !designe.every((element): element is string => typeof element === 'string')) {
+		return { ok: false, motif: 'schema' }
+	}
+	if (new Set(designe).size !== designe.length) return { ok: false, motif: 'schema' }
+
+	// (4) L'ARITÉ — SEUL DÉCIDEUR de ce chemin (KR-013). `interprete.ts` ne la
+	// revérifie PAS : le faire créerait un second décideur qui pourrait diverger
+	// du premier.
+	if (designe.length !== COMMANDES[commandeId].refKinds.length) return { ok: false, motif: 'schema' }
+
+	// (5) chaque élément appartient à `tables.lieux` — le LOT ENTIER est
+	// refusé sur un seul jeton fautif (KR-230, précédent tous rôles à rangs).
+	if (!designe.every((rang) => tables.lieux.has(rang))) return { ok: false, motif: 'rang-inconnu' }
+
+	return { ok: true, sortie: { geste: brut.geste, designe } }
 }

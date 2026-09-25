@@ -83,6 +83,30 @@
 			"mitigation": "Aucune pour l instant, et c est le cout reel que cette entree laisse impaye : le hook pre-commit lance jest, donc un commit sur deux peut etre bloque par un echec qui n a rien a voir avec le lot en cours. Le danger n est pas le rouge, c est l ACCOUTUMANCE au rouge -- un ouvrier qui apprend que << ce test-la echoue parfois >> cessera de lire les echecs, et c est ainsi qu une vraie regression passe. Declencheur arme : le premier lot qui rouvre panneauPersonnages.test.tsx, ou le premier ouvrier que la porte bloque deux fois de suite.",
 			"regression_test": "aucun -- le defaut EST dans un test. Ce qui le constate est la repetition : lancer jest en entier plusieurs fois et compter les echecs, la suite passant systematiquement quand elle est lancee seule.",
 			"severity": "major"
+		},
+		{
+			"id": "BUG-130",
+			"date": "2026-09-25",
+			"feature": "moteur-interprete",
+			"discovered_at": "iteration-1",
+			"symptom": "Lot 2 de l essaim rendu << verrou KR-265 verifie >> alors que useTourDeJeu.test.ts n avait que des it() a corps vide (commentaires << reporte >>) ; et un << test du mutant obligatoire >> de moteurSansIA.test.ts redupliquait le premier test, zero pouvoir separateur.",
+			"root_cause": "jest.mock appele dans un it() au lieu du niveau module (non hisse) a fait croire a un BrainProvider necessaire. Le mutant KR-260 a ete simule au lieu d etre execute a la main.",
+			"fix": "renderHook sans provider (precedent useDemandeCopilote.test.tsx), jest.mock remonte au niveau module, 5 tests reels ecrits. Mutant execute a la main (fichier fautif cree, rouge constate, retire), test redondant supprime.",
+			"mitigation": "Le compte rendu d un agent ne se croit jamais sur le seul resume -- relire le fichier de test avant d accepter un lot, surtout sur le critere le plus critique.",
+			"regression_test": "src/features/play-mode/hooks/useTourDeJeu.test.ts -- 5 tests avec assertions, dont KR-265",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-131",
+			"date": "2026-09-25",
+			"feature": "moteur-interprete",
+			"discovered_at": "iteration-1",
+			"symptom": "useTourDeJeu.ts prenait `useState(sessionInitiale)` -- une copie PRIVEE de la session, jamais resynchronisee. ConsoleCommandes ecrit directement la session du PARENT (EcranPartie) ; une commande console acceptee ENTRE deux soumissions du champ libre etait donc ECRASEE au prochain executeAction, qui travaillait encore sur la copie figee au premier rendu (perte silencieuse d une entree de journal).",
+			"root_cause": "KR-013 viole par construction : useState(sessionInitiale) ignore tout changement de son argument apres le premier rendu (fait React). Trouve en revue tech-lead (Build Steps etape 6), pas par un test -- aucun test n exercait un rerender avec une session modifiee entre deux appels.",
+			"fix": "Le parametre est desormais lu directement (`session`, sans useState local) ; onSessionChange n ecrit plus que l etat du parent, jamais un miroir local. Le commentaire d EcranPartie.tsx affirmant a tort une exclusion mutuelle console/champ libre est corrige.",
+			"mitigation": "Un hook qui recoit un etat externe en parametre ne le copie JAMAIS dans son propre useState sans un mecanisme de resynchronisation explicite (key sur remontage, ou lecture directe comme ici) -- a verifier systematiquement des qu un hook prend un etat possiblement mute par un AUTRE canal du meme ecran.",
+			"regression_test": "src/features/play-mode/hooks/useTourDeJeu.test.ts -- KR-013, rerender avec une session avancee entre deux appels, verifie que executeAction utilise la session fraiche",
+			"severity": "critical"
 		}
 	],
 	"_about": "Les defauts que le TRAVAIL EN COURS relira -- bascule IA, 0.6.x. AXE D'APPARTENANCE, et c'est le seul : un travail en cours le relira-t-il, ET sa lecon est-elle deja promue dans un instrument lui-meme en lecture obligatoire (critere d'acceptation, KR, regle ESLint, test permanent) ? Si la lecon est promue, l'entree part a l'archive -- la garder ici la ferait relire deux fois. JAMAIS << de quelle feature vient l'entree >> : un fichier qui porte le nom d'une feature n'est pas pour autant range PAR feature, et confondre les deux a deja coute une scission fausse (BUG-086, corrige en revue de PR). Ce fichier ne se compacte pas, il se SCINDE -- et avant tout deplacement, on OUVRE les _about des DEUX fichiers. RESTE ICI quoi qu'il arrive : BUG-074, dont le correctif n'est TOUJOURS PAS FAIT et dont la lecon n'est promue nulle part -- l'archiver serait l'oublier ; il a deja ete archive par erreur une fois. NUMEROTATION GLOBALE aux NEUF fichiers, jamais reemployee : prochain id = max(BUG-xxx) des NEUF, jamais du seul fichier en cours (precedents BUG-062, BUG-123). OU SONT LES AUTRES : bug_history.0.5.json (BUG-001 a 027) · bug_history.features-terminees.json (features done hors bascule) · bug_history.dossier-canon.json · bug_history.dossier-fiches.json · bug_history.dossier-registres.json · bug_history.dossier-controles.json · bug_history.dossier-copilote.json · bug_history.moteur-dossier.json (ne le 2026-09-24). HISTORIQUE COMPLET DES SCISSIONS : CHANGELOG.md -- il n'est pas recopie ici, c'est lui qui le porte."

@@ -156,6 +156,9 @@ export { createCloudSettings, type CloudSettingsService } from './CloudSettingsS
 // elle n'est PAS une forme réseau — c'est la forme RE-RÉSOUTE, celle que la carte lit
 // pour rendre ses deux proses et dont elle compose la recette d'écriture. Son voisinage
 // avec `FicheReseau`, qui ne sort pas, est exactement la frontière de KR-231.
+// ⚠ `CibleInterprete`/`ReponseInterprete` SORTENT AVEC LES SIX AUTRES COUPLES
+// `Cible*`/`Reponse*` — le 7ᵉ rôle (n° 10, `moteur-interprete`), consommé par
+// `useTourDeJeu` (play-mode). Précédent inchangé pour les six premiers.
 export type {
 	CopiloteService,
 	CibleCopilote,
@@ -164,12 +167,14 @@ export type {
 	CiblePlan,
 	CibleRelations,
 	CibleDistribution,
+	CibleInterprete,
 	ReponseCopilote,
 	ReponseDetenteurs,
 	ReponseRepliques,
 	ReponsePlan,
 	ReponseRelations,
 	ReponseDistribution,
+	ReponseInterprete,
 	EchecCopilote,
 	RaisonIndisponible,
 } from './CopiloteService'
@@ -186,6 +191,13 @@ export type {
 	PropositionDistribution,
 	FicheBrouillon,
 	LienResolu,
+	// LE 7ᵉ RÔLE (n° 10, `moteur-interprete`) : `SortieInterprete` est LE SEUL type
+	// que la feature voit (`InterpretationRendue`, réseau, NE SORT PAS — précédent
+	// des six formes réseau qui la précèdent). `AvisInterprete` sort AVEC elle :
+	// c'est ce que rend `apresInterpretation`, et `PlayerInputBar` (lot 2) n'a
+	// aucun autre moyen de le NOMMER pour rétrécir totalement dessus.
+	SortieInterprete,
+	AvisInterprete,
 } from './copilote/types'
 // `MotifIllisible` est INCHANGÉE depuis l'itération 3a — aucun des quatre validateurs
 // suivants n'ajoute de membre. Le CINQUIÈME est le premier à la nommer EN ENTIER dans
@@ -529,7 +541,21 @@ export type {
 	RoleJournal,
 	RefusOuverture,
 	ResultatOuverture,
+	// `AttenteClarification` sort AVEC `EtatSession` — c'est le type de son champ
+	// optionnel `attente` (n° 10, lot `contrat` de `moteur-interprete`), et
+	// `useTourDeJeu` (lot feature) n'a aucun autre moyen de l'annoter.
+	AttenteClarification,
 } from './dossier/session'
+// ── LE RÔLE `interprete` (n° 10 `moteur-interprete`, lot `contrat`) ──────────
+// Sort `apresInterpretation` SEULE : c'est la fonction que `useTourDeJeu`
+// applique après CHAQUE réponse de `CopiloteService.demander(dossier,
+// {role:'interprete', …})`. RESTENT DEDANS — même règle que
+// `PREDICATES`/`DELTAS`/les tables d'audience : `resoudreInterpretation`
+// (`CopiloteService.ts` l'appelle déjà pour son compte, aucun autre
+// consommateur), `RefusInterprete` (sa seule charge utile) et
+// `TablesInterprete` (`copilote/types.ts` — produite par l'assembleur,
+// consultée par le validateur et la ré-résolution, jamais lue par une feature).
+export { apresInterpretation } from './dossier/interprete'
 // ── LE JOURNAL DES EFFETS DE RÈGLE (itération 3) ─────────────────────────────
 // SORT `DeltaJournalise` SEUL, et c'est tout ce qui sort d'`evaluate.ts` : c'est le
 // type du champ `deltas` d'une `EntreeJournal`, que `JournalRow` rend en pastilles.

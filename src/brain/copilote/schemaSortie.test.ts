@@ -12,13 +12,16 @@ import {
 	CLES_SORTIE_REPLIQUES,
 	FICHES_PROPOSEES_MAX,
 	GABARIT_SORTIE,
+	PRECISION_CARACTERES_MAX,
 	PROPOSITIONS_MAX,
 	RELATIONS_PROPOSEES_MAX,
 	REPLIQUES_PROPOSEES_MAX,
 	porteUnIdentifiant,
+	porteUnRang,
 	validerDetenteurs,
 	validerDistribution,
 	validerIntention,
+	validerInterprete,
 	validerRelations,
 	validerRepliques,
 	validerSortie,
@@ -36,6 +39,7 @@ import type {
 	RapportRendu,
 	RapportsRendus,
 	RepliquesRendues,
+	TablesInterprete,
 } from './types'
 
 /** Un dossier NEUF — c'est `construireAmorce` qui garantit `lieu.amorce`, et
@@ -2064,5 +2068,217 @@ describe('validerDistribution — les DOUZE predicats de forme du sixieme role',
 		]) {
 			expect(CLES_SORTIE_DISTRIBUTION.filter((cle) => (autres as readonly string[]).includes(cle))).toEqual([])
 		}
+	})
+})
+
+// ══ LE SEPTIÈME RÔLE — `interprete` (n° 10, `moteur-interprete`) ═════════════
+//
+// TROIS FORMES DISJOINTES au premier niveau (`geste`, `precision`,
+// `sans_commande`), PAS un schéma unique à clés optionnelles : une clé mêlée
+// d'une forme à l'autre est un refus `schema`, comme pour les six rôles
+// précédents une clé en trop.
+describe('validerInterprete — trois formes disjointes, arite SEUL decideur (KR-013)', () => {
+	const dossier = dossierDeReference()
+
+	/** DEUX lieux rangés — la table de référence des tests « nominaux » et des
+	 *  témoins d'échec qui n'éprouvent PAS la garde `< 2`. */
+	const TABLES: TablesInterprete = {
+		lieux: new Map([
+			['P1', 'lieu.foyer-du-guet'],
+			['P2', 'lieu.tour-effondree'],
+		]),
+		gestes: new Map([['G1', 'aller']]),
+	}
+
+	/** UN SEUL lieu rangé — la table qui rend une clarification structurellement
+	 *  impossible (motif 6, § 8 désaccord 11 du plan d'itération). */
+	const TABLE_UN_SEUL_LIEU: TablesInterprete = {
+		lieux: new Map([['P1', 'lieu.foyer-du-guet']]),
+		gestes: new Map([['G1', 'aller']]),
+	}
+
+	it('le nominal — {geste, designe} de bonne arite rend ok, MEME FORME', () => {
+		expect(validerInterprete({ geste: 'G1', designe: ['P1'] }, TABLES, dossier)).toEqual({
+			ok: true,
+			sortie: { geste: 'G1', designe: ['P1'] },
+		})
+	})
+
+	it('le nominal — precision valide (>= 2 lieux ranges) rend ok', () => {
+		const precision = 'Lequel des deux lieux voulez-vous rejoindre ?'
+		expect(validerInterprete({ precision }, TABLES, dossier)).toEqual({ ok: true, sortie: { precision } })
+	})
+
+	it('le nominal — sans_commande:true rend ok', () => {
+		expect(validerInterprete({ sans_commande: true }, TABLES, dossier)).toEqual({
+			ok: true,
+			sortie: { sans_commande: true },
+		})
+	})
+
+	it('ce qui n est pas un objet JSON est refuse, motif schema', () => {
+		for (const brut of [null, undefined, [], 'G1', 42, true]) {
+			expect({ brut, ...validerInterprete(brut, TABLES, dossier) }).toEqual({ brut, ok: false, motif: 'schema' })
+		}
+	})
+
+	describe('les six temoins d echec, chacun un motif exact (annexe E du plan d iteration)', () => {
+		it('1 — designe de longueur != arite (2 rangs pour un geste d arite 1)', () => {
+			expect(validerInterprete({ geste: 'G1', designe: ['P1', 'P2'] }, TABLES, dossier)).toEqual({
+				ok: false,
+				motif: 'schema',
+			})
+		})
+
+		it('2 — cles melees : geste ET precision au meme niveau', () => {
+			expect(validerInterprete({ geste: 'G1', designe: ['P1'], precision: 'Un ajout ?' }, TABLES, dossier)).toEqual({
+				ok: false,
+				motif: 'schema',
+			})
+		})
+
+		it('3 — sans_commande:false est refuse, jamais repeche en true', () => {
+			expect(validerInterprete({ sans_commande: false }, TABLES, dossier)).toEqual({ ok: false, motif: 'schema' })
+		})
+
+		it('4 — g1 (non normalise en casse) est refuse : AUCUNE normalisation de casse', () => {
+			expect(validerInterprete({ geste: 'g1', designe: ['P1'] }, TABLES, dossier)).toEqual({
+				ok: false,
+				motif: 'schema',
+			})
+		})
+
+		it('5 — une precision contenant un rang (P2) est refusee, motif identifiant', () => {
+			expect(validerInterprete({ precision: 'Vous parlez du lieu P2, exactement ?' }, TABLES, dossier)).toEqual({
+				ok: false,
+				motif: 'identifiant',
+			})
+		})
+
+		it('6 — une precision avec une table de moins de 2 lieux est refusee, motif schema', () => {
+			const precision = 'Voulez-vous vraiment vous y rendre ?'
+			expect(validerInterprete({ precision }, TABLE_UN_SEUL_LIEU, dossier)).toEqual({ ok: false, motif: 'schema' })
+			// Discriminant : LA MEME precision, sur la table a DEUX lieux, passe.
+			expect(validerInterprete({ precision }, TABLES, dossier)).toEqual({ ok: true, sortie: { precision } })
+		})
+	})
+
+	describe('predicats de la branche precision, un par un', () => {
+		it('vide apres trim : motif vide', () => {
+			expect(validerInterprete({ precision: '   ' }, TABLES, dossier)).toEqual({ ok: false, motif: 'vide' })
+		})
+
+		it('plus de 120 caracteres : motif schema', () => {
+			const trop = `${'x'.repeat(PRECISION_CARACTERES_MAX)}?`
+			expect(trop.length).toBeGreaterThan(PRECISION_CARACTERES_MAX)
+			expect(validerInterprete({ precision: trop }, TABLES, dossier)).toEqual({ ok: false, motif: 'schema' })
+			// Et EXACTEMENT la borne passe (sans le rester `?` en trop).
+			const juste = `${'x'.repeat(PRECISION_CARACTERES_MAX - 1)}?`
+			expect(juste).toHaveLength(PRECISION_CARACTERES_MAX)
+			expect(validerInterprete({ precision: juste }, TABLES, dossier)).toEqual({
+				ok: true,
+				sortie: { precision: juste },
+			})
+		})
+
+		it('ne finit pas par un point d interrogation : motif schema', () => {
+			expect(validerInterprete({ precision: 'Le grand marche' }, TABLES, dossier)).toEqual({
+				ok: false,
+				motif: 'schema',
+			})
+		})
+
+		it('porte le marqueur d amorce : motif marqueur', () => {
+			expect(validerInterprete({ precision: `${MARQUEUR_A_ECRIRE} ?` }, TABLES, dossier)).toEqual({
+				ok: false,
+				motif: 'marqueur',
+			})
+		})
+
+		it('porte un identifiant du dossier : motif identifiant', () => {
+			const neuf = construireAmorce('canari-interprete', 'Un dossier canari', '2026-09-25T00:00:00.000Z')
+			const tablesNeuf: TablesInterprete = {
+				lieux: new Map([
+					['P1', 'x'],
+					['P2', 'y'],
+				]),
+				gestes: new Map([['G1', 'aller']]),
+			}
+			expect(validerInterprete({ precision: 'Le sceau de lieu.amorce tient-il encore ?' }, tablesNeuf, neuf)).toEqual({
+				ok: false,
+				motif: 'identifiant',
+			})
+		})
+	})
+
+	describe('porteUnRang — le scanner propre a ce role', () => {
+		it('detecte un rang de lieu OU de geste, jamais un mot francais courant', () => {
+			expect(porteUnRang('Vous visez le lieu P2 ?', TABLES)).toBe(true)
+			expect(porteUnRang('Le geste G1 est-il celui-ci ?', TABLES)).toBe(true)
+			expect(porteUnRang('Une phrase parfaitement saine, sans aucun rang.', TABLES)).toBe(false)
+		})
+
+		it('un rang qui a la FORME mais n appartient a AUCUNE des deux tables ne compte pas', () => {
+			expect(porteUnRang('Le lieu P9 existe-t-il ?', TABLES)).toBe(false)
+			expect(porteUnRang('Le geste G9 existe-t-il ?', TABLES)).toBe(false)
+		})
+	})
+
+	/**
+	 * LES TROIS MUTANTS OBLIGATOIRES du plan d'itération (§ 4 ter), ÉCRITS et non
+	 * déduits, EXACTEMENT comme ceux du scanner anti-identifiant plus haut dans ce
+	 * fichier : une implémentation FAUTIVE, à côté de la vraie, prouvée fautive sur
+	 * un témoin précis.
+	 */
+	describe('les trois mutants obligatoires', () => {
+		it('mutant 1 — arite retiree : designe de longueur 2 serait accepte', () => {
+			const mutantSansArite = (rendu: { geste: string; designe: readonly string[] }): boolean => {
+				const commandeId = TABLES.gestes.get(rendu.geste)
+				if (commandeId === undefined) return false
+				// L'ARITÉ N'EST PLUS VÉRIFIÉE ICI — c'est le mutant.
+				return rendu.designe.every((rang) => TABLES.lieux.has(rang))
+			}
+
+			expect(mutantSansArite({ geste: 'G1', designe: ['P1', 'P2'] })).toBe(true)
+			// … et la vraie, elle, refuse : l'arité est le SEUL décideur de ce chemin.
+			expect(validerInterprete({ geste: 'G1', designe: ['P1', 'P2'] }, TABLES, dossier)).toEqual({
+				ok: false,
+				motif: 'schema',
+			})
+		})
+
+		it('mutant 2 — garde < 2 retiree : une clarification passerait sur un seul lieu range', () => {
+			const precision = 'Voulez-vous vraiment vous y rendre ?'
+			const mutantSansGarde = (): boolean =>
+				precision.trim().length > 0 &&
+				precision.length <= PRECISION_CARACTERES_MAX &&
+				precision.trimEnd().endsWith('?') &&
+				!precision.includes(MARQUEUR_A_ECRIRE) &&
+				!porteUnIdentifiant(precision, dossier) &&
+				!porteUnRang(precision, TABLE_UN_SEUL_LIEU)
+			// LA GARDE `rangsLieux.size < 2` N'EST PLUS APPLIQUÉE — c'est le mutant.
+
+			expect(mutantSansGarde()).toBe(true)
+			// … et la vraie, elle, refuse : une clarification n'a de sens que si elle
+			// départage au moins deux lieux réels.
+			expect(validerInterprete({ precision }, TABLE_UN_SEUL_LIEU, dossier)).toEqual({ ok: false, motif: 'schema' })
+		})
+
+		it('mutant 3 — scanner de rangs retire : une precision citant P2 serait acceptee', () => {
+			const precision = 'Vous parlez du lieu P2, exactement ?'
+			const mutantSansScanner = (): boolean =>
+				precision.trim().length > 0 &&
+				precision.length <= PRECISION_CARACTERES_MAX &&
+				precision.trimEnd().endsWith('?') &&
+				!precision.includes(MARQUEUR_A_ECRIRE) &&
+				!porteUnIdentifiant(precision, dossier) &&
+				TABLES.lieux.size >= 2
+			// `porteUnRang` N'EST PLUS APPELÉ — c'est le mutant.
+
+			expect(mutantSansScanner()).toBe(true)
+			// … et la vraie, elle, refuse : un rang recopié dans une clarification
+			// serait exécuté en silence, sans qu'aucun auteur ne l'ait relu.
+			expect(validerInterprete({ precision }, TABLES, dossier)).toEqual({ ok: false, motif: 'identifiant' })
+		})
 	})
 })

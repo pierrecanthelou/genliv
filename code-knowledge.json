@@ -810,6 +810,11 @@
 			"id": "KR-266",
 			"feature": "moteur-interprete",
 			"risk": "UN ROLE AJOUTE A L'UNION EXHAUSTIVE (garde never) DE CopiloteService.demander() ENTRE DANS LE LOT CONTRAT DE L'ITERATION QUI L'APPELLE POUR LA PREMIERE FOIS, jamais prepose par avance (KR-249 applique aux roles IA). D'ou un lot contrat PAR ITERATION, jamais un seul pour toute la feature. Corps : spec moteur-interprete."
+		},
+		{
+			"id": "KR-267",
+			"feature": "moteur-interprete",
+			"risk": "UN LIEU ACCESSIBLE SANS DESCRIPTION (absente ou marquee) NE RECOIT AUCUN RANG cote interprete IA (KR-262/231) : atteignable en console, INATTEIGNABLE en saisie libre. Aucun repli moteur recevable (ni nom KR-262, ni identifiant KR-231). Fermeture = controle cote AUTEUR (dossier-controles), jamais cote moteur. Non bloquant pour moteur-interprete it1. Corps : spec moteur-interprete, raffinage it1 desaccord #21."
 		}
 	]
 }

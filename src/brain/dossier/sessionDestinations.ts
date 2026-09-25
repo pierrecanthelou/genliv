@@ -20,12 +20,15 @@ import type { EtatSession } from './session'
  * donc exhaustives PAR COMPILATION — une huitième racine ne compile pas tant que
  * personne n'a déclaré pour qui elle est écrite.
  *
- * ⚠ ZÉRO LIGNE `'ia'`, ET C'EST UNE DÉCISION, PAS UN ÉTAT DES LIEUX. Une ligne
- * `'ia'` est une AUTORISATION, pas une prévision : la n° 10 la trouverait signée
- * d'avance par l'itération qui n'a ni assembleur, ni granularité par rôle, ni
- * borne de résumé, ni comportement d'échec. Les lignes d'audience se corrigent en
- * COMMENTAIRE, jamais en VALEUR (KR-195/196) — c'est ce que font les deux lignes
- * ci-dessous qui annoncent leur bascule.
+ * ⚠ « ZÉRO LIGNE `'ia'` » ÉTAIT UNE DÉCISION, PAS UN ÉTAT DES LIEUX — ET ELLE EST
+ * DÉSORMAIS FAUSSE, CORRIGÉE ICI EN COMMENTAIRE, JAMAIS EN VALEUR (KR-195/196) :
+ * le lot `contrat` de la n° 10 (`moteur-interprete`) pose ses DEUX PREMIÈRES
+ * lignes `'ia'` du fichier — `attente.question` et `attente.saisie`, EXACTEMENT
+ * les deux, aucune autre. Sans elles injectées au tour suivant, le modèle
+ * répondrait à l'aveugle à une saisie qui répond à une question qu'il ne peut
+ * plus lire. Les deux autres champs `'ia'` *sous condition d'état* que
+ * `destinations.ts` annonçait déjà (`savoirs[].revele_comment`,
+ * `plan_actions[].si_bloque`) restent aux propriétaires n° 12 et n° 14.
  *
  * CE QU'ELLE DONNE À LA N° 10 : deux des quatre champs `'ia'` *sous condition
  * d'état* de `destinations.ts` reçoivent enfin le NOM DU FAIT DE SESSION qui les
@@ -49,6 +52,9 @@ import type { EtatSession } from './session'
  * leur chemin de feuille, et une seconde ligne serait morte.
  */
 type CheminDeFeuilleDeSession =
+	| 'attente.type'
+	| 'attente.question'
+	| 'attente.saisie'
 	| 'horloge.tour'
 	| 'monde.lieu_courant'
 	| 'monde.lieux_visites[]'
@@ -90,16 +96,41 @@ export const DESTINATION_DES_CHAMPS_DE_SESSION: Readonly<
 	 */
 	memoire: 'moteur',
 
-	// ── Les trois racines PORTEUSES — lignes de clé, jamais de feuille ─────────
+	// ── Les quatre racines PORTEUSES — lignes de clé, jamais de feuille ────────
 	// `feuillesDeLaFixture` ne rend jamais un objet NON VIDE comme feuille : ces
-	// trois lignes n'ont donc AUCUNE instance dans la fixture saturée. Elles
-	// existent pour l'exhaustivité par compilation sur `keyof EtatSession`, et le
-	// test les nomme comme les TROIS DISPENSES DÉCLARÉES — jamais comme des lignes
-	// mortes. Précédent exact : `…stats` et `…caractere` dans `destinations.ts`,
-	// absents pour la raison inverse (là-bas, une telle ligne serait morte).
+	// quatre lignes n'ont donc AUCUNE instance dans la fixture saturée SI ELLE NE
+	// LES INSTANCIE PAS. Elles existent pour l'exhaustivité par compilation sur
+	// `keyof EtatSession`, et le test les nomme comme des DISPENSES DÉCLARÉES —
+	// jamais comme des lignes mortes. Précédent exact : `…stats` et `…caractere`
+	// dans `destinations.ts`, absents pour la raison inverse (là-bas, une telle
+	// ligne serait morte).
+	//
+	// `attente` EST LA QUATRIÈME, posée par le lot `contrat` de la n° 10 : une clé
+	// racine RÉELLE de `EtatSession` (optionnelle, KR-251), donc exhaustive par
+	// compilation ici comme les trois autres — jamais une feuille, puisqu'un
+	// `AttenteClarification` est un objet non vide.
 	horloge: 'moteur',
 	monde: 'moteur',
 	journal: 'moteur',
+	attente: 'moteur',
+
+	// ── L'attente de clarification (n° 10) ─────────────────────────────────────
+	/** Le DISCRIMINANT — un handle de code, jamais de la fiction. */
+	'attente.type': 'moteur',
+	/**
+	 * La QUESTION que R1 a posée, VERBATIM (l'un des deux seuls textes hors
+	 * amorce/fin émis mot pour mot — non, PLUS PRÉCISÉMENT : injectée telle
+	 * quelle au tour suivant, jamais récitée à l'écran comme une fiche). `'ia'` :
+	 * sans cette ligne, le modèle ne verrait jamais sa propre question au tour
+	 * où le joueur y répond.
+	 */
+	'attente.question': 'ia',
+	/**
+	 * La SAISIE qui a déclenché la question, normalisée. `'ia'` pour la même
+	 * raison que sa voisine : c'est le COUPLE {question, saisie} qui donne au
+	 * modèle de quoi comprendre une réponse elliptique (« le grand », « non »).
+	 */
+	'attente.saisie': 'ia',
 
 	// ── L'horloge ─────────────────────────────────────────────────────────────
 	/** Le COMPTE, pas sa paraphrase — précédents `plan_actions[].duree`, `climat[].duree`. */

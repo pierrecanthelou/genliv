@@ -10,10 +10,12 @@ import {
 	type EtatSession,
 } from '../../../brain'
 import { useSessionPersistee } from '../hooks/useSessionPersistee'
+import { useTourDeJeu } from '../hooks/useTourDeJeu'
 import { OutcomeBlock } from './OutcomeBlock'
 import { CadrePartie } from './CadrePartie'
 import { EcranRefus } from './EcranRefus'
 import { ConsoleCommandes } from './ConsoleCommandes'
+import { PlayerInputBar } from './PlayerInputBar'
 import { JournalRow } from './JournalRow'
 
 /**
@@ -115,13 +117,26 @@ function PartieDemarree({ dossier, dossierId }: { dossier: Dossier; dossierId: s
 }
 
 /**
- * Garde 6 — la partie ouverte : la bannière d'ouverture, la zone journal et la
- * console de commandes.
+ * Garde 6 — la partie ouverte : la bannière d'ouverture, la zone journal, la
+ * console de commandes, et le champ de saisie libre (it1, `moteur-interprete`).
  *
  * `session` TIENT UNE VALEUR INITIALE (`useState(sessionInitiale)`), jamais un
  * miroir : aucun `useEffect(() => setSession(...))` ne resynchronise quoi que ce
- * soit (KR-013/113) — l'état avance UNIQUEMENT par `handleSoumettre`, en réponse
- * directe à une soumission de la console.
+ * soit (KR-013/113) — l'état avance UNIQUEMENT par les deux submiteurs (console
+ * ou champ libre), en réponse directe à une soumission de l'utilisateur.
+ *
+ * DEUX CANAUX INDÉPENDANTS (it1), TOUS DEUX ACTIFS SIMULTANÉMENT — AUCUNE EXCLUSION
+ * MUTUELLE À CE STADE (démotion visuelle de la console, hors critère de cette itération,
+ * reportée en it2) :
+ *  · `ConsoleCommandes` — analyse syntaxique stricte (verbe + direction), écrit
+ *    directement `session` du parent via `handleSoumettreConsole`.
+ *  · `PlayerInputBar` (neuf en it1) — saisie libre, via `useTourDeJeu`, qui lit CE
+ *    `session` À CHAQUE RENDU (jamais une copie) : c'est ce qui rend les deux
+ *    canaux cohérents l'un avec l'autre — une commande acceptée par la console
+ *    est vue par le tour suivant du champ libre, et réciproquement (KR-013).
+ *
+ * `useSessionPersistee` reçoit la session courante à chaque mutation — aucune
+ * déflexion entre console/champ libre, même persistance.
  */
 function PartieEnCours({
 	dossier,
@@ -136,13 +151,18 @@ function PartieEnCours({
 	const [refus, setRefus] = useState<string | null>(null)
 	useSessionPersistee(dossierId, session)
 
+	// HOOK `useTourDeJeu` — orchestrateur du champ de saisie libre (it1).
+	const { executeAction, getGestelabel, avis, isLocked } = useTourDeJeu(dossier, session, (nouvelleSession) => {
+		setSession(nouvelleSession)
+	})
+
 	/**
-	 * LE CÂBLAGE ENTIER, bâti sur les deux fonctions pures que `brain/dossier/commandes.ts`
-	 * possède (§ 5 du plan) :
+	 * LE CÂBLAGE DU CANAL CONSOLE, inchangé depuis it0 : les deux fonctions pures
+	 * que `brain/dossier/commandes.ts` possède (§ 5 du plan) :
 	 * la console ne valide rien, elle soumet la chaîne BRUTE. `analyserSaisie` puis
 	 * `executerCommande` sont les deux SEULS décideurs (T-14, KR-013).
 	 */
-	function handleSoumettre(saisie: string): void {
+	function handleSoumettreConsole(saisie: string): void {
 		const analyse = analyserSaisie(saisie)
 		if (!analyse.ok) {
 			setRefus(analyse.message)
@@ -190,15 +210,20 @@ function PartieEnCours({
 						</ul>
 					)}
 				</section>
-				{/* `key` sur le PAS : une commande ACCEPTÉE fait avancer `horloge.tour` et
-				    remonte la console (champ vidé, focus repris) ; un REFUS ne consomme
-				    aucun pas, la console garde son instance — donc la saisie fautive et le
-				    focus survivent SANS code dédié (voir la docstring de `ConsoleCommandes`). */}
+				{/* DEUX CANAUX : console ET champ libre (it1). Pour l'instant, affichés
+				    ensemble ; la démotion de la console arrive en it2 (§ 2 du plan). */}
 				<ConsoleCommandes
 					key={session.horloge.tour}
-					onSoumettre={handleSoumettre}
+					onSoumettre={handleSoumettreConsole}
 					refus={refus}
 					destinations={destinationsPossibles(dossier, session)}
+				/>
+				<PlayerInputBar
+					executeAction={executeAction}
+					getGestelabel={getGestelabel}
+					avis={avis}
+					isLocked={isLocked}
+					session={session}
 				/>
 			</div>
 		</CadrePartie>

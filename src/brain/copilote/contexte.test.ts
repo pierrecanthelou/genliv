@@ -1,9 +1,11 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { MARQUEUR_A_ECRIRE } from '../dossier/amorce'
+import { destinationsPossibles } from '../dossier/commandes'
 import { DESTINATION_DES_CHAMPS } from '../dossier/destinations'
 import { feuillesDeLaFixture } from '../dossier/feuilles'
 import { LIBELLE_DES_CHAMPS } from '../dossier/libelles'
+import type { EtatSession } from '../dossier/session'
 import { CERTITUDE_INITIALE, INTENSITE_INITIALE, type Dossier, type Personnage, type Portee } from '../dossier/types'
 import { controlerDossier } from '../dossier/controles'
 import type {
@@ -17,6 +19,7 @@ import type {
 import {
 	assemblerDetenteurs,
 	assemblerDistribution,
+	assemblerInterprete,
 	assemblerPlan,
 	assemblerProse,
 	assemblerRelations,
@@ -27,7 +30,9 @@ import {
 	DEJA_ECRITS_MAX,
 	DEROGATIONS_AUDIENCE,
 	PARTIES_REQUISES,
+	SAISIE_CARACTERES_MAX,
 } from './contexte'
+import { DESTINATION_DES_CHAMPS_DE_SESSION } from '../dossier/sessionDestinations'
 import { CHAMPS_PROPOSABLES, type ChampProseChemin } from './types'
 
 const ROLE = 'personnage-prose'
@@ -2672,5 +2677,191 @@ describe('assemblerDistribution — les DEUX refus, et les DEUX inatteignables',
 		expect(
 			assemblerDistribution(avecSynopsis('x'.repeat(BUDGET_DISTRIBUTION - socle + 1)), CIBLE_DISTRIBUTION),
 		).toEqual({ ok: false, motif: 'trop-long' })
+	})
+})
+
+// ══ LE SEPTIÈME ASSEMBLEUR — `interprete` (n° 10, `moteur-interprete`) ═══════
+//
+// HORS DE LA COUTURE COMMUNE (voir la docstring de tête de `./interprete.ts`) :
+// ce rôle n'utilise NI `CHAMPS_INJECTES`, NI `PARTIES_REQUISES`, NI
+// `BUDGET_CARACTERES_CONTEXTE` — ses tests ci-dessous ne les référencent donc
+// jamais, contrairement à ceux des six rôles précédents.
+describe('assemblerInterprete — le septieme role, hors registres partages', () => {
+	function dossierInterprete(): Dossier {
+		return {
+			schema: 1,
+			id: 'dossier-test-interprete',
+			titre: 'Dossier de test',
+			createdAt: '2026-09-25T00:00:00.000Z',
+			updatedAt: '2026-09-25T00:00:00.000Z',
+			canon: {
+				mj: { synopsis_mj: 'La verite de cette histoire.' },
+				partage: { accroche_joueur: 'Une accroche.' },
+				ton: 'Sombre et feutre, phrases courtes.',
+				interdits_ton: ['Jamais de familiarite.'],
+				objectifs: [],
+			},
+			monde: {
+				personnages: [],
+				lieux: [
+					{
+						id: 'lieu.place',
+						description: 'Une place pavee, au centre du village.',
+						acces: ['lieu.marche', 'lieu.tour', 'lieu.sans-description'],
+					},
+					{ id: 'lieu.marche', description: 'Un marche bruyant, sous des toiles rapiecees.', acces: ['lieu.place'] },
+					{ id: 'lieu.tour', description: 'Une tour de guet a moitie ecroulee.', acces: ['lieu.place'] },
+					{ id: 'lieu.sans-description', nom: 'Un lieu sans description' },
+				],
+				objets: [],
+				indices: [],
+				quetes: [],
+				evenements: [],
+			},
+			charpente: {
+				depart: { lieu_id: 'lieu.place', texte_ouverture_joueur: 'Tu ouvres les yeux sur la place.' },
+				jalons: [],
+				fins: [],
+			},
+		} as unknown as Dossier
+	}
+
+	function sessionInterprete(overrides: Partial<EtatSession> = {}): EtatSession {
+		return {
+			schema: 1,
+			dossier_id: 'dossier-test-interprete',
+			dossier_maj: '2026-09-25T00:00:00.000Z',
+			graine_alea: 1,
+			horloge: { tour: 0 },
+			monde: {
+				lieu_courant: 'lieu.place',
+				lieux_visites: ['lieu.place'],
+				objets_possedes: [],
+				indices_connus: [],
+				jalons_atteints: [],
+				evenements_consommes: [],
+				pnj: {},
+			},
+			journal: [],
+			memoire: null,
+			...overrides,
+		}
+	}
+
+	it('le nominal : candidats-lieux P1..Pn, gestes G1..Gk, ICI sans rang, saisie en dernier', () => {
+		const dossier = dossierInterprete()
+		const session = sessionInterprete()
+
+		const contexte = assemblerInterprete(dossier, { saisie: 'je vais au marche', session })
+
+		expect(contexte.ok).toBe(true)
+		if (!contexte.ok) throw new Error('le contexte nominal ne doit pas etre refuse')
+
+		// Le LIEU SANS DESCRIPTION accessible depuis `lieu.place` ne recoit AUCUN
+		// rang (KR-267) : `destinationsPossibles` le rend, l'assembleur le tait.
+		expect(destinationsPossibles(dossier, session)).toContain('lieu.sans-description')
+		expect([...contexte.tables.lieux.values()]).not.toContain('lieu.sans-description')
+		expect([...contexte.tables.lieux.keys()].sort()).toEqual(['P1', 'P2'])
+		expect([...contexte.tables.lieux.values()].sort()).toEqual(['lieu.marche', 'lieu.tour'])
+
+		expect([...contexte.tables.gestes.keys()]).toEqual(['G1'])
+		expect(contexte.tables.gestes.get('G1')).toBe('aller')
+
+		// `ICI` porte la description du lieu COURANT, SANS RANG : elle n'apparait
+		// dans AUCUNE valeur de `tables.lieux`.
+		expect(contexte.texte).toContain('ICI')
+		expect(contexte.texte).toContain('Une place pavee')
+		expect([...contexte.tables.lieux.values()]).not.toContain('lieu.place')
+
+		// La saisie normalisee vient EN DERNIER.
+		expect(contexte.texte.trimEnd().endsWith('je vais au marche')).toBe(true)
+	})
+
+	it('canon.ton et canon.interdits_ton[] sont injectes quand ecrits, et sont d audience ia', () => {
+		const dossier = dossierInterprete()
+		const contexte = assemblerInterprete(dossier, { saisie: 'salut', session: sessionInterprete() })
+
+		expect(contexte.ok).toBe(true)
+		if (!contexte.ok) throw new Error('le contexte nominal ne doit pas etre refuse')
+
+		expect(contexte.texte).toContain('Sombre et feutre')
+		expect(contexte.texte).toContain('Jamais de familiarite')
+		expect(DESTINATION_DES_CHAMPS['canon.ton']).toBe('ia')
+		expect(DESTINATION_DES_CHAMPS['canon.interdits_ton[]']).toBe('ia')
+	})
+
+	it('attente.question et attente.saisie sont injectes quand une attente est en cours, et sont d audience ia', () => {
+		const dossier = dossierInterprete()
+		const session = sessionInterprete({
+			attente: { type: 'clarification', question: 'Le grand marche ou la vigie ?', saisie: 'je vais au marche' },
+		})
+
+		const contexte = assemblerInterprete(dossier, { saisie: 'le grand', session })
+
+		expect(contexte.ok).toBe(true)
+		if (!contexte.ok) throw new Error('le contexte nominal ne doit pas etre refuse')
+		expect(contexte.texte).toContain('Le grand marche ou la vigie ?')
+		expect(contexte.texte).toContain('je vais au marche')
+		expect(DESTINATION_DES_CHAMPS_DE_SESSION['attente.question']).toBe('ia')
+		expect(DESTINATION_DES_CHAMPS_DE_SESSION['attente.saisie']).toBe('ia')
+	})
+
+	it('refus trop-long AVANT tout appel quand la saisie depasse SAISIE_CARACTERES_MAX', () => {
+		const dossier = dossierInterprete()
+		const session = sessionInterprete()
+
+		expect(assemblerInterprete(dossier, { saisie: 'x'.repeat(SAISIE_CARACTERES_MAX), session }).ok).toBe(true)
+		expect(assemblerInterprete(dossier, { saisie: 'x'.repeat(SAISIE_CARACTERES_MAX + 1), session })).toEqual({
+			ok: false,
+			motif: 'trop-long',
+		})
+	})
+
+	it('court-circuit : aucun geste satisfiable rend une table de gestes VIDE, jamais un refus', () => {
+		// Depuis `lieu.tour`, le seul accès décrit qui reste est `lieu.place` — UN
+		// SEUL lieu rangé, mais `aller` n'exige qu'UNE cible : ce test porte donc
+		// sur un lieu qui n'a AUCUN accès du tout (impasse jouable, docstring
+		// `Lieu.acces`), le vrai court-circuit de cette itération.
+		const dossier: Dossier = {
+			...dossierInterprete(),
+			monde: { ...dossierInterprete().monde, lieux: [{ id: 'lieu.impasse', description: 'Une impasse.' }] },
+		}
+		const session = sessionInterprete({ monde: { ...sessionInterprete().monde, lieu_courant: 'lieu.impasse' } })
+
+		const contexte = assemblerInterprete(dossier, { saisie: 'je fais quoi', session })
+
+		expect(contexte.ok).toBe(true)
+		if (!contexte.ok) throw new Error('le contexte de l impasse ne doit pas etre refuse')
+		expect(contexte.tables.gestes.size).toBe(0)
+		expect(contexte.tables.lieux.size).toBe(0)
+	})
+
+	it('le contexte ne grossit PAS avec la session : 40 ALLER acceptes ramenant au meme lieu -> texte toEqual', () => {
+		const dossier = dossierInterprete()
+		const neuve = sessionInterprete()
+
+		let courante = neuve
+		for (let tour = 0; tour < 40; tour += 1) {
+			const cible = courante.monde.lieu_courant === 'lieu.place' ? 'lieu.marche' : 'lieu.place'
+			courante = {
+				...courante,
+				horloge: { tour: courante.horloge.tour + 1 },
+				monde: {
+					...courante.monde,
+					lieu_courant: cible,
+					lieux_visites: [...new Set([...courante.monde.lieux_visites, cible])],
+				},
+				journal: [...courante.journal, { tour: courante.horloge.tour + 1, role: 'joueur', texte: `> ALLER ${cible}` }],
+			}
+		}
+		// Discriminant : on est bien revenu au lieu de depart apres 40 pas pairs.
+		expect(courante.monde.lieu_courant).toBe('lieu.place')
+
+		const contexteNeuf = assemblerInterprete(dossier, { saisie: 'je vais au marche', session: neuve })
+		const contexteApres40 = assemblerInterprete(dossier, { saisie: 'je vais au marche', session: courante })
+
+		expect(contexteNeuf.ok).toBe(true)
+		expect(contexteApres40.ok).toBe(true)
+		expect(contexteApres40).toEqual(contexteNeuf)
 	})
 })

@@ -78,9 +78,36 @@ const RACINE = path.join(__dirname, '..')
 const PORTEUR_WORKER = path.join(__dirname, 'index.ts')
 const PORTEUR_BRAIN = path.join(RACINE, 'src', 'brain', 'copilote', 'schemaSortie.ts')
 
-/** L'ensemble des rôles, DÉRIVÉ du registre qui fait foi côté worker — jamais deux
- *  littéraux (KR-117). C'est lui qui pilote la totalité ET les `describe.each`. */
+/** L'ensemble de TOUS les rôles que la route `POST /ia/:role` sert, DÉRIVÉ du
+ *  registre qui fait foi côté worker — jamais un littéral (KR-117). */
 const ROLES = Object.keys(INVITES)
+
+/**
+ * ⚠ DEUX FAMILLES DE RÔLES DERRIÈRE LA MÊME ROUTE, ET CE FICHIER NE GARDE QUE
+ * LA PREMIÈRE — décision d'architecture confirmée au lot `contrat` de la n° 10
+ * (`moteur-interprete`) : `RoleCopilote` (`copilote/types.ts`, mode AUTEUR —
+ * `personnage-prose`, `indice-detenteurs`, `personnage-repliques`,
+ * `personnage-plan`, `personnage-relations`, `monde-distribution`) porte
+ * l'appareil GÉNÉRIQUE de contexte (`CHAMPS_INJECTES`/`PARTIES_REQUISES`/
+ * `BUDGET_CARACTERES_CONTEXTE` de `contexte/registres.ts`), que ce fichier
+ * compare pièce par pièce entre le client et le worker. `interprete` (mode
+ * JEU, n° 10 ; `narrateur` la rejoindra en it2) EST STRUCTURELLEMENT HORS DE
+ * CETTE FAMILLE : son contexte est un assemblage BESPOKE par rangs
+ * (`copilote/contexte/interprete.ts`), il n'a NI `CHAMPS_INJECTES`, NI
+ * `PARTIES_REQUISES`, NI budget dans `Record<RoleCopilote, …>` — l'y faire
+ * entrer romprait la totalité des TROIS registres de `contexte/registres.ts`
+ * pour un système que ce rôle n'utilise pas.
+ *
+ * `ROLES_AUTEUR` EST DONC LE SEUL ENSEMBLE QUE LES VÉRIFICATIONS DE PARITÉ
+ * CROISÉE DE CE FICHIER (`GABARIT_SORTIE` client ↔ worker, `BUDGET_CARACTERES_
+ * CONTEXTE` ↔ plafond HTTP) DOIVENT PARCOURIR — DÉRIVÉ de `BUDGET_CARACTERES_
+ * CONTEXTE`, PAS d'un littéral recopié : ce registre EST `Record<RoleCopilote,
+ * number>`, donc ses clés SONT exactement les rôles de la famille auteur.
+ * Un rôle de la famille JEU vérifie sa PROPRE parité rôle→gabarit dans SES
+ * PROPRES tests, déjà écrits (`schemaSortie.test.ts`, `CopiloteService.test.ts`,
+ * `worker/index.test.ts`) — voir le describe dédié en fin de fichier.
+ */
+const ROLES_AUTEUR = ROLES.filter((role) => Object.prototype.hasOwnProperty.call(BUDGET_CARACTERES_CONTEXTE, role))
 
 /** Le budget vu comme une table à clés libres : le `Record<RoleCopilote, number>`
  *  du contrat s'y assigne, et le test peut l'indexer par un rôle venu d'`INVITES`
@@ -210,13 +237,13 @@ describe('un gabarit par role, deux porteurs', () => {
 
 		// LES TROIS ENSEMBLES DE CLÉS SONT LE MÊME : un rôle sans gabarit, ou un gabarit
 		// sans invite, rougit ici et nulle part ailleurs.
-		expect([...cotBrain.keys()].sort()).toEqual([...ROLES].sort())
-		expect([...cotWorker.keys()].sort()).toEqual([...ROLES].sort())
+		expect([...cotBrain.keys()].sort()).toEqual([...ROLES_AUTEUR].sort())
+		expect([...cotWorker.keys()].sort()).toEqual([...ROLES_AUTEUR].sort())
 		// Et la cardinalité est DANS le prédicat, pas seulement au-dessus de lui.
-		expect(memesGabarits(cotWorker, cotBrain, ROLES)).toBe(true)
+		expect(memesGabarits(cotWorker, cotBrain, ROLES_AUTEUR)).toBe(true)
 		// Deux rôles, pas un : sans cette ligne, tout ce fichier resterait vert sur la
 		// table à une entrée de l'itération 1, où le mal-apparié n'existe pas.
-		expect(ROLES.length).toBeGreaterThan(1)
+		expect(ROLES_AUTEUR.length).toBeGreaterThan(1)
 	})
 
 	it('canari croise', () => {
@@ -225,7 +252,7 @@ describe('un gabarit par role, deux porteurs', () => {
 		// RÔLE. Un canari qui en retire un ne distingue pas « absent » de « mal
 		// apparié ».
 		const cotBrain = extraire(PORTEUR_BRAIN)
-		const croise = croiser(cotBrain, ROLES)
+		const croise = croiser(cotBrain, ROLES_AUTEUR)
 
 		// Le croisement n'a rien perdu : même taille, mêmes valeurs, autre appariement.
 		expect(croise.size).toBe(cotBrain.size)
@@ -234,16 +261,16 @@ describe('un gabarit par role, deux porteurs', () => {
 
 		// (a) LE PRÉDICAT DE LIAISON rougit sur le croisement — dans les DEUX sens, un
 		//     garde qui ne comparerait que dans un sens passerait sur une moitié muette.
-		expect(memesGabarits(extraire(PORTEUR_WORKER), croise, ROLES)).toBe(false)
-		expect(memesGabarits(croise, extraire(PORTEUR_WORKER), ROLES)).toBe(false)
+		expect(memesGabarits(extraire(PORTEUR_WORKER), croise, ROLES_AUTEUR)).toBe(false)
+		expect(memesGabarits(croise, extraire(PORTEUR_WORKER), ROLES_AUTEUR)).toBe(false)
 
 		// (b) LE PRÉDICAT D'APPARIEMENT rougit lui aussi, pour CHAQUE rôle : c'est la
 		//     forme sous laquelle la panne se manifesterait vraiment, une invite qui
 		//     demande la forme de l'autre rôle.
-		expect(ROLES.filter((role) => inviteNommeSonGabarit(role, croise))).toEqual([])
+		expect(ROLES_AUTEUR.filter((role) => inviteNommeSonGabarit(role, croise))).toEqual([])
 		// Et il est VERT sur l'appariement réel : sans cette moitié, il pourrait être
 		// rouge parce qu'il est inerte.
-		expect(ROLES.filter((role) => !inviteNommeSonGabarit(role, cotBrain))).toEqual([])
+		expect(ROLES_AUTEUR.filter((role) => !inviteNommeSonGabarit(role, cotBrain))).toEqual([])
 	})
 
 	it('un litteral altere d un seul caractere fait rougir le predicat de liaison', () => {
@@ -252,11 +279,11 @@ describe('un gabarit par role, deux porteurs', () => {
 		// touché — puis on rejoue LE PRÉDICAT DU CAS NOMINAL contre le VRAI exemplaire
 		// du worker, lu sur disque.
 		const cotBrain = extraire(PORTEUR_BRAIN)
-		const cible = ROLES[0]
+		const cible = ROLES_AUTEUR[0]
 		const original = String(cotBrain.get(cible))
 		const altere = new Map(cotBrain).set(cible, `${original.slice(0, -1)}!`)
 
-		expect(memesGabarits(extraire(PORTEUR_WORKER), altere, ROLES)).toBe(false)
+		expect(memesGabarits(extraire(PORTEUR_WORKER), altere, ROLES_AUTEUR)).toBe(false)
 		// Altération D'UN SEUL CARACTÈRE : ce n'est ni la cardinalité, ni la longueur
 		// qui discrimine.
 		expect(altere.size).toBe(cotBrain.size)
@@ -267,8 +294,8 @@ describe('un gabarit par role, deux porteurs', () => {
 		// Le mode de panne que (b) vise : un littéral disparu rend l'extraction vide,
 		// et deux vides sont trivialement égaux. Le prédicat doit refuser AVANT de
 		// comparer — sinon la liaison serait verte parce qu'elle ne mesure plus rien.
-		expect(memesGabarits(extraire(PORTEUR_WORKER), new Map(), ROLES)).toBe(false)
-		expect(memesGabarits(new Map(), new Map(), ROLES)).toBe(false)
+		expect(memesGabarits(extraire(PORTEUR_WORKER), new Map(), ROLES_AUTEUR)).toBe(false)
+		expect(memesGabarits(new Map(), new Map(), ROLES_AUTEUR)).toBe(false)
 	})
 
 	it('aucun troisieme porteur d un gabarit dans src ni dans worker', () => {
@@ -292,9 +319,9 @@ describe('le balayage exhaustif — aucune invite ne nomme le gabarit d un AUTRE
 		// sous-chaîne d'un autre, le balayage suivant rougirait SANS QU'AUCUN DÉFAUT
 		// N'EXISTE — une invite contenant légitimement son propre gabarit contiendrait
 		// mécaniquement celui de l'autre.
-		expect(gabaritsSousChaines(extraire(PORTEUR_BRAIN), ROLES)).toEqual([])
+		expect(gabaritsSousChaines(extraire(PORTEUR_BRAIN), ROLES_AUTEUR)).toEqual([])
 		// Discriminant : il y a bien plusieurs gabarits à comparer (KR-199).
-		expect(ROLES.length).toBeGreaterThan(1)
+		expect(ROLES_AUTEUR.length).toBeGreaterThan(1)
 	})
 
 	it('la precondition SAIT echouer — et sur une fabrication qui laisse le balayage VERT', () => {
@@ -305,24 +332,24 @@ describe('le balayage exhaustif — aucune invite ne nomme le gabarit d un AUTRE
 		// gabarit ↔ gabarit est en cause.
 		const long = 'ZZ-gabarit-fabrique-long'
 		const court = 'ZZ-gabarit-fabrique'
-		const fabriquee = new Map(extraire(PORTEUR_BRAIN)).set(ROLES[0], long).set(ROLES[1], court)
+		const fabriquee = new Map(extraire(PORTEUR_BRAIN)).set(ROLES_AUTEUR[0], long).set(ROLES_AUTEUR[1], court)
 
 		expect(long.includes(court)).toBe(true)
 		// (a) LA PRÉCONDITION ROUGIT, et elle nomme le couple.
-		expect(gabaritsSousChaines(fabriquee, ROLES)).toContain(`${ROLES[1]} ⊂ ${ROLES[0]}`)
+		expect(gabaritsSousChaines(fabriquee, ROLES_AUTEUR)).toContain(`${ROLES_AUTEUR[1]} ⊂ ${ROLES_AUTEUR[0]}`)
 		// (b) … et LE BALAYAGE, LUI, RESTE VERT sur cette même fabrication : les deux
 		// instruments ne mesurent pas la même chose.
-		expect(invitesQuiNommentUnAutreGabarit(fabriquee, ROLES)).toEqual([])
+		expect(invitesQuiNommentUnAutreGabarit(fabriquee, ROLES_AUTEUR)).toEqual([])
 	})
 
 	it('aucune invite ne contient le gabarit d un autre role', () => {
 		const reel = extraire(PORTEUR_BRAIN)
 
-		expect(invitesQuiNommentUnAutreGabarit(reel, ROLES)).toEqual([])
+		expect(invitesQuiNommentUnAutreGabarit(reel, ROLES_AUTEUR)).toEqual([])
 		// LE SECOND CÔTÉ, sans lequel l'assertion négative est INERTE : chaque invite
 		// contient bien LE SIEN. Un balayage vert sur trois invites muettes ne prouverait
 		// rien du tout.
-		expect(ROLES.filter((role) => !INVITES[role].systeme.includes(String(reel.get(role))))).toEqual([])
+		expect(ROLES_AUTEUR.filter((role) => !INVITES[role].systeme.includes(String(reel.get(role))))).toEqual([])
 	})
 
 	it('chacune des transpositions fait rougir le balayage', () => {
@@ -330,12 +357,12 @@ describe('le balayage exhaustif — aucune invite ne nomme le gabarit d un AUTRE
 		// lignes interverties en éditant la table. Les paires sont DÉRIVÉES, jamais
 		// écrites — « chacune » prouvé sur TOUTES, pas sur un échantillon (KR-199).
 		const reel = extraire(PORTEUR_BRAIN)
-		const toutes = paires(ROLES)
+		const toutes = paires(ROLES_AUTEUR)
 		// FORME FERMÉE C(n,2), INDÉPENDANTE DE L'ALGORITHME DE `paires` : ce n'est donc
 		// PAS un témoin fabriqué depuis son propre sujet, et il est GÉNÉRIQUE À N — plus
 		// jamais à ré-éditer. Le littéral `3` qu'il remplace disait la même chose EN
 		// SILENCE, et il aura fallu un quatrième rôle pour s'en apercevoir.
-		expect(toutes).toHaveLength((ROLES.length * (ROLES.length - 1)) / 2)
+		expect(toutes).toHaveLength((ROLES_AUTEUR.length * (ROLES_AUTEUR.length - 1)) / 2)
 		// … et les paires sont DEUX À DEUX DISTINCTES, ce que le littéral ne RENDAIT pas :
 		// une `paires` qui rendrait n fois le même couple aurait le bon COMPTE.
 		expect(new Set(toutes.map(([a, b]) => `${a}↔${b}`)).size).toBe(toutes.length)
@@ -343,10 +370,10 @@ describe('le balayage exhaustif — aucune invite ne nomme le gabarit d un AUTRE
 		for (const [a, b] of toutes) {
 			const echangee = transposer(reel, a, b)
 			// Le balayage ROUGIT : l'invite de `a` nomme désormais le gabarit de `b`.
-			expect(`${a}↔${b} → ${invitesQuiNommentUnAutreGabarit(echangee, ROLES).length}`).not.toBe(`${a}↔${b} → 0`)
+			expect(`${a}↔${b} → ${invitesQuiNommentUnAutreGabarit(echangee, ROLES_AUTEUR).length}`).not.toBe(`${a}↔${b} → 0`)
 			// … et la PRÉCONDITION, elle, reste VERTE : une transposition ne fait que
 			// permuter les mêmes valeurs. Les deux instruments restent distincts.
-			expect(gabaritsSousChaines(echangee, ROLES)).toEqual([])
+			expect(gabaritsSousChaines(echangee, ROLES_AUTEUR)).toEqual([])
 		}
 	})
 
@@ -355,15 +382,15 @@ describe('le balayage exhaustif — aucune invite ne nomme le gabarit d un AUTRE
 		// mal-apparié (une rotation de 1 est un dérangement pour tout n ≥ 2, donc elle
 		// rougit trivialement). Elle garde le cas « toute la table a glissé d'un cran ».
 		const reel = extraire(PORTEUR_BRAIN)
-		const decalee = croiser(reel, ROLES)
+		const decalee = croiser(reel, ROLES_AUTEUR)
 
 		// Le décalage n'a rien perdu : même taille, mêmes valeurs, autre appariement.
 		expect([...decalee.values()].sort()).toEqual([...reel.values()].sort())
 		expect([...decalee.entries()]).not.toEqual([...reel.entries()])
 		// AUCUN rôle ne retrouve son gabarit : c'est ce que « dérangement total » veut
 		// dire, et c'est ce que la rotation garde encore.
-		expect(ROLES.filter((role) => decalee.get(role) === reel.get(role))).toEqual([])
-		expect(ROLES.filter((role) => inviteNommeSonGabarit(role, decalee))).toEqual([])
+		expect(ROLES_AUTEUR.filter((role) => decalee.get(role) === reel.get(role))).toEqual([])
+		expect(ROLES_AUTEUR.filter((role) => inviteNommeSonGabarit(role, decalee))).toEqual([])
 	})
 
 	it('la borne de l invite est celle du validateur', () => {
@@ -486,16 +513,16 @@ describe('le balayage exhaustif — aucune invite ne nomme le gabarit d un AUTRE
 })
 
 describe('l invite nomme SON gabarit', () => {
-	it.each(ROLES)('l invite reellement composee du role %s contient son gabarit', (role) => {
+	it.each(ROLES_AUTEUR)('l invite reellement composee du role %s contient son gabarit', (role) => {
 		expect(inviteNommeSonGabarit(role, extraire(PORTEUR_BRAIN))).toBe(true)
 	})
 
 	it('une invite demandant une autre forme fait rougir le garde', () => {
 		// CAS NÉGATIF OBLIGATOIRE — c'est EXACTEMENT la panne décrite en tête de
 		// fichier : une invite qui demande une autre clé que celle que le client valide.
-		const fabriquee = new Map(ROLES.map((role) => [role, '{"texte": "…"}']))
+		const fabriquee = new Map(ROLES_AUTEUR.map((role) => [role, '{"texte": "…"}']))
 
-		expect(ROLES.filter((role) => inviteNommeSonGabarit(role, fabriquee))).toEqual([])
+		expect(ROLES_AUTEUR.filter((role) => inviteNommeSonGabarit(role, fabriquee))).toEqual([])
 	})
 
 	it('la cle nue ne suffirait pas a satisfaire le garde', () => {
@@ -797,13 +824,13 @@ describe('les deux plafonds', () => {
 	 * garde qui cesse de mesurer sans jamais rougir (KR-235).
 	 */
 	const PIRES_CAS: Record<string, number> = Object.fromEntries(
-		ROLES.map((role) => [role, pireCasDe(role, BUDGETS[role])]),
+		ROLES_AUTEUR.map((role) => [role, pireCasDe(role, BUDGETS[role])]),
 	)
 
 	/** LE RÔLE LE PLUS LARGE — DÉRIVÉ, jamais écrit. Sur un rôle étroit, les deux
 	 *  canaris ci-dessous resteraient verts en ne discriminant rien : ils ne valent
 	 *  que pour celui qui sature le plafond. */
-	const ROLE_LE_PLUS_LARGE = ROLES.reduce((large, role) => (PIRES_CAS[role] > PIRES_CAS[large] ? role : large))
+	const ROLE_LE_PLUS_LARGE = ROLES_AUTEUR.reduce((large, role) => (PIRES_CAS[role] > PIRES_CAS[large] ? role : large))
 
 	/**
 	 * LE PRÉDICAT DU MAXIMUM UNIQUE — isolé pour que ses cas négatifs portent sur LA
@@ -816,9 +843,9 @@ describe('les deux plafonds', () => {
 	}
 
 	it('le maximum est atteint par exactement un role', () => {
-		expect(PIRES_CAS[ROLE_LE_PLUS_LARGE]).toBe(Math.max(...ROLES.map((role) => PIRES_CAS[role])))
+		expect(PIRES_CAS[ROLE_LE_PLUS_LARGE]).toBe(Math.max(...ROLES_AUTEUR.map((role) => PIRES_CAS[role])))
 		// CE QUE CETTE LIGNE REMPLACE, ET POURQUOI. Jusqu'à l'itération 3a elle disait
-		// `expect(new Set(ROLES.map(r => BUDGETS[r])).size).toBe(ROLES.length)` — les
+		// `expect(new Set(ROLES_AUTEUR.map(r => BUDGETS[r])).size).toBe(ROLES_AUTEUR.length)` — les
 		// budgets DEUX À DEUX DISTINCTS. C'est une PROPRIÉTÉ QUE PERSONNE N'A VOULUE :
 		// rien n'interdit à deux rôles d'avoir la même mesure, et la seule chose dont
 		// les deux canaris ci-dessous ont besoin est que « le plus large » DÉSIGNE
@@ -830,27 +857,27 @@ describe('les deux plafonds', () => {
 		// la même mesure » : c'était vrai, et c'est arrivé. Elle porte désormais sur le
 		// PIRE CAS EN OCTETS, qui EST la grandeur bornée par le plafond — et sur laquelle
 		// le maximum est de nouveau atteint par un seul rôle.
-		expect(rolesAuMaximum(PIRES_CAS, ROLES)).toEqual([ROLE_LE_PLUS_LARGE])
+		expect(rolesAuMaximum(PIRES_CAS, ROLES_AUTEUR)).toEqual([ROLE_LE_PLUS_LARGE])
 		// … et LE BUDGET, LUI, EST BIEN EX ÆQUO : sans cette ligne, on ne saurait pas que
 		// l'amendement ci-dessus mesure quelque chose de NEUF plutôt que la même chose
 		// autrement (KR-235).
-		expect(rolesAuMaximum(BUDGETS, ROLES).length).toBeGreaterThan(1)
+		expect(rolesAuMaximum(BUDGETS, ROLES_AUTEUR).length).toBeGreaterThan(1)
 		// Et les DEUX tables portent bien UNE ENTRÉE PAR RÔLE : un rôle sans budget ne
 		// doit pas passer pour un rôle à budget nul.
-		expect([...Object.keys(BUDGETS)].sort()).toEqual([...ROLES].sort())
-		expect([...Object.keys(PIRES_CAS)].sort()).toEqual([...ROLES].sort())
+		expect([...Object.keys(BUDGETS)].sort()).toEqual([...ROLES_AUTEUR].sort())
+		expect([...Object.keys(PIRES_CAS)].sort()).toEqual([...ROLES_AUTEUR].sort())
 	})
 
 	it('le predicat du maximum unique est SEPARATEUR, et il ne dit QUE ce qu on veut', () => {
-		const etroits = ROLES.filter((role) => role !== ROLE_LE_PLUS_LARGE)
+		const etroits = ROLES_AUTEUR.filter((role) => role !== ROLE_LE_PLUS_LARGE)
 		expect(etroits.length).toBeGreaterThan(1)
 
 		// CAS NÉGATIF 1 — DEUX RÔLES EX ÆQUO AU MAXIMUM : « le plus large » cesse de
 		// désigner quelqu'un, et les deux canaris de plafond cesseraient de discriminer.
 		// Le prédicat doit rougir, et il NOMME les deux fautifs.
 		const exAequoAuSommet = { ...PIRES_CAS, [etroits[0]]: PIRES_CAS[ROLE_LE_PLUS_LARGE] }
-		expect(rolesAuMaximum(exAequoAuSommet, ROLES).length).toBeGreaterThan(1)
-		expect(rolesAuMaximum(exAequoAuSommet, ROLES)).toContain(etroits[0])
+		expect(rolesAuMaximum(exAequoAuSommet, ROLES_AUTEUR).length).toBeGreaterThan(1)
+		expect(rolesAuMaximum(exAequoAuSommet, ROLES_AUTEUR)).toContain(etroits[0])
 
 		// CAS NÉGATIF 2 — LA MINE ELLE-MÊME, exécutée : DEUX RÔLES ÉTROITS ÉGAUX. C'est
 		// un état parfaitement légitime — deux rôles peuvent avoir la même mesure — et
@@ -859,7 +886,7 @@ describe('les deux plafonds', () => {
 		// ⚠ RÉ-ARMÉE À L'IT3b, ET ELLE ÉTAIT DEVENUE INERTE. `personnage-plan` MESURE
 		// 4000, comme `personnage-repliques` : l'égalité que cette fabrication devait
 		// CRÉER existait donc DÉJÀ, et l'ancienne précondition
-		// (`new Set(...).size !== ROLES.length`) était vraie AVANT toute fabrication —
+		// (`new Set(...).size !== ROLES_AUTEUR.length`) était vraie AVANT toute fabrication —
 		// vérifié en RETIRANT la fabrication, le test restait VERT. Un garde qui cesse
 		// de mesurer en restant vert est exactement ce que KR-235 nomme.
 		// La réparation : on choisit le couple de rôles étroits dont les valeurs
@@ -879,10 +906,10 @@ describe('les deux plafonds', () => {
 		expect(PIRES_CAS[source]).not.toBe(PIRES_CAS[cible])
 		expect(deuxEtroitsEgaux[source]).toBe(deuxEtroitsEgaux[cible])
 		// … et la propriété voulue TIENT sous cette égalité fabriquée.
-		expect(rolesAuMaximum(deuxEtroitsEgaux, ROLES)).toEqual([ROLE_LE_PLUS_LARGE])
+		expect(rolesAuMaximum(deuxEtroitsEgaux, ROLES_AUTEUR)).toEqual([ROLE_LE_PLUS_LARGE])
 	})
 
-	describe.each(ROLES)('role %s', (role) => {
+	describe.each(ROLES_AUTEUR)('role %s', (role) => {
 		it('le budget client converti au pire cas d octets tient sous le plafond worker', () => {
 			// `'€'` (BMP) coûte TROIS octets pour UNE unité de code : c'est la BORNE HAUTE
 			// réelle, mesurée. Un émoji coûte 4 octets pour DEUX unités, soit 2 par
@@ -904,5 +931,49 @@ describe('les deux plafonds', () => {
 
 	it('le lien est separateur : un budget releve de 400 caracteres ne tient plus', () => {
 		expect(pireCasDe(ROLE_LE_PLUS_LARGE, BUDGETS[ROLE_LE_PLUS_LARGE] + 400)).toBeGreaterThan(TAILLE_MAX_CORPS_IA)
+	})
+})
+
+/**
+ * `interprete` (mode JEU, n° 10) — HORS DE `ROLES_AUTEUR`, voir sa docstring de
+ * définition plus haut : ce describe-ci NE VÉRIFIE PAS la parité avec
+ * `RoleCopilote`, il constate seulement que le SEPTIÈME rôle a bien SES DEUX
+ * entrées locales au worker (`INVITES`, et le `GABARIT_SORTIE` privé de ce
+ * fichier, jamais exporté — précédent : la duplication délibérée documentée en
+ * tête de `worker/index.ts`). Le reste de sa doctrine (forme du gabarit,
+ * interdits KR-236, `max_tokens`, protocole amont épinglé) est déjà couvert,
+ * en détail, par `worker/index.test.ts`.
+ */
+describe('interprete (mode jeu) — hors parite RoleCopilote, verifiee dans ses propres tests', () => {
+	/** Extraction PROPRE à cette seule entrée, jamais l'expression ANCRÉE
+	 *  `ENTREE_GABARIT` : celle-ci exige une clé QUOTÉE (`'[a-z-]+'`), et
+	 *  Prettier retire les guillemets d'une clé sans tiret comme `interprete`
+	 *  (`quoteProps: "as-needed"`, `.prettierrc`). Utiliser l'expression
+	 *  partagée ferait passer cette entrée pour ABSENTE plutôt que NON
+	 *  QUOTÉE — un faux négatif que cette extraction dédiée évite. */
+	function extraireGabaritInterpreteDuWorker(): string | undefined {
+		const source = fs.readFileSync(PORTEUR_WORKER, 'utf8')
+		return source.match(/^\tinterprete: '(.+)',$/m)?.[1]
+	}
+
+	it('INVITES et le GABARIT_SORTIE local du worker portent une entree interprete, coherente entre elles', () => {
+		expect(Object.prototype.hasOwnProperty.call(INVITES, 'interprete')).toBe(true)
+
+		const gabarit = extraireGabaritInterpreteDuWorker()
+		expect(gabarit).toBeDefined()
+		// L'invite INCRUSTE son propre gabarit par interpolation (précédent des
+		// six rôles auteur, `inviteNommeSonGabarit`) : le constater ici prouve
+		// que les DEUX entrées locales existent ET s'accordent, sans avoir besoin
+		// d'un second porteur côté client (`interprete` n'a pas de contrepartie
+		// dans `RoleCopilote`, voir la docstring de `ROLES_AUTEUR`).
+		expect(INVITES['interprete'].systeme).toContain(String(gabarit))
+	})
+
+	it('ROLES_AUTEUR exclut interprete, et ROLES le contient toujours', () => {
+		// Discriminant de l'exemption : sans cette ligne, un `ROLES_AUTEUR` qui
+		// aurait tout englobé par accident laisserait les tests ci-dessus VERTS
+		// pour la mauvaise raison.
+		expect(ROLES).toContain('interprete')
+		expect(ROLES_AUTEUR).not.toContain('interprete')
 	})
 })

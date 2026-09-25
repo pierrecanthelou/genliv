@@ -14,6 +14,7 @@ import {
 import { assemblerDetenteurs, assemblerDistribution, assemblerRelations } from './copilote/contexte'
 import { GABARIT_SORTIE } from './copilote/schemaSortie'
 import { MARQUEUR_A_ECRIRE } from './dossier/amorce'
+import type { EtatSession } from './dossier/session'
 import { INTENSITE_INITIALE, PORTEE_INITIALE, type Dossier } from './dossier/types'
 import type { PersistenceService } from './PersistenceService'
 
@@ -1934,5 +1935,168 @@ describe('CopiloteService — la SIXIEME branche, et la garde never', () => {
 			(appel) => (JSON.parse(String((appel[1] as RequestInit).body)) as { role: string }).role,
 		)
 		expect(roles).toEqual([ROLE_DISTRIBUTION, ROLE_REPLIQUES])
+	})
+})
+
+// ══ LE SEPTIÈME RÔLE — `interprete` (n° 10, `moteur-interprete`) ═════════════
+describe('CopiloteService — le septieme role, interprete', () => {
+	const ROLE_INTERPRETE = 'interprete'
+
+	/** `lieu.foyer-du-guet` a DEUX accès dans la fixture de référence, dont un
+	 *  SEUL décrit (`lieu.tour-effondree`) — le lieu sans description
+	 *  (`lieu.marche-des-cendres`) ne reçoit aucun rang (KR-267). C'est le lieu
+	 *  courant idéal pour ces tests : UN candidat rangé suffit à l'arité 1
+	 *  d'`aller`. */
+	function sessionDepuisFoyer(dossier: Dossier): EtatSession {
+		return {
+			schema: 1,
+			dossier_id: dossier.id,
+			dossier_maj: dossier.updatedAt,
+			graine_alea: 1,
+			horloge: { tour: 0 },
+			monde: {
+				lieu_courant: 'lieu.foyer-du-guet',
+				lieux_visites: ['lieu.foyer-du-guet'],
+				objets_possedes: [],
+				indices_connus: [],
+				jalons_atteints: [],
+				evenements_consommes: [],
+				pnj: {},
+			},
+			journal: [],
+			memoire: null,
+		}
+	}
+
+	it('un appel, resolu contre la table de CET appel — cibles[] ne franchit jamais le reseau', async () => {
+		const dossier = dossierDeReference()
+		const session = sessionDepuisFoyer(dossier)
+		fetchMock.mockResolvedValue(reponseWorker({ geste: 'G1', designe: ['P1'] }))
+
+		const reponse = await createCopiloteService(reglages()).demander(dossier, {
+			role: ROLE_INTERPRETE,
+			saisie: 'je vais a la tour',
+			session,
+		})
+
+		expect(fetchMock).toHaveBeenCalledTimes(1)
+		expect(reponse).toEqual({
+			statut: 'propose',
+			proposition: { lecture: 'commande', commande: { commande: 'aller', cibles: ['lieu.tour-effondree'] } },
+		})
+		const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+		expect(url).toBe(`${URL_WORKER}/ia/${ROLE_INTERPRETE}`)
+		const corps = JSON.parse(String(init.body)) as Record<string, unknown>
+		expect(Object.keys(corps).sort()).toEqual(['contexte', 'role'])
+		expect(String(init.body)).not.toContain('lieu.tour-effondree')
+		expect(String(init.body)).not.toContain(dossier.id)
+	})
+
+	it('rejeu-un-coup : reponse fautive puis valide = 2 fetch, MEME corps, resolus contre la MEME table', async () => {
+		const dossier = dossierDeReference()
+		const session = sessionDepuisFoyer(dossier)
+		fetchMock
+			.mockResolvedValueOnce(reponseWorker({ texte: 'une cle renommee' }))
+			.mockResolvedValueOnce(reponseWorker({ geste: 'G1', designe: ['P1'] }))
+
+		const reponse = await createCopiloteService(reglages()).demander(dossier, {
+			role: ROLE_INTERPRETE,
+			saisie: 'je vais a la tour',
+			session,
+		})
+
+		expect(fetchMock).toHaveBeenCalledTimes(2)
+		const [, initUn] = fetchMock.mock.calls[0] as [string, RequestInit]
+		const [, initDeux] = fetchMock.mock.calls[1] as [string, RequestInit]
+		expect(JSON.parse(String(initUn.body))).toEqual(JSON.parse(String(initDeux.body)))
+		expect(reponse).toEqual({
+			statut: 'propose',
+			proposition: { lecture: 'commande', commande: { commande: 'aller', cibles: ['lieu.tour-effondree'] } },
+		})
+	})
+
+	it('deux reponses fautives = illisible, avec le motif du SECOND echec', async () => {
+		const dossier = dossierDeReference()
+		const session = sessionDepuisFoyer(dossier)
+		fetchMock.mockResolvedValue(reponseWorker({ geste: 'G1', designe: ['P1', 'P2'] })) // arite fautive, motif schema
+
+		const reponse = await createCopiloteService(reglages()).demander(dossier, {
+			role: ROLE_INTERPRETE,
+			saisie: 'je vais a la tour',
+			session,
+		})
+
+		expect(fetchMock).toHaveBeenCalledTimes(2)
+		expect(reponse).toEqual({ statut: 'illisible', motif: 'schema' })
+	})
+
+	it('503/413/reseau/abandon = UN SEUL fetch, jamais un rejeu', async () => {
+		const dossier = dossierDeReference()
+		const session = sessionDepuisFoyer(dossier)
+
+		fetchMock.mockResolvedValueOnce(reponseWorker({}, 503))
+		const surIndisponible = await createCopiloteService(reglages()).demander(dossier, {
+			role: ROLE_INTERPRETE,
+			saisie: 'x',
+			session,
+		})
+		expect(surIndisponible).toEqual({ statut: 'indisponible', raison: 'non-configure' })
+
+		fetchMock.mockRejectedValueOnce(new Error('reseau'))
+		const surReseau = await createCopiloteService(reglages()).demander(dossier, {
+			role: ROLE_INTERPRETE,
+			saisie: 'x',
+			session,
+		})
+		expect(surReseau).toEqual({ statut: 'indisponible', raison: 'injoignable' })
+
+		expect(fetchMock).toHaveBeenCalledTimes(2) // un par appel `demander`, jamais un rejeu
+	})
+
+	it('court-circuit : aucun geste satisfiable rend sans_commande SANS AUCUN fetch', async () => {
+		const dossier = dossierDeReference()
+		// `lieu.crypte-scellee` n a AUCUN acces (impasse jouable) : zero candidat,
+		// donc zero geste satisfiable.
+		const session: EtatSession = {
+			...sessionDepuisFoyer(dossier),
+			monde: { ...sessionDepuisFoyer(dossier).monde, lieu_courant: 'lieu.crypte-scellee' },
+		}
+
+		const reponse = await createCopiloteService(reglages()).demander(dossier, {
+			role: ROLE_INTERPRETE,
+			saisie: 'je fais quoi',
+			session,
+		})
+
+		expect(fetchMock).not.toHaveBeenCalled()
+		expect(reponse).toEqual({ statut: 'propose', proposition: { lecture: 'sans_commande', gestes_possibles: [] } })
+	})
+
+	it('une saisie de plus de 300 caracteres est refusee AVANT tout fetch, motif trop-long', async () => {
+		const dossier = dossierDeReference()
+		const session = sessionDepuisFoyer(dossier)
+
+		const reponse = await createCopiloteService(reglages()).demander(dossier, {
+			role: ROLE_INTERPRETE,
+			saisie: 'x'.repeat(301),
+			session,
+		})
+
+		expect(fetchMock).not.toHaveBeenCalled()
+		expect(reponse).toEqual({ statut: 'refuse', motif: 'trop-long' })
+	})
+
+	it('une configuration incomplete rend indisponible non-configure, sans aucun appel', async () => {
+		const dossier = dossierDeReference()
+		const session = sessionDepuisFoyer(dossier)
+
+		const reponse = await createCopiloteService(reglages(null, null)).demander(dossier, {
+			role: ROLE_INTERPRETE,
+			saisie: 'je vais a la tour',
+			session,
+		})
+
+		expect(reponse).toEqual({ statut: 'indisponible', raison: 'non-configure' })
+		expect(fetchMock).not.toHaveBeenCalled()
 	})
 })

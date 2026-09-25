@@ -90,6 +90,17 @@ const MOTIFS_INTERDITS: ReadonlyArray<{ readonly nom: string; readonly motif: Re
 	{ nom: 'construction d une URL de route IA', motif: /\/ia\// },
 ]
 
+/**
+ * EXCLUSION NOMMÉE PAR FICHIER — n° 10 `moteur-interprete` lot 2 (KR-260).
+ * Seuls ces fichiers (par chemin complet) sont autorisés à importer CopiloteService
+ * ou construire des URL `/ia/`. Chaque fichier exclus EXIGE un mutant obligatoire
+ * vérifié ROUGE au plan § 7.
+ *
+ * Motif de croissance : chaque nouveau rôle du copilote ajoute UNE ligne ici
+ * UNIQUEMENT — un orchestrateur feature qui l'consume et nul autre.
+ */
+const FICHIERS_EXCLUS_PLAY_MODE = [path.join(RACINE_SRC, 'features', 'play-mode', 'hooks', 'useTourDeJeu.ts')]
+
 const FICHIERS = RACINES_DU_PERIMETRE.flatMap(fichiersDeProduction)
 
 const relatif = (chemin: string): string => path.relative(RACINE_SRC, chemin).split(path.sep).join('/')
@@ -112,8 +123,12 @@ describe('le moteur de la n 9 ne genere aucun texte (KR-250)', () => {
 		expect(FICHIERS.length).toBeGreaterThanOrEqual(PLANCHER_DE_NON_VACUITE)
 	})
 
-	it('aucun fichier du perimetre n appelle le reseau, n importe le copilote, ni ne compose une URL de route IA', () => {
+	it('aucun fichier du perimetre n appelle le reseau, n importe le copilote, ni ne compose une URL de route IA (sauf exclusion nommee)', () => {
 		const fautifs = FICHIERS.flatMap((chemin) => {
+			// EXCLUSION NOMMÉE : les fichiers de cette liste sont autorisés.
+			const estExclu = FICHIERS_EXCLUS_PLAY_MODE.some((exclu) => chemin === exclu)
+			if (estExclu) return []
+
 			const source = fs.readFileSync(chemin, 'utf8')
 			return MOTIFS_INTERDITS.filter(({ motif }) => motif.test(source)).map(({ nom }) => `${relatif(chemin)} → ${nom}`)
 		})

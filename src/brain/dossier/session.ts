@@ -110,12 +110,14 @@ export type { FaitsDeSession as EtatMonde, EtatPnj } from './faits'
  *     reconnue (KR-238) : la première itération qui RELIT une session doit la
  *     faire passer par un validateur, jamais par un `as EtatSession`.
  *
- * Trois clés que l'on ne trouvera pas ici, et leur propriétaire :
- *  · `attente` — n° 10 / n° 11, VARIANTE PAR VARIANTE avec son producteur. Une
- *    racine `attente: null` rendrait indistinguables « aucune attente » et
- *    « variante non supportée » ;
+ * Deux clés que l'on ne trouvera PAS ici, et leur propriétaire :
  *  · `heros`, `combat` — n° 11, composés dans `src/player/types.ts` ;
  *  · une copie du dossier — jamais : le gel est PAR RÉFÉRENCE (`dossier_id`).
+ *
+ * `attente` N'EST PLUS DANS CETTE LISTE depuis le lot `contrat` de la n° 10
+ * (`moteur-interprete`) : c'est la clé RÉELLE, ci-dessous, qui la remplace —
+ * corrigé EN COMMENTAIRE, jamais en silence (KR-195/196), pour que personne ne
+ * la cherche encore ici en la croyant réservée.
  */
 export interface EtatSession {
 	readonly schema: typeof SCHEMA_SESSION
@@ -173,6 +175,43 @@ export interface EtatSession {
 	 * représentable avant elle.
 	 */
 	readonly memoire: null
+	/**
+	 * LA CLARIFICATION EN COURS — posée par `apresInterpretation`
+	 * (`brain/dossier/interprete.ts`, n° 10) quand R1 ne peut pas trancher seul,
+	 * retirée par elle dès la réponse suivante, quelle qu'elle soit.
+	 *
+	 * OPTIONNELLE À VIE (KR-251), **JAMAIS** `AttenteClarification | null` : une
+	 * racine `attente: null` rendrait indistinguables « aucune attente » et
+	 * « variante non supportée » — c'est l'argument que CE module tenait déjà
+	 * avant que cette clé n'existe (voir l'historique ci-dessus), et une session
+	 * écrite avant ce lot n'a simplement pas la clé, ce qui est un état LÉGAL.
+	 *
+	 * UN SEUL MEMBRE aujourd'hui, ET C'EST DÉLIBÉRÉ : ouvrir une union avant
+	 * qu'un second producteur de variante n'existe (KR-263/266) coûterait un nom
+	 * générique sur un type qui n'aurait qu'un habitant — le jour où une seconde
+	 * variante d'attente entre, ELLE nommera l'union.
+	 */
+	readonly attente?: AttenteClarification
+}
+
+/**
+ * LA CLARIFICATION QUE R1 A POSÉE — jamais franchie par le réseau telle quelle
+ * (c'est `SortieInterprete.clarification.question` qui la produit, côté
+ * `brain/dossier/interprete.ts`).
+ *
+ * `question` et `saisie` sont d'audience `'ia'` dans `sessionDestinations.ts` :
+ * sans elles injectées au tour suivant, le modèle répondrait « à l'aveugle » à
+ * une saisie qui répond à une question qu'il ne peut plus lire (KR-232 sous
+ * condition d'état, précédent exact `monde.indices[].verite`).
+ */
+export interface AttenteClarification {
+	readonly type: 'clarification'
+	/** La question VERBATIM que R1 a posée — prose validée, ≤ 120 caractères. */
+	readonly question: string
+	/** La saisie NORMALISÉE qui a déclenché cette question — celle qui a été
+	 *  injectée dans le contexte, pas celle que le joueur a tapée au clavier
+	 *  (`trim` + espaces multiples collapsés, précédent `assemblerInterprete`). */
+	readonly saisie: string
 }
 
 /**
