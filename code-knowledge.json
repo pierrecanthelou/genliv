@@ -775,6 +775,41 @@
 			"id": "KR-259",
 			"feature": "moteur-dossier",
 			"risk": "UN TÉMOIN QUI S'APPUIE SUR L'ARITÉ D'UN DELTA OU D'UN PRÉDICAT DÉPEND D'UNE PROPRIÉTÉ QUE RIEN NE GARDE : `pnj_a_revele` ne vaut `'faux'` au tour zéro que parce que `reveler_indice` est d'arité 1 et sans opérande `pnj`. TROIS instruments en dépendent déjà (le témoin Kleene `FAUX` de `tourzero.test.ts` et deux de `controles.test.ts`), et AUCUN ne rougirait si le registre passait le delta à l'arité 2 : ils deviendraient muets, pas rouges. Tout témoin qui choisit un prédicat « déterministe-faux » NOMME la propriété de registre dont il dépend, et la revue la recopie tant qu'aucun test ne la tient. Corps : spec moteur-dossier."
+		},
+		{
+			"id": "KR-260",
+			"feature": "moteur-interprete",
+			"risk": "moteurSansIA.test.ts (KR-250) PASSE D'UN BALAYAGE PAR RACINE EN BLOC A UNE EXCLUSION NOMMEE PAR FICHIER, reecrit (jamais amende) dans le lot FEATURE qui introduit le premier appelant reel. player/ et brain/dossier/ restent a 100% interdits. Mutant obligatoire : import hors liste -> rouge -> retire. Corps : spec moteur-interprete."
+		},
+		{
+			"id": "KR-261",
+			"feature": "moteur-interprete",
+			"risk": "UN SEUL BUDGET DE CONTEXTE, UNE CONSTANTE DANS brain/, lue par DEUX instruments distincts (balayage statique des chemins de prose ia cote auteur, budget dynamique par pas cote runtime) qui ne se deduisent pas l'un de l'autre. Deux constantes separees deriveraient. Corps : spec moteur-interprete."
+		},
+		{
+			"id": "KR-262",
+			"feature": "moteur-interprete",
+			"risk": "Entite.nom reste d'audience 'auteur' meme quand un modele entre en jeu : injection par description/ambiance/dangers, jamais par nom (KR-232 etendu). Portee moteur-interprete : R1 seul (labels de lieux). R3 (nommer en prose) et les 8 collections restent OUVERTS, proprietaire n12. Corps : spec moteur-interprete."
+		},
+		{
+			"id": "KR-263",
+			"feature": "moteur-interprete",
+			"risk": "UN VERBE DE COMMANDES N'ENTRE QU'AVEC SON CONSOMMATEUR NARRATIF DEJA PRESENT (KR-249 etendu au registre de commandes) : `agir` attend R3, jamais pose en amont comme no-op sans lecteur. Corps : spec moteur-interprete."
+		},
+		{
+			"id": "KR-264",
+			"feature": "moteur-interprete",
+			"risk": "LE REFUS D'UNE ACTION NON RECONNUE EST UNE FORME FERMEE DEDIEE (sans_commande), JAMAIS UNE CLARIFICATION UTILISEE COMME REFUS : une clarification systematique ferait fuir la politique du registre dans l'invite. Deux clarifications consecutives ne sont pas representables (garde anti-boucle). Corps : spec moteur-interprete."
+		},
+		{
+			"id": "KR-265",
+			"feature": "moteur-interprete",
+			"risk": "UN SEUL PAS DE JEU EN COURS A LA FOIS : le verrou est un invariant LOGIQUE (deux soumissions dans le meme tick -> un seul appel modele), tenu dans l'orchestrateur/hook, jamais seulement dans un attribut disabled de composant. Corps : spec moteur-interprete."
+		},
+		{
+			"id": "KR-266",
+			"feature": "moteur-interprete",
+			"risk": "UN ROLE AJOUTE A L'UNION EXHAUSTIVE (garde never) DE CopiloteService.demander() ENTRE DANS LE LOT CONTRAT DE L'ITERATION QUI L'APPELLE POUR LA PREMIERE FOIS, jamais prepose par avance (KR-249 applique aux roles IA). D'ou un lot contrat PAR ITERATION, jamais un seul pour toute la feature. Corps : spec moteur-interprete."
 		}
 	]
 }

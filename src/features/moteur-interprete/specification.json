@@ -1,0 +1,140 @@
+{
+	"feature": "moteur-interprete",
+	"created_at": "2026-09-25",
+	"status": "planned",
+	"design_reference": "docs/ROADMAP-BASCULE-IA.md § 3 ligne 10 : « …écrire ce qu'il veut faire en langage libre » — rôles R1 (interprète) et R3 (narrateur), cadrage de contexte, mémoire à trois niveaux, garde-fous du § 2.8, balayage du budget de contexte des onze chemins de prose ia (n° 10 n'en ouvre que 3 ; les huit autres arrivent avec n° 11-15). docs/PLAN-BASCULE-IA.dc.html § 2.5 (contexte & mémoire, cadrage par la scène et par le point de vue), § 2.6 sous-boucle A pour le vocabulaire de jet (HORS PÉRIMÈTRE ici, c'est n° 11), § 2.8 (les quatre garde-fous, texte exact repris dans design_contract), § 2.9 (l'écran de jeu, RÉFÉRENCE PARTIELLEMENT PÉRIMÉE — le champ libre + suggestions est repris, le reste de l'écran ne l'est pas), § 2.10 (rôles R1-R4, seuls R1 et R3 sont dans ce périmètre), § 2.11 (routeur de modèle, déjà incarné par le registre INVITES du worker). Précédent d'infrastructure IA : dossier-copilote (CopiloteService, route worker POST /ia/:role générique, GABARIT_SORTIE, rejeu unique puis dégradation) — RÉUTILISÉ SANS ÊTRE REFAIT. Dépendance directe : src/features/moteur-dossier/specification.json (n° 9, TERMINÉE 4/4, 0.7.5) — EtatSession/EtatMonde/journal, COMMANDES={aller}, evaluerExpr bivalent, sessionDestinations.ts. Cadrage : .claude/raffinage/moteur-interprete-cadrage.plan.md et ses 9 fichiers de tour 1/2.",
+	"plan": {
+		"goal": "Le joueur écrit ce qu'il veut faire en langage libre ; le moteur le comprend, agit dans les limites de ce qu'il sait faire (le seul verbe exécutable aujourd'hui étant `aller`, puis `agir` dès it2), et raconte — sans qu'aucun modèle n'invente une entité, ne lance un dé ou ne change une statistique. Première itération du dépôt à faire entrer un appel modèle dans src/brain/dossier/ ou src/features/play-mode/, jusqu'ici garantis à zéro IA par moteurSansIA.test.ts (KR-250), qui est réécrit plutôt qu'amendé.",
+		"design_contract": {
+			"surface_de_saisie": "Nouveau composant `PlayerInputBar` (src/features/play-mode/components/), Field NON mono (registre joueur, pas registre développeur) — jamais une évolution de `ConsoleCommandes.tsx`, qui reste strictement séparée, démotée visuellement, jamais supprimée à cette feature (R1 route encore vers COMMANDES). Libellé `QUE FAITES-VOUS ?` (mono, majuscules, registre interface qui désigne l'action sans en faire partie — même patron que l'entête d'OutcomeBlock). Placeholder `Décrivez ce que vous tentez…`. Entrée soumet nativement via <form>, aucun onKeyDown maison.",
+			"verrou_de_tour": "Un seul pas de jeu en cours à la fois (KR-265) : champ ET bouton DÉSACTIVÉS pendant l'appel (texte conservé, jamais vidé), libellé du bouton passe à `…`. Le verrou logique testable vit dans l'orchestrateur/hook (deux soumissions dans le même tick → un seul appel modèle) ; `disabled` en est la réalisation à la couche présentation, pas le contrat lui-même.",
+			"clarification": "Rendue dans le bloc de récit (variante d'OutcomeBlock), jamais dans le champ de saisie : eyebrow mono `PRÉCISEZ` au-dessus de la prose de R1 (registre joueur, 2e personne, présent). Une deuxième clarification consécutive (cas de défaillance) reçoit le même message fixe qu'un R1 illisible après rejeu : `Reformulez votre action.` — jamais un second état d'écran.",
+			"degradation": "Échec dur de R3 (indisponible ou illisible après un seul rejeu) : message fixe registre interface `Le récit n'a pas pu être généré ce tour-ci.` — jamais un texte neutre rédigé COMME de la narration (interdit KR-250/§2.8 garde-fou 1 : sortie non conforme = dégradée en action gratuite avec un texte neutre, jamais un état corrompu, et ce texte neutre n'est JAMAIS de la fiction). La dégradation SILENCIEUSE du budget par pas (it4 : suggestions retirées, puis fenêtre de mémoire réduite, puis faits retirés) ne montre elle aucun message — le récit est produit, juste plus court.",
+			"suggestions": "Primitive `Chip` NEUVE (n'existe dans aucun fichier de brain/components/, vérifié — seule une référence .jsx dort dans design_handoff_gamebook_editor/), domicile FEATURE-LOCAL (src/features/play-mode/components/Chip.tsx), jamais brain/components/ à cette itération : précédent exact OutcomeBlock/KR-109, un usage transverse spéculatif n'est pas un second appelant nommé. Un clic REMPLIT le champ et le soumet — la suggestion n'est jamais exécutée directement, elle repasse par R1 comme toute saisie.",
+			"registres_de_langue": "TROIS registres déjà établis par n° 9 (auteur / joueur / développeur-débogueur) — le champ de saisie libre et le bloc de récit sont PLEINEMENT registre joueur, la Console reste PLEINEMENT registre développeur-débogueur, AUCUN mélange dans un même composant. `journal[].recit` (nouveau champ, prose joueur) est distinct de `journal[].texte` (registre développeur-débogueur, inchangé, décision n° 9 non réouverte)."
+		},
+		"acceptance_criteria": [
+			"Étant donné un texte joueur qui désigne un déplacement reconnu par lieux[].acces, quand R1 le traduit, alors il rend {commande:'aller', cibles:[...]} et le moteur exécute exactement comme la console de n° 9 — MÊME entonnoir, R1 ne réimplémente jamais executerCommande.",
+			"Étant donné un texte joueur ambigu sur une cible réelle (ex. plusieurs sorties possibles), quand R1 ne peut pas trancher, alors il rend {clarification:'…'} — prose contrainte par ton/interdits_ton, jamais d'identifiant, jamais MARQUEUR_A_ECRIRE — et AUCUNE clarification n'est acceptée si une clarification est déjà pendante (KR-264, garde anti-boucle).",
+			"Étant donné un texte joueur qui ne désigne ni un déplacement ni (avant it2) une action reconnue, quand R1 le traite, alors il rend {sans_commande:true} — jamais une clarification utilisée comme refus déguisé (KR-264) — et le message affiché est dérivé des label de COMMANDES, jamais écrit en dur.",
+			"Étant donné une sortie de modèle non conforme au schéma (R1 ou R3), quand elle est reçue, alors elle est REJOUÉE EXACTEMENT UNE FOIS puis dégradée — jamais un état corrompu, jamais une fiction improvisée par le code (§2.8 garde-fou 1).",
+			"Étant donné le verbe agir introduit en it2, quand un texte joueur ne mappe à aucune cible d'aller mais décrit une action plausible, alors R1 rend {commande:'agir', cibles:[]} (arité 0), le moteur consomme un pas SANS modifier EtatMonde, et R3 en produit un récit — agir n'existe QU'À PARTIR d'it2, jamais avant, car il n'a pas de consommateur narratif en it1 (KR-263).",
+			"Étant donné l'exécution d'une commande (aller ou agir), quand le moteur a écrit et persisté l'état, alors R3 est appelé APRÈS coup, reçoit l'issue + les deltas explicites du pas (jalon atteint, indice révélé) + la scène + une projection de EtatMonde jamais stockée, et rend {recit, faits_etablis[], suggestions[]} — R3 ne peut RIEN changer à l'état déjà écrit.",
+			"Étant donné faits_etablis[] rendu par R3, quand un élément ne porte aucun rang d'ancrage valide (sur:[] ou rang hors table), alors il est REFUSÉ — c'est la seule forme testable de « aucune création d'entité » (§2.8 garde-fou 2), le mutant `fait sans sur` doit être écrit et vérifié ROUGE dans le lot qui livre R3.",
+			"Étant donné une session de plus de 14 pas, quand memoire (it3) est mise à jour, alors la fenêtre glissante contient entre 5 et 14 pas intégraux SANS AUCUN TROU (FENETRE_MAX dérivé de FENETRE_MIN et CADENCE, jamais stocké), et le résumé absorbe les 10 plus anciens exactement quand la fenêtre atteint 15.",
+			"Étant donné un budget par pas dépassé (it4), quand le moteur dégrade, alors l'ordre est : suggestions retirées d'abord, puis la fenêtre de mémoire au-delà de 5 pas, puis les faits au-delà d'un plafond K — jamais un refus complet, jamais un temps de réponse allongé indéfiniment (§2.8 garde-fou 4).",
+			"Étant donné le périmètre balayé par moteurSansIA.test.ts (KR-260, réécrit), quand un fichier de production de src/player/ ou src/brain/dossier/ est lu, alors AUCUN n'appelle fetch/CopiloteService/une URL /ia/ — l'interdiction reste TOTALE sur ces deux racines (les assembleurs de contexte vivant dans brain/copilote/contexte/, hors de ces racines) ; SEULE src/features/play-mode/ porte une liste d'exclusion nommée par fichier, non vide, avec mutant obligatoire (ajouter l'import hors liste, vérifier rouge, retirer).",
+			"Étant donné deux soumissions du champ de saisie dans le même tick, quand le verrou de tour est actif (KR-265), alors EXACTEMENT UN appel modèle part — jamais deux R1 concurrents, jamais deux clarifications représentables simultanément.",
+			"Étant donné le rejeu d'une session (préparation de KR-242, n° 11), quand les Commande acceptées du journal sont rejouées SANS port IA, alors le même EtatMonde final est produit — le modèle ne fait jamais partie du chemin de rejeu, seules les Commande structurées y entrent, jamais la saisie brute (KR-248 étendu)."
+		],
+		"brain_contracts": [
+			{
+				"type": "service",
+				"name": "CopiloteService.demander('interprete', …) — it1. Nouveau bras de l'union à garde never existante ; entrée = saisie + candidats en rangs + verbes dérivés de COMMANDES + ton/interdits_ton ; sortie = SortieInterprete (Commande en rangs | clarification | sans_commande), noms disjoints de validerIntention/CLES_SORTIE_PLAN (personnage-plan, dossier-copilote)",
+				"direction": "provides"
+			},
+			{
+				"type": "service",
+				"name": "CopiloteService.demander('narrateur', …) — it2. Second bras neuf ; entrée = canon + issue/deltas explicites + scène + projection EtatMonde + mémoire + saisie ; sortie = {recit, faits_etablis[]{fait, sur[]}, suggestions[]}",
+				"direction": "provides"
+			},
+			{
+				"type": "registry",
+				"name": "brain/dossier/interprete.ts — prédicats purs de re-résolution rang→identifiant de SortieInterprete, zéro import de service (précédent : analyserSaisie de commandes.ts)",
+				"direction": "provides"
+			},
+			{
+				"type": "registry",
+				"name": "worker/index.ts INVITES — deux entrées neuves ('interprete', 'narrateur'), contrat de route POST /ia/:role à sept branches INCHANGÉ",
+				"direction": "provides"
+			},
+			{
+				"type": "type",
+				"name": "brain/dossier/session.ts — EtatSession.memoire (it3, null | {resume, faits_etablis[]}), EntreeJournal.recit? (it2, optionnel à vie KR-251), attente: {type:'clarification', question, saisie} (it1, variante nommée du registre déjà posé par n° 9)",
+				"direction": "provides"
+			},
+			{
+				"type": "registry",
+				"name": "brain/dossier/commandes.ts — COMMANDES gagne 'agir' (it2, arité 0) ; aucun amendement de docs/REGLES-PLAY.md § J1 nécessaire, déjà verbe-agnostique (vérifié texte en main)",
+				"direction": "provides"
+			},
+			{
+				"type": "registry",
+				"name": "brain/dossier/sessionDestinations.ts — lignes ia réelles pour journal[].recit et memoire.faits_etablis (retrait de l'assertion « zéro ligne ia » posée exprès par n° 9 pour être supprimée ici)",
+				"direction": "provides"
+			},
+			{
+				"type": "service",
+				"name": "brain/copilote/contexte/{interprete,narrateur}.ts — assembleurs de contexte, même précédent que les 8 fichiers existants de dossier-copilote, sous garde destinations.ts + sessionDestinations.ts",
+				"direction": "provides"
+			},
+			{
+				"type": "service",
+				"name": "DossierService.get / brain/dossier/session.ts (EtatSession, COMMANDES, executerCommande) — n° 9, TERMINÉE",
+				"direction": "consumes"
+			},
+			{
+				"type": "service",
+				"name": "controlerDossier / RapportControles.jouable — précondition de correction, déjà vérifiée au montage du shell par n° 9",
+				"direction": "consumes"
+			}
+		],
+		"walking_skeleton": "Itération 1 : la tranche la plus fine qui traverse tout — le joueur écrit une phrase libre dans PlayerInputBar, R1 (premier rôle IA en mode jeu) la traduit en {commande:'aller',cibles} si elle désigne un déplacement reconnu par lieux[].acces, en {clarification} si elle est ambiguë sur une cible réelle, ou en {sans_commande} sinon — AUCUNE prose n'est encore émise (R3 n'existe pas). Le lot contrat pose CopiloteService('interprete'), le service brain/dossier/interprete.ts, l'entrée INVITES du worker, attente.clarification, et RÉÉCRIT moteurSansIA.test.ts (KR-260) avec sa première exclusion nommée. Le lot feature ajoute PlayerInputBar et le verrou de tour (KR-265). Les itérations 2 à 4 ajoutent chacune une capacité : R3 narre + agir entre avec son consommateur (it2), la mémoire à trois niveaux (it3), le budget par pas et sa dégradation (it4).",
+		"n": 4,
+		"iterations": [
+			{
+				"id": 1,
+				"goal": "Le joueur écrit une action libre ; le moteur la traduit en déplacement s'il en reconnaît un, répond qu'il ne peut pas encore le faire (sans_commande), ou demande une précision (clarification) — jamais de prose, R3 n'existe pas encore. Lot contrat : R1 (CopiloteService, schemaSortie, INVITES, interprete.ts, attente.clarification) + moteurSansIA.test.ts réécrit. Lot feature : PlayerInputBar, verrou de tour.",
+				"status": "planned"
+			},
+			{
+				"id": 2,
+				"goal": "Le joueur lit en quelques phrases ce que son action a produit, qu'elle ait déplacé son héros (aller) ou non (agir, nouveau verbe arité 0 qui entre ICI parce que R3 est enfin son consommateur — KR-263). Lot contrat : commandes.ts (agir), EntreeJournal.recit?, R3 (CopiloteService, schemaSortie, INVITES, narrateur.ts). Lot feature : bloc de récit, Chip de suggestions, exclusion moteurSansIA.test.ts étendue.",
+				"status": "planned"
+			},
+			{
+				"id": 3,
+				"goal": "Le joueur retrouve, plusieurs tours plus tard, un fait que le monde avait établi, sans contradiction. EtatSession.memoire prend sa forme définitive (fenêtre glissante 5-14 pas, résumé tous les 10, faits ancrés par rang) — gelée SEULEMENT maintenant, une fois sa politique de rétention connue (KR-249/266), jamais avant.",
+				"status": "planned"
+			},
+			{
+				"id": 4,
+				"goal": "L'auteur voit la narration se raccourcir plutôt que la partie attendre indéfiniment, au-delà du budget par tour (garde-fou §2.8 n° 4). Une constante de budget de contexte, posée une fois dans brain/, borne à la fois le balayage statique des chemins de prose ia (KR-261) et le budget dynamique par pas.",
+				"status": "planned"
+			}
+		],
+		"known_risks": [
+			"KR-260 — moteurSansIA.test.ts (KR-250) PASSE D'UN BALAYAGE PAR RACINE EN BLOC À UNE LISTE D'EXCLUSION NOMMÉE PAR FICHIER, réécrit (jamais amendé après coup) dans le lot FEATURE de l'itération qui introduit le premier appelant réel — une exclusion écrite dans le lot contrat pointerait vers un fichier qui n'existe pas encore, donc vide et vacueuse. src/player/ et src/brain/dossier/ gardent une interdiction TOTALE, sans aucune exception : les assembleurs de contexte de R1/R3 vivent dans brain/copilote/contexte/, hors des trois racines balayées. Mutant obligatoire : ajouter l'import hors liste, vérifier ROUGE, retirer.",
+			"KR-261 — LE BUDGET DE CONTEXTE DE N° 10 EST UNE SEULE CONSTANTE, posée une fois dans brain/, lue par DEUX instruments distincts qui ne se déduisent pas l'un de l'autre : (a) le balayage STATIQUE des chemins de prose ia côté auteur (roadmap § 3 — n° 10 n'en ouvre que 3 sur les onze, les huit autres arrivant avec n° 11-15, avertissement non bloquant) et (b) le budget DYNAMIQUE par pas côté runtime (§2.8 garde-fou 4 — plafond d'appels et de jetons, dégradation en cascade jamais un allongement indéfini). Deux constantes qui dériveraient séparément casseraient le sens même de « budget ».",
+			"KR-262 — Entite.nom RESTE D'AUDIENCE 'auteur' MÊME QUAND UN MODÈLE ENTRE EN JEU : l'injection passe par description/ambiance/dangers, jamais par nom (garde d'injection KR-232 étendue, pas un test de sortie séparé). PORTÉE STRICTEMENT BORNÉE À n° 10 : R1 seul (labels de lieux candidats pour aller). R3, qui doit pourtant NOMMER des lieux et des PNJ dans sa prose, et la portée complète aux huit collections (personnages, lieux, indices, quêtes, événements, jalons, fins, objectifs) restent des QUESTIONS OUVERTES, propriétaire n° 12 (premier dialogue de PNJ). Ne pas élargir en n° 10 : ce serait un lot contrat DOSSIER transverse que rien ici ne justifie.",
+			"KR-263 — UN VERBE DE COMMANDES N'ENTRE QU'AVEC SON CONSOMMATEUR NARRATIF DÉJÀ PRÉSENT — généralisation de KR-249 (n° 9) au registre de commandes. C'est ce qui a déplacé agir de l'itération 1 (proposition initiale, retirée) vers l'itération 2 : sans R3, un agir posé en it1 consommerait un pas d'horloge (§ J1 : 1 pas = 1 commande ACCEPTÉE, déjà verbe-agnostique — vérifié, AUCUN amendement de doc nécessaire) sans que rien ne le raconte ni ne le justifie au joueur. Un no-op mécanique n'est un no-op LÉGITIME que si quelque chose le rend perceptible.",
+			"KR-264 — LE REFUS D'UNE ACTION NON RECONNUE PAR R1 EST UNE FORME FERMÉE DÉDIÉE ({sans_commande:true}), JAMAIS UNE CLARIFICATION UTILISÉE COMME REFUS DÉGUISÉ. Motif : une clarification systématique pour toute action hors 'aller' obligerait l'invite à connaître la politique du registre COMMANDES ('seul aller existe aujourd'hui') — une règle de jeu qui fuit dans un prompt, l'interdit transverse le plus direct du projet. Corollaire : DEUX CLARIFICATIONS CONSÉCUTIVES NE SONT PAS REPRÉSENTABLES (garde anti-boucle déterministe) — la seconde saisie ambiguë reçoit le même message fixe qu'un R1 illisible après rejeu, jamais un second état d'écran.",
+			"KR-265 — UN SEUL PAS DE JEU EN COURS À LA FOIS. Le verrou est un INVARIANT LOGIQUE testable (deux soumissions dans le même tick produisent EXACTEMENT UN appel modèle), tenu dans l'orchestrateur/hook — PAS dans l'attribut `disabled` d'un composant, qui n'en est qu'UNE réalisation possible à la couche présentation. Sans ce verrou : une saisie B interprétée pendant que A tourne encore vise une table de rangs déjà périmée ('la deuxième' cible un état que le joueur n'a jamais vu), deux R1 concurrents rendraient représentables deux clarifications d'affilée (contredisant KR-264), et un R3 tardif écrirait ses faits après que la fenêtre de mémoire a déjà glissé.",
+			"KR-266 — UN RÔLE AJOUTÉ À L'UNION EXHAUSTIVE (GARDE never) DE CopiloteService.demander() ENTRE DANS LE LOT CONTRAT DE L'ITÉRATION QUI L'APPELLE POUR LA PREMIÈRE FOIS, JAMAIS PRÉPOSÉ PAR AVANCE. C'est ce qui a fait trancher « un lot contrat par itération » (3 lots distincts : it1 R1 seul, it2 agir+R3, it3 memoire) contre la proposition d'un unique lot contrat de 9 fichiers posé d'un coup en it1 — poser R3 ou la forme de memoire avant que l'itération qui les consomme réellement n'existe violerait KR-249 (un champ n'entre que si un chemin l'écrit ET un autre le lit, AVEC sa politique connue — c'est exactement ce que n° 9 avait déjà écrit pour justifier memoire: null)."
+		]
+	},
+	"implementation": {
+		"iterations_log": [],
+		"resolved_decisions": [
+			"RETENU — N=4 itérations, structure PM tour 1 conservée (squelette R1 → narration R3 → mémoire → budget), amendée sur un seul point : agir déplacé d'it1 vers it2. Dossier : .claude/raffinage/moteur-interprete-cadrage.plan.md, arbitrage #1-2.",
+			"RETENU — agir entre en it2, pas it1 (veto narratif-ia tour 2, gagne contre l'acceptation du PM au même tour) : un verbe entre avec son consommateur narratif (KR-263). Corps : cadrage.plan.md #2.",
+			"RETENU — le refus de R1 sur une action non reconnue est la forme fermée sans_commande, jamais une clarification systématique (veto narratif-ia, KR-264). Corps : cadrage.plan.md #3.",
+			"RETENU — un lot contrat PAR ITÉRATION (3 lots distincts : it1/it2/it3), pas un unique lot contrat de 9 fichiers posé d'un coup (rejette la proposition tech-lead tour 2). Conforme à la doctrine déjà appliquée par n° 9 elle-même. Corps : cadrage.plan.md #4, KR-266.",
+			"REJETÉ, mesuré — amender docs/REGLES-PLAY.md § J1 pour agir (narratif-ia tour 1) : le tech-lead a relu le texte, déjà verbe-agnostique ('un pas = une commande ACCEPTÉE', aucun verbe nommé). Aucune réouverture de doc. Corps : cadrage.plan.md #5.",
+			"RETENU — Chip (primitive de suggestions) reste feature-local (play-mode/components/), jamais brain/components/ à cette itération : précédent exact OutcomeBlock/KR-109, un second consommateur spéculatif ne compte pas. Corps : cadrage.plan.md #6.",
+			"RETENU — moteurSansIA.test.ts réécrit dans le lot FEATURE (pas le lot contrat) de chaque itération qui introduit un appelant réel, pour que sa liste d'exclusion nommée pointe toujours vers un fichier existant. Corps : cadrage.plan.md #7.",
+			"RETENU (réconcilié, pas un désaccord réel) — le verrou de tour est un invariant logique (KR-265) tenu dans l'orchestrateur/hook ; l'attribut disabled du champ de saisie en est la réalisation UI, choisie par l'UX. Corps : cadrage.plan.md #8.",
+			"RETENU rétréci — KR-262 (Entite.nom) porte sur R1 seul en n° 10 (description de lieu, jamais nom) ; REPORTÉ pour R3 et la portée aux 8 collections → open_questions, propriétaire n° 12. Corps : cadrage.plan.md #9.",
+			"RETENU — KR-261 (budget statique, onze chemins) et le budget dynamique par pas sont deux instruments distincts lisant UNE constante partagée dans brain/, jamais deux plafonds qui dérivent. Corps : cadrage.plan.md #10.",
+			"REJETÉ, remplacé — le critère 'anti-complaisance' n'est pas observable par jest tel quel (objection QA tour 1) ; remplacé par le prédicat structurel testable 'un fait sans rang d'ancrage est refusé' (§2.8 garde-fou 2, seule moitié testable de 'aucune création d'entité'). Corps : cadrage.plan.md #11.",
+			"RETENU — memoire (forme, EtatSession) n'est gelée qu'en it3, l'itération qui pose sa politique de rétention — jamais avant (veto narratif-ia contre le lot à 9 fichiers du tech-lead). Corps : cadrage.plan.md #12, KR-249/266.",
+			"RETENU — la collision de nom entre la sortie de R1 et validerIntention/CLES_SORTIE_PLAN (dossier-copilote, personnage-plan) est résolue par des noms disjoints (SortieInterprete/Commande, jamais Intention*) — convergence indépendante tech-lead + narratif-ia dès le tour 1, objection PM retirée au tour 2."
+		],
+		"open_questions": [
+			"KR-262, portée complète (8 collections, R3 nommant PNJ/lieux en prose) — hors périmètre n° 10, redevient bloquant dès que n° 12 fait parler un premier PNJ (un narrateur qui ne connaît que 'l'homme' ne tient pas une scène de dialogue). Propriétaire n° 12.",
+			"Le fichier exact portant l'exception nommée de moteurSansIA.test.ts (probable src/features/play-mode/hooks/useTourDeJeu.ts, proposition tech-lead tour 2, non gravée) — à confirmer ou amender au raffinage d'it1, selon où l'appel IA se loge réellement.",
+			"Le rejeu déterministe (KR-242, propriétaire n° 11) — cette feature prépare le terrain (les Commande acceptées, jamais la saisie brute, entrent dans le journal) mais n'implémente aucun rejeu réel ; premier consommateur véritable d'aléa reste n° 11.",
+			"La table de lots détaillée proposée par le tech-lead au tour 2 (fichiers précis par lot, ex. brain/dossier/interprete.ts, brain/copilote/contexte/{interprete,narrateur}.ts) est informative pour le raffinage d'it1/it2, PAS gravée par ce cadrage — /raffiner peut la reprendre ou la corriger sur mesure au moment venu. Dossier : .claude/raffinage/moteur-interprete-cadrage/tour2-tech-lead.md."
+		]
+	}
+}
