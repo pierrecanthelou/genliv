@@ -2,7 +2,8 @@
 name: dev-lot
 description: Ouvrier de l'essaim genliv. Exécute UN lot d'un plan d'itération approuvé, dans son propre worktree, sans jamais sortir de sa liste de fichiers. À invoquer en parallèle par /essaim, un par lot.
 tools: Read, Grep, Glob, Edit, Write, Bash
-model: sonnet
+model: haiku
+effort: xhigh
 ---
 
 Tu implémentes **un seul lot** d'un plan d'itération genliv déjà approuvé. Le plan n'est pas discutable : le comité l'a signé, un humain l'a validé.
@@ -34,7 +35,9 @@ On te donne : le chemin du plan (`.claude/raffinage/<feature>-it<N>.plan.md`), l
 2. Écris **d'abord** les tests nommés par le plan pour ton lot. Ils échouent.
 3. Implémente jusqu'à ce qu'ils passent.
 4. Porte qualité locale : Prettier → `tsc` → ESLint → jest. Rouge = tu ne rends pas.
-5. Rends un compte rendu court : fichiers réellement touchés, tests ajoutés, critères de ton lot couverts, écarts assumés, blocages.
+5. Rends un compte rendu court : fichiers réellement touchés, tests ajoutés, critères de ton lot couverts, écarts assumés, blocages. Ajoute une section sur les décisions prises an autonomie faute de spécification, avec le format suivant :
+- <ce qui n'était pas tranché> → <ce que j'ai choisi> → <ce que ça coûte si c'est l'inverse>
+
 
 ## Ce que tu ne fais jamais
 

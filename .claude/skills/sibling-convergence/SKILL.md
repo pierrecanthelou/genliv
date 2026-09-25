@@ -1,6 +1,8 @@
 ---
 name: sibling-convergence
 description: Comparer les outils, méthodes et conventions de process — jamais les fonctionnalités produit — entre les trois projets frères pilotés par CLAUDE.md (projetx, chrono-sabine, genliv), et produire/mettre à jour le plan-global.md partagé. À charger quand on demande une comparaison de pratiques entre les trois projets, ou selon les déclencheurs ci-dessous.
+model: opus
+effort: xhigh
 ---
 
 # Skill : Audit de convergence entre projets frères

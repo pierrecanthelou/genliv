@@ -1,6 +1,8 @@
 ---
 name: raffinage-iteration
 description: Rituel de raffinage d'une itération genliv par le comité PM / Tech Lead / UX / QA (+ Narratif & IA si l'itération touche le moteur) — tours de parole, droit de veto par domaine, registre des désaccords, contrat de sortie (plan découpé en lots), allocation d'effort. À charger par tout agent participant à /raffiner ou /essaim.
+model: sonnet
+effort: high
 ---
 
 # Rituel de raffinage d'itération — genliv
@@ -107,6 +109,7 @@ Le plan suit `templates/plan-iteration.md` à la lettre. Deux exigences non nég
 > **L'effort suit la portée de l'erreur, pas la durée du travail.**
 
 Une erreur qui reste dans un fichier se corrige en dix minutes. Une erreur dans une signature `brain/` se propage dans quatre lots, puis dans la fusion, puis dans les tests — et personne ne peut plus se parler pour la rattraper.
+Chaque agent porte les spcécifications du modèle et de l'effort à utiliser.
 
 | Poste | Effort | Pourquoi |
 |---|---|---|

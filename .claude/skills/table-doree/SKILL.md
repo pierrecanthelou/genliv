@@ -1,6 +1,8 @@
 ---
 name: table-doree
 description: Concevoir, poser et prouver une table dorée — le test qui épingle valeur par valeur un registre de données sorti du score de mutation. À charger avant d'écrire ou de relire une table dorée, ou d'ajouter une entrée à un registre qu'elle couvre (BESTIARY, CHALLENGE_TIERS, CHARACTERISTICS, POSTURES).
+model: sonnet
+effort: xhigh
 ---
 
 # Table dorée — concevoir, poser, prouver
