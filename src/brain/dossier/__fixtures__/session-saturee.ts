@@ -61,6 +61,15 @@ import type { EtatSession } from '../session'
  * validateur, `PRECISION_CARACTERES_MAX`) ; `saisie` est la forme NORMALISÉE
  * (espaces collapsés) qu'`assemblerInterprete` aurait injectée — même doctrine
  * que le reste du fichier : une valeur PLAUSIBLE, jamais un dossier réel.
+ *
+ * `recit` INSTANCIÉ depuis le lot `contrat` de la n° 10 it2, sur l'entrée qui porte
+ * `origine` — et sur elle SEULE : l'invariant est
+ * `journal.every(e => e.recit === undefined || e.origine !== undefined)`, et une
+ * fixture qui le violerait enseignerait la faute. C'EST LA SEULE PROSE DU FICHIER,
+ * et l'exception au vocabulaire clos ci-dessus est nommée plutôt que tue : `texte`
+ * reste un relevé d'état, `recit` est la phrase que le NARRATEUR a rendue pour ce
+ * pas — registre joueur, vouvoiement, présent, aucun identifiant, aucune question.
+ * Sans instance, la ligne `journal[].recit` de la table serait morte.
  */
 export const SESSION_SATUREE: EtatSession = {
 	schema: 1,
@@ -82,7 +91,13 @@ export const SESSION_SATUREE: EtatSession = {
 	},
 	journal: [
 		{ tour: 7, role: 'joueur', texte: '> ALLER lieu.val-cendre' },
-		{ tour: 7, role: 'moteur', texte: 'lieu_courant : lieu.le-fanal → lieu.val-cendre', origine: 'aller' },
+		{
+			tour: 7,
+			role: 'moteur',
+			texte: 'lieu_courant : lieu.le-fanal → lieu.val-cendre',
+			origine: 'aller',
+			recit: 'Vous descendez dans le val ; la cendre crisse sous vos pas et le vent retombe.',
+		},
 		{
 			tour: 7,
 			role: 'moteur',

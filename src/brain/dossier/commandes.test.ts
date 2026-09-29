@@ -288,23 +288,26 @@ describe('analyserSaisie, les deux refus d analyse', () => {
 		// LE GABARIT EST APPLIQUÉ TEL QUEL À UNE SAISIE VIDE : les guillemets encadrent
 		// une chaîne vide, donc DEUX espaces. C'est le gabarit qui le dit, pas une
 		// valeur recopiée d'un rapport d'échec — `« ` + `` + ` »`.
-		expect(messageDe(vide)).toBe('Commande inconnue : «  ». Commandes disponibles : ALLER.')
+		// ⚠ « ALLER, AGIR » DEPUIS LA n° 10 it2 — corrigé EN VALEUR parce que le registre a
+		// RÉELLEMENT bougé : la liste est dérivée, et c'est elle qui le dit.
+		expect(messageDe(vide)).toBe('Commande inconnue : «  ». Commandes disponibles : ALLER, AGIR.')
 
 		const horsRegistre = analyserSaisie('SAUTER lieu.x')
 		expect(horsRegistre.ok === false && horsRegistre.refus).toBe('verbe_inconnu')
-		expect(messageDe(horsRegistre)).toBe('Commande inconnue : « SAUTER lieu.x ». Commandes disponibles : ALLER.')
+		expect(messageDe(horsRegistre)).toBe('Commande inconnue : « SAUTER lieu.x ». Commandes disponibles : ALLER, AGIR.')
 
 		// UN SEUL GABARIT pour les deux refus d'analyse : une arité fautive est une
 		// commande qu'on ne reconnaît pas.
 		expect(messageDe(analyserSaisie('ALLER lieu.x lieu.y'))).toBe(
-			'Commande inconnue : « ALLER lieu.x lieu.y ». Commandes disponibles : ALLER.',
+			'Commande inconnue : « ALLER lieu.x lieu.y ». Commandes disponibles : ALLER, AGIR.',
 		)
 	})
 
-	it('liste des verbes DERIVEE du registre — le second verbe fictif le prouve', () => {
-		// AVEC UN SEUL VERBE, RIEN NE SÉPARE : une liste en dur `"… : ALLER."`
-		// passerait toutes les lignes ci-dessus. Le mutant est donc OBLIGATOIRE — il
-		// est la seule mesure du pouvoir séparateur (BUG-087).
+	it('liste des verbes DERIVEE du registre — le verbe fictif le prouve', () => {
+		// UNE LISTE EN DUR NE SE SÉPARE QUE PAR UN MUTANT : `"… : ALLER, AGIR."` écrit à
+		// la main passerait toutes les lignes ci-dessus. Le mutant est donc OBLIGATOIRE —
+		// il est la seule mesure du pouvoir séparateur (BUG-087). Depuis la n° 10 it2,
+		// le registre porte DEUX verbes réels, et le fictif est le TROISIÈME.
 		//
 		// `defineRegistre` ne gèle rien (`identifiers.ts` : elle rend la carte telle
 		// quelle), donc le registre est écrivable au runtime. C'est aussi pourquoi il
@@ -314,16 +317,16 @@ describe('analyserSaisie, les deux refus d analyse', () => {
 		const SAISIE = 'ALER lieu.foret-noire'
 
 		expect(messageDe(analyserSaisie(SAISIE))).toBe(
-			'Commande inconnue : « ALER lieu.foret-noire ». Commandes disponibles : ALLER.',
+			'Commande inconnue : « ALER lieu.foret-noire ». Commandes disponibles : ALLER, AGIR.',
 		)
 
 		try {
 			registre.sauter = { label: 'saute', verbe: 'SAUTER', refKinds: ['lieu'] }
 
 			expect(messageDe(analyserSaisie(SAISIE))).toBe(
-				'Commande inconnue : « ALER lieu.foret-noire ». Commandes disponibles : ALLER, SAUTER.',
+				'Commande inconnue : « ALER lieu.foret-noire ». Commandes disponibles : ALLER, AGIR, SAUTER.',
 			)
-			// Et le second verbe est RECONNU, arité comprise : la dérivation ne s'arrête
+			// Et le verbe fictif est RECONNU, arité comprise : la dérivation ne s'arrête
 			// pas au message.
 			expect(analyserSaisie('SAUTER lieu.x')).toEqual({
 				ok: true,
@@ -333,11 +336,133 @@ describe('analyserSaisie, les deux refus d analyse', () => {
 			delete registre.sauter
 		}
 
-		// RÉVOCATION CONSTATÉE, jamais supposée.
-		expect(Object.keys(COMMANDES)).toEqual(['aller'])
+		// RÉVOCATION CONSTATÉE, jamais supposée — et L'ORDRE des deux verbes réels est
+		// celui du registre : `aller` d'abord, `agir` ensuite (ordre des rangs `G1…`).
+		expect(Object.keys(COMMANDES)).toEqual(['aller', 'agir'])
 		expect(messageDe(analyserSaisie(SAISIE))).toBe(
-			'Commande inconnue : « ALER lieu.foret-noire ». Commandes disponibles : ALLER.',
+			'Commande inconnue : « ALER lieu.foret-noire ». Commandes disponibles : ALLER, AGIR.',
 		)
+	})
+})
+
+/**
+ * AGIR — LE SECOND VERBE (n° 10 `moteur-interprete`, it2, critère 2 du plan).
+ *
+ * CE QUI LE DISTINGUE D'`aller`, ET CHAQUE TÉMOIN CI-DESSOUS PORTE UNE DE CES
+ * DIFFÉRENCES : arité 0 (il ne désigne rien), aucun refus de résolution (il n'a rien à
+ * trouver), et `monde` rendu PAR RÉFÉRENCE (il ne change rien). Ce qu'il PARTAGE :
+ * l'horloge avance de 1, et deux entrées de journal de même `tour` sont écrites, la
+ * seconde portant `origine` — c'est elle qui recevra le récit du pas.
+ */
+describe('agir, le verbe d arite zero', () => {
+	it('le registre porte agir : arite 0, verbe AGIR, et le libelle FIGE par le plan', () => {
+		// L'ARITÉ EST DÉRIVÉE de `refKinds.length`, jamais stockée (KR-165).
+		expect(COMMANDES.agir.refKinds).toEqual([])
+		expect(COMMANDES.agir.refKinds).toHaveLength(0)
+		expect(COMMANDES.agir.verbe).toBe('AGIR')
+		// LE LIBELLÉ EST UN CONTRAT NARRATIF (KR-269) : le modèle le LIT à deux endroits,
+		// et c'est sa seule source pour la portée du verbe. Texte FIGÉ au § 3 du plan
+		// d'itération — épinglé mot pour mot, jamais reformulé par un ouvrier. Sa QUALITÉ
+		// (3e personne, présent, portée « sur place », zéro mot de mécanique) est jugée en
+		// revue humaine : aucun instrument de ce dépôt ne la constate.
+		expect(COMMANDES.agir.label).toBe('agit sur place')
+		// Discriminant : `aller` n'a pas bougé, et les deux libellés sont distincts.
+		expect(COMMANDES.aller).toEqual({ label: 'va au lieu', verbe: 'ALLER', refKinds: ['lieu'] })
+		expect(COMMANDES.agir.label).not.toBe(COMMANDES.aller.label)
+	})
+
+	it('analyse : AGIR seul est accepte, et le moindre jeton de plus est refuse', () => {
+		// ARITÉ STRICTE, `===` ET JAMAIS `>=` — exactement `1 + 0` jeton.
+		expect(analyserSaisie('AGIR')).toEqual({ ok: true, commande: { commande: 'agir', cibles: [] } })
+		// Casse et espacement tolérés sur le VERBE, comme pour `aller`.
+		expect(analyserSaisie('  aGiR  ')).toEqual({ ok: true, commande: { commande: 'agir', cibles: [] } })
+
+		const avecCible = analyserSaisie('AGIR lieu.x')
+		expect(avecCible.ok === false && avecCible.refus).toBe('arite_invalide')
+		// Et le refus porte le MÊME gabarit que les autres refus d'analyse.
+		expect(messageDe(avecCible)).toBe('Commande inconnue : « AGIR lieu.x ». Commandes disponibles : ALLER, AGIR.')
+	})
+
+	it('executer : le monde est la MEME reference, l horloge avance de 1, deux entrees dont une a origine', () => {
+		const dossier = lire(CHEMIN_REFERENCE)
+		const depart = ouverture(dossier)
+
+		const session = sessionDe(executer(dossier, depart, 'AGIR'))
+
+		// LE TÉMOIN CENTRAL : `toBe`, JAMAIS `toEqual` — une COPIE égale du monde passerait
+		// `toEqual` et mentirait sur le no-op.
+		expect(session.monde).toBe(depart.monde)
+		expect(session.horloge.tour).toBe(depart.horloge.tour + 1)
+		expect(session.journal).toEqual([
+			{ tour: 1, role: 'joueur', texte: '> AGIR' },
+			{ tour: 1, role: 'moteur', texte: 'lieu_courant : lieu.foyer-du-guet', origine: 'agir' },
+		])
+		// Le texte moteur est un RELEVÉ, pas une transition : aucune flèche.
+		expect(session.journal[1].texte).not.toContain('→')
+		// `origine` ABSENTE de l'entrée `joueur` — pas « présente et indéfinie ».
+		expect('origine' in session.journal[0]).toBe(false)
+		expect(session.journal.every((entree) => entree.origine === undefined || entree.role === 'moteur')).toBe(true)
+		// ET L'ARGUMENT EST INTACT : la session d'entrée n'a pas été mutée.
+		expect(depart.horloge.tour).toBe(0)
+		expect(depart.journal).toEqual([])
+	})
+
+	it('executer : aucun refus, meme dans une impasse ou aller n a plus rien a proposer', () => {
+		// L'ÉTAT SÉPARATEUR : `lieu.vigie-du-nord` n'a AUCUN accès. `aller` y est refusé
+		// quelle que soit la cible ; `agir`, qui ne désigne rien, y est accepté.
+		const dossier = lire(CHEMIN_REFERENCE)
+		const tour = sessionDe(executer(dossier, ouverture(dossier), 'ALLER lieu.tour-effondree'))
+		const vigie = sessionDe(executer(dossier, tour, 'ALLER lieu.vigie-du-nord'))
+		expect(destinationsPossibles(dossier, vigie)).toEqual([])
+		expect(executer(dossier, vigie, 'ALLER lieu.tour-effondree').ok).toBe(false)
+
+		const apres = sessionDe(executer(dossier, vigie, 'AGIR'))
+
+		expect(apres.monde).toBe(vigie.monde)
+		expect(apres.horloge.tour).toBe(vigie.horloge.tour + 1)
+		expect(apres.journal.slice(vigie.journal.length)).toEqual([
+			{ tour: 3, role: 'joueur', texte: '> AGIR' },
+			{ tour: 3, role: 'moteur', texte: 'lieu_courant : lieu.vigie-du-nord', origine: 'agir' },
+		])
+		// LES ENTRÉES DÉJÀ ÉCRITES SONT LES MÊMES RÉFÉRENCES : rien du passé n'est recopié.
+		expect(apres.journal.slice(0, vigie.journal.length).every((entree, rang) => entree === vigie.journal[rang])).toBe(
+			true,
+		)
+	})
+
+	it('executer : la passe des jalons tourne, et ne peut rien atteindre — aucune ligne de jalon', () => {
+		// UN NO-OP N'OUVRE RIEN : la passe tourne après toute commande ACCEPTÉE, mais un
+		// monde inchangé ne rend aucune condition nouvellement vraie. Témoin sur le pas
+		// qui SUIT l'atteinte du jalon de référence — le seul état où un jalon vient
+		// d'être posé, donc le seul où une passe fautive pourrait le réécrire.
+		const dossier = lire(CHEMIN_REFERENCE)
+		const vigie = ['ALLER lieu.tour-effondree', 'ALLER lieu.vigie-du-nord'].reduce(
+			(courante, saisie) => sessionDe(executer(dossier, courante, saisie)),
+			ouverture(dossier),
+		)
+		expect(vigie.monde.jalons_atteints).toEqual(['jalon.premiere-vigie'])
+
+		const apres = sessionDe(executer(dossier, vigie, 'AGIR'))
+
+		expect(apres.monde).toBe(vigie.monde)
+		expect(apres.journal.slice(vigie.journal.length)).toHaveLength(2)
+		expect(apres.journal.slice(vigie.journal.length).filter((entree) => entree.deltas !== undefined)).toEqual([])
+	})
+
+	it('executer : une attente pendante n est pas touchee par la transition — sa cloture appartient a apresInterpretation', () => {
+		// `executerCommande` IGNORE `attente` (commandes.ts ne la connaît pas) : c'est
+		// `apresInterpretation` qui la retire, et nulle part ailleurs. Un `agir` qui la
+		// retirerait ici créerait un SECOND décideur (KR-013).
+		const dossier = lire(CHEMIN_REFERENCE)
+		const avecAttente: EtatSession = {
+			...ouverture(dossier),
+			attente: { type: 'clarification', question: 'Le marche ou la tour ?', saisie: 'je vais la-bas' },
+		}
+
+		const apres = sessionDe(executer(dossier, avecAttente, 'AGIR'))
+
+		expect(apres.attente).toBe(avecAttente.attente)
+		expect(apres.monde).toBe(avecAttente.monde)
 	})
 })
 

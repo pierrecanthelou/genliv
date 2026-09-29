@@ -13,30 +13,6 @@
 			"severity": "major"
 		},
 		{
-			"id": "BUG-122",
-			"date": "2026-09-24",
-			"feature": "outillage",
-			"discovered_at": "iteration-2",
-			"symptom": "Le CHANGELOG contenait un caractere BACKSPACE (U+0008) la ou la prose voulait ecrire la sequence `\\b` : span de code VIDE, phrase inintelligible -- dans l'entree qui EXPLIQUE justement BUG-120. Et deux temoins ecrits par heredoc ont recu `\\b` la ou le code avait besoin de `\\b`, rendant un motif inoperant.",
-			"root_cause": "ECRIRE DU CODE OU DE LA PROSE A ECHAPPEMENTS A TRAVERS UN HEREDOC SHELL PUIS UNE CHAINE PYTHON NON BRUTE. Chaque couche mange un niveau : `\\b` tape devient `\\b`, et `\\b` dans une chaine Python non brute ou dans un gabarit JS est le CARACTERE BACKSPACE, pas une ancre de mot. Quatre occurrences dans la meme session, dont deux dans des instruments de test -- et le mode de panne est SILENCIEUX : le fichier s'ecrit, le test tourne, le motif ne matche simplement jamais.",
-			"fix": "CHANGELOG corrige par decoupage d'indice (jamais par `replace` a travers une couche de shell). Le temoin de frontiere de `commandes.test.ts` renonce entierement aux ancres : commentaires retires, puis sous-chaine nue.",
-			"mitigation": "Regle portable : tout contenu portant un backslash s'ecrit avec l'outil d'edition de fichier, jamais par heredoc shell. Et un motif de test se PROUVE par sa discriminance dans LES DEUX SENS (il matche ce qu'il doit, il ne matche pas ce qu'il ne doit pas) -- les deux assertions sont posees dans `commandes.test.ts`.",
-			"regression_test": "src/brain/dossier/commandes.test.ts -- « aucune feature n importe COMMANDES ni createMagasinDeSession » (les 4 assertions de discriminance)",
-			"severity": "minor"
-		},
-		{
-			"id": "BUG-123",
-			"date": "2026-09-24",
-			"feature": "budget-de-contexte",
-			"discovered_at": "iteration-1",
-			"symptom": "BUG-055, BUG-056, BUG-057 et BUG-058 portent chacun DEUX defauts DIFFERENTS : quatre de dossier-format (2026-08-08, bug_history.features-terminees.json) et quatre de dossier-canon (2026-08-10, bug_history.dossier-canon.json). Recidive EXACTE de BUG-062, deux jours plus tard, dans les deux sens -- trouve par src/brain/codeKnowledge.test.ts (assertion 5), pose dans le lot 1 de la tranche B3 budget-de-contexte.",
-			"root_cause": "Le prochain id a chaque fois ete pris au max du SEUL fichier en cours d edition, jamais des huit -- exactement la regle que BUG-062 avait deja fait enfreindre, sans qu aucun instrument ne la tienne entre les deux.",
-			"fix": "Non corrige -- renumeroter un id est HORS PERIMETRE de la tranche B3 (lot 2 s interdit explicitement toute renumerotation d id, KR ou BUG). Les quatre ids restent donc AMBIGUS partout ou ils sont cites : nommer BUG-057 seul ne designe pas un defaut, mais deux, dans deux features differentes -- c est le cout reel que cette entree laisse impaye.",
-			"mitigation": "src/brain/codeKnowledge.test.ts (assertion 5) epingle les QUATRE collisions par egalite EXACTE (COLLISIONS_CONNUES) : une cinquieme collision fait rougir le test, et reparer l une des quatre (donc renumeroter) le fait rougir aussi -- ce qui force a retirer la ligne au lieu de l oublier.",
-			"regression_test": "src/brain/codeKnowledge.test.ts -- assertion 5 (deja verte -- COLLISIONS_CONNUES fige les quatre existantes sans les absoudre)",
-			"severity": "major"
-		},
-		{
 			"id": "BUG-124",
 			"date": "2026-09-24",
 			"feature": "moteur-dossier",
@@ -58,18 +34,6 @@
 			"fix": "Non corrige dans la fixture -- le disque n est pas touche. Le temoin seme un habitant au lieu de depart par brain.dossiers.update (chemin public, par spread), technique precedente du depot (avecUnAcces / avecOuverture, KR-156). Le scenario du critere reste mot pour mot celui du plan.",
 			"mitigation": "La precondition est MESUREE dans le temoin lui-meme -- jouable false avant semis, true apres -- donc elle rougira le jour ou depart-desert changera, au lieu de casser trois rebonds plus loin. Le << Etant donne >> reel est ecrit dans la revue : dossier-reference PLUS un habitant place au depart.",
 			"regression_test": "src/features/play-mode/tests/jalonAuJournal.test.tsx -- ecrit la ligne du jalon au meme tour que la commande",
-			"severity": "major"
-		},
-		{
-			"id": "BUG-127",
-			"date": "2026-09-24",
-			"feature": "eol-lf",
-			"discovered_at": "regression",
-			"symptom": "La porte qualite est VERTE dans la copie de travail principale et ROUGE dans TOUT worktree neuf : contexte.test.ts rend 4 echecs sur 121 suites / 1870 tests. Les ouvriers de /essaim travaillent chacun dans leur worktree et leur porte locale est tsc + ESLint + jest : aucun lot ne pouvait rendre, pour une raison etrangere au lot. Decouvert en mesurant le decoupage de la n 9 it4, pas par un test.",
-			"root_cause": "core.autocrlf=true rend du CRLF a TOUT checkout neuf, pendant que la copie principale est en LF parce que les outils la reecrivent. contexte.test.ts:1745 decoupe une declaration en cherchant DEUX SAUTS DE LIGNE CONSECUTIFS (la paire LF LF). Sous CRLF, une ligne blanche s ecrit CR LF CR LF et ne contient donc AUCUNE paire LF LF : indexOf rend -1, slice(debut, -1) avale tout le reste du fichier, et le balayage cesse de mesurer une declaration pour mesurer le fichier entier -- Expected length: 4 / Received length: 40.",
-			"fix": "Un .gitattributes a la racine, portant la regle text=auto et eol=lf (text=auto et non text, pour que git detecte lui-meme le binaire). ZERO ligne de production ou de test modifiee. Prouve sur un checkout NEUF depuis un commit portant le fichier : fins de ligne LF, tsc exit 0, 121 suites / 1870 tests verts, contre 1 suite / 4 tests rouges avant.",
-			"mitigation": "L invariant est CABLE, pas documente : tout checkout neuf rend du LF. Il remplace six rustines locales, semees dans cinq fichiers de test (atteignabilite, controles x3, evaluate, tourzero), qui remplacaient les CRLF par des LF a la lecture -- la classe avait donc ete rencontree CINQ fois sans jamais etre fermee. Condition d arret posee avant de livrer et verifiee : git add --renormalize . produit ZERO changement de blob, l index etant deja en LF. L AMPLEUR est petite (4 tests sur 1870), la NATURE ne l est pas : c est un instrument dont le PERIMETRE depend du checkout, et la moitie de ses assertions sont des toContain positifs, qui auraient VERDI sur une base etendue au lieu de rougir.",
-			"regression_test": "aucun test dedie, et c est motive : l invariant est tenu par .gitattributes. La recette qui le prouve est la porte COMPLETE en worktree neuf (tsc + jest), rejouee a chaque tranche hors cycle -- pas une assertion, qui pourrait elle-meme dependre des fins de ligne.",
 			"severity": "major"
 		},
 		{
@@ -107,6 +71,30 @@
 			"mitigation": "Un hook qui recoit un etat externe en parametre ne le copie JAMAIS dans son propre useState sans un mecanisme de resynchronisation explicite (key sur remontage, ou lecture directe comme ici) -- a verifier systematiquement des qu un hook prend un etat possiblement mute par un AUTRE canal du meme ecran.",
 			"regression_test": "src/features/play-mode/hooks/useTourDeJeu.test.ts -- KR-013, rerender avec une session avancee entre deux appels, verifie que executeAction utilise la session fraiche",
 			"severity": "critical"
+		},
+		{
+			"id": "BUG-132",
+			"date": "2026-09-29",
+			"feature": "moteur-interprete",
+			"discovered_at": "iteration-2",
+			"symptom": "PlayerInputBar.handleSubmit videait ou gardait le champ de saisie selon l'avis capture dans la fermeture du rendu D'AVANT la soumission, jamais celui produit PAR cette soumission -- le champ se vidait donc systematiquement un tour en retard sur le resultat reel (ex. une clarification affichee au tour N videe seulement au tour N+1).",
+			"root_cause": "handleSubmit lisait la variable 'avis' capturee par la fermeture du composant au moment du rendu precedent, au lieu d'attendre et d'utiliser directement le resultat de l'appel a executeAction() en cours.",
+			"fix": "useTourDeJeu.executeAction(saisie) retourne desormais Promise<boolean> (true = pas consomme). PlayerInputBar.handleSubmit attend ce retour et ne vide le champ que sur true, jamais sur un avis lu depuis une fermeture perimee.",
+			"mitigation": "Un composant qui decide d'un effet (vider un champ, fermer un panneau) sur la base d'un etat asynchrone doit utiliser le RESULTAT de l'appel asynchrone en cours, jamais une variable d'etat capturee par la fermeture du rendu precedent -- meme famille de defaut que les miroirs d'etat interdits par KR-013, mais cote UI plutot que cote donnees.",
+			"regression_test": "src/features/play-mode/components/PlayerInputBar.test.tsx -- 'M2 -- executeAction retourne true -> champ se vide apres soumission' et 'M2 -- executeAction retourne false -> champ garde son contenu apres soumission'",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-133",
+			"date": "2026-09-29",
+			"feature": "moteur-interprete",
+			"discovered_at": "iteration-2",
+			"symptom": "Le premier correctif du verrou console (m1, revue de PR) ajoutait un useEffect(() => { if (!isLocked && refus !== null) setRefus(null) }, [isLocked, refus]) dans EcranPartie.tsx. Des qu'une commande console invalide (verbe inconnu, destination inconnue) posait un refus EN DEHORS du verrou, l'effet l'effacait au rendu suivant : plus AUCUNE erreur de syntaxe ou de destination n'etait plus jamais visible dans la console, silencieusement.",
+			"root_cause": "L'effet mirait l'etat isLocked dans un second setState sans distinguer QUEL refus il visait a effacer -- exactement l'anti-patron KR-013/113 (etat derive via useEffect) que le projet interdit. Trouve en revue tech-lead (PR, second passage), pas par un test : aucune suite au niveau ecran ne soumettait de commande invalide HORS verrou.",
+			"fix": "L'effet est retire. L'affichage se calcule EN LIGNE : refusAffiche = refus === TEXTE_REFUS_CONSOLE_EN_COURS && !isLocked ? null : refus -- seul CE texte precis (artefact du verrou) s'efface au deverrouillage, tout autre refus (syntaxe, destination) reste affiche jusqu'a la prochaine soumission.",
+			"mitigation": "Un correctif motive par 'effacer un message au bon moment' se pose EN LIGNE au rendu, jamais par un useEffect qui mire un second setState -- meme quand le message a effacer semble unique, un useEffect sur un state partage (ici refus) efface TOUT ce qui passe par ce state, pas seulement le cas vise.",
+			"regression_test": "src/features/play-mode/tests/verrouDeTour.test.tsx -- 'un refus de SYNTAXE console (hors verrou) reste visible -- le calcul en ligne ne lefface pas (BUG-133)'",
+			"severity": "major"
 		}
 	],
 	"_about": "Les defauts que le TRAVAIL EN COURS relira -- bascule IA, 0.6.x. AXE D'APPARTENANCE, et c'est le seul : un travail en cours le relira-t-il, ET sa lecon est-elle deja promue dans un instrument lui-meme en lecture obligatoire (critere d'acceptation, KR, regle ESLint, test permanent) ? Si la lecon est promue, l'entree part a l'archive -- la garder ici la ferait relire deux fois. JAMAIS << de quelle feature vient l'entree >> : un fichier qui porte le nom d'une feature n'est pas pour autant range PAR feature, et confondre les deux a deja coute une scission fausse (BUG-086, corrige en revue de PR). Ce fichier ne se compacte pas, il se SCINDE -- et avant tout deplacement, on OUVRE les _about des DEUX fichiers. RESTE ICI quoi qu'il arrive : BUG-074, dont le correctif n'est TOUJOURS PAS FAIT et dont la lecon n'est promue nulle part -- l'archiver serait l'oublier ; il a deja ete archive par erreur une fois. NUMEROTATION GLOBALE aux NEUF fichiers, jamais reemployee : prochain id = max(BUG-xxx) des NEUF, jamais du seul fichier en cours (precedents BUG-062, BUG-123). OU SONT LES AUTRES : bug_history.0.5.json (BUG-001 a 027) · bug_history.features-terminees.json (features done hors bascule) · bug_history.dossier-canon.json · bug_history.dossier-fiches.json · bug_history.dossier-registres.json · bug_history.dossier-controles.json · bug_history.dossier-copilote.json · bug_history.moteur-dossier.json (ne le 2026-09-24). HISTORIQUE COMPLET DES SCISSIONS : CHANGELOG.md -- il n'est pas recopie ici, c'est lui qui le porte."

@@ -39,7 +39,17 @@ import type { Dossier } from './types'
  * vivant dans `TRANSITIONS` sous la même clé (KR-117).
  */
 export interface CommandeDescripteur {
-	/** Libellé français de l'action, jamais une syntaxe montrée à l'auteur. */
+	/**
+	 * Libellé français de l'action, jamais une syntaxe montrée à l'auteur.
+	 *
+	 * ⚠ C'EST UN CONTRAT NARRATIF, PAS UNE ÉTIQUETTE D'ÉCRAN (KR-269) : un modèle le
+	 * LIT à deux endroits — la ligne de geste du contexte de l'interprète, et le bloc
+	 * du pas courant dans celui du narrateur (`copilote/contexte/`). C'est sa SEULE
+	 * source pour comprendre la portée du verbe, les invites n'en nommant aucun
+	 * (KR-270). D'où trois contraintes, pour tout verbe présent et à venir :
+	 * troisième personne au présent, la PORTÉE dite en prose neutre, et aucun mot de
+	 * mécanique (ni jet, ni réussite, ni échec).
+	 */
 	label: string
 	/** LE MOT-CLÉ SAISI, en MAJUSCULES. La comparaison à la saisie est insensible à la casse. */
 	verbe: string
@@ -52,15 +62,33 @@ export interface CommandeDescripteur {
 }
 
 /**
- * LE REGISTRE CLOS — UN SEUL VERBE en itération 2, et c'est une décision : le
- * déplacement est la démonstration, la console n'en est que le moyen.
+ * LE REGISTRE CLOS — DEUX VERBES depuis la n° 10 (`moteur-interprete`, it2). Le
+ * premier (`aller`) a été seul de la n° 9 à l'it1 de la n° 10, et c'était une
+ * décision : le déplacement était la démonstration.
  *
  * Il est ce qu'un JOUEUR peut TAPER. Une cause moteur (jalon franchi, événement
  * consommé) n'y entre jamais : l'itération qui voudra l'attribuer ajoutera SON
  * propre champ optionnel avec SA propre ligne d'audience.
+ *
+ * UN VERBE N'ENTRE QU'AVEC SON CONSOMMATEUR NARRATIF (KR-263) : `agir` ne change
+ * rien au monde, et un pas consommé sans rien de perceptible n'aurait été justifié
+ * par rien — il entre dans le même lot que le narrateur qui le raconte.
+ *
+ * L'ORDRE DES CLÉS EST L'ORDRE D'AFFICHAGE du message de refus
+ * (`verbesDisponibles`) et l'ordre des rangs `G1…` de l'interprète : `aller`
+ * d'abord, `agir` ensuite. Un ajout se fait à la FIN, jamais au milieu.
  */
 export const COMMANDES = defineRegistre<CommandeDescripteur>()({
 	aller: { label: 'va au lieu', verbe: 'ALLER', refKinds: ['lieu'] },
+	/**
+	 * ARITÉ 0 — `refKinds` VIDE, donc toujours satisfiable : un geste qui ne
+	 * désigne rien ne dépend d'aucun candidat. Son `label` est FIGÉ par le plan
+	 * d'itération (§ 3, KR-269) : troisième personne, présent, portée « sur place »
+	 * — sans quitter le lieu —, aucun mot de mécanique. Sans cette portée écrite, il
+	 * deviendrait l'aimant de toute saisie ambiguë et `sans_commande` mourrait en
+	 * pratique.
+	 */
+	agir: { label: 'agit sur place', verbe: 'AGIR', refKinds: [] },
 })
 
 export type CommandeId = keyof typeof COMMANDES
@@ -222,6 +250,50 @@ const TRANSITIONS: Record<CommandeId, Transition> = {
 						tour,
 						role: 'moteur',
 						texte: `lieu_courant : ${depuis} → ${lieuCible.id}`,
+						origine: commande.commande,
+					},
+				],
+			},
+		}
+	},
+
+	/**
+	 * AGIR — une action SUR PLACE, sans quitter le lieu. AUCUN REFUS : un geste
+	 * d'arité 0 ne désigne rien, il n'a donc rien à résoudre ni rien à ne pas
+	 * trouver. L'ARITÉ N'EST PAS REVÉRIFIÉE ICI, exactement comme `aller` ne
+	 * revérifie pas la sienne : ses deux décideurs sont en AMONT — `analyserSaisie`
+	 * pour la console, `validerInterprete` pour la saisie libre — et un troisième
+	 * divergerait (KR-013). Une `cibles` non vide passée par un appel direct n'entre
+	 * nulle part : le texte du journal est reconstruit du SEUL verbe.
+	 *
+	 * NO-OP MÉCANIQUE STRICT, et c'est ce qui le définit : `monde` N'EST PAS TOUCHÉ —
+	 * la session rendue porte LA MÊME RÉFÉRENCE `monde` que l'argument, jamais une
+	 * copie, et la passe des jalons qui suit n'a donc rien pu rendre vrai. Il n'écrit
+	 * que `horloge.tour` (+1) et DEUX entrées de journal de MÊME `tour` : c'est la
+	 * DEMANDE qui consomme le pas, jamais l'effet (`docs/REGLES-PLAY.md` § J1, déjà
+	 * verbe-agnostique). Aucun jet : les dés entrent avec la n° 11.
+	 *
+	 * LE TEXTE EST UN RELEVÉ D'ÉTAT, vocabulaire clos (`__fixtures__/session-saturee.ts`) :
+	 * `> AGIR` côté joueur — le verbe du registre, jamais la saisie —, et côté moteur
+	 * le nom du champ `lieu_courant` suivi de son identifiant, SANS `→` : la flèche
+	 * reste réservée à une transition scalaire, et rien n'a transité. L'entrée moteur
+	 * porte `origine`, comme celle d'`aller` — c'est elle qui recevra le récit du pas.
+	 */
+	agir: (_dossier, session, commande) => {
+		const tour = session.horloge.tour + 1
+
+		return {
+			ok: true,
+			session: {
+				...session,
+				horloge: { tour },
+				journal: [
+					...session.journal,
+					{ tour, role: 'joueur', texte: `> ${COMMANDES[commande.commande].verbe}` },
+					{
+						tour,
+						role: 'moteur',
+						texte: `lieu_courant : ${session.monde.lieu_courant}`,
 						origine: commande.commande,
 					},
 				],

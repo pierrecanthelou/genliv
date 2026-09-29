@@ -39,19 +39,25 @@ import {
 	assemblerDistribution,
 	assemblerRelations,
 	BUDGET_CARACTERES_CONTEXTE,
+	BUDGET_CARACTERES_NARRATEUR,
 } from '../src/brain/copilote/contexte'
 import {
+	CLES_SORTIE_NARRATEUR,
 	FICHES_PROPOSEES_MAX,
 	RELATIONS_PROPOSEES_MAX,
 	REPLIQUES_PROPOSEES_MAX,
+	TENTATIVES_MAX,
 	validerDistribution,
+	validerNarrateur,
 	validerRelations,
 	validerRepliques,
 	validerSortie,
 } from '../src/brain/copilote/schemaSortie'
 import { createCopiloteService } from '../src/brain/CopiloteService'
 import type { CloudSettingsService } from '../src/brain/CloudSettingsService'
+import { analyserSaisie, executerCommande } from '../src/brain/dossier/commandes'
 import { CURSEURS } from '../src/brain/dossier/curseurs'
+import { ouvrirSession } from '../src/brain/dossier/session'
 import type { Dossier, Personnage } from '../src/brain/dossier/types'
 
 const ROLE_PROSE = 'personnage-prose'
@@ -91,7 +97,7 @@ const ROLES = Object.keys(INVITES)
  * l'appareil GÉNÉRIQUE de contexte (`CHAMPS_INJECTES`/`PARTIES_REQUISES`/
  * `BUDGET_CARACTERES_CONTEXTE` de `contexte/registres.ts`), que ce fichier
  * compare pièce par pièce entre le client et le worker. `interprete` (mode
- * JEU, n° 10 ; `narrateur` la rejoindra en it2) EST STRUCTURELLEMENT HORS DE
+ * JEU, n° 10 ; `narrateur` l'a rejointe en it2) EST STRUCTURELLEMENT HORS DE
  * CETTE FAMILLE : son contexte est un assemblage BESPOKE par rangs
  * (`copilote/contexte/interprete.ts`), il n'a NI `CHAMPS_INJECTES`, NI
  * `PARTIES_REQUISES`, NI budget dans `Record<RoleCopilote, …>` — l'y faire
@@ -116,6 +122,21 @@ const ROLES_AUTEUR = ROLES.filter((role) => Object.prototype.hasOwnProperty.call
 const BUDGETS: Record<string, number> = BUDGET_CARACTERES_CONTEXTE
 
 /**
+ * LES RÔLES QUE LE PLAFOND HTTP DOIT COUVRIR — la famille AUTEUR, PLUS `narrateur`
+ * (n° 10 it2). HORS PARITÉ AUTEUR, il a pourtant un BUDGET CLIENT — sa propre borne,
+ * `BUDGET_CARACTERES_NARRATEUR` (`copilote/contexte/narrateur.ts`), qui refuse
+ * `trop-long` avant l'aller-retour —, donc le lien « budget client ⊂ plafond worker »
+ * s'applique à lui comme aux six autres. Sans lui ici, plus rien ne prouverait que
+ * `TAILLE_MAX_CORPS_IA` couvre le narrateur le jour où il deviendrait le plus large.
+ *
+ * ⚠ `interprete` N'Y EST PAS, et c'est un CONSTAT : il n'a AUCUN budget client (seule
+ * sa SAISIE est bornée), donc aucun pire cas à convertir. Fermeture nommée : la
+ * constante unique de KR-261, it4 (docstring de `TAILLE_MAX_CORPS_IA`).
+ */
+const ROLES_PLAFONNES: readonly string[] = [...ROLES_AUTEUR, 'narrateur']
+const BUDGETS_PLAFONNES: Record<string, number> = { ...BUDGETS, narrateur: BUDGET_CARACTERES_NARRATEUR }
+
+/**
  * L'EXPRESSION ANCRÉE, unique et partagée, ANCRÉE SUR L'ENTRÉE et non sur la
  * déclaration : c'est ce qui permet aux deux porteurs d'être des tables plutôt que
  * des scalaires, et c'est ce qui rend le canari croisé écrivable. Elle reconnaît
@@ -134,6 +155,15 @@ const ENTREE_GABARIT = /^\t'([a-z-]+)': '(.+)',$/gm
 function extraire(fichier: string): Map<string, string> {
 	const source = fs.readFileSync(fichier, 'utf8')
 	return new Map([...source.matchAll(ENTREE_GABARIT)].map((trouve) => [trouve[1], trouve[2]]))
+}
+
+/** Le gabarit LOCAL au worker d'un rôle de JEU (hors `RoleCopilote`), par SOURCE — sa clé
+ *  est NON QUOTÉE (Prettier retire les guillemets d'une clé sans tiret), d'où une
+ *  extraction dédiée plutôt que `ENTREE_GABARIT`, qui la ferait passer pour ABSENTE. Même
+ *  motif que l'extraction propre à `interprete`, plus bas, généralisée au rôle nommé. */
+function extraireGabaritDeJeu(role: string): string | undefined {
+	const source = fs.readFileSync(PORTEUR_WORKER, 'utf8')
+	return source.match(new RegExp(`^\\t${role}: '(.+)',$`, 'm'))?.[1]
 }
 
 /**
@@ -783,6 +813,47 @@ describe('le temoin executable — du worker au validateur, dans le meme process
 		expect(identifiants.filter((id) => invite.includes(id))).toEqual([])
 		expect(JSON.stringify(resultat)).not.toContain('"id"')
 	})
+
+	it('temoin executable du huitieme role — le narrateur, du worker reel au validateur', async () => {
+		// CE QUE CE TÉMOIN COUVRE ET QU'AUCUN AUTRE NE COUVRE : le gabarit du narrateur
+		// n'a PAS de second porteur côté client (le rôle est hors `RoleCopilote`) ; la
+		// SEULE liaison entre ce que l'invite du worker DEMANDE et ce que le client
+		// VALIDE est donc CE traversé, plus l'égalité de clés du describe dédié en fin de
+		// fichier. Une invite qui demanderait `{"recit": …}` rougirait ici.
+		const gabarit = String(extraireGabaritDeJeu('narrateur'))
+		const vide = JSON.parse(gabarit) as Record<string, unknown>
+		const NARRATION = 'Vous fouillez la cendre froide ; rien ne bouge, et le beffroi reste muet.'
+		const TENTATIVES = ['Monter vers la tour']
+		// La sortie conforme est CONSTRUITE depuis les clés du gabarit extrait — aucune
+		// clé retapée : la première porte la prose, la seconde la liste.
+		const [cleProse, cleListe] = Object.keys(vide)
+		const conforme = JSON.stringify({ [cleProse]: NARRATION, [cleListe]: TENTATIVES })
+
+		const dossier = dossierDeReference()
+		const ouverture = ouvrirSession(dossier, { graine_alea: 424242 })
+		if (!ouverture.ok) throw new Error(`ouverture refusée : ${ouverture.refus}`)
+		const analyse = analyserSaisie('AGIR')
+		if (!analyse.ok) throw new Error('AGIR refusé')
+		const joue = executerCommande(dossier, ouverture.session, analyse.commande)
+		if (!joue.ok) throw new Error('AGIR refusé')
+
+		const { resultat, invite } = await traverser(conforme, () =>
+			createCopiloteService(reglages).demander(dossier, {
+				role: 'narrateur',
+				saisie: 'je fouille la cendre',
+				session: joue.session,
+			}),
+		)
+
+		expect(invite).toContain(gabarit)
+		expect(resultat).toEqual({ statut: 'propose', proposition: { recit: NARRATION, suggestions: TENTATIVES } })
+		// Et la même sortie passe le validateur SEUL : les deux moitiés du témoin sont
+		// prouvées séparément, jamais l'une par l'autre (KR-197/199).
+		expect(validerNarrateur(JSON.parse(conforme), dossier)).toEqual({
+			ok: true,
+			sortie: { narration: NARRATION, tentatives: TENTATIVES },
+		})
+	})
 })
 
 describe('les deux plafonds', () => {
@@ -823,14 +894,20 @@ describe('les deux plafonds', () => {
 	 * restant verts. Même classe de défaut que celui réparé à 3a sur ce même bloc : une
 	 * garde qui cesse de mesurer sans jamais rougir (KR-235).
 	 */
+	// ⚠ ÉTENDU À `narrateur` À LA n° 10 it2 (`ROLES_PLAFONNES`) : « le plus large » se
+	// dérive sur TOUS les rôles à budget client, jamais sur la seule famille auteur — sans
+	// quoi les deux canaris viseraient le mauvais rôle le jour où le narrateur deviendrait
+	// le plus large, en restant verts (KR-235).
 	const PIRES_CAS: Record<string, number> = Object.fromEntries(
-		ROLES_AUTEUR.map((role) => [role, pireCasDe(role, BUDGETS[role])]),
+		ROLES_PLAFONNES.map((role) => [role, pireCasDe(role, BUDGETS_PLAFONNES[role])]),
 	)
 
 	/** LE RÔLE LE PLUS LARGE — DÉRIVÉ, jamais écrit. Sur un rôle étroit, les deux
 	 *  canaris ci-dessous resteraient verts en ne discriminant rien : ils ne valent
 	 *  que pour celui qui sature le plafond. */
-	const ROLE_LE_PLUS_LARGE = ROLES_AUTEUR.reduce((large, role) => (PIRES_CAS[role] > PIRES_CAS[large] ? role : large))
+	const ROLE_LE_PLUS_LARGE = ROLES_PLAFONNES.reduce((large, role) =>
+		PIRES_CAS[role] > PIRES_CAS[large] ? role : large,
+	)
 
 	/**
 	 * LE PRÉDICAT DU MAXIMUM UNIQUE — isolé pour que ses cas négatifs portent sur LA
@@ -843,7 +920,7 @@ describe('les deux plafonds', () => {
 	}
 
 	it('le maximum est atteint par exactement un role', () => {
-		expect(PIRES_CAS[ROLE_LE_PLUS_LARGE]).toBe(Math.max(...ROLES_AUTEUR.map((role) => PIRES_CAS[role])))
+		expect(PIRES_CAS[ROLE_LE_PLUS_LARGE]).toBe(Math.max(...ROLES_PLAFONNES.map((role) => PIRES_CAS[role])))
 		// CE QUE CETTE LIGNE REMPLACE, ET POURQUOI. Jusqu'à l'itération 3a elle disait
 		// `expect(new Set(ROLES_AUTEUR.map(r => BUDGETS[r])).size).toBe(ROLES_AUTEUR.length)` — les
 		// budgets DEUX À DEUX DISTINCTS. C'est une PROPRIÉTÉ QUE PERSONNE N'A VOULUE :
@@ -857,27 +934,35 @@ describe('les deux plafonds', () => {
 		// la même mesure » : c'était vrai, et c'est arrivé. Elle porte désormais sur le
 		// PIRE CAS EN OCTETS, qui EST la grandeur bornée par le plafond — et sur laquelle
 		// le maximum est de nouveau atteint par un seul rôle.
-		expect(rolesAuMaximum(PIRES_CAS, ROLES_AUTEUR)).toEqual([ROLE_LE_PLUS_LARGE])
+		expect(rolesAuMaximum(PIRES_CAS, ROLES_PLAFONNES)).toEqual([ROLE_LE_PLUS_LARGE])
 		// … et LE BUDGET, LUI, EST BIEN EX ÆQUO : sans cette ligne, on ne saurait pas que
 		// l'amendement ci-dessus mesure quelque chose de NEUF plutôt que la même chose
 		// autrement (KR-235).
-		expect(rolesAuMaximum(BUDGETS, ROLES_AUTEUR).length).toBeGreaterThan(1)
-		// Et les DEUX tables portent bien UNE ENTRÉE PAR RÔLE : un rôle sans budget ne
-		// doit pas passer pour un rôle à budget nul.
+		expect(rolesAuMaximum(BUDGETS_PLAFONNES, ROLES_PLAFONNES).length).toBeGreaterThan(1)
+		// Et les TROIS tables portent bien UNE ENTRÉE PAR RÔLE : un rôle sans budget ne
+		// doit pas passer pour un rôle à budget nul. Le registre auteur reste à SIX
+		// entrées — le narrateur n'y entre pas, il n'entre que dans la table plafonnée.
 		expect([...Object.keys(BUDGETS)].sort()).toEqual([...ROLES_AUTEUR].sort())
-		expect([...Object.keys(PIRES_CAS)].sort()).toEqual([...ROLES_AUTEUR].sort())
+		expect([...Object.keys(BUDGETS_PLAFONNES)].sort()).toEqual([...ROLES_PLAFONNES].sort())
+		expect([...Object.keys(PIRES_CAS)].sort()).toEqual([...ROLES_PLAFONNES].sort())
+		// Discriminant de l'extension : le narrateur EST dans la table plafonnée, et il
+		// n'est PAS le plus large aujourd'hui (MESURE du 2026-09-29, docstring de
+		// `TAILLE_MAX_CORPS_IA`) — le plafond n'a pas bougé pour lui.
+		expect(ROLES_PLAFONNES).toContain('narrateur')
+		expect(ROLES_AUTEUR).not.toContain('narrateur')
+		expect(ROLE_LE_PLUS_LARGE).not.toBe('narrateur')
 	})
 
 	it('le predicat du maximum unique est SEPARATEUR, et il ne dit QUE ce qu on veut', () => {
-		const etroits = ROLES_AUTEUR.filter((role) => role !== ROLE_LE_PLUS_LARGE)
+		const etroits = ROLES_PLAFONNES.filter((role) => role !== ROLE_LE_PLUS_LARGE)
 		expect(etroits.length).toBeGreaterThan(1)
 
 		// CAS NÉGATIF 1 — DEUX RÔLES EX ÆQUO AU MAXIMUM : « le plus large » cesse de
 		// désigner quelqu'un, et les deux canaris de plafond cesseraient de discriminer.
 		// Le prédicat doit rougir, et il NOMME les deux fautifs.
 		const exAequoAuSommet = { ...PIRES_CAS, [etroits[0]]: PIRES_CAS[ROLE_LE_PLUS_LARGE] }
-		expect(rolesAuMaximum(exAequoAuSommet, ROLES_AUTEUR).length).toBeGreaterThan(1)
-		expect(rolesAuMaximum(exAequoAuSommet, ROLES_AUTEUR)).toContain(etroits[0])
+		expect(rolesAuMaximum(exAequoAuSommet, ROLES_PLAFONNES).length).toBeGreaterThan(1)
+		expect(rolesAuMaximum(exAequoAuSommet, ROLES_PLAFONNES)).toContain(etroits[0])
 
 		// CAS NÉGATIF 2 — LA MINE ELLE-MÊME, exécutée : DEUX RÔLES ÉTROITS ÉGAUX. C'est
 		// un état parfaitement légitime — deux rôles peuvent avoir la même mesure — et
@@ -906,10 +991,10 @@ describe('les deux plafonds', () => {
 		expect(PIRES_CAS[source]).not.toBe(PIRES_CAS[cible])
 		expect(deuxEtroitsEgaux[source]).toBe(deuxEtroitsEgaux[cible])
 		// … et la propriété voulue TIENT sous cette égalité fabriquée.
-		expect(rolesAuMaximum(deuxEtroitsEgaux, ROLES_AUTEUR)).toEqual([ROLE_LE_PLUS_LARGE])
+		expect(rolesAuMaximum(deuxEtroitsEgaux, ROLES_PLAFONNES)).toEqual([ROLE_LE_PLUS_LARGE])
 	})
 
-	describe.each(ROLES_AUTEUR)('role %s', (role) => {
+	describe.each(ROLES_PLAFONNES)('role %s', (role) => {
 		it('le budget client converti au pire cas d octets tient sous le plafond worker', () => {
 			// `'€'` (BMP) coûte TROIS octets pour UNE unité de code : c'est la BORNE HAUTE
 			// réelle, mesurée. Un émoji coûte 4 octets pour DEUX unités, soit 2 par
@@ -919,18 +1004,22 @@ describe('les deux plafonds', () => {
 			expect('\u{1F600}'.length).toBe(2)
 			// Et le budget de CE rôle existe : un rôle sans budget ne doit pas passer
 			// pour un rôle à budget nul.
-			expect(BUDGETS[role]).toBeGreaterThan(0)
+			expect(BUDGETS_PLAFONNES[role]).toBeGreaterThan(0)
 
-			expect(pireCasDe(role, BUDGETS[role])).toBeLessThanOrEqual(TAILLE_MAX_CORPS_IA)
+			expect(pireCasDe(role, BUDGETS_PLAFONNES[role])).toBeLessThanOrEqual(TAILLE_MAX_CORPS_IA)
 		})
 	})
 
 	it('le lien est separateur : un plafond ampute d un kilo-octet ne couvre plus', () => {
-		expect(pireCasDe(ROLE_LE_PLUS_LARGE, BUDGETS[ROLE_LE_PLUS_LARGE])).toBeGreaterThan(TAILLE_MAX_CORPS_IA - 1024)
+		expect(pireCasDe(ROLE_LE_PLUS_LARGE, BUDGETS_PLAFONNES[ROLE_LE_PLUS_LARGE])).toBeGreaterThan(
+			TAILLE_MAX_CORPS_IA - 1024,
+		)
 	})
 
 	it('le lien est separateur : un budget releve de 400 caracteres ne tient plus', () => {
-		expect(pireCasDe(ROLE_LE_PLUS_LARGE, BUDGETS[ROLE_LE_PLUS_LARGE] + 400)).toBeGreaterThan(TAILLE_MAX_CORPS_IA)
+		expect(pireCasDe(ROLE_LE_PLUS_LARGE, BUDGETS_PLAFONNES[ROLE_LE_PLUS_LARGE] + 400)).toBeGreaterThan(
+			TAILLE_MAX_CORPS_IA,
+		)
 	})
 })
 
@@ -975,5 +1064,68 @@ describe('interprete (mode jeu) — hors parite RoleCopilote, verifiee dans ses 
 		// pour la mauvaise raison.
 		expect(ROLES).toContain('interprete')
 		expect(ROLES_AUTEUR).not.toContain('interprete')
+	})
+})
+
+/**
+ * `narrateur` (mode JEU, n° 10 it2) — HORS DE `ROLES_AUTEUR` comme `interprete`, et pour
+ * la même raison. MAIS UNE DIFFÉRENCE, ET ELLE EST TESTÉE ICI : le narrateur a un BUDGET
+ * CLIENT (`BUDGET_CARACTERES_NARRATEUR`), donc il entre dans `ROLES_PLAFONNES` (bloc
+ * « les deux plafonds » ci-dessus). Et comme son gabarit n'a AUCUN second porteur côté
+ * client, la liaison worker ↔ validateur passe par les CLÉS : celles du gabarit local au
+ * worker doivent être EXACTEMENT `CLES_SORTIE_NARRATEUR`, que `validerNarrateur` exige.
+ */
+describe('narrateur (mode jeu) — hors parite RoleCopilote, mais sous le plafond et lie par ses cles', () => {
+	it('INVITES et le GABARIT_SORTIE local du worker portent une entree narrateur, coherente entre elles', () => {
+		expect(Object.prototype.hasOwnProperty.call(INVITES, 'narrateur')).toBe(true)
+		const gabarit = extraireGabaritDeJeu('narrateur')
+		expect(gabarit).toBeDefined()
+		expect(INVITES['narrateur'].systeme).toContain(String(gabarit))
+		// Discriminant de l'extraction : elle retrouve AUSSI le gabarit de l'interprète,
+		// qu'une extraction cassée rendrait `undefined` pour les deux.
+		expect(extraireGabaritDeJeu('interprete')).toBeDefined()
+		expect(extraireGabaritDeJeu('personnage-plan')).toBeUndefined()
+	})
+
+	it('les cles du gabarit du worker sont EXACTEMENT celles que le validateur exige — KR-236 pour ce role', () => {
+		const cles = Object.keys(JSON.parse(String(extraireGabaritDeJeu('narrateur'))) as Record<string, unknown>)
+		expect(cles).toEqual([...CLES_SORTIE_NARRATEUR])
+		// CAS NÉGATIF FABRIQUÉ, sans lequel l'égalité est INERTE : un gabarit qui
+		// demanderait la clé du CHAMP (`recit`) — la confusion que KR-231 ferme — produirait
+		// une sortie que le validateur REFUSE, à chaque essai, pour toujours.
+		const dossier = JSON.parse(
+			fs.readFileSync(path.join(RACINE, 'src', 'brain', 'dossier', '__fixtures__', 'dossier-reference.json'), 'utf8'),
+		) as Dossier
+		expect(validerNarrateur({ recit: 'Vous avancez.', tentatives: [] }, dossier)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+		expect(validerNarrateur({ [cles[0]]: 'Vous avancez.', [cles[1]]: [] }, dossier).ok).toBe(true)
+	})
+
+	it('la borne de l invite est celle du validateur : trois au plus, et JAMAIS au moins une', () => {
+		// LA DUPLICATION « trois » (worker) / `TENTATIVES_MAX` (client) est inévitable —
+		// aucun import `worker/` → `src/` en production — donc elle se GARDE.
+		expect(TENTATIVES_MAX).toBe(3)
+		expect(inviteDitLaBorne(INVITES['narrateur'].systeme, TENTATIVES_MAX)).toBe(true)
+		expect(
+			Object.keys(BORNE_EN_TOUTES_LETTRES).filter((borne) =>
+				inviteDitLaBorne(INVITES['narrateur'].systeme, Number(borne)),
+			),
+		).toEqual(['3'])
+		// ⚠ LA MOITIÉ SYMÉTRIQUE DU VIDE : le validateur ACCEPTE la liste vide, donc
+		// l'invite ne dit JAMAIS « au moins une » — sans quoi les deux se contrediraient.
+		// Discriminant : les rôles de rédaction à liste le disent, eux.
+		expect(INVITES['narrateur'].systeme).not.toContain('au moins une')
+		expect(INVITES[ROLE_REPLIQUES].systeme).toContain('au moins une')
+	})
+
+	it('ROLES_AUTEUR exclut narrateur, ROLES le contient, et ROLES_PLAFONNES aussi', () => {
+		expect(ROLES).toContain('narrateur')
+		expect(ROLES_AUTEUR).not.toContain('narrateur')
+		expect(ROLES_PLAFONNES).toContain('narrateur')
+		// Et l'interprète, SANS budget client, reste hors des deux.
+		expect(ROLES_PLAFONNES).not.toContain('interprete')
+		expect(BUDGET_CARACTERES_NARRATEUR).toBeGreaterThan(0)
 	})
 })

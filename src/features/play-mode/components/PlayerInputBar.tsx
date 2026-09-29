@@ -1,32 +1,37 @@
 import { type CSSProperties, type FormEvent, useState } from 'react'
 import { Field } from '../../../brain'
 import type { AvisInterprete, EchecCopilote, EtatSession } from '../../../brain'
+import type { IssueNarrateur } from '../hooks/useTourDeJeu'
 import { OutcomeBlock } from './OutcomeBlock'
 
 /**
- * LE CHAMP DE SAISIE LIBRE JOUEUR — nouvelle tranche it1 (`moteur-interprete`, lot 2).
+ * LE CHAMP DE SAISIE LIBRE JOUEUR — it1 (`moteur-interprete`, lot 1), lot 2 it2
+ * (orchestration R3, affichage récit/suggestions, correction fermeture périmée).
  *
  * ANATOMIE : `<form>` + `Field` (registre NON mono, à la différence de `ConsoleCommandes`)
  * + `<button type="submit">` au patron exact de celui-ci (mêmes tokens, couleur neutre
  * en `disabled`).
  *
  * PROPS DU HOOK `useTourDeJeu` :
- *  · `executeAction(saisie)` — orchestrateur, appelé sur soumission du formulaire.
- *    Gère l'appel au copilote, le verrou de tour, et la persistence.
+ *  · `executeAction(saisie)` — orchestrateur, appelé sur soumission du formulaire,
+ *    retourne `true` si un pas a été consommé (BUG-132 correction : on se vide si retour true).
  *  · `getGestelabel(id)` — mapping CommandeId → label, pour afficher les gestes
  *    possibles quand avis.type === 'non_reconnu'.
- *  · `avis` — état de réponse, nul avant la 1ère soumission, puis AvisInterprete ou EchecCopilote.
- *  · `isLocked` — verrou de tour, true pendant l'appel réseau.
- *  · `session` — session courante (pour accéder à attente.question en clarification).
+ *  · `avis` — état de réponse de R1, nul avant la 1ère soumission, puis AvisInterprete ou EchecCopilote.
+ *  · `isLocked` — verrou de tour, true pendant la chaîne R1→exécution→R3.
+ *  · `issueNarrateur` — état de R3, null avant réponse, puis IssueNarrateur (lot 2).
+ *  · `session` — session courante (pour accéder à attente.question en clarification,
+ *    et pour lire le récit du pas courant dans le journal).
  *
  * ZÉRO IMPORT DE `ConsoleCommandes` ET RÉCIPROQUEMENT — garde mécanisée (`PlayerInputBar.test.tsx`).
  */
 
 export interface PlayerInputBarProps {
-	readonly executeAction: (saisie: string) => Promise<void>
+	readonly executeAction: (saisie: string) => Promise<boolean>
 	readonly getGestelabel: (id: string) => string
 	readonly avis: AvisInterprete | EchecCopilote | null
 	readonly isLocked: boolean
+	readonly issueNarrateur: IssueNarrateur | null
 	readonly session: EtatSession
 }
 
@@ -38,19 +43,21 @@ const MAXLONGUEUR_SAISIE = 300
 
 const ENTETE_PRECISION = 'PRÉCISEZ'
 const ENTETE_NON_RECONNU = 'NON RECONNU'
+const ENTETE_RECIT = 'RÉCIT'
 const GABARIT_NON_RECONNU = (labels: readonly string[]): string =>
 	`Action non reconnue. Actions possibles ici : ${labels.join(', ')}.`
-const TEXTE_IMPASSE = 'Aucune action ne semble possible ici.'
 
 const TEXTE_REFORMULER = 'Reformulez votre action.'
 const TEXTE_REFUS_MOTEUR = "Cette action n'a pas pu s'exécuter."
 const TEXTE_INDISPONIBLE = 'Le service est momentanément indisponible.'
+const TEXTE_RECIT_INDISPONIBLE = "Le récit n'a pas pu être généré."
 
 export function PlayerInputBar({
 	executeAction,
 	getGestelabel,
 	avis,
 	isLocked,
+	issueNarrateur,
 	session,
 }: PlayerInputBarProps): JSX.Element {
 	const [saisie, setSaisie] = useState('')
@@ -59,16 +66,29 @@ export function PlayerInputBar({
 		setSaisie(e.target.value)
 	}
 
-	async function handleSubmit(e: FormEvent<HTMLFormElement>): Promise<void> {
-		e.preventDefault()
-		await executeAction(saisie)
-		// Note : le vidage du champ arrive via le remontage sur clé (comme ConsoleCommandes),
-		// ou doit être géré par le hook. Pour it1, on laisse le state du composant tel quel
-		// et on le vide manuellement quand avis.type === 'aucun'.
-		if (avis !== null && 'type' in avis && avis.type === 'aucun') {
+	// Point d'entrée unique pour la soumission du champ — réutilisable par Chip.onSelect en it3
+	// (correction BUG-132 : le champ se vide selon le retour de executeAction, jamais selon l'avis
+	// du rendu précédent).
+	async function soumettre(texte: string): Promise<void> {
+		const pasConsomme = await executeAction(texte)
+		if (pasConsomme) {
 			setSaisie('')
 		}
 	}
+
+	async function handleSubmit(e: FormEvent<HTMLFormElement>): Promise<void> {
+		e.preventDefault()
+		await soumettre(saisie)
+	}
+
+	// Dériver le récit affiché depuis la session (jamais d'un état du hook)
+	// — l'entrée du tour courant qui porte `origine` et `recit`.
+	const recitDuTourCourant = (() => {
+		const entreeRecente = session.journal.find(
+			(e) => e.tour === session.horloge.tour && e.origine !== undefined && e.recit !== undefined,
+		)
+		return entreeRecente?.recit ?? null
+	})()
 
 	return (
 		<>
@@ -96,13 +116,42 @@ export function PlayerInputBar({
 				<OutcomeBlock entete={ENTETE_PRECISION}>{session.attente.question}</OutcomeBlock>
 			)}
 
-			{/* OutcomeBlock pour NON RECONNU — avec gabarit dérivé ou impasse */}
+			{/* OutcomeBlock pour NON RECONNU — avec gabarit dérivé des gestes possibles */}
 			{avis !== null && 'type' in avis && avis.type === 'non_reconnu' && (
 				<OutcomeBlock entete={ENTETE_NON_RECONNU}>
-					{avis.gestes_possibles && avis.gestes_possibles.length > 0
-						? GABARIT_NON_RECONNU(avis.gestes_possibles.map(getGestelabel))
-						: TEXTE_IMPASSE}
+					{GABARIT_NON_RECONNU(avis.gestes_possibles.map(getGestelabel))}
 				</OutcomeBlock>
+			)}
+
+			{/* OutcomeBlock pour RÉCIT (lot 2, R3 succès) — affiché si une entrée
+			    du tour courant porte un récit valide */}
+			{recitDuTourCourant && (
+				<>
+					<OutcomeBlock entete={ENTETE_RECIT}>{recitDuTourCourant}</OutcomeBlock>
+					{/* Liste de suggestions (lot 2, R3 succès) — inline, non-interactive,
+					    aucune bordure ni styling interactif. Rien si liste vide.
+					    Affichées ssi tour === tour courant (évite affichage périmé au tour suivant). */}
+					{issueNarrateur?.statut === 'raconte' &&
+						issueNarrateur.tour === session.horloge.tour &&
+						issueNarrateur.suggestions.length > 0 && (
+							<ul style={suggestionsListStyle}>
+								{issueNarrateur.suggestions.map((suggestion, idx) => (
+									<li key={idx} style={suggestionItemStyle}>
+										{suggestion}
+									</li>
+								))}
+							</ul>
+						)}
+				</>
+			)}
+
+			{/* Bannière pour dégradation R3 (lot 2, R3 indisponible/trop-long/etc.)
+			    — affiché ssi issueNarrateur.tour === session.horloge.tour et statut === 'degrade' */}
+			{issueNarrateur?.statut === 'degrade' && issueNarrateur.tour === session.horloge.tour && (
+				<p role="status" style={bannierInterface}>
+					<span aria-hidden="true">⊘ </span>
+					{TEXTE_RECIT_INDISPONIBLE}
+				</p>
 			)}
 
 			{/* Bannière pour REFORMULER — pas OutcomeBlock */}
@@ -160,4 +209,23 @@ const bannierInterface: CSSProperties = {
 	fontSize: 'var(--fs-meta)',
 	color: 'var(--text-muted)',
 	lineHeight: 'var(--lh-body)',
+}
+
+// Styles pour la liste de suggestions (lot 2, R3) — strictement non-interactive
+// (contrat de design § 3)
+const suggestionsListStyle: CSSProperties = {
+	margin: 'var(--space-3) 0 0 0',
+	padding: 0,
+	listStyle: 'none',
+	display: 'flex',
+	flexDirection: 'column',
+	gap: 'var(--space-1)',
+}
+
+const suggestionItemStyle: CSSProperties = {
+	fontFamily: 'var(--font-ui)',
+	fontSize: 'var(--fs-sm)',
+	color: 'var(--text-strong)',
+	// AUCUNE bordure, AUCUN border-radius, AUCUN background, AUCUN cursor,
+	// AUCUN :hover — rien qui évoque un contrôle cliquable (contrat de design).
 }

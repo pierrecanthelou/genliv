@@ -76,18 +76,23 @@ function fichiersDeProduction(racine: string): string[] {
 }
 
 /**
- * Les trois motifs interdits, et ce que chacun attrape :
+ * Les quatre motifs interdits, et ce que chacun attrape :
  *  · un appel réseau, quel qu'en soit le destinataire ;
  *  · le service qui parle au modèle, même importé « juste pour un type » ;
- *  · la construction d'une URL de route IA (un `fetch` indirect en resterait là).
+ *  · la construction d'une URL de route IA (un `fetch` indirect en resterait là) ;
+ *  · un appel direct à demander du copilote (lot 2, KR-260).
  *
  * `\bfetch\s*\(` et non `fetch` nu : `prefetch(` n'ouvre pas de frontière de mot,
  * et un commentaire qui prononce le mot n'est pas un appel.
+ *
+ * `\.demander\s*\(` et non `demander` nu : `.demander(` vise la méthode du service,
+ * jamais une variable locale `demander`.
  */
 const MOTIFS_INTERDITS: ReadonlyArray<{ readonly nom: string; readonly motif: RegExp }> = [
 	{ nom: 'appel reseau (fetch)', motif: /\bfetch\s*\(/ },
 	{ nom: 'import du CopiloteService', motif: /CopiloteService/ },
 	{ nom: 'construction d une URL de route IA', motif: /\/ia\// },
+	{ nom: 'appel a demander du copilote (lot 2, KR-260)', motif: /\.demander\s*\(/ },
 ]
 
 /**
@@ -97,7 +102,7 @@ const MOTIFS_INTERDITS: ReadonlyArray<{ readonly nom: string; readonly motif: Re
  * vérifié ROUGE au plan § 7.
  *
  * Motif de croissance : chaque nouveau rôle du copilote ajoute UNE ligne ici
- * UNIQUEMENT — un orchestrateur feature qui l'consume et nul autre.
+ * UNIQUEMENT — un orchestrateur feature qui la consomme et nul autre.
  */
 const FICHIERS_EXCLUS_PLAY_MODE = [path.join(RACINE_SRC, 'features', 'play-mode', 'hooks', 'useTourDeJeu.ts')]
 
@@ -136,5 +141,24 @@ describe('le moteur de la n 9 ne genere aucun texte (KR-250)', () => {
 		// Échec PAR NOM DE FICHIER et par motif : « false attendu true » ne dirait ni
 		// lequel des 47 fichiers, ni laquelle des trois frontières a été franchie.
 		expect(fautifs).toEqual([])
+	})
+
+	describe('Mutants de motif — discriminance', () => {
+		// LE MOTIF EST LU DEPUIS `MOTIFS_INTERDITS`, JAMAIS RECOPIÉ : une copie locale
+		// prouverait la discriminance d'une regex qui n'est plus celle de l'instrument
+		// (KR-270 — même défaut qu'une liste interdite recopiée à la main).
+		const { motif } = MOTIFS_INTERDITS.find((m) => m.nom.startsWith('appel a demander'))!
+
+		it('motif du copilote detecte un appel reel a copilote.demander(…)', () => {
+			// Preuve que le motif ne matche que les appels réels
+			const source = 'const result = await copilote.demander(dossier, cible)'
+			expect(motif.test(source)).toBe(true)
+		})
+
+		it('motif du copilote naccepte pas une simple declaration de variable', () => {
+			// Preuve de discriminance en négatif — une variable `demander` locale ne doit pas matcher
+			const source = 'const demander = (arg) => console.log(arg)'
+			expect(motif.test(source)).toBe(false)
+		})
 	})
 })

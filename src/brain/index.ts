@@ -198,6 +198,16 @@ export type {
 	// aucun autre moyen de le NOMMER pour rétrécir totalement dessus.
 	SortieInterprete,
 	AvisInterprete,
+	// LE 8ᵉ RÔLE (n° 10 it2, `narrateur`) : sa CIBLE et sa RÉPONSE sortent comme les
+	// sept couples précédents — mais d'ICI, leur domicile étant `copilote/types.ts`
+	// (plan d'itération, § 5) et non le service. `SortieNarrateur` est LE SEUL type de
+	// ce rôle que la feature lit. NE SORTENT PAS : `NarrationRendue` (forme RÉSEAU, son
+	// seul consommateur est `validerNarrateur`, précédent des sept formes réseau) et
+	// `BUDGET_CARACTERES_NARRATEUR` (borne de contexte, comme `CANDIDATS_MAX` : aucune
+	// feature n'assemble un contexte elle-même).
+	CibleNarrateur,
+	ReponseNarrateur,
+	SortieNarrateur,
 } from './copilote/types'
 // `MotifIllisible` est INCHANGÉE depuis l'itération 3a — aucun des quatre validateurs
 // suivants n'ajoute de membre. Le CINQUIÈME est le premier à la nommer EN ENTIER dans
@@ -556,6 +566,12 @@ export type {
 // `TablesInterprete` (`copilote/types.ts` — produite par l'assembleur,
 // consultée par le validateur et la ré-résolution, jamais lue par une feature).
 export { apresInterpretation } from './dossier/interprete'
+// ── LE RÉCIT D'UN PAS (n° 10 it2, lot `contrat`) ─────────────────────────────
+// Sort `consignerRecit` SEULE : c'est la transition pure que `useTourDeJeu`
+// applique sur la session DÉJÀ PERSISTÉE quand le narrateur a rendu une
+// proposition — la SEULE porte d'écriture de `EntreeJournal.recit`. Elle ne
+// valide rien et n'appelle rien : le validateur de sortie a déjà décidé.
+export { consignerRecit } from './dossier/recit'
 // ── LE JOURNAL DES EFFETS DE RÈGLE (itération 3) ─────────────────────────────
 // SORT `DeltaJournalise` SEUL, et c'est tout ce qui sort d'`evaluate.ts` : c'est le
 // type du champ `deltas` d'une `EntreeJournal`, que `JournalRow` rend en pastilles.

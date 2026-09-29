@@ -20,6 +20,7 @@ import {
 	assemblerDetenteurs,
 	assemblerDistribution,
 	assemblerInterprete,
+	assemblerNarrateur,
 	assemblerPlan,
 	assemblerProse,
 	assemblerRelations,
@@ -31,6 +32,7 @@ import {
 	validerDistribution,
 	validerIntention,
 	validerInterprete,
+	validerNarrateur,
 	validerRelations,
 	validerRepliques,
 	validerSortie,
@@ -38,15 +40,18 @@ import {
 } from './copilote/schemaSortie'
 import type {
 	ChampProseChemin,
+	CibleNarrateur,
 	FicheBrouillon,
 	InterpretationRendue,
 	LienResolu,
+	NarrationRendue,
 	PropositionDetenteurs,
 	PropositionDistribution,
 	PropositionPlan,
 	PropositionRelations,
 	PropositionRepliques,
 	PropositionResolue,
+	ReponseNarrateur,
 	SortieInterprete,
 } from './copilote/types'
 import { resoudreInterpretation } from './dossier/interprete'
@@ -256,6 +261,10 @@ export interface CopiloteService {
 	demander(dossier: Dossier, cible: CibleDistribution, signal?: AbortSignal): Promise<ReponseDistribution>
 	/** ⚠ LA 7ᵉ SURCHARGE, MÊME RÈGLE — deux sites, ici et sur l'implémentation. */
 	demander(dossier: Dossier, cible: CibleInterprete, signal?: AbortSignal): Promise<ReponseInterprete>
+	/** ⚠ LA 8ᵉ SURCHARGE, MÊME RÈGLE — deux sites, ici et sur l'implémentation. Le rôle
+	 *  `narrateur` (n° 10 it2) : appelé APRÈS l'exécution et la persistance du pas,
+	 *  jamais avant ; sa cible et sa réponse vivent dans `copilote/types.ts`. */
+	demander(dossier: Dossier, cible: CibleNarrateur, signal?: AbortSignal): Promise<ReponseNarrateur>
 }
 
 /**
@@ -307,6 +316,12 @@ type CorpsDemande =
 	 *  `session` ne sort JAMAIS de `brain/` (KR-231). `{ ...cible, contexte }` resterait
 	 *  interdit ici pour la même raison qu'aux six autres. */
 	| { role: 'interprete'; contexte: string }
+	/** LE HUITIÈME RÔLE — MÊME CHARGE DE CIBLE que le septième (`saisie` + `session`),
+	 *  et MÊME CORPS : ni l'une ni l'autre ne franchit le réseau telle quelle. La
+	 *  session ne sort JAMAIS de `brain/` — ni son horloge, ni son journal, ni un récit
+	 *  passé : seul ce que l'assembleur en DÉRIVE entre dans `contexte`. Littéral
+	 *  ÉCRIT, jamais `{ ...cible, contexte }`, pour la raison des sept autres. */
+	| { role: 'narrateur'; contexte: string }
 
 /** Le résultat d'UN aller-retour, avant validation de forme : soit une valeur
  *  brute à valider, soit une indisponibilité qui ne se rejoue JAMAIS. */
@@ -650,10 +665,13 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 	 *     requis — § 8 désaccord 22 du plan d'itération) : `assemblerInterprete`
 	 *     ne rend jamais `'a-ecrire'`/`'cible-a-ecrire'`/`'aucun-candidat'`, SEUL
 	 *     `'trop-long'` l'est (saisie > 300 caractères) ;
-	 *  2. LE COURT-CIRCUIT `sans_commande` SANS APPEL : si `tables.gestes` est
-	 *     vide (aucun geste satisfiable au tour courant), la réponse part SANS
-	 *     `fetch` — narratif-ia, tour 1, annexe A : « ce court-circuit s'éteint
-	 *     de lui-même quand `agir` (arité 0) entrera en it2 » ;
+	 *  2. ⚠ PLUS DE COURT-CIRCUIT `sans_commande` SANS APPEL depuis l'it2 — il a
+	 *     été RETIRÉ, pas gardé « par défense » : il ne partait que si
+	 *     `tables.gestes` était vide, et `agir` (arité 0) est TOUJOURS
+	 *     satisfiable. Le garder serait du code mort présenté comme de la
+	 *     couverture (KR-235) ; narratif-ia l'avait annoncé dès l'it1 (« il
+	 *     s'éteint de lui-même quand `agir` entrera »). Une impasse part donc
+	 *     sur le réseau comme tout autre lieu, `agir` y étant rangé ;
 	 *  3. LA RÉ-RÉSOLUTION N'EST PAS INLINE : elle est déléguée à
 	 *     `resoudreInterpretation` (`brain/dossier/interprete.ts`), qui PORTE
 	 *     aussi `apresInterpretation` — deux fonctions d'un même module, l'une
@@ -670,10 +688,6 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 	): Promise<ReponseInterprete> {
 		const contexte = assemblerInterprete(dossier, cible)
 		if (!contexte.ok) return refuser(contexte)
-
-		if (contexte.tables.gestes.size === 0) {
-			return { statut: 'propose', proposition: { lecture: 'sans_commande', gestes_possibles: [] } }
-		}
 
 		const vers = acheminement('interprete')
 		if (vers === null) return { statut: 'indisponible', raison: 'non-configure' }
@@ -703,8 +717,61 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 	}
 
 	/**
-	 * L'IMPLÉMENTATION À SURCHARGES — six signatures publiques, un corps élargi,
-	 * AUCUN `as`, ET PLUS AUCUN PARAMÈTRE `role`.
+	 * LE HUITIÈME RÔLE — `narrateur` (n° 10 it2). Il raconte UN pas DÉJÀ JOUÉ : la
+	 * session reçue est celle d'APRÈS l'exécution, déjà persistée, et ce service n'y
+	 * écrit RIEN — la seule écriture d'un récit est `consignerRecit`
+	 * (`dossier/recit.ts`), appelée par l'orchestrateur sur une proposition, jamais
+	 * ici. Sur TOUT échec, le pas reste donc acquis : il n'y a rien à annuler.
+	 *
+	 * L'ORDRE DES EFFETS, identique aux sept autres rôles :
+	 *  1. LES DEUX REFUS DE CONTEXTE, AVANT TOUT — `'cible-a-ecrire'` (le lieu courant
+	 *     n'a pas de description rédigée : raconter sans scène reviendrait à inventer
+	 *     le lieu) puis `'trop-long'` (`BUDGET_CARACTERES_NARRATEUR`). ZÉRO `fetch`,
+	 *     quelle que soit la configuration. `'a-ecrire'` et `'aucun-candidat'` sont
+	 *     INATTEIGNABLES : aucun champ n'est requis au canon (le ton manquant se tait,
+	 *     comme pour l'interprète), et ce rôle n'a aucun ensemble à épuiser ;
+	 *  2. la configuration — `non-configure` sans appel ;
+	 *  3. LE REJEU EXACTEMENT UNE FOIS sur une violation de FORME, jamais sur une
+	 *     indisponibilité (`jusquAuRejeuUnique`, inchangé).
+	 *
+	 * LA RÉ-RÉSOLUTION EST UN RENOMMAGE DE DESTINATION — `narration` → `recit`,
+	 * `tentatives` → `suggestions` —, et RIEN D'AUTRE : aucune table de rangs, puisque
+	 * rien ne désigne rien. Aucune réparation : ni `trim`, ni troncature (KR-230).
+	 */
+	async function demanderNarrateur(
+		dossier: Dossier,
+		cible: CibleNarrateur,
+		signal: AbortSignal | undefined,
+	): Promise<ReponseNarrateur> {
+		const contexte = assemblerNarrateur(dossier, cible)
+		if (!contexte.ok) return refuser(contexte)
+
+		const vers = acheminement('narrateur')
+		if (vers === null) return { statut: 'indisponible', raison: 'non-configure' }
+
+		// LITTÉRAL ÉCRIT, JAMAIS `{ ...cible, contexte }` : il mettrait la SESSION
+		// ENTIÈRE sur le fil — journal, récits passés, graine —, c'est-à-dire la mémoire
+		// que ce rôle n'a pas (it2) et un canal que KR-231 ferme.
+		const corps: CorpsDemande = { role: 'narrateur', contexte: contexte.texte }
+		const issue = await jusquAuRejeuUnique<NarrationRendue>(
+			vers.url,
+			vers.entetes,
+			corps,
+			(brut) => validerNarrateur(brut, dossier),
+			signal,
+		)
+		if (!issue.ok) return issue.echec
+
+		return {
+			statut: 'propose',
+			proposition: { recit: issue.sortie.narration, suggestions: issue.sortie.tentatives },
+		}
+	}
+
+	/**
+	 * L'IMPLÉMENTATION À SURCHARGES — HUIT signatures publiques depuis la n° 10 it2
+	 * (six à l'it4 de la n° 8), un corps élargi, AUCUN `as`, ET PLUS AUCUN PARAMÈTRE
+	 * `role`.
 	 *
 	 * LE DISPATCH SE FAIT SUR L'ÉTIQUETTE, jamais plus sur la forme. Ce que cela change,
 	 * et c'est la raison d'être du lot : jusqu'à 3b le dernier `return` recevait
@@ -721,7 +788,9 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 	 * étaient explicites, mais rien ne disait au compilateur qu'elles étaient complètes.
 	 * ⚠ ELLE A SERVI : le SIXIÈME rôle l'a fait rougir aux deux sites de l'itération 4 —
 	 * la promesse écrite à 3c était donc exécutable, et elle a été exécutée plutôt que
-	 * crue.
+	 * crue. Le HUITIÈME (`narrateur`) est le second rôle hors `RoleCopilote` à la
+	 * fermer, et le premier dont la cible est DÉCLARÉE hors de ce fichier
+	 * (`copilote/types.ts`) : la garde ne s'en soucie pas, elle ferme l'UNION.
 	 *
 	 * Chaque branche privée nomme SON rôle en littéral — segment de route et corps de
 	 * demande sont donc exacts à la compilation, jamais recopiés d'un paramètre élargi.
@@ -736,6 +805,8 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 	function demander(dossier: Dossier, cible: CibleDistribution, signal?: AbortSignal): Promise<ReponseDistribution>
 	/** ⚠ LE SECOND DES DEUX SITES de la 7ᵉ surcharge — idem. */
 	function demander(dossier: Dossier, cible: CibleInterprete, signal?: AbortSignal): Promise<ReponseInterprete>
+	/** ⚠ LE SECOND DES DEUX SITES de la 8ᵉ surcharge — idem. */
+	function demander(dossier: Dossier, cible: CibleNarrateur, signal?: AbortSignal): Promise<ReponseNarrateur>
 	function demander(
 		dossier: Dossier,
 		cible:
@@ -745,7 +816,8 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 			| CiblePlan
 			| CibleRelations
 			| CibleDistribution
-			| CibleInterprete,
+			| CibleInterprete
+			| CibleNarrateur,
 		signal?: AbortSignal,
 	): Promise<
 		| ReponseCopilote
@@ -755,6 +827,7 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 		| ReponseRelations
 		| ReponseDistribution
 		| ReponseInterprete
+		| ReponseNarrateur
 	> {
 		switch (cible.role) {
 			case 'personnage-prose':
@@ -771,6 +844,8 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 				return demanderDistribution(dossier, cible, signal)
 			case 'interprete':
 				return demanderInterprete(dossier, cible, signal)
+			case 'narrateur':
+				return demanderNarrateur(dossier, cible, signal)
 			default: {
 				// LA GARDE D'EXHAUSTIVITÉ : si l'union gagne un membre sans branche, cette
 				// affectation ne compile plus. C'est une erreur de COMPILATION, jamais un

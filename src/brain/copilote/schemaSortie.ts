@@ -18,6 +18,7 @@ import type {
 	FicheReseau,
 	InterpretationRendue,
 	IntentionRendue,
+	NarrationRendue,
 	PropositionRendue,
 	RangInjecte,
 	RapportRendu,
@@ -958,4 +959,145 @@ export function validerInterprete(
 	if (!designe.every((rang) => tables.lieux.has(rang))) return { ok: false, motif: 'rang-inconnu' }
 
 	return { ok: true, sortie: { geste: brut.geste, designe } }
+}
+
+// ══ LE HUITIÈME RÔLE — `narrateur` (n° 10 `moteur-interprete`, it2) ══════════
+
+/** Les clés du schéma de sortie du rôle `narrateur`, EN VALEUR — le validateur en est
+ *  PILOTÉ, exactement comme par `CLES_SORTIE_PLAN`. HUIT registres LITTÉRAUX, et
+ *  toujours pas un registre paramétré (§ 8, n° 25) : ce rôle n'est pas dans
+ *  `RoleCopilote`, et son gabarit ne vit que dans le worker, comme celui de
+ *  l'interprète. `narration`, JAMAIS `recit` — le nom du champ de destination
+ *  (`EntreeJournal.recit`) ; `tentatives`, JAMAIS `suggestions` — le nom de la forme
+ *  résolue (KR-231). */
+export const CLES_SORTIE_NARRATEUR = ['narration', 'tentatives'] as const
+
+/**
+ * LA BORNE DE LA NARRATION, EN CARACTÈRES — VALEUR DE DÉCISION du comité (plan
+ * d'itération it2, § 4 bis ; narratif-ia : environ six phrases), pas une mesure. Elle
+ * borne la SORTIE et dérive `max_tokens` (worker). Au-delà : REFUS `'schema'`, jamais
+ * une coupe (KR-230) — une prose tronquée au milieu d'une phrase serait une réparation
+ * silencieuse, lue par le joueur comme de la fiction.
+ */
+export const NARRATION_CARACTERES_MAX = 800
+
+/** LA BORNE D'UNE TENTATIVE, EN CARACTÈRES — VALEUR DE DÉCISION du comité (§ 4 bis),
+ *  pas une mesure : une piste d'action tient en quelques mots. Même statut que
+ *  `NARRATION_CARACTERES_MAX`, et elle dérive elle aussi `max_tokens`. */
+export const TENTATIVE_CARACTERES_MAX = 60
+
+/**
+ * LA BORNE DE SORTIE du rôle `narrateur` — combien de tentatives le modèle a le droit de
+ * proposer. Même statut que `max_tokens` : ni règle du jeu ni règle du dossier, c'est
+ * la FORME DE LA RÉPONSE ATTENDUE, et l'invite l'annonce en toutes lettres (« trois au
+ * plus »), garde apparié dans `worker/frontiere.test.ts`.
+ * ⚠ NON PARTAGÉE avec les quatre autres bornes de liste (§ 8, n° 42) : même valeur
+ * aujourd'hui, aucune raison commune d'évoluer.
+ */
+export const TENTATIVES_MAX = 3
+
+/**
+ * LES PRÉDICATS DE FORME de la sortie `narrateur` — le HUITIÈME rôle, ET LE PREMIER DONT
+ * LA PROSE EST LUE PAR LE JOUEUR SANS RELECTURE : aucun auteur ne ratifie ce récit d'un
+ * clic, il s'affiche. C'est pourquoi chaque prédicat ci-dessous est un REFUS DU LOT
+ * ENTIER — rejeu une fois, puis dégradé —, jamais une réparation.
+ *
+ * DEUX CLÉS DE NATURE DIFFÉRENTE, et leur règle du vide diffère en conséquence :
+ *  · `narration` est la RÉDACTION requise — une narration vide est une NON-RÉPONSE,
+ *    motif `'vide'` (règle de tranchage de `validerRepliques`) ;
+ *  · `tentatives` est une liste de 0 à `TENTATIVES_MAX` — LA LISTE VIDE EST UN SUCCÈS :
+ *    « exactement trois » forcerait des gestes inventés quand la scène en offre moins,
+ *    et le récit, lui, est déjà là. Un ÉLÉMENT vide, en revanche, est un remplissage :
+ *    motif `'vide'`.
+ *
+ * LES TREIZE PRÉDICATS, dans l'ordre du plan (§ 4 bis), chacun prouvable SEUL :
+ *   (1)  objet simple (ni tableau, ni null) ..................... 'schema'
+ *   (2)  clés = EXACTEMENT `CLES_SORTIE_NARRATEUR` — une clé EN
+ *        TROP est un REFUS, jamais un champ ignoré (KR-236) ..... 'schema'
+ *   (3)  `narration` est une CHAÎNE — jamais `String(…)` ........ 'schema'
+ *   (4)  `narration` non vide après `trim()` ...................... 'vide'
+ *   (5)  `narration` ≤ `NARRATION_CARACTERES_MAX` .............. 'schema'
+ *   (6)  `narration` NE FINIT PAS par « ? » (`trimEnd`) ......... 'schema'
+ *   (7)  `tentatives` est un TABLEAU de CHAÎNES ................. 'schema'
+ *   (8)  longueur ≤ `TENTATIVES_MAX` — REFUS, jamais une coupe .. 'schema'
+ *   (9)  chaque tentative non vide après `trim()` ................. 'vide'
+ *   (10) chaque tentative ≤ `TENTATIVE_CARACTERES_MAX` ......... 'schema'
+ *   (11) tentatives DISTINCTES après `trim()` .................. 'schema'
+ *   (12) aucun `MARQUEUR_A_ECRIRE`, narration ET tentatives ... 'marqueur'
+ *   (13) aucun identifiant du dossier, ÉLÉMENT PAR ÉLÉMENT .. 'identifiant'
+ *
+ * ⚠ LE PRÉDICAT (6) EST LA GARDE DE L'ANTI-BOUCLE CÔTÉ NARRATEUR : un récit qui finit
+ * par une question inviterait le joueur à RÉPONDRE, alors qu'AUCUNE `attente` n'est
+ * posée par ce rôle — l'interprète lirait la réponse à l'aveugle. La question est le
+ * monopole de la clarification (KR-264).
+ *
+ * ⚠ SCANNER ÉLÉMENT PAR ÉLÉMENT, JAMAIS SUR UN `join` (précédent `validerRepliques`) :
+ * deux fragments logés dans deux cases distinctes ne forment pas un identifiant, et
+ * joindre DÉTRUIT la localisation en fabriquant un faux positif à la frontière. Aucun
+ * `porteUnRang` : ce rôle n'injecte AUCUN rang — l'y appeler serait du code mort
+ * présenté comme de la couverture (KR-235).
+ *
+ * `MotifIllisible` reste INCHANGÉE : le type de retour ne nomme que les QUATRE motifs
+ * atteignables, `'rang-inconnu'` est sans objet (aucun jeton, aucune table).
+ */
+export function validerNarrateur(
+	brut: unknown,
+	dossier: Dossier,
+): { ok: true; sortie: NarrationRendue } | { ok: false; motif: 'schema' | 'vide' | 'marqueur' | 'identifiant' } {
+	// (1) un objet JSON — ni tableau, ni `null`.
+	if (!estObjetSimple(brut)) return { ok: false, motif: 'schema' }
+
+	// (2) l'ensemble des clés vaut EXACTEMENT `CLES_SORTIE_NARRATEUR`.
+	const cles = Object.keys(brut)
+	if (cles.length !== CLES_SORTIE_NARRATEUR.length || !CLES_SORTIE_NARRATEUR.every((cle) => cles.includes(cle))) {
+		return { ok: false, motif: 'schema' }
+	}
+
+	// (3) la narration est une CHAÎNE — un tableau ou un objet meurt ici, JAMAIS `[0]`,
+	//     JAMAIS `String(…)`.
+	const narration: unknown = brut[CLES_SORTIE_NARRATEUR[0]]
+	if (typeof narration !== 'string') return { ok: false, motif: 'schema' }
+
+	// (4) non vide une fois les blancs retirés — la non-réponse de rédaction.
+	if (narration.trim().length === 0) return { ok: false, motif: 'vide' }
+
+	// (5) la BORNE — un REFUS, jamais une coupe (KR-230).
+	if (narration.length > NARRATION_CARACTERES_MAX) return { ok: false, motif: 'schema' }
+
+	// (6) jamais une question finale — voir la docstring : la question est le monopole
+	//     de la clarification.
+	if (narration.trimEnd().endsWith('?')) return { ok: false, motif: 'schema' }
+
+	// (7) les tentatives sont un TABLEAU de CHAÎNES — un `{texte:"…"}` emballé meurt ici.
+	const rendues: unknown = brut[CLES_SORTIE_NARRATEUR[1]]
+	if (!Array.isArray(rendues) || !rendues.every((element): element is string => typeof element === 'string')) {
+		return { ok: false, motif: 'schema' }
+	}
+
+	// (8) la BORNE DE SORTIE — une quatrième tentative est un REFUS, jamais une coupe.
+	if (rendues.length > TENTATIVES_MAX) return { ok: false, motif: 'schema' }
+
+	// (9) aucun élément vide — PAR ÉLÉMENT. La liste VIDE, elle, est un succès.
+	if (rendues.some((tentative) => tentative.trim().length === 0)) return { ok: false, motif: 'vide' }
+
+	// (10) chaque tentative tient dans sa borne.
+	if (rendues.some((tentative) => tentative.length > TENTATIVE_CARACTERES_MAX)) return { ok: false, motif: 'schema' }
+
+	// (11) DISTINCTES après `trim()` — deux fois la même piste est un remplissage.
+	const normalisees = rendues.map((tentative) => tentative.trim())
+	if (new Set(normalisees).size !== normalisees.length) return { ok: false, motif: 'schema' }
+
+	// (12) aucun marqueur d'amorce, SUR LA NARRATION ET SUR CHAQUE TENTATIVE — constante
+	//      IMPORTÉE, jamais recopiée (KR-223).
+	if (narration.includes(MARQUEUR_A_ECRIRE) || rendues.some((tentative) => tentative.includes(MARQUEUR_A_ECRIRE))) {
+		return { ok: false, motif: 'marqueur' }
+	}
+
+	// (13) aucun identifiant du dossier — la narration, PUIS CHAQUE tentative, SÉPARÉMENT.
+	//      Jamais sur un `join` : voir la docstring.
+	if (porteUnIdentifiant(narration, dossier) || rendues.some((tentative) => porteUnIdentifiant(tentative, dossier))) {
+		return { ok: false, motif: 'identifiant' }
+	}
+
+	return { ok: true, sortie: { narration, tentatives: rendues } }
 }

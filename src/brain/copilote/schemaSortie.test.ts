@@ -7,21 +7,26 @@ import {
 	CLES_SORTIE,
 	CLES_SORTIE_DETENTEURS,
 	CLES_SORTIE_DISTRIBUTION,
+	CLES_SORTIE_NARRATEUR,
 	CLES_SORTIE_PLAN,
 	CLES_SORTIE_RELATIONS,
 	CLES_SORTIE_REPLIQUES,
 	FICHES_PROPOSEES_MAX,
 	GABARIT_SORTIE,
+	NARRATION_CARACTERES_MAX,
 	PRECISION_CARACTERES_MAX,
 	PROPOSITIONS_MAX,
 	RELATIONS_PROPOSEES_MAX,
 	REPLIQUES_PROPOSEES_MAX,
+	TENTATIVE_CARACTERES_MAX,
+	TENTATIVES_MAX,
 	porteUnIdentifiant,
 	porteUnRang,
 	validerDetenteurs,
 	validerDistribution,
 	validerIntention,
 	validerInterprete,
+	validerNarrateur,
 	validerRelations,
 	validerRepliques,
 	validerSortie,
@@ -31,7 +36,9 @@ import type {
 	FicheBrouillon,
 	FicheReseau,
 	IntentionRendue,
+	InterpretationRendue,
 	LienResolu,
+	NarrationRendue,
 	PropositionDistribution,
 	PropositionPlan,
 	PropositionRelations,
@@ -39,6 +46,8 @@ import type {
 	RapportRendu,
 	RapportsRendus,
 	RepliquesRendues,
+	SortieInterprete,
+	SortieNarrateur,
 	TablesInterprete,
 } from './types'
 
@@ -2279,6 +2288,261 @@ describe('validerInterprete — trois formes disjointes, arite SEUL decideur (KR
 			// … et la vraie, elle, refuse : un rang recopié dans une clarification
 			// serait exécuté en silence, sans qu'aucun auteur ne l'ait relu.
 			expect(validerInterprete({ precision }, TABLES, dossier)).toEqual({ ok: false, motif: 'identifiant' })
+		})
+	})
+})
+
+// ══ LE HUITIÈME RÔLE — `narrateur` (n° 10 `moteur-interprete`, it2) ══════════
+
+describe('types — zero cle commune reseau / resolu, huitieme role, et avec les voisins de jeu', () => {
+	const RESEAU: NarrationRendue = { narration: 'Vous avancez.', tentatives: ['Fouiller la cendre'] }
+	const RESOLUE: SortieNarrateur = { recit: 'Vous avancez.', suggestions: ['Fouiller la cendre'] }
+
+	it('NarrationRendue et SortieNarrateur n ont aucune cle en commun', () => {
+		// KR-231 : `{narration,tentatives}` ∩ `{recit,suggestions}` = ∅. La clé réseau
+		// `recit` aurait été le NOM DU CHAMP de destination (`EntreeJournal.recit`).
+		expect(Object.keys(RESEAU).filter((cle) => Object.keys(RESOLUE).includes(cle))).toEqual([])
+		expect(Object.keys(RESEAU).sort()).toEqual(['narration', 'tentatives'])
+		expect(Object.keys(RESOLUE).sort()).toEqual(['recit', 'suggestions'])
+		// Et le validateur est PILOTÉ par la même liste que la forme réseau.
+		expect([...CLES_SORTIE_NARRATEUR].sort()).toEqual(Object.keys(RESEAU).sort())
+	})
+
+	it('aucune des deux ne partage une cle avec le role interprete ni avec la cle du role plan', () => {
+		// LES DEUX RÔLES DE JEU PASSENT PAR LA MÊME ROUTE ET LE MÊME ÉCRAN : une clé
+		// commune ferait passer une forme pour l'autre sans que `tsc` ne dise rien.
+		// Les TROIS formes réseau de l'interprète, et les TROIS formes résolues, balayées.
+		const interpretationsRendues: InterpretationRendue[] = [
+			{ geste: 'G1', designe: ['P1'] },
+			{ precision: 'Lequel ?' },
+			{ sans_commande: true },
+		]
+		const sortiesInterprete: SortieInterprete[] = [
+			{ lecture: 'commande', commande: { commande: 'agir', cibles: [] } },
+			{ lecture: 'clarification', question: 'Lequel ?' },
+			{ lecture: 'sans_commande', gestes_possibles: ['agir'] },
+		]
+		const voisines = new Set([
+			...interpretationsRendues.flatMap((forme) => Object.keys(forme)),
+			...sortiesInterprete.flatMap((forme) => Object.keys(forme)),
+			...CLES_SORTIE_PLAN,
+		])
+		const narrateur = [...Object.keys(RESEAU), ...Object.keys(RESOLUE)]
+
+		expect(narrateur.filter((cle) => voisines.has(cle))).toEqual([])
+		// Discriminant : l'ensemble balayé n'est pas vide, et il couvre bien les HUIT clés
+		// de l'interprète plus celle du rôle plan (KR-199).
+		expect([...voisines].sort()).toEqual(
+			[
+				'commande',
+				'designe',
+				'geste',
+				'gestes_possibles',
+				'intention',
+				'lecture',
+				'precision',
+				'question',
+				'sans_commande',
+			].sort(),
+		)
+	})
+
+	it('l affectation croisee ne compile pas, et AUCUN champ de faits n est representable (KR-268)', () => {
+		// @ts-expect-error — une forme RÉSEAU ne s'assigne pas à une forme RÉSOLUE…
+		const croiseA: SortieNarrateur = { narration: 'x', tentatives: [] }
+		// @ts-expect-error — … ni l'inverse.
+		const croiseB: NarrationRendue = { recit: 'x', suggestions: [] }
+		// ⚠ KR-268 : `etablis`/`faits_etablis` n'entrent pas en it2, NI REQUIS NI OPTIONNEL —
+		// aucun lecteur avant la mémoire (it3). Leur ABSENCE est épinglée par le typage.
+		// @ts-expect-error — `etablis` n'existe pas sur la forme résolue.
+		const avecEtablis: SortieNarrateur = { recit: 'x', suggestions: [], etablis: [] }
+		// @ts-expect-error — `faits_etablis` n'existe pas sur la forme réseau.
+		const avecFaits: NarrationRendue = { narration: 'x', tentatives: [], faits_etablis: [] }
+		// Discriminant : les formes LÉGALES compilent, elles.
+		const legales: [NarrationRendue, SortieNarrateur] = [RESEAU, RESOLUE]
+
+		expect([croiseA, croiseB, avecEtablis, avecFaits, ...legales]).toHaveLength(6)
+	})
+})
+
+describe('validerNarrateur — les treize predicats de forme du huitieme role', () => {
+	const dossier = dossierDeReference()
+	const NARRATION = 'Vous gravissez le chemin de la tour ; la cendre crisse sous vos pas et le vent retombe.'
+	const TENTATIVES = ['Fouiller la cendre', 'Monter vers la vigie', 'Rebrousser chemin']
+	/** Un identifiant RÉEL du dossier de référence — c'est l'appartenance qui compte. */
+	const IDENTIFIANT = 'objet.sceau-de-cendre'
+
+	it('le nominal rend ok et la MEME forme, sans rien reparer', () => {
+		expect(validerNarrateur({ narration: NARRATION, tentatives: TENTATIVES }, dossier)).toEqual({
+			ok: true,
+			sortie: { narration: NARRATION, tentatives: TENTATIVES },
+		})
+		// AUCUNE RÉPARATION : les blancs de bord d'une narration et d'une tentative
+		// valides traversent tels quels — ni `trim`, ni coupe (KR-230).
+		const avecBlancs = { narration: `  ${NARRATION}  `, tentatives: [' Fouiller la cendre '] }
+		expect(validerNarrateur(avecBlancs, dossier)).toEqual({ ok: true, sortie: avecBlancs })
+	})
+
+	it('la liste VIDE de tentatives est un SUCCES — le recit, lui, est la redaction requise', () => {
+		expect(validerNarrateur({ narration: NARRATION, tentatives: [] }, dossier)).toEqual({
+			ok: true,
+			sortie: { narration: NARRATION, tentatives: [] },
+		})
+	})
+
+	it('1 — ce qui n est pas un objet JSON est refuse, motif schema', () => {
+		for (const brut of [null, undefined, [], [NARRATION], NARRATION, 42, true]) {
+			expect({ brut, ...validerNarrateur(brut, dossier) }).toEqual({ brut, ok: false, motif: 'schema' })
+		}
+	})
+
+	it('2 — les cles valent EXACTEMENT {narration, tentatives} : manquante, en trop ou renommee', () => {
+		const cas: Array<Record<string, unknown>> = [
+			{ narration: NARRATION },
+			{ tentatives: TENTATIVES },
+			{ narration: NARRATION, tentatives: TENTATIVES, etablis: [] },
+			{ recit: NARRATION, suggestions: TENTATIVES },
+			{},
+		]
+		for (const brut of cas) {
+			expect({ brut, ...validerNarrateur(brut, dossier) }).toEqual({ brut, ok: false, motif: 'schema' })
+		}
+	})
+
+	it('3 — une narration qui n est pas une chaine est refusee, jamais repechee', () => {
+		for (const narration of [[NARRATION], 42, null, { texte: NARRATION }]) {
+			expect(validerNarrateur({ narration, tentatives: [] }, dossier)).toEqual({ ok: false, motif: 'schema' })
+		}
+	})
+
+	it('4 — une narration vide apres trim est une non-reponse, motif vide', () => {
+		for (const narration of ['', '   ', '\n\t ']) {
+			expect(validerNarrateur({ narration, tentatives: [] }, dossier)).toEqual({ ok: false, motif: 'vide' })
+		}
+	})
+
+	it('5 — la borne de la narration, a la limite et a la limite plus un (KR-165)', () => {
+		const juste = 'x'.repeat(NARRATION_CARACTERES_MAX)
+		const trop = 'x'.repeat(NARRATION_CARACTERES_MAX + 1)
+		expect(NARRATION_CARACTERES_MAX).toBe(800)
+		expect(validerNarrateur({ narration: juste, tentatives: [] }, dossier)).toEqual({
+			ok: true,
+			sortie: { narration: juste, tentatives: [] },
+		})
+		expect(validerNarrateur({ narration: trop, tentatives: [] }, dossier)).toEqual({ ok: false, motif: 'schema' })
+	})
+
+	it('6 — une narration qui FINIT par une question est refusee ; une question AU MILIEU passe', () => {
+		// MUTANT OBLIGATOIRE N° 1 (plan § 7) : « un ? final accepté ». Ce témoin est la
+		// ligne qu'il ferait rougir — vérifié ROUGE en retirant le prédicat, puis rétabli.
+		expect(validerNarrateur({ narration: 'Que faites-vous maintenant ?', tentatives: [] }, dossier)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+		// `trimEnd` : un blanc de fin ne déguise pas la question.
+		expect(validerNarrateur({ narration: 'Que faites-vous ?  \n', tentatives: [] }, dossier)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+		// Discriminant : une question qui n'est PAS finale est de la prose légitime.
+		const auMilieu = 'Qui a allumé ce feu ? Personne ne le dit, et le beffroi brûle toujours.'
+		expect(validerNarrateur({ narration: auMilieu, tentatives: [] }, dossier)).toEqual({
+			ok: true,
+			sortie: { narration: auMilieu, tentatives: [] },
+		})
+	})
+
+	it('7 — les tentatives sont un TABLEAU de CHAINES, sinon schema', () => {
+		for (const tentatives of ['Fouiller', null, { a: 'Fouiller' }, ['Fouiller', 3], [['Fouiller']]]) {
+			expect({ tentatives, ...validerNarrateur({ narration: NARRATION, tentatives }, dossier) }).toEqual({
+				tentatives,
+				ok: false,
+				motif: 'schema',
+			})
+		}
+	})
+
+	it('8 — trois tentatives passent, une QUATRIEME est un refus du lot, jamais une coupe', () => {
+		// MUTANT OBLIGATOIRE N° 2 (plan § 7) : « une 4e tentative acceptée ». Vérifié ROUGE
+		// en relâchant la borne, puis rétabli.
+		expect(TENTATIVES_MAX).toBe(3)
+		expect(TENTATIVES).toHaveLength(TENTATIVES_MAX)
+		expect(validerNarrateur({ narration: NARRATION, tentatives: TENTATIVES }, dossier).ok).toBe(true)
+		expect(validerNarrateur({ narration: NARRATION, tentatives: [...TENTATIVES, 'Attendre'] }, dossier)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+	})
+
+	it('9 — une tentative vide apres trim est un remplissage, motif vide, OU QU ELLE SOIT', () => {
+		for (const rang of [0, 2]) {
+			const tentatives = [...TENTATIVES]
+			tentatives[rang] = '   '
+			expect(`${rang} → ${JSON.stringify(validerNarrateur({ narration: NARRATION, tentatives }, dossier))}`).toBe(
+				`${rang} → ${JSON.stringify({ ok: false, motif: 'vide' })}`,
+			)
+		}
+	})
+
+	it('10 — la borne d une tentative, a la limite et a la limite plus un (KR-165)', () => {
+		expect(TENTATIVE_CARACTERES_MAX).toBe(60)
+		const juste = 'y'.repeat(TENTATIVE_CARACTERES_MAX)
+		expect(validerNarrateur({ narration: NARRATION, tentatives: [juste] }, dossier).ok).toBe(true)
+		expect(validerNarrateur({ narration: NARRATION, tentatives: [`${juste}y`] }, dossier)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+	})
+
+	it('11 — deux tentatives identiques apres trim sont refusees', () => {
+		expect(
+			validerNarrateur({ narration: NARRATION, tentatives: ['Fouiller la cendre', ' Fouiller la cendre '] }, dossier),
+		).toEqual({ ok: false, motif: 'schema' })
+	})
+
+	it('12 — le marqueur d amorce, dans la narration OU dans une tentative, motif marqueur', () => {
+		expect(validerNarrateur({ narration: `${MARQUEUR_A_ECRIRE} reste a ecrire.`, tentatives: [] }, dossier)).toEqual({
+			ok: false,
+			motif: 'marqueur',
+		})
+		expect(
+			validerNarrateur({ narration: NARRATION, tentatives: ['Attendre', `Lire ${MARQUEUR_A_ECRIRE}`] }, dossier),
+		).toEqual({ ok: false, motif: 'marqueur' })
+	})
+
+	it('13 — un identifiant du dossier, dans la narration OU dans la DERNIERE tentative, motif identifiant', () => {
+		// MUTANT OBLIGATOIRE N° 3 (plan § 7) : « un identifiant du dossier laissé passer ».
+		// Les DEUX sites sont éprouvés — la narration seule, puis une tentative seule en
+		// DERNIÈRE position —, parce qu'un mutant qui ne scannerait que l'un des deux
+		// resterait vert sur un témoin unique. Vérifié ROUGE sur chacun, puis rétabli.
+		expect(collectIds(dossier).some((collecte) => collecte.id === IDENTIFIANT)).toBe(true)
+		expect(
+			validerNarrateur({ narration: `Le sceau ${IDENTIFIANT} pese dans votre main.`, tentatives: [] }, dossier),
+		).toEqual({ ok: false, motif: 'identifiant' })
+		expect(
+			validerNarrateur({ narration: NARRATION, tentatives: ['Attendre', `Poser ${IDENTIFIANT}`] }, dossier),
+		).toEqual({ ok: false, motif: 'identifiant' })
+	})
+
+	it('13 bis — le scan est ELEMENT PAR ELEMENT : deux fragments dans deux cases ne forment pas un identifiant', () => {
+		// JAMAIS de `join` avant le scan : `objet.` en fin de l'une et `sceau-de-cendre` en
+		// tête de l'autre ne forment un identifiant QUE collés — ce qu'aucun lecteur ne
+		// fera, les deux pistes s'affichant séparément.
+		const fragments = ['Examiner cet objet.', 'sceau-de-cendre en tete']
+		expect(porteUnIdentifiant(fragments.join(''), dossier)).toBe(true)
+		expect(validerNarrateur({ narration: NARRATION, tentatives: fragments }, dossier)).toEqual({
+			ok: true,
+			sortie: { narration: NARRATION, tentatives: fragments },
+		})
+	})
+
+	it('la forme de mot d un identifiant qui n APPARTIENT pas au dossier passe — l appartenance decide', () => {
+		// Précédent du scanner (KR-235) : `objet.favori` est une silhouette, pas un
+		// identifiant de CE dossier.
+		const benin = 'Vous rangez votre objet.favori dans la besace.'
+		expect(validerNarrateur({ narration: benin, tentatives: [] }, dossier)).toEqual({
+			ok: true,
+			sortie: { narration: benin, tentatives: [] },
 		})
 	})
 })

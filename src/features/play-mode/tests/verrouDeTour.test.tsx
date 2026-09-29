@@ -1,0 +1,200 @@
+import fs from 'fs'
+import path from 'path'
+import { render, screen, within, act } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import {
+	createBrain,
+	controlerDossier,
+	BrainProvider,
+	type Brain,
+	type Dossier,
+	type ReponseNarrateur,
+	type ReponseInterprete,
+} from '../../../brain'
+import { EcranPartie } from '../components/EcranPartie'
+
+/**
+ * LE VERROU DE TOUR AU NIVEAU DE L'ÉCRAN RÉEL (lot 2, KR-265 ÉTENDU) —
+ * `moteur-interprete` it2, plan § 7, désaccord tech-lead M1 (revue de PR).
+ *
+ * CE QUE `useTourDeJeu.test.ts` NE PROUVE PAS : que `EcranPartie` (le câblage
+ * réel, `handleSoumettreConsole` → `pasEnCours()`, `EcranPartie.tsx:184-187`)
+ * refuse VRAIMENT une soumission console pendant que R1→exécution→R3 est en
+ * vol. Un test du hook seul laisserait cette garde supprimable sans qu'aucun
+ * test ne rougisse — exactement le défaut relevé en revue (M1).
+ *
+ * `brain.copilote` est REMPLACÉ après `createBrain()` (précédent
+ * `CopiloteService.ts:240` : les suites de la feature bouchonnent par
+ * `brain.copilote = { estDisponible, demander }` — un remplacement du
+ * CONTRAT, jamais un détail d'implémentation interne). Le dossier est le VRAI
+ * dossier de référence (KR-156), comme `jalonAuJournal.test.tsx`.
+ *
+ * LA COMMANDE CONSOLE UTILISÉE PENDANT LE VERROU EST UNE DESTINATION RÉELLE
+ * (`lieu.tour-effondree`, accessible depuis le départ) — PAS une destination
+ * inconnue : `agir` ne change jamais `lieu_courant`, donc elle reste valide
+ * tout au long du scénario. Une commande qui échouerait de toute façon
+ * (destination inconnue) ne discriminerait RIEN : « le journal n'a pas
+ * grandi » serait vrai que le verrou existe ou non (N2, revue de PR).
+ */
+
+const CHEMIN_REFERENCE = path.join(
+	__dirname,
+	'..',
+	'..',
+	'..',
+	'brain',
+	'dossier',
+	'__fixtures__',
+	'dossier-reference.json',
+)
+
+function texteReference(): string {
+	return fs.readFileSync(CHEMIN_REFERENCE, 'utf8')
+}
+
+/** Même seed que `jalonAuJournal.test.tsx` — la porte `jouable` (KR-239) exige
+ *  un personnage présent au lieu de départ. */
+function avecUnHabitantAuDepart(brain: Brain, dossier: Dossier): Dossier {
+	const depart = dossier.charpente.depart.lieu_id
+	const rang = dossier.monde.personnages.findIndex((personnage) => (personnage.presence ?? []).length === 0)
+	if (rang === -1) throw new Error('Aucun personnage sans presence a placer au depart')
+	const ecriture = brain.dossiers.update(dossier.id, (d) => ({
+		canon: d.canon,
+		monde: {
+			...d.monde,
+			personnages: d.monde.personnages.map((personnage, index) =>
+				index === rang ? { ...personnage, presence: [{ lieu_id: depart }] } : personnage,
+			),
+		},
+		charpente: d.charpente,
+	}))
+	if (ecriture.statut !== 'ecrit') throw new Error(`Seed refuse par le validateur : ${ecriture.statut}`)
+	return ecriture.dossier
+}
+
+/** Deux résolveurs retenus à la main — l'ordre est celui des DEUX appels
+ *  attendus : R1 (interprete) puis R3 (narrateur). */
+function monterPartieAvecCopiloteControle(): {
+	brain: Brain
+	dossier: Dossier
+	demanderMock: jest.Mock
+	resolveurs: Array<(reponse: ReponseInterprete | ReponseNarrateur) => void>
+} {
+	const brain = createBrain()
+	const inspection = brain.dossiers.importDossier(texteReference())
+	if (inspection.statut !== 'valid') throw new Error(`Import refuse : ${inspection.statut}`)
+	const dossier = avecUnHabitantAuDepart(brain, inspection.dossier)
+
+	const resolveurs: Array<(reponse: ReponseInterprete | ReponseNarrateur) => void> = []
+	const demanderMock = jest.fn(
+		() =>
+			new Promise((resolve) => {
+				resolveurs.push(resolve as (reponse: ReponseInterprete | ReponseNarrateur) => void)
+			}),
+	)
+	// SUBSTITUTION DU SERVICE, PAS DE `fetch` : voir docstring de tête.
+	brain.copilote = { estDisponible: () => true, demander: demanderMock } as unknown as Brain['copilote']
+
+	render(
+		<BrainProvider brain={brain}>
+			<EcranPartie dossierId={dossier.id} />
+		</BrainProvider>,
+	)
+
+	return { brain, dossier, demanderMock, resolveurs }
+}
+
+function lignesDuJournal(): HTMLElement[] {
+	return within(screen.getByRole('region', { name: 'Journal' })).queryAllByRole('listitem')
+}
+
+describe('Verrou de tour au niveau ecran (KR-265 etendu, lot 2 it2)', () => {
+	beforeEach(() => {
+		window.localStorage.clear()
+	})
+
+	it('le dossier de reference ainsi seme est jouable : la porte du shell ne refuse pas', () => {
+		const brain = createBrain()
+		const inspection = brain.dossiers.importDossier(texteReference())
+		if (inspection.statut !== 'valid') throw new Error(`Import refuse : ${inspection.statut}`)
+		expect(controlerDossier(inspection.dossier).jouable).toBe(false)
+		expect(controlerDossier(avecUnHabitantAuDepart(brain, inspection.dossier)).jouable).toBe(true)
+	})
+
+	/** Reelle, accessible depuis le depart, et JAMAIS deplacee par `agir` (qui ne
+	 *  change pas `lieu_courant`) : seule une destination qui REUSSIRAIT si le
+	 *  verrou n'existait pas peut prouver que « journal inchange » vient du
+	 *  verrou, et non de la commande elle-meme (N2, revue de PR). */
+	const CIBLE_REELLE = 'lieu.tour-effondree'
+
+	it('une commande console REELLE soumise pendant R1 PUIS pendant R3 est refusee, visible, sans perte, jusquau recit affiche', async () => {
+		const user = userEvent.setup()
+		const { demanderMock, resolveurs } = monterPartieAvecCopiloteControle()
+
+		const champLibre = screen.getByLabelText('QUE FAITES-VOUS ?')
+
+		// ── Lance le pas libre : R1 part (appel #1), en vol ──
+		await user.type(champLibre, 'je regarde autour de moi')
+		await user.click(screen.getByRole('button', { name: /TENTER|…/ }))
+		expect(demanderMock).toHaveBeenCalledTimes(1)
+
+		const journalAvant = lignesDuJournal().length
+
+		// ── PENDANT R1 : une commande console REELLE est refusee, visible, journal inchange ──
+		// (si le verrou n'existait pas, cette commande REUSSIRAIT et avancerait le journal)
+		await user.type(screen.getByLabelText('CONSOLE'), `ALLER ${CIBLE_REELLE}{Enter}`)
+		expect(screen.getByRole('status', { name: '' })).toBeInTheDocument()
+		expect(screen.getByText(/action est déjà en cours/i)).toBeInTheDocument()
+		expect(lignesDuJournal()).toHaveLength(journalAvant)
+
+		// ── Resout R1 : commande `agir` acceptee (arite 0, toujours valide, ne bouge pas lieu_courant) ──
+		// declenche executerCommande (synchrone, ecrit le journal) PUIS l'appel R3 (#2)
+		await act(async () => {
+			resolveurs[0]({
+				statut: 'propose',
+				proposition: { lecture: 'commande', commande: { commande: 'agir', cibles: [] } },
+			} as ReponseInterprete)
+		})
+		expect(demanderMock).toHaveBeenCalledTimes(2)
+
+		const journalApresAgir = lignesDuJournal().length
+		expect(journalApresAgir).toBeGreaterThan(journalAvant) // agir a bien ecrit ses deux entrees
+
+		// ── PENDANT R3 : `ConsoleCommandes` a `key={session.horloge.tour}` — `agir` a fait
+		// avancer l'horloge, le composant a donc ETE REMONTE. Le noeud precedent est detache :
+		// re-interroger le DOM est OBLIGATOIRE, pas un detail de style.
+		const consoleApresRemontage = screen.getByLabelText('CONSOLE')
+		await user.type(consoleApresRemontage, `ALLER ${CIBLE_REELLE}{Enter}`)
+		expect(screen.getByText(/action est déjà en cours/i)).toBeInTheDocument()
+		expect(lignesDuJournal()).toHaveLength(journalApresAgir) // toujours reelle, toujours refusee, toujours sans effet
+
+		// ── Resout R3 : le verrou se relache, le recit s'affiche, le refus (de verrou) s'efface ──
+		await act(async () => {
+			resolveurs[1]({
+				statut: 'propose',
+				proposition: { recit: 'Vous scrutez les environs, sans rien y trouver de neuf.', suggestions: [] },
+			} as ReponseNarrateur)
+		})
+
+		expect(screen.getByText('RÉCIT')).toBeInTheDocument()
+		expect(screen.getByText('Vous scrutez les environs, sans rien y trouver de neuf.')).toBeInTheDocument()
+		// Le refus de VERROU s'est efface avec le deverrouillage (calcul en ligne, KR-013/113).
+		expect(screen.queryByText(/action est déjà en cours/i)).not.toBeInTheDocument()
+		// Le journal N'A TOUJOURS PAS grandi de la commande console (jamais rejouee en silence,
+		// jamais un accepte tardif apres coup) : la seule croissance vient d'`agir`.
+		expect(lignesDuJournal()).toHaveLength(journalApresAgir)
+	})
+
+	it('un refus de SYNTAXE console (hors verrou) reste visible — le calcul en ligne ne lefface pas (BUG-133)', async () => {
+		const user = userEvent.setup()
+		monterPartieAvecCopiloteControle()
+
+		// Aucun verrou actif : soumettre une commande INVALIDE (verbe inconnu) doit poser
+		// un refus qui RESTE affiche — la regression de N1 l'effacait au rendu suivant,
+		// quel que soit son origine, des lors que isLocked valait false.
+		await user.type(screen.getByLabelText('CONSOLE'), 'BOUGER nulle_part{Enter}')
+
+		expect(screen.getByRole('status', { name: '' })).toBeInTheDocument()
+		expect(screen.queryByText(/action est déjà en cours/i)).not.toBeInTheDocument()
+	})
+})

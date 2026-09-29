@@ -11,10 +11,19 @@ import {
 	type CibleRelations,
 	type CibleRepliques,
 } from './CopiloteService'
-import { assemblerDetenteurs, assemblerDistribution, assemblerRelations } from './copilote/contexte'
+import {
+	assemblerDetenteurs,
+	assemblerDistribution,
+	assemblerNarrateur,
+	assemblerRelations,
+	BUDGET_CARACTERES_NARRATEUR,
+} from './copilote/contexte'
 import { GABARIT_SORTIE } from './copilote/schemaSortie'
+import type { CibleNarrateur } from './copilote/types'
 import { MARQUEUR_A_ECRIRE } from './dossier/amorce'
-import type { EtatSession } from './dossier/session'
+import { analyserSaisie, executerCommande } from './dossier/commandes'
+import { consignerRecit } from './dossier/recit'
+import { ouvrirSession, type EtatSession } from './dossier/session'
 import { INTENSITE_INITIALE, PORTEE_INITIALE, type Dossier } from './dossier/types'
 import type { PersistenceService } from './PersistenceService'
 
@@ -2053,23 +2062,63 @@ describe('CopiloteService — le septieme role, interprete', () => {
 		expect(fetchMock).toHaveBeenCalledTimes(2) // un par appel `demander`, jamais un rejeu
 	})
 
-	it('court-circuit : aucun geste satisfiable rend sans_commande SANS AUCUN fetch', async () => {
+	it('impasse : le court-circuit de l it1 est MORT — agir y est range, et le fetch part', async () => {
+		// ⚠ RÉÉCRIT À L'IT2. Ce témoin prouvait « aucun geste satisfiable ⇒ `sans_commande`
+		// SANS AUCUN fetch ». `agir` (arité 0) est TOUJOURS satisfiable : la branche est
+		// devenue inatteignable et a été RETIRÉE du service (KR-235). Sur le MÊME état —
+		// `lieu.crypte-scellee`, AUCUN accès —, l'appel part désormais, et un `agir`
+		// rendu par le modèle se résout en commande d'arité 0.
 		const dossier = dossierDeReference()
-		// `lieu.crypte-scellee` n a AUCUN acces (impasse jouable) : zero candidat,
-		// donc zero geste satisfiable.
 		const session: EtatSession = {
 			...sessionDepuisFoyer(dossier),
 			monde: { ...sessionDepuisFoyer(dossier).monde, lieu_courant: 'lieu.crypte-scellee' },
 		}
+		fetchMock.mockResolvedValue(reponseWorker({ geste: 'G1', designe: [] }))
 
 		const reponse = await createCopiloteService(reglages()).demander(dossier, {
 			role: ROLE_INTERPRETE,
-			saisie: 'je fais quoi',
+			saisie: 'je fouille la crypte',
 			session,
 		})
 
-		expect(fetchMock).not.toHaveBeenCalled()
-		expect(reponse).toEqual({ statut: 'propose', proposition: { lecture: 'sans_commande', gestes_possibles: [] } })
+		expect(fetchMock).toHaveBeenCalledTimes(1)
+		expect(reponse).toEqual({
+			statut: 'propose',
+			proposition: { lecture: 'commande', commande: { commande: 'agir', cibles: [] } },
+		})
+		// Et le court-circuit a quitté la SOURCE, pas seulement le comportement.
+		const source = fs.readFileSync(path.join(__dirname, 'CopiloteService.ts'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+		expect(source).not.toContain('tables.gestes.size === 0')
+	})
+
+	it('agir est atteignable : un geste d arite 0 et un designe VIDE traversent validation et resolution', async () => {
+		// CRITÈRE 1 DU PLAN, MOITIÉ CONTRAT : l'invite amendée rend `agir` atteignable, et
+		// le client l'ACCEPTE — sur un lieu qui a aussi des accès, où `aller` est `G1` et
+		// `agir` `G2`. Un `designe` non vide sur `agir` est une arité fautive, refusée.
+		const dossier = dossierDeReference()
+		const session = sessionDepuisFoyer(dossier)
+		fetchMock.mockResolvedValue(reponseWorker({ geste: 'G2', designe: [] }))
+
+		const reponse = await createCopiloteService(reglages()).demander(dossier, {
+			role: ROLE_INTERPRETE,
+			saisie: 'je fouille la cendre',
+			session,
+		})
+
+		expect(reponse).toEqual({
+			statut: 'propose',
+			proposition: { lecture: 'commande', commande: { commande: 'agir', cibles: [] } },
+		})
+
+		fetchMock.mockReset()
+		fetchMock.mockResolvedValue(reponseWorker({ geste: 'G2', designe: ['P1'] }))
+		const fautif = await createCopiloteService(reglages()).demander(dossier, {
+			role: ROLE_INTERPRETE,
+			saisie: 'je fouille la cendre',
+			session,
+		})
+		expect(fautif).toEqual({ statut: 'illisible', motif: 'schema' })
+		expect(fetchMock).toHaveBeenCalledTimes(2)
 	})
 
 	it('une saisie de plus de 300 caracteres est refusee AVANT tout fetch, motif trop-long', async () => {
@@ -2098,5 +2147,244 @@ describe('CopiloteService — le septieme role, interprete', () => {
 
 		expect(reponse).toEqual({ statut: 'indisponible', raison: 'non-configure' })
 		expect(fetchMock).not.toHaveBeenCalled()
+	})
+})
+
+// ══ LE HUITIÈME RÔLE — `narrateur` (n° 10 `moteur-interprete`, it2) ══════════
+//
+// LE CONTRAT QUE LE LOT 2 CONSOMME TEL QUEL : l'ordre des effets (refus de contexte ⇒
+// configuration ⇒ un appel ⇒ rejeu exactement une fois sur la FORME), la forme du corps
+// sur le fil, le renommage de destination, et CE QUE LE SERVICE NE FAIT PAS — il
+// n'écrit jamais la session qu'il reçoit : sur tout échec, le pas reste acquis.
+describe('CopiloteService — le huitieme role, narrateur', () => {
+	const ROLE_NARRATEUR = 'narrateur'
+	const NARRATION = 'Vous fouillez la cendre froide du foyer ; rien ne bouge, et le beffroi reste muet.'
+	const TENTATIVES = ['Monter vers la tour', 'Interroger le village']
+
+	/** Une session JOUÉE par le produit sur le dossier de référence — jamais forgée. */
+	function jouer(dossier: Dossier, saisies: readonly string[]): EtatSession {
+		const ouverture = ouvrirSession(dossier, { graine_alea: 424242 })
+		if (!ouverture.ok) throw new Error(`ouverture refusée : ${ouverture.refus}`)
+		return saisies.reduce((session, saisie) => {
+			const analyse = analyserSaisie(saisie)
+			if (!analyse.ok) throw new Error(`saisie refusée : ${analyse.message}`)
+			const resultat = executerCommande(dossier, session, analyse.commande)
+			if (!resultat.ok) throw new Error(`commande refusée : ${resultat.message}`)
+			return resultat.session
+		}, ouverture.session)
+	}
+
+	function cible(session: EtatSession, saisie = 'je fouille la cendre'): CibleNarrateur {
+		return { role: ROLE_NARRATEUR, saisie, session }
+	}
+
+	it('un appel, corps EXACTEMENT {role, contexte}, et la proposition RENOMMEE vers sa destination', async () => {
+		const dossier = dossierDeReference()
+		const session = jouer(dossier, ['AGIR'])
+		fetchMock.mockResolvedValue(reponseWorker({ narration: NARRATION, tentatives: TENTATIVES }))
+
+		const reponse = await createCopiloteService(reglages()).demander(dossier, cible(session))
+
+		expect(fetchMock).toHaveBeenCalledTimes(1)
+		// LE RENOMMAGE EST LA RÉ-RÉSOLUTION : `narration` → `recit`, `tentatives` →
+		// `suggestions`, rien d'autre. Aucune réparation.
+		expect(reponse).toEqual({ statut: 'propose', proposition: { recit: NARRATION, suggestions: TENTATIVES } })
+
+		const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+		expect(url).toBe(`${URL_WORKER}/ia/${ROLE_NARRATEUR}`)
+		// `toEqual` SUR LE CORPS ENTIER, jamais une inclusion : `{ ...cible, contexte }`
+		// mettrait la SESSION sur le fil, et une inclusion resterait verte sur la clé en trop.
+		const contexte = assemblerNarrateur(dossier, cible(session))
+		if (!contexte.ok) throw new Error(`contexte refusé : ${contexte.motif}`)
+		expect(JSON.parse(String(init.body))).toEqual({ role: ROLE_NARRATEUR, contexte: contexte.texte })
+		// Rien de la SESSION ne franchit le réseau telle quelle : ni un identifiant, ni une
+		// ligne de journal, ni la graine, ni l'horloge.
+		const corps = String(init.body)
+		for (const interdit of [dossier.id, 'lieu.foyer-du-guet', '> AGIR', 'lieu_courant', 'origine', '424242']) {
+			expect(`${interdit} → ${corps.includes(interdit)}`).toBe(`${interdit} → false`)
+		}
+	})
+
+	it('une liste de tentatives VIDE est un succes : zero suggestion, le recit est la', async () => {
+		const dossier = dossierDeReference()
+		fetchMock.mockResolvedValue(reponseWorker({ narration: NARRATION, tentatives: [] }))
+
+		const reponse = await createCopiloteService(reglages()).demander(dossier, cible(jouer(dossier, ['AGIR'])))
+
+		expect(reponse).toEqual({ statut: 'propose', proposition: { recit: NARRATION, suggestions: [] } })
+	})
+
+	it('rejeu-un-coup : une reponse fautive puis une valide = 2 fetch, MEME corps', async () => {
+		const dossier = dossierDeReference()
+		const session = jouer(dossier, ['AGIR'])
+		fetchMock
+			.mockResolvedValueOnce(reponseWorker({ narration: 'Que faites-vous ?', tentatives: [] }))
+			.mockResolvedValueOnce(reponseWorker({ narration: NARRATION, tentatives: TENTATIVES }))
+
+		const reponse = await createCopiloteService(reglages()).demander(dossier, cible(session))
+
+		expect(fetchMock).toHaveBeenCalledTimes(2)
+		const [, un] = fetchMock.mock.calls[0] as [string, RequestInit]
+		const [, deux] = fetchMock.mock.calls[1] as [string, RequestInit]
+		expect(JSON.parse(String(un.body))).toEqual(JSON.parse(String(deux.body)))
+		expect(reponse).toEqual({ statut: 'propose', proposition: { recit: NARRATION, suggestions: TENTATIVES } })
+	})
+
+	it('deux reponses fautives = illisible, avec le motif du SECOND echec, et jamais un troisieme appel', async () => {
+		const dossier = dossierDeReference()
+		fetchMock
+			.mockResolvedValueOnce(reponseWorker({ narration: 'Que faites-vous ?', tentatives: [] })) // schema
+			.mockResolvedValueOnce(reponseWorker({ narration: 'Le sceau objet.sceau-de-cendre luit.', tentatives: [] })) // identifiant
+			.mockResolvedValueOnce(reponseWorker({ narration: NARRATION, tentatives: [] })) // jamais atteint
+
+		const reponse = await createCopiloteService(reglages()).demander(dossier, cible(jouer(dossier, ['AGIR'])))
+
+		expect(fetchMock).toHaveBeenCalledTimes(2)
+		expect(reponse).toEqual({ statut: 'illisible', motif: 'identifiant' })
+	})
+
+	it('503, 413 et reseau = UN SEUL fetch chacun, jamais un rejeu', async () => {
+		const dossier = dossierDeReference()
+		const session = jouer(dossier, ['AGIR'])
+		const service = createCopiloteService(reglages())
+
+		fetchMock.mockResolvedValueOnce(reponseWorker({}, 503))
+		expect(await service.demander(dossier, cible(session))).toEqual({ statut: 'indisponible', raison: 'non-configure' })
+		fetchMock.mockResolvedValueOnce(reponseWorker({ erreur: 'trop-grand' }, 413))
+		expect(await service.demander(dossier, cible(session))).toEqual({ statut: 'indisponible', raison: 'injoignable' })
+		fetchMock.mockRejectedValueOnce(new Error('reseau'))
+		expect(await service.demander(dossier, cible(session))).toEqual({ statut: 'indisponible', raison: 'injoignable' })
+
+		expect(fetchMock).toHaveBeenCalledTimes(3)
+	})
+
+	it('les DEUX refus de contexte partent AVANT tout appel — meme worker non configure : ils nomment ce qui manque', async () => {
+		const dossier = dossierDeReference()
+		// `cible-a-ecrire` — ÉTAT RÉEL : la vigie du dossier de référence n'a pas de
+		// description, et le produit y mène en deux pas.
+		const vigie = jouer(dossier, ['ALLER lieu.tour-effondree', 'ALLER lieu.vigie-du-nord'])
+		// `trop-long` — une saisie qui fait déborder la borne.
+		const bavarde = cible(jouer(dossier, ['AGIR']), 'x'.repeat(BUDGET_CARACTERES_NARRATEUR))
+
+		for (const service of [createCopiloteService(reglages()), createCopiloteService(reglages(null, null))]) {
+			expect(await service.demander(dossier, cible(vigie))).toEqual({ statut: 'refuse', motif: 'cible-a-ecrire' })
+			expect(await service.demander(dossier, bavarde)).toEqual({ statut: 'refuse', motif: 'trop-long' })
+		}
+		expect(fetchMock).not.toHaveBeenCalled()
+	})
+
+	it('une configuration incomplete rend indisponible non-configure, sans aucun appel', async () => {
+		const dossier = dossierDeReference()
+
+		const reponse = await createCopiloteService(reglages(null, null)).demander(dossier, cible(jouer(dossier, ['AGIR'])))
+
+		expect(reponse).toEqual({ statut: 'indisponible', raison: 'non-configure' })
+		expect(fetchMock).not.toHaveBeenCalled()
+	})
+
+	it('sur TOUT echec, le pas reste acquis : la session recue n est jamais ecrite, aucun recit n apparait', async () => {
+		// CRITÈRE 4 DU PLAN, MOITIÉ CONTRAT. Le service ne rend JAMAIS de session ; ce qui
+		// se prouve ici est qu'il ne MUTE pas celle qu'il reçoit — ni son journal, ni une
+		// entrée, sur aucune des trois branches d'échec (refus, indisponible, illisible).
+		const dossier = dossierDeReference()
+		const session = jouer(dossier, ['AGIR'])
+		const avant = JSON.stringify(session)
+		const service = createCopiloteService(reglages())
+
+		fetchMock.mockResolvedValue(reponseWorker({ narration: 'Que faites-vous ?', tentatives: [] }))
+		const illisible = await service.demander(dossier, cible(session))
+		fetchMock.mockReset()
+		fetchMock.mockResolvedValue(reponseWorker({}, 503))
+		const indisponible = await service.demander(dossier, cible(session))
+		const refuse = await service.demander(dossier, cible(session, 'x'.repeat(BUDGET_CARACTERES_NARRATEUR)))
+
+		expect([illisible.statut, indisponible.statut, refuse.statut]).toEqual(['illisible', 'indisponible', 'refuse'])
+		// Aucune de ces réponses ne porte de proposition — c'est le TYPAGE qui l'interdit.
+		expect([illisible, indisponible, refuse].filter((reponse) => 'proposition' in reponse)).toEqual([])
+		expect(JSON.stringify(session)).toBe(avant)
+		expect(session.journal.some((entree) => entree.recit !== undefined)).toBe(false)
+		expect(session.horloge.tour).toBe(1)
+	})
+
+	it('sur etat terminal du huitieme role : update, persistance et bus restent muets', async () => {
+		const { brain, espions } = brainEspionne()
+		const dossier = dossierDeReference()
+		fetchMock.mockResolvedValue(reponseWorker({ narration: '', tentatives: [] }))
+
+		const reponse = await brain.copilote.demander(dossier, cible(jouer(dossier, ['AGIR'])))
+
+		expect(reponse).toEqual({ statut: 'illisible', motif: 'vide' })
+		expect(espions.update).not.toHaveBeenCalled()
+		expect(espions.set).not.toHaveBeenCalled()
+		expect(espions.emit).not.toHaveBeenCalled()
+	})
+
+	it('sans memoire : meme monde au pas 2 et au pas 40 — deux corps STRICTEMENT egaux sur le fil', async () => {
+		// R3 SANS ÉTAT, vu du FIL : `agir` ne change jamais le monde, donc au pas 2 et au
+		// pas 40 le monde est le MÊME ; le journal, les récits consignés et l'horloge, eux,
+		// divergent. Si l'un d'eux franchissait le réseau, les deux corps différeraient.
+		const dossier = dossierDeReference()
+		let session = jouer(dossier, [])
+		const etats: EtatSession[] = []
+		for (let pas = 1; pas <= 40; pas += 1) {
+			const analyse = analyserSaisie('AGIR')
+			if (!analyse.ok) throw new Error('AGIR refusé')
+			const resultat = executerCommande(dossier, session, analyse.commande)
+			if (!resultat.ok) throw new Error('AGIR refusé')
+			session = consignerRecit(resultat.session, resultat.session.horloge.tour, `Recit du pas ${pas}.`)
+			etats.push(session)
+		}
+		fetchMock.mockResolvedValue(reponseWorker({ narration: NARRATION, tentatives: [] }))
+		const service = createCopiloteService(reglages())
+
+		await service.demander(dossier, cible(etats[1]))
+		await service.demander(dossier, cible(etats[39]))
+
+		expect(etats[1].monde).toBe(etats[39].monde)
+		expect(etats[39].journal.length).toBeGreaterThan(etats[1].journal.length)
+		const [, deux] = fetchMock.mock.calls[0] as [string, RequestInit]
+		const [, quarante] = fetchMock.mock.calls[1] as [string, RequestInit]
+		expect(String(quarante.body)).toBe(String(deux.body))
+		expect(String(quarante.body)).not.toContain('Recit du pas')
+	})
+
+	it('la HUITIEME surcharge est ecrite aux DEUX sites, et la garde never ferme toujours l union', () => {
+		const source = fs.readFileSync(path.join(__dirname, 'CopiloteService.ts'), 'utf8')
+		// ⚠ DEUX SITES — l'interface publique ET l'implémentation. En oublier un rend
+		// l'appel impossible côté feature alors que `tsc` reste vert sur `brain/`.
+		expect(source.match(/demander\(dossier: Dossier, cible: CibleNarrateur/g) ?? []).toHaveLength(2)
+		expect(source).toContain('\tdemander(dossier: Dossier, cible: CibleNarrateur, signal?: AbortSignal)')
+		expect(source).toContain('\tfunction demander(dossier: Dossier, cible: CibleNarrateur, signal?: AbortSignal)')
+
+		// LE DISPATCH, BORNÉ au `switch` et ANCRÉ sur la ligne de code (KR-226).
+		const debut = source.indexOf('\t\tswitch (cible.role) {')
+		const dispatch = source.slice(debut, source.indexOf('\n\treturn {', debut))
+		expect(dispatch).toContain("case 'narrateur':")
+		expect(dispatch).toContain('return demanderNarrateur(dossier, cible, signal)')
+		expect(dispatch).toContain('const _exhaustif: never = cible')
+		// HUIT branches, une par étiquette — et le `default` ne délègue toujours à rien.
+		expect(dispatch.match(/\n\t\t\tcase '[a-z-]+':/g) ?? []).toHaveLength(8)
+		expect(dispatch.slice(dispatch.indexOf('default:'))).not.toContain('demander')
+	})
+
+	it('le dispatch suit l ETIQUETTE : narrateur et interprete, MEME charge, partent chacun sur SA route', async () => {
+		// Les deux cibles portent EXACTEMENT la même charge `{saisie, session}` : seule
+		// l'étiquette les sépare, et cela ne se constate que sur le FIL.
+		const dossier = dossierDeReference()
+		const session = jouer(dossier, ['AGIR'])
+		fetchMock
+			.mockResolvedValueOnce(reponseWorker({ narration: NARRATION, tentatives: [] }))
+			.mockResolvedValueOnce(reponseWorker({ sans_commande: true }))
+		const service = createCopiloteService(reglages())
+
+		await service.demander(dossier, { role: ROLE_NARRATEUR, saisie: 'je fouille', session })
+		await service.demander(dossier, { role: 'interprete', saisie: 'je fouille', session })
+
+		const urls = fetchMock.mock.calls.map((appel) => String(appel[0]))
+		expect(urls).toEqual([`${URL_WORKER}/ia/narrateur`, `${URL_WORKER}/ia/interprete`])
+		const roles = fetchMock.mock.calls.map(
+			(appel) => (JSON.parse(String((appel[1] as RequestInit).body)) as { role: string }).role,
+		)
+		expect(roles).toEqual(['narrateur', 'interprete'])
 	})
 })

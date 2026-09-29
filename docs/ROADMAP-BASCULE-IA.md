@@ -155,7 +155,7 @@ Le Temps 2 ne commence qu'une fois le § 2 bis clos, sur go explicite. `0.7.x`.
 | # | Feature | « À la fin, le joueur peut… » | Itér. | Statut | Comité | Dépend de |
 |---|---|---|---|---|---|---|
 | 9 | `moteur-dossier` | …jouer une session pilotée par un dossier, sans IA | 4 | **4/4 ✅** — it4 livrée (`0.7.5`) | 5 rôles | B1 |
-| 10 | `moteur-interprete` | …écrire ce qu'il veut faire en langage libre | 4 | **1/4** | 5 rôles | 9 |
+| 10 | `moteur-interprete` | …écrire ce qu'il veut faire en langage libre | 4 | **2/4** | 5 rôles | 9 |
 | 11 | `moteur-arbitre` | …voir le code lancer le dé que l'IA a demandé | 3 | — | 5 rôles | 10 · **B2** |
 | 12 | `moteur-acteurs` | …parler à un PNJ qui ne révèle que ce qu'il sait | 4 | — | 5 rôles | 11 |
 | 13 | `moteur-combat` | …lire un combat raconté que l'IA n'arbitre pas | 2 | — | 5 rôles | 11 |

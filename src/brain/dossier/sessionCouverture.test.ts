@@ -43,7 +43,7 @@ import { DESTINATION_DES_CHAMPS_DE_SESSION } from './sessionDestinations'
 const DISPENSES_DE_FEUILLE: Readonly<Record<string, string>> = {
 	horloge: 'clé racine porteuse — son unique feuille est `horloge.tour`',
 	monde: 'clé racine porteuse — ses sept feuilles sont déclarées une à une',
-	journal: 'clé racine porteuse — ses sept feuilles sont déclarées une à une',
+	journal: 'clé racine porteuse — ses huit feuilles sont déclarées une à une (`recit` depuis la n° 10 it2)',
 	attente: 'clé racine porteuse — ses trois feuilles (`type`, `question`, `saisie`) sont déclarées une à une',
 }
 
@@ -147,6 +147,10 @@ describe('DESTINATION_DES_CHAMPS_DE_SESSION, exhaustivite', () => {
 		expect(normalises).toContain('journal[].deltas[].delta')
 		expect(normalises).toContain('journal[].deltas[].cibles[]')
 		expect(normalises).toContain('journal[].deltas[].effet')
+
+		// ET LE RÉCIT DU PAS (n° 10 it2) EST BIEN INSTANCIÉ : sans lui, sa ligne de table
+		// serait tenue par la seule « aucune ligne morte », et rien ne nommerait le chemin.
+		expect(normalises).toContain('journal[].recit')
 	})
 })
 
@@ -229,6 +233,19 @@ describe('DESTINATION_DES_CHAMPS_DE_SESSION, la valeur des lignes', () => {
 			.sort()
 
 		expect(lignesIa).toEqual(['attente.question', 'attente.saisie'])
+	})
+
+	it('journal[].recit est moteur en it2 — une prose de modele qu AUCUN modele ne relit', () => {
+		// ASSERTION DE VALEUR, PAS D'EXISTENCE (KR-174), sur la SEULE prose de la session.
+		// `'moteur'` ET PAS `'ia'` (plan d'itération it2, § 8 désaccord 13) : le narrateur
+		// est SANS ÉTAT, aucun assembleur ne relit un récit passé, et une ligne `'ia'`
+		// serait une autorisation DORMANTE. La bascule est une politique de rétention —
+		// l'it3, avec son lecteur, la corrigera EN VALEUR ici même.
+		expect(DESTINATION_DES_CHAMPS_DE_SESSION['journal[].recit']).toBe('moteur')
+		// Discriminant : la ligne voisine de même famille (`journal[].texte`), elle aussi
+		// `'moteur'`, n'est pas ce qui rend cette assertion vraie — c'est la ligne propre
+		// au récit, qui existe DANS la table.
+		expect(Object.keys(DESTINATION_DES_CHAMPS_DE_SESSION)).toContain('journal[].recit')
 	})
 })
 

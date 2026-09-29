@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react'
-import type { Dossier, EtatSession, SortieInterprete } from '../../../brain'
+import type { Dossier, EtatSession, SortieInterprete, SortieNarrateur, ReponseNarrateur } from '../../../brain'
 import { apresInterpretation } from '../../../brain'
 import { COMMANDES } from '../../../brain/dossier/commandes'
 import { useTourDeJeu } from './useTourDeJeu'
@@ -9,8 +9,9 @@ import { useTourDeJeu } from './useTourDeJeu'
  *
  * MÊME PATTERN QUE `useDemandeCopilote.test.tsx` : `renderHook` (pas de BrainProvider),
  * mock `CopiloteService.demander` RETENU À LA MAIN pour contrôler le timing des promesses,
- * assertions sur le state du hook (pas sur le `disabled` d'un bouton). Les cinq tests
- * couvrent KR-265 (verrou), KR-248 (journal), succès/erreur, et `getGestelabel`.
+ * assertions sur le state du hook (pas sur le `disabled` d'un bouton). Les tests
+ * couvrent KR-265 (verrou), KR-248 (journal), succès/erreur, `getGestelabel`, et
+ * l'orchestration de R3 (narrateur) après R1 (interprete).
  *
  * Le hook importe `COMMANDES` (seul fichier `play-mode` autorisé par KR-260). Ce test
  * l'importe aussi pour vérifier que `getGestelabel` retourne les vraies valeurs.
@@ -46,11 +47,15 @@ const DOSSIER_TEST: Dossier = {
 	createdAt: '2026-09-25T00:00:00.000Z',
 	updatedAt: '2026-09-25T00:00:00.000Z',
 	canon: {
+		mj: {
+			synopsis_mj: 'Tester l orchestration du tour',
+		},
+		partage: {
+			accroche_joueur: 'Bienvenue',
+		},
 		ton: 'Ton de test',
-		accroche_joueur: 'Bienvenue',
-		objectif_auteur: 'Tester',
-		objectif_joueur: 'Survivre',
 		interdits_ton: [],
+		objectifs: [],
 	},
 	monde: {
 		personnages: [],
@@ -59,26 +64,29 @@ const DOSSIER_TEST: Dossier = {
 				id: 'lieu_1',
 				nom: 'Départ',
 				description: 'Le lieu de départ',
-				acces: [{ geste: 'aller', cible: 'lieu_2', description_acces: 'au nord' }],
+				acces: ['lieu_2'],
 			},
 			{
 				id: 'lieu_2',
 				nom: 'Arrivée',
 				description: 'Le lieu d arrivée',
-				acces: [{ geste: 'aller', cible: 'lieu_1', description_acces: 'au sud' }],
+				acces: ['lieu_1'],
 			},
 		],
 		objets: [],
 		indices: [],
 		quetes: [],
 		evenements: [],
+		conditions: {
+			climat: [],
+		},
 	},
 	charpente: {
 		depart: { lieu_id: 'lieu_1', texte_ouverture_joueur: 'Vous êtes au départ' },
 		jalons: [],
 		fins: [],
 	},
-} as unknown as Dossier
+}
 
 // ── MOCK BRAIN ──
 
@@ -266,5 +274,244 @@ describe('useTourDeJeu — hook orchestrateur', () => {
 		// Vérifier que c'est celui de COMMANDES
 		expect(labelAller).toBe(COMMANDES.aller.label)
 		expect(labelAller).toBeTruthy() // Ne doit pas être vide
+	})
+
+	describe('Orchestration R3 (narrateur) — lot 2 it2', () => {
+		beforeEach(() => {
+			jest.resetAllMocks()
+		})
+
+		it('Lot 2 — R3 appelé après persistance (2ᵉ appel demander après onSessionChange)', async () => {
+			// La tranche du test : R1 retourne une commande acceptée,
+			// R3 retourne un récit valide.
+			const propositionR1 = {
+				lecture: 'commande' as const,
+				commande: { commande: 'aller' as const, cibles: ['lieu_2'] },
+			}
+			const narrateurReponse: ReponseNarrateur = {
+				statut: 'propose' as const,
+				proposition: {
+					recit: 'Vous avancez dans la forêt.',
+					suggestions: ['Fouiller', 'Continuer'],
+				} as SortieNarrateur,
+			}
+
+			// Mock : les deux appels - d'abord R1, puis R3
+			const resolveurs: Array<
+				(reponse: ReponseNarrateur | { statut: 'propose'; proposition: SortieInterprete }) => void
+			> = []
+			demanderMock.mockImplementation(
+				() =>
+					new Promise((resolve) => {
+						resolveurs.push(resolve)
+					}),
+			)
+
+			const onSessionChange = jest.fn()
+			const { result } = monter(SESSION_TEST, onSessionChange)
+
+			// ÉTAPE 1 : Appeler executeAction SANS l'attendre (lance la chaîne R1→R3)
+			act(() => {
+				result.current.executeAction('aller au nord')
+			})
+
+			// À ce stade, R1 est en vol
+			expect(demanderMock).toHaveBeenCalledTimes(1)
+			expect(onSessionChange).not.toHaveBeenCalled()
+
+			// ÉTAPE 2 : Résoudre R1 — accepté (déclenche l'exécution + persistance + R3)
+			await act(async () => {
+				resolveurs[0]({ statut: 'propose', proposition: propositionR1 })
+			})
+
+			// Vérification : onSessionChange a été appelé (S1 persistée)
+			const sessionApresR1 = onSessionChange.mock.calls[0][0] as EtatSession
+			expect(onSessionChange).toHaveBeenCalledTimes(1)
+
+			// À ce stade, R3 doit être en vol (appel #2)
+			expect(demanderMock).toHaveBeenCalledTimes(2)
+
+			// Vérifier l'ORDRE : onSessionChange AVANT le 2e appel demander (persistance avant R3)
+			const orderOnSessionChange = onSessionChange.mock.invocationCallOrder[0]
+			const orderDemandR3 = demanderMock.mock.invocationCallOrder[1]
+			expect(orderOnSessionChange).toBeLessThan(orderDemandR3)
+
+			// Le 2ᵉ appel (R3) doit recevoir la session après R1 (S1) — par référence (KR-013)
+			const cibleR3 = demanderMock.mock.calls[1][1]
+			expect(cibleR3.role).toBe('narrateur')
+			expect(cibleR3.saisie).toBe('aller au nord')
+			expect(cibleR3.session).toBe(sessionApresR1) // Référence exacte, pas structure
+
+			// ÉTAPE 3 : Résoudre R3 — succès (écrit le récit sur la session)
+			await act(async () => {
+				resolveurs[1](narrateurReponse)
+			})
+
+			// Vérification finale : onSessionChange appelé une 2ᵉ fois avec le récit écrit
+			expect(onSessionChange).toHaveBeenCalledTimes(2)
+			const sessionAvecRecit = onSessionChange.mock.calls[1][0] as EtatSession
+			const entreeRecente = sessionAvecRecit.journal[sessionAvecRecit.journal.length - 1]
+			expect(entreeRecente?.recit).toBe('Vous avancez dans la forêt.')
+
+			// Vérifier issueNarrateur après succès R3 — tour = session avec récit
+			expect(result.current.issueNarrateur).toEqual({
+				tour: sessionAvecRecit.horloge.tour,
+				statut: 'raconte',
+				suggestions: ['Fouiller', 'Continuer'],
+			})
+		})
+
+		it('Lot 2 — R3 appelé seulement si avis.type === aucun (3 cas)', async () => {
+			// Trois cas : valide (appel R3 = 2 appels), clarification (pas R3 = 1 appel), non_reconnu (pas R3 = 1 appel)
+			const tests = [
+				{
+					nom: 'valide (aucun) → R3 appelé',
+					r1Response: {
+						statut: 'propose' as const,
+						proposition: { lecture: 'commande' as const, commande: { commande: 'aller' as const, cibles: ['lieu_2'] } },
+					},
+					r3Response: { statut: 'propose' as const, proposition: { recit: 'Vous bougez.', suggestions: [] } },
+					attenduAppels: 2,
+				},
+				{
+					nom: 'clarification → R3 pas appelé',
+					r1Response: {
+						statut: 'propose' as const,
+						proposition: { lecture: 'clarification' as const, question: 'Vers quel lieu ?' },
+					},
+					r3Response: undefined,
+					attenduAppels: 1,
+				},
+				{
+					nom: 'sans_commande → R3 pas appelé',
+					r1Response: {
+						statut: 'propose' as const,
+						proposition: { lecture: 'sans_commande' as const, gestes_possibles: ['aller'] },
+					},
+					r3Response: undefined,
+					attenduAppels: 1,
+				},
+			]
+
+			for (const test of tests) {
+				jest.resetAllMocks()
+				demanderMock.mockResolvedValueOnce(test.r1Response)
+				if (test.r3Response) {
+					demanderMock.mockResolvedValueOnce(test.r3Response)
+				}
+
+				const { result } = monter(SESSION_TEST)
+
+				await act(async () => {
+					await result.current.executeAction('test action')
+				})
+
+				// Compter les appels à demander
+				const nbAppels = demanderMock.mock.calls.length
+				expect(nbAppels).toBe(test.attenduAppels)
+			}
+		})
+
+		it('Lot 2 — R3 indisponible (refus de contexte ou indisponibilité)', async () => {
+			// R3 rend {statut:'indisponible', ...} — pas accepté
+			const propositionR1 = {
+				lecture: 'commande' as const,
+				commande: { commande: 'aller' as const, cibles: ['lieu_2'] },
+			}
+			demanderMock
+				.mockResolvedValueOnce({ statut: 'propose', proposition: propositionR1 })
+				.mockResolvedValueOnce({ statut: 'indisponible', raison: 'non-configure' })
+
+			const onSessionChange = jest.fn()
+			const { result } = monter(SESSION_TEST, onSessionChange)
+
+			await act(async () => {
+				await result.current.executeAction('aller au nord')
+			})
+
+			// onSessionChange appelé UNE SEULE fois (persistance R1, pas de 2e appel pour R3)
+			expect(onSessionChange).toHaveBeenCalledTimes(1)
+
+			// issueNarrateur défini avec statut 'degrade', tour = session après R1
+			const sessionApresR1 = onSessionChange.mock.calls[0][0] as EtatSession
+			expect(result.current.issueNarrateur).toEqual({
+				tour: sessionApresR1.horloge.tour,
+				statut: 'degrade',
+			})
+		})
+
+		it('Lot 2 — R3 refuse (trop-long, cible-a-ecrire)', async () => {
+			// R3 rend {statut:'refuse', ...} — pas accepté, refus avant fetch
+			const propositionR1 = {
+				lecture: 'commande' as const,
+				commande: { commande: 'aller' as const, cibles: ['lieu_2'] },
+			}
+			demanderMock
+				.mockResolvedValueOnce({ statut: 'propose', proposition: propositionR1 })
+				.mockResolvedValueOnce({ statut: 'refuse', motif: 'trop-long' })
+
+			const onSessionChange = jest.fn()
+			const { result } = monter(SESSION_TEST, onSessionChange)
+
+			await act(async () => {
+				await result.current.executeAction('aller au nord')
+			})
+
+			// onSessionChange appelé UNE SEULE fois
+			expect(onSessionChange).toHaveBeenCalledTimes(1)
+
+			// issueNarrateur défini avec statut 'degrade', tour = session après R1
+			const sessionApresR1 = onSessionChange.mock.calls[0][0] as EtatSession
+			expect(result.current.issueNarrateur?.tour).toBe(sessionApresR1.horloge.tour)
+			expect(result.current.issueNarrateur?.statut).toBe('degrade')
+		})
+
+		it('Lot 2 — executeAction retourne true si pas consommé, false sinon', async () => {
+			// Cas 1 : commande acceptée → R1 résultat ok → true
+			demanderMock.mockResolvedValueOnce({
+				statut: 'propose',
+				proposition: { lecture: 'commande' as const, commande: { commande: 'aller' as const, cibles: ['lieu_2'] } },
+			})
+			// R3 respon se pour le cas accepté
+			demanderMock.mockResolvedValueOnce({
+				statut: 'propose',
+				proposition: { recit: 'Vous bougez.', suggestions: [] },
+			})
+
+			let { result } = monter()
+			let ret1: boolean | undefined
+			await act(async () => {
+				ret1 = await result.current.executeAction('aller au nord')
+			})
+			expect(ret1).toBe(true)
+
+			// Cas 2 : sans_commande → R1 pas accepté → false
+			jest.resetAllMocks()
+			demanderMock.mockResolvedValueOnce({
+				statut: 'propose',
+				proposition: { lecture: 'sans_commande' as const, gestes_possibles: [] },
+			})
+
+			result = monter().result
+			let ret2: boolean | undefined
+			await act(async () => {
+				ret2 = await result.current.executeAction('action inconnue')
+			})
+			expect(ret2).toBe(false)
+
+			// Cas 3 : échec copilote (EchecCopilote) → false
+			jest.resetAllMocks()
+			demanderMock.mockResolvedValueOnce({
+				statut: 'indisponible' as const,
+				raison: 'non-configure' as const,
+			})
+
+			result = monter().result
+			let ret3: boolean | undefined
+			await act(async () => {
+				ret3 = await result.current.executeAction('test')
+			})
+			expect(ret3).toBe(false)
+		})
 	})
 })

@@ -39,3 +39,10 @@ export { assemblerDistribution } from './distribution'
 // exclusivement `Record<RoleCopilote, …>`-adjacents.
 export { assemblerInterprete, SAISIE_CARACTERES_MAX } from './interprete'
 export type { ContexteInterprete } from './interprete'
+// LE HUITIÈME ASSEMBLEUR (n° 10 it2, `narrateur`) — HORS DE LA COUTURE COMMUNE lui
+// aussi, pour la même raison que le septième. `BUDGET_CARACTERES_NARRATEUR` sort d'ICI
+// pour `worker/frontiere.test.ts` SEULEMENT (le plafond HTTP doit couvrir ce rôle) —
+// jamais par `brain/index.ts`. `CHAMPS_INJECTES_NARRATEUR` NE SORT PAS de ce baril : son
+// seul lecteur hors du module est le test de confinement, qui l'importe en profondeur.
+export { assemblerNarrateur, BUDGET_CARACTERES_NARRATEUR } from './narrateur'
+export type { ContexteNarrateur } from './narrateur'

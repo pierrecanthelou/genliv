@@ -81,6 +81,35 @@ export interface EntreeJournal {
 	 * d'admission elle-même (KR-249).
 	 */
 	readonly deltas?: readonly DeltaJournalise[]
+	/**
+	 * LE RÉCIT DU PAS — la prose que le narrateur (n° 10 `moteur-interprete`, it2) a
+	 * rendue pour la commande de CE pas, validée, posée APRÈS que l'état a été écrit
+	 * et persisté. Registre JOUEUR, affiché tel quel : ce n'est PAS une troisième
+	 * prose d'AUTEUR émise verbatim, c'est une sortie de modèle déjà passée par son
+	 * validateur.
+	 *
+	 * OPTIONNEL À VIE (KR-160/191/251), et JAMAIS `string | null` : une entrée écrite
+	 * avant ce lot ne le porte pas, et un récit indisponible n'en pose AUCUN —
+	 * `undefined` est un état LÉGAL, jamais un trou à combler par un texte neutre
+	 * écrit comme de la fiction.
+	 *
+	 * PORTÉ PAR L'ENTRÉE QUI PORTE `origine` pour ce pas — au plus UN récit par pas,
+	 * jamais une entrée neuve (`RoleJournal` reste clos, et une ligne sans `texte`
+	 * propre n'a pas de sens). Invariant :
+	 * `journal.every(e => e.recit === undefined || e.origine !== undefined)`.
+	 *
+	 * ÉCRIT par `consignerRecit` (`recit.ts`), SEULE porte ; LU par l'écran de partie
+	 * (lot `feature` de la même itération), qui l'affiche DÉRIVÉ du journal et jamais
+	 * d'un état miroir — les deux chemins existent dans CETTE itération (KR-249).
+	 *
+	 * AUDIENCE `'moteur'` en it2 (`sessionDestinations.ts`) : il n'entre dans AUCUN
+	 * contexte de modèle, le narrateur étant sans état. La bascule vers `'ia'` est une
+	 * politique de rétention, propriétaire it3 (la mémoire).
+	 *
+	 * HORS DU REJEU (KR-248) : une sortie de modèle n'est jamais une entrée du moteur,
+	 * et rejouer les commandes d'une partie ne le reproduit pas.
+	 */
+	readonly recit?: string
 }
 
 /**

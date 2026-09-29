@@ -67,6 +67,7 @@ type CheminDeFeuilleDeSession =
 	| 'journal[].role'
 	| 'journal[].texte'
 	| 'journal[].origine'
+	| 'journal[].recit'
 	| 'journal[].deltas[].delta'
 	| 'journal[].deltas[].cibles[]'
 	| 'journal[].deltas[].effet'
@@ -183,6 +184,24 @@ export const DESTINATION_DES_CHAMPS_DE_SESSION: Readonly<
 	 * instance, cette ligne serait morte le jour même où elle est écrite.
 	 */
 	'journal[].origine': 'moteur',
+	/**
+	 * LE RÉCIT DU PAS (n° 10 `moteur-interprete`, it2) — la PROSE que la n° 9 annonçait
+	 * sous « son propre chemin, avec sa propre ligne » (voir `journal[].texte`
+	 * ci-dessus) : la voici, et elle est `'moteur'`, PAS `'ia'`.
+	 *
+	 * `'moteur'` EN IT2, ET C'EST UNE DÉCISION DATÉE, PAS UN OUBLI : le narrateur est
+	 * SANS ÉTAT — aucun récit passé n'est réinjecté —, donc aucun assembleur ne lit ce
+	 * champ, et une ligne `'ia'` serait une autorisation DORMANTE qu'un assembleur
+	 * futur prendrait pour une permission. La bascule vers `'ia'` est une POLITIQUE DE
+	 * RÉTENTION (quels récits, combien, résumés comment) : elle appartient à l'it3, la
+	 * mémoire, qui la corrigera EN VALEUR avec son lecteur. Ce que « `'moteur'` » veut
+	 * dire ici : le code l'écrit et l'écran le rend tel quel, aucun modèle ne le relit.
+	 *
+	 * Optionnel À VIE (KR-251) — une entrée sans récit est LÉGALE. Instancié dans
+	 * `__fixtures__/session-saturee.ts`, sur l'entrée qui porte `origine` : sans
+	 * instance, cette ligne serait morte le jour même où elle est écrite.
+	 */
+	'journal[].recit': 'moteur',
 
 	// ── Les effets de règle portés par une entrée (itération 3) ────────────────
 	// TROIS FEUILLES, TOUTES `'moteur'`, et aucune n'est un candidat à la bascule :

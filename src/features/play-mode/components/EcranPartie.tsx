@@ -50,6 +50,7 @@ import { JournalRow } from './JournalRow'
 
 const ENTETE_OUVERTURE = 'OUVERTURE — lue au joueur, mot pour mot'
 const LIBELLE_JOURNAL = 'Journal'
+const TEXTE_REFUS_CONSOLE_EN_COURS = "Une action est déjà en cours — attendez la fin avant d'en tenter une nouvelle."
 
 /**
  * Au FUTUR, et c'est voulu : vrai en it1 où l'auteur ne peut encore rien faire,
@@ -125,15 +126,13 @@ function PartieDemarree({ dossier, dossierId }: { dossier: Dossier; dossierId: s
  * soit (KR-013/113) — l'état avance UNIQUEMENT par les deux submiteurs (console
  * ou champ libre), en réponse directe à une soumission de l'utilisateur.
  *
- * DEUX CANAUX INDÉPENDANTS (it1), TOUS DEUX ACTIFS SIMULTANÉMENT — AUCUNE EXCLUSION
- * MUTUELLE À CE STADE (démotion visuelle de la console, hors critère de cette itération,
- * reportée en it2) :
+ * DEUX CANAUX INDÉPENDANTS (it1), AVEC EXCLUSION MUTUELLE DEPUIS LOT 2 (it2) — console
+ * refusée par un verrou étendu R1→exécution→R3 (KR-265) :
  *  · `ConsoleCommandes` — analyse syntaxique stricte (verbe + direction), écrit
- *    directement `session` du parent via `handleSoumettreConsole`.
+ *    directement `session` du parent via `handleSoumettreConsole` ; refusée si verrou actif.
  *  · `PlayerInputBar` (neuf en it1) — saisie libre, via `useTourDeJeu`, qui lit CE
  *    `session` À CHAQUE RENDU (jamais une copie) : c'est ce qui rend les deux
- *    canaux cohérents l'un avec l'autre — une commande acceptée par la console
- *    est vue par le tour suivant du champ libre, et réciproquement (KR-013).
+ *    canaux cohérents l'un avec l'autre quand les deux sont actifs (KR-013).
  *
  * `useSessionPersistee` reçoit la session courante à chaque mutation — aucune
  * déflexion entre console/champ libre, même persistance.
@@ -151,18 +150,42 @@ function PartieEnCours({
 	const [refus, setRefus] = useState<string | null>(null)
 	useSessionPersistee(dossierId, session)
 
-	// HOOK `useTourDeJeu` — orchestrateur du champ de saisie libre (it1).
-	const { executeAction, getGestelabel, avis, isLocked } = useTourDeJeu(dossier, session, (nouvelleSession) => {
-		setSession(nouvelleSession)
-	})
+	// HOOK `useTourDeJeu` — orchestrateur du champ de saisie libre (it1), avec R3 (lot 2).
+	const { executeAction, getGestelabel, avis, isLocked, issueNarrateur, pasEnCours } = useTourDeJeu(
+		dossier,
+		session,
+		(nouvelleSession) => {
+			setSession(nouvelleSession)
+		},
+	)
+
+	// LOT 2 — Le refus de VERROU s'efface au déverrouillage, calculé EN LIGNE (KR-013/113,
+	// jamais un useEffect qui mirerait `isLocked` dans un second `setState` — un effet ainsi
+	// posé efface INDISCRIMINÉMENT tout refus, y compris une erreur de syntaxe ou une
+	// destination inconnue posée pendant que le verrou est déjà relâché, BUG-133). Les
+	// refus de syntaxe/destination, posés par `handleSoumettreConsole` hors verrou, restent
+	// affichés jusqu'à la prochaine soumission — seul CE texte précis est un artefact du
+	// verrou et n'a plus de sens une fois celui-ci relâché.
+	const refusAffiche = refus === TEXTE_REFUS_CONSOLE_EN_COURS && !isLocked ? null : refus
 
 	/**
-	 * LE CÂBLAGE DU CANAL CONSOLE, inchangé depuis it0 : les deux fonctions pures
+	 * LE CÂBLAGE DU CANAL CONSOLE (lot 2 : verrou étendu) : les deux fonctions pures
 	 * que `brain/dossier/commandes.ts` possède (§ 5 du plan) :
 	 * la console ne valide rien, elle soumet la chaîne BRUTE. `analyserSaisie` puis
 	 * `executerCommande` sont les deux SEULS décideurs (T-14, KR-013).
+	 *
+	 * LOT 2 : REFUS PENDANT LE VERROU R1→exécution→R3. Un pas en cours (R1 ou R3 en vol)
+	 * refuse la console de façon visible (via `refus`) — jamais une perte silencieuse
+	 * (KR-265).
 	 */
 	function handleSoumettreConsole(saisie: string): void {
+		// Verrou étendu (lot 2, KR-265) — refuser les soumissions console pendant que
+		// la chaîne R1→exécution→R3 est en vol
+		if (pasEnCours()) {
+			setRefus(TEXTE_REFUS_CONSOLE_EN_COURS)
+			return
+		}
+
 		const analyse = analyserSaisie(saisie)
 		if (!analyse.ok) {
 			setRefus(analyse.message)
@@ -210,12 +233,12 @@ function PartieEnCours({
 						</ul>
 					)}
 				</section>
-				{/* DEUX CANAUX : console ET champ libre (it1). Pour l'instant, affichés
-				    ensemble ; la démotion de la console arrive en it2 (§ 2 du plan). */}
+				{/* DEUX CANAUX : console ET champ libre (it1), tous deux affichés (it2).
+				    Console refusée pendant le pas (verrou R1→exécution→R3, KR-265). */}
 				<ConsoleCommandes
 					key={session.horloge.tour}
 					onSoumettre={handleSoumettreConsole}
-					refus={refus}
+					refus={refusAffiche}
 					destinations={destinationsPossibles(dossier, session)}
 				/>
 				<PlayerInputBar
@@ -223,6 +246,7 @@ function PartieEnCours({
 					getGestelabel={getGestelabel}
 					avis={avis}
 					isLocked={isLocked}
+					issueNarrateur={issueNarrateur}
 					session={session}
 				/>
 			</div>

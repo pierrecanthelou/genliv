@@ -12,6 +12,14 @@
 // jamais son registre (`COMMANDES`, `executerCommande`), qui vit dans
 // `interprete.ts` et `schemaSortie.ts`.
 import type { Commande, CommandeId } from '../dossier/commandes'
+import type { EtatSession } from '../dossier/session'
+// CYCLE DE TYPE SEUL, ET IL DOIT LE RESTER — `../CopiloteService` type-importe ce
+// module, et celui-ci type-importe `EchecCopilote` de lui pour composer
+// `ReponseNarrateur`. `import type` est EFFACÉ à l'émission : AUCUN cycle au
+// runtime. Précédent au dépôt : `contexte/distribution.ts` importe
+// `CibleDistribution` du service de la même façon. Ne jamais transformer cette
+// ligne en import de VALEUR.
+import type { EchecCopilote } from '../CopiloteService'
 
 /** SIX rôles. Le nom se lit ⟨entité CIBLE⟩-⟨ce qu'on demande⟩ — « la prose d'un
  *  personnage », « les détenteurs d'un indice », « les répliques d'un personnage »,
@@ -395,18 +403,23 @@ export type InterpretationRendue =
  * `resoudreInterpretation` après re-résolution complète — jamais la forme
  * brute reçue du réseau.
  *
- * `lecture: 'commande'` — traduite en déplacement reconnu, prête pour
- * `executerCommande` (même entonnoir que la console, KR-013).
+ * `lecture: 'commande'` — traduite en commande reconnue — un déplacement
+ * (`aller`), ou depuis l'it2 une action sur place (`agir`, arité 0, `cibles`
+ * VIDE) —, prête pour `executerCommande` (même entonnoir que la console, KR-013).
  *
  * `lecture: 'clarification'` — R1 ne peut pas trancher seul ; `question` est
  * la prose VERBATIM qu'elle a rédigée (audience `'ia'` côté session dès
  * qu'elle repart au tour suivant, jamais recopiée à l'écran comme une fiche).
  *
- * `lecture: 'sans_commande'` — hors `COMMANDES`, ou court-circuit sans geste
- * satisfiable. `gestes_possibles` NOMME CE QUI ÉTAIT RÉELLEMENT ATTEIGNABLE au
- * tour courant (les clés dont `tables.gestes` portait une entrée) — jamais le
- * registre complet : un geste dont aucune cible n'existait n'est jamais
- * annoncé comme possible (précédent `GABARIT_NON_RECONNU`, `play-mode`, it2).
+ * `lecture: 'sans_commande'` — hors `COMMANDES`. `gestes_possibles` NOMME CE
+ * QUI ÉTAIT RÉELLEMENT ATTEIGNABLE au tour courant (les clés dont
+ * `tables.gestes` portait une entrée) — jamais le registre complet : un geste
+ * dont aucune cible n'existait n'est jamais annoncé comme possible (précédent
+ * `GABARIT_NON_RECONNU`, `play-mode`, it2).
+ * ⚠ LE COURT-CIRCUIT « AUCUN GESTE SATISFIABLE ⇒ `sans_commande` SANS APPEL » DE
+ * L'IT1 EST MORT À L'IT2, ET RETIRÉ DU SERVICE : `agir` est d'arité 0, donc
+ * TOUJOURS satisfiable (`[].every(…)` vaut `true`), et `tables.gestes` n'est plus
+ * jamais vide. `gestes_possibles` n'est donc plus jamais vide non plus.
  */
 export type SortieInterprete =
 	| { readonly lecture: 'commande'; readonly commande: Commande }
@@ -440,7 +453,11 @@ export interface TablesInterprete {
  * (`brain/dossier/interprete.ts`), seule décideuse. Union FERMÉE : une carte
  * qui la rétrécit totalement n'a aucun bras muet.
  *
- * `{type:'aucun'}` — commande acceptée, rien à afficher (it1 : pas de prose).
+ * `{type:'aucun'}` — commande acceptée, et C'EST LE SEUL MEMBRE QUI OUVRE LE
+ * NARRATEUR (it2) : l'orchestrateur n'appelle le rôle `narrateur` que sur lui,
+ * APRÈS avoir persisté la session. Le nom n'est pas changé (« aucun AVIS »,
+ * pas « aucun récit ») : le récit ne passe JAMAIS par cette union, il est posé
+ * sur le journal par `consignerRecit` et relu de là.
  * `{type:'non_reconnu'; gestes_possibles}` — voir `SortieInterprete.sans_commande`
  * ci-dessus, même charge, même règle de dérivation.
  * `{type:'clarification'; question}` — `PRÉCISEZ` ⇔ cette union vaut ce membre
@@ -461,3 +478,90 @@ export type AvisInterprete =
 	| { readonly type: 'clarification'; readonly question: string }
 	| { readonly type: 'reformuler' }
 	| { readonly type: 'refus_moteur' }
+
+// ══ LE HUITIÈME RÔLE — `narrateur` (n° 10 `moteur-interprete`, it2) ══════════
+//
+// ⚠ SES QUATRE TYPES VIVENT ICI, Y COMPRIS SA CIBLE ET SA RÉPONSE, ALORS QUE LES
+// SEPT COUPLES `Cible*`/`Reponse*` PRÉCÉDENTS VIVENT DANS `../CopiloteService.ts`.
+// C'est le fichier que le plan d'itération (§ 5, lot 1) leur assigne, et ce n'est
+// pas une convention concurrente : le consommateur (`useTourDeJeu`) les lit par le
+// baril `brain/index.ts`, qui ne distingue pas les deux domiciles. Le prix, nommé :
+// un cycle de TYPE SEUL avec le service (voir l'import de tête).
+//
+// COMME `interprete`, CE RÔLE N'EST PAS DANS `RoleCopilote` : ni fiche d'entité ni
+// prose de rédaction, il n'a rien à faire dans les trois `Record<RoleCopilote, …>`
+// de `contexte/registres.ts` — son contexte a SA borne (`BUDGET_CARACTERES_NARRATEUR`,
+// `contexte/narrateur.ts`), hors de la parité auteur de `worker/frontiere.test.ts`.
+
+/**
+ * LA CIBLE DU HUITIÈME RÔLE — la saisie du joueur et la session D'APRÈS
+ * l'exécution, DÉJÀ PERSISTÉE (S1). Même charge que `CibleInterprete`, et c'est
+ * l'étiquette seule qui les sépare au dispatch.
+ *
+ * `session`, et JAMAIS une projection d'`EtatMonde` ni des deltas passés à côté :
+ * ce que le pas a changé se DÉRIVE de `session.journal` (entrées dont `tour` vaut
+ * `horloge.tour`), dans l'assembleur — une seconde source de ce que le journal dit
+ * déjà divergerait sur un pas à jalons (KR-013, § 8 désaccord 6 du plan).
+ *
+ * AUCUNE MÉMOIRE : ni `memoire`, ni récit passé, ni `attente` n'entrent dans le
+ * contexte de ce rôle. La session porte TOUT l'historique, et l'assembleur n'en
+ * lit QUE le pas courant et l'état du monde — c'est ce qui rend « même monde au pas
+ * 2 et au pas 40 ⇒ même contexte » vrai (R3 sans état, it2).
+ */
+export interface CibleNarrateur {
+	role: 'narrateur'
+	/** La saisie du joueur — ne franchit le réseau qu'en DERNIÈRE position du
+	 *  contexte, normalisée, exactement comme pour l'interprète (KR-231). */
+	saisie: string
+	session: EtatSession
+}
+
+/**
+ * CE QUE LE MODÈLE REND — franchit le réseau. DEUX clés : une prose scalaire et une
+ * liste de prose (0 à `TENTATIVES_MAX`, `schemaSortie.ts`). Aucun rang, aucun
+ * identifiant — rien, dans ce rôle, ne désigne rien.
+ *
+ * `narration`, et JAMAIS `recit` : `recit` est le NOM DU CHAMP de destination
+ * (`EntreeJournal.recit`), et une clé réseau homonyme du champ est exactement la
+ * confusion que KR-231 ferme. `tentatives`, et JAMAIS `relances` (un « crochet
+ * d'intrigue » en jargon de MJ : le mot inviterait le modèle à écrire du lore) ni
+ * `suggestions` (nom de la forme résolue).
+ *
+ * ZÉRO CLÉ COMMUNE avec `SortieNarrateur`, avec `InterpretationRendue`/`SortieInterprete`
+ * et avec la clé du rôle plan (`intention`) — épinglé par `schemaSortie.test.ts`.
+ *
+ * SON CONSOMMATEUR est la branche de succès de `validerNarrateur` (`schemaSortie.ts`) :
+ * une forme réseau que rien ne consomme est une déclaration sans appelant (KR-109).
+ * NON ré-exportée par `brain/index.ts` — précédent des sept formes réseau.
+ */
+export interface NarrationRendue {
+	narration: string
+	tentatives: readonly string[]
+}
+
+/**
+ * CE QUE LE CODE RE-RÉSOUT — ne franchit JAMAIS le réseau. LE SEUL TYPE DE CE RÔLE QUE
+ * LA FEATURE VOIT. Le renommage est la re-résolution : `narration` → `recit`,
+ * `tentatives` → `suggestions` — rien d'autre n'est à résoudre, puisque rien ne désigne
+ * rien. Même précédent que `intention` → `action` et `nature` → `lien` : la clé réseau
+ * ENSEIGNE au modèle, la clé résolue NOMME la destination. Ne pas « harmoniser ».
+ *
+ * `recit` est destiné à `EntreeJournal.recit` (par `consignerRecit`, jamais
+ * directement) ; `suggestions` n'est JAMAIS persisté — c'est une donnée d'écran du pas
+ * courant, qui ne survit pas au pas suivant.
+ *
+ * ⚠ AUCUN `faits_etablis`/`etablis`, NI REQUIS NI OPTIONNEL (KR-268) : un champ de sortie
+ * de modèle n'entre au schéma que si un lecteur réel existe DANS LA MÊME itération, et
+ * la mémoire qui lira des faits établis est l'it3. Ne pas l'ajouter « pour la stabilité
+ * de `tsc` » : l'argument a été MESURÉ et réfuté au raffinage (§ 8 désaccord 2).
+ */
+export interface SortieNarrateur {
+	readonly recit: string
+	readonly suggestions: readonly string[]
+}
+
+/** LA HUITIÈME UNION NOMMÉE — même doctrine que les sept précédentes : aucun appelant ne
+ *  peut lire une proposition sur un échec, c'est le TYPAGE qui l'interdit. Sur un échec,
+ *  le pas déjà joué reste ACQUIS et aucun récit n'est posé : c'est à l'orchestrateur de
+ *  ne pas appeler `consignerRecit`, et il n'a rien à lui passer. */
+export type ReponseNarrateur = { statut: 'propose'; proposition: SortieNarrateur } | EchecCopilote

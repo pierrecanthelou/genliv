@@ -67,13 +67,14 @@ const sessionVierge: EtatSession = {
 
 describe('PlayerInputBar — composant de saisie libre', () => {
 	it('rend un formulaire avec un Field et un bouton TENTER', () => {
-		const noop = async () => {}
+		const noop = async () => false
 		render(
 			<PlayerInputBar
 				executeAction={noop}
 				getGestelabel={() => ''}
 				avis={null}
 				isLocked={false}
+				issueNarrateur={null}
 				session={sessionVierge}
 			/>,
 		)
@@ -83,13 +84,14 @@ describe('PlayerInputBar — composant de saisie libre', () => {
 	})
 
 	it('le bouton affiche ... quand isLocked est true', () => {
-		const noop = async () => {}
+		const noop = async () => false
 		render(
 			<PlayerInputBar
 				executeAction={noop}
 				getGestelabel={() => ''}
 				avis={null}
 				isLocked={true}
+				issueNarrateur={null}
 				session={sessionVierge}
 			/>,
 		)
@@ -98,13 +100,14 @@ describe('PlayerInputBar — composant de saisie libre', () => {
 	})
 
 	it('le Field et le bouton sont disabled quand isLocked est true', () => {
-		const noop = async () => {}
+		const noop = async () => false
 		render(
 			<PlayerInputBar
 				executeAction={noop}
 				getGestelabel={() => ''}
 				avis={null}
 				isLocked={true}
+				issueNarrateur={null}
 				session={sessionVierge}
 			/>,
 		)
@@ -125,10 +128,11 @@ describe('PlayerInputBar — composant de saisie libre', () => {
 
 		render(
 			<PlayerInputBar
-				executeAction={async () => {}}
+				executeAction={async () => false}
 				getGestelabel={() => ''}
 				avis={avis}
 				isLocked={false}
+				issueNarrateur={null}
 				session={sessionAvecAttente}
 			/>,
 		)
@@ -142,10 +146,11 @@ describe('PlayerInputBar — composant de saisie libre', () => {
 
 		render(
 			<PlayerInputBar
-				executeAction={async () => {}}
+				executeAction={async () => false}
 				getGestelabel={() => ''}
 				avis={avis}
 				isLocked={false}
+				issueNarrateur={null}
 				session={sessionVierge}
 			/>,
 		)
@@ -162,10 +167,11 @@ describe('PlayerInputBar — composant de saisie libre', () => {
 
 		render(
 			<PlayerInputBar
-				executeAction={async () => {}}
+				executeAction={async () => false}
 				getGestelabel={getLabel}
 				avis={avis}
 				isLocked={false}
+				issueNarrateur={null}
 				session={sessionVierge}
 			/>,
 		)
@@ -174,34 +180,16 @@ describe('PlayerInputBar — composant de saisie libre', () => {
 		expect(screen.getByText(/Aller/)).toBeInTheDocument()
 	})
 
-	it('affiche le texte d impasse quand gestes_possibles est vide', () => {
-		const avis: AvisInterprete = {
-			type: 'non_reconnu',
-			gestes_possibles: [],
-		}
-
-		render(
-			<PlayerInputBar
-				executeAction={async () => {}}
-				getGestelabel={() => ''}
-				avis={avis}
-				isLocked={false}
-				session={sessionVierge}
-			/>,
-		)
-
-		expect(screen.getByText('Aucune action ne semble possible ici.')).toBeInTheDocument()
-	})
-
 	it('affiche la bannière REFORMULER quand avis.type === reformuler', () => {
 		const avis: AvisInterprete = { type: 'reformuler' }
 
 		render(
 			<PlayerInputBar
-				executeAction={async () => {}}
+				executeAction={async () => false}
 				getGestelabel={() => ''}
 				avis={avis}
 				isLocked={false}
+				issueNarrateur={null}
 				session={sessionVierge}
 			/>,
 		)
@@ -214,10 +202,11 @@ describe('PlayerInputBar — composant de saisie libre', () => {
 
 		render(
 			<PlayerInputBar
-				executeAction={async () => {}}
+				executeAction={async () => false}
 				getGestelabel={() => ''}
 				avis={avis}
 				isLocked={false}
+				issueNarrateur={null}
 				session={sessionVierge}
 			/>,
 		)
@@ -230,10 +219,11 @@ describe('PlayerInputBar — composant de saisie libre', () => {
 
 		render(
 			<PlayerInputBar
-				executeAction={async () => {}}
+				executeAction={async () => false}
 				getGestelabel={() => ''}
 				avis={echec}
 				isLocked={false}
+				issueNarrateur={null}
 				session={sessionVierge}
 			/>,
 		)
@@ -244,10 +234,11 @@ describe('PlayerInputBar — composant de saisie libre', () => {
 	it('n affiche AUCUN bloc si avis est null (avant soumission)', () => {
 		render(
 			<PlayerInputBar
-				executeAction={async () => {}}
+				executeAction={async () => false}
 				getGestelabel={() => ''}
 				avis={null}
 				isLocked={false}
+				issueNarrateur={null}
 				session={sessionVierge}
 			/>,
 		)
@@ -261,7 +252,7 @@ describe('PlayerInputBar — composant de saisie libre', () => {
 
 	it('appelle executeAction(saisie) quand le formulaire est soumis', async () => {
 		const user = userEvent.setup()
-		const executeAction = jest.fn(async () => {})
+		const executeAction = jest.fn(async () => false)
 
 		render(
 			<PlayerInputBar
@@ -269,6 +260,7 @@ describe('PlayerInputBar — composant de saisie libre', () => {
 				getGestelabel={() => ''}
 				avis={null}
 				isLocked={false}
+				issueNarrateur={null}
 				session={sessionVierge}
 			/>,
 		)
@@ -278,5 +270,172 @@ describe('PlayerInputBar — composant de saisie libre', () => {
 		await user.click(screen.getByRole('button', { name: 'TENTER' }))
 
 		expect(executeAction).toHaveBeenCalledWith('aller au château')
+	})
+
+	it('M2 — executeAction retourne true → champ se vide après soumission', async () => {
+		const user = userEvent.setup()
+		const executeAction = jest.fn(async () => true) // Retourne true = pas consommé
+
+		render(
+			<PlayerInputBar
+				executeAction={executeAction}
+				getGestelabel={() => ''}
+				avis={null}
+				isLocked={false}
+				issueNarrateur={null}
+				session={sessionVierge}
+			/>,
+		)
+
+		const input = screen.getByLabelText('QUE FAITES-VOUS ?') as HTMLInputElement
+		await user.type(input, 'aller au château')
+		expect(input.value).toBe('aller au château')
+
+		await user.click(screen.getByRole('button', { name: 'TENTER' }))
+
+		// Le champ doit être vidé puisque executeAction retourne true
+		expect(input.value).toBe('')
+	})
+
+	it('M2 — executeAction retourne false → champ garde son contenu après soumission', async () => {
+		const user = userEvent.setup()
+		const executeAction = jest.fn(async () => false) // Retourne false = pas consommé
+
+		render(
+			<PlayerInputBar
+				executeAction={executeAction}
+				getGestelabel={() => ''}
+				avis={null}
+				isLocked={false}
+				issueNarrateur={null}
+				session={sessionVierge}
+			/>,
+		)
+
+		const input = screen.getByLabelText('QUE FAITES-VOUS ?') as HTMLInputElement
+		await user.type(input, 'action invalide')
+		expect(input.value).toBe('action invalide')
+
+		await user.click(screen.getByRole('button', { name: 'TENTER' }))
+
+		// Le champ doit conserver son contenu puisque executeAction retourne false
+		expect(input.value).toBe('action invalide')
+	})
+
+	it('Lot 2 — affiche OutcomeBlock entete=RÉCIT + suggestions quand récit valide', () => {
+		const sessionAvecRecit: EtatSession = {
+			...sessionVierge,
+			horloge: { tour: 2 },
+			journal: [
+				{ tour: 2, role: 'joueur', texte: '> action libre' },
+				{ tour: 2, role: 'moteur', texte: 'moteur trace', origine: 'agir', recit: 'Vous avancez doucement.' },
+			],
+		}
+		const issueR3 = {
+			tour: 2,
+			statut: 'raconte' as const,
+			suggestions: ['Fouiller', 'Écouter'] as const,
+		}
+
+		render(
+			<PlayerInputBar
+				executeAction={async () => false}
+				getGestelabel={() => ''}
+				avis={null}
+				isLocked={false}
+				issueNarrateur={issueR3}
+				session={sessionAvecRecit}
+			/>,
+		)
+
+		// Vérifier que le bloc RÉCIT et le contenu du récit sont affichés
+		expect(screen.getByText('RÉCIT')).toBeInTheDocument()
+		expect(screen.getByText('Vous avancez doucement.')).toBeInTheDocument()
+
+		// Vérifier que les suggestions sont affichées sous le récit
+		expect(screen.getByText('Fouiller')).toBeInTheDocument()
+		expect(screen.getByText('Écouter')).toBeInTheDocument()
+
+		// Vérifier que les suggestions sont en `<li>` exactement (jamais en interactive <button>)
+		// et qu'aucun rôle "button" n'existe dans la liste (garantit non-interactivité)
+		const suggestions = screen.getAllByRole('listitem')
+		expect(suggestions.length).toBe(2)
+		const buttons = screen.queryAllByRole('button')
+		expect(buttons).toHaveLength(1) // Seul le bouton TENTER du formulaire, pas dans les suggestions
+	})
+
+	it('Lot 2 — n affiche PAS suggestions si liste vide même avec récit valide', () => {
+		const sessionAvecRecit: EtatSession = {
+			...sessionVierge,
+			horloge: { tour: 2 },
+			journal: [
+				{ tour: 2, role: 'joueur', texte: '> action libre' },
+				{ tour: 2, role: 'moteur', texte: 'moteur trace', origine: 'agir', recit: 'Vous avancez doucement.' },
+			],
+		}
+		const issueR3 = {
+			tour: 2,
+			statut: 'raconte' as const,
+			suggestions: [] as readonly string[],
+		}
+
+		render(
+			<PlayerInputBar
+				executeAction={async () => false}
+				getGestelabel={() => ''}
+				avis={null}
+				isLocked={false}
+				issueNarrateur={issueR3}
+				session={sessionAvecRecit}
+			/>,
+		)
+
+		// Récit affiché
+		expect(screen.getByText('Vous avancez doucement.')).toBeInTheDocument()
+
+		// Aucun `<li>` ne doit être rendu (liste vide)
+		expect(screen.queryAllByRole('listitem')).toHaveLength(0)
+	})
+
+	it('Lot 2 — affiche bannière dégradation quand issueNarrateur.statut === degrade et tour courant', () => {
+		const sessionViergeT2 = { ...sessionVierge, horloge: { tour: 2 } }
+		const issueDegrade = {
+			tour: 2,
+			statut: 'degrade' as const,
+		}
+
+		render(
+			<PlayerInputBar
+				executeAction={async () => false}
+				getGestelabel={() => ''}
+				avis={null}
+				isLocked={false}
+				issueNarrateur={issueDegrade}
+				session={sessionViergeT2}
+			/>,
+		)
+
+		expect(screen.getByText("Le récit n'a pas pu être généré.")).toBeInTheDocument()
+	})
+
+	it('Lot 2 — n affiche PAS bannière dégradation si tour périmé', () => {
+		const sessionViergeT2 = { ...sessionVierge, horloge: { tour: 2 } }
+		const issueDegradePeisme = {
+			tour: 1, // tour périmé
+			statut: 'degrade' as const,
+		}
+
+		render(
+			<PlayerInputBar
+				executeAction={async () => false}
+				getGestelabel={() => ''}
+				avis={null}
+				isLocked={false}
+				issueNarrateur={issueDegradePeisme}
+				session={sessionViergeT2}
+			/>,
+		)
+
+		expect(screen.queryByText("Le récit n'a pas pu être généré.")).not.toBeInTheDocument()
 	})
 })

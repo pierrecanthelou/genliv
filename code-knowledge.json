@@ -329,12 +329,12 @@
 		{
 			"id": "KR-170",
 			"feature": "dossier-format",
-			"risk": "TOUTE VALEUR VENUE D'UN FICHIER UTILISATEUR QUI DEVIENT UNE CLE D'INFRASTRUCTURE DOIT AVOIR UNE FORME VALIDEE, jamais un simple test de non-vacuite (BUG-039). L'id racine du dossier vient du fichier importe et devient tel quel une cle de stockage, alors que ':' y est le separateur reserve du decoupage de cles : un id valant 'x:content' entre en collision PAR CONSTRUCTION. L'asymetrie qui a masque le probleme : chaque identifiant d'ENTITE passait par une forme, seul celui de la racine -- le seul a sortir du document -- n'en avait aucune. COROLLAIRE de casse et d'espaces : deux valeurs qui ne different que par la casse ou un espace de bord sont deux entrees de stockage mais un seul document pour l'auteur, donc le controle de doublon ne les rapproche pas."
+			"risk": "TOUTE VALEUR VENUE D'UN FICHIER UTILISATEUR QUI DEVIENT UNE CLE D'INFRASTRUCTURE DOIT AVOIR UNE FORME VALIDEE, jamais un simple test de non-vacuite (BUG-039) -- un id contenant le separateur reserve de decoupage de cles entre en collision par construction. Corollaire : deux valeurs qui ne different que par la casse ou un espace de bord sont deux entrees de stockage mais un seul document pour l'auteur. Corps : spec dossier-format."
 		},
 		{
 			"id": "KR-171",
 			"feature": "dossier-format",
-			"risk": "UN CHEMIN D'ECHEC QUI PORTE DE LA VALEUR MERITE SON PROPRE CRITERE D'ACCEPTATION (BUG-040). Le critere n° 8 ne nommait que le chemin nominal (fichier valide -> confirmation) ; tout l'etat « invalid » — l'anatomie a trois lignes, le badge pluralise, la remediation a marqueur resolu — n'etait monte par aucun test, alors que « voir en francais ce qui empeche son dossier d'etre jouable » est la moitie de la demo ET le contrat que dossier-controles (n° 7) reutilisera. Corollaire : une chaine de type QUOI FAIRE se verifie contre ce que le produit permet reellement A LA VERSION OU ELLE EST LIVREE — celle de dossier-deja-importe conseillait une suppression qui n'existe pas (BUG-042)."
+			"risk": "UN CHEMIN D'ECHEC QUI PORTE DE LA VALEUR MERITE SON PROPRE CRITERE D'ACCEPTATION (BUG-040) -- un etat 'invalide' non teste laisse toute une anatomie d'ecran (badge, remediation) hors de toute preuve. Corollaire : une remediation textuelle se verifie contre ce que le produit permet reellement a la version ou elle est livree (BUG-042). Corps : spec dossier-format."
 		},
 		{
 			"id": "KR-172",
@@ -344,22 +344,22 @@
 		{
 			"id": "KR-173",
 			"feature": "dossier-format",
-			"risk": "QUAND UNE FONCTION DE TRAVERSEE ABANDONNE SILENCIEUSEMENT UNE BRANCHE POUR RESTER TOTALE, CE QU'ELLE CESSE DE VISITER DOIT AVOIR SA PROPRE TABLE (BUG-049). `sitesDe` faisait `if (!Array.isArray(valeur)) continue` sur un segment `[]` : trois listes NON optionnelles passaient absentes, ok:true, et le dossier gele promettait des tableaux valant undefined. Aucun compilateur ne relie une liste non optionnelle de types.ts a l'absence de sa regle de validation. DEUX corollaires de revue : (1) se mefier de toute documentation qui dit 'c'est le SEUL endroit ou...' -- celle-ci etait fausse d'un facteur quatre, et c'est la revue de PR, ni l'ouvrier ni la QA, qui l'a mesuree ; (2) quand un instrument de couverture change de critere, ecrire explicitement CE QU'IL CESSE DE COUVRIR -- la corruption ne teste que les FEUILLES, jamais les conteneurs."
+			"risk": "QUAND UNE FONCTION DE TRAVERSEE ABANDONNE SILENCIEUSEMENT UNE BRANCHE POUR RESTER TOTALE, CE QU'ELLE CESSE DE VISITER DOIT AVOIR SA PROPRE TABLE (BUG-049) -- aucun compilateur ne relie une liste non optionnelle a l'absence de sa regle de validation. Corollaires de revue : se mefier de toute documentation affirmant « le SEUL endroit ou... » sans mesure ; quand un instrument de couverture change de critere, ecrire explicitement ce qu'il cesse de couvrir. Corps : spec dossier-format."
 		},
 		{
 			"id": "KR-174",
 			"feature": "dossier-format",
-			"risk": "UN CRITERE QUI PROTEGE UNE MOITIE DE COUPLE DOIT NOMMER L'AUTRE (BUG-051). Le critere exigeait 'tout ..._expr a une destination valant moteur' et laissait les ..._texte jumeaux sans garde de VALEUR : basculer reussi_si_texte de auteur a ia laissait 168 tests verts -- alors que c'est le ..._texte qui porte le risque nomme par le veto (un ..._expr injecte est du bruit pour le modele, un ..._texte injecte lui APPREND la regle). REGLE : quand une decision distingue deux champs jumeaux par leur AUDIENCE, le critere porte sur LES DEUX, et les deux assertions se DERIVENT de la meme table -- deux listes de chemins divergeraient en silence. COROLLAIRE GENERAL : une assertion d'EXISTENCE ('ce champ a une destination') n'est JAMAIS une assertion de VALEUR ('et elle vaut ceci'), et une table d'audiences ne vaut que par la seconde. Le defaut etait dans le PLAN avant d'etre dans le code : c'est au raffinage qu'il se previent."
+			"risk": "UN CRITERE QUI PROTEGE UNE MOITIE DE COUPLE DOIT NOMMER L'AUTRE (BUG-051) -- deux champs jumeaux distingues par leur AUDIENCE exigent que le critere porte sur les deux, derives de la meme table. Corollaire general : une assertion d'EXISTENCE n'est jamais une assertion de VALEUR. Le defaut etait dans le PLAN avant d'etre dans le code. Corps : spec dossier-format."
 		},
 		{
 			"id": "KR-175",
 			"feature": "dossier-format",
-			"risk": "UN REGISTRE INDEXE PAR UNE VALEUR NON FIABLE PASSE PAR UNE APPARTENANCE PROPRE, JAMAIS PAR `in` NI PAR UN TEST D'INDEX (BUG-053). Tout objet litteral et tout Object.fromEntries herite d'Object.prototype : 'toString' in REGISTRE vaut true et REGISTRE['toString'] rend une FONCTION ; le code d'apres appelle .includes ou lit .length sur une fonction, et un validateur qui se promet TOTAL leve sur une valeur venue du fichier de l'utilisateur. Parade : Object.prototype.hasOwnProperty.call. DEUX corollaires generalisables. (1) Un `as` pose sur une valeur non fiable est l'endroit exact ou le compilateur CESSE de proteger : il affirme ce que le garde etait cense verifier -- tout cast qui suit un garde merite qu'on relise le garde. (2) Une liste de BRUIT dans un test de totalite ne se remplit pas en cherchant des valeurs absurdes, mais en se demandant PAR QUELLE PORTE le code peut repondre oui a ce qu'il devrait refuser : aucune des 16 entrees de bruit n'etait une cle heritee, et le test etait vert sur une fonction qui jetait."
+			"risk": "UN REGISTRE INDEXE PAR UNE VALEUR NON FIABLE PASSE PAR UNE APPARTENANCE PROPRE, JAMAIS PAR `in` NI PAR UN TEST D'INDEX (BUG-053) -- tout objet litteral herite d'Object.prototype. Parade : Object.prototype.hasOwnProperty.call. Corollaires : un `as` pose sur une valeur non fiable est l'endroit exact ou le compilateur cesse de proteger ; une liste de bruit dans un test de totalite se remplit en cherchant PAR QUELLE PORTE le code peut repondre oui a ce qu'il devrait refuser. Corps : spec dossier-format."
 		},
 		{
 			"id": "KR-176",
 			"feature": "dossier-format",
-			"risk": "UN SEUIL CHIFFRE CITE DANS UN PLAN DOIT NOMMER SA SOURCE, SINON IL N'EXISTE PAS. Cas mesure : 'validate.ts <= 650 lignes' est ne dans une note de comite, a ete promu CRITERE CONTRAIGNANT par l'orchestrateur, puis reporte par la revue comme une regle du projet -- verification faite, ce nombre n'existe NULLE PART dans le depot ; la seule regle reelle est KR-112. Chaque copie etait fidele a la precedente et aucune n'etait fautive isolement : c'est la REPETITION qui a cree l'autorite. Variante de KR-159 (la, un predicat faux ; ici, un seuil sans source). PARADE : tout nombre qui CONTRAINT (plafond, borne, cardinalite) cite le fichier et la ligne d'ou il vient, ou se declare consigne locale a l'iteration, revocable et non generalisable. COROLLAIRE : un decompte publie se RE-MESURE apres le dernier changement du fichier -- la revue annoncait 602 lignes, vrai a la mesure, faux apres les correctifs de la revue de PR, que personne n'a repris."
+			"risk": "UN SEUIL CHIFFRE CITE DANS UN PLAN DOIT NOMMER SA SOURCE, SINON IL N'EXISTE PAS -- une repetition fidele sans source cree une fausse autorite. Variante de KR-159 (la, un predicat faux ; ici, un seuil sans source). Parade : tout nombre contraignant cite le fichier et la ligne, ou se declare consigne locale revocable. Corollaire : un decompte publie se re-mesure apres le dernier changement du fichier. Corps : spec dossier-format."
 		},
 		{
 			"id": "KR-177",
@@ -815,6 +815,21 @@
 			"id": "KR-267",
 			"feature": "moteur-interprete",
 			"risk": "UN LIEU ACCESSIBLE SANS DESCRIPTION (absente ou marquee) NE RECOIT AUCUN RANG cote interprete IA (KR-262/231) : atteignable en console, INATTEIGNABLE en saisie libre. Aucun repli moteur recevable (ni nom KR-262, ni identifiant KR-231). Fermeture = controle cote AUTEUR (dossier-controles), jamais cote moteur. Non bloquant pour moteur-interprete it1. Corps : spec moteur-interprete, raffinage it1 desaccord #21."
+		},
+		{
+			"id": "KR-268",
+			"feature": "moteur-interprete",
+			"risk": "UN CHAMP DE LA FORME DE SORTIE D'UN ROLE IA N'ENTRE AU SCHEMA QUE SI UN LECTEUR REEL EXISTE DANS LA MEME ITERATION (generalise KR-266 au niveau du champ) : un champ optionnel 'pour la stabilite tsc future' est un cout sans contrepartie (rangs injectes pour rien, recit sain refuse en bloc pour une donnee morte). Corps : spec moteur-interprete, raffinage it2 desaccord #2."
+		},
+		{
+			"id": "KR-269",
+			"feature": "moteur-interprete",
+			"risk": "LE label D'UN VERBE DE COMMANDES EST UN CONTRAT NARRATIF LU PAR LE MODELE (invite + bloc narrateur) : 3e personne, present, portee mecanique en prose neutre, jamais un mot de mecanique. Corps : spec moteur-interprete, raffinage it2 desaccord #10."
+		},
+		{
+			"id": "KR-270",
+			"feature": "moteur-interprete",
+			"risk": "TOUTE LISTE DE MOTS/VERBES INTERDITS VERIFIEE CONTRE UNE INVITE IA SE DERIVE DE COMMANDES, JAMAIS RECOPIEE A LA MAIN — sinon un verbe ajoute au registre peut fuiter dans l'invite sans qu'aucun test ne le voie. Corps : spec moteur-interprete, raffinage it2 desaccord #11."
 		}
 	]
 }
