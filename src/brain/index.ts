@@ -566,12 +566,16 @@ export type {
 // `TablesInterprete` (`copilote/types.ts` — produite par l'assembleur,
 // consultée par le validateur et la ré-résolution, jamais lue par une feature).
 export { apresInterpretation } from './dossier/interprete'
-// ── LE RÉCIT D'UN PAS (n° 10 it2, lot `contrat`) ─────────────────────────────
-// Sort `consignerRecit` SEULE : c'est la transition pure que `useTourDeJeu`
-// applique sur la session DÉJÀ PERSISTÉE quand le narrateur a rendu une
-// proposition — la SEULE porte d'écriture de `EntreeJournal.recit`. Elle ne
-// valide rien et n'appelle rien : le validateur de sortie a déjà décidé.
-export { consignerRecit } from './dossier/recit'
+// ── LA NARRATION D'UN PAS (n° 10 it2, étendue à la mémoire en it3, lot `contrat`) ──
+// Sort `consignerNarration` SEULE — elle a REMPLACÉ `consignerRecit`, qui ne sort plus :
+// c'est la transition pure que `useTourDeJeu` applique sur la session DÉJÀ PERSISTÉE
+// quand le narrateur a rendu une proposition — la SEULE porte d'écriture de
+// `EntreeJournal.recit` ET de `EtatSession.memoire`, en UNE transition. Elle ne valide
+// rien et n'appelle rien : le validateur de sortie a déjà décidé. RESTENT DEDANS : la
+// politique de rétention (`dossier/memoire.ts` — seul l'assembleur du narrateur et
+// cette transition la lisent) et les formes stockées de la mémoire, qu'aucune feature
+// n'a à nommer (`SortieNarrateur` les porte déjà).
+export { consignerNarration } from './dossier/recit'
 // ── LE JOURNAL DES EFFETS DE RÈGLE (itération 3) ─────────────────────────────
 // SORT `DeltaJournalise` SEUL, et c'est tout ce qui sort d'`evaluate.ts` : c'est le
 // type du champ `deltas` d'une `EntreeJournal`, que `JournalRow` rend en pastilles.

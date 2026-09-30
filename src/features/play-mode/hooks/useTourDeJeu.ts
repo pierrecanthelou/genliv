@@ -38,7 +38,7 @@ import {
 	type EchecCopilote,
 	type EtatSession,
 	useBrain,
-	consignerRecit,
+	consignerNarration,
 } from '../../../brain'
 
 /** L'ISSUE DE L'APPEL R3 (narrateur) — l'avis reçu, avec le tour pour éviter une
@@ -145,8 +145,12 @@ export function useTourDeJeu(
 				// ÉTAPE 7 : Traiter la réponse de R3
 				if (reponseNarrateur.statut === 'propose') {
 					// Succès R3 — écrire le récit sur la session
-					const { recit, suggestions } = reponseNarrateur.proposition
-					const sessionAvecRecit = consignerRecit(nouvelleSession, nouvelleSession.horloge.tour, recit)
+					const { suggestions } = reponseNarrateur.proposition
+					const sessionAvecRecit = consignerNarration(
+						nouvelleSession,
+						nouvelleSession.horloge.tour,
+						reponseNarrateur.proposition,
+					)
 					onSessionChange(sessionAvecRecit)
 					setIssueNarrateur({
 						tour: nouvelleSession.horloge.tour,

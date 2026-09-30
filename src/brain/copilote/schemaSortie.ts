@@ -13,6 +13,7 @@ import { COMMANDES } from '../dossier/commandes'
 import { ESPACES_DE_NOMS, collectIds } from '../dossier/identifiers'
 import type { Dossier } from '../dossier/types'
 import type {
+	ConstatRendu,
 	DetenteursRendus,
 	DistributionRendue,
 	FicheReseau,
@@ -961,16 +962,51 @@ export function validerInterprete(
 	return { ok: true, sortie: { geste: brut.geste, designe } }
 }
 
-// ══ LE HUITIÈME RÔLE — `narrateur` (n° 10 `moteur-interprete`, it2) ══════════
+// ══ LE HUITIÈME RÔLE — `narrateur` (n° 10 `moteur-interprete`, it2 puis it3) ═════
 
-/** Les clés du schéma de sortie du rôle `narrateur`, EN VALEUR — le validateur en est
- *  PILOTÉ, exactement comme par `CLES_SORTIE_PLAN`. HUIT registres LITTÉRAUX, et
- *  toujours pas un registre paramétré (§ 8, n° 25) : ce rôle n'est pas dans
+/** Les clés TOUJOURS DUES du schéma de sortie du rôle `narrateur`, EN VALEUR — le
+ *  validateur en est PILOTÉ, exactement comme par `CLES_SORTIE_PLAN`. HUIT registres
+ *  LITTÉRAUX, et toujours pas un registre paramétré (§ 8, n° 25) : ce rôle n'est pas dans
  *  `RoleCopilote`, et son gabarit ne vit que dans le worker, comme celui de
  *  l'interprète. `narration`, JAMAIS `recit` — le nom du champ de destination
  *  (`EntreeJournal.recit`) ; `tentatives`, JAMAIS `suggestions` — le nom de la forme
- *  résolue (KR-231). */
-export const CLES_SORTIE_NARRATEUR = ['narration', 'tentatives'] as const
+ *  résolue ; `constats` (it3), JAMAIS `faits`/`etablis` — sous-chaînes de la clé résolue
+ *  `faits_etablis` (KR-231). CES TROIS CLÉS FORMENT LE BLOC ATOMIQUE de KR-230. */
+export const CLES_SORTIE_NARRATEUR = ['narration', 'tentatives', 'constats'] as const
+
+/** LA QUATRIÈME CLÉ, CONDITIONNELLE (it3) — DEMANDÉE quand la demande porte une tranche à
+ *  condenser, INTERDITE sinon. Hors de `CLES_SORTIE_NARRATEUR` parce qu'elle est HORS du
+ *  bloc atomique : son refus ne coûte jamais le récit (KR-271, `validerNarrateur`).
+ *  `condense`, JAMAIS `resume` — le nom de la destination (`MemoireSession.resume`). */
+export const CLE_CONDENSE = 'condense'
+
+/** Les DEUX clés d'un ÉLÉMENT de `constats` — SECOND niveau de schéma, le troisième du
+ *  dépôt après `CLES_RAPPORT` et `CLES_FICHE`. Le validateur en est PILOTÉ : une seule
+ *  source. NON exportée — son seul consommateur est le validateur ci-dessous. */
+const CLES_CONSTAT = ['phrase', 'ancres'] as const
+
+/** LA BORNE DE SORTIE des constats — combien de faits durables UN pas peut établir.
+ *  VALEUR DE DÉCISION du comité (raffinage it3, narratif-ia), pas une mesure. Elle dérive
+ *  `max_tokens` (worker). LA LISTE VIDE EST UN SUCCÈS : « rien de durable n'a changé » est
+ *  une information que le code n'a pas, et refuser le vide forcerait un fait inventé à
+ *  chaque `agir` — une machine à complaisance.
+ *  ⚠ NON PARTAGÉE avec les bornes de liste des autres rôles (§ 8, n° 42) : aucune raison
+ *  commune d'évoluer. */
+export const FAITS_PAR_PAS_MAX = 2
+
+/** LA BORNE D'UNE PHRASE DE CONSTAT, EN CARACTÈRES — VALEUR DE DÉCISION. Elle borne la
+ *  sortie, dérive `max_tokens`, ET borne le terme des faits dans le budget de contexte
+ *  (`FAITS_INJECTES_MAX × FAIT_CARACTERES_MAX`) : c'est ce qui rend `BORNE_MEMOIRE` exacte. */
+export const FAIT_CARACTERES_MAX = 160
+
+/** LE NOMBRE D'ANCRES D'UN CONSTAT — de UN (un fait sans ancre est une création d'entité
+ *  déguisée, §2.8 garde-fou 2) à `ANCRES_PAR_FAIT_MAX`. VALEUR DE DÉCISION. */
+export const ANCRES_PAR_FAIT_MAX = 2
+
+/** LA BORNE DU CONDENSÉ, EN CARACTÈRES — VALEUR DE DÉCISION. Nommée d'après la CLÉ RÉSEAU
+ *  qu'elle borne (précédent `NARRATION_CARACTERES_MAX`), jamais d'après la destination.
+ *  Elle borne AUSSI le terme `AUPARAVANT` du budget de contexte. */
+export const CONDENSE_CARACTERES_MAX = 1200
 
 /**
  * LA BORNE DE LA NARRATION, EN CARACTÈRES — VALEUR DE DÉCISION du comité (plan
@@ -997,23 +1033,132 @@ export const TENTATIVE_CARACTERES_MAX = 60
 export const TENTATIVES_MAX = 3
 
 /**
+ * LE SCANNER ANTI-ANCRE — forme LÂCHE `\bA\d+\b` ∩ APPARTENANCE à la table de CET appel,
+ * le même croisement forme-lâche/appartenance que `porteUnIdentifiant` et `porteUnRang`.
+ * Une prose qui recopie « A2 » ferait lire au joueur un repère que seul le modèle devait
+ * voir (KR-231). Préfixe `A`, jamais `P`/`G` : deux espaces de rangs, deux scanners, et
+ * aucun ne se croise avec l'autre.
+ *
+ * L'APPARTENANCE DÉCIDE, pas la silhouette : « A4 » dans une prose, quand la table n'a que
+ * `A1`–`A3`, n'est le repère de RIEN — le refuser ferait rougir une prose saine.
+ *
+ * Exportée pour que les mutants du plan (§ 7) l'éprouvent seule.
+ */
+export function porteUneAncre(texte: string, ancres: ReadonlyMap<RangInjecte, string>): boolean {
+	for (const trouve of texte.matchAll(/\bA\d+\b/g)) {
+		if (ancres.has(trouve[0])) return true
+	}
+	return false
+}
+
+/**
+ * L'ISSUE DE LA GARDE DU CONDENSÉ — SÉPARÉE de celle du lot, et c'est tout l'objet de la
+ * garde à deux niveaux (KR-271). `ok: false` n'est PAS un échec du narrateur : c'est « le
+ * résumé ne sera pas mis à jour ce pas-ci ». Le motif existe pour que chaque prédicat se
+ * prouve seul ; il ne sort pas du service (personne ne le lirait, KR-249/268).
+ */
+export type IssueCondense =
+	| { readonly ok: true; readonly texte: string }
+	| { readonly ok: false; readonly motif: 'schema' | 'vide' | 'marqueur' | 'identifiant' }
+
+/**
+ * LA GARDE DU CONDENSÉ — appelée SEULE, par `validerNarrateur`, et SEULEMENT APRÈS que le
+ * bloc atomique a passé toutes les siennes.
+ *
+ * ⚠ LE CRITÈRE D'EXCEPTION, écrit ici pour qu'il ne s'étende pas en silence aux artefacts
+ * des n° 11 et 12 (KR-271). Un artefact de sortie n'est DÉCOUPLÉ du refus de lot que s'il
+ * remplit TROIS conditions CUMULATIVES :
+ *  1. il porte sur une fiction DÉJÀ PERSISTÉE (des pas passés, jamais le pas courant) ;
+ *  2. le joueur ne le lit JAMAIS ;
+ *  3. le code sait le REDEMANDER DE FAÇON DÉTERMINISTE (`pasACondenser` reste non nul tant
+ *     que `jusqu_au_pas` n'avance pas).
+ * `condense` les remplit toutes ; `constats` n'en remplit AUCUNE — ils parlent du récit de
+ * CE pas, et rien ne les ré-extrait ensuite — et restent donc dans le bloc atomique.
+ *
+ * LES SEPT PRÉDICATS, dans l'ordre, chacun prouvable SEUL :
+ *   (C1) une CHAÎNE — l'ABSENCE de la clé meurt ici aussi ..... 'schema'
+ *   (C2) non vide après `trim()` ................................ 'vide'
+ *   (C3) ≤ `CONDENSE_CARACTERES_MAX` — un refus, jamais une coupe  'schema'
+ *   (C4) ne finit pas par « ? » (`trimEnd`) ..................... 'schema'
+ *   (C5) aucun `MARQUEUR_A_ECRIRE` ............................ 'marqueur'
+ *   (C6) aucun identifiant du dossier (`porteUnIdentifiant`) . 'identifiant'
+ *   (C7) aucune ancre de CET appel (`porteUneAncre`) ........ 'identifiant'
+ *
+ * AUCUNE RÉPARATION, ici non plus : le texte accepté est rendu tel quel.
+ */
+export function validerCondense(
+	brut: unknown,
+	dossier: Dossier,
+	ancres: ReadonlyMap<RangInjecte, string>,
+): IssueCondense {
+	// (C1) une CHAÎNE — `undefined` (clé absente) comme n'importe quelle autre forme.
+	if (typeof brut !== 'string') return { ok: false, motif: 'schema' }
+
+	// (C2) non vide une fois les blancs retirés.
+	if (brut.trim().length === 0) return { ok: false, motif: 'vide' }
+
+	// (C3) la BORNE — un refus, jamais une coupe (KR-230).
+	if (brut.length > CONDENSE_CARACTERES_MAX) return { ok: false, motif: 'schema' }
+
+	// (C4) jamais une question finale : le résumé est lu par le narrateur, qui la
+	//      reprendrait comme une question ouverte adressée au joueur.
+	if (brut.trimEnd().endsWith('?')) return { ok: false, motif: 'schema' }
+
+	// (C5) pas le marqueur d'amorce — constante IMPORTÉE, jamais recopiée (KR-223).
+	if (brut.includes(MARQUEUR_A_ECRIRE)) return { ok: false, motif: 'marqueur' }
+
+	// (C6) aucun identifiant du dossier.
+	if (porteUnIdentifiant(brut, dossier)) return { ok: false, motif: 'identifiant' }
+
+	// (C7) aucun repère de cet appel.
+	if (porteUneAncre(brut, ancres)) return { ok: false, motif: 'identifiant' }
+
+	return { ok: true, texte: brut }
+}
+
+/** Un ÉLÉMENT de `constats` : objet simple dont les clés valent EXACTEMENT `CLES_CONSTAT`.
+ *  PRIMITIVE PARTAGÉE avec le premier niveau (`estObjetSimple`) : la clé en TROP (signal
+ *  KR-236 au second niveau) et la clé MANQUANTE meurent toutes deux ici. */
+function estConstatBrut(element: unknown): element is Record<string, unknown> {
+	if (!estObjetSimple(element)) return false
+	const cles = Object.keys(element)
+	return cles.length === CLES_CONSTAT.length && CLES_CONSTAT.every((cle) => cles.includes(cle))
+}
+
+/**
  * LES PRÉDICATS DE FORME de la sortie `narrateur` — le HUITIÈME rôle, ET LE PREMIER DONT
  * LA PROSE EST LUE PAR LE JOUEUR SANS RELECTURE : aucun auteur ne ratifie ce récit d'un
- * clic, il s'affiche. C'est pourquoi chaque prédicat ci-dessous est un REFUS DU LOT
+ * clic, il s'affiche. C'est pourquoi chaque prédicat du BLOC ATOMIQUE est un REFUS DU LOT
  * ENTIER — rejeu une fois, puis dégradé —, jamais une réparation.
  *
- * DEUX CLÉS DE NATURE DIFFÉRENTE, et leur règle du vide diffère en conséquence :
+ * ── LA GARDE À DEUX NIVEAUX (it3, KR-271) ─────────────────────────────────────
+ * `{narration, tentatives, constats}` est ATOMIQUE sous KR-230 : un fait sans ancre
+ * valide, un rang hors table, un identifiant ou un repère qui fuite dans la prose refusent
+ * TOUT le lot, récit compris. `condense` SEUL en est découplé : il n'est évalué
+ * (`validerCondense`) QUE SI le bloc atomique a tout passé ET que la condensation est
+ * demandée, et son échec NE REMONTE JAMAIS en refus du lot — l'issue est portée DANS la
+ * branche de succès (`sortie.condense`), donc la boucle de rejeu (qui ne rejoue que sur
+ * `ok: false`) ne la voit pas. Construire ici une garde qui refuserait le lot à cause de
+ * `condense` seul effacerait un récit valide pour un artefact que le joueur ne lit jamais.
+ *
+ * `attendu` VIENT DE L'ASSEMBLEUR, calculé UNE fois avant la boucle de rejeu :
+ *  · `ancres` — la table rang → identifiant de CET appel (appartenance, `Map.has`) ;
+ *  · `condenseDemande` — `condensation !== null`, la tranche à condenser que le contexte
+ *    porte. C'est ce qui décide si `condense` est DÛ ou INTERDIT.
+ *
+ * DEUX CLÉS DE NATURE DIFFÉRENTE dans le bloc atomique, et leur règle du vide diffère :
  *  · `narration` est la RÉDACTION requise — une narration vide est une NON-RÉPONSE,
  *    motif `'vide'` (règle de tranchage de `validerRepliques`) ;
- *  · `tentatives` est une liste de 0 à `TENTATIVES_MAX` — LA LISTE VIDE EST UN SUCCÈS :
- *    « exactement trois » forcerait des gestes inventés quand la scène en offre moins,
- *    et le récit, lui, est déjà là. Un ÉLÉMENT vide, en revanche, est un remplissage :
- *    motif `'vide'`.
+ *  · `tentatives` et `constats` sont des listes bornées — LA LISTE VIDE EST UN SUCCÈS ; un
+ *    ÉLÉMENT vide, en revanche, est un remplissage : motif `'vide'`.
  *
- * LES TREIZE PRÉDICATS, dans l'ordre du plan (§ 4 bis), chacun prouvable SEUL :
+ * L'ORDRE STRICT, chacun prouvable SEUL :
+ *  ENVELOPPE
  *   (1)  objet simple (ni tableau, ni null) ..................... 'schema'
- *   (2)  clés = EXACTEMENT `CLES_SORTIE_NARRATEUR` — une clé EN
- *        TROP est un REFUS, jamais un champ ignoré (KR-236) ..... 'schema'
+ *   (2)  clés : EXACTEMENT `CLES_SORTIE_NARRATEUR` si `condense` n'est pas demandé — un
+ *        `condense` présent est alors un REFUS DU LOT (dérive KR-236) ; si demandé, ces
+ *        trois clés PLUS `condense` FACULTATIF — toute autre clé refuse le lot .. 'schema'
+ *  NARRATION ET TENTATIVES (inchangés depuis l'it2)
  *   (3)  `narration` est une CHAÎNE — jamais `String(…)` ........ 'schema'
  *   (4)  `narration` non vide après `trim()` ...................... 'vide'
  *   (5)  `narration` ≤ `NARRATION_CARACTERES_MAX` .............. 'schema'
@@ -1025,31 +1170,55 @@ export const TENTATIVES_MAX = 3
  *   (11) tentatives DISTINCTES après `trim()` .................. 'schema'
  *   (12) aucun `MARQUEUR_A_ECRIRE`, narration ET tentatives ... 'marqueur'
  *   (13) aucun identifiant du dossier, ÉLÉMENT PAR ÉLÉMENT .. 'identifiant'
+ *  CONSTATS (it3)
+ *   (14) `constats` est un TABLEAU ............................... 'schema'
+ *   (15) longueur ≤ `FAITS_PAR_PAS_MAX` — la liste vide passe .. 'schema'
+ *   (16) chaque élément : clés EXACTEMENT `{phrase, ancres}` ..... 'schema'
+ *   (17) chaque `phrase` est une CHAÎNE (sinon 'schema'), non vide
+ *        après `trim()` ............................................ 'vide'
+ *   (18) chaque `phrase` ≤ `FAIT_CARACTERES_MAX`, sans « ? » final  'schema'
+ *   (19) chaque `ancres` : TABLEAU de CHAÎNES DISTINCTES, de 1 à
+ *        `ANCRES_PAR_FAIT_MAX` — `ancres: []` est un REFUS ...... 'schema'
+ *   (20) chaque ancre ∈ `attendu.ancres` — un rang hors table refuse
+ *        TOUT le lot ...................................... 'rang-inconnu'
+ *   (21) phrases DISTINCTES après `trim()` ...................... 'schema'
+ *   (22) aucun marqueur, puis aucun identifiant, PHRASE PAR PHRASE
+ *        .............................................. 'marqueur' / 'identifiant'
+ *   (23) aucune ancre (`porteUneAncre`) dans la narration, dans CHAQUE
+ *        tentative, dans CHAQUE phrase ........................ 'identifiant'
+ *  CONDENSÉ (hors bloc atomique)
+ *   (24) SEULEMENT SI (1)–(23) passent ET `condenseDemande` : `validerCondense`, dont
+ *        l'issue est RENDUE dans `sortie.condense` — jamais un refus du lot. `null` quand
+ *        le condensé n'était pas demandé.
  *
  * ⚠ LE PRÉDICAT (6) EST LA GARDE DE L'ANTI-BOUCLE CÔTÉ NARRATEUR : un récit qui finit
  * par une question inviterait le joueur à RÉPONDRE, alors qu'AUCUNE `attente` n'est
  * posée par ce rôle — l'interprète lirait la réponse à l'aveugle. La question est le
  * monopole de la clarification (KR-264).
  *
- * ⚠ SCANNER ÉLÉMENT PAR ÉLÉMENT, JAMAIS SUR UN `join` (précédent `validerRepliques`) :
+ * ⚠ SCANNERS ÉLÉMENT PAR ÉLÉMENT, JAMAIS SUR UN `join` (précédent `validerRepliques`) :
  * deux fragments logés dans deux cases distinctes ne forment pas un identifiant, et
- * joindre DÉTRUIT la localisation en fabriquant un faux positif à la frontière. Aucun
- * `porteUnRang` : ce rôle n'injecte AUCUN rang — l'y appeler serait du code mort
- * présenté comme de la couverture (KR-235).
- *
- * `MotifIllisible` reste INCHANGÉE : le type de retour ne nomme que les QUATRE motifs
- * atteignables, `'rang-inconnu'` est sans objet (aucun jeton, aucune table).
+ * joindre DÉTRUIT la localisation en fabriquant un faux positif à la frontière. Les
+ * ANCRES elles-mêmes ne passent JAMAIS au scanner d'identifiants : ce sont nos propres
+ * jetons, constatés par appartenance (précédent `envers`, KR-235).
  */
 export function validerNarrateur(
 	brut: unknown,
 	dossier: Dossier,
-): { ok: true; sortie: NarrationRendue } | { ok: false; motif: 'schema' | 'vide' | 'marqueur' | 'identifiant' } {
+	attendu: { readonly ancres: ReadonlyMap<RangInjecte, string>; readonly condenseDemande: boolean },
+):
+	| { ok: true; sortie: Omit<NarrationRendue, 'condense'> & { readonly condense: IssueCondense | null } }
+	| { ok: false; motif: MotifIllisible } {
 	// (1) un objet JSON — ni tableau, ni `null`.
 	if (!estObjetSimple(brut)) return { ok: false, motif: 'schema' }
 
-	// (2) l'ensemble des clés vaut EXACTEMENT `CLES_SORTIE_NARRATEUR`.
+	// (2) L'ENVELOPPE — les trois clés du bloc atomique sont TOUJOURS dues ; `condense` est
+	//     TOLÉRÉE seulement si elle est demandée, et toute autre clé refuse le lot.
 	const cles = Object.keys(brut)
-	if (cles.length !== CLES_SORTIE_NARRATEUR.length || !CLES_SORTIE_NARRATEUR.every((cle) => cles.includes(cle))) {
+	const admises: readonly string[] = attendu.condenseDemande
+		? [...CLES_SORTIE_NARRATEUR, CLE_CONDENSE]
+		: CLES_SORTIE_NARRATEUR
+	if (!CLES_SORTIE_NARRATEUR.every((cle) => cles.includes(cle)) || !cles.every((cle) => admises.includes(cle))) {
 		return { ok: false, motif: 'schema' }
 	}
 
@@ -1099,5 +1268,63 @@ export function validerNarrateur(
 		return { ok: false, motif: 'identifiant' }
 	}
 
-	return { ok: true, sortie: { narration, tentatives: rendues } }
+	// (14) les constats sont un TABLEAU.
+	const elements: unknown = brut[CLES_SORTIE_NARRATEUR[2]]
+	if (!Array.isArray(elements)) return { ok: false, motif: 'schema' }
+
+	// (15) la BORNE DE SORTIE — un troisième constat est un REFUS, jamais une coupe. La
+	//      liste VIDE passe : c'est la réponse honnête d'un pas sans fait durable.
+	if (elements.length > FAITS_PAR_PAS_MAX) return { ok: false, motif: 'schema' }
+
+	// (16) chaque élément porte EXACTEMENT `{phrase, ancres}`.
+	if (!elements.every(estConstatBrut)) return { ok: false, motif: 'schema' }
+
+	const constats: ConstatRendu[] = []
+	for (const element of elements) {
+		const phrase: unknown = element[CLES_CONSTAT[0]]
+		const ancres: unknown = element[CLES_CONSTAT[1]]
+
+		// (17) la phrase est une CHAÎNE, non vide.
+		if (typeof phrase !== 'string') return { ok: false, motif: 'schema' }
+		if (phrase.trim().length === 0) return { ok: false, motif: 'vide' }
+
+		// (18) sa BORNE, et jamais une question finale.
+		if (phrase.length > FAIT_CARACTERES_MAX || phrase.trimEnd().endsWith('?')) return { ok: false, motif: 'schema' }
+
+		// (19) les ancres : un TABLEAU de CHAÎNES DISTINCTES, d'UNE à `ANCRES_PAR_FAIT_MAX`.
+		//      `ancres: []` meurt ICI — un fait qui ne porte sur rien est une création
+		//      d'entité déguisée (§2.8 garde-fou 2, AC#7).
+		if (!Array.isArray(ancres) || !ancres.every((ancre): ancre is string => typeof ancre === 'string')) {
+			return { ok: false, motif: 'schema' }
+		}
+		if (ancres.length === 0 || ancres.length > ANCRES_PAR_FAIT_MAX || new Set(ancres).size !== ancres.length) {
+			return { ok: false, motif: 'schema' }
+		}
+
+		// (20) chaque ancre APPARTIENT à la table de cet appel — sans normalisation de casse.
+		if (!ancres.every((ancre) => attendu.ancres.has(ancre))) return { ok: false, motif: 'rang-inconnu' }
+
+		constats.push({ phrase, ancres })
+	}
+
+	// (21) phrases DISTINCTES après `trim()` — deux fois le même fait est un remplissage.
+	const phrases = constats.map((constat) => constat.phrase.trim())
+	if (new Set(phrases).size !== phrases.length) return { ok: false, motif: 'schema' }
+
+	// (22) aucun marqueur, puis aucun identifiant — PHRASE PAR PHRASE.
+	if (constats.some((constat) => constat.phrase.includes(MARQUEUR_A_ECRIRE))) return { ok: false, motif: 'marqueur' }
+	if (constats.some((constat) => porteUnIdentifiant(constat.phrase, dossier))) {
+		return { ok: false, motif: 'identifiant' }
+	}
+
+	// (23) aucun REPÈRE de cet appel dans la prose que le joueur lira — la narration,
+	//      CHAQUE tentative — ni dans ce que la mémoire réinjectera — CHAQUE phrase.
+	const proses = [narration, ...rendues, ...constats.map((constat) => constat.phrase)]
+	if (proses.some((prose) => porteUneAncre(prose, attendu.ancres))) return { ok: false, motif: 'identifiant' }
+
+	// (24) LE CONDENSÉ — hors bloc atomique, évalué SEUL et SEULEMENT maintenant. Son
+	//      échec est une ISSUE rendue, jamais un refus : le récit ci-dessus est acquis.
+	const condense = attendu.condenseDemande ? validerCondense(brut[CLE_CONDENSE], dossier, attendu.ancres) : null
+
+	return { ok: true, sortie: { narration, tentatives: rendues, constats, condense } }
 }

@@ -98,13 +98,16 @@ export interface EntreeJournal {
 	 * propre n'a pas de sens). Invariant :
 	 * `journal.every(e => e.recit === undefined || e.origine !== undefined)`.
 	 *
-	 * ÉCRIT par `consignerRecit` (`recit.ts`), SEULE porte ; LU par l'écran de partie
-	 * (lot `feature` de la même itération), qui l'affiche DÉRIVÉ du journal et jamais
-	 * d'un état miroir — les deux chemins existent dans CETTE itération (KR-249).
+	 * ÉCRIT par `consignerNarration` (`recit.ts`, qui a remplacé `consignerRecit` à
+	 * l'it3), SEULE porte ; LU par l'écran de partie, qui l'affiche DÉRIVÉ du journal et
+	 * jamais d'un état miroir, ET — depuis l'it3 — par l'assembleur du narrateur, qui le
+	 * réinjecte pour les pas de la fenêtre et de la tranche à condenser (KR-249).
 	 *
-	 * AUDIENCE `'moteur'` en it2 (`sessionDestinations.ts`) : il n'entre dans AUCUN
-	 * contexte de modèle, le narrateur étant sans état. La bascule vers `'ia'` est une
-	 * politique de rétention, propriétaire it3 (la mémoire).
+	 * AUDIENCE `'ia'` depuis l'it3 (`sessionDestinations.ts`), BASCULÉE EN VALEUR avec
+	 * son lecteur : c'est la politique de rétention de la mémoire (`memoire.ts`) qui dit
+	 * QUELS récits repartent au modèle — ceux de `(borneDeFenetre(t), t−1]`, et ceux de la
+	 * tranche `pasACondenser` —, jamais « tous ». En it2, il était `'moteur'`, le
+	 * narrateur étant sans état.
 	 *
 	 * HORS DU REJEU (KR-248) : une sortie de modèle n'est jamais une entrée du moteur,
 	 * et rejouer les commandes d'une partie ne le reproduit pas.
@@ -199,11 +202,30 @@ export interface EtatSession {
 	readonly monde: FaitsDeSession
 	readonly journal: readonly EntreeJournal[]
 	/**
-	 * CLÉ RACINE RÉSERVÉE, propriétaire n° 10 — typée `null` : la politique de
-	 * mémoire à trois niveaux lui appartient, et aucun champ `memoire.*` n'est
-	 * représentable avant elle.
+	 * LA MÉMOIRE DU NARRATEUR — forme GELÉE par la n° 10 `moteur-interprete`, it3.
+	 *
+	 * LE TYPE EST ÉLARGI, AUCUN CHAMP N'EST AJOUTÉ (KR-251) : la clé racine existait à
+	 * `null` dans TOUTE session écrite depuis la n° 9, et `null` reste un état LÉGAL — à
+	 * l'ouverture, et tant que rien n'a été retenu. Une clé optionnelle `memoire?` aurait
+	 * créé un second encodage de « rien retenu » (rejeté au raffinage, R9 du tech-lead).
+	 *
+	 * LES INVARIANTS, chacun tenu par un CHEMIN D'ÉCRITURE et non par la confiance dans
+	 * l'appelant (`consignerNarration`, `recit.ts`, seule porte) :
+	 *  · I1 — « rien retenu » ne s'écrit que `null`, JAMAIS `{ faits_etablis: [] }` sans
+	 *    résumé : deux formes pour le même état obligeraient chaque lecteur à les ramener
+	 *    à une seule ;
+	 *  · I2 — `resume.jusqu_au_pas % CADENCE === 0` et `≤ borneDeFenetre(horloge.tour)` ;
+	 *  · I3 — aucun `pas` ni `tour` sur un fait : l'ordre du tableau EST la chronologie ;
+	 *  · I4 — aucun prédicat, ni `evaluerExpr`, ni `executerCommande`, ni `resoudreJalons`
+	 *    ne lit `memoire` : elle est HORS DU REJEU (KR-248), comme `recit` ;
+	 *  · I5 — `sur` ne porte que des `lieu.*` et des `objet.*` (KR-272 : un ensemble qui ne
+	 *    fait que croître — indices révélés, jalons atteints — ne sélectionne rien).
+	 *
+	 * ⚠ AUCUNE CLÉ `fenetre` : la fenêtre glissante se DÉRIVE de `horloge.tour`
+	 * (`borneDeFenetre`, `memoire.ts`) — la stocker serait une copie du journal que rien
+	 * ne resynchronise (KR-013), et un pas joué en console la trouerait.
 	 */
-	readonly memoire: null
+	readonly memoire: MemoireSession | null
 	/**
 	 * LA CLARIFICATION EN COURS — posée par `apresInterpretation`
 	 * (`brain/dossier/interprete.ts`, n° 10) quand R1 ne peut pas trancher seul,
@@ -241,6 +263,63 @@ export interface AttenteClarification {
 	 *  injectée dans le contexte, pas celle que le joueur a tapée au clavier
 	 *  (`trim` + espaces multiples collapsés, précédent `assemblerInterprete`). */
 	readonly saisie: string
+}
+
+/**
+ * CE QUE LE NARRATEUR A RETENU — la racine NON NULLE de `EtatSession.memoire`.
+ *
+ * DEUX artefacts, et aucun troisième : la fenêtre glissante des pas récents n'est PAS
+ * ici, elle se dérive de l'horloge (voir `EtatSession.memoire`).
+ */
+export interface MemoireSession {
+	/**
+	 * AJOUT SEUL, ordre chronologique : jamais résumés, jamais réécrits, jamais évincés —
+	 * évincer ramènerait exactement les contradictions que les faits empêchent. Le
+	 * STOCKAGE n'a pas de plafond ; c'est l'INJECTION qui est bornée
+	 * (`FAITS_INJECTES_MAX`, `memoire.ts`), et c'est elle que le budget de contexte lit.
+	 */
+	readonly faits_etablis: readonly FaitEtabli[]
+	/**
+	 * ABSENT avant la première condensation réussie, JAMAIS `| null` (précédent
+	 * `attente?`) : un résumé qui n'existe pas n'est pas un résumé vide.
+	 */
+	readonly resume?: ResumeMemoire
+}
+
+/**
+ * UN FAIT ÉTABLI par le narrateur, et retenu pour toujours.
+ *
+ * `fait` et `sur`, JAMAIS `constat`/`ancres` : ces deux mots sont RÉSERVÉS au réseau
+ * (`ConstatRendu.phrase`/`.ancres`, `copilote/types.ts`), et un champ stocké homonyme
+ * de la clé réseau `constats` serait le piège de lecture que KR-236 ferme.
+ */
+export interface FaitEtabli {
+	/** La phrase, telle que le validateur l'a acceptée — audience `'ia'`. */
+	readonly fait: string
+	/**
+	 * Un ou deux IDENTIFIANTS STABLES, distincts, `lieu.*` ou `objet.*` seulement — audience
+	 * `'moteur'`. Re-résolus par le CODE depuis les rangs que l'assembleur a posés, jamais
+	 * frappés par le modèle (KR-231). Leur SEUL lecteur est `faitsPertinents`, qui choisit
+	 * par eux ce qui est réinjecté (KR-249).
+	 */
+	readonly sur: readonly string[]
+}
+
+/**
+ * LE RÉSUMÉ GLISSANT — un seul, recondensé à chaque cadence.
+ *
+ * `jusqu_au_pas`, JAMAIS `jusqu_au_tour` : aucun champ neuf ne porte « tour »
+ * (`docs/REGLES-PLAY.md` § J1).
+ */
+export interface ResumeMemoire {
+	/** La prose condensée — audience `'ia'`, bornée par `CONDENSE_CARACTERES_MAX`. */
+	readonly texte: string
+	/**
+	 * LE DERNIER PAS QUE LE TEXTE COUVRE RÉELLEMENT — audience `'moteur'`. POSÉ PAR LE CODE
+	 * depuis `pasACondenser(session).a`, jamais par le modèle ; c'est lui qui dit ce que
+	 * l'horloge ne sait pas : jusqu'où une condensation a RÉUSSI.
+	 */
+	readonly jusqu_au_pas: number
 }
 
 /**

@@ -22,7 +22,7 @@ import { GABARIT_SORTIE } from './copilote/schemaSortie'
 import type { CibleNarrateur } from './copilote/types'
 import { MARQUEUR_A_ECRIRE } from './dossier/amorce'
 import { analyserSaisie, executerCommande } from './dossier/commandes'
-import { consignerRecit } from './dossier/recit'
+import { consignerNarration } from './dossier/recit'
 import { ouvrirSession, type EtatSession } from './dossier/session'
 import { INTENSITE_INITIALE, PORTEE_INITIALE, type Dossier } from './dossier/types'
 import type { PersistenceService } from './PersistenceService'
@@ -2150,16 +2150,18 @@ describe('CopiloteService — le septieme role, interprete', () => {
 	})
 })
 
-// ══ LE HUITIÈME RÔLE — `narrateur` (n° 10 `moteur-interprete`, it2) ══════════
+// ══ LE HUITIÈME RÔLE — `narrateur` (n° 10 `moteur-interprete`, it2 puis it3) ═════
 //
-// LE CONTRAT QUE LE LOT 2 CONSOMME TEL QUEL : l'ordre des effets (refus de contexte ⇒
-// configuration ⇒ un appel ⇒ rejeu exactement une fois sur la FORME), la forme du corps
-// sur le fil, le renommage de destination, et CE QUE LE SERVICE NE FAIT PAS — il
+// LE CONTRAT QUE L'ORCHESTRATEUR CONSOMME TEL QUEL : l'ordre des effets (refus de contexte
+// ⇒ configuration ⇒ un appel ⇒ rejeu exactement une fois sur la FORME du bloc atomique),
+// la forme du corps sur le fil, la re-résolution (renommage de destination + `Map.get` des
+// ancres), la GARDE À DEUX NIVEAUX du condensé, et CE QUE LE SERVICE NE FAIT PAS — il
 // n'écrit jamais la session qu'il reçoit : sur tout échec, le pas reste acquis.
 describe('CopiloteService — le huitieme role, narrateur', () => {
 	const ROLE_NARRATEUR = 'narrateur'
 	const NARRATION = 'Vous fouillez la cendre froide du foyer ; rien ne bouge, et le beffroi reste muet.'
 	const TENTATIVES = ['Monter vers la tour', 'Interroger le village']
+	const CONDENSE = 'Vous avez longtemps veillé au foyer, sans que rien ne vienne troubler la cendre.'
 
 	/** Une session JOUÉE par le produit sur le dossier de référence — jamais forgée. */
 	function jouer(dossier: Dossier, saisies: readonly string[]): EtatSession {
@@ -2174,21 +2176,41 @@ describe('CopiloteService — le huitieme role, narrateur', () => {
 		}, ouverture.session)
 	}
 
+	/** Le pas 15 : la tranche 1-10 est DUE — le seul état où le condensé est demandé. */
+	const auPas15 = (dossier: Dossier): EtatSession =>
+		jouer(
+			dossier,
+			Array.from({ length: 15 }, () => 'AGIR'),
+		)
+
 	function cible(session: EtatSession, saisie = 'je fouille la cendre'): CibleNarrateur {
 		return { role: ROLE_NARRATEUR, saisie, session }
 	}
 
+	/** Une réponse du modèle CONFORME à la première forme — sans condensé. */
+	const conforme = (extra: Record<string, unknown> = {}): Record<string, unknown> => ({
+		narration: NARRATION,
+		tentatives: TENTATIVES,
+		constats: [],
+		...extra,
+	})
+
 	it('un appel, corps EXACTEMENT {role, contexte}, et la proposition RENOMMEE vers sa destination', async () => {
 		const dossier = dossierDeReference()
 		const session = jouer(dossier, ['AGIR'])
-		fetchMock.mockResolvedValue(reponseWorker({ narration: NARRATION, tentatives: TENTATIVES }))
+		fetchMock.mockResolvedValue(reponseWorker(conforme()))
 
 		const reponse = await createCopiloteService(reglages()).demander(dossier, cible(session))
 
 		expect(fetchMock).toHaveBeenCalledTimes(1)
 		// LE RENOMMAGE EST LA RÉ-RÉSOLUTION : `narration` → `recit`, `tentatives` →
-		// `suggestions`, rien d'autre. Aucune réparation.
-		expect(reponse).toEqual({ statut: 'propose', proposition: { recit: NARRATION, suggestions: TENTATIVES } })
+		// `suggestions`, `constats` → `faits_etablis`. Aucune réparation, et AUCUN `resume` :
+		// rien n'était à condenser au pas 1.
+		expect(reponse).toEqual({
+			statut: 'propose',
+			proposition: { recit: NARRATION, suggestions: TENTATIVES, faits_etablis: [] },
+		})
+		expect(reponse.statut === 'propose' && 'resume' in reponse.proposition).toBe(false)
 
 		const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
 		expect(url).toBe(`${URL_WORKER}/ia/${ROLE_NARRATEUR}`)
@@ -2205,21 +2227,47 @@ describe('CopiloteService — le huitieme role, narrateur', () => {
 		}
 	})
 
-	it('une liste de tentatives VIDE est un succes : zero suggestion, le recit est la', async () => {
+	it('les ancres des constats sont RE-RESOLUES par la table de l assembleur : faits_etablis porte des identifiants', async () => {
+		// La table est CELLE DE CET APPEL (KR-231) : au foyer, A1 est le lieu courant.
 		const dossier = dossierDeReference()
-		fetchMock.mockResolvedValue(reponseWorker({ narration: NARRATION, tentatives: [] }))
+		const session = jouer(dossier, ['AGIR'])
+		const contexte = assemblerNarrateur(dossier, cible(session))
+		if (!contexte.ok) throw new Error(`contexte refusé : ${contexte.motif}`)
+		expect(contexte.ancres.get('A1')).toBe('lieu.foyer-du-guet')
+		fetchMock.mockResolvedValue(
+			reponseWorker(conforme({ constats: [{ phrase: 'Une braise couve sous la cendre.', ancres: ['A1'] }] })),
+		)
+
+		const reponse = await createCopiloteService(reglages()).demander(dossier, cible(session))
+
+		expect(reponse).toEqual({
+			statut: 'propose',
+			proposition: {
+				recit: NARRATION,
+				suggestions: TENTATIVES,
+				faits_etablis: [{ fait: 'Une braise couve sous la cendre.', sur: ['lieu.foyer-du-guet'] }],
+			},
+		})
+	})
+
+	it('une liste de tentatives VIDE et une liste de constats VIDE sont un succes', async () => {
+		const dossier = dossierDeReference()
+		fetchMock.mockResolvedValue(reponseWorker(conforme({ tentatives: [] })))
 
 		const reponse = await createCopiloteService(reglages()).demander(dossier, cible(jouer(dossier, ['AGIR'])))
 
-		expect(reponse).toEqual({ statut: 'propose', proposition: { recit: NARRATION, suggestions: [] } })
+		expect(reponse).toEqual({
+			statut: 'propose',
+			proposition: { recit: NARRATION, suggestions: [], faits_etablis: [] },
+		})
 	})
 
 	it('rejeu-un-coup : une reponse fautive puis une valide = 2 fetch, MEME corps', async () => {
 		const dossier = dossierDeReference()
 		const session = jouer(dossier, ['AGIR'])
 		fetchMock
-			.mockResolvedValueOnce(reponseWorker({ narration: 'Que faites-vous ?', tentatives: [] }))
-			.mockResolvedValueOnce(reponseWorker({ narration: NARRATION, tentatives: TENTATIVES }))
+			.mockResolvedValueOnce(reponseWorker(conforme({ narration: 'Que faites-vous ?' })))
+			.mockResolvedValueOnce(reponseWorker(conforme()))
 
 		const reponse = await createCopiloteService(reglages()).demander(dossier, cible(session))
 
@@ -2227,20 +2275,34 @@ describe('CopiloteService — le huitieme role, narrateur', () => {
 		const [, un] = fetchMock.mock.calls[0] as [string, RequestInit]
 		const [, deux] = fetchMock.mock.calls[1] as [string, RequestInit]
 		expect(JSON.parse(String(un.body))).toEqual(JSON.parse(String(deux.body)))
-		expect(reponse).toEqual({ statut: 'propose', proposition: { recit: NARRATION, suggestions: TENTATIVES } })
+		expect(reponse).toEqual({
+			statut: 'propose',
+			proposition: { recit: NARRATION, suggestions: TENTATIVES, faits_etablis: [] },
+		})
 	})
 
 	it('deux reponses fautives = illisible, avec le motif du SECOND echec, et jamais un troisieme appel', async () => {
 		const dossier = dossierDeReference()
 		fetchMock
-			.mockResolvedValueOnce(reponseWorker({ narration: 'Que faites-vous ?', tentatives: [] })) // schema
-			.mockResolvedValueOnce(reponseWorker({ narration: 'Le sceau objet.sceau-de-cendre luit.', tentatives: [] })) // identifiant
-			.mockResolvedValueOnce(reponseWorker({ narration: NARRATION, tentatives: [] })) // jamais atteint
+			.mockResolvedValueOnce(reponseWorker(conforme({ narration: 'Que faites-vous ?' }))) // schema
+			.mockResolvedValueOnce(reponseWorker(conforme({ narration: 'Le sceau objet.sceau-de-cendre luit.' }))) // identifiant
+			.mockResolvedValueOnce(reponseWorker(conforme())) // jamais atteint
 
 		const reponse = await createCopiloteService(reglages()).demander(dossier, cible(jouer(dossier, ['AGIR'])))
 
 		expect(fetchMock).toHaveBeenCalledTimes(2)
 		expect(reponse).toEqual({ statut: 'illisible', motif: 'identifiant' })
+	})
+
+	it('un constat fautif refuse le LOT : rejeu, puis illisible rang-inconnu — aucun fait, aucun recit (KR-230)', async () => {
+		const dossier = dossierDeReference()
+		const fautif = conforme({ constats: [{ phrase: 'Un fait sur rien de connu.', ancres: ['A9'] }] })
+		fetchMock.mockResolvedValue(reponseWorker(fautif))
+
+		const reponse = await createCopiloteService(reglages()).demander(dossier, cible(jouer(dossier, ['AGIR'])))
+
+		expect(fetchMock).toHaveBeenCalledTimes(2)
+		expect(reponse).toEqual({ statut: 'illisible', motif: 'rang-inconnu' })
 	})
 
 	it('503, 413 et reseau = UN SEUL fetch chacun, jamais un rejeu', async () => {
@@ -2283,15 +2345,15 @@ describe('CopiloteService — le huitieme role, narrateur', () => {
 	})
 
 	it('sur TOUT echec, le pas reste acquis : la session recue n est jamais ecrite, aucun recit n apparait', async () => {
-		// CRITÈRE 4 DU PLAN, MOITIÉ CONTRAT. Le service ne rend JAMAIS de session ; ce qui
-		// se prouve ici est qu'il ne MUTE pas celle qu'il reçoit — ni son journal, ni une
-		// entrée, sur aucune des trois branches d'échec (refus, indisponible, illisible).
+		// Le service ne rend JAMAIS de session ; ce qui se prouve ici est qu'il ne MUTE pas
+		// celle qu'il reçoit — ni son journal, ni une entrée, ni sa mémoire, sur aucune des
+		// trois branches d'échec (refus, indisponible, illisible).
 		const dossier = dossierDeReference()
 		const session = jouer(dossier, ['AGIR'])
 		const avant = JSON.stringify(session)
 		const service = createCopiloteService(reglages())
 
-		fetchMock.mockResolvedValue(reponseWorker({ narration: 'Que faites-vous ?', tentatives: [] }))
+		fetchMock.mockResolvedValue(reponseWorker(conforme({ narration: 'Que faites-vous ?' })))
 		const illisible = await service.demander(dossier, cible(session))
 		fetchMock.mockReset()
 		fetchMock.mockResolvedValue(reponseWorker({}, 503))
@@ -2303,13 +2365,14 @@ describe('CopiloteService — le huitieme role, narrateur', () => {
 		expect([illisible, indisponible, refuse].filter((reponse) => 'proposition' in reponse)).toEqual([])
 		expect(JSON.stringify(session)).toBe(avant)
 		expect(session.journal.some((entree) => entree.recit !== undefined)).toBe(false)
+		expect(session.memoire).toBeNull()
 		expect(session.horloge.tour).toBe(1)
 	})
 
 	it('sur etat terminal du huitieme role : update, persistance et bus restent muets', async () => {
 		const { brain, espions } = brainEspionne()
 		const dossier = dossierDeReference()
-		fetchMock.mockResolvedValue(reponseWorker({ narration: '', tentatives: [] }))
+		fetchMock.mockResolvedValue(reponseWorker(conforme({ narration: '', tentatives: [] })))
 
 		const reponse = await brain.copilote.demander(dossier, cible(jouer(dossier, ['AGIR'])))
 
@@ -2319,36 +2382,146 @@ describe('CopiloteService — le huitieme role, narrateur', () => {
 		expect(espions.emit).not.toHaveBeenCalled()
 	})
 
-	it('sans memoire : meme monde au pas 2 et au pas 40 — deux corps STRICTEMENT egaux sur le fil', async () => {
-		// R3 SANS ÉTAT, vu du FIL : `agir` ne change jamais le monde, donc au pas 2 et au
-		// pas 40 le monde est le MÊME ; le journal, les récits consignés et l'horloge, eux,
-		// divergent. Si l'un d'eux franchissait le réseau, les deux corps différeraient.
+	it('la memoire part sur le fil par le SEUL contexte : au pas 20, le recit du pas 19 y est, celui du pas 3 non', async () => {
+		// REMPLACE le témoin « sans mémoire » d'it2 (pas 2 = pas 40) par SON INVERSE, vu du
+		// FIL : le corps grandit avec la fenêtre — jamais avec toute la partie — et il reste
+		// EXACTEMENT `{role, contexte}`. Condensation réussie au pas 15.
 		const dossier = dossierDeReference()
 		let session = jouer(dossier, [])
-		const etats: EtatSession[] = []
-		for (let pas = 1; pas <= 40; pas += 1) {
+		for (let pas = 1; pas <= 20; pas += 1) {
 			const analyse = analyserSaisie('AGIR')
 			if (!analyse.ok) throw new Error('AGIR refusé')
 			const resultat = executerCommande(dossier, session, analyse.commande)
 			if (!resultat.ok) throw new Error('AGIR refusé')
-			session = consignerRecit(resultat.session, resultat.session.horloge.tour, `Recit du pas ${pas}.`)
-			etats.push(session)
+			if (pas === 20) {
+				session = resultat.session
+				break
+			}
+			session = consignerNarration(resultat.session, pas, {
+				recit: `Recit du pas ${'i'.repeat(pas)}.`,
+				faits_etablis: [],
+				...(pas === 15 ? { resume: { texte: 'Vous avez veillé.', jusqu_au_pas: 10 } } : {}),
+			})
 		}
-		fetchMock.mockResolvedValue(reponseWorker({ narration: NARRATION, tentatives: [] }))
-		const service = createCopiloteService(reglages())
+		fetchMock.mockResolvedValue(reponseWorker(conforme()))
 
-		await service.demander(dossier, cible(etats[1]))
-		await service.demander(dossier, cible(etats[39]))
+		await createCopiloteService(reglages()).demander(dossier, cible(session))
 
-		expect(etats[1].monde).toBe(etats[39].monde)
-		expect(etats[39].journal.length).toBeGreaterThan(etats[1].journal.length)
-		const [, deux] = fetchMock.mock.calls[0] as [string, RequestInit]
-		const [, quarante] = fetchMock.mock.calls[1] as [string, RequestInit]
-		expect(String(quarante.body)).toBe(String(deux.body))
-		expect(String(quarante.body)).not.toContain('Recit du pas')
+		const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+		const corps = JSON.parse(String(init.body)) as { role: string; contexte: string }
+		expect(Object.keys(corps).sort()).toEqual(['contexte', 'role'])
+		expect(corps.contexte).toContain(`Recit du pas ${'i'.repeat(19)}.`)
+		expect(corps.contexte).toContain('Vous avez veillé.')
+		expect(corps.contexte).not.toContain(`Recit du pas ${'i'.repeat(3)}.`)
+		expect(corps.contexte).not.toContain(`Recit du pas ${'i'.repeat(10)}.`)
 	})
 
-	it('la HUITIEME surcharge est ecrite aux DEUX sites, et la garde never ferme toujours l union', () => {
+	describe('la garde a DEUX niveaux — condense decouple du lot, jamais le recit (KR-271)', () => {
+		it('condense du et valide : resume present, jusqu_au_pas POSE PAR LE CODE a la borne haute de la tranche', async () => {
+			const dossier = dossierDeReference()
+			const session = auPas15(dossier)
+			const contexte = assemblerNarrateur(dossier, cible(session))
+			if (!contexte.ok) throw new Error(`contexte refusé : ${contexte.motif}`)
+			expect(contexte.condensation).toEqual({ de: 1, a: 10 })
+			fetchMock.mockResolvedValue(reponseWorker(conforme({ condense: CONDENSE })))
+
+			const reponse = await createCopiloteService(reglages()).demander(dossier, cible(session))
+
+			expect(fetchMock).toHaveBeenCalledTimes(1)
+			expect(reponse).toEqual({
+				statut: 'propose',
+				proposition: {
+					recit: NARRATION,
+					suggestions: TENTATIVES,
+					faits_etablis: [],
+					resume: { texte: CONDENSE, jusqu_au_pas: 10 },
+				},
+			})
+		})
+
+		it('M4/M5/M6 — condense du mais INVALIDE ou ABSENT : recit propose, AUCUN resume, et UN SEUL fetch', async () => {
+			// MUTANTS OBLIGATOIRES (plan § 7), vérifiés ROUGES puis rétablis :
+			//  M4 — le condensé fautif refuse le lot : le récit disparaîtrait ;
+			//  M5 — le condensé fautif pose quand même `resume`/`jusqu_au_pas` ;
+			//  M6 — le refus du condensé déclenche un rejeu : deux `fetch` au lieu d'un.
+			const dossier = dossierDeReference()
+			const session = auPas15(dossier)
+			for (const brut of [
+				conforme(),
+				conforme({ condense: 'Que reste-t-il ?' }),
+				conforme({ condense: '   ' }),
+				conforme({ condense: 42 }),
+				conforme({ condense: 'Vous avez gardé objet.sceau-de-cendre.' }),
+				conforme({ condense: 'Vous avez quitté A1.' }),
+			]) {
+				fetchMock.mockReset()
+				fetchMock.mockResolvedValue(reponseWorker(brut))
+
+				const reponse = await createCopiloteService(reglages()).demander(dossier, cible(session))
+
+				const etiquette = JSON.stringify(brut.condense ?? 'absent')
+				expect(`${etiquette} → ${fetchMock.mock.calls.length}`).toBe(`${etiquette} → 1`)
+				expect(`${etiquette} → ${JSON.stringify(reponse)}`).toBe(
+					`${etiquette} → ${JSON.stringify({
+						statut: 'propose',
+						proposition: { recit: NARRATION, suggestions: TENTATIVES, faits_etablis: [] },
+					})}`,
+				)
+			}
+		})
+
+		it('M7 — condense present alors que RIEN n etait du : refus du lot, rejeu, puis illisible schema', async () => {
+			// MUTANT OBLIGATOIRE M7 (plan § 7) : un condensé non demandé accepté. Vérifié ROUGE.
+			const dossier = dossierDeReference()
+			fetchMock.mockResolvedValue(reponseWorker(conforme({ condense: CONDENSE })))
+
+			const reponse = await createCopiloteService(reglages()).demander(dossier, cible(jouer(dossier, ['AGIR'])))
+
+			expect(fetchMock).toHaveBeenCalledTimes(2)
+			expect(reponse).toEqual({ statut: 'illisible', motif: 'schema' })
+		})
+
+		it('M8 — AUCUNE composition entre deux essais : un condense valide a l essai REFUSE n est jamais recupere', async () => {
+			// MUTANT OBLIGATOIRE M8 (plan § 7) : retenir le condensé du premier essai quand le
+			// second est accepté — c'est fusionner deux sorties de modèle, donc réparer (KR-230).
+			const dossier = dossierDeReference()
+			const session = auPas15(dossier)
+			fetchMock
+				.mockResolvedValueOnce(reponseWorker(conforme({ narration: 'Que faites-vous ?', condense: CONDENSE })))
+				.mockResolvedValueOnce(reponseWorker(conforme()))
+
+			const reponse = await createCopiloteService(reglages()).demander(dossier, cible(session))
+
+			expect(fetchMock).toHaveBeenCalledTimes(2)
+			expect(reponse).toEqual({
+				statut: 'propose',
+				proposition: { recit: NARRATION, suggestions: TENTATIVES, faits_etablis: [] },
+			})
+			// Discriminant : le MÊME condensé, à l'essai accepté, est bien retenu.
+			fetchMock.mockReset()
+			fetchMock
+				.mockResolvedValueOnce(reponseWorker(conforme({ narration: 'Que faites-vous ?' })))
+				.mockResolvedValueOnce(reponseWorker(conforme({ condense: CONDENSE })))
+			const retenu = await createCopiloteService(reglages()).demander(dossier, cible(session))
+			expect(retenu.statut === 'propose' && retenu.proposition.resume).toEqual({ texte: CONDENSE, jusqu_au_pas: 10 })
+		})
+
+		it('M9 — un constat fautif ne se decouple JAMAIS : meme avec un condense valide, le lot tombe', async () => {
+			const dossier = dossierDeReference()
+			const session = auPas15(dossier)
+			fetchMock.mockResolvedValue(
+				reponseWorker(conforme({ constats: [{ phrase: 'Rien.', ancres: [] }], condense: CONDENSE })),
+			)
+
+			const reponse = await createCopiloteService(reglages()).demander(dossier, cible(session))
+
+			expect(fetchMock).toHaveBeenCalledTimes(2)
+			expect(reponse).toEqual({ statut: 'illisible', motif: 'schema' })
+		})
+	})
+
+	it('la HUITIEME surcharge est ecrite aux DEUX sites, et la garde never ferme toujours l union — AUCUNE neuvieme', () => {
+		// AC#5 (it3) : récit, faits et résumé sortent du MÊME appel, par la MÊME branche.
 		const source = fs.readFileSync(path.join(__dirname, 'CopiloteService.ts'), 'utf8')
 		// ⚠ DEUX SITES — l'interface publique ET l'implémentation. En oublier un rend
 		// l'appel impossible côté feature alors que `tsc` reste vert sur `brain/`.
@@ -2365,6 +2538,12 @@ describe('CopiloteService — le huitieme role, narrateur', () => {
 		// HUIT branches, une par étiquette — et le `default` ne délègue toujours à rien.
 		expect(dispatch.match(/\n\t\t\tcase '[a-z-]+':/g) ?? []).toHaveLength(8)
 		expect(dispatch.slice(dispatch.indexOf('default:'))).not.toContain('demander')
+		// Et `jusquAuRejeuUnique` reste GÉNÉRIQUE — aucune branche propre au narrateur.
+		const boucle = source.slice(
+			source.indexOf('async function jusquAuRejeuUnique'),
+			source.indexOf('function refuser('),
+		)
+		expect(boucle).not.toMatch(/narrat|condense|constat/i)
 	})
 
 	it('le dispatch suit l ETIQUETTE : narrateur et interprete, MEME charge, partent chacun sur SA route', async () => {
@@ -2373,7 +2552,7 @@ describe('CopiloteService — le huitieme role, narrateur', () => {
 		const dossier = dossierDeReference()
 		const session = jouer(dossier, ['AGIR'])
 		fetchMock
-			.mockResolvedValueOnce(reponseWorker({ narration: NARRATION, tentatives: [] }))
+			.mockResolvedValueOnce(reponseWorker(conforme({ tentatives: [] })))
 			.mockResolvedValueOnce(reponseWorker({ sans_commande: true }))
 		const service = createCopiloteService(reglages())
 

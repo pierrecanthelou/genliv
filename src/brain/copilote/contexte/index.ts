@@ -44,5 +44,9 @@ export type { ContexteInterprete } from './interprete'
 // pour `worker/frontiere.test.ts` SEULEMENT (le plafond HTTP doit couvrir ce rôle) —
 // jamais par `brain/index.ts`. `CHAMPS_INJECTES_NARRATEUR` NE SORT PAS de ce baril : son
 // seul lecteur hors du module est le test de confinement, qui l'importe en profondeur.
+// ⚠ `BORNE_MEMOIRE` (it3) NON PLUS, pour la même raison : c'est un TERME du budget, lu par
+// `contexte.test.ts` en profondeur pour prouver son exactitude — le plafond HTTP ne lit que
+// la somme. L'it3 étend la branche `ok` de `ContexteNarrateur` (`ancres`, `condensation`)
+// sans toucher à ce qui sort d'ici.
 export { assemblerNarrateur, BUDGET_CARACTERES_NARRATEUR } from './narrateur'
 export type { ContexteNarrateur } from './narrateur'

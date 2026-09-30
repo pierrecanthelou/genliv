@@ -464,7 +464,7 @@
 		{
 			"id": "KR-197",
 			"feature": "dossier-canon",
-			"risk": "Un bandeau de refus porte DEUX indexations distinctes, et les oublier est deux defauts differents sur le meme etat : (a) l'AFFICHAGE -- sous quelle entite le bandeau se montre ; (b) l'INVALIDATION -- quelle ecriture reussie l'efface. Corriger l'un ne corrige pas l'autre. Meme forme trois fois (BUG-056, BUG-061, BUG-063), toujours le meme raisonnement fautif : 'cette carte n'a pas de selection par element, donc un etat global suffit' -- vrai pour l'affichage, FAUX pour l'invalidation, qui ne parle pas de selection mais de 'quelle ecriture efface quel refus'. REGLE : tout etat de refus porte l'identifiant de l'entite en cause ({entiteId, issues}), et un commit reussi n'efface que si sa propre entite est celle en cause. Le test qui le prouve exige DEUX entites distinctes -- refus sur A puis succes sur B, le bandeau reste ; un test mono-entite ne distingue pas un correctif d'une regression. COROLLAIRE : une propriete a DEUX moities s'ecrit en DEUX criteres, ou porte 'prouve separement' dans son libelle (voir KR-199)."
+			"risk": "UN BANDEAU DE REFUS PORTE DEUX INDEXATIONS DISTINCTES -- l'AFFICHAGE (sous quelle entite le bandeau se montre) et l'INVALIDATION (quelle ecriture reussie l'efface). Corriger l'une ne corrige pas l'autre (BUG-056/061/063, meme raisonnement fautif repete trois fois). REGLE : tout etat de refus porte l'identifiant de l'entite en cause ({entiteId, issues}), un commit reussi n'efface que si sa propre entite est celle en cause. Le test qui le prouve exige DEUX entites distinctes (un mono-entite ne distingue pas un correctif d'une regression). Corps : spec dossier-canon."
 		},
 		{
 			"id": "KR-198",
@@ -830,6 +830,21 @@
 			"id": "KR-270",
 			"feature": "moteur-interprete",
 			"risk": "TOUTE LISTE DE MOTS/VERBES INTERDITS VERIFIEE CONTRE UNE INVITE IA SE DERIVE DE COMMANDES, JAMAIS RECOPIEE A LA MAIN — sinon un verbe ajoute au registre peut fuiter dans l'invite sans qu'aucun test ne le voie. Corps : spec moteur-interprete, raffinage it2 desaccord #11."
+		},
+		{
+			"id": "KR-271",
+			"feature": "moteur-interprete",
+			"risk": "UN ARTEFACT DE SORTIE IA N'EST DECOUPLE DU REFUS DE LOT (KR-230) QUE S'IL REMPLIT TROIS CONDITIONS CUMULATIVES : il porte sur une fiction DEJA PERSISTEE (pas le pas courant), le joueur ne le lit JAMAIS, et le code peut le REDEMANDER DE FACON DETERMINISTE au pas suivant. Un artefact qui ne remplit pas les trois reste dans l'enveloppe atomique, refusee en bloc. Corps : spec moteur-interprete, raffinage it3 desaccord #2/#3."
+		},
+		{
+			"id": "KR-272",
+			"feature": "moteur-interprete",
+			"risk": "UN RANG D'ANCRE N'EST POSE QUE SUR UNE ENTITE DONT LA PRESENCE DANS LE CONTEXTE PEUT DISPARAITRE PUIS REVENIR (lieu courant, objets) -- JAMAIS sur un ensemble qui ne fait QUE croitre (indices reveles, jalons atteints), qui rendrait le selecteur de pertinence equivalent a 'tous les faits'. Generalise KR-268 au type d'ancre. Corps : spec moteur-interprete, raffinage it3 desaccord #4."
+		},
+		{
+			"id": "KR-273",
+			"feature": "moteur-interprete",
+			"risk": "LA CADENCE D'UN MECANISME PERIODIQUE (ex. condensation de memoire) NE VIT QUE DANS LE MODULE PUR QUI LA CALCULE -- l'invite IA decide de produire l'artefact periodique d'apres le CONTENU du contexte recu (presence d'un bloc dedie), jamais d'apres un compte qu'elle devrait elle-meme deriver. Corps : spec moteur-interprete, raffinage it3 § 4 bis."
 		}
 	]
 }

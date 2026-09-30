@@ -13,7 +13,8 @@ import type { DeltaJournalise } from '../dossier/evaluate'
 import { feuillesDeLaFixture } from '../dossier/feuilles'
 import { collectIds } from '../dossier/identifiers'
 import { LIBELLE_DES_CHAMPS } from '../dossier/libelles'
-import { consignerRecit } from '../dossier/recit'
+import { CADENCE, FAITS_INJECTES_MAX, FENETRE_MAX, pasACondenser } from '../dossier/memoire'
+import { consignerNarration } from '../dossier/recit'
 import { ouvrirSession, type EtatSession } from '../dossier/session'
 import { CERTITUDE_INITIALE, INTENSITE_INITIALE, type Dossier, type Personnage, type Portee } from '../dossier/types'
 import { controlerDossier } from '../dossier/controles'
@@ -43,8 +44,9 @@ import {
 	PARTIES_REQUISES,
 	SAISIE_CARACTERES_MAX,
 } from './contexte'
-import { CHAMPS_INJECTES_NARRATEUR } from './contexte/narrateur'
+import { BORNE_MEMOIRE, CHAMPS_INJECTES_NARRATEUR } from './contexte/narrateur'
 import { DESTINATION_DES_CHAMPS_DE_SESSION } from '../dossier/sessionDestinations'
+import { CONDENSE_CARACTERES_MAX, FAIT_CARACTERES_MAX, NARRATION_CARACTERES_MAX } from './schemaSortie'
 import { CHAMPS_PROPOSABLES, type ChampProseChemin, type CibleNarrateur } from './types'
 
 const ROLE = 'personnage-prose'
@@ -2887,16 +2889,28 @@ describe('assemblerInterprete — le septieme role, hors registres partages', ()
 	})
 })
 
-// ══ LE HUITIÈME ASSEMBLEUR — `narrateur` (n° 10 `moteur-interprete`, it2) ═════
+// ══ LE HUITIÈME ASSEMBLEUR — `narrateur` (n° 10 `moteur-interprete`, it2 puis it3) ═════
 //
 // HORS DE LA COUTURE COMMUNE, comme l'interprète : ni `CHAMPS_INJECTES`, ni
 // `PARTIES_REQUISES`, ni `BUDGET_CARACTERES_CONTEXTE`. Ses sessions sont PRODUITES PAR
 // LE MOTEUR (`ouvrirSession` + `executerCommande`) chaque fois que l'état visé est
-// atteignable ; seule la MESURE du pire cas est composée, comme aux six rôles auteur.
+// atteignable, et leur MÉMOIRE par sa seule porte d'écriture (`consignerNarration`) ;
+// seule la MESURE du pire cas est composée, comme aux six rôles auteur.
 
 /** Les en-têtes d'assemblage du narrateur, écrits ici parce que le test doit savoir
- *  découper le texte en blocs (précédent `EN_TETE_DEJA_ECRIT`). */
-const EN_TETES_NARRATEUR = ['ICI', 'CE PAS', 'EN SA POSSESSION', 'DEJA ACCOMPLI', 'saisie'] as const
+ *  découper le texte en blocs (précédent `EN_TETE_DEJA_ECRIT`). `ICI A1` porte l'ancre du
+ *  lieu courant ; les quatre derniers sont ceux de la MÉMOIRE (it3). */
+const EN_TETES_NARRATEUR = [
+	'ICI A1',
+	'CE PAS',
+	'EN SA POSSESSION',
+	'DEJA ACCOMPLI',
+	'saisie',
+	'AUPARAVANT',
+	'A CONDENSER',
+	'RECEMMENT',
+	'ETABLI',
+] as const
 /** Les quatre amorces d'effet — le SENS du changement pour le héros. Écrites ici pour la
  *  même raison ; un changement de l'une d'elles fait rougir ce test, et c'est voulu. */
 const AMORCES_D_EFFET = ['obtient', "n'a plus", 'remarque', 'accomplit'] as const
@@ -2923,10 +2937,14 @@ function cibleNarrateur(session: EtatSession, saisie = 'je regarde autour de moi
 	return { role: 'narrateur', saisie, session }
 }
 
-function texteNarrateur(dossier: Dossier, cible: CibleNarrateur): string {
+function assemblageNarrateur(dossier: Dossier, cible: CibleNarrateur) {
 	const contexte = assemblerNarrateur(dossier, cible)
 	if (!contexte.ok) throw new Error(`contexte refusé (${contexte.motif}) alors que le test attend un assemblage`)
-	return contexte.texte
+	return contexte
+}
+
+function texteNarrateur(dossier: Dossier, cible: CibleNarrateur): string {
+	return assemblageNarrateur(dossier, cible).texte
 }
 
 /** Les blocs d'un texte assemblé, indexés par leur en-tête (première ligne). */
@@ -2956,16 +2974,16 @@ function referenceAvecVigieDecrite(): Dossier {
 }
 
 /**
- * LE PIRE CAS DE MESURE — COMPOSÉ, jamais inventé : toutes les valeurs viennent du
- * dossier de référence. Le lieu décrit dont `description` + `ambiance` est le plus
- * long ; le geste au libellé le plus long ; au pas COURANT, TOUS les objets donnés,
- * TOUS les indices révélés et TOUS les jalons atteints ; donc TOUS les objets possédés
- * et TOUS les jalons atteints ; une saisie de `SAISIE_CARACTERES_MAX` caractères.
- * L'état est COHÉRENT (un objet donné au pas est possédé après lui) ; il n'est pas
- * atteignable tel quel sur ce dossier — la fixture ne porte pas autant d'effets —, et
- * c'est précisément pourquoi il MAJORE.
+ * LE PIRE CAS DE MESURE DU TERME DOSSIER — COMPOSÉ, jamais inventé : toutes les valeurs
+ * viennent du dossier de référence. Le lieu décrit dont `description` + `ambiance` est le
+ * plus long ; le geste au libellé le plus long ; au pas COURANT, TOUS les objets donnés,
+ * TOUS les indices révélés et TOUS les jalons atteints ; donc TOUS les objets possédés et
+ * TOUS les jalons atteints ; une saisie de `SAISIE_CARACTERES_MAX` caractères. L'état est
+ * COHÉRENT (un objet donné au pas est possédé après lui) ; il n'est pas atteignable tel
+ * quel sur ce dossier — la fixture ne porte pas autant d'effets —, et c'est précisément
+ * pourquoi il MAJORE. SANS MÉMOIRE : la mémoire est l'autre terme du budget, calculé.
  */
-function pireCasNarrateur(): { dossier: Dossier; cible: CibleNarrateur } {
+function pireCasNarrateur(tour = 12): { dossier: Dossier; cible: CibleNarrateur } {
 	const dossier = dossierDeReference()
 	const poids = (lieu: Dossier['monde']['lieux'][number]): number =>
 		(lieu.description ?? '').length + (lieu.ambiance ?? '').length
@@ -2983,7 +3001,6 @@ function pireCasNarrateur(): { dossier: Dossier; cible: CibleNarrateur } {
 		cibles: [cible],
 		effet: 'applique',
 	})
-	const tour = 12
 	const session: EtatSession = {
 		...ouvertureNarrateur(dossier),
 		horloge: { tour },
@@ -3012,6 +3029,36 @@ function pireCasNarrateur(): { dossier: Dossier; cible: CibleNarrateur } {
 		],
 	}
 	return { dossier, cible: cibleNarrateur(session, 'x'.repeat(SAISIE_CARACTERES_MAX)) }
+}
+
+/**
+ * LA MÉMOIRE SATURÉE DU PIRE CAS — au pas 34, résumé à 10 : la tranche 11–20 est due ET la
+ * fenêtre 21–33 est pleine, soit 23 lignes de pas (retard d'UNE condensation, `FENETRE_MAX
+ * − 1 + CADENCE`). CHAQUE terme à SA borne de validateur : chaque récit à
+ * `NARRATION_CARACTERES_MAX`, le résumé à `CONDENSE_CARACTERES_MAX`, NEUF faits pertinents
+ * à `FAIT_CARACTERES_MAX` (un de plus que ce qui repart). Aucun blanc : le repli des blancs
+ * ne raccourcit rien, la mesure est exacte.
+ */
+function avecMemoireSaturee(session: EtatSession): EtatSession {
+	const tour = session.horloge.tour
+	const passes: EtatSession['journal'] = Array.from({ length: tour - 1 }, (_, rang) => ({
+		tour: rang + 1,
+		role: 'moteur' as const,
+		texte: 'lieu_courant : x',
+		origine: 'agir' as const,
+		recit: 'r'.repeat(NARRATION_CARACTERES_MAX),
+	}))
+	return {
+		...session,
+		journal: [...passes, ...session.journal],
+		memoire: {
+			faits_etablis: Array.from({ length: FAITS_INJECTES_MAX + 1 }, () => ({
+				fait: 'f'.repeat(FAIT_CARACTERES_MAX),
+				sur: [session.monde.lieu_courant],
+			})),
+			resume: { texte: 'c'.repeat(CONDENSE_CARACTERES_MAX), jusqu_au_pas: 10 },
+		},
+	}
 }
 
 describe('assemblerNarrateur — confinement d audience et liste fermee des onze chemins', () => {
@@ -3066,28 +3113,60 @@ describe('assemblerNarrateur — confinement d audience et liste fermee des onze
 			CHAMPS_INJECTES_NARRATEUR.filter((chemin) => onze.includes(chemin) && chemin !== cheminInterprete),
 		).toHaveLength(4)
 	})
+
+	it('les trois chemins de SESSION que la memoire injecte sont ia — et ils sont REELLEMENT injectes', () => {
+		// AUDIENCE AVANT INJECTION (KR-232) : rien ne repart au modèle sans sa ligne. Les trois
+		// proses de la mémoire ont la leur dans `sessionDestinations.ts` ; les deux feuilles
+		// `'moteur'` (ancres, pointeur) n'apparaissent JAMAIS dans le texte.
+		for (const chemin of ['journal[].recit', 'memoire.resume.texte', 'memoire.faits_etablis[].fait'] as const) {
+			expect(`${chemin} → ${DESTINATION_DES_CHAMPS_DE_SESSION[chemin]}`).toBe(`${chemin} → ia`)
+		}
+		const dossier = dossierDeReference()
+		const s15 = jouerNarrateur(
+			dossier,
+			ouvertureNarrateur(dossier),
+			Array.from({ length: 15 }, () => 'AGIR'),
+		)
+		const retenue = consignerNarration(s15, 15, {
+			recit: 'Vous veillez encore.',
+			faits_etablis: [{ fait: 'Le foyer garde une braise.', sur: ['lieu.foyer-du-guet'] }],
+			resume: { texte: 'Vous avez longtemps veillé au foyer.', jusqu_au_pas: 10 },
+		})
+		const s16 = jouerNarrateur(dossier, retenue, ['AGIR'])
+		const texte = texteNarrateur(dossier, cibleNarrateur(s16))
+
+		expect(texte).toContain('Vous veillez encore.')
+		expect(texte).toContain('Le foyer garde une braise.')
+		expect(texte).toContain('Vous avez longtemps veillé au foyer.')
+		expect(texte).not.toContain('lieu.foyer-du-guet')
+		expect(texte).not.toMatch(/\b1[05]\b/)
+	})
 })
 
 describe('assemblerNarrateur — ce que le narrateur voit d un pas', () => {
-	it('le nominal : un pas agir — ICI requise, CE PAS porte le geste et aucun changement, saisie en dernier', () => {
+	it('le nominal : un pas agir — ICI A1 requise, CE PAS porte le geste et aucun changement, saisie en dernier', () => {
 		const dossier = dossierDeReference()
 		const s1 = jouerNarrateur(dossier, ouvertureNarrateur(dossier), ['AGIR'])
 
-		const texte = texteNarrateur(dossier, cibleNarrateur(s1, '  je   fouille la cendre  '))
-		const blocs = blocsNarrateur(texte)
+		const contexte = assemblageNarrateur(dossier, cibleNarrateur(s1, '  je   fouille la cendre  '))
+		const blocs = blocsNarrateur(contexte.texte)
 
 		const foyer = dossier.monde.lieux.find((lieu) => lieu.id === 'lieu.foyer-du-guet')
-		expect(blocs.get('ICI')).toEqual([String(foyer?.description), String(foyer?.ambiance)])
+		expect(blocs.get('ICI A1')).toEqual([String(foyer?.description), String(foyer?.ambiance)])
 		// LE LIBELLÉ DU GESTE est la SEULE source de sa portée pour le modèle (KR-269).
 		expect(blocs.get('CE PAS')).toEqual([COMMANDES.agir.label, AUCUN_CHANGEMENT])
-		// Rien de possédé, rien d'accompli à l'ouverture : pas une ligne, pas de bloc.
-		expect(blocs.has('EN SA POSSESSION')).toBe(false)
-		expect(blocs.has('DEJA ACCOMPLI')).toBe(false)
+		// Rien de possédé, rien d'accompli, rien de retenu au pas 1 : pas une ligne, pas de bloc.
+		for (const absent of ['EN SA POSSESSION', 'DEJA ACCOMPLI', 'AUPARAVANT', 'A CONDENSER', 'RECEMMENT', 'ETABLI']) {
+			expect(`${absent} → ${blocs.has(absent)}`).toBe(`${absent} → false`)
+		}
 		// La saisie, NORMALISÉE, en DERNIER.
-		expect(texte.endsWith('saisie\nje fouille la cendre')).toBe(true)
+		expect(contexte.texte.endsWith('saisie\nje fouille la cendre')).toBe(true)
 		// Le canon écrit est là, sous ses chemins.
 		expect(blocs.get('canon.ton')).toEqual([dossier.canon.ton])
 		expect(blocs.get('canon.partage.accroche_joueur')).toEqual([dossier.canon.partage.accroche_joueur])
+		// L'ancre du lieu courant, SEULE entrée de la table, et rien n'est dû.
+		expect([...contexte.ancres.entries()]).toEqual([['A1', 'lieu.foyer-du-guet']])
+		expect(contexte.condensation).toBeNull()
 	})
 
 	it('un pas aller qui franchit un jalon : CE PAS porte le geste, puis CHAQUE effet applique avec son amorce', () => {
@@ -3107,7 +3186,7 @@ describe('assemblerNarrateur — ce que le narrateur voit d un pas', () => {
 			`accomplit — ${String(jalon?.enonce_texte)}`,
 			`remarque — ${String(indice?.formulation_joueur)}`,
 		])
-		expect(blocs.get('ICI')).toEqual([DESCRIPTION_VIGIE])
+		expect(blocs.get('ICI A1')).toEqual([DESCRIPTION_VIGIE])
 		expect(blocs.get('DEJA ACCOMPLI')).toEqual([String(jalon?.enonce_texte)])
 		// ⚠ LA VÉRITÉ DE L'INDICE N'ENTRE PAS — seule sa formulation (condition d'état n° 12).
 		expect([...blocs.values()].flat().join('\n')).not.toContain(String(indice?.verite))
@@ -3155,7 +3234,7 @@ describe('assemblerNarrateur — ce que le narrateur voit d un pas', () => {
 		expect([...blocs.values()].flat().join('\n')).not.toContain(String(indice.formulation_joueur))
 	})
 
-	it('un effet applique mais NON REDIGE se tait — et aucun changement n est alors PAS ecrit', () => {
+	it('un effet applique mais NON REDIGE se tait — et aucun changement n est alors PAS ecrit, ni une ancre posee', () => {
 		// « aucun changement » serait une AFFIRMATION FAUSSE : quelque chose a changé, que
 		// le dossier ne sait pas dire. Le silence, jamais un repli sur `nom`.
 		const dossier = dossierDeReference()
@@ -3176,14 +3255,17 @@ describe('assemblerNarrateur — ce que le narrateur voit d un pas', () => {
 			],
 		}
 
-		const blocs = blocsNarrateur(texteNarrateur(dossier, cibleNarrateur(avecObjetMuet)))
+		const contexte = assemblageNarrateur(dossier, cibleNarrateur(avecObjetMuet))
+		const blocs = blocsNarrateur(contexte.texte)
 
 		expect(blocs.get('CE PAS')).toEqual([COMMANDES.agir.label])
 		expect(blocs.has('EN SA POSSESSION')).toBe(false)
 		if (muet.nom !== undefined) expect([...blocs.values()].flat().join('\n')).not.toContain(muet.nom)
+		// On n'ancre pas ce qu'on ne montre pas : l'objet muet n'a AUCUN rang.
+		expect([...contexte.ancres.values()]).toEqual(['lieu.foyer-du-guet'])
 	})
 
-	it('un objet retire se dit PERDU, un objet donne se dit OBTENU — la meme prose, deux amorces', () => {
+	it('un objet retire se dit PERDU, un objet donne se dit OBTENU — la meme prose, deux amorces, et la meme ancre', () => {
 		const dossier = dossierDeReference()
 		const objet = dossier.monde.objets.find((candidat) => (candidat.description_joueur ?? '').trim() !== '')
 		if (objet === undefined) throw new Error('fixture : aucun objet à description rédigée')
@@ -3196,56 +3278,271 @@ describe('assemblerNarrateur — ce que le narrateur voit d un pas', () => {
 			],
 		})
 
-		const donne = blocsNarrateur(texteNarrateur(dossier, cibleNarrateur(avec('donner_objet')))).get('CE PAS')
-		const retire = blocsNarrateur(texteNarrateur(dossier, cibleNarrateur(avec('retirer_objet')))).get('CE PAS')
+		const donne = assemblageNarrateur(dossier, cibleNarrateur(avec('donner_objet')))
+		const retire = assemblageNarrateur(dossier, cibleNarrateur(avec('retirer_objet')))
 
-		expect(donne).toEqual([COMMANDES.agir.label, `obtient — ${String(objet.description_joueur)}`])
-		expect(retire).toEqual([COMMANDES.agir.label, `n'a plus — ${String(objet.description_joueur)}`])
+		expect(blocsNarrateur(donne.texte).get('CE PAS')).toEqual([
+			COMMANDES.agir.label,
+			`obtient A2 — ${String(objet.description_joueur)}`,
+		])
+		expect(blocsNarrateur(retire.texte).get('CE PAS')).toEqual([
+			COMMANDES.agir.label,
+			`n'a plus A2 — ${String(objet.description_joueur)}`,
+		])
 		// Sans l'amorce, les deux seraient INDISTINGUABLES — et un objet perdu se
-		// raconterait comme un objet trouvé.
-		expect(donne).not.toEqual(retire)
+		// raconterait comme un objet trouvé. Un objet PERDU reste désignable : la présence
+		// d'un objet peut disparaître puis revenir (KR-272).
+		expect(donne.ancres.get('A2')).toBe(objet.id)
+		expect(retire.ancres.get('A2')).toBe(objet.id)
 	})
 })
 
-describe('assemblerNarrateur — sans etat (it2)', () => {
-	it('meme monde au pas 2 et au pas 40 : contexte IDENTIQUE, malgre journal, recits, horloge et attente', () => {
-		// LE TÉMOIN SÉPARATEUR du « R3 sans état » (véto narratif-ia levé) : `agir` ne
-		// change jamais le monde, donc au pas 2 et au pas 40 le monde est LE MÊME objet.
-		// Tout le reste DIVERGE — le journal (4 contre 80 entrées), les récits consignés à
-		// chaque pas, l'horloge, et une attente posée sur la seconde. Si l'un d'eux entrait
-		// dans le contexte, les deux textes différeraient.
+describe('assemblerNarrateur — les ancres (it3) : le lieu courant et les objets, jamais un indice ni un jalon', () => {
+	it('UN rang par identifiant : l objet obtenu a ce pas garde le MEME rang dans CE PAS et EN SA POSSESSION', () => {
+		const { dossier, cible } = pireCasNarrateur()
+		const contexte = assemblageNarrateur(dossier, cible)
+		const blocs = blocsNarrateur(contexte.texte)
+
+		const rediges = dossier.monde.objets.filter((objet) => (objet.description_joueur ?? '').trim() !== '')
+		expect(rediges.length).toBeGreaterThan(1)
+		// La table : le lieu courant en A1, puis chaque objet RÉDIGÉ, une fois.
+		expect([...contexte.ancres.values()]).toEqual([cible.session.monde.lieu_courant, ...rediges.map((o) => o.id)])
+		expect(new Set(contexte.ancres.values()).size).toBe(contexte.ancres.size)
+		// Et le rang écrit dans les deux blocs est le MÊME, sorti de la même table.
+		for (const [rang, id] of contexte.ancres) {
+			if (id === cible.session.monde.lieu_courant) continue
+			const prose = String(dossier.monde.objets.find((objet) => objet.id === id)?.description_joueur)
+			expect(blocs.get('CE PAS')).toContain(`obtient ${rang} — ${prose}`)
+			expect(blocs.get('EN SA POSSESSION')).toContain(`${rang} — ${prose}`)
+		}
+	})
+
+	it('AC#8 / KR-272 — un indice revele et un jalon atteint AU PAS COURANT ne recoivent AUCUN rang', () => {
+		// MUTANT OBLIGATOIRE (plan § 7) : une ancre posée sur `indice.*` ou `jalon.*` à
+		// l'assemblage — `ancrable: true` sur leurs lectures. Vérifié ROUGE, puis rétabli.
+		const dossier = referenceAvecVigieDecrite()
+		const s1 = jouerNarrateur(dossier, ouvertureNarrateur(dossier), [
+			'ALLER lieu.tour-effondree',
+			'ALLER lieu.vigie-du-nord',
+		])
+		// État séparateur, constaté : un jalon ET un indice sont appliqués à ce pas.
+		const appliques = s1.journal
+			.filter((entree) => entree.tour === s1.horloge.tour)
+			.flatMap((entree) => entree.deltas ?? [])
+			.filter((delta) => delta.effet === 'applique')
+			.map((delta) => delta.delta)
+		expect(appliques).toEqual(expect.arrayContaining(['atteindre_jalon', 'reveler_indice']))
+
+		const contexte = assemblageNarrateur(dossier, cibleNarrateur(s1))
+
+		expect([...contexte.ancres.entries()]).toEqual([['A1', 'lieu.vigie-du-nord']])
+		// Balayé sur le PIRE CAS aussi, qui applique TOUS les indices et TOUS les jalons.
+		const pireCas = pireCasNarrateur()
+		const pire = assemblageNarrateur(pireCas.dossier, pireCas.cible)
+		expect([...pire.ancres.values()].filter((id) => !/^(lieu|objet)\./.test(id))).toEqual([])
+		expect([...pire.ancres.values()].some((id) => id.startsWith('objet.'))).toBe(true)
+		// Et aucune ligne d'indice ni de jalon ne porte de rang dans le texte.
+		const lignesCePas = blocsNarrateur(pire.texte).get('CE PAS') ?? []
+		expect(lignesCePas.filter((ligne) => /^(remarque|accomplit) A\d+/.test(ligne))).toEqual([])
+		expect(lignesCePas.filter((ligne) => /^(remarque|accomplit) — /.test(ligne)).length).toBeGreaterThan(1)
+	})
+})
+
+/** Un jeton SANS CHIFFRE, unique par pas et délimité : `[pas-d]` pour 3, `[pas-be]` pour
+ *  30 — aucun n'est sous-chaîne d'un autre, et le contexte peut être balayé contre tout
+ *  nombre sans que le jeton lui-même n'en porte un. */
+const jetonDuPas = (pas: number): string =>
+	`[pas-${[...pas.toString(26)].map((chiffre) => String.fromCharCode(97 + parseInt(chiffre, 26))).join('')}]`
+
+describe('assemblerNarrateur — la fenetre et la tranche, derivees de l horloge (AC#2, AC#6)', () => {
+	/** Une partie de `n` pas `agir`, chaque récit consigné par la porte réelle, et la
+	 *  condensation RÉUSSIE à chaque pas où elle est due tant que `condenserJusquA` le permet. */
+	function partie(dossier: Dossier, n: number, condenserJusquA = Infinity): EtatSession {
+		let session = ouvertureNarrateur(dossier)
+		for (let pas = 1; pas <= n; pas += 1) {
+			session = jouerNarrateur(dossier, session, ['AGIR'])
+			const du = pasACondenser(session)
+			session = consignerNarration(session, pas, {
+				recit: `Vous attendez ${jetonDuPas(pas)} encore.`,
+				faits_etablis: [],
+				...(du !== null && pas <= condenserJusquA
+					? { resume: { texte: `Condense jusqu au ${jetonDuPas(du.a)}.`, jusqu_au_pas: du.a } }
+					: {}),
+			})
+		}
+		return session
+	}
+
+	it('echec au pas 15 : au pas 16, RECEMMENT porte les pas 11-15 et A CONDENSER les pas 1-10 — jamais 1-16 d un bloc', () => {
+		// MUTANTS vérifiés ROUGES : une fenêtre calculée depuis la COUVERTURE du résumé (elle
+		// porterait 1-15 dans RECEMMENT) ; une condensation déclenchée par `t % 10 === 5`
+		// (aucun bloc A CONDENSER au pas 16).
 		const dossier = dossierDeReference()
-		const unPas = (session: EtatSession): EtatSession => {
-			const joue = jouerNarrateur(dossier, session, ['AGIR'])
-			return consignerRecit(joue, joue.horloge.tour, `Le recit numero ${joue.horloge.tour}, lu par le joueur.`)
+		const a15 = partie(dossier, 15, 14) // la condensation due au pas 15 ÉCHOUE
+		expect(a15.memoire).toBeNull()
+		const s16 = jouerNarrateur(dossier, a15, ['AGIR'])
+
+		const contexte = assemblageNarrateur(dossier, cibleNarrateur(s16))
+		const blocs = blocsNarrateur(contexte.texte)
+
+		expect(contexte.condensation).toEqual({ de: 1, a: 10 })
+		expect(blocs.get('RECEMMENT')).toEqual([11, 12, 13, 14, 15].map((p) => `Vous attendez ${jetonDuPas(p)} encore.`))
+		expect(blocs.get('A CONDENSER')).toEqual(
+			Array.from({ length: 10 }, (_, rang) => `Vous attendez ${jetonDuPas(rang + 1)} encore.`),
+		)
+		expect(blocs.has('AUPARAVANT')).toBe(false)
+	})
+
+	it('au pas 15 la fenetre vaut 11-15 : le recit du pas 1 est ABSENT de RECEMMENT, et n entre que dans la tranche a condenser', () => {
+		// LE TÉMOIN DU PAS DE BASCULE (AC#6, lu avec § 4 bis) : la fenêtre ne monte JAMAIS à
+		// 15 pas. Le récit du pas 1 n'est plus dans ce que le narrateur relit comme RÉCENT ;
+		// il n'est lu qu'au titre de la tranche DUE, pour être condensé.
+		const dossier = dossierDeReference()
+		const a14 = partie(dossier, 14)
+		const s15 = jouerNarrateur(dossier, a14, ['AGIR'])
+
+		const blocs = blocsNarrateur(texteNarrateur(dossier, cibleNarrateur(s15)))
+
+		expect(blocs.get('RECEMMENT')).toEqual([11, 12, 13, 14].map((p) => `Vous attendez ${jetonDuPas(p)} encore.`))
+		expect((blocs.get('RECEMMENT') ?? []).join('\n')).not.toContain(jetonDuPas(1))
+		expect(blocs.get('A CONDENSER')?.[0]).toBe(`Vous attendez ${jetonDuPas(1)} encore.`)
+
+		// UNE FOIS la tranche absorbée, le récit du pas 1 n'est PLUS NULLE PART : il ne
+		// survit qu'au travers du résumé.
+		const condense = consignerNarration(s15, 15, {
+			recit: 'Vous attendez.',
+			faits_etablis: [],
+			resume: { texte: 'Vous avez longtemps attendu.', jusqu_au_pas: 10 },
+		})
+		const texte16 = texteNarrateur(dossier, cibleNarrateur(jouerNarrateur(dossier, condense, ['AGIR'])))
+		expect(texte16).not.toContain(jetonDuPas(1))
+		expect(blocsNarrateur(texte16).get('AUPARAVANT')).toEqual(['Vous avez longtemps attendu.'])
+		expect(blocsNarrateur(texte16).has('A CONDENSER')).toBe(false)
+	})
+
+	it('un pas joue EN CONSOLE entre dans la fenetre sous le libelle de son geste — jamais un trou', () => {
+		const dossier = dossierDeReference()
+		const a3 = partie(dossier, 3)
+		const console4 = jouerNarrateur(dossier, a3, ['ALLER lieu.tour-effondree']) // aucun récit consigné
+		const s5 = jouerNarrateur(dossier, console4, ['ALLER lieu.foyer-du-guet'])
+
+		const blocs = blocsNarrateur(texteNarrateur(dossier, cibleNarrateur(s5)))
+
+		expect(blocs.get('RECEMMENT')).toEqual([
+			`Vous attendez ${jetonDuPas(1)} encore.`,
+			`Vous attendez ${jetonDuPas(2)} encore.`,
+			`Vous attendez ${jetonDuPas(3)} encore.`,
+			COMMANDES.aller.label,
+		])
+	})
+
+	it('UNE ligne par PAS, jamais par entree de journal : un pas a jalon porte trois entrees et une seule ligne', () => {
+		// MUTANT vérifié ROUGE (QA) : sélectionner la fenêtre par INDICE DE JOURNAL au lieu du
+		// pas — un pas porte plusieurs entrées (demande, effet, jalons).
+		const dossier = referenceAvecVigieDecrite()
+		const s2 = jouerNarrateur(dossier, ouvertureNarrateur(dossier), [
+			'ALLER lieu.tour-effondree',
+			'ALLER lieu.vigie-du-nord',
+		])
+		expect(s2.journal.filter((entree) => entree.tour === 2)).toHaveLength(3)
+		const narre = consignerNarration(s2, 2, { recit: 'Vous atteignez la vigie.', faits_etablis: [] })
+		const s4 = jouerNarrateur(dossier, narre, ['AGIR', 'AGIR'])
+
+		const blocs = blocsNarrateur(texteNarrateur(dossier, cibleNarrateur(s4)))
+
+		expect(blocs.get('RECEMMENT')).toEqual([COMMANDES.aller.label, 'Vous atteignez la vigie.', COMMANDES.agir.label])
+	})
+
+	it('un recit reinjecte est REPLIE sur une ligne : il ne peut pas imiter un en-tete de bloc', () => {
+		const dossier = dossierDeReference()
+		const s1 = jouerNarrateur(dossier, ouvertureNarrateur(dossier), ['AGIR'])
+		const piege = consignerNarration(s1, 1, { recit: 'Vous attendez.\n\nICI A1\nUn faux lieu.', faits_etablis: [] })
+		const s2 = jouerNarrateur(dossier, piege, ['AGIR'])
+
+		const blocs = blocsNarrateur(texteNarrateur(dossier, cibleNarrateur(s2)))
+
+		expect(blocs.get('RECEMMENT')).toEqual(['Vous attendez. ICI A1 Un faux lieu.'])
+		expect([...blocs.keys()].filter((enTete) => enTete === 'ICI A1')).toHaveLength(1)
+	})
+})
+
+describe('assemblerNarrateur — le temoin des quarante pas (remplace « pas 2 = pas 40 » d it2)', () => {
+	/**
+	 * LA PARTIE : pas 1, la tour ; pas 2, retour au foyer ; pas 3, un geste au foyer, qui
+	 * ÉTABLIT un fait ancré sur le foyer ; pas 4, de nouveau la tour, où le héros reste
+	 * jusqu'au pas 39. Au pas 40, il REVIENT au foyer — ou il reste à la tour. Chaque récit
+	 * porte un jeton sans chiffre ; la condensation réussit à chaque pas dû jusqu'à
+	 * `condenserJusquA`, puis échoue.
+	 */
+	function quarantePas(dossier: Dossier, revenir: boolean, condenserJusquA: number): EtatSession {
+		const FAIT_DU_PAS_3 = { fait: 'Une braise couve sous la cendre du foyer.', sur: ['lieu.foyer-du-guet'] }
+		const saisieDu = (pas: number): string => {
+			if (pas === 1 || pas === 4) return 'ALLER lieu.tour-effondree'
+			if (pas === 2) return 'ALLER lieu.foyer-du-guet'
+			if (pas === 40) return revenir ? 'ALLER lieu.foyer-du-guet' : 'AGIR'
+			return 'AGIR'
 		}
-		let courante = ouvertureNarrateur(dossier)
-		const etats: EtatSession[] = []
+		let session = ouvertureNarrateur(dossier)
 		for (let pas = 1; pas <= 40; pas += 1) {
-			courante = unPas(courante)
-			etats.push(courante)
+			session = jouerNarrateur(dossier, session, [saisieDu(pas)])
+			if (pas === 40) break // le pas 40 est CELUI qu'on raconte : pas encore consigné
+			const du = pasACondenser(session)
+			session = consignerNarration(session, pas, {
+				recit: `Le chemin ${jetonDuPas(pas)} continue.`,
+				faits_etablis: pas === 3 ? [FAIT_DU_PAS_3] : [],
+				...(du !== null && pas <= condenserJusquA
+					? { resume: { texte: `Tout ce qui precede ${jetonDuPas(du.a)}.`, jusqu_au_pas: du.a } }
+					: {}),
+			})
 		}
-		const pas2 = etats[1]
-		const pas40: EtatSession = {
-			...etats[39],
-			attente: { type: 'clarification', question: 'Le marche ou la tour ?', saisie: 'je vais la-bas' },
+		return session
+	}
+
+	it('le fait du pas 3 repart au pas 40 si le heros est revenu au foyer, et pas s il est reste a la tour', () => {
+		const dossier = dossierDeReference()
+		const revenu = texteNarrateur(dossier, cibleNarrateur(quarantePas(dossier, true, 40)))
+		const reste = texteNarrateur(dossier, cibleNarrateur(quarantePas(dossier, false, 40)))
+
+		expect(blocsNarrateur(revenu).get('ETABLI')).toEqual(['Une braise couve sous la cendre du foyer.'])
+		expect(reste).not.toContain('Une braise couve')
+		expect(blocsNarrateur(reste).has('ETABLI')).toBe(false)
+	})
+
+	it('a jour : les recits 31-39 sont la, ceux des pas 3 et 30 n y sont plus — seul le resume les porte', () => {
+		const dossier = dossierDeReference()
+		const s40 = quarantePas(dossier, true, 40)
+		expect(s40.memoire?.resume?.jusqu_au_pas).toBe(30)
+		const texte = texteNarrateur(dossier, cibleNarrateur(s40))
+
+		expect(texte).toContain(jetonDuPas(39))
+		expect(texte).toContain(jetonDuPas(31))
+		expect(texte).not.toContain(`Le chemin ${jetonDuPas(30)}`)
+		expect(texte).not.toContain(`Le chemin ${jetonDuPas(3)}`)
+		expect(blocsNarrateur(texte).get('AUPARAVANT')).toEqual([`Tout ce qui precede ${jetonDuPas(30)}.`])
+	})
+
+	it('en retard depuis le pas 35 : le recit du pas 30 est la (tranche due 21-30), celui du pas 3 non, ni ceux de 11-20', () => {
+		const dossier = dossierDeReference()
+		const s40 = quarantePas(dossier, true, 34)
+		expect(s40.memoire?.resume?.jusqu_au_pas).toBe(20)
+		const contexte = assemblageNarrateur(dossier, cibleNarrateur(s40))
+
+		expect(contexte.condensation).toEqual({ de: 21, a: 30 })
+		expect(contexte.texte).toContain(`Le chemin ${jetonDuPas(30)}`)
+		expect(contexte.texte).not.toContain(`Le chemin ${jetonDuPas(3)}`)
+		for (let pas = 1; pas <= 20; pas += 1) {
+			expect(`${pas} → ${contexte.texte.includes(`Le chemin ${jetonDuPas(pas)}`)}`).toBe(`${pas} → false`)
 		}
-		// Discriminants : les deux sessions DIFFÈRENT bien là où le témoin le prétend.
-		expect(pas2.monde).toBe(pas40.monde)
-		expect([pas2.horloge.tour, pas40.horloge.tour]).toEqual([2, 40])
-		expect([pas2.journal.length, pas40.journal.length]).toEqual([4, 80])
-		expect(pas40.journal.filter((entree) => entree.recit !== undefined)).toHaveLength(40)
+	})
 
-		const contexte2 = assemblerNarrateur(dossier, cibleNarrateur(pas2))
-		const contexte40 = assemblerNarrateur(dossier, cibleNarrateur(pas40))
+	it('aucun numero d horloge dans le contexte — ni 40, ni aucun autre nombre hors des reperes A…', () => {
+		const dossier = dossierDeReference()
+		const texte = texteNarrateur(dossier, cibleNarrateur(quarantePas(dossier, true, 34)))
 
-		expect(contexte2.ok).toBe(true)
-		expect(contexte40).toEqual(contexte2)
-		// Et, nommément, aucun récit, aucune question d'attente, aucun nombre d'horloge.
-		const texte = contexte40.ok ? contexte40.texte : ''
-		expect(texte).not.toContain('Le recit numero')
-		expect(texte).not.toContain('Le marche ou la tour ?')
 		expect(texte).not.toContain('40')
+		expect(texte.replace(/\bA\d+\b/g, '')).not.toMatch(/\d/)
+		// Discriminant : les repères, eux, sont là — le filtre ne vide pas un texte sans rang.
+		expect(texte).toMatch(/\bA1\b/)
 	})
 })
 
@@ -3303,9 +3600,8 @@ describe('assemblerNarrateur — les deux refus, avant tout appel', () => {
 	})
 
 	it('exactement BUDGET caracteres passe, un caractere de plus est refuse trop-long', () => {
-		// LE CANARI À ±1 CARACTÈRE — MUTANT OBLIGATOIRE N° 4 (plan § 7) : « un contexte de
-		// budget +1 caractère accepté ». Vérifié ROUGE en relâchant la comparaison d'un
-		// caractère, puis rétabli. Le LEVIER est la saisie, réellement injectée et
+		// LE CANARI À ±1 CARACTÈRE — MUTANT OBLIGATOIRE N° 4 du plan it2 : « un contexte de
+		// budget +1 caractère accepté ». Le LEVIER est la saisie, réellement injectée et
 		// AFFINE dans la longueur du texte (sans espace, la normalisation ne la touche pas).
 		const { dossier, cible } = pireCasNarrateur()
 		const avecSaisie = (saisie: string): CibleNarrateur => ({ ...cible, saisie })
@@ -3333,8 +3629,8 @@ describe('assemblerNarrateur — les deux refus, avant tout appel', () => {
 	})
 })
 
-describe('assemblerNarrateur — la mesure du budget, au pire cas', () => {
-	it('les huit chemins resolvent non vides, puis M, puis la formule', () => {
+describe('assemblerNarrateur — la mesure du budget : un terme dossier MESURE, un terme memoire CALCULE', () => {
+	it('les huit chemins resolvent non vides, puis M, puis la formule — memoire comprise', () => {
 		const { dossier, cible } = pireCasNarrateur()
 		const texte = texteNarrateur(dossier, cible)
 
@@ -3350,23 +3646,53 @@ describe('assemblerNarrateur — la mesure du budget, au pire cas', () => {
 		)
 		expect(absents).toEqual([])
 
-		// TEMPS 2 — M.
+		// TEMPS 2 — M, SANS mémoire (le pire cas n'en porte pas), AVEC les rangs d'ancre.
 		const M = texte.length
-		expect(M).toBeGreaterThan(0)
+		expect(M).toBe(1937)
 
-		// TEMPS 3 — la formule du registre auteur : facteur 3, arrondi au millier.
-		expect(BUDGET_CARACTERES_NARRATEUR).toBe(Math.ceil((M * 3) / 1000) * 1000)
+		// TEMPS 3 — la formule : le terme dossier (facteur 3, arrondi au millier) PLUS la
+		// borne EXACTE de la mémoire, sans marge.
+		expect(BUDGET_CARACTERES_NARRATEUR).toBe(Math.ceil((M * 3) / 1000) * 1000 + BORNE_MEMOIRE)
+		expect(BUDGET_CARACTERES_NARRATEUR).toBe(26956)
+	})
 
-		// ⚠ LA COÏNCIDENCE AVEC `personnage-prose` (6000), ÉPINGLÉE PLUTÔT QUE SUBIE : les
-		// deux `M` DIFFÈRENT — deux mesures indépendantes, le même millier après arrondi.
-		const { dossier: dossierProse, entite } = mesure()
-		const mProse = Math.max(
-			...(Object.keys(CHAMPS_PROPOSABLES) as ChampProseChemin[]).map(
-				(champ) => texteAssemble(dossierProse, cibleSur(entite.id, champ)).length,
-			),
-		)
-		expect(BUDGET_CARACTERES_NARRATEUR).toBe(BUDGET_PROSE)
-		expect(M).not.toBe(mProse)
+	it('BORNE_MEMOIRE se derive des bornes des validateurs : 23 lignes de pas, le condense, huit faits — et rien d autre', () => {
+		// UN BLOC PLEIN = séparateur (2) + en-tête + pour chaque ligne un saut et la ligne.
+		const ligneDePas = Math.max(NARRATION_CARACTERES_MAX, ...Object.values(COMMANDES).map((c) => c.label.length))
+		expect(ligneDePas).toBe(NARRATION_CARACTERES_MAX)
+		const attendue =
+			2 +
+			'AUPARAVANT'.length +
+			(1 + CONDENSE_CARACTERES_MAX) +
+			(2 + 'A CONDENSER'.length + CADENCE * (1 + ligneDePas)) +
+			(2 + 'RECEMMENT'.length + (FENETRE_MAX - 1) * (1 + ligneDePas)) +
+			(2 + 'ETABLI'.length + FAITS_INJECTES_MAX * (1 + FAIT_CARACTERES_MAX))
+		expect(BORNE_MEMOIRE).toBe(attendue)
+		expect(BORNE_MEMOIRE).toBe(20956)
+		// LE PIRE CAS EST UN RETARD : 23 lignes de pas, jamais 14 seulement.
+		expect(CADENCE + FENETRE_MAX - 1).toBe(23)
+	})
+
+	it('AC#6 — une memoire SATUREE (23 recits, le condense, huit faits) coute EXACTEMENT BORNE_MEMOIRE, et ne leve jamais trop-long', () => {
+		const { dossier, cible } = pireCasNarrateur(34)
+		const sature: CibleNarrateur = { ...cible, session: avecMemoireSaturee(cible.session) }
+
+		const sans = assemblageNarrateur(dossier, cible)
+		const avec = assemblerNarrateur(dossier, sature)
+
+		// Le retard est RÉEL : tranche 11-20 due, fenêtre 21-33 pleine.
+		expect(avec.ok).toBe(true)
+		if (!avec.ok) return
+		expect(avec.condensation).toEqual({ de: 11, a: 20 })
+		const blocs = blocsNarrateur(avec.texte)
+		expect(blocs.get('A CONDENSER')).toHaveLength(CADENCE)
+		expect(blocs.get('RECEMMENT')).toHaveLength(FENETRE_MAX - 1)
+		expect(blocs.get('ETABLI')).toHaveLength(FAITS_INJECTES_MAX)
+		expect(blocs.get('AUPARAVANT')).toHaveLength(1)
+		// L'EXACTITUDE : la mémoire saturée ajoute AU CARACTÈRE PRÈS la borne calculée — ni
+		// plus (le budget mentirait), ni moins (la borne serait une marge inventée).
+		expect(avec.texte.length - sans.texte.length).toBe(BORNE_MEMOIRE)
+		expect(avec.texte.length).toBeLessThanOrEqual(BUDGET_CARACTERES_NARRATEUR)
 	})
 
 	it('aucun nom, aucun identifiant du dossier n est injecte — sur le pire cas, qui en porte', () => {
@@ -3394,9 +3720,10 @@ describe('assemblerNarrateur — la mesure du budget, au pire cas', () => {
 		expect(texte).not.toContain(String(cible.session.graine_alea))
 	})
 
-	it('tout ce que porte le contexte vient d un chemin autorise, d un libelle de geste, ou de la saisie', () => {
+	it('tout ce que porte le contexte vient d un chemin autorise, d un libelle de geste, d un rang, ou de la saisie', () => {
 		const { dossier, cible } = pireCasNarrateur()
-		const blocs = [...blocsNarrateur(texteNarrateur(dossier, cible)).entries()]
+		const contexte = assemblageNarrateur(dossier, cible)
+		const blocs = [...blocsNarrateur(contexte.texte).entries()]
 
 		// (a) LES EN-TÊTES : un chemin du canon injecté, ou un en-tête d'assemblage.
 		const enTetesPermis = new Set<string>([
@@ -3405,16 +3732,24 @@ describe('assemblerNarrateur — la mesure du budget, au pire cas', () => {
 		])
 		expect(blocs.map(([enTete]) => enTete).filter((enTete) => !enTetesPermis.has(enTete))).toEqual([])
 
-		// (b) LES VALEURS : une feuille du dossier sous un chemin injecté — nue, ou précédée
-		// d'une amorce d'effet —, un libellé de geste, « aucun changement », ou la saisie.
+		// (b) LES VALEURS : une feuille du dossier sous un chemin injecté — nue, précédée
+		// d'une amorce d'effet, d'un RANG de la table rendue, ou des deux —, un libellé de
+		// geste, « aucun changement », ou la saisie.
 		const feuilles = new Set<string>()
 		for (const feuille of feuillesDeLaFixture(dossier)) {
 			if (typeof feuille.valeur !== 'string') continue
 			if ((CHAMPS_INJECTES_NARRATEUR as readonly string[]).includes(feuille.normalise)) feuilles.add(feuille.valeur)
 		}
+		const rangs = [...contexte.ancres.keys()]
 		const permises = new Set<string>([
 			...feuilles,
 			...[...feuilles].flatMap((valeur) => AMORCES_D_EFFET.map((amorce) => `${amorce} — ${valeur}`)),
+			...[...feuilles].flatMap((valeur) =>
+				rangs.flatMap((rang) => [
+					`${rang} — ${valeur}`,
+					...AMORCES_D_EFFET.map((amorce) => `${amorce} ${rang} — ${valeur}`),
+				]),
+			),
 			...Object.values(COMMANDES).map((descripteur) => descripteur.label),
 			AUCUN_CHANGEMENT,
 			cible.saisie,

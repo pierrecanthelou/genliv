@@ -49,18 +49,6 @@
 			"severity": "major"
 		},
 		{
-			"id": "BUG-130",
-			"date": "2026-09-25",
-			"feature": "moteur-interprete",
-			"discovered_at": "iteration-1",
-			"symptom": "Lot 2 de l essaim rendu << verrou KR-265 verifie >> alors que useTourDeJeu.test.ts n avait que des it() a corps vide (commentaires << reporte >>) ; et un << test du mutant obligatoire >> de moteurSansIA.test.ts redupliquait le premier test, zero pouvoir separateur.",
-			"root_cause": "jest.mock appele dans un it() au lieu du niveau module (non hisse) a fait croire a un BrainProvider necessaire. Le mutant KR-260 a ete simule au lieu d etre execute a la main.",
-			"fix": "renderHook sans provider (precedent useDemandeCopilote.test.tsx), jest.mock remonte au niveau module, 5 tests reels ecrits. Mutant execute a la main (fichier fautif cree, rouge constate, retire), test redondant supprime.",
-			"mitigation": "Le compte rendu d un agent ne se croit jamais sur le seul resume -- relire le fichier de test avant d accepter un lot, surtout sur le critere le plus critique.",
-			"regression_test": "src/features/play-mode/hooks/useTourDeJeu.test.ts -- 5 tests avec assertions, dont KR-265",
-			"severity": "major"
-		},
-		{
 			"id": "BUG-131",
 			"date": "2026-09-25",
 			"feature": "moteur-interprete",
@@ -95,7 +83,19 @@
 			"mitigation": "Un correctif motive par 'effacer un message au bon moment' se pose EN LIGNE au rendu, jamais par un useEffect qui mire un second setState -- meme quand le message a effacer semble unique, un useEffect sur un state partage (ici refus) efface TOUT ce qui passe par ce state, pas seulement le cas vise.",
 			"regression_test": "src/features/play-mode/tests/verrouDeTour.test.tsx -- 'un refus de SYNTAXE console (hors verrou) reste visible -- le calcul en ligne ne lefface pas (BUG-133)'",
 			"severity": "major"
+		},
+		{
+			"id": "BUG-134",
+			"date": "2026-09-30",
+			"feature": "moteur-interprete",
+			"discovered_at": "iteration-3",
+			"symptom": "useTourDeJeu.test.ts (it2) renvoyait la MEME reponse mockee de CopiloteService.demander aux deux appels d'un pas (R1 puis R3). Le hook posait alors recit: undefined sur la session (la reponse de R1 n'a pas de champ recit), sans qu'aucune assertion ne le signale.",
+			"root_cause": "demanderMock.mockResolvedValue(...) (SANS Once, jest.fn() non type) posait UNE SEULE reponse par defaut -- ecrit a l'it1, quand le pas n'appelait que R1 ; reste tel quel quand it2 ajoute le second appel (R3), qui recoit donc la meme reponse. Mock non type = any, invisible a tsc.",
+			"fix": "consignerNarration (recit.ts) type desormais apport.recit strictement en string (jamais optionnel). Ce qui a fait apparaitre le defaut est une TypeError A L'EXECUTION (apport.faits_etablis.reduce sur undefined), pas tsc. Le test bouchonne desormais CHAQUE appel separement (mockResolvedValueOnce, un par role du pas), et chaque litteral de reponse est annote satisfies SortieNarrateur -- pose sur les cinq bouchons R3 du fichier, remplace aussi un `as ReponseNarrateur` de verrouDeTour.test.tsx (meme assertion structurelle, deux fichiers).",
+			"mitigation": "Un bouchon de demander() se pose PAR APPEL ATTENDU (mockResolvedValueOnce, un par role du pas), jamais un mockResolvedValue unique des qu'un pas appelle plus d'un role -- et chaque litteral porte satisfies <Sortie du role>, jamais as, qui ne verifie pas qu'un champ requis est present.",
+			"regression_test": "src/features/play-mode/hooks/useTourDeJeu.test.ts -- la reponse narrateur mockee est distincte de la reponse interprete",
+			"severity": "minor"
 		}
 	],
-	"_about": "Les defauts que le TRAVAIL EN COURS relira -- bascule IA, 0.6.x. AXE D'APPARTENANCE, et c'est le seul : un travail en cours le relira-t-il, ET sa lecon est-elle deja promue dans un instrument lui-meme en lecture obligatoire (critere d'acceptation, KR, regle ESLint, test permanent) ? Si la lecon est promue, l'entree part a l'archive -- la garder ici la ferait relire deux fois. JAMAIS << de quelle feature vient l'entree >> : un fichier qui porte le nom d'une feature n'est pas pour autant range PAR feature, et confondre les deux a deja coute une scission fausse (BUG-086, corrige en revue de PR). Ce fichier ne se compacte pas, il se SCINDE -- et avant tout deplacement, on OUVRE les _about des DEUX fichiers. RESTE ICI quoi qu'il arrive : BUG-074, dont le correctif n'est TOUJOURS PAS FAIT et dont la lecon n'est promue nulle part -- l'archiver serait l'oublier ; il a deja ete archive par erreur une fois. NUMEROTATION GLOBALE aux NEUF fichiers, jamais reemployee : prochain id = max(BUG-xxx) des NEUF, jamais du seul fichier en cours (precedents BUG-062, BUG-123). OU SONT LES AUTRES : bug_history.0.5.json (BUG-001 a 027) · bug_history.features-terminees.json (features done hors bascule) · bug_history.dossier-canon.json · bug_history.dossier-fiches.json · bug_history.dossier-registres.json · bug_history.dossier-controles.json · bug_history.dossier-copilote.json · bug_history.moteur-dossier.json (ne le 2026-09-24). HISTORIQUE COMPLET DES SCISSIONS : CHANGELOG.md -- il n'est pas recopie ici, c'est lui qui le porte."
+	"_about": "Les defauts que le TRAVAIL EN COURS relira -- bascule IA, 0.6.x. AXE D'APPARTENANCE, et c'est le seul : un travail en cours le relira-t-il, ET sa lecon est-elle deja promue dans un instrument lui-meme en lecture obligatoire (critere d'acceptation, KR, regle ESLint, test permanent) ? Si la lecon est promue, l'entree part a l'archive -- la garder ici la ferait relire deux fois. JAMAIS << de quelle feature vient l'entree >> : un fichier qui porte le nom d'une feature n'est pas pour autant range PAR feature, et confondre les deux a deja coute une scission fausse (BUG-086, corrige en revue de PR). Ce fichier ne se compacte pas, il se SCINDE -- et avant tout deplacement, on OUVRE les _about des DEUX fichiers. RESTE ICI quoi qu'il arrive : BUG-074, dont le correctif n'est TOUJOURS PAS FAIT et dont la lecon n'est promue nulle part -- l'archiver serait l'oublier ; il a deja ete archive par erreur une fois. NUMEROTATION GLOBALE aux DIX fichiers, jamais reemployee : prochain id = max(BUG-xxx) des DIX, jamais du seul fichier en cours (precedents BUG-062, BUG-123, BUG-129). OU SONT LES AUTRES : bug_history.0.5.json (BUG-001 a 027) · bug_history.features-terminees.json (features done hors bascule) · bug_history.dossier-canon.json · bug_history.dossier-fiches.json · bug_history.dossier-registres.json · bug_history.dossier-controles.json · bug_history.dossier-copilote.json · bug_history.moteur-dossier.json (ne le 2026-09-24) · bug_history.moteur-interprete.json (ne le 2026-09-30, EN COURS de feature). HISTORIQUE COMPLET DES SCISSIONS : CHANGELOG.md -- il n'est pas recopie ici, c'est lui qui le porte."
 }

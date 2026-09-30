@@ -1,0 +1,17 @@
+{
+	"_about": "Archive des defauts de moteur-interprete (n 10, EN COURS, 3/4) dont la lecon est DEJA PROMUE dans un instrument lui-meme en lecture obligatoire. MEME AXE que bug_history.moteur-dossier.json (ne EN COURS de feature, pas a sa terminaison) et bug_history.dossier-controles.json/dossier-fiches.json : la REDONDANCE, JAMAIS l'age -- une feature encore EN COURS y a droit des que la lecon est promue ailleurs. Ne le 2026-09-30 (moteur-interprete it3, franchissement du plafond de bug_history.json : 16 032 / 15 360 o). CE FICHIER N'EST PAS EN LECTURE OBLIGATOIRE -- seul bug_history.json l'est. NUMEROTATION GLOBALE aux DIX fichiers desormais, jamais reemployee : prochain id = max(BUG-xxx) des DIX (precedents BUG-062, BUG-123, BUG-129). HISTORIQUE DES SCISSIONS : CHANGELOG.md.",
+	"bugs": [
+		{
+			"id": "BUG-130",
+			"date": "2026-09-25",
+			"feature": "moteur-interprete",
+			"discovered_at": "iteration-1",
+			"symptom": "Lot 2 de l essaim rendu << verrou KR-265 verifie >> alors que useTourDeJeu.test.ts n avait que des it() a corps vide (commentaires << reporte >>) ; et un << test du mutant obligatoire >> de moteurSansIA.test.ts redupliquait le premier test, zero pouvoir separateur.",
+			"root_cause": "jest.mock appele dans un it() au lieu du niveau module (non hisse) a fait croire a un BrainProvider necessaire. Le mutant KR-260 a ete simule au lieu d etre execute a la main.",
+			"fix": "renderHook sans provider (precedent useDemandeCopilote.test.tsx), jest.mock remonte au niveau module, 5 tests reels ecrits. Mutant execute a la main (fichier fautif cree, rouge constate, retire), test redondant supprime.",
+			"mitigation": "Le compte rendu d un agent ne se croit jamais sur le seul resume -- relire le fichier de test avant d accepter un lot, surtout sur le critere le plus critique. Lecon deja promue dans la skill raffinage-iteration (doctrine de verification independante avant d accepter un lot).",
+			"regression_test": "src/features/play-mode/hooks/useTourDeJeu.test.ts -- 5 tests avec assertions, dont KR-265",
+			"severity": "major"
+		}
+	]
+}

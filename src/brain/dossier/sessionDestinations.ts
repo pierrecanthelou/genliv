@@ -30,6 +30,12 @@ import type { EtatSession } from './session'
  * `destinations.ts` annonçait déjà (`savoirs[].revele_comment`,
  * `plan_actions[].si_bloque`) restent aux propriétaires n° 12 et n° 14.
  *
+ * ⚠ ET L'IT3 DE LA N° 10 EN AJOUTE TROIS, EXACTEMENT TROIS — `journal[].recit` (basculé
+ * EN VALEUR de `'moteur'` à `'ia'`, avec son lecteur : la fenêtre glissante),
+ * `memoire.faits_etablis[].fait` et `memoire.resume.texte`. Les deux autres feuilles de
+ * la mémoire (`…sur[]`, `…jusqu_au_pas`) sont `'moteur'` : des identifiants et un
+ * compte, lus par le CODE pour choisir ce qui repart au modèle, jamais injectés.
+ *
  * CE QU'ELLE DONNE À LA N° 10 : deux des quatre champs `'ia'` *sous condition
  * d'état* de `destinations.ts` reçoivent enfin le NOM DU FAIT DE SESSION qui les
  * ouvre — `monde.indices_connus[]` ouvre `monde.indices[].verite`,
@@ -47,14 +53,20 @@ import type { EtatSession } from './session'
  * `Record`. Cette seconde normalisation se fait CÔTÉ TEST — le balayage efface
  * les indices de tableau, jamais les clés d'un `Record`.
  *
- * Les cinq feuilles scalaires de premier niveau (`schema`, `dossier_id`,
- * `dossier_maj`, `graine_alea`, `memoire`) ne sont PAS ici : leur clé racine EST
- * leur chemin de feuille, et une seconde ligne serait morte.
+ * Les quatre feuilles scalaires de premier niveau (`schema`, `dossier_id`,
+ * `dossier_maj`, `graine_alea`) ne sont PAS ici : leur clé racine EST leur chemin de
+ * feuille, et une seconde ligne serait morte. `memoire` en était la cinquième tant
+ * qu'elle était typée `null` ; depuis l'it3 de la n° 10 elle est PORTEUSE quand elle
+ * retient quelque chose, et ses quatre feuilles sont déclarées une à une ci-dessous.
  */
 type CheminDeFeuilleDeSession =
 	| 'attente.type'
 	| 'attente.question'
 	| 'attente.saisie'
+	| 'memoire.faits_etablis[].fait'
+	| 'memoire.faits_etablis[].sur[]'
+	| 'memoire.resume.texte'
+	| 'memoire.resume.jusqu_au_pas'
 	| 'horloge.tour'
 	| 'monde.lieu_courant'
 	| 'monde.lieux_visites[]'
@@ -75,7 +87,7 @@ type CheminDeFeuilleDeSession =
 export const DESTINATION_DES_CHAMPS_DE_SESSION: Readonly<
 	Record<keyof EtatSession | CheminDeFeuilleDeSession, Destination>
 > = {
-	// ── Les cinq racines qui sont aussi des feuilles ──────────────────────────
+	// ── Les quatre racines qui sont toujours des feuilles, et `memoire` ────────
 	/** Enveloppe de persistance : le code seul la lit. */
 	schema: 'moteur',
 	/** Handle du document joué. */
@@ -90,10 +102,13 @@ export const DESTINATION_DES_CHAMPS_DE_SESSION: Readonly<
 	 */
 	graine_alea: 'moteur',
 	/**
-	 * Typée `null` : un `null` ne s'injecte pas, et une audience pour une valeur qui
-	 * ne peut pas exister serait une autorisation dormante. La n° 10, propriétaire,
-	 * REMPLACE cette ligne racine par des lignes de FEUILLE le jour où `memoire`
-	 * porte une forme.
+	 * LA RACINE DE LA MÉMOIRE (n° 10 it3) — DEUX RÔLES SELON SA VALEUR, et la ligne vaut
+	 * pour les deux : à `null` (ouverture, rien retenu), elle EST une feuille, qui ne
+	 * s'injecte pas ; non nulle, elle est PORTEUSE, et ses quatre feuilles ont chacune
+	 * leur ligne ci-dessous. Elle reste `'moteur'` : une audience `'ia'` sur la racine
+	 * serait une autorisation EN BLOC, que les feuilles `…sur[]`/`…jusqu_au_pas`
+	 * démentiraient. `keyof EtatSession` l'exige ici par compilation ; la fixture saturée
+	 * l'instancie non nulle, donc le balayage la traite en DISPENSE DÉCLARÉE.
 	 */
 	memoire: 'moteur',
 
@@ -187,21 +202,21 @@ export const DESTINATION_DES_CHAMPS_DE_SESSION: Readonly<
 	/**
 	 * LE RÉCIT DU PAS (n° 10 `moteur-interprete`, it2) — la PROSE que la n° 9 annonçait
 	 * sous « son propre chemin, avec sa propre ligne » (voir `journal[].texte`
-	 * ci-dessus) : la voici, et elle est `'moteur'`, PAS `'ia'`.
+	 * ci-dessus).
 	 *
-	 * `'moteur'` EN IT2, ET C'EST UNE DÉCISION DATÉE, PAS UN OUBLI : le narrateur est
-	 * SANS ÉTAT — aucun récit passé n'est réinjecté —, donc aucun assembleur ne lit ce
-	 * champ, et une ligne `'ia'` serait une autorisation DORMANTE qu'un assembleur
-	 * futur prendrait pour une permission. La bascule vers `'ia'` est une POLITIQUE DE
-	 * RÉTENTION (quels récits, combien, résumés comment) : elle appartient à l'it3, la
-	 * mémoire, qui la corrigera EN VALEUR avec son lecteur. Ce que « `'moteur'` » veut
-	 * dire ici : le code l'écrit et l'écran le rend tel quel, aucun modèle ne le relit.
+	 * `'ia'` DEPUIS L'IT3, BASCULÉ EN VALEUR AVEC SON LECTEUR — exactement ce que l'it2
+	 * avait daté : elle l'avait posé `'moteur'` parce que le narrateur était SANS ÉTAT, et
+	 * qu'une ligne `'ia'` sans assembleur pour la lire aurait été une autorisation
+	 * DORMANTE. L'it3 livre la POLITIQUE DE RÉTENTION (`memoire.ts`) : l'assembleur du
+	 * narrateur réinjecte le récit des pas de la fenêtre `(borneDeFenetre(t), t−1]` et
+	 * de la tranche `pasACondenser`, et d'AUCUN autre pas. Ce que la ligne autorise est
+	 * donc borné par cette politique, jamais « tout le journal ».
 	 *
 	 * Optionnel À VIE (KR-251) — une entrée sans récit est LÉGALE. Instancié dans
 	 * `__fixtures__/session-saturee.ts`, sur l'entrée qui porte `origine` : sans
 	 * instance, cette ligne serait morte le jour même où elle est écrite.
 	 */
-	'journal[].recit': 'moteur',
+	'journal[].recit': 'ia',
 
 	// ── Les effets de règle portés par une entrée (itération 3) ────────────────
 	// TROIS FEUILLES, TOUTES `'moteur'`, et aucune n'est un candidat à la bascule :
@@ -215,4 +230,24 @@ export const DESTINATION_DES_CHAMPS_DE_SESSION: Readonly<
 	'journal[].deltas[].cibles[]': 'moteur',
 	/** Le CONSTAT d'application, deux valeurs closes (KR-247). */
 	'journal[].deltas[].effet': 'moteur',
+
+	// ── La mémoire du narrateur (n° 10 it3) ─────────────────────────────────────
+	/** La phrase d'un fait établi — PROSE que le narrateur a rendue, réinjectée par
+	 *  `faitsPertinents` (au plus `FAITS_INJECTES_MAX`), repliée sur une ligne. */
+	'memoire.faits_etablis[].fait': 'ia',
+	/**
+	 * Les ancres d'un fait — des IDENTIFIANTS du dossier (`lieu.*`, `objet.*`), lus par le
+	 * CODE seul pour décider quel fait repart. Un modèle qui les lirait apprendrait des
+	 * identifiants qu'il n'a jamais le droit d'écrire (KR-231).
+	 */
+	'memoire.faits_etablis[].sur[]': 'moteur',
+	/** Le résumé glissant — PROSE condensée par le narrateur, réinjectée telle quelle,
+	 *  repliée sur une ligne, en tête de la mémoire. */
+	'memoire.resume.texte': 'ia',
+	/**
+	 * Le pointeur de condensation — un COMPTE de pas, posé par le code. Un nombre de pas
+	 * n'entre dans aucun contexte de modèle : il inviterait à citer une mécanique, et la
+	 * cadence ne vit que dans `memoire.ts` (KR-273).
+	 */
+	'memoire.resume.jusqu_au_pas': 'moteur',
 }

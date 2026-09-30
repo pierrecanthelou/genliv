@@ -273,3 +273,40 @@ describe('ouvrirSession, les valeurs a l ouverture', () => {
 		expect(seconde.monde).not.toBe(premiere.monde)
 	})
 })
+
+describe('EtatSession.memoire — la forme gelee par la n 10 it3', () => {
+	it('I1 — l ouverture ecrit null, jamais un objet vide, sur les DEUX fixtures', () => {
+		// « Rien retenu » n'a qu'UNE représentation. Un `{ faits_etablis: [] }` à l'ouverture
+		// serait un second encodage de `null`, que chaque lecteur devrait ramener au premier.
+		for (const dossier of [dossierMinimal(), dossierReference()]) {
+			const session = sessionDe(dossier)
+			expect(session.memoire).toBeNull()
+			expect('memoire' in session).toBe(true)
+		}
+	})
+
+	it('KR-251 — une session ecrite AVANT l it3 (memoire: null) reste legale, et la cle est toujours la', () => {
+		// Le type est ÉLARGI, aucun champ n'est ajouté : une session persistée par la n° 9 ou
+		// par l'it2 se relit telle quelle, sans convertisseur.
+		const ecriteEnIt2: EtatSession = JSON.parse(JSON.stringify(sessionDe(reecrit(), 7))) as EtatSession
+		expect(ecriteEnIt2.memoire).toBeNull()
+		expect(Object.keys(ecriteEnIt2)).toContain('memoire')
+	})
+
+	it('un resume ABSENT le reste au round-trip de persistance — undefined n est jamais null', () => {
+		// `resume?` et JAMAIS `resume: null` (précédent `attente?`) : un résumé qui n'existe pas
+		// n'est pas un résumé vide. `toEqual` ne sépare pas absent et `undefined` ; `in`, si.
+		const sansResume: EtatSession['memoire'] = { faits_etablis: [{ fait: 'Le foyer fume.', sur: ['lieu.x'] }] }
+		const avecResume: EtatSession['memoire'] = {
+			faits_etablis: [],
+			resume: { texte: 'Vous avez veillé.', jusqu_au_pas: 10 },
+		}
+
+		const relus = JSON.parse(JSON.stringify([sansResume, avecResume])) as Array<NonNullable<EtatSession['memoire']>>
+
+		expect('resume' in relus[0]).toBe(false)
+		expect(relus[0]).toEqual(sansResume)
+		// Discriminance (KR-199) : la clé PRÉSENTE survit au même round-trip, pointeur compris.
+		expect(relus[1].resume).toEqual({ texte: 'Vous avez veillé.', jusqu_au_pas: 10 })
+	})
+})

@@ -23,7 +23,7 @@ import type { EtatSession } from '../session'
  *
  * TROIS ENTRÉES DE JOURNAL — les DEUX membres de `RoleJournal` sont représentés,
  * et la troisième est celle qui porte des `deltas` (itération 3). LES TROIS
- * PORTENT `tour: 7`, UN SEUL PAS : une demande, son effet, et la conséquence de
+ * PORTENT `tour: 17`, UN SEUL PAS : une demande, son effet, et la conséquence de
  * règle qu'il a déclenchée — une conséquence enchaînée n'ajoute jamais un pas
  * (`docs/REGLES-PLAY.md` § J1). Une seule entrée ne prouverait pas que les
  * feuilles de journal sont balayées pour chaque ligne, et la couverture n'est
@@ -70,13 +70,21 @@ import type { EtatSession } from '../session'
  * reste un relevé d'état, `recit` est la phrase que le NARRATEUR a rendue pour ce
  * pas — registre joueur, vouvoiement, présent, aucun identifiant, aucune question.
  * Sans instance, la ligne `journal[].recit` de la table serait morte.
+ *
+ * `memoire` INSTANCIÉE NON NULLE depuis le lot `contrat` de la n° 10 it3 — sans elle, ses
+ * quatre lignes de feuille (`…fait`, `…sur[]`, `…texte`, `…jusqu_au_pas`) seraient MORTES
+ * le jour même. Elle ENSEIGNE LES INVARIANTS qu'elle illustre, et c'est pourquoi l'horloge
+ * est passée de 7 à 17 : un résumé qui couvre jusqu'au pas 10 n'est LÉGAL qu'à partir du
+ * pas 15 (I2 : `jusqu_au_pas ≤ borneDeFenetre(horloge.tour)`). DEUX faits, dont l'un à
+ * DEUX ancres (arité maximale) et l'autre ancré sur un objet POSSÉDÉ — des `lieu.*` et
+ * des `objet.*` seulement (I5) ; des phrases au registre joueur, sans identifiant.
  */
 export const SESSION_SATUREE: EtatSession = {
 	schema: 1,
 	dossier_id: 'dossier-minimal',
 	dossier_maj: '2026-09-20T10:00:00.000Z',
 	graine_alea: 424242,
-	horloge: { tour: 7 },
+	horloge: { tour: 17 },
 	monde: {
 		lieu_courant: 'lieu.val-cendre',
 		lieux_visites: ['lieu.val-cendre', 'lieu.le-fanal'],
@@ -90,16 +98,16 @@ export const SESSION_SATUREE: EtatSession = {
 		},
 	},
 	journal: [
-		{ tour: 7, role: 'joueur', texte: '> ALLER lieu.val-cendre' },
+		{ tour: 17, role: 'joueur', texte: '> ALLER lieu.val-cendre' },
 		{
-			tour: 7,
+			tour: 17,
 			role: 'moteur',
 			texte: 'lieu_courant : lieu.le-fanal → lieu.val-cendre',
 			origine: 'aller',
 			recit: 'Vous descendez dans le val ; la cendre crisse sous vos pas et le vent retombe.',
 		},
 		{
-			tour: 7,
+			tour: 17,
 			role: 'moteur',
 			texte: 'jalons_atteints : jalon.premiere-nuit',
 			deltas: [
@@ -108,7 +116,19 @@ export const SESSION_SATUREE: EtatSession = {
 			],
 		},
 	],
-	memoire: null,
+	memoire: {
+		faits_etablis: [
+			{ fait: 'Le val garde la chaleur de la cendre longtemps après la nuit.', sur: ['lieu.val-cendre'] },
+			{
+				fait: 'La clef de basalte est tiède quand on approche du fanal.',
+				sur: ['objet.clef-de-basalte', 'lieu.le-fanal'],
+			},
+		],
+		resume: {
+			texte: 'Vous avez quitté le fanal au crépuscule et suivi la route des cendres jusqu’au val.',
+			jusqu_au_pas: 10,
+		},
+	},
 	attente: {
 		type: 'clarification',
 		question: 'Voulez-vous rejoindre le marché des cendres ou la tour effondrée ?',

@@ -41,10 +41,10 @@ import {
 import type {
 	ChampProseChemin,
 	CibleNarrateur,
+	FaitEtabli,
 	FicheBrouillon,
 	InterpretationRendue,
 	LienResolu,
-	NarrationRendue,
 	PropositionDetenteurs,
 	PropositionDistribution,
 	PropositionPlan,
@@ -53,6 +53,7 @@ import type {
 	PropositionResolue,
 	ReponseNarrateur,
 	SortieInterprete,
+	SortieNarrateur,
 } from './copilote/types'
 import { resoudreInterpretation } from './dossier/interprete'
 import type { EtatSession } from './dossier/session'
@@ -717,11 +718,12 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 	}
 
 	/**
-	 * LE HUITIÈME RÔLE — `narrateur` (n° 10 it2). Il raconte UN pas DÉJÀ JOUÉ : la
-	 * session reçue est celle d'APRÈS l'exécution, déjà persistée, et ce service n'y
-	 * écrit RIEN — la seule écriture d'un récit est `consignerRecit`
-	 * (`dossier/recit.ts`), appelée par l'orchestrateur sur une proposition, jamais
-	 * ici. Sur TOUT échec, le pas reste donc acquis : il n'y a rien à annuler.
+	 * LE HUITIÈME RÔLE — `narrateur` (n° 10 it2, étendu à la mémoire en it3 — LA MÊME
+	 * branche, jamais une neuvième). Il raconte UN pas DÉJÀ JOUÉ : la session reçue est
+	 * celle d'APRÈS l'exécution, déjà persistée, et ce service n'y écrit RIEN — la seule
+	 * écriture du récit, des faits et du résumé est `consignerNarration`
+	 * (`dossier/recit.ts`), appelée par l'orchestrateur sur une proposition, jamais ici.
+	 * Sur TOUT échec, le pas reste donc acquis : il n'y a rien à annuler.
 	 *
 	 * L'ORDRE DES EFFETS, identique aux sept autres rôles :
 	 *  1. LES DEUX REFUS DE CONTEXTE, AVANT TOUT — `'cible-a-ecrire'` (le lieu courant
@@ -731,12 +733,28 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 	 *     INATTEIGNABLES : aucun champ n'est requis au canon (le ton manquant se tait,
 	 *     comme pour l'interprète), et ce rôle n'a aucun ensemble à épuiser ;
 	 *  2. la configuration — `non-configure` sans appel ;
-	 *  3. LE REJEU EXACTEMENT UNE FOIS sur une violation de FORME, jamais sur une
-	 *     indisponibilité (`jusquAuRejeuUnique`, inchangé).
+	 *  3. LE REJEU EXACTEMENT UNE FOIS sur une violation de FORME DU BLOC ATOMIQUE
+	 *     `{narration, tentatives, constats}`, jamais sur une indisponibilité
+	 *     (`jusquAuRejeuUnique`, INCHANGÉ et toujours générique).
 	 *
-	 * LA RÉ-RÉSOLUTION EST UN RENOMMAGE DE DESTINATION — `narration` → `recit`,
-	 * `tentatives` → `suggestions` —, et RIEN D'AUTRE : aucune table de rangs, puisque
-	 * rien ne désigne rien. Aucune réparation : ni `trim`, ni troncature (KR-230).
+	 * ⚠ UN `condense` REFUSÉ NE DÉCLENCHE NI REJEU NI DÉGRADÉ (KR-271) : `validerNarrateur`
+	 * porte son issue DANS la branche de succès, et la boucle ne rejoue que sur `ok: false`.
+	 * Le récit et les faits sont proposés ; seul `resume` manque, et la tranche restera due
+	 * au pas narré suivant. AUCUNE COMPOSITION ENTRE DEUX ESSAIS : la sortie proposée est
+	 * celle de l'essai ACCEPTÉ, entière — un `condense` valide à l'essai refusé n'est pas
+	 * récupéré (le composer serait fusionner deux sorties de modèle, donc réparer, KR-230).
+	 *
+	 * LA RÉ-RÉSOLUTION :
+	 *  · un RENOMMAGE DE DESTINATION pour la prose — `narration` → `recit`, `tentatives` →
+	 *    `suggestions`, `condense` → `resume.texte` ;
+	 *  · un `Map.get` pour chaque ancre — `constats[].ancres` → `faits_etablis[].sur`, sur la
+	 *    table RENDUE PAR L'ASSEMBLEUR (KR-231). Sa branche `undefined` est INATTEIGNABLE —
+	 *    `validerNarrateur` vient de constater l'appartenance de chaque jeton à CETTE table —
+	 *    et dégradée en `illisible`/`'schema'` par défense (précédent `interprete`, KR-175),
+	 *    jamais par un `!` ;
+	 *  · `resume.jusqu_au_pas` POSÉ PAR LE CODE depuis `contexte.condensation.a`, jamais par
+	 *    le modèle (précédent `CERTITUDE_INITIALE`).
+	 * Aucune réparation : ni `trim`, ni troncature (KR-230).
 	 */
 	async function demanderNarrateur(
 		dossier: Dossier,
@@ -750,21 +768,46 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 		if (vers === null) return { statut: 'indisponible', raison: 'non-configure' }
 
 		// LITTÉRAL ÉCRIT, JAMAIS `{ ...cible, contexte }` : il mettrait la SESSION
-		// ENTIÈRE sur le fil — journal, récits passés, graine —, c'est-à-dire la mémoire
-		// que ce rôle n'a pas (it2) et un canal que KR-231 ferme.
+		// ENTIÈRE sur le fil — journal, récits passés, mémoire, graine —, alors que seul ce
+		// que l'assembleur en DÉRIVE a le droit de partir, et un canal que KR-231 ferme.
 		const corps: CorpsDemande = { role: 'narrateur', contexte: contexte.texte }
-		const issue = await jusquAuRejeuUnique<NarrationRendue>(
+		// CALCULÉ UNE FOIS, avant la boucle : les deux essais sont validés contre la MÊME
+		// table et la MÊME demande de condensé que le contexte qu'ils ont reçu.
+		const attendu = { ancres: contexte.ancres, condenseDemande: contexte.condensation !== null }
+		const issue = await jusquAuRejeuUnique(
 			vers.url,
 			vers.entetes,
 			corps,
-			(brut) => validerNarrateur(brut, dossier),
+			(brut) => validerNarrateur(brut, dossier, attendu),
 			signal,
 		)
 		if (!issue.ok) return issue.echec
 
+		const faits_etablis: FaitEtabli[] = []
+		for (const constat of issue.sortie.constats) {
+			const sur: string[] = []
+			for (const rang of constat.ancres) {
+				const identifiant = contexte.ancres.get(rang)
+				// THÉORIQUEMENT INATTEIGNABLE (voir docstring) — dégradé dans le MÊME
+				// vocabulaire que le reste du rejeu, jamais un état neuf.
+				if (identifiant === undefined) return { statut: 'illisible', motif: 'schema' }
+				sur.push(identifiant)
+			}
+			faits_etablis.push({ fait: constat.phrase, sur })
+		}
+
+		const proposition: SortieNarrateur = {
+			recit: issue.sortie.narration,
+			suggestions: issue.sortie.tentatives,
+			faits_etablis,
+		}
+		const condense = issue.sortie.condense
+		// `resume` n'existe QUE si la condensation était due ET que `condense` a passé SA
+		// garde : sinon la clé est ABSENTE — jamais `undefined` posé, jamais un texte neutre.
+		if (condense === null || !condense.ok || contexte.condensation === null) return { statut: 'propose', proposition }
 		return {
 			statut: 'propose',
-			proposition: { recit: issue.sortie.narration, suggestions: issue.sortie.tentatives },
+			proposition: { ...proposition, resume: { texte: condense.texte, jusqu_au_pas: contexte.condensation.a } },
 		}
 	}
 

@@ -10,6 +10,7 @@ import {
 	type Dossier,
 	type ReponseNarrateur,
 	type ReponseInterprete,
+	type SortieNarrateur,
 } from '../../../brain'
 import { EcranPartie } from '../components/EcranPartie'
 
@@ -172,8 +173,12 @@ describe('Verrou de tour au niveau ecran (KR-265 etendu, lot 2 it2)', () => {
 		await act(async () => {
 			resolveurs[1]({
 				statut: 'propose',
-				proposition: { recit: 'Vous scrutez les environs, sans rien y trouver de neuf.', suggestions: [] },
-			} as ReponseNarrateur)
+				proposition: {
+					recit: 'Vous scrutez les environs, sans rien y trouver de neuf.',
+					suggestions: [],
+					faits_etablis: [],
+				} satisfies SortieNarrateur,
+			})
 		})
 
 		expect(screen.getByText('RÉCIT')).toBeInTheDocument()

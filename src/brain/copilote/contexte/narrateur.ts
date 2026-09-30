@@ -1,5 +1,5 @@
 /**
- * L'ASSEMBLEUR DU HUITIÈME RÔLE — `narrateur` (n° 10 `moteur-interprete`, it2).
+ * L'ASSEMBLEUR DU HUITIÈME RÔLE — `narrateur` (n° 10 `moteur-interprete`, it2 puis it3).
  *
  * Il compose ce que le narrateur VOIT pour raconter UN pas DÉJÀ JOUÉ : la session
  * reçue est celle d'APRÈS l'exécution, déjà persistée. Rien ici n'écrit l'état.
@@ -12,21 +12,37 @@
  * `fetch`, jamais de troncature, silence sur un champ non rédigé plutôt qu'une
  * affirmation.
  *
- * ── SANS ÉTAT (it2), ET C'EST LE CONTRAT LE PLUS LOURD DE CE FICHIER ──────────────
- * AUCUNE MÉMOIRE, AUCUN RÉCIT PASSÉ, AUCUNE `attente`, AUCUNE ENTRÉE DE JOURNAL HORS DU
- * PAS COURANT, AUCUN NOMBRE (ni l'horloge, ni la graine). Le pas courant est DÉRIVÉ des
- * entrées de `session.journal` dont `tour` vaut `horloge.tour` — jamais stocké, jamais
- * passé à côté (KR-013). Conséquence testée : même monde et même pas au pas 2 et au
- * pas 40 ⇒ contexte IDENTIQUE. Le contexte croît avec le DOSSIER, jamais avec la durée
- * de la partie.
+ * ── LA MÉMOIRE (it3) — CE QUE LE NARRATEUR RELIT, ET RIEN D'AUTRE ─────────────────
+ * Le narrateur n'est plus sans état, et c'est la POLITIQUE DE RÉTENTION de
+ * `dossier/memoire.ts` qui dit ce qui repart au modèle — cet assembleur ne décide RIEN de
+ * ce qui est retenu, il PROJETTE :
+ *  · `AUPARAVANT` — le résumé glissant, s'il existe ;
+ *  · `A CONDENSER` — la tranche `pasACondenser(session)`, SEULEMENT si elle est due ;
+ *  · `RECEMMENT` — les pas `(borneDeFenetre(t), t−1]` : la fenêtre, pas courant exclu (il
+ *    est dans `CE PAS`) ;
+ *  · `ETABLI` — `faitsPertinents(session)`.
+ * UNE LIGNE PAR PAS : son récit, ou À DÉFAUT le libellé de son geste (un pas joué en
+ * console, ou dont le récit n'a pas pu être généré) — jamais un trou. Toute sortie de
+ * modèle réinjectée est REPLIÉE sur une ligne (blancs collapsés) : un récit ne peut pas
+ * imiter un en-tête de bloc.
+ * JAMAIS : un numéro de pas ou d'horloge, `journal[].texte`, les deltas d'un pas passé
+ * (l'état les reflète déjà), les tentatives (jamais persistées), `attente`.
+ *
+ * ── LES ANCRES (it3) — CE QUE LE NARRATEUR PEUT DÉSIGNER ──────────────────────────
+ * Le lieu courant (`A1`, toujours) et les objets dont la prose est injectée — ceux de
+ * `CE PAS`, puis ceux `EN SA POSSESSION` —, UN rang par identifiant. JAMAIS un indice ni un
+ * jalon (KR-272 : ces ensembles ne font que croître, une ancre y resterait sélectionnable
+ * pour toujours). La table `ancres` est RENDUE avec le texte et ne sort jamais de
+ * `brain/` (précédent `TablesInterprete`) : c'est ELLE que le validateur consulte et que
+ * le service re-résout, jamais une re-dérivation (KR-231).
  *
  * ── CE QUI N'ENTRE JAMAIS ───────────────────────────────────────────────────────
- * Un identifiant ou un rang (rien, dans ce rôle, ne désigne rien) · `Entite.nom`
- * (KR-262 — un lieu se dit par sa `description`) · toute donnée de personnage (n° 12) ·
- * `canon.mj.synopsis_mj` (le narrateur conduirait vers l'intrigue à venir) ·
- * `monde.lieux[].dangers` (un danger raconté appelle un jet que personne ne résout
- * avant la n° 11) · `monde.indices[].verite` (la solution) · `lieux[].acces` (la carte) ·
- * les deux proses émises verbatim (`texte_ouverture_joueur`, `fins[].texte`).
+ * Un identifiant (rien, dans ce rôle, ne désigne autrement que par un rang `A…`) ·
+ * `Entite.nom` (KR-262 — un lieu se dit par sa `description`) · toute donnée de
+ * personnage (n° 12) · `canon.mj.synopsis_mj` (le narrateur conduirait vers l'intrigue à
+ * venir) · `monde.lieux[].dangers` (un danger raconté appelle un jet que personne ne
+ * résout avant la n° 11) · `monde.indices[].verite` (la solution) · `lieux[].acces` (la
+ * carte) · les deux proses émises verbatim (`texte_ouverture_joueur`, `fins[].texte`).
  *
  * ── LES ONZE CHEMINS DE PROSE `ia` DU MONDE ET DE LA CHARPENTE (KR-261) ─────────
  * LA LISTE FERMÉE, ÉCRITE ICI ET NULLE PART AILLEURS. PRÉDICAT (KR-159) : les chemins de
@@ -52,34 +68,106 @@
  * (`lieux.description`), QUATRE par le narrateur (`lieux.ambiance`,
  * `objets.description_joueur`, `indices.formulation_joueur`, `jalons.enonce_texte`) ;
  * le narrateur relit aussi `lieux.description`, déjà ouvert. Le « trois » de
- * `design_reference` (spec de la feature) était un décompte sans liste écrite.
+ * `design_reference` (spec de la feature) était un décompte sans liste écrite. L'it3 n'en
+ * ouvre AUCUN de plus : la mémoire est de la SESSION (`journal[].recit`,
+ * `memoire.resume.texte`, `memoire.faits_etablis[].fait`, toutes `'ia'` dans
+ * `dossier/sessionDestinations.ts`), jamais du dossier.
  */
 import { COMMANDES } from '../../dossier/commandes'
 import type { DeltaId } from '../../dossier/deltas'
 import { projeterJalonsAtteints, type JalonAtteint } from '../../dossier/evaluate'
+import {
+	borneDeFenetre,
+	CADENCE,
+	FAITS_INJECTES_MAX,
+	FENETRE_MAX,
+	faitsPertinents,
+	pasACondenser,
+} from '../../dossier/memoire'
+import type { EtatSession } from '../../dossier/session'
 import type { Dossier } from '../../dossier/types'
-import type { CibleNarrateur } from '../types'
+import { CONDENSE_CARACTERES_MAX, FAIT_CARACTERES_MAX, NARRATION_CARACTERES_MAX } from '../schemaSortie'
+import type { CibleNarrateur, RangInjecte } from '../types'
 import { textesRediges, type MotifRefusContexte } from './noyau'
 
 /**
- * LA BORNE DE REFUS DU CONTEXTE, EN CARACTÈRES (`String.length`) — refus `'trop-long'`
- * AVANT tout `fetch`, jamais une coupe. Formule du registre auteur :
- * `ceil(M × 3 / 1000) × 1000`, le facteur 3 et l'arrondi au millier étant LA marge.
+ * LES EN-TÊTES DES BLOCS — des mots d'ASSEMBLAGE, sans accent (précédent `DEJA ECRIT`),
+ * jamais un nom de champ du document ni un rang. `ICI` et `saisie` sont ceux de
+ * l'interprète : le même lieu et la même saisie se nomment de la même façon aux deux
+ * rôles. `ICI` porte l'ancre du lieu courant, `A1`, toujours la même.
+ * Les quatre en-têtes de la MÉMOIRE (it3) ne sont JAMAIS cités par l'invite du worker
+ * (`worker/index.test.ts` les balaie) : le modèle les lit, il n'en apprend pas les noms.
+ */
+const EN_TETE_ICI = 'ICI'
+const EN_TETE_CE_PAS = 'CE PAS'
+const EN_TETE_POSSESSIONS = 'EN SA POSSESSION'
+const EN_TETE_ACCOMPLI = 'DEJA ACCOMPLI'
+const EN_TETE_SAISIE = 'saisie'
+const EN_TETE_AUPARAVANT = 'AUPARAVANT'
+const EN_TETE_A_CONDENSER = 'A CONDENSER'
+const EN_TETE_RECEMMENT = 'RECEMMENT'
+const EN_TETE_ETABLI = 'ETABLI'
+
+/** Le séparateur entre deux blocs — écrit une fois : le texte l'emploie, et la borne de la
+ *  mémoire le compte. */
+const SEPARATEUR_DE_BLOCS = '\n\n'
+
+/**
+ * LA BORNE EXACTE DE LA MÉMOIRE, EN CARACTÈRES — CALCULÉE, jamais mesurée ni majorée : chacun
+ * de ses termes est borné par un VALIDATEUR, donc la somme est EXACTE, et la marge ×3 du
+ * terme dossier (dont la prose d'auteur n'est pas bornée, KR-203) n'a RIEN à faire ici
+ * (§ 8 désaccord 5 du raffinage it3). Un bloc plein coûte : son séparateur, son en-tête,
+ * puis pour chaque ligne un saut de ligne et la ligne elle-même.
  *
- * MESURÉ le 2026-09-29 (it2) par `contexte.test.ts`, au PIRE CAS sur
- * `dossier-reference.json` : le lieu décrit dont `description` + `ambiance` est le plus
- * long (`lieu.foyer-du-guet`), le geste au libellé le plus long, TOUS les objets donnés,
- * TOUS les indices révélés et TOUS les jalons atteints AU PAS COURANT, TOUS les objets
- * possédés et TOUS les jalons déjà atteints, une saisie de `SAISIE_CARACTERES_MAX` (300)
- * caractères. Protocole de l'it1 : on asserte d'abord que les HUIT chemins injectés
+ *   `AUPARAVANT`  — 1 ligne de `CONDENSE_CARACTERES_MAX` ;
+ *   `A CONDENSER` — `CADENCE` lignes de pas ;
+ *   `RECEMMENT`   — `FENETRE_MAX − 1` lignes de pas (la fenêtre, pas courant exclu) ;
+ *   `ETABLI`      — `FAITS_INJECTES_MAX` lignes de `FAIT_CARACTERES_MAX`.
+ *
+ * LE PIRE CAS EST UN RETARD DE CONDENSATION : `FENETRE_MAX − 1 + CADENCE` = 23 lignes de pas
+ * en même temps (au pas 34, résumé à 10 : tranche 11–20 et fenêtre 21–33). Un budget calé
+ * sur la seule fenêtre lèverait `trop-long` dès le premier échec de condensation, et le
+ * narrateur se tairait justement quand il doit rattraper.
+ *
+ * UNE LIGNE DE PAS est un RÉCIT (`NARRATION_CARACTERES_MAX`, borne de `validerNarrateur`) ou,
+ * à défaut, un LIBELLÉ DE GESTE : sa largeur est le plus grand des deux, DÉRIVÉ de
+ * `COMMANDES` — jamais supposé.
+ */
+const LIGNE_DE_PAS_MAX = Math.max(
+	NARRATION_CARACTERES_MAX,
+	...Object.values(COMMANDES).map((descripteur) => descripteur.label.length),
+)
+const coutDUnBlocPlein = (enTete: string, lignes: number, largeur: number): number =>
+	SEPARATEUR_DE_BLOCS.length + enTete.length + lignes * (1 + largeur)
+export const BORNE_MEMOIRE =
+	coutDUnBlocPlein(EN_TETE_AUPARAVANT, 1, CONDENSE_CARACTERES_MAX) +
+	coutDUnBlocPlein(EN_TETE_A_CONDENSER, CADENCE, LIGNE_DE_PAS_MAX) +
+	coutDUnBlocPlein(EN_TETE_RECEMMENT, FENETRE_MAX - 1, LIGNE_DE_PAS_MAX) +
+	coutDUnBlocPlein(EN_TETE_ETABLI, FAITS_INJECTES_MAX, FAIT_CARACTERES_MAX)
+
+/**
+ * LA BORNE DU TERME DOSSIER — formule du registre auteur, `ceil(M × 3 / 1000) × 1000`, le
+ * facteur 3 et l'arrondi au millier étant LA marge de la prose d'auteur non bornée.
+ *
+ * RE-MESURÉ le 2026-09-30 (it3) par `contexte.test.ts`, au PIRE CAS sur
+ * `dossier-reference.json`, AVEC LES RANGS D'ANCRE que l'it3 ajoute (`ICI A1`, `obtient A2 —
+ * …`, `A2 — …`) et SANS mémoire — la mémoire est l'autre terme, calculé : le lieu décrit dont
+ * `description` + `ambiance` est le plus long, le geste au libellé le plus long, TOUS les
+ * objets donnés, TOUS les indices révélés et TOUS les jalons atteints AU PAS COURANT, TOUS les
+ * objets possédés et TOUS les jalons déjà atteints, une saisie de `SAISIE_CARACTERES_MAX`
+ * (300) caractères. Protocole de l'it1 : on asserte d'abord que les HUIT chemins injectés
  * résolvent non vides, sans quoi `M` serait un PLANCHER et non une mesure.
- * M = 1918 ⇒ ceil(1918 × 3 / 1000) × 1000 = 6000.
- *
- * ⚠ LA VALEUR COÏNCIDE AVEC CELLE DE `personnage-prose` (6000, `./registres.ts`), ET ELLE
- * N'EN EST PAS RECOPIÉE : `M` vaut 1783 là-bas et 1918 ici, deux mesures indépendantes
- * qui tombent dans le même millier après arrondi. C'est écrit parce que la coïncidence
- * invite précisément à la recopie (KR-235) ; `contexte.test.ts` constate que les deux
- * `M` diffèrent.
+ * M = 1937 (1918 en it2, + 19 caractères de rangs) ⇒ ceil(1937 × 3 / 1000) × 1000 = 6000.
+ */
+const BUDGET_CARACTERES_DOSSIER = 6000
+
+/**
+ * LA BORNE DE REFUS DU CONTEXTE, EN CARACTÈRES (`String.length`) — refus `'trop-long'`
+ * AVANT tout `fetch`, jamais une coupe. DEUX TERMES, et ils ne se traitent pas pareil :
+ * le terme DOSSIER, MESURÉ puis majoré (×3), et le terme MÉMOIRE, CALCULÉ exactement
+ * (`BORNE_MEMOIRE`). `contexte.test.ts` prouve qu'une mémoire SATURÉE (23 lignes de pas,
+ * le résumé et huit faits au maximum) sur le pire cas du dossier ne lève JAMAIS
+ * `trop-long` : seul le terme dossier peut le produire.
  *
  * HORS DE `BUDGET_CARACTERES_CONTEXTE` (`./registres.ts`), et c'est délibéré : ce
  * registre est `Record<RoleCopilote, number>`, et y entrer ferait entrer le narrateur
@@ -94,7 +182,7 @@ import { textesRediges, type MotifRefusContexte } from './noyau'
  * Exportée par `./index.ts` pour `worker/frontiere.test.ts` SEULEMENT — jamais par
  * `brain/index.ts` : aucune feature n'assemble un contexte elle-même.
  */
-export const BUDGET_CARACTERES_NARRATEUR = 6000
+export const BUDGET_CARACTERES_NARRATEUR = BUDGET_CARACTERES_DOSSIER + BORNE_MEMOIRE
 
 /** LES HUIT CHEMINS INJECTÉS, tous d'audience `'ia'` (garde de confinement dans
  *  `contexte.test.ts`, KR-232). Trois du canon, cinq du monde et de la charpente — dont
@@ -126,18 +214,6 @@ const PREFIXE_INDICE = 'monde.indices[].'
 const CHEMIN_INDICE: (typeof CHAMPS_INJECTES_NARRATEUR)[number] = 'monde.indices[].formulation_joueur'
 
 /**
- * LES EN-TÊTES DES BLOCS — des mots d'ASSEMBLAGE, sans accent (précédent `DEJA ECRIT`),
- * jamais un nom de champ du document ni un rang. `ICI` et `saisie` sont ceux de
- * l'interprète : le même lieu et la même saisie se nomment de la même façon aux deux
- * rôles.
- */
-const EN_TETE_ICI = 'ICI'
-const EN_TETE_CE_PAS = 'CE PAS'
-const EN_TETE_POSSESSIONS = 'EN SA POSSESSION'
-const EN_TETE_ACCOMPLI = 'DEJA ACCOMPLI'
-const EN_TETE_SAISIE = 'saisie'
-
-/**
  * LA LIGNE DU PAS SANS EFFET APPLIQUÉ — ÉCRITE, jamais omise : un bloc « ce pas » vide
  * laisserait le modèle deviner, et deviner ce qui a changé est précisément ce que ce
  * rôle n'a pas le droit de faire. Elle ne s'écrit QUE si AUCUN effet n'a été appliqué :
@@ -146,12 +222,25 @@ const EN_TETE_SAISIE = 'saisie'
  */
 const AUCUN_CHANGEMENT = 'aucun changement'
 
+/** Toute prose de modèle réinjectée tient sur UNE ligne — elle ne peut pas imiter un
+ *  en-tête de bloc (KR candidat du raffinage it3, narratif-ia). */
+function replier(texte: string): string {
+	return texte.replace(/\s+/g, ' ').trim()
+}
+
 /** Ce que le narrateur lit d'un effet de règle appliqué au pas courant : le SENS du
  *  changement pour le héros (`amorce`, un verbe à la troisième personne du présent,
- *  même forme que les libellés de geste — KR-269), et les proses rédigées de sa cible,
- *  zéro, une ou plusieurs. */
+ *  même forme que les libellés de geste — KR-269), les proses rédigées de sa cible,
+ *  zéro, une ou plusieurs, et si cette cible REÇOIT UNE ANCRE (it3). */
 interface LectureDEffet {
 	readonly amorce: string
+	/**
+	 * VRAI pour les seuls effets dont la cible est un OBJET : un objet peut quitter le
+	 * contexte puis y revenir, donc un fait ancré sur lui est RE-SÉLECTIONNABLE. FAUX pour un
+	 * indice révélé (sélectionnable une fois, puis mort) et pour un jalon atteint (présent
+	 * pour toujours, donc sélectionné pour toujours) — KR-272.
+	 */
+	readonly ancrable: boolean
 	readonly lire: (dossier: Dossier, jalons: readonly JalonAtteint[], cible: string) => string[]
 }
 
@@ -165,7 +254,8 @@ function proseDObjet(dossier: Dossier, id: string): string[] {
 /**
  * CE QUE CHAQUE EFFET DONNE À LIRE — `Record<DeltaId, …>`, donc TOTAL PAR COMPILATION
  * (KR-117) : un cinquième effet admis au registre des effets ne compile pas tant que
- * personne n'a décidé ce que le narrateur en lit. Jamais un `switch` sur l'identifiant.
+ * personne n'a décidé ce que le narrateur en lit, NI S'IL S'ANCRE. Jamais un `switch` sur
+ * l'identifiant.
  *
  * ⚠ L'AMORCE N'EST PAS LE LIBELLÉ DU REGISTRE DES EFFETS, ET C'EST UNE DÉCISION : ce
  * libellé-là (« donne l'objet », « marque le jalon atteint ») est un texte d'ÉCRAN
@@ -182,10 +272,11 @@ function proseDObjet(dossier: Dossier, id: string): string[] {
  * construction, dans `jalons_atteints` — jamais une lecture directe de la charpente.
  */
 const LECTURE_DES_EFFETS: Record<DeltaId, LectureDEffet> = {
-	donner_objet: { amorce: 'obtient', lire: (dossier, _jalons, cible) => proseDObjet(dossier, cible) },
-	retirer_objet: { amorce: "n'a plus", lire: (dossier, _jalons, cible) => proseDObjet(dossier, cible) },
+	donner_objet: { amorce: 'obtient', ancrable: true, lire: (dossier, _jalons, cible) => proseDObjet(dossier, cible) },
+	retirer_objet: { amorce: "n'a plus", ancrable: true, lire: (dossier, _jalons, cible) => proseDObjet(dossier, cible) },
 	reveler_indice: {
 		amorce: 'remarque',
+		ancrable: false,
 		lire: (dossier, _jalons, cible) => {
 			const indice = dossier.monde.indices.find((candidat) => candidat.id === cible)
 			// `formulation_joueur` SEULE, jamais `verite` : ce que le joueur perçoit, pas la
@@ -195,84 +286,169 @@ const LECTURE_DES_EFFETS: Record<DeltaId, LectureDEffet> = {
 	},
 	atteindre_jalon: {
 		amorce: 'accomplit',
+		ancrable: false,
 		lire: (_dossier, jalons, cible) =>
 			jalons.filter((jalon) => jalon.jalon_id === cible).flatMap((jalon) => textesRediges(jalon, 'enonce', '')),
 	},
 }
 
-export type ContexteNarrateur =
-	| { readonly ok: true; readonly texte: string }
-	| ({ readonly ok: false } & MotifRefusContexte)
+/** La branche de SUCCÈS, NOMMÉE (précédent `ContexteDetenteursRendu`). */
+interface ContexteNarrateurRendu {
+	readonly ok: true
+	readonly texte: string
+	/**
+	 * LES SEULES entités DÉSIGNABLES par un constat, rang → identifiant — le lieu courant et
+	 * les objets dont la prose est injectée, JAMAIS un indice ni un jalon (KR-272). Le rang
+	 * écrit dans `texte` et la clé de cette table sortent de la MÊME variable. NE SORT
+	 * JAMAIS de `brain/` (KR-231).
+	 */
+	readonly ancres: ReadonlyMap<RangInjecte, string>
+	/**
+	 * LA TRANCHE À CONDENSER — `pasACondenser(cible.session)`, CALCULÉE UNE FOIS, trois
+	 * consommateurs : le bloc `A CONDENSER` de `texte`, `condenseDemande` du validateur, et
+	 * le `jusqu_au_pas` que le service posera (`a`). `null` quand rien n'est dû.
+	 */
+	readonly condensation: { readonly de: number; readonly a: number } | null
+}
+
+export type ContexteNarrateur = ContexteNarrateurRendu | ({ readonly ok: false } & MotifRefusContexte)
+
+/** LA LIGNE D'UN PAS PASSÉ — son récit, ou À DÉFAUT le libellé de son geste ; `null` s'il
+ *  n'a aucune entrée à `origine`. Le pas est SÉLECTIONNÉ PAR `tour`, jamais par la position
+ *  dans le journal : un pas porte plusieurs entrées (demande, effet, jalons). */
+function ligneDuPas(session: EtatSession, pas: number): string | null {
+	const porteuse = session.journal.find((entree) => entree.tour === pas && entree.origine !== undefined)
+	if (porteuse?.origine === undefined) return null
+	return replier(porteuse.recit ?? COMMANDES[porteuse.origine].label)
+}
+
+/** Les lignes des pas `de` à `a`, bornes incluses, dans l'ordre chronologique. */
+function lignesDesPas(session: EtatSession, de: number, a: number): string[] {
+	const lignes: string[] = []
+	for (let pas = de; pas <= a; pas += 1) {
+		const ligne = ligneDuPas(session, pas)
+		if (ligne !== null) lignes.push(ligne)
+	}
+	return lignes
+}
+
+/** Pousse un bloc SEULEMENT s'il a au moins une ligne — jamais un bloc vide. */
+function pousser(blocs: string[], enTete: string, lignes: readonly string[]): void {
+	if (lignes.length > 0) blocs.push(`${enTete}\n${lignes.join('\n')}`)
+}
 
 /**
- * L'ASSEMBLEUR — CINQ SORTES DE BLOCS, DANS CET ORDRE, séparés par une ligne vide :
+ * L'ASSEMBLEUR — ONZE SORTES DE BLOCS, DANS CET ORDRE, séparés par une ligne vide :
  *  1. le CANON — `canon.ton`, `canon.interdits_ton[]`, `canon.partage.accroche_joueur`,
  *     chacun QUAND ÉCRIT, sous son chemin (précédent des sept rôles) ;
- *  2. `ICI` — la `description` du lieu courant (REQUISE), puis son `ambiance` ;
- *  3. `CE PAS` — le libellé du geste joué (`COMMANDES[origine].label`, le contrat
- *     narratif de KR-269), puis UNE ligne par effet APPLIQUÉ au pas courant, sous la
- *     forme `<amorce> — <prose de sa cible>` (`LECTURE_DES_EFFETS`) ; `aucun changement`
- *     si aucun effet ne s'est appliqué. Un effet `'sans_effet'` n'est JAMAIS raconté
- *     (KR-247) ;
- *  4. `EN SA POSSESSION` puis `DEJA ACCOMPLI` — la `description_joueur` des objets
- *     possédés, l'énoncé des jalons atteints (via `projeterJalonsAtteints`, KR-246).
- *     Pas une ligne, pas de bloc — jamais un bloc vide ;
- *  5. `saisie` — la saisie du joueur, EN DERNIER, normalisée (`trim` puis espaces
- *     collapsés) : elle ne peut pas imiter un bloc sur sa propre ligne. Même
- *     normalisation que l'interprète, réécrite plutôt qu'importée (elle y est privée, et
- *     ce module-là n'appartient pas à ce lot).
+ *  2. `AUPARAVANT` — le résumé, s'il existe ;
+ *  3. `A CONDENSER` — une ligne par pas de la tranche due, SEULEMENT si elle est due ;
+ *  4. `RECEMMENT` — une ligne par pas de `(borneDeFenetre(t), t−1]` ;
+ *  5. `ETABLI` — une ligne par fait de `faitsPertinents` ;
+ *  6. `ICI A1` — la `description` du lieu courant (REQUISE), puis son `ambiance` ;
+ *  7. `CE PAS` — le libellé du geste joué (`COMMANDES[origine].label`, le contrat narratif
+ *     de KR-269), puis UNE ligne par effet APPLIQUÉ au pas courant, `<amorce> — <prose>`,
+ *     ou `<amorce> A<n> — <prose>` pour un objet ; `aucun changement` si aucun effet ne
+ *     s'est appliqué. Un effet `'sans_effet'` n'est JAMAIS raconté (KR-247) ;
+ *  8-9. `EN SA POSSESSION` (`A<n> — <prose>`) puis `DEJA ACCOMPLI` — la `description_joueur`
+ *     des objets possédés, l'énoncé des jalons atteints (via `projeterJalonsAtteints`,
+ *     KR-246). Pas une ligne, pas de bloc — jamais un bloc vide ;
+ *  10. `saisie` — la saisie du joueur, EN DERNIER, normalisée (`trim` puis espaces
+ *     collapsés) : elle ne peut pas imiter un bloc sur sa propre ligne.
+ * L'ÉTAT VIENT APRÈS LA MÉMOIRE : ce que la demande dit d'ici et de maintenant prime sur
+ * ce qu'elle rappelle d'avant, et l'invite le dit.
  *
  * REFUS, AVANT tout `fetch`, dans cet ORDRE :
  *   `cible-a-ecrire` — le lieu courant ne résout pas, ou sa `description` est absente ou
  *     marquée : raconter sans scène reviendrait à INVENTER le lieu ;
  *   `trop-long` — le texte assemblé dépasse `BUDGET_CARACTERES_NARRATEUR`.
- * ⚠ `'a-ecrire'` et `'aucun-candidat'` sont INATTEIGNABLES ici, et c'est délibéré :
- * aucun champ du canon n'est requis, et ce rôle n'a aucun ensemble à épuiser. Les
- * écrire serait du code mort présenté comme de la couverture (KR-235).
+ * ⚠ `'a-ecrire'` et `'aucun-candidat'` sont INATTEIGNABLES ici, et c'est délibéré : aucun
+ * champ du canon n'est requis, et ce rôle n'a aucun ensemble à épuiser. Les écrire serait
+ * du code mort présenté comme de la couverture (KR-235).
  */
 export function assemblerNarrateur(dossier: Dossier, cible: CibleNarrateur): ContexteNarrateur {
 	const { session } = cible
-	const blocs: string[] = []
 
-	// ── 1. LE CANON, global, optionnel ────────────────────────────────────────
-	for (const chemin of CHEMINS_DU_CANON) {
-		const textes = textesRediges(dossier, chemin, '')
-		if (textes.length > 0) blocs.push(`${chemin}\n${textes.join('\n')}`)
-	}
-
-	// ── 2. ICI — la description du lieu courant est REQUISE ─────────────────────
+	// ── LE LIEU COURANT EST REQUIS, et il porte TOUJOURS l'ancre `A1` ────────────
 	const lieu = dossier.monde.lieux.find((candidat) => candidat.id === session.monde.lieu_courant)
 	const description = lieu === undefined ? [] : textesRediges(lieu, CHEMIN_DESCRIPTION_LIEU, PREFIXE_LIEU)
 	if (lieu === undefined || description.length === 0) return { ok: false, motif: 'cible-a-ecrire' }
-	const ambiance = textesRediges(lieu, CHEMIN_AMBIANCE_LIEU, PREFIXE_LIEU)
-	blocs.push(`${EN_TETE_ICI}\n${[...description, ...ambiance].join('\n')}`)
 
-	// ── 3. CE PAS — DÉRIVÉ du journal, jamais stocké (KR-013) ───────────────────
-	// Seules les entrées du pas COURANT sont lues : l'horloge SÉLECTIONNE, elle n'est
-	// jamais injectée, et aucune entrée d'un pas antérieur — ni son récit — n'entre.
+	// UN rang par identifiant : un objet obtenu à ce pas est aussi possédé, et il garde le
+	// MÊME rang dans les deux blocs.
+	const ancres = new Map<RangInjecte, string>()
+	const rangs = new Map<string, RangInjecte>()
+	const ancrer = (id: string): RangInjecte => {
+		const deja = rangs.get(id)
+		if (deja !== undefined) return deja
+		const rang = `A${ancres.size + 1}`
+		ancres.set(rang, id)
+		rangs.set(id, rang)
+		return rang
+	}
+
+	const etat: string[] = []
+
+	// ── ICI A1 — la description du lieu courant, puis son ambiance ──────────────
+	const ambiance = textesRediges(lieu, CHEMIN_AMBIANCE_LIEU, PREFIXE_LIEU)
+	pousser(etat, `${EN_TETE_ICI} ${ancrer(lieu.id)}`, [...description, ...ambiance])
+
+	// ── CE PAS — DÉRIVÉ du journal, jamais stocké (KR-013) ───────────────────────
+	// Seules les entrées du pas COURANT sont lues ici : l'horloge SÉLECTIONNE, elle n'est
+	// jamais injectée.
 	const jalonsAtteints = projeterJalonsAtteints(dossier, session.monde)
 	const duPas = session.journal.filter((entree) => entree.tour === session.horloge.tour)
 	const gestes = duPas.flatMap((entree) => (entree.origine === undefined ? [] : [COMMANDES[entree.origine].label]))
 	const appliques = duPas.flatMap((entree) => (entree.deltas ?? []).filter((delta) => delta.effet === 'applique'))
 	const changements = appliques.flatMap((delta) => {
 		const lecture = LECTURE_DES_EFFETS[delta.delta]
-		return lecture.lire(dossier, jalonsAtteints, delta.cibles[0]).map((prose) => `${lecture.amorce} — ${prose}`)
+		const cibleDuDelta = delta.cibles[0]
+		return lecture.lire(dossier, jalonsAtteints, cibleDuDelta).map((prose) => {
+			const reperee = lecture.ancrable ? `${lecture.amorce} ${ancrer(cibleDuDelta)}` : lecture.amorce
+			return `${reperee} — ${prose}`
+		})
 	})
-	const lignesDuPas = [...gestes, ...(appliques.length === 0 ? [AUCUN_CHANGEMENT] : changements)]
-	blocs.push(`${EN_TETE_CE_PAS}\n${lignesDuPas.join('\n')}`)
+	pousser(etat, EN_TETE_CE_PAS, [...gestes, ...(appliques.length === 0 ? [AUCUN_CHANGEMENT] : changements)])
 
-	// ── 4. OÙ EN EST LE HÉROS — ce qu'il a sur lui, ce qu'il a déjà accompli ────
-	const possessions = session.monde.objets_possedes.flatMap((id) => proseDObjet(dossier, id))
-	if (possessions.length > 0) blocs.push(`${EN_TETE_POSSESSIONS}\n${possessions.join('\n')}`)
-	const accomplis = jalonsAtteints.flatMap((jalon) => textesRediges(jalon, 'enonce', ''))
-	if (accomplis.length > 0) blocs.push(`${EN_TETE_ACCOMPLI}\n${accomplis.join('\n')}`)
+	// ── OÙ EN EST LE HÉROS — ce qu'il a sur lui, ce qu'il a déjà accompli ────────
+	const possessions = session.monde.objets_possedes.flatMap((id) =>
+		proseDObjet(dossier, id).map((prose) => `${ancrer(id)} — ${prose}`),
+	)
+	pousser(etat, EN_TETE_POSSESSIONS, possessions)
+	pousser(
+		etat,
+		EN_TETE_ACCOMPLI,
+		jalonsAtteints.flatMap((jalon) => textesRediges(jalon, 'enonce', '')),
+	)
 
-	// ── 5. LA SAISIE, EN DERNIER, normalisée ──────────────────────────────────
-	blocs.push(`${EN_TETE_SAISIE}\n${cible.saisie.trim().replace(/\s+/g, ' ')}`)
+	// ── LA MÉMOIRE — projetée depuis `dossier/memoire.ts`, jamais décidée ici ────
+	const memoire: string[] = []
+	const resume = replier(session.memoire?.resume?.texte ?? '')
+	pousser(memoire, EN_TETE_AUPARAVANT, resume === '' ? [] : [resume])
+	const condensation = pasACondenser(session)
+	if (condensation !== null)
+		pousser(memoire, EN_TETE_A_CONDENSER, lignesDesPas(session, condensation.de, condensation.a))
+	pousser(
+		memoire,
+		EN_TETE_RECEMMENT,
+		lignesDesPas(session, borneDeFenetre(session.horloge.tour) + 1, session.horloge.tour - 1),
+	)
+	pousser(
+		memoire,
+		EN_TETE_ETABLI,
+		faitsPertinents(session).map((fait) => replier(fait.fait)),
+	)
 
-	const texte = blocs.join('\n\n')
+	// ── LE CANON, global, optionnel — en tête ─────────────────────────────────
+	const canon: string[] = []
+	for (const chemin of CHEMINS_DU_CANON) pousser(canon, chemin, textesRediges(dossier, chemin, ''))
+
+	// ── LA SAISIE, EN DERNIER, normalisée ──────────────────────────────────────
+	const saisie = `${EN_TETE_SAISIE}\n${cible.saisie.trim().replace(/\s+/g, ' ')}`
+
+	const texte = [...canon, ...memoire, ...etat, saisie].join(SEPARATEUR_DE_BLOCS)
 	// On refuse, on ne coupe pas (KR-230).
 	if (texte.length > BUDGET_CARACTERES_NARRATEUR) return { ok: false, motif: 'trop-long' }
 
-	return { ok: true, texte }
+	return { ok: true, texte, ancres, condensation }
 }

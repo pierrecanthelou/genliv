@@ -42,7 +42,9 @@ import {
 	BUDGET_CARACTERES_NARRATEUR,
 } from '../src/brain/copilote/contexte'
 import {
+	CLE_CONDENSE,
 	CLES_SORTIE_NARRATEUR,
+	FAITS_PAR_PAS_MAX,
 	FICHES_PROPOSEES_MAX,
 	RELATIONS_PROPOSEES_MAX,
 	REPLIQUES_PROPOSEES_MAX,
@@ -56,8 +58,9 @@ import {
 import { createCopiloteService } from '../src/brain/CopiloteService'
 import type { CloudSettingsService } from '../src/brain/CloudSettingsService'
 import { analyserSaisie, executerCommande } from '../src/brain/dossier/commandes'
+import { CADENCE } from '../src/brain/dossier/memoire'
 import { CURSEURS } from '../src/brain/dossier/curseurs'
-import { ouvrirSession } from '../src/brain/dossier/session'
+import { ouvrirSession, type EtatSession } from '../src/brain/dossier/session'
 import type { Dossier, Personnage } from '../src/brain/dossier/types'
 
 const ROLE_PROSE = 'personnage-prose'
@@ -163,7 +166,29 @@ function extraire(fichier: string): Map<string, string> {
  *  motif que l'extraction propre à `interprete`, plus bas, généralisée au rôle nommé. */
 function extraireGabaritDeJeu(role: string): string | undefined {
 	const source = fs.readFileSync(PORTEUR_WORKER, 'utf8')
-	return source.match(new RegExp(`^\\t${role}: '(.+)',$`, 'm'))?.[1]
+	// DEUX MISES EN PAGE, et DEUX SEULEMENT, celles que Prettier produit : le littéral sur la
+	// ligne de sa clé, ou — quand il dépasse `printWidth` (le narrateur depuis l'it3, deux
+	// formes) — sur la ligne SUIVANTE, indenté de deux tabulations. Rien d'autre : une
+	// mention du rôle dans une docstring ne satisfait toujours pas l'expression.
+	return source.match(new RegExp(`^\\t${role}:(?: |\\r?\\n\\t\\t)'(.+)',$`, 'm'))?.[1]
+}
+
+/**
+ * LES DEUX GABARITS DU NARRATEUR (it3) — un seul littéral local au worker, DEUX formes
+ * séparées par « ou » (précédent `interprete`) : la première sans `condense`, la seconde
+ * avec. Rendues PARSÉES : chacune est un objet JSON, et c'est ce qui permet de comparer
+ * leurs clés à celles que le validateur exige.
+ */
+function gabaritsDuNarrateur(): Array<Record<string, unknown>> {
+	return String(extraireGabaritDeJeu('narrateur'))
+		.split(' ou ')
+		.map((forme) => JSON.parse(forme) as Record<string, unknown>)
+}
+
+/** Les clés d'un ÉLÉMENT de `constats`, lues dans un gabarit parsé. */
+function clesDUnConstat(forme: Record<string, unknown>): string[] {
+	const constats = forme[CLES_SORTIE_NARRATEUR[2]]
+	return Array.isArray(constats) && constats.length > 0 ? Object.keys(constats[0] as Record<string, unknown>) : []
 }
 
 /**
@@ -814,44 +839,103 @@ describe('le temoin executable — du worker au validateur, dans le meme process
 		expect(JSON.stringify(resultat)).not.toContain('"id"')
 	})
 
-	it('temoin executable du huitieme role — le narrateur, du worker reel au validateur', async () => {
+	/** `n` pas `agir` joués par le produit sur le dossier de référence. */
+	function agirNFois(dossier: Dossier, n: number): EtatSession {
+		const ouverture = ouvrirSession(dossier, { graine_alea: 424242 })
+		if (!ouverture.ok) throw new Error(`ouverture refusée : ${ouverture.refus}`)
+		let session = ouverture.session
+		for (let pas = 0; pas < n; pas += 1) {
+			const analyse = analyserSaisie('AGIR')
+			if (!analyse.ok) throw new Error('AGIR refusé')
+			const joue = executerCommande(dossier, session, analyse.commande)
+			if (!joue.ok) throw new Error('AGIR refusé')
+			session = joue.session
+		}
+		return session
+	}
+
+	it('temoin executable du huitieme role — la PREMIERE forme, du worker reel au validateur', async () => {
 		// CE QUE CE TÉMOIN COUVRE ET QU'AUCUN AUTRE NE COUVRE : le gabarit du narrateur
 		// n'a PAS de second porteur côté client (le rôle est hors `RoleCopilote`) ; la
 		// SEULE liaison entre ce que l'invite du worker DEMANDE et ce que le client
 		// VALIDE est donc CE traversé, plus l'égalité de clés du describe dédié en fin de
 		// fichier. Une invite qui demanderait `{"recit": …}` rougirait ici.
 		const gabarit = String(extraireGabaritDeJeu('narrateur'))
-		const vide = JSON.parse(gabarit) as Record<string, unknown>
+		const [premiere] = gabaritsDuNarrateur()
 		const NARRATION = 'Vous fouillez la cendre froide ; rien ne bouge, et le beffroi reste muet.'
 		const TENTATIVES = ['Monter vers la tour']
 		// La sortie conforme est CONSTRUITE depuis les clés du gabarit extrait — aucune
-		// clé retapée : la première porte la prose, la seconde la liste.
-		const [cleProse, cleListe] = Object.keys(vide)
-		const conforme = JSON.stringify({ [cleProse]: NARRATION, [cleListe]: TENTATIVES })
+		// clé retapée : la prose, la liste, puis les constats, dont l'élément est lui aussi
+		// construit depuis les clés du gabarit. L'ancre `A1` est celle du lieu courant.
+		const [cleProse, cleListe, cleConstats] = Object.keys(premiere)
+		const [clePhrase, cleAncres] = clesDUnConstat(premiere)
+		const PHRASE = 'Une braise couve encore sous la cendre du foyer.'
+		const conforme = JSON.stringify({
+			[cleProse]: NARRATION,
+			[cleListe]: TENTATIVES,
+			[cleConstats]: [{ [clePhrase]: PHRASE, [cleAncres]: ['A1'] }],
+		})
 
 		const dossier = dossierDeReference()
-		const ouverture = ouvrirSession(dossier, { graine_alea: 424242 })
-		if (!ouverture.ok) throw new Error(`ouverture refusée : ${ouverture.refus}`)
-		const analyse = analyserSaisie('AGIR')
-		if (!analyse.ok) throw new Error('AGIR refusé')
-		const joue = executerCommande(dossier, ouverture.session, analyse.commande)
-		if (!joue.ok) throw new Error('AGIR refusé')
+		const session = agirNFois(dossier, 1)
 
 		const { resultat, invite } = await traverser(conforme, () =>
-			createCopiloteService(reglages).demander(dossier, {
-				role: 'narrateur',
-				saisie: 'je fouille la cendre',
-				session: joue.session,
-			}),
+			createCopiloteService(reglages).demander(dossier, { role: 'narrateur', saisie: 'je fouille la cendre', session }),
 		)
 
 		expect(invite).toContain(gabarit)
-		expect(resultat).toEqual({ statut: 'propose', proposition: { recit: NARRATION, suggestions: TENTATIVES } })
+		expect(resultat).toEqual({
+			statut: 'propose',
+			proposition: {
+				recit: NARRATION,
+				suggestions: TENTATIVES,
+				faits_etablis: [{ fait: PHRASE, sur: ['lieu.foyer-du-guet'] }],
+			},
+		})
 		// Et la même sortie passe le validateur SEUL : les deux moitiés du témoin sont
 		// prouvées séparément, jamais l'une par l'autre (KR-197/199).
-		expect(validerNarrateur(JSON.parse(conforme), dossier)).toEqual({
+		const ancres = new Map([['A1', 'lieu.foyer-du-guet']])
+		expect(validerNarrateur(JSON.parse(conforme), dossier, { ancres, condenseDemande: false })).toEqual({
 			ok: true,
-			sortie: { narration: NARRATION, tentatives: TENTATIVES },
+			sortie: {
+				narration: NARRATION,
+				tentatives: TENTATIVES,
+				constats: [{ phrase: PHRASE, ancres: ['A1'] }],
+				condense: null,
+			},
+		})
+	})
+
+	it('temoin executable du huitieme role — la SECONDE forme, au pas ou la condensation est due', async () => {
+		// LE PAS 15 : la tranche 1-10 est due, le contexte porte les moments à réécrire, et
+		// la sortie de la SECONDE forme traverse le worker réel jusqu'au `resume` — dont le
+		// pointeur est POSÉ PAR LE CODE à la borne haute de la tranche, jamais par le modèle.
+		const [, seconde] = gabaritsDuNarrateur()
+		const cles = Object.keys(seconde)
+		expect(cles).toContain(CLE_CONDENSE)
+		const CONDENSE = 'Vous avez longtemps veillé au foyer, sans que rien ne trouble la cendre.'
+		const conforme = JSON.stringify({
+			[cles[0]]: 'Vous veillez encore ; la nuit ne finit pas.',
+			[cles[1]]: [],
+			[cles[2]]: [],
+			[CLE_CONDENSE]: CONDENSE,
+		})
+
+		const dossier = dossierDeReference()
+		const session = agirNFois(dossier, 15)
+
+		const { resultat } = await traverser(conforme, () =>
+			createCopiloteService(reglages).demander(dossier, { role: 'narrateur', saisie: 'je veille', session }),
+		)
+
+		expect(resultat).toEqual({
+			statut: 'propose',
+			proposition: {
+				recit: 'Vous veillez encore ; la nuit ne finit pas.',
+				suggestions: [],
+				faits_etablis: [],
+				resume: { texte: CONDENSE, jusqu_au_pas: CADENCE },
+			},
 		})
 	})
 })
@@ -935,22 +1019,25 @@ describe('les deux plafonds', () => {
 		// PIRE CAS EN OCTETS, qui EST la grandeur bornée par le plafond — et sur laquelle
 		// le maximum est de nouveau atteint par un seul rôle.
 		expect(rolesAuMaximum(PIRES_CAS, ROLES_PLAFONNES)).toEqual([ROLE_LE_PLUS_LARGE])
-		// … et LE BUDGET, LUI, EST BIEN EX ÆQUO : sans cette ligne, on ne saurait pas que
-		// l'amendement ci-dessus mesure quelque chose de NEUF plutôt que la même chose
-		// autrement (KR-235).
-		expect(rolesAuMaximum(BUDGETS_PLAFONNES, ROLES_PLAFONNES).length).toBeGreaterThan(1)
+		// … et DANS LA FAMILLE AUTEUR, LE BUDGET, LUI, EST BIEN EX ÆQUO : sans cette ligne, on
+		// ne saurait pas que l'amendement ci-dessus mesure quelque chose de NEUF plutôt que la
+		// même chose autrement (KR-235). ⚠ AMENDÉE À LA n° 10 it3, ET SUR UNE MESURE : elle
+		// portait sur `BUDGETS_PLAFONNES`, et le narrateur (26 956, mémoire comprise) y est
+		// désormais SEUL au maximum — l'ex æquo 17 000 / 17 000 vit dans la famille auteur.
+		expect(rolesAuMaximum(BUDGETS, ROLES_AUTEUR).length).toBeGreaterThan(1)
 		// Et les TROIS tables portent bien UNE ENTRÉE PAR RÔLE : un rôle sans budget ne
 		// doit pas passer pour un rôle à budget nul. Le registre auteur reste à SIX
 		// entrées — le narrateur n'y entre pas, il n'entre que dans la table plafonnée.
 		expect([...Object.keys(BUDGETS)].sort()).toEqual([...ROLES_AUTEUR].sort())
 		expect([...Object.keys(BUDGETS_PLAFONNES)].sort()).toEqual([...ROLES_PLAFONNES].sort())
 		expect([...Object.keys(PIRES_CAS)].sort()).toEqual([...ROLES_PLAFONNES].sort())
-		// Discriminant de l'extension : le narrateur EST dans la table plafonnée, et il
-		// n'est PAS le plus large aujourd'hui (MESURE du 2026-09-29, docstring de
-		// `TAILLE_MAX_CORPS_IA`) — le plafond n'a pas bougé pour lui.
+		// Discriminant de l'extension : le narrateur EST dans la table plafonnée, et depuis
+		// la n° 10 it3 il EST le plus large (MESURE du 2026-09-30, docstring de
+		// `TAILLE_MAX_CORPS_IA`) — c'est pour ce jour-là que l'extension a été écrite à
+		// l'it2 : les deux canaris ci-dessous le visent désormais, lui.
 		expect(ROLES_PLAFONNES).toContain('narrateur')
 		expect(ROLES_AUTEUR).not.toContain('narrateur')
-		expect(ROLE_LE_PLUS_LARGE).not.toBe('narrateur')
+		expect(ROLE_LE_PLUS_LARGE).toBe('narrateur')
 	})
 
 	it('le predicat du maximum unique est SEPARATEUR, et il ne dit QUE ce qu on veut', () => {
@@ -1087,36 +1174,100 @@ describe('narrateur (mode jeu) — hors parite RoleCopilote, mais sous le plafon
 		expect(extraireGabaritDeJeu('personnage-plan')).toBeUndefined()
 	})
 
-	it('les cles du gabarit du worker sont EXACTEMENT celles que le validateur exige — KR-236 pour ce role', () => {
-		const cles = Object.keys(JSON.parse(String(extraireGabaritDeJeu('narrateur'))) as Record<string, unknown>)
-		expect(cles).toEqual([...CLES_SORTIE_NARRATEUR])
-		// CAS NÉGATIF FABRIQUÉ, sans lequel l'égalité est INERTE : un gabarit qui
-		// demanderait la clé du CHAMP (`recit`) — la confusion que KR-231 ferme — produirait
-		// une sortie que le validateur REFUSE, à chaque essai, pour toujours.
+	it('les DEUX gabarits sont epingles : leurs cles sont EXACTEMENT celles que le validateur exige, avec et sans condense — KR-236', () => {
+		// IT3 : UN littéral, DEUX formes (« ou »). La première porte EXACTEMENT le bloc
+		// atomique, la seconde le bloc PLUS `condense` — et rien d'autre ne les distingue.
+		const formes = gabaritsDuNarrateur()
+		expect(formes).toHaveLength(2)
+		const [premiere, seconde] = formes
+		expect(Object.keys(premiere)).toEqual([...CLES_SORTIE_NARRATEUR])
+		expect(Object.keys(seconde)).toEqual([...CLES_SORTIE_NARRATEUR, CLE_CONDENSE])
+		expect(JSON.stringify({ ...premiere, [CLE_CONDENSE]: seconde[CLE_CONDENSE] })).toBe(JSON.stringify(seconde))
+		// Le SECOND NIVEAU, dans les deux formes : un constat porte `phrase` et `ancres`, et
+		// son exemple d'ancre est bien un REPÈRE `A…`, jamais un identifiant.
+		for (const forme of formes) {
+			expect(clesDUnConstat(forme)).toEqual(['phrase', 'ancres'])
+			expect(JSON.stringify(forme[CLES_SORTIE_NARRATEUR[2]])).toMatch(/"A\d+"/)
+		}
+		// L'invite RÉELLEMENT composée incruste LE littéral entier — donc les deux formes.
+		expect(INVITES['narrateur'].systeme).toContain(String(extraireGabaritDeJeu('narrateur')))
+
+		// CAS NÉGATIFS FABRIQUÉS, sans lesquels les égalités sont INERTES : un gabarit qui
+		// demanderait la clé du CHAMP (`recit`) — la confusion que KR-231 ferme —, ou la
+		// forme d'it2 sans `constats`, ou `condense` sans qu'il soit demandé, produirait une
+		// sortie que le validateur REFUSE, à chaque essai, pour toujours.
 		const dossier = JSON.parse(
 			fs.readFileSync(path.join(RACINE, 'src', 'brain', 'dossier', '__fixtures__', 'dossier-reference.json'), 'utf8'),
 		) as Dossier
-		expect(validerNarrateur({ recit: 'Vous avancez.', tentatives: [] }, dossier)).toEqual({
-			ok: false,
-			motif: 'schema',
+		const ancres = new Map([['A1', 'lieu.foyer-du-guet']])
+		const sans = { ancres, condenseDemande: false }
+		const avec = { ancres, condenseDemande: true }
+		expect(validerNarrateur({ recit: 'Vous avancez.', tentatives: [], constats: [] }, dossier, sans).ok).toBe(false)
+		expect(validerNarrateur({ narration: 'Vous avancez.', tentatives: [] }, dossier, sans).ok).toBe(false)
+		const [p, t, c] = Object.keys(premiere)
+		const sortiePremiere = { [p]: 'Vous avancez.', [t]: [], [c]: [] }
+		expect(validerNarrateur({ ...sortiePremiere, [CLE_CONDENSE]: 'Vous avez marché.' }, dossier, sans).ok).toBe(false)
+		// Discriminants : chaque forme, construite depuis SES clés, passe là où elle est due.
+		expect(validerNarrateur(sortiePremiere, dossier, sans).ok).toBe(true)
+		const sortieSeconde = { ...sortiePremiere, [Object.keys(seconde)[3]]: 'Vous avez marché.' }
+		expect(validerNarrateur(sortieSeconde, dossier, avec)).toEqual({
+			ok: true,
+			sortie: {
+				narration: 'Vous avancez.',
+				tentatives: [],
+				constats: [],
+				condense: { ok: true, texte: 'Vous avez marché.' },
+			},
 		})
-		expect(validerNarrateur({ [cles[0]]: 'Vous avancez.', [cles[1]]: [] }, dossier).ok).toBe(true)
 	})
 
-	it('la borne de l invite est celle du validateur : trois au plus, et JAMAIS au moins une', () => {
-		// LA DUPLICATION « trois » (worker) / `TENTATIVES_MAX` (client) est inévitable —
-		// aucun import `worker/` → `src/` en production — donc elle se GARDE.
+	it('le choix de la forme se dit par le CONTENU de la demande, jamais par un compte — et l invite ne nomme ni tour, ni memoire, ni resume (KR-273)', () => {
+		const systeme = INVITES['narrateur'].systeme
+		const bas = systeme.toLowerCase()
+		// LE DÉCLENCHEUR EST UN CONTENU : « des moments plus anciens à réécrire ».
+		expect(systeme).toContain('seconde forme seulement quand la demande te confie aussi des moments plus anciens')
+		// … et JAMAIS la cadence : ni son chiffre, ni son mot, ni un « tous les » — elle ne vit
+		// que dans `memoire.ts`, dont `CADENCE` est ici la seule lecture.
+		expect(CADENCE).toBe(10)
+		for (const compte of [String(CADENCE), 'dix', 'tous les', 'chaque fois que']) {
+			expect(`${compte} → ${bas.includes(compte)}`).toBe(`${compte} → false`)
+		}
+		// Les mots réservés, et les EN-TÊTES des blocs de la mémoire : le modèle les lit, il
+		// n'en apprend pas les noms.
+		for (const mot of [
+			'tour',
+			'mémoire',
+			'résumé',
+			'auparavant',
+			'a condenser',
+			'à condenser',
+			'recemment',
+			'etabli',
+		]) {
+			expect(`${mot} → ${bas.includes(mot)}`).toBe(`${mot} → false`)
+		}
+		// Discriminant : chaque mot SERAIT détecté s'il y était.
+		expect(`${bas} tour mémoire résumé`.includes('résumé')).toBe(true)
+	})
+
+	it('les bornes de l invite sont celles du validateur : trois tentatives, deux constats, et JAMAIS au moins un', () => {
+		// LA DUPLICATION « trois »/« deux » (worker) / `TENTATIVES_MAX`/`FAITS_PAR_PAS_MAX`
+		// (client) est inévitable — aucun import `worker/` → `src/` en production — donc elle
+		// se GARDE. LIMITE DÉCLARÉE : le garde épingle LES MOTS, pas leur rattachement à la
+		// bonne liste ; les deux phrases qui les portent sont épinglées à part.
 		expect(TENTATIVES_MAX).toBe(3)
-		expect(inviteDitLaBorne(INVITES['narrateur'].systeme, TENTATIVES_MAX)).toBe(true)
-		expect(
-			Object.keys(BORNE_EN_TOUTES_LETTRES).filter((borne) =>
-				inviteDitLaBorne(INVITES['narrateur'].systeme, Number(borne)),
-			),
-		).toEqual(['3'])
-		// ⚠ LA MOITIÉ SYMÉTRIQUE DU VIDE : le validateur ACCEPTE la liste vide, donc
-		// l'invite ne dit JAMAIS « au moins une » — sans quoi les deux se contrediraient.
+		expect(FAITS_PAR_PAS_MAX).toBe(2)
+		const systeme = INVITES['narrateur'].systeme
+		expect(Object.keys(BORNE_EN_TOUTES_LETTRES).filter((borne) => inviteDitLaBorne(systeme, Number(borne)))).toEqual([
+			'2',
+			'3',
+		])
+		expect(systeme).toContain("tu en donnes trois au plus, et aucune si rien ne s'y prête")
+		expect(systeme).toContain("tu en donnes deux au plus, et aucun si rien de durable n'a été posé")
+		// ⚠ LA MOITIÉ SYMÉTRIQUE DU VIDE : le validateur ACCEPTE les listes vides, donc
+		// l'invite ne dit JAMAIS « au moins un(e) » — sans quoi les deux se contrediraient.
 		// Discriminant : les rôles de rédaction à liste le disent, eux.
-		expect(INVITES['narrateur'].systeme).not.toContain('au moins une')
+		expect(systeme).not.toContain('au moins un')
 		expect(INVITES[ROLE_REPLIQUES].systeme).toContain('au moins une')
 	})
 

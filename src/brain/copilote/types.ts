@@ -12,7 +12,13 @@
 // jamais son registre (`COMMANDES`, `executerCommande`), qui vit dans
 // `interprete.ts` et `schemaSortie.ts`.
 import type { Commande, CommandeId } from '../dossier/commandes'
-import type { EtatSession } from '../dossier/session'
+import type { EtatSession, FaitEtabli, ResumeMemoire } from '../dossier/session'
+// LES DEUX FORMES STOCKÉES DE LA MÉMOIRE (n° 10 it3) sont DÉCLARÉES dans
+// `dossier/session.ts` — leur seul domicile, parce que `recit.ts` (qui les écrit) ne
+// connaît que des types de `dossier/` (KR-260) — et RÉ-EXPORTÉES ici, où la forme
+// RÉSOLUE du narrateur (`SortieNarrateur`) les nomme. Le MÊME type, jamais deux qui se
+// ressemblent.
+export type { FaitEtabli, ResumeMemoire } from '../dossier/session'
 // CYCLE DE TYPE SEUL, ET IL DOIT LE RESTER — `../CopiloteService` type-importe ce
 // module, et celui-ci type-importe `EchecCopilote` de lui pour composer
 // `ReponseNarrateur`. `import type` est EFFACÉ à l'émission : AUCUN cycle au
@@ -457,7 +463,7 @@ export interface TablesInterprete {
  * NARRATEUR (it2) : l'orchestrateur n'appelle le rôle `narrateur` que sur lui,
  * APRÈS avoir persisté la session. Le nom n'est pas changé (« aucun AVIS »,
  * pas « aucun récit ») : le récit ne passe JAMAIS par cette union, il est posé
- * sur le journal par `consignerRecit` et relu de là.
+ * sur le journal par `consignerNarration` et relu de là.
  * `{type:'non_reconnu'; gestes_possibles}` — voir `SortieInterprete.sans_commande`
  * ci-dessus, même charge, même règle de dérivation.
  * `{type:'clarification'; question}` — `PRÉCISEZ` ⇔ cette union vaut ce membre
@@ -503,10 +509,12 @@ export type AvisInterprete =
  * `horloge.tour`), dans l'assembleur — une seconde source de ce que le journal dit
  * déjà divergerait sur un pas à jalons (KR-013, § 8 désaccord 6 du plan).
  *
- * AUCUNE MÉMOIRE : ni `memoire`, ni récit passé, ni `attente` n'entrent dans le
- * contexte de ce rôle. La session porte TOUT l'historique, et l'assembleur n'en
- * lit QUE le pas courant et l'état du monde — c'est ce qui rend « même monde au pas
- * 2 et au pas 40 ⇒ même contexte » vrai (R3 sans état, it2).
+ * LA MÉMOIRE AUSSI SE DÉRIVE DE CETTE MÊME SESSION (it3) : la fenêtre des pas récents
+ * de `horloge.tour` et de `journal`, la tranche à condenser et les faits pertinents de
+ * `memoire` — par les trois fonctions de `dossier/memoire.ts`, jamais par un champ passé
+ * à côté. `attente` n'entre TOUJOURS PAS dans le contexte de ce rôle, ni aucun nombre
+ * d'horloge : la session porte tout l'historique, l'assembleur n'en lit que ce que la
+ * politique de rétention lui désigne.
  */
 export interface CibleNarrateur {
 	role: 'narrateur'
@@ -517,15 +525,43 @@ export interface CibleNarrateur {
 }
 
 /**
- * CE QUE LE MODÈLE REND — franchit le réseau. DEUX clés : une prose scalaire et une
- * liste de prose (0 à `TENTATIVES_MAX`, `schemaSortie.ts`). Aucun rang, aucun
- * identifiant — rien, dans ce rôle, ne désigne rien.
+ * UN FAIT DURABLE QUE LA NARRATION ÉTABLIT, ÉLÉMENT PAR ÉLÉMENT — franchit le réseau.
+ * LE SECOND ÉLÉMENT MIXTE du dépôt (après `RapportRendu`) : de la PROSE (`phrase`) et des
+ * JETONS de désignation (`ancres`, `A1`, `A2`, … — préfixe `A`, disjoint des `P`/`G` de
+ * l'interprète : deux espaces de rangs, deux scanners).
+ *
+ * `phrase`/`ancres`, et JAMAIS `fait`/`sur` : ces deux-là NOMMENT LA DESTINATION stockée
+ * (`FaitEtabli`, `dossier/session.ts`). `{phrase, ancres} ∩ {fait, sur} = ∅` — KR-231 au
+ * NIVEAU DE L'ÉLÉMENT, épinglé par `schemaSortie.test.ts`. `ancres` rime avec le préfixe
+ * `A` que le modèle lit dans le contexte.
+ *
+ * ⚠ LES ANCRES NE SONT JAMAIS PASSÉES AU SCANNER D'IDENTIFIANTS : ce sont NOS PROPRES
+ * jetons, constatés par APPARTENANCE à la table de l'assembleur (précédent `envers`).
+ */
+export interface ConstatRendu {
+	readonly phrase: string
+	readonly ancres: readonly RangInjecte[]
+}
+
+/**
+ * CE QUE LE MODÈLE REND — franchit le réseau. TROIS clés toujours, et une QUATRIÈME
+ * seulement quand la demande porte une tranche à condenser (it3) :
+ *  · `narration` — la prose du pas, scalaire ;
+ *  · `tentatives` — 0 à `TENTATIVES_MAX` pistes ;
+ *  · `constats` — 0 à `FAITS_PAR_PAS_MAX` faits durables, ancrés par rang ;
+ *  · `condense?` — le résumé réécrit, DEMANDÉ OU INTERDIT selon le contexte, jamais
+ *    facultatif au sens large : une clé présente alors qu'elle n'était pas demandée est
+ *    un REFUS DU LOT (signal de dérive KR-236).
+ *
+ * `{narration, tentatives, constats}` EST UN BLOC ATOMIQUE sous KR-230 ; `condense` seul
+ * en est DÉCOUPLÉ (KR-271) — voir `validerNarrateur`.
  *
  * `narration`, et JAMAIS `recit` : `recit` est le NOM DU CHAMP de destination
  * (`EntreeJournal.recit`), et une clé réseau homonyme du champ est exactement la
  * confusion que KR-231 ferme. `tentatives`, et JAMAIS `relances` (un « crochet
  * d'intrigue » en jargon de MJ : le mot inviterait le modèle à écrire du lore) ni
- * `suggestions` (nom de la forme résolue).
+ * `suggestions` (nom de la forme résolue). `constats`, jamais `faits`/`etablis` (sous-
+ * chaînes de la clé résolue) ; `condense`, jamais `resume` (nom de la destination).
  *
  * ZÉRO CLÉ COMMUNE avec `SortieNarrateur`, avec `InterpretationRendue`/`SortieInterprete`
  * et avec la clé du rôle plan (`intention`) — épinglé par `schemaSortie.test.ts`.
@@ -537,31 +573,41 @@ export interface CibleNarrateur {
 export interface NarrationRendue {
 	narration: string
 	tentatives: readonly string[]
+	constats: readonly ConstatRendu[]
+	condense?: string
 }
 
 /**
  * CE QUE LE CODE RE-RÉSOUT — ne franchit JAMAIS le réseau. LE SEUL TYPE DE CE RÔLE QUE
- * LA FEATURE VOIT. Le renommage est la re-résolution : `narration` → `recit`,
- * `tentatives` → `suggestions` — rien d'autre n'est à résoudre, puisque rien ne désigne
- * rien. Même précédent que `intention` → `action` et `nature` → `lien` : la clé réseau
- * ENSEIGNE au modèle, la clé résolue NOMME la destination. Ne pas « harmoniser ».
+ * LA FEATURE VOIT. La re-résolution est un RENOMMAGE DE DESTINATION pour la prose —
+ * `narration` → `recit`, `tentatives` → `suggestions`, `condense` → `resume.texte` — et un
+ * `Map.get` pour les ancres — `constats[].ancres` → `faits_etablis[].sur`, sur la table
+ * RENDUE PAR L'ASSEMBLEUR, jamais re-dérivée (KR-231). La clé réseau ENSEIGNE au modèle,
+ * la clé résolue NOMME la destination. Ne pas « harmoniser ».
  *
- * `recit` est destiné à `EntreeJournal.recit` (par `consignerRecit`, jamais
- * directement) ; `suggestions` n'est JAMAIS persisté — c'est une donnée d'écran du pas
- * courant, qui ne survit pas au pas suivant.
+ * `recit`, `faits_etablis` et `resume` sont destinés à la session, par
+ * `consignerNarration` et elle seule, en UNE transition ; `suggestions` n'est JAMAIS
+ * persisté — c'est une donnée d'écran du pas courant.
  *
- * ⚠ AUCUN `faits_etablis`/`etablis`, NI REQUIS NI OPTIONNEL (KR-268) : un champ de sortie
- * de modèle n'entre au schéma que si un lecteur réel existe DANS LA MÊME itération, et
- * la mémoire qui lira des faits établis est l'it3. Ne pas l'ajouter « pour la stabilité
- * de `tsc` » : l'argument a été MESURÉ et réfuté au raffinage (§ 8 désaccord 2).
+ * `faits_etablis` est REQUIS — la liste VIDE est la réponse honnête d'un pas où rien de
+ * durable n'a été établi. `resume` est OPTIONNEL, et son absence ne dit RIEN du récit :
+ * il n'est présent que si la condensation était due ET que `condense` a passé sa propre
+ * garde ; `jusqu_au_pas` y est posé par le SERVICE, depuis la tranche que l'assembleur a
+ * calculée, jamais par le modèle.
  */
 export interface SortieNarrateur {
 	readonly recit: string
 	readonly suggestions: readonly string[]
+	readonly faits_etablis: readonly FaitEtabli[]
+	readonly resume?: ResumeMemoire
 }
 
 /** LA HUITIÈME UNION NOMMÉE — même doctrine que les sept précédentes : aucun appelant ne
  *  peut lire une proposition sur un échec, c'est le TYPAGE qui l'interdit. Sur un échec,
- *  le pas déjà joué reste ACQUIS et aucun récit n'est posé : c'est à l'orchestrateur de
- *  ne pas appeler `consignerRecit`, et il n'a rien à lui passer. */
+ *  le pas déjà joué reste ACQUIS et rien n'est posé — ni récit, ni fait, ni résumé : c'est
+ *  à l'orchestrateur de ne pas appeler `consignerNarration`, et il n'a rien à lui passer.
+ *
+ *  ⚠ UN `condense` REFUSÉ N'EST PAS UN ÉCHEC, et ne passe donc JAMAIS par cette union : la
+ *  réponse est `propose`, sans `resume`. Le motif du refus du condensé n'en sort pas —
+ *  personne ne le lirait (KR-249/268). */
 export type ReponseNarrateur = { statut: 'propose'; proposition: SortieNarrateur } | EchecCopilote

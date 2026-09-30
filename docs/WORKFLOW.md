@@ -276,16 +276,16 @@ Trois strates de lecture obligatoire, chacune avec son coût :
 
 Charger par référence plutôt que tout charger est ce qui évite le contexte monolithique — KR dans la spec de leur feature, lecture du comité bornée à 3–6 fichiers, canon narratif injecté par identifiant. Aucun garde-fou automatique : ces fichiers n'ont que des écrivains, et l'un d'eux ne rétrécit que si quelqu'un le décide. La discipline s'y relâche **sans bruit** — d'où un plafond chiffré plutôt qu'une intention.
 
-**Mesure d'abord, plafond ensuite**, même doctrine que le score de mutation. Formule, plancher ajouté le 2026-09-24 (`B3`) : `plafond = max( ceil(mesure ÷ 5 kio) × 5 kio , ceil(5 × la plus grosse entrée ÷ 5 kio) × 5 kio )`, le second terme ne valant QUE pour les fichiers **append-only** (`bug_history*`, `features_history*`) : un plafond de trois entrées sur un fichier qui ne fait QUE croître est un décor, pas un cliquet. Mesure du **2026-08-13**, re-mesuré les **2026-09-24** et **09-29** (1 kio = 1024 o). **On mesure les octets EN LF, ceux que quelqu'un a tapés** : `core.autocrlf=true` rend la copie de travail en CRLF, et le couple toujours-chargé y pèse ~480 o non écrits — assez pour simuler un dépassement pour rien :
+**Mesure d'abord, plafond ensuite**, même doctrine que le score de mutation. Formule, plancher ajouté le 2026-09-24 (`B3`) : `plafond = max( ceil(mesure ÷ 5 kio) × 5 kio , ceil(5 × la plus grosse entrée ÷ 5 kio) × 5 kio )`, le second terme ne valant QUE pour les fichiers **append-only** (`bug_history*`, `features_history*`) : un plafond de trois entrées sur un fichier qui ne fait QUE croître est un décor, pas un cliquet. Mesure du **2026-08-13**, re-mesurée 2026-09-30 (1 kio = 1024 o). **On mesure les octets EN LF, ceux que quelqu'un a tapés** : `core.autocrlf=true` rend la copie de travail en CRLF, et le couple toujours-chargé y pèse ~480 o non écrits — assez pour simuler un dépassement pour rien :
 
 | Fichier | Croissance | Mesuré | Plafond | Marge |
 | --- | --- | ---: | ---: | ---: |
-| `CLAUDE.md` + `docs/WORKFLOW.md` (couple) | défaut | 46 051 o | **45 kio** (46 080) | **29 o** |
-| `code-knowledge.json` | normale | 70 622 o | **70 kio** (71 680) | ~1,03 kio |
-| `bug_history.json` | **plancher** (BUG-128) | 12 773 o | **15 kio** (15 360) | ~2,53 kio |
+| `CLAUDE.md` + `docs/WORKFLOW.md` (couple) | défaut | 46 077 o | **45 kio** (46 080) | **3 o** |
+| `code-knowledge.json` | normale | 71 550 o | **70 kio** (71 680) | ~130 o |
+| `bug_history.json` | **plancher** (BUG-128) | 15 299 o | **15 kio** (15 360) | 61 o |
 | `features_history.json` | **plancher** (`dossier-copilote`) | 14 950 o | **25 kio** (25 600) | ~10,40 kio |
 | `specification.json`, **par feature** | normale | 66 487 o (max : `dossier-format` ; 2e : `dossier-canon` 66 276 o) | **65 kio** (66 560) | **73 o** |
-| `docs/ROADMAP-BASCULE-IA.md` | **défaut** | 30 453 o | **30 kio** (30 720) | 267 o |
+| `docs/ROADMAP-BASCULE-IA.md` | **défaut** | 30 134 o | **30 kio** (30 720) | 586 o |
 
 Le roadmap est un **index**, pas un journal : sa croissance est un défaut, pas un fonctionnement normal. **Compacté le 2026-09-19** (35 671 → 26 929 o, plafond re-dérivé 35 → 30 kio) : l'archive en est sortie une première fois, et c'est elle — motifs d'une décision livrée, corrections de cadrage, historique des recadrages — qui repart au prochain franchissement, jamais les colonnes `Statut` ni le § 4 « Ce qui est CLOS ». **Le markdown n'est pas dans le périmètre Prettier** (`npm run format` ne vise que `{src,worker}/**/*.{ts,tsx,css}`) : un `prettier --write` sur ces fichiers repadde les tables et coûte ~8 kio de budget pour rien.
 
@@ -301,7 +301,7 @@ Compacter n'est pas supprimer : c'est déplacer là où c'est lu au bon moment.
 
 - **`code-knowledge.json`** — le moins cher : un KR dont l'invariant est **passé en règle ESLint** (KR-011/111, imports inter-features, couleurs en dur) renvoie à la règle et à son message, il ne redécrit ni le risque ni la parade. Un invariant câblé est une ligne — le linter le rappellera mieux que le fichier.
 - **`specification.json`** — boucle de mémoire de la skill `raffinage-iteration` : une décision livrée se réduit à sa phrase d'arbitrage + le renvoi à `.claude/raffinage/<feature>-it<N>.revue.md`, qui porte déjà le raisonnement. La revue est le dossier, la spec en est l'index.
-- **`bug_history.json`, `features_history.json`** — append-only : ils ne se compactent pas, ils **se scindent** — sur l'axe écrit dans leurs `_about`, à ouvrir avant tout déplacement (historique : CHANGELOG.md). Id = max(BUG-xxx) des **neuf** fichiers, jamais d'un seul (précédent : BUG-062). Pas avant le plafond.
+- **`bug_history.json`, `features_history.json`** — append-only : ils ne se compactent pas, ils **se scindent** — sur l'axe écrit dans leurs `_about` (REDONDANCE, jamais l'âge de la feature), à ouvrir avant tout déplacement (historique : CHANGELOG.md). Id = max(BUG-xxx) des **dix** fichiers, jamais d'un seul (précédent : BUG-062). Pas avant le plafond.
 - **`CLAUDE.md` + `docs/WORKFLOW.md`** — **déjà à saturation**, délibérément : une règle qui entre ici **en remplace une**, ou part dans la spec de sa feature / le prompt de l'agent qui l'applique. Transverse et stable, elle a sa place ; propre à une feature, jamais. Un invariant câblé s'y écrit **en une ligne qui nomme l'outil**, sans re-lister ce que l'outil vérifie.
 
 ## Bug Investigation

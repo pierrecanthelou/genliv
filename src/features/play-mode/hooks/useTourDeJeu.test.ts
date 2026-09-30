@@ -184,7 +184,14 @@ describe('useTourDeJeu — hook orchestrateur', () => {
 			lecture: 'commande' as const,
 			commande: { commande: 'aller' as const, cibles: ['lieu_2'] },
 		}
-		demanderMock.mockResolvedValue({ statut: 'propose', proposition })
+		// ⚠ UNE RÉPONSE PAR APPEL (it3) : ce bouchon rendait la proposition de R1 AUSSI à R3
+		// (`mockResolvedValue`), et le hook posait alors `recit: undefined` sans bruit — un
+		// défaut de témoin latent depuis l'it2, que `consignerNarration` (qui lit
+		// `faits_etablis`, requis) a fait lever. R3 reçoit désormais SA forme.
+		demanderMock.mockResolvedValueOnce({ statut: 'propose', proposition }).mockResolvedValueOnce({
+			statut: 'propose',
+			proposition: { recit: 'Vous arrivez.', suggestions: [], faits_etablis: [] } satisfies SortieNarrateur,
+		})
 
 		const onSessionChange = jest.fn()
 		const saisieTest = 'aller au nord'
@@ -293,7 +300,8 @@ describe('useTourDeJeu — hook orchestrateur', () => {
 				proposition: {
 					recit: 'Vous avancez dans la forêt.',
 					suggestions: ['Fouiller', 'Continuer'],
-				} as SortieNarrateur,
+					faits_etablis: [],
+				} satisfies SortieNarrateur,
 			}
 
 			// Mock : les deux appels - d'abord R1, puis R3
@@ -361,6 +369,44 @@ describe('useTourDeJeu — hook orchestrateur', () => {
 			})
 		})
 
+		it('it3 — les faits etablis par R3 sont retenus DANS LA MEME transition que le recit : un seul onSessionChange de plus', async () => {
+			// `consignerNarration` remplace `consignerRecit` : le hook lui passe la proposition
+			// ENTIÈRE, et c'est elle — jamais le hook — qui décide ce qui est retenu. Un
+			// résumé arrivé alors que rien n'était dû (pas 2) est IGNORÉ par sa garde.
+			const fait = { fait: 'La clairière est silencieuse.', sur: ['lieu_2'] }
+			demanderMock
+				.mockResolvedValueOnce({
+					statut: 'propose',
+					proposition: { lecture: 'commande' as const, commande: { commande: 'aller' as const, cibles: ['lieu_2'] } },
+				})
+				.mockResolvedValueOnce({
+					statut: 'propose',
+					proposition: {
+						recit: 'Vous entrez dans la clairière.',
+						suggestions: [],
+						faits_etablis: [fait],
+						resume: { texte: 'Trop tot.', jusqu_au_pas: 10 },
+					} satisfies SortieNarrateur,
+				})
+
+			const onSessionChange = jest.fn()
+			const { result } = monter(SESSION_TEST, onSessionChange)
+
+			await act(async () => {
+				await result.current.executeAction('aller a la clairiere')
+			})
+
+			// DEUX écritures en tout : S1 (après R1), puis S2 (récit ET mémoire, ensemble).
+			expect(onSessionChange).toHaveBeenCalledTimes(2)
+			const s2 = onSessionChange.mock.calls[1][0] as EtatSession
+			expect(s2.journal[s2.journal.length - 1]?.recit).toBe('Vous entrez dans la clairière.')
+			expect(s2.memoire).toEqual({ faits_etablis: [fait] })
+			// `UseTourDeJeuResult` INCHANGÉ : les faits ne passent JAMAIS par l'état du hook.
+			expect(Object.keys(result.current).sort()).toEqual(
+				['avis', 'executeAction', 'getGestelabel', 'isLocked', 'issueNarrateur', 'pasEnCours'].sort(),
+			)
+		})
+
 		it('Lot 2 — R3 appelé seulement si avis.type === aucun (3 cas)', async () => {
 			// Trois cas : valide (appel R3 = 2 appels), clarification (pas R3 = 1 appel), non_reconnu (pas R3 = 1 appel)
 			const tests = [
@@ -370,7 +416,10 @@ describe('useTourDeJeu — hook orchestrateur', () => {
 						statut: 'propose' as const,
 						proposition: { lecture: 'commande' as const, commande: { commande: 'aller' as const, cibles: ['lieu_2'] } },
 					},
-					r3Response: { statut: 'propose' as const, proposition: { recit: 'Vous bougez.', suggestions: [] } },
+					r3Response: {
+						statut: 'propose' as const,
+						proposition: { recit: 'Vous bougez.', suggestions: [], faits_etablis: [] } satisfies SortieNarrateur,
+					},
 					attenduAppels: 2,
 				},
 				{
@@ -475,7 +524,7 @@ describe('useTourDeJeu — hook orchestrateur', () => {
 			// R3 respon se pour le cas accepté
 			demanderMock.mockResolvedValueOnce({
 				statut: 'propose',
-				proposition: { recit: 'Vous bougez.', suggestions: [] },
+				proposition: { recit: 'Vous bougez.', suggestions: [], faits_etablis: [] } satisfies SortieNarrateur,
 			})
 
 			let { result } = monter()

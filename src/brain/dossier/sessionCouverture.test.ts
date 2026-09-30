@@ -24,10 +24,11 @@ import { DESTINATION_DES_CHAMPS_DE_SESSION } from './sessionDestinations'
  * ── CE QUE CE BALAYAGE NE COUVRE PAS ────────────────────────────────────────
  * Nommé ici plutôt que découvert plus tard (KR-173) :
  *  · LES CONTENEURS. `feuillesDeLaFixture` ne rend JAMAIS un objet non vide comme
- *    feuille : `horloge`, `monde`, `journal` et `attente` (depuis le lot `contrat`
- *    de la n° 10, `moteur-interprete`) n'ont donc aucune instance, et leurs
- *    QUATRE lignes de table sont des DISPENSES DÉCLARÉES, pas des lignes
- *    mortes. Elles existent pour l'exhaustivité par compilation ;
+ *    feuille : `horloge`, `monde`, `journal`, `attente` (depuis le lot `contrat`
+ *    de la n° 10, `moteur-interprete`) et `memoire` (non nulle dans la fixture
+ *    depuis l'it3) n'ont donc aucune instance, et leurs CINQ lignes de table sont
+ *    des DISPENSES DÉCLARÉES, pas des lignes mortes. Elles existent pour
+ *    l'exhaustivité par compilation ;
  *  · L'AUDIENCE RÉELLE. La table déclare une intention et force une déclaration ;
  *    elle ne démontre pas le confinement — la moitié CODE de cette preuve est
  *    `moteurSansIA.test.ts`, et pour `attente.question`/`attente.saisie`
@@ -45,6 +46,8 @@ const DISPENSES_DE_FEUILLE: Readonly<Record<string, string>> = {
 	monde: 'clé racine porteuse — ses sept feuilles sont déclarées une à une',
 	journal: 'clé racine porteuse — ses huit feuilles sont déclarées une à une (`recit` depuis la n° 10 it2)',
 	attente: 'clé racine porteuse — ses trois feuilles (`type`, `question`, `saisie`) sont déclarées une à une',
+	memoire:
+		'clé racine porteuse quand elle retient quelque chose (n° 10 it3) — ses quatre feuilles sont déclarées une à une ; à `null`, elle est sa propre feuille',
 }
 
 const CLES_DE_LA_TABLE = new Set(Object.keys(DESTINATION_DES_CHAMPS_DE_SESSION))
@@ -86,7 +89,7 @@ describe('DESTINATION_DES_CHAMPS_DE_SESSION, exhaustivite', () => {
 		expect(sansAudience).toEqual([])
 	})
 
-	it('aucune ligne morte, hors les trois dispenses declarees', () => {
+	it('aucune ligne morte, hors les cinq dispenses declarees', () => {
 		const chemins = cheminsDeLaSession()
 
 		const mortes = [...CLES_DE_LA_TABLE]
@@ -151,6 +154,15 @@ describe('DESTINATION_DES_CHAMPS_DE_SESSION, exhaustivite', () => {
 		// ET LE RÉCIT DU PAS (n° 10 it2) EST BIEN INSTANCIÉ : sans lui, sa ligne de table
 		// serait tenue par la seule « aucune ligne morte », et rien ne nommerait le chemin.
 		expect(normalises).toContain('journal[].recit')
+
+		// ET LA MÉMOIRE (n° 10 it3) DESCEND JUSQU'À SES QUATRE FEUILLES — les ancres d'un
+		// fait sont une liste DANS un objet DANS une liste, et le pointeur un nombre sous un
+		// objet optionnel. `memoire` elle-même n'est PAS une feuille : elle est non nulle.
+		expect(normalises).toContain('memoire.faits_etablis[].fait')
+		expect(normalises).toContain('memoire.faits_etablis[].sur[]')
+		expect(normalises).toContain('memoire.resume.texte')
+		expect(normalises).toContain('memoire.resume.jusqu_au_pas')
+		expect(normalises).not.toContain('memoire')
 	})
 })
 
@@ -221,43 +233,76 @@ describe('DESTINATION_DES_CHAMPS_DE_SESSION, la valeur des lignes', () => {
 		expect([...new Set(Object.values(DESTINATION_DES_CHAMPS_DE_SESSION))].sort()).toEqual(['ia', 'moteur'])
 	})
 
-	it('les lignes ia sont EXACTEMENT {attente.question, attente.saisie}, ni plus ni moins', () => {
+	it('les lignes ia sont EXACTEMENT les deux de l attente et les trois proses de la memoire, ni plus ni moins', () => {
 		// LA MOITIÉ DONNÉES de ce que `moteurSansIA.test.ts` fait côté CODE : un
 		// balayage de source ne voit pas une autorisation d'audience, et une
 		// autorisation d'audience ne voit pas un appel réseau. Cette assertion-ci
 		// nomme l'ENSEMBLE EXACT plutôt que de constater une non-vacuité : une
-		// troisième ligne basculée à `ia` par erreur doit rougir ICI, par son nom.
+		// sixième ligne basculée à `ia` par erreur doit rougir ICI, par son nom.
+		// L'IT3 DE LA n° 10 EN AJOUTE TROIS — les trois PROSES que la mémoire réinjecte —,
+		// et PAS les deux feuilles `'moteur'` de la mémoire (ancres, pointeur).
 		const lignesIa = Object.entries(DESTINATION_DES_CHAMPS_DE_SESSION)
 			.filter(([, destination]) => destination === 'ia')
 			.map(([chemin]) => chemin)
 			.sort()
 
-		expect(lignesIa).toEqual(['attente.question', 'attente.saisie'])
+		expect(lignesIa).toEqual(
+			[
+				'attente.question',
+				'attente.saisie',
+				'journal[].recit',
+				'memoire.faits_etablis[].fait',
+				'memoire.resume.texte',
+			].sort(),
+		)
 	})
 
-	it('journal[].recit est moteur en it2 — une prose de modele qu AUCUN modele ne relit', () => {
-		// ASSERTION DE VALEUR, PAS D'EXISTENCE (KR-174), sur la SEULE prose de la session.
-		// `'moteur'` ET PAS `'ia'` (plan d'itération it2, § 8 désaccord 13) : le narrateur
-		// est SANS ÉTAT, aucun assembleur ne relit un récit passé, et une ligne `'ia'`
-		// serait une autorisation DORMANTE. La bascule est une politique de rétention —
-		// l'it3, avec son lecteur, la corrigera EN VALEUR ici même.
-		expect(DESTINATION_DES_CHAMPS_DE_SESSION['journal[].recit']).toBe('moteur')
-		// Discriminant : la ligne voisine de même famille (`journal[].texte`), elle aussi
-		// `'moteur'`, n'est pas ce qui rend cette assertion vraie — c'est la ligne propre
-		// au récit, qui existe DANS la table.
-		expect(Object.keys(DESTINATION_DES_CHAMPS_DE_SESSION)).toContain('journal[].recit')
+	it('journal[].recit est ia depuis l it3 — BASCULE EN VALEUR avec son lecteur, la fenetre glissante', () => {
+		// ASSERTION DE VALEUR, PAS D'EXISTENCE (KR-174). `'moteur'` en it2 (narrateur SANS
+		// ÉTAT, une ligne `'ia'` aurait été une autorisation dormante) ; `'ia'` en it3, parce
+		// que l'assembleur du narrateur relit désormais les récits de la fenêtre et de la
+		// tranche à condenser — c'est la datation que l'it2 avait écrite, honorée.
+		expect(DESTINATION_DES_CHAMPS_DE_SESSION['journal[].recit']).toBe('ia')
+		// Discriminant : la ligne voisine de même famille (`journal[].texte`) RESTE
+		// `'moteur'` — la bascule ne s'est pas faite en bloc sur le journal.
+		expect(DESTINATION_DES_CHAMPS_DE_SESSION['journal[].texte']).toBe('moteur')
+	})
+
+	it('la memoire : ses deux proses sont ia, ses ancres et son pointeur sont moteur, sa racine aussi', () => {
+		// Les ancres sont des IDENTIFIANTS du dossier, le pointeur un COMPTE de pas : un modèle
+		// qui les lirait apprendrait ce qu'il n'a jamais le droit d'écrire (KR-231/273).
+		expect(DESTINATION_DES_CHAMPS_DE_SESSION['memoire.faits_etablis[].fait']).toBe('ia')
+		expect(DESTINATION_DES_CHAMPS_DE_SESSION['memoire.resume.texte']).toBe('ia')
+		expect(DESTINATION_DES_CHAMPS_DE_SESSION['memoire.faits_etablis[].sur[]']).toBe('moteur')
+		expect(DESTINATION_DES_CHAMPS_DE_SESSION['memoire.resume.jusqu_au_pas']).toBe('moteur')
+		// La racine n'est JAMAIS une autorisation en bloc.
+		expect(DESTINATION_DES_CHAMPS_DE_SESSION.memoire).toBe('moteur')
 	})
 })
 
-describe('EtatSession, les deux formes que le type REFUSE', () => {
-	it('memoire est typee null, et pnj.<id>.sait ne compile pas', () => {
+describe('EtatSession, les formes que le type REFUSE', () => {
+	it('la memoire gelee en it3 ne represente ni fenetre, ni pointeur en tour, ni pas sur un fait ; pnj.<id>.sait ne compile pas', () => {
 		// `@ts-expect-error` ÉCHOUE À LA COMPILATION si l'erreur attendue n'a PAS lieu :
 		// c'est le seul instrument qui épingle une NON-représentabilité.
 
-		// KR-249 — `memoire` est une CLÉ RACINE réservée, typée `null`. Sa forme interne
-		// appartient à la n° 10 : aucun champ `memoire.*` n'est représentable avant elle.
-		// @ts-expect-error — une forme interne posée sous `memoire`.
-		const memoireInterdite: EtatSession['memoire'] = { faits_etablis: [] }
+		// ⚠ JUSQU'À L'IT3, `memoire` était typée `null` et CETTE ligne-ci épinglait qu'aucune
+		// forme interne n'était représentable. L'it3 GÈLE la forme (`MemoireSession`) : la
+		// directive se retourne sur ce que la forme REFUSE, et c'est écrit plutôt que tu.
+
+		// I4 / KR-013 — la fenêtre glissante n'est JAMAIS un champ : elle se dérive de l'horloge.
+		// @ts-expect-error — une fenêtre stockée sous `memoire`.
+		const fenetreStockee: EtatSession['memoire'] = { faits_etablis: [], fenetre: [] }
+
+		// `docs/REGLES-PLAY.md` § J1 — aucun champ neuf ne porte « tour ».
+		// @ts-expect-error — `jusqu_au_tour` au lieu de `jusqu_au_pas`.
+		const pointeurEnTour: EtatSession['memoire'] = { faits_etablis: [], resume: { texte: 'x', jusqu_au_tour: 10 } }
+
+		// I3 — aucun `pas` sur un fait : l'ordre du tableau EST la chronologie. Et les noms du
+		// RÉSEAU (`phrase`/`ancres`) ne sont pas ceux du stockage (`fait`/`sur`, KR-236).
+		// @ts-expect-error — un pas posé sur un fait.
+		const faitDate: EtatSession['memoire'] = { faits_etablis: [{ fait: 'x', sur: ['lieu.a'], pas: 3 }] }
+		// @ts-expect-error — la forme RÉSEAU d'un constat posée dans le stockage.
+		const faitReseau: EtatSession['memoire'] = { faits_etablis: [{ phrase: 'x', ancres: ['A1'] }] }
 
 		// KR-253 — `sait` n'entre NI comme champ NI comme clé réservée : aucun prédicat
 		// ne le lit, aucun delta ne peut l'écrire, et le savoir d'un personnage est
@@ -265,12 +310,28 @@ describe('EtatSession, les deux formes que le type REFUSE', () => {
 		// @ts-expect-error — `sait` posé sur l'état d'un personnage.
 		const pnjInterdit: EtatPnj = { a_dit: [], sait: ['indice.sceau-brise'] }
 
-		// Discriminant : les deux formes LÉGALES compilent, elles. Sans cette moitié,
-		// les deux directives seraient satisfaites par n'importe quelle erreur de type,
-		// y compris « ce type n'existe pas ».
-		const memoireLegale: EtatSession['memoire'] = null
+		// Discriminant : les formes LÉGALES compilent, elles — `null` (KR-251 : toute
+		// session écrite avant l'it3 reste légale), une mémoire à faits seuls, une mémoire
+		// complète. Sans cette moitié, les directives seraient satisfaites par n'importe
+		// quelle erreur de type, y compris « ce type n'existe pas ».
+		const memoireNulle: EtatSession['memoire'] = null
+		const faitsSeuls: EtatSession['memoire'] = { faits_etablis: [{ fait: 'x', sur: ['lieu.a'] }] }
+		const complete: EtatSession['memoire'] = {
+			faits_etablis: [],
+			resume: { texte: 'x', jusqu_au_pas: 10 },
+		}
 		const pnjLegal: EtatPnj = { a_dit: ['indice.sceau-brise'] }
 
-		expect([memoireInterdite, pnjInterdit, memoireLegale, pnjLegal]).toHaveLength(4)
+		expect([
+			fenetreStockee,
+			pointeurEnTour,
+			faitDate,
+			faitReseau,
+			pnjInterdit,
+			memoireNulle,
+			faitsSeuls,
+			complete,
+			pnjLegal,
+		]).toHaveLength(9)
 	})
 })
