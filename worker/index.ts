@@ -776,7 +776,9 @@ export const INVITES: Record<string, { systeme: string; max_tokens: number }> = 
  * ⚠ `interprete` N'ENTRE PAS DANS LA FORMULE, et c'est un CONSTAT, pas un oubli : il n'a
  * AUCUN budget client — seule sa SAISIE est bornée (300), le nombre de lieux candidats
  * ne l'est pas —, donc sa seule borne réelle est CE plafond, et un 413 lui serait classé
- * `injoignable`. Fermeture nommée : la constante unique de KR-261, it4. Le narrateur, lui,
+ * `injoignable`. Dette OUVERTE, pas fermée : l'it4 qui devait la prendre n'a touché que le
+ * narrateur, R1 n'y ayant aucun consommateur de budget (raffinage it4, § 8 désaccord 4) —
+ * réassignée à la première itération qui touchera réellement R1. Le narrateur, lui,
  * refuse AVANT l'aller-retour (`trop-long`), et `worker/frontiere.test.ts` prouve que ce
  * plafond couvre son pire cas.
  *

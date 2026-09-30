@@ -1,5 +1,5 @@
 /**
- * L'ASSEMBLEUR DU HUITIÈME RÔLE — `narrateur` (n° 10 `moteur-interprete`, it2 puis it3).
+ * L'ASSEMBLEUR DU HUITIÈME RÔLE — `narrateur` (n° 10 `moteur-interprete`, it2 puis it3 puis it4).
  *
  * Il compose ce que le narrateur VOIT pour raconter UN pas DÉJÀ JOUÉ : la session
  * reçue est celle d'APRÈS l'exécution, déjà persistée. Rien ici n'écrit l'état.
@@ -8,9 +8,25 @@
  * `Record<RoleCopilote, …>`, et `RoleCopilote` n'est pas étendu aux rôles de JEU. Ce
  * module porte donc SA liste de chemins (`CHAMPS_INJECTES_NARRATEUR`) et SA borne
  * (`BUDGET_CARACTERES_NARRATEUR`), hors de la parité auteur de
- * `worker/frontiere.test.ts` — LA MÊME DOCTRINE pour autant : refus AVANT tout
- * `fetch`, jamais de troncature, silence sur un champ non rédigé plutôt qu'une
- * affirmation.
+ * `worker/frontiere.test.ts` — LA MÊME DOCTRINE pour autant : jamais une prose coupée,
+ * silence sur un champ non rédigé plutôt qu'une affirmation, et le refus AVANT tout
+ * `fetch` — mais en DERNIER recours, après la cascade de l'it4 (plus bas), qui ne retire
+ * que des blocs et des lignes ENTIERS.
+ *
+ * ── LA CASCADE (it4) — CE QUE LE NARRATEUR PERD QUAND LE BUDGET NE TIENT PAS ──────
+ * Le premier palier dont le texte tient sous `BUDGET_CARACTERES_NARRATEUR` est envoyé.
+ * CALCULÉE EN LIGNE à chaque appel : le palier retenu n'est ni stocké ni rendu (KR-013,
+ * KR-268), et le modèle n'en sait rien — aucun en-tête neuf, aucun mot de mécanique
+ * (KR-273). Chaque palier retire ce que le précédent retirait, plus :
+ *  · P1 — `RECEMMENT` réduit à ses `FENETRE_MIN − 1` lignes les plus récentes ;
+ *  · P2 — `A CONDENSER` retiré, et `condensation` rendue `null` : ce qui est rendu est ce
+ *    qui est ENVOYÉ, jamais la tranche que `pasACondenser` aurait due ;
+ *  · P3 — `AUPARAVANT` retiré ;
+ *  · P4, DERNIER RECOURS — `EN SA POSSESSION` réduit au plus long SUFFIXE (ordre
+ *    d'acquisition) qui tient, JAMAIS vide quand un objet rédigé est possédé, et qui porte
+ *    TOUT objet que `CE PAS` désigne.
+ * JAMAIS UN LEVIER, À AUCUN PALIER : le canon, `ETABLI` (toujours `faitsPertinents`
+ * entier), `ICI A1`, `CE PAS`, `DEJA ACCOMPLI`, la saisie. Au-delà de P4 : `trop-long`.
  *
  * ── LA MÉMOIRE (it3) — CE QUE LE NARRATEUR RELIT, ET RIEN D'AUTRE ─────────────────
  * Le narrateur n'est plus sans état, et c'est la POLITIQUE DE RÉTENTION de
@@ -81,6 +97,7 @@ import {
 	CADENCE,
 	FAITS_INJECTES_MAX,
 	FENETRE_MAX,
+	FENETRE_MIN,
 	faitsPertinents,
 	pasACondenser,
 } from '../../dossier/memoire'
@@ -162,22 +179,26 @@ export const BORNE_MEMOIRE =
 const BUDGET_CARACTERES_DOSSIER = 6000
 
 /**
- * LA BORNE DE REFUS DU CONTEXTE, EN CARACTÈRES (`String.length`) — refus `'trop-long'`
- * AVANT tout `fetch`, jamais une coupe. DEUX TERMES, et ils ne se traitent pas pareil :
- * le terme DOSSIER, MESURÉ puis majoré (×3), et le terme MÉMOIRE, CALCULÉ exactement
- * (`BORNE_MEMOIRE`). `contexte.test.ts` prouve qu'une mémoire SATURÉE (23 lignes de pas,
- * le résumé et huit faits au maximum) sur le pire cas du dossier ne lève JAMAIS
- * `trop-long` : seul le terme dossier peut le produire.
+ * LA BORNE DU CONTEXTE, EN CARACTÈRES (`String.length`) — au-delà, la CASCADE (it4) retire
+ * de la mémoire, puis de l'inventaire ; le refus `'trop-long'`, AVANT tout `fetch`, ne vient
+ * qu'après son dernier palier, et jamais une coupe dans une prose. DEUX TERMES, et ils ne se
+ * traitent pas pareil : le terme DOSSIER, MESURÉ puis majoré (×3), et le terme MÉMOIRE,
+ * CALCULÉ exactement (`BORNE_MEMOIRE`). `contexte.test.ts` prouve qu'une mémoire SATURÉE
+ * (23 lignes de pas, le résumé et huit faits au maximum) sur le pire cas du dossier tient
+ * DÈS P0 : seul le terme dossier peut faire descendre la cascade.
  *
  * HORS DE `BUDGET_CARACTERES_CONTEXTE` (`./registres.ts`), et c'est délibéré : ce
  * registre est `Record<RoleCopilote, number>`, et y entrer ferait entrer le narrateur
- * dans la parité AUTEUR. L'it4 absorbera cette borne dans LA constante unique de
- * KR-261 — jamais une seconde constante à côté.
+ * dans la parité AUTEUR. La fusion avec un budget de l'interprète en UNE formule (KR-261 ;
+ * KR-235 : une formule dérivée par rôle, jamais une valeur brute partagée) attend la
+ * première itération qui donnera un budget à R1 — l'it4 ne l'a PAS faite, R1 n'y ayant
+ * aucun consommateur (raffinage it4, § 8 désaccord 4).
  *
- * ⚠ RISQUE PORTÉ À L'IT4, écrit plutôt que découvert : dans une partie, le refus est
- * MONOTONE — une fois franchi par l'inventaire, il ne se lève plus, et la dégradation en
- * cascade (suggestions, fenêtre, faits) n'atteint pas le bloc des possessions. Borner
- * maintenant exigerait un ordre des possessions que rien ne spécifie.
+ * RÉSOLU À L'IT4 — le refus MONOTONE que l'it3 portait ici (une fois l'inventaire trop
+ * long, plus aucun pas n'était raconté) : la cascade atteint désormais `EN SA POSSESSION`,
+ * en dernier recours, et l'ordre qui manquait existe — c'est l'ordre d'ACQUISITION
+ * (`avecAjout`, `dossier/deltas.ts`, ajoute en fin). Le refus ne reste que si l'état
+ * MINIMAL ne tient pas : la prose d'auteur, elle, n'est pas bornée (KR-203).
  *
  * Exportée par `./index.ts` pour `worker/frontiere.test.ts` SEULEMENT — jamais par
  * `brain/index.ts` : aucune feature n'assemble un contexte elle-même.
@@ -304,9 +325,12 @@ interface ContexteNarrateurRendu {
 	 */
 	readonly ancres: ReadonlyMap<RangInjecte, string>
 	/**
-	 * LA TRANCHE À CONDENSER — `pasACondenser(cible.session)`, CALCULÉE UNE FOIS, trois
-	 * consommateurs : le bloc `A CONDENSER` de `texte`, `condenseDemande` du validateur, et
-	 * le `jusqu_au_pas` que le service posera (`a`). `null` quand rien n'est dû.
+	 * LA TRANCHE À CONDENSER RÉELLEMENT ENVOYÉE — `pasACondenser(cible.session)`, CALCULÉE UNE
+	 * FOIS, aux paliers P0 et P1 ; `null` quand rien n'est dû, ET à partir de P2, où le bloc
+	 * `A CONDENSER` est retiré. Trois consommateurs : le bloc de `texte`, `condenseDemande` du
+	 * validateur, et le `jusqu_au_pas` que le service posera (`a`) — rendre ici la tranche
+	 * DUE plutôt que l'ENVOYÉE ferait accepter un condensé écrit sans elle, et avancer le
+	 * pointeur sur dix pas que le modèle n'a jamais lus (KR-271).
 	 */
 	readonly condensation: { readonly de: number; readonly a: number } | null
 }
@@ -338,6 +362,60 @@ function pousser(blocs: string[], enTete: string, lignes: readonly string[]): vo
 }
 
 /**
+ * CE QUE LA MÉMOIRE ENVOIE À UN PALIER DE LA CASCADE (it4) — trois drapeaux, et rien d'autre
+ * n'est un levier : ni `ETABLI`, ni aucun bloc de l'état. Les paliers sont CUMULATIFS.
+ */
+interface PalierDeMemoire {
+	/** `RECEMMENT` réduit à ses `LIGNES_RECENTES_AU_PLANCHER` lignes les plus récentes. */
+	readonly recemmentAuPlancher: boolean
+	/** `A CONDENSER` envoyé si la tranche est due — et `condensation` rendue AVEC lui. */
+	readonly aCondenser: boolean
+	/** `AUPARAVANT` envoyé si un résumé existe. */
+	readonly auparavant: boolean
+}
+
+/**
+ * LA FENÊTRE AU PLANCHER, pas courant exclu (il est dans `CE PAS`) — DÉRIVÉE de
+ * `FENETRE_MIN`, jamais écrite : à P1, le narrateur relit encore autant de pas qu'au pas de
+ * bascule. Les pas écartés restent au journal, et seront condensés à leur tour.
+ */
+const LIGNES_RECENTES_AU_PLANCHER = FENETRE_MIN - 1
+
+/** P3 — LE PLANCHER DE LA MÉMOIRE : la fenêtre au plancher et les faits, plus rien d'autre.
+ *  C'est aussi la mémoire de P4, qui n'y retire plus rien. */
+const PLANCHER_DE_MEMOIRE: PalierDeMemoire = { recemmentAuPlancher: true, aCondenser: false, auparavant: false }
+
+/**
+ * LES PALIERS P0 À P3, DANS L'ORDRE DE LA CASCADE — le premier dont le texte tient est
+ * retenu. L'ORDRE EST UN CONTRAT, pas une préférence (raffinage it4, § 7) :
+ *  · P1 AVANT P2 (I3) — réduire la fenêtre ne coûte que des pas qui seront condensés plus
+ *    tard ; retirer la tranche fait MANQUER une condensation, et le résumé se fige ;
+ *  · P2 AVANT P3 (I2) — une tranche envoyée SANS le résumé qu'elle prolonge serait
+ *    condensée en ÉCRASANT tout ce qui précède : une perte définitive et silencieuse.
+ */
+const PALIERS_DE_MEMOIRE: readonly PalierDeMemoire[] = [
+	{ recemmentAuPlancher: false, aCondenser: true, auparavant: true }, // P0 — le contexte plein
+	{ recemmentAuPlancher: true, aCondenser: true, auparavant: true }, // P1
+	{ recemmentAuPlancher: true, aCondenser: false, auparavant: true }, // P2
+	PLANCHER_DE_MEMOIRE, // P3
+]
+
+/** UN OBJET POSSÉDÉ DONT LA PROSE EST RÉDIGÉE — seuls ceux-là s'écrivent dans `EN SA
+ *  POSSESSION`, donc seuls ceux-là se comptent dans le suffixe de P4. Un objet muet se tait
+ *  à TOUS les paliers (jamais un repli sur `nom`, KR-262). */
+interface Possession {
+	readonly id: string
+	readonly proses: readonly string[]
+}
+
+/** L'ÉTAT ET SA TABLE D'ANCRES, composés ENSEMBLE : le rang écrit dans un bloc et la clé de
+ *  la table sortent de la MÊME variable. */
+interface EtatCompose {
+	readonly blocs: readonly string[]
+	readonly ancres: ReadonlyMap<RangInjecte, string>
+}
+
+/**
  * L'ASSEMBLEUR — ONZE SORTES DE BLOCS, DANS CET ORDRE, séparés par une ligne vide :
  *  1. le CANON — `canon.ton`, `canon.interdits_ton[]`, `canon.partage.accroche_joueur`,
  *     chacun QUAND ÉCRIT, sous son chemin (précédent des sept rôles) ;
@@ -358,10 +436,15 @@ function pousser(blocs: string[], enTete: string, lignes: readonly string[]): vo
  * L'ÉTAT VIENT APRÈS LA MÉMOIRE : ce que la demande dit d'ici et de maintenant prime sur
  * ce qu'elle rappelle d'avant, et l'invite le dit.
  *
+ * AU-DELÀ DU BUDGET, LA CASCADE (it4, voir la tête de fichier) : P0 → P1 → P2 → P3 sur la
+ * mémoire, puis P4 sur l'inventaire. P0 compose les mêmes blocs, dans le même ordre, avec
+ * les mêmes rangs qu'à l'it3 : les témoins de l'it3, tous au palier P0, passent inchangés.
+ *
  * REFUS, AVANT tout `fetch`, dans cet ORDRE :
  *   `cible-a-ecrire` — le lieu courant ne résout pas, ou sa `description` est absente ou
  *     marquée : raconter sans scène reviendrait à INVENTER le lieu ;
- *   `trop-long` — le texte assemblé dépasse `BUDGET_CARACTERES_NARRATEUR`.
+ *   `trop-long` — MÊME le dernier palier, P4 à son suffixe minimal, dépasse
+ *     `BUDGET_CARACTERES_NARRATEUR`.
  * ⚠ `'a-ecrire'` et `'aucun-candidat'` sont INATTEIGNABLES ici, et c'est délibéré : aucun
  * champ du canon n'est requis, et ce rôle n'a aucun ensemble à épuiser. Les écrire serait
  * du code mort présenté comme de la couverture (KR-235).
@@ -373,25 +456,7 @@ export function assemblerNarrateur(dossier: Dossier, cible: CibleNarrateur): Con
 	const lieu = dossier.monde.lieux.find((candidat) => candidat.id === session.monde.lieu_courant)
 	const description = lieu === undefined ? [] : textesRediges(lieu, CHEMIN_DESCRIPTION_LIEU, PREFIXE_LIEU)
 	if (lieu === undefined || description.length === 0) return { ok: false, motif: 'cible-a-ecrire' }
-
-	// UN rang par identifiant : un objet obtenu à ce pas est aussi possédé, et il garde le
-	// MÊME rang dans les deux blocs.
-	const ancres = new Map<RangInjecte, string>()
-	const rangs = new Map<string, RangInjecte>()
-	const ancrer = (id: string): RangInjecte => {
-		const deja = rangs.get(id)
-		if (deja !== undefined) return deja
-		const rang = `A${ancres.size + 1}`
-		ancres.set(rang, id)
-		rangs.set(id, rang)
-		return rang
-	}
-
-	const etat: string[] = []
-
-	// ── ICI A1 — la description du lieu courant, puis son ambiance ──────────────
 	const ambiance = textesRediges(lieu, CHEMIN_AMBIANCE_LIEU, PREFIXE_LIEU)
-	pousser(etat, `${EN_TETE_ICI} ${ancrer(lieu.id)}`, [...description, ...ambiance])
 
 	// ── CE PAS — DÉRIVÉ du journal, jamais stocké (KR-013) ───────────────────────
 	// Seules les entrées du pas COURANT sont lues ici : l'horloge SÉLECTIONNE, elle n'est
@@ -400,44 +465,62 @@ export function assemblerNarrateur(dossier: Dossier, cible: CibleNarrateur): Con
 	const duPas = session.journal.filter((entree) => entree.tour === session.horloge.tour)
 	const gestes = duPas.flatMap((entree) => (entree.origine === undefined ? [] : [COMMANDES[entree.origine].label]))
 	const appliques = duPas.flatMap((entree) => (entree.deltas ?? []).filter((delta) => delta.effet === 'applique'))
-	const changements = appliques.flatMap((delta) => {
-		const lecture = LECTURE_DES_EFFETS[delta.delta]
-		const cibleDuDelta = delta.cibles[0]
-		return lecture.lire(dossier, jalonsAtteints, cibleDuDelta).map((prose) => {
-			const reperee = lecture.ancrable ? `${lecture.amorce} ${ancrer(cibleDuDelta)}` : lecture.amorce
-			return `${reperee} — ${prose}`
-		})
-	})
-	pousser(etat, EN_TETE_CE_PAS, [...gestes, ...(appliques.length === 0 ? [AUCUN_CHANGEMENT] : changements)])
 
-	// ── OÙ EN EST LE HÉROS — ce qu'il a sur lui, ce qu'il a déjà accompli ────────
-	const possessions = session.monde.objets_possedes.flatMap((id) =>
-		proseDObjet(dossier, id).map((prose) => `${ancrer(id)} — ${prose}`),
-	)
-	pousser(etat, EN_TETE_POSSESSIONS, possessions)
-	pousser(
-		etat,
-		EN_TETE_ACCOMPLI,
-		jalonsAtteints.flatMap((jalon) => textesRediges(jalon, 'enonce', '')),
-	)
+	// ── CE QU'IL A SUR LUI — les seuls objets RÉDIGÉS, dans l'ordre d'ACQUISITION ─────
+	const possessions: Possession[] = session.monde.objets_possedes.flatMap((id) => {
+		const proses = proseDObjet(dossier, id)
+		return proses.length === 0 ? [] : [{ id, proses }]
+	})
+
+	/**
+	 * L'ÉTAT, pour un inventaire GARDÉ — la liste entière de P0 à P3, un suffixe à P4 seul.
+	 * `ICI` et `CE PAS` sont ancrés AVANT les possessions : leurs rangs ne dépendent jamais du
+	 * suffixe, donc `CE PAS` est identique à TOUS les paliers, et un objet obtenu à ce pas —
+	 * possédé aussi — garde le MÊME rang dans les deux blocs. Un objet écarté par P4 n'a
+	 * AUCUN rang : on n'ancre pas ce qu'on ne montre pas.
+	 */
+	const composerEtat = (gardees: readonly Possession[]): EtatCompose => {
+		const ancres = new Map<RangInjecte, string>()
+		const rangs = new Map<string, RangInjecte>()
+		const ancrer = (id: string): RangInjecte => {
+			const deja = rangs.get(id)
+			if (deja !== undefined) return deja
+			const rang = `A${ancres.size + 1}`
+			ancres.set(rang, id)
+			rangs.set(id, rang)
+			return rang
+		}
+		const blocs: string[] = []
+		pousser(blocs, `${EN_TETE_ICI} ${ancrer(lieu.id)}`, [...description, ...ambiance])
+		const changements = appliques.flatMap((delta) => {
+			const lecture = LECTURE_DES_EFFETS[delta.delta]
+			const cibleDuDelta = delta.cibles[0]
+			return lecture.lire(dossier, jalonsAtteints, cibleDuDelta).map((prose) => {
+				const reperee = lecture.ancrable ? `${lecture.amorce} ${ancrer(cibleDuDelta)}` : lecture.amorce
+				return `${reperee} — ${prose}`
+			})
+		})
+		pousser(blocs, EN_TETE_CE_PAS, [...gestes, ...(appliques.length === 0 ? [AUCUN_CHANGEMENT] : changements)])
+		pousser(
+			blocs,
+			EN_TETE_POSSESSIONS,
+			gardees.flatMap(({ id, proses }) => proses.map((prose) => `${ancrer(id)} — ${prose}`)),
+		)
+		pousser(
+			blocs,
+			EN_TETE_ACCOMPLI,
+			jalonsAtteints.flatMap((jalon) => textesRediges(jalon, 'enonce', '')),
+		)
+		return { blocs, ancres }
+	}
 
 	// ── LA MÉMOIRE — projetée depuis `dossier/memoire.ts`, jamais décidée ici ────
-	const memoire: string[] = []
+	// Tout est lu UNE fois ; les paliers ne font que CHOISIR parmi ces lignes.
 	const resume = replier(session.memoire?.resume?.texte ?? '')
-	pousser(memoire, EN_TETE_AUPARAVANT, resume === '' ? [] : [resume])
-	const condensation = pasACondenser(session)
-	if (condensation !== null)
-		pousser(memoire, EN_TETE_A_CONDENSER, lignesDesPas(session, condensation.de, condensation.a))
-	pousser(
-		memoire,
-		EN_TETE_RECEMMENT,
-		lignesDesPas(session, borneDeFenetre(session.horloge.tour) + 1, session.horloge.tour - 1),
-	)
-	pousser(
-		memoire,
-		EN_TETE_ETABLI,
-		faitsPertinents(session).map((fait) => replier(fait.fait)),
-	)
+	const due = pasACondenser(session)
+	const aCondenser = due === null ? [] : lignesDesPas(session, due.de, due.a)
+	const recentes = lignesDesPas(session, borneDeFenetre(session.horloge.tour) + 1, session.horloge.tour - 1)
+	const etabli = faitsPertinents(session).map((fait) => replier(fait.fait))
 
 	// ── LE CANON, global, optionnel — en tête ─────────────────────────────────
 	const canon: string[] = []
@@ -446,9 +529,48 @@ export function assemblerNarrateur(dossier: Dossier, cible: CibleNarrateur): Con
 	// ── LA SAISIE, EN DERNIER, normalisée ──────────────────────────────────────
 	const saisie = `${EN_TETE_SAISIE}\n${cible.saisie.trim().replace(/\s+/g, ' ')}`
 
-	const texte = [...canon, ...memoire, ...etat, saisie].join(SEPARATEUR_DE_BLOCS)
-	// On refuse, on ne coupe pas (KR-230).
-	if (texte.length > BUDGET_CARACTERES_NARRATEUR) return { ok: false, motif: 'trop-long' }
+	/** LE TEXTE D'UN PALIER — la mémoire que le palier envoie, sur l'état qu'on lui donne.
+	 *  `condensation` suit le bloc : non nulle si et seulement si la tranche PART. */
+	const composer = (palier: PalierDeMemoire, etat: EtatCompose): ContexteNarrateurRendu => {
+		const condensation = palier.aCondenser ? due : null
+		const memoire: string[] = []
+		pousser(memoire, EN_TETE_AUPARAVANT, palier.auparavant && resume !== '' ? [resume] : [])
+		if (condensation !== null) pousser(memoire, EN_TETE_A_CONDENSER, aCondenser)
+		pousser(
+			memoire,
+			EN_TETE_RECEMMENT,
+			palier.recemmentAuPlancher
+				? recentes.slice(Math.max(0, recentes.length - LIGNES_RECENTES_AU_PLANCHER))
+				: recentes,
+		)
+		pousser(memoire, EN_TETE_ETABLI, etabli)
+		const texte = [...canon, ...memoire, ...etat.blocs, saisie].join(SEPARATEUR_DE_BLOCS)
+		return { ok: true, texte, ancres: etat.ancres, condensation }
+	}
+	const tient = (essai: ContexteNarrateurRendu): boolean => essai.texte.length <= BUDGET_CARACTERES_NARRATEUR
 
-	return { ok: true, texte, ancres, condensation }
+	// ── P0 À P3 — la mémoire seule se réduit ; l'état est le MÊME, inventaire entier ─
+	const etatEntier = composerEtat(possessions)
+	for (const palier of PALIERS_DE_MEMOIRE) {
+		const essai = composer(palier, etatEntier)
+		if (tient(essai)) return essai
+	}
+
+	// ── P4, DERNIER RECOURS — le plus long SUFFIXE de l'inventaire qui tient ───────
+	// JAMAIS VIDE : un bloc absent dirait « il n'a rien », ce que le moteur dément. Et il
+	// porte TOUT objet que `CE PAS` désigne, lu du registre des effets (`ancrable`) et jamais
+	// d'un identifiant d'effet : ce que le pas vient de donner reste dans ce qu'il a sur lui,
+	// au même rang. Moins que ce suffixe-là ne tient pas : `trop-long`.
+	const designes = new Set(
+		appliques.filter((delta) => LECTURE_DES_EFFETS[delta.delta].ancrable).map((delta) => delta.cibles[0]),
+	)
+	const premierDesigne = possessions.findIndex((possession) => designes.has(possession.id))
+	const suffixeMinimal = Math.max(1, premierDesigne === -1 ? 0 : possessions.length - premierDesigne)
+	for (let gardees = possessions.length - 1; gardees >= suffixeMinimal; gardees -= 1) {
+		const essai = composer(PLANCHER_DE_MEMOIRE, composerEtat(possessions.slice(possessions.length - gardees)))
+		if (tient(essai)) return essai
+	}
+
+	// On refuse, on ne coupe pas (KR-230).
+	return { ok: false, motif: 'trop-long' }
 }

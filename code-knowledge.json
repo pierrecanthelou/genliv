@@ -259,82 +259,82 @@
 		{
 			"id": "KR-156",
 			"feature": "dossier-format",
-			"risk": "cette feature ne livre aucun écran d'édition (n° 2 seulement). Chaque critère doit être observable par un test jest à l'échelle brain/ lisant le FICHIER fixture réel du dossier de référence, jamais un littéral inline. C'est le substitut de preuve de tranche quand il n'y a pas d'écran — et l'affordance d'import, qui existe, n'est l'instrument de preuve d'aucun critère."
+			"risk": "Sans ecran d'edition (n°2 seul), chaque critere se prouve par un test jest lisant le FICHIER fixture reel du dossier de reference, jamais un litteral inline. Corps : spec dossier-format."
 		},
 		{
 			"id": "KR-157",
 			"feature": "dossier-format",
-			"risk": "le dossier de référence sert à la fois de fixture et de démonstration ; son critère de suffisance est une checklist nommée PAR BRANCHE qui échoue par nom de branche absente, jamais une vérification à l'œil."
+			"risk": "Le dossier de reference sert de fixture ET de demonstration ; sa suffisance se prouve par une checklist nommee PAR BRANCHE, jamais a l'oeil. Corps : spec dossier-format."
 		},
 		{
 			"id": "KR-158",
 			"feature": "dossier-format",
-			"risk": "la matrice de rejet du validateur est écrite dans cette spec AVANT le code, au raffinage — sinon les cas de test sont rédigés après coup pour coller à ce que le validateur fait déjà."
+			"risk": "La matrice de rejet du validateur s'ecrit dans la spec AVANT le code, au raffinage. Corps : spec dossier-format."
 		},
 		{
 			"id": "KR-159",
 			"feature": "dossier-format",
-			"risk": "UN DECOMPTE CITE DANS UN PLAN DOIT ENONCER SON PREDICAT, PAS SEULEMENT SON NOMBRE -- et il se REMESURE avant d'etre reenonce. Une estimation jamais mesuree ('neuf') au cadrage, puis du temps perdu en revue faute de dire CE QU'ON COMPTAIT : le meme perimetre donne des nombres differents selon qu'on compte les fichiers dont la LIGNE D'IMPORT change, ceux qui ne changent QUE ca, ou le total remplace par le lot. COMPACTE le 2026-09-18 (axe _about : une entree qui recopie une mesure ponctuelle se reduit a son invariant portable). Le cas qui a produit la lecon -- la scission types.ts -> tree.ts, mesuree trois fois le 2026-08-04 -- est LIVRE et ne se rejouera pas ; le decompte mesure, AVEC SON PREDICAT, est epingle au critere d'acceptation de src/features/dossier-format/specification.json."
+			"risk": "UN DECOMPTE CITE DANS UN PLAN ENONCE SON PREDICAT, PAS SEULEMENT SON NOMBRE, ET SE REMESURE avant d etre reenonce. Corps : spec dossier-format."
 		},
 		{
 			"id": "KR-160",
 			"feature": "dossier-format",
-			"risk": "la migration schema 1 → 2 n'est pas testable avant qu'un schéma 2 existe. Le seul critère recevable est le REJET de toute valeur de schema autre que 1 exactement, avec un code distinct d'une erreur de contenu. Ne pas livrer de fonction migrateDossier : sans v2 elle n'a ni test ni appelant."
+			"risk": "La migration schema 1 vers 2 n'est testable qu une fois un schema 2 reel ; seul critere recevable : le REJET de toute valeur autre que 1. Ne jamais livrer de migrateDossier sans v2 reelle. Corps : spec dossier-format."
 		},
 		{
 			"id": "KR-161",
 			"feature": "dossier-format",
-			"risk": "le score de mutation ne s'applique pas à cette feature — elle ne touche aucun des quatre fichiers mutés. Les registres de prédicats et de deltas sont de la logique sur identifiants, pas de l'arithmétique de règles ; ne pas les ajouter à stryker.config.mjs (ex-.json) sans faire jouer le cliquet break de docs/WORKFLOW.md."
+			"risk": "Le score de mutation ne s'applique pas a une feature qui ne touche aucun des quatre fichiers mutes -- ne pas les ajouter a stryker sans faire jouer le cliquet break. Corps : spec dossier-format."
 		},
 		{
 			"id": "KR-162",
 			"feature": "dossier-format",
-			"risk": "tout test recentré sur le nouveau format conserve au moins une assertion négative ou discriminante (leçon BUG-031), et chaque test existant touché est explicitement classé PORTÉ ou SUPPRIMÉ dans le journal d'itération — jamais silencieusement absent du diff."
+			"risk": "Tout test recentre garde au moins une assertion negative ou discriminante, et chaque test touche est classe PORTE ou SUPPRIME dans le journal, jamais silencieusement absent. Corps : spec dossier-format."
 		},
 		{
 			"id": "KR-163",
 			"feature": "dossier-format",
-			"risk": "CloudSyncService.isBook() teste Array.isArray(value.nodes). Un dossier n'a pas de nodes : il retomberait en poussée monolithique, et reconcile() n'étant armé que par book:opened, il n'y aurait AUCUNE réconciliation cloud sur un dossier — sans qu'un seul test rougisse. Le prédicat doit reconnaître la forme dossier (schema:1) et reconcile() s'armer sur dossier:opened. Test rouge avant correctif, itération 1."
+			"risk": "Un predicat de detection de forme (isBook) doit reconnaitre explicitement la forme dossier, sinon une reconciliation cloud armee sur le mauvais evenement ne se declenche JAMAIS, sans qu'aucun test ne rougisse. Corps : spec dossier-format."
 		},
 		{
 			"id": "KR-164",
 			"feature": "dossier-format",
-			"risk": "DossierIssue est un registre fermé par code (KR-117) ; message est toujours un texte français rédigé, jamais une erreur runtime sérialisée ; location résout l'entité par son NOM ; path est le contrat que dossier-controles (n° 7) consomme pour badger une section."
+			"risk": "DossierIssue est un registre ferme par code ; message est toujours un texte francais redige, jamais une erreur serialisee ; path est le contrat que dossier-controles consomme. Corps : spec dossier-format."
 		},
 		{
 			"id": "KR-165",
 			"feature": "dossier-format",
-			"risk": "toute borne de longueur ou de nombre du schéma est une constante NOMMÉE, testée à la limite et à limite+1 — jamais un nombre en dur au site de validation. Une borne non outillée n'existe pas, et le budget de contexte de l'IA en dépend."
+			"risk": "Toute borne de longueur/nombre du schema est une constante NOMMEE, testee a la limite et limite+1 -- jamais un nombre en dur au site de validation. Corps : spec dossier-format."
 		},
 		{
 			"id": "KR-166",
 			"feature": "dossier-format",
-			"risk": "un dossier importé et validé est gelé en profondeur ; toute écriture ultérieure clone avant de muter. Sans ce gel, une écriture du Temps 2 sur le dossier passerait inaperçue et la reproductibilité par graine tomberait sans bruit (décision n° 7)."
+			"risk": "Un dossier importe et valide est gele en profondeur ; toute ecriture ulterieure clone avant de muter. Corps : spec dossier-format."
 		},
 		{
 			"id": "KR-167",
 			"feature": "dossier-format",
-			"risk": "aucune fonction ne convertit un Book en Dossier ni l'inverse, dans aucun sens — vérifié par grep au critère de fini. Un chemin de compatibilité serait une seconde source de vérité que personne n'oserait couper en n° 9 ; et un arbre converti ferait entrer des données en forme de choix dans le contexte du modèle."
+			"risk": "Aucune fonction ne convertit Book vers Dossier ni l'inverse, dans aucun sens -- verifie par grep au critere de fini. Corps : spec dossier-format."
 		},
 		{
 			"id": "KR-168",
 			"feature": "dossier-format",
-			"risk": "la forme persistée de …_expr est un ARBRE (ExprNode), et il n'existe aucun parseur. Qui rajoutera un parseExpr réintroduira une seconde source de vérité de la condition, plus une grammaire à spécifier, versionner et tester, plus la question de la syntaxe montrée à l'auteur — que le registre PREDICATES résout en pilotant le rendu par widgets."
+			"risk": "La forme persistee de …_expr est un ARBRE (ExprNode), aucun parseur n'existe ni ne doit exister -- le registre PREDICATES pilote le rendu par widgets. Corps : spec dossier-format."
 		},
 		{
 			"id": "KR-169",
 			"feature": "dossier-format",
-			"risk": "UNE PROPRIETE AFFIRMEE DANS UNE DOCSTRING SANS TEST EST UNE INTENTION, PAS UN CONTRAT (revue de PR du 2026-08-04 : trois majeurs sur quatre etaient de cette forme). 'pur', 'total', 'seul site d'appel', 'path stable' : ecrits au plan, vrais dans l'intention, non epingles -- et validateDossier gelait en realite l'argument de son appelant (BUG-038) pendant que sa docstring annoncait la purete. REGLE : un plan exige un test PAR PROPRIETE NOMMEE, pas seulement par critere d'acceptation. Quand la propriete n'est pas portable par le typage, elle se porte par un test qui LIT la source (test-grep) ou qui eprouve le comportement -- jamais par un commentaire, qu'aucune porte ne relit."
+			"risk": "UNE PROPRIETE AFFIRMEE DANS UNE DOCSTRING SANS TEST EST UNE INTENTION, PAS UN CONTRAT -- un plan exige un test PAR PROPRIETE NOMMEE, porte par un test qui lit la source ou eprouve le comportement, jamais par un commentaire. Corps : spec dossier-format."
 		},
 		{
 			"id": "KR-170",
 			"feature": "dossier-format",
-			"risk": "TOUTE VALEUR VENUE D'UN FICHIER UTILISATEUR QUI DEVIENT UNE CLE D'INFRASTRUCTURE DOIT AVOIR UNE FORME VALIDEE, jamais un simple test de non-vacuite (BUG-039) -- un id contenant le separateur reserve de decoupage de cles entre en collision par construction. Corollaire : deux valeurs qui ne different que par la casse ou un espace de bord sont deux entrees de stockage mais un seul document pour l'auteur. Corps : spec dossier-format."
+			"risk": "TOUTE VALEUR VENUE D UN FICHIER UTILISATEUR DEVENANT UNE CLE D'INFRASTRUCTURE A UNE FORME VALIDEE, jamais un simple test de non-vacuite. Corps : spec dossier-format."
 		},
 		{
 			"id": "KR-171",
 			"feature": "dossier-format",
-			"risk": "UN CHEMIN D'ECHEC QUI PORTE DE LA VALEUR MERITE SON PROPRE CRITERE D'ACCEPTATION (BUG-040) -- un etat 'invalide' non teste laisse toute une anatomie d'ecran (badge, remediation) hors de toute preuve. Corollaire : une remediation textuelle se verifie contre ce que le produit permet reellement a la version ou elle est livree (BUG-042). Corps : spec dossier-format."
+			"risk": "UN CHEMIN D'ECHEC QUI PORTE DE LA VALEUR MERITE SON PROPRE CRITERE D'ACCEPTATION. Corps : spec dossier-format."
 		},
 		{
 			"id": "KR-172",
@@ -344,22 +344,22 @@
 		{
 			"id": "KR-173",
 			"feature": "dossier-format",
-			"risk": "QUAND UNE FONCTION DE TRAVERSEE ABANDONNE SILENCIEUSEMENT UNE BRANCHE POUR RESTER TOTALE, CE QU'ELLE CESSE DE VISITER DOIT AVOIR SA PROPRE TABLE (BUG-049) -- aucun compilateur ne relie une liste non optionnelle a l'absence de sa regle de validation. Corollaires de revue : se mefier de toute documentation affirmant « le SEUL endroit ou... » sans mesure ; quand un instrument de couverture change de critere, ecrire explicitement ce qu'il cesse de couvrir. Corps : spec dossier-format."
+			"risk": "QUAND UNE TRAVERSEE ABANDONNE SILENCIEUSEMENT UNE BRANCHE POUR RESTER TOTALE, CE QU'ELLE CESSE DE VISITER A SA PROPRE TABLE. Corps : spec dossier-format."
 		},
 		{
 			"id": "KR-174",
 			"feature": "dossier-format",
-			"risk": "UN CRITERE QUI PROTEGE UNE MOITIE DE COUPLE DOIT NOMMER L'AUTRE (BUG-051) -- deux champs jumeaux distingues par leur AUDIENCE exigent que le critere porte sur les deux, derives de la meme table. Corollaire general : une assertion d'EXISTENCE n'est jamais une assertion de VALEUR. Le defaut etait dans le PLAN avant d'etre dans le code. Corps : spec dossier-format."
+			"risk": "UN CRITERE QUI PROTEGE UNE MOITIE DE COUPLE NOMME L AUTRE -- deux champs jumeaux distingues par leur audience exigent un critere sur les deux. Corps : spec dossier-format."
 		},
 		{
 			"id": "KR-175",
 			"feature": "dossier-format",
-			"risk": "UN REGISTRE INDEXE PAR UNE VALEUR NON FIABLE PASSE PAR UNE APPARTENANCE PROPRE, JAMAIS PAR `in` NI PAR UN TEST D'INDEX (BUG-053) -- tout objet litteral herite d'Object.prototype. Parade : Object.prototype.hasOwnProperty.call. Corollaires : un `as` pose sur une valeur non fiable est l'endroit exact ou le compilateur cesse de proteger ; une liste de bruit dans un test de totalite se remplit en cherchant PAR QUELLE PORTE le code peut repondre oui a ce qu'il devrait refuser. Corps : spec dossier-format."
+			"risk": "UN REGISTRE INDEXE PAR UNE VALEUR NON FIABLE PASSE PAR UNE APPARTENANCE PROPRE, jamais par in ni un test d'index. Corps : spec dossier-format."
 		},
 		{
 			"id": "KR-176",
 			"feature": "dossier-format",
-			"risk": "UN SEUIL CHIFFRE CITE DANS UN PLAN DOIT NOMMER SA SOURCE, SINON IL N'EXISTE PAS -- une repetition fidele sans source cree une fausse autorite. Variante de KR-159 (la, un predicat faux ; ici, un seuil sans source). Parade : tout nombre contraignant cite le fichier et la ligne, ou se declare consigne locale revocable. Corollaire : un decompte publie se re-mesure apres le dernier changement du fichier. Corps : spec dossier-format."
+			"risk": "UN SEUIL CHIFFRE CITE DANS UN PLAN NOMME SA SOURCE, SINON IL N EXISTE PAS. Corps : spec dossier-format."
 		},
 		{
 			"id": "KR-177",
@@ -574,7 +574,7 @@
 		{
 			"id": "KR-219",
 			"feature": "dossier-controles",
-			"risk": "La section d un controle est DECLAREE par la regle qui le produit, jamais DERIVEE de son path. DERIVER vise un CALCUL (decouper, prefixer, lire SECTIONS[].cle, qui est un texte d affichage). Une table ECRITE ligne a ligne par la regle productrice n en est pas un — precedent PROSES_AMORCE — a DEUX conditions tenues par un test : totalite balayee depuis le registre qui fait foi (KR-199), et un chemin absent produit ZERO constat. L invariant se tient par un balayage de source interdisant tout decoupage de chemin ; il ne s ecrit PAS « racine du path differente de la section », voir KR-226. Amende a it5 de dossier-controles."
+			"risk": "La section d un controle est DECLAREE par la regle qui le produit, jamais DERIVEE de son path. DERIVER vise un CALCUL (decouper, prefixer, lire SECTIONS[].cle, qui est un texte d affichage). Une table ECRITE ligne a ligne par la regle productrice n en est pas un — precedent PROSES_AMORCE — a DEUX conditions tenues par un test : totalite balayee depuis le registre qui fait foi (KR-199), et un chemin absent produit ZERO constat. L invariant se tient par un balayage de source interdisant tout decoupage de chemin ; il ne s'ecrit PAS « racine du path differente de la section », voir KR-226. Amende a it5 de dossier-controles."
 		},
 		{
 			"id": "KR-220",
@@ -845,6 +845,16 @@
 			"id": "KR-273",
 			"feature": "moteur-interprete",
 			"risk": "LA CADENCE D'UN MECANISME PERIODIQUE (ex. condensation de memoire) NE VIT QUE DANS LE MODULE PUR QUI LA CALCULE -- l'invite IA decide de produire l'artefact periodique d'apres le CONTENU du contexte recu (presence d'un bloc dedie), jamais d'apres un compte qu'elle devrait elle-meme deriver. Corps : spec moteur-interprete, raffinage it3 § 4 bis."
+		},
+		{
+			"id": "KR-274",
+			"feature": "moteur-interprete",
+			"risk": "L'ETAT QUE LE MOTEUR TIENT POUR VRAI N'EST JAMAIS UN LEVIER DE DEGRADATION BUDGETAIRE BRUT (extension de KR-013 a l'assemblage de contexte) -- une reduction de ce qu'un role IA en voit doit garantir l'absence de negation fausse : jamais un bloc vide qui suggere 'rien', toujours l'element le plus pertinent au pas courant conserve. Decouvert au raffinage it4 (tronquer l'inventaire injecte par un K arbitraire ferait raconter au narrateur l'absence d'un objet que le moteur dit possede) ; resolu par un suffixe ajuste au budget, jamais vide, garantissant l'objet du pas courant. Corps : spec moteur-interprete, raffinage it4 § 8 desaccord #3."
+		},
+		{
+			"id": "KR-275",
+			"feature": "moteur-interprete",
+			"risk": "UNE DEGRADATION DE BUDGET DE CONTEXTE SE FAIT EN PALIERS CALCULES EN LIGNE A CHAQUE APPEL (jamais stockes, KR-013), chacun retenu comme le premier qui tient ; le refus reste le DERNIER recours, jamais le premier reflexe. L'ordre des paliers est un CONTRAT, pas une preference : envoyer la tranche A CONDENSER alors que son resume AUPARAVANT a deja ete retire la condenserait en ecrasant tout ce qui precede (P2 doit passer avant P3, jamais l'inverse) -- perte definitive et silencieuse. Corps : spec moteur-interprete, raffinage it4 § 6/§ 7."
 		}
 	]
 }

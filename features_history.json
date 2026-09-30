@@ -197,6 +197,21 @@
 			"bugs_encountered": [
 				"BUG-129"
 			]
+		},
+		{
+			"feature": "moteur-interprete (it4, la cascade de degradation du budget de contexte)",
+			"completed_at": "2026-09-30",
+			"goal": "assemblerNarrateur descend une cascade de quatre paliers de degradation silencieuse (P1-P4) avant de refuser trop-long -- jamais un refus complet tant qu'un palier tient. Feature moteur-interprete (n 10) TERMINEE 4/4.",
+			"key_architecture_choices": [
+				"Cascade calculee EN LIGNE a chaque appel dans narrateur.ts, memoire.ts INTACT (contrat gele it3) -- P0-P3 reduisent la memoire narrative (RECEMMENT, A CONDENSER, AUPARAVANT), P4 (dernier recours seulement) reduit EN SA POSSESSION au plus long suffixe qui tient, jamais vide, objet du pas courant toujours garanti.",
+				"R1 (interprete.ts) n'a recu aucune garde de budget cette iteration -- hors perimetre, dette worker/index.ts:779 reassignee explicitement plutot que fermee a tort."
+			],
+			"brain_contracts_added": [],
+			"lessons_learned": [
+				"UN DESACCORD PEUT SE RETOURNER DEUX FOIS DANS LE MEME RAFFINAGE, PAR LE MEME ROLE : narratif-ia pose un veto absolu au tour 1, PUIS SE RETOURNE LUI-MEME au tour 2 en concevant la solution qu'il avait refusee dans son principe -- pendant qu'un autre role (PM) durcissait sa propre objection sur la base de la VERSION REFUTEE, sans voir le retournement (tours paralleles). L'arbitrage de tour 3 doit verifier si le veto qui semble encore tenir visait la proposition qui a change, pas seulement lire le dernier mot de chaque role.",
+				"UN INVARIANT DE SUFFIXE (garder les N derniers elements incluant une cible designee) SE TESTE AVEC AU MOINS DEUX CIBLES SIMULTANEES, sinon un calcul faux (max(1,...) sans chercher l'index le plus a gauche) reste indiscriminable -- la cible unique est, par construction, toujours a la fois la premiere et la derniere designee (BUG evite par la sonde de mutants, non journalise)."
+			],
+			"bugs_encountered": []
 		}
 	]
 }

@@ -13,10 +13,24 @@ import type { DeltaJournalise } from '../dossier/evaluate'
 import { feuillesDeLaFixture } from '../dossier/feuilles'
 import { collectIds } from '../dossier/identifiers'
 import { LIBELLE_DES_CHAMPS } from '../dossier/libelles'
-import { CADENCE, FAITS_INJECTES_MAX, FENETRE_MAX, pasACondenser } from '../dossier/memoire'
+import {
+	CADENCE,
+	FAITS_INJECTES_MAX,
+	FENETRE_MAX,
+	FENETRE_MIN,
+	faitsPertinents,
+	pasACondenser,
+} from '../dossier/memoire'
 import { consignerNarration } from '../dossier/recit'
-import { ouvrirSession, type EtatSession } from '../dossier/session'
-import { CERTITUDE_INITIALE, INTENSITE_INITIALE, type Dossier, type Personnage, type Portee } from '../dossier/types'
+import { ouvrirSession, type EtatSession, type FaitEtabli } from '../dossier/session'
+import {
+	CERTITUDE_INITIALE,
+	INTENSITE_INITIALE,
+	type Dossier,
+	type Objet,
+	type Personnage,
+	type Portee,
+} from '../dossier/types'
 import { controlerDossier } from '../dossier/controles'
 import type {
 	CibleCopilote,
@@ -3610,6 +3624,9 @@ describe('assemblerNarrateur — les deux refus, avant tout appel', () => {
 		expect(texteNarrateur(dossier, avecSaisie('x'.repeat(BUDGET_CARACTERES_NARRATEUR - socle)))).toHaveLength(
 			BUDGET_CARACTERES_NARRATEUR,
 		)
+		// Ce +1 tombe bien sur trop-long (it4) et pas sur un palier de la cascade : pireCasNarrateur()
+		// n a pas de memoire (aucun resume, aucune tranche due) et tous ses objets sont designes par
+		// CE PAS, donc P4 ne peut rien retirer sans violer la garantie « objet du pas toujours inclus ».
 		expect(assemblerNarrateur(dossier, avecSaisie('x'.repeat(BUDGET_CARACTERES_NARRATEUR - socle + 1)))).toEqual({
 			ok: false,
 			motif: 'trop-long',
@@ -3762,5 +3779,531 @@ describe('assemblerNarrateur — la mesure du budget : un terme dossier MESURE, 
 	it('deux assemblages sur une session inchangee sont strictement egaux', () => {
 		const { dossier, cible } = pireCasNarrateur()
 		expect(texteNarrateur(dossier, cible)).toBe(texteNarrateur(dossier, cible))
+	})
+})
+
+// ══ LA CASCADE DE L'IT4 — P0 → P1 → P2 → P3 → P4, puis `trop-long` ════════════════════
+//
+// UN SEUL LEVIER, la SAISIE (précédent it2) : réellement injectée, AFFINE dans la longueur
+// du texte (sans blanc, la normalisation ne la touche pas). Le SOCLE d'un palier — la longueur
+// de son texte hors saisie — se LIT sur un assemblage qui vient d'y DESCENDRE, jamais ne se
+// recalcule depuis les constantes du module : un canari dont l'attendu sort du code sous test
+// ne rougit pas. Et le palier atteint se LIT DANS LE TEXTE, jamais dans le retour, qui n'en
+// porte aucun (I7).
+
+/** Trois objets RÉDIGÉS ajoutés au dossier de référence — la fixture n'en porte que deux, et
+ *  P4 a besoin d'un inventaire à couper. Proses sans chiffre ni identifiant. */
+const OBJETS_DE_CASCADE: readonly Objet[] = [
+	{ id: 'objet.galet-de-riviere', description_joueur: 'Un galet poli par le courant, tiède au creux de la main.' },
+	{
+		id: 'objet.corde-de-chanvre',
+		description_joueur: 'Une corde de chanvre roulée serré, qui sent encore le goudron.',
+	},
+	{ id: 'objet.fiole-bleue', description_joueur: 'Une fiole de verre bleu, bouchée de cire, à moitié pleine.' },
+]
+
+/** L'objet que le pas courant DONNE — dernier acquis, donc dernier de la liste. */
+const OBJET_DU_PAS = 'objet.fiole-bleue'
+
+/** L'INVENTAIRE, dans l'ordre d'ACQUISITION : l'amulette, MUETTE, au milieu — elle se tait à
+ *  tous les paliers et ne compte jamais dans le suffixe —, la fiole du pas en dernier. */
+const INVENTAIRE_DE_CASCADE: readonly string[] = [
+	'objet.sceau-de-cendre',
+	'objet.lanterne-de-corvin',
+	'objet.amulette-scellee',
+	'objet.galet-de-riviere',
+	'objet.corde-de-chanvre',
+	OBJET_DU_PAS,
+]
+
+/** Deux faits établis : l'un sur le lieu, l'autre sur l'objet le PLUS ANCIEN — le premier que
+ *  P4 écarte, et dont le fait doit pourtant repartir (AC#8). Indexés par le pas qui les établit. */
+const FAIT_DU_FOYER: FaitEtabli = { fait: 'Une braise couve sous la cendre du foyer.', sur: ['lieu.foyer-du-guet'] }
+const FAIT_DU_SCEAU: FaitEtabli = {
+	fait: 'Le sceau porte une fêlure en travers de son emblème.',
+	sur: ['objet.sceau-de-cendre'],
+}
+const FAITS_DE_CASCADE = new Map<number, readonly FaitEtabli[]>([
+	[3, [FAIT_DU_FOYER]],
+	[5, [FAIT_DU_SCEAU]],
+])
+const RESUME_DE_CASCADE = 'Vous avez longtemps veillé au foyer.'
+const TRANCHE_DUE = { de: 11, a: 20 }
+
+function referenceDeCascade(): Dossier {
+	const dossier = dossierDeReference()
+	return { ...dossier, monde: { ...dossier.monde, objets: [...dossier.monde.objets, ...OBJETS_DE_CASCADE] } }
+}
+
+const proseDe = (dossier: Dossier, id: string): string =>
+	String(dossier.monde.objets.find((objet) => objet.id === id)?.description_joueur)
+
+const donne = (id: string): DeltaJournalise => ({ delta: 'donner_objet', cibles: [id], effet: 'applique' })
+
+/**
+ * UNE PARTIE EN RETARD DE CONDENSATION, jouée PAR LE PRODUIT : les pas 1 à `pas − 1`, `agir`,
+ * racontés (un jeton sans chiffre par récit) sauf ceux joués `enConsole` ; la condensation
+ * RÉUSSIE au pas 15 SEULEMENT — le résumé couvre 1-10, et la tranche 11-20 est due dès le
+ * pas 25. Puis le pas `pas`, joué, pas encore raconté. L'INVENTAIRE est COMPOSÉ sur la
+ * session jouée (précédent des effets composés plus haut) : aucune commande du dossier ne
+ * donne cinq objets.
+ */
+function partieDeCascade(
+	dossier: Dossier,
+	pas: number,
+	options: { inventaire?: readonly string[]; obtenus?: readonly string[]; enConsole?: readonly number[] } = {},
+): EtatSession {
+	const { inventaire = INVENTAIRE_DE_CASCADE, obtenus = [OBJET_DU_PAS], enConsole = [] } = options
+	let session = ouvertureNarrateur(dossier)
+	for (let joue = 1; joue < pas; joue += 1) {
+		session = jouerNarrateur(dossier, session, ['AGIR'])
+		if (enConsole.includes(joue)) continue
+		const du = pasACondenser(session)
+		session = consignerNarration(session, joue, {
+			recit: `Vous veillez ${jetonDuPas(joue)} au foyer.`,
+			faits_etablis: FAITS_DE_CASCADE.get(joue) ?? [],
+			...(du !== null && joue === 15 ? { resume: { texte: RESUME_DE_CASCADE, jusqu_au_pas: du.a } } : {}),
+		})
+	}
+	const courant = jouerNarrateur(dossier, session, ['AGIR'])
+	return {
+		...courant,
+		monde: { ...courant.monde, objets_possedes: [...inventaire] },
+		journal:
+			obtenus.length === 0
+				? courant.journal
+				: [...courant.journal, { tour: pas, role: 'moteur', texte: 'x', deltas: obtenus.map(donne) }],
+	}
+}
+
+const aLaSaisie = (dossier: Dossier, session: EtatSession, longueur: number) =>
+	assemblerNarrateur(dossier, cibleNarrateur(session, 'x'.repeat(longueur)))
+
+/** Le rendu d'un assemblage que le test attend — un refus est NOMMÉ, jamais avalé. */
+function rendu(contexte: ReturnType<typeof assemblerNarrateur>) {
+	if (!contexte.ok) throw new Error(`contexte refusé (${contexte.motif}) alors que le test attend un palier`)
+	return contexte
+}
+
+/** CE QUE LE MODÈLE REÇOIT, lu dans le TEXTE : les quatre grandeurs que la cascade fait
+ *  varier, et `condensation`. Un refus se lit comme tel. */
+function lecture(contexte: ReturnType<typeof assemblerNarrateur>) {
+	if (!contexte.ok) return { refus: contexte.motif }
+	const blocs = blocsNarrateur(contexte.texte)
+	return {
+		auparavant: blocs.has('AUPARAVANT'),
+		aCondenser: blocs.get('A CONDENSER')?.length ?? 0,
+		recemment: blocs.get('RECEMMENT')?.length ?? 0,
+		possessions: blocs.get('EN SA POSSESSION')?.length ?? 0,
+		condensation: contexte.condensation,
+	}
+}
+
+/** LES CINQ PALIERS, LUS dans le texte du pas 34 : la fenêtre 21-33 (13 lignes), la tranche
+ *  11-20 (10 lignes), le résumé, et cinq objets rédigés. Littéraux, jamais dérivés du module. */
+const LU_P0 = { auparavant: true, aCondenser: 10, recemment: 13, possessions: 5, condensation: TRANCHE_DUE }
+const LU_P1 = { ...LU_P0, recemment: 4 }
+const LU_P2 = { ...LU_P1, aCondenser: 0, condensation: null }
+const LU_P3 = { ...LU_P2, auparavant: false }
+const luP4 = (possessions: number) => ({ ...LU_P3, possessions })
+
+/**
+ * LA CHAÎNE DES CANARIS — pour P0, P1, P2 puis P3, la longueur de saisie qui fait tenir SON
+ * texte à `BUDGET_CARACTERES_NARRATEUR` caractères EXACTEMENT. On part d'une saisie courte (P0
+ * tient) ; le socle du palier suivant se lit à la saisie `exacte + 1` du précédent, qui vient
+ * d'y descendre. Ce que chaque saisie ATTEINT n'est pas supposé ici : chaque test l'asserte.
+ */
+function saisiesExactes(dossier: Dossier, session: EtatSession): readonly [number, number, number, number] {
+	const exacte = (saisie: number): number =>
+		BUDGET_CARACTERES_NARRATEUR - (rendu(aLaSaisie(dossier, session, saisie)).texte.length - saisie)
+	const p0 = exacte(1)
+	const p1 = exacte(p0 + 1)
+	const p2 = exacte(p1 + 1)
+	return [p0, p1, p2, exacte(p2 + 1)]
+}
+
+/** La saisie qui fait tenir P4 à `gardes` objets, à `BUDGET` EXACTEMENT : celle de P3, plus ce
+ *  que coûtent les lignes d'inventaire écartées — chacune avec son saut de ligne, LUES dans le
+ *  texte de P3. (Les rangs restent à un chiffre : une ligne gardée ne change pas de longueur ;
+ *  chaque test qui s'en sert asserte la longueur obtenue.) */
+function saisieExacteP4(dossier: Dossier, session: EtatSession, exacteP3: number, gardes: number): number {
+	const lignes = blocsNarrateur(rendu(aLaSaisie(dossier, session, exacteP3)).texte).get('EN SA POSSESSION') ?? []
+	return exacteP3 + lignes.slice(0, lignes.length - gardes).reduce((cout, ligne) => cout + ligne.length + 1, 0)
+}
+
+describe('assemblerNarrateur — la cascade de l it4 : P0 a P4, puis trop-long (AC#1 a AC#8)', () => {
+	it('P0 inchange : sous budget, la fenetre entiere, la tranche due, le resume et tout l inventaire partent', () => {
+		const dossier = referenceDeCascade()
+		const session = partieDeCascade(dossier, 34)
+
+		const contexte = rendu(aLaSaisie(dossier, session, 1))
+
+		expect(lecture(contexte)).toEqual(LU_P0)
+		expect(contexte.texte.length).toBeLessThan(BUDGET_CARACTERES_NARRATEUR)
+	})
+
+	it('I6 — canari a un caractere pres a chaque frontiere de memoire : P0/P1, P1/P2, P2/P3', () => {
+		// MUTANT « `<` au lieu de `<=` » — un texte de BUDGET caractères refusé — vérifié ROUGE.
+		const dossier = referenceDeCascade()
+		const session = partieDeCascade(dossier, 34)
+		const exactes = saisiesExactes(dossier, session)
+		const paliers = [LU_P0, LU_P1, LU_P2, LU_P3]
+
+		for (let rang = 0; rang < 3; rang += 1) {
+			const juste = rendu(aLaSaisie(dossier, session, exactes[rang]))
+			expect(`P${rang} → ${juste.texte.length}`).toBe(`P${rang} → ${BUDGET_CARACTERES_NARRATEUR}`)
+			expect(lecture(juste)).toEqual(paliers[rang])
+			expect(lecture(aLaSaisie(dossier, session, exactes[rang] + 1))).toEqual(paliers[rang + 1])
+		}
+	})
+
+	it('I11 / AC#2 — canari a un caractere pres aux frontieres P3/P4, dans P4, et P4/trop-long — refus sans aucun appel', () => {
+		// MUTANT « suffixe minimal jamais essayé » (`>` au lieu de `>=` sur la borne) — vérifié ROUGE.
+		const espionFetch = jest.fn()
+		const avant = globalThis.fetch
+		globalThis.fetch = espionFetch as unknown as typeof fetch
+		try {
+			const dossier = referenceDeCascade()
+			const session = partieDeCascade(dossier, 34)
+			const [, , , exacteP3] = saisiesExactes(dossier, session)
+
+			// P3/P4 — l'inventaire ENTIER tient au caractère près ; un de plus, et le plus ancien part.
+			const p3 = rendu(aLaSaisie(dossier, session, exacteP3))
+			expect(p3.texte).toHaveLength(BUDGET_CARACTERES_NARRATEUR)
+			expect(lecture(p3)).toEqual(LU_P3)
+			expect(lecture(aLaSaisie(dossier, session, exacteP3 + 1))).toEqual(luP4(4))
+
+			// DANS P4 — le PLUS LONG suffixe qui tient : quatre objets au caractère près, un de plus et trois.
+			const quatre = rendu(aLaSaisie(dossier, session, saisieExacteP4(dossier, session, exacteP3, 4)))
+			expect(quatre.texte).toHaveLength(BUDGET_CARACTERES_NARRATEUR)
+			expect(lecture(quatre)).toEqual(luP4(4))
+			expect(lecture(aLaSaisie(dossier, session, saisieExacteP4(dossier, session, exacteP3, 4) + 1))).toEqual(luP4(3))
+
+			// P4/trop-long — le suffixe MINIMAL (l'objet du pas, seul) au caractère près ; un de plus, refus.
+			const exacteMinimale = saisieExacteP4(dossier, session, exacteP3, 1)
+			const minimal = rendu(aLaSaisie(dossier, session, exacteMinimale))
+			expect(minimal.texte).toHaveLength(BUDGET_CARACTERES_NARRATEUR)
+			expect(lecture(minimal)).toEqual(luP4(1))
+			expect(aLaSaisie(dossier, session, exacteMinimale + 1)).toEqual({ ok: false, motif: 'trop-long' })
+			expect(espionFetch).not.toHaveBeenCalled()
+		} finally {
+			globalThis.fetch = avant
+		}
+	})
+
+	it('I1 / AC#3 — condensation rendue = tranche ENVOYEE : nulle des P2, alors que pasACondenser la dit due', () => {
+		// MUTANT « rendre `pasACondenser(session)` à tout palier » — vérifié ROUGE : un `condense`
+		// écrit sans la tranche serait accepté, et le pointeur avancerait sur dix pas jamais lus.
+		const dossier = referenceDeCascade()
+		const session = partieDeCascade(dossier, 34)
+		expect(pasACondenser(session)).toEqual(TRANCHE_DUE)
+		const [exacteP0, exacteP1, exacteP2, exacteP3] = saisiesExactes(dossier, session)
+
+		// P1 : la tranche PART, et c'est ELLE — les dix pas 11-20, dans l'ordre.
+		const p1 = rendu(aLaSaisie(dossier, session, exacteP0 + 1))
+		expect(p1.condensation).toEqual(TRANCHE_DUE)
+		expect(blocsNarrateur(p1.texte).get('A CONDENSER')).toEqual(
+			Array.from({ length: 10 }, (_, rang) => `Vous veillez ${jetonDuPas(rang + 11)} au foyer.`),
+		)
+		// P2, P3, P4 : le bloc est retiré, et `condensation` le SUIT.
+		for (const saisie of [exacteP1 + 1, exacteP2 + 1, exacteP3 + 1]) {
+			const degrade = rendu(aLaSaisie(dossier, session, saisie))
+			expect(blocsNarrateur(degrade.texte).has('A CONDENSER')).toBe(false)
+			expect(degrade.condensation).toBeNull()
+		}
+	})
+
+	it('I2 — pas 25 : la tranche ne part JAMAIS sans le resume qu elle prolonge, P2 la retire avant que P3 touche AUPARAVANT', () => {
+		// MUTANT « P3 avant P2 » (le deuxième palier retire le résumé et garde la tranche) —
+		// vérifié ROUGE : la tranche serait condensée en ÉCRASANT tout ce qui précède.
+		const dossier = referenceDeCascade()
+		const session = partieDeCascade(dossier, 25)
+		const p0 = rendu(aLaSaisie(dossier, session, 1))
+		// SCÉNARIO SÉPARATEUR, constaté : la fenêtre (21-24) est DÉJÀ au plancher, donc P1 ne
+		// libère rien ; la tranche 11-20 est due ; le résumé existe.
+		expect(lecture(p0)).toEqual({ ...LU_P0, recemment: 4 })
+		const exacteP0 = BUDGET_CARACTERES_NARRATEUR - (p0.texte.length - 1)
+
+		// UN caractère de trop — moins que ce que coûte `AUPARAVANT` : le mutant tiendrait en le retirant.
+		const degrade = rendu(aLaSaisie(dossier, session, exacteP0 + 1))
+
+		expect(lecture(degrade)).toEqual(LU_P2)
+		expect(blocsNarrateur(degrade.texte).get('AUPARAVANT')).toEqual([RESUME_DE_CASCADE])
+	})
+
+	it('I3 — pas 34 : P1 passe AVANT P2, la fenetre se reduit et la tranche part encore', () => {
+		// MUTANT « P2 d'abord » (le premier palier retire la tranche et garde la fenêtre) —
+		// vérifié ROUGE : `condensation` tomberait à `null` pour un débordement d'un caractère.
+		const dossier = referenceDeCascade()
+		const session = partieDeCascade(dossier, 34)
+		const [exacteP0] = saisiesExactes(dossier, session)
+
+		const p1 = rendu(aLaSaisie(dossier, session, exacteP0 + 1))
+
+		expect(lecture(p1)).toEqual(LU_P1)
+		expect(p1.condensation).toEqual(TRANCHE_DUE)
+	})
+
+	it('I4 — P1 garde les FENETRE_MIN - 1 lignes les PLUS RECENTES, pas en console compris ; une fenetre plus courte reste entiere', () => {
+		// MUTANT « garder les plus anciennes » (`slice(0, 4)`) — vérifié ROUGE.
+		expect(FENETRE_MIN - 1).toBe(4)
+		const dossier = referenceDeCascade()
+		const session = partieDeCascade(dossier, 34, { enConsole: [32] })
+		const [exacteP0] = saisiesExactes(dossier, session)
+
+		const p1 = rendu(aLaSaisie(dossier, session, exacteP0 + 1))
+
+		// Le pas 32, joué en console, garde sa place sous le libellé de son geste — jamais un trou.
+		expect(blocsNarrateur(p1.texte).get('RECEMMENT')).toEqual([
+			`Vous veillez ${jetonDuPas(30)} au foyer.`,
+			`Vous veillez ${jetonDuPas(31)} au foyer.`,
+			COMMANDES.agir.label,
+			`Vous veillez ${jetonDuPas(33)} au foyer.`,
+		])
+
+		// Au pas 4, la fenêtre n'a que TROIS lignes : aucun palier n'y touche, même quand la
+		// cascade descend jusqu'à P4.
+		const debut = partieDeCascade(dossier, 4)
+		const socle = rendu(aLaSaisie(dossier, debut, 1)).texte.length - 1
+		const p4 = rendu(aLaSaisie(dossier, debut, BUDGET_CARACTERES_NARRATEUR - socle + 1))
+		expect(lecture(p4)).toEqual({ auparavant: false, aCondenser: 0, recemment: 3, possessions: 4, condensation: null })
+		expect(blocsNarrateur(p4.texte).get('RECEMMENT')).toEqual(
+			[1, 2, 3].map((pas) => `Vous veillez ${jetonDuPas(pas)} au foyer.`),
+		)
+	})
+
+	it('I5 / AC#4 — de ICI A1 a la saisie, l etat et la table d ancres sont IDENTIQUES de P0 a P3, inventaire ENTIER', () => {
+		// MUTANT « plafond appliqué dès P0 » (l'état composé sur un inventaire amputé) — vérifié
+		// ROUGE. L'égalité entre paliers resterait verte sous ce mutant : c'est l'inventaire
+		// ENTIER, asserté ligne à ligne, qui le voit.
+		const dossier = referenceDeCascade()
+		const session = partieDeCascade(dossier, 34)
+		const [exacteP0, exacteP1, exacteP2] = saisiesExactes(dossier, session)
+		const paliers = [1, exacteP0 + 1, exacteP1 + 1, exacteP2 + 1].map((saisie) =>
+			rendu(aLaSaisie(dossier, session, saisie)),
+		)
+		expect(paliers.map(lecture)).toEqual([LU_P0, LU_P1, LU_P2, LU_P3])
+
+		const etat = (texte: string): string =>
+			texte.slice(texte.indexOf('\n\nICI A1\n'), texte.lastIndexOf('\n\nsaisie\n'))
+		const [p0, ...degrades] = paliers
+		expect(etat(p0.texte).startsWith('\n\nICI A1\n')).toBe(true)
+		for (const degrade of degrades) {
+			expect(etat(degrade.texte)).toBe(etat(p0.texte))
+			expect([...degrade.ancres.entries()]).toEqual([...p0.ancres.entries()])
+		}
+		// L'INVENTAIRE ENTIER : les cinq objets rédigés, l'amulette muette tue, la fiole au rang de CE PAS.
+		expect(blocsNarrateur(p0.texte).get('EN SA POSSESSION')).toEqual([
+			`A3 — ${proseDe(dossier, 'objet.sceau-de-cendre')}`,
+			`A4 — ${proseDe(dossier, 'objet.lanterne-de-corvin')}`,
+			`A5 — ${proseDe(dossier, 'objet.galet-de-riviere')}`,
+			`A6 — ${proseDe(dossier, 'objet.corde-de-chanvre')}`,
+			`A2 — ${proseDe(dossier, OBJET_DU_PAS)}`,
+		])
+	})
+
+	it('I7 / I12 / AC#6 — rien n est ecrit ni rendu du palier : session intacte, cles fermees, a chaque palier et au refus', () => {
+		// MUTANTS « un champ `palier` au retour » et « la session annotée en place » — vérifiés ROUGES.
+		// L'EMPREINTE EST PRISE AVANT LE PREMIER ASSEMBLAGE, chaîne des canaris comprise : prise
+		// après, elle contiendrait déjà l'annotation, et l'égalité resterait verte (mesuré).
+		const dossier = referenceDeCascade()
+		const session = partieDeCascade(dossier, 34)
+		const avant = JSON.stringify(session)
+		const [exacteP0, exacteP1, exacteP2, exacteP3] = saisiesExactes(dossier, session)
+
+		const rendus = [1, exacteP0 + 1, exacteP1 + 1, exacteP2 + 1, exacteP3 + 1, BUDGET_CARACTERES_NARRATEUR].map(
+			(saisie) => aLaSaisie(dossier, session, saisie),
+		)
+
+		expect(rendus.map(lecture)).toEqual([LU_P0, LU_P1, LU_P2, LU_P3, luP4(4), { refus: 'trop-long' }])
+		expect(JSON.stringify(session)).toBe(avant)
+		// AUCUN champ de palier, ni rien d'autre : les clés du retour sont celles de l'it3.
+		expect(rendus.map((contexte) => Object.keys(contexte).sort())).toEqual([
+			...Array.from({ length: 5 }, () => ['ancres', 'condensation', 'ok', 'texte']),
+			['motif', 'ok'],
+		])
+		// RECALCULÉE À CHAQUE APPEL : après un P4 et un refus, la même session à saisie courte
+		// rend P0 — aucun palier n'a survécu d'un appel à l'autre.
+		expect(lecture(aLaSaisie(dossier, session, 1))).toEqual(LU_P0)
+		expect(JSON.stringify(session)).toBe(avant)
+	})
+
+	it('I8 — P4 ecarte les objets les PLUS ANCIENS : l objet du pas, dernier acquis, reste toujours', () => {
+		// MUTANT `slice(0, n)` (garder les plus anciens) — vérifié ROUGE : la fiole disparaîtrait.
+		const dossier = referenceDeCascade()
+		const session = partieDeCascade(dossier, 34)
+		const [, , , exacteP3] = saisiesExactes(dossier, session)
+		const montres = (saisie: number): string[] =>
+			(blocsNarrateur(rendu(aLaSaisie(dossier, session, saisie)).texte).get('EN SA POSSESSION') ?? []).map((ligne) =>
+				ligne.replace(/^A\d+ — /, ''),
+			)
+		const proses = (ids: readonly string[]): string[] => ids.map((id) => proseDe(dossier, id))
+
+		expect(montres(exacteP3 + 1)).toEqual(
+			proses(['objet.lanterne-de-corvin', 'objet.galet-de-riviere', 'objet.corde-de-chanvre', OBJET_DU_PAS]),
+		)
+		expect(montres(saisieExacteP4(dossier, session, exacteP3, 4) + 1)).toEqual(
+			proses(['objet.galet-de-riviere', 'objet.corde-de-chanvre', OBJET_DU_PAS]),
+		)
+		expect(montres(saisieExacteP4(dossier, session, exacteP3, 1))).toEqual(proses([OBJET_DU_PAS]))
+	})
+
+	it('I9 / AC#5 — jamais un bloc EN SA POSSESSION absent quand un objet redige est possede : trop-long a la place', () => {
+		// MUTANT « accepter un suffixe vide » (plancher du suffixe à 0) — vérifié ROUGE : le
+		// modèle lirait un héros les mains vides, que le moteur dément.
+		// SCÉNARIO SÉPARATEUR : AUCUN objet donné à ce pas — seule la règle « jamais vide »
+		// impose un objet gardé.
+		const dossier = referenceDeCascade()
+		const session = partieDeCascade(dossier, 34, {
+			inventaire: ['objet.sceau-de-cendre', 'objet.lanterne-de-corvin'],
+			obtenus: [],
+		})
+		const [, , , exacteP3] = saisiesExactes(dossier, session)
+		const exacteUn = saisieExacteP4(dossier, session, exacteP3, 1)
+
+		const un = rendu(aLaSaisie(dossier, session, exacteUn))
+
+		expect(un.texte).toHaveLength(BUDGET_CARACTERES_NARRATEUR)
+		expect(blocsNarrateur(un.texte).get('EN SA POSSESSION')).toEqual([
+			`A2 — ${proseDe(dossier, 'objet.lanterne-de-corvin')}`,
+		])
+		expect(aLaSaisie(dossier, session, exacteUn + 1)).toEqual({ ok: false, motif: 'trop-long' })
+	})
+
+	it('P4 degenere : un seul objet possede, celui du pas, ou aucun — rien a couper, trop-long juste apres P3', () => {
+		const dossier = referenceDeCascade()
+		for (const inventaire of [[OBJET_DU_PAS], []]) {
+			const session = partieDeCascade(dossier, 34, { inventaire, obtenus: inventaire })
+			const [, , , exacteP3] = saisiesExactes(dossier, session)
+
+			const p3 = rendu(aLaSaisie(dossier, session, exacteP3))
+
+			expect(p3.texte).toHaveLength(BUDGET_CARACTERES_NARRATEUR)
+			// Un bloc ABSENT est légitime quand rien n'est possédé : zéro objet ne force aucun refus.
+			expect(lecture(p3)).toEqual(luP4(inventaire.length))
+			expect(aLaSaisie(dossier, session, exacteP3 + 1)).toEqual({ ok: false, motif: 'trop-long' })
+		}
+	})
+
+	it('I10 — a P4, l objet du pas garde le MEME rang dans CE PAS et EN SA POSSESSION, et un objet ecarte n a AUCUN rang', () => {
+		// Extension de « UN rang par identifiant » (plus haut) au palier P4. MUTANT « ancrer tout
+		// l'inventaire avant de le couper » — vérifié ROUGE : on n'ancre pas ce qu'on ne montre pas.
+		const dossier = referenceDeCascade()
+		const session = partieDeCascade(dossier, 34)
+		const [, , , exacteP3] = saisiesExactes(dossier, session)
+		const fiole = proseDe(dossier, OBJET_DU_PAS)
+		const cas = [
+			{
+				gardes: 4,
+				possessions: [
+					`A3 — ${proseDe(dossier, 'objet.lanterne-de-corvin')}`,
+					`A4 — ${proseDe(dossier, 'objet.galet-de-riviere')}`,
+					`A5 — ${proseDe(dossier, 'objet.corde-de-chanvre')}`,
+					`A2 — ${fiole}`,
+				],
+				ancres: [
+					['A1', 'lieu.foyer-du-guet'],
+					['A2', OBJET_DU_PAS],
+					['A3', 'objet.lanterne-de-corvin'],
+					['A4', 'objet.galet-de-riviere'],
+					['A5', 'objet.corde-de-chanvre'],
+				],
+			},
+			{
+				gardes: 1,
+				possessions: [`A2 — ${fiole}`],
+				ancres: [
+					['A1', 'lieu.foyer-du-guet'],
+					['A2', OBJET_DU_PAS],
+				],
+			},
+		]
+
+		for (const { gardes, possessions, ancres } of cas) {
+			const p4 = rendu(aLaSaisie(dossier, session, saisieExacteP4(dossier, session, exacteP3, gardes)))
+			const blocs = blocsNarrateur(p4.texte)
+			expect(blocs.get('CE PAS')).toEqual([COMMANDES.agir.label, `obtient A2 — ${fiole}`])
+			expect(blocs.get('EN SA POSSESSION')).toEqual(possessions)
+			expect([...p4.ancres.entries()]).toEqual(ancres)
+		}
+	})
+
+	it('I10 / AC#5 — DEUX objets obtenus au meme pas : le suffixe minimal les garde TOUS LES DEUX, jamais un seul', () => {
+		// MUTANT « suffixe minimal à un objet, quoi que CE PAS désigne » — vérifié ROUGE. Avec un
+		// seul objet obtenu, il est à la fois le dernier et le seul désigné : ce mutant resterait
+		// vert, c'est pourquoi le scénario en donne DEUX.
+		const dossier = referenceDeCascade()
+		const session = partieDeCascade(dossier, 34, { obtenus: ['objet.corde-de-chanvre', OBJET_DU_PAS] })
+		const [, , , exacteP3] = saisiesExactes(dossier, session)
+		const corde = proseDe(dossier, 'objet.corde-de-chanvre')
+		const fiole = proseDe(dossier, OBJET_DU_PAS)
+		const exacteDeux = saisieExacteP4(dossier, session, exacteP3, 2)
+
+		const deux = rendu(aLaSaisie(dossier, session, exacteDeux))
+
+		expect(deux.texte).toHaveLength(BUDGET_CARACTERES_NARRATEUR)
+		expect(blocsNarrateur(deux.texte).get('CE PAS')).toEqual([
+			COMMANDES.agir.label,
+			`obtient A2 — ${corde}`,
+			`obtient A3 — ${fiole}`,
+		])
+		expect(blocsNarrateur(deux.texte).get('EN SA POSSESSION')).toEqual([`A2 — ${corde}`, `A3 — ${fiole}`])
+		// Un caractère de plus : garder la fiole SEULE tiendrait, mais la corde que CE PAS vient
+		// de raconter manquerait à ce qu'il a sur lui — une absence que le moteur dément. Refus.
+		expect(aLaSaisie(dossier, session, exacteDeux + 1)).toEqual({ ok: false, motif: 'trop-long' })
+	})
+
+	it('AC#8 — ETABLI reste faitsPertinents ENTIER a tous les paliers, meme le fait d un objet que P4 ecarte ; aucun en-tete neuf', () => {
+		// MUTANT « ETABLI retiré au dernier palier » — vérifié ROUGE.
+		const dossier = referenceDeCascade()
+		const session = partieDeCascade(dossier, 34)
+		const [exacteP0, exacteP1, exacteP2, exacteP3] = saisiesExactes(dossier, session)
+		// Discriminant : le fait du SCEAU est pertinent, et le sceau est le premier que P4 écarte.
+		expect(faitsPertinents(session)).toEqual([FAIT_DU_FOYER, FAIT_DU_SCEAU])
+		const enTetesPermis = new Set<string>([
+			...CHAMPS_INJECTES_NARRATEUR.filter((chemin) => chemin.startsWith('canon.')),
+			...EN_TETES_NARRATEUR,
+		])
+
+		const saisies = [
+			1,
+			exacteP0 + 1,
+			exacteP1 + 1,
+			exacteP2 + 1,
+			exacteP3 + 1,
+			saisieExacteP4(dossier, session, exacteP3, 1),
+		]
+		for (const saisie of saisies) {
+			const blocs = blocsNarrateur(rendu(aLaSaisie(dossier, session, saisie)).texte)
+			expect(blocs.get('ETABLI')).toEqual([FAIT_DU_FOYER.fait, FAIT_DU_SCEAU.fait])
+			// KR-273 : aucun indicateur de palier n'est envoyé — pas un en-tête de plus.
+			expect([...blocs.keys()].filter((enTete) => !enTetesPermis.has(enTete))).toEqual([])
+		}
+		const minimal = rendu(aLaSaisie(dossier, session, saisieExacteP4(dossier, session, exacteP3, 1))).texte
+		expect(minimal).not.toContain(proseDe(dossier, 'objet.sceau-de-cendre'))
+		expect(minimal).toContain(FAIT_DU_SCEAU.fait)
+	})
+
+	it('la place que libere chaque palier, MESUREE sur la memoire saturee du pire cas : P1, P2, P3, puis le plancher', () => {
+		// REMESURÉ, jamais recopié du comité : l'écart de deux saisies exactes EST la place que
+		// libère le palier, et chaque terme se dérive des bornes des validateurs.
+		const { dossier, cible } = pireCasNarrateur(34)
+		const sature = avecMemoireSaturee(cible.session)
+		const [exacteP0, exacteP1, exacteP2, exacteP3] = saisiesExactes(dossier, sature)
+		const ligneDePas = 1 + NARRATION_CARACTERES_MAX
+
+		expect(exacteP1 - exacteP0).toBe((13 - 4) * ligneDePas)
+		expect(exacteP2 - exacteP1).toBe(2 + 'A CONDENSER'.length + CADENCE * ligneDePas)
+		expect(exacteP3 - exacteP2).toBe(2 + 'AUPARAVANT'.length + 1 + CONDENSE_CARACTERES_MAX)
+		expect([exacteP1 - exacteP0, exacteP2 - exacteP1, exacteP3 - exacteP2]).toEqual([7209, 8023, 1213])
+
+		// LE PLANCHER : ce qui reste de la mémoire à P3 — la fenêtre au plancher et les huit faits
+		// —, contre le MÊME pire cas SANS mémoire.
+		const socleSansMemoire = rendu(aLaSaisie(dossier, cible.session, 1)).texte.length - 1
+		const plancher = BUDGET_CARACTERES_NARRATEUR - exacteP3 - socleSansMemoire
+		expect(plancher).toBe(
+			2 + 'RECEMMENT'.length + 4 * ligneDePas + (2 + 'ETABLI'.length + FAITS_INJECTES_MAX * (1 + FAIT_CARACTERES_MAX)),
+		)
+		expect(plancher).toBe(4511)
 	})
 })

@@ -133,8 +133,10 @@ const BUDGETS: Record<string, number> = BUDGET_CARACTERES_CONTEXTE
  * `TAILLE_MAX_CORPS_IA` couvre le narrateur le jour où il deviendrait le plus large.
  *
  * ⚠ `interprete` N'Y EST PAS, et c'est un CONSTAT : il n'a AUCUN budget client (seule
- * sa SAISIE est bornée), donc aucun pire cas à convertir. Fermeture nommée : la
- * constante unique de KR-261, it4 (docstring de `TAILLE_MAX_CORPS_IA`).
+ * sa SAISIE est bornée), donc aucun pire cas à convertir. Dette OUVERTE, pas fermée
+ * par it4 (R1 n'y a eu aucun consommateur de budget, raffinage it4 § 8 désaccord 4) —
+ * réassignée à la première itération qui touchera réellement R1 (docstring de
+ * `TAILLE_MAX_CORPS_IA`).
  */
 const ROLES_PLAFONNES: readonly string[] = [...ROLES_AUTEUR, 'narrateur']
 const BUDGETS_PLAFONNES: Record<string, number> = { ...BUDGETS, narrateur: BUDGET_CARACTERES_NARRATEUR }
