@@ -1,0 +1,9 @@
+RISQUE — Inchangé pour le fond (CarteJet binaire) ; levé pour la forme (plus d'ambiguïté de périmètre). Risque résiduel déplacé : c'est maintenant purement lexical — si « reussit » bare est retenu pour la classe médiane (option narratif-ia), un futur ouvrier pourrait croire ce littéral inchangé « sûr à ne pas retester », alors que son rôle sémantique change (il devient une branche d'un ensemble à 3, pas 2).
+
+OBJECTION — Point 1 (fichiers) : la liste du lot A (xp.ts, xp.test.ts, arbitre.ts, arbitre.test.ts, session.ts, session.test.ts, narrateur.ts, contexte.test.ts, brain/index.ts) et du lot B (useTourDeJeu.ts, useTourDeJeu.test.ts) ne contient aucun `.tsx` — confirmé en relisant les deux tableaux. Ma réserve de tour 1 exigeait une phrase *explicite*, pas seulement une absence : elle est satisfaite par la note tech-lead elle-même, ligne 46 : « Aucun autre fichier ne bouge : BandeauHeros.tsx affiche déjà XP n dérivé de session.heros.xp […] CarteJet.tsx reste binaire (Badge tone good/bad sur resultat.success) : seule l'amorce envoyée à R3 devient ternaire, jamais l'affichage des dés. » C'est la phrase que je demandais. **Réserve RETIRÉE** (motif : le découpage ET sa justification écrite couvrent exactement « aucune modification »).
+
+Point 2 (mot exact) : hors de mon domaine pour le choix du radical lexical (synonyme fictionnel, affaire de registre narratif, pas d'interface statique — les deux proses verbatim du cadre sont `texte_ouverture_joueur`/`fins[].texte`, celle-ci n'en fait pas partie). Dans mon domaine en revanche : la forme grammaticale (3e personne, infinitif, présent, jamais « vous », jamais de chiffre) — les DEUX propositions (tech-lead : deux mots neufs ; narratif-ia : un mot gardé + un ajouté) la respectent. Aucun veto, aucune préférence à trancher par moi.
+
+PROPOSITION — Aucune nouvelle.
+
+VERDICT — recevable.

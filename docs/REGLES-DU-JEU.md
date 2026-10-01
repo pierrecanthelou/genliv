@@ -194,6 +194,8 @@ Seuil de PV à partir duquel le monstre **peut vouloir rompre le combat**, et je
 **Tiers de personnage** (calculés sur une caractéristique ou la MC) :
 T1 = valeur 1–3 · T2 = 4–6 · T3 = 7–9 · T4 = 10–12.
 
+Hors combat, `Tier_personnage` se lit sur la caractéristique **testée** par le jet, jamais la MC — réservée aux jets de fuite / combat (n°13).
+
 ### Gagner de l'XP — formule du Delta (ΔT)
 `ΔT = Tier_challenge_ou_monstre − Tier_personnage`
 

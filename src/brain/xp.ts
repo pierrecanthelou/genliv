@@ -21,6 +21,17 @@ export function tierOf(value: number): Tier {
 
 export type DeltaBand = 'insignifiant' | 'facile' | 'equilibre' | 'depassement'
 
+/**
+ * SEUIL DE MARGE FRANCHE (§ 5) — sourcé `docs/REGLES-DU-JEU.md` § 5, ligne ~204
+ * (« +1 si marge ≥ 3 »). UNE SEULE ADRESSE pour DEUX consommateurs qui ne doivent
+ * jamais diverger (n° 11 `moteur-arbitre`, lot `contrat`, it3, KR-261) :
+ *  · `challengeXp` — le bonus de +1 XP à la bande équilibrée ;
+ *  · `classifierIssue`/`xpDuJet` (`brain/dossier/arbitre.ts`) — la frontière entre
+ *    `'reussit'` et `'reussit_nettement'`.
+ * Un second seuil écrit à côté serait exactement la divergence que KR-261 ferme.
+ */
+export const MARGE_FRANCHE = 3
+
 /** Classify ΔT = Tier_challenge/monstre − Tier_perso into its band (§ 5). */
 export function deltaBand(deltaT: number): DeltaBand {
 	if (deltaT <= -2) return 'insignifiant'
@@ -45,7 +56,7 @@ export function challengeXp(opts: {
 		case 'facile':
 			return opts.success ? 1 : 0
 		case 'equilibre':
-			return opts.success ? opts.baseXp + (opts.margin >= 3 ? 1 : 0) : 0
+			return opts.success ? opts.baseXp + (opts.margin >= MARGE_FRANCHE ? 1 : 0) : 0
 		case 'depassement':
 			return opts.success ? opts.baseXp * 2 : 0
 	}

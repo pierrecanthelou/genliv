@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { classifierIssue, doitArbitrer, issueDuJet } from './arbitre'
+import { classifierIssue, doitArbitrer, issueDuJet, xpDuJet } from './arbitre'
 import {
 	analyserSaisie,
 	executerCommande,
@@ -11,6 +11,8 @@ import {
 import { consignerJet, fixerHeros, ouvrirSession, type EtatSession } from './session'
 import type { Dossier } from './types'
 import type { HeroState } from '../../player/types'
+import { MARGE_FRANCHE, tierOf, challengeXp } from '../xp'
+import { CHALLENGE_TIERS, challengeTierValue } from '../challenge'
 
 /**
  * LE ROUTAGE ET LA RÉSOLUTION DU NEUVIÈME RÔLE (n° 11 `moteur-arbitre`, lot
@@ -98,13 +100,35 @@ describe('doitArbitrer — le routage de R2 (KR-262/244 etendus)', () => {
 	})
 })
 
-describe('classifierIssue — classification qualitative, le CODE jamais le modele', () => {
-	it('success true -> reussit', () => {
-		expect(classifierIssue({ roll: 4, success: true, margin: 3 })).toBe('reussit')
+describe('classifierIssue — classification qualitative, le CODE jamais le modele (3 etats depuis it3)', () => {
+	it('success true, marge sous MARGE_FRANCHE -> reussit (comportement inchange depuis it2)', () => {
+		expect(classifierIssue({ roll: 4, success: true, margin: MARGE_FRANCHE - 1 })).toBe('reussit')
 	})
 
-	it('success false -> echoue', () => {
+	it('success false -> echoue, quelle que soit la marge', () => {
 		expect(classifierIssue({ roll: 11, success: false, margin: -2 })).toBe('echoue')
+	})
+
+	it('classifierIssue : marge >= MARGE_FRANCHE rend reussit_nettement', () => {
+		// Frontiere exacte, des deux cotes.
+		expect(classifierIssue({ roll: 1, success: true, margin: MARGE_FRANCHE - 1 })).toBe('reussit')
+		expect(classifierIssue({ roll: 1, success: true, margin: MARGE_FRANCHE })).toBe('reussit_nettement')
+	})
+
+	it('KR-261 : seuil unique, un MARGE_FRANCHE mocke a 5 deplace la frontiere des deux cotes', async () => {
+		// Si classifierIssue dupliquait son propre seuil au lieu de lire
+		// brain/xp.ts, ce mock resterait sans effet et le test rougirait. Portee au
+		// SEUL test : resetModules + doMock isolent cette instance fraiche
+		// d arbitre.ts des bindings statiques deja resolus par les autres tests.
+		jest.resetModules()
+		jest.doMock('../xp', () => ({ ...jest.requireActual('../xp'), MARGE_FRANCHE: 5 }))
+		const { classifierIssue: classifierIssueMocke } = await import('./arbitre')
+
+		expect(classifierIssueMocke({ roll: 1, success: true, margin: 4 })).toBe('reussit')
+		expect(classifierIssueMocke({ roll: 1, success: true, margin: 5 })).toBe('reussit_nettement')
+
+		jest.dontMock('../xp')
+		jest.resetModules()
 	})
 })
 
@@ -155,6 +179,87 @@ describe('issueDuJet — SEULE appelante de resolveChallenge, determinisme (crit
 		expect(issueFO?.roll).toBe(issueCA?.roll) // meme graine, meme tour, meme TC : meme tirage
 		expect(issueFO?.success).toBe(issueFO !== undefined && issueFO.roll <= hero.caracs.FO)
 		expect(issueCA?.success).toBe(issueCA !== undefined && issueCA.roll <= hero.caracs.CA)
+	})
+})
+
+describe('xpDuJet — XP gagnee par le jet (it3) : meme selection, meme garde undefined que issueDuJet', () => {
+	it('aucune entree jet pour ce tour : undefined, comme issueDuJet', () => {
+		const dossier = lire(CHEMIN_REFERENCE)
+		const avecHeros = fixerHeros(ouverture(dossier), heroDeTest())
+		const apresAgir = sessionDe(executer(dossier, avecHeros, 'AGIR'))
+
+		expect(xpDuJet(apresAgir, apresAgir.horloge.tour)).toBeUndefined()
+	})
+
+	it('sans heros : undefined, meme avec un jet consigne', () => {
+		const dossier = lire(CHEMIN_REFERENCE)
+		const sansHeros = ouverture(dossier)
+		const apresAgir = sessionDe(executer(dossier, sansHeros, 'AGIR'))
+		const avecJet = consignerJet(apresAgir, apresAgir.horloge.tour, { carac: 'FO', tc: 'TC2' })
+
+		expect(xpDuJet(avecJet, avecJet.horloge.tour)).toBeUndefined()
+	})
+
+	it('0 est une valeur legale, jamais undefined : bande insignifiante (FO au plafond contre TC1)', () => {
+		const dossier = lire(CHEMIN_REFERENCE)
+		const hero = { ...heroDeTest(), caracs: { ...heroDeTest().caracs, FO: 12 } }
+		const avecHeros = fixerHeros(ouverture(dossier), hero)
+		const apresAgir = sessionDe(executer(dossier, avecHeros, 'AGIR'))
+		const avecJet = consignerJet(apresAgir, apresAgir.horloge.tour, { carac: 'FO', tc: 'TC1' })
+
+		// heroTier(FO=12)=T4, challengeTier(TC1)=1 : delta = 1-4 = -3 -> insignifiant,
+		// TOUJOURS 0 (§ 5). Le succes est de surcroit GARANTI (1D6 <= 12), ce qui
+		// distingue « 0 parce que la bande n accorde rien » de « 0 parce que l echec ».
+		expect(issueDuJet(avecJet, avecJet.horloge.tour)?.success).toBe(true)
+		expect(xpDuJet(avecJet, avecJet.horloge.tour)).toBe(0)
+	})
+
+	it('credite 1 XP, exact : bande facile, succes garanti (FO au plafond contre TC3)', () => {
+		const dossier = lire(CHEMIN_REFERENCE)
+		const hero = { ...heroDeTest(), caracs: { ...heroDeTest().caracs, FO: 12 } }
+		const avecHeros = fixerHeros(ouverture(dossier), hero)
+		const apresAgir = sessionDe(executer(dossier, avecHeros, 'AGIR'))
+		const avecJet = consignerJet(apresAgir, apresAgir.horloge.tour, { carac: 'FO', tc: 'TC3' })
+
+		// heroTier(FO=12)=T4, challengeTier(TC3)=3 : delta = 3-4 = -1 -> facile, et le
+		// succes est GARANTI (3D4 va de 3 a 12, toujours <= 12) : XP = 1, exact (§ 5).
+		expect(issueDuJet(avecJet, avecJet.horloge.tour)?.success).toBe(true)
+		expect(xpDuJet(avecJet, avecJet.horloge.tour)).toBe(1)
+	})
+
+	it('heroTier se lit sur la caracteristique TESTEE par le jet, jamais une autre (KR-130)', () => {
+		const dossier = lire(CHEMIN_REFERENCE)
+		const hero = heroDeTest() // FO=7 (tier T3), CA=3 (tier T1)
+		const avecHeros = fixerHeros(ouverture(dossier), hero)
+		const apresAgir = sessionDe(executer(dossier, avecHeros, 'AGIR'))
+		const avecJetFO = consignerJet(apresAgir, apresAgir.horloge.tour, { carac: 'FO', tc: 'TC1' })
+		const avecJetCA = consignerJet(apresAgir, apresAgir.horloge.tour, { carac: 'CA', tc: 'TC1' })
+
+		const resultatFO = issueDuJet(avecJetFO, avecJetFO.horloge.tour)
+		const resultatCA = issueDuJet(avecJetCA, avecJetCA.horloge.tour)
+		if (resultatFO === undefined || resultatCA === undefined) throw new Error('resultat attendu, le jet est consigne')
+
+		// Une resolution qui lirait toujours la MEME caracteristique donnerait le
+		// meme xp pour les deux sessions : chaque attendu est recalcule avec le
+		// TIER DE LA CARACTERISTIQUE CHOISIE PAR LE JET, pas une autre.
+		expect(xpDuJet(avecJetFO, avecJetFO.horloge.tour)).toBe(
+			challengeXp({
+				challengeTier: challengeTierValue('TC1'),
+				heroTier: tierOf(hero.caracs.FO),
+				success: resultatFO.success,
+				baseXp: CHALLENGE_TIERS.TC1.baseXp,
+				margin: resultatFO.margin,
+			}),
+		)
+		expect(xpDuJet(avecJetCA, avecJetCA.horloge.tour)).toBe(
+			challengeXp({
+				challengeTier: challengeTierValue('TC1'),
+				heroTier: tierOf(hero.caracs.CA),
+				success: resultatCA.success,
+				baseXp: CHALLENGE_TIERS.TC1.baseXp,
+				margin: resultatCA.margin,
+			}),
+		)
 	})
 })
 

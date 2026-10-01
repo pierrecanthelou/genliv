@@ -144,8 +144,10 @@ export interface EntreeJournal {
 	 * + le verrou de tour, lot `feature`).
 	 *
 	 * ÉCRIT par `consignerJet`, SEULE porte ; LU par `issueDuJet`, SEULE appelante
-	 * de `resolveChallenge` dans tout le dépôt (§ 8 #5 du plan it2) — lue par la
-	 * carte, l'assembleur du narrateur et (it3) le calcul d'XP.
+	 * de `resolveChallenge` dans `brain/` et `features/**` (§ 8 #5 du plan it2 ;
+	 * reformulé lot `contrat` it3, § 8 #9 — orphelins gelés de `src/player/engine/`
+	 * exclus, KR-240) — lue par la carte, l'assembleur du narrateur et (it3)
+	 * `xpDuJet`.
 	 *
 	 * AUDIENCE `'moteur'` (`sessionDestinations.ts`), SANS EXCEPTION : `carac`/`tc`
 	 * ne sont pas des identifiants du dossier mais des clés des deux registres
@@ -548,4 +550,21 @@ export function consignerJet(
 			entree.tour === tour && entree.role === 'moteur' && entree.origine !== undefined ? { ...entree, jet } : entree,
 		),
 	}
+}
+
+/**
+ * CRÉDITER L'XP GAGNÉE — PURE, et SEULE PORTE d'écriture de `HeroState.xp`
+ * dans toute la feature (n° 11 `moteur-arbitre`, lot `contrat`, it3).
+ * Précédent exact `fixerHeros`/`consignerJet` : NE TOUCHE QUE LA FEUILLE
+ * `heros.xp`, le reste de `heros` et de la session rendus À L'IDENTIQUE —
+ * jamais une recopie champ par champ qui divergerait en silence du contrat.
+ *
+ * NO-OP, SESSION RENDUE INCHANGÉE (même référence), dans deux cas :
+ *  · `session.heros === undefined` — rien à créditer, aucun héros ;
+ *  · `xp <= 0` — aucun gain à écrire (`0` et un montant négatif ne sont jamais
+ *    soustraits ici ; la dépense d'XP, § 2 du plan it3, est hors périmètre).
+ */
+export function crediterXp(session: EtatSession, xp: number): EtatSession {
+	if (session.heros === undefined || xp <= 0) return session
+	return { ...session, heros: { ...session.heros, xp: session.heros.xp + xp } }
 }

@@ -913,6 +913,19 @@ export const INVITES: Record<string, { systeme: string; max_tokens: number }> = 
  * multiple de 1024 qu'avant (81,90 Kio arrondis à 82) — la hausse de 90 caractères ne
  * franchit pas de palier. Le budget client de l'arbitre (2745) reste bien trop étroit pour
  * menacer ce porteur, même avec son invite propre.
+ *
+ * MESURE DU 2026-10-01, n° 11 `moteur-arbitre` it3 — `AMORCE_ISSUE` (`contexte/narrateur.ts`)
+ * GAGNE UN TROISIÈME MOT (`'reussit_nettement'` → `'réussit nettement'`), ET `BORNE_JET` EN
+ * DÉPEND ENTIÈREMENT :
+ *   `narrateur` — `BORNE_JET` RECALCULÉE, `'réussit nettement'` (17 caractères) devenant le
+ *      mot le plus long d'`AMORCE_ISSUE` (`max('réussit nettement','réussit','échoue'.length)
+ *      + ' — '.length + ENJEU_CARACTERES_MAX` = 17 + 3 + 80 = 100, contre 90 avant ce lot) ;
+ *      `BUDGET_CARACTERES_NARRATEUR` passe de 27 046 à 27 056. E (squelette + invite) reste
+ *      INCHANGÉ à 2743 : `AMORCE_ISSUE` est un terme de CONTENU injecté, jamais cité par
+ *      l'invite du worker elle-même (KR-273).
+ * `max` sur les HUIT rôles À BUDGET RESTE 83 968, RE-CALCULÉ, jamais supposé inchangé :
+ * ceil((3 × 27 056 + 2743) / 1024) × 1024 = 83 968, LE MÊME multiple de 1024 qu'avant
+ * (81,93 Kio arrondis à 82) — la hausse de 10 caractères ne franchit pas de palier.
  */
 export const TAILLE_MAX_CORPS_IA = 83_968
 

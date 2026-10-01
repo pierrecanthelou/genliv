@@ -1,9 +1,11 @@
 import { act, renderHook } from '@testing-library/react'
+import type { HeroState } from '../../../player/types'
+import { useTourDeJeu } from './useTourDeJeu'
+
+// Les imports du brain se feront APRÈS le jest.mock()
 import type { Dossier, EtatSession, SortieInterprete, SortieNarrateur, ReponseNarrateur } from '../../../brain'
 import { apresInterpretation } from '../../../brain'
 import { COMMANDES } from '../../../brain/dossier/commandes'
-import type { HeroState } from '../../../player/types'
-import { useTourDeJeu } from './useTourDeJeu'
 
 /**
  * TESTS DU HOOK `useTourDeJeu` — orchestrateur du tour de jeu.
@@ -110,14 +112,34 @@ const DOSSIER_TEST: Dossier = {
 
 const demanderMock = jest.fn()
 
-jest.mock('../../../brain', () => ({
-	...jest.requireActual('../../../brain'),
-	useBrain: () => ({
-		copilote: {
-			demander: demanderMock,
-		},
-	}),
-}))
+function crediterXpImplementation(session: EtatSession, xp: number): EtatSession {
+	if (!session.heros || xp <= 0) return session
+	return { ...session, heros: { ...session.heros, xp: (session.heros?.xp ?? 0) + xp } }
+}
+
+jest.mock('../../../brain', () => {
+	const actualBrain = jest.requireActual('../../../brain')
+	return {
+		...actualBrain,
+		useBrain: () => ({
+			copilote: {
+				demander: demanderMock,
+			},
+		}),
+		xpDuJet: jest.fn(),
+		crediterXp: jest.fn(crediterXpImplementation),
+	}
+})
+
+// Récupérer les mocks après le jest.mock()
+import { xpDuJet as xpDuJetImported, crediterXp as crediterXpImported } from '../../../brain'
+const xpDuJetMock = xpDuJetImported as jest.Mock
+const crediterXpMock = crediterXpImported as jest.Mock
+
+// Helper pour configurer le mock xpDuJet
+function setXpDuJetMockReturnValue(value: number | undefined) {
+	xpDuJetMock.mockReturnValue(value)
+}
 
 // ── HELPER ──
 
@@ -130,6 +152,10 @@ function monter(sessionInitiale = SESSION_TEST, onSessionChange = jest.fn()) {
 describe('useTourDeJeu — hook orchestrateur', () => {
 	beforeEach(() => {
 		jest.clearAllMocks()
+		// Réinitialiser l'implémentation de crediterXpMock après clearAllMocks
+		crediterXpMock.mockImplementation(crediterXpImplementation)
+		// Initialiser xpDuJet à undefined par défaut
+		setXpDuJetMockReturnValue(undefined)
 	})
 
 	it('KR-265 — deux appels rapides → un seul appel copilote (verrou de tour)', async () => {
@@ -303,7 +329,9 @@ describe('useTourDeJeu — hook orchestrateur', () => {
 
 	describe('Orchestration R3 (narrateur) — lot 2 it2', () => {
 		beforeEach(() => {
-			jest.resetAllMocks()
+			jest.clearAllMocks()
+			// Réinitialiser le mock xpDuJet à undefined (mais garder son implémentation)
+			setXpDuJetMockReturnValue(undefined)
 		})
 
 		it('Lot 2 — R3 appelé après persistance (2ᵉ appel demander après onSessionChange)', async () => {
@@ -792,6 +820,134 @@ describe('useTourDeJeu — hook orchestrateur', () => {
 				(appel[0] as EtatSession).journal.some((e) => e.jet !== undefined),
 			)?.[0] as EtatSession | undefined
 			expect(sessionAvecJet?.journal.filter((e) => e.jet !== undefined)).toHaveLength(1)
+		})
+
+		it("Lot 3 — lancerLeDe crédite heros.xp avant l'appel à R3", async () => {
+			// Scénario : agir+héros → R2 (épreuve) → lancerLeDe crédite XP avant R3
+			const propositionAgir = {
+				lecture: 'commande' as const,
+				commande: { commande: 'agir' as const, cibles: [] as string[] },
+			}
+
+			demanderMock
+				.mockResolvedValueOnce({ statut: 'propose', proposition: propositionAgir })
+				.mockResolvedValueOnce({
+					statut: 'propose',
+					proposition: {
+						epreuve: { carac: 'FO', tc: 'TC2', enjeu_reussite: 'franchir', enjeu_echec: 'tomber' },
+					},
+				})
+				.mockResolvedValueOnce({
+					statut: 'propose',
+					proposition: { recit: 'Vous agissez.', suggestions: [], faits_etablis: [] } satisfies SortieNarrateur,
+				})
+
+			const onSessionChange = jest.fn()
+			const { result } = monter(SESSION_AVEC_HEROS, onSessionChange)
+
+			await act(async () => {
+				await result.current.executeAction('agir')
+			})
+
+			// FORCER crédit XP > 0
+			setXpDuJetMockReturnValue(5)
+
+			await act(async () => {
+				await result.current.lancerLeDe()
+			})
+
+			// Vérifier qu'il y a 3 appels : R1 + crédit/jet + R3
+			expect(onSessionChange).toHaveBeenCalledTimes(3)
+
+			// Le 2e appel DOIT avoir exactement 5 XP de crédit
+			const sessionAvecXp = onSessionChange.mock.calls[1][0] as EtatSession
+			expect(sessionAvecXp.heros?.xp).toBe(HEROS_TEST.xp + 5)
+
+			// Vérifier l'ordre : la 2e persistance (crédit) doit PRÉCÉDER R3 (3e appel demander, après R1 et R2)
+			const orderCredit = onSessionChange.mock.invocationCallOrder[1]
+			const orderR3 = demanderMock.mock.invocationCallOrder[2] // R3 est après R1 (idx 0) et R2 (idx 1)
+			expect(orderCredit).toBeLessThan(orderR3)
+		})
+
+		it('Lot 3 — lancerLeDe : R3 dégradé, heros.xp crédité persiste', async () => {
+			// Scénario : R3 échoue mais l'XP reste crédité
+			const propositionAgir = {
+				lecture: 'commande' as const,
+				commande: { commande: 'agir' as const, cibles: [] as string[] },
+			}
+
+			demanderMock
+				.mockResolvedValueOnce({ statut: 'propose', proposition: propositionAgir })
+				.mockResolvedValueOnce({
+					statut: 'propose',
+					proposition: { epreuve: { carac: 'AG', tc: 'TC1', enjeu_reussite: 'avancer', enjeu_echec: 'reculer' } },
+				})
+				.mockResolvedValueOnce({ statut: 'indisponible', raison: 'non-configure' }) // R3 dégradé
+
+			const onSessionChange = jest.fn()
+			const { result } = monter(SESSION_AVEC_HEROS, onSessionChange)
+
+			await act(async () => {
+				await result.current.executeAction('agir')
+			})
+
+			// FORCER crédit XP > 0 (pour prouver que le crédit persiste même si R3 échoue)
+			setXpDuJetMockReturnValue(3)
+
+			await act(async () => {
+				await result.current.lancerLeDe()
+			})
+
+			// Vérifier 2 appels : R1 + crédit/jet (pas de 3e pour R3 échoué)
+			expect(onSessionChange).toHaveBeenCalledTimes(2)
+
+			// Le 2e appel DOIT avoir exactement 3 XP de crédit (même si R3 échoue après)
+			const sessionAvecXp = onSessionChange.mock.calls[1][0] as EtatSession
+			expect(sessionAvecXp.heros?.xp).toBe(HEROS_TEST.xp + 3)
+
+			// issueNarrateur affiche dégradation
+			expect(result.current.issueNarrateur?.statut).toBe('degrade')
+		})
+
+		it('Lot 3 — lancerLeDe : XP crédité, seule feuille modifiée (pv/pe inchangés)', async () => {
+			// Vérifie que seul heros.xp change, pas pv/pe
+			const propositionAgir = {
+				lecture: 'commande' as const,
+				commande: { commande: 'agir' as const, cibles: [] as string[] },
+			}
+
+			demanderMock
+				.mockResolvedValueOnce({ statut: 'propose', proposition: propositionAgir })
+				.mockResolvedValueOnce({
+					statut: 'propose',
+					proposition: { epreuve: { carac: 'IN', tc: 'TC1', enjeu_reussite: 'réussir', enjeu_echec: 'échouer' } },
+				})
+				.mockResolvedValueOnce({
+					statut: 'propose',
+					proposition: { recit: 'Fin.', suggestions: [], faits_etablis: [] } satisfies SortieNarrateur,
+				})
+
+			const onSessionChange = jest.fn()
+			const { result } = monter(SESSION_AVEC_HEROS, onSessionChange)
+
+			await act(async () => {
+				await result.current.executeAction('agir')
+			})
+
+			// FORCER crédit XP > 0 — sinon ce test n'exerce jamais crediterXp et son
+			// titre ("XP crédité") sur-promettrait par rapport à ce qu'il vérifie
+			// réellement (trouvaille tech-lead, re-revue PR du lot 3).
+			setXpDuJetMockReturnValue(7)
+
+			await act(async () => {
+				await result.current.lancerLeDe()
+			})
+
+			// Le 2e appel : vérifier modifications
+			const sessionModifiee = onSessionChange.mock.calls[1][0] as EtatSession
+			expect(sessionModifiee.heros?.pv).toBe(HEROS_TEST.pv) // inchangé
+			expect(sessionModifiee.heros?.pe).toBe(HEROS_TEST.pe) // inchangé
+			expect(sessionModifiee.heros?.xp).toBe(HEROS_TEST.xp + 7) // seule feuille modifiée, crédit réel
 		})
 	})
 })

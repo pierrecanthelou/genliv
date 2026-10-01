@@ -561,7 +561,10 @@ export { pastilleNiveau, badgeSection } from './dossier/pastilles'
 // `consignerJet` SORT AVEC EUX (n° 11 `moteur-arbitre`, lot `contrat`, it2) :
 // seule porte d'écriture de `EntreeJournal.jet`, que `useTourDeJeu` (lot feature)
 // appelle à la résolution.
-export { SCHEMA_SESSION, consignerJet, fixerHeros, ouvrirSession } from './dossier/session'
+// `crediterXp` SORT AVEC EUX (n° 11 `moteur-arbitre`, lot `contrat`, it3) : seule
+// porte d'écriture de `HeroState.xp`, que `useTourDeJeu` (lot feature) appelle
+// après `xpDuJet` (ci-dessous, avec `issueDuJet`/`classifierIssue`).
+export { SCHEMA_SESSION, consignerJet, crediterXp, fixerHeros, ouvrirSession } from './dossier/session'
 export type {
 	EtatSession,
 	EtatMonde,
@@ -582,15 +585,17 @@ export type {
 // sous-jacente, RESTE DEDANS : aucune feature n'a besoin d'une clé brute, seulement
 // du générateur.
 export { creerRng, type DomaineAlea } from './dossier/alea'
-// ── LE ROUTAGE ET LA RÉSOLUTION DU RÔLE `arbitre` (n° 11, lot `contrat`, it2) ─
-// Sortent les TROIS fonctions pures que `useTourDeJeu` (lot `feature`) appelle :
+// ── LE ROUTAGE ET LA RÉSOLUTION DU RÔLE `arbitre` (n° 11, lot `contrat`, it2 puis it3) ─
+// Sortent les QUATRE fonctions pures que `useTourDeJeu` (lot `feature`) appelle :
 // `doitArbitrer` (la porte, après chaque commande acceptée), `issueDuJet` (SEULE
-// appelante de `resolveChallenge` dans tout le dépôt — lue par la carte ET par
-// l'assembleur du narrateur) et `classifierIssue` (la classification qualitative
-// que le CODE pose, jamais l'IA). `IssueEpreuve` sort avec elles : c'est le type
-// de leur retour qualitatif, qu'un composant d'écran n'a aucun autre moyen de
-// NOMMER pour rétrécir totalement dessus.
-export { classifierIssue, doitArbitrer, issueDuJet, type IssueEpreuve } from './dossier/arbitre'
+// appelante de `resolveChallenge` dans `brain/`+`features/**` — lue par la carte
+// ET par l'assembleur du narrateur ; orphelins gelés de `src/player/engine/`
+// exclus, KR-240), `classifierIssue` (la classification qualitative que le CODE
+// pose, jamais l'IA) et `xpDuJet` (it3, l'XP gagnée par le jet — délègue à
+// `issueDuJet`). `IssueEpreuve` sort avec elles : c'est le type de leur retour
+// qualitatif, qu'un composant d'écran n'a aucun autre moyen de NOMMER pour
+// rétrécir totalement dessus.
+export { classifierIssue, doitArbitrer, issueDuJet, xpDuJet, type IssueEpreuve } from './dossier/arbitre'
 // ── LE RÔLE `interprete` (n° 10 `moteur-interprete`, lot `contrat`) ──────────
 // Sort `apresInterpretation` SEULE : c'est la fonction que `useTourDeJeu`
 // applique après CHAQUE réponse de `CopiloteService.demander(dossier,

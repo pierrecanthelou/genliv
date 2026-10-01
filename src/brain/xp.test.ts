@@ -4,11 +4,18 @@
  * Valeurs sourcees docs/REGLES-DU-JEU.md § 5, "Gagner de l'XP - formule du
  * Delta (deltaT)" et "Depenser son XP (boutique de progression)" (KR-130).
  */
-import { deltaBand, challengeXp, combatXp, characteristicUpgradeCost, mcUpgradeCost } from './xp'
+import { deltaBand, challengeXp, combatXp, characteristicUpgradeCost, mcUpgradeCost, MARGE_FRANCHE } from './xp'
 
 describe('xp (paragraphe 5)', () => {
 	it('deltaBand : le delta -1 est la bande facile', () => {
 		expect(deltaBand(-1)).toBe('facile')
+	})
+
+	it('challengeXp : la marge MARGE_FRANCHE donne le bonus, MARGE_FRANCHE-1 ne le donne pas', () => {
+		// deltaT = 3 - 3 = 0 -> bande equilibre, seule bande sensible a la marge.
+		// Frontiere exacte : MARGE_FRANCHE-1 ne franchit pas, MARGE_FRANCHE franchit.
+		expect(challengeXp({ challengeTier: 3, heroTier: 3, success: true, baseXp: 3, margin: MARGE_FRANCHE - 1 })).toBe(3)
+		expect(challengeXp({ challengeTier: 3, heroTier: 3, success: true, baseXp: 3, margin: MARGE_FRANCHE })).toBe(4)
 	})
 
 	it('challengeXp : bande facile, reussite rapporte 1', () => {

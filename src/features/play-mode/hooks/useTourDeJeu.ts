@@ -45,6 +45,8 @@ import {
 	doitArbitrer,
 	consignerJet,
 	issueDuJet,
+	xpDuJet,
+	crediterXp,
 	type Characteristic,
 	type ChallengeTier,
 	type CibleArbitre,
@@ -308,9 +310,6 @@ export function useTourDeJeu(
 				tc: proposition.tc,
 			})
 
-			// Persister la session
-			onSessionChange(sessionAvecJet)
-
 			// Résoudre le jet
 			const issue = issueDuJet(sessionAvecJet, currentSession.horloge.tour)
 			if (issue === undefined) {
@@ -334,11 +333,25 @@ export function useTourDeJeu(
 					: null,
 			)
 
+			// Créditer l'XP avant l'appel à R3 — la session créditée hérite
+			// aux deux branches (succès et dégradation R3), sinon consignerNarration
+			// écraserait silencieusement le crédit (BUG-137/238, trouvaille narratif-ia).
+			let sessionAvecXp = sessionAvecJet
+			const xp = xpDuJet(sessionAvecJet, currentSession.horloge.tour)
+			if (xp !== undefined && xp > 0) {
+				sessionAvecXp = crediterXp(sessionAvecJet, xp)
+				// Persister immédiatement, avant R3 — cette session contient le jet ET le crédit
+				onSessionChange(sessionAvecXp)
+			} else {
+				// Si pas de crédit d'XP, persister quand même le jet enregistré
+				onSessionChange(sessionAvecJet)
+			}
+
 			// Appeler R3 (narrateur) avec l'épreuve résolue
 			const cibleNarrateur: CibleNarrateur = {
 				role: 'narrateur',
 				saisie: '', // La saisie n'est plus utile ici, c'est du narrateur seulement
-				session: sessionAvecJet,
+				session: sessionAvecXp,
 				epreuve: {
 					enjeu_reussite: proposition.enjeuReussite,
 					enjeu_echec: proposition.enjeuEchec,
@@ -352,20 +365,20 @@ export function useTourDeJeu(
 				// Succès R3 — écrire le récit
 				const { suggestions } = reponseNarrateur.proposition
 				const sessionAvecRecit = consignerNarration(
-					sessionAvecJet,
-					sessionAvecJet.horloge.tour,
+					sessionAvecXp,
+					sessionAvecXp.horloge.tour,
 					reponseNarrateur.proposition,
 				)
 				onSessionChange(sessionAvecRecit)
 				setIssueNarrateur({
-					tour: sessionAvecJet.horloge.tour,
+					tour: sessionAvecXp.horloge.tour,
 					statut: 'raconte',
 					suggestions,
 				})
 			} else {
 				// Échec R3 — juste signaler la dégradation
 				setIssueNarrateur({
-					tour: sessionAvecJet.horloge.tour,
+					tour: sessionAvecXp.horloge.tour,
 					statut: 'degrade',
 				})
 			}

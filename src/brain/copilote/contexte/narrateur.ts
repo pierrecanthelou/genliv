@@ -14,19 +14,22 @@
  * `fetch` — mais en DERNIER recours, après la cascade de l'it4 (plus bas), qui ne retire
  * que des blocs et des lignes ENTIERS.
  *
- * ── LE JET (n° 11 `moteur-arbitre`, it2) — CE QUE `CE PAS` GAGNE QUAND `agir` A
- * TENTÉ UNE ÉPREUVE ───────────────────────────────────────────────────────────
+ * ── LE JET (n° 11 `moteur-arbitre`, it2 puis it3) — CE QUE `CE PAS` GAGNE QUAND
+ * `agir` A TENTÉ UNE ÉPREUVE ────────────────────────────────────────────────────
  * Quand `cible.epreuve` est fournie (le hook l'a reçue de R2 avant résolution) ET
  * qu'`issueDuJet(session, session.horloge.tour)` résout (`brain/dossier/arbitre.ts`
- * — SEULE appelante de `resolveChallenge` dans tout le dépôt), `CE PAS` gagne UNE
- * ligne de plus, APRÈS le libellé du geste et AVANT `aucun changement`/les
- * changements : `<réussit|échoue> — <enjeu du côté advenu>`. L'ASSEMBLEUR CHOISIT
- * SEUL le côté, via `classifierIssue` (le CODE classe, jamais l'IA) — JAMAIS le
- * hook, qui classerait une règle de jeu hors de `brain/`. L'AUTRE enjeu ne part
- * JAMAIS. Cette ligne N'EFFACE JAMAIS `aucun changement` : un jet tenté n'est pas
- * un effet de règle appliqué, et `agir` reste un no-op mécanique strict. R3 ne
- * reçoit JAMAIS les chiffres du jet (dés, seuil, marge) — seulement l'amorce
- * qualitative (`AMORCE_ISSUE`) et la prose déjà acceptée par `validerArbitre`.
+ * — SEULE appelante de `resolveChallenge` dans `brain/`+`features/**`), `CE PAS`
+ * gagne UNE ligne de plus, APRÈS le libellé du geste et AVANT `aucun
+ * changement`/les changements : `<réussit|réussit nettement|échoue> — <enjeu du
+ * côté advenu>` (TROIS classes depuis it3). LE CÔTÉ SE CHOISIT SUR
+ * `resolution.success` (le `ChallengeResult` BINAIRE), **jamais** sur la classe
+ * qualitative (voir `ligneDeJet` plus bas) — L'ASSEMBLEUR CHOISIT SEUL le côté,
+ * l'AMORCE via `classifierIssue` (le CODE classe, jamais l'IA) — JAMAIS le hook,
+ * qui classerait une règle de jeu hors de `brain/`. L'AUTRE enjeu ne part JAMAIS.
+ * Cette ligne N'EFFACE JAMAIS `aucun changement` : un jet tenté n'est pas un effet
+ * de règle appliqué, et `agir` reste un no-op mécanique strict. R3 ne reçoit
+ * JAMAIS les chiffres du jet (dés, seuil, marge) — seulement l'amorce qualitative
+ * (`AMORCE_ISSUE`) et la prose déjà acceptée par `validerArbitre`.
  *
  * ── LA CASCADE (it4) — CE QUE LE NARRATEUR PERD QUAND LE BUDGET NE TIENT PAS ──────
  * Le premier palier dont le texte tient sous `BUDGET_CARACTERES_NARRATEUR` est envoyé.
@@ -107,8 +110,9 @@
  * `memoire.resume.texte`, `memoire.faits_etablis[].fait`, toutes `'ia'` dans
  * `dossier/sessionDestinations.ts`), jamais du dossier.
  */
-// LE JET (n° 11 `moteur-arbitre`, it2) — `issueDuJet` est la SEULE appelante de
-// `resolveChallenge` dans tout le dépôt ; cet assembleur ne la DUPLIQUE JAMAIS.
+// LE JET (n° 11 `moteur-arbitre`, it2 puis it3) — `issueDuJet` est la SEULE
+// appelante de `resolveChallenge` dans `brain/`+`features/**` ; cet assembleur ne
+// la DUPLIQUE JAMAIS.
 import { classifierIssue, issueDuJet, type IssueEpreuve } from '../../dossier/arbitre'
 import { COMMANDES } from '../../dossier/commandes'
 import type { DeltaId } from '../../dossier/deltas'
@@ -152,11 +156,23 @@ const EN_TETE_RECEMMENT = 'RECEMMENT'
 const EN_TETE_ETABLI = 'ETABLI'
 
 /**
- * L'AMORCE DE LA LIGNE DE JET (n° 11 `moteur-arbitre`, it2) — un verbe à la 3ᵉ
- * personne du présent (KR-269), même forme que les libellés de geste. Le CODE
+ * L'AMORCE DE LA LIGNE DE JET (n° 11 `moteur-arbitre`, it2 puis it3) — un verbe à
+ * la 3ᵉ personne du présent (KR-269), même forme que les libellés de geste. TROIS
+ * ENTRÉES depuis it3 : `reussit`/`echoue` INCHANGÉES depuis it2, `reussit_nettement`
+ * NOUVELLE (marge ≥ `MARGE_FRANCHE`, `brain/xp.ts`) — AUCUN qualificatif sur la
+ * classe médiane (jamais « de justesse », § 3 du plan it3 : un seuil fixe ne
+ * mesure pas une étroitesse qui varie avec la caractéristique testée). Le CODE
  * classe (`classifierIssue`), jamais l'IA.
+ *
+ * Exportée pour `contexte.test.ts` SEULEMENT — même statut que `BORNE_JET`/
+ * `BORNE_MEMOIRE` juste au-dessus : jamais par `brain/index.ts`, aucune feature
+ * n'assemble un contexte elle-même.
  */
-const AMORCE_ISSUE: Record<IssueEpreuve, string> = { reussit: 'réussit', echoue: 'échoue' }
+export const AMORCE_ISSUE: Record<IssueEpreuve, string> = {
+	reussit: 'réussit',
+	reussit_nettement: 'réussit nettement',
+	echoue: 'échoue',
+}
 
 /** Le séparateur entre deux blocs — écrit une fois : le texte l'emploie, et la borne de la
  *  mémoire le compte. */
@@ -212,13 +228,15 @@ export const BORNE_MEMOIRE =
 const BUDGET_CARACTERES_DOSSIER = 6000
 
 /**
- * LA BORNE DE LA LIGNE DE JET (n° 11 `moteur-arbitre`, it2) — CALCULÉE EXACTEMENT,
- * JAMAIS ×3 comme `BORNE_MEMOIRE` (§ 4 bis du plan it2) : ni l'amorce ni l'enjeu ne
- * sont de la prose d'auteur non bornée — l'amorce est l'une des DEUX valeurs de
- * `AMORCE_ISSUE`, l'enjeu est borné par `validerArbitre` (`ENJEU_CARACTERES_MAX`).
- * Coût d'une ligne pleine : la plus longue des deux amorces, le séparateur
- * ` — `, puis l'enjeu à son maximum. N'EST DÛE QUE SI un jet a été tenté à ce
- * pas ; absente sinon, elle ne coûte alors RIEN (`ligneJet` est vide).
+ * LA BORNE DE LA LIGNE DE JET (n° 11 `moteur-arbitre`, it2 puis it3) — CALCULÉE
+ * EXACTEMENT, JAMAIS ×3 comme `BORNE_MEMOIRE` (§ 4 bis du plan it2) : ni l'amorce
+ * ni l'enjeu ne sont de la prose d'auteur non bornée — l'amorce est l'une des
+ * TROIS valeurs de `AMORCE_ISSUE` depuis it3, l'enjeu est borné par
+ * `validerArbitre` (`ENJEU_CARACTERES_MAX`). Coût d'une ligne pleine : la plus
+ * longue des trois amorces (`'réussit nettement'`, 17 caractères, devient le mot
+ * le plus long à l'it3), le séparateur ` — `, puis l'enjeu à son maximum. N'EST
+ * DÛE QUE SI un jet a été tenté à ce pas ; absente sinon, elle ne coûte alors
+ * RIEN (`ligneJet` est vide).
  */
 const SEPARATEUR_AMORCE = ' — '
 /** Exportée pour `worker/frontiere.test.ts`/`contexte.test.ts` SEULEMENT — même
@@ -506,15 +524,21 @@ interface EtatCompose {
  * du code mort présenté comme de la couverture (KR-235).
  */
 /**
- * LA LIGNE DE JET DE `CE PAS` (n° 11 `moteur-arbitre`, it2), ou `[]` si aucun jet
- * n'a été résolu à ce pas — calculée UNE fois, un SEUL appel à `classifierIssue`.
- * L'ASSEMBLEUR CHOISIT SEUL le côté advenu : jamais le hook (voir la docstring de
- * tête, § LE JET).
+ * LA LIGNE DE JET DE `CE PAS` (n° 11 `moteur-arbitre`, it2 puis it3), ou `[]` si
+ * aucun jet n'a été résolu à ce pas — calculée UNE fois, un SEUL appel à
+ * `classifierIssue`. L'ASSEMBLEUR CHOISIT SEUL le côté advenu : jamais le hook
+ * (voir la docstring de tête, § LE JET).
+ *
+ * LE CÔTÉ SE CHOISIT SUR `resolution.success` (le `ChallengeResult` BINAIRE),
+ * **JAMAIS** sur `issue` (la classe QUALITATIVE, à TROIS états depuis it3) : un
+ * aiguillage sur `issue === 'reussit'` ferait tomber `'reussit_nettement'` dans
+ * la branche ÉCHEC — bug trouvé en raffinage it3 (§ 8 désaccord 5 du plan),
+ * corrigé ICI ; contre-épreuve nommée dans `contexte.test.ts`.
  */
 function ligneDeJet(epreuve: CibleNarrateur['epreuve'], resolution: ReturnType<typeof issueDuJet>): readonly string[] {
 	if (epreuve === undefined || resolution === undefined) return []
 	const issue = classifierIssue(resolution)
-	const enjeu = issue === 'reussit' ? epreuve.enjeu_reussite : epreuve.enjeu_echec
+	const enjeu = resolution.success ? epreuve.enjeu_reussite : epreuve.enjeu_echec
 	return [`${AMORCE_ISSUE[issue]}${SEPARATEUR_AMORCE}${enjeu}`]
 }
 

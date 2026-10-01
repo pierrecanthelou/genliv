@@ -212,6 +212,30 @@
 				"UN INVARIANT DE SUFFIXE (garder les N derniers elements incluant une cible designee) SE TESTE AVEC AU MOINS DEUX CIBLES SIMULTANEES, sinon un calcul faux (max(1,...) sans chercher l'index le plus a gauche) reste indiscriminable -- la cible unique est, par construction, toujours a la fois la premiere et la derniere designee (BUG evite par la sonde de mutants, non journalise)."
 			],
 			"bugs_encountered": []
+		},
+		{
+			"feature": "moteur-arbitre",
+			"completed_at": "2026-10-01",
+			"goal": "Le joueur voit le moteur lancer le de que l'IA a demande, en raconter l'issue, et crediter l'XP selon la marge reelle -- jamais l'IA. Trois iterations : heros sans jet (it1), jet binaire complet routage+resolution+narration (it2), marge fine + XP (it3). Feature moteur-arbitre (n 11) TERMINEE 3/3.",
+			"key_architecture_choices": [
+				"issueDuJet (brain/dossier/arbitre.ts) = SEULE appelante de resolveChallenge dans tout le depot (brain/+features/**), lue par trois consommateurs distincts (CarteJet, l'assembleur du narrateur, xpDuJet) sans jamais etre dupliquee -- precedent exact pour tout futur rng derive d'une meme resolution.",
+			"Un seuil de regle nomme (MARGE_FRANCHE) entre dans son fichier de regles natif (xp.ts) meme quand son second consommateur vit ailleurs (arbitre.ts) -- jamais recopie en litteral au second site (KR-261).",
+				"IssueEpreuve (classification qualitative binaire puis ternaire) s'etend par AJOUT PUR d'un membre a une union fermee, jamais un renommage total -- stabilite des tests existants prevaut quand le renommage n'apporte aucun gain fonctionnel.",
+				"Une comparaison binaire `=== 'unMembre'` contre un seul membre d'une union fermee reste correcte tant que l'union a deux membres, mais devient un piege silencieux des qu'un membre est ajoute : aucune verification d'exhaustivite tsc ne la couvre (contrairement a un Record<Union,X>)."
+			],
+			"brain_contracts_added": [
+				{ "type": "registry", "name": "brain/dossier/alea.ts (alea, creerRng)" },
+				{ "type": "service", "name": "CopiloteService.demander('arbitre', ...)" },
+				{ "type": "registry", "name": "brain/dossier/arbitre.ts (doitArbitrer, classifierIssue, issueDuJet, xpDuJet)" },
+				{ "type": "service", "name": "brain/dossier/session.ts (fixerHeros, consignerJet, crediterXp)" }
+			],
+			"lessons_learned": [
+				"Un rng keye par (graine, domaine, indice) plutot qu'un flux sequentiel rend chaque nouveau tirage (relance, marge, futur combat) insertable sans jamais decaler les tirages deja joues d'une session existante -- a retenir pour toute feature qui ajoutera un nouveau domaine d'alea.",
+				"Un ouvrier qui livre des tests en it.skip() tout en rapportant une gate verte doit etre traite comme un blocage non resolu, pas comme une livraison -- a renforcer dans le prompt des dev-lot/dev-contrat.",
+				"Un test qui bouchonne une fonction dont le retour conditionne une branche doit FORCER ce retour vers une valeur qui active reellement la branche au moins une fois, sinon l'assertion peut passer sans jamais l'avoir exercee (BUG-141, trouve seulement par la revue tech-lead PR, confirme par contre-epreuve) -- QA en mode B rejouant les tests verts ne l'avait pas vu.",
+				"npm run format lance sans portee par un ouvrier peut reformater silencieusement un fichier hors de son lot si ce fichier porte un defaut Prettier preexistant (BUG-139) -- scoper le format aux fichiers du lot evite la reapparition."
+			],
+			"bugs_encountered": ["BUG-135", "BUG-136", "BUG-137", "BUG-138", "BUG-140", "BUG-141"]
 		}
 	]
 }

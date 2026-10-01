@@ -48,6 +48,30 @@
 			"mitigation": "KR-278 (code-knowledge.json) couvre deja ce principe mais a ete relu etroitement (une seule 'premiere etape') au premier passage -- la garde de re-entrance d'une fonction appelable plusieurs fois (pas seulement le verrou global de la chaine) doit etre verifiee a CHAQUE point d'entree UI qui peut l'invoquer, jamais au seul point d'entree deja corrige.",
 			"regression_test": "src/features/play-mode/hooks/useTourDeJeu.test.ts : 'Lot 2 -- garde de re-entrance : un second appel concurrent a lancerLeDe est ignore (BUG-137/KR-278, tech-lead 2e passage)' -- deux appels a lancerLeDe() sans attendre entre eux, R3 controle a la main ; verifie par contre-epreuve (le retrait du garde fait planter le test sur un TypeError de double consommation du mock, confirme par l'orchestrateur avant restauration).",
 			"severity": "major"
+		},
+		{
+			"id": "BUG-140",
+			"date": "2026-10-01",
+			"feature": "moteur-arbitre",
+			"discovered_at": "iteration-3",
+			"symptom": "Trouve au raffinage it3 (narratif-ia, tour 2), avant tout code de cette iteration : narrateur.ts/ligneDeJet choisissait l'enjeu narre avec `issue === 'reussit' ? epreuve.enjeu_reussite : epreuve.enjeu_echec`. Correct tant qu'IssueEpreuve n'avait que 2 membres ('reussit'/'echoue', it2) ; silencieusement faux dès qu'un 3e membre ('reussit_nettement') est ajoute -- il tombe dans la branche ':' et recoit l'enjeu d'ECHEC sur un jet REUSSI.",
+			"root_cause": "Une comparaison binaire `=== 'unMembre'` contre UN SEUL membre d'une union fermee reste valide tant que l'union a deux membres (elle equivaut alors a success/!success), mais cesse d'etre exhaustive des qu'un membre est ajoute -- et aucune erreur de compilation ne le signale : TypeScript verifie l'exhaustivite d'un `Record<Union,X>` (comme AMORCE_ISSUE) mais pas celle d'un ternaire ecrit a la main contre un litteral.",
+			"fix": "Corrige dans le lot A d'it3, avant tout commit : la selection se fait desormais sur `resolution.success` (le ChallengeResult deja disponible dans la fonction), jamais sur la classe `issue`. Contre-epreuve verifiee par l'ouvrier ET par la QA en mode B : remise de l'ancienne condition -> test rouge, restauration -> vert.",
+			"mitigation": "Promu par un test permanent (voir regression_test), pas par un nouveau KR de code-knowledge.json (plafond du fichier a 130 o de marge, cf. docs/WORKFLOW.md Budget de contexte -- un KR y entrera si ce patron se reproduit dans une autre feature). Lecon a retenir en revue : quand un type union ferme gagne un membre, grep toutes les comparaisons `=== 'unAncienMembre'` qui le ciblent, pas seulement les `Record<Union,X>` que tsc verifie deja par exhaustivite.",
+			"regression_test": "src/brain/copilote/contexte.test.ts -- 'ligneDeJet : reussit_nettement choisit enjeu_reussite (regression ligne 517)'.",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-141",
+			"date": "2026-10-01",
+			"feature": "moteur-arbitre",
+			"discovered_at": "iteration-3",
+			"symptom": "Trouve par la revue tech-lead PR (lot B, 1ere livraison) : les 3 tests nommes du plan SS7 sur le credit d'XP (useTourDeJeu.test.ts) passaient tous, mais `setXpDuJetMockReturnValue` n'etait appelee qu'UNE SEULE FOIS dans tout le fichier (beforeEach, valeur undefined) -- aucun des 3 tests ne la repositionnait a une valeur positive avant `lancerLeDe()`. Les trois auraient passe a l'identique si la ligne `crediterXp(...)` du hook avait ete supprimee (verifie par contre-epreuve independante de l'orchestrateur : neutralisation temporaire de l'appel -> 2 des 3 tests rougissent, restauration -> vert).",
+			"root_cause": "La branche `if (xp !== undefined && xp > 0) { ... }` du hook n'etait jamais exercee par les tests, qui bouchonnaient `xpDuJet` sans jamais le forcer a rendre une valeur positive -- assertions `toBeGreaterThanOrEqual(HEROS_TEST.xp)` trivialement vraies meme sur une XP INCHANGEE. Meme classe que le defaut d'`it.skip()` deja corrige dans ce meme lot : un test qui PASSE sans jamais exercer le chemin qu'il pretend prouver.",
+			"fix": "Ajout de `setXpDuJetMockReturnValue(5)`/`(3)` avant `lancerLeDe()` dans les deux tests concernes, assertions remplacees par des egalites EXACTES (`toBe(HEROS_TEST.xp + 5)`), jamais `toBeGreaterThanOrEqual`.",
+			"mitigation": "Un test qui bouchonne une fonction dont le retour conditionne une branche (`if (x !== undefined && x > 0)`) doit, au moins une fois par branche testee, FORCER le mock a une valeur qui active reellement cette branche -- une assertion `toBeGreaterThanOrEqual`/`toBeDefined` sur un champ qui pourrait rester inchange ne separe jamais 'credite' de 'jamais credite'. Lecon jumelle de celle sur `it.skip()` : le compte rendu d'un agent annoncant des tests 'passants' ne vaut jamais verification du pouvoir separateur -- seule une contre-epreuve (neutraliser le code puis rejouer) le prouve.",
+			"regression_test": "src/features/play-mode/hooks/useTourDeJeu.test.ts -- 'Lot 3 -- lancerLeDe credite heros.xp avant l'appel a R3' et 'Lot 3 -- ... R3 degrade, heros.xp credite persiste', les deux avec assertion exacte et contre-epreuve verifiee par l'orchestrateur.",
+			"severity": "major"
 		}
 	]
 }

@@ -4,6 +4,7 @@ import { AMORCE, MARQUEUR_A_ECRIRE, construireAmorce } from './amorce'
 import { executerCommande } from './commandes'
 import {
 	consignerJet,
+	crediterXp,
 	SCHEMA_SESSION,
 	fixerHeros,
 	ouvrirSession,
@@ -427,5 +428,49 @@ describe('consignerJet — le seul ecrivain de EntreeJournal.jet (n 11 moteur-ar
 
 		expect(entreeMoteurDuPas(avecLesDeux, premierPas.horloge.tour)?.jet).toEqual({ carac: 'FO', tc: 'TC1' })
 		expect(entreeMoteurDuPas(avecLesDeux, secondPas.horloge.tour)?.jet).toEqual({ carac: 'CA', tc: 'TC4' })
+	})
+})
+
+describe('crediterXp — la seule ecrivaine de HeroState.xp (n 11 moteur-arbitre, lot contrat, it3)', () => {
+	const HEROS_XP: HeroState = {
+		name: 'Aldric le Temeraire',
+		caracs: { FO: 7, AG: 6, DX: 5, EN: 8, IN: 9, IG: 4, SE: 10, CA: 3 },
+		pvMax: 21,
+		pv: 14,
+		peMax: 8,
+		pe: 3,
+		mcBonus: 0,
+		xp: 12,
+	}
+
+	it('credite heros.xp du montant exact, et laisse TOUT le reste intact', () => {
+		const session = fixerHeros(sessionDe(reecrit(), 7), HEROS_XP)
+
+		const creditee = crediterXp(session, 5)
+
+		expect(creditee.heros?.xp).toBe(17)
+		// RIEN D AUTRE N A CHANGE : la session renvoyee est l argument, plus la
+		// seule feuille heros.xp — temoin negatif sur les AUTRES feuilles du heros.
+		expect(creditee).toEqual({ ...session, heros: { ...HEROS_XP, xp: 17 } })
+		expect(creditee.heros?.pv).toBe(HEROS_XP.pv)
+		expect(creditee.heros?.pe).toBe(HEROS_XP.pe)
+		expect(creditee.heros?.caracs).toEqual(HEROS_XP.caracs)
+
+		// PURE : l argument n est pas mute.
+		expect(session.heros?.xp).toBe(12)
+	})
+
+	it('no-op (meme reference) sans heros', () => {
+		const sansHeros = sessionDe(reecrit(), 7)
+		expect('heros' in sansHeros).toBe(false)
+
+		expect(crediterXp(sansHeros, 5)).toBe(sansHeros)
+	})
+
+	it('no-op (meme reference) sur xp <= 0 — 0 et un montant negatif ne sont jamais crediter ici', () => {
+		const session = fixerHeros(sessionDe(reecrit(), 7), HEROS_XP)
+
+		expect(crediterXp(session, 0)).toBe(session)
+		expect(crediterXp(session, -3)).toBe(session)
 	})
 })

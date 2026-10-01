@@ -61,7 +61,7 @@ import {
 	PARTIES_REQUISES,
 	SAISIE_CARACTERES_MAX,
 } from './contexte'
-import { BORNE_JET, BORNE_MEMOIRE, CHAMPS_INJECTES_NARRATEUR } from './contexte/narrateur'
+import { AMORCE_ISSUE, BORNE_JET, BORNE_MEMOIRE, CHAMPS_INJECTES_NARRATEUR } from './contexte/narrateur'
 import { DESTINATION_DES_CHAMPS_DE_SESSION } from '../dossier/sessionDestinations'
 import { CONDENSE_CARACTERES_MAX, FAIT_CARACTERES_MAX, NARRATION_CARACTERES_MAX } from './schemaSortie'
 import { CHAMPS_PROPOSABLES, type ChampProseChemin, type CibleArbitre, type CibleNarrateur } from './types'
@@ -3671,10 +3671,13 @@ describe('assemblerNarrateur — la mesure du budget : un terme dossier MESURE, 
 		expect(M).toBe(1937)
 
 		// TEMPS 3 — la formule : le terme dossier (facteur 3, arrondi au millier) PLUS la
-		// borne EXACTE de la mémoire, PLUS (n° 11, it2) la borne EXACTE de la ligne de jet,
-		// sans marge sur AUCUN des deux termes calculés.
+		// borne EXACTE de la mémoire, PLUS (n° 11, it2 puis it3) la borne EXACTE de la
+		// ligne de jet, sans marge sur AUCUN des deux termes calculés.
 		expect(BUDGET_CARACTERES_NARRATEUR).toBe(Math.ceil((M * 3) / 1000) * 1000 + BORNE_MEMOIRE + BORNE_JET)
-		expect(BUDGET_CARACTERES_NARRATEUR).toBe(27046)
+		// 27 056 depuis it3 (27 046 en it2) : BORNE_JET est passee de 90 a 100 quand
+		// 'reussit nettement' (17 caracteres) est devenue le mot le plus long d AMORCE_ISSUE
+		// — re-mesure, jamais recopie (worker/index.ts en porte la trace).
+		expect(BUDGET_CARACTERES_NARRATEUR).toBe(27056)
 	})
 
 	it('BORNE_MEMOIRE se derive des bornes des validateurs : 23 lignes de pas, le condense, huit faits — et rien d autre', () => {
@@ -4395,7 +4398,7 @@ describe('arbitre — catalogue stable, et son extension au narrateur (n 11, it2
 		expect(BUDGET_CARACTERES_ARBITRE).toBeGreaterThan(0)
 	})
 
-	describe('assemblerNarrateur — la ligne de jet (n 11, it2)', () => {
+	describe('assemblerNarrateur — la ligne de jet (n 11, it2 puis it3 : classe reussit_nettement)', () => {
 		function heroAvec(nom: string, caracs: Partial<HeroState['caracs']>): HeroState {
 			return { ...HEROS_SENTINELLE, name: nom, caracs: { ...HEROS_SENTINELLE.caracs, ...caracs } }
 		}
@@ -4417,7 +4420,7 @@ describe('arbitre — catalogue stable, et son extension au narrateur (n 11, it2
 
 		const EPREUVE = { enjeu_reussite: 'forcer la porte sans bruit', enjeu_echec: 'alerter ce qui veille derriere' }
 
-		it('deux heros de MEME issue (reussit) donnent un texte R3 IDENTIQUE', () => {
+		it('deux heros de MEME issue (reussit nettement, FO 12 contre TC1) donnent un texte R3 IDENTIQUE', () => {
 			const dossier = dossierDeReference()
 			const heroA = heroAvec('Aldric', { FO: 12 })
 			const heroB = heroAvec('Brune la Rapide', { FO: 12, AG: 1, DX: 1 })
@@ -4429,7 +4432,9 @@ describe('arbitre — catalogue stable, et son extension au narrateur (n 11, it2
 			const contexteB = assemblerNarrateur(dossier, { ...cibleNarrateur(sessionB), epreuve: EPREUVE })
 			if (!contexteA.ok || !contexteB.ok) throw new Error('contexte refusé, alors que le test en attend deux')
 
-			expect(contexteA.texte).toContain(`réussit — ${EPREUVE.enjeu_reussite}`)
+			// FO=12 contre TC1 (1D6) : marge >= 6, toujours >= MARGE_FRANCHE (3) ->
+			// classe QUALITATIVE 'reussit_nettement' depuis it3 (jamais 'reussit' nu).
+			expect(contexteA.texte).toContain(`réussit nettement — ${EPREUVE.enjeu_reussite}`)
 			expect(contexteB).toEqual(contexteA)
 			// Discriminant : les deux héros sont RÉELLEMENT distincts — sans lui,
 			// l'égalité ci-dessus serait vraie par construction.
@@ -4449,7 +4454,8 @@ describe('arbitre — catalogue stable, et son extension au narrateur (n 11, it2
 			if (!contexteReussite.ok || !contexteEchec.ok)
 				throw new Error('contexte refusé, alors que le test en attend deux')
 
-			const ligneReussite = `réussit — ${EPREUVE.enjeu_reussite}`
+			// FO=12 contre TC1 : marge garantie >= MARGE_FRANCHE -> 'reussit_nettement'.
+			const ligneReussite = `réussit nettement — ${EPREUVE.enjeu_reussite}`
 			const ligneEchec = `échoue — ${EPREUVE.enjeu_echec}`
 			expect(contexteReussite.texte).toContain(ligneReussite)
 			expect(contexteEchec.texte).toContain(ligneEchec)
@@ -4459,6 +4465,38 @@ describe('arbitre — catalogue stable, et son extension au narrateur (n 11, it2
 			const sansLigneReussite = contexteReussite.texte.replace(ligneReussite, 'LIGNE-DE-JET')
 			const sansLigneEchec = contexteEchec.texte.replace(ligneEchec, 'LIGNE-DE-JET')
 			expect(sansLigneEchec).toBe(sansLigneReussite)
+		})
+
+		it('ligneDeJet : reussit_nettement choisit enjeu_reussite, JAMAIS enjeu_echec (regression ligne 517)', () => {
+			// CONTRE-EPREUVE DU BUG DE RAFFINAGE it3 (§ 8 desaccord 5 du plan) : un
+			// aiguillage fautif sur `issue === 'reussit'` ferait tomber la classe
+			// 'reussit_nettement' dans la branche ECHEC, puisque 'reussit_nettement' !==
+			// 'reussit'. FO=12 contre TC1 garantit 'reussit_nettement' (marge >= 6 >=
+			// MARGE_FRANCHE) — ce test rougirait sous la version fautive (verifie en
+			// relisant narrateur.ts AVANT la correction de ce lot, pas seulement apres).
+			const dossier = dossierDeReference()
+			const hero = heroAvec('Aldric', { FO: 12 })
+			const session = sessionEnReussiteGarantie(dossier, hero)
+
+			const contexte = assemblerNarrateur(dossier, { ...cibleNarrateur(session), epreuve: EPREUVE })
+			if (!contexte.ok) throw new Error(`contexte refusé (${contexte.motif})`)
+
+			expect(contexte.texte).toContain(`réussit nettement — ${EPREUVE.enjeu_reussite}`)
+			expect(contexte.texte).not.toContain(`réussit nettement — ${EPREUVE.enjeu_echec}`)
+			expect(contexte.texte).not.toContain(EPREUVE.enjeu_echec)
+		})
+
+		it('AMORCE_ISSUE : aucune des trois valeurs ne porte de chiffre ni de 2e personne (KR-262/269)', () => {
+			// `Record<IssueEpreuve, string>` est EXHAUSTIF PAR COMPILATION : un
+			// quatrieme membre ajoute demain a IssueEpreuve sans entree ici ne
+			// compilerait plus narrateur.ts — cette liste ne peut pas se perimer.
+			expect(Object.keys(AMORCE_ISSUE).sort()).toEqual(['echoue', 'reussit', 'reussit_nettement'])
+			for (const amorce of Object.values(AMORCE_ISSUE)) {
+				expect(amorce).not.toMatch(/\d/)
+				expect(amorce.toLowerCase()).not.toContain('vous')
+			}
+			// Aucun qualificatif « de justesse » sur la classe mediane (§ 3 du plan it3).
+			expect(AMORCE_ISSUE.reussit).toBe('réussit')
 		})
 
 		it('un heros nomme SENTINELLE-HEROS ne fuite JAMAIS, meme avec une epreuve resolue', () => {
