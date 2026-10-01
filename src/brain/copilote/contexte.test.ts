@@ -22,7 +22,8 @@ import {
 	pasACondenser,
 } from '../dossier/memoire'
 import { consignerNarration } from '../dossier/recit'
-import { ouvrirSession, type EtatSession, type FaitEtabli } from '../dossier/session'
+import { fixerHeros, ouvrirSession, type EtatSession, type FaitEtabli } from '../dossier/session'
+import type { HeroState } from '../../player/types'
 import {
 	CERTITUDE_INITIALE,
 	INTENSITE_INITIALE,
@@ -4305,5 +4306,56 @@ describe('assemblerNarrateur — la cascade de l it4 : P0 a P4, puis trop-long (
 			2 + 'RECEMMENT'.length + 4 * ligneDePas + (2 + 'ETABLI'.length + FAITS_INJECTES_MAX * (1 + FAIT_CARACTERES_MAX)),
 		)
 		expect(plancher).toBe(4511)
+	})
+})
+
+// ══ INVARIANCE R1/R3 A `heros` (n° 11 `moteur-arbitre`, it1) — KR-262 étendu ═══
+//
+// R2 (ARBITRE) N'EXISTE PAS ENCORE EN IT1 : ce que ce lot garantit ici, c'est que
+// POSER `EtatSession.heros` NE FAIT RIEN BOUGER dans les deux assembleurs DÉJÀ
+// existants (`interprete`, `narrateur`) — aucune caractéristique, aucune jauge,
+// aucun XP n'entre JAMAIS dans un contexte de modèle (CLAUDE.md, « Audience avant
+// injection »). Sans ce test, la seule garde serait la table d'audience
+// (`sessionDestinations.ts`), qui garantit une INTENTION, jamais un COMPORTEMENT —
+// même remarque que la tête de `sessionCouverture.test.ts`.
+/** SENTINELLE délibérément NON DÉFAUT (raffinage it1, § 8 #7) : `name` n'est pas
+ *  vide, aucune `caracs` n'est à 4 (la valeur de départ de `charCreation.ts`), et
+ *  `pv`/`pe` diffèrent de leur plafond — un héros frais serait indistinguable d'un
+ *  champ jamais lu. */
+const HEROS_SENTINELLE: HeroState = {
+	name: 'Aldric le Temeraire',
+	caracs: { FO: 7, AG: 6, DX: 5, EN: 8, IN: 9, IG: 4, SE: 10, CA: 3 },
+	pvMax: 21,
+	pv: 14,
+	peMax: 8,
+	pe: 3,
+	mcBonus: 0,
+	xp: 12,
+}
+
+describe('heros — invariance de assemblerInterprete et assemblerNarrateur (n 11, it1)', () => {
+	it('assemblerInterprete rend un contexte IDENTIQUE, session.heros present ou absent', () => {
+		const dossier = dossierDeReference()
+		const sansHeros = ouvertureNarrateur(dossier)
+		const avecHeros = fixerHeros(sansHeros, HEROS_SENTINELLE)
+		const saisie = 'je regarde autour de moi'
+
+		const contexteSans = assemblerInterprete(dossier, { saisie, session: sansHeros })
+		const contexteAvec = assemblerInterprete(dossier, { saisie, session: avecHeros })
+
+		expect(contexteSans.ok).toBe(true)
+		expect(contexteAvec).toEqual(contexteSans)
+	})
+
+	it('assemblerNarrateur rend un contexte IDENTIQUE, session.heros present ou absent', () => {
+		const dossier = dossierDeReference()
+		const sansHeros = ouvertureNarrateur(dossier)
+		const avecHeros = fixerHeros(sansHeros, HEROS_SENTINELLE)
+
+		const contexteSans = assemblerNarrateur(dossier, cibleNarrateur(sansHeros))
+		const contexteAvec = assemblerNarrateur(dossier, cibleNarrateur(avecHeros))
+
+		expect(contexteSans.ok).toBe(true)
+		expect(contexteAvec).toEqual(contexteSans)
 	})
 })

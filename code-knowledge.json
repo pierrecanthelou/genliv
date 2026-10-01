@@ -855,6 +855,16 @@
 			"id": "KR-275",
 			"feature": "moteur-interprete",
 			"risk": "UNE DEGRADATION DE BUDGET DE CONTEXTE SE FAIT EN PALIERS CALCULES EN LIGNE A CHAQUE APPEL (jamais stockes, KR-013), chacun retenu comme le premier qui tient ; le refus reste le DERNIER recours, jamais le premier reflexe. L'ordre des paliers est un CONTRAT, pas une preference : envoyer la tranche A CONDENSER alors que son resume AUPARAVANT a deja ete retire la condenserait en ecrasant tout ce qui precede (P2 doit passer avant P3, jamais l'inverse) -- perte definitive et silencieuse. Corps : spec moteur-interprete, raffinage it4 § 6/§ 7."
+		},
+		{
+			"id": "KR-276",
+			"feature": "moteur-arbitre",
+			"risk": "UNE GARDE BLOQUANTE INSEREE DEVANT UN ECRAN EXISTANT (precondition, ecran de creation/onboarding) SE VERIFIE CONTRE TOUS LES MONTAGES EXISTANTS DE CE PARENT, jamais seulement contre le composant neuf qui la porte -- la non-regression se mesure sur l'ecran PARENT, pas sur la piece isolee qu'on vient d'ecrire. Decouvert en moteur-arbitre it1 (GARDE 7 d'EcranPartie.tsx, ecran de creation du heros) : 5 fichiers de test preexistants montant EcranPartie directement rougissaient, parce qu'une session fraiche (useSessionPersistee est write-only, KR-116) tombe toujours dans la garde. Corrige DANS LE MEME LOT, jamais reporte -- BUG-135. Corps : bug_history.moteur-arbitre.json."
+		},
+		{
+			"id": "KR-277",
+			"feature": "moteur-arbitre",
+			"risk": "UN HELPER DE TEST QUI SIMULE UNE REPARTITION A CHOIX MULTIPLES SOUS UN PLAFOND PAR CIBLE (ex. distribuer un bonus entre plusieurs caracteristiques) N'ITERE JAMAIS SUR UNE SEULE CIBLE FIXE jusqu'a ce qu'ELLE se bloque -- sa condition d'arret LOCALE n'implique pas la condition GLOBALE, et le blocage depend alors d'un tirage non maitrise par le test. Itere sur TOUTES les cibles actionnables : chacune s'arrete d'elle-meme, et la preuve que la marge totale majore toujours le total a distribuer doit etre ECRITE (ici : 8 caracteristiques x 2 points de marge minimum >= 4, le maximum possible). Decouvert en moteur-arbitre it1 (repartition du bonus 1D4 a la creation du heros, flakiness intermittente non reproductible sans analyse de cause) -- BUG-136. Corps : bug_history.moteur-arbitre.json."
 		}
 	]
 }

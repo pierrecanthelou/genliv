@@ -1,5 +1,5 @@
 {
-	"_about": "Archive des defauts de moteur-interprete (n 10, EN COURS, 3/4) dont la lecon est DEJA PROMUE dans un instrument lui-meme en lecture obligatoire. MEME AXE que bug_history.moteur-dossier.json (ne EN COURS de feature, pas a sa terminaison) et bug_history.dossier-controles.json/dossier-fiches.json : la REDONDANCE, JAMAIS l'age -- une feature encore EN COURS y a droit des que la lecon est promue ailleurs. Ne le 2026-09-30 (moteur-interprete it3, franchissement du plafond de bug_history.json : 16 032 / 15 360 o). CE FICHIER N'EST PAS EN LECTURE OBLIGATOIRE -- seul bug_history.json l'est. NUMEROTATION GLOBALE aux DIX fichiers desormais, jamais reemployee : prochain id = max(BUG-xxx) des DIX (precedents BUG-062, BUG-123, BUG-129). HISTORIQUE DES SCISSIONS : CHANGELOG.md.",
+	"_about": "Archive des defauts de moteur-interprete (n 10, TERMINEE 4/4 le 2026-09-30, 0.7.9) dont la lecon est DEJA PROMUE dans un instrument lui-meme en lecture obligatoire. MEME AXE que bug_history.moteur-dossier.json et bug_history.dossier-controles.json/dossier-fiches.json : la REDONDANCE, JAMAIS l'age. Ne le 2026-09-30 (moteur-interprete it3, franchissement du plafond de bug_history.json : 16 032 / 15 360 o) avec BUG-130 ; BUG-131/BUG-133 y rejoignent le 2026-10-01 (scission de bug_history.json au lot moteur-arbitre it1, meme critere -- leur lecon est KR-013/113, deja promue). CE FICHIER N'EST PAS EN LECTURE OBLIGATOIRE -- seul bug_history.json l'est. NUMEROTATION GLOBALE aux ONZE fichiers desormais, jamais reemployee : prochain id = max(BUG-xxx) des ONZE (precedents BUG-062, BUG-123, BUG-129). HISTORIQUE DES SCISSIONS : CHANGELOG.md.",
 	"bugs": [
 		{
 			"id": "BUG-130",
@@ -11,6 +11,30 @@
 			"fix": "renderHook sans provider (precedent useDemandeCopilote.test.tsx), jest.mock remonte au niveau module, 5 tests reels ecrits. Mutant execute a la main (fichier fautif cree, rouge constate, retire), test redondant supprime.",
 			"mitigation": "Le compte rendu d un agent ne se croit jamais sur le seul resume -- relire le fichier de test avant d accepter un lot, surtout sur le critere le plus critique. Lecon deja promue dans la skill raffinage-iteration (doctrine de verification independante avant d accepter un lot).",
 			"regression_test": "src/features/play-mode/hooks/useTourDeJeu.test.ts -- 5 tests avec assertions, dont KR-265",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-131",
+			"date": "2026-09-25",
+			"feature": "moteur-interprete",
+			"discovered_at": "iteration-1",
+			"symptom": "useTourDeJeu.ts prenait `useState(sessionInitiale)` -- une copie PRIVEE de la session, jamais resynchronisee. ConsoleCommandes ecrit directement la session du PARENT (EcranPartie) ; une commande console acceptee ENTRE deux soumissions du champ libre etait donc ECRASEE au prochain executeAction, qui travaillait encore sur la copie figee au premier rendu (perte silencieuse d une entree de journal).",
+			"root_cause": "KR-013 viole par construction : useState(sessionInitiale) ignore tout changement de son argument apres le premier rendu (fait React). Trouve en revue tech-lead (Build Steps etape 6), pas par un test -- aucun test n exercait un rerender avec une session modifiee entre deux appels.",
+			"fix": "Le parametre est desormais lu directement (`session`, sans useState local) ; onSessionChange n ecrit plus que l etat du parent, jamais un miroir local. Le commentaire d EcranPartie.tsx affirmant a tort une exclusion mutuelle console/champ libre est corrige.",
+			"mitigation": "Un hook qui recoit un etat externe en parametre ne le copie JAMAIS dans son propre useState sans un mecanisme de resynchronisation explicite (key sur remontage, ou lecture directe comme ici) -- a verifier systematiquement des qu un hook prend un etat possiblement mute par un AUTRE canal du meme ecran.",
+			"regression_test": "src/features/play-mode/hooks/useTourDeJeu.test.ts -- KR-013, rerender avec une session avancee entre deux appels, verifie que executeAction utilise la session fraiche",
+			"severity": "critical"
+		},
+		{
+			"id": "BUG-133",
+			"date": "2026-09-29",
+			"feature": "moteur-interprete",
+			"discovered_at": "iteration-2",
+			"symptom": "Le premier correctif du verrou console (m1, revue de PR) ajoutait un useEffect(() => { if (!isLocked && refus !== null) setRefus(null) }, [isLocked, refus]) dans EcranPartie.tsx. Des qu'une commande console invalide (verbe inconnu, destination inconnue) posait un refus EN DEHORS du verrou, l'effet l'effacait au rendu suivant : plus AUCUNE erreur de syntaxe ou de destination n'etait plus jamais visible dans la console, silencieusement.",
+			"root_cause": "L'effet mirait l'etat isLocked dans un second setState sans distinguer QUEL refus il visait a effacer -- exactement l'anti-patron KR-013/113 (etat derive via useEffect) que le projet interdit. Trouve en revue tech-lead (PR, second passage), pas par un test : aucune suite au niveau ecran ne soumettait de commande invalide HORS verrou.",
+			"fix": "L'effet est retire. L'affichage se calcule EN LIGNE : refusAffiche = refus === TEXTE_REFUS_CONSOLE_EN_COURS && !isLocked ? null : refus -- seul CE texte precis (artefact du verrou) s'efface au deverrouillage, tout autre refus (syntaxe, destination) reste affiche jusqu'a la prochaine soumission.",
+			"mitigation": "Un correctif motive par 'effacer un message au bon moment' se pose EN LIGNE au rendu, jamais par un useEffect qui mire un second setState -- meme quand le message a effacer semble unique, un useEffect sur un state partage (ici refus) efface TOUT ce qui passe par ce state, pas seulement le cas vise.",
+			"regression_test": "src/features/play-mode/tests/verrouDeTour.test.tsx -- 'un refus de SYNTAXE console (hors verrou) reste visible -- le calcul en ligne ne lefface pas (BUG-133)'",
 			"severity": "major"
 		}
 	]

@@ -78,6 +78,14 @@ import type { EtatSession } from '../session'
  * pas 15 (I2 : `jusqu_au_pas ≤ borneDeFenetre(horloge.tour)`). DEUX faits, dont l'un à
  * DEUX ancres (arité maximale) et l'autre ancré sur un objet POSSÉDÉ — des `lieu.*` et
  * des `objet.*` seulement (I5) ; des phrases au registre joueur, sans identifiant.
+ *
+ * `heros` INSTANCIÉ depuis le lot `contrat` de la n° 11 (`moteur-arbitre`, it1) —
+ * SENTINELLE délibérément NON DÉFAUT sur les trois axes que l'invariance de
+ * `copilote/contexte.test.ts` vérifie : `name` n'est pas une chaîne vide, aucune
+ * `caracs` n'est à 4 (la valeur de départ de `charCreation.ts`), `pv` ≠ `pvMax` et
+ * `pe` ≠ `peMax` (un héros frais serait indistinguable d'un champ jamais lu). Sans
+ * instance ici, les neuf lignes `heros.*` de la table seraient MORTES le jour même
+ * où elles sont écrites — même précédent que `journal[].deltas[].*` à l'itération 3.
  */
 export const SESSION_SATUREE: EtatSession = {
 	schema: 1,
@@ -133,5 +141,15 @@ export const SESSION_SATUREE: EtatSession = {
 		type: 'clarification',
 		question: 'Voulez-vous rejoindre le marché des cendres ou la tour effondrée ?',
 		saisie: 'je vais au marche',
+	},
+	heros: {
+		name: 'Aldric le Téméraire',
+		caracs: { FO: 7, AG: 6, DX: 5, EN: 8, IN: 9, IG: 4, SE: 10, CA: 3 },
+		pvMax: 21,
+		pv: 14,
+		peMax: 8,
+		pe: 3,
+		mcBonus: 0,
+		xp: 12,
 	},
 }

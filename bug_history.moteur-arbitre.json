@@ -1,0 +1,29 @@
+{
+	"_about": "Defauts de moteur-arbitre (n 11, EN COURS, 1/3) dont la lecon est DEJA PROMUE dans un instrument lui-meme en lecture obligatoire. MEME AXE que bug_history.moteur-interprete.json/moteur-dossier.json : la REDONDANCE, JAMAIS l'age -- une feature encore EN COURS y a droit des que la lecon est promue ailleurs. Ne le 2026-10-01 (moteur-arbitre it1), ECRIT DIRECTEMENT ICI plutot que dans bug_history.json : les deux lecons sont promues le jour meme de leur decouverte (KR-276, KR-277 de code-knowledge.json), et le fichier vivant n'avait que 61 o de marge sous son plafond (docs/WORKFLOW.md, Budget de contexte) -- y ajouter deux entrees l'aurait fait franchir pour rien. CE FICHIER N'EST PAS EN LECTURE OBLIGATOIRE -- seul bug_history.json l'est. NUMEROTATION GLOBALE aux ONZE fichiers desormais, jamais reemployee : prochain id = max(BUG-xxx) des ONZE (precedents BUG-062, BUG-123, BUG-129). HISTORIQUE DES SCISSIONS : CHANGELOG.md.",
+	"bugs": [
+		{
+			"id": "BUG-135",
+			"date": "2026-10-01",
+			"feature": "moteur-arbitre",
+			"discovered_at": "iteration-1",
+			"symptom": "La GARDE 7 d'EcranPartie.tsx (it1, redirige vers EcranCreationHeros si session.heros est absent) a fait rougir 5 fichiers de test preexistants qui montaient EcranPartie et interagissaient directement avec le journal/la console, sans passer par l'ecran de creation : deplacement.test.tsx, jalonAuJournal.test.tsx, ouvertureVerbatim.test.tsx, verrouDeTour.test.tsx, porteJouable.test.tsx.",
+			"root_cause": "useSessionPersistee est write-only (KR-116) : chaque montage d'EcranPartie ouvre une session NEUVE via ouvrirSession, donc toute session fraiche manque heros et tombe dans la garde -- consequence directe et non anticipee au raffinage de l'insertion d'une garde bloquante devant un ecran deja couvert par des tests existants.",
+			"fix": "Helper partage src/features/play-mode/tests/creerHerosDeTest.ts (simule le geste de creation a deux temps), insere par un await dans les 5 helpers de montage affectes -- aucune assertion d'origine modifiee, seule l'etape manquante ajoutee.",
+			"mitigation": "Promu KR-276 (code-knowledge.json) : une garde bloquante inseree devant un ecran existant se verifie contre TOUS les montages existants de ce parent, jamais seulement contre le composant neuf qui la porte.",
+			"regression_test": "Les 5 fichiers cites, verifies independamment par l'orchestrateur (15 executions completes de npx jest src/features/play-mode/ sans aucun echec).",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-136",
+			"date": "2026-10-01",
+			"feature": "moteur-arbitre",
+			"discovered_at": "iteration-1",
+			"symptom": "La boucle de distribution du bonus (EcranCreationHeros.test.tsx et creerHerosDeTest.ts) -- cliquer le bouton '+' de la PREMIERE caracteristique jusqu'a ce qu'IL se desactive -- bloquait le test de facon intermittente : rouge sur certaines graines (tirerGraine() appelle le vrai Math.random a chaque montage), vert sur d'autres.",
+			"root_cause": "Le bouton se desactive aussi quand SA caracteristique atteint CREATION_CAP (10), independamment du bonus restant global : une base de tirage elevee sur la premiere caracteristique epuisait son propre plafond avant que isAssignmentComplete ne devienne vrai, bloquant durablement le bouton Valider et le waitFor qui attendait la disparition de l'ecran de creation.",
+			"fix": "La boucle itere desormais sur TOUS les boutons '+' (for...of), chacun s'arretant de lui-meme a son propre plafond -- mathematiquement garanti (8 caracteristiques x 2 points de marge minimum chacune >= 4, le bonus maximum possible via 1D4).",
+			"mitigation": "Promu KR-277 (code-knowledge.json).",
+			"regression_test": "15 executions completes de npx jest src/features/play-mode/ sans aucun echec (verifie independamment par l'orchestrateur, hors les runs rapportes par l'agent).",
+			"severity": "minor"
+		}
+	]
+}

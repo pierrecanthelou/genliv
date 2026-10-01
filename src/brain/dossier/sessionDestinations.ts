@@ -83,6 +83,14 @@ type CheminDeFeuilleDeSession =
 	| 'journal[].deltas[].delta'
 	| 'journal[].deltas[].cibles[]'
 	| 'journal[].deltas[].effet'
+	| 'heros.name'
+	| 'heros.caracs.<id>'
+	| 'heros.pvMax'
+	| 'heros.pv'
+	| 'heros.peMax'
+	| 'heros.pe'
+	| 'heros.mcBonus'
+	| 'heros.xp'
 
 export const DESTINATION_DES_CHAMPS_DE_SESSION: Readonly<
 	Record<keyof EtatSession | CheminDeFeuilleDeSession, Destination>
@@ -125,10 +133,15 @@ export const DESTINATION_DES_CHAMPS_DE_SESSION: Readonly<
 	// racine RÉELLE de `EtatSession` (optionnelle, KR-251), donc exhaustive par
 	// compilation ici comme les trois autres — jamais une feuille, puisqu'un
 	// `AttenteClarification` est un objet non vide.
+	// `heros` EST LA CINQUIÈME, posée par le lot `contrat` de la n° 11
+	// (`moteur-arbitre`, it1) : une clé racine RÉELLE (optionnelle à vie, KR-251),
+	// exhaustive par compilation ici comme les quatre autres — un `HeroState` est
+	// un objet non vide, jamais une feuille.
 	horloge: 'moteur',
 	monde: 'moteur',
 	journal: 'moteur',
 	attente: 'moteur',
+	heros: 'moteur',
 
 	// ── L'attente de clarification (n° 10) ─────────────────────────────────────
 	/** Le DISCRIMINANT — un handle de code, jamais de la fiction. */
@@ -230,6 +243,24 @@ export const DESTINATION_DES_CHAMPS_DE_SESSION: Readonly<
 	'journal[].deltas[].cibles[]': 'moteur',
 	/** Le CONSTAT d'application, deux valeurs closes (KR-247). */
 	'journal[].deltas[].effet': 'moteur',
+
+	// ── Le héros du joueur (n° 11 `moteur-arbitre`, it1) ───────────────────────
+	// TOUTES `'moteur'`, SANS EXCEPTION (KR-232/262 étendus, veto narratif-ia au
+	// raffinage) : aucune caractéristique, aucune jauge, aucun XP n'entre JAMAIS
+	// dans un contexte de modèle. R2 (arbitre, it2) choisit `{carac,tc}` à
+	// l'aveugle des valeurs — c'est le CODE qui lit `heros.caracs[carac]` APRÈS,
+	// jamais l'inverse. Garanti par invariance dans `copilote/contexte.test.ts`,
+	// jamais par cette table seule (une intention, pas un comportement).
+	/** Un identifiant choisi par le joueur à la création — jamais de la fiction canon. */
+	'heros.name': 'moteur',
+	/** Les huit caractéristiques — exactement ce que R2 ne voit jamais. */
+	'heros.caracs.<id>': 'moteur',
+	'heros.pvMax': 'moteur',
+	'heros.pv': 'moteur',
+	'heros.peMax': 'moteur',
+	'heros.pe': 'moteur',
+	'heros.mcBonus': 'moteur',
+	'heros.xp': 'moteur',
 
 	// ── La mémoire du narrateur (n° 10 it3) ─────────────────────────────────────
 	/** La phrase d'un fait établi — PROSE que le narrateur a rendue, réinjectée par

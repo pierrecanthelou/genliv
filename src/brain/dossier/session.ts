@@ -10,6 +10,14 @@ import type { FaitsDeSession } from './faits'
 // `src/brain/copilote/contexte/prose.ts:11-19`. Ne jamais transformer cette ligne.
 import type { CommandeId } from './commandes'
 import type { Dossier } from './types'
+// `HeroState` est importée TELLE QUELLE de `src/player/types.ts` — jamais une
+// seconde forme (n° 11 `moteur-arbitre`, lot `contrat`, § 4 du plan d'itération
+// 1). Importer `src/player/**` reste légal dans les trois sens que l'isolation
+// de features surveille (CLAUDE.md, « Architecture ») : ce n'est pas une
+// feature, et c'est un import de TYPE SEUL, effacé à l'émission — aucun cycle
+// de VALEUR ne s'en suit, contrairement à l'avertissement ci-dessus sur
+// `commandes.ts`.
+import type { HeroState } from '../../player/types'
 
 /**
  * L'ÉTAT DE SESSION — ce que la partie SAIT, et rien de ce que le dossier DIT.
@@ -125,7 +133,8 @@ export interface EntreeJournal {
 export type { FaitsDeSession as EtatMonde, EtatPnj } from './faits'
 
 /**
- * LA SESSION ENTIÈRE — huit clés racines, exhaustives par compilation pour la
+ * LA SESSION ENTIÈRE — DIX clés racines (neuf depuis le lot `contrat` de la
+ * n° 10, dix depuis celui de la n° 11), exhaustives par compilation pour la
  * table d'audience de `sessionDestinations.ts`.
  *
  * CE CONTRAT GÈLE L'ÉCRITURE, ET LA LECTURE N'APPARTIENT NI À L'ITÉRATION 1 NI À
@@ -142,14 +151,19 @@ export type { FaitsDeSession as EtatMonde, EtatPnj } from './faits'
  *     reconnue (KR-238) : la première itération qui RELIT une session doit la
  *     faire passer par un validateur, jamais par un `as EtatSession`.
  *
- * Deux clés que l'on ne trouvera PAS ici, et leur propriétaire :
- *  · `heros`, `combat` — n° 11, composés dans `src/player/types.ts` ;
+ * UNE clé qu'on ne trouvera PAS ici, et son propriétaire :
+ *  · `combat` — n° 13, composé dans `src/player/types.ts` (PAS n° 11 : une
+ *    ligne de la dette § 2 bis du roadmap rattachait par erreur `combat.ts` au
+ *    déclencheur « n° 11 » ; `moteur-arbitre/specification.json` confirme
+ *    n° 13 et nomme l'incohérence comme hors de son périmètre — corrigé ICI en
+ *    commentaire, jamais en silence, KR-195/196) ;
  *  · une copie du dossier — jamais : le gel est PAR RÉFÉRENCE (`dossier_id`).
  *
  * `attente` N'EST PLUS DANS CETTE LISTE depuis le lot `contrat` de la n° 10
- * (`moteur-interprete`) : c'est la clé RÉELLE, ci-dessous, qui la remplace —
+ * (`moteur-interprete`), et `heros` DEPUIS CELUI DE LA N° 11 (`moteur-arbitre`,
+ * it1) : ce sont les deux clés RÉELLES, ci-dessous, qui les remplacent —
  * corrigé EN COMMENTAIRE, jamais en silence (KR-195/196), pour que personne ne
- * la cherche encore ici en la croyant réservée.
+ * les cherche encore ici en les croyant réservées.
  */
 export interface EtatSession {
 	readonly schema: typeof SCHEMA_SESSION
@@ -243,6 +257,33 @@ export interface EtatSession {
 	 * variante d'attente entre, ELLE nommera l'union.
 	 */
 	readonly attente?: AttenteClarification
+	/**
+	 * LE HÉROS DU JOUEUR — posé par le lot `contrat` de la n° 11
+	 * (`moteur-arbitre`, it1). Importé TEL QUEL de `src/player/types.ts` (jamais
+	 * une seconde forme, § 4 du plan d'itération) : `pvMax`/`peMax` sont
+	 * STOCKÉS, écrits UNE SEULE FOIS à la construction par `maxPV`/`caracs.EN`
+	 * (`heroGen.ts`/`charCreation.ts`), jamais recalculés ici (RETENU, raffinage
+	 * it1 § 8 #2 — tranche la tension KR-013 ouverte au cadrage ; risque de
+	 * divergence si `caracs` mutait après construction, consigné en
+	 * `known_risks` de la spec, non résolu ici).
+	 *
+	 * OPTIONNEL À VIE (KR-251), **JAMAIS** `HeroState | null` : `schema: 1` n'a
+	 * aucun chemin de migration, et une session écrite avant ce lot n'a
+	 * simplement pas la clé — état LÉGAL, pas un trou à combler. ABSENTE,
+	 * JAMAIS `heros: undefined`, tant qu'aucun héros n'a été créé — y compris
+	 * après un `aller` sans héros (spread conditionnel, `commandes.ts`,
+	 * précédent `commandes.test.ts:117-119`).
+	 *
+	 * SEUL ÉCRIVAIN DE CETTE CLÉ : `fixerHeros`, ci-dessous — pure, et seule
+	 * porte. `A4` (`commandes.ts`, `TRANSITIONS.aller`) est le second écrivain,
+	 * mais d'une SEULE feuille (`pe`) du héros déjà posé — il n'en crée jamais.
+	 *
+	 * AUDIENCE : TOUTES les feuilles de `heros` sont `'moteur'`, SANS EXCEPTION
+	 * (`sessionDestinations.ts`) — aucune caractéristique, aucune jauge, aucun
+	 * XP n'entre JAMAIS dans un contexte de modèle (KR-262 étendu, garanti par
+	 * invariance dans `copilote/contexte.test.ts`).
+	 */
+	readonly heros?: HeroState
 }
 
 /**
@@ -431,4 +472,22 @@ export function ouvrirSession(dossier: Dossier, options: { graine_alea: number }
 			memoire: null,
 		},
 	}
+}
+
+/**
+ * ÉCRIRE LE HÉROS — PURE, et SEULE PORTE d'écriture de `EtatSession.heros` dans
+ * toute la feature (n° 11 `moteur-arbitre`, lot `contrat`, § 4 du plan).
+ *
+ * N'ÉCRIT RIEN D'AUTRE : le reste de la session rendue est le reste de
+ * l'argument, à l'identique — un spread qui ne pose qu'une clé, jamais une
+ * recopie champ par champ qui divergerait en silence du contrat le jour où une
+ * onzième clé racine entre.
+ *
+ * APPELÉE UNE SEULE FOIS PAR PARTIE, à la validation de `EcranCreationHeros`
+ * (lot `feature-ecrans-heros`) : `heros` n'a aucun second écrivain qui le
+ * REMPLACE — `A4` (`commandes.ts`, `TRANSITIONS.aller`) ÉCRIT une FEUILLE du
+ * héros déjà posé (`pe`), il n'en pose jamais un nouveau.
+ */
+export function fixerHeros(session: EtatSession, heros: HeroState): EtatSession {
+	return { ...session, heros }
 }

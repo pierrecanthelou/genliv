@@ -10,6 +10,7 @@ import {
 } from '../../../brain'
 import { dossierKey } from '../../../brain/persistenceKeys'
 import { EcranPartie, tirerGraine } from '../components/EcranPartie'
+import { terminerCreationHeros } from './creerHerosDeTest'
 
 /**
  * CE QUE L'AUTEUR LIT QUAND LA PARTIE S'OUVRE — garde 6 de l'ordre normatif
@@ -45,7 +46,9 @@ function avecOuverture(dossier: Dossier, ouverture: string): Dossier {
 }
 
 /** Sème un dossier JOUABLE et monte le shell dessus. */
-function monterPartieJouable(): { brain: Brain; dossier: Dossier } {
+async function monterPartieJouable(
+	user: ReturnType<typeof userEvent.setup>,
+): Promise<{ brain: Brain; dossier: Dossier }> {
 	const brain = createBrain()
 	const seme = brain.dossiers.create(TITRE_DOSSIER)
 	brain.persistence.set(dossierKey(seme.id), avecOuverture(seme, OUVERTURE_REDIGEE))
@@ -55,6 +58,7 @@ function monterPartieJouable(): { brain: Brain; dossier: Dossier } {
 			<EcranPartie dossierId={dossier.id} />
 		</BrainProvider>,
 	)
+	await terminerCreationHeros(user)
 	return { brain, dossier }
 }
 
@@ -67,8 +71,9 @@ describe('l ouverture lue mot pour mot', () => {
 		window.localStorage.clear()
 	})
 
-	it('rend la prose d ouverture VERBATIM, alineas compris, sous son en-tete auteur', () => {
-		const { dossier } = monterPartieJouable()
+	it('rend la prose d ouverture VERBATIM, alineas compris, sous son en-tete auteur', async () => {
+		const user = userEvent.setup()
+		const { dossier } = await monterPartieJouable(user)
 
 		// Le shell est une PAGE, jamais une modale : `<main>`, ni `role="dialog"`, ni
 		// `aria-modal` (différence d'anatomie avec `PlayerModal`, § 3.B).
@@ -88,8 +93,9 @@ describe('l ouverture lue mot pour mot', () => {
 		expect(prose).toHaveStyle({ whiteSpace: 'pre-wrap' })
 	})
 
-	it('rend le header auteur: le titre du dossier apres le separateur, et une sortie nommee', () => {
-		const { dossier } = monterPartieJouable()
+	it('rend le header auteur: le titre du dossier apres le separateur, et une sortie nommee', async () => {
+		const user = userEvent.setup()
+		const { dossier } = await monterPartieJouable(user)
 
 		const titre = screen.getByText(dossier.titre)
 		// L'égalité COMPOSÉE épingle le séparateur au caractère près.
@@ -100,8 +106,9 @@ describe('l ouverture lue mot pour mot', () => {
 		expect(sortie.textContent).toBe('✕ Quitter le test')
 	})
 
-	it('rend la zone journal AVEC son etat vide: zero ligne en it1, une invitation au futur', () => {
-		monterPartieJouable()
+	it('rend la zone journal AVEC son etat vide: zero ligne en it1, une invitation au futur', async () => {
+		const user = userEvent.setup()
+		await monterPartieJouable(user)
 
 		const journal = screen.getByRole('region', { name: 'Journal' })
 		expect(within(journal).getByText('JOURNAL')).toBeInTheDocument()
@@ -110,8 +117,9 @@ describe('l ouverture lue mot pour mot', () => {
 		).toBeInTheDocument()
 	})
 
-	it('persiste la session ouverte sous la cle du dossier, journal a zero entree', () => {
-		const { brain, dossier } = monterPartieJouable()
+	it('persiste la session ouverte sous la cle du dossier, journal a zero entree', async () => {
+		const user = userEvent.setup()
+		const { brain, dossier } = await monterPartieJouable(user)
 
 		const session = sessionPersistee(brain, dossier.id)
 		expect(session.schema).toBe(1)
@@ -124,8 +132,9 @@ describe('l ouverture lue mot pour mot', () => {
 		expect(session.monde.lieux_visites).toEqual([dossier.charpente.depart.lieu_id])
 	})
 
-	it('ne fait fuiter AUCUN identifiant technique dans le DOM (registre developpeur absent en it1)', () => {
-		const { brain, dossier } = monterPartieJouable()
+	it('ne fait fuiter AUCUN identifiant technique dans le DOM (registre developpeur absent en it1)', async () => {
+		const user = userEvent.setup()
+		const { brain, dossier } = await monterPartieJouable(user)
 
 		const session = sessionPersistee(brain, dossier.id)
 		// Le pas de côté le plus probable est d'afficher « Lieu : lieu.val-cendre »
@@ -140,10 +149,11 @@ describe('l ouverture lue mot pour mot', () => {
 	 * que le test puisse la fixer (§ 8, D-16 — précédent du `rng` non semé de
 	 * `combat.ts:107`). Un `Date.now()` ou un compteur en ligne ferait rougir ceci.
 	 */
-	it('seme la session par le tirage NOMME, que le test peut fixer', () => {
+	it('seme la session par le tirage NOMME, que le test peut fixer', async () => {
+		const user = userEvent.setup()
 		const tirage = jest.spyOn(Math, 'random').mockReturnValue(0.4242)
 		try {
-			const { brain, dossier } = monterPartieJouable()
+			const { brain, dossier } = await monterPartieJouable(user)
 			expect(sessionPersistee(brain, dossier.id).graine_alea).toBe(tirerGraine())
 			expect(Number.isInteger(tirerGraine())).toBe(true)
 		} finally {
@@ -153,7 +163,7 @@ describe('l ouverture lue mot pour mot', () => {
 
 	it('quitter le test ramene a l editeur du dossier, au clic comme a Echap', async () => {
 		const user = userEvent.setup()
-		const { brain, dossier } = monterPartieJouable()
+		const { brain, dossier } = await monterPartieJouable(user)
 
 		await user.click(screen.getByRole('button', { name: 'Quitter le test' }))
 		expect(brain.router.current()).toEqual({ name: 'dossier', dossierId: dossier.id })

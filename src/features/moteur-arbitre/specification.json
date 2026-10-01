@@ -1,0 +1,157 @@
+{
+	"feature": "moteur-arbitre",
+	"created_at": "2026-09-30",
+	"status": "in-progress",
+	"design_reference": "docs/ROADMAP-BASCULE-IA.md § 3 ligne 159 : « …voir le code lancer le dé que l'IA a demandé » — rôle R2 (arbitre), protocole à un appel (R2 propose le jet, le moteur résout, R3 narre — PAS deux appels R2, contrairement à une lecture littérale du roadmap). docs/PLAN-BASCULE-IA.dc.html §2.6 sous-boucle A (texte exact du protocole : « L'arbitre renvoie {carac, tc, pourquoi, enjeu_reussite, enjeu_echec}… Le narrateur reçoit {issue, marge} et raconte » — nuancé au cadrage : R3 reçoit des amorces classées par le CODE, jamais les chiffres bruts, KR-262/230 étendus) et §2.9 (Panneau de dés : carte caractéristique/TC/enjeu/bouton lancer, dés montrés, seuil montré). docs/REGLES-DU-JEU.md §1 (8 caractéristiques, PV=FO+AG+EN), §2 (4 Tiers de Challenge, dés, marge), §5 (ΔT, XP — DÉJÀ défini et codé, contrairement à une ligne périmée du roadmap qui dit « jamais défini »). docs/REGLES-PLAY.md §A4 (+5 PE au changement de lieu — nommée par ce document comme propriété exclusive de la n°11, EtatSession.heros n'existant pas avant), §B1/B2 (génération 2D4+1D4, plafond 10, une relance), §G1 (contenu de sauvegarde). Précédent d'infrastructure IA : dossier-copilote + moteur-interprete (CopiloteService, route worker POST /ia/:role générique déjà à 8 branches, GABARIT_SORTIE, rejeu unique puis dégradation, verrou de tour KR-265) — RÉUTILISÉS SANS ÊTRE REFAITS. Précédent de logique pure INTOUCHÉE depuis le Temps 1, tenue par le score de mutation (break 90) : challenge.ts (CHALLENGE_TIERS, resolveChallenge, rng injectable), xp.ts (deltaBand, challengeXp, tierOf, coûts de boutique), characteristics.ts (CHARACTERISTICS, HeroStats, maxPV, healthState, enduranceMalus) — appelés, jamais modifiés (sauf it3 qui extrait une constante nommée de xp.ts). Précédent réutilisable côté src/player/ (runtime ancien conservé, ROADMAP § 0 bis) : heroGen.ts/charCreation.ts (logique pure de génération, zéro dépendance tree-model, orpheline depuis toujours — CharacterCreationScreen.tsx n'est monté nulle part) — réutilisés ; HeroStatusBar.tsx/CharacterCreationScreen.tsx (composants TSX, tutoiement + type HeroState concurrent) — JAMAIS réutilisés verbatim, seulement leur anatomie comme précédent. Dépendance directe : src/features/moteur-interprete/specification.json (n°10, TERMINÉE 4/4, 0.7.9) — CopiloteService à 8 branches, R1/R3, verrou de tour, graine_alea posée sans lecteur depuis moteur-dossier it1. Cadrage : .claude/raffinage/moteur-arbitre-cadrage/ (2 tours, 5 rôles, 10 notes).",
+	"plan": {
+		"goal": "Le joueur voit le code lancer le dé que l'IA a demandé — un jet structuré et déterministe que l'IA (R2, arbitre) propose, que le moteur seul résout (resolveChallenge, déjà pur), et dont R3 (narrateur, déjà existant) raconte l'issue en mots, jamais en chiffres. EtatSession gagne pour la première fois un champ héros (caractéristiques, PV, PE, XP) et consomme pour la première fois graine_alea, posée sans lecteur depuis moteur-dossier it1. L'IA ne lance jamais les dés, ne voit jamais la fiche du héros, et ne calcule jamais l'XP.",
+		"design_contract": {
+			"bandeau_heros": "Nouveau composant `play-mode/components/BandeauHeros.tsx`, feature-local (précédent OutcomeBlock/Chip, KR-109). Bandeau permanent, registre joueur, lecture seule : nom (--text-strong, semibold), PV x/y · PE x/y · XP n (--text-strong/--text-body), séparateurs 1px --border-subtle. AUCUNE couleur sémantique en it1 — --good/--bad réservées au Badge de CarteJet (it2, seul moment où une issue réussite/échec existe, CLAUDE.md). Aucun état vide (n'existe qu'une fois le héros créé), aucun survol, aucun focus (rien d'interactif). Corrigé au raffinage it1 (§8 #3/#12 du plan) — la version précédente de ce texte contredisait le contrat retenu.",
+			"ecran_creation_heros": "Nouveau composant `play-mode/components/EcranCreationHeros.tsx`. Réutilise heroGen.ts/charCreation.ts (logique pure) par import direct — JAMAIS CharacterCreationScreen.tsx (tutoiement, type HeroState concurrent). Registre VOUVOIEMENT (cohérence n°10). Titre « Créez votre héros ». Label NOM (mono), placeholder « Aldric le Téméraire ». Instruction « Choisissez un lancer, puis cliquez une caractéristique pour l'assigner. ». Compteur bonus « Bonus 1D4 : {n} point(s) restant(s) » / « ✓ tout distribué ». Bouton relance « ⟳ Relancer » (une seule, REGLES-PLAY §B2). Bouton validation (accent) « Valider → », désactivé tant que non complet. Dés 44×44 (hit-target), sélectionné = accent+accent-bg, assigné = surface-sunken+text-disabled. Clavier : focus initial sur NOM, Tab dés→caracs→boutons, Entrée ne soumet jamais avant complétude.",
+			"carte_jet": "Nouveau composant `play-mode/components/CarteJet.tsx`. Card SANS box-shadow (filet --border-card, ni menu ni modale) + CardHead (eyebrow = nom de la caractéristique en MAJUSCULES, title = « Seuil {tc} ») + Badge (tone good/bad, réutilisé tel quel) pour l'issue. AUCUN OutcomeBlock propre à cette carte — le récit de R3 s'affiche par le canal RÉCIT déjà câblé par PlayerInputBar.tsx (n°10, session.journal[].recit), jamais un second afficheur. Avant lancer : deux lignes mono SI RÉUSSITE / SI ÉCHEC, contenu = enjeu_reussite/enjeu_echec VERBATIM (prose joueur), bouton accent « Lancer le dé → ». Pendant résolution : bouton « … » désactivé (opacity 0.5, cursor not-allowed, patron PlayerInputBar). Après résolution : dés bruts + seuil affichés en chiffres (« 9 + 14 vs 14 »), Badge RÉUSSITE/ÉCHEC + marge — ce sont des chiffres proférés par le CODE, jamais par le modèle. Icônes : → ou ↻ pour lancer, jamais d'emoji dé. Clavier : Entrée sur la carte focusée = clic lancer ; focus reste sur la carte après résolution, le champ de saisie libre ne reprend la main qu'après le récit.",
+			"eslint_ciblee": "Règle proposée (à valider par le tech-lead en raffinage it1) : interdire l'import de src/player/components/{HeroStatusBar,CharacterCreationScreen} depuis src/features/** — matérialise l'objection registre sans bloquer heroGen.ts/charCreation.ts (logique pure, import légal)."
+		},
+		"acceptance_criteria": [
+			"Étant donné une session sans héros, quand la partie s'ouvre pour la première fois, alors l'auteur voit un écran de création (2D4×8 caractéristiques, bonus 1D4 réparti par le joueur, une relance possible), et EtatSession.heros est écrit ET lu dans le même lot (KR-249) — jamais un champ préposé sans consommateur.",
+			"Étant donné un héros existant, quand l'écran de partie s'affiche, alors un bandeau permanent montre nom/PV/PE/XP, dérivés de EtatSession.heros, jamais un miroir d'état local (KR-013).",
+			"Étant donné la commande aller vers un nouveau lieu, quand elle est acceptée, alors heros.PE gagne +5 (plafonné à peMax), règle A4 de docs/REGLES-PLAY.md — jamais racontée par l'IA, visible seulement dans le bandeau.",
+			"Étant donné un geste 'agir' avec un héros présent, quand le pas est traité, alors le code appelle R2 (arbitre) — jamais sur 'aller', jamais sans héros — qui reçoit UNIQUEMENT la description du lieu et, s'il existe, le texte de dangers (jamais la fiche du héros, KR-262 étendu, veto narratif-ia) et rend {jet:{carac,tc,pourquoi,enjeu_reussite,enjeu_echec}} ou {sans_jet:true}.",
+			"Étant donné une réponse R2 {jet:...}, quand le joueur clique « Lancer », alors resolveChallenge (déjà pur, challenge.ts) résout avec un rng dérivé de graine_alea via un module keyé (alea(graine,domaine,indice), jamais Math.random, jamais un flux séquentiel) — le même tirage rejoue à l'identique depuis la même graine.",
+			"Étant donné une résolution de jet, quand R3 (déjà existant, 8e branche) narre le pas, alors il reçoit une amorce classée par le CODE (réussit / réussit de justesse / réussit nettement / échoue — jamais les chiffres, jamais 'marge', jamais 'TC', KR-273 étendu) et raconte en une seule ligne ajoutée au bloc CE PAS existant, jamais un second appel ni un bloc neuf.",
+			"Étant donné un jet résolu, quand le journal est écrit, alors {lieu_id, carac, tc} entre comme entrée du REJEU (KR-248 étendu — c'est une décision du modèle que la graine seule ne reproduit pas) ; marge et issue restent dérivés, jamais stockés (KR-013) ; la prose (pourquoi, enjeux) n'entre jamais au rejeu.",
+			"Étant donné un jet réussi, quand l'XP est attribuée, alors challengeXp/deltaBand (déjà purs, xp.ts) créditent heros.xp selon la marge RÉELLE et le ΔT (Tier du challenge − Tier du héros, déjà défini docs/REGLES-DU-JEU.md §5) — jamais un calcul par l'IA.",
+			"Étant donné le périmètre balayé par moteurSansIA.test.ts (KR-260), quand cette feature est livrée, alors aucun nouveau fichier n'entre dans l'exclusion nommée hors de ceux qui appellent réellement CopiloteService pour le rôle arbitre.",
+			"Étant donné une sortie R2 non conforme au schéma, quand elle est reçue, alors elle est REJOUÉE EXACTEMENT UNE FOIS puis dégradée en {sans_jet:true} — jamais un état corrompu, jamais un jet inventé par le code (§2.8 garde-fou 1)."
+		],
+		"brain_contracts": [
+			{
+				"type": "type",
+				"name": "EtatSession.heros? — it1. HeroState importé tel quel de src/player/types.ts (jamais une seconde forme), optionnel à vie (KR-251). pvMax/peMax : tension KR-013 à trancher en raffinage it1 (dérivés de caracs, ou stockés — voir known_risks)",
+				"direction": "provides"
+			},
+			{
+				"type": "registry",
+				"name": "brain/dossier/alea.ts — it1. Module pur, alea(graine, domaine, indice): number — premier consommateur réel de EtatSession.graine_alea (posée sans lecteur depuis moteur-dossier it1). Jamais Math.random en session, jamais un flux séquentiel (casserait le rejeu dès qu'un tirage est inséré ailleurs par une itération future)",
+				"direction": "provides"
+			},
+			{
+				"type": "service",
+				"name": "CopiloteService.demander('arbitre', …) — it2. 9e branche de l'union à garde never. Entrée = description du lieu courant + dangers optionnel (JAMAIS la fiche du héros, JAMAIS la mémoire) ; sortie = {jet:{carac,tc,pourquoi,enjeu_reussite,enjeu_echec}} | {sans_jet:true}, zéro clé commune avec les 8 rôles existants (KR-231)",
+				"direction": "provides"
+			},
+			{
+				"type": "registry",
+				"name": "brain/dossier/arbitre.ts — it2. Routage PUR : commande.commande === 'agir' && session.heros !== undefined déclenche R2 — jamais sur 'aller', jamais par lecture du contenu de dangers (KR-262/244 étendus : un gate se fonde sur une structure, jamais sur le sens d'une prose auteur)",
+				"direction": "provides"
+			},
+			{
+				"type": "type",
+				"name": "EntreeJournal.jet? — it2. {lieu_id, carac, tc} — entrée du REJEU (KR-248 étendu), jamais la prose ni marge/issue (dérivés, KR-013)",
+				"direction": "provides"
+			},
+			{
+				"type": "registry",
+				"name": "worker/index.ts INVITES['arbitre'] — it2. Contrat de route POST /ia/:role à HUIT branches devenant NEUF, checklist KR-233 inchangée",
+				"direction": "provides"
+			},
+			{
+				"type": "registry",
+				"name": "brain/xp.ts — it3 SEULEMENT. Extraction d'une constante nommée (ex. MARGE_FRANCHE) depuis le littéral inline margin>=3 de challengeXp — SEULE modification des 4 fichiers de règles par cette feature, déclenche npm run test:mutation sur it3",
+				"direction": "provides"
+			},
+			{
+				"type": "service",
+				"name": "brain/challenge.ts (resolveChallenge, CHALLENGE_TIERS) / brain/characteristics.ts (CHARACTERISTICS, HeroStats, maxPV) — Temps 1, déjà purs",
+				"direction": "consumes"
+			},
+			{
+				"type": "service",
+				"name": "CopiloteService.demander('narrateur', …) / brain/dossier/commandes.ts (COMMANDES, executerCommande) — n°10, TERMINÉE",
+				"direction": "consumes"
+			}
+		],
+		"walking_skeleton": "Itération 1 : la tranche la plus fine qui traverse tout — le joueur ouvre une partie sans héros, un écran de création (heroGen.ts/charCreation.ts réutilisés) génère ses 8 caractéristiques et son bonus réparti, EtatSession.heros est écrit ET affiché dans un bandeau permanent dans le même lot (KR-249). La règle A4 (+5 PE au changement de lieu) est câblée sur commande.aller — seule itération qui peut la porter, heros.PE n'existant pas avant. AUCUN jet, AUCUNE IA d'arbitrage : le lot contrat pose uniquement EtatSession.heros? et brain/dossier/alea.ts (premier lecteur de graine_alea). Les itérations 2 et 3 ajoutent chacune une capacité : le jet binaire complet — routage, R2, résolution, R3 narrant — entre EN UNE SEULE FOIS en it2 (jamais scindé, KR-263/266 : un rôle IA n'entre qu'avec ses DEUX consommateurs réels, narratif ET mécanique, dans la même itération) ; la marge fine et l'XP suivent en it3.",
+		"n": 3,
+		"iterations": [
+			{
+				"id": 1,
+				"goal": "À la fin de cette itération, l'auteur peut créer son héros à l'ouverture d'une partie, le voir affiché dans un bandeau permanent (nom, PV, PE, XP), et observer son PE remonter de 5 (plafonné) chaque fois qu'il se déplace réellement vers un autre lieu — sans qu'aucun jet ni aucune IA n'entrent en jeu. EtatSession.heros (optionnel à vie, KR-251) et EtatSession.graine_alea (première consommation réelle, via alea.ts pur et keyé) entrent dans le même lot contrat (lot A, dev-contrat, seul et en premier). Plan raffiné : .claude/raffinage/moteur-arbitre-it1.plan.md, validé le 2026-10-01.",
+				"status": "done"
+			},
+			{
+				"id": 2,
+				"goal": "Le joueur voit le moteur lancer le dé que l'IA a demandé et en raconter le résultat, sans jamais connaître par avance le seuil ni la marge. Un geste 'agir' avec un héros existant déclenche R2 (arbitre, 9e branche de CopiloteService) — jamais 'aller', jamais gaté par le contenu de dangers — qui NE VOIT JAMAIS la fiche du héros, seulement la description du lieu et, s'il existe, son texte de dangers en contexte optionnel. Le joueur voit la carte, clique « Lancer », resolveChallenge (déjà pur) résout avec un rng dérivé de graine_alea, et R3 (déjà existant) narre l'issue en amorce binaire qualitative (réussit/échoue) — jamais les chiffres. {lieu_id,carac,tc} entre au rejeu (KR-248 étendu) ; marge et issue restent dérivés, jamais stockés.",
+				"status": "planned"
+			},
+			{
+				"id": 3,
+				"goal": "L'auteur voit son héros gagner de l'XP selon la marge réelle du jet. Le code (jamais l'IA) nuance l'amorce narrée (réussit nettement / réussit de justesse / échoue) sur le MÊME seuil que challengeXp — une constante nommée extraite de xp.ts, jamais un second seuil dupliqué (KR-261) — et crédite heros.xp via challengeXp/deltaBand (déjà purs, ΔT déjà défini docs/REGLES-DU-JEU.md §5). Seule itération de cette feature qui touche un des quatre fichiers de règles : npm run test:mutation est dû.",
+				"status": "planned"
+			}
+		],
+		"known_risks": [
+			"KR-249 — un champ EtatSession n'entre qu'avec un écrivain ET un lecteur réels dans la MÊME itération. EtatSession.heros et sa première lecture (bandeau) entrent ensemble en it1 ; EtatSession.graine_alea, posée sans lecteur depuis moteur-dossier it1, trouve enfin son premier lecteur réel (le module alea.ts) dans ce même lot.",
+			"KR-263/266 étendus — un rôle IA n'entre qu'avec SES DEUX consommateurs réels dans la même itération : narratif (R3 doit raconter l'issue) ET mécanique (resolveChallenge doit résoudre le jet). Scinder R2 de sa résolution sur deux itérations (proposition rejetée au cadrage) produirait un bouton « Lancer » qui ne résout rien — un no-op invisible.",
+			"« Audience avant injection » (KR-232/262 étendus, non-négociable) — R2 ne reçoit JAMAIS la fiche du héros (caractéristiques, PV, PE, XP restent audience 'moteur') : c'est le CODE qui lit heros.caracs[carac] APRÈS que R2 a choisi {carac,tc} à l'aveugle des valeurs, jamais l'inverse. R3 ne reçoit JAMAIS les chiffres du jet (marge, seuil, dés) : le CODE classe l'issue en amorce qualitative avant de la lui donner.",
+			"KR-248 étendu — une décision d'un rôle IA qui conditionne la suite du jeu ({carac,tc} choisi par R2) entre au REJEU au même titre qu'une Commande, parce que la graine seule ne la reproduit pas (contrairement à un jet de dé, recalculable). La prose (pourquoi, enjeux) et les valeurs dérivées (marge, issue) n'entrent jamais.",
+			"Aléa keyé, jamais séquentiel — alea(graine, domaine, indice) est une fonction PURE, jamais un flux consommé un cran à la fois : un flux séquentiel casserait le rejeu de toute session existante dès qu'une itération future (n°13 combat) insère un nouveau tirage ailleurs dans le protocole.",
+			"Un gate mécanique de déclenchement d'un rôle IA se fonde sur une STRUCTURE (le verbe 'agir', la présence d'un héros), jamais sur le CONTENU/SENS d'une prose auteur (dangers reste de la prose narrative, jamais parsée pour en dériver une décision — la docstring de types.ts qui l'affirmait reste vraie sous ce routage, aucune correction nécessaire).",
+			"Registre de langue — HeroStatusBar.tsx/CharacterCreationScreen.tsx (src/player/, ancien runtime) TUTOIENT et portent un type HeroState concurrent de celui à introduire dans brain/ : JAMAIS réutilisés verbatim (précédent d'anatomie seulement). heroGen.ts/charCreation.ts (logique pure, zéro dépendance tree-model) sûrs à réutiliser tels quels.",
+			"Tension KR-013 non tranchée au cadrage, à trancher en raffinage it1 : HeroState.pvMax/peMax se calculent depuis caracs (maxPV(FO,AG,EN)) — importer le type player/types.ts tel quel, avec ces champs stockés plutôt que dérivés, pourrait réintroduire un champ dérivable stocké. À vérifier avant d'écrire le lot contrat d'it1.",
+			"Score de mutation — appeler challenge.ts/xp.ts/characteristics.ts sans en modifier une ligne ne déclenche PAS npm run test:mutation (lecture opérationnelle : diff sur le fichier de production ou son test dédié, jamais « est appelé depuis »). SEULE it3 y touche (extraction de MARGE_FRANCHE hors de xp.ts) et doit le lancer.",
+			"KR-265 — le verrou de tour s'étend à R1→exécution→R2→attente du clic→resolveChallenge→R3, un seul verrou pour toute la chaîne, précédent exact R1→exécution→R3 de moteur-interprete it2."
+		]
+	},
+	"implementation": {
+		"iterations_log": [
+				{
+					"id": 1,
+					"label": "heros-sans-jet",
+					"completed_at": "2026-10-01",
+					"architecture_choices": [
+						"alea(graine,domaine,indice):number pur (FNV-1a + mélangeur Murmur3-like) + creerRng(...):()=>number adaptateur à compteur local décalé par usage (DECALAGE_USAGE=1e6) — aucun flux séquentiel, chaque indice a sa zone propre.",
+						"fixerHeros(session,heros):EtatSession seule porte d'écriture de heros ; A4 (TRANSITIONS.aller) écrit une seule feuille (pe) du héros déjà posé, jamais un second écrivain créateur.",
+						"EcranCreationHeros : geste à deux temps (clic dé → sélection visuelle accent/accent-bg → clic caractéristique → assignation), conforme au contrat de design — pas d'auto-assignation séquentielle (corrigé en cours de lot, voir deviations).",
+						"GARDE 7 inline dans PartieEnCours (EcranPartie.tsx), jamais un useEffect — session.heros présent/absent décide directement du rendu."
+					],
+					"deviations_from_plan": [
+						"Régression découverte en cours de lot (non anticipée au raffinage) : la GARDE 7 casse 5 fichiers de test préexistants qui montaient EcranPartie sans passer par la création du héros (useSessionPersistee est write-only, chaque montage est une session neuve). Corrigée dans le même lot via un helper partagé creerHerosDeTest.ts — BUG-135, promu KR-276.",
+						"Bug trouvé en vérification indépendante (pas dans le rapport initial de l'ouvrier) : la boucle de distribution du bonus ne cliquait que le premier bouton '+', bloquant silencieusement sur certains tirages aléatoires — BUG-136, promu KR-277.",
+						"EcranCreationHeros.tsx livré une première fois avec une auto-assignation séquentielle des dés (un seul clic), contredisant le texte d'instruction affiché et le contrat de design (trois états visuels dé dispo/sélectionné/assigné) ; corrigé en geste à deux temps avant acceptation."
+					],
+					"test_coverage": {
+						"unit": "alea.ts (6 tests), commandes.ts/A4 (5 scénarios), session.ts/fixerHeros (2 tests)",
+						"component": "EcranCreationHeros (3 tests dont zéro-Math.random et geste deux temps), BandeauHeros (tons neutres), EcranPartie (garde 7)",
+						"contract": "sessionDestinations/sessionCouverture (10 racines, 6 dispenses), contexte.test.ts (invariance R1/R3 avec/sans heros)",
+						"regression": "5 fichiers de test préexistants (deplacement, jalonAuJournal, ouvertureVerbatim, verrouDeTour, porteJouable) réparés, aucune assertion d'origine modifiée ; 15 exécutions complètes vérifiées sans échec"
+					}
+				}
+			],
+		"resolved_decisions": [
+			"RETENU (raffinage it1, §8 #2) — HeroState.pvMax/peMax STOCKÉS (import tel quel de src/player/types.ts), jamais recalculés ailleurs : écrits une seule fois à la construction par maxPV/caracs.EN (heroGen.ts/charCreation.ts). Tranche la tension KR-013 ouverte au cadrage. Risque de divergence si caracs mute après création : consigné en known_risks, non résolu ici.",
+			"RETENU (raffinage it1, §8 #3) — bandeau héros en tons neutres (--text-strong/--text-body) en it1, aucune couleur sémantique : --good/--bad restent réservées au Badge de CarteJet (it2), seul moment où une issue réussite/échec existe (CLAUDE.md). Corrige le design_contract.bandeau_heros de la spec (texte aligné dans le même lot, §8 #12).",
+			"RETENU (raffinage it1, §8 #4) — signature de l'aléa : alea(graine,domaine,indice):number (texte littéral acté au cadrage, préservé) + creerRng(graine,domaine,indice):()=>number comme adaptateur, indice obligatoire. REJETÉ : fluxAlea(graine,domaine,indice):()=>number (fonction unique) — aucune base dans les notes de cadrage, aurait réécrit brain_contracts sans bénéfice net.",
+			"RETENU (raffinage it1, §8 #5) — condition d'application d'A4 : lieuCible.id !== depuis (changement réel de lieu), jamais inconditionnel. Citations : docs/REGLES-DU-JEU.md:43, docs/REGLES-PLAY.md:104 (E3, pas de régénération passive). La version inconditionnelle ouvrait une potion infinie sur tout lieu auto-référent.",
+			"RETENU (raffinage it1, §8 #9) — la clé heros reste ABSENTE (jamais heros: undefined) quand il n'y a pas de héros, y compris après un aller sans héros. Spread conditionnel dans TRANSITIONS.aller, précédent commandes.test.ts:117-119.",
+			"REJETÉ (cadrage, tour 1→2) — R2 « consulté systématiquement » après chaque commande, décidant lui-même s'il y a jet (proposition tech-lead tour 1) : retiré par son propre auteur au tour 2, remplacé par un gate de structure. Corps : cadrage tour1-tech-lead.md, tour2-tech-lead.md.",
+			"REJETÉ (cadrage) — déclenchement de R2 par le CONTENU de monde.lieux[].dangers (lecture sémantique de la prose pour décider d'un piège) : la docstring de types.ts dit explicitement que ce champ NE déclenche PAS de règle — confirmé par narratif-ia elle-même après relecture (tour 2), qui cite un contre-exemple réel (dossier-reference.json:258, un dangers rempli qui dit qu'il n'y a aucun danger). Corps : cadrage tour2-narratif-ia.md § objection 1.",
+			"RETENU (arbitrage cadrage, tour 3, orchestrateur) — routage de R2 : le geste 'agir' avec un héros présent, JAMAIS la présence ou le contenu de dangers. Deux propositions concurrentes se sont retournées dans le MÊME tour parallèle sans se voir : narratif-ia a proposé le gate par présence de dangers au tour 1, puis SE L'EST RETIRÉ ELLE-MÊME au tour 2 (au profit du gate par verbe 'agir') — pendant que le tech-lead, dans sa propre note de tour 2 écrite en parallèle, confirmait et adoptait la PREMIÈRE version (dangers non-vide), sans avoir vu le retournement. Arbitré en faveur de la version FINALE de narratif-ia (verbe 'agir' + héros présent) : c'est son domaine (frontière code/IA), c'est la position la plus récente et la plus travaillée (elle cite un contre-exemple réel trouvé par relecture), et elle évite toute ambiguïté de contrat sur dangers (aucune correction de docstring nécessaire, contrairement à la version que le tech-lead avait confirmée). Précédent exact : le retournement du rôle chroniqueur en moteur-interprete it3, et le retournement de la troncature d'inventaire en it4 — même classe de situation, même protocole d'arbitrage.",
+			"RETENU (cadrage) — découpage en 3 itérations : héros SEUL (it1, aucune IA) → jet binaire COMPLET routage+R2+résolution+R3 (it2, jamais scindé) → marge fine + XP (it3). Convergence indépendante de 4 rôles sur 5 (PM, tech-lead au tour 2, narratif-ia au tour 2, QA) après que les découpages initiaux du PM (héros/dé/XP avec R3 narrant issue+marge) et du tech-lead (héros/carte-sans-résolution/résolution) se sont révélés l'un en contradiction avec un veto narratif-ia, l'autre en violation de KR-263 (un bouton qui ne résout rien est un no-op invisible, objection QA maintenue et satisfaite). Corps : cadrage tour2-{pm-produit,tech-lead,qa,narratif-ia}.md.",
+			"REJETÉ (cadrage) — R3 reçoit {issue, marge} brut (lecture littérale du plan de cible §2.6) : veto narratif-ia dès le tour 1, jamais contesté. Le CODE classe l'issue en amorce qualitative (réussit / réussit de justesse / réussit nettement / échoue) AVANT de la donner à R3, sur la MÊME constante que xp.ts. Corps : cadrage tour1/tour2-narratif-ia.md.",
+			"REJETÉ (cadrage) — R2 « voit l'état du héros » (lecture littérale du plan de cible §2.6) : veto narratif-ia dès le tour 1, DURCI au tour 2 (étendu à heros.name, toutes les lignes heros.* d'audience 'moteur'). Le code calcule heroTier APRÈS que R2 a choisi {carac,tc} à l'aveugle. Corps : cadrage tour1/tour2-narratif-ia.md.",
+			"REJETÉ (cadrage) — caractéristiques du héros tirées par le CODE via alea(graine,'heros') (proposition autonome narratif-ia, tour 1) : concédé par son propre auteur au tour 2 face à PM/tech-lead/UX — c'est un écran de JEU (choix du joueur dans la répartition du bonus 1D4), pas une décision de l'arbitre. Réutilisation de heroGen.ts/charCreation.ts (génération existante) retenue, avec UNE condition : le rng qu'ils utilisent doit dériver de graine_alea via alea(graine,'heros',n), jamais Math.random. Corps : cadrage tour2-narratif-ia.md.",
+			"REJETÉ (cadrage) — flux d'aléa séquentiel, « la graine avance à chaque appel » (proposition QA, tour 1) : chaque tirage inséré ailleurs par une itération future (relance, n°13 combat) décalerait tous les jets suivants et casserait le rejeu des sessions déjà jouées. Retenu à la place : alea(graine, domaine, indice), une clé par usage, jamais un compteur global. Corps : cadrage tour2-narratif-ia.md § D.",
+			"REJETÉ (cadrage) — réutilisation verbatim de HeroStatusBar.tsx/CharacterCreationScreen.tsx (src/player/) : tutoiement incompatible avec le vouvoiement établi n°10, et leur type HeroState concurrencerait EtatSession.heros. Seule leur anatomie sert de précédent ; heroGen.ts/charCreation.ts (logique pure) réutilisés tels quels. Corps : cadrage tour1-ux-designer.md.",
+			"REJETÉ (cadrage) — un OutcomeBlock propre à CarteJet pour afficher le récit de R3 : créerait un second afficheur concurrent du canal RÉCIT déjà câblé par PlayerInputBar.tsx (n°10). Auto-corrigé par l'UX elle-même au tour 2 après relecture du code livré. CarteJet affiche seulement dés bruts + Badge ; le récit remonte par le canal existant. Corps : cadrage tour2-ux-designer.md.",
+			"REJETÉ (cadrage) — boutique de progression (dépense de l'XP, XpShopScreen) dans le périmètre de cette feature : question d'accès (REGLES-PLAY §F2) non tranchée, ouvrirait un second vertical dans la même feature. Hors périmètre, reportée sans propriétaire assigné. combat.ts/combatEngine.ts : propriété n°13 confirmée, malgré une ligne de la dette § 2 bis du roadmap qui les rattache par erreur au déclencheur « n°11 » (incohérence relevée, à corriger dans le roadmap, non tranchée ici). Corps : cadrage tour1-pm-produit.md."
+		],
+		"open_questions": [
+			"REPORTÉ (raffinage it1, §8 #10) — A4 reste invisible à l'écran en it1 : les PE partent pleins et rien ne les consomme, donc toujours plafonnés. Accepté comme propriété du squelette, aucune action corrective en it1.",
+			"REPORTÉ (raffinage it1, §8 #11) — aucune reprise de session (useSessionPersistee) : un rechargement de page contourne la relance unique (REGLES-PLAY §B2). Propriétaire futur : l'itération qui implémente la reprise de session (hors périmètre it1).",
+			"Renoncer au jet (REGLES-PLAY §B1-bis, « Laisser/Passer ») — non permis en it2 (la carte bloque jusqu'à résolution). Repose sur un indicateur `optional` posé par l'auteur que le dossier n'a pas aujourd'hui ; le laisser décider par R2 donnerait au modèle le pouvoir de rendre un jet facultatif, hors de son rôle. Propriétaire : à assigner si un besoin réel s'exprime, probablement une dette à déclencheur comme KR-267.",
+			"Prédicat de registre sur la sortie R2 (garde anti-tutoiement, ex. regex sur les enjeux) — proposé par narratif-ia (tour 2), explicitement laissé « à trancher par le tech-lead » sans réponse ferme reçue avant la clôture du cadrage. À statuer au raffinage d'it2.",
+			"Incohérence du roadmap (dette § 2 bis, ligne « Égalité d'AT × compteur de Garde aiguisée ») qui rattache combat.ts au déclencheur « n°11 » alors que c'est n°13 qui écrit la boucle de round — relevée par le PM (tour 1), à corriger dans docs/ROADMAP-BASCULE-IA.md, hors périmètre de cette feature.",
+			"Vérification en playtest réel (non exécutable par jest, précédent moteur-interprete it2 désaccord #16) : un vrai jet produit sur le dossier de référence confirme-t-il que R2, sans voir la fiche du héros, produit des propositions de carac/TC cohérentes avec le contexte narratif du lieu ? À faire avant le prochain playtest complet."
+		]
+	}
+}

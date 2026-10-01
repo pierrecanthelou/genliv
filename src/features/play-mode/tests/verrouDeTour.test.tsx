@@ -13,6 +13,7 @@ import {
 	type SortieNarrateur,
 } from '../../../brain'
 import { EcranPartie } from '../components/EcranPartie'
+import { terminerCreationHeros } from './creerHerosDeTest'
 
 /**
  * LE VERROU DE TOUR AU NIVEAU DE L'ÉCRAN RÉEL (lot 2, KR-265 ÉTENDU) —
@@ -75,12 +76,12 @@ function avecUnHabitantAuDepart(brain: Brain, dossier: Dossier): Dossier {
 
 /** Deux résolveurs retenus à la main — l'ordre est celui des DEUX appels
  *  attendus : R1 (interprete) puis R3 (narrateur). */
-function monterPartieAvecCopiloteControle(): {
+async function monterPartieAvecCopiloteControle(user: ReturnType<typeof userEvent.setup>): Promise<{
 	brain: Brain
 	dossier: Dossier
 	demanderMock: jest.Mock
 	resolveurs: Array<(reponse: ReponseInterprete | ReponseNarrateur) => void>
-} {
+}> {
 	const brain = createBrain()
 	const inspection = brain.dossiers.importDossier(texteReference())
 	if (inspection.statut !== 'valid') throw new Error(`Import refuse : ${inspection.statut}`)
@@ -101,6 +102,7 @@ function monterPartieAvecCopiloteControle(): {
 			<EcranPartie dossierId={dossier.id} />
 		</BrainProvider>,
 	)
+	await terminerCreationHeros(user)
 
 	return { brain, dossier, demanderMock, resolveurs }
 }
@@ -130,7 +132,7 @@ describe('Verrou de tour au niveau ecran (KR-265 etendu, lot 2 it2)', () => {
 
 	it('une commande console REELLE soumise pendant R1 PUIS pendant R3 est refusee, visible, sans perte, jusquau recit affiche', async () => {
 		const user = userEvent.setup()
-		const { demanderMock, resolveurs } = monterPartieAvecCopiloteControle()
+		const { demanderMock, resolveurs } = await monterPartieAvecCopiloteControle(user)
 
 		const champLibre = screen.getByLabelText('QUE FAITES-VOUS ?')
 
@@ -192,7 +194,7 @@ describe('Verrou de tour au niveau ecran (KR-265 etendu, lot 2 it2)', () => {
 
 	it('un refus de SYNTAXE console (hors verrou) reste visible — le calcul en ligne ne lefface pas (BUG-133)', async () => {
 		const user = userEvent.setup()
-		monterPartieAvecCopiloteControle()
+		await monterPartieAvecCopiloteControle(user)
 
 		// Aucun verrou actif : soumettre une commande INVALIDE (verbe inconnu) doit poser
 		// un refus qui RESTE affiche — la regression de N1 l'effacait au rendu suivant,

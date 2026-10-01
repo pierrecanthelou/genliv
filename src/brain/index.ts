@@ -542,7 +542,10 @@ export { pastilleNiveau, badgeSection } from './dossier/pastilles'
 // une table d'audience exportée trop tôt se fait lire comme une permission.
 // `dossierSessionKey` sort avec le type qu'elle range : la session est écrite par
 // une FEATURE, qui n'a pas le droit d'écrire une clé en dur (KR-011/111).
-export { SCHEMA_SESSION, ouvrirSession } from './dossier/session'
+// `fixerHeros` SORT AVEC EUX (n° 11 `moteur-arbitre`, lot `contrat`, it1) : seule
+// porte d'écriture de `EtatSession.heros`, que `EcranCreationHeros` (lot feature)
+// appelle à la validation.
+export { SCHEMA_SESSION, fixerHeros, ouvrirSession } from './dossier/session'
 export type {
 	EtatSession,
 	EtatMonde,
@@ -556,6 +559,12 @@ export type {
 	// `useTourDeJeu` (lot feature) n'a aucun autre moyen de l'annoter.
 	AttenteClarification,
 } from './dossier/session'
+// ── L'ALÉA KEYÉ (n° 11 `moteur-arbitre`, lot `contrat`, it1) ─────────────────
+// Sortent `creerRng` (l'adaptateur `() => number` que `rollCreationPool`, côté
+// feature, consomme pour ne jamais appeler `Math.random`) et `DomaineAlea` (le
+// type de son second paramètre). `alea`, la fonction pure sous-jacente, RESTE
+// DEDANS : aucune feature n'a besoin d'une clé brute, seulement du générateur.
+export { creerRng, type DomaineAlea } from './dossier/alea'
 // ── LE RÔLE `interprete` (n° 10 `moteur-interprete`, lot `contrat`) ──────────
 // Sort `apresInterpretation` SEULE : c'est la fonction que `useTourDeJeu`
 // applique après CHAQUE réponse de `CopiloteService.demander(dossier,

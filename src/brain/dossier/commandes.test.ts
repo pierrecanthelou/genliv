@@ -10,8 +10,9 @@ import {
 	type ResultatCommande,
 	type ResultatSaisie,
 } from './commandes'
-import { ouvrirSession, type EtatSession } from './session'
+import { fixerHeros, ouvrirSession, type EtatSession } from './session'
 import type { Dossier } from './types'
+import type { HeroState } from '../../player/types'
 
 /**
  * LES COMMANDES — L'ANALYSE D'UNE SAISIE, ET LA TRANSITION QU'ELLE DÉCLENCHE.
@@ -157,6 +158,70 @@ describe('executerCommande, le deplacement accepte', () => {
 		const textes = session.journal.map((entree) => entree.texte).join('\n')
 		expect(textes).not.toContain('AlLeR')
 		expect(textes).not.toContain('  ')
+	})
+})
+
+/** Un `HeroState` plausible, PE en-deca du plafond — valeur d'appel, chaque test
+ *  pose le `pe` qu'il lui faut via `avecPe`, jamais un second littéral complet. */
+function heroAvec(pe: number): HeroState {
+	return {
+		name: 'Aldric le Temeraire',
+		caracs: { FO: 7, AG: 6, DX: 5, EN: 8, IN: 9, IG: 4, SE: 10, CA: 3 },
+		pvMax: 21,
+		pv: 14,
+		peMax: 8,
+		pe,
+		mcBonus: 0,
+		xp: 12,
+	}
+}
+
+describe('Regle A4 — +5 PE au changement de lieu REEL, plafonne (n 11 moteur-arbitre, it1)', () => {
+	it('nominal : changement de lieu reel, pe gagne +5', () => {
+		const dossier = lire(CHEMIN_REFERENCE)
+		const depart = fixerHeros(ouverture(dossier), heroAvec(2))
+
+		const session = sessionDe(executer(dossier, depart, 'ALLER lieu.tour-effondree'))
+
+		expect(session.heros?.pe).toBe(7)
+	})
+
+	it('plafond : +5 ne depasse jamais peMax', () => {
+		const dossier = lire(CHEMIN_REFERENCE)
+		const depart = fixerHeros(ouverture(dossier), heroAvec(6))
+
+		const session = sessionDe(executer(dossier, depart, 'ALLER lieu.tour-effondree'))
+
+		expect(session.heros?.pe).toBe(8)
+	})
+
+	it('auto-reference : meme lieu, pe INCHANGE', () => {
+		const dossier = lire(CHEMIN_MINIMAL)
+		const depart = fixerHeros(ouverture(dossier), heroAvec(2))
+
+		const session = sessionDe(executer(dossier, depart, 'ALLER lieu.val-cendre'))
+
+		expect(session.heros?.pe).toBe(2)
+	})
+
+	it('sans heros : aller vers un autre lieu, la cle heros reste ABSENTE', () => {
+		const dossier = lire(CHEMIN_REFERENCE)
+		const depart = ouverture(dossier)
+		expect('heros' in depart).toBe(false)
+
+		const session = sessionDe(executer(dossier, depart, 'ALLER lieu.tour-effondree'))
+
+		expect('heros' in session).toBe(false)
+		expect(session.heros).toBeUndefined()
+	})
+
+	it('mauvais verbe : agir ne touche jamais pe', () => {
+		const dossier = lire(CHEMIN_REFERENCE)
+		const depart = fixerHeros(ouverture(dossier), heroAvec(2))
+
+		const session = sessionDe(executer(dossier, depart, 'AGIR'))
+
+		expect(session.heros?.pe).toBe(2)
 	})
 })
 

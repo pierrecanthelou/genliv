@@ -10,6 +10,7 @@ import {
 } from '../../../brain'
 import { dossierKey } from '../../../brain/persistenceKeys'
 import { EcranPartie } from '../components/EcranPartie'
+import { terminerCreationHeros } from './creerHerosDeTest'
 
 /**
  * LE DÉPLACEMENT VU DE L'ÉCRAN — critère 4 (l'état vide cède la place aux
@@ -55,7 +56,9 @@ function avecUnAcces(dossier: Dossier, ouverture: string): Dossier {
 }
 
 /** Sème un dossier JOUABLE, avec un unique accès réel, et monte le shell dessus. */
-function monterPartieAvecAcces(): { brain: Brain; dossier: Dossier } {
+async function monterPartieAvecAcces(
+	user: ReturnType<typeof userEvent.setup>,
+): Promise<{ brain: Brain; dossier: Dossier }> {
 	const brain = createBrain()
 	const seme = brain.dossiers.create('La Caverne des Essais')
 	brain.persistence.set(dossierKey(seme.id), avecUnAcces(seme, OUVERTURE_REDIGEE))
@@ -65,6 +68,7 @@ function monterPartieAvecAcces(): { brain: Brain; dossier: Dossier } {
 			<EcranPartie dossierId={dossier.id} />
 		</BrainProvider>,
 	)
+	await terminerCreationHeros(user)
 	return { brain, dossier }
 }
 
@@ -79,7 +83,7 @@ describe('le deplacement, vu de l ecran', () => {
 
 	it('l etat vide du journal cede la place aux lignes, [aller] sur la seule ligne moteur, jamais le mot tour', async () => {
 		const user = userEvent.setup()
-		const { dossier } = monterPartieAvecAcces()
+		const { dossier } = await monterPartieAvecAcces(user)
 
 		expect(screen.getByText("Aucun évènement pour l'instant — vos actions y apparaîtront.")).toBeInTheDocument()
 
@@ -128,7 +132,7 @@ describe('le deplacement, vu de l ecran', () => {
 
 	it('bout de cablage: saisie vers onSoumettre vers nouvelle session vers journal re-rendu, et persistee', async () => {
 		const user = userEvent.setup()
-		const { brain, dossier } = monterPartieAvecAcces()
+		const { brain, dossier } = await monterPartieAvecAcces(user)
 
 		const avant = sessionPersistee(brain, dossier.id)
 		expect(avant.journal).toEqual([])

@@ -797,33 +797,41 @@ describe('PanneauPersonnages', () => {
 	 * ni affichée, ni écrite. 8 clics « Diminuer » depuis le plancher, puis 20
 	 * clics « Augmenter » (20 > 12 − 1) pour dépasser largement la borne haute.
 	 */
-	it('Force se clampe aux deux bornes 1 et 12', async () => {
-		const user = userEvent.setup()
-		const brain = createBrain()
-		const dossier = brain.dossiers.create('Un dossier')
-		semerPersonnage(brain, dossier.id, { id: 'pnj.aldur', portee: 'premier', plan_actions: [], savoirs: [] })
-		renderPanel(brain, dossier.id)
+	it(
+		'Force se clampe aux deux bornes 1 et 12',
+		async () => {
+			const user = userEvent.setup()
+			const brain = createBrain()
+			const dossier = brain.dossiers.create('Un dossier')
+			semerPersonnage(brain, dossier.id, { id: 'pnj.aldur', portee: 'premier', plan_actions: [], savoirs: [] })
+			renderPanel(brain, dossier.id)
 
-		await user.click(screen.getByRole('button', { name: 'Caractéristiques' }))
-		await user.click(screen.getByRole('button', { name: '+ Régler les caractéristiques…' }))
+			await user.click(screen.getByRole('button', { name: 'Caractéristiques' }))
+			await user.click(screen.getByRole('button', { name: '+ Régler les caractéristiques…' }))
 
-		const diminuer = () => screen.getByRole('button', { name: 'Diminuer FORCE (FO)' })
-		const augmenter = () => screen.getByRole('button', { name: 'Augmenter FORCE (FO)' })
-		const controlesFO = () => diminuer().parentElement as HTMLElement
+			const diminuer = () => screen.getByRole('button', { name: 'Diminuer FORCE (FO)' })
+			const augmenter = () => screen.getByRole('button', { name: 'Augmenter FORCE (FO)' })
+			const controlesFO = () => diminuer().parentElement as HTMLElement
 
-		for (let i = 0; i < 8; i += 1) {
-			await user.click(diminuer())
-		}
-		expect(within(controlesFO()).getByText(String(CARACTERISTIQUE_MIN))).toBeInTheDocument()
-		expect(lire(brain, dossier.id).monde.personnages[0].stats).toEqual(STATS_INITIALES)
+			for (let i = 0; i < 8; i += 1) {
+				await user.click(diminuer())
+			}
+			expect(within(controlesFO()).getByText(String(CARACTERISTIQUE_MIN))).toBeInTheDocument()
+			expect(lire(brain, dossier.id).monde.personnages[0].stats).toEqual(STATS_INITIALES)
 
-		for (let i = 0; i < 20; i += 1) {
-			await user.click(augmenter())
-		}
-		expect(within(controlesFO()).getByText(String(CHARACTERISTIC_MAX))).toBeInTheDocument()
-		const reglagesFinaux = lire(brain, dossier.id).monde.personnages[0].stats
-		expect(reglagesFinaux).toEqual({ ...STATS_INITIALES, FO: CHARACTERISTIC_MAX })
-	})
+			for (let i = 0; i < 20; i += 1) {
+				await user.click(augmenter())
+			}
+			expect(within(controlesFO()).getByText(String(CHARACTERISTIC_MAX))).toBeInTheDocument()
+			const reglagesFinaux = lire(brain, dossier.id).monde.personnages[0].stats
+			expect(reglagesFinaux).toEqual({ ...STATS_INITIALES, FO: CHARACTERISTIC_MAX })
+		},
+		// BUG-128 : 28 clics userEvent enchaines depassent le delai par defaut (5000 ms)
+		// sous la charge des workers jest paralleles, jamais en isolation. Delai explicite,
+		// correctif deja nomme par BUG-128 -- jamais un relevement du delai global, qui
+		// masquerait les lenteurs reelles des autres suites.
+		15000,
+	)
 
 	/**
 	 * BUG-064, ÉTENDU au bloc Caractéristiques (it3, §6 critère #5 du plan) —

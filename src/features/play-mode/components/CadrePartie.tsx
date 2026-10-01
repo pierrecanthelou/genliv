@@ -24,10 +24,11 @@ const LIBELLE_SORTIE = 'Quitter le test'
 export interface CadrePartieProps {
 	readonly titre: string | null
 	readonly sortie: Route
+	readonly bandeau?: ReactNode
 	readonly children: ReactNode
 }
 
-export function CadrePartie({ titre, sortie, children }: CadrePartieProps): JSX.Element {
+export function CadrePartie({ titre, sortie, bandeau, children }: CadrePartieProps): JSX.Element {
 	const { router } = useBrain()
 	const sortir = (): void => router.navigate(sortie)
 	const sortirRef = useRef(sortir)
@@ -57,6 +58,7 @@ export function CadrePartie({ titre, sortie, children }: CadrePartieProps): JSX.
 					✕ {LIBELLE_SORTIE}
 				</button>
 			</header>
+			{bandeau}
 			<div style={corps}>{children}</div>
 		</main>
 	)

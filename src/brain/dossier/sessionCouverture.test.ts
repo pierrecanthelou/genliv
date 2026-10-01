@@ -25,9 +25,10 @@ import { DESTINATION_DES_CHAMPS_DE_SESSION } from './sessionDestinations'
  * Nommé ici plutôt que découvert plus tard (KR-173) :
  *  · LES CONTENEURS. `feuillesDeLaFixture` ne rend JAMAIS un objet non vide comme
  *    feuille : `horloge`, `monde`, `journal`, `attente` (depuis le lot `contrat`
- *    de la n° 10, `moteur-interprete`) et `memoire` (non nulle dans la fixture
- *    depuis l'it3) n'ont donc aucune instance, et leurs CINQ lignes de table sont
- *    des DISPENSES DÉCLARÉES, pas des lignes mortes. Elles existent pour
+ *    de la n° 10, `moteur-interprete`), `memoire` (non nulle dans la fixture
+ *    depuis l'it3) et `heros` (depuis le lot `contrat` de la n° 11,
+ *    `moteur-arbitre`) n'ont donc aucune instance, et leurs SIX lignes de table
+ *    sont des DISPENSES DÉCLARÉES, pas des lignes mortes. Elles existent pour
  *    l'exhaustivité par compilation ;
  *  · L'AUDIENCE RÉELLE. La table déclare une intention et force une déclaration ;
  *    elle ne démontre pas le confinement — la moitié CODE de cette preuve est
@@ -37,7 +38,7 @@ import { DESTINATION_DES_CHAMPS_DE_SESSION } from './sessionDestinations'
  */
 
 /**
- * LES QUATRE DISPENSES, avec leur motif — modèle `SANS_DESTINATION` de
+ * LES SIX DISPENSES, avec leur motif — modèle `SANS_DESTINATION` de
  * `couverture.test.ts`. Elles vivent DANS le test et non dans la table : une
  * dispense est un fait sur l'instrument, pas une audience.
  */
@@ -48,6 +49,8 @@ const DISPENSES_DE_FEUILLE: Readonly<Record<string, string>> = {
 	attente: 'clé racine porteuse — ses trois feuilles (`type`, `question`, `saisie`) sont déclarées une à une',
 	memoire:
 		'clé racine porteuse quand elle retient quelque chose (n° 10 it3) — ses quatre feuilles sont déclarées une à une ; à `null`, elle est sa propre feuille',
+	heros:
+		'clé racine porteuse (n° 11 moteur-arbitre, it1) — ses huit feuilles sont déclarées une à une, `caracs` collapsée en une seule ligne `<id>`',
 }
 
 const CLES_DE_LA_TABLE = new Set(Object.keys(DESTINATION_DES_CHAMPS_DE_SESSION))
@@ -68,11 +71,24 @@ const CLES_DE_LA_TABLE = new Set(Object.keys(DESTINATION_DES_CHAMPS_DE_SESSION))
  * régulière : un identifiant de personnage CONTIENT un point (`pnj.aldur-le-sage`),
  * donc le chemin brut est `monde.pnj.pnj.aldur-le-sage.a_dit[]` et un découpage
  * sur le point se tromperait de segment.
+ *
+ * `heros.caracs` SUBIT LA MÊME NORMALISATION (n° 11 `moteur-arbitre`, it1), pour
+ * la raison INVERSE de `monde.pnj` : ses huit clés sont une union FERMÉE
+ * (`Characteristic`), jamais des identifiants arbitraires, mais les HUIT
+ * partagent la MÊME audience (`'moteur'`, sans exception) — huit lignes de table
+ * identiques seraient une redite, pas une distinction. Collapsée en
+ * `heros.caracs.<id>`, même précédent que `monde.pnj.<id>`.
  */
 function normaliserLesClesDeRecord(chemin: string): string {
-	return Object.keys(SESSION_SATUREE.monde.pnj).reduce(
+	const sansPnj = Object.keys(SESSION_SATUREE.monde.pnj).reduce(
 		(courant, cle) => courant.split(`monde.pnj.${cle}.`).join('monde.pnj.<id>.'),
 		chemin,
+	)
+	const heros = SESSION_SATUREE.heros
+	if (heros === undefined) return sansPnj
+	return Object.keys(heros.caracs).reduce(
+		(courant, cle) => courant.split(`heros.caracs.${cle}`).join('heros.caracs.<id>'),
+		sansPnj,
 	)
 }
 
@@ -89,7 +105,7 @@ describe('DESTINATION_DES_CHAMPS_DE_SESSION, exhaustivite', () => {
 		expect(sansAudience).toEqual([])
 	})
 
-	it('aucune ligne morte, hors les cinq dispenses declarees', () => {
+	it('aucune ligne morte, hors les six dispenses declarees', () => {
 		const chemins = cheminsDeLaSession()
 
 		const mortes = [...CLES_DE_LA_TABLE]
@@ -117,10 +133,11 @@ describe('DESTINATION_DES_CHAMPS_DE_SESSION, exhaustivite', () => {
 
 		expect(racines.filter((cle) => !CLES_DE_LA_TABLE.has(cle))).toEqual([])
 		// Discriminance : un balayage vide rendrait la ligne ci-dessus vraie sans rien
-		// prouver. NEUF racines depuis le lot `contrat` de la n° 10 — `dossier_maj`
-		// est la huitième, entrée à la revue de PR (2ᵉ exemption nommée à KR-249),
-		// `attente` la neuvième, optionnelle à vie (KR-251) mais bien INSTANCIÉE ici.
-		expect(racines).toHaveLength(9)
+		// prouver. DIX racines depuis le lot `contrat` de la n° 11 (`moteur-arbitre`) —
+		// `dossier_maj` est la huitième (2ᵉ exemption nommée à KR-249), `attente` la
+		// neuvième (KR-251), `heros` la dixième, optionnelle à vie (KR-251) mais bien
+		// INSTANCIÉE ici.
+		expect(racines).toHaveLength(10)
 	})
 
 	it('le balayage descend reellement, et la normalisation COLLAPSE les cles de Record', () => {
@@ -163,6 +180,21 @@ describe('DESTINATION_DES_CHAMPS_DE_SESSION, exhaustivite', () => {
 		expect(normalises).toContain('memoire.resume.texte')
 		expect(normalises).toContain('memoire.resume.jusqu_au_pas')
 		expect(normalises).not.toContain('memoire')
+
+		// ET LE HÉROS (n° 11, it1) DESCEND JUSQU'À SES HUIT FEUILLES, `caracs` COLLAPSÉE :
+		// sans elles, leurs lignes de table seraient tenues par la seule « aucune ligne
+		// morte » et rien ne nommerait le chemin.
+		expect(normalises).toContain('heros.name')
+		expect(normalises).toContain('heros.pvMax')
+		expect(normalises).toContain('heros.pv')
+		expect(normalises).toContain('heros.peMax')
+		expect(normalises).toContain('heros.pe')
+		expect(normalises).toContain('heros.mcBonus')
+		expect(normalises).toContain('heros.xp')
+		expect(new Set(bruts.filter((chemin) => chemin.startsWith('heros.caracs.'))).size).toBe(8)
+		expect(new Set(normalises.filter((chemin) => chemin.startsWith('heros.caracs.'))).size).toBe(1)
+		expect(normalises).toContain('heros.caracs.<id>')
+		expect(normalises).not.toContain('heros')
 	})
 })
 

@@ -1,8 +1,9 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { AMORCE, MARQUEUR_A_ECRIRE, construireAmorce } from './amorce'
-import { SCHEMA_SESSION, ouvrirSession, type EntreeJournal, type EtatSession } from './session'
+import { SCHEMA_SESSION, fixerHeros, ouvrirSession, type EntreeJournal, type EtatSession } from './session'
 import type { Dossier } from './types'
+import type { HeroState } from '../../player/types'
 
 /**
  * `ouvrirSession` — LE CONTRAT D'OUVERTURE D'UNE PARTIE.
@@ -308,5 +309,49 @@ describe('EtatSession.memoire — la forme gelee par la n 10 it3', () => {
 		expect(relus[0]).toEqual(sansResume)
 		// Discriminance (KR-199) : la clé PRÉSENTE survit au même round-trip, pointeur compris.
 		expect(relus[1].resume).toEqual({ texte: 'Vous avez veillé.', jusqu_au_pas: 10 })
+	})
+})
+
+describe('fixerHeros — le seul ecrivain de EtatSession.heros (n 11 moteur-arbitre, lot contrat)', () => {
+	/** Un `HeroState` plausible — non `défaut` (`defaultHero`), pour que cette
+	 *  instance ne se confonde jamais avec un héros jamais vraiment construit. */
+	const HEROS: HeroState = {
+		name: 'Aldric le Téméraire',
+		caracs: { FO: 7, AG: 6, DX: 5, EN: 8, IN: 9, IG: 4, SE: 10, CA: 3 },
+		pvMax: 21,
+		pv: 14,
+		peMax: 8,
+		pe: 3,
+		mcBonus: 0,
+		xp: 12,
+	}
+
+	it('ecrit heros PAR REFERENCE, et laisse le reste de la session intact', () => {
+		const session = sessionDe(reecrit(), 7)
+
+		const avecHeros = fixerHeros(session, HEROS)
+
+		// RÉFÉRENCE, jamais une copie : une copie égale au bon argument passerait
+		// `toEqual` mais ne prouverait pas que c'est bien CE `HeroState`, sans
+		// seconde forme (§ 4 du plan).
+		expect(avecHeros.heros).toBe(HEROS)
+		// RIEN D'AUTRE N'A CHANGÉ : la session rendue est l'argument, plus la seule
+		// clé `heros`.
+		expect(avecHeros).toEqual({ ...session, heros: HEROS })
+
+		// PURE : l'argument n'est pas muté, et il ne portait pas la clé avant.
+		expect('heros' in session).toBe(false)
+		expect(session.heros).toBeUndefined()
+	})
+
+	it('la session d ouverture ne porte jamais heros — la cle reste ABSENTE, jamais undefined', () => {
+		// KR-251 : avant ce lot, aucune session n'a jamais porté `heros` — et
+		// `ouvrirSession` elle-même ne l'écrit toujours pas (seul `fixerHeros` le
+		// peut). `in`, jamais `toBeUndefined` seul : une clé PRÉSENTE à `undefined`
+		// passerait `toBeUndefined`, mais pas `'heros' in session === false`.
+		const session = sessionDe(reecrit(), 1)
+
+		expect('heros' in session).toBe(false)
+		expect(Object.keys(session)).not.toContain('heros')
 	})
 })

@@ -14,6 +14,7 @@ import {
 } from '../../../brain'
 import { EcranPartie } from '../components/EcranPartie'
 import { JournalRow } from '../components/JournalRow'
+import { terminerCreationHeros } from './creerHerosDeTest'
 
 /**
  * UN JALON ATTEINT EN COURS DE PARTIE, VU DE L'ÉCRAN — critère 3 du plan
@@ -82,7 +83,9 @@ function avecUnHabitantAuDepart(brain: Brain, dossier: Dossier): Dossier {
 	return ecriture.dossier
 }
 
-function monterPartieSurLaReference(): { brain: Brain; dossier: Dossier } {
+async function monterPartieSurLaReference(
+	user: ReturnType<typeof userEvent.setup>,
+): Promise<{ brain: Brain; dossier: Dossier }> {
 	const brain = createBrain()
 	const inspection = brain.dossiers.importDossier(texteReference())
 	if (inspection.statut !== 'valid') throw new Error(`Import refuse : ${inspection.statut}`)
@@ -92,6 +95,7 @@ function monterPartieSurLaReference(): { brain: Brain; dossier: Dossier } {
 			<EcranPartie dossierId={dossier.id} />
 		</BrainProvider>,
 	)
+	await terminerCreationHeros(user)
 	return { brain, dossier }
 }
 
@@ -170,7 +174,7 @@ describe('un jalon atteint en cours de partie, au journal', () => {
 
 	it('ecrit la ligne du jalon au meme tour que la commande, suivie de ses deux pastilles dans l ordre causal', async () => {
 		const user = userEvent.setup()
-		const { brain, dossier } = monterPartieSurLaReference()
+		const { brain, dossier } = await monterPartieSurLaReference(user)
 
 		await monterALaVigie(user)
 
@@ -275,7 +279,7 @@ describe('un jalon atteint en cours de partie, au journal', () => {
 
 	it('aucune ligne du journal ne recite enonce_texte ni declencheur_texte', async () => {
 		const user = userEvent.setup()
-		const { dossier } = monterPartieSurLaReference()
+		const { dossier } = await monterPartieSurLaReference(user)
 
 		await monterALaVigie(user)
 

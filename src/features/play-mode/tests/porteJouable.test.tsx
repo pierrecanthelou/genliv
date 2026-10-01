@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { createBrain, BrainProvider, type Brain, type Dossier } from '../../../brain'
 import { dossierKey } from '../../../brain/persistenceKeys'
 import { App } from '../../../App'
+import { terminerCreationHeros } from './creerHerosDeTest'
 
 /**
  * LA PORTE DU SHELL — critère 4 du plan d'itération 1 de `moteur-dossier`.
@@ -74,7 +75,8 @@ describe('la porte jouable au montage du shell (KR-239)', () => {
 	 * jouable, un shell qui refuserait TOUT resterait vert ; sans l'état injouable,
 	 * la porte pourrait être absente sans que rien ne rougisse.
 	 */
-	it('refuse une session sur un dossier non jouable atteint par la route, puis la monte une fois le dossier jouable', () => {
+	it('refuse une session sur un dossier non jouable atteint par la route, puis la monte une fois le dossier jouable', async () => {
+		const user = userEvent.setup()
 		const semoir = createBrain()
 		const dossier = semoir.dossiers.create('La Caverne des Essais')
 
@@ -90,9 +92,11 @@ describe('la porte jouable au montage du shell (KR-239)', () => {
 		premier.unmount()
 
 		// ÉTAT 2 — la prose est rédigée : le dossier devient jouable, et le MÊME
-		// chemin d'accès direct monte la session.
+		// chemin d'accès direct monte la session. Avec la GARDE 7, on voit d'abord
+		// l'écran de création du héros, donc on le termine avant de vérifier l'ouverture.
 		semoir.persistence.set(dossierKey(dossier.id), avecOuverture(dossier, OUVERTURE_REDIGEE))
 		const second = monterSurLaRoutePartie(dossier.id)
+		await terminerCreationHeros(user)
 		expect(screen.getByText('OUVERTURE — lue au joueur, mot pour mot')).toBeInTheDocument()
 		expect(screen.getByRole('region', { name: 'Journal' })).toBeInTheDocument()
 		expect(screen.queryByText(TEXTE_NON_JOUABLE)).not.toBeInTheDocument()

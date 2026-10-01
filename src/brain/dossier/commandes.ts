@@ -205,10 +205,23 @@ const TRANSITIONS: Record<CommandeId, Transition> = {
 	 * un chemin utilisateur donne un écran blanc.
 	 *
 	 * CE QU'IL ÉCRIT, ET RIEN D'AUTRE : `monde.lieu_courant`, `monde.lieux_visites`
-	 * (append SI ABSENT — sémantique d'ensemble), `horloge.tour` (+1) et deux
-	 * entrées de journal de MÊME `tour`. C'est la DEMANDE qui consomme le pas,
+	 * (append SI ABSENT — sémantique d'ensemble), `horloge.tour` (+1), deux
+	 * entrées de journal de MÊME `tour`, et — depuis le lot `contrat` de la n° 11
+	 * (`moteur-arbitre`, it1) — `heros.pe`. C'est la DEMANDE qui consomme le pas,
 	 * jamais l'effet : un déplacement auto-référent, dont le monde ne bouge pas, en
 	 * consomme un quand même (`docs/REGLES-PLAY.md` § J1).
+	 *
+	 * RÈGLE A4 (`docs/REGLES-DU-JEU.md:43`, `docs/REGLES-PLAY.md:104` E3) :
+	 * `heros.pe` gagne +5, PLAFONNÉ à `heros.peMax`, mais UNIQUEMENT quand DEUX
+	 * conditions tiennent TOUTES LES DEUX — `lieuCible.id !== depuis` (un
+	 * changement RÉEL de lieu, jamais un auto-référent, `CHEMIN_MINIMAL`,
+	 * `commandes.test.ts`) ET un héros existe (`session.heros !== undefined`).
+	 * SINON, `pe` reste INCHANGÉ, et SI la clé `heros` était ABSENTE elle le
+	 * RESTE — jamais `heros: undefined` (KR-251, spread conditionnel, précédent
+	 * `commandes.test.ts:117-119`). Arbitré au raffinage (§ 8 #5) contre une
+	 * version inconditionnelle, qui ouvrait une potion infinie sur tout lieu
+	 * auto-référent. JAMAIS sur `agir` : cette feuille vit UNIQUEMENT dans
+	 * `TRANSITIONS.aller`.
 	 */
 	aller: (dossier, session, commande) => {
 		const cible = commande.cibles[0]
@@ -237,12 +250,22 @@ const TRANSITIONS: Record<CommandeId, Transition> = {
 			? session.monde.lieux_visites
 			: [...session.monde.lieux_visites, lieuCible.id]
 
+		// A4 — voir la docstring ci-dessus. `heros` ne vaut QUE quand les deux
+		// conditions tiennent ; sinon `undefined`, pour que le spread qui suit ne
+		// pose RIEN et laisse `...session` seule décider de la clé `heros`.
+		const changeDeLieu = lieuCible.id !== depuis
+		const heros =
+			changeDeLieu && session.heros !== undefined
+				? { ...session.heros, pe: Math.min(session.heros.pe + 5, session.heros.peMax) }
+				: undefined
+
 		return {
 			ok: true,
 			session: {
 				...session,
 				horloge: { tour },
 				monde: { ...session.monde, lieu_courant: lieuCible.id, lieux_visites: visites },
+				...(heros !== undefined ? { heros } : {}),
 				journal: [
 					...session.journal,
 					{ tour, role: 'joueur', texte: `> ${COMMANDES[commande.commande].verbe} ${lieuCible.id}` },

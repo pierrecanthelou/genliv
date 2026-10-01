@@ -6,13 +6,16 @@ import {
 	analyserSaisie,
 	destinationsPossibles,
 	executerCommande,
+	fixerHeros,
 	type Dossier,
 	type EtatSession,
 } from '../../../brain'
 import { useSessionPersistee } from '../hooks/useSessionPersistee'
 import { useTourDeJeu } from '../hooks/useTourDeJeu'
 import { OutcomeBlock } from './OutcomeBlock'
+import { BandeauHeros } from './BandeauHeros'
 import { CadrePartie } from './CadrePartie'
+import { EcranCreationHeros } from './EcranCreationHeros'
 import { EcranRefus } from './EcranRefus'
 import { ConsoleCommandes } from './ConsoleCommandes'
 import { PlayerInputBar } from './PlayerInputBar'
@@ -168,6 +171,19 @@ function PartieEnCours({
 	// verrou et n'a plus de sens une fois celui-ci relâché.
 	const refusAffiche = refus === TEXTE_REFUS_CONSOLE_EN_COURS && !isLocked ? null : refus
 
+	// GARDE 7 (it1, moteur-arbitre) — EN LIGNE, jamais un useEffect : session.heros
+	// est soit présent soit absent, jamais un flag séparé à synchroniser (KR-013).
+	if (session.heros === undefined) {
+		return (
+			<CadrePartie titre={dossier.titre} sortie={{ name: 'dossier', dossierId }}>
+				<EcranCreationHeros
+					graine={session.graine_alea}
+					onValider={(heros) => setSession(fixerHeros(session, heros))}
+				/>
+			</CadrePartie>
+		)
+	}
+
 	/**
 	 * LE CÂBLAGE DU CANAL CONSOLE (lot 2 : verrou étendu) : les deux fonctions pures
 	 * que `brain/dossier/commandes.ts` possède (§ 5 du plan) :
@@ -203,7 +219,11 @@ function PartieEnCours({
 	}
 
 	return (
-		<CadrePartie titre={dossier.titre} sortie={{ name: 'dossier', dossierId }}>
+		<CadrePartie
+			titre={dossier.titre}
+			sortie={{ name: 'dossier', dossierId }}
+			bandeau={<BandeauHeros heros={session.heros} />}
+		>
 			<div style={colonneLecture}>
 				{/* LE SEUL NŒUD DE REGISTRE JOUEUR DE TOUT L'ÉCRAN. `lieu_courant` est un
 				    IDENTIFIANT : il n'apparaît nulle part ici — le registre
