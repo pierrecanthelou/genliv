@@ -24,6 +24,30 @@
 			"mitigation": "Promu KR-277 (code-knowledge.json).",
 			"regression_test": "15 executions completes de npx jest src/features/play-mode/ sans aucun echec (verifie independamment par l'orchestrateur, hors les runs rapportes par l'agent).",
 			"severity": "minor"
+		},
+		{
+			"id": "BUG-137",
+			"date": "2026-10-01",
+			"feature": "moteur-arbitre",
+			"discovered_at": "iteration-2",
+			"symptom": "Revue tech-lead (PR, 1er passage) : le verrou de tour (KR-265) ne couvrait pas l'attente du clic sur la carte de jet -- isLocked/pasEnCours() valaient false pendant tout l'affichage de CarteJet, avant que le joueur n'ait clique.",
+			"root_cause": "executeAction posait le verrou en tete et le relachait dans SON PROPRE finally, y compris sur la branche qui venait de poser carteJet et de return true AVANT tout clic -- le finally d'une premiere etape d'une chaine asynchrone en plusieurs temps (R1->R2->attente->resolution->R3) relachait une ressource que la DERNIERE etape (lancerLeDe) s'appretait encore a utiliser.",
+			"fix": "Un drapeau local carteEnAttente, pose juste avant le return qui affiche la carte, empeche le finally d'executeAction de relacher le verrou dans ce cas precis ; lancerLeDe pose desormais son propre try/finally et c'est LUI, seul, qui relache lockedRef/isLocked a la fin de la chaine.",
+			"mitigation": "Promu KR-278 (code-knowledge.json) : un verrou qui couvre une chaine asynchrone en plusieurs etapes distinctes (plusieurs fonctions exposees, pas un seul appel) se releve dans le finally de la DERNIERE etape, jamais dans celui de la premiere -- meme quand celle-ci retourne normalement en attendant une interaction utilisateur.",
+			"regression_test": "src/features/play-mode/hooks/useTourDeJeu.test.ts : 'Lot 2 -- KR-265 etendu : le verrou reste tenu tant que la carte attend le clic, relache seulement apres lancerLeDe' -- verifie par contre-epreuve (rougit sur la version fautive reintroduite a la main, confirme par l'orchestrateur avant restauration du correctif).",
+			"severity": "critical"
+		},
+		{
+			"id": "BUG-138",
+			"date": "2026-10-01",
+			"feature": "moteur-arbitre",
+			"discovered_at": "iteration-2",
+			"symptom": "Revue tech-lead (PR, 2e passage) : CarteJet.tsx gerait isLoading (useState) seulement au clic souris (handleClick) -- handleKeyDown (Entree) appelait onLancer() directement sans jamais poser ce garde. Un second declenchement rapproche (repetition clavier OS, double frappe) pouvait donc appeler lancerLeDe deux fois AVANT qu'un seul rendu React n'ait eu lieu entre les deux.",
+			"root_cause": "lancerLeDe (useTourDeJeu.ts) ne portait aucun garde de re-entrance propre : il supposait l'exclusivite via un useState externe (isLoading de CarteJet), qui ne se lit jamais de facon synchrone entre deux invocations rapprochees -- meme classe de defaut que BUG-137/KR-278 (un useState ne protege pas une fenetre de concurrence synchrone), mais sur un SECOND point d'entree (clavier) que le premier correctif n'avait pas couvert.",
+			"fix": "Garde lancerEnCoursRef (useRef, verifie-et-pose en tete de lancerLeDe, relache dans son finally deja existant) pose DANS useTourDeJeu -- proprietaire unique du contrat KR-265 -- plutot que duplique par point d'entree UI dans CarteJet (qui reste un composant pur).",
+			"mitigation": "KR-278 (code-knowledge.json) couvre deja ce principe mais a ete relu etroitement (une seule 'premiere etape') au premier passage -- la garde de re-entrance d'une fonction appelable plusieurs fois (pas seulement le verrou global de la chaine) doit etre verifiee a CHAQUE point d'entree UI qui peut l'invoquer, jamais au seul point d'entree deja corrige.",
+			"regression_test": "src/features/play-mode/hooks/useTourDeJeu.test.ts : 'Lot 2 -- garde de re-entrance : un second appel concurrent a lancerLeDe est ignore (BUG-137/KR-278, tech-lead 2e passage)' -- deux appels a lancerLeDe() sans attendre entre eux, R3 controle a la main ; verifie par contre-epreuve (le retrait du garde fait planter le test sur un TypeError de double consommation du mock, confirme par l'orchestrateur avant restauration).",
+			"severity": "major"
 		}
 	]
 }

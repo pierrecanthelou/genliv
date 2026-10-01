@@ -83,6 +83,8 @@ type CheminDeFeuilleDeSession =
 	| 'journal[].deltas[].delta'
 	| 'journal[].deltas[].cibles[]'
 	| 'journal[].deltas[].effet'
+	| 'journal[].jet.carac'
+	| 'journal[].jet.tc'
 	| 'heros.name'
 	| 'heros.caracs.<id>'
 	| 'heros.pvMax'
@@ -243,6 +245,19 @@ export const DESTINATION_DES_CHAMPS_DE_SESSION: Readonly<
 	'journal[].deltas[].cibles[]': 'moteur',
 	/** Le CONSTAT d'application, deux valeurs closes (KR-247). */
 	'journal[].deltas[].effet': 'moteur',
+
+	// ── Le jet résolu (n° 11 `moteur-arbitre`, it2) ─────────────────────────────
+	// DEUX FEUILLES, TOUTES `'moteur'` : {carac,tc} entre au REJEU (KR-248 étendu —
+	// `consignerJet`, seule porte d'écriture), mais ni l'une ni l'autre n'est de la
+	// fiction. `carac`/`tc` sont des RANGS des deux registres fermés, au même titre
+	// que `heros.caracs.<id>` ci-dessous : un modèle qui les lirait apprendrait des
+	// clés qu'il a lui-même proposées à R2 (it2), jamais une raison de les relire.
+	// SANS `lieu_id` (§8 #4 du plan d'it2, KR-013) : dérivable de
+	// `monde.lieu_courant` au moment du pas, jamais stocké une seconde fois.
+	// Instanciées dans `__fixtures__/session-saturee.ts` — sans instance, ces deux
+	// lignes seraient mortes le jour même où elles sont écrites.
+	'journal[].jet.carac': 'moteur',
+	'journal[].jet.tc': 'moteur',
 
 	// ── Le héros du joueur (n° 11 `moteur-arbitre`, it1) ───────────────────────
 	// TOUTES `'moteur'`, SANS EXCEPTION (KR-232/262 étendus, veto narratif-ia au

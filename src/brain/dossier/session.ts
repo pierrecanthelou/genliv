@@ -1,4 +1,10 @@
 import { MARQUEUR_A_ECRIRE } from './amorce'
+// `Characteristic`/`ChallengeTier` — n° 11 `moteur-arbitre`, lot `contrat`, it2 :
+// TYPE SEUL, et ni `characteristics.ts` ni `challenge.ts` n'importent rien de
+// `dossier/`, donc aucun cycle. Ce sont les clés des DEUX registres fermés que R2
+// choisit ; `EntreeJournal.jet` les porte TELLES QUELLES, jamais une seconde forme.
+import type { ChallengeTier } from '../challenge'
+import type { Characteristic } from '../characteristics'
 import { resoudreJalons, type DeltaJournalise } from './evaluate'
 import type { FaitsDeSession } from './faits'
 // CYCLE DE TYPE SEUL, ET IL DOIT LE RESTER : `commandes.ts` type-importe
@@ -121,6 +127,33 @@ export interface EntreeJournal {
 	 * et rejouer les commandes d'une partie ne le reproduit pas.
 	 */
 	readonly recit?: string
+	/**
+	 * LE JET TENTÉ À CE PAS (n° 11 `moteur-arbitre`, lot `contrat`, it2) — ENTRÉE DU
+	 * REJEU (KR-248 étendu) : `{carac, tc}` est une DÉCISION DU MODÈLE que la graine
+	 * seule ne reproduit pas — contrairement au jet lui-même, que `resolveChallenge`
+	 * (pur) redérive à l'identique depuis `graine_alea`. **SANS** `lieu_id` (§ 8 #4 du
+	 * plan it2, tranché en faveur de narratif-ia sur KR-013) : dérivable de
+	 * `session.monde.lieu_courant` au moment du pas, `agir` ne touchant jamais
+	 * `monde` (no-op mécanique strict, `commandes.ts`). **SANS** prose, **SANS**
+	 * marge, **SANS** issue : tout ça est DÉRIVÉ par `issueDuJet`
+	 * (`brain/dossier/arbitre.ts`), jamais stocké (KR-013).
+	 *
+	 * OPTIONNEL À VIE (KR-251). PORTÉ PAR L'ENTRÉE QUI PORTE `origine` POUR CE PAS —
+	 * même invariant que `recit` : `journal.every(e => e.jet === undefined ||
+	 * e.origine !== undefined)`. Au plus UN jet par pas (garanti par `doitArbitrer`
+	 * + le verrou de tour, lot `feature`).
+	 *
+	 * ÉCRIT par `consignerJet`, SEULE porte ; LU par `issueDuJet`, SEULE appelante
+	 * de `resolveChallenge` dans tout le dépôt (§ 8 #5 du plan it2) — lue par la
+	 * carte, l'assembleur du narrateur et (it3) le calcul d'XP.
+	 *
+	 * AUDIENCE `'moteur'` (`sessionDestinations.ts`), SANS EXCEPTION : `carac`/`tc`
+	 * ne sont pas des identifiants du dossier mais des clés des deux registres
+	 * fermés `CHARACTERISTICS`/`CHALLENGE_TIERS` — elles n'entrent pourtant dans
+	 * AUCUN contexte de modèle : R2 les CHOISIT, le code ne les lui réinjecte
+	 * jamais (l'inverse créerait une boucle d'écho modèle → modèle).
+	 */
+	readonly jet?: { readonly carac: Characteristic; readonly tc: ChallengeTier }
 }
 
 /**
@@ -490,4 +523,29 @@ export function ouvrirSession(dossier: Dossier, options: { graine_alea: number }
  */
 export function fixerHeros(session: EtatSession, heros: HeroState): EtatSession {
 	return { ...session, heros }
+}
+
+/**
+ * ÉCRIRE LE JET TENTÉ — PURE, et SEULE PORTE d'écriture de `EntreeJournal.jet`
+ * (n° 11 `moteur-arbitre`, lot `contrat`, it2). Précédent exact `fixerHeros` /
+ * `consignerNarration` : trouve l'entrée `moteur` qui porte `origine` pour **ce**
+ * `tour` et y attache `jet` — jamais une entrée neuve, jamais un second jet sur le
+ * même pas (au plus un jet par pas, garanti par `doitArbitrer` + le verrou de
+ * tour, lot `feature`). Une session sans entrée correspondante pour `tour` est
+ * rendue INCHANGÉE : il n'y a rien à quoi attacher le jet.
+ *
+ * N'ÉCRIT RIEN D'AUTRE : toute autre entrée du journal, et le reste de la
+ * session, sont rendus À L'IDENTIQUE.
+ */
+export function consignerJet(
+	session: EtatSession,
+	tour: number,
+	jet: { readonly carac: Characteristic; readonly tc: ChallengeTier },
+): EtatSession {
+	return {
+		...session,
+		journal: session.journal.map((entree) =>
+			entree.tour === tour && entree.role === 'moteur' && entree.origine !== undefined ? { ...entree, jet } : entree,
+		),
+	}
 }

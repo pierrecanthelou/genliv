@@ -1,7 +1,15 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { AMORCE, MARQUEUR_A_ECRIRE, construireAmorce } from './amorce'
-import { SCHEMA_SESSION, fixerHeros, ouvrirSession, type EntreeJournal, type EtatSession } from './session'
+import { executerCommande } from './commandes'
+import {
+	consignerJet,
+	SCHEMA_SESSION,
+	fixerHeros,
+	ouvrirSession,
+	type EntreeJournal,
+	type EtatSession,
+} from './session'
 import type { Dossier } from './types'
 import type { HeroState } from '../../player/types'
 
@@ -353,5 +361,71 @@ describe('fixerHeros — le seul ecrivain de EtatSession.heros (n 11 moteur-arbi
 
 		expect('heros' in session).toBe(false)
 		expect(Object.keys(session)).not.toContain('heros')
+	})
+})
+
+describe('consignerJet — le seul ecrivain de EntreeJournal.jet (n 11 moteur-arbitre, lot contrat, it2)', () => {
+	/** La session APRÈS une commande `agir` acceptée — l'entrée moteur qui porte
+	 *  `origine` pour CE tour est celle que `consignerJet` doit trouver. */
+	function apresAgir(dossier: Dossier, graine = 7): EtatSession {
+		const ouverte = sessionDe(dossier, graine)
+		const resultat = executerCommande(dossier, ouverte, { commande: 'agir', cibles: [] })
+		if (!resultat.ok) throw new Error(`commande refusée (${resultat.refus}) : ${resultat.message}`)
+		return resultat.session
+	}
+
+	function entreeMoteurDuPas(session: EtatSession, tour: number): EntreeJournal | undefined {
+		return session.journal.find(
+			(entree) => entree.tour === tour && entree.role === 'moteur' && entree.origine !== undefined,
+		)
+	}
+
+	it('attache jet a l entree moteur qui porte origine pour CE tour, laisse le reste intact', () => {
+		const session = apresAgir(reecrit())
+		const tour = session.horloge.tour
+
+		const avecJet = consignerJet(session, tour, { carac: 'FO', tc: 'TC2' })
+
+		expect(entreeMoteurDuPas(avecJet, tour)?.jet).toEqual({ carac: 'FO', tc: 'TC2' })
+		// RIEN D'AUTRE N'A CHANGÉ : l'entrée JOUEUR du même pas reste identique, et le
+		// reste de la session aussi.
+		expect(avecJet.journal[0]).toEqual(session.journal[0])
+		expect({ ...avecJet, journal: session.journal }).toEqual(session)
+		// PURE : l'argument n'est pas muté.
+		expect(entreeMoteurDuPas(session, tour)?.jet).toBeUndefined()
+	})
+
+	it('EntreeJournal.jet ne porte QUE carac et tc — jamais lieu_id, jamais la prose, jamais marge/issue (§ 8 #4 du plan it2)', () => {
+		const session = apresAgir(reecrit())
+		const tour = session.horloge.tour
+
+		const avecJet = consignerJet(session, tour, { carac: 'SE', tc: 'TC3' })
+		const jet = entreeMoteurDuPas(avecJet, tour)?.jet
+
+		expect(jet).toEqual({ carac: 'SE', tc: 'TC3' })
+		expect(Object.keys(jet ?? {}).sort()).toEqual(['carac', 'tc'])
+	})
+
+	it('sans entree moteur pour ce tour, la session est rendue INCHANGEE — rien a quoi attacher le jet', () => {
+		const session = apresAgir(reecrit())
+
+		const inchangee = consignerJet(session, 999, { carac: 'FO', tc: 'TC1' })
+
+		expect(inchangee).toEqual(session)
+		expect(inchangee.journal.some((entree) => entree.jet !== undefined)).toBe(false)
+	})
+
+	it('un second appel, sur un tour different, n ecrase pas le jet du premier (au plus un jet par pas)', () => {
+		const dossier = reecrit()
+		const premierPas = apresAgir(dossier)
+		const resultatSecond = executerCommande(dossier, premierPas, { commande: 'agir', cibles: [] })
+		if (!resultatSecond.ok) throw new Error('second agir refusé')
+		const secondPas = resultatSecond.session
+
+		const avecPremierJet = consignerJet(secondPas, premierPas.horloge.tour, { carac: 'FO', tc: 'TC1' })
+		const avecLesDeux = consignerJet(avecPremierJet, secondPas.horloge.tour, { carac: 'CA', tc: 'TC4' })
+
+		expect(entreeMoteurDuPas(avecLesDeux, premierPas.horloge.tour)?.jet).toEqual({ carac: 'FO', tc: 'TC1' })
+		expect(entreeMoteurDuPas(avecLesDeux, secondPas.horloge.tour)?.jet).toEqual({ carac: 'CA', tc: 'TC4' })
 	})
 })

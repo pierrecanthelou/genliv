@@ -34,10 +34,13 @@
  * INDÉPENDANTS : tirer de l'un n'affecte JAMAIS la suite de l'autre, quel que
  * soit l'ordre d'appel entre les deux (`alea.test.ts`, « indépendance des clés »).
  *
- * `DomaineAlea` EST UNE UNION FERMÉE À UN SEUL MEMBRE AUJOURD'HUI, ET C'EST
- * DÉLIBÉRÉ (même doctrine que `AttenteClarification` dans `session.ts`) :
- * `'jet'` entre en it2 AVEC son consommateur (`resolveChallenge`, KR-249) —
- * l'ajouter par anticipation ouvrirait un domaine sans tirage réel.
+ * `DomaineAlea` ÉTAIT UNE UNION FERMÉE À UN SEUL MEMBRE JUSQU'À CE LOT : `'jet'`
+ * ENTRE ICI (n° 11, it2) AVEC SON CONSOMMATEUR RÉEL — `issueDuJet`
+ * (`brain/dossier/arbitre.ts`), seule appelante de `resolveChallenge` dans tout
+ * le dépôt (§ 8 #5 du plan it2). `creerRng(graine_alea, 'jet', tour)` : l'indice
+ * d'usage est le NUMÉRO DE PAS, jamais un compteur de jets — un jet par pas au
+ * plus (garanti par `doitArbitrer` + le verrou de tour), donc chaque pas a sa
+ * PROPRE zone, indépendante de l'usage `'heros'`.
  *
  * MODULE PUR, sans dépendance de service : il part avec `src/player/` le jour de
  * l'extraction (`docs/EXIGENCE-APERCU-DU-JEU.md` § 6). Aucun `Math.random`, aucune
@@ -45,7 +48,7 @@
  */
 
 /** Le domaine d'un tirage — union FERMÉE, voir la docstring de tête. */
-export type DomaineAlea = 'heros'
+export type DomaineAlea = 'heros' | 'jet'
 
 /**
  * SÉPARE LES ZONES DE DEUX USAGES À L'INTÉRIEUR D'UN MÊME `creerRng` — voir la

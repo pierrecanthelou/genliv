@@ -17,6 +17,7 @@
  */
 import type { CloudSettingsService } from './CloudSettingsService'
 import {
+	assemblerArbitre,
 	assemblerDetenteurs,
 	assemblerDistribution,
 	assemblerInterprete,
@@ -28,6 +29,7 @@ import {
 	type MotifRefusContexte,
 } from './copilote/contexte'
 import {
+	validerArbitre,
 	validerDetenteurs,
 	validerDistribution,
 	validerIntention,
@@ -40,6 +42,7 @@ import {
 } from './copilote/schemaSortie'
 import type {
 	ChampProseChemin,
+	CibleArbitre,
 	CibleNarrateur,
 	FaitEtabli,
 	FicheBrouillon,
@@ -47,10 +50,12 @@ import type {
 	LienResolu,
 	PropositionDetenteurs,
 	PropositionDistribution,
+	PropositionEpreuve,
 	PropositionPlan,
 	PropositionRelations,
 	PropositionRepliques,
 	PropositionResolue,
+	ReponseArbitre,
 	ReponseNarrateur,
 	SortieInterprete,
 	SortieNarrateur,
@@ -266,6 +271,11 @@ export interface CopiloteService {
 	 *  `narrateur` (n° 10 it2) : appelé APRÈS l'exécution et la persistance du pas,
 	 *  jamais avant ; sa cible et sa réponse vivent dans `copilote/types.ts`. */
 	demander(dossier: Dossier, cible: CibleNarrateur, signal?: AbortSignal): Promise<ReponseNarrateur>
+	/** ⚠ LA 9ᵉ SURCHARGE, MÊME RÈGLE — deux sites, ici et sur l'implémentation. Le rôle
+	 *  `arbitre` (n° 11 `moteur-arbitre`, it2) : appelé APRÈS R1 et l'exécution du
+	 *  pas, AVANT R3 — sa cible et sa réponse vivent dans `copilote/types.ts`,
+	 *  même domicile que `narrateur`. */
+	demander(dossier: Dossier, cible: CibleArbitre, signal?: AbortSignal): Promise<ReponseArbitre>
 }
 
 /**
@@ -323,6 +333,13 @@ type CorpsDemande =
 	 *  passé : seul ce que l'assembleur en DÉRIVE entre dans `contexte`. Littéral
 	 *  ÉCRIT, jamais `{ ...cible, contexte }`, pour la raison des sept autres. */
 	| { role: 'narrateur'; contexte: string }
+	/** LE NEUVIÈME RÔLE — SANS `champ` non plus, MÊME motif : la cible porte `saisie`
+	 *  et `lieuId`, et NI L'UNE NI L'AUTRE NE FRANCHIT LE RÉSEAU TELLE QUELLE — la
+	 *  saisie n'entre dans `contexte` qu'APRÈS normalisation, en dernière position,
+	 *  et `lieuId` ne sort JAMAIS tel quel (résolu en description/dangers par
+	 *  l'assembleur, qui ne porte que leur PROSE au fil). Littéral ÉCRIT, jamais
+	 *  `{ ...cible, contexte }`, pour la raison des huit autres. */
+	| { role: 'arbitre'; contexte: string }
 
 /** Le résultat d'UN aller-retour, avant validation de forme : soit une valeur
  *  brute à valider, soit une indisponibilité qui ne se rejoue JAMAIS. */
@@ -812,8 +829,49 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 	}
 
 	/**
-	 * L'IMPLÉMENTATION À SURCHARGES — HUIT signatures publiques depuis la n° 10 it2
-	 * (six à l'it4 de la n° 8), un corps élargi, AUCUN `as`, ET PLUS AUCUN PARAMÈTRE
+	 * LE NEUVIÈME RÔLE — `arbitre` (n° 11 `moteur-arbitre`, it2). PAS DE RE-RÉSOLUTION
+	 * PAR `Map.get` : `carac`/`tc` sont CONSTATÉS par appartenance à deux registres
+	 * FERMÉS par `validerArbitre`, qui rend donc DÉJÀ `PropositionEpreuve` — la
+	 * proposition de succès est portée telle quelle, exactement comme pour le rôle
+	 * `monde-distribution`.
+	 *
+	 * L'ORDRE DES EFFETS, identique aux huit autres rôles :
+	 *  1. LE REFUS DE CONTEXTE, AVANT TOUT — `'cible-a-ecrire'` (le lieu ne résout pas
+	 *     ou sa `description` est absente/marquée) puis `'trop-long'`. ZÉRO `fetch`,
+	 *     quelle que soit la configuration ;
+	 *  2. la configuration — `non-configure` sans appel ;
+	 *  3. LE REJEU EXACTEMENT UNE FOIS sur une violation de FORME (`jusquAuRejeuUnique`,
+	 *     INCHANGÉ et toujours générique).
+	 */
+	async function demanderArbitre(
+		dossier: Dossier,
+		cible: CibleArbitre,
+		signal: AbortSignal | undefined,
+	): Promise<ReponseArbitre> {
+		const contexte = assemblerArbitre(dossier, cible)
+		if (!contexte.ok) return refuser(contexte)
+
+		const vers = acheminement('arbitre')
+		if (vers === null) return { statut: 'indisponible', raison: 'non-configure' }
+
+		// LITTÉRAL ÉCRIT, JAMAIS `{ ...cible, contexte }` : `lieuId` ne sort jamais tel
+		// quel (KR-231).
+		const corps: CorpsDemande = { role: 'arbitre', contexte: contexte.texte }
+		const issue = await jusquAuRejeuUnique<PropositionEpreuve>(
+			vers.url,
+			vers.entetes,
+			corps,
+			(brut) => validerArbitre(brut, dossier),
+			signal,
+		)
+		if (!issue.ok) return issue.echec
+
+		return { statut: 'propose', proposition: issue.sortie }
+	}
+
+	/**
+	 * L'IMPLÉMENTATION À SURCHARGES — NEUF signatures publiques depuis la n° 11 it2
+	 * (huit à l'it2 de la n° 10), un corps élargi, AUCUN `as`, ET PLUS AUCUN PARAMÈTRE
 	 * `role`.
 	 *
 	 * LE DISPATCH SE FAIT SUR L'ÉTIQUETTE, jamais plus sur la forme. Ce que cela change,
@@ -850,6 +908,8 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 	function demander(dossier: Dossier, cible: CibleInterprete, signal?: AbortSignal): Promise<ReponseInterprete>
 	/** ⚠ LE SECOND DES DEUX SITES de la 8ᵉ surcharge — idem. */
 	function demander(dossier: Dossier, cible: CibleNarrateur, signal?: AbortSignal): Promise<ReponseNarrateur>
+	/** ⚠ LE SECOND DES DEUX SITES de la 9ᵉ surcharge — idem. */
+	function demander(dossier: Dossier, cible: CibleArbitre, signal?: AbortSignal): Promise<ReponseArbitre>
 	function demander(
 		dossier: Dossier,
 		cible:
@@ -860,7 +920,8 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 			| CibleRelations
 			| CibleDistribution
 			| CibleInterprete
-			| CibleNarrateur,
+			| CibleNarrateur
+			| CibleArbitre,
 		signal?: AbortSignal,
 	): Promise<
 		| ReponseCopilote
@@ -871,6 +932,7 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 		| ReponseDistribution
 		| ReponseInterprete
 		| ReponseNarrateur
+		| ReponseArbitre
 	> {
 		switch (cible.role) {
 			case 'personnage-prose':
@@ -889,6 +951,8 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 				return demanderInterprete(dossier, cible, signal)
 			case 'narrateur':
 				return demanderNarrateur(dossier, cible, signal)
+			case 'arbitre':
+				return demanderArbitre(dossier, cible, signal)
 			default: {
 				// LA GARDE D'EXHAUSTIVITÉ : si l'union gagne un membre sans branche, cette
 				// affectation ne compile plus. C'est une erreur de COMPILATION, jamais un

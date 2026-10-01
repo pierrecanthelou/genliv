@@ -50,3 +50,8 @@ export type { ContexteInterprete } from './interprete'
 // sans toucher à ce qui sort d'ici.
 export { assemblerNarrateur, BUDGET_CARACTERES_NARRATEUR } from './narrateur'
 export type { ContexteNarrateur } from './narrateur'
+// LE NEUVIÈME ASSEMBLEUR (n° 11 `moteur-arbitre`, it2) — HORS DE LA COUTURE COMMUNE
+// lui aussi, même motif que le septième et le huitième. `BUDGET_CARACTERES_ARBITRE`
+// sort d'ICI pour `worker/frontiere.test.ts` SEULEMENT — jamais par `brain/index.ts`.
+export { assemblerArbitre, BUDGET_CARACTERES_ARBITRE } from './arbitre'
+export type { ContexteArbitre } from './arbitre'

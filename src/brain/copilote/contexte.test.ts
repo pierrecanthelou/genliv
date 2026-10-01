@@ -22,7 +22,7 @@ import {
 	pasACondenser,
 } from '../dossier/memoire'
 import { consignerNarration } from '../dossier/recit'
-import { fixerHeros, ouvrirSession, type EtatSession, type FaitEtabli } from '../dossier/session'
+import { consignerJet, fixerHeros, ouvrirSession, type EtatSession, type FaitEtabli } from '../dossier/session'
 import type { HeroState } from '../../player/types'
 import {
 	CERTITUDE_INITIALE,
@@ -42,6 +42,7 @@ import type {
 	CibleRepliques,
 } from '../CopiloteService'
 import {
+	assemblerArbitre,
 	assemblerDetenteurs,
 	assemblerDistribution,
 	assemblerInterprete,
@@ -50,6 +51,7 @@ import {
 	assemblerProse,
 	assemblerRelations,
 	assemblerRepliques,
+	BUDGET_CARACTERES_ARBITRE,
 	BUDGET_CARACTERES_CONTEXTE,
 	BUDGET_CARACTERES_NARRATEUR,
 	CANDIDATS_MAX,
@@ -59,10 +61,10 @@ import {
 	PARTIES_REQUISES,
 	SAISIE_CARACTERES_MAX,
 } from './contexte'
-import { BORNE_MEMOIRE, CHAMPS_INJECTES_NARRATEUR } from './contexte/narrateur'
+import { BORNE_JET, BORNE_MEMOIRE, CHAMPS_INJECTES_NARRATEUR } from './contexte/narrateur'
 import { DESTINATION_DES_CHAMPS_DE_SESSION } from '../dossier/sessionDestinations'
 import { CONDENSE_CARACTERES_MAX, FAIT_CARACTERES_MAX, NARRATION_CARACTERES_MAX } from './schemaSortie'
-import { CHAMPS_PROPOSABLES, type ChampProseChemin, type CibleNarrateur } from './types'
+import { CHAMPS_PROPOSABLES, type ChampProseChemin, type CibleArbitre, type CibleNarrateur } from './types'
 
 const ROLE = 'personnage-prose'
 /** Les DEUX budgets sont lus du MÊME `Record` : un scalaire aliasé re-créerait à
@@ -3669,9 +3671,10 @@ describe('assemblerNarrateur — la mesure du budget : un terme dossier MESURE, 
 		expect(M).toBe(1937)
 
 		// TEMPS 3 — la formule : le terme dossier (facteur 3, arrondi au millier) PLUS la
-		// borne EXACTE de la mémoire, sans marge.
-		expect(BUDGET_CARACTERES_NARRATEUR).toBe(Math.ceil((M * 3) / 1000) * 1000 + BORNE_MEMOIRE)
-		expect(BUDGET_CARACTERES_NARRATEUR).toBe(26956)
+		// borne EXACTE de la mémoire, PLUS (n° 11, it2) la borne EXACTE de la ligne de jet,
+		// sans marge sur AUCUN des deux termes calculés.
+		expect(BUDGET_CARACTERES_NARRATEUR).toBe(Math.ceil((M * 3) / 1000) * 1000 + BORNE_MEMOIRE + BORNE_JET)
+		expect(BUDGET_CARACTERES_NARRATEUR).toBe(27046)
 	})
 
 	it('BORNE_MEMOIRE se derive des bornes des validateurs : 23 lignes de pas, le condense, huit faits — et rien d autre', () => {
@@ -4357,5 +4360,132 @@ describe('heros — invariance de assemblerInterprete et assemblerNarrateur (n 1
 
 		expect(contexteSans.ok).toBe(true)
 		expect(contexteAvec).toEqual(contexteSans)
+	})
+})
+
+/**
+ * LE NEUVIÈME RÔLE — `arbitre` (n° 11 `moteur-arbitre`, lot `contrat`, it2, § 7 du
+ * plan : « invariance héros + catalogue stable »).
+ *
+ * `CibleArbitre` N'A STRUCTURELLEMENT PAS de `session` (inatteignable par
+ * compilation) : l'invariance héros n'a donc PAS BESOIN d'un test comportemental
+ * comme pour `interprete`/`narrateur` — il n'existe tout simplement AUCUNE
+ * variable `heros` à faire varier. Ce que ce bloc prouve à la place : le CATALOGUE
+ * est STABLE (dérivé des deux registres fermés, jamais du dossier), et l'EXTENSION
+ * du narrateur (la ligne de jet) ne fuite JAMAIS le héros ni les chiffres.
+ */
+describe('arbitre — catalogue stable, et son extension au narrateur (n 11, it2)', () => {
+	function cibleArbitre(saisie: string, lieuId: string): CibleArbitre {
+		return { role: 'arbitre', saisie, lieuId }
+	}
+
+	it('le bloc CATALOGUE est IDENTIQUE, quel que soit le lieu ou la saisie — CALCULE, jamais mesure du dossier', () => {
+		const dossier = dossierDeReference()
+
+		const contexteFoyer = assemblerArbitre(dossier, cibleArbitre('je force la porte', 'lieu.foyer-du-guet'))
+		const contexteTour = assemblerArbitre(dossier, cibleArbitre('je fouille les gravats', 'lieu.tour-effondree'))
+		if (!contexteFoyer.ok || !contexteTour.ok) throw new Error('contexte refusé, alors que le test en attend deux')
+
+		const blocCatalogue = (texte: string): string => String(texte.match(/CATALOGUE\n[\s\S]*?(?=\n\n|$)/)?.[0])
+		expect(blocCatalogue(contexteFoyer.texte)).not.toBe('undefined')
+		expect(blocCatalogue(contexteTour.texte)).toBe(blocCatalogue(contexteFoyer.texte))
+	})
+
+	it('BUDGET_CARACTERES_ARBITRE existe et est strictement positif (parite avec BUDGET_CARACTERES_NARRATEUR)', () => {
+		expect(BUDGET_CARACTERES_ARBITRE).toBeGreaterThan(0)
+	})
+
+	describe('assemblerNarrateur — la ligne de jet (n 11, it2)', () => {
+		function heroAvec(nom: string, caracs: Partial<HeroState['caracs']>): HeroState {
+			return { ...HEROS_SENTINELLE, name: nom, caracs: { ...HEROS_SENTINELLE.caracs, ...caracs } }
+		}
+
+		/** `FO` au PLAFOND (12) contre `TC1` (1D6, max 6) : succès GARANTI quel que
+		 *  soit le tirage réel — aucune hypothèse sur la graine. */
+		function sessionEnReussiteGarantie(dossier: Dossier, heros: HeroState): EtatSession {
+			const depart = ouvertureNarrateur(dossier)
+			const apresAgir = jouerNarrateur(dossier, depart, ['AGIR'])
+			return consignerJet(fixerHeros(apresAgir, heros), apresAgir.horloge.tour, { carac: 'FO', tc: 'TC1' })
+		}
+
+		/** `SE` AU PLANCHER (1) contre `TC4` (4D4, min 4) : échec GARANTI, même motif. */
+		function sessionEnEchecGaranti(dossier: Dossier, heros: HeroState): EtatSession {
+			const depart = ouvertureNarrateur(dossier)
+			const apresAgir = jouerNarrateur(dossier, depart, ['AGIR'])
+			return consignerJet(fixerHeros(apresAgir, heros), apresAgir.horloge.tour, { carac: 'SE', tc: 'TC4' })
+		}
+
+		const EPREUVE = { enjeu_reussite: 'forcer la porte sans bruit', enjeu_echec: 'alerter ce qui veille derriere' }
+
+		it('deux heros de MEME issue (reussit) donnent un texte R3 IDENTIQUE', () => {
+			const dossier = dossierDeReference()
+			const heroA = heroAvec('Aldric', { FO: 12 })
+			const heroB = heroAvec('Brune la Rapide', { FO: 12, AG: 1, DX: 1 })
+
+			const sessionA = sessionEnReussiteGarantie(dossier, heroA)
+			const sessionB = sessionEnReussiteGarantie(dossier, heroB)
+
+			const contexteA = assemblerNarrateur(dossier, { ...cibleNarrateur(sessionA), epreuve: EPREUVE })
+			const contexteB = assemblerNarrateur(dossier, { ...cibleNarrateur(sessionB), epreuve: EPREUVE })
+			if (!contexteA.ok || !contexteB.ok) throw new Error('contexte refusé, alors que le test en attend deux')
+
+			expect(contexteA.texte).toContain(`réussit — ${EPREUVE.enjeu_reussite}`)
+			expect(contexteB).toEqual(contexteA)
+			// Discriminant : les deux héros sont RÉELLEMENT distincts — sans lui,
+			// l'égalité ci-dessus serait vraie par construction.
+			expect(heroA).not.toEqual(heroB)
+		})
+
+		it('deux issues DIFFERENTES ne changent QUE la ligne d amorce — le reste du texte est identique', () => {
+			const dossier = dossierDeReference()
+			const heroReussite = heroAvec('Aldric', { FO: 12 })
+			const heroEchec = heroAvec('Aldric', { SE: 1 })
+
+			const sessionReussite = sessionEnReussiteGarantie(dossier, heroReussite)
+			const sessionEchec = sessionEnEchecGaranti(dossier, heroEchec)
+
+			const contexteReussite = assemblerNarrateur(dossier, { ...cibleNarrateur(sessionReussite), epreuve: EPREUVE })
+			const contexteEchec = assemblerNarrateur(dossier, { ...cibleNarrateur(sessionEchec), epreuve: EPREUVE })
+			if (!contexteReussite.ok || !contexteEchec.ok)
+				throw new Error('contexte refusé, alors que le test en attend deux')
+
+			const ligneReussite = `réussit — ${EPREUVE.enjeu_reussite}`
+			const ligneEchec = `échoue — ${EPREUVE.enjeu_echec}`
+			expect(contexteReussite.texte).toContain(ligneReussite)
+			expect(contexteEchec.texte).toContain(ligneEchec)
+
+			// Remplacer la ligne de jet par le MÊME jeton rend les deux textes égaux :
+			// c'est la preuve que RIEN D'AUTRE n'a changé entre les deux issues.
+			const sansLigneReussite = contexteReussite.texte.replace(ligneReussite, 'LIGNE-DE-JET')
+			const sansLigneEchec = contexteEchec.texte.replace(ligneEchec, 'LIGNE-DE-JET')
+			expect(sansLigneEchec).toBe(sansLigneReussite)
+		})
+
+		it('un heros nomme SENTINELLE-HEROS ne fuite JAMAIS, meme avec une epreuve resolue', () => {
+			const dossier = dossierDeReference()
+			const sentinelle = heroAvec('SENTINELLE-HEROS', { FO: 12 })
+
+			const session = sessionEnReussiteGarantie(dossier, sentinelle)
+			const contexte = assemblerNarrateur(dossier, { ...cibleNarrateur(session), epreuve: EPREUVE })
+			if (!contexte.ok) throw new Error(`contexte refusé (${contexte.motif})`)
+
+			expect(contexte.texte).not.toContain('SENTINELLE-HEROS')
+			// Ni le TIER ni la CARACTÉRISTIQUE choisis par R2 ne sont écrits : R3 ne
+			// reçoit jamais les chiffres du jet, ni `carac`, ni `tc` (§ 1 du plan it2).
+			expect(contexte.texte).not.toContain('TC1')
+		})
+
+		it('sans epreuve (cible.epreuve absent), aucune ligne de jet — comportement INCHANGE depuis it1', () => {
+			const dossier = dossierDeReference()
+			const depart = ouvertureNarrateur(dossier)
+			const apresAgir = jouerNarrateur(dossier, depart, ['AGIR'])
+
+			const contexte = assemblerNarrateur(dossier, cibleNarrateur(apresAgir))
+			if (!contexte.ok) throw new Error(`contexte refusé (${contexte.motif})`)
+
+			expect(contexte.texte).toContain('aucun changement')
+			expect(contexte.texte).not.toContain('réussit —')
+			expect(contexte.texte).not.toContain('échoue —')
+		})
 	})
 })

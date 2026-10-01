@@ -120,3 +120,44 @@ describe('creerRng — l adaptateur () => number, consomme par rollCreationPool'
 		}
 	})
 })
+
+/**
+ * LE DOMAINE `'jet'` (n° 11 `moteur-arbitre`, lot `contrat`, it2) — PREMIER
+ * CONSOMMATEUR RÉEL : `issueDuJet` (`brain/dossier/arbitre.ts`), l'indice d'usage
+ * étant `horloge.tour`, jamais un compteur de jets (critère 3 du plan it2).
+ */
+describe('domaine jet — issueDuJet, un jet au plus par pas', () => {
+	const JET: DomaineAlea = 'jet'
+
+	it('creerRng(g, jet, tour) est pur et rejouable : meme cle -> meme suite', () => {
+		const premiere = tirer(creerRng(GRAINE, JET, 7), 4)
+		const seconde = tirer(creerRng(GRAINE, JET, 7), 4)
+
+		expect(seconde).toEqual(premiere)
+		expect(new Set(premiere).size).toBeGreaterThan(1)
+	})
+
+	it('deux tours distincts rendent des suites differentes, sur une graine epinglee', () => {
+		const tour7 = tirer(creerRng(GRAINE, JET, 7), 4)
+		const tour8 = tirer(creerRng(GRAINE, JET, 8), 4)
+
+		expect(tour7).not.toEqual(tour8)
+	})
+
+	it('le domaine jet est INDEPENDANT du domaine heros, meme graine et meme indice', () => {
+		// Le motif même de DomaineAlea : deux domaines distincts ne doivent jamais
+		// produire la même suite, même sur la clé d'usage identique — sans quoi
+		// hacherDomaine ne séparerait rien.
+		const commeJet = tirer(creerRng(GRAINE, JET, 0), 5)
+		const commeHeros = tirer(creerRng(GRAINE, DOMAINE, 0), 5)
+
+		expect(commeJet).not.toEqual(commeHeros)
+	})
+
+	it('0 <= x < 1 sur le domaine jet', () => {
+		for (const valeur of tirer(creerRng(GRAINE, JET, 3), 50)) {
+			expect(valeur).toBeGreaterThanOrEqual(0)
+			expect(valeur).toBeLessThan(1)
+		}
+	})
+})

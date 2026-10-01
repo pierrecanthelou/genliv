@@ -1,5 +1,6 @@
 /**
- * L'ASSEMBLEUR DU HUITIÈME RÔLE — `narrateur` (n° 10 `moteur-interprete`, it2 puis it3 puis it4).
+ * L'ASSEMBLEUR DU HUITIÈME RÔLE — `narrateur` (n° 10 `moteur-interprete`, it2 puis
+ * it3 puis it4 ; étendu par le lot `contrat` de la n° 11 `moteur-arbitre`, it2).
  *
  * Il compose ce que le narrateur VOIT pour raconter UN pas DÉJÀ JOUÉ : la session
  * reçue est celle d'APRÈS l'exécution, déjà persistée. Rien ici n'écrit l'état.
@@ -12,6 +13,20 @@
  * silence sur un champ non rédigé plutôt qu'une affirmation, et le refus AVANT tout
  * `fetch` — mais en DERNIER recours, après la cascade de l'it4 (plus bas), qui ne retire
  * que des blocs et des lignes ENTIERS.
+ *
+ * ── LE JET (n° 11 `moteur-arbitre`, it2) — CE QUE `CE PAS` GAGNE QUAND `agir` A
+ * TENTÉ UNE ÉPREUVE ───────────────────────────────────────────────────────────
+ * Quand `cible.epreuve` est fournie (le hook l'a reçue de R2 avant résolution) ET
+ * qu'`issueDuJet(session, session.horloge.tour)` résout (`brain/dossier/arbitre.ts`
+ * — SEULE appelante de `resolveChallenge` dans tout le dépôt), `CE PAS` gagne UNE
+ * ligne de plus, APRÈS le libellé du geste et AVANT `aucun changement`/les
+ * changements : `<réussit|échoue> — <enjeu du côté advenu>`. L'ASSEMBLEUR CHOISIT
+ * SEUL le côté, via `classifierIssue` (le CODE classe, jamais l'IA) — JAMAIS le
+ * hook, qui classerait une règle de jeu hors de `brain/`. L'AUTRE enjeu ne part
+ * JAMAIS. Cette ligne N'EFFACE JAMAIS `aucun changement` : un jet tenté n'est pas
+ * un effet de règle appliqué, et `agir` reste un no-op mécanique strict. R3 ne
+ * reçoit JAMAIS les chiffres du jet (dés, seuil, marge) — seulement l'amorce
+ * qualitative (`AMORCE_ISSUE`) et la prose déjà acceptée par `validerArbitre`.
  *
  * ── LA CASCADE (it4) — CE QUE LE NARRATEUR PERD QUAND LE BUDGET NE TIENT PAS ──────
  * Le premier palier dont le texte tient sous `BUDGET_CARACTERES_NARRATEUR` est envoyé.
@@ -70,7 +85,10 @@
  *
  *   · `monde.lieux[].description` — OUVERT n° 10 : R1 (it1, candidats et ICI) et R3 (it2, ICI, requise)
  *   · `monde.lieux[].ambiance` — OUVERT n° 10 : R3 (it2, ICI)
- *   · `monde.lieux[].dangers` — FERMÉ : n° 11, un danger appelle un jet
+ *   · `monde.lieux[].dangers` — FERMÉ pour CE rôle (narrateur) : un danger raconté
+ *     appellerait un jet que ce rôle ne résout jamais. Ouvert côté `arbitre`
+ *     (`copilote/contexte/arbitre.ts`, n° 11, it2, § 4 bis du plan) — un
+ *     assembleur DIFFÉRENT, HORS de cette liste des onze (sa propre doctrine)
  *   · `monde.objets[].description_joueur` — OUVERT n° 10 : R3 (it2, CE PAS et EN SA POSSESSION)
  *   · `monde.indices[].verite` — FERMÉ : n° 12, carnet d'indices, sous condition d'état
  *   · `monde.indices[].formulation_joueur` — OUVERT n° 10 : R3 (it2, CE PAS)
@@ -89,6 +107,9 @@
  * `memoire.resume.texte`, `memoire.faits_etablis[].fait`, toutes `'ia'` dans
  * `dossier/sessionDestinations.ts`), jamais du dossier.
  */
+// LE JET (n° 11 `moteur-arbitre`, it2) — `issueDuJet` est la SEULE appelante de
+// `resolveChallenge` dans tout le dépôt ; cet assembleur ne la DUPLIQUE JAMAIS.
+import { classifierIssue, issueDuJet, type IssueEpreuve } from '../../dossier/arbitre'
 import { COMMANDES } from '../../dossier/commandes'
 import type { DeltaId } from '../../dossier/deltas'
 import { projeterJalonsAtteints, type JalonAtteint } from '../../dossier/evaluate'
@@ -103,7 +124,12 @@ import {
 } from '../../dossier/memoire'
 import type { EtatSession } from '../../dossier/session'
 import type { Dossier } from '../../dossier/types'
-import { CONDENSE_CARACTERES_MAX, FAIT_CARACTERES_MAX, NARRATION_CARACTERES_MAX } from '../schemaSortie'
+import {
+	CONDENSE_CARACTERES_MAX,
+	ENJEU_CARACTERES_MAX,
+	FAIT_CARACTERES_MAX,
+	NARRATION_CARACTERES_MAX,
+} from '../schemaSortie'
 import type { CibleNarrateur, RangInjecte } from '../types'
 import { textesRediges, type MotifRefusContexte } from './noyau'
 
@@ -124,6 +150,13 @@ const EN_TETE_AUPARAVANT = 'AUPARAVANT'
 const EN_TETE_A_CONDENSER = 'A CONDENSER'
 const EN_TETE_RECEMMENT = 'RECEMMENT'
 const EN_TETE_ETABLI = 'ETABLI'
+
+/**
+ * L'AMORCE DE LA LIGNE DE JET (n° 11 `moteur-arbitre`, it2) — un verbe à la 3ᵉ
+ * personne du présent (KR-269), même forme que les libellés de geste. Le CODE
+ * classe (`classifierIssue`), jamais l'IA.
+ */
+const AMORCE_ISSUE: Record<IssueEpreuve, string> = { reussit: 'réussit', echoue: 'échoue' }
 
 /** Le séparateur entre deux blocs — écrit une fois : le texte l'emploie, et la borne de la
  *  mémoire le compte. */
@@ -179,6 +212,21 @@ export const BORNE_MEMOIRE =
 const BUDGET_CARACTERES_DOSSIER = 6000
 
 /**
+ * LA BORNE DE LA LIGNE DE JET (n° 11 `moteur-arbitre`, it2) — CALCULÉE EXACTEMENT,
+ * JAMAIS ×3 comme `BORNE_MEMOIRE` (§ 4 bis du plan it2) : ni l'amorce ni l'enjeu ne
+ * sont de la prose d'auteur non bornée — l'amorce est l'une des DEUX valeurs de
+ * `AMORCE_ISSUE`, l'enjeu est borné par `validerArbitre` (`ENJEU_CARACTERES_MAX`).
+ * Coût d'une ligne pleine : la plus longue des deux amorces, le séparateur
+ * ` — `, puis l'enjeu à son maximum. N'EST DÛE QUE SI un jet a été tenté à ce
+ * pas ; absente sinon, elle ne coûte alors RIEN (`ligneJet` est vide).
+ */
+const SEPARATEUR_AMORCE = ' — '
+/** Exportée pour `worker/frontiere.test.ts`/`contexte.test.ts` SEULEMENT — même
+ *  statut que `BORNE_MEMOIRE` : un TERME du budget, jamais par `brain/index.ts`. */
+export const BORNE_JET =
+	Math.max(...Object.values(AMORCE_ISSUE).map((mot) => mot.length)) + SEPARATEUR_AMORCE.length + ENJEU_CARACTERES_MAX
+
+/**
  * LA BORNE DU CONTEXTE, EN CARACTÈRES (`String.length`) — au-delà, la CASCADE (it4) retire
  * de la mémoire, puis de l'inventaire ; le refus `'trop-long'`, AVANT tout `fetch`, ne vient
  * qu'après son dernier palier, et jamais une coupe dans une prose. DEUX TERMES, et ils ne se
@@ -202,8 +250,13 @@ const BUDGET_CARACTERES_DOSSIER = 6000
  *
  * Exportée par `./index.ts` pour `worker/frontiere.test.ts` SEULEMENT — jamais par
  * `brain/index.ts` : aucune feature n'assemble un contexte elle-même.
+ *
+ * TROISIÈME TERME DEPUIS L'IT2 DE LA N° 11 — `BORNE_JET`, CALCULÉ EXACTEMENT
+ * (voir sa docstring), AJOUTÉ INCONDITIONNELLEMENT : la ligne de jet n'est JAMAIS
+ * réduite par la cascade (même statut que `CE PAS`), donc son pire cas s'ajoute
+ * tel quel, qu'un jet ait ou non été tenté au pas courant.
  */
-export const BUDGET_CARACTERES_NARRATEUR = BUDGET_CARACTERES_DOSSIER + BORNE_MEMOIRE
+export const BUDGET_CARACTERES_NARRATEUR = BUDGET_CARACTERES_DOSSIER + BORNE_MEMOIRE + BORNE_JET
 
 /** LES HUIT CHEMINS INJECTÉS, tous d'audience `'ia'` (garde de confinement dans
  *  `contexte.test.ts`, KR-232). Trois du canon, cinq du monde et de la charpente — dont
@@ -425,9 +478,12 @@ interface EtatCompose {
  *  5. `ETABLI` — une ligne par fait de `faitsPertinents` ;
  *  6. `ICI A1` — la `description` du lieu courant (REQUISE), puis son `ambiance` ;
  *  7. `CE PAS` — le libellé du geste joué (`COMMANDES[origine].label`, le contrat narratif
- *     de KR-269), puis UNE ligne par effet APPLIQUÉ au pas courant, `<amorce> — <prose>`,
- *     ou `<amorce> A<n> — <prose>` pour un objet ; `aucun changement` si aucun effet ne
- *     s'est appliqué. Un effet `'sans_effet'` n'est JAMAIS raconté (KR-247) ;
+ *     de KR-269), puis (n° 11, it2) `<réussit|échoue> — <enjeu advenu>` SI un jet a été
+ *     tenté à ce pas (jamais calculé deux fois, voir `ligneDeJet`), puis UNE ligne par
+ *     effet APPLIQUÉ au pas courant, `<amorce> — <prose>`, ou `<amorce> A<n> — <prose>`
+ *     pour un objet ; `aucun changement` si aucun effet ne s'est appliqué — CETTE DERNIÈRE
+ *     LIGNE N'EST JAMAIS REMPLACÉE PAR LA LIGNE DE JET. Un effet `'sans_effet'` n'est
+ *     JAMAIS raconté (KR-247) ;
  *  8-9. `EN SA POSSESSION` (`A<n> — <prose>`) puis `DEJA ACCOMPLI` — la `description_joueur`
  *     des objets possédés, l'énoncé des jalons atteints (via `projeterJalonsAtteints`,
  *     KR-246). Pas une ligne, pas de bloc — jamais un bloc vide ;
@@ -449,6 +505,19 @@ interface EtatCompose {
  * champ du canon n'est requis, et ce rôle n'a aucun ensemble à épuiser. Les écrire serait
  * du code mort présenté comme de la couverture (KR-235).
  */
+/**
+ * LA LIGNE DE JET DE `CE PAS` (n° 11 `moteur-arbitre`, it2), ou `[]` si aucun jet
+ * n'a été résolu à ce pas — calculée UNE fois, un SEUL appel à `classifierIssue`.
+ * L'ASSEMBLEUR CHOISIT SEUL le côté advenu : jamais le hook (voir la docstring de
+ * tête, § LE JET).
+ */
+function ligneDeJet(epreuve: CibleNarrateur['epreuve'], resolution: ReturnType<typeof issueDuJet>): readonly string[] {
+	if (epreuve === undefined || resolution === undefined) return []
+	const issue = classifierIssue(resolution)
+	const enjeu = issue === 'reussit' ? epreuve.enjeu_reussite : epreuve.enjeu_echec
+	return [`${AMORCE_ISSUE[issue]}${SEPARATEUR_AMORCE}${enjeu}`]
+}
+
 export function assemblerNarrateur(dossier: Dossier, cible: CibleNarrateur): ContexteNarrateur {
 	const { session } = cible
 
@@ -465,6 +534,10 @@ export function assemblerNarrateur(dossier: Dossier, cible: CibleNarrateur): Con
 	const duPas = session.journal.filter((entree) => entree.tour === session.horloge.tour)
 	const gestes = duPas.flatMap((entree) => (entree.origine === undefined ? [] : [COMMANDES[entree.origine].label]))
 	const appliques = duPas.flatMap((entree) => (entree.deltas ?? []).filter((delta) => delta.effet === 'applique'))
+	// ── LE JET (n° 11 moteur-arbitre, it2) — SEULE appelante hors `arbitre.ts` de
+	// `issueDuJet`, jamais `resolveChallenge` directement.
+	const resolutionJet = cible.epreuve !== undefined ? issueDuJet(session, session.horloge.tour) : undefined
+	const ligneJet = ligneDeJet(cible.epreuve, resolutionJet)
 
 	// ── CE QU'IL A SUR LUI — les seuls objets RÉDIGÉS, dans l'ordre d'ACQUISITION ─────
 	const possessions: Possession[] = session.monde.objets_possedes.flatMap((id) => {
@@ -500,7 +573,11 @@ export function assemblerNarrateur(dossier: Dossier, cible: CibleNarrateur): Con
 				return `${reperee} — ${prose}`
 			})
 		})
-		pousser(blocs, EN_TETE_CE_PAS, [...gestes, ...(appliques.length === 0 ? [AUCUN_CHANGEMENT] : changements)])
+		pousser(blocs, EN_TETE_CE_PAS, [
+			...gestes,
+			...ligneJet,
+			...(appliques.length === 0 ? [AUCUN_CHANGEMENT] : changements),
+		])
 		pousser(
 			blocs,
 			EN_TETE_POSSESSIONS,

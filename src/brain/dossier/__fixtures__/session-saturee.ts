@@ -71,6 +71,13 @@ import type { EtatSession } from '../session'
  * pas — registre joueur, vouvoiement, présent, aucun identifiant, aucune question.
  * Sans instance, la ligne `journal[].recit` de la table serait morte.
  *
+ * `jet` INSTANCIÉ depuis le lot `contrat` de la n° 11 (`moteur-arbitre`, it2), SUR LA
+ * MÊME ENTRÉE que `recit` — même invariant : `journal.every(e => e.jet === undefined ||
+ * e.origine !== undefined)`. SANS `lieu_id` (§8 #4 du plan d'it2, KR-013) : seuls
+ * `carac`/`tc` y entrent, les rangs que R2 a choisis, jamais un chemin dérivable de
+ * `monde.lieu_courant`. Sans instance, les deux lignes `journal[].jet.carac`/`.tc` de la
+ * table seraient mortes le jour même où elles sont écrites.
+ *
  * `memoire` INSTANCIÉE NON NULLE depuis le lot `contrat` de la n° 10 it3 — sans elle, ses
  * quatre lignes de feuille (`…fait`, `…sur[]`, `…texte`, `…jusqu_au_pas`) seraient MORTES
  * le jour même. Elle ENSEIGNE LES INVARIANTS qu'elle illustre, et c'est pourquoi l'horloge
@@ -113,6 +120,7 @@ export const SESSION_SATUREE: EtatSession = {
 			texte: 'lieu_courant : lieu.le-fanal → lieu.val-cendre',
 			origine: 'aller',
 			recit: 'Vous descendez dans le val ; la cendre crisse sous vos pas et le vent retombe.',
+			jet: { carac: 'AG', tc: 'TC2' },
 		},
 		{
 			tour: 17,

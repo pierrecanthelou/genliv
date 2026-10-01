@@ -12,6 +12,10 @@ import { MARQUEUR_A_ECRIRE } from '../dossier/amorce'
 import { COMMANDES } from '../dossier/commandes'
 import { ESPACES_DE_NOMS, collectIds } from '../dossier/identifiers'
 import type { Dossier } from '../dossier/types'
+// LE NEUVIÈME RÔLE (n° 11 `moteur-arbitre`, it2) — TYPE SEUL, les deux registres
+// FERMÉS dont `validerArbitre` constate l'appartenance de `carac`/`tc`.
+import { CHALLENGE_TIER_VALUES, type ChallengeTier } from '../challenge'
+import { CHARACTERISTIC_VALUES, type Characteristic } from '../characteristics'
 import type {
 	ConstatRendu,
 	DetenteursRendus,
@@ -20,6 +24,7 @@ import type {
 	InterpretationRendue,
 	IntentionRendue,
 	NarrationRendue,
+	PropositionEpreuve,
 	PropositionRendue,
 	RangInjecte,
 	RapportRendu,
@@ -1327,4 +1332,158 @@ export function validerNarrateur(
 	const condense = attendu.condenseDemande ? validerCondense(brut[CLE_CONDENSE], dossier, attendu.ancres) : null
 
 	return { ok: true, sortie: { narration, tentatives: rendues, constats, condense } }
+}
+
+// ══ LE NEUVIÈME RÔLE — `arbitre` (n° 11 `moteur-arbitre`, it2) ══════════════
+
+/** LA BORNE D'UN ENJEU, EN CARACTÈRES — VALEUR DE DÉCISION (narratif-ia, raffinage
+ *  it2 : le cadrage proposait 120, mais l'enjeu s'écrit à l'infinitif plutôt qu'à
+ *  la deuxième personne, et 80 suffit). Borne les DEUX proses, dérive `max_tokens`
+ *  (worker) et le terme « jet » du budget de contexte du narrateur
+ *  (`copilote/contexte/narrateur.ts`). */
+export const ENJEU_CARACTERES_MAX = 80
+
+/** Les QUATRE clés d'un `epreuve` — SECOND niveau de schéma, piloté comme
+ *  `CLES_RAPPORT`/`CLES_FICHE`/`CLES_CONSTAT`. EXPORTÉE, contrairement à ses trois
+ *  sœurs : `worker/frontiere.test.ts` en a besoin pour épingler les clés du
+ *  gabarit local au worker contre celles que ce validateur exige (précédent
+ *  `CLES_SORTIE_NARRATEUR`). */
+export const CLES_EPREUVE = ['carac', 'tc', 'enjeu_reussite', 'enjeu_echec'] as const
+
+/** Un chiffre, SOUS QUELQUE FORME : couvre `TC1`…`TC4` ET tout nombre que le
+ *  modèle écrirait — un enjeu ne profère jamais de mécanique (§ 4 bis du plan it2). */
+const PORTE_UN_CHIFFRE = /[0-9]/
+
+/**
+ * LES PRÉDICATS DE FORME de la sortie `arbitre` — le NEUVIÈME rôle, ET LE PREMIER
+ * DONT LA PROPOSITION DE SUCCÈS PORTE DÉJÀ LES TYPES RÉSOLUS (`Characteristic`/
+ * `ChallengeTier`) : AUCUNE re-résolution par `Map.get` n'a lieu dans
+ * `CopiloteService.ts` — `carac`/`tc` sont CONSTATÉS par appartenance à deux
+ * registres FERMÉS (`CHARACTERISTIC_VALUES`/`CHALLENGE_TIER_VALUES`), jamais une
+ * table rendue par l'assembleur (contrairement à TOUS les rôles à rangs
+ * précédents — § 8 #14 du plan it2, REJETÉ : « un registre FIGÉ ne dérive pas
+ * entre l'appel et l'acceptation »).
+ *
+ * DEUX FORMES DISJOINTES AU PREMIER NIVEAU (`epreuve`, `sans_epreuve`), comme le
+ * rôle `interprete` : une clé d'une forme mêlée à une clé de l'autre est un REFUS
+ * `schema`, jamais une forme « qui gagne ».
+ *
+ * LES PRÉDICATS, dans l'ordre, chacun prouvable SEUL :
+ *  BRANCHE `sans_epreuve` :
+ *   (1) objet simple, clé UNIQUE `sans_epreuve` ou `epreuve` .......... 'schema'
+ *   (2) `sans_epreuve === true` ......................................... 'schema'
+ *  BRANCHE `epreuve` :
+ *   (3) `epreuve` est un objet simple, clés EXACTEMENT `CLES_EPREUVE` ... 'schema'
+ *   (4) `carac` est une CHAÎNE ∈ `CHARACTERISTIC_VALUES` ................ 'schema'
+ *   (5) `tc` est une CHAÎNE ∈ `CHALLENGE_TIER_VALUES` .................... 'schema'
+ *   (6) `enjeu_reussite`/`enjeu_echec` sont des CHAÎNES .................. 'schema'
+ *   (7) chacune non vide après `trim()` ...................................... 'vide'
+ *   (8) chacune SANS `\n`, ≤ `ENJEU_CARACTERES_MAX` ...................... 'schema'
+ *   (9) `enjeu_reussite` ≠ `enjeu_echec` après `trim()` — un jet aux deux
+ *       issues égales ne décide rien ........................................ 'schema'
+ *  (10) aucun `MARQUEUR_A_ECRIRE`, sur les DEUX proses ................. 'marqueur'
+ *  (11) aucun identifiant du dossier, aucun chiffre `[0-9]`, sur les
+ *       DEUX proses ................................................ 'identifiant'
+ *
+ * ⚠ (4)/(5) NE PASSENT JAMAIS `carac`/`tc` À `porteUnIdentifiant` : ce sont NOS
+ * PROPRES clés de registre, constatées par `Set`/tableau d'appartenance, jamais
+ * par le scanner d'identifiants du dossier — précédent `envers` (KR-235).
+ *
+ * ⚠ LE PRÉDICAT (11) COUVRE LE CHIFFRE SOUS QUELQUE FORME, PAS SEULEMENT `TC1`…
+ * `TC4` : un enjeu qui écrirait « 7 contre 9 » proférerait une mécanique que
+ * REGLES §2 réserve au moteur (§ 4 bis du plan it2).
+ *
+ * REFUS DU LOT ENTIER (KR-230) : jamais une réparation, jamais un repêchage d'une
+ * seule prose quand l'autre est fautive — `epreuve` est indivisible.
+ */
+export function validerArbitre(
+	brut: unknown,
+	dossier: Dossier,
+): { ok: true; sortie: PropositionEpreuve } | { ok: false; motif: MotifIllisible } {
+	// (1) un objet JSON — ni tableau, ni `null` — avec UNE clé, `sans_epreuve` ou `epreuve`.
+	if (!estObjetSimple(brut)) return { ok: false, motif: 'schema' }
+	const cles = Object.keys(brut)
+	if (cles.length !== 1 || (cles[0] !== 'sans_epreuve' && cles[0] !== 'epreuve')) {
+		return { ok: false, motif: 'schema' }
+	}
+
+	// ── BRANCHE `sans_epreuve` ──────────────────────────────────────────────
+	if (cles[0] === 'sans_epreuve') {
+		// (2) la valeur est EXACTEMENT `true`, sinon `schema` — un `false` ou une
+		//     chaîne ne se « repêche » pas.
+		if (brut.sans_epreuve !== true) return { ok: false, motif: 'schema' }
+		return { ok: true, sortie: { sans_epreuve: true } }
+	}
+
+	// ── BRANCHE `epreuve` ────────────────────────────────────────────────────
+	// (3) un objet simple dont les clés valent EXACTEMENT `CLES_EPREUVE` — une
+	//     clé en trop est un REFUS, jamais un champ ignoré (signal KR-236).
+	const epreuve: unknown = brut.epreuve
+	if (!estObjetSimple(epreuve)) return { ok: false, motif: 'schema' }
+	const clesEpreuve = Object.keys(epreuve)
+	if (clesEpreuve.length !== CLES_EPREUVE.length || !CLES_EPREUVE.every((cle) => clesEpreuve.includes(cle))) {
+		return { ok: false, motif: 'schema' }
+	}
+
+	const caracBrut: unknown = epreuve[CLES_EPREUVE[0]]
+	const tcBrut: unknown = epreuve[CLES_EPREUVE[1]]
+	const reussiteBrut: unknown = epreuve[CLES_EPREUVE[2]]
+	const echecBrut: unknown = epreuve[CLES_EPREUVE[3]]
+
+	// (4) `carac` est une CHAÎNE qui APPARTIENT à `CHARACTERISTIC_VALUES` — un
+	//     registre FIGÉ, jamais re-dérivé.
+	if (typeof caracBrut !== 'string' || !(CHARACTERISTIC_VALUES as readonly string[]).includes(caracBrut)) {
+		return { ok: false, motif: 'schema' }
+	}
+	// (5) `tc` est une CHAÎNE qui APPARTIENT à `CHALLENGE_TIER_VALUES`.
+	if (typeof tcBrut !== 'string' || !(CHALLENGE_TIER_VALUES as readonly string[]).includes(tcBrut)) {
+		return { ok: false, motif: 'schema' }
+	}
+	// (6) les deux proses sont des CHAÎNES — un TABLEAU meurt ici, et JAMAIS `[0]`,
+	//     JAMAIS `String(…)`.
+	if (typeof reussiteBrut !== 'string' || typeof echecBrut !== 'string') return { ok: false, motif: 'schema' }
+
+	// (7) non vides une fois les blancs retirés.
+	if (reussiteBrut.trim().length === 0 || echecBrut.trim().length === 0) return { ok: false, motif: 'vide' }
+
+	// (8) SANS saut de ligne, SOUS la borne — PAR PROSE.
+	if (
+		reussiteBrut.includes('\n') ||
+		echecBrut.includes('\n') ||
+		reussiteBrut.length > ENJEU_CARACTERES_MAX ||
+		echecBrut.length > ENJEU_CARACTERES_MAX
+	) {
+		return { ok: false, motif: 'schema' }
+	}
+
+	// (9) les deux issues ne décident rien si elles sont identiques.
+	if (reussiteBrut.trim() === echecBrut.trim()) return { ok: false, motif: 'schema' }
+
+	// (10) aucun marqueur d'amorce — constante IMPORTÉE, jamais recopiée (KR-223).
+	if (reussiteBrut.includes(MARQUEUR_A_ECRIRE) || echecBrut.includes(MARQUEUR_A_ECRIRE)) {
+		return { ok: false, motif: 'marqueur' }
+	}
+
+	// (11) aucun identifiant du dossier, aucun chiffre — PAR PROSE, JAMAIS sur un
+	//      `join` (précédent `validerRepliques`) : il détruirait la localisation.
+	if (
+		porteUnIdentifiant(reussiteBrut, dossier) ||
+		porteUnIdentifiant(echecBrut, dossier) ||
+		PORTE_UN_CHIFFRE.test(reussiteBrut) ||
+		PORTE_UN_CHIFFRE.test(echecBrut)
+	) {
+		return { ok: false, motif: 'identifiant' }
+	}
+
+	return {
+		ok: true,
+		sortie: {
+			epreuve: {
+				carac: caracBrut as Characteristic,
+				tc: tcBrut as ChallengeTier,
+				enjeu_reussite: reussiteBrut,
+				enjeu_echec: echecBrut,
+			},
+		},
+	}
 }

@@ -74,8 +74,9 @@ function avecUnHabitantAuDepart(brain: Brain, dossier: Dossier): Dossier {
 	return ecriture.dossier
 }
 
-/** Deux résolveurs retenus à la main — l'ordre est celui des DEUX appels
- *  attendus : R1 (interprete) puis R3 (narrateur). */
+/** Trois résolveurs retenus à la main — l'ordre est celui des TROIS appels
+ *  attendus : R1 (interprete), R2 (arbitre avec agir+héros), puis R3 (narrateur).
+ *  (Lot 2 it2 : `agir` déclenche l'arbitre si un héros est présent.) */
 async function monterPartieAvecCopiloteControle(user: ReturnType<typeof userEvent.setup>): Promise<{
 	brain: Brain
 	dossier: Dossier
@@ -151,14 +152,22 @@ describe('Verrou de tour au niveau ecran (KR-265 etendu, lot 2 it2)', () => {
 		expect(lignesDuJournal()).toHaveLength(journalAvant)
 
 		// ── Resout R1 : commande `agir` acceptee (arite 0, toujours valide, ne bouge pas lieu_courant) ──
-		// declenche executerCommande (synchrone, ecrit le journal) PUIS l'appel R3 (#2)
+		// Cela déclenche R2 (arbitre) car agir+héros, puis on attend sa réponse
 		await act(async () => {
 			resolveurs[0]({
 				statut: 'propose',
 				proposition: { lecture: 'commande', commande: { commande: 'agir', cibles: [] } },
 			} as ReponseInterprete)
 		})
-		expect(demanderMock).toHaveBeenCalledTimes(2)
+		// Maintenant R1 est résolu et R2 a été appelé. Résoudre R2 avec sans_epreuve
+		// (ce test n'a pas besoin de tester la carte, juste le verrou)
+		await act(async () => {
+			resolveurs[1]({
+				statut: 'propose',
+				proposition: { sans_epreuve: true },
+			} as unknown as ReponseInterprete | ReponseNarrateur)
+		})
+		expect(demanderMock).toHaveBeenCalledTimes(3) // R1 + R2 + R3
 
 		const journalApresAgir = lignesDuJournal().length
 		expect(journalApresAgir).toBeGreaterThan(journalAvant) // agir a bien ecrit ses deux entrees
@@ -173,7 +182,7 @@ describe('Verrou de tour au niveau ecran (KR-265 etendu, lot 2 it2)', () => {
 
 		// ── Resout R3 : le verrou se relache, le recit s'affiche, le refus (de verrou) s'efface ──
 		await act(async () => {
-			resolveurs[1]({
+			resolveurs[2]({
 				statut: 'propose',
 				proposition: {
 					recit: 'Vous scrutez les environs, sans rien y trouver de neuf.',

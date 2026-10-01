@@ -159,6 +159,11 @@ export { createCloudSettings, type CloudSettingsService } from './CloudSettingsS
 // ⚠ `CibleInterprete`/`ReponseInterprete` SORTENT AVEC LES SIX AUTRES COUPLES
 // `Cible*`/`Reponse*` — le 7ᵉ rôle (n° 10, `moteur-interprete`), consommé par
 // `useTourDeJeu` (play-mode). Précédent inchangé pour les six premiers.
+// ⚠ `CibleArbitre`/`ReponseArbitre` (9ᵉ rôle, n° 11 `moteur-arbitre`, it2) NE
+// SORTENT PAS D'ICI : contrairement aux huit couples précédents, ils sont
+// DÉCLARÉS dans `copilote/types.ts` (même domicile que `narrateur`), donc
+// `CopiloteService.ts` ne les RÉ-EXPORTE pas — ils sortent plus bas, avec
+// `SortieNarrateur`.
 export type {
 	CopiloteService,
 	CibleCopilote,
@@ -208,6 +213,14 @@ export type {
 	CibleNarrateur,
 	ReponseNarrateur,
 	SortieNarrateur,
+	// LE 9ᵉ RÔLE (n° 11 `moteur-arbitre`, it2, `arbitre`) : sa CIBLE et sa RÉPONSE
+	// sortent comme les huit couples précédents — même domicile que `narrateur`,
+	// `copilote/types.ts`. `PropositionEpreuve` est LE SEUL type de ce rôle que la
+	// feature lit (il n'y a PAS de forme réseau distincte à masquer : `carac`/`tc`
+	// sont constatés par appartenance, jamais re-résolus par `Map.get`).
+	CibleArbitre,
+	ReponseArbitre,
+	PropositionEpreuve,
 } from './copilote/types'
 // `MotifIllisible` est INCHANGÉE depuis l'itération 3a — aucun des quatre validateurs
 // suivants n'ajoute de membre. Le CINQUIÈME est le premier à la nommer EN ENTIER dans
@@ -545,7 +558,10 @@ export { pastilleNiveau, badgeSection } from './dossier/pastilles'
 // `fixerHeros` SORT AVEC EUX (n° 11 `moteur-arbitre`, lot `contrat`, it1) : seule
 // porte d'écriture de `EtatSession.heros`, que `EcranCreationHeros` (lot feature)
 // appelle à la validation.
-export { SCHEMA_SESSION, fixerHeros, ouvrirSession } from './dossier/session'
+// `consignerJet` SORT AVEC EUX (n° 11 `moteur-arbitre`, lot `contrat`, it2) :
+// seule porte d'écriture de `EntreeJournal.jet`, que `useTourDeJeu` (lot feature)
+// appelle à la résolution.
+export { SCHEMA_SESSION, consignerJet, fixerHeros, ouvrirSession } from './dossier/session'
 export type {
 	EtatSession,
 	EtatMonde,
@@ -559,12 +575,22 @@ export type {
 	// `useTourDeJeu` (lot feature) n'a aucun autre moyen de l'annoter.
 	AttenteClarification,
 } from './dossier/session'
-// ── L'ALÉA KEYÉ (n° 11 `moteur-arbitre`, lot `contrat`, it1) ─────────────────
+// ── L'ALÉA KEYÉ (n° 11 `moteur-arbitre`, lot `contrat`, it1 puis it2) ────────
 // Sortent `creerRng` (l'adaptateur `() => number` que `rollCreationPool`, côté
 // feature, consomme pour ne jamais appeler `Math.random`) et `DomaineAlea` (le
-// type de son second paramètre). `alea`, la fonction pure sous-jacente, RESTE
-// DEDANS : aucune feature n'a besoin d'une clé brute, seulement du générateur.
+// type de son second paramètre, élargi à `'jet'` en it2). `alea`, la fonction pure
+// sous-jacente, RESTE DEDANS : aucune feature n'a besoin d'une clé brute, seulement
+// du générateur.
 export { creerRng, type DomaineAlea } from './dossier/alea'
+// ── LE ROUTAGE ET LA RÉSOLUTION DU RÔLE `arbitre` (n° 11, lot `contrat`, it2) ─
+// Sortent les TROIS fonctions pures que `useTourDeJeu` (lot `feature`) appelle :
+// `doitArbitrer` (la porte, après chaque commande acceptée), `issueDuJet` (SEULE
+// appelante de `resolveChallenge` dans tout le dépôt — lue par la carte ET par
+// l'assembleur du narrateur) et `classifierIssue` (la classification qualitative
+// que le CODE pose, jamais l'IA). `IssueEpreuve` sort avec elles : c'est le type
+// de leur retour qualitatif, qu'un composant d'écran n'a aucun autre moyen de
+// NOMMER pour rétrécir totalement dessus.
+export { classifierIssue, doitArbitrer, issueDuJet, type IssueEpreuve } from './dossier/arbitre'
 // ── LE RÔLE `interprete` (n° 10 `moteur-interprete`, lot `contrat`) ──────────
 // Sort `apresInterpretation` SEULE : c'est la fonction que `useTourDeJeu`
 // applique après CHAQUE réponse de `CopiloteService.demander(dossier,

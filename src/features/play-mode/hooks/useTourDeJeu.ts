@@ -8,7 +8,10 @@
  *    `avis.type === 'aucun'` (une commande acceptée), dans le même verrou de tour
  *    (ÉTAPE 5-7, lot 2).
  *  · Implémenter le verrou de tour (KR-265) — EXACTEMENT UN appel en vol à tout
- *    moment (R1 ET R3), les appels concurrents sont ignorés.
+ *    moment, sur TOUTE la chaîne R1→exécution→R2→attente du clic « Lancer »→
+ *    résolution→R3 (it2, `moteur-arbitre`) : si R2 pose une `CarteJet`, le
+ *    verrou reste tenu jusqu'à ce que `lancerLeDe` le relâche dans son propre
+ *    `finally` — jamais entre les deux, le temps que le joueur regarde la carte.
  *
  * SIX RAPPELS EXPOSÉS, PLUS UN STATE INTERNE :
  *  · `executeAction(saisie)` — appelé par `PlayerInputBar` sur soumission du formulaire,
@@ -39,6 +42,12 @@ import {
 	type EtatSession,
 	useBrain,
 	consignerNarration,
+	doitArbitrer,
+	consignerJet,
+	issueDuJet,
+	type Characteristic,
+	type ChallengeTier,
+	type CibleArbitre,
 } from '../../../brain'
 
 /** L'ISSUE DE L'APPEL R3 (narrateur) — l'avis reçu, avec le tour pour éviter une
@@ -48,6 +57,14 @@ export type IssueNarrateur =
 	| { readonly tour: number; readonly statut: 'raconte'; readonly suggestions: readonly string[] }
 	| { readonly tour: number; readonly statut: 'degrade' }
 
+export interface CarteJetState {
+	readonly carac: Characteristic
+	readonly tc: ChallengeTier
+	readonly enjeuReussite: string
+	readonly enjeuEchec: string
+	readonly resultat?: { readonly roll: number; readonly success: boolean; readonly characteristicValue: number }
+}
+
 export interface UseTourDeJeuResult {
 	readonly executeAction: (saisie: string) => Promise<boolean>
 	readonly getGestelabel: (id: string) => string
@@ -55,6 +72,8 @@ export interface UseTourDeJeuResult {
 	readonly isLocked: boolean
 	readonly issueNarrateur: IssueNarrateur | null
 	readonly pasEnCours: () => boolean
+	readonly carteJet: CarteJetState | null
+	readonly lancerLeDe: () => Promise<void>
 }
 
 /**
@@ -80,11 +99,31 @@ export function useTourDeJeu(
 	const [avis, setAvis] = useState<AvisInterprete | EchecCopilote | null>(null)
 	const [isLocked, setIsLocked] = useState(false)
 	const [issueNarrateur, setIssueNarrateur] = useState<IssueNarrateur | null>(null)
+	const [carteJet, setCarteJet] = useState<CarteJetState | null>(null)
 
 	// VERROU DE TOUR (KR-265) — `useRef` pour l'état de l'appel en vol, sans rendu.
 	// On ne verrouille QUE pendant toute la chaîne R1→exécution→R3, et on déverrouille
 	// dès que tout revient, qu'il soit succès ou erreur.
 	const lockedRef = useRef(false)
+
+	// GARDE DE RÉ-ENTRANCE DE `lancerLeDe` — `lockedRef` reste VRAI pendant toute
+	// l'attente du clic (KR-265 étendu), donc il ne peut pas distinguer « carte en
+	// attente » de « lancerLeDe déjà en vol » : un second déclenchement (double
+	// frappe Entrée côté `CarteJet`, répétition clavier OS) appellerait `lancerLeDe`
+	// deux fois AVANT que l'état React (`isLoading` de `CarteJet`) n'ait eu le temps
+	// de se re-rendre — un `useState` ne se lit jamais de façon synchrone entre deux
+	// invocations rapprochées. `useRef`, vérifié-et-posé en tête de `lancerLeDe`,
+	// exactement l'idiome déjà retenu pour `lockedRef` lui-même (BUG-137/KR-278).
+	const lancerEnCoursRef = useRef(false)
+
+	// Stockage temporaire pour l'état lors de l'attente du clic « Lancer »
+	const sessionEncourseRef = useRef<EtatSession | null>(null)
+	const propositionEncourseRef = useRef<{
+		carac: Characteristic
+		tc: ChallengeTier
+		enjeuReussite: string
+		enjeuEchec: string
+	} | null>(null)
 
 	// IMPLÉMENTATION DE `executeAction` : le cœur de l'orchestration R1 et R3.
 	async function executeAction(saisie: string): Promise<boolean> {
@@ -94,6 +133,15 @@ export function useTourDeJeu(
 		// Posons le verrou et en notifions l'écran.
 		lockedRef.current = true
 		setIsLocked(true)
+
+		// VERROU KR-265 ÉTENDU : si cette commande pose une `CarteJet` en attente du
+		// clic « Lancer », le verrou NE DOIT PAS se relâcher ici — il couvre toute la
+		// chaîne R1→exécution→R2→attente du clic→résolution→R3, un seul verrou. C'est
+		// `lancerLeDe` qui le relâche dans SON PROPRE `finally`, une fois la chaîne
+		// terminée. Sans ce drapeau, une seconde commande (console ou saisie libre)
+		// pourrait s'intercaler pendant que la carte est affichée et écraser en
+		// silence la session que `lancerLeDe` s'apprête à lire (`sessionEncourseRef`).
+		let carteEnAttente = false
 
 		try {
 			// ──────────────────────────────────────────────────────────
@@ -128,11 +176,52 @@ export function useTourDeJeu(
 			setAvis(nouvelAvis)
 
 			// ──────────────────────────────────────────────────────────
-			// R3 (NARRATEUR) — récit du pas (lot 2, orchestration)
+			// R2 (ARBITRE) — demander un jet si applicable (lot 2)
 			// ──────────────────────────────────────────────────────────
-			// Appeler R3 UNIQUEMENT si la commande a été acceptée (`avis.type === 'aucun'`)
-			// ET que les trois conditions de la signature de lot 1 sont remplies.
+			// Vérifier si cette commande doit déclencher R2
 			const pasAccepte = 'type' in nouvelAvis && nouvelAvis.type === 'aucun'
+			if (
+				pasAccepte &&
+				reponse.proposition.lecture === 'commande' &&
+				doitArbitrer(reponse.proposition.commande, nouvelleSession)
+			) {
+				// Appeler R2
+				const cibleArbitre: CibleArbitre = {
+					role: 'arbitre',
+					saisie,
+					lieuId: nouvelleSession.monde.lieu_courant,
+				}
+				const reponseArbitre = await copilote.demander(dossier, cibleArbitre)
+
+				// Vérifier le statut de R2
+				if (reponseArbitre.statut === 'propose') {
+					const { proposition: propositionArbitre } = reponseArbitre
+
+					// Vérifier si c'est une épreuve ou sans_epreuve
+					if ('epreuve' in propositionArbitre) {
+						const { carac, tc, enjeu_reussite, enjeu_echec } = propositionArbitre.epreuve
+						// Ranger la proposition et attendre le clic « Lancer »
+						setCarteJet({
+							carac,
+							tc,
+							enjeuReussite: enjeu_reussite,
+							enjeuEchec: enjeu_echec,
+						})
+						// Sauvegarder l'état pour lancerLeDe
+						sessionEncourseRef.current = nouvelleSession
+						propositionEncourseRef.current = { carac, tc, enjeuReussite: enjeu_reussite, enjeuEchec: enjeu_echec }
+						carteEnAttente = true
+						return true // Pas d'appel à R3 maintenant — le verrou reste posé, voir `finally`
+					}
+					// else : sans_epreuve → continuer à R3 ci-dessous
+				}
+				// else : erreur R2 → continuer à R3 ci-dessous
+			}
+
+			// ──────────────────────────────────────────────────────────
+			// R3 (NARRATEUR) — récit du pas
+			// ──────────────────────────────────────────────────────────
+			// On n'arrive ici que si le pas a été accepté et pas d'épreuve en attente
 			if (pasAccepte) {
 				// ÉTAPE 6 : Appeler R3 avec la session déjà persistée (S1)
 				const cibleNarrateur: CibleNarrateur = {
@@ -170,9 +259,13 @@ export function useTourDeJeu(
 			// Retourner true si le pas a été consommé (commande acceptée)
 			return pasAccepte
 		} finally {
-			// DÉVERROUILLAGE : toujours levé, même en cas d'erreur.
-			lockedRef.current = false
-			setIsLocked(false)
+			// DÉVERROUILLAGE : toujours levé, même en cas d'erreur — SAUF si une
+			// `CarteJet` vient d'être posée : le verrou reste alors tenu jusqu'à
+			// `lancerLeDe` (KR-265, chaîne étendue, voir le commentaire plus haut).
+			if (!carteEnAttente) {
+				lockedRef.current = false
+				setIsLocked(false)
+			}
 		}
 	}
 
@@ -189,6 +282,106 @@ export function useTourDeJeu(
 		return lockedRef.current
 	}
 
+	// RÉSOLUTION ET APPEL R3 — appelé quand le joueur clique « Lancer ». SECONDE
+	// MOITIÉ de la chaîne verrouillée par `executeAction` (KR-265 étendu) : le
+	// verrou a été POSÉ là-bas (et laissé tenu, `carteEnAttente`) et n'est RELÂCHÉ
+	// qu'ICI, dans le `finally` ci-dessous — jamais entre les deux, qu'importe ce
+	// que le joueur ou la console tentent pendant que la carte est affichée.
+	async function lancerLeDe(): Promise<void> {
+		if (carteJet === null || sessionEncourseRef.current === null || propositionEncourseRef.current === null) {
+			return
+		}
+
+		// GARDE : déjà en vol ? Un second appel (double frappe Entrée, etc.) est
+		// ignoré — sans elle, deux appels concurrents dupliqueraient `consignerJet`
+		// (deux entrées `jet` pour le même pas) et l'appel à R3 (BUG-137/KR-278).
+		if (lancerEnCoursRef.current) return
+		lancerEnCoursRef.current = true
+
+		try {
+			const currentSession = sessionEncourseRef.current
+			const proposition = propositionEncourseRef.current
+
+			// Enregistrer le jet dans la session
+			const sessionAvecJet = consignerJet(currentSession, currentSession.horloge.tour, {
+				carac: proposition.carac,
+				tc: proposition.tc,
+			})
+
+			// Persister la session
+			onSessionChange(sessionAvecJet)
+
+			// Résoudre le jet
+			const issue = issueDuJet(sessionAvecJet, currentSession.horloge.tour)
+			if (issue === undefined) {
+				// Pas de jet à résoudre — ne devrait pas arriver ici
+				setCarteJet(null)
+				return
+			}
+
+			// Mettre à jour l'état de la carte avec le résultat
+			const characteristicValue = sessionAvecJet.heros?.caracs[proposition.carac] ?? 0
+			setCarteJet((prev) =>
+				prev
+					? {
+							...prev,
+							resultat: {
+								roll: issue.roll,
+								success: issue.success,
+								characteristicValue,
+							},
+						}
+					: null,
+			)
+
+			// Appeler R3 (narrateur) avec l'épreuve résolue
+			const cibleNarrateur: CibleNarrateur = {
+				role: 'narrateur',
+				saisie: '', // La saisie n'est plus utile ici, c'est du narrateur seulement
+				session: sessionAvecJet,
+				epreuve: {
+					enjeu_reussite: proposition.enjeuReussite,
+					enjeu_echec: proposition.enjeuEchec,
+				},
+			}
+
+			const reponseNarrateur = await copilote.demander(dossier, cibleNarrateur)
+
+			// Traiter la réponse de R3
+			if (reponseNarrateur.statut === 'propose') {
+				// Succès R3 — écrire le récit
+				const { suggestions } = reponseNarrateur.proposition
+				const sessionAvecRecit = consignerNarration(
+					sessionAvecJet,
+					sessionAvecJet.horloge.tour,
+					reponseNarrateur.proposition,
+				)
+				onSessionChange(sessionAvecRecit)
+				setIssueNarrateur({
+					tour: sessionAvecJet.horloge.tour,
+					statut: 'raconte',
+					suggestions,
+				})
+			} else {
+				// Échec R3 — juste signaler la dégradation
+				setIssueNarrateur({
+					tour: sessionAvecJet.horloge.tour,
+					statut: 'degrade',
+				})
+			}
+
+			// Nettoyer l'état de la carte
+			setCarteJet(null)
+			sessionEncourseRef.current = null
+			propositionEncourseRef.current = null
+		} finally {
+			// DÉVERROUILLAGE DE LA CHAÎNE ÉTENDUE — voir le commentaire de tête.
+			lockedRef.current = false
+			setIsLocked(false)
+			lancerEnCoursRef.current = false
+		}
+	}
+
 	return {
 		executeAction,
 		getGestelabel,
@@ -196,5 +389,7 @@ export function useTourDeJeu(
 		isLocked,
 		issueNarrateur,
 		pasEnCours,
+		carteJet,
+		lancerLeDe,
 	}
 }

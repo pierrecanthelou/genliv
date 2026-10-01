@@ -38,17 +38,20 @@ import {
 	assemblerDetenteurs,
 	assemblerDistribution,
 	assemblerRelations,
+	BUDGET_CARACTERES_ARBITRE,
 	BUDGET_CARACTERES_CONTEXTE,
 	BUDGET_CARACTERES_NARRATEUR,
 } from '../src/brain/copilote/contexte'
 import {
 	CLE_CONDENSE,
+	CLES_EPREUVE,
 	CLES_SORTIE_NARRATEUR,
 	FAITS_PAR_PAS_MAX,
 	FICHES_PROPOSEES_MAX,
 	RELATIONS_PROPOSEES_MAX,
 	REPLIQUES_PROPOSEES_MAX,
 	TENTATIVES_MAX,
+	validerArbitre,
 	validerDistribution,
 	validerNarrateur,
 	validerRelations,
@@ -137,9 +140,18 @@ const BUDGETS: Record<string, number> = BUDGET_CARACTERES_CONTEXTE
  * par it4 (R1 n'y a eu aucun consommateur de budget, raffinage it4 § 8 désaccord 4) —
  * réassignée à la première itération qui touchera réellement R1 (docstring de
  * `TAILLE_MAX_CORPS_IA`).
+ *
+ * `arbitre` (n° 11 `moteur-arbitre`, it2) Y ENTRE AUSSI : SA PROPRE borne,
+ * `BUDGET_CARACTERES_ARBITRE` (`copilote/contexte/arbitre.ts`), refuse `trop-long`
+ * avant l'aller-retour exactement comme `narrateur` — même statut, même raison
+ * d'être dans cette table.
  */
-const ROLES_PLAFONNES: readonly string[] = [...ROLES_AUTEUR, 'narrateur']
-const BUDGETS_PLAFONNES: Record<string, number> = { ...BUDGETS, narrateur: BUDGET_CARACTERES_NARRATEUR }
+const ROLES_PLAFONNES: readonly string[] = [...ROLES_AUTEUR, 'narrateur', 'arbitre']
+const BUDGETS_PLAFONNES: Record<string, number> = {
+	...BUDGETS,
+	narrateur: BUDGET_CARACTERES_NARRATEUR,
+	arbitre: BUDGET_CARACTERES_ARBITRE,
+}
 
 /**
  * L'EXPRESSION ANCRÉE, unique et partagée, ANCRÉE SUR L'ENTRÉE et non sur la
@@ -1024,7 +1036,8 @@ describe('les deux plafonds', () => {
 		// … et DANS LA FAMILLE AUTEUR, LE BUDGET, LUI, EST BIEN EX ÆQUO : sans cette ligne, on
 		// ne saurait pas que l'amendement ci-dessus mesure quelque chose de NEUF plutôt que la
 		// même chose autrement (KR-235). ⚠ AMENDÉE À LA n° 10 it3, ET SUR UNE MESURE : elle
-		// portait sur `BUDGETS_PLAFONNES`, et le narrateur (26 956, mémoire comprise) y est
+		// portait sur `BUDGETS_PLAFONNES`, et le narrateur (27 046 depuis l'it2 de la n° 11,
+		// mémoire ET ligne de jet comprises) y est
 		// désormais SEUL au maximum — l'ex æquo 17 000 / 17 000 vit dans la famille auteur.
 		expect(rolesAuMaximum(BUDGETS, ROLES_AUTEUR).length).toBeGreaterThan(1)
 		// Et les TROIS tables portent bien UNE ENTRÉE PAR RÔLE : un rôle sans budget ne
@@ -1280,5 +1293,64 @@ describe('narrateur (mode jeu) — hors parite RoleCopilote, mais sous le plafon
 		// Et l'interprète, SANS budget client, reste hors des deux.
 		expect(ROLES_PLAFONNES).not.toContain('interprete')
 		expect(BUDGET_CARACTERES_NARRATEUR).toBeGreaterThan(0)
+	})
+})
+
+/**
+ * `arbitre` (mode JEU, n° 11 `moteur-arbitre`, it2) — HORS DE `ROLES_AUTEUR` comme
+ * `interprete`/`narrateur`, et pour la même raison. COMME `narrateur`, il a un
+ * BUDGET CLIENT (`BUDGET_CARACTERES_ARBITRE`), donc il entre dans `ROLES_PLAFONNES`.
+ * Et comme son gabarit n'a AUCUN second porteur côté client, la liaison worker ↔
+ * validateur passe par les CLÉS : celles de la branche `epreuve` du gabarit local au
+ * worker doivent être EXACTEMENT `CLES_EPREUVE`, que `validerArbitre` exige.
+ */
+describe('arbitre (mode jeu) — hors parite RoleCopilote, mais sous le plafond et lie par ses cles', () => {
+	it('INVITES et le GABARIT_SORTIE local du worker portent une entree arbitre, coherente entre elles', () => {
+		expect(Object.prototype.hasOwnProperty.call(INVITES, 'arbitre')).toBe(true)
+		const gabarit = extraireGabaritDeJeu('arbitre')
+		expect(gabarit).toBeDefined()
+		expect(INVITES['arbitre'].systeme).toContain(String(gabarit))
+	})
+
+	it('les deux formes du gabarit sont epinglees : la branche epreuve porte EXACTEMENT CLES_EPREUVE — KR-236', () => {
+		const formes = String(extraireGabaritDeJeu('arbitre')).split(' ou ')
+		expect(formes).toHaveLength(2)
+		const [formeEpreuve, formeSansEpreuve] = formes.map((forme) => JSON.parse(forme) as Record<string, unknown>)
+
+		expect(Object.keys(formeEpreuve)).toEqual(['epreuve'])
+		expect(Object.keys(formeEpreuve.epreuve as Record<string, unknown>)).toEqual([...CLES_EPREUVE])
+		expect(formeSansEpreuve).toEqual({ sans_epreuve: true })
+
+		// CAS NÉGATIF FABRIQUÉ, sans lequel l'égalité ci-dessus est INERTE : un gabarit qui
+		// porterait le WRAPPER du cadrage (`jet`/`sans_jet`) — homonyme de
+		// `EntreeJournal.jet`, précisément ce que § 8 #3 du plan it2 a fermé — ne satisfait
+		// pas le prédicat.
+		expect(Object.keys({ jet: formeEpreuve.epreuve })).not.toEqual(['epreuve'])
+	})
+
+	it('le gabarit epreuve traverse validerArbitre reellement, sans identifiant ni chiffre', () => {
+		const formeEpreuve = JSON.parse(String(extraireGabaritDeJeu('arbitre')).split(' ou ')[0]) as {
+			epreuve: Record<string, unknown>
+		}
+		const conforme = {
+			epreuve: { ...formeEpreuve.epreuve, enjeu_reussite: 'Forcer la porte.', enjeu_echec: 'Se blesser la main.' },
+		}
+		const dossier = JSON.parse(
+			fs.readFileSync(path.join(RACINE, 'src', 'brain', 'dossier', '__fixtures__', 'dossier-reference.json'), 'utf8'),
+		) as Dossier
+
+		expect(validerArbitre(conforme, dossier)).toEqual({
+			ok: true,
+			sortie: {
+				epreuve: { carac: 'FO', tc: 'TC2', enjeu_reussite: 'Forcer la porte.', enjeu_echec: 'Se blesser la main.' },
+			},
+		})
+	})
+
+	it('ROLES_AUTEUR exclut arbitre, ROLES le contient, et ROLES_PLAFONNES aussi', () => {
+		expect(ROLES).toContain('arbitre')
+		expect(ROLES_AUTEUR).not.toContain('arbitre')
+		expect(ROLES_PLAFONNES).toContain('arbitre')
+		expect(BUDGET_CARACTERES_ARBITRE).toBeGreaterThan(0)
 	})
 })

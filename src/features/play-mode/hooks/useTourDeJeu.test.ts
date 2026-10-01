@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react'
 import type { Dossier, EtatSession, SortieInterprete, SortieNarrateur, ReponseNarrateur } from '../../../brain'
 import { apresInterpretation } from '../../../brain'
 import { COMMANDES } from '../../../brain/dossier/commandes'
+import type { HeroState } from '../../../player/types'
 import { useTourDeJeu } from './useTourDeJeu'
 
 /**
@@ -38,6 +39,23 @@ const SESSION_TEST: EtatSession = {
 	journal: [],
 	memoire: null,
 }
+
+/** Un héros plausible — ni les valeurs par défaut de `charCreation.ts`, ni des jauges
+ *  pleines (même doctrine que `SESSION_SATUREE`, KR-013 : un héros frais serait
+ *  indistinguable d'un champ jamais lu). */
+const HEROS_TEST: HeroState = {
+	name: 'Aldric',
+	caracs: { FO: 10, AG: 12, DX: 9, EN: 11, IN: 8, IG: 10, SE: 9, CA: 10 },
+	pvMax: 21,
+	pv: 18,
+	peMax: 10,
+	pe: 7,
+	mcBonus: 0,
+	xp: 0,
+}
+
+/** Session avec un héros déjà créé — déclenche `doitArbitrer` sur un geste `agir`. */
+const SESSION_AVEC_HEROS: EtatSession = { ...SESSION_TEST, heros: HEROS_TEST }
 
 /** Dossier minimal avec un accès `aller` de `lieu_1` à `lieu_2`. */
 const DOSSIER_TEST: Dossier = {
@@ -401,9 +419,19 @@ describe('useTourDeJeu — hook orchestrateur', () => {
 			const s2 = onSessionChange.mock.calls[1][0] as EtatSession
 			expect(s2.journal[s2.journal.length - 1]?.recit).toBe('Vous entrez dans la clairière.')
 			expect(s2.memoire).toEqual({ faits_etablis: [fait] })
-			// `UseTourDeJeuResult` INCHANGÉ : les faits ne passent JAMAIS par l'état du hook.
+			// `UseTourDeJeuResult` lot 2 : `carteJet` et `lancerLeDe` ajoutés (lot 2), les faits
+			// ne passent JAMAIS par l'état du hook (it3).
 			expect(Object.keys(result.current).sort()).toEqual(
-				['avis', 'executeAction', 'getGestelabel', 'isLocked', 'issueNarrateur', 'pasEnCours'].sort(),
+				[
+					'avis',
+					'carteJet',
+					'executeAction',
+					'getGestelabel',
+					'isLocked',
+					'issueNarrateur',
+					'lancerLeDe',
+					'pasEnCours',
+				].sort(),
 			)
 		})
 
@@ -561,6 +589,209 @@ describe('useTourDeJeu — hook orchestrateur', () => {
 				ret3 = await result.current.executeAction('test')
 			})
 			expect(ret3).toBe(false)
+		})
+
+		it('Lot 2 — routage R2 : agir+héros → R2 appelé, carteJet peuplé, jamais session.attente (plan §7)', async () => {
+			const propositionAgir = {
+				lecture: 'commande' as const,
+				commande: { commande: 'agir' as const, cibles: [] as string[] },
+			}
+
+			demanderMock.mockResolvedValueOnce({ statut: 'propose', proposition: propositionAgir }).mockResolvedValueOnce({
+				statut: 'propose',
+				proposition: {
+					epreuve: {
+						carac: 'FO',
+						tc: 'TC2',
+						enjeu_reussite: 'franchir la brèche',
+						enjeu_echec: "s'entailler sur les gravats",
+					},
+				},
+			})
+
+			const onSessionChange = jest.fn()
+			const { result } = monter(SESSION_AVEC_HEROS, onSessionChange)
+
+			await act(async () => {
+				await result.current.executeAction('fouiller les gravats')
+			})
+
+			// Exactement deux appels : R1 puis R2 — AUCUN R3 tant que la carte attend le clic.
+			expect(demanderMock).toHaveBeenCalledTimes(2)
+			const cibleR2 = demanderMock.mock.calls[1][1]
+			expect(cibleR2).toEqual({ role: 'arbitre', saisie: 'fouiller les gravats', lieuId: 'lieu_1' })
+
+			// La carte est peuplée avec la proposition de R2, pas encore de résultat.
+			expect(result.current.carteJet).toEqual({
+				carac: 'FO',
+				tc: 'TC2',
+				enjeuReussite: 'franchir la brèche',
+				enjeuEchec: "s'entailler sur les gravats",
+			})
+
+			// Jamais rangée dans `session.attente` — c'est un état éphémère du hook (§8 #15 du plan).
+			const sessionPersistee = onSessionChange.mock.calls[0][0] as EtatSession
+			expect(sessionPersistee.attente).toBeUndefined()
+		})
+
+		it('Lot 2 — {sans_epreuve:true} : aucune CarteJet, R3 immédiat, session avance sans EntreeJournal.jet (plan §7)', async () => {
+			const propositionAgir = {
+				lecture: 'commande' as const,
+				commande: { commande: 'agir' as const, cibles: [] as string[] },
+			}
+
+			demanderMock
+				.mockResolvedValueOnce({ statut: 'propose', proposition: propositionAgir })
+				.mockResolvedValueOnce({ statut: 'propose', proposition: { sans_epreuve: true } })
+				.mockResolvedValueOnce({
+					statut: 'propose',
+					proposition: { recit: 'Rien ne cède.', suggestions: [], faits_etablis: [] } satisfies SortieNarrateur,
+				})
+
+			const onSessionChange = jest.fn()
+			const { result } = monter(SESSION_AVEC_HEROS, onSessionChange)
+
+			await act(async () => {
+				await result.current.executeAction('pousser la porte')
+			})
+
+			// Trois appels : R1, R2 (sans_epreuve), PUIS R3 immédiatement.
+			expect(demanderMock).toHaveBeenCalledTimes(3)
+			expect(demanderMock.mock.calls[1][1]).toMatchObject({ role: 'arbitre' })
+			expect(demanderMock.mock.calls[2][1]).toMatchObject({ role: 'narrateur' })
+
+			// Aucune carte ne s'affiche.
+			expect(result.current.carteJet).toBeNull()
+
+			// La session persistée après R1 ne porte AUCUNE entrée `jet`.
+			const sessionApresR1 = onSessionChange.mock.calls[0][0] as EtatSession
+			expect(sessionApresR1.journal.every((e) => e.jet === undefined)).toBe(true)
+		})
+
+		it('Lot 2 — R2 indisponible : même dégradation silencieuse que sans_epreuve, aucune bannière dédiée (plan §8 #8)', async () => {
+			const propositionAgir = {
+				lecture: 'commande' as const,
+				commande: { commande: 'agir' as const, cibles: [] as string[] },
+			}
+
+			demanderMock
+				.mockResolvedValueOnce({ statut: 'propose', proposition: propositionAgir })
+				.mockResolvedValueOnce({ statut: 'indisponible', raison: 'non-configure' })
+				.mockResolvedValueOnce({
+					statut: 'propose',
+					proposition: { recit: 'Rien ne cède.', suggestions: [], faits_etablis: [] } satisfies SortieNarrateur,
+				})
+
+			const { result } = monter(SESSION_AVEC_HEROS)
+
+			await act(async () => {
+				await result.current.executeAction('pousser la porte')
+			})
+
+			expect(demanderMock).toHaveBeenCalledTimes(3)
+			expect(result.current.carteJet).toBeNull()
+			expect(result.current.issueNarrateur?.statut).toBe('raconte')
+		})
+
+		it('Lot 2 — KR-265 étendu : le verrou reste tenu tant que la carte attend le clic, relâché seulement après lancerLeDe', async () => {
+			const propositionAgir = {
+				lecture: 'commande' as const,
+				commande: { commande: 'agir' as const, cibles: [] as string[] },
+			}
+
+			demanderMock.mockResolvedValueOnce({ statut: 'propose', proposition: propositionAgir }).mockResolvedValueOnce({
+				statut: 'propose',
+				proposition: { epreuve: { carac: 'FO', tc: 'TC2', enjeu_reussite: 'réussir', enjeu_echec: 'échouer' } },
+			})
+
+			const onSessionChange = jest.fn()
+			const { result } = monter(SESSION_AVEC_HEROS, onSessionChange)
+
+			await act(async () => {
+				await result.current.executeAction('agir')
+			})
+
+			// La carte attend le clic — le verrou DOIT rester posé (régression tech-lead it2).
+			expect(result.current.carteJet).not.toBeNull()
+			expect(result.current.isLocked).toBe(true)
+			expect(result.current.pasEnCours()).toBe(true)
+
+			// Une seconde soumission pendant l'attente doit être ignorée (verrou tenu).
+			act(() => {
+				result.current.executeAction('autre action pendant l attente')
+			})
+			expect(demanderMock).toHaveBeenCalledTimes(2) // toujours R1+R2, rien de plus
+
+			// Le clic sur « Lancer » résout le jet et appelle R3.
+			demanderMock.mockResolvedValueOnce({
+				statut: 'propose',
+				proposition: { recit: 'Vous agissez.', suggestions: [], faits_etablis: [] } satisfies SortieNarrateur,
+			})
+			await act(async () => {
+				await result.current.lancerLeDe()
+			})
+
+			// Le verrou ne se relâche qu'ICI, à la fin de la chaîne étendue.
+			expect(result.current.isLocked).toBe(false)
+			expect(result.current.carteJet).toBeNull()
+		})
+
+		it('Lot 2 — garde de ré-entrance : un second appel concurrent à lancerLeDe est ignoré (BUG-137/KR-278, tech-lead 2e passage)', async () => {
+			const propositionAgir = {
+				lecture: 'commande' as const,
+				commande: { commande: 'agir' as const, cibles: [] as string[] },
+			}
+
+			demanderMock.mockResolvedValueOnce({ statut: 'propose', proposition: propositionAgir }).mockResolvedValueOnce({
+				statut: 'propose',
+				proposition: { epreuve: { carac: 'FO', tc: 'TC2', enjeu_reussite: 'réussir', enjeu_echec: 'échouer' } },
+			})
+
+			const onSessionChange = jest.fn()
+			const { result } = monter(SESSION_AVEC_HEROS, onSessionChange)
+
+			await act(async () => {
+				await result.current.executeAction('agir')
+			})
+			expect(result.current.carteJet).not.toBeNull()
+
+			// R3 contrôlé à la main — ouvre une fenêtre pendant laquelle un second
+			// `lancerLeDe` pourrait s'intercaler avant que le premier n'ait fini.
+			let resolveR3: (reponse: ReponseNarrateur) => void = () => {}
+			demanderMock.mockImplementationOnce(
+				() =>
+					new Promise<ReponseNarrateur>((resolve) => {
+						resolveR3 = resolve
+					}),
+			)
+
+			// Double déclenchement SANS attendre entre les deux — même scénario qu'une
+			// répétition clavier OS sur Entrée (double frappe de `CarteJet`).
+			let p1: Promise<void> = Promise.resolve()
+			let p2: Promise<void> = Promise.resolve()
+			act(() => {
+				p1 = result.current.lancerLeDe()
+				p2 = result.current.lancerLeDe()
+			})
+
+			await act(async () => {
+				resolveR3({
+					statut: 'propose',
+					proposition: { recit: 'Vous agissez.', suggestions: [], faits_etablis: [] } satisfies SortieNarrateur,
+				})
+				await p1
+				await p2
+			})
+
+			// R1, R2, PUIS R3 — une seule fois, jamais un second appel R3 malgré les
+			// deux invocations de `lancerLeDe`.
+			expect(demanderMock).toHaveBeenCalledTimes(3)
+
+			// Une seule écriture de jet : `consignerJet` n'a tourné qu'une fois.
+			const sessionAvecJet = onSessionChange.mock.calls.find((appel) =>
+				(appel[0] as EtatSession).journal.some((e) => e.jet !== undefined),
+			)?.[0] as EtatSession | undefined
+			expect(sessionAvecJet?.journal.filter((e) => e.jet !== undefined)).toHaveLength(1)
 		})
 	})
 })

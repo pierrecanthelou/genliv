@@ -12,6 +12,11 @@
 // jamais son registre (`COMMANDES`, `executerCommande`), qui vit dans
 // `interprete.ts` et `schemaSortie.ts`.
 import type { Commande, CommandeId } from '../dossier/commandes'
+// `Characteristic`/`ChallengeTier` (n° 11 `moteur-arbitre`, it2) — TYPE SEUL, ni
+// `characteristics.ts` ni `challenge.ts` n'important rien de `copilote/`, donc
+// AUCUN cycle. Ce sont les deux registres FERMÉS que R2 choisit par appartenance.
+import type { ChallengeTier } from '../challenge'
+import type { Characteristic } from '../characteristics'
 import type { EtatSession, FaitEtabli, ResumeMemoire } from '../dossier/session'
 // LES DEUX FORMES STOCKÉES DE LA MÉMOIRE (n° 10 it3) sont DÉCLARÉES dans
 // `dossier/session.ts` — leur seul domicile, parce que `recit.ts` (qui les écrit) ne
@@ -522,6 +527,18 @@ export interface CibleNarrateur {
 	 *  contexte, normalisée, exactement comme pour l'interprète (KR-231). */
 	saisie: string
 	session: EtatSession
+	/**
+	 * LES DEUX ENJEUX DE L'ÉPREUVE TENTÉE À CE PAS (n° 11 `moteur-arbitre`, it2),
+	 * SI R2 EN A PROPOSÉ UNE — **jamais** stockés en session (prose hors du rejeu,
+	 * KR-013), donc transmis ICI par le hook (lot `feature`) depuis la proposition
+	 * R2 reçue avant résolution. L'assembleur (`copilote/contexte/narrateur.ts`)
+	 * choisit SEUL le côté advenu, via `issueDuJet` + `classifierIssue`
+	 * (`brain/dossier/arbitre.ts`) — **jamais** le hook, qui classerait une règle
+	 * de jeu hors de `brain/` (décision autonome du lot `contrat`, it2).
+	 * `undefined` quand `agir` n'a produit aucune épreuve — pas de ligne de plus
+	 * dans `CE PAS`.
+	 */
+	readonly epreuve?: { readonly enjeu_reussite: string; readonly enjeu_echec: string }
 }
 
 /**
@@ -611,3 +628,72 @@ export interface SortieNarrateur {
  *  réponse est `propose`, sans `resume`. Le motif du refus du condensé n'en sort pas —
  *  personne ne le lirait (KR-249/268). */
 export type ReponseNarrateur = { statut: 'propose'; proposition: SortieNarrateur } | EchecCopilote
+
+// ══ LE NEUVIÈME RÔLE — `arbitre` (n° 11 `moteur-arbitre`, it2) ══════════════
+//
+// ⚠ SES TROIS TYPES VIVENT ICI, Y COMPRIS SA CIBLE ET SA RÉPONSE, MÊME DOMICILE
+// QUE LE HUITIÈME (`narrateur`) — c'est le fichier que le plan d'itération (§ 5,
+// lot 1) leur assigne, lu par `CopiloteService.ts` (surcharge + implémentation,
+// « deux sites ») et par la feature via le baril `brain/index.ts`.
+//
+// COMME `interprete` ET `narrateur`, CE RÔLE N'EST PAS DANS `RoleCopilote` : ni
+// fiche d'entité ni prose de rédaction, il n'a rien à faire dans les trois
+// `Record<RoleCopilote, …>` de `contexte/registres.ts`. Son contexte a SA PROPRE
+// borne (`BUDGET_CARACTERES_ARBITRE`, `contexte/arbitre.ts`), hors de la parité
+// auteur de `worker/frontiere.test.ts`.
+
+/**
+ * LA CIBLE DU NEUVIÈME RÔLE — **sans** `session` : le héros et la mémoire sont
+ * INATTEIGNABLES PAR COMPILATION (durci au raffinage, § 8 #2 du plan it2 — R2 ne
+ * voit **jamais** les caractéristiques du héros, et c'est le CODE qui lit
+ * `heros.caracs[carac]` APRÈS que R2 a choisi `{carac,tc}` à l'aveugle).
+ *
+ * `saisie` (§ 8 #7, RETENU au raffinage — le tech-lead s'est corrigé lui-même au
+ * tour 2) : sans elle, R2 choisirait `{carac,tc}` à l'aveugle de l'action RÉELLE
+ * tentée par le joueur, et `dangers` en déciderait seul — exactement le routage
+ * par contenu de prose que KR-262/244 ferme.
+ *
+ * `lieuId`, et JAMAIS `lieu_id` : signature FIGÉE au § 4 du plan it2.
+ */
+export interface CibleArbitre {
+	role: 'arbitre'
+	readonly saisie: string
+	readonly lieuId: string
+}
+
+/**
+ * CE QUE LE CODE RE-RÉSOUT — ne franchit JAMAIS le réseau tel quel (la FORME
+ * réseau, elle, est validée et narrowed en une seule passe par `validerArbitre`,
+ * ce rôle n'ayant aucun jeton à re-résoudre par `Map.get` : `carac`/`tc` sont
+ * CONSTATÉS par appartenance aux deux registres FERMÉS `CHARACTERISTICS`/
+ * `CHALLENGE_TIERS`, jamais re-dérivés depuis une table rendue par l'assembleur —
+ * précédent qui les distingue de tous les rôles à rangs : un registre FIGÉ ne
+ * dérive pas entre l'appel et l'acceptation, § 8 #14 du plan it2).
+ *
+ * LE WRAPPER SEUL EST RENOMMÉ (§ 8 #3, RETENU PARTIELLEMENT) : `jet`/`sans_jet`
+ * (texte littéral du cadrage) devient `epreuve`/`sans_epreuve` — homonyme évité
+ * avec `EntreeJournal.jet` (précédent `narration` ≠ `recit`, KR-231). `carac`/`tc`/
+ * `enjeu_reussite`/`enjeu_echec` restent INCHANGÉS : zéro homonyme réel à lever,
+ * et renommer sans motif serait le churn que CLAUDE.md/WORKFLOW.md proscrit.
+ *
+ * `pourquoi` N'EST PAS ICI (§ 8 #6, RETIRÉ) : zéro lecteur dans les 6 états de la
+ * carte (contrat UX exhaustif) — KR-249 s'applique à un champ de sortie de modèle
+ * comme à un champ de session.
+ *
+ * L'ÉPREUVE EST UNE INTERFACE NOMMÉE, jamais un objet inline dans l'union :
+ * précédent `FicheReseau`/`FicheBrouillon` — un objet imbriqué directement dans
+ * une union à deux branches produit, sous Prettier (`useTabs`), un mélange
+ * tabs/espaces sur l'accolade fermante que `no-mixed-spaces-and-tabs` refuse.
+ */
+export interface EpreuveProposee {
+	readonly carac: Characteristic
+	readonly tc: ChallengeTier
+	readonly enjeu_reussite: string
+	readonly enjeu_echec: string
+}
+
+export type PropositionEpreuve = { readonly epreuve: EpreuveProposee } | { readonly sans_epreuve: true }
+
+/** LA NEUVIÈME UNION NOMMÉE — même doctrine que les huit précédentes : aucun appelant
+ *  ne peut lire une proposition sur un échec, c'est le TYPAGE qui l'interdit. */
+export type ReponseArbitre = { statut: 'propose'; proposition: PropositionEpreuve } | EchecCopilote

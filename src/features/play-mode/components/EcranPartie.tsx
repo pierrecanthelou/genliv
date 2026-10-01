@@ -20,6 +20,7 @@ import { EcranRefus } from './EcranRefus'
 import { ConsoleCommandes } from './ConsoleCommandes'
 import { PlayerInputBar } from './PlayerInputBar'
 import { JournalRow } from './JournalRow'
+import { CarteJet } from './CarteJet'
 
 /**
  * LE SHELL DE PARTIE — la route `partie`, montée par la racine de composition.
@@ -153,14 +154,11 @@ function PartieEnCours({
 	const [refus, setRefus] = useState<string | null>(null)
 	useSessionPersistee(dossierId, session)
 
-	// HOOK `useTourDeJeu` — orchestrateur du champ de saisie libre (it1), avec R3 (lot 2).
-	const { executeAction, getGestelabel, avis, isLocked, issueNarrateur, pasEnCours } = useTourDeJeu(
-		dossier,
-		session,
-		(nouvelleSession) => {
+	// HOOK `useTourDeJeu` — orchestrateur du champ de saisie libre (it1), avec R3 (lot 2) et R2 (it2).
+	const { executeAction, getGestelabel, avis, isLocked, issueNarrateur, pasEnCours, carteJet, lancerLeDe } =
+		useTourDeJeu(dossier, session, (nouvelleSession) => {
 			setSession(nouvelleSession)
-		},
-	)
+		})
 
 	// LOT 2 — Le refus de VERROU s'efface au déverrouillage, calculé EN LIGNE (KR-013/113,
 	// jamais un useEffect qui mirerait `isLocked` dans un second `setState` — un effet ainsi
@@ -253,6 +251,10 @@ function PartieEnCours({
 						</ul>
 					)}
 				</section>
+				{/* CARTE DU JET (it2) — montée conditionnellement si une épreuve est proposée,
+				    jamais si R2 absent, sans_epreuve, ou erreur (KR-013). */}
+				{carteJet && <CarteJet carteJet={carteJet} onLancer={lancerLeDe} />}
+
 				{/* DEUX CANAUX : console ET champ libre (it1), tous deux affichés (it2).
 				    Console refusée pendant le pas (verrou R1→exécution→R3, KR-265). */}
 				<ConsoleCommandes

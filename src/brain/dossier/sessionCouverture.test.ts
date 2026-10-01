@@ -45,7 +45,8 @@ import { DESTINATION_DES_CHAMPS_DE_SESSION } from './sessionDestinations'
 const DISPENSES_DE_FEUILLE: Readonly<Record<string, string>> = {
 	horloge: 'clé racine porteuse — son unique feuille est `horloge.tour`',
 	monde: 'clé racine porteuse — ses sept feuilles sont déclarées une à une',
-	journal: 'clé racine porteuse — ses huit feuilles sont déclarées une à une (`recit` depuis la n° 10 it2)',
+	journal:
+		'clé racine porteuse — ses dix feuilles sont déclarées une à une (`recit` depuis la n° 10 it2, `jet.carac`/`jet.tc` depuis la n° 11 it2)',
 	attente: 'clé racine porteuse — ses trois feuilles (`type`, `question`, `saisie`) sont déclarées une à une',
 	memoire:
 		'clé racine porteuse quand elle retient quelque chose (n° 10 it3) — ses quatre feuilles sont déclarées une à une ; à `null`, elle est sa propre feuille',

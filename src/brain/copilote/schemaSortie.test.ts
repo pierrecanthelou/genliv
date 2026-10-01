@@ -14,6 +14,7 @@ import {
 	CLES_SORTIE_RELATIONS,
 	CLES_SORTIE_REPLIQUES,
 	CONDENSE_CARACTERES_MAX,
+	ENJEU_CARACTERES_MAX,
 	FAIT_CARACTERES_MAX,
 	FAITS_PAR_PAS_MAX,
 	FICHES_PROPOSEES_MAX,
@@ -28,6 +29,7 @@ import {
 	porteUnIdentifiant,
 	porteUneAncre,
 	porteUnRang,
+	validerArbitre,
 	validerCondense,
 	validerDetenteurs,
 	validerDistribution,
@@ -2858,5 +2860,189 @@ describe('validerCondense — les sept predicats du condense, chacun seul', () =
 		// Discriminants : une question AU MILIEU passe, et un repère hors table aussi.
 		expect(validerCondense('Qui veillait ? Personne, et vous êtes parti.', dossier, ANCRES).ok).toBe(true)
 		expect(validerCondense('Vous avez longé le poste A7.', dossier, ANCRES).ok).toBe(true)
+	})
+})
+
+describe('validerArbitre — le neuvieme role, deux formes disjointes (n 11 moteur-arbitre, it2, § 4 bis du plan)', () => {
+	const dossier = dossierDeReference()
+	/** Un identifiant RÉEL du dossier de référence — c'est l'appartenance qui compte. */
+	const IDENTIFIANT = 'objet.sceau-de-cendre'
+	const ENJEU_REUSSITE = 'forcer la porte sans bruit'
+	const ENJEU_ECHEC = 'alerter ce qui veille derriere'
+	const epreuve = (carac: unknown, tc: unknown, reussite: unknown, echec: unknown): Record<string, unknown> => ({
+		epreuve: { carac, tc, enjeu_reussite: reussite, enjeu_echec: echec },
+	})
+	const CONFORME = epreuve('FO', 'TC2', ENJEU_REUSSITE, ENJEU_ECHEC)
+	const PROPOSITION_CONFORME = {
+		ok: true,
+		sortie: { epreuve: { carac: 'FO', tc: 'TC2', enjeu_reussite: ENJEU_REUSSITE, enjeu_echec: ENJEU_ECHEC } },
+	}
+
+	it('le nominal epreuve rend ok et la forme RESOLUE, carac/tc narrowed au type ferme', () => {
+		expect(validerArbitre(CONFORME, dossier)).toEqual(PROPOSITION_CONFORME)
+	})
+
+	it('le nominal sans_epreuve est ACCEPTE SANS REJEU — la liste vide d epreuve n existe pas pour ce role', () => {
+		expect(validerArbitre({ sans_epreuve: true }, dossier)).toEqual({ ok: true, sortie: { sans_epreuve: true } })
+	})
+
+	it('1 — ce qui n est pas un objet JSON est refuse, motif schema', () => {
+		for (const brut of [null, undefined, [], [CONFORME], 'epreuve', 42, true]) {
+			expect({ brut, ...validerArbitre(brut, dossier) }).toEqual({ brut, ok: false, motif: 'schema' })
+		}
+	})
+
+	it('2 — exactement une clé, sans_epreuve OU epreuve : manquante, en trop, ou renommee (jet/sans_jet du cadrage)', () => {
+		const cas: Array<Record<string, unknown>> = [
+			{},
+			{ ...CONFORME, pourquoi: 'un echo interdit' },
+			// ⚠ LE WRAPPER DU CADRAGE (`jet`/`sans_jet`) EST REFUSÉ : homonyme
+			// d'`EntreeJournal.jet`, fermé au § 8 #3 du plan it2.
+			{ jet: CONFORME.epreuve },
+			{ sans_jet: true },
+			{ sans_epreuve: true, epreuve: CONFORME.epreuve },
+		]
+		for (const brut of cas) {
+			expect({ brut, ...validerArbitre(brut, dossier) }).toEqual({ brut, ok: false, motif: 'schema' })
+		}
+	})
+
+	it('sans_epreuve doit valoir EXACTEMENT true, jamais repeche', () => {
+		for (const valeur of [false, 'true', 1, null]) {
+			expect(validerArbitre({ sans_epreuve: valeur }, dossier)).toEqual({ ok: false, motif: 'schema' })
+		}
+	})
+
+	it('3 — epreuve porte EXACTEMENT ses QUATRE cles : manquante ou en trop', () => {
+		const cas: Array<Record<string, unknown>> = [
+			{ epreuve: { tc: 'TC2', enjeu_reussite: ENJEU_REUSSITE, enjeu_echec: ENJEU_ECHEC } },
+			{ epreuve: { carac: 'FO', enjeu_reussite: ENJEU_REUSSITE, enjeu_echec: ENJEU_ECHEC } },
+			{ epreuve: { carac: 'FO', tc: 'TC2', enjeu_echec: ENJEU_ECHEC } },
+			{ epreuve: { carac: 'FO', tc: 'TC2', enjeu_reussite: ENJEU_REUSSITE } },
+			{ epreuve: { carac: 'FO', tc: 'TC2', enjeu_reussite: ENJEU_REUSSITE, enjeu_echec: ENJEU_ECHEC, pourquoi: 'x' } },
+			{ epreuve: [] },
+			{ epreuve: null },
+		]
+		for (const brut of cas) {
+			expect({ brut, ...validerArbitre(brut, dossier) }).toEqual({ brut, ok: false, motif: 'schema' })
+		}
+	})
+
+	it('4 et 5 — carac/tc sont CONSTATES par appartenance aux deux registres fermes, jamais repeches', () => {
+		expect(validerArbitre(epreuve('ZZ', 'TC2', ENJEU_REUSSITE, ENJEU_ECHEC), dossier)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+		expect(validerArbitre(epreuve('fo', 'TC2', ENJEU_REUSSITE, ENJEU_ECHEC), dossier)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+		expect(validerArbitre(epreuve('FO', 'TC5', ENJEU_REUSSITE, ENJEU_ECHEC), dossier)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+		expect(validerArbitre(epreuve(1, 'TC2', ENJEU_REUSSITE, ENJEU_ECHEC), dossier)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+		// Discriminant : les HUIT caractéristiques et les QUATRE tiers passent tous.
+		for (const carac of ['FO', 'AG', 'DX', 'EN', 'IN', 'IG', 'SE', 'CA']) {
+			expect(validerArbitre(epreuve(carac, 'TC1', ENJEU_REUSSITE, ENJEU_ECHEC), dossier).ok).toBe(true)
+		}
+		for (const tc of ['TC1', 'TC2', 'TC3', 'TC4']) {
+			expect(validerArbitre(epreuve('FO', tc, ENJEU_REUSSITE, ENJEU_ECHEC), dossier).ok).toBe(true)
+		}
+	})
+
+	it('6 — enjeu_reussite/enjeu_echec doivent etre des CHAINES, jamais repechees', () => {
+		for (const prose of [[ENJEU_REUSSITE], 42, null, { texte: ENJEU_REUSSITE }]) {
+			expect(validerArbitre(epreuve('FO', 'TC2', prose, ENJEU_ECHEC), dossier)).toEqual({ ok: false, motif: 'schema' })
+			expect(validerArbitre(epreuve('FO', 'TC2', ENJEU_REUSSITE, prose), dossier)).toEqual({
+				ok: false,
+				motif: 'schema',
+			})
+		}
+	})
+
+	it('7 — chaque prose non vide apres trim, motif vide', () => {
+		for (const vide of ['', '   ', '\n\t ']) {
+			expect(validerArbitre(epreuve('FO', 'TC2', vide, ENJEU_ECHEC), dossier)).toEqual({ ok: false, motif: 'vide' })
+			expect(validerArbitre(epreuve('FO', 'TC2', ENJEU_REUSSITE, vide), dossier)).toEqual({
+				ok: false,
+				motif: 'vide',
+			})
+		}
+	})
+
+	it('8 — chaque prose SANS saut de ligne, SOUS ENJEU_CARACTERES_MAX', () => {
+		expect(ENJEU_CARACTERES_MAX).toBe(80)
+		const juste = 'v'.repeat(ENJEU_CARACTERES_MAX)
+		expect(validerArbitre(epreuve('FO', 'TC2', juste, ENJEU_ECHEC), dossier).ok).toBe(true)
+		expect(validerArbitre(epreuve('FO', 'TC2', `${juste}v`, ENJEU_ECHEC), dossier)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+		expect(validerArbitre(epreuve('FO', 'TC2', 'une ligne\nqui casse le bloc', ENJEU_ECHEC), dossier)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+	})
+
+	it('9 — enjeu_reussite et enjeu_echec DOIVENT DIFFERER apres trim : un jet aux deux issues egales ne decide rien', () => {
+		expect(validerArbitre(epreuve('FO', 'TC2', 'repérer le passage', 'repérer le passage'), dossier)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+		expect(validerArbitre(epreuve('FO', 'TC2', '  repérer le passage  ', 'repérer le passage'), dossier)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+	})
+
+	it('10 — aucun MARQUEUR_A_ECRIRE, sur les DEUX proses', () => {
+		expect(validerArbitre(epreuve('FO', 'TC2', `${MARQUEUR_A_ECRIRE}`, ENJEU_ECHEC), dossier)).toEqual({
+			ok: false,
+			motif: 'marqueur',
+		})
+		expect(validerArbitre(epreuve('FO', 'TC2', ENJEU_REUSSITE, `${MARQUEUR_A_ECRIRE}`), dossier)).toEqual({
+			ok: false,
+			motif: 'marqueur',
+		})
+	})
+
+	it('11 — aucun identifiant du dossier, sur les DEUX proses', () => {
+		expect(validerArbitre(epreuve('FO', 'TC2', `prendre ${IDENTIFIANT}`, ENJEU_ECHEC), dossier)).toEqual({
+			ok: false,
+			motif: 'identifiant',
+		})
+		expect(validerArbitre(epreuve('FO', 'TC2', ENJEU_REUSSITE, `perdre ${IDENTIFIANT}`), dossier)).toEqual({
+			ok: false,
+			motif: 'identifiant',
+		})
+	})
+
+	it('11 bis — aucun chiffre, sous quelque forme, sur les DEUX proses — REGLES §2 reserve le seuil au moteur', () => {
+		expect(validerArbitre(epreuve('FO', 'TC2', 'tenir 7 secondes', ENJEU_ECHEC), dossier)).toEqual({
+			ok: false,
+			motif: 'identifiant',
+		})
+		expect(validerArbitre(epreuve('FO', 'TC2', ENJEU_REUSSITE, 'perdre 2 points'), dossier)).toEqual({
+			ok: false,
+			motif: 'identifiant',
+		})
+	})
+
+	it('REFUS DU LOT ENTIER : une seule prose fautive refuse les DEUX, jamais un repechage partiel (KR-230)', () => {
+		// `enjeu_reussite` est SAINE, `enjeu_echec` seule porte le défaut — la sortie
+		// entière est refusée, jamais amputée d'une seule moitié.
+		const resultat = validerArbitre(epreuve('FO', 'TC2', ENJEU_REUSSITE, `${MARQUEUR_A_ECRIRE}`), dossier)
+		expect(resultat.ok).toBe(false)
+		expect('sortie' in resultat).toBe(false)
+	})
+
+	it('GABARIT_SORTIE (RoleCopilote) ne porte PAS arbitre — ce role n est pas de la famille auteur', () => {
+		// `arbitre` est un rôle de JEU, hors `RoleCopilote` — précédent `interprete`/
+		// `narrateur` : son gabarit vit SEULEMENT dans `worker/index.ts`, jamais ici.
+		expect(Object.prototype.hasOwnProperty.call(GABARIT_SORTIE, 'arbitre')).toBe(false)
 	})
 })

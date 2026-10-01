@@ -865,6 +865,11 @@
 			"id": "KR-277",
 			"feature": "moteur-arbitre",
 			"risk": "UN HELPER DE TEST QUI SIMULE UNE REPARTITION A CHOIX MULTIPLES SOUS UN PLAFOND PAR CIBLE (ex. distribuer un bonus entre plusieurs caracteristiques) N'ITERE JAMAIS SUR UNE SEULE CIBLE FIXE jusqu'a ce qu'ELLE se bloque -- sa condition d'arret LOCALE n'implique pas la condition GLOBALE, et le blocage depend alors d'un tirage non maitrise par le test. Itere sur TOUTES les cibles actionnables : chacune s'arrete d'elle-meme, et la preuve que la marge totale majore toujours le total a distribuer doit etre ECRITE (ici : 8 caracteristiques x 2 points de marge minimum >= 4, le maximum possible). Decouvert en moteur-arbitre it1 (repartition du bonus 1D4 a la creation du heros, flakiness intermittente non reproductible sans analyse de cause) -- BUG-136. Corps : bug_history.moteur-arbitre.json."
+		},
+		{
+			"id": "KR-278",
+			"feature": "moteur-arbitre",
+			"risk": "UN VERROU (KR-265 ou equivalent) QUI COUVRE UNE CHAINE ASYNCHRONE EN PLUSIEURS ETAPES EXPOSEES SEPAREMENT (ex. executeAction PUIS lancerLeDe, separees par une interaction utilisateur) SE RELACHE DANS LE FINALLY DE LA DERNIERE ETAPE, JAMAIS DE LA PREMIERE -- meme quand la premiere etape retourne normalement en attendant un clic. Un finally pose sur la premiere etape libere la ressource avant que la derniere n'en ait fini, ouvrant une fenetre de concurrence ou une action intercalee ecrase en silence l'etat que la derniere etape s'appretait a lire. Un drapeau local (pose juste avant le retour qui attend l'interaction) dit a la premiere etape de NE PAS relacher. CORROLAIRE (BUG-138, 2e passage sur le MEME lot) : la garde de re-entrance d'une fonction invocable depuis PLUSIEURS points d'entree UI (clic ET clavier, par exemple) doit etre verifiee a CHAQUE point d'entree qui peut l'invoquer, jamais au seul point deja corrige -- et elle doit vivre dans un useRef possede par le hook proprietaire du contrat de verrou, jamais duplique en useState par composant consommateur (un useState ne protege aucune fenetre de concurrence synchrone). Decouvert en moteur-arbitre it2 (verrou R1->R2->attente clic->resolution->R3, revue tech-lead PR, 1er et 2e passages) -- BUG-137, BUG-138. Corps : bug_history.moteur-arbitre.json."
 		}
 	]
 }
