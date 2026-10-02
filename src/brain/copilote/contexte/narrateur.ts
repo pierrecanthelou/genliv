@@ -133,6 +133,7 @@ import {
 	ENJEU_CARACTERES_MAX,
 	FAIT_CARACTERES_MAX,
 	NARRATION_CARACTERES_MAX,
+	REPLIQUE_CARACTERES_MAX,
 } from '../schemaSortie'
 import type { CibleNarrateur, RangInjecte } from '../types'
 import { textesRediges, type MotifRefusContexte } from './noyau'
@@ -195,12 +196,21 @@ const SEPARATEUR_DE_BLOCS = '\n\n'
  * sur la seule fenêtre lèverait `trop-long` dès le premier échec de condensation, et le
  * narrateur se tairait justement quand il doit rattraper.
  *
- * UNE LIGNE DE PAS est un RÉCIT (`NARRATION_CARACTERES_MAX`, borne de `validerNarrateur`) ou,
- * à défaut, un LIBELLÉ DE GESTE : sa largeur est le plus grand des deux, DÉRIVÉ de
- * `COMMANDES` — jamais supposé.
+ * UNE LIGNE DE PAS est un RÉCIT (`NARRATION_CARACTERES_MAX`, borne de `validerNarrateur`),
+ * UNE RÉPLIQUE DE PNJ (`REPLIQUE_CARACTERES_MAX`, borne de `validerActeur` — n° 12
+ * `moteur-acteurs`, it1 : `ligneDuPas` relit `porteuse.recit` SANS DISTINGUER son
+ * origine, et un pas `parler` déjà joué porte la RÉPLIQUE du PNJ sous cette même
+ * clé) OU, À DÉFAUT, un LIBELLÉ DE GESTE : sa largeur est le plus grand DES TROIS,
+ * DÉRIVÉ de `COMMANDES` — jamais supposé. CORRECTION DÉFENSIVE (raffinage it1 de la
+ * n° 12, § 8 désaccord 3) : zéro effet NUMÉRIQUE aujourd'hui (400 < 800, le maximum
+ * reste `NARRATION_CARACTERES_MAX`), mais le théorème qu'elle corrige — « chaque
+ * terme est borné par un validateur, donc la somme est EXACTE » — devenait FAUX
+ * sans elle dès qu'une réplique de PNJ entre dans la fenêtre glissante ou la
+ * tranche à condenser.
  */
 const LIGNE_DE_PAS_MAX = Math.max(
 	NARRATION_CARACTERES_MAX,
+	REPLIQUE_CARACTERES_MAX,
 	...Object.values(COMMANDES).map((descripteur) => descripteur.label.length),
 )
 const coutDUnBlocPlein = (enTete: string, lignes: number, largeur: number): number =>
@@ -224,6 +234,15 @@ export const BORNE_MEMOIRE =
  * (300) caractères. Protocole de l'it1 : on asserte d'abord que les HUIT chemins injectés
  * résolvent non vides, sans quoi `M` serait un PLANCHER et non une mesure.
  * M = 1937 (1918 en it2, + 19 caractères de rangs) ⇒ ceil(1937 × 3 / 1000) × 1000 = 6000.
+ *
+ * RE-MESURÉ le 2026-10-02 (n° 12 `moteur-acteurs`, it1) — « le geste au libellé le plus
+ * long » DÉSIGNE DÉSORMAIS `parler` (« s'adresse à quelqu'un sur place », plus long que
+ * « agit sur place ») : `COMMANDES` gagne un TROISIÈME verbe, et `pireCasNarrateur()`
+ * (`contexte.test.ts`) le prend en compte SANS filtrer par atteignabilité réelle — même
+ * doctrine que `LIGNE_DE_PAS_MAX` ci-dessous, qui balaie déjà TOUT `COMMANDES` pour le
+ * terme mémoire. M = 1954 (+17 caractères, l'écart des deux libellés) ⇒
+ * ceil(1954 × 3 / 1000) × 1000 = 6000 — LE MÊME multiple de 1000 qu'avant : la hausse ne
+ * franchit pas de palier, `BUDGET_CARACTERES_DOSSIER` RESTE 6000.
  */
 const BUDGET_CARACTERES_DOSSIER = 6000
 

@@ -35,9 +35,12 @@ import fs from 'node:fs'
 import path from 'node:path'
 import worker, { INVITES, TAILLE_MAX_CORPS_IA } from './index'
 import {
+	assemblerActeur,
 	assemblerDetenteurs,
 	assemblerDistribution,
+	assemblerInterprete,
 	assemblerRelations,
+	BUDGET_CARACTERES_ACTEUR,
 	BUDGET_CARACTERES_ARBITRE,
 	BUDGET_CARACTERES_CONTEXTE,
 	BUDGET_CARACTERES_NARRATEUR,
@@ -45,12 +48,14 @@ import {
 import {
 	CLE_CONDENSE,
 	CLES_EPREUVE,
+	CLES_SORTIE_ACTEUR,
 	CLES_SORTIE_NARRATEUR,
 	FAITS_PAR_PAS_MAX,
 	FICHES_PROPOSEES_MAX,
 	RELATIONS_PROPOSEES_MAX,
 	REPLIQUES_PROPOSEES_MAX,
 	TENTATIVES_MAX,
+	validerActeur,
 	validerArbitre,
 	validerDistribution,
 	validerNarrateur,
@@ -71,6 +76,7 @@ const ROLE_DETENTEURS = 'indice-detenteurs'
 const ROLE_REPLIQUES = 'personnage-repliques'
 const ROLE_RELATIONS = 'personnage-relations'
 const ROLE_DISTRIBUTION = 'monde-distribution'
+const ROLE_ACTEUR = 'acteur' as const
 
 /**
  * LA BORNE DE SORTIE EN TOUTES LETTRES — le seul pont possible entre l'invite
@@ -145,12 +151,20 @@ const BUDGETS: Record<string, number> = BUDGET_CARACTERES_CONTEXTE
  * `BUDGET_CARACTERES_ARBITRE` (`copilote/contexte/arbitre.ts`), refuse `trop-long`
  * avant l'aller-retour exactement comme `narrateur` — même statut, même raison
  * d'être dans cette table.
+ *
+ * `acteur` (n° 12 `moteur-acteurs`, it1) Y ENTRE AUSSI, même motif, SA PROPRE
+ * borne `BUDGET_CARACTERES_ACTEUR` (`copilote/contexte/acteur.ts`) — ⚠ `interprete`,
+ * LUI, RESTE HORS DE CETTE TABLE malgré le lot qui lui donne enfin une table de
+ * candidats PNJ : la dette de budget R1 est MESURÉE (describe dédié plus bas),
+ * jamais ARMÉE — aucune borne formelle n'existe encore pour ce rôle (§ 8 désaccord
+ * 11 du plan it1 de la n° 12).
  */
-const ROLES_PLAFONNES: readonly string[] = [...ROLES_AUTEUR, 'narrateur', 'arbitre']
+const ROLES_PLAFONNES: readonly string[] = [...ROLES_AUTEUR, 'narrateur', 'arbitre', ROLE_ACTEUR]
 const BUDGETS_PLAFONNES: Record<string, number> = {
 	...BUDGETS,
 	narrateur: BUDGET_CARACTERES_NARRATEUR,
 	arbitre: BUDGET_CARACTERES_ARBITRE,
+	acteur: BUDGET_CARACTERES_ACTEUR,
 }
 
 /**
@@ -1352,5 +1366,153 @@ describe('arbitre (mode jeu) — hors parite RoleCopilote, mais sous le plafond 
 		expect(ROLES_AUTEUR).not.toContain('arbitre')
 		expect(ROLES_PLAFONNES).toContain('arbitre')
 		expect(BUDGET_CARACTERES_ARBITRE).toBeGreaterThan(0)
+	})
+})
+
+/**
+ * `acteur` (mode JEU, n° 12 `moteur-acteurs`, it1) — HORS DE `ROLES_AUTEUR` comme
+ * `interprete`/`narrateur`/`arbitre`, et pour la même raison. COMME `narrateur`/
+ * `arbitre`, il a un BUDGET CLIENT (`BUDGET_CARACTERES_ACTEUR`), donc il entre dans
+ * `ROLES_PLAFONNES`. ⚠ PREMIER RÔLE DONT LE GABARIT LOCAL EST AUSSI LA FORME
+ * RÉSOLUE : `ReponseActeur` et `validerActeur` ne re-résolvent RIEN (`replique` est
+ * de la prose pure) — la liaison worker ↔ validateur passe donc par les CLÉS,
+ * exactement comme `narrateur`/`arbitre`, mais sur un schéma À UN SEUL NIVEAU.
+ */
+describe('acteur (mode jeu) — hors parite RoleCopilote, mais sous le plafond et lie par ses cles', () => {
+	it('INVITES et le GABARIT_SORTIE local du worker portent une entree acteur, coherente entre elles', () => {
+		expect(Object.prototype.hasOwnProperty.call(INVITES, ROLE_ACTEUR)).toBe(true)
+		const gabarit = extraireGabaritDeJeu(ROLE_ACTEUR)
+		expect(gabarit).toBeDefined()
+		expect(INVITES[ROLE_ACTEUR].systeme).toContain(String(gabarit))
+	})
+
+	it('le gabarit porte EXACTEMENT CLES_SORTIE_ACTEUR — KR-236', () => {
+		const forme = JSON.parse(String(extraireGabaritDeJeu(ROLE_ACTEUR))) as Record<string, unknown>
+		expect(Object.keys(forme)).toEqual([...CLES_SORTIE_ACTEUR])
+	})
+
+	it('le gabarit traverse validerActeur reellement, sans identifiant ni chiffre', () => {
+		const cle = Object.keys(JSON.parse(String(extraireGabaritDeJeu(ROLE_ACTEUR))) as Record<string, unknown>)[0]
+		const REPLIQUE = "Vous cherchez quelque chose, l'ami ? Dites-le sans détour."
+		const conforme = { [cle]: REPLIQUE }
+		const dossier = JSON.parse(
+			fs.readFileSync(path.join(RACINE, 'src', 'brain', 'dossier', '__fixtures__', 'dossier-reference.json'), 'utf8'),
+		) as Dossier
+
+		expect(validerActeur(conforme, dossier)).toEqual({ ok: true, sortie: { replique: REPLIQUE } })
+	})
+
+	it('le temoin executable du dixieme role : le worker reel, puis validerActeur, sur le PNJ de la fixture', async () => {
+		const URL_WORKER = 'https://worker.invalid'
+		const URL_AMONT = 'https://amont.invalid/messages'
+		const reglages: CloudSettingsService = {
+			getWorkerUrl: () => URL_WORKER,
+			setWorkerUrl: () => undefined,
+			getSyncKey: () => 'une-cle-de-synchronisation',
+			setSyncKey: () => undefined,
+			isConfigured: () => true,
+		}
+		const dossier = JSON.parse(
+			fs.readFileSync(path.join(RACINE, 'src', 'brain', 'dossier', '__fixtures__', 'dossier-reference.json'), 'utf8'),
+		) as Dossier
+		const ouverture = ouvrirSession(dossier, { graine_alea: 424242 })
+		if (!ouverture.ok) throw new Error(`ouverture refusée : ${ouverture.refus}`)
+
+		// `pnj.harek-le-forgeron` — le PNJ enrichi au lot contrat d'it1 : présent au
+		// Foyer du Guet (lieu de départ), identifié par `apparence`.
+		const cible = {
+			role: ROLE_ACTEUR,
+			personnageId: 'pnj.harek-le-forgeron',
+			saisie: 'bonjour',
+			session: ouverture.session,
+		}
+		const contexte = assemblerActeur(dossier, cible.session, cible.personnageId, cible.saisie)
+		if (!contexte.ok) throw new Error(`contexte refusé (${contexte.motif}) : le témoin ne peut pas partir`)
+
+		const REPLIQUE = "L'enclume ne chôme jamais, même quand le ciel s'assombrit."
+		let inviteSurLeFil: string | null = null
+		let corpsVersLeWorker: { role: string; contexte: string } | null = null
+		const avant = globalThis.fetch
+		globalThis.fetch = (async (adresseBrute: RequestInfo | URL, init?: RequestInit) => {
+			const adresse = String(adresseBrute)
+			if (adresse.startsWith(URL_WORKER)) {
+				corpsVersLeWorker = JSON.parse(String(init?.body)) as { role: string; contexte: string }
+				return worker.fetch(new Request(adresse, init), {
+					GENLIV_KV: { get: async () => null, put: async () => undefined, delete: async () => undefined },
+					IA_API_KEY: 'secret-de-test',
+					IA_BASE_URL: URL_AMONT,
+					IA_MODEL: 'un-modele',
+				} as unknown as Parameters<typeof worker.fetch>[1])
+			}
+			inviteSurLeFil = (JSON.parse(String(init?.body)) as { system: string }).system
+			return {
+				ok: true,
+				status: 200,
+				json: async () => ({ content: [{ type: 'text', text: JSON.stringify({ replique: REPLIQUE }) }] }),
+			} as unknown as Response
+		}) as unknown as typeof fetch
+
+		try {
+			const resultat = await createCopiloteService(reglages).demander(dossier, cible)
+			expect(inviteSurLeFil).not.toBeNull()
+			// LE CONTEXTE ASSEMBLÉ — jamais le système — PORTE LE TEXTE SCOPÉ AU PNJ :
+			// c'est le corps envoyé AU WORKER (`{role, contexte}`) qui le porte, le worker
+			// relayant ensuite `contexte` comme message utilisateur, et `invite.systeme`
+			// comme système (worker/index.ts, handleIa).
+			expect(corpsVersLeWorker).toEqual({ role: 'acteur', contexte: contexte.texte })
+			expect(resultat).toEqual({ replique: REPLIQUE })
+			// Et aucun identifiant du dossier, aucun nom de PNJ brut, ne part sur le fil —
+			// ni dans le contexte assemblé, ni dans le système (qui ne connaît même pas la
+			// cible).
+			expect(contexte.texte).not.toContain('pnj.harek-le-forgeron')
+			expect(String(inviteSurLeFil)).not.toContain('pnj.harek-le-forgeron')
+		} finally {
+			globalThis.fetch = avant
+		}
+	})
+
+	it('ROLES_AUTEUR exclut acteur, ROLES le contient, et ROLES_PLAFONNES aussi', () => {
+		expect(ROLES).toContain(ROLE_ACTEUR)
+		expect(ROLES_AUTEUR).not.toContain(ROLE_ACTEUR)
+		expect(ROLES_PLAFONNES).toContain(ROLE_ACTEUR)
+		expect(BUDGET_CARACTERES_ACTEUR).toBeGreaterThan(0)
+	})
+})
+
+/**
+ * LA DETTE DE BUDGET R1 (`interprete`) — réassignée par le roadmap (l.168) à « la
+ * première itération qui touchera réellement R1 » : c'est CELLE-CI (n° 12
+ * `moteur-acteurs`, it1), qui ajoute une table de candidats PNJ (`I1…`) à
+ * `assemblerInterprete`. MINIMUM DÛ : mesurer le pire cas et le PINNER ici — un
+ * garde-fou ACTIF (refus `trop-long` côté R1 avant envoi) reste REPORTÉ (§ 8
+ * désaccord 11 du plan it1), jamais fermé en silence.
+ */
+describe('la dette de budget R1 — mesuree, pas armee (n 12 moteur-acteurs, it1)', () => {
+	it('le pire cas mesure sur la session d ouverture de dossier-reference.json tient tres loin sous le plafond', () => {
+		const dossier = JSON.parse(
+			fs.readFileSync(path.join(RACINE, 'src', 'brain', 'dossier', '__fixtures__', 'dossier-reference.json'), 'utf8'),
+		) as Dossier
+		const ouverture = ouvrirSession(dossier, { graine_alea: 1 })
+		if (!ouverture.ok) throw new Error(`ouverture refusée : ${ouverture.refus}`)
+
+		const saisie = 'x'.repeat(300)
+		const contexte = assemblerInterprete(dossier, { saisie, session: ouverture.session })
+		if (!contexte.ok) throw new Error(`contexte refusé (${contexte.motif})`)
+
+		// MESURÉ, PAS SUPPOSÉ — le départ de `dossier-reference.json` porte désormais UN
+		// PNJ candidat (Harek, I1) en plus des lieux et des gestes : `personnagesPresents`
+		// trouve un seul PNJ à la fois présent au Foyer du Guet ET identifié.
+		expect(contexte.tables.personnages.size).toBe(1)
+		expect(contexte.tables.personnages.get('I1')).toBe('pnj.harek-le-forgeron')
+
+		const corps = JSON.stringify({ role: 'interprete', contexte: contexte.texte })
+		const octets = new TextEncoder().encode(corps).length
+
+		// MESURE DU 2026-10-02 (it1) : 1095 octets — très loin sous `TAILLE_MAX_CORPS_IA`
+		// (83 968). Ce n'est PAS le pire cas théorique de toute la combinatoire du jeu
+		// (il varie avec la session), seulement celui de la session D'OUVERTURE — mais il
+		// confirme que le garde-fou actif reste inutile à ce stade (§ 8 désaccord 11).
+		expect(octets).toBe(1095)
+		expect(octets).toBeLessThan(TAILLE_MAX_CORPS_IA / 10)
 	})
 })

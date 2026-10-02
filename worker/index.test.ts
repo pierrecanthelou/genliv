@@ -828,7 +828,7 @@ describe('POST /ia/personnage-relations — la route du cinquieme role', () => {
 		await expect(res.text()).resolves.toBe(sortieBrute)
 	})
 
-	it('max_tokens du cinquieme role est LU de l invite, et il ne COINCIDE avec AUCUN autre', async () => {
+	it('max_tokens du cinquieme role est LU de l invite, et sa COINCIDENCE (n 12) est epinglee', async () => {
 		// ⚠ BLOC ÉCRIT À LA MAIN, comme les quatre précédents — MESURÉ : ce fichier
 		// n'a AUCUNE dérivation par rôle du `max_tokens`, chaque route livre le sien.
 		// Le cinquième n'en hérite donc de rien.
@@ -841,19 +841,21 @@ describe('POST /ia/personnage-relations — la route du cinquieme role', () => {
 		const envoye = JSON.parse(String(init.body)) as { system: string; max_tokens: number }
 		expect(envoye.system).toBe(INVITES[ROLE_5].systeme)
 		expect(envoye.max_tokens).toBe(INVITES[ROLE_5].max_tokens)
-		// ⚠ AUCUNE COÏNCIDENCE — et c'est ce qu'aucune des QUATRE entrées précédentes
-		// n'a eu à écrire : deux d'entre elles doivent DIRE qu'elles coïncident, celle-ci
-		// doit dire qu'elle ne coïncide avec RIEN. Sans cette ligne, un relecteur
-		// chercherait de quelle autre valeur elle a été tirée — et n'en trouverait pas.
-		const autres = Object.keys(INVITES).filter((role) => role !== ROLE_5)
+		// ⚠ LA COÏNCIDENCE, ÉPINGLÉE PLUTÔT QUE SUBIE (n° 12 `moteur-acteurs`, it1) : ce
+		// plafond VAUT désormais celui du DIXIÈME rôle (`acteur`), et il n'en est PAS
+		// recopié — mesure INDÉPENDANTE (`worker/index.ts`, dérivée de
+		// `REPLIQUE_CARACTERES_MAX`, jamais de la prose d'une relation). Aucune
+		// coïncidence n'existait avant ce lot — elle est NOUVELLE, pas « oubliée ».
+		expect(INVITES[ROLE_5].max_tokens).toBe(INVITES['acteur'].max_tokens)
+		const autres = Object.keys(INVITES).filter((role) => role !== ROLE_5 && role !== 'acteur')
 		expect(autres.filter((role) => INVITES[role].max_tokens === INVITES[ROLE_5].max_tokens)).toEqual([])
-		// Discriminant : la comparaison porte bien sur les HUIT autres — sans lui, une
-		// liste vide rendrait l'assertion vraie pour rien (KR-199/235). Le compte suit le
-		// registre qui fait foi : l'arrivée du SIXIÈME rôle l'avait déjà fait rougir une
-		// fois (4 → 5), celle du SEPTIÈME (`interprete`) une deuxième (5 → 6), celle du
-		// HUITIÈME (`narrateur`, 1600) une troisième (6 → 7), et celle du NEUVIÈME
-		// (`arbitre`, 400) une quatrième (7 → 8) — exactement ce que ce discriminant
-		// existe pour faire.
+		// Discriminant : la comparaison porte bien sur les HUIT autres rôles non
+		// coïncidents — sans lui, une liste vide rendrait l'assertion vraie pour rien
+		// (KR-199/235). Le compte suit le registre qui fait foi : l'arrivée du SIXIÈME
+		// rôle l'avait déjà fait rougir une fois (4 → 5), celle du SEPTIÈME
+		// (`interprete`) une deuxième (5 → 6), celle du HUITIÈME (`narrateur`, 1600) une
+		// troisième (6 → 7), celle du NEUVIÈME (`arbitre`, 400) une quatrième (7 → 8) —
+		// le DIXIÈME (`acteur`) est désormais EXCLU de ce compte, puisqu'il coïncide.
 		expect(autres).toHaveLength(8)
 	})
 
@@ -1069,18 +1071,19 @@ describe('POST /ia/monde-distribution — la route du sixieme role', () => {
 		// cette ligne, un relecteur chercherait de quelle autre valeur elle a été tirée.
 		const autres = Object.keys(INVITES).filter((role) => role !== ROLE_6)
 		expect(autres.filter((role) => INVITES[role].max_tokens === INVITES[ROLE_6].max_tokens)).toEqual([])
-		// Discriminant : la comparaison porte bien sur les HUIT autres — sans lui, une
+		// Discriminant : la comparaison porte bien sur les NEUF autres — sans lui, une
 		// liste vide rendrait l'assertion vraie pour rien (KR-199/235). Le SEPTIÈME
 		// rôle (`interprete`, 300) l'a fait rougir à son tour (5 → 6), le HUITIÈME
-		// (`narrateur`, 1600) aussi (6 → 7), le NEUVIÈME (`arbitre`, 400) aussi (7 → 8).
-		expect(autres).toHaveLength(8)
+		// (`narrateur`, 1600) aussi (6 → 7), le NEUVIÈME (`arbitre`, 400) aussi (7 → 8),
+		// le DIXIÈME (`acteur`, 700) aussi (8 → 9).
+		expect(autres).toHaveLength(9)
 		// ⚠ C'EST LE PLUS GRAND DES SIX RÔLES D'AUTEUR, et il le reste : c'est le seul
 		// d'entre eux dont un ÉLÉMENT porte DEUX proses, donc son `P` est une SOMME et non
-		// un maximum. Écrit ici pour qu'on ne le « ramène » pas vers les autres. Les DEUX
-		// rôles de JEU AJOUTÉS DEPUIS (`interprete`, `narrateur`) ET L'ARBITRE (n° 11)
-		// sont exclus de cet ensemble, pour la même raison : aucun n'assiste une rédaction.
+		// un maximum. Écrit ici pour qu'on ne le « ramène » pas vers les autres. Les QUATRE
+		// rôles de JEU (`interprete`, `narrateur`, `arbitre`, `acteur` — n° 12) sont exclus
+		// de cet ensemble, pour la même raison : aucun n'assiste une rédaction.
 		const auteur = Object.keys(INVITES).filter(
-			(role) => role !== 'interprete' && role !== 'narrateur' && role !== 'arbitre',
+			(role) => role !== 'interprete' && role !== 'narrateur' && role !== 'arbitre' && role !== 'acteur',
 		)
 		expect(auteur).toHaveLength(6)
 		expect(INVITES[ROLE_6].max_tokens).toBe(Math.max(...auteur.map((role) => INVITES[role].max_tokens)))
@@ -1342,11 +1345,13 @@ describe('POST /ia/interprete — la route du septieme role', () => {
 	})
 
 	it('l invite du septieme role est AMENDEE : agir est atteignable, sans qu aucun verbe ne soit nomme', async () => {
-		// CRITÈRE 1 DU PLAN it2, MOITIÉ INVITE — la phrase exacte du § 3. L'ancienne
-		// consigne (« un ou plusieurs lieux ») rendait INATTEIGNABLE tout geste d'arité 0.
+		// CRITÈRE 1 DU PLAN it2, MOITIÉ INVITE — la phrase exacte du § 3, ÉLARGIE « lieux »
+		// → « lieux ou personnes » au lot contrat de la n° 12 (`moteur-acteurs`, it1).
+		// L'ancienne consigne (« un ou plusieurs lieux ») rendait INATTEIGNABLE tout geste
+		// d'arité 0.
 		const systeme = INVITES[ROLE_7].systeme
 		expect(systeme).toContain(
-			"un geste et autant de repères de lieux que ce geste en demande, aucun s'il n'en demande pas",
+			"un geste et autant de repères de lieux ou de personnes que ce geste en demande, aucun s'il n'en demande pas",
 		)
 		expect(systeme).not.toContain('un ou plusieurs lieux')
 		// ⚠ LA CLAUSE DE LA TROISIÈME FORME SURVIT À L'AMENDEMENT (narratif-ia, tour 2) :
@@ -1491,7 +1496,7 @@ describe('POST /ia/narrateur — la route du huitieme role', () => {
 		expect(envoye.max_tokens).toBe(INVITES[ROLE_8].max_tokens)
 		const autres = Object.keys(INVITES).filter((role) => role !== ROLE_8)
 		expect(autres.filter((role) => INVITES[role].max_tokens === INVITES[ROLE_8].max_tokens)).toEqual([])
-		expect(autres).toHaveLength(8)
+		expect(autres).toHaveLength(9)
 	})
 
 	it('le protocole amont reste EPINGLE, et le huitieme role ne l etend pas', async () => {
@@ -1506,10 +1511,11 @@ describe('POST /ia/narrateur — la route du huitieme role', () => {
 	})
 
 	it('AUCUNE invite de jeu ne recite un verbe, une cle ou un libelle de COMMANDES — liste DERIVEE (KR-270)', async () => {
-		// CRITÈRE 8 DU PLAN it2 (`moteur-interprete`). Les TROIS invites de jeu (le
-		// troisième, `arbitre`, ajouté par `moteur-arbitre` it2) balayées contre la MÊME
-		// liste dérivée du registre — jamais une liste par rôle écrite à la main.
-		const invitesDeJeu = [ROLE_8, 'interprete', 'arbitre']
+		// CRITÈRE 8 DU PLAN it2 (`moteur-interprete`). Les QUATRE invites de jeu (le
+		// troisième, `arbitre`, ajouté par `moteur-arbitre` it2 ; le quatrième, `acteur`,
+		// ajouté par `moteur-acteurs` it1) balayées contre la MÊME liste dérivée du
+		// registre — jamais une liste par rôle écrite à la main.
+		const invitesDeJeu = [ROLE_8, 'interprete', 'arbitre', 'acteur']
 		const fuites = invitesDeJeu.flatMap((role) =>
 			MOTS_DU_REGISTRE.filter((mot) => INVITES[role].systeme.toLowerCase().includes(mot)).map(
 				(mot) => `${role} → ${mot}`,
@@ -1519,7 +1525,7 @@ describe('POST /ia/narrateur — la route du huitieme role', () => {
 
 		// DISCRIMINANTS (KR-199/235) — la liste couvre bien CHAQUE verbe du registre, dans
 		// ses trois formes : sans eux, un registre vide rendrait le balayage vert pour rien.
-		expect(Object.keys(COMMANDES)).toEqual(['aller', 'agir'])
+		expect(Object.keys(COMMANDES)).toEqual(['aller', 'agir', 'parler'])
 		for (const [id, descripteur] of Object.entries(COMMANDES)) {
 			expect(MOTS_DU_REGISTRE).toEqual(
 				expect.arrayContaining([id, descripteur.verbe.toLowerCase(), descripteur.label.toLowerCase()]),
@@ -1832,5 +1838,152 @@ describe('POST /ia/arbitre — la route du neuvieme role (n 11 moteur-arbitre, i
 		expect(interdits.filter((mot) => systeme.includes(mot))).toEqual([])
 		expect(interdits.length).toBeGreaterThan(0)
 		expect(interdits.filter((mot) => `${systeme} ${mot}`.includes(mot))).toEqual(interdits)
+	})
+})
+
+describe('POST /ia/acteur — la route du dixieme role (n 12 moteur-acteurs, it1)', () => {
+	const ROLE_10 = 'acteur'
+	const URL_IA_10 = `https://genliv.example.workers.dev/ia/${ROLE_10}`
+	const SORTIE_10 = '{"replique": "L\'enclume ne chôme jamais, même quand le ciel s\'assombrit."}'
+
+	function corps10(octets: number): string {
+		const squelette = JSON.stringify({ role: ROLE_10, contexte: '' })
+		const aRemplir = octets - squelette.length
+		if (aRemplir < 0) throw new Error('taille demandée plus petite que le squelette du corps')
+		return JSON.stringify({ role: ROLE_10, contexte: 'x'.repeat(aRemplir) })
+	}
+
+	function demande10(corps: string, options: { methode?: string } = {}): Request {
+		const methode = options.methode ?? 'POST'
+		return new Request(URL_IA_10, {
+			method: methode,
+			headers: { 'Content-Type': 'application/json', 'X-Sync-Key': CLE },
+			body: methode === 'GET' ? undefined : corps,
+		})
+	}
+
+	it('la route du dixieme role repond aux memes branches, toutes en JSON', async () => {
+		// LA LISTE DE CONTRÔLE KR-233, rejouée entière sur la route neuve.
+
+		// 1 — POST SEUL.
+		const surGet = await worker.fetch(demande10('', { methode: 'GET' }), env())
+		expect(surGet.status).toBe(405)
+		expect(surGet.headers.get('Content-Type')).toBe('application/json')
+		await expect(surGet.json()).resolves.toEqual({ erreur: 'methode' })
+
+		// 2 — un rôle VOISIN mais absent d'`INVITES` reste inconnu.
+		const inconnu = await worker.fetch(
+			new Request('https://genliv.example.workers.dev/ia/acteurs', {
+				method: 'POST',
+				headers: { 'X-Sync-Key': CLE },
+				body: '{}',
+			}),
+			env(),
+		)
+		expect(inconnu.status).toBe(404)
+		await expect(inconnu.json()).resolves.toEqual({ erreur: 'role-inconnu' })
+
+		// 3 — configuration amont incomplète, sur les TROIS secrets.
+		for (const manquant of ['IA_API_KEY', 'IA_BASE_URL', 'IA_MODEL']) {
+			const res = await worker.fetch(demande10(corps10(200)), env({ [manquant]: undefined }))
+			expect(`${manquant} → ${res.status}`).toBe(`${manquant} → 503`)
+			expect(res.headers.get('Content-Type')).toBe('application/json')
+			await expect(res.json()).resolves.toEqual({ erreur: 'non-configure' })
+		}
+
+		// 4 — le plafond, à ±1 OCTET, sur CE rôle-ci.
+		fetchAmont.mockResolvedValue(amontRendant(SORTIE_10))
+		const juste = await worker.fetch(demande10(corps10(TAILLE_MAX_CORPS_IA)), env())
+		expect(juste.status).toBe(200)
+		const unDeTrop = await worker.fetch(demande10(corps10(TAILLE_MAX_CORPS_IA + 1)), env())
+		expect(unDeTrop.status).toBe(413)
+		expect(unDeTrop.headers.get('Content-Type')).toBe('application/json')
+		await expect(unDeTrop.json()).resolves.toEqual({ erreur: 'trop-grand', limite: TAILLE_MAX_CORPS_IA })
+
+		// 4 bis — la mesure est en OCTETS, jamais en unités de code UTF-16.
+		const rembourrage = '€'.repeat(Math.ceil(TAILLE_MAX_CORPS_IA / 2))
+		const enUtf8 = JSON.stringify({ role: ROLE_10, contexte: rembourrage })
+		expect(enUtf8.length).toBeLessThan(TAILLE_MAX_CORPS_IA)
+		expect(new TextEncoder().encode(enUtf8).length).toBeGreaterThan(TAILLE_MAX_CORPS_IA)
+		expect((await worker.fetch(demande10(enUtf8), env())).status).toBe(413)
+
+		// 5 — corps illisible.
+		const illisible = await worker.fetch(demande10('{ ceci ne parse pas'), env())
+		expect(illisible.status).toBe(400)
+		await expect(illisible.json()).resolves.toEqual({ erreur: 'corps-illisible' })
+
+		// 6 — un amont en échec rend 502, en JSON.
+		fetchAmont.mockReset()
+		fetchAmont.mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({}) } as unknown as Response)
+		const surEchec = await worker.fetch(demande10(corps10(200)), env())
+		expect(surEchec.status).toBe(502)
+		await expect(surEchec.json()).resolves.toEqual({ erreur: 'amont' })
+	})
+
+	it('le nominal rend la sortie du dixieme role TELLE QUELLE', async () => {
+		// Délibérément NON conforme au schéma du client — une clé EN TROP : le worker ne
+		// valide rien et ne répare rien, la validation vit là où la donnée entre dans le
+		// dossier (KR-116).
+		const sortieBrute = '{"replique": "Entrez, l\'ami, l\'enclume ne mord pas.", "ton": "chaleureux"}'
+		fetchAmont.mockResolvedValue(amontRendant(sortieBrute))
+
+		const res = await worker.fetch(demande10(corps10(300)), env())
+
+		expect(res.status).toBe(200)
+		expect(res.headers.get('Content-Type')).toBe('application/json')
+		await expect(res.text()).resolves.toBe(sortieBrute)
+	})
+
+	it('max_tokens du dixieme role est LU de l invite, et sa COINCIDENCE est epinglee', async () => {
+		fetchAmont.mockResolvedValue(amontRendant(SORTIE_10))
+
+		await worker.fetch(demande10(corps10(300)), env())
+
+		const [url, init] = fetchAmont.mock.calls[0] as [string, RequestInit]
+		expect(url).toBe('https://amont.invalid/messages')
+		const envoye = JSON.parse(String(init.body)) as { system: string; max_tokens: number }
+		expect(envoye.system).toBe(INVITES[ROLE_10].systeme)
+		expect(envoye.max_tokens).toBe(INVITES[ROLE_10].max_tokens)
+		// ⚠ LA COÏNCIDENCE, ÉPINGLÉE PLUTÔT QUE SUBIE : ce plafond VAUT celui du cinquième
+		// rôle (`personnage-relations`), et il n'en est PAS recopié — mesure INDÉPENDANTE
+		// (`worker/index.ts`, dérivée de `REPLIQUE_CARACTERES_MAX`, jamais de la prose
+		// attestée d'une relation). Écrit ici pour qu'un relecteur ne « l'harmonise » pas.
+		expect(INVITES[ROLE_10].max_tokens).toBe(INVITES['personnage-relations'].max_tokens)
+		expect(INVITES[ROLE_10].max_tokens).toBe(700)
+	})
+
+	it('le protocole amont reste EPINGLE, et le dixieme role ne l etend pas', async () => {
+		fetchAmont.mockResolvedValue(amontRendant(SORTIE_10))
+
+		await worker.fetch(demande10(corps10(300)), env())
+
+		const [, init] = fetchAmont.mock.calls[0] as [string, RequestInit]
+		expect((init.headers as Record<string, string>)['anthropic-version']).toBe('2023-06-01')
+		const envoye = JSON.parse(String(init.body)) as Record<string, unknown>
+		expect(Object.keys(envoye).sort()).toEqual(['max_tokens', 'messages', 'model', 'system'])
+	})
+
+	it('l invite du dixieme role ecrit la replique en voix joueur, jamais une description ni un recit de scene', () => {
+		const systeme = INVITES[ROLE_10].systeme
+		expect(systeme).toContain('au vouvoiement, au présent')
+		expect(systeme).toContain('PAROLE PRONONCÉE')
+	})
+
+	it('l invite du dixieme role ne recite aucun nom de bloc du contexte, ni le mecanisme de revelation', () => {
+		const systeme = INVITES[ROLE_10].systeme.toLowerCase()
+		const interdits = [
+			'toi\n',
+			'ta voix',
+			'etabli',
+			'tu as dit',
+			'jamais\n',
+			'confiance',
+			'savoir',
+			'indice',
+			'catalogue',
+			'audience',
+		]
+		expect(interdits.filter((mot) => systeme.includes(mot))).toEqual([])
+		expect(interdits.length).toBeGreaterThan(0)
 	})
 })

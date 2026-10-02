@@ -7,6 +7,7 @@ import {
 	ANCRES_PAR_FAIT_MAX,
 	CLE_CONDENSE,
 	CLES_SORTIE,
+	CLES_SORTIE_ACTEUR,
 	CLES_SORTIE_DETENTEURS,
 	CLES_SORTIE_DISTRIBUTION,
 	CLES_SORTIE_NARRATEUR,
@@ -23,12 +24,14 @@ import {
 	PRECISION_CARACTERES_MAX,
 	PROPOSITIONS_MAX,
 	RELATIONS_PROPOSEES_MAX,
+	REPLIQUE_CARACTERES_MAX,
 	REPLIQUES_PROPOSEES_MAX,
 	TENTATIVE_CARACTERES_MAX,
 	TENTATIVES_MAX,
 	porteUnIdentifiant,
 	porteUneAncre,
 	porteUnRang,
+	validerActeur,
 	validerArbitre,
 	validerCondense,
 	validerDetenteurs,
@@ -282,12 +285,24 @@ describe('le scanner anti-identifiant — les deux canaris et les trois mutants'
 	it('le motif est DERIVE de ESPACES_DE_NOMS, jamais re-liste', () => {
 		// KR-117 : une seconde liste d'espaces de noms divergerait au premier espace
 		// ajouté, et le scanner cesserait de voir une famille entière d'identifiants
-		// SANS qu'un test rougisse. Le balayage porte sur la SOURCE.
+		// SANS qu'un test rougisse.
+		//
+		// ⚠ LE BALAYAGE PORTE SUR LA SEULE LIGNE DE DÉCLARATION, jamais sur le fichier
+		// entier (n° 12 `moteur-acteurs`, it1, BORNE RESSERRÉE) : un scan de fichier
+		// entier confondrait CETTE liste (qui construit un MOTIF D'IDENTIFIANT) avec
+		// toute AUTRE comparaison légitime à un espace de noms littéral ailleurs dans le
+		// fichier — `validerInterprete` compare désormais `refKinds[i] === 'pnj'` pour
+		// router une résolution de rang, ce qui n'a RIEN à voir avec cette regex-ci, et
+		// un balayage non ancré le confondrait (KR-235, faux positif mesuré).
 		const source = fs.readFileSync(path.join(__dirname, 'schemaSortie.ts'), 'utf8')
 		const DERIVATION = ['Object.keys(', 'ESPACES_DE_NOMS', ').join(', "'|'", ')'].join('')
+		const ligneDeDeclaration = source.match(/^const FORME_LACHE_IDENTIFIANT = .*$/m)?.[0]
 
 		expect(source).toContain(DERIVATION)
-		expect(Object.keys(ESPACES_DE_NOMS).filter((espace) => source.includes(`'${espace}'`))).toEqual([])
+		expect(ligneDeDeclaration).toBeDefined()
+		expect(Object.keys(ESPACES_DE_NOMS).filter((espace) => String(ligneDeDeclaration).includes(`'${espace}'`))).toEqual(
+			[],
+		)
 	})
 
 	it('LIMITE CONNUE, non comblee : la casse', () => {
@@ -2101,21 +2116,36 @@ describe('validerDistribution — les DOUZE predicats de forme du sixieme role',
 describe('validerInterprete — trois formes disjointes, arite SEUL decideur (KR-013)', () => {
 	const dossier = dossierDeReference()
 
-	/** DEUX lieux rangés — la table de référence des tests « nominaux » et des
-	 *  témoins d'échec qui n'éprouvent PAS la garde `< 2`. */
+	/** DEUX lieux rangés, AUCUN personnage — la table de référence des tests
+	 *  « nominaux » et des témoins d'échec qui n'éprouvent PAS la garde `< 2`. */
 	const TABLES: TablesInterprete = {
 		lieux: new Map([
 			['P1', 'lieu.foyer-du-guet'],
 			['P2', 'lieu.tour-effondree'],
 		]),
+		personnages: new Map(),
 		gestes: new Map([['G1', 'aller']]),
 	}
 
-	/** UN SEUL lieu rangé — la table qui rend une clarification structurellement
-	 *  impossible (motif 6, § 8 désaccord 11 du plan d'itération). */
+	/** UN SEUL lieu rangé, AUCUN personnage — la table qui rend une clarification
+	 *  structurellement impossible (motif 6, § 8 désaccord 11 du plan d'itération,
+	 *  étendu désaccord #1 du plan it1 de la n° 12). */
 	const TABLE_UN_SEUL_LIEU: TablesInterprete = {
 		lieux: new Map([['P1', 'lieu.foyer-du-guet']]),
+		personnages: new Map(),
 		gestes: new Map([['G1', 'aller']]),
+	}
+
+	/** AUCUN lieu, DEUX personnages rangés — l'ÉTAT SÉPARATEUR de l'extension n° 12 :
+	 *  une clarification admise alors que `lieux.size < 2`, SEULEMENT parce que
+	 *  `personnages.size >= 2`. */
+	const TABLE_DEUX_PERSONNAGES: TablesInterprete = {
+		lieux: new Map(),
+		personnages: new Map([
+			['I1', 'pnj.harek-le-forgeron'],
+			['I2', 'pnj.corvin-le-marchand'],
+		]),
+		gestes: new Map([['G1', 'parler']]),
 	}
 
 	it('le nominal — {geste, designe} de bonne arite rend ok, MEME FORME', () => {
@@ -2134,6 +2164,59 @@ describe('validerInterprete — trois formes disjointes, arite SEUL decideur (KR
 		expect(validerInterprete({ sans_commande: true }, TABLES, dossier)).toEqual({
 			ok: true,
 			sortie: { sans_commande: true },
+		})
+	})
+
+	/**
+	 * RÉSOLUTION PAR POSITION (n° 12 `moteur-acteurs`, it1) — `parler` a
+	 * `refKinds:['pnj']`, donc `designe[0]` doit appartenir à `tables.personnages`,
+	 * JAMAIS `tables.lieux` — même quand un rang de même FORME (`I1`) existerait
+	 * dans l'une ou l'autre table. Prouvé dans les deux sens (§ 6 critère 3 du plan).
+	 */
+	describe('resolution par position — pnj contre lieu (n 12, it1)', () => {
+		const TABLES_PARLER: TablesInterprete = {
+			lieux: new Map([['P1', 'lieu.foyer-du-guet']]),
+			personnages: new Map([['I1', 'pnj.harek-le-forgeron']]),
+			gestes: new Map([['G1', 'parler']]),
+		}
+
+		it('un geste parler designe un rang I de tables.personnages : accepte', () => {
+			expect(validerInterprete({ geste: 'G1', designe: ['I1'] }, TABLES_PARLER, dossier)).toEqual({
+				ok: true,
+				sortie: { geste: 'G1', designe: ['I1'] },
+			})
+		})
+
+		it('{parler, [P1]} est refuse rang-inconnu : P1 n appartient pas a tables.personnages', () => {
+			expect(validerInterprete({ geste: 'G1', designe: ['P1'] }, TABLES_PARLER, dossier)).toEqual({
+				ok: false,
+				motif: 'rang-inconnu',
+			})
+		})
+
+		it('{aller, [I1]} est refuse rang-inconnu : I1 n appartient pas a tables.lieux', () => {
+			const tablesAller: TablesInterprete = {
+				lieux: new Map([['P1', 'lieu.foyer-du-guet']]),
+				personnages: new Map([['I1', 'pnj.harek-le-forgeron']]),
+				gestes: new Map([['G1', 'aller']]),
+			}
+			expect(validerInterprete({ geste: 'G1', designe: ['I1'] }, tablesAller, dossier)).toEqual({
+				ok: false,
+				motif: 'rang-inconnu',
+			})
+		})
+	})
+
+	/**
+	 * PRÉDICAT (12) ÉTENDU (n° 12, it1) — une clarification est admise dès qu'UNE
+	 * des deux familles compte au moins deux candidats, même si l'autre n'en
+	 * compte aucun.
+	 */
+	it('precision admise sur 0 lieu / 2 personnages (predicat 12 etendu, n 12)', () => {
+		const precision = 'Vous parlez au forgeron ou au marchand ?'
+		expect(validerInterprete({ precision }, TABLE_DEUX_PERSONNAGES, dossier)).toEqual({
+			ok: true,
+			sortie: { precision },
 		})
 	})
 
@@ -2223,6 +2306,7 @@ describe('validerInterprete — trois formes disjointes, arite SEUL decideur (KR
 					['P1', 'x'],
 					['P2', 'y'],
 				]),
+				personnages: new Map(),
 				gestes: new Map([['G1', 'aller']]),
 			}
 			expect(validerInterprete({ precision: 'Le sceau de lieu.amorce tient-il encore ?' }, tablesNeuf, neuf)).toEqual({
@@ -2239,9 +2323,14 @@ describe('validerInterprete — trois formes disjointes, arite SEUL decideur (KR
 			expect(porteUnRang('Une phrase parfaitement saine, sans aucun rang.', TABLES)).toBe(false)
 		})
 
-		it('un rang qui a la FORME mais n appartient a AUCUNE des deux tables ne compte pas', () => {
+		it('un rang qui a la FORME mais n appartient a AUCUNE des TROIS tables ne compte pas', () => {
 			expect(porteUnRang('Le lieu P9 existe-t-il ?', TABLES)).toBe(false)
 			expect(porteUnRang('Le geste G9 existe-t-il ?', TABLES)).toBe(false)
+			expect(porteUnRang('La personne I9 existe-t-elle ?', TABLES)).toBe(false)
+		})
+
+		it('detecte un rang de personnage I<n> (n 12, it1), appartenant a tables.personnages', () => {
+			expect(porteUnRang('Vous parlez de la personne I1 ?', TABLE_DEUX_PERSONNAGES)).toBe(true)
 		})
 	})
 
@@ -3044,5 +3133,83 @@ describe('validerArbitre — le neuvieme role, deux formes disjointes (n 11 mote
 		// `arbitre` est un rôle de JEU, hors `RoleCopilote` — précédent `interprete`/
 		// `narrateur` : son gabarit vit SEULEMENT dans `worker/index.ts`, jamais ici.
 		expect(Object.prototype.hasOwnProperty.call(GABARIT_SORTIE, 'arbitre')).toBe(false)
+	})
+})
+
+// ══ LE DIXIÈME RÔLE — `acteur` (n° 12 `moteur-acteurs`, it1, lot `contrat`) ══
+
+describe('validerActeur — le dixieme role, un scalaire SANS re-resolution (§ 4 bis du plan it1)', () => {
+	const dossier = dossierDeReference()
+	const REPLIQUE = "L'enclume ne chôme jamais, même quand le ciel s'assombrit."
+
+	it('le nominal rend ok et la forme RESOLUE est EXACTEMENT ReponseActeur, zero re-resolution', () => {
+		expect(validerActeur({ replique: REPLIQUE }, dossier)).toEqual({ ok: true, sortie: { replique: REPLIQUE } })
+	})
+
+	it('1 — ce qui n est pas un objet JSON est refuse, motif schema', () => {
+		for (const brut of [null, undefined, [], [{ replique: REPLIQUE }], REPLIQUE, 42, true]) {
+			expect({ brut, ...validerActeur(brut, dossier) }).toEqual({ brut, ok: false, motif: 'schema' })
+		}
+	})
+
+	it('2 — les cles valent EXACTEMENT CLES_SORTIE_ACTEUR : manquante ou en trop', () => {
+		expect(CLES_SORTIE_ACTEUR).toEqual(['replique'])
+		const cas: Array<Record<string, unknown>> = [{}, { replique: REPLIQUE, ton: 'x' }, { texte: REPLIQUE }]
+		for (const brut of cas) {
+			expect({ brut, ...validerActeur(brut, dossier) }).toEqual({ brut, ok: false, motif: 'schema' })
+		}
+	})
+
+	it('3 — la cle porte une CHAINE, jamais repechee', () => {
+		for (const brut of [
+			{ replique: 42 },
+			{ replique: null },
+			{ replique: [REPLIQUE] },
+			{ replique: { texte: REPLIQUE } },
+		]) {
+			expect(validerActeur(brut, dossier)).toEqual({ ok: false, motif: 'schema' })
+		}
+	})
+
+	it('4 — non vide apres trim, motif vide', () => {
+		for (const vide of ['', '   ', '\n\t ']) {
+			expect(validerActeur({ replique: vide }, dossier)).toEqual({ ok: false, motif: 'vide' })
+		}
+	})
+
+	it('5 — la BORNE DE SORTIE, REPLIQUE_CARACTERES_MAX : un refus, jamais une coupe (KR-230)', () => {
+		expect(REPLIQUE_CARACTERES_MAX).toBe(400)
+		const juste = 'v'.repeat(REPLIQUE_CARACTERES_MAX)
+		expect(validerActeur({ replique: juste }, dossier)).toEqual({ ok: true, sortie: { replique: juste } })
+		expect(validerActeur({ replique: `${juste}v` }, dossier)).toEqual({ ok: false, motif: 'schema' })
+	})
+
+	it('6 — aucun MARQUEUR_A_ECRIRE', () => {
+		expect(validerActeur({ replique: `${MARQUEUR_A_ECRIRE} vraiment ?` }, dossier)).toEqual({
+			ok: false,
+			motif: 'marqueur',
+		})
+	})
+
+	it('7 — aucun identifiant du dossier', () => {
+		expect(validerActeur({ replique: 'Prenez le objet.sceau-de-cendre, vite.' }, dossier)).toEqual({
+			ok: false,
+			motif: 'identifiant',
+		})
+	})
+
+	it('8 — aucun chiffre, sous quelque forme — une replique ne profere jamais de mecanique', () => {
+		expect(validerActeur({ replique: 'Revenez dans 7 jours.' }, dossier)).toEqual({
+			ok: false,
+			motif: 'identifiant',
+		})
+		expect(validerActeur({ replique: 'Tentez un TC2, si vous l osez.' }, dossier)).toEqual({
+			ok: false,
+			motif: 'identifiant',
+		})
+	})
+
+	it('GABARIT_SORTIE (RoleCopilote) ne porte PAS acteur — ce role n est pas de la famille auteur', () => {
+		expect(Object.prototype.hasOwnProperty.call(GABARIT_SORTIE, 'acteur')).toBe(false)
 	})
 })

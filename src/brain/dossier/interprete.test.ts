@@ -82,7 +82,20 @@ const TABLES: TablesInterprete = {
 		['P1', 'lieu.marche'],
 		['P2', 'lieu.tour'],
 	]),
+	personnages: new Map(),
 	gestes: new Map([['G1', 'aller']]),
+}
+
+/** TABLE AVEC CANDIDATS PNJ (n° 12 `moteur-acteurs`, it1) — `G2` → `parler`,
+ *  `I1` → un PNJ réel. Compteur et préfixe SÉPARÉS des lieux (désaccord #4 du
+ *  raffinage). */
+const TABLES_AVEC_PARLER: TablesInterprete = {
+	lieux: new Map([['P1', 'lieu.marche']]),
+	personnages: new Map([['I1', 'pnj.harek-le-forgeron']]),
+	gestes: new Map([
+		['G1', 'aller'],
+		['G2', 'parler'],
+	]),
 }
 
 describe('resoudreInterpretation — re-resolution pure', () => {
@@ -111,8 +124,22 @@ describe('resoudreInterpretation — re-resolution pure', () => {
 
 		// Discriminant : une table de gestes VIDE rend une liste VIDE, jamais le
 		// registre `COMMANDES` complet re-dérivé en silence.
-		const tablesVides: TablesInterprete = { lieux: new Map(), gestes: new Map() }
+		const tablesVides: TablesInterprete = { lieux: new Map(), personnages: new Map(), gestes: new Map() }
 		expect(resoudreInterpretation(tablesVides, rendu)).toEqual({ lecture: 'sans_commande', gestes_possibles: [] })
+	})
+
+	/**
+	 * RÉSOLUTION PAR POSITION (n° 12 `moteur-acteurs`, it1) — `resoudreInterpretation`
+	 * applique LA MÊME RÈGLE que `validerInterprete` (prédicat 5) : `refKinds[i]`
+	 * décide de QUELLE table résout `designe[i]`, jamais `tables.lieux` par défaut.
+	 */
+	it('parler reconnu : designe un PNJ par sa table dediee, pas celle des lieux', () => {
+		const rendu: InterpretationRendue = { geste: 'G2', designe: ['I1'] }
+
+		expect(resoudreInterpretation(TABLES_AVEC_PARLER, rendu)).toEqual({
+			lecture: 'commande',
+			commande: { commande: 'parler', cibles: ['pnj.harek-le-forgeron'] },
+		})
 	})
 
 	it('RefusInterprete — geste absent de la table (defensif, KR-175)', () => {

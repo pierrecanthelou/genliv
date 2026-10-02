@@ -29,6 +29,7 @@ import type {
 	RangInjecte,
 	RapportRendu,
 	RapportsRendus,
+	ReponseActeur,
 	RepliquesRendues,
 	RoleCopilote,
 	TablesInterprete,
@@ -817,25 +818,28 @@ export function validerDistribution(
 export const PRECISION_CARACTERES_MAX = 120
 
 /**
- * LE SCANNER ANTI-RANG — forme LÂCHE `\b[PG]\d+\b` ∩ APPARTENANCE À L'UNE OU
+ * LE SCANNER ANTI-RANG — forme LÂCHE `\b[PGI]\d+\b` ∩ APPARTENANCE À L'UNE OU
  * L'AUTRE TABLE, exactement le même CROISEMENT forme-lâche/appartenance que
  * `porteUnIdentifiant` ci-dessus, mais sur les JETONS de ce rôle plutôt que sur
- * les identifiants du dossier : une précision qui recopie « P2 » ou « G1 »
- * ferait dire au moteur, une fois exécuté, une désignation que l'auteur n'a
- * jamais relue — personne ne relit une clarification en JEU, contrairement à
- * une proposition de rédaction (§ 8 du plan d'itération, désaccord 9/annexe E).
+ * les identifiants du dossier : une précision qui recopie « P2 », « G1 » ou
+ * « I1 » (n° 12 `moteur-acteurs`, it1 — préfixe PNJ ajouté AU MOTIF comme à
+ * l'appartenance) ferait dire au moteur, une fois exécuté, une désignation que
+ * l'auteur n'a jamais relue — personne ne relit une clarification en JEU,
+ * contrairement à une proposition de rédaction (§ 8 du plan d'itération,
+ * désaccord 9/annexe E).
  *
- * DEUX TABLES, UNE SEULE FONCTION : `tables.gestes` et `tables.lieux` sont deux
- * `Map` distinctes, et un jeton qui appartient à L'UNE OU L'AUTRE est un
- * rang — l'appartenance croisée n'a pas de sens ici, contrairement à
- * `porteUnIdentifiant` où un seul ensemble (`ESPACES_DE_NOMS`) suffit.
+ * TROIS TABLES, UNE SEULE FONCTION : `tables.gestes`, `tables.lieux` et
+ * `tables.personnages` sont trois `Map` distinctes, et un jeton qui appartient
+ * à L'UNE D'ELLES est un rang — l'appartenance croisée n'a pas de sens ici,
+ * contrairement à `porteUnIdentifiant` où un seul ensemble (`ESPACES_DE_NOMS`)
+ * suffit.
  *
  * Exportée pour les trois mutants obligatoires du plan (§ 4 ter), comme
  * `porteUnIdentifiant`.
  */
 export function porteUnRang(texte: string, tables: TablesInterprete): boolean {
-	for (const trouve of texte.matchAll(/\b[PG]\d+\b/g)) {
-		if (tables.lieux.has(trouve[0]) || tables.gestes.has(trouve[0])) return true
+	for (const trouve of texte.matchAll(/\b[PGI]\d+\b/g)) {
+		if (tables.lieux.has(trouve[0]) || tables.gestes.has(trouve[0]) || tables.personnages.has(trouve[0])) return true
 	}
 	return false
 }
@@ -859,7 +863,11 @@ export function porteUnRang(texte: string, tables: TablesInterprete): boolean {
  *   (3) `designe` est un TABLEAU de chaînes DISTINCTES ........... 'schema'
  *   (4) `designe.length === COMMANDES[id].refKinds.length` — SEUL
  *       DÉCIDEUR de l'arité sur ce chemin (KR-013) ............... 'schema'
- *   (5) chaque élément de `designe` ∈ `tables.lieux` ....... 'rang-inconnu'
+ *   (5) chaque élément de `designe`, POSITION PAR POSITION, ∈ LA
+ *       TABLE DE `COMMANDES[id].refKinds[i]` (n° 12 `moteur-acteurs`,
+ *       it1 — `'pnj'` ⇒ `tables.personnages`, tout autre ⇒
+ *       `tables.lieux`) : un rang `I<n>` tenté sur `tables.lieux`
+ *       (ou l'inverse) échoue ICI, jamais une résolution croisée . 'rang-inconnu'
  *  BRANCHE `{precision}` :
  *   (6) objet simple, clé UNIQUE `precision`, une CHAÎNE ......... 'schema'
  *   (7) non vide une fois les blancs retirés ........................ 'vide'
@@ -868,8 +876,11 @@ export function porteUnRang(texte: string, tables: TablesInterprete): boolean {
  *   (9) aucun `MARQUEUR_A_ECRIRE` ................................. 'marqueur'
  *  (10) aucun identifiant du dossier (`porteUnIdentifiant`) ... 'identifiant'
  *  (11) aucun rang de CET appel (`porteUnRang`) ............... 'identifiant'
- *  (12) `tables.lieux.size >= 2` — une clarification n'a de sens
- *       QUE si elle départage au moins deux lieux réels ............ 'schema'
+ *  (12) `tables.lieux.size >= 2 || tables.personnages.size >= 2`
+ *       (n° 12, ÉTENDU) — une clarification n'a de sens QUE si elle
+ *       départage au moins deux candidats RÉELS, lieux OU
+ *       personnes : admet la clarification dès qu'UNE des deux
+ *       familles en compte au moins deux ............................ 'schema'
  *  BRANCHE `{sans_commande}` :
  *  (13) objet simple, clé UNIQUE `sans_commande`, valeur
  *       `=== true` ..................................................... 'schema'
@@ -883,6 +894,14 @@ export function porteUnRang(texte: string, tables: TablesInterprete): boolean {
  * N'EST APPELÉ QU'ICI, et `interprete.ts` (re-résolution) ne revérifie PAS
  * l'arité — un second décideur divergerait du premier (KR-013, précédent
  * `analyserSaisie`/`TRANSITIONS.aller`, `commandes.ts`).
+ *
+ * ⚠ (5) EST LA RÉSOLUTION PAR POSITION (n° 12, it1) : `interprete.ts`
+ * (`resoudreInterpretation`) applique EXACTEMENT LA MÊME RÈGLE — jamais un
+ * second décideur (KR-013). Un geste d'arité 2 dont le premier `refKind` est
+ * `'pnj'` et le second `'lieu'` résoudrait son premier élément contre
+ * `tables.personnages`, le second contre `tables.lieux` — aucun geste livré
+ * n'a cette forme en it1 (`parler` est d'arité 1), mais la règle est écrite
+ * générale, jamais spécialisée au cas actuel.
  */
 export function validerInterprete(
 	brut: unknown,
@@ -927,9 +946,11 @@ export function validerInterprete(
 		if (porteUnRang(precision, tables)) return { ok: false, motif: 'identifiant' }
 
 		// (12) une clarification n'a de sens que si elle départage AU MOINS
-		// deux lieux réels — sinon la question ne ferait que reformuler le
-		// seul choix déjà connu (§ 8, désaccord 11 du plan d'itération).
-		if (tables.lieux.size < 2) return { ok: false, motif: 'schema' }
+		// deux candidats réels — lieux OU personnes (n° 12, ÉTENDU) — sinon la
+		// question ne ferait que reformuler le seul choix déjà connu (§ 8,
+		// désaccord 11 du plan d'itération ; étendu désaccord #1 du plan it1
+		// de la n° 12).
+		if (tables.lieux.size < 2 && tables.personnages.size < 2) return { ok: false, motif: 'schema' }
 
 		return { ok: true, sortie: { precision } }
 	}
@@ -958,11 +979,17 @@ export function validerInterprete(
 	// (4) L'ARITÉ — SEUL DÉCIDEUR de ce chemin (KR-013). `interprete.ts` ne la
 	// revérifie PAS : le faire créerait un second décideur qui pourrait diverger
 	// du premier.
-	if (designe.length !== COMMANDES[commandeId].refKinds.length) return { ok: false, motif: 'schema' }
+	const refKinds = COMMANDES[commandeId].refKinds
+	if (designe.length !== refKinds.length) return { ok: false, motif: 'schema' }
 
-	// (5) chaque élément appartient à `tables.lieux` — le LOT ENTIER est
-	// refusé sur un seul jeton fautif (KR-230, précédent tous rôles à rangs).
-	if (!designe.every((rang) => tables.lieux.has(rang))) return { ok: false, motif: 'rang-inconnu' }
+	// (5) chaque élément appartient à LA TABLE DE SA POSITION — `tables.personnages`
+	// quand `refKinds[i] === 'pnj'` (n° 12 `moteur-acteurs`, it1), `tables.lieux`
+	// sinon. Le LOT ENTIER est refusé sur un seul jeton fautif (KR-230, précédent
+	// tous rôles à rangs).
+	const positionResout = designe.every((rang, i) =>
+		(refKinds[i] === 'pnj' ? tables.personnages : tables.lieux).has(rang),
+	)
+	if (!positionResout) return { ok: false, motif: 'rang-inconnu' }
 
 	return { ok: true, sortie: { geste: brut.geste, designe } }
 }
@@ -1486,4 +1513,94 @@ export function validerArbitre(
 			},
 		},
 	}
+}
+
+// ══ LE DIXIÈME RÔLE — `acteur` (n° 12 `moteur-acteurs`, it1) ════════════════
+
+/** Les clés du schéma de sortie du rôle `acteur`, EN VALEUR — le validateur en
+ *  est PILOTÉ, exactement comme `CLES_SORTIE_PLAN`. UN registre LITTÉRAL,
+ *  toujours pas un registre paramétré (§ 8, TL3a-6) : ce rôle n'est pas dans
+ *  `RoleCopilote`, et son gabarit ne vit que dans le worker, comme ceux de
+ *  `interprete`/`narrateur`/`arbitre`. */
+export const CLES_SORTIE_ACTEUR = ['replique'] as const
+
+/** LA BORNE DE SORTIE du rôle `acteur`, EN CARACTÈRES — VALEUR DE DÉCISION du
+ *  comité (§ 4 bis du plan it1), pas une mesure : une réplique de PNJ tient en
+ *  quelques phrases. Elle borne la SORTIE, dérive `max_tokens` (worker) et le
+ *  terme `TU AS DIT` du budget de contexte (`contexte/acteur.ts`). Au-delà :
+ *  REFUS `'schema'`, jamais une coupe (KR-230) — une réplique tronquée serait
+ *  une réparation silencieuse, lue par le joueur comme de la fiction. */
+export const REPLIQUE_CARACTERES_MAX = 400
+
+/**
+ * LES PRÉDICATS DE FORME de la sortie `acteur` — le DIXIÈME rôle, et son
+ * ancêtre est `validerSortie` (rôle PROSE, SIX prédicats) PLUS le scanner de
+ * chiffre déjà introduit par `validerArbitre` (rôle neuf) : une réplique est un
+ * SCALAIRE, comme une prose de fiche, mais c'est aussi de la FICTION lue SANS
+ * RELECTURE D'AUTEUR, comme un enjeu de jet — elle ne profère donc AUCUNE
+ * mécanique, exactement comme `enjeu_reussite`/`enjeu_echec`.
+ *
+ * `MotifIllisible` est INCHANGÉE — aucun membre neuf. Le type de retour ne nomme
+ * que les motifs ATTEIGNABLES : `'rang-inconnu'` est SANS OBJET ici (aucun
+ * jeton, aucune table d'appartenance — R4 ne désigne jamais rien).
+ *
+ * LES HUIT PRÉDICATS, dans l'ordre, chacun prouvable SEUL (§ 4 bis du plan,
+ * ordre FIGÉ) :
+ *   (1) objet simple (ni tableau, ni null) ..................... 'schema'
+ *   (2) clés = EXACTEMENT `CLES_SORTIE_ACTEUR` — une clé EN TROP
+ *       est un REFUS, jamais un champ ignoré (signal KR-236) .... 'schema'
+ *   (3) la clé porte une CHAÎNE ................................ 'schema'
+ *   (4) non vide après `trim()` .................................. 'vide'
+ *   (5) ≤ `REPLIQUE_CARACTERES_MAX` — un REFUS, jamais une coupe
+ *       (KR-230) .................................................. 'schema'
+ *   (6) aucun `MARQUEUR_A_ECRIRE` (constante IMPORTÉE, KR-223) 'marqueur'
+ *   (7) aucun identifiant du dossier (`porteUnIdentifiant`) . 'identifiant'
+ *   (8) aucun chiffre `[0-9]` (`PORTE_UN_CHIFFRE`, précédent
+ *       `validerArbitre`) — une réplique ne profère jamais de
+ *       mécanique ...................................... 'identifiant'
+ *
+ * ⚠ (7) ET (8) PARTAGENT LE MÊME MOTIF `'identifiant'` — PRÉCÉDENT EXACT
+ * `validerArbitre` (prédicat 11) : `MotifIllisible` n'a pas de cinquième membre
+ * pour le chiffre, et en inventer un serait une distinction que rien d'autre au
+ * dépôt ne porte.
+ *
+ * ⚠ AUCUNE RE-RÉSOLUTION : la branche de succès rend `ReponseActeur` TELLE
+ * QUELLE — précédent `validerArbitre`, qui rend déjà `PropositionEpreuve`. Zéro
+ * rang, zéro `Map.get` : R4 ne désigne jamais rien, il ne fait QUE parler.
+ */
+export function validerActeur(
+	brut: unknown,
+	dossier: Dossier,
+): { ok: true; sortie: ReponseActeur } | { ok: false; motif: 'schema' | 'vide' | 'marqueur' | 'identifiant' } {
+	// (1) un objet JSON — ni tableau, ni `null`.
+	if (!estObjetSimple(brut)) return { ok: false, motif: 'schema' }
+
+	// (2) l'ensemble des clés vaut EXACTEMENT `CLES_SORTIE_ACTEUR`.
+	const cles = Object.keys(brut)
+	if (cles.length !== CLES_SORTIE_ACTEUR.length || !CLES_SORTIE_ACTEUR.every((cle) => cles.includes(cle))) {
+		return { ok: false, motif: 'schema' }
+	}
+
+	// (3) la clé du schéma porte une CHAÎNE — piloté par `CLES_SORTIE_ACTEUR`.
+	if (!CLES_SORTIE_ACTEUR.every((cle) => typeof brut[cle] === 'string')) return { ok: false, motif: 'schema' }
+
+	const replique = brut[CLES_SORTIE_ACTEUR[0]] as string
+
+	// (4) non vide une fois les blancs retirés.
+	if (replique.trim().length === 0) return { ok: false, motif: 'vide' }
+
+	// (5) la BORNE DE SORTIE — un REFUS, jamais une troncature (KR-230).
+	if (replique.length > REPLIQUE_CARACTERES_MAX) return { ok: false, motif: 'schema' }
+
+	// (6) pas le marqueur d'amorce — constante IMPORTÉE, jamais recopiée (KR-223).
+	if (replique.includes(MARQUEUR_A_ECRIRE)) return { ok: false, motif: 'marqueur' }
+
+	// (7) aucun identifiant du dossier.
+	if (porteUnIdentifiant(replique, dossier)) return { ok: false, motif: 'identifiant' }
+
+	// (8) aucun chiffre, sous quelque forme — une réplique ne profère jamais de
+	//     mécanique (précédent `validerArbitre`).
+	if (PORTE_UN_CHIFFRE.test(replique)) return { ok: false, motif: 'identifiant' }
+
+	return { ok: true, sortie: { replique } }
 }

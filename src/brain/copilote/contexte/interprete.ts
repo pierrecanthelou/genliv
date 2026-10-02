@@ -15,11 +15,11 @@
  * MÊME DOCTRINE que ses cinq voisins : refus AVANT tout `fetch`, jamais de
  * troncature, silence sur un champ non rédigé plutôt qu'une affirmation.
  */
-import { COMMANDES, destinationsPossibles, type CommandeId } from '../../dossier/commandes'
+import { COMMANDES, destinationsPossibles, personnagesPresents, type CommandeId } from '../../dossier/commandes'
 import type { EtatSession } from '../../dossier/session'
 import type { Dossier } from '../../dossier/types'
 import type { RangInjecte, TablesInterprete } from '../types'
-import { textesRediges, type MotifRefusContexte } from './noyau'
+import { PREFIXE_PERSONNAGE, textesRediges, type MotifRefusContexte } from './noyau'
 
 /** LA BORNE DE SAISIE, EN CARACTÈRES — VALEUR DE DÉCISION (comité, tour 1),
  *  pas une mesure : au-delà, refus `trop-long` avant tout `fetch`, jamais de
@@ -34,17 +34,29 @@ export const SAISIE_CARACTERES_MAX = 300
  *  `description`, elle, l'est, SANS RANG. */
 const CHEMIN_DESCRIPTION_LIEU = 'monde.lieux[].description'
 
+/** LES DEUX CHEMINS D'IDENTITÉ D'UN PNJ (n° 12 `moteur-acteurs`, it1) —
+ *  `fonction` PUIS `apparence`, jamais `nom` (KR-262/284 : `Personnage.nom` reste
+ *  `auteur`, et n° 12 ne rouvre pas `destinations.ts`). Même doctrine que
+ *  `CHEMIN_DESCRIPTION_LIEU` : un candidat sans AUCUNE des deux ne reçoit aucun
+ *  rang — silence, précédent KR-267. */
+const CHEMIN_FONCTION_PERSONNAGE = 'monde.personnages[].fonction'
+const CHEMIN_APPARENCE_PERSONNAGE = 'monde.personnages[].apparence'
+
 /**
  * Le geste `id` est-il SATISFIABLE au tour courant — c'est-à-dire chacun de
- * ses `refKinds` a-t-il au moins un candidat rangé ? SEUL `'lieu'` est
- * résolu par ce rôle en it1 (`COMMANDES` n'a qu'`aller`, arité 1, un seul
- * `refKind`) : un `refKind` d'un autre espace de noms n'a AUCUNE table de
- * candidats ici, donc rend le geste NON satisfiable — ce n'est pas une
- * approximation, c'est l'état réel de ce que cette itération sait désigner
- * (les personnages entreront en n° 12).
+ * ses `refKinds` a-t-il au moins un candidat rangé ? DEUX espaces de noms sont
+ * résolus par ce rôle depuis la n° 12 (it1) : `'lieu'` (depuis la n° 9) et
+ * `'pnj'` (depuis `parler`, n° 12). Un `refKind` d'un autre espace de noms n'a
+ * AUCUNE table de candidats ici, donc rend le geste NON satisfiable — ce n'est
+ * pas une approximation, c'est l'état réel de ce que cette itération sait
+ * désigner.
  */
-function gesteSatisfiable(id: CommandeId, nombreDeLieux: number): boolean {
-	return COMMANDES[id].refKinds.every((espace) => (espace === 'lieu' ? nombreDeLieux > 0 : false))
+function gesteSatisfiable(id: CommandeId, nombreDeLieux: number, nombreDePersonnages: number): boolean {
+	return COMMANDES[id].refKinds.every((espace) => {
+		if (espace === 'lieu') return nombreDeLieux > 0
+		if (espace === 'pnj') return nombreDePersonnages > 0
+		return false
+	})
 }
 
 export type ContexteInterprete =
@@ -66,6 +78,18 @@ export type ContexteInterprete =
  *     un lieu accessible sans description devient inatteignable en saisie
  *     libre, atteignable en console ;
  *  4. numérotés `P1`, `P2`, … dans cet ordre.
+ *
+ * SÉLECTION DES CANDIDATS-PNJ (n° 12 `moteur-acteurs`, it1), MÊME DOCTRINE,
+ * TABLE ET COMPTEUR SÉPARÉS (préfixe `I`, désaccord #4 du raffinage, Tech Lead
+ * concède à Narratif-IA) :
+ *  1. `personnagesPresents(dossier, session)` — LA MÊME FONCTION que
+ *     `TRANSITIONS.parler` (`../../dossier/commandes.ts`) ;
+ *  2. jamais de doublon possible par construction (`monde.personnages[]` ne
+ *     porte pas deux fois le même `id`) ;
+ *  3. un PNJ dont ni `fonction` ni `apparence` n'est rédigée (ou marquée) NE
+ *     REÇOIT AUCUN RANG — silence, jamais un repli sur `nom` (KR-262/284) ;
+ *  4. numérotés `I1`, `I2`, … — PROJETÉS par `fonction` PUIS `apparence` (les
+ *     deux concaténées sous le même rang, comme `TOI` de `contexte/acteur.ts`).
  *
  * LES GESTES sont dérivés de `COMMANDES` À CHAQUE APPEL, jamais un littéral :
  * l'invite ne connaît aucun verbe/clé/libellé de ce registre, et c'est le
@@ -120,10 +144,27 @@ export function assemblerInterprete(
 		blocs.push(`${rang}\n${description.join('\n')}`)
 	}
 
+	// ── LES CANDIDATS-PNJ, I1…In — table et compteur SÉPARÉS des lieux ─────
+	const personnages = new Map<RangInjecte, string>()
+	for (const personnageId of personnagesPresents(dossier, cible.session)) {
+		const personnage = dossier.monde.personnages.find((candidat) => candidat.id === personnageId)
+		if (personnage === undefined) continue // référence pendante — silence, précédent KR-267
+
+		const identite = [
+			...textesRediges(personnage, CHEMIN_FONCTION_PERSONNAGE, PREFIXE_PERSONNAGE),
+			...textesRediges(personnage, CHEMIN_APPARENCE_PERSONNAGE, PREFIXE_PERSONNAGE),
+		]
+		if (identite.length === 0) continue // sans identité — silence, KR-262/284/267
+
+		const rang = `I${personnages.size + 1}`
+		personnages.set(rang, personnage.id)
+		blocs.push(`${rang}\n${identite.join('\n')}`)
+	}
+
 	// ── LES GESTES, G1…Gk, dérivés de COMMANDES À CHAQUE APPEL ─────────────
 	const gestes = new Map<RangInjecte, CommandeId>()
 	for (const id of Object.keys(COMMANDES) as CommandeId[]) {
-		if (!gesteSatisfiable(id, lieux.size)) continue
+		if (!gesteSatisfiable(id, lieux.size, personnages.size)) continue
 		const rang = `G${gestes.size + 1}`
 		gestes.set(rang, id)
 		blocs.push(`${rang} — ${COMMANDES[id].label} — ${COMMANDES[id].refKinds.length} repère(s)`)
@@ -148,5 +189,5 @@ export function assemblerInterprete(
 	const saisie = cible.saisie.trim().replace(/\s+/g, ' ')
 	blocs.push(`saisie\n${saisie}`)
 
-	return { ok: true, texte: blocs.join('\n\n'), tables: { lieux, gestes } }
+	return { ok: true, texte: blocs.join('\n\n'), tables: { lieux, personnages, gestes } }
 }

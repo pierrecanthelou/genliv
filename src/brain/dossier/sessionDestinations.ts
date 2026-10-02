@@ -79,6 +79,7 @@ type CheminDeFeuilleDeSession =
 	| 'journal[].role'
 	| 'journal[].texte'
 	| 'journal[].origine'
+	| 'journal[].interlocuteur'
 	| 'journal[].recit'
 	| 'journal[].deltas[].delta'
 	| 'journal[].deltas[].cibles[]'
@@ -214,6 +215,15 @@ export const DESTINATION_DES_CHAMPS_DE_SESSION: Readonly<
 	 * instance, cette ligne serait morte le jour même où elle est écrite.
 	 */
 	'journal[].origine': 'moteur',
+	/**
+	 * L'INTERLOCUTEUR DE CE PAS (n° 12 `moteur-acteurs`, it1) — l'identifiant du PNJ
+	 * à qui `parler` s'adresse. `'moteur'` : un identifiant est un HANDLE, jamais de
+	 * la fiction, même statut que `origine`. Optionnel À VIE (KR-251) : une entrée
+	 * écrite avant ce lot ne le porte pas, état LÉGAL. Instancié dans
+	 * `__fixtures__/session-saturee.ts` — sans instance, cette ligne serait morte le
+	 * jour même où elle est écrite.
+	 */
+	'journal[].interlocuteur': 'moteur',
 	/**
 	 * LE RÉCIT DU PAS (n° 10 `moteur-interprete`, it2) — la PROSE que la n° 9 annonçait
 	 * sous « son propre chemin, avec sa propre ligne » (voir `journal[].texte`

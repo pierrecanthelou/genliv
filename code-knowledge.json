@@ -859,17 +859,57 @@
 		{
 			"id": "KR-276",
 			"feature": "moteur-arbitre",
-			"risk": "UNE GARDE BLOQUANTE INSEREE DEVANT UN ECRAN EXISTANT (precondition, ecran de creation/onboarding) SE VERIFIE CONTRE TOUS LES MONTAGES EXISTANTS DE CE PARENT, jamais seulement contre le composant neuf qui la porte -- la non-regression se mesure sur l'ecran PARENT, pas sur la piece isolee qu'on vient d'ecrire. Decouvert en moteur-arbitre it1 (GARDE 7 d'EcranPartie.tsx, ecran de creation du heros) : 5 fichiers de test preexistants montant EcranPartie directement rougissaient, parce qu'une session fraiche (useSessionPersistee est write-only, KR-116) tombe toujours dans la garde. Corrige DANS LE MEME LOT, jamais reporte -- BUG-135. Corps : bug_history.moteur-arbitre.json."
+			"risk": "Une garde bloquante devant un ecran existant se verifie contre TOUS les montages existants de ce parent, jamais seulement le composant neuf qui la porte -- la non-regression se mesure sur l'ecran PARENT. Corps : bug_history.moteur-arbitre.json (BUG-135)."
 		},
 		{
 			"id": "KR-277",
 			"feature": "moteur-arbitre",
-			"risk": "UN HELPER DE TEST QUI SIMULE UNE REPARTITION A CHOIX MULTIPLES SOUS UN PLAFOND PAR CIBLE (ex. distribuer un bonus entre plusieurs caracteristiques) N'ITERE JAMAIS SUR UNE SEULE CIBLE FIXE jusqu'a ce qu'ELLE se bloque -- sa condition d'arret LOCALE n'implique pas la condition GLOBALE, et le blocage depend alors d'un tirage non maitrise par le test. Itere sur TOUTES les cibles actionnables : chacune s'arrete d'elle-meme, et la preuve que la marge totale majore toujours le total a distribuer doit etre ECRITE (ici : 8 caracteristiques x 2 points de marge minimum >= 4, le maximum possible). Decouvert en moteur-arbitre it1 (repartition du bonus 1D4 a la creation du heros, flakiness intermittente non reproductible sans analyse de cause) -- BUG-136. Corps : bug_history.moteur-arbitre.json."
+			"risk": "Un helper de test qui simule une repartition a choix multiples sous un plafond PAR CIBLE itere sur TOUTES les cibles actionnables, jamais une seule cible fixe jusqu'a blocage -- la condition d'arret LOCALE n'implique pas la condition GLOBALE. Corps : bug_history.moteur-arbitre.json (BUG-136)."
 		},
 		{
 			"id": "KR-278",
 			"feature": "moteur-arbitre",
-			"risk": "UN VERROU (KR-265 ou equivalent) QUI COUVRE UNE CHAINE ASYNCHRONE EN PLUSIEURS ETAPES EXPOSEES SEPAREMENT (ex. executeAction PUIS lancerLeDe, separees par une interaction utilisateur) SE RELACHE DANS LE FINALLY DE LA DERNIERE ETAPE, JAMAIS DE LA PREMIERE -- meme quand la premiere etape retourne normalement en attendant un clic. Un finally pose sur la premiere etape libere la ressource avant que la derniere n'en ait fini, ouvrant une fenetre de concurrence ou une action intercalee ecrase en silence l'etat que la derniere etape s'appretait a lire. Un drapeau local (pose juste avant le retour qui attend l'interaction) dit a la premiere etape de NE PAS relacher. CORROLAIRE (BUG-138, 2e passage sur le MEME lot) : la garde de re-entrance d'une fonction invocable depuis PLUSIEURS points d'entree UI (clic ET clavier, par exemple) doit etre verifiee a CHAQUE point d'entree qui peut l'invoquer, jamais au seul point deja corrige -- et elle doit vivre dans un useRef possede par le hook proprietaire du contrat de verrou, jamais duplique en useState par composant consommateur (un useState ne protege aucune fenetre de concurrence synchrone). Decouvert en moteur-arbitre it2 (verrou R1->R2->attente clic->resolution->R3, revue tech-lead PR, 1er et 2e passages) -- BUG-137, BUG-138. Corps : bug_history.moteur-arbitre.json."
+			"risk": "Un verrou qui couvre une chaine asynchrone en plusieurs etapes exposees separement se relache dans le FINALLY DE LA DERNIERE etape, jamais de la premiere ; sa garde de re-entrance se verifie a CHAQUE point d'entree UI (clic ET clavier), dans un useRef du hook proprietaire, jamais un useState consommateur. Corps : bug_history.moteur-arbitre.json (BUG-137, BUG-138)."
+		},
+		{
+			"id": "KR-279",
+			"feature": "moteur-acteurs",
+			"risk": "Confiance (bornes, delta, seuils, saturation) : ECRITE dans REGLES-DU-JEU.md avant it3 (KR-130). Corps : spec moteur-acteurs."
+		},
+		{
+			"id": "KR-280",
+			"feature": "moteur-acteurs",
+			"risk": "Fail-closed : les quatre portes de Revelation se testent EN CONJONCTION ; une porte non cablee reste FERMEE, jamais ouverte par defaut. Corps : spec moteur-acteurs."
+		},
+		{
+			"id": "KR-281",
+			"feature": "moteur-acteurs",
+			"risk": "issueDuJet reste l'UNIQUE appelant de resolveChallenge dans tout le depot. Corps : spec moteur-acteurs."
+		},
+		{
+			"id": "KR-282",
+			"feature": "moteur-acteurs",
+			"risk": "Audience R4 : relations[]/cede_si exclus en it1 ; puis un Relation.secret hors porteur ne part jamais en contexte R4, teste par l'assembleur. Corps : spec moteur-acteurs."
+		},
+		{
+			"id": "KR-283",
+			"feature": "moteur-acteurs",
+			"risk": "Echec R4 apres rejeu : silence deterministe, aucun texte de repli ecrit par le code. Corps : spec moteur-acteurs."
+		},
+		{
+			"id": "KR-284",
+			"feature": "moteur-acteurs",
+			"risk": "Personnage.nom reste auteur ; n12 ne rouvre pas le schema -- R1/R4 recoivent fonction/apparence par projection. Corps : spec moteur-acteurs."
+		},
+		{
+			"id": "KR-285",
+			"feature": "moteur-acteurs",
+			"risk": "KR-268 au niveau du CHAMP : un champ de sortie IA n'entre que si son lecteur existe dans la MEME iteration. Corps : spec moteur-acteurs."
+		},
+		{
+			"id": "KR-286",
+			"feature": "moteur-acteurs",
+			"risk": "Carnet d'indices (it2) : vue DERIVEE du journal, jamais un etat stocke ; libelle jamais monde.indices[].nom. Corps : spec moteur-acteurs."
 		}
 	]
 }

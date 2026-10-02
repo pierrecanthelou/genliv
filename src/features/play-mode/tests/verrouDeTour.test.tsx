@@ -55,7 +55,14 @@ function texteReference(): string {
 }
 
 /** Même seed que `jalonAuJournal.test.tsx` — la porte `jouable` (KR-239) exige
- *  un personnage présent au lieu de départ. */
+ *  un personnage présent au lieu de départ. ⚠ DEPUIS LE LOT CONTRAT DE LA n° 12
+ *  (`moteur-acteurs`, it1), `dossier-reference.json` SATISFAIT DÉJÀ cette porte
+ *  SANS seed — Harek gagne une `presence` au Foyer du Guet (le lieu de départ),
+ *  prérequis de sa propre démo. Cette fonction reste utile : elle place un
+ *  SECOND personnage connu (le premier SANS presence, aujourd'hui Mira) pour
+ *  les scénarios qui en ont besoin, mais elle n'est plus la condition SEULE de
+ *  `jouable` sur ce dossier — voir le test juste en dessous, réécrit en
+ *  conséquence (mesuré, pas supposé). */
 function avecUnHabitantAuDepart(brain: Brain, dossier: Dossier): Dossier {
 	const depart = dossier.charpente.depart.lieu_id
 	const rang = dossier.monde.personnages.findIndex((personnage) => (personnage.presence ?? []).length === 0)
@@ -117,11 +124,16 @@ describe('Verrou de tour au niveau ecran (KR-265 etendu, lot 2 it2)', () => {
 		window.localStorage.clear()
 	})
 
-	it('le dossier de reference ainsi seme est jouable : la porte du shell ne refuse pas', () => {
+	it('le dossier de reference est deja jouable (n 12, Harek au depart), et le seed ne le defait pas', () => {
+		// ⚠ RÉÉCRIT AU LOT CONTRAT DE LA n° 12 (`moteur-acteurs`, it1) — MESURÉ, pas
+		// supposé : Harek porte désormais une `presence` au Foyer du Guet (le lieu de
+		// départ), donc `depart-desert` ne bloque plus le dossier TEL QUEL. La porte du
+		// shell ne refuse déjà plus avant tout seed.
 		const brain = createBrain()
 		const inspection = brain.dossiers.importDossier(texteReference())
 		if (inspection.statut !== 'valid') throw new Error(`Import refuse : ${inspection.statut}`)
-		expect(controlerDossier(inspection.dossier).jouable).toBe(false)
+		expect(controlerDossier(inspection.dossier).jouable).toBe(true)
+		// Discriminant : le seed d'un SECOND habitant (Mira) ne le défait pas.
 		expect(controlerDossier(avecUnHabitantAuDepart(brain, inspection.dossier)).jouable).toBe(true)
 	})
 

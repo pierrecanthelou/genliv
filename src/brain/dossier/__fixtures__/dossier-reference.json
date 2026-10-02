@@ -215,6 +215,13 @@
 				"nom": "Harek le Forgeron",
 				"portee": "premier",
 				"fonction": "Forgeron du Foyer du Guet, le dernier du village à savoir remonter une pièce du mécanisme du beffroi.",
+				"apparence": "Un colosse aux avant-bras couverts de brûlures anciennes, qui s'essuie toujours les mains à son tablier avant de parler.",
+				"presence": [
+					{
+						"lieu_id": "lieu.foyer-du-guet",
+						"quand": "Du matin jusqu'à la tombée du jour, devant sa forge."
+					}
+				],
 				"stats": {
 					"FO": 10,
 					"AG": 4,

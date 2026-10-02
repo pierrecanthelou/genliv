@@ -32,6 +32,7 @@
  */
 import { useRef, useState } from 'react'
 import { COMMANDES } from '../../../brain/dossier/commandes'
+import type { CibleActeur } from '../../../brain/copilote/types'
 import {
 	apresInterpretation,
 	type AvisInterprete,
@@ -221,9 +222,50 @@ export function useTourDeJeu(
 			}
 
 			// ──────────────────────────────────────────────────────────
+			// R4 (ACTEUR) — réplique du PNJ (n° 12 moteur-acteurs, it1, lot 2)
+			// ──────────────────────────────────────────────────────────
+			// Appelé UNIQUEMENT si la commande acceptée est `parler`
+			if (
+				pasAccepte &&
+				reponse.proposition.lecture === 'commande' &&
+				reponse.proposition.commande.commande === 'parler'
+			) {
+				// ÉTAPE 6a : Appeler R4 avec la session déjà persistée (S1)
+				const cibleActeur: CibleActeur = {
+					role: 'acteur',
+					personnageId: reponse.proposition.commande.cibles[0],
+					saisie,
+					session: nouvelleSession, // S1 DÉJÀ PERSISTÉE
+				}
+				const reponseActeur = await copilote.demander(dossier, cibleActeur)
+
+				// ÉTAPE 6b : Traiter la réponse de R4
+				if (!('statut' in reponseActeur)) {
+					// Succès R4 — écrire la réplique dans le récit
+					const sessionAvecReplique = consignerNarration(nouvelleSession, nouvelleSession.horloge.tour, {
+						recit: reponseActeur.replique,
+						faits_etablis: [],
+					})
+					onSessionChange(sessionAvecReplique)
+					setIssueNarrateur({
+						tour: nouvelleSession.horloge.tour,
+						statut: 'raconte',
+						suggestions: [],
+					})
+				} else {
+					// Échec R4 (contexte trop long, indisponible, etc.) — AUCUN texte de repli
+					// KR-283 : le pas reste acquis, aucune réplique n'est posée, la bannière
+					// d'EchecCopilote existante s'affiche.
+					setAvis(reponseActeur)
+				}
+				return pasAccepte
+			}
+
+			// ──────────────────────────────────────────────────────────
 			// R3 (NARRATEUR) — récit du pas
 			// ──────────────────────────────────────────────────────────
 			// On n'arrive ici que si le pas a été accepté et pas d'épreuve en attente
+			// (et pas un appel R4 — qui gère sa propre réponse ci-dessus)
 			if (pasAccepte) {
 				// ÉTAPE 6 : Appeler R3 avec la session déjà persistée (S1)
 				const cibleNarrateur: CibleNarrateur = {

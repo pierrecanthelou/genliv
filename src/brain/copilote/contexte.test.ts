@@ -3667,8 +3667,12 @@ describe('assemblerNarrateur — la mesure du budget : un terme dossier MESURE, 
 		expect(absents).toEqual([])
 
 		// TEMPS 2 — M, SANS mémoire (le pire cas n'en porte pas), AVEC les rangs d'ancre.
+		// RE-MESURÉ au lot contrat de la n° 12 (`moteur-acteurs`, it1) : `parler`, verbe
+		// neuf de `COMMANDES`, porte désormais le libellé le plus long
+		// (« s'adresse à quelqu'un sur place »), que `pireCasNarrateur()` sélectionne —
+		// +17 caractères par rapport à `agit sur place` (1937 → 1954).
 		const M = texte.length
-		expect(M).toBe(1937)
+		expect(M).toBe(1954)
 
 		// TEMPS 3 — la formule : le terme dossier (facteur 3, arrondi au millier) PLUS la
 		// borne EXACTE de la mémoire, PLUS (n° 11, it2 puis it3) la borne EXACTE de la

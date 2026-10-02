@@ -17,6 +17,7 @@
  */
 import type { CloudSettingsService } from './CloudSettingsService'
 import {
+	assemblerActeur,
 	assemblerArbitre,
 	assemblerDetenteurs,
 	assemblerDistribution,
@@ -29,6 +30,7 @@ import {
 	type MotifRefusContexte,
 } from './copilote/contexte'
 import {
+	validerActeur,
 	validerArbitre,
 	validerDetenteurs,
 	validerDistribution,
@@ -42,6 +44,7 @@ import {
 } from './copilote/schemaSortie'
 import type {
 	ChampProseChemin,
+	CibleActeur,
 	CibleArbitre,
 	CibleNarrateur,
 	FaitEtabli,
@@ -55,6 +58,7 @@ import type {
 	PropositionRelations,
 	PropositionRepliques,
 	PropositionResolue,
+	ReponseActeur,
 	ReponseArbitre,
 	ReponseNarrateur,
 	SortieInterprete,
@@ -276,6 +280,16 @@ export interface CopiloteService {
 	 *  pas, AVANT R3 — sa cible et sa réponse vivent dans `copilote/types.ts`,
 	 *  même domicile que `narrateur`. */
 	demander(dossier: Dossier, cible: CibleArbitre, signal?: AbortSignal): Promise<ReponseArbitre>
+	/** ⚠ LA 10ᵉ SURCHARGE, MÊME RÈGLE — deux sites, ici et sur l'implémentation. Le
+	 *  rôle `acteur` (n° 12 `moteur-acteurs`, it1) : appelé APRÈS persistance du pas
+	 *  `parler` — sa cible et sa réponse vivent dans `copilote/types.ts`, même
+	 *  domicile que `narrateur`/`arbitre`. ⚠ SIGNATURE DE RETOUR DIFFÉRENTE DES NEUF
+	 *  PRÉCÉDENTES (§ 4 du plan, FIGÉE) : `ReponseActeur | EchecCopilote`, SANS le
+	 *  wrapper `{statut:'propose', proposition}` — `ReponseActeur` n'a RIEN à
+	 *  re-résoudre (voir sa docstring, `copilote/types.ts`), et les deux membres de
+	 *  l'union se discriminent déjà PAR FORME : `EchecCopilote` porte TOUJOURS
+	 *  `statut`, `ReponseActeur` JAMAIS — `'statut' in reponse` narrows sans `as`. */
+	demander(dossier: Dossier, cible: CibleActeur, signal?: AbortSignal): Promise<ReponseActeur | EchecCopilote>
 }
 
 /**
@@ -340,6 +354,15 @@ type CorpsDemande =
 	 *  l'assembleur, qui ne porte que leur PROSE au fil). Littéral ÉCRIT, jamais
 	 *  `{ ...cible, contexte }`, pour la raison des huit autres. */
 	| { role: 'arbitre'; contexte: string }
+	/** LE DIXIÈME RÔLE — SANS `champ` non plus, MÊME motif : la cible porte
+	 *  `personnageId`, `saisie` et `session`, et AUCUN DES TROIS NE FRANCHIT LE
+	 *  RÉSEAU TEL QUEL — `session` ne sort JAMAIS de `brain/` (seul ce que
+	 *  l'assembleur en DÉRIVE entre dans `contexte`, précédent `narrateur`/
+	 *  `arbitre`), `personnageId` ne sort jamais tel quel (résolu en
+	 *  identité/voix/mémoire par l'assembleur), et `saisie` n'entre qu'APRÈS
+	 *  normalisation, en dernière position. Littéral ÉCRIT, jamais
+	 *  `{ ...cible, contexte }`, pour la raison des neuf autres. */
+	| { role: 'acteur'; contexte: string }
 
 /** Le résultat d'UN aller-retour, avant validation de forme : soit une valeur
  *  brute à valider, soit une indisponibilité qui ne se rejoue JAMAIS. */
@@ -870,9 +893,53 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 	}
 
 	/**
-	 * L'IMPLÉMENTATION À SURCHARGES — NEUF signatures publiques depuis la n° 11 it2
-	 * (huit à l'it2 de la n° 10), un corps élargi, AUCUN `as`, ET PLUS AUCUN PARAMÈTRE
-	 * `role`.
+	 * LE DIXIÈME RÔLE — `acteur` (n° 12 `moteur-acteurs`, it1). ⚠ SEUL RÔLE DONT LE
+	 * SUCCÈS N'EST PAS ENVELOPPÉ `{statut:'propose', proposition}` (signature figée
+	 * § 4 du plan) : `validerActeur` rend DÉJÀ `ReponseActeur` — aucune re-résolution,
+	 * aucun `Map.get` — donc la sortie validée EST la réponse de succès, telle quelle.
+	 *
+	 * L'ORDRE DES EFFETS, identique aux neuf autres rôles :
+	 *  1. LE REFUS DE CONTEXTE, AVANT TOUT — `'cible-a-ecrire'` (le PNJ ne résout pas,
+	 *     ou ni `fonction` ni `apparence` n'est rédigée) puis `'trop-long'`. ZÉRO
+	 *     `fetch`, quelle que soit la configuration ;
+	 *  2. la configuration — `non-configure` sans appel ;
+	 *  3. LE REJEU EXACTEMENT UNE FOIS sur une violation de FORME (`jusquAuRejeuUnique`,
+	 *     INCHANGÉ et toujours générique).
+	 *
+	 * SUR ÉCHEC APRÈS LE REJEU UNIQUE : `EchecCopilote` SEUL, AUCUN texte de repli
+	 * écrit par ce fichier (KR-283) — l'orchestrateur (lot `feature`) ne pose aucune
+	 * réplique, `recit` reste `undefined`, état légal.
+	 */
+	async function demanderActeur(
+		dossier: Dossier,
+		cible: CibleActeur,
+		signal: AbortSignal | undefined,
+	): Promise<ReponseActeur | EchecCopilote> {
+		const contexte = assemblerActeur(dossier, cible.session, cible.personnageId, cible.saisie)
+		if (!contexte.ok) return refuser(contexte)
+
+		const vers = acheminement('acteur')
+		if (vers === null) return { statut: 'indisponible', raison: 'non-configure' }
+
+		// LITTÉRAL ÉCRIT, JAMAIS `{ ...cible, contexte }` : ni `session` ni
+		// `personnageId` ne sortent tels quels (KR-231).
+		const corps: CorpsDemande = { role: 'acteur', contexte: contexte.texte }
+		const issue = await jusquAuRejeuUnique<ReponseActeur>(
+			vers.url,
+			vers.entetes,
+			corps,
+			(brut) => validerActeur(brut, dossier),
+			signal,
+		)
+		if (!issue.ok) return issue.echec
+
+		return issue.sortie
+	}
+
+	/**
+	 * L'IMPLÉMENTATION À SURCHARGES — DIX signatures publiques depuis la n° 12 it1
+	 * (neuf à l'it2 de la n° 11, huit à l'it2 de la n° 10), un corps élargi, AUCUN
+	 * `as`, ET PLUS AUCUN PARAMÈTRE `role`.
 	 *
 	 * LE DISPATCH SE FAIT SUR L'ÉTIQUETTE, jamais plus sur la forme. Ce que cela change,
 	 * et c'est la raison d'être du lot : jusqu'à 3b le dernier `return` recevait
@@ -910,6 +977,8 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 	function demander(dossier: Dossier, cible: CibleNarrateur, signal?: AbortSignal): Promise<ReponseNarrateur>
 	/** ⚠ LE SECOND DES DEUX SITES de la 9ᵉ surcharge — idem. */
 	function demander(dossier: Dossier, cible: CibleArbitre, signal?: AbortSignal): Promise<ReponseArbitre>
+	/** ⚠ LE SECOND DES DEUX SITES de la 10ᵉ surcharge — idem. */
+	function demander(dossier: Dossier, cible: CibleActeur, signal?: AbortSignal): Promise<ReponseActeur | EchecCopilote>
 	function demander(
 		dossier: Dossier,
 		cible:
@@ -921,7 +990,8 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 			| CibleDistribution
 			| CibleInterprete
 			| CibleNarrateur
-			| CibleArbitre,
+			| CibleArbitre
+			| CibleActeur,
 		signal?: AbortSignal,
 	): Promise<
 		| ReponseCopilote
@@ -933,6 +1003,8 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 		| ReponseInterprete
 		| ReponseNarrateur
 		| ReponseArbitre
+		| ReponseActeur
+		| EchecCopilote
 	> {
 		switch (cible.role) {
 			case 'personnage-prose':
@@ -953,6 +1025,8 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 				return demanderNarrateur(dossier, cible, signal)
 			case 'arbitre':
 				return demanderArbitre(dossier, cible, signal)
+			case 'acteur':
+				return demanderActeur(dossier, cible, signal)
 			default: {
 				// LA GARDE D'EXHAUSTIVITÉ : si l'union gagne un membre sans branche, cette
 				// affectation ne compile plus. C'est une erreur de COMPILATION, jamais un

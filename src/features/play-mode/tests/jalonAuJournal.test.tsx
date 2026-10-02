@@ -57,13 +57,16 @@ const JALON = 'jalon.premiere-vigie'
 const INDICE = 'indice.pas-dans-la-cendre'
 
 /**
- * LA PRÉCONDITION DE LA PORTE `jouable` (KR-239), ET RIEN DE PLUS — MESURÉE, pas
- * supposée : `dossier-reference.json` porte UN contrôle bloquant, `depart-desert`
- * (« Aucun personnage n'est présent au lieu de départ »), et le shell refuserait
- * la session avant la première commande. On place donc au lieu de départ le
- * PREMIER personnage que rien ne place, PAR LE CHEMIN PUBLIC D'ÉCRITURE et par
- * spread (KR-156) : ni le fichier du disque ni l'arête neuve ne sont touchés, et
- * le scénario du critère 3 reste mot pour mot celui du plan.
+ * LA PRÉCONDITION DE LA PORTE `jouable` (KR-239) — MESURÉE, pas supposée.
+ *
+ * ⚠ DEPUIS LE LOT CONTRAT DE LA n° 12 (`moteur-acteurs`, it1), `dossier-reference.json`
+ * NE PORTE PLUS le contrôle bloquant `depart-desert` : Harek gagne une `presence` au
+ * Foyer du Guet (le lieu de départ), prérequis de sa propre démo, et le dossier TEL
+ * QUEL satisfait déjà `jouable` sans seed. Cette fonction reste utile pour placer un
+ * SECOND personnage connu (le premier que rien ne place, aujourd'hui Mira) au même
+ * lieu, PAR LE CHEMIN PUBLIC D'ÉCRITURE et par spread (KR-156) : ni le fichier du
+ * disque ni l'arête neuve ne sont touchés, et le scénario du critère 3 reste mot
+ * pour mot celui du plan.
  */
 function avecUnHabitantAuDepart(brain: Brain, dossier: Dossier): Dossier {
 	const depart = dossier.charpente.depart.lieu_id
@@ -164,11 +167,13 @@ describe('un jalon atteint en cours de partie, au journal', () => {
 	 * retour du bloquant `depart-desert` ferait échouer les deux témoins suivants
 	 * sur une plainte de requête RTL — un symptôme muet à trois rebonds de sa cause.
 	 */
-	it('le dossier de reference ainsi seme est jouable: la porte du shell ne refuse pas', () => {
+	it('le dossier de reference est deja jouable (n 12, Harek au depart), et le seed ne le defait pas', () => {
+		// ⚠ RÉÉCRIT AU LOT CONTRAT DE LA n° 12 — voir la docstring de
+		// `avecUnHabitantAuDepart` ci-dessus.
 		const brain = createBrain()
 		const inspection = brain.dossiers.importDossier(texteReference())
 		if (inspection.statut !== 'valid') throw new Error(`Import refuse : ${inspection.statut}`)
-		expect(controlerDossier(inspection.dossier).jouable).toBe(false)
+		expect(controlerDossier(inspection.dossier).jouable).toBe(true)
 		expect(controlerDossier(avecUnHabitantAuDepart(brain, inspection.dossier)).jouable).toBe(true)
 	})
 

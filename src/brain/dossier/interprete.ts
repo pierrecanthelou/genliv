@@ -26,7 +26,7 @@
  * jamais avoir d'avis sur ce fichier.
  */
 import { MARQUEUR_A_ECRIRE } from './amorce'
-import { executerCommande } from './commandes'
+import { COMMANDES, executerCommande } from './commandes'
 import type { EtatSession } from './session'
 import type { Dossier } from './types'
 import type { AvisInterprete, InterpretationRendue, SortieInterprete, TablesInterprete } from '../copilote/types'
@@ -72,9 +72,16 @@ export function resoudreInterpretation(
 	const commandeId = tables.gestes.get(rendu.geste)
 	if (commandeId === undefined) return { type: 'refus_resolution' }
 
+	// RÉSOLUTION PAR POSITION (n° 12 `moteur-acteurs`, it1) — LA MÊME RÈGLE que
+	// `validerInterprete` (prédicat 5, `copilote/schemaSortie.ts`) vient de
+	// constater, jamais un second décideur (KR-013) : `refKinds[i] === 'pnj'`
+	// résout contre `tables.personnages`, tout autre espace contre `tables.lieux`.
+	const refKinds = COMMANDES[commandeId].refKinds
 	const cibles: string[] = []
-	for (const rang of rendu.designe) {
-		const identifiant = tables.lieux.get(rang)
+	for (let i = 0; i < rendu.designe.length; i += 1) {
+		const rang = rendu.designe[i]
+		const table = refKinds[i] === 'pnj' ? tables.personnages : tables.lieux
+		const identifiant = table.get(rang)
 		if (identifiant === undefined) return { type: 'refus_resolution' }
 		cibles.push(identifiant)
 	}

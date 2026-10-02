@@ -83,6 +83,26 @@ export interface EntreeJournal {
 	 */
 	readonly origine?: CommandeId
 	/**
+	 * L'INTERLOCUTEUR DE CE PAS (n° 12 `moteur-acteurs`, it1, lot `contrat`) —
+	 * l'identifiant du PNJ à qui `parler` s'adresse. Optionnel À VIE (KR-251).
+	 *
+	 * PRÉSENT UNIQUEMENT SUR L'ENTRÉE QUI PORTE `origine: 'parler'`, ABSENT sur
+	 * toute autre — même invariant que `recit`/`jet` :
+	 * `journal.every(e => e.interlocuteur === undefined || e.origine === 'parler')`.
+	 *
+	 * ÉCRIT par `TRANSITIONS.parler` (`commandes.ts`), SEULE porte ; LU par
+	 * `contexte/acteur.ts`, qui filtre dessus les `MEMOIRE_PARLER_MAX` dernières
+	 * répliques DE CE PNJ (« TU AS DIT ») — jamais celles d'un autre personnage
+	 * (KR-282 étendu). Les deux chemins de code existent dans CETTE itération, ce
+	 * qui est la condition d'admission elle-même (KR-249) : sans ce champ, rien ne
+	 * distinguerait dans le journal les répliques adressées à Harek de celles
+	 * adressées à un autre PNJ.
+	 *
+	 * AUDIENCE `'moteur'` (`sessionDestinations.ts`) : un identifiant est un HANDLE,
+	 * jamais de la fiction — même statut que `origine`.
+	 */
+	readonly interlocuteur?: string
+	/**
 	 * LES EFFETS DE RÈGLE QUE CETTE ENTRÉE PORTE — le demandé ET l'observé
 	 * (KR-247). Optionnel À VIE (KR-251), et `undefined` JAMAIS `[]` : une entrée
 	 * qui n'en porte pas n'en a pas demandé, ce qui n'est pas la même chose qu'en

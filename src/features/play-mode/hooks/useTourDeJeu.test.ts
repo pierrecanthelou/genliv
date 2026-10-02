@@ -3,7 +3,14 @@ import type { HeroState } from '../../../player/types'
 import { useTourDeJeu } from './useTourDeJeu'
 
 // Les imports du brain se feront APRÈS le jest.mock()
-import type { Dossier, EtatSession, SortieInterprete, SortieNarrateur, ReponseNarrateur } from '../../../brain'
+import type {
+	Dossier,
+	EtatSession,
+	SortieInterprete,
+	SortieNarrateur,
+	ReponseNarrateur,
+	EchecCopilote,
+} from '../../../brain'
 import { apresInterpretation } from '../../../brain'
 import { COMMANDES } from '../../../brain/dossier/commandes'
 
@@ -59,7 +66,7 @@ const HEROS_TEST: HeroState = {
 /** Session avec un héros déjà créé — déclenche `doitArbitrer` sur un geste `agir`. */
 const SESSION_AVEC_HEROS: EtatSession = { ...SESSION_TEST, heros: HEROS_TEST }
 
-/** Dossier minimal avec un accès `aller` de `lieu_1` à `lieu_2`. */
+/** Dossier minimal avec un accès `aller` de `lieu_1` à `lieu_2` et un PNJ avec présence et identité. */
 const DOSSIER_TEST: Dossier = {
 	id: 'test-dossier',
 	titre: 'Test',
@@ -78,7 +85,44 @@ const DOSSIER_TEST: Dossier = {
 		objectifs: [],
 	},
 	monde: {
-		personnages: [],
+		personnages: [
+			{
+				id: 'pnj-1',
+				nom: 'Allié',
+				fonction: 'un guerrier',
+				apparence: '',
+				presence: [{ lieu_id: 'lieu_1' }],
+				caractere: { parler: [], jamais: '' },
+				savoirs: [],
+				relations: [],
+				portee: 'premier',
+				plan_actions: [],
+			},
+			{
+				id: 'pnj-2',
+				nom: 'Sentinel',
+				fonction: 'une sentinelle',
+				apparence: '',
+				presence: [{ lieu_id: 'lieu_2' }],
+				caractere: { parler: [], jamais: '' },
+				savoirs: [],
+				relations: [],
+				portee: 'premier',
+				plan_actions: [],
+			},
+			{
+				id: 'pnj-3',
+				nom: 'Mage',
+				fonction: '',
+				apparence: 'un mage vêtu de bleu',
+				presence: [{ lieu_id: 'lieu_1' }],
+				caractere: { parler: [], jamais: '' },
+				savoirs: [],
+				relations: [],
+				portee: 'premier',
+				plan_actions: [],
+			},
+		],
 		lieux: [
 			{
 				id: 'lieu_1',
@@ -948,6 +992,187 @@ describe('useTourDeJeu — hook orchestrateur', () => {
 			expect(sessionModifiee.heros?.pv).toBe(HEROS_TEST.pv) // inchangé
 			expect(sessionModifiee.heros?.pe).toBe(HEROS_TEST.pe) // inchangé
 			expect(sessionModifiee.heros?.xp).toBe(HEROS_TEST.xp + 7) // seule feuille modifiée, crédit réel
+		})
+	})
+
+	describe('Lot 2 — orchestration R4 (acteur) — n° 12 moteur-acteurs it1', () => {
+		beforeEach(() => {
+			jest.clearAllMocks()
+		})
+
+		it('Lot 2 — R4 appelé après parler accepté (test simple)', async () => {
+			// Test simple pour vérifier que R4 est appelé après une commande parler acceptée
+			const propositionParler = {
+				lecture: 'commande' as const,
+				commande: { commande: 'parler' as const, cibles: ['pnj-1'] },
+			}
+			const reponseR4 = { replique: 'Bonjour!' }
+
+			// Mock : R1 retourne parler, R4 retourne une réplique
+			demanderMock
+				.mockResolvedValueOnce({ statut: 'propose', proposition: propositionParler })
+				.mockResolvedValueOnce(reponseR4)
+
+			const onSessionChange = jest.fn()
+			const { result } = monter(SESSION_TEST, onSessionChange)
+
+			await act(async () => {
+				await result.current.executeAction('parler pnj-1')
+			})
+
+			// R4 doit avoir été appelé (2e appel après R1)
+			expect(demanderMock).toHaveBeenCalledTimes(2)
+
+			// La première journée du deuxième appel doit être pour R4
+			const r4Call = demanderMock.mock.calls[1]?.[1]
+			expect(r4Call?.role).toBe('acteur')
+
+			// onSessionChange doit avoir été appelé deux fois : après R1 et après R4
+			expect(onSessionChange).toHaveBeenCalledTimes(2)
+		})
+
+		it("Lot 2 — KR-265 étendu : verrou de tour sur R4 — 2e commande pendant l'attente R4 refusée, levée après résolution", async () => {
+			// Lot 2 : `parler` command accepté → R1 pose avis.type = 'aucun' → R4 appelé
+			// Le verrou DOIT rester posé pendant l'appel R4, et une 2e soumission doit être
+			// refusée jusqu'à ce que R4 se résolve.
+			const propositionParler = {
+				lecture: 'commande' as const,
+				commande: { commande: 'parler' as const, cibles: ['pnj-1'] },
+			}
+
+			// Contrôle du timing : retenir les résolveurs à la main
+			const resolveurs: Array<
+				(
+					reponse:
+						| { statut: 'propose'; proposition: SortieInterprete }
+						| { statut: string; replique: string }
+						| EchecCopilote,
+				) => void
+			> = []
+			demanderMock.mockImplementation(
+				() =>
+					new Promise((resolve) => {
+						resolveurs.push(resolve)
+					}),
+			)
+
+			const onSessionChange = jest.fn()
+			const { result } = monter(SESSION_TEST, onSessionChange)
+
+			// Temps 1 : première soumission `parler`
+			act(() => {
+				result.current.executeAction('parler pnj-1')
+			})
+			expect(demanderMock).toHaveBeenCalledTimes(1) // R1 appelé
+			expect(result.current.isLocked).toBe(true)
+
+			// Temps 2 : résoudre R1 avec succès (acceptation de la commande `parler`)
+			await act(async () => {
+				resolveurs[0]({ statut: 'propose', proposition: propositionParler })
+			})
+
+			// R4 doit être appelé maintenant (2e appel)
+			expect(demanderMock).toHaveBeenCalledTimes(2)
+			expect(result.current.isLocked).toBe(true) // Verrou RESTE POSÉ pendant R4
+
+			// Temps 3 : tentative d'une 2e soumission pendant que R4 est en vol
+			// Cette soumission DOIT être ignorée (verrou tenu).
+			act(() => {
+				result.current.executeAction('aller ailleurs')
+			})
+			expect(demanderMock).toHaveBeenCalledTimes(2) // Pas 3 — la garde tient bon
+
+			// Temps 4 : résoudre R4 avec succès (réplique valide)
+			await act(async () => {
+				resolveurs[1]({ statut: 'propose', replique: 'Bonjour à toi.' })
+			})
+
+			// Verrou doit être relâché après résolution R4
+			expect(result.current.isLocked).toBe(false)
+
+			// Temps 5 : vérifier qu'une 3e soumission après déverrouillage EST acceptée
+			act(() => {
+				result.current.executeAction('aller au nord')
+			})
+			expect(demanderMock).toHaveBeenCalledTimes(3) // MAINTENANT il y a un 3e appel
+		})
+
+		it('Lot 2 — KR-283 : échec silencieux — EchecCopilote → bannière existante, zéro texte de repli', async () => {
+			// Lot 2 : `parler` accepté → R4 appelé → R4 échoue (indisponible, contexte trop long, etc.)
+			// Résultat attendu : avis doit porter l'échec copilote, AUCUNE réplique posée,
+			// AUCUN texte de repli écrit par le code — la bannière standard d'EchecCopilote s'affiche.
+			const propositionParler = {
+				lecture: 'commande' as const,
+				commande: { commande: 'parler' as const, cibles: ['pnj-1'] },
+			}
+			const reponseActeurEchec = { statut: 'indisponible', raison: 'non-configure' } satisfies EchecCopilote
+
+			// Mock : R1 succès, R4 échoue
+			demanderMock
+				.mockResolvedValueOnce({ statut: 'propose', proposition: propositionParler })
+				.mockResolvedValueOnce(reponseActeurEchec)
+
+			const onSessionChange = jest.fn()
+			const { result } = monter(SESSION_TEST, onSessionChange)
+
+			await act(async () => {
+				await result.current.executeAction('parler pnj-1')
+			})
+
+			// Vérifications :
+			// 1. R4 a été appelé (2e appel après R1)
+			expect(demanderMock).toHaveBeenCalledTimes(2)
+
+			// 2. L'avis capte l'échec copilote — c'est ce qui sera affiché à l'écran
+			expect(result.current.avis).toEqual(reponseActeurEchec)
+
+			// 3. onSessionChange a été appelé UNE SEULE fois (après R1, pas de 2e après R4 échoué)
+			expect(onSessionChange).toHaveBeenCalledTimes(1)
+
+			// 4. AUCUNE réplique n'a été posée : le journal de la session ne porte pas de nouveau `recit`
+			const sessionApresR1 = onSessionChange.mock.calls[0][0] as EtatSession
+			const journalApres = sessionApresR1.journal
+			const entreesRecentes = journalApres.slice(-2) // Les 2 dernières entrées (joueur + moteur de `parler`)
+			expect(entreesRecentes[1]?.recit).toBeUndefined() // Pas de recit après le refus R4
+		})
+
+		it('Lot 2 — R4 appelé seulement si commande === parler et avis.type === aucun', async () => {
+			// Scénario : deux cas — `parler` accepté → R4 appelé, puis `agir` sans jet → R4 pas appelé
+			const tests = [
+				{
+					nom: 'parler accepté → R4 appelé',
+					r1Proposition: { lecture: 'commande' as const, commande: { commande: 'parler' as const, cibles: ['pnj-3'] } },
+					r4Response: { statut: 'propose' as const, replique: 'Salut!' },
+					attenduAppels: 2, // R1 + R4
+					attenduRecit: true,
+				},
+				{
+					nom: 'agir sans jet → R4 pas appelé, seulement R3',
+					r1Proposition: { lecture: 'commande' as const, commande: { commande: 'agir' as const, cibles: [] } },
+					r3Response: { recit: 'Vous agissez.', suggestions: [], faits_etablis: [] } satisfies SortieNarrateur,
+					attenduAppels: 2, // R1 + R3 (pas de R2/R4)
+					attenduRecit: true,
+				},
+			]
+
+			for (const test of tests) {
+				jest.resetAllMocks()
+				demanderMock.mockResolvedValueOnce({ statut: 'propose', proposition: test.r1Proposition })
+				if ('r4Response' in test) {
+					demanderMock.mockResolvedValueOnce({ statut: 'propose', ...test.r4Response })
+				} else if ('r3Response' in test) {
+					demanderMock.mockResolvedValueOnce({ statut: 'propose', proposition: test.r3Response })
+				}
+
+				const onSessionChange = jest.fn()
+				const { result } = monter(SESSION_TEST, onSessionChange)
+
+				await act(async () => {
+					await result.current.executeAction('test action')
+				})
+
+				expect(demanderMock).toHaveBeenCalledTimes(test.attenduAppels)
+			}
 		})
 	})
 })

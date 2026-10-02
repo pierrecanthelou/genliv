@@ -72,11 +72,14 @@ export interface CommandeDescripteur {
  *
  * UN VERBE N'ENTRE QU'AVEC SON CONSOMMATEUR NARRATIF (KR-263) : `agir` ne change
  * rien au monde, et un pas consommé sans rien de perceptible n'aurait été justifié
- * par rien — il entre dans le même lot que le narrateur qui le raconte.
+ * par rien — il entre dans le même lot que le narrateur qui le raconte. `parler`
+ * (n° 12 `moteur-acteurs`, it1) entre avec SON consommateur à lui : le rôle
+ * `acteur` (dixième rôle IA), jamais R3.
  *
  * L'ORDRE DES CLÉS EST L'ORDRE D'AFFICHAGE du message de refus
  * (`verbesDisponibles`) et l'ordre des rangs `G1…` de l'interprète : `aller`
- * d'abord, `agir` ensuite. Un ajout se fait à la FIN, jamais au milieu.
+ * d'abord, `agir` ensuite, `parler` en troisième. Un ajout se fait à la FIN,
+ * jamais au milieu.
  */
 export const COMMANDES = defineRegistre<CommandeDescripteur>()({
 	aller: { label: 'va au lieu', verbe: 'ALLER', refKinds: ['lieu'] },
@@ -89,6 +92,16 @@ export const COMMANDES = defineRegistre<CommandeDescripteur>()({
 	 * pratique.
 	 */
 	agir: { label: 'agit sur place', verbe: 'AGIR', refKinds: [] },
+	/**
+	 * ARITÉ 1, `refKinds: ['pnj']` — espace de noms VÉRIFIÉ dans `identifiers.ts`
+	 * (`ESPACES_DE_NOMS.pnj`), PAS `'personnage'` (désaccord #1 du raffinage it1,
+	 * Tech Lead concède). Son `label` est FIGÉ par le plan d'itération (§ 4, signature
+	 * frozen) : troisième personne, présent, portée « sur place », aucun mot de
+	 * mécanique — c'est sa SEULE source pour R1 et pour le bloc `CE PAS` du
+	 * narrateur (KR-269), et R3 n'étant jamais appelé sur ce verbe, seul R1 le lit
+	 * réellement en it1.
+	 */
+	parler: { label: "s'adresse à quelqu'un sur place", verbe: 'PARLER', refKinds: ['pnj'] },
 })
 
 export type CommandeId = keyof typeof COMMANDES
@@ -101,9 +114,22 @@ export interface Commande {
 
 /**
  * Registre CLOS des refus. Les deux premiers sortent de l'ANALYSE (la saisie
- * seule), les deux derniers de la RÉSOLUTION (le dossier et l'état).
+ * seule), les quatre derniers de la RÉSOLUTION (le dossier et l'état).
+ *
+ * `cible_indisponible` (n° 12 `moteur-acteurs`, it1, SEUL membre neuf du lot) —
+ * la cible RÉSOUT dans `monde.personnages[]` mais n'est pas candidate à `parler` :
+ * absente du lieu courant, ou sans aucune prose d'identité (`fonction`/`apparence`
+ * toutes deux vides). `cible_inconnue` (existant, précédent `aller`) reste pour
+ * l'identifiant qui ne résout dans AUCUN `monde.personnages[]` — DEUX refus
+ * distincts (désaccord #9 du raffinage, Tech Lead tranche), même texte d'interface
+ * pour les deux (§ 3 du plan : « {cible} n'est pas ici. »).
  */
-export type RefusCommande = 'verbe_inconnu' | 'arite_invalide' | 'cible_inconnue' | 'acces_absent'
+export type RefusCommande =
+	| 'verbe_inconnu'
+	| 'arite_invalide'
+	| 'cible_inconnue'
+	| 'acces_absent'
+	| 'cible_indisponible'
 
 /** Union DISCRIMINÉE — un appelant qui la rétrécit totalement n'a aucun bras muet. */
 export type ResultatSaisie =
@@ -133,6 +159,16 @@ function verbesDisponibles(): string {
  */
 function messageDeSaisieRefusee(saisie: string): string {
 	return `Commande inconnue : « ${saisie} ». Commandes disponibles : ${verbesDisponibles()}.`
+}
+
+/**
+ * LE GABARIT UNIQUE DES DEUX REFUS DE `parler` (n° 12, it1) — `cible_inconnue`
+ * et `cible_indisponible` produisent la MÊME expérience observable (§ 3 du
+ * plan), donc le MÊME texte, posé une seule fois pour qu'un futur refus
+ * distinct ne les fasse pas diverger en silence.
+ */
+function messageCibleIndisponible(cible: string): string {
+	return `${cible} n'est pas ici.`
 }
 
 /**
@@ -180,6 +216,25 @@ export function analyserSaisie(saisie: string): ResultatSaisie {
 export function destinationsPossibles(dossier: Dossier, session: EtatSession): readonly string[] {
 	const courant = dossier.monde.lieux.find((lieu) => lieu.id === session.monde.lieu_courant)
 	return courant?.acces ?? []
+}
+
+/**
+ * LES PERSONNAGES PRÉSENTS AU LIEU COURANT, RENDUS TELS QUELS — même doctrine que
+ * `destinationsPossibles` (n° 12 `moteur-acteurs`, it1) : ni dédoublonnés (un
+ * personnage n'apparaît qu'une fois dans `monde.personnages[]`, donc aucun
+ * doublon n'est possible par construction), ni filtrés sur l'identité — le
+ * filtrage sur `fonction`/`apparence` appartient aux CONSOMMATEURS
+ * (`TRANSITIONS.parler`, `assemblerInterprete`), chacun avec sa propre garde
+ * (l'une STRUCTURELLE, l'autre consciente du marqueur d'amorce) — jamais à cette
+ * fonction, qui reste une PROJECTION pure de `Presence.lieu_id`.
+ *
+ * `presence` ABSENTE ou VIDE est un état CALME : un personnage qu'aucune fiche ne
+ * situe n'est simplement candidat nulle part (même doctrine que `Lieu.acces` vide).
+ */
+export function personnagesPresents(dossier: Dossier, session: EtatSession): readonly string[] {
+	return dossier.monde.personnages
+		.filter((personnage) => (personnage.presence ?? []).some((p) => p.lieu_id === session.monde.lieu_courant))
+		.map((personnage) => personnage.id)
 }
 
 /**
@@ -318,6 +373,70 @@ const TRANSITIONS: Record<CommandeId, Transition> = {
 						role: 'moteur',
 						texte: `lieu_courant : ${session.monde.lieu_courant}`,
 						origine: commande.commande,
+					},
+				],
+			},
+		}
+	},
+
+	/**
+	 * PARLER — n° 12 `moteur-acteurs`, it1, lot `contrat`. UNE GARDE STRUCTURELLE,
+	 * jamais une lecture de prose (même doctrine que `aller`/`agir`) : elle résout
+	 * l'identifiant, constate la présence au lieu courant ET une prose d'identité
+	 * non vide — `fonction` OU `apparence` — mais ne lit NI l'une ni l'autre pour
+	 * en juger le CONTENU (le marqueur d'amorce est laissé à `contexte/acteur.ts`,
+	 * qui seul a le droit d'importer `copilote/contexte/noyau` — `dossier/` reste
+	 * import-free de `copilote/`).
+	 *
+	 * DEUX REFUS, DANS CET ORDRE (désaccord #9 du raffinage, Tech Lead) :
+	 * `cible_inconnue` quand l'identifiant ne résout dans AUCUN
+	 * `monde.personnages[]` (précédent `aller` : « existe mais n'y résout pas » et
+	 * « ne résout pas du tout » sont DEUX refus distincts) ; `cible_indisponible`
+	 * (SEUL membre neuf) quand il résout mais que le personnage est absent du lieu
+	 * courant OU SANS aucune prose d'identité. MÊME TEXTE D'INTERFACE pour les
+	 * deux : « {cible} n'est pas ici. » (§ 3 du plan).
+	 *
+	 * `monde` N'EST JAMAIS TOUCHÉ en it1 (design_contract) : la session rendue
+	 * porte la MÊME RÉFÉRENCE `monde` que l'argument — comme `agir`, ce verbe ne
+	 * change rien au monde, il ouvre seulement un tour de dialogue.
+	 *
+	 * L'ENTRÉE MOTEUR PORTE `interlocuteur` (n° 12, `session.ts`) EN PLUS
+	 * D'`origine` — SEULE PORTE D'ÉCRITURE de ce champ dans toute la feature,
+	 * condition d'admission KR-249 : sans elle, `contexte/acteur.ts` ne pourrait
+	 * pas filtrer « les répliques passées DE CE PNJ » (K=4, KR-282 étendu). Son
+	 * `texte` cite le nom du CHAMP qu'elle pose, exactement comme `lieu_courant`
+	 * pour `aller`/`agir` — seul champ réellement neuf que ce pas écrit, `monde`
+	 * restant inchangé.
+	 */
+	parler: (dossier, session, commande) => {
+		const cible = commande.cibles[0]
+		const personnage = dossier.monde.personnages.find((candidat) => candidat.id === cible)
+		if (personnage === undefined) {
+			return { ok: false, refus: 'cible_inconnue', message: messageCibleIndisponible(cible) }
+		}
+
+		const presentIci = (personnage.presence ?? []).some((p) => p.lieu_id === session.monde.lieu_courant)
+		const identiteNonVide = (personnage.fonction ?? '').trim() !== '' || (personnage.apparence ?? '').trim() !== ''
+		if (!presentIci || !identiteNonVide) {
+			return { ok: false, refus: 'cible_indisponible', message: messageCibleIndisponible(cible) }
+		}
+
+		const tour = session.horloge.tour + 1
+
+		return {
+			ok: true,
+			session: {
+				...session,
+				horloge: { tour },
+				journal: [
+					...session.journal,
+					{ tour, role: 'joueur', texte: `> ${COMMANDES[commande.commande].verbe} ${personnage.id}` },
+					{
+						tour,
+						role: 'moteur',
+						texte: `interlocuteur : ${personnage.id}`,
+						origine: commande.commande,
+						interlocuteur: personnage.id,
 					},
 				],
 			},

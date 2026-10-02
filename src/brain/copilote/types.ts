@@ -454,6 +454,15 @@ export type SortieInterprete =
 export interface TablesInterprete {
 	/** `P1…` → `Lieu.id`, les seuls lieux à la fois ACCESSIBLES et DÉCRITS. */
 	readonly lieux: ReadonlyMap<RangInjecte, string>
+	/**
+	 * `I1…` → `Personnage.id` (n° 12 `moteur-acteurs`, it1, ADDITIF) — les seuls
+	 * PNJ à la fois PRÉSENTS au lieu courant et IDENTIFIÉS (`fonction` ou
+	 * `apparence` rédigée). TABLE ET COMPTEUR SÉPARÉS de `lieux` (préfixe `I`,
+	 * désaccord #4 du raffinage it1) : un rang `I<n>` tenté sur `lieux` (ou
+	 * l'inverse) échoue en `rang-inconnu` (`validerInterprete`, prédicat 5),
+	 * jamais une résolution croisée.
+	 */
+	readonly personnages: ReadonlyMap<RangInjecte, string>
 	/** `G1…` → `CommandeId`, les seules commandes SATISFIABLES au tour courant
 	 *  (au moins une cible rangée pour chacun de leurs `refKinds`). */
 	readonly gestes: ReadonlyMap<RangInjecte, CommandeId>
@@ -697,3 +706,57 @@ export type PropositionEpreuve = { readonly epreuve: EpreuveProposee } | { reado
 /** LA NEUVIÈME UNION NOMMÉE — même doctrine que les huit précédentes : aucun appelant
  *  ne peut lire une proposition sur un échec, c'est le TYPAGE qui l'interdit. */
 export type ReponseArbitre = { statut: 'propose'; proposition: PropositionEpreuve } | EchecCopilote
+
+// ══ LE DIXIÈME RÔLE — `acteur` (n° 12 `moteur-acteurs`, it1) ════════════════
+//
+// ⚠ SES DEUX TYPES VIVENT ICI, Y COMPRIS SA CIBLE ET SA RÉPONSE — MÊME DOMICILE
+// QUE `narrateur`/`arbitre` (§ 4/§ 5 du plan d'itération) : c'est le fichier que
+// le lot `contrat` leur assigne, lu par `CopiloteService.ts` (surcharge +
+// implémentation) et par la feature via le baril `brain/index.ts`.
+//
+// COMME `interprete`/`narrateur`/`arbitre`, CE RÔLE N'EST PAS DANS
+// `RoleCopilote` : ni fiche d'entité ni prose de rédaction, il n'a rien à faire
+// dans les trois `Record<RoleCopilote, …>` de `contexte/registres.ts`. Son
+// contexte a SA PROPRE borne (`BUDGET_CARACTERES_ACTEUR`, `contexte/acteur.ts`),
+// hors de la parité auteur de `worker/frontiere.test.ts`.
+
+/**
+ * LA CIBLE DU DIXIÈME RÔLE — `session`, `personnageId` et `saisie`, SIGNATURE
+ * FIGÉE au § 4 du plan d'itération.
+ *
+ * `session`, et JAMAIS une projection : l'assembleur (`contexte/acteur.ts`)
+ * dérive `TU AS DIT` du journal (`interlocuteur`, `recit`, `tour`) et `ETABLI`
+ * de `session.memoire` — une seconde source de ce que la session dit déjà
+ * divergerait (KR-013, précédent `CibleNarrateur`).
+ *
+ * `personnageId`, et JAMAIS `acteurId`/`entiteId` : AUCUN synonyme concurrent
+ * n'existe pour ce rôle — c'est le nom du champ que `assemblerActeur` reçoit en
+ * troisième position (signature figée).
+ *
+ * `saisie` — ce que le joueur a tapé à `parler`, EN DERNIÈRE position du
+ * contexte, normalisée, bornée (`SAISIE_CARACTERES_MAX`, réutilisée de
+ * `./interprete`, précédent `CibleArbitre`).
+ */
+export interface CibleActeur {
+	role: 'acteur'
+	readonly personnageId: string
+	readonly saisie: string
+	readonly session: EtatSession
+}
+
+/**
+ * CE QUE LE MODÈLE REND ET CE QUE LE CODE RE-RÉSOUT — LA MÊME FORME, et c'est
+ * un INVARIANT ASSUMÉ, pas un oubli de KR-231 : `replique` est de la PROSE PURE,
+ * sans rang ni handle à re-résoudre — contrairement à TOUS les rôles à rangs
+ * précédents, il n'y a RIEN à traduire entre le réseau et l'appelant. Le
+ * CONSOMMATEUR (`useTourDeJeu`, lot `feature`) la pose directement dans
+ * `EntreeJournal.recit` via `consignerNarration`, réutilisée telle quelle.
+ *
+ * `CLES_SORTIE_ACTEUR` (`schemaSortie.ts`) PILOTE `validerActeur`, qui rend
+ * cette forme EXACTE en branche de succès — précédent `PropositionEpreuve`
+ * (rôle `arbitre`), seul autre rôle dont la proposition de succès porte déjà la
+ * forme résolue sans `Map.get`.
+ */
+export interface ReponseActeur {
+	readonly replique: string
+}

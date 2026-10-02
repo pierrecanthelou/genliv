@@ -1,6 +1,6 @@
 import { type CSSProperties, type FormEvent, useState } from 'react'
 import { Field } from '../../../brain'
-import type { AvisInterprete, EchecCopilote, EtatSession } from '../../../brain'
+import type { AvisInterprete, Dossier, EchecCopilote, EtatSession } from '../../../brain'
 import type { IssueNarrateur } from '../hooks/useTourDeJeu'
 import { OutcomeBlock } from './OutcomeBlock'
 
@@ -22,6 +22,10 @@ import { OutcomeBlock } from './OutcomeBlock'
  *  · `issueNarrateur` — état de R3, null avant réponse, puis IssueNarrateur (lot 2).
  *  · `session` — session courante (pour accéder à attente.question en clarification,
  *    et pour lire le récit du pas courant dans le journal).
+ *  · `dossier` — pour projeter `EntreeJournal.interlocuteur` (un id, moteur) vers le
+ *    `nom` (auteur) du PNJ qui parle, en entête du bloc — n°12 `moteur-acteurs`, it1.
+ *    JAMAIS injecté à aucun rôle IA (KR-284) ; c'est un affichage pur, le joueur
+ *    connaît déjà ce nom (il vient de le taper).
  *
  * ZÉRO IMPORT DE `ConsoleCommandes` ET RÉCIPROQUEMENT — garde mécanisée (`PlayerInputBar.test.tsx`).
  */
@@ -33,6 +37,7 @@ export interface PlayerInputBarProps {
 	readonly isLocked: boolean
 	readonly issueNarrateur: IssueNarrateur | null
 	readonly session: EtatSession
+	readonly dossier: Dossier
 }
 
 const LIBELLE_CHAMP = 'QUE FAITES-VOUS ?'
@@ -59,6 +64,7 @@ export function PlayerInputBar({
 	isLocked,
 	issueNarrateur,
 	session,
+	dossier,
 }: PlayerInputBarProps): JSX.Element {
 	const [saisie, setSaisie] = useState('')
 
@@ -83,12 +89,18 @@ export function PlayerInputBar({
 
 	// Dériver le récit affiché depuis la session (jamais d'un état du hook)
 	// — l'entrée du tour courant qui porte `origine` et `recit`.
-	const recitDuTourCourant = (() => {
-		const entreeRecente = session.journal.find(
-			(e) => e.tour === session.horloge.tour && e.origine !== undefined && e.recit !== undefined,
-		)
-		return entreeRecente?.recit ?? null
-	})()
+	const entreeRecente = session.journal.find(
+		(e) => e.tour === session.horloge.tour && e.origine !== undefined && e.recit !== undefined,
+	)
+	const recitDuTourCourant = entreeRecente?.recit ?? null
+
+	// Entête du bloc : le nom du PNJ si ce pas est une réplique d'acteur
+	// (origine === 'parler'), sinon RÉCIT (R3) — n°12 `moteur-acteurs` it1.
+	// Projection pure depuis le dossier, jamais injectée à l'IA (KR-284).
+	const enteteRecit =
+		entreeRecente?.origine === 'parler' && entreeRecente.interlocuteur !== undefined
+			? (dossier.monde.personnages.find((p) => p.id === entreeRecente.interlocuteur)?.nom ?? ENTETE_RECIT)
+			: ENTETE_RECIT
 
 	return (
 		<>
@@ -123,11 +135,12 @@ export function PlayerInputBar({
 				</OutcomeBlock>
 			)}
 
-			{/* OutcomeBlock pour RÉCIT (lot 2, R3 succès) — affiché si une entrée
-			    du tour courant porte un récit valide */}
+			{/* OutcomeBlock pour RÉCIT (lot 2, R3 succès) OU pour une réplique de PNJ
+			    (n°12 it1, origine 'parler') — affiché si une entrée du tour courant
+			    porte un récit valide ; l'entête distingue les deux (nom du PNJ vs RÉCIT). */}
 			{recitDuTourCourant && (
 				<>
-					<OutcomeBlock entete={ENTETE_RECIT}>{recitDuTourCourant}</OutcomeBlock>
+					<OutcomeBlock entete={enteteRecit}>{recitDuTourCourant}</OutcomeBlock>
 					{/* Liste de suggestions (lot 2, R3 succès) — inline, non-interactive,
 					    aucune bordure ni styling interactif. Rien si liste vide.
 					    Affichées ssi tour === tour courant (évite affichage périmé au tour suivant). */}

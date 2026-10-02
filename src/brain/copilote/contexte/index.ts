@@ -55,3 +55,8 @@ export type { ContexteNarrateur } from './narrateur'
 // sort d'ICI pour `worker/frontiere.test.ts` SEULEMENT — jamais par `brain/index.ts`.
 export { assemblerArbitre, BUDGET_CARACTERES_ARBITRE } from './arbitre'
 export type { ContexteArbitre } from './arbitre'
+// LE DIXIÈME ASSEMBLEUR (n° 12 `moteur-acteurs`, it1) — HORS DE LA COUTURE COMMUNE
+// lui aussi, même motif que les trois précédents. `BUDGET_CARACTERES_ACTEUR` sort
+// d'ICI pour `worker/frontiere.test.ts` SEULEMENT — jamais par `brain/index.ts`.
+export { assemblerActeur, BUDGET_CARACTERES_ACTEUR } from './acteur'
+export type { ContexteActeur } from './acteur'

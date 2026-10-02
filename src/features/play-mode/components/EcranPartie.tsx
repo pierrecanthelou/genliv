@@ -270,6 +270,7 @@ function PartieEnCours({
 					isLocked={isLocked}
 					issueNarrateur={issueNarrateur}
 					session={session}
+					dossier={dossier}
 				/>
 			</div>
 		</CadrePartie>

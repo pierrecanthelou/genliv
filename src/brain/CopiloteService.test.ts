@@ -12,16 +12,18 @@ import {
 	type CibleRepliques,
 } from './CopiloteService'
 import {
+	assemblerActeur,
 	assemblerArbitre,
 	assemblerDetenteurs,
 	assemblerDistribution,
 	assemblerNarrateur,
 	assemblerRelations,
+	BUDGET_CARACTERES_ACTEUR,
 	BUDGET_CARACTERES_ARBITRE,
 	BUDGET_CARACTERES_NARRATEUR,
 } from './copilote/contexte'
 import { GABARIT_SORTIE } from './copilote/schemaSortie'
-import type { CibleArbitre, CibleNarrateur } from './copilote/types'
+import type { CibleActeur, CibleArbitre, CibleNarrateur } from './copilote/types'
 import { MARQUEUR_A_ECRIRE } from './dossier/amorce'
 import { analyserSaisie, executerCommande } from './dossier/commandes'
 import { consignerNarration } from './dossier/recit'
@@ -2740,7 +2742,7 @@ describe('CopiloteService — le neuvieme role, arbitre', () => {
 		expect(espions.emit).not.toHaveBeenCalled()
 	})
 
-	it('la NEUVIEME surcharge est ecrite aux DEUX sites, et la garde never ferme toujours l union — AUCUNE dixieme', () => {
+	it('la NEUVIEME surcharge est ecrite aux DEUX sites, et la garde never ferme toujours l union — UNE DIXIEME EXISTE DESORMAIS (n 12)', () => {
 		const source = fs.readFileSync(path.join(__dirname, 'CopiloteService.ts'), 'utf8')
 		// ⚠ DEUX SITES — l'interface publique ET l'implémentation.
 		expect(source.match(/demander\(dossier: Dossier, cible: CibleArbitre/g) ?? []).toHaveLength(2)
@@ -2752,8 +2754,9 @@ describe('CopiloteService — le neuvieme role, arbitre', () => {
 		expect(dispatch).toContain("case 'arbitre':")
 		expect(dispatch).toContain('return demanderArbitre(dossier, cible, signal)')
 		expect(dispatch).toContain('const _exhaustif: never = cible')
-		// NEUF branches, une par étiquette — et le `default` ne délègue toujours à rien.
-		expect(dispatch.match(/\n\t\t\tcase '[a-z-]+':/g) ?? []).toHaveLength(9)
+		// DIX branches, une par étiquette (n° 12 `moteur-acteurs`, it1 ajoute `acteur`) —
+		// et le `default` ne délègue toujours à rien.
+		expect(dispatch.match(/\n\t\t\tcase '[a-z-]+':/g) ?? []).toHaveLength(10)
 		expect(dispatch.slice(dispatch.indexOf('default:'))).not.toContain('demander')
 		// Et `jusquAuRejeuUnique` reste GÉNÉRIQUE — aucune branche propre à l'arbitre.
 		const boucle = source.slice(
@@ -2780,5 +2783,161 @@ describe('CopiloteService — le neuvieme role, arbitre', () => {
 			(appel) => (JSON.parse(String((appel[1] as RequestInit).body)) as { role: string }).role,
 		)
 		expect(roles).toEqual(['arbitre', 'narrateur'])
+	})
+})
+
+/**
+ * LE DIXIÈME RÔLE — `acteur` (n° 12 `moteur-acteurs`, it1, lot `contrat`).
+ *
+ * ⚠ SEUL RÔLE DONT LE SUCCÈS N'EST PAS ENVELOPPÉ `{statut:'propose', proposition}` —
+ * `ReponseActeur` est rendue TELLE QUELLE (signature figée § 4 du plan) : il n'y a RIEN
+ * à re-résoudre, `validerActeur` rend déjà la forme finale.
+ */
+describe('CopiloteService — le dixieme role, acteur', () => {
+	const ROLE_ACTEUR = 'acteur'
+	const REPLIQUE = "L'enclume ne chôme jamais, même quand le ciel s'assombrit."
+
+	/** Une session OUVERTE par le produit — jamais forgée. Le départ de
+	 *  `dossier-reference.json` est `lieu.foyer-du-guet`, où Harek (lot contrat d'it1)
+	 *  est présent et identifié. */
+	function ouverte(dossier: Dossier): EtatSession {
+		const resultat = ouvrirSession(dossier, { graine_alea: 424242 })
+		if (!resultat.ok) throw new Error(`ouverture refusée : ${resultat.refus}`)
+		return resultat.session
+	}
+
+	function cible(session: EtatSession, personnageId = 'pnj.harek-le-forgeron', saisie = 'bonjour'): CibleActeur {
+		return { role: ROLE_ACTEUR, personnageId, saisie, session }
+	}
+
+	const conforme = (extra: Record<string, unknown> = {}): Record<string, unknown> => ({
+		replique: REPLIQUE,
+		...extra,
+	})
+
+	it('un appel, corps EXACTEMENT {role, contexte}, et la REPONSE RENDUE TELLE QUELLE — SANS wrapper statut/proposition', async () => {
+		const dossier = dossierDeReference()
+		const session = ouverte(dossier)
+		fetchMock.mockResolvedValue(reponseWorker(conforme()))
+
+		const reponse = await createCopiloteService(reglages()).demander(dossier, cible(session))
+
+		expect(fetchMock).toHaveBeenCalledTimes(1)
+		// ⚠ PAS DE `{statut:'propose', proposition}` — précédent des neuf rôles rompu
+		// délibérément (§ 4 du plan, FIGÉ) : `ReponseActeur` est la réponse ELLE-MÊME.
+		expect(reponse).toEqual({ replique: REPLIQUE })
+		expect('statut' in reponse).toBe(false)
+
+		const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+		expect(url).toBe(`${URL_WORKER}/ia/${ROLE_ACTEUR}`)
+		// `toEqual` SUR LE CORPS ENTIER, jamais une inclusion : `{ ...cible, contexte }`
+		// mettrait `session`/`personnageId` sur le fil (KR-231).
+		const contexte = assemblerActeur(dossier, session, 'pnj.harek-le-forgeron', 'bonjour')
+		if (!contexte.ok) throw new Error(`contexte refusé : ${contexte.motif}`)
+		expect(JSON.parse(String(init.body))).toEqual({ role: ROLE_ACTEUR, contexte: contexte.texte })
+		// `CibleActeur` PORTE une session entière : rien d'elle ne doit franchir le réseau
+		// — vérifié en DÉFENSE.
+		const corps = String(init.body)
+		for (const interdit of [dossier.id, '424242', 'pnj.harek-le-forgeron', 'heros']) {
+			expect(`${interdit} → ${corps.includes(interdit)}`).toBe(`${interdit} → false`)
+		}
+	})
+
+	it('rejeu-un-coup : une reponse fautive puis une valide = 2 fetch, MEME corps', async () => {
+		const dossier = dossierDeReference()
+		const session = ouverte(dossier)
+		fetchMock
+			.mockResolvedValueOnce(reponseWorker(conforme({ ton: 'en trop' })))
+			.mockResolvedValueOnce(reponseWorker(conforme()))
+
+		const reponse = await createCopiloteService(reglages()).demander(dossier, cible(session))
+
+		expect(fetchMock).toHaveBeenCalledTimes(2)
+		const [, un] = fetchMock.mock.calls[0] as [string, RequestInit]
+		const [, deux] = fetchMock.mock.calls[1] as [string, RequestInit]
+		expect(JSON.parse(String(un.body))).toEqual(JSON.parse(String(deux.body)))
+		expect(reponse).toEqual({ replique: REPLIQUE })
+	})
+
+	it('deux reponses fautives = illisible, avec le motif du SECOND echec, et jamais un troisieme appel', async () => {
+		const dossier = dossierDeReference()
+		const session = ouverte(dossier)
+		fetchMock
+			.mockResolvedValueOnce(reponseWorker(conforme({ ton: 'x' }))) // schema (cle en trop)
+			.mockResolvedValueOnce(reponseWorker({ replique: 'Revenez dans 7 jours.' })) // identifiant (chiffre)
+			.mockResolvedValueOnce(reponseWorker(conforme())) // jamais atteint
+
+		const reponse = await createCopiloteService(reglages()).demander(dossier, cible(session))
+
+		expect(fetchMock).toHaveBeenCalledTimes(2)
+		expect(reponse).toEqual({ statut: 'illisible', motif: 'identifiant' })
+	})
+
+	it('503, 413 et reseau = UN SEUL fetch chacun, jamais un rejeu', async () => {
+		const dossier = dossierDeReference()
+		const session = ouverte(dossier)
+		const service = createCopiloteService(reglages())
+
+		fetchMock.mockResolvedValueOnce(reponseWorker({}, 503))
+		expect(await service.demander(dossier, cible(session))).toEqual({ statut: 'indisponible', raison: 'non-configure' })
+		fetchMock.mockResolvedValueOnce(reponseWorker({ erreur: 'trop-grand' }, 413))
+		expect(await service.demander(dossier, cible(session))).toEqual({ statut: 'indisponible', raison: 'injoignable' })
+		fetchMock.mockRejectedValueOnce(new Error('reseau'))
+		expect(await service.demander(dossier, cible(session))).toEqual({ statut: 'indisponible', raison: 'injoignable' })
+
+		expect(fetchMock).toHaveBeenCalledTimes(3)
+	})
+
+	it('les DEUX refus de contexte partent AVANT tout appel, meme worker non configure', async () => {
+		const dossier = dossierDeReference()
+		const session = ouverte(dossier)
+		// `cible-a-ecrire` — un PNJ SANS aucune prose d'identité (fiction : Aubry
+		// l'intendant, présent nulle part et sans `fonction`/`apparence` dans la fixture).
+		const sansIdentite = cible(session, 'pnj.aubry-l-intendant')
+		// `trop-long` — une saisie qui fait déborder la borne.
+		const bavarde = cible(session, 'pnj.harek-le-forgeron', 'x'.repeat(BUDGET_CARACTERES_ACTEUR))
+
+		for (const service of [createCopiloteService(reglages()), createCopiloteService(reglages(null, null))]) {
+			expect(await service.demander(dossier, sansIdentite)).toEqual({ statut: 'refuse', motif: 'cible-a-ecrire' })
+			expect(await service.demander(dossier, bavarde)).toEqual({ statut: 'refuse', motif: 'trop-long' })
+		}
+		expect(fetchMock).not.toHaveBeenCalled()
+	})
+
+	it('une configuration incomplete rend indisponible non-configure, sans aucun appel', async () => {
+		const dossier = dossierDeReference()
+
+		const reponse = await createCopiloteService(reglages(null, null)).demander(dossier, cible(ouverte(dossier)))
+
+		expect(reponse).toEqual({ statut: 'indisponible', raison: 'non-configure' })
+		expect(fetchMock).not.toHaveBeenCalled()
+	})
+
+	it('sur etat terminal du dixieme role : update, persistance et bus restent muets', async () => {
+		const { brain, espions } = brainEspionne()
+		const dossier = dossierDeReference()
+		fetchMock.mockResolvedValue(reponseWorker(conforme({ ton: 'en trop' })))
+
+		const reponse = await brain.copilote.demander(dossier, cible(ouverte(dossier)))
+
+		expect('statut' in reponse && reponse.statut).toBe('illisible')
+		expect(espions.update).not.toHaveBeenCalled()
+		expect(espions.set).not.toHaveBeenCalled()
+		expect(espions.emit).not.toHaveBeenCalled()
+	})
+
+	it('le dispatch suit l ETIQUETTE : acteur part sur SA route, jamais sur une autre', async () => {
+		const dossier = dossierDeReference()
+		const session = ouverte(dossier)
+		fetchMock
+			.mockResolvedValueOnce(reponseWorker(conforme()))
+			.mockResolvedValueOnce(reponseWorker({ tentatives: [], constats: [], narration: 'Vous avancez.' }))
+
+		const service = createCopiloteService(reglages())
+		await service.demander(dossier, cible(session))
+		await service.demander(dossier, { role: 'narrateur', saisie: 'je regarde', session })
+
+		const urls = fetchMock.mock.calls.map((appel) => String(appel[0]))
+		expect(urls).toEqual([`${URL_WORKER}/ia/acteur`, `${URL_WORKER}/ia/narrateur`])
 	})
 })

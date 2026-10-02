@@ -1679,8 +1679,14 @@ describe('avertissement-de-validation, le pont vers les avertissements du valida
 			// par son propre témoin, dans le bloc « indice-sans-source » : ici on ne
 			// tient que le calme d'ensemble.
 			'indice-sans-source · alerte · indices · monde.indices[].id',
-			'depart-desert · bloquant · depart · charpente.depart.lieu_id',
-			SANS_PRESENCE,
+			// ⚠ `depart-desert` A DISPARU AU LOT CONTRAT DE LA n° 12 (`moteur-acteurs`,
+			// it1) — DÉFAUT RÉEL CORRIGÉ, PAS UNE RÉGRESSION DE CE TÉMOIN : Harek gagne
+			// une `presence` au Foyer du Guet (le lieu de départ), prérequis de la démo
+			// « parler à Harek » (§ 8 désaccord #12 du plan it1). Le départ n'est plus
+			// désert, donc la règle ne trouve plus rien à signaler.
+			// ⚠ SANS_PRESENCE PASSE DE QUATRE À TROIS OCCURRENCES, MÊME MOTIF : Harek, qui
+			// n'avait aucune `presence`, en porte désormais une — un personnage de moins
+			// sous cette règle (Mira, Tobin, Aubry restent sans presence).
 			SANS_PRESENCE,
 			SANS_PRESENCE,
 			SANS_PRESENCE,
@@ -1699,7 +1705,12 @@ describe('avertissement-de-validation, le pont vers les avertissements du valida
 			// cette règle s'interdise. RÉGRESSION PRODUIT ASSUMÉE, dans la direction
 			// permise (le silence), et assertée en négatif dans le bloc de la règle.
 		])
-		expect(reference.jouable).toBe(false)
+		// ⚠ `jouable` PASSE À `true` AU LOT CONTRAT DE LA n° 12 — `depart-desert` était
+		// le SEUL `bloquant` du dossier de référence ; sa disparition (voir ci-dessus)
+		// rend la partie lançable. Discriminant mesuré, pas supposé : `reference.controles`
+		// ne porte plus aucune ligne `bloquant` (toutes `alerte`/`info` ci-dessus).
+		expect(reference.controles.some((controle) => controle.niveau === 'bloquant')).toBe(false)
+		expect(reference.jouable).toBe(true)
 
 		// LE MÉCANISME du silence, nommé plutôt que constaté : aucun des trois ne
 		// porte d'avertissement, donc le pont n'a rien à mapper. Sans cette ligne, un

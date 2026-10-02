@@ -281,7 +281,7 @@ Charger par référence plutôt que tout charger est ce qui évite le contexte m
 | Fichier | Croissance | Mesuré | Plafond | Marge |
 | --- | --- | ---: | ---: | ---: |
 | `CLAUDE.md` + `docs/WORKFLOW.md` (couple) | défaut | 46 077 o | **45 kio** (46 080) | **3 o** |
-| `code-knowledge.json` | normale | 71 550 o | **70 kio** (71 680) | ~130 o |
+| `code-knowledge.json` | **compacté** (n° 12 `moteur-acteurs`, it1) | 71 491 o | **70 kio** (71 680) | 189 o |
 | `bug_history.json` | **plancher** (BUG-128) | 15 299 o | **15 kio** (15 360) | 61 o |
 | `features_history.json` | **plancher** (`dossier-copilote`) | 14 950 o | **25 kio** (25 600) | ~10,40 kio |
 | `specification.json`, **par feature** | normale | 66 487 o (max : `dossier-format` ; 2e : `dossier-canon` 66 276 o) | **65 kio** (66 560) | **73 o** |

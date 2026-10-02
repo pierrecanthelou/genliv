@@ -78,6 +78,14 @@ import type { EtatSession } from '../session'
  * `monde.lieu_courant`. Sans instance, les deux lignes `journal[].jet.carac`/`.tc` de la
  * table seraient mortes le jour même où elles sont écrites.
  *
+ * `interlocuteur` INSTANCIÉ depuis le lot `contrat` de la n° 12 (`moteur-acteurs`, it1),
+ * SUR LA MÊME ENTRÉE que `recit`/`jet` — ce balayage d'audience ne juge pas la
+ * VRAISEMBLANCE d'un pas (un `aller` qui porterait aussi un `interlocuteur` est une
+ * COMBINAISON ARTIFICIELLE, même précédent que `jet` déjà empilé sur la même entrée
+ * `origine: 'aller'`, qu'aucune partie réelle ne produirait) : sa seule fonction est de
+ * porter une valeur sous CHAQUE chemin de feuille de la session. Sans instance, la ligne
+ * `journal[].interlocuteur` de la table serait morte le jour même où elle est écrite.
+ *
  * `memoire` INSTANCIÉE NON NULLE depuis le lot `contrat` de la n° 10 it3 — sans elle, ses
  * quatre lignes de feuille (`…fait`, `…sur[]`, `…texte`, `…jusqu_au_pas`) seraient MORTES
  * le jour même. Elle ENSEIGNE LES INVARIANTS qu'elle illustre, et c'est pourquoi l'horloge
@@ -121,6 +129,7 @@ export const SESSION_SATUREE: EtatSession = {
 			origine: 'aller',
 			recit: 'Vous descendez dans le val ; la cendre crisse sous vos pas et le vent retombe.',
 			jet: { carac: 'AG', tc: 'TC2' },
+			interlocuteur: 'pnj.aldur-le-sage',
 		},
 		{
 			tour: 17,

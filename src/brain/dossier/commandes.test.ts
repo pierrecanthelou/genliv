@@ -5,6 +5,7 @@ import {
 	analyserSaisie,
 	destinationsPossibles,
 	executerCommande,
+	personnagesPresents,
 	type Commande,
 	type CommandeDescripteur,
 	type ResultatCommande,
@@ -353,26 +354,28 @@ describe('analyserSaisie, les deux refus d analyse', () => {
 		// LE GABARIT EST APPLIQUÉ TEL QUEL À UNE SAISIE VIDE : les guillemets encadrent
 		// une chaîne vide, donc DEUX espaces. C'est le gabarit qui le dit, pas une
 		// valeur recopiée d'un rapport d'échec — `« ` + `` + ` »`.
-		// ⚠ « ALLER, AGIR » DEPUIS LA n° 10 it2 — corrigé EN VALEUR parce que le registre a
-		// RÉELLEMENT bougé : la liste est dérivée, et c'est elle qui le dit.
-		expect(messageDe(vide)).toBe('Commande inconnue : «  ». Commandes disponibles : ALLER, AGIR.')
+		// ⚠ « ALLER, AGIR, PARLER » DEPUIS LA n° 12 it1 — corrigé EN VALEUR parce que le
+		// registre a RÉELLEMENT bougé : la liste est dérivée, et c'est elle qui le dit.
+		expect(messageDe(vide)).toBe('Commande inconnue : «  ». Commandes disponibles : ALLER, AGIR, PARLER.')
 
 		const horsRegistre = analyserSaisie('SAUTER lieu.x')
 		expect(horsRegistre.ok === false && horsRegistre.refus).toBe('verbe_inconnu')
-		expect(messageDe(horsRegistre)).toBe('Commande inconnue : « SAUTER lieu.x ». Commandes disponibles : ALLER, AGIR.')
+		expect(messageDe(horsRegistre)).toBe(
+			'Commande inconnue : « SAUTER lieu.x ». Commandes disponibles : ALLER, AGIR, PARLER.',
+		)
 
 		// UN SEUL GABARIT pour les deux refus d'analyse : une arité fautive est une
 		// commande qu'on ne reconnaît pas.
 		expect(messageDe(analyserSaisie('ALLER lieu.x lieu.y'))).toBe(
-			'Commande inconnue : « ALLER lieu.x lieu.y ». Commandes disponibles : ALLER, AGIR.',
+			'Commande inconnue : « ALLER lieu.x lieu.y ». Commandes disponibles : ALLER, AGIR, PARLER.',
 		)
 	})
 
 	it('liste des verbes DERIVEE du registre — le verbe fictif le prouve', () => {
-		// UNE LISTE EN DUR NE SE SÉPARE QUE PAR UN MUTANT : `"… : ALLER, AGIR."` écrit à
-		// la main passerait toutes les lignes ci-dessus. Le mutant est donc OBLIGATOIRE —
-		// il est la seule mesure du pouvoir séparateur (BUG-087). Depuis la n° 10 it2,
-		// le registre porte DEUX verbes réels, et le fictif est le TROISIÈME.
+		// UNE LISTE EN DUR NE SE SÉPARE QUE PAR UN MUTANT : `"… : ALLER, AGIR, PARLER."`
+		// écrit à la main passerait toutes les lignes ci-dessus. Le mutant est donc
+		// OBLIGATOIRE — il est la seule mesure du pouvoir séparateur (BUG-087). Depuis la
+		// n° 12 it1, le registre porte TROIS verbes réels, et le fictif est le QUATRIÈME.
 		//
 		// `defineRegistre` ne gèle rien (`identifiers.ts` : elle rend la carte telle
 		// quelle), donc le registre est écrivable au runtime. C'est aussi pourquoi il
@@ -382,14 +385,14 @@ describe('analyserSaisie, les deux refus d analyse', () => {
 		const SAISIE = 'ALER lieu.foret-noire'
 
 		expect(messageDe(analyserSaisie(SAISIE))).toBe(
-			'Commande inconnue : « ALER lieu.foret-noire ». Commandes disponibles : ALLER, AGIR.',
+			'Commande inconnue : « ALER lieu.foret-noire ». Commandes disponibles : ALLER, AGIR, PARLER.',
 		)
 
 		try {
 			registre.sauter = { label: 'saute', verbe: 'SAUTER', refKinds: ['lieu'] }
 
 			expect(messageDe(analyserSaisie(SAISIE))).toBe(
-				'Commande inconnue : « ALER lieu.foret-noire ». Commandes disponibles : ALLER, AGIR, SAUTER.',
+				'Commande inconnue : « ALER lieu.foret-noire ». Commandes disponibles : ALLER, AGIR, PARLER, SAUTER.',
 			)
 			// Et le verbe fictif est RECONNU, arité comprise : la dérivation ne s'arrête
 			// pas au message.
@@ -401,11 +404,12 @@ describe('analyserSaisie, les deux refus d analyse', () => {
 			delete registre.sauter
 		}
 
-		// RÉVOCATION CONSTATÉE, jamais supposée — et L'ORDRE des deux verbes réels est
-		// celui du registre : `aller` d'abord, `agir` ensuite (ordre des rangs `G1…`).
-		expect(Object.keys(COMMANDES)).toEqual(['aller', 'agir'])
+		// RÉVOCATION CONSTATÉE, jamais supposée — et L'ORDRE des trois verbes réels est
+		// celui du registre : `aller` d'abord, `agir` ensuite, `parler` en troisième
+		// (ordre des rangs `G1…`).
+		expect(Object.keys(COMMANDES)).toEqual(['aller', 'agir', 'parler'])
 		expect(messageDe(analyserSaisie(SAISIE))).toBe(
-			'Commande inconnue : « ALER lieu.foret-noire ». Commandes disponibles : ALLER, AGIR.',
+			'Commande inconnue : « ALER lieu.foret-noire ». Commandes disponibles : ALLER, AGIR, PARLER.',
 		)
 	})
 })
@@ -445,7 +449,9 @@ describe('agir, le verbe d arite zero', () => {
 		const avecCible = analyserSaisie('AGIR lieu.x')
 		expect(avecCible.ok === false && avecCible.refus).toBe('arite_invalide')
 		// Et le refus porte le MÊME gabarit que les autres refus d'analyse.
-		expect(messageDe(avecCible)).toBe('Commande inconnue : « AGIR lieu.x ». Commandes disponibles : ALLER, AGIR.')
+		expect(messageDe(avecCible)).toBe(
+			'Commande inconnue : « AGIR lieu.x ». Commandes disponibles : ALLER, AGIR, PARLER.',
+		)
 	})
 
 	it('executer : le monde est la MEME reference, l horloge avance de 1, deux entrees dont une a origine', () => {
@@ -528,6 +534,163 @@ describe('agir, le verbe d arite zero', () => {
 
 		expect(apres.attente).toBe(avecAttente.attente)
 		expect(apres.monde).toBe(avecAttente.monde)
+	})
+})
+
+/**
+ * PARLER — n° 12 `moteur-acteurs`, it1, lot `contrat` (§ 6 critère 2, § 7 du plan
+ * d'itération : « commandes.test.ts — TRANSITIONS.parler garde »). CE QUI LE
+ * DISTINGUE D'`aller`/`agir` : arité 1 sur `refKinds:['pnj']`, DEUX refus de
+ * RÉSOLUTION au lieu d'un (`cible_inconnue` puis `cible_indisponible`), et une
+ * garde STRUCTURELLE — ni `fonction` ni `apparence` ne sont LUES pour leur
+ * CONTENU, seulement constatées non vides. `monde` N'EST JAMAIS TOUCHÉ, comme
+ * `agir`. AUCUN appel à `CopiloteService` n'est construit ICI : la garde refuse
+ * AVANT toute construction de `CibleActeur` (ce module n'importe d'ailleurs rien
+ * de `copilote/`).
+ */
+describe('parler, le dixieme role — garde structurelle (n 12 moteur-acteurs, it1)', () => {
+	it('le registre porte parler : arite 1 sur refKinds:[pnj], verbe PARLER, label FIGE par le plan', () => {
+		expect(COMMANDES.parler.refKinds).toEqual(['pnj'])
+		expect(COMMANDES.parler.verbe).toBe('PARLER')
+		// LIBELLÉ FIGÉ au § 4 du plan d'itération — épinglé mot pour mot.
+		expect(COMMANDES.parler.label).toBe("s'adresse à quelqu'un sur place")
+		// Discriminant : les trois libellés sont distincts.
+		expect(new Set([COMMANDES.aller.label, COMMANDES.agir.label, COMMANDES.parler.label]).size).toBe(3)
+	})
+
+	it('analyse : PARLER <id> est accepte en arite 1, comme ALLER', () => {
+		expect(analyserSaisie('PARLER pnj.harek-le-forgeron')).toEqual({
+			ok: true,
+			commande: { commande: 'parler', cibles: ['pnj.harek-le-forgeron'] },
+		})
+		const sansCible = analyserSaisie('PARLER')
+		expect(sansCible.ok === false && sansCible.refus).toBe('arite_invalide')
+	})
+
+	it('personnagesPresents : RENDU TEL QUEL, non filtre sur l identite — Harek seul au Foyer du Guet (fixture it1)', () => {
+		const dossier = lire(CHEMIN_REFERENCE)
+		const depart = ouverture(dossier)
+
+		// ÉTAT SÉPARATEUR MESURÉ : Harek est le SEUL personnage de la fixture présent au
+		// lieu de départ (lot contrat d'it1, prérequis de la démo). Sélène (tour
+		// effondrée) et Corvin (marché des cendres) sont présents AILLEURS.
+		expect(personnagesPresents(dossier, depart)).toEqual(['pnj.harek-le-forgeron'])
+	})
+
+	it('executer : PARLER a Harek est accepte — un pas consomme, deux entrees, monde INCHANGE', () => {
+		const dossier = lire(CHEMIN_REFERENCE)
+		const depart = ouverture(dossier)
+
+		const session = sessionDe(executer(dossier, depart, 'PARLER pnj.harek-le-forgeron'))
+
+		// LE TÉMOIN CENTRAL, comme pour `agir` : `toBe`, JAMAIS `toEqual` — `parler` ne
+		// touche jamais `monde` en it1 (design_contract).
+		expect(session.monde).toBe(depart.monde)
+		expect(session.horloge.tour).toBe(depart.horloge.tour + 1)
+		expect(session.journal).toEqual([
+			{ tour: 1, role: 'joueur', texte: '> PARLER pnj.harek-le-forgeron' },
+			{
+				tour: 1,
+				role: 'moteur',
+				texte: 'interlocuteur : pnj.harek-le-forgeron',
+				origine: 'parler',
+				interlocuteur: 'pnj.harek-le-forgeron',
+			},
+		])
+		// `origine` ABSENTE de l'entrée `joueur`, `recit` ABSENT des deux (pas encore
+		// écrit — ce sera `consignerNarration`, hors de ce module).
+		expect('origine' in session.journal[0]).toBe(false)
+		expect('recit' in session.journal[1]).toBe(false)
+		expect(session.journal.every((entree) => entree.interlocuteur === undefined || entree.origine === 'parler')).toBe(
+			true,
+		)
+	})
+
+	it('refus cible_inconnue : un identifiant qui ne resout dans AUCUN monde.personnages[]', () => {
+		const dossier = lire(CHEMIN_REFERENCE)
+		const depart = ouverture(dossier)
+		const avant = JSON.stringify(depart)
+
+		const resultat = executer(dossier, depart, 'PARLER pnj.n-existe-pas')
+
+		expect(resultat.ok).toBe(false)
+		expect(resultat.ok === false && resultat.refus).toBe('cible_inconnue')
+		expect(messageDe(resultat)).toBe("pnj.n-existe-pas n'est pas ici.")
+		// AUCUN PAS CONSOMMÉ : l'argument est intact, champ par champ.
+		expect(JSON.stringify(depart)).toBe(avant)
+	})
+
+	it('refus cible_indisponible : resout mais ABSENT du lieu courant (Selene, a la tour effondree)', () => {
+		const dossier = lire(CHEMIN_REFERENCE)
+		const depart = ouverture(dossier)
+
+		// ÉTAT SÉPARATEUR : Sélène résout bien dans `monde.personnages[]`, et porte une
+		// identité (`portee`), mais sa SEULE présence est à `lieu.tour-effondree` — pas
+		// au Foyer du Guet, le lieu de départ.
+		const resultat = executer(dossier, depart, 'PARLER pnj.selene-la-vigie')
+
+		expect(resultat.ok).toBe(false)
+		expect(resultat.ok === false && resultat.refus).toBe('cible_indisponible')
+		// MÊME TEXTE D'INTERFACE que `cible_inconnue` (§ 3 du plan) — « {cible} n'est pas
+		// ici. » couvre les deux derniers cas.
+		expect(messageDe(resultat)).toBe("pnj.selene-la-vigie n'est pas ici.")
+	})
+
+	it('refus cible_indisponible : resout, present au lieu, mais SANS aucune prose d identite', () => {
+		// FICTION SUR UN CLONE : aucune fixture partagée ne porte ce cas — un
+		// personnage présent au départ et pourtant sans `fonction` ni `apparence`.
+		const dossier = lire(CHEMIN_REFERENCE)
+		const harek = dossier.monde.personnages.find((personnage) => personnage.id === 'pnj.harek-le-forgeron')
+		if (harek === undefined) throw new Error('fixture : `pnj.harek-le-forgeron` a disparu')
+		delete harek.fonction
+		delete harek.apparence
+		const depart = ouverture(dossier)
+
+		const resultat = executer(dossier, depart, 'PARLER pnj.harek-le-forgeron')
+
+		expect(resultat.ok).toBe(false)
+		expect(resultat.ok === false && resultat.refus).toBe('cible_indisponible')
+		expect(messageDe(resultat)).toBe("pnj.harek-le-forgeron n'est pas ici.")
+	})
+
+	it('refus cible_indisponible : une identite faite SEULEMENT de blancs ne compte pas (garde structurelle, trim)', () => {
+		const dossier = lire(CHEMIN_REFERENCE)
+		const harek = dossier.monde.personnages.find((personnage) => personnage.id === 'pnj.harek-le-forgeron')
+		if (harek === undefined) throw new Error('fixture : `pnj.harek-le-forgeron` a disparu')
+		harek.fonction = '   '
+		harek.apparence = '\n\t '
+		const depart = ouverture(dossier)
+
+		const resultat = executer(dossier, depart, 'PARLER pnj.harek-le-forgeron')
+
+		expect(resultat.ok === false && resultat.refus).toBe('cible_indisponible')
+	})
+
+	it('l ordre des deux refus de resolution, sur le MEME dossier : inconnu puis indisponible', () => {
+		// Précédent exact `aller` (`reference pendante NOMMEE`) : un identifiant qui
+		// n'existe PAS DU TOUT rend `cible_inconnue`, un identifiant qui EXISTE mais ne
+		// satisfait pas la garde rend `cible_indisponible` — jamais confondus.
+		const dossier = lire(CHEMIN_REFERENCE)
+		const depart = ouverture(dossier)
+
+		const inconnu = executer(dossier, depart, 'PARLER pnj.fantome')
+		expect(inconnu.ok === false && inconnu.refus).toBe('cible_inconnue')
+
+		const indisponible = executer(dossier, depart, 'PARLER pnj.selene-la-vigie')
+		expect(indisponible.ok === false && indisponible.refus).toBe('cible_indisponible')
+	})
+
+	it('aucun refus ne consomme de pas, et la session d entree n est jamais mutee', () => {
+		const dossier = lire(CHEMIN_REFERENCE)
+		const depart = ouverture(dossier)
+		const avant = JSON.stringify(depart)
+
+		executer(dossier, depart, 'PARLER pnj.fantome')
+		executer(dossier, depart, 'PARLER pnj.selene-la-vigie')
+
+		expect(JSON.stringify(depart)).toBe(avant)
+		expect(depart.horloge.tour).toBe(0)
+		expect(depart.journal).toEqual([])
 	})
 })
 

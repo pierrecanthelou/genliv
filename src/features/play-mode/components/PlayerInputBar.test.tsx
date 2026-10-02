@@ -3,7 +3,7 @@ import path from 'node:path'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PlayerInputBar } from './PlayerInputBar'
-import type { AvisInterprete, EtatSession } from '../../../brain'
+import type { AvisInterprete, Dossier, EtatSession } from '../../../brain'
 
 /**
  * TESTS DU COMPOSANT `PlayerInputBar` — saisie libre du joueur.
@@ -65,6 +65,50 @@ const sessionVierge: EtatSession = {
 	memoire: null,
 }
 
+// Dossier minimal avec un PNJ identifié, présent — pour résoudre l'entête
+// d'une réplique d'acteur (n°12 `moteur-acteurs` it1).
+const dossierVierge: Dossier = {
+	id: 'test-dossier',
+	titre: 'Test',
+	schema: 1,
+	createdAt: '2026-09-25T00:00:00.000Z',
+	updatedAt: '2026-09-25T00:00:00.000Z',
+	canon: {
+		mj: { synopsis_mj: 'Tester PlayerInputBar' },
+		partage: { accroche_joueur: 'Bienvenue' },
+		ton: 'Ton de test',
+		interdits_ton: [],
+		objectifs: [],
+	},
+	monde: {
+		personnages: [
+			{
+				id: 'pnj.corvin',
+				nom: 'Corvin',
+				fonction: 'un marchand',
+				apparence: '',
+				presence: [{ lieu_id: 'lieu_test' }],
+				caractere: { parler: [], jamais: '' },
+				savoirs: [],
+				relations: [],
+				portee: 'premier',
+				plan_actions: [],
+			},
+		],
+		lieux: [{ id: 'lieu_test', nom: 'Lieu de test', description: 'Un lieu de test', acces: [] }],
+		objets: [],
+		indices: [],
+		quetes: [],
+		evenements: [],
+		conditions: { climat: [] },
+	},
+	charpente: {
+		depart: { lieu_id: 'lieu_test', texte_ouverture_joueur: 'Vous êtes ici' },
+		jalons: [],
+		fins: [],
+	},
+}
+
 describe('PlayerInputBar — composant de saisie libre', () => {
 	it('rend un formulaire avec un Field et un bouton TENTER', () => {
 		const noop = async () => false
@@ -76,6 +120,7 @@ describe('PlayerInputBar — composant de saisie libre', () => {
 				isLocked={false}
 				issueNarrateur={null}
 				session={sessionVierge}
+				dossier={dossierVierge}
 			/>,
 		)
 
@@ -93,6 +138,7 @@ describe('PlayerInputBar — composant de saisie libre', () => {
 				isLocked={true}
 				issueNarrateur={null}
 				session={sessionVierge}
+				dossier={dossierVierge}
 			/>,
 		)
 
@@ -109,6 +155,7 @@ describe('PlayerInputBar — composant de saisie libre', () => {
 				isLocked={true}
 				issueNarrateur={null}
 				session={sessionVierge}
+				dossier={dossierVierge}
 			/>,
 		)
 
@@ -134,6 +181,7 @@ describe('PlayerInputBar — composant de saisie libre', () => {
 				isLocked={false}
 				issueNarrateur={null}
 				session={sessionAvecAttente}
+				dossier={dossierVierge}
 			/>,
 		)
 
@@ -152,6 +200,7 @@ describe('PlayerInputBar — composant de saisie libre', () => {
 				isLocked={false}
 				issueNarrateur={null}
 				session={sessionVierge}
+				dossier={dossierVierge}
 			/>,
 		)
 
@@ -173,6 +222,7 @@ describe('PlayerInputBar — composant de saisie libre', () => {
 				isLocked={false}
 				issueNarrateur={null}
 				session={sessionVierge}
+				dossier={dossierVierge}
 			/>,
 		)
 
@@ -191,6 +241,7 @@ describe('PlayerInputBar — composant de saisie libre', () => {
 				isLocked={false}
 				issueNarrateur={null}
 				session={sessionVierge}
+				dossier={dossierVierge}
 			/>,
 		)
 
@@ -208,6 +259,7 @@ describe('PlayerInputBar — composant de saisie libre', () => {
 				isLocked={false}
 				issueNarrateur={null}
 				session={sessionVierge}
+				dossier={dossierVierge}
 			/>,
 		)
 
@@ -225,6 +277,7 @@ describe('PlayerInputBar — composant de saisie libre', () => {
 				isLocked={false}
 				issueNarrateur={null}
 				session={sessionVierge}
+				dossier={dossierVierge}
 			/>,
 		)
 
@@ -240,6 +293,7 @@ describe('PlayerInputBar — composant de saisie libre', () => {
 				isLocked={false}
 				issueNarrateur={null}
 				session={sessionVierge}
+				dossier={dossierVierge}
 			/>,
 		)
 
@@ -262,6 +316,7 @@ describe('PlayerInputBar — composant de saisie libre', () => {
 				isLocked={false}
 				issueNarrateur={null}
 				session={sessionVierge}
+				dossier={dossierVierge}
 			/>,
 		)
 
@@ -284,6 +339,7 @@ describe('PlayerInputBar — composant de saisie libre', () => {
 				isLocked={false}
 				issueNarrateur={null}
 				session={sessionVierge}
+				dossier={dossierVierge}
 			/>,
 		)
 
@@ -309,6 +365,7 @@ describe('PlayerInputBar — composant de saisie libre', () => {
 				isLocked={false}
 				issueNarrateur={null}
 				session={sessionVierge}
+				dossier={dossierVierge}
 			/>,
 		)
 
@@ -345,6 +402,7 @@ describe('PlayerInputBar — composant de saisie libre', () => {
 				isLocked={false}
 				issueNarrateur={issueR3}
 				session={sessionAvecRecit}
+				dossier={dossierVierge}
 			/>,
 		)
 
@@ -387,6 +445,7 @@ describe('PlayerInputBar — composant de saisie libre', () => {
 				isLocked={false}
 				issueNarrateur={issueR3}
 				session={sessionAvecRecit}
+				dossier={dossierVierge}
 			/>,
 		)
 
@@ -412,10 +471,77 @@ describe('PlayerInputBar — composant de saisie libre', () => {
 				isLocked={false}
 				issueNarrateur={issueDegrade}
 				session={sessionViergeT2}
+				dossier={dossierVierge}
 			/>,
 		)
 
 		expect(screen.getByText("Le récit n'a pas pu être généré.")).toBeInTheDocument()
+	})
+
+	it('n°12 it1 — entete = nom du PNJ pour une réplique (origine parler)', () => {
+		const sessionAvecReplique: EtatSession = {
+			...sessionVierge,
+			horloge: { tour: 2 },
+			journal: [
+				{ tour: 2, role: 'joueur', texte: '> parler pnj.corvin' },
+				{
+					tour: 2,
+					role: 'moteur',
+					texte: 'moteur trace',
+					origine: 'parler',
+					interlocuteur: 'pnj.corvin',
+					recit: 'Vous cherchez quelque chose ?',
+				},
+			],
+		}
+
+		render(
+			<PlayerInputBar
+				executeAction={async () => false}
+				getGestelabel={() => ''}
+				avis={null}
+				isLocked={false}
+				issueNarrateur={null}
+				session={sessionAvecReplique}
+				dossier={dossierVierge}
+			/>,
+		)
+
+		expect(screen.getByText('Corvin')).toBeInTheDocument()
+		expect(screen.getByText('Vous cherchez quelque chose ?')).toBeInTheDocument()
+		expect(screen.queryByText('RÉCIT')).not.toBeInTheDocument()
+	})
+
+	it('n°12 it1 — entete reste RÉCIT si interlocuteur ne résout aucun PNJ (défensif)', () => {
+		const sessionInterlocuteurInconnu: EtatSession = {
+			...sessionVierge,
+			horloge: { tour: 2 },
+			journal: [
+				{ tour: 2, role: 'joueur', texte: '> parler x' },
+				{
+					tour: 2,
+					role: 'moteur',
+					texte: 'moteur trace',
+					origine: 'parler',
+					interlocuteur: 'pnj.fantome',
+					recit: 'Une voix répond.',
+				},
+			],
+		}
+
+		render(
+			<PlayerInputBar
+				executeAction={async () => false}
+				getGestelabel={() => ''}
+				avis={null}
+				isLocked={false}
+				issueNarrateur={null}
+				session={sessionInterlocuteurInconnu}
+				dossier={dossierVierge}
+			/>,
+		)
+
+		expect(screen.getByText('RÉCIT')).toBeInTheDocument()
 	})
 
 	it('Lot 2 — n affiche PAS bannière dégradation si tour périmé', () => {
@@ -433,6 +559,7 @@ describe('PlayerInputBar — composant de saisie libre', () => {
 				isLocked={false}
 				issueNarrateur={issueDegradePeisme}
 				session={sessionViergeT2}
+				dossier={dossierVierge}
 			/>,
 		)
 
