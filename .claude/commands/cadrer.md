@@ -37,6 +37,18 @@ Les arbitrages `REJETÉ` du registre vont dans `resolved_decisions` — c'est ce
 Si le cadrage déplace une feature dans l'ordre, ou change son nombre d'itérations, répercute-le dans le tableau de `docs/ROADMAP-BASCULE-IA.md` (§ 2 pour le Temps 1, § 3 pour le Temps 2).
 
 ## Étape 6 — porte, puis toi
-Arrête-toi et affiche : l'intention en une phrase, la liste des itérations (numéro + phrase de démo), les contrats `brain/` nouveaux, ce qui casse dans l'existant, les `KR` créés. Attends validation avant d'écrire quoi que ce soit dans le dépôt.
+
+Affiche la fiche dans cet ordre, sans préambule ni récap (format ADHD-friendly — la règle ne porte que sur cette enveloppe, jamais sur le contenu des itérations/critères eux-mêmes) :
+
+1. **Action attendue en tête** : « Valide ce découpage, ou dis ce qui doit changer. » (~1 min de lecture)
+2. l'intention en une phrase ;
+3. la liste des itérations (numéro + phrase de démo) — 5 au plus affichées, au-delà : « +n autres, voir `specification.json` » ;
+4. les contrats `brain/` nouveaux ;
+5. ce qui casse dans l'existant ;
+6. les `KR` créés.
+
+Ferme sur une seule ligne impérative : « Valide, ou dis ce qui doit changer — rien n'est encore écrit dans le dépôt. »
+
+N'écris rien dans le dépôt avant cette validation.
 
 Une fois validé : `/raffiner $1 1`.

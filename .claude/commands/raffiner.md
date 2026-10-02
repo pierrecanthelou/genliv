@@ -65,16 +65,18 @@ Relis ton propre plan et vérifie mécaniquement. Une seule case rouge = tu ré�
 
 Porte 1 verte, **arrête-toi et attends une validation explicite.** N'enchaîne pas sur `/essaim`. N'écris rien dans `features/$1/specification.json`.
 
-Affiche uniquement la **fiche de validation** — elle doit se lire en deux minutes :
+Affiche uniquement la **fiche de validation**, dans cet ordre, sans préambule ni récap (format ADHD-friendly — l'enveloppe seulement, jamais le contenu des critères/lots) :
 
-1. la phrase de démo ;
-2. la tranche : ce qu'elle traverse, de l'écran jusqu'à la persistance ;
-3. le tableau des lots (id, titre, nombre de fichiers, `contrat` ou non) ;
-4. le hors-périmètre ;
-5. les désaccords `REPORTÉ` et la proposition `INNOVATION` s'il y en a une ;
-6. la ligne : « Plan écrit dans `.claude/raffinage/$1-it$2.plan.md`. Valide, ou dis ce qui doit changer. »
+1. **Action attendue en tête**, avec repère : « Itération $2 — valide ou dis ce qui doit changer. » (~2 min de lecture)
+2. la phrase de démo ;
+3. la tranche : ce qu'elle traverse, de l'écran jusqu'à la persistance ;
+4. le tableau des lots (id, titre, nombre de fichiers, `contrat` ou non) ;
+5. le hors-périmètre ;
+6. les désaccords `REPORTÉ` et la proposition `INNOVATION` s'il y en a une — 5 au plus, au-delà : « +n autres, voir le plan ».
 
-Un bloc `ESCALADE` court-circuite tout : remonte-le tel quel, avec les deux options et leur coût.
+Ferme sur une seule ligne impérative : « Plan écrit dans `.claude/raffinage/$1-it$2.plan.md`. Valide, ou dis ce qui doit changer. »
+
+Un bloc `ESCALADE` court-circuite tout : remonte-le tel quel, avec les deux options, leur coût, la recommandation de chaque rôle — et ferme, lui aussi, sur une seule ligne impérative : « Tranche à arbitrer — laquelle, ou autre chose ? »
 
 ## Étape 7 — après validation
 Marque le plan `validé`, reporte dans `features/$1/specification.json` (`goal` raffiné dans `plan.iterations[$2]`, arbitrages structurants dans `implementation.resolved_decisions`, reports dans `implementation.open_questions`), puis lance `/essaim $1 $2`.
