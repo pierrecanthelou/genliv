@@ -10,11 +10,14 @@ import {
 	type Dossier,
 	type EtatSession,
 } from '../../../brain'
+import { IconButton } from '../../../brain/components/IconButton'
+import { Badge } from '../../../brain/components/Badge'
 import { useSessionPersistee } from '../hooks/useSessionPersistee'
 import { useTourDeJeu } from '../hooks/useTourDeJeu'
 import { OutcomeBlock } from './OutcomeBlock'
 import { BandeauHeros } from './BandeauHeros'
 import { CadrePartie } from './CadrePartie'
+import { CarnetIndices } from './CarnetIndices'
 import { EcranCreationHeros } from './EcranCreationHeros'
 import { EcranRefus } from './EcranRefus'
 import { ConsoleCommandes } from './ConsoleCommandes'
@@ -152,6 +155,7 @@ function PartieEnCours({
 }): JSX.Element {
 	const [session, setSession] = useState(sessionInitiale)
 	const [refus, setRefus] = useState<string | null>(null)
+	const [carnetOuvert, setCarnetOuvert] = useState(false)
 	useSessionPersistee(dossierId, session)
 
 	// HOOK `useTourDeJeu` — orchestrateur du champ de saisie libre (it1), avec R3 (lot 2) et R2 (it2).
@@ -168,6 +172,19 @@ function PartieEnCours({
 	// affichés jusqu'à la prochaine soumission — seul CE texte précis est un artefact du
 	// verrou et n'a plus de sens une fois celui-ci relâché.
 	const refusAffiche = refus === TEXTE_REFUS_CONSOLE_EN_COURS && !isLocked ? null : refus
+
+	// Composant interne — Actions du carnet (bouton 🗝 + badge compteur)
+	function ActionsCarnet(): JSX.Element {
+		const nombreIndices = session.monde.indices_connus.length
+		return (
+			<div style={groupeActionsCarnet}>
+				<IconButton label="Carnet d'indices" onClick={() => setCarnetOuvert(true)} size={28}>
+					🗝
+				</IconButton>
+				{nombreIndices > 0 && <Badge tone="neutral">{nombreIndices}</Badge>}
+			</div>
+		)
+	}
 
 	// GARDE 7 (it1, moteur-arbitre) — EN LIGNE, jamais un useEffect : session.heros
 	// est soit présent soit absent, jamais un flag séparé à synchroniser (KR-013).
@@ -217,63 +234,67 @@ function PartieEnCours({
 	}
 
 	return (
-		<CadrePartie
-			titre={dossier.titre}
-			sortie={{ name: 'dossier', dossierId }}
-			bandeau={<BandeauHeros heros={session.heros} />}
-		>
-			<div style={colonneLecture}>
-				{/* LE SEUL NŒUD DE REGISTRE JOUEUR DE TOUT L'ÉCRAN. `lieu_courant` est un
+		<>
+			<CadrePartie
+				titre={dossier.titre}
+				sortie={{ name: 'dossier', dossierId }}
+				bandeau={<BandeauHeros heros={session.heros} />}
+				actionsEntete={<ActionsCarnet />}
+			>
+				<div style={colonneLecture}>
+					{/* LE SEUL NŒUD DE REGISTRE JOUEUR DE TOUT L'ÉCRAN. `lieu_courant` est un
 				    IDENTIFIANT : il n'apparaît nulle part ici — le registre
 				    développeur-débogueur vit dans le Journal et la Console (§ 3.F). */}
-				<OutcomeBlock entete={ENTETE_OUVERTURE}>{dossier.charpente.depart.texte_ouverture_joueur}</OutcomeBlock>
-				<section aria-label={LIBELLE_JOURNAL}>
-					<span style={libelleZone}>JOURNAL</span>
-					{session.journal.length === 0 ? (
-						<div style={etatVide}>
-							<span style={glypheVide} aria-hidden="true">
-								⬚
-							</span>
-							<p style={texteVide}>{TEXTE_JOURNAL_VIDE}</p>
-						</div>
-					) : (
-						<ul style={listeJournal}>
-							{/* L'INDEX EST LA CLÉ STABLE, et c'est le journal qui le rend vrai : il est
+					<OutcomeBlock entete={ENTETE_OUVERTURE}>{dossier.charpente.depart.texte_ouverture_joueur}</OutcomeBlock>
+					<section aria-label={LIBELLE_JOURNAL}>
+						<span style={libelleZone}>JOURNAL</span>
+						{session.journal.length === 0 ? (
+							<div style={etatVide}>
+								<span style={glypheVide} aria-hidden="true">
+									⬚
+								</span>
+								<p style={texteVide}>{TEXTE_JOURNAL_VIDE}</p>
+							</div>
+						) : (
+							<ul style={listeJournal}>
+								{/* L'INDEX EST LA CLÉ STABLE, et c'est le journal qui le rend vrai : il est
 							    APPEND-ONLY — jamais réordonné, jamais filtré, jamais inséré au milieu.
 							    Surtout PAS `${entree.tour}-${entree.role}` : `§ J1` de `REGLES-PLAY.md`,
 							    écrit par cette même tranche, dit qu'une conséquence enchaînée par le
 							    moteur n'ajoute AUCUN pas — deux entrées `moteur` du même pas arrivent
 							    donc dès it3 (jalons), et cette clé s'y dupliquerait. Un champ `seq`
 							    persisté serait un dérivable stocké (KR-013). */}
-							{session.journal.map((entree, index) => (
-								<JournalRow key={index} entree={entree} />
-							))}
-						</ul>
-					)}
-				</section>
-				{/* CARTE DU JET (it2) — montée conditionnellement si une épreuve est proposée,
+								{session.journal.map((entree, index) => (
+									<JournalRow key={index} entree={entree} />
+								))}
+							</ul>
+						)}
+					</section>
+					{/* CARTE DU JET (it2) — montée conditionnellement si une épreuve est proposée,
 				    jamais si R2 absent, sans_epreuve, ou erreur (KR-013). */}
-				{carteJet && <CarteJet carteJet={carteJet} onLancer={lancerLeDe} />}
+					{carteJet && <CarteJet carteJet={carteJet} onLancer={lancerLeDe} />}
 
-				{/* DEUX CANAUX : console ET champ libre (it1), tous deux affichés (it2).
+					{/* DEUX CANAUX : console ET champ libre (it1), tous deux affichés (it2).
 				    Console refusée pendant le pas (verrou R1→exécution→R3, KR-265). */}
-				<ConsoleCommandes
-					key={session.horloge.tour}
-					onSoumettre={handleSoumettreConsole}
-					refus={refusAffiche}
-					destinations={destinationsPossibles(dossier, session)}
-				/>
-				<PlayerInputBar
-					executeAction={executeAction}
-					getGestelabel={getGestelabel}
-					avis={avis}
-					isLocked={isLocked}
-					issueNarrateur={issueNarrateur}
-					session={session}
-					dossier={dossier}
-				/>
-			</div>
-		</CadrePartie>
+					<ConsoleCommandes
+						key={session.horloge.tour}
+						onSoumettre={handleSoumettreConsole}
+						refus={refusAffiche}
+						destinations={destinationsPossibles(dossier, session)}
+					/>
+					<PlayerInputBar
+						executeAction={executeAction}
+						getGestelabel={getGestelabel}
+						avis={avis}
+						isLocked={isLocked}
+						issueNarrateur={issueNarrateur}
+						session={session}
+						dossier={dossier}
+					/>
+				</div>
+			</CadrePartie>
+			{carnetOuvert && <CarnetIndices session={session} onClose={() => setCarnetOuvert(false)} />}
+		</>
 	)
 }
 
@@ -313,3 +334,9 @@ const glypheVide: CSSProperties = { fontSize: 'var(--fs-h1)', color: 'var(--text
 const texteVide: CSSProperties = { margin: 0, color: 'var(--text-muted)', lineHeight: 'var(--lh-body)' }
 
 const listeJournal: CSSProperties = { listStyle: 'none', margin: 0, padding: 0 }
+
+const groupeActionsCarnet: CSSProperties = {
+	display: 'flex',
+	alignItems: 'center',
+	gap: 'var(--space-2)',
+}

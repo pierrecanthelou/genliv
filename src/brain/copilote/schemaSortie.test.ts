@@ -26,6 +26,7 @@ import {
 	RELATIONS_PROPOSEES_MAX,
 	REPLIQUE_CARACTERES_MAX,
 	REPLIQUES_PROPOSEES_MAX,
+	REVELATIONS_PAR_REPLIQUE_MAX,
 	TENTATIVE_CARACTERES_MAX,
 	TENTATIVES_MAX,
 	porteUnIdentifiant,
@@ -3136,76 +3137,147 @@ describe('validerArbitre — le neuvieme role, deux formes disjointes (n 11 mote
 	})
 })
 
-// ══ LE DIXIÈME RÔLE — `acteur` (n° 12 `moteur-acteurs`, it1, lot `contrat`) ══
+// ══ LE DIXIÈME RÔLE — `acteur` (n° 12 `moteur-acteurs`, it1 puis it2, lot `contrat`) ══
 
-describe('validerActeur — le dixieme role, un scalaire SANS re-resolution (§ 4 bis du plan it1)', () => {
+/**
+ * `validerActeur` — DOUZE prédicats depuis l'it2 (§ 4 bis du plan it2). `replique`
+ * (1-8) est INCHANGÉE depuis l'it1 — un scalaire sans re-résolution. `indices_reveles`
+ * (9-12) est NEUF : le patron « catalogue borné » (KR-287), rendu par
+ * `SortieActeurBrute` (rangs BRUTS), jamais `ReponseActeur` (identifiants) — cette
+ * re-résolution-là vit dans `CopiloteService.demanderActeur`, hors de ce fichier.
+ */
+describe('validerActeur — le dixieme role, douze predicats (§ 4 bis du plan it2)', () => {
 	const dossier = dossierDeReference()
 	const REPLIQUE = "L'enclume ne chôme jamais, même quand le ciel s'assombrit."
+	const RANG = 'S1'
+	const rangsOuverts = new Set([RANG])
+	const vide = (champs: Record<string, unknown> = {}): Record<string, unknown> => ({
+		replique: REPLIQUE,
+		indices_reveles: [],
+		...champs,
+	})
 
-	it('le nominal rend ok et la forme RESOLUE est EXACTEMENT ReponseActeur, zero re-resolution', () => {
-		expect(validerActeur({ replique: REPLIQUE }, dossier)).toEqual({ ok: true, sortie: { replique: REPLIQUE } })
+	it('le nominal (liste vide) rend ok et la forme RESOLUE est SortieActeurBrute, zero re-resolution', () => {
+		expect(validerActeur(vide(), dossier, rangsOuverts)).toEqual({
+			ok: true,
+			sortie: { replique: REPLIQUE, indices_reveles: [] },
+		})
+	})
+
+	it('le nominal (un rang OUVERT) rend ok, le rang BRUT est rendu TEL QUEL', () => {
+		expect(validerActeur(vide({ indices_reveles: [RANG] }), dossier, rangsOuverts)).toEqual({
+			ok: true,
+			sortie: { replique: REPLIQUE, indices_reveles: [RANG] },
+		})
 	})
 
 	it('1 — ce qui n est pas un objet JSON est refuse, motif schema', () => {
 		for (const brut of [null, undefined, [], [{ replique: REPLIQUE }], REPLIQUE, 42, true]) {
-			expect({ brut, ...validerActeur(brut, dossier) }).toEqual({ brut, ok: false, motif: 'schema' })
+			expect({ brut, ...validerActeur(brut, dossier, rangsOuverts) }).toEqual({ brut, ok: false, motif: 'schema' })
 		}
 	})
 
-	it('2 — les cles valent EXACTEMENT CLES_SORTIE_ACTEUR : manquante ou en trop', () => {
-		expect(CLES_SORTIE_ACTEUR).toEqual(['replique'])
-		const cas: Array<Record<string, unknown>> = [{}, { replique: REPLIQUE, ton: 'x' }, { texte: REPLIQUE }]
+	it('2 — les cles valent EXACTEMENT CLES_SORTIE_ACTEUR : indices_reveles TOUJOURS due, meme vide', () => {
+		expect(CLES_SORTIE_ACTEUR).toEqual(['replique', 'indices_reveles'])
+		const cas: Array<Record<string, unknown>> = [
+			{},
+			{ replique: REPLIQUE }, // indices_reveles ABSENTE — refus, jamais une liste vide implicite
+			{ indices_reveles: [] }, // replique ABSENTE
+			{ replique: REPLIQUE, indices_reveles: [], ton: 'x' }, // clé EN TROP
+			{ texte: REPLIQUE, indices_reveles: [] },
+		]
 		for (const brut of cas) {
-			expect({ brut, ...validerActeur(brut, dossier) }).toEqual({ brut, ok: false, motif: 'schema' })
+			expect({ brut, ...validerActeur(brut, dossier, rangsOuverts) }).toEqual({ brut, ok: false, motif: 'schema' })
 		}
 	})
 
-	it('3 — la cle porte une CHAINE, jamais repechee', () => {
+	it('3 — replique porte une CHAINE, jamais repechee', () => {
 		for (const brut of [
-			{ replique: 42 },
-			{ replique: null },
-			{ replique: [REPLIQUE] },
-			{ replique: { texte: REPLIQUE } },
+			vide({ replique: 42 }),
+			vide({ replique: null }),
+			vide({ replique: [REPLIQUE] }),
+			vide({ replique: { texte: REPLIQUE } }),
 		]) {
-			expect(validerActeur(brut, dossier)).toEqual({ ok: false, motif: 'schema' })
+			expect(validerActeur(brut, dossier, rangsOuverts)).toEqual({ ok: false, motif: 'schema' })
 		}
 	})
 
 	it('4 — non vide apres trim, motif vide', () => {
-		for (const vide of ['', '   ', '\n\t ']) {
-			expect(validerActeur({ replique: vide }, dossier)).toEqual({ ok: false, motif: 'vide' })
+		for (const blanc of ['', '   ', '\n\t ']) {
+			expect(validerActeur(vide({ replique: blanc }), dossier, rangsOuverts)).toEqual({ ok: false, motif: 'vide' })
 		}
 	})
 
 	it('5 — la BORNE DE SORTIE, REPLIQUE_CARACTERES_MAX : un refus, jamais une coupe (KR-230)', () => {
 		expect(REPLIQUE_CARACTERES_MAX).toBe(400)
 		const juste = 'v'.repeat(REPLIQUE_CARACTERES_MAX)
-		expect(validerActeur({ replique: juste }, dossier)).toEqual({ ok: true, sortie: { replique: juste } })
-		expect(validerActeur({ replique: `${juste}v` }, dossier)).toEqual({ ok: false, motif: 'schema' })
+		expect(validerActeur(vide({ replique: juste }), dossier, rangsOuverts)).toEqual({
+			ok: true,
+			sortie: { replique: juste, indices_reveles: [] },
+		})
+		expect(validerActeur(vide({ replique: `${juste}v` }), dossier, rangsOuverts)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
 	})
 
 	it('6 — aucun MARQUEUR_A_ECRIRE', () => {
-		expect(validerActeur({ replique: `${MARQUEUR_A_ECRIRE} vraiment ?` }, dossier)).toEqual({
+		expect(validerActeur(vide({ replique: `${MARQUEUR_A_ECRIRE} vraiment ?` }), dossier, rangsOuverts)).toEqual({
 			ok: false,
 			motif: 'marqueur',
 		})
 	})
 
 	it('7 — aucun identifiant du dossier', () => {
-		expect(validerActeur({ replique: 'Prenez le objet.sceau-de-cendre, vite.' }, dossier)).toEqual({
+		expect(validerActeur(vide({ replique: 'Prenez le objet.sceau-de-cendre, vite.' }), dossier, rangsOuverts)).toEqual({
 			ok: false,
 			motif: 'identifiant',
 		})
 	})
 
 	it('8 — aucun chiffre, sous quelque forme — une replique ne profere jamais de mecanique', () => {
-		expect(validerActeur({ replique: 'Revenez dans 7 jours.' }, dossier)).toEqual({
+		expect(validerActeur(vide({ replique: 'Revenez dans 7 jours.' }), dossier, rangsOuverts)).toEqual({
 			ok: false,
 			motif: 'identifiant',
 		})
-		expect(validerActeur({ replique: 'Tentez un TC2, si vous l osez.' }, dossier)).toEqual({
+		expect(validerActeur(vide({ replique: 'Tentez un TC2, si vous l osez.' }), dossier, rangsOuverts)).toEqual({
 			ok: false,
 			motif: 'identifiant',
+		})
+	})
+
+	it('9 — indices_reveles est un TABLEAU, jamais une chaine ou un objet', () => {
+		for (const brut of [vide({ indices_reveles: RANG }), vide({ indices_reveles: { 0: RANG } })]) {
+			expect(validerActeur(brut, dossier, rangsOuverts)).toEqual({ ok: false, motif: 'schema' })
+		}
+	})
+
+	it('10 — chaque element est une CHAINE, un NOMBRE meurt ici, jamais String(…)', () => {
+		expect(validerActeur(vide({ indices_reveles: [1] }), dossier, rangsOuverts)).toEqual({ ok: false, motif: 'schema' })
+	})
+
+	it('11 — longueur <= REVELATIONS_PAR_REPLIQUE_MAX (=1) : un REFUS, jamais une troncature (KR-230)', () => {
+		expect(REVELATIONS_PAR_REPLIQUE_MAX).toBe(1)
+		expect(validerActeur(vide({ indices_reveles: [RANG, RANG] }), dossier, new Set([RANG]))).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+	})
+
+	it('12 — chaque element DOIT appartenir a rangsOuverts, sinon rang-inconnu, REFUS ATOMIQUE (replique comprise)', () => {
+		expect(validerActeur(vide({ indices_reveles: ['S9'] }), dossier, rangsOuverts)).toEqual({
+			ok: false,
+			motif: 'rang-inconnu',
+		})
+		// Discriminant : le MEME rang, dans un ensemble QUI LE CONTIENT, passe.
+		expect(validerActeur(vide({ indices_reveles: [RANG] }), dossier, new Set([RANG, 'S2']))).toEqual({
+			ok: true,
+			sortie: { replique: REPLIQUE, indices_reveles: [RANG] },
+		})
+		// Un ensemble OUVERT VIDE refuse TOUT rang non-vide.
+		expect(validerActeur(vide({ indices_reveles: [RANG] }), dossier, new Set())).toEqual({
+			ok: false,
+			motif: 'rang-inconnu',
 		})
 	})
 

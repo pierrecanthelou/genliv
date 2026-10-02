@@ -274,3 +274,101 @@ describe('assemblerActeur — memoire isolee, K=4, propre a CE PNJ (KR-282, KR-2
 		expect(contexte.texte).toContain(longue)
 	})
 })
+
+/**
+ * LES DEUX BLOCS NEUFS DE L'IT2 — « CE QUE TU LUI AS DÉJÀ CONFIÉ » et « CE QUE TU
+ * PEUX CONFIER ». Harek porte un savoir gardé par `contrepartie`(consomme:false,
+ * `objet.amulette-scellee`) + `apres_indice_id`(`indice.pas-dans-la-cendre`) en
+ * conjonction, référençant `indice.sceau-brise-a-nouveau` (`formulation_joueur` +
+ * `revele_comment` rédigés) — § 7 du plan : « acteur.test.ts — isolation des blocs ».
+ */
+describe('assemblerActeur — CE QUE TU PEUX CONFIER / CE QUE TU LUI AS DEJA CONFIE (it2, KR-287)', () => {
+	const INDICE_REVELABLE = 'indice.sceau-brise-a-nouveau'
+	const FORMULATION = 'Une fêlure court le long du sceau, fine comme un cheveu.'
+	const COMMENTAIRE = 'Il repose son marteau et vous regarde bien en face avant de parler.'
+
+	function portesOuvertes(session: EtatSession): EtatSession {
+		return {
+			...session,
+			monde: {
+				...session.monde,
+				objets_possedes: ['objet.amulette-scellee'],
+				indices_connus: ['indice.pas-dans-la-cendre'],
+			},
+		}
+	}
+
+	it('ABSENT des deux blocs quand rien n est ouvert ni confie (session fraiche) — zero drapeau visible', () => {
+		const dossier = lire()
+		const session = ouverture(dossier)
+
+		const contexte = assemblerActeur(dossier, session, HAREK, 'bonjour')
+
+		expect(contexte.ok).toBe(true)
+		if (!contexte.ok) throw new Error('le contexte ne doit pas etre refuse')
+		expect(contexte.texte).not.toContain('CE QUE TU PEUX CONFIER')
+		expect(contexte.texte).not.toContain('CE QUE TU LUI AS DÉJÀ CONFIÉ')
+		expect(contexte.rangs.size).toBe(0)
+	})
+
+	it('CE QUE TU PEUX CONFIER : rang S1, certitude, formulation_joueur PUIS revele_comment — et la table rangs', () => {
+		const dossier = lire()
+		const session = portesOuvertes(ouverture(dossier))
+
+		const contexte = assemblerActeur(dossier, session, HAREK, 'bonjour')
+
+		expect(contexte.ok).toBe(true)
+		if (!contexte.ok) throw new Error('le contexte ne doit pas etre refuse')
+		expect(contexte.texte).toContain('CE QUE TU PEUX CONFIER')
+		expect(contexte.texte).toContain(`S1 · tu le crois · ${FORMULATION} · ${COMMENTAIRE}`)
+		expect(contexte.rangs.get('S1')).toBe(INDICE_REVELABLE)
+		expect(contexte.rangs.size).toBe(1)
+		expect(contexte.texte).not.toContain('CE QUE TU LUI AS DÉJÀ CONFIÉ')
+	})
+
+	it('CE QUE TU LUI AS DEJA CONFIE : SANS rang, certitude + formulation_joueur SEULS (jamais revele_comment)', () => {
+		const dossier = lire()
+		const base = ouverture(dossier)
+		const session: EtatSession = { ...base, monde: { ...base.monde, pnj: { [HAREK]: { a_dit: [INDICE_REVELABLE] } } } }
+
+		const contexte = assemblerActeur(dossier, session, HAREK, 'bonjour')
+
+		expect(contexte.ok).toBe(true)
+		if (!contexte.ok) throw new Error('le contexte ne doit pas etre refuse')
+		expect(contexte.texte).toContain('CE QUE TU LUI AS DÉJÀ CONFIÉ')
+		expect(contexte.texte).toContain(`· tu le crois · ${FORMULATION}`)
+		expect(contexte.texte).not.toContain(COMMENTAIRE)
+		expect(contexte.texte).not.toContain('CE QUE TU PEUX CONFIER')
+		expect(contexte.rangs.size).toBe(0)
+	})
+
+	it('AUCUNE cle brute : ni indice_id, ni revele_si/contrepartie/consomme/apres_indice_id, ni a_dit', () => {
+		const dossier = lire()
+		const session = portesOuvertes(ouverture(dossier))
+
+		const contexte = assemblerActeur(dossier, session, HAREK, 'bonjour')
+
+		expect(contexte.ok).toBe(true)
+		if (!contexte.ok) throw new Error('le contexte ne doit pas etre refuse')
+		for (const brut of [INDICE_REVELABLE, 'revele_si', 'contrepartie', 'consomme', 'apres_indice_id', 'a_dit']) {
+			expect(`${brut} → ${contexte.texte.includes(brut)}`).toBe(`${brut} → false`)
+		}
+	})
+
+	it('isolation : le savoir OUVERT d un AUTRE PNJ n entre JAMAIS dans le contexte de Harek', () => {
+		// Mira (fixture) porte un savoir sur le MEME indice (`confiance_min` + `apres_indice_id`,
+		// toujours FERMEE en it2) — elle ne doit jamais apparaitre, et son `revele_comment` propre
+		// encore moins.
+		const dossier = lire()
+		const mira = dossier.monde.personnages.find((p) => p.id === 'pnj.mira-la-guerisseuse')
+		expect(mira?.savoirs[0]?.revele_comment).toBeDefined()
+		const session = portesOuvertes(ouverture(dossier))
+
+		const contexte = assemblerActeur(dossier, session, HAREK, 'bonjour')
+
+		expect(contexte.ok).toBe(true)
+		if (!contexte.ok) throw new Error('le contexte ne doit pas etre refuse')
+		expect(contexte.texte).not.toContain(String(mira?.savoirs[0]?.revele_comment))
+		expect(contexte.texte).not.toContain('pnj.mira-la-guerisseuse')
+	})
+})

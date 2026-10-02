@@ -25,10 +25,11 @@ export interface CadrePartieProps {
 	readonly titre: string | null
 	readonly sortie: Route
 	readonly bandeau?: ReactNode
+	readonly actionsEntete?: ReactNode
 	readonly children: ReactNode
 }
 
-export function CadrePartie({ titre, sortie, bandeau, children }: CadrePartieProps): JSX.Element {
+export function CadrePartie({ titre, sortie, bandeau, actionsEntete, children }: CadrePartieProps): JSX.Element {
 	const { router } = useBrain()
 	const sortir = (): void => router.navigate(sortie)
 	const sortirRef = useRef(sortir)
@@ -54,9 +55,12 @@ export function CadrePartie({ titre, sortie, bandeau, children }: CadrePartiePro
 						</>
 					)}
 				</span>
-				<button type="button" onClick={sortir} aria-label={LIBELLE_SORTIE} style={boutonSortie}>
-					✕ {LIBELLE_SORTIE}
-				</button>
+				<div style={groupeEnteteActionsEtSortie}>
+					{actionsEntete}
+					<button type="button" onClick={sortir} aria-label={LIBELLE_SORTIE} style={boutonSortie}>
+						✕ {LIBELLE_SORTIE}
+					</button>
+				</div>
 			</header>
 			{bandeau}
 			<div style={corps}>{children}</div>
@@ -89,6 +93,13 @@ const titreEntete: CSSProperties = {
 }
 
 const titreDossier: CSSProperties = { color: 'var(--text-strong)' }
+
+// Groupe contenant les actions entête et le bouton de sortie, arrangés avec gap
+const groupeEnteteActionsEtSortie: CSSProperties = {
+	display: 'flex',
+	alignItems: 'center',
+	gap: 'var(--space-3)',
+}
 
 // Calqué sur `PlayerModal.tsx:74-85`. Le survol est en CSS seul côté design
 // system — jamais un état `isHovered` en React.

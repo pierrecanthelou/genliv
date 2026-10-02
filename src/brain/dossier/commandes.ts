@@ -154,6 +154,16 @@ function verbesDisponibles(): string {
 }
 
 /**
+ * Le verbe d'une commande, pour un affichage hors de ce module (ex. le carnet
+ * d'indices, n°12 it2) — frontière instrumentée par commandes.test.ts : seul
+ * `useTourDeJeu.ts` importe `COMMANDES` directement (KR-260), tout autre
+ * lecteur passe par cette fonction plutôt que de recomposer le registre.
+ */
+export function verbeDeCommande(id: CommandeId): string {
+	return COMMANDES[id].verbe
+}
+
+/**
  * LE GABARIT UNIQUE DES DEUX REFUS D'ANALYSE — une arité fautive est une
  * commande qu'on ne reconnaît pas, elle ne mérite pas une seconde phrase.
  */

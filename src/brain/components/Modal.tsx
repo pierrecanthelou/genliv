@@ -24,6 +24,11 @@ export interface ModalProps {
 	confirmTone?: 'accent' | 'error'
 	onCancel?: () => void
 	onConfirm?: () => void
+	/** Hides the destructive/cancel/confirm footer entirely — for a READ-ONLY
+	 *  drawer (e.g. le carnet d'indices, `moteur-acteurs` it2) whose only exit is
+	 *  the header's ✕. Additive, default `false` : the five existing callers keep
+	 *  rendering their footer unchanged. */
+	hideFooter?: boolean
 }
 
 const FOCUSABLE = 'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
@@ -43,6 +48,7 @@ export function Modal({
 	confirmTone = 'accent',
 	onCancel,
 	onConfirm,
+	hideFooter = false,
 }: ModalProps): JSX.Element {
 	const dialogRef = useRef<HTMLDivElement>(null)
 	const dismiss = onClose ?? onCancel
@@ -140,72 +146,78 @@ export function Modal({
 					</button>
 				</div>
 				<div style={{ padding: 16 }}>{children}</div>
-				<div
-					style={{
-						display: 'flex',
-						alignItems: 'center',
-						justifyContent: 'space-between',
-						padding: '12px 16px',
-						borderTop: '1px solid var(--line-4)',
-						background: 'var(--paper-1)',
-					}}
-				>
-					<div>
-						{destructive && (
+				{!hideFooter && (
+					<div
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							justifyContent: 'space-between',
+							padding: '12px 16px',
+							borderTop: '1px solid var(--line-4)',
+							background: 'var(--paper-1)',
+						}}
+					>
+						<div>
+							{destructive && (
+								<button
+									type="button"
+									onClick={destructive.onClick}
+									style={{
+										fontSize: 'var(--fs-sm)',
+										color: 'var(--bad)',
+										border: '1px solid var(--bad-line)',
+										borderRadius: 'var(--r-lg)',
+										padding: '11px 14px',
+										background: 'none',
+										cursor: 'pointer',
+									}}
+								>
+									✕ {destructive.label}
+								</button>
+							)}
+						</div>
+						<div style={{ display: 'flex', gap: 8 }}>
 							<button
 								type="button"
-								onClick={destructive.onClick}
+								onClick={onCancel}
 								style={{
 									fontSize: 'var(--fs-sm)',
-									color: 'var(--bad)',
-									border: '1px solid var(--bad-line)',
+									color: 'var(--text-muted)',
+									border: '1px solid var(--border-field)',
 									borderRadius: 'var(--r-lg)',
-									padding: '11px 14px',
+									padding: '11px 16px',
+									minHeight: 'var(--hit-target)',
 									background: 'none',
 									cursor: 'pointer',
 								}}
 							>
-								✕ {destructive.label}
+								{cancelLabel}
 							</button>
-						)}
+							<button
+								type="button"
+								onClick={onConfirm}
+								disabled={confirmDisabled}
+								style={{
+									fontSize: 'var(--fs-sm)',
+									color: 'var(--text-on-accent)',
+									background: confirmDisabled
+										? 'var(--ink-5)'
+										: confirmTone === 'error'
+											? 'var(--bad)'
+											: 'var(--accent)',
+									border: 'none',
+									borderRadius: 'var(--r-lg)',
+									padding: '11px 18px',
+									minHeight: 'var(--hit-target)',
+									fontWeight: 'var(--fw-semibold)',
+									cursor: confirmDisabled ? 'not-allowed' : 'pointer',
+								}}
+							>
+								{confirmLabel}
+							</button>
+						</div>
 					</div>
-					<div style={{ display: 'flex', gap: 8 }}>
-						<button
-							type="button"
-							onClick={onCancel}
-							style={{
-								fontSize: 'var(--fs-sm)',
-								color: 'var(--text-muted)',
-								border: '1px solid var(--border-field)',
-								borderRadius: 'var(--r-lg)',
-								padding: '11px 16px',
-								minHeight: 'var(--hit-target)',
-								background: 'none',
-								cursor: 'pointer',
-							}}
-						>
-							{cancelLabel}
-						</button>
-						<button
-							type="button"
-							onClick={onConfirm}
-							disabled={confirmDisabled}
-							style={{
-								fontSize: 'var(--fs-sm)',
-								color: 'var(--text-on-accent)',
-								background: confirmDisabled ? 'var(--ink-5)' : confirmTone === 'error' ? 'var(--bad)' : 'var(--accent)',
-								border: 'none',
-								borderRadius: 'var(--r-lg)',
-								padding: '11px 18px',
-								minHeight: 'var(--hit-target)',
-								fontWeight: 'var(--fw-semibold)',
-								cursor: confirmDisabled ? 'not-allowed' : 'pointer',
-							}}
-						>
-							{confirmLabel}
-						</button>
-					</div>
-				</div>
+				)}
 			</div>
 		</div>
 	)

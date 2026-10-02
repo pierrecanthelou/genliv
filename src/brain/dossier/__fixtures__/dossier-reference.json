@@ -239,6 +239,15 @@
 						"certitude": "sait",
 						"revele_comment": "Il pointe l'enclume, comme si la réponse allait de soi.",
 						"revele_si": { "jet": { "carac": "IN", "tc": "TC1" } }
+					},
+					{
+						"indice_id": "indice.sceau-brise-a-nouveau",
+						"certitude": "croit",
+						"revele_comment": "Il repose son marteau et vous regarde bien en face avant de parler.",
+						"revele_si": {
+							"contrepartie": { "objet_id": "objet.amulette-scellee", "consomme": false },
+							"apres_indice_id": "indice.pas-dans-la-cendre"
+						}
 					}
 				]
 			},

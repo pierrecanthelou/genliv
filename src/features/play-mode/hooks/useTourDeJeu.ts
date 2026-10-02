@@ -32,6 +32,7 @@
  */
 import { useRef, useState } from 'react'
 import { COMMANDES } from '../../../brain/dossier/commandes'
+import { consignerReponseActeur } from '../../../brain/dossier/recit'
 import type { CibleActeur } from '../../../brain/copilote/types'
 import {
 	apresInterpretation,
@@ -241,12 +242,13 @@ export function useTourDeJeu(
 
 				// ÉTAPE 6b : Traiter la réponse de R4
 				if (!('statut' in reponseActeur)) {
-					// Succès R4 — écrire la réplique dans le récit
-					const sessionAvecReplique = consignerNarration(nouvelleSession, nouvelleSession.horloge.tour, {
+					// Succès R4 — écrire la réplique, les révélations et la mémoire du PNJ
+					const sessionAvecReponse = consignerReponseActeur(nouvelleSession, nouvelleSession.horloge.tour, dossier, {
 						recit: reponseActeur.replique,
-						faits_etablis: [],
+						personnageId: reponse.proposition.commande.cibles[0],
+						indicesReveles: reponseActeur.indices_reveles ?? [],
 					})
-					onSessionChange(sessionAvecReplique)
+					onSessionChange(sessionAvecReponse)
 					setIssueNarrateur({
 						tour: nouvelleSession.horloge.tour,
 						statut: 'raconte',

@@ -3,7 +3,7 @@ import path from 'node:path'
 import { SESSION_SATUREE } from './__fixtures__/session-saturee'
 import { analyserSaisie, executerCommande } from './commandes'
 import { CADENCE, borneDeFenetre, pasACondenser } from './memoire'
-import { consignerNarration } from './recit'
+import { consignerNarration, consignerReponseActeur } from './recit'
 import { ouvrirSession, type EtatSession, type FaitEtabli } from './session'
 import type { Dossier } from './types'
 
@@ -384,5 +384,158 @@ describe('la fixture saturee enseigne les invariants', () => {
 			expect(new Set(fait.sur).size).toBe(fait.sur.length)
 			expect(fait.sur.filter((ancre) => !/^(lieu|objet)\./.test(ancre))).toEqual([])
 		}
+	})
+})
+
+/**
+ * `consignerReponseActeur` — LE SEUL ÉCRIVAIN COMBINÉ DE `recit`+`reveler_indice`+
+ * `a_dit` SUR LA MÊME ENTRÉE (n° 12 `moteur-acteurs`, it2, lot `contrat`). § 7 du
+ * plan d'itération : « recit.test.ts — écriture combinée ».
+ *
+ * Harek (`dossier-reference.json`, lot contrat d'it2) porte un savoir gardé par
+ * `contrepartie`(consomme:false, `objet.amulette-scellee`) + `apres_indice_id`
+ * (`indice.pas-dans-la-cendre`) en conjonction — `INDICE_REVELABLE` ci-dessous.
+ */
+describe('consignerReponseActeur — ecriture combinee recit+reveler_indice+a_dit (n 12, it2)', () => {
+	const HAREK = 'pnj.harek-le-forgeron'
+	const INDICE_REVELABLE = 'indice.sceau-brise-a-nouveau'
+
+	/** La MEME session, portes OUVERTES pour le savoir de Harek — jamais une session forgee
+	 *  depuis zero : seuls `objets_possedes`/`indices_connus` sont repointes sur une session
+	 *  REELLEMENT JOUEE (`parler` ne touche jamais `monde`, precedent commandes.test.ts). */
+	function portesOuvertes(session: EtatSession): EtatSession {
+		return {
+			...session,
+			monde: {
+				...session.monde,
+				objets_possedes: ['objet.amulette-scellee'],
+				indices_connus: ['indice.pas-dans-la-cendre'],
+			},
+		}
+	}
+
+	it('pose recit, reveler_indice ET a_dit SUR LA MEME ENTREE, en une seule transition', () => {
+		const dossier = lire()
+		const s1 = portesOuvertes(jouer(dossier, ouverture(dossier), [`PARLER ${HAREK}`]))
+		const REPONSE = "Il repose son marteau : « Oui, j'en ai entendu parler. »"
+
+		const s2 = consignerReponseActeur(s1, s1.horloge.tour, dossier, {
+			recit: REPONSE,
+			personnageId: HAREK,
+			indicesReveles: [INDICE_REVELABLE],
+		})
+
+		const entree = s2.journal[s2.journal.length - 1]
+		expect(entree.recit).toBe(REPONSE)
+		expect(entree.deltas).toEqual([{ delta: 'reveler_indice', cibles: [INDICE_REVELABLE], effet: 'applique' }])
+		expect(s2.monde.indices_connus).toContain(INDICE_REVELABLE)
+		expect(s2.monde.pnj[HAREK]?.a_dit).toEqual([INDICE_REVELABLE])
+		// Rien d'autre du journal n'a changé — ni par contenu, ni par référence.
+		expect(s2.journal.slice(0, -1)).toEqual(s1.journal.slice(0, -1))
+		expect(s2.horloge).toBe(s1.horloge)
+	})
+
+	it('indicesReveles VIDE : seul le recit est pose, deltas reste ABSENT (succes nominal, § 4 bis du plan)', () => {
+		const dossier = lire()
+		const s1 = jouer(dossier, ouverture(dossier), [`PARLER ${HAREK}`])
+		const REPONSE = "L'enclume ne chôme jamais."
+
+		const s2 = consignerReponseActeur(s1, s1.horloge.tour, dossier, {
+			recit: REPONSE,
+			personnageId: HAREK,
+			indicesReveles: [],
+		})
+
+		const entree = s2.journal[s2.journal.length - 1]
+		expect(entree.recit).toBe(REPONSE)
+		expect('deltas' in entree).toBe(false)
+		// Sans revelation, le monde garde SA reference (precedent consignerNarration/memoire).
+		expect(s2.monde).toBe(s1.monde)
+	})
+
+	it('leve (KR-238) si un id n est plus revelable — portes fermees, appelant fautif', () => {
+		const dossier = lire()
+		const s1 = jouer(dossier, ouverture(dossier), [`PARLER ${HAREK}`]) // portes FERMEES : rien possede, rien connu
+
+		expect(() =>
+			consignerReponseActeur(s1, s1.horloge.tour, dossier, {
+				recit: 'Je ne dirai rien.',
+				personnageId: HAREK,
+				indicesReveles: [INDICE_REVELABLE],
+			}),
+		).toThrow()
+		// AUCUNE ecriture partielle : la session passee en argument n'a pas change.
+		expect(s1.journal[s1.journal.length - 1].recit).toBeUndefined()
+	})
+
+	it('leve aussi pour un id DEJA CONFIE — meme ouvert avant, il ne l est plus MAINTENANT', () => {
+		const dossier = lire()
+		const base = portesOuvertes(jouer(dossier, ouverture(dossier), [`PARLER ${HAREK}`]))
+		const dejaConfie: EtatSession = {
+			...base,
+			monde: { ...base.monde, pnj: { [HAREK]: { a_dit: [INDICE_REVELABLE] } } },
+		}
+
+		expect(() =>
+			consignerReponseActeur(dejaConfie, dejaConfie.horloge.tour, dossier, {
+				recit: 'x',
+				personnageId: HAREK,
+				indicesReveles: [INDICE_REVELABLE],
+			}),
+		).toThrow()
+	})
+
+	it('la revelation EST idempotente au niveau des faits : indices_connus deja rempli par un AUTRE canal -> sans_effet, mais a_dit s ecrit quand meme', () => {
+		const dossier = lire()
+		const base = jouer(dossier, ouverture(dossier), [`PARLER ${HAREK}`])
+		// L'indice est deja connu (par exemple via un jalon), mais Harek, LUI, n'a
+		// encore rien confie : son savoir reste REVELABLE (a_dit vide).
+		const s1: EtatSession = {
+			...base,
+			monde: {
+				...base.monde,
+				objets_possedes: ['objet.amulette-scellee'],
+				indices_connus: ['indice.pas-dans-la-cendre', INDICE_REVELABLE],
+			},
+		}
+
+		const s2 = consignerReponseActeur(s1, s1.horloge.tour, dossier, {
+			recit: 'Ah, vous le savez deja.',
+			personnageId: HAREK,
+			indicesReveles: [INDICE_REVELABLE],
+		})
+
+		const entree = s2.journal[s2.journal.length - 1]
+		expect(entree.deltas).toEqual([{ delta: 'reveler_indice', cibles: [INDICE_REVELABLE], effet: 'sans_effet' }])
+		expect(s2.monde.pnj[HAREK]?.a_dit).toEqual([INDICE_REVELABLE])
+	})
+
+	it('pas perime ou a venir : la session est rendue INCHANGEE (meme reference), comme consignerNarration', () => {
+		const dossier = lire()
+		const s1 = jouer(dossier, ouverture(dossier), [`PARLER ${HAREK}`, 'AGIR'])
+		expect(s1.horloge.tour).toBe(2)
+		const apport = { recit: 'x', personnageId: HAREK, indicesReveles: [] }
+
+		expect(consignerReponseActeur(s1, 1, dossier, apport)).toBe(s1)
+		expect(consignerReponseActeur(s1, 3, dossier, apport)).toBe(s1)
+	})
+
+	it('le pas porte DEJA un recit : la PREMIERE narration gagne, un second appel n ecrase rien (meme reference)', () => {
+		const dossier = lire()
+		const joue = jouer(dossier, ouverture(dossier), [`PARLER ${HAREK}`])
+		const premier = consignerReponseActeur(joue, 1, dossier, {
+			recit: 'Premier.',
+			personnageId: HAREK,
+			indicesReveles: [],
+		})
+
+		const second = consignerReponseActeur(premier, 1, dossier, {
+			recit: 'Second.',
+			personnageId: HAREK,
+			indicesReveles: [],
+		})
+
+		expect(second).toBe(premier)
+		expect(second.journal[second.journal.length - 1].recit).toBe('Premier.')
 	})
 })

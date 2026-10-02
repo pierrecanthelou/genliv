@@ -44,11 +44,40 @@ export interface ListRowProps {
 	trailing?: ReactNode
 	/** Teinte accent + `aria-current` — la ligne courante de la liste. */
 	selected?: boolean
-	/** REQUIS : aucune variante non interactive n'a d'appelant. */
-	onSelect: () => void
+	/**
+	 * OPTIONNEL depuis l'itération 2 de `moteur-acteurs` (2026-10-02) : ABSENT ⇒
+	 * ligne LECTURE SEULE, rendue en `<div>` NON FOCUSABLE — jamais un `<button>`
+	 * désactivé, qui resterait un piège de focus pour un lecteur d'écran. MÊMES
+	 * STYLES, à une exception près : `cursor: pointer` disparaît (`rowReadOnly`),
+	 * rien d'autre ne change. Précédent appelant réel : le carnet d'indices
+	 * (`CarnetIndices.tsx`, lot `feature`), qui liste sans jamais naviguer.
+	 */
+	onSelect?: () => void
 }
 
 export function ListRow({ title, subtitle, leading, trailing, selected = false, onSelect }: ListRowProps): JSX.Element {
+	const contenu = (
+		<>
+			{leading}
+			<span style={texts}>
+				<span style={titleLine}>{title}</span>
+				{subtitle !== undefined && <span style={subtitleLine}>{subtitle}</span>}
+			</span>
+			{trailing}
+		</>
+	)
+
+	if (onSelect === undefined) {
+		return (
+			<div
+				aria-current={selected ? 'true' : undefined}
+				style={selected ? { ...row, ...rowSelected, ...rowReadOnly } : { ...row, ...rowReadOnly }}
+			>
+				{contenu}
+			</div>
+		)
+	}
+
 	return (
 		<button
 			type="button"
@@ -56,12 +85,7 @@ export function ListRow({ title, subtitle, leading, trailing, selected = false, 
 			aria-current={selected ? 'true' : undefined}
 			style={selected ? { ...row, ...rowSelected } : row}
 		>
-			{leading}
-			<span style={texts}>
-				<span style={titleLine}>{title}</span>
-				{subtitle !== undefined && <span style={subtitleLine}>{subtitle}</span>}
-			</span>
-			{trailing}
+			{contenu}
 		</button>
 	)
 }
@@ -95,6 +119,13 @@ const row: CSSProperties = {
 const rowSelected: CSSProperties = {
 	border: '1.5px solid var(--accent)',
 	background: 'var(--accent-bg-2)',
+}
+
+/** LA SEULE DIFFÉRENCE entre la variante `<button>` et la variante `<div>`
+ *  lecture seule (`onSelect` absent) — `cursor: pointer` n'a pas de sens sur un
+ *  élément qui ne reçoit aucun clic. Rien d'autre ne bouge (§ 3 du plan). */
+const rowReadOnly: CSSProperties = {
+	cursor: 'default',
 }
 
 /**

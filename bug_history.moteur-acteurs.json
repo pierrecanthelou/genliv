@@ -1,0 +1,65 @@
+{
+	"_about": "Defauts de moteur-acteurs (n 12, EN COURS, 2/4) dont la lecon est DEJA PROMUE dans un instrument lui-meme en lecture obligatoire. MEME AXE que bug_history.moteur-interprete.json/moteur-arbitre.json : la REDONDANCE, JAMAIS l'age -- une feature encore EN COURS y a droit des que la lecon est promue ailleurs. Scinde le 2026-10-02 (it2, franchissement du plafond de bug_history.json) : BUG-142/143/144, les trois lecons promues le jour meme (KR-289, KR-290, KR-291 de code-knowledge.json). BUG-145 et BUG-146 ecrits DIRECTEMENT ici le meme jour (precedent BUG-140 de bug_history.moteur-arbitre.json) : lecons promues par des instruments/KR deja existants (commandes.test.ts/KR-260 pour BUG-145 ; extension de KR-291 pour BUG-146) plutot que par un nouveau KR. CE FICHIER N'EST PAS EN LECTURE OBLIGATOIRE -- seul bug_history.json l'est. NUMEROTATION GLOBALE aux ONZE fichiers desormais, jamais reemployee : prochain id = max(BUG-xxx) des ONZE (precedents BUG-062, BUG-123, BUG-129, BUG-135). HISTORIQUE DES SCISSIONS : CHANGELOG.md.",
+	"bugs": [
+		{
+			"id": "BUG-142",
+			"date": "2026-10-02",
+			"feature": "moteur-acteurs",
+			"discovered_at": "iteration-1",
+			"symptom": "Trouve par la revue tech-lead PR (avant que l'utilisateur ne voie la tranche), pas par l'essaim ni par la QA en mode B : le joueur parle a un PNJ, R4 repond, mais PlayerInputBar.tsx affiche la replique sous l'entete fixe 'RECIT' -- la meme que pour une narration de R3 -- jamais le nom du PNJ, alors que le contrat de design (plan it1 SS3) et le critere d'acceptation #1 l'exigeaient explicitement.",
+			"root_cause": "Le plan d'iteration decoupait le travail en deux lots (contrat brain/ puis cablage de useTourDeJeu.ts) et ne listait PlayerInputBar.tsx dans AUCUN des deux -- un trou du decoupage, pas un oubli d'execution : le dev-lot du lot 2 a correctement respecte sa liste de fichiers (regle dure, jamais sortir du lot) et n'avait donc aucune raison de toucher ce composant, et la QA en mode B a verifie les criteres sur le code livre sans comparer au contrat de design champ par champ.",
+			"fix": "PlayerInputBar.tsx gagne une prop `dossier` (deja disponible au point de montage, EcranPartie.tsx) et projette `EntreeJournal.interlocuteur` (moteur) vers `Personnage.nom` (auteur) uniquement pour l'affichage -- jamais injecte a l'IA (KR-284 tenu, aucun changement d'audience). Repli sur 'RECIT' si l'interlocuteur ne resout aucun PNJ (etat defensif, inatteignable en usage normal).",
+			"mitigation": "Un lot de cablage (`dev-lot`) qui appelle un nouveau role IA doit voir explicitement liste, dans le plan, le COMPOSANT D'AFFICHAGE du resultat quand il differe de celui deja cable pour un role existant -- deux roles qui ecrivent le meme champ (`EntreeJournal.recit`) n'impliquent pas la meme restitution a l'ecran. La revue tech-lead PR doit relire le contrat de design champ par champ contre le code livre, pas seulement les criteres fonctionnels.",
+			"regression_test": "src/features/play-mode/components/PlayerInputBar.test.tsx -- 'n12 it1 -- entete = nom du PNJ pour une replique (origine parler)' et 'n12 it1 -- entete reste RECIT si interlocuteur ne resout aucun PNJ (defensif)'.",
+			"severity": "critical"
+		},
+		{
+			"id": "BUG-143",
+			"date": "2026-10-02",
+			"feature": "moteur-acteurs",
+			"discovered_at": "iteration-2",
+			"symptom": "Trouve par la revue tech-lead PR (2e passage) : CarnetIndices.tsx affichait le libelle de ligne en identifiant brut CommandeId (ex. 'parler', minuscule) au lieu du verbe attendu par le contrat de design signe ('PARLER', #4 — VERBE) -- introduit par la PREMIERE correction de l'orchestrateur lui-meme, qui avait trouve un vrai defaut (une Map locale dupliquant COMMANDES) mais l'avait sur-corrige en appliquant le precedent de JournalRow.tsx (origine rendu TEL QUEL).",
+			"root_cause": "Confusion entre deux regles distinctes : la garde Demeter (KR-117/T-8, ne jamais RECOMPOSER depuis un registre via une copie locale) et une interdiction supposee de LIRE le registre canonique COMMANDES. JournalRow.tsx applique la garde Demeter en registre DEVELOPPEUR-DEBOGUEUR ; le plan ecarte NOMMEMENT ce precedent pour le carnet (registre JOUEUR explicitement distinct, § 2 du plan). Appliquer un precedent exclu par le plan lui-meme, sans relire cette exclusion au moment de corriger.",
+			"fix": "Libelle restaure a partir du verbe du registre (plus jamais l'identifiant brut) comme source. Forme finale precisee par BUG-145 : pas un import direct de COMMANDES (violait une seconde regle, voir BUG-145), une fonction exportee dediee. Deux tests corriges en consequence.",
+			"mitigation": "Une correction de PR qui invoque un precedent doit relire la section du plan qui le cite -- si le plan ECARTE explicitement ce precedent pour le composant en cours de correction, l'appliquer quand meme est la meme classe d'erreur que celle qu'on corrige. Une trouvaille corrigee en urgence (hors raffinage) merite la MEME rigueur qu'une proposition de comite : verifier contre le contrat signe, pas seulement contre un principe general.",
+			"regression_test": "src/features/play-mode/components/CarnetIndices.test.tsx -- assertions '#3 — PARLER' / '#2 — PARLER' / '#4 — PARLER' (verbe, pas identifiant brut)",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-144",
+			"date": "2026-10-02",
+			"feature": "moteur-acteurs",
+			"discovered_at": "iteration-2",
+			"symptom": "src/brain/dossier/controles.test.ts modifie dans le diff de l'iteration (array attendu d'un test de non-duplication etendu), sans apparaitre dans la liste de fichiers d'aucun des deux lots du plan ni dans deviations_from_plan de specification.json -- trouve par la revue tech-lead PR (2e passage), pas par l'integrateur ni par l'orchestrateur.",
+			"root_cause": "Le lot A (dev-contrat) avait pourtant SIGNALE ce ricochet explicitement dans son propre compte rendu (section Appelants trouves), avec sa justification complete. L'orchestrateur ne l'a pas propage dans deviations_from_plan ni ajoute a la liste du lot A du plan signe au moment de l'etape Docs -- un compte rendu d'ouvrier correctement lu une fois n'a pas ete reporte dans les deux documents vivants.",
+			"fix": "Ricochet documente a la fois dans .claude/raffinage/moteur-acteurs-it2.plan.md (liste du lot A) et dans specification.json (deviations_from_plan de l'iteration 2) -- le changement de code lui-meme etait deja correct et necessaire, rien a modifier dans controles.test.ts.",
+			"mitigation": "A l'etape Docs (Build Steps etape 4), relire explicitement la section 'Fichiers touches' / 'Appelants trouves' de CHAQUE compte rendu de dev-contrat/dev-lot avant d'ecrire deviations_from_plan -- un ricochet signale par l'ouvrier et jamais reporte par l'orchestrateur est aussi invisible a la revue utilisateur qu'un ricochet jamais signale du tout.",
+			"regression_test": "Aucun -- defaut de process documentaire, pas une assertion testable en l'etat.",
+			"severity": "minor"
+		},
+		{
+			"id": "BUG-145",
+			"date": "2026-10-02",
+			"feature": "moteur-acteurs",
+			"discovered_at": "iteration-2",
+			"symptom": "Porte qualite (jest, avant toute re-soumission tech-lead) : commandes.test.ts rouge sur 'aucune feature n importe COMMANDES ni createMagasinDeSession (sauf exclusion nommee)' -- le correctif de BUG-143 (import direct de COMMANDES dans CarnetIndices.tsx) viole une frontiere deja instrumentee (KR-260) qui ne reserve cet import qu'a useTourDeJeu.ts, SEUL fichier autorise.",
+			"root_cause": "La correction de BUG-143 a traite la Loi de Demeter (ne jamais RECOMPOSER un registre par copie locale) comme la seule regle en jeu et a importe COMMANDES directement pour la respecter -- sans verifier qu'un test de frontiere DEDIE (commandes.test.ts) interdit deja cet import a tout fichier autre que useTourDeJeu.ts. Deux regles distinctes protegeaient le meme registre ; une seule a ete relue.",
+			"fix": "Nouvelle fonction exportee verbeDeCommande(id) dans brain/dossier/commandes.ts (lit COMMANDES[id].verbe, meme precedent de forme que verbesDisponibles()) ; CarnetIndices.tsx importe verbeDeCommande, plus jamais COMMANDES -- la frontiere reste a un seul fichier (useTourDeJeu.ts), KR-013 et l'encapsulation (raffinage-iteration) tenus simultanement.",
+			"mitigation": "Promu par l'instrument deja existant (commandes.test.ts, KR-260) et par la docstring de verbeDeCommande qui nomme explicitement les deux regles -- pas un nouveau KR de code-knowledge.json (marge de 4 o au moment present, cf. docs/WORKFLOW.md Budget de contexte). Lecon a retenir en revue : un registre cite par DEUX regles distinctes (Demeter + une frontiere d'import dediee) exige de relire les DEUX avant de corriger, pas seulement celle que le precedent invoque le plus directement.",
+			"regression_test": "src/brain/dossier/commandes.test.ts -- 'aucune feature n importe COMMANDES ni createMagasinDeSession (sauf exclusion nommee)' (deja existant, maintenant vert) ; src/features/play-mode/components/CarnetIndices.test.tsx inchange, toujours vert.",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-146",
+			"date": "2026-10-02",
+			"feature": "moteur-acteurs",
+			"discovered_at": "iteration-2",
+			"symptom": "Revue tech-lead PR (3e passage) : le correctif de BUG-145 modifie src/brain/dossier/commandes.ts (nouvelle fonction verbeDeCommande) sans l ajouter a la liste du lot A du plan signe -- alors que ce meme fichier avait ete explicitement RETIRE du lot contrat en tour 2 du raffinage (desaccord #8) et que la toute derniere correction de l iteration (BUG-144) venait de documenter ce meme type de ricochet pour controles.test.ts. Deux tests (useTourDeJeu.test.ts, EcranPartie.test.tsx) exiges par le plan (marques (R)) n avaient en outre recu aucune assertion sur le nouveau cablage (point de montage du carnet, propagation de indices_reveles).",
+			"root_cause": "La correction de BUG-145 a traite le symptome immediat (porte qualite jest sur commandes.test.ts) sans relire sa propre liste de consequences : un fichier brain/ touche hors de tout lot documente, et deux fichiers de test deja marques (R) dans le plan signe restes sans le test que leur marque promettait. La lecon de BUG-144, appliquee quelques minutes plus tot au meme document, n a pas ete reappliquee a soi-meme.",
+			"fix": "src/brain/dossier/commandes.ts ajoute a la liste du lot A du plan avec justification (le mecanisme ecarte en tour 2, TRANSITIONS.parler, reste inchange -- seule une fonction pure est ajoutee). Deux tests ecrits : EcranPartie.test.tsx (bouton carnet absent sur l ecran de creation, present et fonctionnel sur PartieEnCours, session reelle) et useTourDeJeu.test.ts (indices_reveles d une reponse R4 mockee propage jusqu au journal/a_dit/indices_connus de la session).",
+			"mitigation": "Promu par extension de KR-291 (code-knowledge.json) : relire la section Fichiers touches/Appelants trouves ne suffit pas pour un correctif NE provenant PAS d un compte rendu d ouvrier -- tout fichier modifie par l orchestrateur lui-meme en reponse a une porte qualite doit aussi etre confronte a la liste de lots du plan signe, meme (et surtout) s il y a deja ete explicitement retire a un tour anterieur.",
+			"regression_test": "src/features/play-mode/components/EcranPartie.test.tsx -- 'EcranPartie -- carnet d indices (moteur-acteurs it2)' (2 tests) ; src/features/play-mode/hooks/useTourDeJeu.test.ts -- 'Lot B (moteur-acteurs it2) -- indices_reveles de R4 propage jusqu a la session (BUG-145)'.",
+			"severity": "minor"
+		}
+	]
+}

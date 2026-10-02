@@ -1174,5 +1174,82 @@ describe('useTourDeJeu — hook orchestrateur', () => {
 				expect(demanderMock).toHaveBeenCalledTimes(test.attenduAppels)
 			}
 		})
+
+		it('Lot B (moteur-acteurs it2) -- indices_reveles de R4 propage jusqu a la session (BUG-145)', async () => {
+			// Dossier variant : pnj-1 porte un savoir revelable (porte apres_indice_id,
+			// deja ouverte par indices_connus de la session), avec une formulation_joueur
+			// redigee -- condition de contenu (revelation.ts) remplie.
+			const dossierAvecSavoir: Dossier = {
+				...DOSSIER_TEST,
+				monde: {
+					...DOSSIER_TEST.monde,
+					indices: [
+						...DOSSIER_TEST.monde.indices,
+						{ id: 'indice-prealable', nom: 'Un indice deja connu', verite: 'vrai' },
+						{
+							id: 'indice-secret',
+							nom: 'Le secret du PNJ',
+							verite: 'vrai',
+							formulation_joueur: 'Il confie enfin son secret.',
+						},
+					],
+					personnages: DOSSIER_TEST.monde.personnages.map((pnj) =>
+						pnj.id === 'pnj-1'
+							? {
+									...pnj,
+									savoirs: [
+										{
+											indice_id: 'indice-secret',
+											certitude: 'sait' as const,
+											revele_comment: 'Il hesite, puis parle.',
+											revele_si: { apres_indice_id: 'indice-prealable' },
+										},
+									],
+								}
+							: pnj,
+					),
+				},
+			}
+			const sessionAvecIndiceConnu: EtatSession = {
+				...SESSION_TEST,
+				monde: { ...SESSION_TEST.monde, indices_connus: ['indice-prealable'] },
+			}
+
+			const propositionParler = {
+				lecture: 'commande' as const,
+				commande: { commande: 'parler' as const, cibles: ['pnj-1'] },
+			}
+			const reponseR4 = { replique: 'Voici mon secret.', indices_reveles: ['indice-secret'] }
+
+			demanderMock
+				.mockResolvedValueOnce({ statut: 'propose', proposition: propositionParler })
+				.mockResolvedValueOnce(reponseR4)
+
+			const onSessionChange = jest.fn()
+			const { result } = renderHook(() => useTourDeJeu(dossierAvecSavoir, sessionAvecIndiceConnu, onSessionChange))
+
+			await act(async () => {
+				await result.current.executeAction('parler pnj-1')
+			})
+
+			expect(demanderMock).toHaveBeenCalledTimes(2)
+			expect(onSessionChange).toHaveBeenCalledTimes(2)
+
+			const sessionFinale = onSessionChange.mock.calls[1][0] as EtatSession
+
+			// Le journal porte le delta applique
+			const entreeParler = sessionFinale.journal.find(
+				(entree) => entree.origine === 'parler' && entree.recit === 'Voici mon secret.',
+			)
+			expect(entreeParler?.deltas).toEqual([
+				expect.objectContaining({ delta: 'reveler_indice', cibles: ['indice-secret'], effet: 'applique' }),
+			])
+
+			// La session porte l'indice comme connu
+			expect(sessionFinale.monde.indices_connus).toContain('indice-secret')
+
+			// La memoire du PNJ porte le savoir confie
+			expect(sessionFinale.monde.pnj['pnj-1']?.a_dit).toContain('indice-secret')
+		})
 	})
 })

@@ -707,12 +707,13 @@ export type PropositionEpreuve = { readonly epreuve: EpreuveProposee } | { reado
  *  ne peut lire une proposition sur un échec, c'est le TYPAGE qui l'interdit. */
 export type ReponseArbitre = { statut: 'propose'; proposition: PropositionEpreuve } | EchecCopilote
 
-// ══ LE DIXIÈME RÔLE — `acteur` (n° 12 `moteur-acteurs`, it1) ════════════════
+// ══ LE DIXIÈME RÔLE — `acteur` (n° 12 `moteur-acteurs`, it1 puis it2) ═══════
 //
-// ⚠ SES DEUX TYPES VIVENT ICI, Y COMPRIS SA CIBLE ET SA RÉPONSE — MÊME DOMICILE
-// QUE `narrateur`/`arbitre` (§ 4/§ 5 du plan d'itération) : c'est le fichier que
-// le lot `contrat` leur assigne, lu par `CopiloteService.ts` (surcharge +
-// implémentation) et par la feature via le baril `brain/index.ts`.
+// ⚠ SES TROIS TYPES VIVENT ICI (`CibleActeur`, `ReponseActeur`, et depuis l'it2
+// `SortieActeurBrute`) — MÊME DOMICILE QUE `narrateur`/`arbitre` (§ 4/§ 5 du plan
+// d'itération) : c'est le fichier que le lot `contrat` leur assigne, lu par
+// `CopiloteService.ts` (surcharge + implémentation) et par la feature via le
+// baril `brain/index.ts`.
 //
 // COMME `interprete`/`narrateur`/`arbitre`, CE RÔLE N'EST PAS DANS
 // `RoleCopilote` : ni fiche d'entité ni prose de rédaction, il n'a rien à faire
@@ -745,18 +746,36 @@ export interface CibleActeur {
 }
 
 /**
- * CE QUE LE MODÈLE REND ET CE QUE LE CODE RE-RÉSOUT — LA MÊME FORME, et c'est
- * un INVARIANT ASSUMÉ, pas un oubli de KR-231 : `replique` est de la PROSE PURE,
- * sans rang ni handle à re-résoudre — contrairement à TOUS les rôles à rangs
- * précédents, il n'y a RIEN à traduire entre le réseau et l'appelant. Le
- * CONSOMMATEUR (`useTourDeJeu`, lot `feature`) la pose directement dans
- * `EntreeJournal.recit` via `consignerNarration`, réutilisée telle quelle.
+ * CE QUE LE CODE RE-RÉSOUT — ne franchit JAMAIS le réseau tel quel, DEPUIS l'it2
+ * (n° 12 `moteur-acteurs`, lot `contrat` — patron « catalogue borné », KR-287).
  *
- * `CLES_SORTIE_ACTEUR` (`schemaSortie.ts`) PILOTE `validerActeur`, qui rend
- * cette forme EXACTE en branche de succès — précédent `PropositionEpreuve`
- * (rôle `arbitre`), seul autre rôle dont la proposition de succès porte déjà la
- * forme résolue sans `Map.get`.
+ * `replique` reste de la PROSE PURE, sans rang à re-résoudre — INVARIANT ASSUMÉ
+ * conservé depuis l'it1. `indices_reveles`, LUI, EST traduit : le réseau porte des
+ * RANGS (`S1…Sk`, voir `SortieActeurBrute`), re-résolus en IDENTIFIANTS par
+ * `CopiloteService.demanderActeur` (`Map.get` sur la table rendue par
+ * `assemblerActeur`, jamais re-dérivée — précédent `demanderDetenteurs`, KR-231).
+ * AU PLUS UN élément (`REVELATIONS_PAR_REPLIQUE_MAX`), et la LISTE VIDE est un
+ * SUCCÈS (franchise honnête, pas un refus).
+ *
+ * Le CONSOMMATEUR (`useTourDeJeu`, lot `feature`) passe les DEUX champs à
+ * `consignerReponseActeur` (`dossier/recit.ts`), seule porte d'écriture combinée
+ * `recit`+`reveler_indice`+`a_dit`.
  */
 export interface ReponseActeur {
 	readonly replique: string
+	readonly indices_reveles: readonly string[]
+}
+
+/**
+ * CE QUE LE MODÈLE REND — franchit le réseau, DEPUIS l'it2. Type INTERMÉDIAIRE,
+ * CÔTÉ VALIDATEUR SEUL (`schemaSortie.ts`) : `indices_reveles` y porte des RANGS
+ * BRUTS (`RangInjecte`), jamais des identifiants — ZÉRO clé commune de VALEUR avec
+ * `ReponseActeur`, dont le champ homonyme porte la forme RÉSOLUE (KR-231, même
+ * invariant que `DetenteursRendus`/`PropositionDetenteurs`).
+ *
+ * `replique` est identique aux deux formes — PROSE PURE, rien à traduire.
+ */
+export interface SortieActeurBrute {
+	readonly replique: string
+	readonly indices_reveles: readonly RangInjecte[]
 }

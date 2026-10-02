@@ -1258,11 +1258,19 @@ describe('indice-sans-source, un compteur et deux seuils', () => {
 		}
 	})
 
-	it('un seul site filtre le delta reveler_indice dans brain/dossier', () => {
+	it('un seul site FILTRE le delta reveler_indice dans brain/dossier, un second l APPLIQUE (n 12, it2)', () => {
 		// CONTREPARTIE de la charge d'extraction d'it6 : la définition de « ce delta
-		// produit un indice » est écrite UNE fois. Deux sites dériveraient le jour où
+		// produit un indice » est écrite UNE fois. Deux sites qui FILTRENT (décident
+		// « est-ce CE delta ? » pour compter un producteur) dériveraient le jour où
 		// `atteignabilite.ts` naîtra — et c'est un DÉPLACEMENT, relisible en diff, que
 		// la revue d'it6 doit pouvoir constater, pas une réécriture.
+		//
+		// `recit.ts` (n° 12 `moteur-acteurs`, it2, lot `contrat`) REJOINT la marque
+		// SANS rouvrir cette garde : `consignerReponseActeur` CONSTRUIT un `Delta`
+		// pour l'APPLIQUER (`appliquerDelta`), il ne FILTRE RIEN — aucune décision
+		// « est-ce ce delta ? » n'y vit, donc aucun second site de comptage n'existe.
+		// Le balayage reste un PROXY textuel plus large que son nom (« un site filtre »)
+		// ne le dit littéralement ; la liste ATTENDUE, elle, est mesurée et non recopiée.
 		//
 		// La marque est construite par morceaux pour que la présence de ce test ne
 		// suffise pas à faire passer le balayage ; les fichiers de test sont exclus,
@@ -1273,7 +1281,7 @@ describe('indice-sans-source, un compteur et deux seuils', () => {
 			.filter((fichier) => fichier.endsWith('.ts') && !fichier.endsWith('.test.ts'))
 			.filter((fichier) => fs.readFileSync(path.join(__dirname, fichier), 'utf8').includes(MARQUE))
 
-		expect(porteurs).toEqual(['atteignabilite.ts'])
+		expect(porteurs).toEqual(['atteignabilite.ts', 'recit.ts'])
 	})
 })
 

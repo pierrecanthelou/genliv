@@ -61,6 +61,7 @@ import type {
 	ReponseActeur,
 	ReponseArbitre,
 	ReponseNarrateur,
+	SortieActeurBrute,
 	SortieInterprete,
 	SortieNarrateur,
 } from './copilote/types'
@@ -893,10 +894,12 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 	}
 
 	/**
-	 * LE DIXIÈME RÔLE — `acteur` (n° 12 `moteur-acteurs`, it1). ⚠ SEUL RÔLE DONT LE
-	 * SUCCÈS N'EST PAS ENVELOPPÉ `{statut:'propose', proposition}` (signature figée
-	 * § 4 du plan) : `validerActeur` rend DÉJÀ `ReponseActeur` — aucune re-résolution,
-	 * aucun `Map.get` — donc la sortie validée EST la réponse de succès, telle quelle.
+	 * LE DIXIÈME RÔLE — `acteur` (n° 12 `moteur-acteurs`, it1 puis it2). ⚠ SEUL RÔLE
+	 * DONT LE SUCCÈS N'EST PAS ENVELOPPÉ `{statut:'propose', proposition}` (signature
+	 * figée § 4 du plan) : `validerActeur` rend `SortieActeurBrute` — `replique` SANS
+	 * re-résolution (comme à l'it1), `indices_reveles` AVEC (depuis l'it2, patron
+	 * « catalogue borné », KR-287) — et la forme rendue À L'APPELANT, `ReponseActeur`,
+	 * reste une réponse NUE, jamais enveloppée.
 	 *
 	 * L'ORDRE DES EFFETS, identique aux neuf autres rôles :
 	 *  1. LE REFUS DE CONTEXTE, AVANT TOUT — `'cible-a-ecrire'` (le PNJ ne résout pas,
@@ -904,11 +907,13 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 	 *     `fetch`, quelle que soit la configuration ;
 	 *  2. la configuration — `non-configure` sans appel ;
 	 *  3. LE REJEU EXACTEMENT UNE FOIS sur une violation de FORME (`jusquAuRejeuUnique`,
-	 *     INCHANGÉ et toujours générique).
+	 *     INCHANGÉ et toujours générique) — `rangsOuverts` est CALCULÉE UNE FOIS, AVANT
+	 *     la boucle de rejeu, sur la MÊME table que le premier essai : un second essai
+	 *     ne re-assemble jamais le contexte (précédent `demanderDetenteurs`).
 	 *
 	 * SUR ÉCHEC APRÈS LE REJEU UNIQUE : `EchecCopilote` SEUL, AUCUN texte de repli
 	 * écrit par ce fichier (KR-283) — l'orchestrateur (lot `feature`) ne pose aucune
-	 * réplique, `recit` reste `undefined`, état légal.
+	 * réplique, `recit` reste `undefined`, état légal. AUCUN `indices_reveles` non plus.
 	 */
 	async function demanderActeur(
 		dossier: Dossier,
@@ -921,19 +926,35 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 		const vers = acheminement('acteur')
 		if (vers === null) return { statut: 'indisponible', raison: 'non-configure' }
 
+		// La table des rangs ne sort JAMAIS de `brain/` : le validateur n'en reçoit
+		// que les CLÉS (`rangsOuverts`, l'ensemble déjà FERMÉ par le moteur), et la
+		// re-résolution se fait ici, sur la table RENDUE PAR L'ASSEMBLEUR — jamais
+		// re-dérivée (KR-231, précédent `demanderDetenteurs`).
+		const rangsOuverts: ReadonlySet<string> = new Set(contexte.rangs.keys())
 		// LITTÉRAL ÉCRIT, JAMAIS `{ ...cible, contexte }` : ni `session` ni
 		// `personnageId` ne sortent tels quels (KR-231).
 		const corps: CorpsDemande = { role: 'acteur', contexte: contexte.texte }
-		const issue = await jusquAuRejeuUnique<ReponseActeur>(
+		const issue = await jusquAuRejeuUnique<SortieActeurBrute>(
 			vers.url,
 			vers.entetes,
 			corps,
-			(brut) => validerActeur(brut, dossier),
+			(brut) => validerActeur(brut, dossier, rangsOuverts),
 			signal,
 		)
 		if (!issue.ok) return issue.echec
 
-		return issue.sortie
+		// `Map.get` est PARTIEL, et c'est le seul endroit où ça se voit. La branche
+		// `undefined` est INATTEIGNABLE — `validerActeur` vient de constater
+		// l'appartenance de CHAQUE rang à CETTE table —, mais l'alternative est un `!`
+		// ou un `as`, c'est-à-dire l'endroit exact où le compilateur cesse de protéger
+		// (KR-175). AUCUNE conversion numérique : la re-résolution est un `Map.get`.
+		const indices_reveles: string[] = []
+		for (const rang of issue.sortie.indices_reveles) {
+			const indiceId = contexte.rangs.get(rang)
+			if (indiceId !== undefined) indices_reveles.push(indiceId)
+		}
+
+		return { replique: issue.sortie.replique, indices_reveles }
 	}
 
 	/**

@@ -29,9 +29,9 @@ import type {
 	RangInjecte,
 	RapportRendu,
 	RapportsRendus,
-	ReponseActeur,
 	RepliquesRendues,
 	RoleCopilote,
+	SortieActeurBrute,
 	TablesInterprete,
 } from './types'
 
@@ -1515,14 +1515,25 @@ export function validerArbitre(
 	}
 }
 
-// ══ LE DIXIÈME RÔLE — `acteur` (n° 12 `moteur-acteurs`, it1) ════════════════
+// ══ LE DIXIÈME RÔLE — `acteur` (n° 12 `moteur-acteurs`, it1 puis it2) ═══════
 
 /** Les clés du schéma de sortie du rôle `acteur`, EN VALEUR — le validateur en
  *  est PILOTÉ, exactement comme `CLES_SORTIE_PLAN`. UN registre LITTÉRAL,
  *  toujours pas un registre paramétré (§ 8, TL3a-6) : ce rôle n'est pas dans
  *  `RoleCopilote`, et son gabarit ne vit que dans le worker, comme ceux de
- *  `interprete`/`narrateur`/`arbitre`. */
-export const CLES_SORTIE_ACTEUR = ['replique'] as const
+ *  `interprete`/`narrateur`/`arbitre`.
+ *
+ *  DEUX CLÉS DEPUIS L'IT2, TOUJOURS LES DEUX EXIGÉES (KR-236) : `indices_reveles`
+ *  n'est PAS optionnelle — son ABSENCE est un refus `'schema'` au même titre
+ *  qu'une clé en trop, même quand la liste qu'elle porterait serait vide. Une
+ *  liste VIDE reste un SUCCÈS (franchise honnête, § 4 bis du plan) ; c'est la
+ *  CLÉ ABSENTE qui ne l'est pas. */
+export const CLES_SORTIE_ACTEUR = ['replique', 'indices_reveles'] as const
+
+/** LE PATRON « CATALOGUE BORNÉ » (KR-287) BORNE AUSSI LA SORTIE : au plus UN
+ *  savoir confié par réplique. Même statut que `max_tokens` — ni une règle du
+ *  jeu ni une règle du dossier, c'est la FORME DE LA RÉPONSE ATTENDUE. */
+export const REVELATIONS_PAR_REPLIQUE_MAX = 1
 
 /** LA BORNE DE SORTIE du rôle `acteur`, EN CARACTÈRES — VALEUR DE DÉCISION du
  *  comité (§ 4 bis du plan it1), pas une mesure : une réplique de PNJ tient en
@@ -1533,58 +1544,81 @@ export const CLES_SORTIE_ACTEUR = ['replique'] as const
 export const REPLIQUE_CARACTERES_MAX = 400
 
 /**
- * LES PRÉDICATS DE FORME de la sortie `acteur` — le DIXIÈME rôle, et son
- * ancêtre est `validerSortie` (rôle PROSE, SIX prédicats) PLUS le scanner de
- * chiffre déjà introduit par `validerArbitre` (rôle neuf) : une réplique est un
- * SCALAIRE, comme une prose de fiche, mais c'est aussi de la FICTION lue SANS
- * RELECTURE D'AUTEUR, comme un enjeu de jet — elle ne profère donc AUCUNE
- * mécanique, exactement comme `enjeu_reussite`/`enjeu_echec`.
+ * LES PRÉDICATS DE FORME de la sortie `acteur` — le DIXIÈME rôle. DOUZE
+ * PRÉDICATS DEPUIS L'IT2 (n° 12 `moteur-acteurs`, lot `contrat`) : les HUIT
+ * PREMIERS, INCHANGÉS depuis l'it1 (la réplique, scalaire, ancêtre
+ * `validerSortie` PLUS le scanner de chiffre de `validerArbitre`), PUIS QUATRE
+ * prédicats neufs sur `indices_reveles` — le patron « catalogue borné » (KR-287)
+ * : R4 CHOISIT, dans l'ensemble déjà FERMÉ par le moteur (`rangsOuverts`,
+ * rendu par `savoirsRevelables` via `assemblerActeur`), au plus UN rang à
+ * confier — il ne décide JAMAIS lui-même qu'une porte est ouverte.
  *
- * `MotifIllisible` est INCHANGÉE — aucun membre neuf. Le type de retour ne nomme
- * que les motifs ATTEIGNABLES : `'rang-inconnu'` est SANS OBJET ici (aucun
- * jeton, aucune table d'appartenance — R4 ne désigne jamais rien).
+ * `MotifIllisible` GAGNE `'rang-inconnu'` DANS SON ATTEIGNABLE ICI — SANS OBJET
+ * en it1 (R4 ne désignait rien), il l'est désormais : précédent exact
+ * `validerDetenteurs`/`validerInterprete`.
  *
- * LES HUIT PRÉDICATS, dans l'ordre, chacun prouvable SEUL (§ 4 bis du plan,
+ * LES DOUZE PRÉDICATS, dans l'ordre, chacun prouvable SEUL (§ 4 bis du plan,
  * ordre FIGÉ) :
- *   (1) objet simple (ni tableau, ni null) ..................... 'schema'
- *   (2) clés = EXACTEMENT `CLES_SORTIE_ACTEUR` — une clé EN TROP
- *       est un REFUS, jamais un champ ignoré (signal KR-236) .... 'schema'
- *   (3) la clé porte une CHAÎNE ................................ 'schema'
- *   (4) non vide après `trim()` .................................. 'vide'
- *   (5) ≤ `REPLIQUE_CARACTERES_MAX` — un REFUS, jamais une coupe
- *       (KR-230) .................................................. 'schema'
- *   (6) aucun `MARQUEUR_A_ECRIRE` (constante IMPORTÉE, KR-223) 'marqueur'
- *   (7) aucun identifiant du dossier (`porteUnIdentifiant`) . 'identifiant'
- *   (8) aucun chiffre `[0-9]` (`PORTE_UN_CHIFFRE`, précédent
- *       `validerArbitre`) — une réplique ne profère jamais de
- *       mécanique ...................................... 'identifiant'
+ *   (1)  objet simple (ni tableau, ni null) ..................... 'schema'
+ *   (2)  clés = EXACTEMENT `CLES_SORTIE_ACTEUR` — LES DEUX clés
+ *        TOUJOURS dues, une clé en trop OU manquante est un
+ *        REFUS (signal KR-236) ...................................... 'schema'
+ *   (3)  `replique` porte une CHAÎNE ............................ 'schema'
+ *   (4)  non vide après `trim()` .................................. 'vide'
+ *   (5)  ≤ `REPLIQUE_CARACTERES_MAX` — un REFUS, jamais une coupe
+ *        (KR-230) .................................................. 'schema'
+ *   (6)  aucun `MARQUEUR_A_ECRIRE` (constante IMPORTÉE, KR-223) 'marqueur'
+ *   (7)  aucun identifiant du dossier (`porteUnIdentifiant`) . 'identifiant'
+ *   (8)  aucun chiffre `[0-9]` (`PORTE_UN_CHIFFRE`, précédent
+ *        `validerArbitre`) — une réplique ne profère jamais de
+ *        mécanique ...................................... 'identifiant'
+ *   (9)  `Array.isArray(brut.indices_reveles)` .................. 'schema'
+ *   (10) chaque élément est une CHAÎNE — un NOMBRE meurt ici,
+ *        et JAMAIS `String(élément)` ................................ 'schema'
+ *   (11) longueur ≤ `REVELATIONS_PAR_REPLIQUE_MAX` (= 1) — un
+ *        REFUS, jamais une troncature (KR-230) ..................... 'schema'
+ *   (12) chaque élément ∈ `rangsOuverts` .................. 'rang-inconnu'
+ *
+ * LA LISTE VIDE EST UN SUCCÈS (succession du (9)-(11), aucun blocage dédié) :
+ * refuser la franchise pousserait le modèle à la complaisance (§ 4 bis du plan)
+ * — précédent exact `validerDetenteurs`, jamais `validerRepliques` (dont la
+ * liste vide, elle, est un refus de RÉDACTION).
  *
  * ⚠ (7) ET (8) PARTAGENT LE MÊME MOTIF `'identifiant'` — PRÉCÉDENT EXACT
  * `validerArbitre` (prédicat 11) : `MotifIllisible` n'a pas de cinquième membre
  * pour le chiffre, et en inventer un serait une distinction que rien d'autre au
  * dépôt ne porte.
  *
- * ⚠ AUCUNE RE-RÉSOLUTION : la branche de succès rend `ReponseActeur` TELLE
- * QUELLE — précédent `validerArbitre`, qui rend déjà `PropositionEpreuve`. Zéro
- * rang, zéro `Map.get` : R4 ne désigne jamais rien, il ne fait QUE parler.
+ * ⚠ (12) EST LE REFUS ATOMIQUE DE TOUTE LA SORTIE, RÉPLIQUE COMPRISE (KR-230) :
+ * un rang pris dans « déjà confié » (jamais offert, donc jamais dans
+ * `rangsOuverts`), un rang gardé par `contrepartie.consomme:true` (structurellement
+ * fermé en it2, jamais dans `rangsOuverts` non plus — § 6 critère 4 du plan) ou un
+ * rang inventé échouent TOUS ICI, par la MÊME appartenance — aucun cas particulier
+ * n'est nécessaire pour `consomme:true`, la fermeture est mécanique.
+ *
+ * ⚠ AUCUNE RE-RÉSOLUTION DE `replique` : précédent `validerArbitre`.
+ * `indices_reveles`, LUI, EST re-résolu — mais PAS ICI : la branche de succès
+ * rend `SortieActeurBrute` (rangs BRUTS), et `CopiloteService.demanderActeur`
+ * seul transforme les rangs en identifiants (`Map.get`, précédent
+ * `demanderDetenteurs`, KR-231).
  */
 export function validerActeur(
 	brut: unknown,
 	dossier: Dossier,
-): { ok: true; sortie: ReponseActeur } | { ok: false; motif: 'schema' | 'vide' | 'marqueur' | 'identifiant' } {
+	rangsOuverts: ReadonlySet<RangInjecte>,
+): { ok: true; sortie: SortieActeurBrute } | { ok: false; motif: MotifIllisible } {
 	// (1) un objet JSON — ni tableau, ni `null`.
 	if (!estObjetSimple(brut)) return { ok: false, motif: 'schema' }
 
-	// (2) l'ensemble des clés vaut EXACTEMENT `CLES_SORTIE_ACTEUR`.
+	// (2) l'ensemble des clés vaut EXACTEMENT `CLES_SORTIE_ACTEUR` — LES DEUX.
 	const cles = Object.keys(brut)
 	if (cles.length !== CLES_SORTIE_ACTEUR.length || !CLES_SORTIE_ACTEUR.every((cle) => cles.includes(cle))) {
 		return { ok: false, motif: 'schema' }
 	}
 
-	// (3) la clé du schéma porte une CHAÎNE — piloté par `CLES_SORTIE_ACTEUR`.
-	if (!CLES_SORTIE_ACTEUR.every((cle) => typeof brut[cle] === 'string')) return { ok: false, motif: 'schema' }
-
-	const replique = brut[CLES_SORTIE_ACTEUR[0]] as string
+	// (3) `replique` porte une CHAÎNE.
+	if (typeof brut.replique !== 'string') return { ok: false, motif: 'schema' }
+	const replique = brut.replique
 
 	// (4) non vide une fois les blancs retirés.
 	if (replique.trim().length === 0) return { ok: false, motif: 'vide' }
@@ -1602,5 +1636,22 @@ export function validerActeur(
 	//     mécanique (précédent `validerArbitre`).
 	if (PORTE_UN_CHIFFRE.test(replique)) return { ok: false, motif: 'identifiant' }
 
-	return { ok: true, sortie: { replique } }
+	// (9) `indices_reveles` porte un TABLEAU.
+	const indicesBrut: unknown = brut.indices_reveles
+	if (!Array.isArray(indicesBrut)) return { ok: false, motif: 'schema' }
+
+	// (10) chaque élément est une CHAÎNE — un NOMBRE meurt ici.
+	if (!indicesBrut.every((element): element is string => typeof element === 'string')) {
+		return { ok: false, motif: 'schema' }
+	}
+
+	// (11) la BORNE DE SORTIE — un REFUS, jamais une troncature (KR-230).
+	if (indicesBrut.length > REVELATIONS_PAR_REPLIQUE_MAX) return { ok: false, motif: 'schema' }
+
+	// (12) APPARTENANCE — le LOT ENTIER est refusé sur un seul rang fautif, qu'il
+	//      soit inventé, pris dans « déjà confié », ou gardé par une porte
+	//      structurellement fermée (`contrepartie.consomme:true`).
+	if (!indicesBrut.every((rang) => rangsOuverts.has(rang))) return { ok: false, motif: 'rang-inconnu' }
+
+	return { ok: true, sortie: { replique, indices_reveles: indicesBrut } }
 }

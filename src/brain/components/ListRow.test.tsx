@@ -98,3 +98,58 @@ describe('ListRow, la ligne selectionnee', () => {
 		expect(screen.getByRole('button', { name: 'Indices' })).not.toHaveAttribute('aria-current')
 	})
 })
+
+/**
+ * `onSelect` OPTIONNEL (itération 2 de `moteur-acteurs`, 2026-10-02) — ABSENT ⇒
+ * rendu en `<div>` NON FOCUSABLE, jamais un `<button>` désactivé. Précédent
+ * appelant réel : le carnet d'indices (lot `feature`), qui liste sans naviguer.
+ */
+describe('ListRow, onSelect absent — rendu lecture seule', () => {
+	it('rend un <div>, jamais un <button>, quand onSelect est omis', () => {
+		render(<ListRow title="Carnet" subtitle="#4 — PARLER" />)
+
+		expect(screen.queryByRole('button', { name: /Carnet/ })).not.toBeInTheDocument()
+		expect(screen.getByText('Carnet')).toBeInTheDocument()
+		expect(screen.getByText('#4 — PARLER')).toBeInTheDocument()
+	})
+
+	it('n est JAMAIS atteint par Tab : la ligne sort de l ordre de tabulation', async () => {
+		const user = userEvent.setup()
+		render(
+			<>
+				<button type="button">avant</button>
+				<ListRow title="Sans selection" />
+				<button type="button">apres</button>
+			</>,
+		)
+
+		await user.tab()
+		expect(screen.getByRole('button', { name: 'avant' })).toHaveFocus()
+		await user.tab()
+		// La ligne lecture seule est sautée : le focus va DIRECTEMENT au bouton suivant.
+		expect(screen.getByRole('button', { name: 'apres' })).toHaveFocus()
+	})
+
+	it('memes styles que la variante bouton, MOINS cursor:pointer (§ 3 du plan)', () => {
+		const { container: avecBouton } = render(<ListRow title="X" onSelect={jest.fn()} />)
+		const bouton = avecBouton.querySelector('button') as HTMLElement
+		const { container: sansBouton } = render(<ListRow title="X" />)
+		const div = sansBouton.querySelector('div') as HTMLElement
+
+		expect(bouton.style.cursor).toBe('pointer')
+		expect(div.style.cursor).toBe('default')
+		// Le reste des styles en ligne mesurés est IDENTIQUE.
+		expect(div.style.minHeight).toBe(bouton.style.minHeight)
+		expect(div.style.padding).toBe(bouton.style.padding)
+		expect(div.style.borderRadius).toBe(bouton.style.borderRadius)
+	})
+
+	it('n a ni role button ni onClick attache — un clic sur la ligne ne leve rien', async () => {
+		const user = userEvent.setup()
+		render(<ListRow title="Sans gestionnaire" />)
+
+		// Aucune exception, aucun role interactif : juste du texte statique.
+		await user.click(screen.getByText('Sans gestionnaire'))
+		expect(screen.queryByRole('button')).not.toBeInTheDocument()
+	})
+})

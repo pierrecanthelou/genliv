@@ -2787,11 +2787,14 @@ describe('CopiloteService — le neuvieme role, arbitre', () => {
 })
 
 /**
- * LE DIXIÈME RÔLE — `acteur` (n° 12 `moteur-acteurs`, it1, lot `contrat`).
+ * LE DIXIÈME RÔLE — `acteur` (n° 12 `moteur-acteurs`, it1 puis it2, lot `contrat`).
  *
  * ⚠ SEUL RÔLE DONT LE SUCCÈS N'EST PAS ENVELOPPÉ `{statut:'propose', proposition}` —
- * `ReponseActeur` est rendue TELLE QUELLE (signature figée § 4 du plan) : il n'y a RIEN
- * à re-résoudre, `validerActeur` rend déjà la forme finale.
+ * `ReponseActeur` est rendue TELLE QUELLE (signature figée § 4 du plan). `replique`
+ * n'est JAMAIS re-résolue (prose pure, inchangé depuis l'it1) ; `indices_reveles`,
+ * LUI, L'EST DEPUIS L'IT2 — patron « catalogue borné » (KR-287) : le réseau porte des
+ * RANGS (`S1…`), `demanderActeur` les re-résout en identifiants (`Map.get` sur la
+ * table rendue par `assemblerActeur`), précédent exact `demanderDetenteurs`.
  */
 describe('CopiloteService — le dixieme role, acteur', () => {
 	const ROLE_ACTEUR = 'acteur'
@@ -2812,6 +2815,7 @@ describe('CopiloteService — le dixieme role, acteur', () => {
 
 	const conforme = (extra: Record<string, unknown> = {}): Record<string, unknown> => ({
 		replique: REPLIQUE,
+		indices_reveles: [],
 		...extra,
 	})
 
@@ -2825,7 +2829,8 @@ describe('CopiloteService — le dixieme role, acteur', () => {
 		expect(fetchMock).toHaveBeenCalledTimes(1)
 		// ⚠ PAS DE `{statut:'propose', proposition}` — précédent des neuf rôles rompu
 		// délibérément (§ 4 du plan, FIGÉ) : `ReponseActeur` est la réponse ELLE-MÊME.
-		expect(reponse).toEqual({ replique: REPLIQUE })
+		// `indices_reveles` VIDE est un SUCCÈS (franchise honnête, § 4 bis du plan).
+		expect(reponse).toEqual({ replique: REPLIQUE, indices_reveles: [] })
 		expect('statut' in reponse).toBe(false)
 
 		const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
@@ -2856,7 +2861,7 @@ describe('CopiloteService — le dixieme role, acteur', () => {
 		const [, un] = fetchMock.mock.calls[0] as [string, RequestInit]
 		const [, deux] = fetchMock.mock.calls[1] as [string, RequestInit]
 		expect(JSON.parse(String(un.body))).toEqual(JSON.parse(String(deux.body)))
-		expect(reponse).toEqual({ replique: REPLIQUE })
+		expect(reponse).toEqual({ replique: REPLIQUE, indices_reveles: [] })
 	})
 
 	it('deux reponses fautives = illisible, avec le motif du SECOND echec, et jamais un troisieme appel', async () => {
@@ -2864,7 +2869,7 @@ describe('CopiloteService — le dixieme role, acteur', () => {
 		const session = ouverte(dossier)
 		fetchMock
 			.mockResolvedValueOnce(reponseWorker(conforme({ ton: 'x' }))) // schema (cle en trop)
-			.mockResolvedValueOnce(reponseWorker({ replique: 'Revenez dans 7 jours.' })) // identifiant (chiffre)
+			.mockResolvedValueOnce(reponseWorker(conforme({ replique: 'Revenez dans 7 jours.' }))) // identifiant (chiffre)
 			.mockResolvedValueOnce(reponseWorker(conforme())) // jamais atteint
 
 		const reponse = await createCopiloteService(reglages()).demander(dossier, cible(session))
@@ -2939,5 +2944,86 @@ describe('CopiloteService — le dixieme role, acteur', () => {
 
 		const urls = fetchMock.mock.calls.map((appel) => String(appel[0]))
 		expect(urls).toEqual([`${URL_WORKER}/ia/acteur`, `${URL_WORKER}/ia/narrateur`])
+	})
+
+	/**
+	 * LA RE-RÉSOLUTION DES RANGS (it2) — patron « catalogue borné » (KR-287),
+	 * précédent exact `demanderDetenteurs`. Harek (`dossier-reference.json`, lot
+	 * contrat d'it2) porte un savoir gardé par `contrepartie`(consomme:false) +
+	 * `apres_indice_id` en conjonction — le seul PNJ atteignable à porter cette
+	 * conjonction aujourd'hui.
+	 */
+	describe('CopiloteService — dixieme role, la re-resolution des rangs (it2, catalogue borne KR-287)', () => {
+		const INDICE_REVELABLE = 'indice.sceau-brise-a-nouveau'
+
+		function sessionPortesOuvertes(dossier: Dossier): EtatSession {
+			const base = ouverte(dossier)
+			return {
+				...base,
+				monde: {
+					...base.monde,
+					objets_possedes: ['objet.amulette-scellee'],
+					indices_connus: ['indice.pas-dans-la-cendre'],
+				},
+			}
+		}
+
+		it('un rang cite par le modele est re-resolu en IDENTIFIANT — jamais un rang brut dans la reponse', async () => {
+			const dossier = dossierDeReference()
+			const session = sessionPortesOuvertes(dossier)
+			const contexte = assemblerActeur(dossier, session, 'pnj.harek-le-forgeron', 'bonjour')
+			if (!contexte.ok) throw new Error(`contexte refusé : ${contexte.motif}`)
+			expect(contexte.rangs.get('S1')).toBe(INDICE_REVELABLE)
+
+			fetchMock.mockResolvedValue(reponseWorker({ replique: REPLIQUE, indices_reveles: ['S1'] }))
+
+			const reponse = await createCopiloteService(reglages()).demander(dossier, cible(session))
+
+			// Le rang `S1` vit SEULEMENT dans la conversation avec le modèle (le contexte
+			// assemblé le PROPOSE) ; ce que la feature REÇOIT EN RETOUR est l'IDENTIFIANT
+			// re-résolu, jamais le rang brut.
+			expect(reponse).toEqual({ replique: REPLIQUE, indices_reveles: [INDICE_REVELABLE] })
+			expect((reponse as { indices_reveles: readonly string[] }).indices_reveles).not.toContain('S1')
+		})
+
+		it('un rang hors de rangsOuverts (invente) est refuse ATOMIQUEMENT — rejeu puis illisible', async () => {
+			const dossier = dossierDeReference()
+			const session = sessionPortesOuvertes(dossier)
+			fetchMock.mockResolvedValue(reponseWorker({ replique: REPLIQUE, indices_reveles: ['S9'] }))
+
+			const reponse = await createCopiloteService(reglages()).demander(dossier, cible(session))
+
+			expect(fetchMock).toHaveBeenCalledTimes(2)
+			expect(reponse).toEqual({ statut: 'illisible', motif: 'rang-inconnu' })
+		})
+
+		it('un rang pris dans CE QUE TU LUI AS DEJA CONFIE (jamais dans rangsOuverts) est refuse comme un rang invente', async () => {
+			const dossier = dossierDeReference()
+			const base = sessionPortesOuvertes(dossier)
+			// Harek l a DEJA confie son seul savoir ouvrable : plus rien a offrir.
+			const session: EtatSession = {
+				...base,
+				monde: { ...base.monde, pnj: { 'pnj.harek-le-forgeron': { a_dit: [INDICE_REVELABLE] } } },
+			}
+			const contexte = assemblerActeur(dossier, session, 'pnj.harek-le-forgeron', 'bonjour')
+			if (!contexte.ok) throw new Error(`contexte refusé : ${contexte.motif}`)
+			expect(contexte.rangs.size).toBe(0)
+
+			fetchMock.mockResolvedValue(reponseWorker({ replique: REPLIQUE, indices_reveles: ['S1'] }))
+
+			const reponse = await createCopiloteService(reglages()).demander(dossier, cible(session))
+
+			expect(reponse).toEqual({ statut: 'illisible', motif: 'rang-inconnu' })
+		})
+
+		it('indices_reveles VIDE reste un succes meme quand un rang est offert — la franchise n est jamais un refus', async () => {
+			const dossier = dossierDeReference()
+			const session = sessionPortesOuvertes(dossier)
+			fetchMock.mockResolvedValue(reponseWorker({ replique: REPLIQUE, indices_reveles: [] }))
+
+			const reponse = await createCopiloteService(reglages()).demander(dossier, cible(session))
+
+			expect(reponse).toEqual({ replique: REPLIQUE, indices_reveles: [] })
+		})
 	})
 })

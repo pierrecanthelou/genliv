@@ -1370,15 +1370,26 @@ describe('arbitre (mode jeu) — hors parite RoleCopilote, mais sous le plafond 
 })
 
 /**
- * `acteur` (mode JEU, n° 12 `moteur-acteurs`, it1) — HORS DE `ROLES_AUTEUR` comme
- * `interprete`/`narrateur`/`arbitre`, et pour la même raison. COMME `narrateur`/
- * `arbitre`, il a un BUDGET CLIENT (`BUDGET_CARACTERES_ACTEUR`), donc il entre dans
- * `ROLES_PLAFONNES`. ⚠ PREMIER RÔLE DONT LE GABARIT LOCAL EST AUSSI LA FORME
- * RÉSOLUE : `ReponseActeur` et `validerActeur` ne re-résolvent RIEN (`replique` est
- * de la prose pure) — la liaison worker ↔ validateur passe donc par les CLÉS,
- * exactement comme `narrateur`/`arbitre`, mais sur un schéma À UN SEUL NIVEAU.
+ * `acteur` (mode JEU, n° 12 `moteur-acteurs`, it1 puis it2) — HORS DE
+ * `ROLES_AUTEUR` comme `interprete`/`narrateur`/`arbitre`, et pour la même
+ * raison. COMME `narrateur`/`arbitre`, il a un BUDGET CLIENT
+ * (`BUDGET_CARACTERES_ACTEUR`), donc il entre dans `ROLES_PLAFONNES`.
+ *
+ * DEPUIS L'IT2, DEUX FORMES séparées par « ou » (précédent `narrateur`/
+ * `interprete`) : `indices_reveles` non vide, et vide — `replique`, LUI, reste
+ * de la prose pure, sans re-résolution (précédent it1 inchangé). La liaison
+ * worker ↔ validateur passe par les CLÉS du premier niveau ET par
+ * l'APPARTENANCE des rangs offerts à `rangsOuverts` pour le second.
  */
 describe('acteur (mode jeu) — hors parite RoleCopilote, mais sous le plafond et lie par ses cles', () => {
+	/** LES DEUX GABARITS DE L'ACTEUR (it2) — un seul littéral local au worker,
+	 *  séparé par « ou », précédent `gabaritsDuNarrateur`. */
+	function gabaritsDeLActeur(): Array<Record<string, unknown>> {
+		return String(extraireGabaritDeJeu(ROLE_ACTEUR))
+			.split(' ou ')
+			.map((forme) => JSON.parse(forme) as Record<string, unknown>)
+	}
+
 	it('INVITES et le GABARIT_SORTIE local du worker portent une entree acteur, coherente entre elles', () => {
 		expect(Object.prototype.hasOwnProperty.call(INVITES, ROLE_ACTEUR)).toBe(true)
 		const gabarit = extraireGabaritDeJeu(ROLE_ACTEUR)
@@ -1386,20 +1397,45 @@ describe('acteur (mode jeu) — hors parite RoleCopilote, mais sous le plafond e
 		expect(INVITES[ROLE_ACTEUR].systeme).toContain(String(gabarit))
 	})
 
-	it('le gabarit porte EXACTEMENT CLES_SORTIE_ACTEUR — KR-236', () => {
-		const forme = JSON.parse(String(extraireGabaritDeJeu(ROLE_ACTEUR))) as Record<string, unknown>
-		expect(Object.keys(forme)).toEqual([...CLES_SORTIE_ACTEUR])
+	it('les DEUX formes du gabarit portent EXACTEMENT CLES_SORTIE_ACTEUR — KR-236', () => {
+		const formes = gabaritsDeLActeur()
+		expect(formes).toHaveLength(2)
+		for (const forme of formes) expect(Object.keys(forme)).toEqual([...CLES_SORTIE_ACTEUR])
 	})
 
-	it('le gabarit traverse validerActeur reellement, sans identifiant ni chiffre', () => {
-		const cle = Object.keys(JSON.parse(String(extraireGabaritDeJeu(ROLE_ACTEUR))) as Record<string, unknown>)[0]
+	it('la forme VIDE du gabarit traverse validerActeur reellement, sans identifiant ni chiffre', () => {
+		const formes = gabaritsDeLActeur()
+		const vide = formes.find((forme) => Array.isArray(forme.indices_reveles) && forme.indices_reveles.length === 0)
+		expect(vide).toBeDefined()
 		const REPLIQUE = "Vous cherchez quelque chose, l'ami ? Dites-le sans détour."
-		const conforme = { [cle]: REPLIQUE }
+		const conforme = { ...vide, replique: REPLIQUE }
 		const dossier = JSON.parse(
 			fs.readFileSync(path.join(RACINE, 'src', 'brain', 'dossier', '__fixtures__', 'dossier-reference.json'), 'utf8'),
 		) as Dossier
 
-		expect(validerActeur(conforme, dossier)).toEqual({ ok: true, sortie: { replique: REPLIQUE } })
+		expect(validerActeur(conforme, dossier, new Set())).toEqual({
+			ok: true,
+			sortie: { replique: REPLIQUE, indices_reveles: [] },
+		})
+	})
+
+	it('la forme NON VIDE du gabarit traverse validerActeur quand son rang appartient a rangsOuverts', () => {
+		const formes = gabaritsDeLActeur()
+		const avecRang = formes.find((forme) => Array.isArray(forme.indices_reveles) && forme.indices_reveles.length > 0)
+		expect(avecRang).toBeDefined()
+		const rang = (avecRang?.indices_reveles as string[])[0]
+		const REPLIQUE = "Vous cherchez quelque chose, l'ami ? Dites-le sans détour."
+		const conforme = { ...avecRang, replique: REPLIQUE }
+		const dossier = JSON.parse(
+			fs.readFileSync(path.join(RACINE, 'src', 'brain', 'dossier', '__fixtures__', 'dossier-reference.json'), 'utf8'),
+		) as Dossier
+
+		expect(validerActeur(conforme, dossier, new Set([rang]))).toEqual({
+			ok: true,
+			sortie: { replique: REPLIQUE, indices_reveles: [rang] },
+		})
+		// Discriminant : hors de `rangsOuverts`, le MÊME littéral est refusé.
+		expect(validerActeur(conforme, dossier, new Set())).toEqual({ ok: false, motif: 'rang-inconnu' })
 	})
 
 	it('le temoin executable du dixieme role : le worker reel, puis validerActeur, sur le PNJ de la fixture', async () => {
@@ -1448,7 +1484,9 @@ describe('acteur (mode jeu) — hors parite RoleCopilote, mais sous le plafond e
 			return {
 				ok: true,
 				status: 200,
-				json: async () => ({ content: [{ type: 'text', text: JSON.stringify({ replique: REPLIQUE }) }] }),
+				json: async () => ({
+					content: [{ type: 'text', text: JSON.stringify({ replique: REPLIQUE, indices_reveles: [] }) }],
+				}),
 			} as unknown as Response
 		}) as unknown as typeof fetch
 
@@ -1460,7 +1498,7 @@ describe('acteur (mode jeu) — hors parite RoleCopilote, mais sous le plafond e
 			// relayant ensuite `contexte` comme message utilisateur, et `invite.systeme`
 			// comme système (worker/index.ts, handleIa).
 			expect(corpsVersLeWorker).toEqual({ role: 'acteur', contexte: contexte.texte })
-			expect(resultat).toEqual({ replique: REPLIQUE })
+			expect(resultat).toEqual({ replique: REPLIQUE, indices_reveles: [] })
 			// Et aucun identifiant du dossier, aucun nom de PNJ brut, ne part sur le fil —
 			// ni dans le contexte assemblé, ni dans le système (qui ne connaît même pas la
 			// cible).

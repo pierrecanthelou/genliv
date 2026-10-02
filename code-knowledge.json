@@ -749,7 +749,7 @@
 		{
 			"id": "KR-254",
 			"feature": "moteur-dossier",
-			"risk": "LES SEPT CHAMPS D'EtatMonde SONT REQUIS ET TOTAUX DES LE PREMIER LOT contrat — exception NOMMEE a KR-249, dont l'unite d'admission est ici `monde` et non ses champs. La totalite est la PRECONDITION de la bivalence de l'evaluateur (KR-238 : il LEVE, il ne rend jamais false) ; six champs poses optionnels le resteraient A VIE (KR-251) et laisseraient six branches undefined sous un aiguillage qui doit lever. COROLLAIRE : une cle RACINE sans consommateur se reserve (memoire: null, proprietaire n10) ; une cle NON RACINE ne se reserve PAS (horloge.climat_actif, pnj.<id>.confiance non declares, un commentaire nomme leur proprietaire) — KR-251 rendra leur ajout optionnel a vie, donc la reservation n'achete rien qu'un commentaire ne donne."
+			"risk": "Les sept champs d'EtatMonde sont requis et totaux des le premier lot contrat -- precondition de la bivalence de l'evaluateur (KR-238). Corps : docstring de FaitsDeSession, src/brain/dossier/faits.ts (lignes 39+)."
 		},
 		{
 			"id": "KR-255",
@@ -849,7 +849,7 @@
 		{
 			"id": "KR-274",
 			"feature": "moteur-interprete",
-			"risk": "L'ETAT QUE LE MOTEUR TIENT POUR VRAI N'EST JAMAIS UN LEVIER DE DEGRADATION BUDGETAIRE BRUT (extension de KR-013 a l'assemblage de contexte) -- une reduction de ce qu'un role IA en voit doit garantir l'absence de negation fausse : jamais un bloc vide qui suggere 'rien', toujours l'element le plus pertinent au pas courant conserve. Decouvert au raffinage it4 (tronquer l'inventaire injecte par un K arbitraire ferait raconter au narrateur l'absence d'un objet que le moteur dit possede) ; resolu par un suffixe ajuste au budget, jamais vide, garantissant l'objet du pas courant. Corps : spec moteur-interprete, raffinage it4 § 8 desaccord #3."
+			"risk": "L'ETAT QUE LE MOTEUR TIENT POUR VRAI N'EST JAMAIS UN LEVIER DE DEGRADATION BUDGETAIRE BRUT (extension de KR-013 a l'assemblage de contexte) -- jamais un bloc vide qui suggere 'rien', toujours l'element le plus pertinent au pas courant conserve. Corps : spec moteur-interprete, raffinage it4 § 8 desaccord #3."
 		},
 		{
 			"id": "KR-275",
@@ -910,6 +910,31 @@
 			"id": "KR-286",
 			"feature": "moteur-acteurs",
 			"risk": "Carnet d'indices (it2) : vue DERIVEE du journal, jamais un etat stocke ; libelle jamais monde.indices[].nom. Corps : spec moteur-acteurs."
+		},
+		{
+			"id": "KR-287",
+			"feature": "moteur-acteurs",
+			"risk": "Catalogue borne : le moteur ferme un ensemble, le modele choisit DEDANS, re-verifie avant d'appliquer. Corps : spec moteur-acteurs."
+		},
+		{
+			"id": "KR-288",
+			"feature": "moteur-acteurs",
+			"risk": "porteOuverte jamais reutilisee en evaluateur runtime : polarite INVERSE (optimiste vs fermeture par defaut). Corps : spec moteur-acteurs."
+		},
+		{
+			"id": "KR-289",
+			"feature": "moteur-acteurs",
+			"risk": "Un plan introduisant un role IA nomme son composant d'affichage s'il differe du role existant. Corps : bug_history.moteur-acteurs.json BUG-142."
+		},
+		{
+			"id": "KR-290",
+			"feature": "moteur-acteurs",
+			"risk": "Une correction de PR relit le plan : un precedent que le plan ECARTE nommement reste ecarte. Corps : bug_history.moteur-acteurs.json BUG-143."
+		},
+		{
+			"id": "KR-291",
+			"feature": "moteur-acteurs",
+			"risk": "A l'etape Docs, relire chaque CR d'ouvrier avant d'ecrire deviations_from_plan. Corps : bug_history.moteur-acteurs.json BUG-144."
 		}
 	]
 }

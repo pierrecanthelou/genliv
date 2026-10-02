@@ -23,8 +23,13 @@
  * l'extraction (`docs/EXIGENCE-APERCU-DU-JEU.md` § 6), même doctrine que `session.ts`
  * et `commandes.ts`.
  */
+import { appliquerDelta, type DeltaJournalise } from './evaluate'
+import type { FaitsDeSession } from './faits'
+import { estCleDe } from './identifiers'
 import { pasACondenser } from './memoire'
+import { evaluerSavoir } from './revelation'
 import type { EtatSession, FaitEtabli, MemoireSession, ResumeMemoire } from './session'
+import type { Dossier, Savoir } from './types'
 
 /** Deux faits sont LE MÊME quand leur phrase (aux blancs de bord près) et l'ENSEMBLE de
  *  leurs ancres coïncident. Ce n'est pas une réparation (KR-230) : la réponse du modèle
@@ -112,4 +117,100 @@ export function consignerNarration(
 		resume === undefined ? { faits_etablis: [...retenus, ...neufs] } : { faits_etablis: [...retenus, ...neufs], resume }
 
 	return { ...session, journal, memoire }
+}
+
+/** Le `Savoir` d'un `personnageId` qui vise `indiceId` — `undefined` si le
+ *  personnage ne résout pas, ou ne porte aucun savoir sur cet indice. */
+function trouverSavoir(dossier: Dossier, personnageId: string, indiceId: string): Savoir | undefined {
+	const personnage = dossier.monde.personnages.find((candidat) => candidat.id === personnageId)
+	return personnage?.savoirs.find((savoir) => savoir.indice_id === indiceId)
+}
+
+/**
+ * AJOUTE `indiceId` À `faits.pnj[personnageId].a_dit`, idempotent — précédent
+ * `avecAjout` (`deltas.ts`), RECOPIÉ ici plutôt que partagé : `a_dit` N'A PAS
+ * D'ENTRÉE DANS LE REGISTRE `DELTAS` (aucun prédicat ne le DEMANDE comme un effet
+ * de règle, `pnj_a_revele` le LIT seulement), donc `appliquerDelta` ne peut pas
+ * l'écrire — `consignerReponseActeur` en est le SEUL écrivain de tout le dépôt,
+ * au même titre que `fixerHeros` pour `EtatSession.heros`.
+ *
+ * `estCleDe`, jamais une indexation nue ni `in` : `faits.pnj` est indexé par un
+ * identifiant de dossier, valeur non fiable au sens de KR-175.
+ */
+function avecIndiceConfie(faits: FaitsDeSession, personnageId: string, indiceId: string): FaitsDeSession {
+	const existant = estCleDe(faits.pnj, personnageId) ? faits.pnj[personnageId].a_dit : []
+	if (existant.includes(indiceId)) return faits
+	return { ...faits, pnj: { ...faits.pnj, [personnageId]: { a_dit: [...existant, indiceId] } } }
+}
+
+/**
+ * CONSIGNER LA RÉPONSE D'UN ACTEUR (R4) — PURE, synchrone, et le SEUL écrivain
+ * COMBINÉ de `recit` + `reveler_indice` + `a_dit` SUR LA MÊME ENTRÉE de journal
+ * (n° 12 `moteur-acteurs`, it2, lot `contrat`). Précédent exact `consignerJet` /
+ * `fixerHeros` pour la forme, et `consignerNarration` pour la garde structurelle
+ * du récit — RECOPIÉE ici (recopie jusqu'au TROISIÈME appelant, précédent
+ * `SiteDelta`/`SiteExpr`) plutôt que partagée : `consignerNarration` n'écrit
+ * jamais de delta ni de mémoire de personnage, et les deux fonctions restent
+ * chacune TOTALE sur sa propre responsabilité.
+ *
+ * MÊMES TROIS CAS « MÊME RÉFÉRENCE » que `consignerNarration` — `pas` périmé,
+ * aucune entrée à `origine` pour ce pas, ou cette entrée porte déjà un récit :
+ * `session` est rendue INCHANGÉE, SANS lever, même si `indicesReveles` contient
+ * un identifiant devenu invalide entretemps — il n'y a alors rien à écrire.
+ *
+ * L'APPLICATION, DANS CET ORDRE (§ 4 bis du plan d'itération) :
+ *  1. RE-VÉRIFICATION — chaque id de `indicesReveles` doit être `'revelable'`
+ *     MAINTENANT, par le MÊME `evaluerSavoir` que celui qui a fermé le catalogue
+ *     offert à R4 (KR-287). Un id qui ne l'est plus LÈVE : ce n'est PAS une sortie
+ *     de modèle à rejouer (la validation de FORME est déjà passée, § 4 bis du
+ *     plan), c'est un APPELANT FAUTIF (KR-238, précédent `evaluerExpr`) — le seul
+ *     appelant légitime a dû re-résoudre un rang devenu obsolète entre
+ *     l'assemblage du contexte et l'application ;
+ *  2. `appliquerDelta(reveler_indice)` pour chaque id, dans l'ordre reçu ;
+ *  3. `a_dit` du personnage, dans le MÊME ordre — le monde SAIT avant que le
+ *     personnage SE SOUVIENNE de l'avoir dit ;
+ *  4. LE RÉCIT, sur la MÊME entrée que les deltas — jamais un gabarit mécanique :
+ *     `apport.recit` est la réplique RÉELLE que R4 a rendue, déjà validée ;
+ *  5. UNE session rendue, persistée une fois par l'appelant (`useTourDeJeu`).
+ *
+ * `indicesReveles` VIDE est un CAS NOMINAL (succès de franchise, § 4 bis du
+ * plan) : aucune boucle, aucun delta, `deltas` reste ABSENT de l'entrée —
+ * seul le récit est posé.
+ */
+export function consignerReponseActeur(
+	session: EtatSession,
+	pas: number,
+	dossier: Dossier,
+	apport: {
+		readonly recit: string
+		readonly personnageId: string
+		readonly indicesReveles: readonly string[]
+	},
+): EtatSession {
+	if (pas !== session.horloge.tour) return session
+	const rang = session.journal.findIndex((entree) => entree.tour === pas && entree.origine !== undefined)
+	if (rang === -1) return session
+	if (session.journal[rang].recit !== undefined) return session
+
+	for (const indiceId of apport.indicesReveles) {
+		const savoir = trouverSavoir(dossier, apport.personnageId, indiceId)
+		if (savoir === undefined || evaluerSavoir(dossier, session.monde, apport.personnageId, savoir) !== 'revelable') {
+			throw new Error(`consignerReponseActeur : « ${indiceId} » n'est plus révélable par « ${apport.personnageId} »`)
+		}
+	}
+
+	let faits = session.monde
+	const deltas: DeltaJournalise[] = []
+	for (const indiceId of apport.indicesReveles) {
+		const applique = appliquerDelta(faits, { delta: 'reveler_indice', cibles: [indiceId] })
+		faits = applique.faits
+		deltas.push(applique.journalise)
+		faits = avecIndiceConfie(faits, apport.personnageId, indiceId)
+	}
+
+	const journal = session.journal.map((entree, indice) =>
+		indice === rang ? { ...entree, recit: apport.recit, ...(deltas.length > 0 ? { deltas } : {}) } : entree,
+	)
+
+	return { ...session, journal, monde: faits }
 }

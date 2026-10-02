@@ -77,3 +77,57 @@ describe('EcranPartie — GARDE 7 (moteur-arbitre it1)', () => {
 		expect(screen.getByText(/Aucun évènement pour l'instant/)).toBeInTheDocument()
 	})
 })
+
+/**
+ * Point de montage du carnet d'indices (moteur-acteurs it2, BUG-142/KR-289) :
+ * nomme explicitement `PartieEnCours` pour eviter une recidive (une surface
+ * montee par un ecran different de celui ou le critere l'attend). Teste ici
+ * que le bouton n'existe PAS tant que le heros n'est pas cree, et qu'il ouvre
+ * bien la session REELLE une fois monte — pas seulement que CarnetIndices.tsx
+ * fonctionne isolement (deja couvert par son propre fichier de test).
+ */
+describe('EcranPartie -- carnet d indices (moteur-acteurs it2)', () => {
+	beforeEach(() => {
+		window.localStorage.clear()
+	})
+
+	it('le bouton carnet n apparait pas sur l ecran de creation du heros', async () => {
+		const brain = createBrain()
+		const dossier = monterPartieJouable(brain)
+
+		render(
+			<BrainProvider brain={brain}>
+				<EcranPartie dossierId={dossier.id} />
+			</BrainProvider>,
+		)
+
+		expect(screen.getByText('Créez votre héros')).toBeInTheDocument()
+		expect(screen.queryByLabelText("Carnet d'indices")).not.toBeInTheDocument()
+	})
+
+	it('apres creation du heros, le bouton carnet ouvre et ferme la session reelle', async () => {
+		const user = userEvent.setup()
+		const brain = createBrain()
+		const dossier = monterPartieJouable(brain)
+
+		render(
+			<BrainProvider brain={brain}>
+				<EcranPartie dossierId={dossier.id} />
+			</BrainProvider>,
+		)
+
+		await terminerCreationHeros(user)
+
+		const boutonCarnet = screen.getByLabelText("Carnet d'indices")
+		expect(boutonCarnet).toBeInTheDocument()
+
+		await user.click(boutonCarnet)
+
+		// Session reelle fraichement creee -> aucune revelation, etat vide du carnet
+		expect(screen.getByRole('dialog', { name: "Carnet d'indices" })).toBeInTheDocument()
+		expect(screen.getByText(/Aucun indice découvert pour l'instant/)).toBeInTheDocument()
+
+		await user.click(screen.getByLabelText('Fermer'))
+		expect(screen.queryByRole('dialog', { name: "Carnet d'indices" })).not.toBeInTheDocument()
+	})
+})

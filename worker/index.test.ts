@@ -1969,7 +1969,11 @@ describe('POST /ia/acteur — la route du dixieme role (n 12 moteur-acteurs, it1
 		expect(systeme).toContain('PAROLE PRONONCÉE')
 	})
 
-	it('l invite du dixieme role ne recite aucun nom de bloc du contexte, ni le mecanisme de revelation', () => {
+	it('l invite du dixieme role ne recite aucun nom de bloc du contexte, ni le mecanisme de revelation (it2)', () => {
+		// ⚠ GARDE DÉLIBÉRÉMENT ÉTROIT (KR-235), même doctrine que le huitième rôle :
+		// NI 'jet' NI 'indice' n'y figurent — FAUX POSITIFS MESURÉS, « un objet json »
+		// contient 'jet', et la clé de schéma elle-même, `indices_reveles`, contient
+		// 'indice'. Les deux sont legitimement necessaires à l'invite.
 		const systeme = INVITES[ROLE_10].systeme.toLowerCase()
 		const interdits = [
 			'toi\n',
@@ -1978,12 +1982,30 @@ describe('POST /ia/acteur — la route du dixieme role (n 12 moteur-acteurs, it1
 			'tu as dit',
 			'jamais\n',
 			'confiance',
+			'contrepartie',
 			'savoir',
-			'indice',
 			'catalogue',
 			'audience',
 		]
 		expect(interdits.filter((mot) => systeme.includes(mot))).toEqual([])
 		expect(interdits.length).toBeGreaterThan(0)
+	})
+
+	/**
+	 * DEPUIS L'IT2 — le dixième rôle CHOISIT, dans un ensemble déjà FERMÉ par le
+	 * moteur (patron « catalogue borné », KR-287), au plus un repère à confier.
+	 * L'invite enseigne le CHOIX et la FRANCHISE (liste vide = succès), jamais le
+	 * MÉCANISME qui a fermé ou ouvert l'ensemble (§ 4 bis du plan).
+	 */
+	it('l invite du dixieme role enseigne le choix borne et la liste vide honnete, sans nommer le mecanisme (it2)', () => {
+		const systeme = INVITES[ROLE_10].systeme
+		expect(systeme).toContain('indices_reveles')
+		expect(systeme.toLowerCase()).toContain('au plus un')
+		// La franchise : un silence vaut mieux qu'un aveu forcé.
+		expect(systeme).toContain('indices_reveles reste vide')
+		// Le gabarit local du worker, dans l invite, porte les DEUX clés — la seconde
+		// forme AUSSI, un TABLEAU VIDE, jamais une clé absente (KR-236/§4 bis).
+		expect(systeme).toContain('"replique": "…", "indices_reveles": ["S1"]')
+		expect(systeme).toContain('"replique": "…", "indices_reveles": []')
 	})
 })
