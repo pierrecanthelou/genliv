@@ -2816,6 +2816,7 @@ describe('CopiloteService — le dixieme role, acteur', () => {
 	const conforme = (extra: Record<string, unknown> = {}): Record<string, unknown> => ({
 		replique: REPLIQUE,
 		indices_reveles: [],
+		delta_confiance: 0,
 		...extra,
 	})
 
@@ -2829,8 +2830,9 @@ describe('CopiloteService — le dixieme role, acteur', () => {
 		expect(fetchMock).toHaveBeenCalledTimes(1)
 		// ⚠ PAS DE `{statut:'propose', proposition}` — précédent des neuf rôles rompu
 		// délibérément (§ 4 du plan, FIGÉ) : `ReponseActeur` est la réponse ELLE-MÊME.
-		// `indices_reveles` VIDE est un SUCCÈS (franchise honnête, § 4 bis du plan).
-		expect(reponse).toEqual({ replique: REPLIQUE, indices_reveles: [] })
+		// `indices_reveles` VIDE et `delta_confiance: 0` sont un SUCCÈS (franchise
+		// honnête, § 4 bis du plan).
+		expect(reponse).toEqual({ replique: REPLIQUE, indices_reveles: [], delta_confiance: 0 })
 		expect('statut' in reponse).toBe(false)
 
 		const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
@@ -2861,7 +2863,7 @@ describe('CopiloteService — le dixieme role, acteur', () => {
 		const [, un] = fetchMock.mock.calls[0] as [string, RequestInit]
 		const [, deux] = fetchMock.mock.calls[1] as [string, RequestInit]
 		expect(JSON.parse(String(un.body))).toEqual(JSON.parse(String(deux.body)))
-		expect(reponse).toEqual({ replique: REPLIQUE, indices_reveles: [] })
+		expect(reponse).toEqual({ replique: REPLIQUE, indices_reveles: [], delta_confiance: 0 })
 	})
 
 	it('deux reponses fautives = illisible, avec le motif du SECOND echec, et jamais un troisieme appel', async () => {
@@ -2947,6 +2949,22 @@ describe('CopiloteService — le dixieme role, acteur', () => {
 	})
 
 	/**
+	 * `delta_confiance` — PASSTHROUGH IDENTIQUE depuis `SortieActeurBrute` vers
+	 * `ReponseActeur` (it3, `docs/REGLES-DU-JEU.md` § 6, KR-231) : AUCUNE
+	 * re-résolution, contrairement aux rangs de `indices_reveles` ci-dessous.
+	 */
+	it('demanderActeur : delta_confiance passe IDENTIQUE de SortieActeurBrute a ReponseActeur, pour les TROIS valeurs legales', async () => {
+		const dossier = dossierDeReference()
+		const session = ouverte(dossier)
+
+		for (const legal of [-1, 0, 1] as const) {
+			fetchMock.mockResolvedValue(reponseWorker(conforme({ delta_confiance: legal })))
+			const reponse = await createCopiloteService(reglages()).demander(dossier, cible(session))
+			expect(reponse).toEqual({ replique: REPLIQUE, indices_reveles: [], delta_confiance: legal })
+		}
+	})
+
+	/**
 	 * LA RE-RÉSOLUTION DES RANGS (it2) — patron « catalogue borné » (KR-287),
 	 * précédent exact `demanderDetenteurs`. Harek (`dossier-reference.json`, lot
 	 * contrat d'it2) porte un savoir gardé par `contrepartie`(consomme:false) +
@@ -2975,21 +2993,21 @@ describe('CopiloteService — le dixieme role, acteur', () => {
 			if (!contexte.ok) throw new Error(`contexte refusé : ${contexte.motif}`)
 			expect(contexte.rangs.get('S1')).toBe(INDICE_REVELABLE)
 
-			fetchMock.mockResolvedValue(reponseWorker({ replique: REPLIQUE, indices_reveles: ['S1'] }))
+			fetchMock.mockResolvedValue(reponseWorker({ replique: REPLIQUE, indices_reveles: ['S1'], delta_confiance: 0 }))
 
 			const reponse = await createCopiloteService(reglages()).demander(dossier, cible(session))
 
 			// Le rang `S1` vit SEULEMENT dans la conversation avec le modèle (le contexte
 			// assemblé le PROPOSE) ; ce que la feature REÇOIT EN RETOUR est l'IDENTIFIANT
 			// re-résolu, jamais le rang brut.
-			expect(reponse).toEqual({ replique: REPLIQUE, indices_reveles: [INDICE_REVELABLE] })
+			expect(reponse).toEqual({ replique: REPLIQUE, indices_reveles: [INDICE_REVELABLE], delta_confiance: 0 })
 			expect((reponse as { indices_reveles: readonly string[] }).indices_reveles).not.toContain('S1')
 		})
 
 		it('un rang hors de rangsOuverts (invente) est refuse ATOMIQUEMENT — rejeu puis illisible', async () => {
 			const dossier = dossierDeReference()
 			const session = sessionPortesOuvertes(dossier)
-			fetchMock.mockResolvedValue(reponseWorker({ replique: REPLIQUE, indices_reveles: ['S9'] }))
+			fetchMock.mockResolvedValue(reponseWorker({ replique: REPLIQUE, indices_reveles: ['S9'], delta_confiance: 0 }))
 
 			const reponse = await createCopiloteService(reglages()).demander(dossier, cible(session))
 
@@ -3009,7 +3027,7 @@ describe('CopiloteService — le dixieme role, acteur', () => {
 			if (!contexte.ok) throw new Error(`contexte refusé : ${contexte.motif}`)
 			expect(contexte.rangs.size).toBe(0)
 
-			fetchMock.mockResolvedValue(reponseWorker({ replique: REPLIQUE, indices_reveles: ['S1'] }))
+			fetchMock.mockResolvedValue(reponseWorker({ replique: REPLIQUE, indices_reveles: ['S1'], delta_confiance: 0 }))
 
 			const reponse = await createCopiloteService(reglages()).demander(dossier, cible(session))
 
@@ -3019,11 +3037,11 @@ describe('CopiloteService — le dixieme role, acteur', () => {
 		it('indices_reveles VIDE reste un succes meme quand un rang est offert — la franchise n est jamais un refus', async () => {
 			const dossier = dossierDeReference()
 			const session = sessionPortesOuvertes(dossier)
-			fetchMock.mockResolvedValue(reponseWorker({ replique: REPLIQUE, indices_reveles: [] }))
+			fetchMock.mockResolvedValue(reponseWorker({ replique: REPLIQUE, indices_reveles: [], delta_confiance: 0 }))
 
 			const reponse = await createCopiloteService(reglages()).demander(dossier, cible(session))
 
-			expect(reponse).toEqual({ replique: REPLIQUE, indices_reveles: [] })
+			expect(reponse).toEqual({ replique: REPLIQUE, indices_reveles: [], delta_confiance: 0 })
 		})
 	})
 })

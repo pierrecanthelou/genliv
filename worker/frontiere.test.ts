@@ -1370,7 +1370,7 @@ describe('arbitre (mode jeu) — hors parite RoleCopilote, mais sous le plafond 
 })
 
 /**
- * `acteur` (mode JEU, n° 12 `moteur-acteurs`, it1 puis it2) — HORS DE
+ * `acteur` (mode JEU, n° 12 `moteur-acteurs`, it1, it2 puis it3) — HORS DE
  * `ROLES_AUTEUR` comme `interprete`/`narrateur`/`arbitre`, et pour la même
  * raison. COMME `narrateur`/`arbitre`, il a un BUDGET CLIENT
  * (`BUDGET_CARACTERES_ACTEUR`), donc il entre dans `ROLES_PLAFONNES`.
@@ -1380,6 +1380,11 @@ describe('arbitre (mode jeu) — hors parite RoleCopilote, mais sous le plafond 
  * de la prose pure, sans re-résolution (précédent it1 inchangé). La liaison
  * worker ↔ validateur passe par les CLÉS du premier niveau ET par
  * l'APPARTENANCE des rangs offerts à `rangsOuverts` pour le second.
+ *
+ * DEPUIS L'IT3, LES DEUX FORMES PORTENT AUSSI `delta_confiance` — TROISIÈME CLÉ
+ * de `CLES_SORTIE_ACTEUR` (`docs/REGLES-DU-JEU.md` § 6), à des valeurs
+ * DISTINCTES sur chaque forme (`0` sur la forme vide, `1` sur celle qui offre
+ * un rang) : un relevé, jamais une supposition, dans les deux tests qui suivent.
  */
 describe('acteur (mode jeu) — hors parite RoleCopilote, mais sous le plafond et lie par ses cles', () => {
 	/** LES DEUX GABARITS DE L'ACTEUR (it2) — un seul littéral local au worker,
@@ -1413,9 +1418,12 @@ describe('acteur (mode jeu) — hors parite RoleCopilote, mais sous le plafond e
 			fs.readFileSync(path.join(RACINE, 'src', 'brain', 'dossier', '__fixtures__', 'dossier-reference.json'), 'utf8'),
 		) as Dossier
 
+		// LE GABARIT PORTE `delta_confiance: 0` SUR CETTE FORME (VIDE) — constaté,
+		// jamais supposé : la forme NON VIDE, elle, en porte une AUTRE (test suivant).
+		expect(vide?.delta_confiance).toBe(0)
 		expect(validerActeur(conforme, dossier, new Set())).toEqual({
 			ok: true,
-			sortie: { replique: REPLIQUE, indices_reveles: [] },
+			sortie: { replique: REPLIQUE, indices_reveles: [], delta_confiance: 0 },
 		})
 	})
 
@@ -1430,9 +1438,12 @@ describe('acteur (mode jeu) — hors parite RoleCopilote, mais sous le plafond e
 			fs.readFileSync(path.join(RACINE, 'src', 'brain', 'dossier', '__fixtures__', 'dossier-reference.json'), 'utf8'),
 		) as Dossier
 
+		// LE GABARIT PORTE `delta_confiance: 1` SUR CETTE FORME (AVEC RANG) —
+		// constaté, jamais supposé : DISTINCTE de la forme vide (test precedent).
+		expect(avecRang?.delta_confiance).toBe(1)
 		expect(validerActeur(conforme, dossier, new Set([rang]))).toEqual({
 			ok: true,
-			sortie: { replique: REPLIQUE, indices_reveles: [rang] },
+			sortie: { replique: REPLIQUE, indices_reveles: [rang], delta_confiance: 1 },
 		})
 		// Discriminant : hors de `rangsOuverts`, le MÊME littéral est refusé.
 		expect(validerActeur(conforme, dossier, new Set())).toEqual({ ok: false, motif: 'rang-inconnu' })
@@ -1485,7 +1496,9 @@ describe('acteur (mode jeu) — hors parite RoleCopilote, mais sous le plafond e
 				ok: true,
 				status: 200,
 				json: async () => ({
-					content: [{ type: 'text', text: JSON.stringify({ replique: REPLIQUE, indices_reveles: [] }) }],
+					content: [
+						{ type: 'text', text: JSON.stringify({ replique: REPLIQUE, indices_reveles: [], delta_confiance: 0 }) },
+					],
 				}),
 			} as unknown as Response
 		}) as unknown as typeof fetch
@@ -1498,7 +1511,7 @@ describe('acteur (mode jeu) — hors parite RoleCopilote, mais sous le plafond e
 			// relayant ensuite `contexte` comme message utilisateur, et `invite.systeme`
 			// comme système (worker/index.ts, handleIa).
 			expect(corpsVersLeWorker).toEqual({ role: 'acteur', contexte: contexte.texte })
-			expect(resultat).toEqual({ replique: REPLIQUE, indices_reveles: [] })
+			expect(resultat).toEqual({ replique: REPLIQUE, indices_reveles: [], delta_confiance: 0 })
 			// Et aucun identifiant du dossier, aucun nom de PNJ brut, ne part sur le fil —
 			// ni dans le contexte assemblé, ni dans le système (qui ne connaît même pas la
 			// cible).

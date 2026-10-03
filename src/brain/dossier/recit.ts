@@ -28,7 +28,7 @@ import type { FaitsDeSession } from './faits'
 import { estCleDe } from './identifiers'
 import { pasACondenser } from './memoire'
 import { evaluerSavoir } from './revelation'
-import type { EtatSession, FaitEtabli, MemoireSession, ResumeMemoire } from './session'
+import { crediterConfiance, type EtatSession, type FaitEtabli, type MemoireSession, type ResumeMemoire } from './session'
 import type { Dossier, Savoir } from './types'
 
 /** Deux faits sont LE MÊME quand leur phrase (aux blancs de bord près) et l'ENSEMBLE de
@@ -138,9 +138,9 @@ function trouverSavoir(dossier: Dossier, personnageId: string, indiceId: string)
  * identifiant de dossier, valeur non fiable au sens de KR-175.
  */
 function avecIndiceConfie(faits: FaitsDeSession, personnageId: string, indiceId: string): FaitsDeSession {
-	const existant = estCleDe(faits.pnj, personnageId) ? faits.pnj[personnageId].a_dit : []
-	if (existant.includes(indiceId)) return faits
-	return { ...faits, pnj: { ...faits.pnj, [personnageId]: { a_dit: [...existant, indiceId] } } }
+	const etatExistant = estCleDe(faits.pnj, personnageId) ? faits.pnj[personnageId] : { a_dit: [] }
+	if (etatExistant.a_dit.includes(indiceId)) return faits
+	return { ...faits, pnj: { ...faits.pnj, [personnageId]: { ...etatExistant, a_dit: [...etatExistant.a_dit, indiceId] } } }
 }
 
 /**
@@ -185,6 +185,7 @@ export function consignerReponseActeur(
 		readonly recit: string
 		readonly personnageId: string
 		readonly indicesReveles: readonly string[]
+		readonly deltaConfiance: -1 | 0 | 1
 	},
 ): EtatSession {
 	if (pas !== session.horloge.tour) return session
@@ -192,6 +193,9 @@ export function consignerReponseActeur(
 	if (rang === -1) return session
 	if (session.journal[rang].recit !== undefined) return session
 
+	// RE-VÉRIFICATION SUR L'ÉTAT D'AVANT Δ (n° 12 it3) — un Δ négatif de cette
+	// même réplique ne doit jamais refermer rétroactivement le savoir qu'elle
+	// vient de confier : la porte se juge AVANT que la confiance ne varie.
 	for (const indiceId of apport.indicesReveles) {
 		const savoir = trouverSavoir(dossier, apport.personnageId, indiceId)
 		if (savoir === undefined || evaluerSavoir(dossier, session.monde, apport.personnageId, savoir) !== 'revelable') {
@@ -208,9 +212,13 @@ export function consignerReponseActeur(
 		faits = avecIndiceConfie(faits, apport.personnageId, indiceId)
 	}
 
-	const journal = session.journal.map((entree, indice) =>
+	// Δ APPLIQUÉ APRÈS les révélations (n° 12 it3) — `crediterConfiance` sature
+	// aux bornes, seule porte d'écriture de `EtatPnj.confiance`.
+	const sessionCreditee = crediterConfiance({ ...session, monde: faits }, apport.personnageId, apport.deltaConfiance)
+
+	const journal = sessionCreditee.journal.map((entree, indice) =>
 		indice === rang ? { ...entree, recit: apport.recit, ...(deltas.length > 0 ? { deltas } : {}) } : entree,
 	)
 
-	return { ...session, journal, monde: faits }
+	return { ...sessionCreditee, journal }
 }

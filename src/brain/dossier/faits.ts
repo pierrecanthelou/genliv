@@ -19,20 +19,26 @@
  */
 
 /**
- * Ce que la partie sait d'UN personnage. `a_dit` est le SEUL champ, et c'est
- * mesuré : `pnj_a_revele` répond à `monde.pnj.<id>.a_dit[]` et à rien d'autre.
+ * Ce que la partie sait d'UN personnage. `a_dit` RÉPOND SEUL à `pnj_a_revele`
+ * (`monde.pnj.<id>.a_dit[]`, et à rien d'autre) ; `confiance` est posée par le
+ * lot `contrat` de la n° 12 (`moteur-acteurs`, it3, `docs/REGLES-DU-JEU.md` § 6).
  *
  * `sait` est REFUSÉ, ni comme champ ni comme clé réservée (KR-253) : aucun
  * prédicat ne le lit, aucun delta ne peut l'écrire, et le savoir d'un personnage
  * est entièrement déterminé par `monde.personnages[].savoirs[]` du dossier, en
  * lecture seule pendant la partie. Le réserver légitimerait un dérivé stocké.
  *
- * `confiance` : propriétaire n° 12, NON DÉCLARÉE — ce n'est pas une clé RACINE,
- * donc KR-249 ne la réserve pas, et KR-251 la rendra optionnelle à vie le jour
- * venu. La réserver ici l'écrirait sur CHAQUE entrée, à jamais.
+ * `confiance` : OPTIONNELLE À VIE (KR-251) — ce n'est pas une clé RACINE, donc
+ * KR-249 ne la réserve pas davantage qu'elle ne réservait `a_dit` avant la
+ * n° 12. Un PNJ SANS cette clé n'a simplement jamais été crédité : absent se lit
+ * `CONFIANCE_DEPART` (`types.ts`), JAMAIS un trou — la même doctrine que `a_dit`
+ * avant l'ouverture de la toute première partie. SEULE PORTE D'ÉCRITURE :
+ * `crediterConfiance` (`session.ts`) ; SEULE PORTE DE LECTURE DE LA RÈGLE :
+ * `portesOuvertes` (`revelation.ts`, branche `confiance_min`).
  */
 export interface EtatPnj {
 	readonly a_dit: readonly string[]
+	readonly confiance?: number
 }
 
 /**

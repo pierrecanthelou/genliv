@@ -15,7 +15,8 @@ import type { FaitsDeSession } from './faits'
 // mesuré au dépôt, dont la docstring porte le même avertissement :
 // `src/brain/copilote/contexte/prose.ts:11-19`. Ne jamais transformer cette ligne.
 import type { CommandeId } from './commandes'
-import type { Dossier } from './types'
+import { estCleDe } from './identifiers'
+import { CONFIANCE_DEPART, CONFIANCE_MAX, CONFIANCE_MIN, type Dossier } from './types'
 // `HeroState` est importée TELLE QUELLE de `src/player/types.ts` — jamais une
 // seconde forme (n° 11 `moteur-arbitre`, lot `contrat`, § 4 du plan d'itération
 // 1). Importer `src/player/**` reste légal dans les trois sens que l'isolation
@@ -587,4 +588,38 @@ export function consignerJet(
 export function crediterXp(session: EtatSession, xp: number): EtatSession {
 	if (session.heros === undefined || xp <= 0) return session
 	return { ...session, heros: { ...session.heros, xp: session.heros.xp + xp } }
+}
+
+/**
+ * CRÉDITER LA CONFIANCE D'UN PNJ — PURE, et SEULE PORTE D'ÉCRITURE de
+ * `EtatPnj.confiance` dans toute la feature (n° 12 `moteur-acteurs`, it3, lot
+ * `contrat` — `docs/REGLES-DU-JEU.md` § 6). Précédent exact `crediterXp` /
+ * `consignerJet` : NE TOUCHE QUE LA FEUILLE `monde.pnj[pnjId].confiance`, le
+ * reste de l'entrée du PNJ (SI ELLE EXISTE DÉJÀ) et le reste de la session
+ * rendus À L'IDENTIQUE — jamais une recopie champ par champ qui divergerait en
+ * silence du contrat.
+ *
+ * SATURE AUX BORNES (`CONFIANCE_MIN`/`CONFIANCE_MAX`) : C'EST L'ÉTAT QUI
+ * SATURE, JAMAIS `delta` — `delta` lui-même n'est jamais écrêté avant d'être
+ * ajouté (`docs/REGLES-DU-JEU.md` § 6). Un PNJ SANS AUCUNE ENTRÉE lit
+ * `CONFIANCE_DEPART` avant application — LA MÊME CONSTANTE que celle que lit
+ * `portesOuvertes` (`revelation.ts`), jamais un `0` en dur recopié ici (KR-165) :
+ * deux replis diverseraient en silence le jour où l'un des deux change.
+ *
+ * NO-OP, SESSION RENDUE INCHANGÉE (même référence), QUAND `delta === 0` —
+ * précédent `crediterXp` (`xp <= 0`) : rien à créditer, donc rien à écrire,
+ * MÊME SI aucune entrée n'existe encore pour ce PNJ. Créer une entrée qui ne
+ * porterait que la valeur par défaut serait un dérivable stocké (KR-013) :
+ * `faits.pnj[id]` ABSENT et `faits.pnj[id] === { a_dit: [], confiance: 0 }`
+ * doivent rester le MÊME état légal, jamais deux représentations.
+ */
+export function crediterConfiance(session: EtatSession, pnjId: string, delta: -1 | 0 | 1): EtatSession {
+	if (delta === 0) return session
+	const existant = estCleDe(session.monde.pnj, pnjId) ? session.monde.pnj[pnjId] : { a_dit: [] }
+	const actuelle = existant.confiance ?? CONFIANCE_DEPART
+	const confiance = Math.min(CONFIANCE_MAX, Math.max(CONFIANCE_MIN, actuelle + delta))
+	return {
+		...session,
+		monde: { ...session.monde, pnj: { ...session.monde.pnj, [pnjId]: { ...existant, confiance } } },
+	}
 }

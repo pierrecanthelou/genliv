@@ -1969,11 +1969,17 @@ describe('POST /ia/acteur — la route du dixieme role (n 12 moteur-acteurs, it1
 		expect(systeme).toContain('PAROLE PRONONCÉE')
 	})
 
-	it('l invite du dixieme role ne recite aucun nom de bloc du contexte, ni le mecanisme de revelation (it2)', () => {
+	it('l invite du dixieme role ne recite aucun nom de bloc du contexte, ni le mecanisme de revelation (it2/it3)', () => {
 		// ⚠ GARDE DÉLIBÉRÉMENT ÉTROIT (KR-235), même doctrine que le huitième rôle :
 		// NI 'jet' NI 'indice' n'y figurent — FAUX POSITIFS MESURÉS, « un objet json »
 		// contient 'jet', et la clé de schéma elle-même, `indices_reveles`, contient
 		// 'indice'. Les deux sont legitimement necessaires à l'invite.
+		//
+		// ⚠ 'confiance' EST RETIREE DE CETTE LISTE DEPUIS L'IT3, MEME MOTIF QUE
+		// 'jet'/'indice' CI-DESSUS : la clé de schéma `delta_confiance` elle-même
+		// contient ce mot, et l'invite en a desormais legitimement besoin pour
+		// l'expliquer (sans borne, sans seuil, sans effet sur les savoirs — voir le
+		// test suivant). Elle reste couverte par la RELECTURE, jamais par ce balayage.
 		const systeme = INVITES[ROLE_10].systeme.toLowerCase()
 		const interdits = [
 			'toi\n',
@@ -1981,7 +1987,6 @@ describe('POST /ia/acteur — la route du dixieme role (n 12 moteur-acteurs, it1
 			'etabli',
 			'tu as dit',
 			'jamais\n',
-			'confiance',
 			'contrepartie',
 			'savoir',
 			'catalogue',
@@ -1989,6 +1994,28 @@ describe('POST /ia/acteur — la route du dixieme role (n 12 moteur-acteurs, it1
 		]
 		expect(interdits.filter((mot) => systeme.includes(mot))).toEqual([])
 		expect(interdits.length).toBeGreaterThan(0)
+	})
+
+	/**
+	 * `delta_confiance` (it3, `docs/REGLES-DU-JEU.md` § 6, critère d'acceptation #7
+	 * du plan) — l'invite explique LE CHAMP (son domaine, `{-1, 0, 1}`) mais ne
+	 * récite NI la borne de l'échelle de session (`[-3, +3]`), NI un seuil de
+	 * porte, NI l'effet d'un franchissement sur le catalogue des savoirs.
+	 */
+	it('l invite du dixieme role explique delta_confiance sans reciter de borne, de seuil, ni l effet sur les savoirs (it3)', () => {
+		const systeme = INVITES[ROLE_10].systeme
+		expect(systeme).toContain('delta_confiance')
+		expect(systeme).toContain('-1, 0 ou 1')
+		// Le gabarit local du worker, dans l invite, porte la TROISIEME cle — les
+		// DEUX formes, jamais une clé absente (KR-236/§4 bis).
+		expect(systeme).toContain('"delta_confiance": 1')
+		expect(systeme).toContain('"delta_confiance": 0')
+		// AUCUNE BORNE DE L ECHELLE DE SESSION (`docs/REGLES-DU-JEU.md` § 6), AUCUN
+		// SEUIL, AUCUN EFFET SUR LES SAVOIRS — ce que le moteur seul sait et applique.
+		const basse = systeme.toLowerCase()
+		for (const interdit of ['-3', '+3', 'confiance_min', 'seuil', 'confiance_depart']) {
+			expect(`${interdit} → ${basse.includes(interdit)}`).toBe(`${interdit} → false`)
+		}
 	})
 
 	/**

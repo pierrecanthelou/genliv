@@ -3671,16 +3671,20 @@ describe('assemblerNarrateur — la mesure du budget : un terme dossier MESURE, 
 		// neuf de `COMMANDES`, porte désormais le libellé le plus long
 		// (« s'adresse à quelqu'un sur place »), que `pireCasNarrateur()` sélectionne —
 		// +17 caractères par rapport à `agit sur place` (1937 → 1954).
+		// RE-MESURÉ au lot contrat de la n° 12 (`moteur-acteurs`, it3) : Harek gagne un
+		// troisième savoir référençant un NOUVEL indice de `dossier-reference.json`
+		// (`indice.piece-forgee-par-harek`), et `pireCasNarrateur()` balaie TOUS les
+		// indices du dossier — +43 caractères (1954 → 1997), SOUS le palier des 2000.
 		const M = texte.length
-		expect(M).toBe(1954)
+		expect(M).toBe(1997)
 
 		// TEMPS 3 — la formule : le terme dossier (facteur 3, arrondi au millier) PLUS la
 		// borne EXACTE de la mémoire, PLUS (n° 11, it2 puis it3) la borne EXACTE de la
 		// ligne de jet, sans marge sur AUCUN des deux termes calculés.
 		expect(BUDGET_CARACTERES_NARRATEUR).toBe(Math.ceil((M * 3) / 1000) * 1000 + BORNE_MEMOIRE + BORNE_JET)
-		// 27 056 depuis it3 (27 046 en it2) : BORNE_JET est passee de 90 a 100 quand
-		// 'reussit nettement' (17 caracteres) est devenue le mot le plus long d AMORCE_ISSUE
-		// — re-mesure, jamais recopie (worker/index.ts en porte la trace).
+		// 27 056 depuis it3 de la n° 11 (27 046 en it2) : M reste SOUS le palier des 2000
+		// (1997 × 3 = 5991) au lot contrat de la n° 12 it3 — re-mesure, jamais recopie
+		// (worker/index.ts en porte la trace).
 		expect(BUDGET_CARACTERES_NARRATEUR).toBe(27056)
 	})
 

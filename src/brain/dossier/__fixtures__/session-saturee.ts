@@ -94,6 +94,15 @@ import type { EtatSession } from '../session'
  * DEUX ancres (arité maximale) et l'autre ancré sur un objet POSSÉDÉ — des `lieu.*` et
  * des `objet.*` seulement (I5) ; des phrases au registre joueur, sans identifiant.
  *
+ * `confiance` INSTANCIÉE depuis le lot `contrat` de la n° 12 (`moteur-acteurs`,
+ * it3), SUR `pnj.aldur-le-sage` SEULEMENT — l'autre entrée, `pnj.corvin-le-marchand`,
+ * reste SANS ce champ : un champ optionnel à vie doit rester absent QUELQUE PART
+ * dans cette fixture, sinon « absent ≠ vide » n'y serait jamais démontré. VALEUR
+ * NON DÉFAUT (`2`, jamais `CONFIANCE_DEPART` = `0`) — même doctrine que `heros`
+ * ci-dessous : une sentinelle au défaut serait indistinguable d'un champ jamais
+ * lu. Sans instance, la ligne `monde.pnj.<id>.confiance` de la table serait
+ * MORTE le jour même où elle est écrite.
+ *
  * `heros` INSTANCIÉ depuis le lot `contrat` de la n° 11 (`moteur-arbitre`, it1) —
  * SENTINELLE délibérément NON DÉFAUT sur les trois axes que l'invariance de
  * `copilote/contexte.test.ts` vérifie : `name` n'est pas une chaîne vide, aucune
@@ -116,7 +125,7 @@ export const SESSION_SATUREE: EtatSession = {
 		jalons_atteints: ['jalon.premiere-nuit'],
 		evenements_consommes: ['evenement.embuscade-du-fanal'],
 		pnj: {
-			'pnj.aldur-le-sage': { a_dit: ['indice.sceau-brise'] },
+			'pnj.aldur-le-sage': { a_dit: ['indice.sceau-brise'], confiance: 2 },
 			'pnj.corvin-le-marchand': { a_dit: ['indice.cendres-tiedes'] },
 		},
 	},

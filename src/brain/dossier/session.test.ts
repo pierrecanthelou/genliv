@@ -4,6 +4,7 @@ import { AMORCE, MARQUEUR_A_ECRIRE, construireAmorce } from './amorce'
 import { executerCommande } from './commandes'
 import {
 	consignerJet,
+	crediterConfiance,
 	crediterXp,
 	SCHEMA_SESSION,
 	fixerHeros,
@@ -472,5 +473,68 @@ describe('crediterXp — la seule ecrivaine de HeroState.xp (n 11 moteur-arbitre
 
 		expect(crediterXp(session, 0)).toBe(session)
 		expect(crediterXp(session, -3)).toBe(session)
+	})
+})
+
+/**
+ * `crediterConfiance` — LA SEULE ÉCRIVAINE de `EtatPnj.confiance` (n° 12
+ * `moteur-acteurs`, lot `contrat`, it3 — `docs/REGLES-DU-JEU.md` § 6). § 7 du
+ * plan d'itération : « session.test.ts — crediterConfiance, saturation » et
+ * « session.test.ts / revelation.test.ts — défaut ».
+ */
+describe('crediterConfiance — la seule ecrivaine de EtatPnj.confiance (n 12 moteur-acteurs, lot contrat, it3)', () => {
+	const PNJ = 'pnj.harek-le-forgeron'
+
+	it('credite le delta exact depuis CONFIANCE_DEPART quand le PNJ n a jamais ete credite (critere #4 du plan)', () => {
+		const session = sessionDe(reecrit(), 7)
+		expect(session.monde.pnj).toEqual({})
+
+		const creditee = crediterConfiance(session, PNJ, 1)
+
+		expect(creditee.monde.pnj[PNJ]).toEqual({ a_dit: [], confiance: 1 })
+		// RIEN D AUTRE N A CHANGE : la session renvoyee est l argument, plus la
+		// seule feuille monde.pnj[PNJ].confiance.
+		expect({ ...creditee, monde: session.monde }).toEqual(session)
+		// PURE : l argument n est pas mute.
+		expect(session.monde.pnj[PNJ]).toBeUndefined()
+	})
+
+	it('sature a CONFIANCE_MIN : -3 + (-1) reste -3 (critere #3 du plan, DEUX bornes)', () => {
+		const base = sessionDe(reecrit(), 7)
+		const auPlancher: EtatSession = { ...base, monde: { ...base.monde, pnj: { [PNJ]: { a_dit: [], confiance: -3 } } } }
+
+		expect(crediterConfiance(auPlancher, PNJ, -1).monde.pnj[PNJ]?.confiance).toBe(-3)
+	})
+
+	it('sature a CONFIANCE_MAX : +3 + (+1) reste +3 (critere #3 du plan, DEUX bornes)', () => {
+		const base = sessionDe(reecrit(), 7)
+		const auPlafond: EtatSession = { ...base, monde: { ...base.monde, pnj: { [PNJ]: { a_dit: [], confiance: 3 } } } }
+
+		expect(crediterConfiance(auPlafond, PNJ, 1).monde.pnj[PNJ]?.confiance).toBe(3)
+	})
+
+	it('preserve a_dit deja ecrit — jamais un ecrasement litteral (precedent avecIndiceConfie, recit.ts)', () => {
+		const base = sessionDe(reecrit(), 7)
+		const avecSavoir: EtatSession = {
+			...base,
+			monde: { ...base.monde, pnj: { [PNJ]: { a_dit: ['indice.sceau-brise-a-nouveau'] } } },
+		}
+
+		const creditee = crediterConfiance(avecSavoir, PNJ, 1)
+
+		expect(creditee.monde.pnj[PNJ]).toEqual({ a_dit: ['indice.sceau-brise-a-nouveau'], confiance: 1 })
+	})
+
+	it('no-op (meme reference) quand delta vaut 0, meme sans aucune entree pour ce PNJ', () => {
+		const session = sessionDe(reecrit(), 7)
+
+		expect(crediterConfiance(session, PNJ, 0)).toBe(session)
+	})
+
+	it('no-op (meme reference) quand delta vaut 0 ET qu une entree existe deja', () => {
+		const base = sessionDe(reecrit(), 7)
+		const session: EtatSession = { ...base, monde: { ...base.monde, pnj: { [PNJ]: { a_dit: [], confiance: 2 } } } }
+
+		expect(crediterConfiance(session, PNJ, 0)).toBe(session)
 	})
 })

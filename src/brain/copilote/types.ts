@@ -757,13 +757,21 @@ export interface CibleActeur {
  * AU PLUS UN élément (`REVELATIONS_PAR_REPLIQUE_MAX`), et la LISTE VIDE est un
  * SUCCÈS (franchise honnête, pas un refus).
  *
- * Le CONSOMMATEUR (`useTourDeJeu`, lot `feature`) passe les DEUX champs à
+ * `delta_confiance` — TROISIÈME CLÉ DEPUIS L'IT3 (`docs/REGLES-DU-JEU.md` § 6),
+ * REQUISE au même titre que `indices_reveles` (KR-236) : AUCUN défaut implicite,
+ * son absence est un refus `'schema'` de TOUTE la sortie (`validerActeur`,
+ * prédicat 13). PASSTHROUGH IDENTIQUE depuis `SortieActeurBrute`, AUCUNE
+ * RE-RÉSOLUTION — contrairement aux rangs de `indices_reveles` : la valeur que
+ * le modèle a écrite EST la valeur qu'applique `crediterConfiance`.
+ *
+ * Le CONSOMMATEUR (`useTourDeJeu`, lot `feature`) passe les TROIS champs à
  * `consignerReponseActeur` (`dossier/recit.ts`), seule porte d'écriture combinée
- * `recit`+`reveler_indice`+`a_dit`.
+ * `recit`+`reveler_indice`+`a_dit`+`confiance`.
  */
 export interface ReponseActeur {
 	readonly replique: string
 	readonly indices_reveles: readonly string[]
+	readonly delta_confiance: -1 | 0 | 1
 }
 
 /**
@@ -774,8 +782,17 @@ export interface ReponseActeur {
  * invariant que `DetenteursRendus`/`PropositionDetenteurs`).
  *
  * `replique` est identique aux deux formes — PROSE PURE, rien à traduire.
+ *
+ * `delta_confiance` DEPUIS L'IT3 — `unknown`, BRUT, AVANT VALIDATION
+ * (`validerActeur`, prédicat 13, constate son appartenance à `{-1, 0, 1}` avant
+ * de rendre `ok: true`) : contrairement à `replique`/`indices_reveles`, qui
+ * portent déjà leur forme de SORTIE (une chaîne, un tableau de rangs), ce champ
+ * ne promet RIEN de son type tant que le prédicat n'a pas tranché — une
+ * garantie que ce type INTERMÉDIAIRE ne fait PAS, par contraste délibéré avec
+ * `ReponseActeur.delta_confiance: -1 | 0 | 1`.
  */
 export interface SortieActeurBrute {
 	readonly replique: string
 	readonly indices_reveles: readonly RangInjecte[]
+	readonly delta_confiance: unknown
 }

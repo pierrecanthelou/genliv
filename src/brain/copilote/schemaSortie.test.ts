@@ -15,6 +15,7 @@ import {
 	CLES_SORTIE_RELATIONS,
 	CLES_SORTIE_REPLIQUES,
 	CONDENSE_CARACTERES_MAX,
+	DELTAS_CONFIANCE_VALIDES,
 	ENJEU_CARACTERES_MAX,
 	FAIT_CARACTERES_MAX,
 	FAITS_PAR_PAS_MAX,
@@ -3140,13 +3141,14 @@ describe('validerArbitre — le neuvieme role, deux formes disjointes (n 11 mote
 // ══ LE DIXIÈME RÔLE — `acteur` (n° 12 `moteur-acteurs`, it1 puis it2, lot `contrat`) ══
 
 /**
- * `validerActeur` — DOUZE prédicats depuis l'it2 (§ 4 bis du plan it2). `replique`
+ * `validerActeur` — TREIZE prédicats depuis l'it3 (§ 4 bis du plan it3). `replique`
  * (1-8) est INCHANGÉE depuis l'it1 — un scalaire sans re-résolution. `indices_reveles`
- * (9-12) est NEUF : le patron « catalogue borné » (KR-287), rendu par
+ * (9-12) est le patron « catalogue borné » (KR-287) depuis l'it2, rendu par
  * `SortieActeurBrute` (rangs BRUTS), jamais `ReponseActeur` (identifiants) — cette
  * re-résolution-là vit dans `CopiloteService.demanderActeur`, hors de ce fichier.
+ * `delta_confiance` (13) est NEUF (it3, `docs/REGLES-DU-JEU.md` § 6).
  */
-describe('validerActeur — le dixieme role, douze predicats (§ 4 bis du plan it2)', () => {
+describe('validerActeur — le dixieme role, treize predicats (§ 4 bis du plan it3)', () => {
 	const dossier = dossierDeReference()
 	const REPLIQUE = "L'enclume ne chôme jamais, même quand le ciel s'assombrit."
 	const RANG = 'S1'
@@ -3154,20 +3156,21 @@ describe('validerActeur — le dixieme role, douze predicats (§ 4 bis du plan i
 	const vide = (champs: Record<string, unknown> = {}): Record<string, unknown> => ({
 		replique: REPLIQUE,
 		indices_reveles: [],
+		delta_confiance: 0,
 		...champs,
 	})
 
 	it('le nominal (liste vide) rend ok et la forme RESOLUE est SortieActeurBrute, zero re-resolution', () => {
 		expect(validerActeur(vide(), dossier, rangsOuverts)).toEqual({
 			ok: true,
-			sortie: { replique: REPLIQUE, indices_reveles: [] },
+			sortie: { replique: REPLIQUE, indices_reveles: [], delta_confiance: 0 },
 		})
 	})
 
 	it('le nominal (un rang OUVERT) rend ok, le rang BRUT est rendu TEL QUEL', () => {
 		expect(validerActeur(vide({ indices_reveles: [RANG] }), dossier, rangsOuverts)).toEqual({
 			ok: true,
-			sortie: { replique: REPLIQUE, indices_reveles: [RANG] },
+			sortie: { replique: REPLIQUE, indices_reveles: [RANG], delta_confiance: 0 },
 		})
 	})
 
@@ -3177,14 +3180,15 @@ describe('validerActeur — le dixieme role, douze predicats (§ 4 bis du plan i
 		}
 	})
 
-	it('2 — les cles valent EXACTEMENT CLES_SORTIE_ACTEUR : indices_reveles TOUJOURS due, meme vide', () => {
-		expect(CLES_SORTIE_ACTEUR).toEqual(['replique', 'indices_reveles'])
+	it('2 — les cles valent EXACTEMENT CLES_SORTIE_ACTEUR : indices_reveles et delta_confiance TOUJOURS dues', () => {
+		expect(CLES_SORTIE_ACTEUR).toEqual(['replique', 'indices_reveles', 'delta_confiance'])
 		const cas: Array<Record<string, unknown>> = [
 			{},
-			{ replique: REPLIQUE }, // indices_reveles ABSENTE — refus, jamais une liste vide implicite
-			{ indices_reveles: [] }, // replique ABSENTE
-			{ replique: REPLIQUE, indices_reveles: [], ton: 'x' }, // clé EN TROP
-			{ texte: REPLIQUE, indices_reveles: [] },
+			{ replique: REPLIQUE }, // indices_reveles et delta_confiance ABSENTES
+			{ indices_reveles: [] }, // replique et delta_confiance ABSENTES
+			{ replique: REPLIQUE, indices_reveles: [] }, // delta_confiance ABSENTE — refus, jamais 0 implicite
+			{ replique: REPLIQUE, indices_reveles: [], delta_confiance: 0, ton: 'x' }, // clé EN TROP
+			{ texte: REPLIQUE, indices_reveles: [], delta_confiance: 0 },
 		]
 		for (const brut of cas) {
 			expect({ brut, ...validerActeur(brut, dossier, rangsOuverts) }).toEqual({ brut, ok: false, motif: 'schema' })
@@ -3213,7 +3217,7 @@ describe('validerActeur — le dixieme role, douze predicats (§ 4 bis du plan i
 		const juste = 'v'.repeat(REPLIQUE_CARACTERES_MAX)
 		expect(validerActeur(vide({ replique: juste }), dossier, rangsOuverts)).toEqual({
 			ok: true,
-			sortie: { replique: juste, indices_reveles: [] },
+			sortie: { replique: juste, indices_reveles: [], delta_confiance: 0 },
 		})
 		expect(validerActeur(vide({ replique: `${juste}v` }), dossier, rangsOuverts)).toEqual({
 			ok: false,
@@ -3272,13 +3276,35 @@ describe('validerActeur — le dixieme role, douze predicats (§ 4 bis du plan i
 		// Discriminant : le MEME rang, dans un ensemble QUI LE CONTIENT, passe.
 		expect(validerActeur(vide({ indices_reveles: [RANG] }), dossier, new Set([RANG, 'S2']))).toEqual({
 			ok: true,
-			sortie: { replique: REPLIQUE, indices_reveles: [RANG] },
+			sortie: { replique: REPLIQUE, indices_reveles: [RANG], delta_confiance: 0 },
 		})
 		// Un ensemble OUVERT VIDE refuse TOUT rang non-vide.
 		expect(validerActeur(vide({ indices_reveles: [RANG] }), dossier, new Set())).toEqual({
 			ok: false,
 			motif: 'rang-inconnu',
 		})
+	})
+
+	it('13 — delta_confiance appartient a DELTAS_CONFIANCE_VALIDES ; toute autre valeur/type refuse TOUTE la sortie (replique comprise)', () => {
+		expect(DELTAS_CONFIANCE_VALIDES).toEqual([-1, 0, 1])
+		for (const fautif of [2, -2, 0.5, '1', true, null]) {
+			expect(validerActeur(vide({ delta_confiance: fautif }), dossier, rangsOuverts)).toEqual({
+				ok: false,
+				motif: 'schema',
+			})
+		}
+		// Absente : deja un refus par le predicat (2) — EXACTEMENT les trois cles.
+		const sansDelta: Record<string, unknown> = { replique: REPLIQUE, indices_reveles: [] }
+		expect(validerActeur(sansDelta, dossier, rangsOuverts)).toEqual({ ok: false, motif: 'schema' })
+	})
+
+	it('13 — les TROIS valeurs legales passent et sont rendues TELLES QUELLES, aucun ecretement', () => {
+		for (const legal of [-1, 0, 1] as const) {
+			expect(validerActeur(vide({ delta_confiance: legal }), dossier, rangsOuverts)).toEqual({
+				ok: true,
+				sortie: { replique: REPLIQUE, indices_reveles: [], delta_confiance: legal },
+			})
+		}
 	})
 
 	it('GABARIT_SORTIE (RoleCopilote) ne porte PAS acteur — ce role n est pas de la famille auteur', () => {

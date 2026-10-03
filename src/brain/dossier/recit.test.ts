@@ -388,15 +388,19 @@ describe('la fixture saturee enseigne les invariants', () => {
 })
 
 /**
- * `consignerReponseActeur` — LE SEUL ÉCRIVAIN COMBINÉ DE `recit`+`reveler_indice`+
- * `a_dit` SUR LA MÊME ENTRÉE (n° 12 `moteur-acteurs`, it2, lot `contrat`). § 7 du
- * plan d'itération : « recit.test.ts — écriture combinée ».
+ * `consignerReponseActeur` — LE SEUL ÉCRIVAIN COMBINÉ DE
+ * `recit`+`reveler_indice`+`a_dit`+`confiance` SUR LA MÊME ENTRÉE / le MÊME PNJ
+ * (n° 12 `moteur-acteurs`, it2 puis it3, lot `contrat`). § 7 du plan
+ * d'itération : « recit.test.ts — écriture combinée », « recit.test.ts — ordre
+ * figé », « recit.test.ts — écriture croisée ».
  *
  * Harek (`dossier-reference.json`, lot contrat d'it2) porte un savoir gardé par
  * `contrepartie`(consomme:false, `objet.amulette-scellee`) + `apres_indice_id`
  * (`indice.pas-dans-la-cendre`) en conjonction — `INDICE_REVELABLE` ci-dessous.
+ * DEPUIS IT3, IL EN PORTE UN TROISIÈME, gardé UNIQUEMENT par `confiance_min: 1`
+ * (`indice.piece-forgee-par-harek`) — voir le test « ordre figé » plus bas.
  */
-describe('consignerReponseActeur — ecriture combinee recit+reveler_indice+a_dit (n 12, it2)', () => {
+describe('consignerReponseActeur — ecriture combinee recit+reveler_indice+a_dit+confiance (n 12, it2/it3)', () => {
 	const HAREK = 'pnj.harek-le-forgeron'
 	const INDICE_REVELABLE = 'indice.sceau-brise-a-nouveau'
 
@@ -423,6 +427,7 @@ describe('consignerReponseActeur — ecriture combinee recit+reveler_indice+a_di
 			recit: REPONSE,
 			personnageId: HAREK,
 			indicesReveles: [INDICE_REVELABLE],
+			deltaConfiance: 0,
 		})
 
 		const entree = s2.journal[s2.journal.length - 1]
@@ -444,6 +449,7 @@ describe('consignerReponseActeur — ecriture combinee recit+reveler_indice+a_di
 			recit: REPONSE,
 			personnageId: HAREK,
 			indicesReveles: [],
+			deltaConfiance: 0,
 		})
 
 		const entree = s2.journal[s2.journal.length - 1]
@@ -462,6 +468,7 @@ describe('consignerReponseActeur — ecriture combinee recit+reveler_indice+a_di
 				recit: 'Je ne dirai rien.',
 				personnageId: HAREK,
 				indicesReveles: [INDICE_REVELABLE],
+				deltaConfiance: 0,
 			}),
 		).toThrow()
 		// AUCUNE ecriture partielle : la session passee en argument n'a pas change.
@@ -481,6 +488,7 @@ describe('consignerReponseActeur — ecriture combinee recit+reveler_indice+a_di
 				recit: 'x',
 				personnageId: HAREK,
 				indicesReveles: [INDICE_REVELABLE],
+				deltaConfiance: 0,
 			}),
 		).toThrow()
 	})
@@ -503,6 +511,7 @@ describe('consignerReponseActeur — ecriture combinee recit+reveler_indice+a_di
 			recit: 'Ah, vous le savez deja.',
 			personnageId: HAREK,
 			indicesReveles: [INDICE_REVELABLE],
+			deltaConfiance: 0,
 		})
 
 		const entree = s2.journal[s2.journal.length - 1]
@@ -514,7 +523,7 @@ describe('consignerReponseActeur — ecriture combinee recit+reveler_indice+a_di
 		const dossier = lire()
 		const s1 = jouer(dossier, ouverture(dossier), [`PARLER ${HAREK}`, 'AGIR'])
 		expect(s1.horloge.tour).toBe(2)
-		const apport = { recit: 'x', personnageId: HAREK, indicesReveles: [] }
+		const apport = { recit: 'x', personnageId: HAREK, indicesReveles: [], deltaConfiance: 0 } as const
 
 		expect(consignerReponseActeur(s1, 1, dossier, apport)).toBe(s1)
 		expect(consignerReponseActeur(s1, 3, dossier, apport)).toBe(s1)
@@ -527,15 +536,96 @@ describe('consignerReponseActeur — ecriture combinee recit+reveler_indice+a_di
 			recit: 'Premier.',
 			personnageId: HAREK,
 			indicesReveles: [],
+			deltaConfiance: 0,
 		})
 
 		const second = consignerReponseActeur(premier, 1, dossier, {
 			recit: 'Second.',
 			personnageId: HAREK,
 			indicesReveles: [],
+			deltaConfiance: 0,
 		})
 
 		expect(second).toBe(premier)
 		expect(second.journal[second.journal.length - 1].recit).toBe('Premier.')
+	})
+
+	/**
+	 * ORDRE FIGÉ (it3, § 4 bis du plan, critère d'acceptation #5) — Harek porte un
+	 * TROISIÈME savoir (`dossier-reference.json`, lot `contrat` d'it3), gardé
+	 * UNIQUEMENT par `confiance_min: 1`. Confiance au SEUIL EXACT + un
+	 * `deltaConfiance` NÉGATIF sur la MÊME réponse : la re-vérification (étape 1)
+	 * et la révélation (étape 2) doivent avoir lieu sur l'état D'AVANT Δ — un Δ
+	 * appliqué EN PREMIER fermerait la porte avant que la revelation n'ait eu
+	 * lieu, et `consignerReponseActeur` LÈVERAIT (KR-238) au lieu de réussir.
+	 */
+	it('ordre figé : confiance au seuil exact + Δ=-1 au MEME appel — la revelation passe, la confiance decroit APRES, aucune levee', () => {
+		const INDICE_CONFIANCE = 'indice.piece-forgee-par-harek'
+		const dossier = lire()
+		const base = jouer(dossier, ouverture(dossier), [`PARLER ${HAREK}`])
+		const s1: EtatSession = { ...base, monde: { ...base.monde, pnj: { [HAREK]: { a_dit: [], confiance: 1 } } } }
+
+		const s2 = consignerReponseActeur(s1, s1.horloge.tour, dossier, {
+			recit: 'Il baisse enfin la voix.',
+			personnageId: HAREK,
+			indicesReveles: [INDICE_CONFIANCE],
+			deltaConfiance: -1,
+		})
+
+		expect(s2.monde.indices_connus).toContain(INDICE_CONFIANCE)
+		expect(s2.monde.pnj[HAREK]).toEqual({ a_dit: [INDICE_CONFIANCE], confiance: 0 })
+	})
+
+	/**
+	 * ÉCRITURE CROISÉE (it3, critère d'acceptation #6) — `a_dit` et `confiance`
+	 * survivent tous les deux sur la MÊME entrée `EtatPnj`, DANS LES DEUX ORDRES :
+	 * révéler puis créditer, et créditer puis révéler. Chaque écriture a lieu au
+	 * tour SUIVANT (deux `PARLER` distincts) : c'est la MÊME entrée de
+	 * `faits.pnj[HAREK]` qui accumule les deux champs au fil de la partie.
+	 */
+	it('reveler PUIS crediter : a_dit garde sa valeur apres que la confiance a ete ecrite', () => {
+		const dossier = lire()
+		const s1 = portesOuvertes(jouer(dossier, ouverture(dossier), [`PARLER ${HAREK}`]))
+
+		const revele = consignerReponseActeur(s1, s1.horloge.tour, dossier, {
+			recit: 'Je vous le dis.',
+			personnageId: HAREK,
+			indicesReveles: [INDICE_REVELABLE],
+			deltaConfiance: 0,
+		})
+		expect(revele.monde.pnj[HAREK]).toEqual({ a_dit: [INDICE_REVELABLE] })
+
+		const s2 = jouer(dossier, revele, [`PARLER ${HAREK}`])
+		const credite = consignerReponseActeur(s2, s2.horloge.tour, dossier, {
+			recit: 'Encore un mot.',
+			personnageId: HAREK,
+			indicesReveles: [],
+			deltaConfiance: 1,
+		})
+
+		expect(credite.monde.pnj[HAREK]).toEqual({ a_dit: [INDICE_REVELABLE], confiance: 1 })
+	})
+
+	it('crediter PUIS reveler : confiance garde sa valeur apres que a_dit a ete ecrit', () => {
+		const dossier = lire()
+		const s1 = portesOuvertes(jouer(dossier, ouverture(dossier), [`PARLER ${HAREK}`]))
+
+		const credite = consignerReponseActeur(s1, s1.horloge.tour, dossier, {
+			recit: 'Je vous observe.',
+			personnageId: HAREK,
+			indicesReveles: [],
+			deltaConfiance: 1,
+		})
+		expect(credite.monde.pnj[HAREK]).toEqual({ a_dit: [], confiance: 1 })
+
+		const s2 = jouer(dossier, credite, [`PARLER ${HAREK}`])
+		const revele = consignerReponseActeur(s2, s2.horloge.tour, dossier, {
+			recit: 'Je vous le dis.',
+			personnageId: HAREK,
+			indicesReveles: [INDICE_REVELABLE],
+			deltaConfiance: 0,
+		})
+
+		expect(revele.monde.pnj[HAREK]).toEqual({ a_dit: [INDICE_REVELABLE], confiance: 1 })
 	})
 })

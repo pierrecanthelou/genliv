@@ -147,13 +147,19 @@ describe('DESTINATION_DES_CHAMPS_DE_SESSION, exhaustivite', () => {
 		const bruts = feuillesDeLaFixture(SESSION_SATUREE).map((feuille) => feuille.normalise)
 		const normalises = cheminsDeLaSession()
 
-		// La fixture porte DEUX personnages : le walker rend donc DEUX chemins distincts
-		// là où la table n'en déclare qu'un. C'est exactement ce que la normalisation
-		// existe pour résoudre — avec un seul personnage, elle serait indistinguable de
-		// son absence.
-		expect(new Set(bruts.filter((chemin) => chemin.startsWith('monde.pnj.'))).size).toBe(2)
-		expect(new Set(normalises.filter((chemin) => chemin.startsWith('monde.pnj.'))).size).toBe(1)
+		// La fixture porte DEUX personnages : le walker rend donc DEUX chemins BRUTS
+		// distincts pour `a_dit[]` (un par personnage) — TROIS au total depuis l'it3
+		// de la n° 12 (`moteur-acteurs`), `pnj.aldur-le-sage` portant EN PLUS sa
+		// feuille `confiance`. La table, elle, n'en déclare que DEUX (`a_dit[]` et
+		// `confiance`, chacune collapsée sur `<id>`) : c'est exactement ce que la
+		// normalisation existe pour résoudre — avec un seul personnage par feuille,
+		// elle serait indistinguable de son absence.
+		expect(new Set(bruts.filter((chemin) => chemin.startsWith('monde.pnj.'))).size).toBe(3)
+		expect(new Set(normalises.filter((chemin) => chemin.startsWith('monde.pnj.'))).size).toBe(2)
 		expect(normalises).toContain('monde.pnj.<id>.a_dit[]')
+		// ET LA CONFIANCE (n° 12 `moteur-acteurs`, it3) EST BIEN INSTANCIÉE — sur un
+		// seul des deux PNJ, précisément pour que l'autre enseigne « absent ≠ vide ».
+		expect(normalises).toContain('monde.pnj.<id>.confiance')
 
 		// Et les listes sont bien balayées PAR ÉLÉMENT : une session d'OUVERTURE, dont
 		// toutes les listes sont vides, rendrait `monde.lieux_visites` SANS le suffixe,
@@ -239,9 +245,17 @@ describe('EtatMonde, les sept champs restent REQUIS et chacun garde sa ligne', (
 				(cle) => cle === `monde.${champ}` || cle.startsWith(`monde.${champ}[`) || cle.startsWith(`monde.${champ}.`),
 			)
 
+		// SIX champs, UNE SEULE ligne chacun ; `pnj` EST L'EXCEPTION NOMMÉE depuis le
+		// lot `contrat` de la n° 12 (`moteur-acteurs`, it3) : `EtatPnj` porte DEUX
+		// feuilles (`a_dit[]`, `confiance`), donc DEUX lignes de table pour le MÊME
+		// champ racine — jamais une relecture générique à « 1 partout » qui
+		// masquerait l'ajout d'une feuille au champ le plus riche.
+		const LIGNES_ATTENDUES: Readonly<Record<string, number>> = { pnj: 2 }
+
 		expect(champs).toHaveLength(7)
 		for (const champ of champs) {
-			expect(`${champ} → ${ligneDe(champ).length}`).toBe(`${champ} → 1`)
+			const attendu = LIGNES_ATTENDUES[champ] ?? 1
+			expect(`${champ} → ${ligneDe(champ).length}`).toBe(`${champ} → ${attendu}`)
 		}
 		// Discriminance du préfixe : un champ que la table ne déclare pas — exactement
 		// ce que `monde.pnj.<id>.sait` serait — n'a AUCUNE ligne. Sans elle, la boucle

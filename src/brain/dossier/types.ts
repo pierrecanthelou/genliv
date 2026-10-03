@@ -136,6 +136,29 @@ export const CONFIANCE_MIN = -3
 export const CONFIANCE_MAX = 3
 
 /**
+ * LA CONFIANCE PAR DÉFAUT d'un PNJ JAMAIS CRÉDITÉ EN SESSION — le POINT NEUTRE de
+ * l'échelle `[CONFIANCE_MIN, CONFIANCE_MAX]`, et SEUL repli de LECTURE légal pour
+ * `faits.pnj[id]?.confiance` (n° 12 `moteur-acteurs`, it3, lot `contrat` —
+ * `docs/REGLES-DU-JEU.md` § 6 « Confiance & Persuasion »).
+ *
+ * DISTINCTE DE `CONFIANCE_INITIALE_PORTE` JUSTE AU-DESSUS, ET C'EST L'ARBITRAGE
+ * INVERSE DE CELUI QUI LES SÉPARE : `CONFIANCE_INITIALE_PORTE` est une VALEUR
+ * D'ÉCRITURE semée par l'ÉDITEUR quand l'auteur pose une porte `confiance_min`
+ * sur un savoir — jamais lue en repli (sa propre docstring l'interdit). Celle-ci,
+ * à l'inverse, EST un repli de LECTURE côté SESSION (runtime) : un PNJ sans
+ * aucune entrée `faits.pnj[id]` n'a simplement jamais été crédité, et `0` est le
+ * point d'où l'on ne conclut ni confiance ni défiance — même précédent que
+ * `INTENSITE_INITIALE` face à `INTENSITE_MIN`/`INTENSITE_MAX`, à l'inverse :
+ * celle-ci est un repli, celle-là une graine d'écriture.
+ *
+ * DEUX LECTEURS SEULEMENT, ET ILS DOIVENT LIRE LA MÊME CONSTANTE, JAMAIS `0` EN
+ * DUR (KR-165) : `portesOuvertes` (`revelation.ts`, branche `confiance_min`) et
+ * `crediterConfiance` (`session.ts`, SEULE porte d'écriture) — un repli à deux
+ * domiciles diverge en silence le jour où l'un des deux change.
+ */
+export const CONFIANCE_DEPART = 0
+
+/**
  * La confiance POSÉE À L'OUVERTURE de la porte de confiance par l'éditeur — le
  * PLANCHER D'ÉCRITURE d'une porte, jamais une intention d'auteur.
  *

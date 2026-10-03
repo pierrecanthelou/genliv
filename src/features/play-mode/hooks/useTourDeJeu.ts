@@ -247,6 +247,7 @@ export function useTourDeJeu(
 						recit: reponseActeur.replique,
 						personnageId: reponse.proposition.commande.cibles[0],
 						indicesReveles: reponseActeur.indices_reveles ?? [],
+						deltaConfiance: reponseActeur.delta_confiance,
 					})
 					onSessionChange(sessionAvecReponse)
 					setIssueNarrateur({

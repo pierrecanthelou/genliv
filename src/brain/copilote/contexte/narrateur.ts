@@ -243,6 +243,16 @@ export const BORNE_MEMOIRE =
  * terme mémoire. M = 1954 (+17 caractères, l'écart des deux libellés) ⇒
  * ceil(1954 × 3 / 1000) × 1000 = 6000 — LE MÊME multiple de 1000 qu'avant : la hausse ne
  * franchit pas de palier, `BUDGET_CARACTERES_DOSSIER` RESTE 6000.
+ *
+ * RE-MESURÉ le 2026-10-03 (n° 12 `moteur-acteurs`, it3, lot `contrat`) — Harek gagne un
+ * TROISIÈME savoir gardé par `confiance_min` (§ 6 critère 1 du plan d'it3), référençant un
+ * NOUVEL indice de `dossier-reference.json` (`indice.piece-forgee-par-harek`) : `TOUS les
+ * indices` comprend désormais celui-là, et `pireCasNarrateur()` lui attache SA PROPRE ligne
+ * de `reveler_indice` AU PAS COURANT — même doctrine que l'ajout du verbe `parler`
+ * ci-dessus, qui ne filtre jamais par atteignabilité réelle. M = 1997 (+43 caractères,
+ * l'amorce « remarque — » et la `formulation_joueur` du nouvel indice) ⇒
+ * ceil(1997 × 3 / 1000) × 1000 = 6000 — LE MÊME multiple de 1000 qu'avant : la hausse ne
+ * franchit pas de palier, `BUDGET_CARACTERES_DOSSIER` RESTE 6000.
  */
 const BUDGET_CARACTERES_DOSSIER = 6000
 

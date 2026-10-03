@@ -1515,7 +1515,7 @@ export function validerArbitre(
 	}
 }
 
-// ══ LE DIXIÈME RÔLE — `acteur` (n° 12 `moteur-acteurs`, it1 puis it2) ═══════
+// ══ LE DIXIÈME RÔLE — `acteur` (n° 12 `moteur-acteurs`, it1, it2 puis it3) ══
 
 /** Les clés du schéma de sortie du rôle `acteur`, EN VALEUR — le validateur en
  *  est PILOTÉ, exactement comme `CLES_SORTIE_PLAN`. UN registre LITTÉRAL,
@@ -1523,12 +1523,25 @@ export function validerArbitre(
  *  `RoleCopilote`, et son gabarit ne vit que dans le worker, comme ceux de
  *  `interprete`/`narrateur`/`arbitre`.
  *
- *  DEUX CLÉS DEPUIS L'IT2, TOUJOURS LES DEUX EXIGÉES (KR-236) : `indices_reveles`
- *  n'est PAS optionnelle — son ABSENCE est un refus `'schema'` au même titre
- *  qu'une clé en trop, même quand la liste qu'elle porterait serait vide. Une
- *  liste VIDE reste un SUCCÈS (franchise honnête, § 4 bis du plan) ; c'est la
- *  CLÉ ABSENTE qui ne l'est pas. */
-export const CLES_SORTIE_ACTEUR = ['replique', 'indices_reveles'] as const
+ *  TROIS CLÉS DEPUIS L'IT3 (`delta_confiance` en plus, `docs/REGLES-DU-JEU.md`
+ *  § 6), TOUJOURS LES TROIS EXIGÉES (KR-236) : `indices_reveles` comme
+ *  `delta_confiance` NE SONT PAS optionnelles — leur ABSENCE est un refus
+ *  `'schema'` au même titre qu'une clé en trop, même quand la valeur qu'elles
+ *  porteraient serait la plus neutre (liste vide, `0`). Une liste VIDE ou un
+ *  `delta_confiance` nul restent un SUCCÈS (franchise honnête, § 4 bis du
+ *  plan) ; c'est la CLÉ ABSENTE qui ne l'est pas. */
+export const CLES_SORTIE_ACTEUR = ['replique', 'indices_reveles', 'delta_confiance'] as const
+
+/**
+ * LES TROIS SEULES VALEURS LÉGALES DE `delta_confiance`
+ * (`docs/REGLES-DU-JEU.md` § 6) — déclarées UNE SEULE FOIS (KR-117), jamais
+ * trois littéraux recopiés au prédicat (13) ci-dessous. `readonly number[]`,
+ * ET NON un tuple `readonly (-1|0|1)[]` : `Array.prototype.includes` exige sinon
+ * un argument déjà narrowé au type exact du tuple, ce que la valeur BRUTE
+ * (`unknown` puis `number`) ne peut jamais être AVANT l'appartenance constatée —
+ * exactement l'ordre que ce prédicat établit.
+ */
+export const DELTAS_CONFIANCE_VALIDES: readonly number[] = [-1, 0, 1]
 
 /** LE PATRON « CATALOGUE BORNÉ » (KR-287) BORNE AUSSI LA SORTIE : au plus UN
  *  savoir confié par réplique. Même statut que `max_tokens` — ni une règle du
@@ -1544,23 +1557,25 @@ export const REVELATIONS_PAR_REPLIQUE_MAX = 1
 export const REPLIQUE_CARACTERES_MAX = 400
 
 /**
- * LES PRÉDICATS DE FORME de la sortie `acteur` — le DIXIÈME rôle. DOUZE
- * PRÉDICATS DEPUIS L'IT2 (n° 12 `moteur-acteurs`, lot `contrat`) : les HUIT
- * PREMIERS, INCHANGÉS depuis l'it1 (la réplique, scalaire, ancêtre
- * `validerSortie` PLUS le scanner de chiffre de `validerArbitre`), PUIS QUATRE
- * prédicats neufs sur `indices_reveles` — le patron « catalogue borné » (KR-287)
- * : R4 CHOISIT, dans l'ensemble déjà FERMÉ par le moteur (`rangsOuverts`,
- * rendu par `savoirsRevelables` via `assemblerActeur`), au plus UN rang à
- * confier — il ne décide JAMAIS lui-même qu'une porte est ouverte.
+ * LES PRÉDICATS DE FORME de la sortie `acteur` — le DIXIÈME rôle. TREIZE
+ * PRÉDICATS DEPUIS L'IT3 (n° 12 `moteur-acteurs`, lot `contrat`) : les DOUZE
+ * PREMIERS, INCHANGÉS depuis l'it2 (la réplique, scalaire, PLUS les quatre
+ * prédicats du patron « catalogue borné » sur `indices_reveles`, KR-287), PUIS
+ * UN TREIZIÈME sur `delta_confiance` (`docs/REGLES-DU-JEU.md` § 6) : R4 CHOISIT,
+ * dans l'ensemble déjà FERMÉ par le moteur (`rangsOuverts`, rendu par
+ * `savoirsRevelables` via `assemblerActeur`), au plus UN rang à confier, et une
+ * variation de confiance dans le registre fermé `DELTAS_CONFIANCE_VALIDES` — il
+ * ne décide JAMAIS lui-même qu'une porte est ouverte, ni ne sature lui-même
+ * cette variation (le moteur sature dans `crediterConfiance`).
  *
- * `MotifIllisible` GAGNE `'rang-inconnu'` DANS SON ATTEIGNABLE ICI — SANS OBJET
- * en it1 (R4 ne désignait rien), il l'est désormais : précédent exact
+ * `MotifIllisible` GAGNE `'rang-inconnu'` DANS SON ATTEIGNABLE DEPUIS L'IT2 —
+ * SANS OBJET en it1 (R4 ne désignait rien) : précédent exact
  * `validerDetenteurs`/`validerInterprete`.
  *
- * LES DOUZE PRÉDICATS, dans l'ordre, chacun prouvable SEUL (§ 4 bis du plan,
- * ordre FIGÉ) :
+ * LES TREIZE PRÉDICATS, dans l'ordre, chacun prouvable SEUL (§ 4 bis du plan
+ * d'it3, ordre FIGÉ) :
  *   (1)  objet simple (ni tableau, ni null) ..................... 'schema'
- *   (2)  clés = EXACTEMENT `CLES_SORTIE_ACTEUR` — LES DEUX clés
+ *   (2)  clés = EXACTEMENT `CLES_SORTIE_ACTEUR` — LES TROIS clés
  *        TOUJOURS dues, une clé en trop OU manquante est un
  *        REFUS (signal KR-236) ...................................... 'schema'
  *   (3)  `replique` porte une CHAÎNE ............................ 'schema'
@@ -1578,11 +1593,18 @@ export const REPLIQUE_CARACTERES_MAX = 400
  *   (11) longueur ≤ `REVELATIONS_PAR_REPLIQUE_MAX` (= 1) — un
  *        REFUS, jamais une troncature (KR-230) ..................... 'schema'
  *   (12) chaque élément ∈ `rangsOuverts` .................. 'rang-inconnu'
+ *   (13) `delta_confiance` ∈ `DELTAS_CONFIANCE_VALIDES`
+ *        (`{-1, 0, 1}`) — toute autre valeur OU tout autre
+ *        type REFUSE TOUTE LA SORTIE, réplique comprise
+ *        (KR-230, `docs/REGLES-DU-JEU.md` § 6 : « Δ n'est
+ *        jamais écrêtée ») .............................. 'schema'
  *
  * LA LISTE VIDE EST UN SUCCÈS (succession du (9)-(11), aucun blocage dédié) :
  * refuser la franchise pousserait le modèle à la complaisance (§ 4 bis du plan)
  * — précédent exact `validerDetenteurs`, jamais `validerRepliques` (dont la
- * liste vide, elle, est un refus de RÉDACTION).
+ * liste vide, elle, est un refus de RÉDACTION). `delta_confiance: 0` EST LE
+ * MÊME GENRE DE SUCCÈS HONNÊTE — une réplique qui ne change rien à la confiance
+ * n'est pas une réplique dégradée.
  *
  * ⚠ (7) ET (8) PARTAGENT LE MÊME MOTIF `'identifiant'` — PRÉCÉDENT EXACT
  * `validerArbitre` (prédicat 11) : `MotifIllisible` n'a pas de cinquième membre
@@ -1596,10 +1618,19 @@ export const REPLIQUE_CARACTERES_MAX = 400
  * rang inventé échouent TOUS ICI, par la MÊME appartenance — aucun cas particulier
  * n'est nécessaire pour `consomme:true`, la fermeture est mécanique.
  *
- * ⚠ AUCUNE RE-RÉSOLUTION DE `replique` : précédent `validerArbitre`.
- * `indices_reveles`, LUI, EST re-résolu — mais PAS ICI : la branche de succès
- * rend `SortieActeurBrute` (rangs BRUTS), et `CopiloteService.demanderActeur`
- * seul transforme les rangs en identifiants (`Map.get`, précédent
+ * ⚠ (13) EST LE MÊME GENRE DE REFUS ATOMIQUE, SUR LE TROISIÈME CHAMP (critère
+ * d'acceptation #2 du plan d'it3) : `2`, `-2`, `0.5`, `"1"`, `true`, `null` et la
+ * clé absente échouent TOUS ICI (ou au (2) pour l'absence), par la MÊME
+ * appartenance au registre `DELTAS_CONFIANCE_VALIDES`.
+ *
+ * ⚠ AUCUNE RE-RÉSOLUTION DE `replique` NI DE `delta_confiance` : précédent
+ * `validerArbitre` pour `replique` — `delta_confiance` est un PASSTHROUGH
+ * IDENTIQUE (`CopiloteService.demanderActeur`), jamais réécrêté ni retraduit,
+ * exactement ce que `docs/REGLES-DU-JEU.md` § 6 exige (« Δ n'est jamais
+ * écrêtée » — seule l'ÉTAT sature, dans `crediterConfiance`). `indices_reveles`,
+ * LUI, EST re-résolu — mais PAS ICI : la branche de succès rend
+ * `SortieActeurBrute` (rangs BRUTS), et `CopiloteService.demanderActeur` seul
+ * transforme les rangs en identifiants (`Map.get`, précédent
  * `demanderDetenteurs`, KR-231).
  */
 export function validerActeur(
@@ -1610,7 +1641,7 @@ export function validerActeur(
 	// (1) un objet JSON — ni tableau, ni `null`.
 	if (!estObjetSimple(brut)) return { ok: false, motif: 'schema' }
 
-	// (2) l'ensemble des clés vaut EXACTEMENT `CLES_SORTIE_ACTEUR` — LES DEUX.
+	// (2) l'ensemble des clés vaut EXACTEMENT `CLES_SORTIE_ACTEUR` — LES TROIS.
 	const cles = Object.keys(brut)
 	if (cles.length !== CLES_SORTIE_ACTEUR.length || !CLES_SORTIE_ACTEUR.every((cle) => cles.includes(cle))) {
 		return { ok: false, motif: 'schema' }
@@ -1653,5 +1684,12 @@ export function validerActeur(
 	//      structurellement fermée (`contrepartie.consomme:true`).
 	if (!indicesBrut.every((rang) => rangsOuverts.has(rang))) return { ok: false, motif: 'rang-inconnu' }
 
-	return { ok: true, sortie: { replique, indices_reveles: indicesBrut } }
+	// (13) `delta_confiance` ∈ `DELTAS_CONFIANCE_VALIDES` — refus ATOMIQUE de
+	//      toute la sortie (réplique comprise) sur toute autre valeur ou tout
+	//      autre type (critère d'acceptation #2 du plan d'it3).
+	if (typeof brut.delta_confiance !== 'number' || !DELTAS_CONFIANCE_VALIDES.includes(brut.delta_confiance)) {
+		return { ok: false, motif: 'schema' }
+	}
+
+	return { ok: true, sortie: { replique, indices_reveles: indicesBrut, delta_confiance: brut.delta_confiance } }
 }

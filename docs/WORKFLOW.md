@@ -276,16 +276,16 @@ Trois strates de lecture obligatoire, chacune avec son coût :
 
 Charger par référence plutôt que tout charger est ce qui évite le contexte monolithique — KR dans la spec de leur feature, lecture du comité bornée à 3–6 fichiers, canon narratif injecté par identifiant. Aucun garde-fou automatique : ces fichiers n'ont que des écrivains, et l'un d'eux ne rétrécit que si quelqu'un le décide. La discipline s'y relâche **sans bruit** — d'où un plafond chiffré plutôt qu'une intention.
 
-**Mesure d'abord, plafond ensuite**, même doctrine que le score de mutation. Formule, plancher ajouté le 2026-09-24 (`B3`) : `plafond = max( ceil(mesure ÷ 5 kio) × 5 kio , ceil(5 × la plus grosse entrée ÷ 5 kio) × 5 kio )`, le second terme ne valant QUE pour les fichiers **append-only** (`bug_history*`, `features_history*`) : un plafond de trois entrées sur un fichier qui ne fait QUE croître est un décor, pas un cliquet. Dernière re-mesure 2026-10-02 (1 kio = 1024 o). **On mesure les octets EN LF, ceux que quelqu'un a tapés** : `core.autocrlf=true` rend la copie de travail en CRLF, et le couple toujours-chargé y pèse ~480 o non écrits — assez pour simuler un dépassement pour rien :
+**Mesure d'abord, plafond ensuite**, même doctrine que le score de mutation. Formule, plancher ajouté le 2026-09-24 (`B3`) : `plafond = max( ceil(mesure ÷ 5 kio) × 5 kio , ceil(5 × la plus grosse entrée ÷ 5 kio) × 5 kio )`, le second terme ne valant QUE pour les fichiers **append-only** (`bug_history*`, `features_history*`) : un plafond de trois entrées sur un fichier qui ne fait QUE croître est un décor, pas un cliquet. Dernière re-mesure 2026-10-03 (1 kio = 1024 o). **On mesure les octets EN LF, ceux que quelqu'un a tapés** : `core.autocrlf=true` rend la copie de travail en CRLF, et le couple toujours-chargé y pèse ~480 o non écrits — assez pour simuler un dépassement pour rien :
 
 | Fichier | Croissance | Mesuré | Plafond | Marge |
 | --- | --- | ---: | ---: | ---: |
-| `CLAUDE.md` + `docs/WORKFLOW.md` (couple) | défaut | 46 067 o | **45 kio** (46 080) | **13 o** |
-| `code-knowledge.json` | **compacté** (n° 12 `moteur-acteurs`, it2) | 71 389 o | **70 kio** (71 680) | 291 o |
+| `CLAUDE.md` + `docs/WORKFLOW.md` (couple) | défaut | 46 074 o | **45 kio** (46 080) | **6 o** |
+| `code-knowledge.json` | **compacté** (n° 12 `moteur-acteurs`, it2) | 71 676 o | **70 kio** (71 680) | 4 o |
 | `bug_history.json` | **plancher** (BUG-128) | 12 352 o | **15 kio** (15 360) | 3 008 o |
 | `features_history.json` | **plancher** (`dossier-copilote`) | 14 950 o | **25 kio** (25 600) | ~10,40 kio |
 | `specification.json`, **par feature** | normale | 66 487 o (max : `dossier-format`) | **65 kio** (66 560) | **73 o** |
-| `docs/ROADMAP-BASCULE-IA.md` | **défaut** | 30 134 o | **30 kio** (30 720) | 586 o |
+| `docs/ROADMAP-BASCULE-IA.md` | **compacté** (it3) | 29 514 o | **30 kio** (30 720) | 1 206 o |
 
 Le roadmap est un **index**, pas un journal : sa croissance est un défaut, pas un fonctionnement normal. **Compacté le 2026-09-19** (35 671 → 26 929 o, plafond re-dérivé 35 → 30 kio) : l'archive en est sortie une première fois, et c'est elle — motifs d'une décision livrée, corrections de cadrage, historique des recadrages — qui repart au prochain franchissement, jamais les colonnes `Statut` ni le § 4 « Ce qui est CLOS ». **Le markdown n'est pas dans le périmètre Prettier** (`npm run format` ne vise que `{src,worker}/**/*.{ts,tsx,css}`) : un `prettier --write` sur ces fichiers repadde les tables et coûte ~8 kio de budget pour rien.
 

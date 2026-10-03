@@ -234,4 +234,20 @@ Limites strictes : **caractéristiques ≤ 12** ; **MC plafonnée à +5** (néce
 
 ---
 
+## 6. Confiance & Persuasion
+
+La confiance d'un PNJ envers le héros est un entier de `[CONFIANCE_MIN, CONFIANCE_MAX]` = `[-3, +3]`, propre à ce PNJ. Un PNJ jamais crédité vaut `CONFIANCE_DEPART = 0`.
+
+Chaque réplique ACCEPTÉE porte une variation `Δ ∈ {-1, 0, +1}`. Toute autre valeur rend la réplique entière irrecevable : Δ n'est jamais écrêtée.
+
+`confiance ← min(MAX, max(MIN, confiance + Δ))`. C'est l'ÉTAT qui sature, jamais Δ. Une réplique refusée n'applique rien.
+
+Δ s'applique APRÈS les révélations de la même réplique : une réplique ne peut ni ouvrir un savoir par sa propre variation, ni refermer celui qu'elle vient de confier.
+
+Une porte `confiance_min = s` est ouverte ssi `confiance ≥ s`, en conjonction avec les autres portes posées (fail-closed, KR-280).
+
+La confiance ne décroît pas avec le temps et n'a aucune autre source : aucun delta de confiance n'entre dans le registre `DELTAS`.
+
+---
+
 *Tous les nombres ci-dessus sont encodés sans ambiguïté dans `brain-sketches/` (registres + fonctions pures). Toute divergence entre ce manuel et le code doit être résolue en faveur de ce manuel, puis le code corrigé.*

@@ -77,12 +77,15 @@ function lesLignes(): HTMLElement[] {
 describe('PanneauIndices', () => {
 	beforeEach(() => window.localStorage.clear())
 
-	it('rendu initial: 4 indices de la reference dans la liste', () => {
+	it('rendu initial: 5 indices de la reference dans la liste', () => {
+		// 5 DEPUIS LE LOT CONTRAT DE LA N° 12 (`moteur-acteurs`, it3) : Harek y gagne
+		// un troisieme savoir, garde par `confiance_min`, qui reference un nouvel
+		// indice (`indice.piece-forgee-par-harek`) — 4 auparavant.
 		const brain = createBrain()
 		const inspection = brain.dossiers.importDossier(texteReference())
 		if (inspection.statut !== 'valid') throw new Error(`Import refuse : ${inspection.statut}`)
 		const { dossier } = inspection
-		expect(dossier.monde.indices).toHaveLength(4)
+		expect(dossier.monde.indices).toHaveLength(5)
 		renderPanel(brain, dossier.id)
 
 		// Scope a la LISTE (role "list") : le nom d'un indice peut aussi apparaitre
@@ -93,7 +96,7 @@ describe('PanneauIndices', () => {
 		dossier.monde.indices.forEach((indice, index) => {
 			expect(within(liste).getByText(localiserEntite('indice', indice, index))).toBeInTheDocument()
 		})
-		expect(lesLignes()).toHaveLength(4)
+		expect(lesLignes()).toHaveLength(5)
 	})
 
 	it('ajouter un indice: apparait dans la liste, focus sur Nom (critere #1)', async () => {

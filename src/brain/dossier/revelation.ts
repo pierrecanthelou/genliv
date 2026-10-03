@@ -10,10 +10,12 @@
  * conforme à KR-280 : « le moteur évalue, jamais l'IA ».
  *
  * FAIL-CLOSED, SANS EXCEPTION (KR-280) : les quatre portes de `Revelation` se
- * testent EN CONJONCTION — JAMAIS en disjonction — et une porte que cette
- * itération ne sait pas encore évaluer (`confiance_min`, `jet`) reste FERMÉE,
- * jamais ouverte par défaut. Un savoir SANS AUCUNE porte (`revele_si` absent ou
- * `{}`) ne se révèle JAMAIS de lui-même : contrairement à `porteOuverte`
+ * testent EN CONJONCTION — JAMAIS en disjonction. `confiance_min` EST ÉVALUÉE
+ * DEPUIS L'IT3 (n° 12 `moteur-acteurs`, lot `contrat` — `docs/REGLES-DU-JEU.md`
+ * § 6) contre `faits.pnj[personnageId]?.confiance ?? CONFIANCE_DEPART` ; `jet`
+ * reste une porte que cette itération ne sait pas encore évaluer (it4) et reste
+ * FERMÉE, jamais ouverte par défaut. Un savoir SANS AUCUNE porte (`revele_si`
+ * absent ou `{}`) ne se révèle JAMAIS de lui-même : contrairement à `porteOuverte`
  * (`atteignabilite.ts`), qui a la POLARITÉ INVERSE (analyse statique OPTIMISTE —
  * « peut un jour être atteint » — un savoir sans porte y rend `true`), cet
  * évaluateur est une FERMETURE PAR DÉFAUT — « est acquis MAINTENANT » — un savoir
@@ -39,7 +41,7 @@ import { MARQUEUR_A_ECRIRE } from './amorce'
 import type { FaitsDeSession } from './faits'
 import { estCleDe } from './identifiers'
 import { PREDICATES } from './predicates'
-import type { Dossier, Revelation, Savoir } from './types'
+import { CONFIANCE_DEPART, type Dossier, type Revelation, type Savoir } from './types'
 
 /**
  * `'absent'` — fermé, jamais injecté à R4, jamais offert comme rang ;
@@ -79,20 +81,36 @@ function formulationJoueurRedigee(dossier: Dossier, indiceId: string): string | 
  *  · AUCUNE porte posée (`revele_si` absent, ou `{}`) ⇒ FERMÉ — un savoir sans
  *    condition ne se révèle jamais de lui-même (distinct de `porteOuverte`, qui
  *    y lirait « rien ne ferme » et ouvrirait) ;
- *  · `confiance_min` ou `jet` POSÉS, quelle que soit leur valeur ⇒ FERMÉ — ces
- *    deux mécanismes n'existent pas encore (it3/it4) ;
+ *  · `confiance_min` POSÉE (n° 12, it3, `docs/REGLES-DU-JEU.md` § 6) ⇒ ouverte
+ *    seulement si `faits.pnj[personnageId]?.confiance ?? CONFIANCE_DEPART ≥
+ *    confiance_min` — LA MÊME CONSTANTE DE REPLI que `crediterConfiance`
+ *    (`session.ts`), jamais un `0` recopié ici (KR-165) ;
+ *  · `jet` POSÉ, quelle que soit sa valeur ⇒ FERMÉ — ce mécanisme n'existe pas
+ *    encore (it4) ;
  *  · `contrepartie` POSÉE avec `consomme:true` ⇒ FERMÉ, structurellement, sans
  *    égard à l'inventaire — aucun retrait d'objet n'est codé en it2 ;
  *  · `contrepartie` POSÉE avec `consomme:false` ⇒ ouverte seulement si
  *    `PREDICATES.possede_objet` le confirme ;
  *  · `apres_indice_id` POSÉ ⇒ ouverte seulement si `PREDICATES.indice_connu` le
  *    confirme.
+ *
+ * `personnageId` EST LE SEUL AJOUT DE SIGNATURE DE L'IT3 : la lecture de
+ * `confiance` est PAR-PNJ, jamais globale à la session — même isolation que
+ * `a_dit` (KR-282 étendu). ÉVALUÉE EN LIGNE, JAMAIS VIA LE REGISTRE `PREDICATES`
+ * (désaccord #10 du raffinage, tranché par l'orchestrateur) : c'est une
+ * comparaison NUMÉRIQUE contre un état PAR-PNJ, pas une appartenance à un
+ * registre fermé façon `possede_objet`/`indice_connu`.
  */
-function portesOuvertes(faits: FaitsDeSession, revele_si: Revelation | undefined): boolean {
+function portesOuvertes(faits: FaitsDeSession, personnageId: string, revele_si: Revelation | undefined): boolean {
 	if (revele_si === undefined) return false
 	if (Object.keys(revele_si).length === 0) return false
 
-	if (revele_si.confiance_min !== undefined) return false
+	if (revele_si.confiance_min !== undefined) {
+		const confiance = estCleDe(faits.pnj, personnageId)
+			? (faits.pnj[personnageId].confiance ?? CONFIANCE_DEPART)
+			: CONFIANCE_DEPART
+		if (confiance < revele_si.confiance_min) return false
+	}
 	if (revele_si.jet !== undefined) return false
 
 	if (revele_si.contrepartie !== undefined) {
@@ -126,7 +144,7 @@ export function evaluerSavoir(
 ): EtatSavoir {
 	if (dejaConfie(faits, personnageId, savoir.indice_id)) return 'deja_confie'
 	if (formulationJoueurRedigee(dossier, savoir.indice_id) === undefined) return 'absent'
-	return portesOuvertes(faits, savoir.revele_si) ? 'revelable' : 'absent'
+	return portesOuvertes(faits, personnageId, savoir.revele_si) ? 'revelable' : 'absent'
 }
 
 /** Les `indice_id` des savoirs d'UN personnage dans l'état `etat`, DANS L'ORDRE

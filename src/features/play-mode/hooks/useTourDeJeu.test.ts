@@ -1251,5 +1251,106 @@ describe('useTourDeJeu — hook orchestrateur', () => {
 			// La memoire du PNJ porte le savoir confie
 			expect(sessionFinale.monde.pnj['pnj-1']?.a_dit).toContain('indice-secret')
 		})
+
+		it('Lot B (moteur-acteurs it3) -- delta_confiance de R4 propage et sature la confiance de session', async () => {
+			// Test de propagation : une réponse R4 avec delta_confiance non nul crédite la
+			// confiance du PNJ dans la session, avec saturation aux bornes testée.
+			const propositionParler = {
+				lecture: 'commande' as const,
+				commande: { commande: 'parler' as const, cibles: ['pnj-1'] },
+			}
+			const reponseR4 = { replique: 'Voici un secret.', indices_reveles: [], delta_confiance: 1 as const }
+
+			demanderMock
+				.mockResolvedValueOnce({ statut: 'propose', proposition: propositionParler })
+				.mockResolvedValueOnce(reponseR4)
+
+			const onSessionChange = jest.fn()
+			const { result } = renderHook(() => useTourDeJeu(DOSSIER_TEST, SESSION_TEST, onSessionChange))
+
+			await act(async () => {
+				await result.current.executeAction('parler pnj-1')
+			})
+
+			expect(demanderMock).toHaveBeenCalledTimes(2)
+			expect(onSessionChange).toHaveBeenCalledTimes(2)
+
+			const sessionFinale = onSessionChange.mock.calls[1][0] as EtatSession
+
+			// La confiance du PNJ doit être créditée : CONFIANCE_DEPART (0) + 1 = 1
+			expect(sessionFinale.monde.pnj['pnj-1']?.confiance).toBe(1)
+		})
+
+		it('Lot B (moteur-acteurs it3) -- delta_confiance sature a CONFIANCE_MAX', async () => {
+			// Test de saturation borne haute : PNJ déjà à CONFIANCE_MAX (3),
+			// delta_confiance = +1 doit saturer à 3, pas 4.
+			const sessionAvecConfiance: EtatSession = {
+				...SESSION_TEST,
+				monde: {
+					...SESSION_TEST.monde,
+					pnj: {
+						'pnj-1': { a_dit: [], confiance: 3 }, // CONFIANCE_MAX
+					},
+				},
+			}
+
+			const propositionParler = {
+				lecture: 'commande' as const,
+				commande: { commande: 'parler' as const, cibles: ['pnj-1'] },
+			}
+			const reponseR4 = { replique: 'Toujours confiant.', indices_reveles: [], delta_confiance: 1 as const }
+
+			demanderMock
+				.mockResolvedValueOnce({ statut: 'propose', proposition: propositionParler })
+				.mockResolvedValueOnce(reponseR4)
+
+			const onSessionChange = jest.fn()
+			const { result } = renderHook(() => useTourDeJeu(DOSSIER_TEST, sessionAvecConfiance, onSessionChange))
+
+			await act(async () => {
+				await result.current.executeAction('parler pnj-1')
+			})
+
+			const sessionFinale = onSessionChange.mock.calls[1][0] as EtatSession
+
+			// La confiance doit rester à CONFIANCE_MAX (3), pas dépasser
+			expect(sessionFinale.monde.pnj['pnj-1']?.confiance).toBe(3)
+		})
+
+		it('Lot B (moteur-acteurs it3) -- delta_confiance sature a CONFIANCE_MIN', async () => {
+			// Test de saturation borne basse : PNJ à CONFIANCE_MIN (-3),
+			// delta_confiance = -1 doit saturer à -3, pas -4.
+			const sessionAvecConfiance: EtatSession = {
+				...SESSION_TEST,
+				monde: {
+					...SESSION_TEST.monde,
+					pnj: {
+						'pnj-1': { a_dit: [], confiance: -3 }, // CONFIANCE_MIN
+					},
+				},
+			}
+
+			const propositionParler = {
+				lecture: 'commande' as const,
+				commande: { commande: 'parler' as const, cibles: ['pnj-1'] },
+			}
+			const reponseR4 = { replique: 'Je ne te fais pas confiance.', indices_reveles: [], delta_confiance: -1 as const }
+
+			demanderMock
+				.mockResolvedValueOnce({ statut: 'propose', proposition: propositionParler })
+				.mockResolvedValueOnce(reponseR4)
+
+			const onSessionChange = jest.fn()
+			const { result } = renderHook(() => useTourDeJeu(DOSSIER_TEST, sessionAvecConfiance, onSessionChange))
+
+			await act(async () => {
+				await result.current.executeAction('parler pnj-1')
+			})
+
+			const sessionFinale = onSessionChange.mock.calls[1][0] as EtatSession
+
+			// La confiance doit rester à CONFIANCE_MIN (-3), pas descendre
+			expect(sessionFinale.monde.pnj['pnj-1']?.confiance).toBe(-3)
+		})
 	})
 })

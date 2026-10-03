@@ -75,6 +75,7 @@ type CheminDeFeuilleDeSession =
 	| 'monde.jalons_atteints[]'
 	| 'monde.evenements_consommes[]'
 	| 'monde.pnj.<id>.a_dit[]'
+	| 'monde.pnj.<id>.confiance'
 	| 'journal[].tour'
 	| 'journal[].role'
 	| 'journal[].texte'
@@ -188,6 +189,18 @@ export const DESTINATION_DES_CHAMPS_DE_SESSION: Readonly<
 	'monde.evenements_consommes[]': 'moteur',
 	/** Handles. `<id>` est normalisé côté test : le balayage n'efface que les indices de liste. */
 	'monde.pnj.<id>.a_dit[]': 'moteur',
+	/**
+	 * LA CONFIANCE D'UN PNJ (n° 12 `moteur-acteurs`, it3, lot `contrat`) —
+	 * `'moteur'`, SANS EXCEPTION : le modèle ne voit JAMAIS ce nombre ni le seuil
+	 * d'une porte (`docs/REGLES-DU-JEU.md` § 6) — même arbitrage que
+	 * `heros.caracs.<id>` ci-dessous, pour la même raison. Elle n'entre dans le
+	 * contexte R4 QUE PAR SON EFFET : quand `confiance_min` est atteint, le savoir
+	 * qu'elle ouvre apparaît dans le catalogue `CE QUE TU PEUX CONFIER`
+	 * (`contexte/acteur.ts`), comme n'importe quel autre savoir ouvert — et c'est
+	 * CETTE ligne-là, `monde.indices_connus[]`/le rang `S<n>`, qui porte
+	 * l'audience, jamais celle-ci.
+	 */
+	'monde.pnj.<id>.confiance': 'moteur',
 
 	// ── Le journal ────────────────────────────────────────────────────────────
 	'journal[].tour': 'moteur',

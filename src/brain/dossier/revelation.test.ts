@@ -2,8 +2,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { MARQUEUR_A_ECRIRE } from './amorce'
 import type { FaitsDeSession } from './faits'
-import { evaluerSavoir, savoirsDejaConfies, savoirsRevelables } from './revelation'
-import type { Dossier, Revelation, Savoir } from './types'
+import { evaluerSavoir, savoirsDejaConfies, savoirsRevelables, type EtatSavoir } from './revelation'
+import { CONFIANCE_DEPART, type Dossier, type Revelation, type Savoir } from './types'
 
 /**
  * L'ÉVALUATEUR DE RÉVÉLATION (n° 12 `moteur-acteurs`, it2, lot `contrat`) — § 7 du
@@ -171,16 +171,27 @@ describe('evaluerSavoir — contenu : sans formulation_joueur redigee, absent du
 	})
 })
 
-describe('evaluerSavoir — fail-closed : confiance_min/jet FERMENT, meme les deux autres portes vraies', () => {
+describe('evaluerSavoir — fail-closed : jet FERME (it4), confiance_min ENTRE EN CONJONCTION depuis it3', () => {
 	const faitsOuverts: FaitsDeSession = { ...faitsVides(), objets_possedes: [OBJET], indices_connus: [AUTRE_INDICE] }
 	const base: Revelation = { contrepartie: { objet_id: OBJET, consomme: false }, apres_indice_id: AUTRE_INDICE }
 
-	it('confiance_min pose, meme a une valeur triviale, ferme la porte', () => {
-		const dossier = avecRevelesi(avecIndiceCible(clone(), INDICE_AVEC_FORMULE), { ...base, confiance_min: -3 })
+	it('confiance_min EN CONJONCTION avec les deux autres portes : ferme si la confiance manque, meme les deux autres vraies', () => {
+		// ⚠ CETTE PORTE FERMAIT INCONDITIONNELLEMENT EN IT2 — le test disait alors
+		// « confiance_min pose, meme a une valeur triviale, ferme la porte », valeur
+		// -3 comprise. CE N'EST PLUS VRAI DEPUIS L'IT3 (n° 12, lot `contrat`) :
+		// `confiance_min` est désormais ÉVALUÉE, pas seulement POSÉE — une confiance
+		// insuffisante ferme encore, mais une confiance suffisante ouvre (branche
+		// discriminante juste en dessous).
+		const dossier = avecRevelesi(avecIndiceCible(clone(), INDICE_AVEC_FORMULE), { ...base, confiance_min: 2 })
 		expect(evaluerSavoir(dossier, faitsOuverts, PNJ, savoirDAldur(dossier))).toBe('absent')
+		const faitsAvecConfianceSuffisante: FaitsDeSession = {
+			...faitsOuverts,
+			pnj: { [PNJ]: { a_dit: [], confiance: 2 } },
+		}
+		expect(evaluerSavoir(dossier, faitsAvecConfianceSuffisante, PNJ, savoirDAldur(dossier))).toBe('revelable')
 	})
 
-	it('jet pose ferme la porte, aucun mecanisme de de n existe en it2', () => {
+	it('jet pose ferme la porte, aucun mecanisme de de n existe (it4)', () => {
 		const dossier = avecRevelesi(avecIndiceCible(clone(), INDICE_AVEC_FORMULE), {
 			...base,
 			jet: { carac: 'CA', tc: 'TC1' },
@@ -191,6 +202,41 @@ describe('evaluerSavoir — fail-closed : confiance_min/jet FERMENT, meme les de
 	it('discriminant : SANS confiance_min ni jet, les deux memes portes ouvrent bien (non-regression du test precedent)', () => {
 		const dossier = avecRevelesi(avecIndiceCible(clone(), INDICE_AVEC_FORMULE), base)
 		expect(evaluerSavoir(dossier, faitsOuverts, PNJ, savoirDAldur(dossier))).toBe('revelable')
+	})
+})
+
+/**
+ * `confiance_min`, SEULE PORTE POSÉE (n° 12 `moteur-acteurs`, it3, lot
+ * `contrat` — `docs/REGLES-DU-JEU.md` § 6, critère d'acceptation #1 du plan).
+ * TROIS BRANCHES, aucune autre porte posée : `< N` fermé, `= N` et `> N`
+ * ouverts.
+ */
+describe('evaluerSavoir — confiance_min, SEULE porte posee : 3 branches (critere #1 du plan)', () => {
+	it('confiance < N ferme, confiance = N et confiance > N ouvrent — seule cette porte posee', () => {
+		const dossier = avecRevelesi(avecIndiceCible(clone(), INDICE_AVEC_FORMULE), { confiance_min: 1 })
+		const casParBranche: ReadonlyArray<{ readonly confiance: number; readonly attendu: EtatSavoir }> = [
+			{ confiance: 0, attendu: 'absent' },
+			{ confiance: 1, attendu: 'revelable' },
+			{ confiance: 2, attendu: 'revelable' },
+		]
+
+		for (const { confiance, attendu } of casParBranche) {
+			const faits: FaitsDeSession = { ...faitsVides(), pnj: { [PNJ]: { a_dit: [], confiance } } }
+			expect(`confiance=${confiance} → ${evaluerSavoir(dossier, faits, PNJ, savoirDAldur(dossier))}`).toBe(
+				`confiance=${confiance} → ${attendu}`,
+			)
+		}
+	})
+
+	it('un PNJ sans aucune entree faits.pnj[id] lit CONFIANCE_DEPART (= 0) — ferme a confiance_min:1 (critere #4 du plan)', () => {
+		expect(CONFIANCE_DEPART).toBe(0)
+		const dossier = avecRevelesi(avecIndiceCible(clone(), INDICE_AVEC_FORMULE), { confiance_min: 1 })
+		expect(evaluerSavoir(dossier, faitsVides(), PNJ, savoirDAldur(dossier))).toBe('absent')
+	})
+
+	it('confiance_min:0 ouvre des le defaut CONFIANCE_DEPART, sans aucune entree pour ce PNJ', () => {
+		const dossier = avecRevelesi(avecIndiceCible(clone(), INDICE_AVEC_FORMULE), { confiance_min: 0 })
+		expect(evaluerSavoir(dossier, faitsVides(), PNJ, savoirDAldur(dossier))).toBe('revelable')
 	})
 })
 

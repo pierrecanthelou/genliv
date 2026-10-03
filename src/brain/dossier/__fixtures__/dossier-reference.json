@@ -248,6 +248,12 @@
 							"contrepartie": { "objet_id": "objet.amulette-scellee", "consomme": false },
 							"apres_indice_id": "indice.pas-dans-la-cendre"
 						}
+					},
+					{
+						"indice_id": "indice.piece-forgee-par-harek",
+						"certitude": "sait",
+						"revele_comment": "Il baisse enfin la voix, comme s'il avouait un secret qu'il porte seul depuis trop longtemps.",
+						"revele_si": { "confiance_min": 1 }
 					}
 				]
 			},
@@ -311,7 +317,14 @@
 				"id": "indice.sceau-brise-a-nouveau",
 				"nom": "Le sceau de cendre est de nouveau fendu",
 				"verite": "La fêlure a été faite de l'intérieur, et personne à Val-Cendre n'en a la force.",
-				"formulation_joueur": "Une fêlure court le long du sceau, fine comme un cheveu."
+				"formulation_joueur": "Une fêlure court le long du sceau, fine comme un cheveu.",
+				"mene_a": ["indice.piece-forgee-par-harek"]
+			},
+			{
+				"id": "indice.piece-forgee-par-harek",
+				"nom": "Une pièce forgée par Harek lui-même",
+				"verite": "Harek a discrètement réparé le mécanisme du beffroi avec une pièce de sa propre forge, de peur qu'on l'accuse d'avoir rallumé le feu.",
+				"formulation_joueur": "Une pièce forgée, encore tiède."
 			},
 			{
 				"id": "indice.lettre-de-la-vigie",

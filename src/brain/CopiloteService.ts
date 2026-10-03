@@ -894,12 +894,13 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 	}
 
 	/**
-	 * LE DIXIÈME RÔLE — `acteur` (n° 12 `moteur-acteurs`, it1 puis it2). ⚠ SEUL RÔLE
-	 * DONT LE SUCCÈS N'EST PAS ENVELOPPÉ `{statut:'propose', proposition}` (signature
-	 * figée § 4 du plan) : `validerActeur` rend `SortieActeurBrute` — `replique` SANS
-	 * re-résolution (comme à l'it1), `indices_reveles` AVEC (depuis l'it2, patron
-	 * « catalogue borné », KR-287) — et la forme rendue À L'APPELANT, `ReponseActeur`,
-	 * reste une réponse NUE, jamais enveloppée.
+	 * LE DIXIÈME RÔLE — `acteur` (n° 12 `moteur-acteurs`, it1, it2 puis it3). ⚠ SEUL
+	 * RÔLE DONT LE SUCCÈS N'EST PAS ENVELOPPÉ `{statut:'propose', proposition}`
+	 * (signature figée § 4 du plan) : `validerActeur` rend `SortieActeurBrute` —
+	 * `replique` SANS re-résolution (comme à l'it1), `indices_reveles` AVEC (depuis
+	 * l'it2, patron « catalogue borné », KR-287), `delta_confiance` EN PASSTHROUGH
+	 * IDENTIQUE (depuis l'it3, `docs/REGLES-DU-JEU.md` § 6) — et la forme rendue À
+	 * L'APPELANT, `ReponseActeur`, reste une réponse NUE, jamais enveloppée.
 	 *
 	 * L'ORDRE DES EFFETS, identique aux neuf autres rôles :
 	 *  1. LE REFUS DE CONTEXTE, AVANT TOUT — `'cible-a-ecrire'` (le PNJ ne résout pas,
@@ -913,7 +914,8 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 	 *
 	 * SUR ÉCHEC APRÈS LE REJEU UNIQUE : `EchecCopilote` SEUL, AUCUN texte de repli
 	 * écrit par ce fichier (KR-283) — l'orchestrateur (lot `feature`) ne pose aucune
-	 * réplique, `recit` reste `undefined`, état légal. AUCUN `indices_reveles` non plus.
+	 * réplique, `recit` reste `undefined`, état légal. AUCUN `indices_reveles` ni
+	 * AUCUNE confiance modifiée non plus.
 	 */
 	async function demanderActeur(
 		dossier: Dossier,
@@ -954,7 +956,17 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 			if (indiceId !== undefined) indices_reveles.push(indiceId)
 		}
 
-		return { replique: issue.sortie.replique, indices_reveles }
+		// `delta_confiance` EST UN PASSTHROUGH IDENTIQUE, AUCUNE RE-RÉSOLUTION —
+		// contrairement aux rangs ci-dessus. `SortieActeurBrute.delta_confiance`
+		// reste `unknown` (brut) dans son TYPE, mais `validerActeur` (prédicat 13)
+		// a DÉJÀ constaté son appartenance à `{-1, 0, 1}` avant de rendre `ok: true` :
+		// l'assertion ici porte un FAIT déjà établi par le validateur, exactement
+		// comme le `Map.get` ci-dessus porte un fait déjà établi par lui (KR-175).
+		return {
+			replique: issue.sortie.replique,
+			indices_reveles,
+			delta_confiance: issue.sortie.delta_confiance as -1 | 0 | 1,
+		}
 	}
 
 	/**

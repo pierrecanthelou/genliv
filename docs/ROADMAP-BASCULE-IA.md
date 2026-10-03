@@ -93,9 +93,7 @@ Huit features, **48 itérations livrées**, `0.6.50`. L'itération 5 de `dossier
 
 ## 2 bis — La dette du Temps 1
 
-**Corrigé le 2026-09-19, au premier `/raffiner`.** La version précédente de cette section ordonnançait onze tranches `D1` → `D11`. Passées au contrôle de taille de la skill `raffinage-iteration`, **trois sur onze** étaient correctement dimensionnées ; appliqué à la lettre, le découpage en donnait ~25. La faute n'était pas le dimensionnement : c'était d'avoir **ordonnancé un inventaire**. Onze dettes recensées ne font pas onze itérations dues avant le Temps 2.
-
-Ce que ce § 2 bis dit maintenant : **deux tranches se paient avant le Temps 2**, tout le reste est une **dette à déclencheur** — attachée au moment où quelqu'un rouvre son fichier, idiome que ce dépôt pratique déjà (« le premier lot qui rouvrira X »). Ce n'est pas un report : un calendrier que personne ne tient est moins fiable qu'un déclencheur qui part tout seul.
+**Corrigé le 2026-09-19** : un inventaire de onze dettes n'est pas onze itérations dues. Ce § 2 bis ordonne **un chemin bloquant** (4 tranches, payées avant le Temps 2) et verse tout le reste en **dette à déclencheur** — attachée au moment où quelqu'un rouvre son fichier, jamais un calendrier.
 
 ### Le chemin bloquant — 4 tranches, `0.6.51` → `0.7.4`
 
@@ -106,13 +104,13 @@ Ce que ce § 2 bis dit maintenant : **deux tranches se paient avant le Temps 2**
 | B3 | `budget-de-contexte` *(hors cycle)* | *(outillage)* `code-knowledge.json` retrouve sa marge, les 17 KR de la n°9 sont mirrorés | **2/2 ✅** | tech-lead | — |
 | B4 | `eol-lf` *(hors cycle)* | *(outillage)* tout worktree neuf rend la porte verte | **1/1 ✅** | tech-lead | — |
 
-**B1 · `lieux[].acces`** — livrée le 2026-09-19 (`0.6.52`), `dossier-canon` it5 : arête **ORIENTÉE** (KR-013), sans propriétaire depuis trois cadrages (KR-200, KR-205). Dossier : `.claude/raffinage/dossier-canon-it5.revue.md`.
+**B1 · `lieux[].acces`** (`0.6.52`) — arête ORIENTÉE (KR-013). Dossier : `.claude/raffinage/dossier-canon-it5.revue.md`.
 
-**B2 · `outillage-2`** — livrée le 2026-09-20 (`0.6.53`) : score de mutation **100 %** (258 notés), `combat.ts` de 62,50 % à 100 %, cliquet `break` 80 → **90** (plafond). **Zéro ligne de production modifiée.** Dossier : `.claude/raffinage/outillage-it2.revue.md`.
+**B2 · `outillage-2`** (`0.6.53`) — mutation `combat.ts` 100 %, cliquet `break` → 90 (plafond). Dossier : `.claude/raffinage/outillage-it2.revue.md`.
 
-**B3 · `budget-de-contexte`** — livrée le 2026-09-24 (`0.7.2`) : compaction et scission de `code-knowledge.json`, mirroring des 17 `KR-237`…`KR-253`, **plancher `5 × la plus grosse entrée`** pour les fichiers append-only. La dette « Unicité des `BUG-xxx` » est CLOSE (`src/brain/codeKnowledge.test.ts`). Dossier : `.claude/raffinage/budget-it1.revue.md`.
+**B3 · `budget-de-contexte`** (`0.7.2`) — scission `code-knowledge.json`, plancher append-only posé. Dossier : `.claude/raffinage/budget-it1.revue.md`.
 
-**B4 · `eol-lf`** — livrée le 2026-09-24 (`0.7.4`), **découverte au raffinage de la n° 9 it4, pas par un test** : `core.autocrlf=true` rendait la porte **verte en local et rouge dans tout worktree neuf** — donc chez chaque ouvrier `/essaim`. Un `.gitattributes` ferme la classe que six rustines locales n'avaient pas fermée. **Zéro ligne de test modifiée.** BUG-127. Dossier : `.claude/raffinage/eol-lf.revue.md`.
+**B4 · `eol-lf`** (`0.7.4`) — `.gitattributes` ferme la classe BUG-127 (`core.autocrlf` vert en local, rouge en worktree neuf). Dossier : `.claude/raffinage/eol-lf.revue.md`.
 
 ### La dette à déclencheur — rien n'est planifié, tout est armé
 
@@ -157,7 +155,7 @@ Le Temps 2 ne commence qu'une fois le § 2 bis clos, sur go explicite. `0.7.x`.
 | 9 | `moteur-dossier` | …jouer une session pilotée par un dossier, sans IA | 4 | **4/4 ✅** — it4 livrée (`0.7.5`) | 5 rôles | B1 |
 | 10 | `moteur-interprete` | …écrire ce qu'il veut faire en langage libre | 4 | **4/4 ✅** | 5 rôles | 9 |
 | 11 | `moteur-arbitre` | …voir le code lancer le dé que l'IA a demandé | 3 | **3/3, TERMINÉE** — it1 livrée (`0.7.10`), it2 livrée (`0.7.11`), it3 livrée (`0.7.12`) | 5 rôles | 10 · **B2** |
-| 12 | `moteur-acteurs` | …parler à un PNJ qui ne révèle que ce qu'il sait | 4 | **2/4** | 5 rôles | 11 |
+| 12 | `moteur-acteurs` | …parler à un PNJ qui ne révèle que ce qu'il sait | 4 | **3/4** | 5 rôles | 11 |
 | 13 | `moteur-combat` | …lire un combat raconté que l'IA n'arbitre pas | 2 | — | 5 rôles | 11 |
 | 14 | `moteur-horloge` | …découvrir que le monde a avancé sans lui | 3 | — | 5 rôles | 12 |
 | 15 | `moteur-fins` | …reprendre sa partie là où il l'a laissée | 3 | — | 5 rôles | 14 |
