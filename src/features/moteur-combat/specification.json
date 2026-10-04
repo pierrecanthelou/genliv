@@ -1,0 +1,105 @@
+{
+	"feature": "moteur-combat",
+	"created_at": "2026-10-04",
+	"status": "planned",
+	"design_reference": "docs/PLAN-BASCULE-IA.dc.html § 2.6 (sous-boucle B), docs/REGLES-DU-JEU.md § 3–5, docs/REGLES-PLAY.md D1–D8/H/I",
+	"plan": {
+		"goal": "L'auteur lance un aperçu, rencontre un monstre, et lit un combat raconté que l'IA n'arbitre pas.",
+		"design_contract": "EcranCombat.tsx dans play-mode (pas une modale). Postures Normale/Précise/Défensive en SegmentedControl. Log mécanique en mono, récit IA en corps de texte (it3). Badge neutral pour l'issue. Tokens du design system, zéro valeur en dur.",
+		"acceptance_criteria": [
+			"Un événement avec monstre_ref déclenché au bon lieu ouvre un combat avec le monstre résolu depuis le bestiaire.",
+			"Le joueur choisit sa posture (Normale/Précise/Défensive) et voit le résultat mécanique du round (log mono).",
+			"Le combat se clôt sur victoire ou mort du héros, avec XP crédité et PV/PE mis à jour.",
+			"La fuite est un bouton séparé, pas une posture. Issue hero-fled.",
+			"Le narrateur de combat (R5 commentateur) commente chaque round en 2–3 phrases sans chiffre. Rejeu-une-fois puis silence.",
+			"Le combat entier vaut un seul pas d'horloge. Les rounds ne font pas avancer horloge.tour.",
+			"Aucune commande (aller/agir/parler) n'est acceptée pendant un combat.",
+			"La persistance est un rejeu pur : seuls monstre_ref et postures[] sont stockés.",
+			"moteurSansIA.test.ts reste vert (player/ sans IA, KR-250/260)."
+		],
+		"brain_contracts": [
+			{
+				"type": "service",
+				"name": "EtatSession.combat",
+				"direction": "consumes",
+				"detail": "combat?: { readonly monstre_ref: string; readonly postures: readonly Posture[] }. Rejeu pur, pas de snapshot."
+			},
+			{
+				"type": "event",
+				"name": "DomaineAlea += 'combat'",
+				"direction": "consumes",
+				"detail": "creerRng(graine, 'combat', tour). Flux unique rejoué depuis startCombat."
+			},
+			{
+				"type": "service",
+				"name": "sessionDestinations",
+				"direction": "consumes",
+				"detail": "combat, combat.monstre_ref, combat.postures[] = 'moteur'."
+			},
+			{
+				"type": "service",
+				"name": "RefusCommande += 'combat_en_cours'",
+				"direction": "consumes",
+				"detail": "executerCommande refuse aller/agir/parler tant que session.combat existe."
+			},
+			{
+				"type": "service",
+				"name": "R5 commentateur",
+				"direction": "emits",
+				"detail": "Route /ia/commentateur, CibleCommentateur, ProjectionAssaut, validerCommentateur. Sortie {narration}, 400 car., /\\d/ refusé."
+			}
+		],
+		"walking_skeleton": "It1 : un événement avec monstre_ref ouvre un combat sans IA. Le joueur choisit sa posture, le moteur résout, le résultat mécanique s'affiche. Le combat se clôt sur victoire ou mort.",
+		"n": 3,
+		"iterations": [
+			{
+				"id": 1,
+				"goal": "L'auteur voit un événement à monstre ouvrir un combat qu'il résout round par round, sans IA. Postures Normale/Précise/Défensive, log mécanique affiché. Sonde D2-bis + correction « manqué ».",
+				"status": "planned"
+			},
+			{
+				"id": 2,
+				"goal": "L'auteur voit son héros fuir un combat. Bouton « Fuir » séparé (pas une posture), issue hero-fled.",
+				"status": "planned"
+			},
+			{
+				"id": 3,
+				"goal": "L'auteur lit chaque round commenté par le narrateur de combat (R5 commentateur). Sortie {narration}, 400 car., aucun chiffre. Projection structurée en entrée. Rejeu-une-fois puis silence.",
+				"status": "planned"
+			}
+		],
+		"known_risks": [
+			"KR-292 : Persistance combat = rejeu {monstre_ref, postures[]}, jamais un snapshot de CombatState. Un snapshot vieillit si le moteur change entre sauvegarde et reprise.",
+			"KR-293 : combatEngine.ts ignore l'existence du narrateur. La projection structurée (ProjectionAssaut) est calculée à part dans combatProjection.ts, jamais par le moteur.",
+			"KR-294 : CombatLogEntry.text n'entre dans AUCUN contexte de modèle. Le narrateur reçoit une projection structurée (vainqueur, HitQuality, paliers de santé, capacités).",
+			"KR-295 : Un combat entier = un seul pas d'horloge. Les rounds ne font pas avancer horloge.tour. Aléa creerRng(graine,'combat',tour), flux unique rejoué depuis startCombat.",
+			"KR-296 : R5 commentateur retourne {narration} seul, 400 car. max, /\\d/ refusé par le validateur. Rejeu-une-fois puis silence (KR-230/283).",
+			"KR-297 : La fuite n'est pas une posture. Bouton et fonction séparés (fuirRencontre vs jouerRound)."
+		]
+	},
+	"implementation": {
+		"iterations_log": [],
+		"resolved_decisions": [
+			"R5 commentateur, pas R3 étendu : deux schémas sous un rôle = aiguillage caché (TL). Le coût d'une route supplémentaire est borné (KR-233).",
+			"Un combat = un pas d'horloge, pas un pas par round : REGLES-PLAY J1 (conséquence enchaînée), fenêtre mémoire FENETRE_MAX 14 saturée sinon, plans PNJ (n° 14) avanceraient à chaque coup.",
+			"Rejeu pur {monstre_ref, postures[]}, pas de snapshot CombatEnCours : moins de feuilles à destiner (~40 vs 2), pas de snapshot qui vieillit.",
+			"rencontre.ts dans src/player/engine/, pas dans brain/dossier/ : évite le premier arc runtime brain→player.",
+			"useCombat.ts + CombatScreen.tsx supprimés en it1 : orphelins, état privé en useState, Math.random non semé. Roadmap:55 périmé.",
+			"Postures = Normale/Précise/Défensive (REGLES-DU-JEU source de vérité, KR-130), pas Attaque/Défense/Garde.",
+			"Log texte (CombatLogEntry.text) jamais injecté dans un contexte de modèle : contient AT, PV, noms en dur. Projection structurée en entrée du R5.",
+			"Zone récit absente en it1 : un placeholder pour un emplacement qui ne se remplit pas est un mensonge.",
+			"Mort sans écran de fin : n° 15 propriétaire. Badge neutral DÉFAITE.",
+			"pickMonsterPosture non enrichi selon IG : pas de règle écrite (KR-130). Déjà pondéré par famille.",
+			"Équipement = mains nues en dur dans rencontre.ts : pas d'écrivain de session pour l'équipement.",
+			"Personnage.tier : dérivé en ligne, jamais stocké (KR-192).",
+			"ouvrir_combat (deltas.ts) et combattre (commandes.ts) restent clos.",
+			"Butin, victoryTarget, resolutions[].consequence : hors périmètre (n° 15 ou non planifié).",
+			"Fuite = bouton séparé, pas un 4e segment du SegmentedControl."
+		],
+		"open_questions": [
+			"Enrichir pickMonsterPosture selon IG — reporté indéfiniment, pas de règle écrite (KR-130). À rouvrir si REGLES-PLAY.md D3 est amendé.",
+			"Écran de mort / fin de partie — reporté à n° 15.",
+			"Équipement du héros (mains nues en dur tant qu'aucun écrivain d'inventaire n'existe) — non planifié."
+		]
+	}
+}

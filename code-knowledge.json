@@ -654,12 +654,12 @@
 		{
 			"id": "KR-235",
 			"feature": "dossier-copilote",
-			"risk": "UN INSTRUMENT NON MESURE N'EST PAS UN INSTRUMENT. Trois cas mesures, tous faux. (1) FORME_IDENTIFIANT est ANCREE : false sur un blob serialise portant un vrai identifiant, donc INERTE, toujours vert. (2) Un scanner non ancre a des faux positifs MESURES -- 'fin', 'objet' sont des mots courants ('Enfin.tout', 'objet.favori') -- et son correctif EVIDENT est faux aussi : exiger un chiffre ou un tiret dans le suffixe est vrai de randomToken() et FAUX des identifiants SEMES, lieu.amorce s'echappe. La forme seule ne decide pas : un identifiant est une APPARTENANCE au dossier, pas une silhouette -- forme LACHE intersectee avec collectIds(dossier), DEUX canaris et le mutant 'forme resserree' dans le meme test. (3) UN GARDE A SEUIL NUMERIQUE SANS SEMANTIQUE CHOISIE est aveugle aux nombres et aux etiquettes courtes et fait rougir du code SAIN : UNE GARDE QUI APPREND A MODIFIER LE TEMOIN EST PIRE QUE PAS DE GARDE. Remplace par une inclusion de CHEMINS (feuillesDeLaFixture) ; la taille BRUTE d'une fixture n'est pas une borne de contexte (KR-176)."
+			"risk": "UN INSTRUMENT NON MESURE N'EST PAS UN INSTRUMENT : un identifiant est une APPARTENANCE au dossier (collectIds), pas une silhouette ; une garde a seuil sans semantique fait rougir du code sain (KR-176). Corps : spec dossier-copilote."
 		},
 		{
 			"id": "KR-236",
 			"feature": "dossier-copilote",
-			"risk": "L'INVITE VIT DANS LE WORKER, jamais dans le client (rejouable aux devtools ; c'est le worker qui detient la cle d'API). Le CLIENT decide QUELLES DONNEES SORTENT, le WORKER CE QU'ON DEMANDE. GARDE : un test asserte que l'invite RENDUE contient le LITTERAL DE GABARIT, JAMAIS la cle nue -- 'valeur' est un mot francais COURANT, et 'la valeur de ce personnage' satisfait includes() sans rien demander (MESURE). AMENDE A L'IT2 : des que les gabarits sont indexes PAR ROLE, cette garde reste VERTE sur une table MAL APPARIEE -- deux litteraux presents, corrects, simplement ECHANGES (MESURE). Il en faut TROIS : (1) egalite des ensembles de cles cote brain, cote worker et dans INVITES, qui attrape le role SANS gabarit ; (2) l'appariement role par role ; (3) un CANARI CROISE, intervertir deux gabarits doit ROUGIR -- sans lui 'absent' et 'mal apparie' sont indistinguables, et le mal-apparie est le seul defaut NEUF qu'une table a plusieurs entrees rende possible. Record<Role,string>, extraction du test ancree sur l'ENTREE et non sur la declaration."
+			"risk": "L'INVITE VIT DANS LE WORKER, le CLIENT decide quelles donnees sortent. TROIS gardes d'appariement role-gabarit obligatoires : (1) egalite des cles, (2) appariement par role, (3) canari croise (inversion doit rougir). Corps : spec dossier-copilote."
 		},
 		{
 			"id": "KR-237",
@@ -935,6 +935,36 @@
 			"id": "KR-291",
 			"feature": "moteur-acteurs",
 			"risk": "A l'etape Docs, relire chaque CR d'ouvrier avant d'ecrire deviations_from_plan. Corps : bug_history.moteur-acteurs.json BUG-144."
+		},
+		{
+			"id": "KR-292",
+			"feature": "moteur-combat",
+			"risk": "Persistance combat = rejeu {monstre_ref, postures[]}, jamais un snapshot de CombatState. Un snapshot vieillit si le moteur change entre sauvegarde et reprise."
+		},
+		{
+			"id": "KR-293",
+			"feature": "moteur-combat",
+			"risk": "combatEngine.ts ignore l'existence du narrateur. La projection structuree (ProjectionAssaut) est calculee a part dans combatProjection.ts, jamais par le moteur."
+		},
+		{
+			"id": "KR-294",
+			"feature": "moteur-combat",
+			"risk": "CombatLogEntry.text n'entre dans AUCUN contexte de modele. Le narrateur recoit une projection structuree (vainqueur, HitQuality, paliers de sante, capacites)."
+		},
+		{
+			"id": "KR-295",
+			"feature": "moteur-combat",
+			"risk": "Un combat entier = un seul pas d'horloge. Les rounds ne font pas avancer horloge.tour. Alea creerRng(graine,'combat',tour), flux unique rejoue depuis startCombat."
+		},
+		{
+			"id": "KR-296",
+			"feature": "moteur-combat",
+			"risk": "R5 commentateur retourne {narration} seul, 400 car. max, /\\d/ refuse par le validateur. Rejeu-une-fois puis silence (KR-230/283)."
+		},
+		{
+			"id": "KR-297",
+			"feature": "moteur-combat",
+			"risk": "La fuite n'est pas une posture. Bouton et fonction separes (fuirRencontre vs jouerRound)."
 		}
 	]
 }
