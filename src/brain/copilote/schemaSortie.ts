@@ -1381,6 +1381,79 @@ export const CLES_EPREUVE = ['carac', 'tc', 'enjeu_reussite', 'enjeu_echec'] as 
  *  modèle écrirait — un enjeu ne profère jamais de mécanique (§ 4 bis du plan it2). */
 const PORTE_UN_CHIFFRE = /[0-9]/
 
+/** Les DEUX clés des enjeux — second niveau de schéma de la forme B de l'acteur
+ *  (`{resiste:{enjeu_reussite, enjeu_echec}}`, n° 12, it4), dans l'ordre où
+ *  `epreuve` les porte après `carac`/`tc`. EXPORTÉE : `worker/frontiere.test.ts`
+ *  épingle les clés du gabarit local au worker contre celles que ce validateur
+ *  exige (précédent `CLES_EPREUVE`). */
+export const CLES_ENJEUX = ['enjeu_reussite', 'enjeu_echec'] as const
+
+/**
+ * LES ENJEUX D'UNE ÉPREUVE — LA GARDE PARTAGÉE (n° 12 `moteur-acteurs`, it4, KR-013),
+ * extraite de `validerArbitre` : DEUX APPELANTS, UNE SEULE GARDE. `validerArbitre`
+ * (R2, l'épreuve de l'arbitre) et `validerActeur` (R4, la demande de jet de
+ * l'acteur) alimentent la MÊME `CarteJet` : un enjeu qui passe chez l'un doit passer
+ * chez l'autre, et une borne qui change ne change qu'ici. Le corps est EXACTEMENT
+ * celui des prédicats (6) à (11) de `validerArbitre` d'avant l'extraction — mêmes
+ * prédicats, même ORDRE, mêmes motifs.
+ *
+ *   (6)  les deux enjeux sont des CHAÎNES — un TABLEAU meurt ici, JAMAIS `[0]`,
+ *        JAMAIS `String(…)` ..................................... 'schema'
+ *   (7)  chacun non vide après `trim()` ................................ 'vide'
+ *   (8)  chacun SANS `\n`, ≤ `ENJEU_CARACTERES_MAX` ................... 'schema'
+ *   (9)  `enjeu_reussite` ≠ `enjeu_echec` après `trim()` — un jet aux deux
+ *        issues égales ne décide rien ............................... 'schema'
+ *   (10) aucun `MARQUEUR_A_ECRIRE`, sur les DEUX proses ........... 'marqueur'
+ *   (11) aucun identifiant du dossier, aucun chiffre `[0-9]`, sur les
+ *        DEUX proses ........................................ 'identifiant'
+ *
+ * REND LES DEUX CHAÎNES telles quelles et NARROWÉES (`string`) en cas de succès :
+ * l'appelant n'a ni à re-vérifier le type ni à l'asserter. Aucune réparation
+ * (ni `trim`, ni troncature), REFUS DU LOT ENTIER (KR-230).
+ */
+export function validerEnjeux(
+	reussiteBrut: unknown,
+	echecBrut: unknown,
+	dossier: Dossier,
+): { ok: true; enjeu_reussite: string; enjeu_echec: string } | { ok: false; motif: MotifIllisible } {
+	// (6) les deux proses sont des CHAÎNES.
+	if (typeof reussiteBrut !== 'string' || typeof echecBrut !== 'string') return { ok: false, motif: 'schema' }
+
+	// (7) non vides une fois les blancs retirés.
+	if (reussiteBrut.trim().length === 0 || echecBrut.trim().length === 0) return { ok: false, motif: 'vide' }
+
+	// (8) SANS saut de ligne, SOUS la borne — PAR PROSE.
+	if (
+		reussiteBrut.includes('\n') ||
+		echecBrut.includes('\n') ||
+		reussiteBrut.length > ENJEU_CARACTERES_MAX ||
+		echecBrut.length > ENJEU_CARACTERES_MAX
+	) {
+		return { ok: false, motif: 'schema' }
+	}
+
+	// (9) les deux issues ne décident rien si elles sont identiques.
+	if (reussiteBrut.trim() === echecBrut.trim()) return { ok: false, motif: 'schema' }
+
+	// (10) aucun marqueur d'amorce — constante IMPORTÉE, jamais recopiée (KR-223).
+	if (reussiteBrut.includes(MARQUEUR_A_ECRIRE) || echecBrut.includes(MARQUEUR_A_ECRIRE)) {
+		return { ok: false, motif: 'marqueur' }
+	}
+
+	// (11) aucun identifiant du dossier, aucun chiffre — PAR PROSE, JAMAIS sur un
+	//      `join` (précédent `validerRepliques`) : il détruirait la localisation.
+	if (
+		porteUnIdentifiant(reussiteBrut, dossier) ||
+		porteUnIdentifiant(echecBrut, dossier) ||
+		PORTE_UN_CHIFFRE.test(reussiteBrut) ||
+		PORTE_UN_CHIFFRE.test(echecBrut)
+	) {
+		return { ok: false, motif: 'identifiant' }
+	}
+
+	return { ok: true, enjeu_reussite: reussiteBrut, enjeu_echec: echecBrut }
+}
+
 /**
  * LES PRÉDICATS DE FORME de la sortie `arbitre` — le NEUVIÈME rôle, ET LE PREMIER
  * DONT LA PROPOSITION DE SUCCÈS PORTE DÉJÀ LES TYPES RÉSOLUS (`Characteristic`/
@@ -1403,6 +1476,8 @@ const PORTE_UN_CHIFFRE = /[0-9]/
  *   (3) `epreuve` est un objet simple, clés EXACTEMENT `CLES_EPREUVE` ... 'schema'
  *   (4) `carac` est une CHAÎNE ∈ `CHARACTERISTIC_VALUES` ................ 'schema'
  *   (5) `tc` est une CHAÎNE ∈ `CHALLENGE_TIER_VALUES` .................... 'schema'
+ *   (6) à (11) — DÉLÉGUÉS À `validerEnjeux` (n° 12, it4), garde PARTAGÉE avec
+ *       `validerActeur` ; mêmes prédicats, même ordre, listés ci-dessous :
  *   (6) `enjeu_reussite`/`enjeu_echec` sont des CHAÎNES .................. 'schema'
  *   (7) chacune non vide après `trim()` ...................................... 'vide'
  *   (8) chacune SANS `\n`, ≤ `ENJEU_CARACTERES_MAX` ...................... 'schema'
@@ -1454,8 +1529,6 @@ export function validerArbitre(
 
 	const caracBrut: unknown = epreuve[CLES_EPREUVE[0]]
 	const tcBrut: unknown = epreuve[CLES_EPREUVE[1]]
-	const reussiteBrut: unknown = epreuve[CLES_EPREUVE[2]]
-	const echecBrut: unknown = epreuve[CLES_EPREUVE[3]]
 
 	// (4) `carac` est une CHAÎNE qui APPARTIENT à `CHARACTERISTIC_VALUES` — un
 	//     registre FIGÉ, jamais re-dérivé.
@@ -1466,41 +1539,12 @@ export function validerArbitre(
 	if (typeof tcBrut !== 'string' || !(CHALLENGE_TIER_VALUES as readonly string[]).includes(tcBrut)) {
 		return { ok: false, motif: 'schema' }
 	}
-	// (6) les deux proses sont des CHAÎNES — un TABLEAU meurt ici, et JAMAIS `[0]`,
-	//     JAMAIS `String(…)`.
-	if (typeof reussiteBrut !== 'string' || typeof echecBrut !== 'string') return { ok: false, motif: 'schema' }
 
-	// (7) non vides une fois les blancs retirés.
-	if (reussiteBrut.trim().length === 0 || echecBrut.trim().length === 0) return { ok: false, motif: 'vide' }
-
-	// (8) SANS saut de ligne, SOUS la borne — PAR PROSE.
-	if (
-		reussiteBrut.includes('\n') ||
-		echecBrut.includes('\n') ||
-		reussiteBrut.length > ENJEU_CARACTERES_MAX ||
-		echecBrut.length > ENJEU_CARACTERES_MAX
-	) {
-		return { ok: false, motif: 'schema' }
-	}
-
-	// (9) les deux issues ne décident rien si elles sont identiques.
-	if (reussiteBrut.trim() === echecBrut.trim()) return { ok: false, motif: 'schema' }
-
-	// (10) aucun marqueur d'amorce — constante IMPORTÉE, jamais recopiée (KR-223).
-	if (reussiteBrut.includes(MARQUEUR_A_ECRIRE) || echecBrut.includes(MARQUEUR_A_ECRIRE)) {
-		return { ok: false, motif: 'marqueur' }
-	}
-
-	// (11) aucun identifiant du dossier, aucun chiffre — PAR PROSE, JAMAIS sur un
-	//      `join` (précédent `validerRepliques`) : il détruirait la localisation.
-	if (
-		porteUnIdentifiant(reussiteBrut, dossier) ||
-		porteUnIdentifiant(echecBrut, dossier) ||
-		PORTE_UN_CHIFFRE.test(reussiteBrut) ||
-		PORTE_UN_CHIFFRE.test(echecBrut)
-	) {
-		return { ok: false, motif: 'identifiant' }
-	}
+	// (6) à (11) — LES ENJEUX, par la garde PARTAGÉE avec `validerActeur` (KR-013) :
+	//     chaînes, non vides, sans saut de ligne, sous la borne, distincts, sans
+	//     marqueur, sans identifiant ni chiffre. Mêmes prédicats, même ordre.
+	const enjeux = validerEnjeux(epreuve[CLES_EPREUVE[2]], epreuve[CLES_EPREUVE[3]], dossier)
+	if (!enjeux.ok) return { ok: false, motif: enjeux.motif }
 
 	return {
 		ok: true,
@@ -1508,8 +1552,8 @@ export function validerArbitre(
 			epreuve: {
 				carac: caracBrut as Characteristic,
 				tc: tcBrut as ChallengeTier,
-				enjeu_reussite: reussiteBrut,
-				enjeu_echec: echecBrut,
+				enjeu_reussite: enjeux.enjeu_reussite,
+				enjeu_echec: enjeux.enjeu_echec,
 			},
 		},
 	}
@@ -1531,6 +1575,25 @@ export function validerArbitre(
  *  `delta_confiance` nul restent un SUCCÈS (franchise honnête, § 4 bis du
  *  plan) ; c'est la CLÉ ABSENTE qui ne l'est pas. */
 export const CLES_SORTIE_ACTEUR = ['replique', 'indices_reveles', 'delta_confiance'] as const
+
+/** LA CLÉ UNIQUE DE LA FORME B de l'acteur (n° 12, it4) — `{resiste:{…}}`, DISJOINTE
+ *  de `CLES_SORTIE_ACTEUR` : aucune des trois clés de la forme A n'y figure, et la
+ *  forme B n'en porte qu'une. EXPORTÉE pour le même motif que `CLES_SORTIE_ACTEUR` —
+ *  `worker/frontiere.test.ts` épingle le troisième gabarit du worker contre elle. */
+export const CLES_SORTIE_RESISTE = ['resiste'] as const
+
+/** Ce que l'APPELANT sait de l'appel et que le modèle ignore (n° 12, it4) : LES DEUX
+ *  options de `validerActeur`, calculées UNE FOIS par l'assembleur
+ *  (`contexte/acteur.ts`) et jamais re-dérivées ici (KR-231). */
+export interface OptionsValiderActeur {
+	/** La forme B (`resiste`) est-elle LÉGALE ? Vrai ssi le moteur met un savoir en jeu
+	 *  pour CET appel (`CibleActeurResistible` ET `savoirSousEpreuve` défini ET héros
+	 *  présent). Absent, c'est `false` : jamais permis par défaut. */
+	readonly resistePermise?: boolean
+	/** Le RANG du savoir DÛ (appel 2, jet réussi) : s'il est posé, `indices_reveles`
+	 *  DOIT le porter, sinon `'rang-inconnu'`. Absent, aucune exigence. */
+	readonly rangDu?: RangInjecte
+}
 
 /**
  * LES TROIS SEULES VALEURS LÉGALES DE `delta_confiance`
@@ -1571,6 +1634,25 @@ export const REPLIQUE_CARACTERES_MAX = 400
  * `MotifIllisible` GAGNE `'rang-inconnu'` DANS SON ATTEIGNABLE DEPUIS L'IT2 —
  * SANS OBJET en it1 (R4 ne désignait rien) : précédent exact
  * `validerDetenteurs`/`validerInterprete`.
+ *
+ * ── IT4 : DEUX FORMES DISJOINTES ET UN QUATORZIÈME PRÉDICAT ───────────────────
+ * (n° 12 `moteur-acteurs`, it4, `docs/REGLES-DU-JEU.md` § 6, « La porte `jet` ») :
+ *  · FORME A — la réplique, les TREIZE prédicats ci-dessous, INCHANGÉS ;
+ *  · FORME B — `{ resiste: { enjeu_reussite, enjeu_echec } }`, UNE seule clé
+ *    (`CLES_SORTIE_RESISTE`), disjointe de la forme A : un objet qui MÊLE les deux
+ *    (`resiste` + `replique`…) n'est NI l'une NI l'autre — refus `'schema'` au
+ *    prédicat (2), jamais une forme « qui gagne ». LÉGALE ssi `options.resistePermise` :
+ *    sinon `'schema'`, exactement comme une clé inconnue. Ses enjeux passent par
+ *    `validerEnjeux`, la garde PARTAGÉE avec `validerArbitre` (KR-013) ; l'objet
+ *    `resiste` porte EXACTEMENT `CLES_ENJEUX` (une clé en trop ou manquante :
+ *    `'schema'`, signal KR-236). Le modèle n'écrit NI `carac` NI `tc` NI le savoir
+ *    visé : le moteur les pose (`CopiloteService`, depuis `savoirSousEpreuve`) ;
+ *  · (14) — QUAND `options.rangDu` EST POSÉ (appel 2, jet RÉUSSI), la forme A DOIT
+ *    porter ce rang dans `indices_reveles` : le savoir mis en jeu est DÛ, un dé gagné
+ *    qui n'ouvrirait rien trahirait l'auteur. Refus `'rang-inconnu'`, comme un rang
+ *    absent du catalogue — rejeu puis silence (KR-283), AUCUN texte de repli.
+ *    Posé EN DERNIER : les treize autres sont intouchés, et ce prédicat ne s'applique
+ *    qu'à une option que seul l'appel 2 pose.
  *
  * LES TREIZE PRÉDICATS, dans l'ordre, chacun prouvable SEUL (§ 4 bis du plan
  * d'it3, ordre FIGÉ) :
@@ -1637,12 +1719,30 @@ export function validerActeur(
 	brut: unknown,
 	dossier: Dossier,
 	rangsOuverts: ReadonlySet<RangInjecte>,
+	options: OptionsValiderActeur = {},
 ): { ok: true; sortie: SortieActeurBrute } | { ok: false; motif: MotifIllisible } {
 	// (1) un objet JSON — ni tableau, ni `null`.
 	if (!estObjetSimple(brut)) return { ok: false, motif: 'schema' }
 
-	// (2) l'ensemble des clés vaut EXACTEMENT `CLES_SORTIE_ACTEUR` — LES TROIS.
+	// ── FORME B (it4) — `{ resiste: { enjeu_reussite, enjeu_echec } }`, une seule clé.
 	const cles = Object.keys(brut)
+	if (cles.length === CLES_SORTIE_RESISTE.length && cles[0] === CLES_SORTIE_RESISTE[0]) {
+		// Légale ssi le moteur met un savoir en jeu pour CET appel — sinon refus.
+		if (options.resistePermise !== true) return { ok: false, motif: 'schema' }
+
+		const resiste: unknown = brut.resiste
+		if (!estObjetSimple(resiste)) return { ok: false, motif: 'schema' }
+		const clesEnjeux = Object.keys(resiste)
+		if (clesEnjeux.length !== CLES_ENJEUX.length || !CLES_ENJEUX.every((cle) => clesEnjeux.includes(cle))) {
+			return { ok: false, motif: 'schema' }
+		}
+
+		const enjeux = validerEnjeux(resiste[CLES_ENJEUX[0]], resiste[CLES_ENJEUX[1]], dossier)
+		if (!enjeux.ok) return { ok: false, motif: enjeux.motif }
+		return { ok: true, sortie: { resiste: { enjeu_reussite: enjeux.enjeu_reussite, enjeu_echec: enjeux.enjeu_echec } } }
+	}
+
+	// (2) l'ensemble des clés vaut EXACTEMENT `CLES_SORTIE_ACTEUR` — LES TROIS.
 	if (cles.length !== CLES_SORTIE_ACTEUR.length || !CLES_SORTIE_ACTEUR.every((cle) => cles.includes(cle))) {
 		return { ok: false, motif: 'schema' }
 	}
@@ -1689,6 +1789,13 @@ export function validerActeur(
 	//      autre type (critère d'acceptation #2 du plan d'it3).
 	if (typeof brut.delta_confiance !== 'number' || !DELTAS_CONFIANCE_VALIDES.includes(brut.delta_confiance)) {
 		return { ok: false, motif: 'schema' }
+	}
+
+	// (14) LE RANG DÛ (it4) — quand le moteur a posé `rangDu` (appel 2, jet réussi),
+	//      `indices_reveles` DOIT le porter : le savoir mis en jeu est dû. Absent,
+	//      c'est un rang manquant du catalogue — `'rang-inconnu'`, refus ATOMIQUE.
+	if (options.rangDu !== undefined && !indicesBrut.includes(options.rangDu)) {
+		return { ok: false, motif: 'rang-inconnu' }
 	}
 
 	return { ok: true, sortie: { replique, indices_reveles: indicesBrut, delta_confiance: brut.delta_confiance } }

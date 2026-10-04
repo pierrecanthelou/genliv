@@ -1,9 +1,18 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { ouvrirSession, type EntreeJournal, type EtatSession } from '../../dossier/session'
-import type { Dossier } from '../../dossier/types'
-import { REPLIQUE_CARACTERES_MAX } from '../schemaSortie'
-import { assemblerActeur, BUDGET_CARACTERES_ACTEUR, MEMOIRE_PARLER_MAX } from './acteur'
+import { analyserSaisie, executerCommande } from '../../dossier/commandes'
+import { consignerJet, fixerHeros, ouvrirSession, type EntreeJournal, type EtatSession } from '../../dossier/session'
+import type { Dossier, Savoir } from '../../dossier/types'
+import type { HeroState } from '../../../player/types'
+import { ENJEU_CARACTERES_MAX, REPLIQUE_CARACTERES_MAX } from '../schemaSortie'
+import {
+	assemblerActeur,
+	BORNE_ISSUE_ACTEUR,
+	BORNE_MEMOIRE_ACTEUR,
+	BORNE_SAISIE_ACTEUR,
+	BUDGET_CARACTERES_ACTEUR,
+	MEMOIRE_PARLER_MAX,
+} from './acteur'
 import { SAISIE_CARACTERES_MAX } from './interprete'
 
 /**
@@ -370,5 +379,457 @@ describe('assemblerActeur — CE QUE TU PEUX CONFIER / CE QUE TU LUI AS DEJA CON
 		if (!contexte.ok) throw new Error('le contexte ne doit pas etre refuse')
 		expect(contexte.texte).not.toContain(String(mira?.savoirs[0]?.revele_comment))
 		expect(contexte.texte).not.toContain('pnj.mira-la-guerisseuse')
+	})
+})
+
+/**
+ * LA PORTE `jet` — `CE QUE TU GARDES` (appel 1) ET `À L'INSTANT` (appel 2), n° 12
+ * `moteur-acteurs`, it4, lot `contrat` (`docs/REGLES-DU-JEU.md` § 6, « La porte `jet` »).
+ *
+ * Harek porte `indice.pas-dans-la-cendre` gardé par le seul `jet` IN/TC1
+ * (`dossier-reference.json`, déjà livré — aucune fixture n'est touchée). LES ISSUES
+ * SONT FORCÉES PAR LE HÉROS, jamais par la graine : TC1 (1D6, total ≥ 1) réussit TOUJOURS
+ * contre IN 9 et échoue TOUJOURS contre IN 0. Les sessions sont produites par le moteur
+ * (`PARLER` via `executerCommande`, puis `consignerJet`), jamais forgées.
+ */
+describe('assemblerActeur — la porte jet : CE QUE TU GARDES (appel 1) et A L INSTANT (appel 2) — it4', () => {
+	const INDICE_EN_JEU = 'indice.pas-dans-la-cendre'
+	const ENJEU_REUSSITE = 'baisser enfin la garde'
+	const ENJEU_ECHEC = 'se refermer davantage'
+	const EPREUVE = { enjeu_reussite: ENJEU_REUSSITE, enjeu_echec: ENJEU_ECHEC }
+	/** Le bloc, tel que le plan le fige (§ 3) — écrit ICI en toutes lettres, jamais lu d'une constante du code. */
+	const BLOC_GARDE = '\n\nCE QUE TU GARDES\nTu gardes un secret.'
+
+	function hero(intelligence: number): HeroState {
+		return {
+			name: 'Aldric le Temeraire',
+			caracs: { FO: 7, AG: 6, DX: 5, EN: 8, IN: intelligence, IG: 4, SE: 10, CA: 3 },
+			pvMax: 21,
+			pv: 14,
+			peMax: 8,
+			pe: 8,
+			mcBonus: 0,
+			xp: 12,
+		}
+	}
+
+	/** `PARLER harek` joué par le produit, avec un héros de `IN` donné ; le jet IN/TC1 y est consigné si `tenter`. */
+	function apresParler(dossier: Dossier, intelligence: number, tenter: boolean): EtatSession {
+		const analyse = analyserSaisie(`PARLER ${HAREK}`)
+		if (!analyse.ok) throw new Error(`saisie refusée : ${analyse.message}`)
+		const resultat = executerCommande(dossier, fixerHeros(ouverture(dossier), hero(intelligence)), analyse.commande)
+		if (!resultat.ok) throw new Error(`commande refusée : ${resultat.message}`)
+		const session = resultat.session
+		return tenter ? consignerJet(session, session.horloge.tour, { carac: 'IN', tc: 'TC1' }) : session
+	}
+
+	/** Ce que le savoir gardé ne doit JAMAIS laisser sortir à l'appel 1 — RELU de la fixture, jamais recopié. */
+	function secretsDuSavoir(dossier: Dossier): Record<string, string> {
+		const indice = dossier.monde.indices.find((candidat) => candidat.id === INDICE_EN_JEU)
+		const savoir = dossier.monde.personnages
+			.find((personnage) => personnage.id === HAREK)
+			?.savoirs.find((candidat) => candidat.indice_id === INDICE_EN_JEU)
+		const secrets = {
+			formulation_joueur: indice?.formulation_joueur ?? '',
+			verite: indice?.verite ?? '',
+			nom_de_l_indice: indice?.nom ?? '',
+			revele_comment: savoir?.revele_comment ?? '',
+			indice_id: INDICE_EN_JEU,
+		}
+		// NON-VACUITÉ : un secret vide serait « absent du contexte » pour rien.
+		for (const [cle, valeur] of Object.entries(secrets)) expect(`${cle} → ${valeur.length > 0}`).toBe(`${cle} → true`)
+		return secrets
+	}
+
+	function rendu(dossier: Dossier, session: EtatSession, pnj: string, options?: Parameters<typeof assemblerActeur>[4]) {
+		const contexte = assemblerActeur(dossier, session, pnj, 'bonjour', options)
+		if (!contexte.ok) throw new Error(`le contexte ne doit pas etre refuse : ${contexte.motif}`)
+		return contexte
+	}
+
+	function avecSavoirsDeHarek(dossier: Dossier, savoirs: readonly Savoir[]): Dossier {
+		return {
+			...dossier,
+			monde: {
+				...dossier.monde,
+				personnages: dossier.monde.personnages.map((personnage) =>
+					personnage.id === HAREK ? { ...personnage, savoirs: [...savoirs] } : personnage,
+				),
+			},
+		}
+	}
+
+	describe('APPEL 1 — CE QUE TU GARDES : une ligne constante, sans contenu', () => {
+		it('present ssi resistible ET heros ET savoir sous epreuve — la table des six cas, un seul est vrai', () => {
+			const dossier = lire()
+			const avecHerosFrais = apresParler(dossier, 9, false)
+			const sansHeros = ouverture(dossier)
+			const marche = { ...avecHerosFrais, monde: { ...avecHerosFrais.monde, lieu_courant: 'lieu.marche-des-cendres' } }
+			const dejaGagne = apresParler(dossier, 9, true) // la reussite de Harek est ACQUISE : plus rien n'est en jeu
+
+			const cas: ReadonlyArray<{
+				readonly nom: string
+				readonly session: EtatSession
+				readonly pnj: string
+				readonly resistible: boolean | undefined
+				readonly attendu: boolean
+			}> = [
+				{
+					nom: 'resistible + heros + savoir en jeu',
+					session: avecHerosFrais,
+					pnj: HAREK,
+					resistible: true,
+					attendu: true,
+				},
+				{ nom: 'resistible false', session: avecHerosFrais, pnj: HAREK, resistible: false, attendu: false },
+				{ nom: 'resistible absent', session: avecHerosFrais, pnj: HAREK, resistible: undefined, attendu: false },
+				{ nom: 'SANS heros', session: sansHeros, pnj: HAREK, resistible: true, attendu: false },
+				{ nom: 'PNJ sans aucun savoir', session: marche, pnj: CORVIN, resistible: true, attendu: false },
+				{ nom: 'savoir DEJA gagne (jet acquis)', session: dejaGagne, pnj: HAREK, resistible: true, attendu: false },
+			]
+			for (const { nom, session, pnj, resistible, attendu } of cas) {
+				const contexte = rendu(dossier, session, pnj, { resistible })
+				expect(`${nom} → bloc ${contexte.texte.includes('CE QUE TU GARDES')}`).toBe(`${nom} → bloc ${attendu}`)
+				// Et LE SIGNAL ET LA DECISION VONT ENSEMBLE : epreuveGardee n'existe que si le bloc existe.
+				expect(`${nom} → epreuve ${contexte.epreuveGardee !== undefined}`).toBe(`${nom} → epreuve ${attendu}`)
+			}
+		})
+
+		it('le bloc est EXACTEMENT « Tu gardes un secret. » — une ligne constante du code, rien d autre', () => {
+			const dossier = lire()
+			const session = apresParler(dossier, 9, false)
+
+			const ordinaire = rendu(dossier, session, HAREK)
+			const resistible = rendu(dossier, session, HAREK, { resistible: true })
+
+			expect(resistible.texte).toContain('CE QUE TU GARDES\nTu gardes un secret.')
+			// DIFFERENTIEL : le texte resistible EST le texte ordinaire, plus ce bloc-la — aucune autre ligne ne bouge.
+			expect(resistible.texte.replace(BLOC_GARDE, '')).toBe(ordinaire.texte)
+			expect(resistible.texte.length - ordinaire.texte.length).toBe(BLOC_GARDE.length)
+			// Rien de plus n'a ete offert : le savoir garde n'est PAS dans le catalogue.
+			expect(resistible.rangs.size).toBe(0)
+			expect(resistible.rangDu).toBeUndefined()
+		})
+
+		it('ETANCHEITE (KR-229) : ni formulation_joueur, ni revele_comment, ni verite, ni nom, ni identifiant du savoir garde', () => {
+			const dossier = lire()
+			const secrets = secretsDuSavoir(dossier)
+			const session = apresParler(dossier, 9, false)
+
+			const contexte = rendu(dossier, session, HAREK, { resistible: true })
+
+			expect(contexte.texte).toContain('CE QUE TU GARDES') // le signal est la, pour de vrai
+			for (const [cle, secret] of Object.entries(secrets)) {
+				expect(`${cle} → ${contexte.texte.includes(secret)}`).toBe(`${cle} → false`)
+			}
+			// Ni le couple {carac, tc} du jet : « le modele ne voit jamais carac/tc bruts ».
+			for (const brut of ['carac', 'tc', 'TC1', 'jet', 'revele_si', 'confiance_min', 'contrepartie']) {
+				expect(`${brut} → ${contexte.texte.includes(brut)}`).toBe(`${brut} → false`)
+			}
+			// Et le catalogue n'offre rien : jamais le savoir garde sous un rang, a l'appel 1.
+			expect(contexte.texte).not.toContain('CE QUE TU PEUX CONFIER')
+		})
+
+		it('epreuveGardee est le {carac, tc} du savoir CHOISI par le moteur : le PREMIER de la fiche dont le jet est la seule porte fermee', () => {
+			const dossier = lire()
+			const originaux = dossier.monde.personnages.find((personnage) => personnage.id === HAREK)?.savoirs ?? []
+			// Un savoir au jet DIFFERENT (FO/TC2), place AVANT celui de la fixture, sur un indice REDIGE.
+			const premier: Savoir = {
+				indice_id: 'indice.sceau-brise-a-nouveau',
+				certitude: 'sait',
+				revele_si: { jet: { carac: 'FO', tc: 'TC2' } },
+			}
+			const session = apresParler(dossier, 9, false)
+
+			const parDefaut = rendu(dossier, session, HAREK, { resistible: true })
+			expect(parDefaut.epreuveGardee).toEqual({ carac: 'IN', tc: 'TC1' }) // la fiche telle que livree
+
+			const avantLeJetFixture = avecSavoirsDeHarek(dossier, [premier, ...originaux])
+			const choisi = rendu(avantLeJetFixture, session, HAREK, { resistible: true })
+			expect(choisi.epreuveGardee).toEqual({ carac: 'FO', tc: 'TC2' }) // l'ordre de la fiche decide
+			// Un SEUL bloc, jamais un par savoir garde : au plus un savoir est mis en jeu par appel.
+			expect(choisi.texte.split('CE QUE TU GARDES').length - 1).toBe(1)
+		})
+
+		it('POSITION : apres CE QUE TU PEUX CONFIER, avant ICI, la saisie reste EN DERNIER', () => {
+			const dossier = lire()
+			const base = apresParler(dossier, 9, false)
+			// `sceau-brise-a-nouveau` s'ouvre (amulette + indice connu) pendant que `pas-dans-la-cendre` reste sous epreuve.
+			const session: EtatSession = {
+				...base,
+				monde: {
+					...base.monde,
+					objets_possedes: ['objet.amulette-scellee'],
+					indices_connus: [INDICE_EN_JEU],
+				},
+			}
+
+			const contexte = rendu(dossier, session, HAREK, { resistible: true })
+
+			const peutConfier = contexte.texte.indexOf('CE QUE TU PEUX CONFIER')
+			const garde = contexte.texte.indexOf('CE QUE TU GARDES')
+			const ici = contexte.texte.indexOf('\n\nICI\n')
+			expect(peutConfier).toBeGreaterThan(-1)
+			expect(garde).toBeGreaterThan(peutConfier)
+			expect(ici).toBeGreaterThan(garde)
+			expect(contexte.texte.endsWith('\n\nsaisie\nbonjour')).toBe(true)
+			expect(contexte.rangs.get('S1')).toBe('indice.sceau-brise-a-nouveau')
+		})
+
+		it('resistible ne change JAMAIS ce qui est offert ni confie : les rangs et la table sont ceux d un appel ordinaire', () => {
+			const dossier = lire()
+			const base = apresParler(dossier, 9, false)
+			const session: EtatSession = {
+				...base,
+				monde: { ...base.monde, objets_possedes: ['objet.amulette-scellee'], indices_connus: [INDICE_EN_JEU] },
+			}
+
+			const ordinaire = rendu(dossier, session, HAREK)
+			const resistible = rendu(dossier, session, HAREK, { resistible: true })
+
+			expect([...resistible.rangs.entries()]).toEqual([...ordinaire.rangs.entries()])
+			expect(resistible.rangDu).toBeUndefined()
+		})
+	})
+
+	describe('APPEL 2 — A L INSTANT : l issue, ecrite par le CODE ; le savoir du devient offert, marque, et son rang est rendu', () => {
+		it('jet REUSSI : « Il cède. — {enjeu_reussite} », jamais l autre enjeu, jamais le bloc de garde', () => {
+			const dossier = lire()
+			const session = apresParler(dossier, 9, true)
+
+			const contexte = rendu(dossier, session, HAREK, { epreuve: EPREUVE })
+
+			expect(contexte.texte).toContain(`À L'INSTANT\nIl cède. — ${ENJEU_REUSSITE}`)
+			expect(contexte.texte).not.toContain('Il tient bon')
+			expect(contexte.texte).not.toContain(ENJEU_ECHEC)
+			expect(contexte.texte).not.toContain('CE QUE TU GARDES')
+			expect(contexte.epreuveGardee).toBeUndefined() // l'appel 2 ne resiste jamais
+		})
+
+		it('jet REUSSI : le savoir mis en jeu AVANT le jet entre dans CE QUE TU PEUX CONFIER avec revele_comment, MARQUE du, et son rang est rendu', () => {
+			const dossier = lire()
+			const secrets = secretsDuSavoir(dossier)
+			const session = apresParler(dossier, 9, true)
+
+			const contexte = rendu(dossier, session, HAREK, { epreuve: EPREUVE })
+
+			// `pas-dans-la-cendre` est `sait` → « tu le sais » ; formulation PUIS revele_comment PUIS la marque.
+			expect(contexte.texte).toContain(
+				`S1 · tu le sais · ${secrets.formulation_joueur} · ${secrets.revele_comment} · dû`,
+			)
+			expect(contexte.rangs.get('S1')).toBe(INDICE_EN_JEU)
+			expect(contexte.rangDu).toBe('S1')
+			// Le rang dû est TOUJOURS une clé de la table : le validateur n'exigera jamais l'introuvable.
+			expect(contexte.rangs.has(String(contexte.rangDu))).toBe(true)
+			// `verite` reste hors de tout contexte, meme dû (KR-229).
+			expect(contexte.texte).not.toContain(secrets.verite)
+		})
+
+		it('jet MANQUE : « Il tient bon. — {enjeu_echec} », le savoir reste sous epreuve — jamais offert, aucun rang du', () => {
+			const dossier = lire()
+			const secrets = secretsDuSavoir(dossier)
+			const session = apresParler(dossier, 0, true)
+
+			const contexte = rendu(dossier, session, HAREK, { epreuve: EPREUVE })
+
+			expect(contexte.texte).toContain(`À L'INSTANT\nIl tient bon. — ${ENJEU_ECHEC}`)
+			expect(contexte.texte).not.toContain('Il cède')
+			expect(contexte.texte).not.toContain(ENJEU_REUSSITE)
+			expect(contexte.texte).not.toContain('CE QUE TU PEUX CONFIER')
+			expect(contexte.texte).not.toContain('CE QUE TU GARDES')
+			for (const [cle, secret] of Object.entries(secrets)) {
+				expect(`${cle} → ${contexte.texte.includes(secret)}`).toBe(`${cle} → false`)
+			}
+			expect(contexte.rangs.size).toBe(0)
+			expect(contexte.rangDu).toBeUndefined()
+			expect(contexte.epreuveGardee).toBeUndefined()
+		})
+
+		it('le COTE ADVENU est choisi par le code : meme epreuve, deux heros, deux lignes opposees', () => {
+			const dossier = lire()
+			const gagne = rendu(dossier, apresParler(dossier, 9, true), HAREK, { epreuve: EPREUVE })
+			const perdu = rendu(dossier, apresParler(dossier, 0, true), HAREK, { epreuve: EPREUVE })
+
+			expect(gagne.texte).toContain('Il cède. — ')
+			expect(perdu.texte).toContain('Il tient bon. — ')
+			expect(gagne.texte).not.toContain('Il tient bon. — ')
+			expect(perdu.texte).not.toContain('Il cède. — ')
+		})
+
+		it('l appel 2 ne resiste JAMAIS : resistible est ignore des que epreuve est posee', () => {
+			const dossier = lire()
+			// Savoir encore sous epreuve (jet manque) ET resistible demande : le bloc de garde reste absent.
+			const contexte = rendu(dossier, apresParler(dossier, 0, true), HAREK, { epreuve: EPREUVE, resistible: true })
+
+			expect(contexte.texte).not.toContain('CE QUE TU GARDES')
+			expect(contexte.epreuveGardee).toBeUndefined()
+			expect(contexte.texte).toContain("À L'INSTANT")
+		})
+
+		it('POSITION : la ligne d issue est le DERNIER bloc avant la saisie, qui reste EN DERNIER', () => {
+			const dossier = lire()
+			const contexte = rendu(dossier, apresParler(dossier, 9, true), HAREK, { epreuve: EPREUVE })
+
+			expect(contexte.texte.endsWith(`\n\nÀ L'INSTANT\nIl cède. — ${ENJEU_REUSSITE}\n\nsaisie\nbonjour`)).toBe(true)
+		})
+
+		it('CAS LIMITES — sans jet consigne, ou sans heros : aucune ligne d issue, aucun rang du (precedent ligneDeJet du narrateur)', () => {
+			const dossier = lire()
+			const sansJet = rendu(dossier, apresParler(dossier, 9, false), HAREK, { epreuve: EPREUVE })
+			expect(sansJet.texte).not.toContain("À L'INSTANT")
+			expect(sansJet.rangDu).toBeUndefined()
+
+			const analyse = analyserSaisie(`PARLER ${HAREK}`)
+			if (!analyse.ok) throw new Error('saisie refusée')
+			const parle = executerCommande(dossier, ouverture(dossier), analyse.commande)
+			if (!parle.ok) throw new Error('commande refusée')
+			const sansHeros = consignerJet(parle.session, parle.session.horloge.tour, { carac: 'IN', tc: 'TC1' })
+			const contexte = rendu(dossier, sansHeros, HAREK, { epreuve: EPREUVE })
+			expect(contexte.texte).not.toContain("À L'INSTANT")
+			expect(contexte.rangDu).toBeUndefined()
+			expect(contexte.rangs.size).toBe(0)
+		})
+
+		it('le savoir DU est celui qui etait en jeu AVANT le jet — pas un savoir simplement revelable, ni un second au meme couple', () => {
+			const dossier = lire()
+			const originaux = dossier.monde.personnages.find((personnage) => personnage.id === HAREK)?.savoirs ?? []
+			const enJeu = originaux[0]
+			expect(enJeu?.indice_id).toBe(INDICE_EN_JEU)
+			// A : DEJA revelable (confiance_min 0 = CONFIANCE_DEPART), place AVANT.   → pas du
+			// B : le savoir de la fixture, sous epreuve IN/TC1.                         → DU
+			// C : un SECOND savoir au MEME couple IN/TC1, apres.                         → revelable, pas du
+			const dejaOuvert: Savoir = {
+				indice_id: 'indice.piece-forgee-par-harek',
+				certitude: 'croit',
+				revele_si: { confiance_min: 0 },
+			}
+			const memeCouple: Savoir = {
+				indice_id: 'indice.sceau-brise-a-nouveau',
+				certitude: 'soupconne',
+				revele_si: { jet: { carac: 'IN', tc: 'TC1' } },
+			}
+			const modifie = avecSavoirsDeHarek(dossier, [dejaOuvert, enJeu, memeCouple])
+			const session = apresParler(modifie, 9, true)
+
+			const contexte = rendu(modifie, session, HAREK, { epreuve: EPREUVE })
+
+			// UNE SEULE reussite ouvre les deux portes du meme couple : les TROIS savoirs sont offerts.
+			expect([...contexte.rangs.entries()]).toEqual([
+				['S1', 'indice.piece-forgee-par-harek'],
+				['S2', INDICE_EN_JEU],
+				['S3', 'indice.sceau-brise-a-nouveau'],
+			])
+			// ... mais UN SEUL est du : celui qui etait sous epreuve, premier de la fiche.
+			expect(contexte.rangDu).toBe('S2')
+			const lignes = contexte.texte.split('\n').filter((ligne) => /^S[0-9] · /.test(ligne))
+			expect(lignes).toHaveLength(3)
+			expect(lignes.map((ligne) => ligne.endsWith(' · dû'))).toEqual([false, true, false])
+		})
+
+		it('LE DU SURVIT AU PAS SUIVANT : un appel ordinaire, apres la reussite, offre le savoir SANS marque ni rang du ni ligne d issue', () => {
+			const dossier = lire()
+			const secrets = secretsDuSavoir(dossier)
+			// La reussite est acquise au pas 1 ; on est maintenant au pas suivant, SANS epreuve.
+			const contexte = rendu(dossier, apresParler(dossier, 9, true), HAREK)
+
+			expect(contexte.texte).toContain(`S1 · tu le sais · ${secrets.formulation_joueur} · ${secrets.revele_comment}`)
+			expect(contexte.texte).not.toContain(' · dû')
+			expect(contexte.texte).not.toContain("À L'INSTANT")
+			expect(contexte.rangs.get('S1')).toBe(INDICE_EN_JEU)
+			expect(contexte.rangDu).toBeUndefined()
+		})
+	})
+
+	describe('LE BUDGET — le terme issue est CALCULE, les deux blocs sont mutuellement exclusifs', () => {
+		it('BORNE_ISSUE_ACTEUR vaut 110, relu des TROIS cas ecrits en toutes lettres — et reste sous le plafond de +120 du plan', () => {
+			const enjeuMax = 'x'.repeat(ENJEU_CARACTERES_MAX)
+			expect(ENJEU_CARACTERES_MAX).toBe(80)
+			const garde = BLOC_GARDE.length // 39
+			const cede = `\n\nÀ L'INSTANT\nIl cède. — ${enjeuMax} · dû`.length // 110, marque du comprise
+			const tientBon = `\n\nÀ L'INSTANT\nIl tient bon. — ${enjeuMax}`.length // 110, aucune marque
+			expect([garde, cede, tientBon]).toEqual([39, 110, 110])
+
+			expect(BORNE_ISSUE_ACTEUR).toBe(Math.max(garde, cede, tientBon))
+			expect(BORNE_ISSUE_ACTEUR).toBe(110)
+			expect(BORNE_ISSUE_ACTEUR).toBeLessThanOrEqual(120)
+		})
+
+		it('BUDGET_CARACTERES_ACTEUR = dossier 3000 + memoire 2911 + saisie 309 + issue 110 = 6330 — chaque terme epingle', () => {
+			expect(BORNE_MEMOIRE_ACTEUR).toBe(2911)
+			expect(BORNE_SAISIE_ACTEUR).toBe(309)
+			expect(BUDGET_CARACTERES_ACTEUR).toBe(3000 + 2911 + 309 + 110)
+			expect(BUDGET_CARACTERES_ACTEUR).toBe(6330)
+		})
+
+		it('RE-MESURE du terme dossier sur la combinatoire ETENDUE (it4) : M = 789, le palier du terme dossier reste 3000', () => {
+			// Chaque lieu x chaque personnage x CINQ scenarios (fraiche, portes ouvertes, deja confie,
+			// appel 1 resistible, appel 2 reussi) — les blocs NEUFS et la marque du sont RETIRES : ils
+			// ont leur terme (`BORNE_ISSUE_ACTEUR`), les compter ici serait un double compte.
+			const dossier = lire()
+			const SANS_SAISIE = '\n\nsaisie\n'
+			const sansTermeIssue = (texte: string): string =>
+				texte
+					.replace(/\n\nCE QUE TU GARDES\n[^\n]*/, '')
+					.replace(/\n\nÀ L'INSTANT\n[^\n]*/, '')
+					.replace(/ · dû$/gm, '')
+			const mesures: number[] = []
+			const pireParPnj = new Map<string, number>()
+			for (const lieu of dossier.monde.lieux) {
+				for (const personnage of dossier.monde.personnages) {
+					const base = apresParler(dossier, 9, false)
+					const enLieu = (session: EtatSession): EtatSession => ({
+						...session,
+						monde: { ...session.monde, lieu_courant: lieu.id },
+					})
+					const portesOuvertes = enLieu({
+						...base,
+						monde: { ...base.monde, objets_possedes: ['objet.amulette-scellee'], indices_connus: [INDICE_EN_JEU] },
+					})
+					const dejaConfie = enLieu({
+						...base,
+						monde: { ...base.monde, pnj: { [personnage.id]: { a_dit: personnage.savoirs.map((s) => s.indice_id) } } },
+					})
+					const scenarios: ReadonlyArray<readonly [EtatSession, Parameters<typeof assemblerActeur>[4]]> = [
+						[enLieu(base), {}],
+						[portesOuvertes, {}],
+						[dejaConfie, {}],
+						[enLieu(base), { resistible: true }],
+						[enLieu(apresParler(dossier, 9, true)), { epreuve: { enjeu_reussite: 'a', enjeu_echec: 'b' } }],
+					]
+					for (const [session, options] of scenarios) {
+						const contexte = assemblerActeur(dossier, session, personnage.id, '', options)
+						if (!contexte.ok) continue // PNJ sans identite : refuse avant tout contexte
+						const texte = sansTermeIssue(contexte.texte)
+						const mesure = texte.slice(0, texte.lastIndexOf(SANS_SAISIE)).length
+						mesures.push(mesure)
+						pireParPnj.set(personnage.id, Math.max(pireParPnj.get(personnage.id) ?? 0, mesure))
+					}
+				}
+			}
+			// NON-VACUITE : la combinatoire a bien ete parcourue. MESURE du 2026-10-04 : 50 contextes
+			// rendus (les lieux x les personnages dotes d'une identite x cinq scenarios) ; le plancher
+			// est `floor(50 / 5) x 5` — ce qui rend le test rouge si un PNJ ou un lieu sort du balayage.
+			expect(mesures.length).toBeGreaterThanOrEqual(50)
+			const M = Math.max(...mesures)
+			// M = 789, pas 781 : le pire cas est Harek (lieu.foyer-du-guet) avec SES TROIS savoirs deja
+			// confies — le troisieme est entre a l'it3, qui n'a pas re-mesure ; 781 reste le pire cas de
+			// Corvin (aucun savoir). Aucun des blocs neufs de l'it4 n'y est pour rien : ils sont retires.
+			expect(pireParPnj.get('pnj.corvin-le-marchand')).toBe(781)
+			expect(pireParPnj.get(HAREK)).toBe(789)
+			expect(M).toBe(789)
+			// Le palier du terme dossier ne bouge PAS : M x 3 = 2367, au millier superieur 3000.
+			expect(Math.ceil((M * 3) / 1000) * 1000).toBe(3000)
+		})
+
+		it('les options par defaut ne changent rien : {} et aucune option rendent le MEME contexte qu avant l it4', () => {
+			const dossier = lire()
+			const session = ouverture(dossier)
+			const sans = assemblerActeur(dossier, session, HAREK, 'bonjour')
+			const vides = assemblerActeur(dossier, session, HAREK, 'bonjour', {})
+			const faux = assemblerActeur(dossier, session, HAREK, 'bonjour', { resistible: false })
+			if (!sans.ok || !vides.ok || !faux.ok) throw new Error('le contexte ne doit pas etre refuse')
+			expect(vides.texte).toBe(sans.texte)
+			expect(faux.texte).toBe(sans.texte)
+		})
 	})
 })

@@ -84,6 +84,30 @@
 			"mitigation": "Deja couverte par la consigne generale de securite de l agent (verifier git status et ne jamais executer une commande qui peut ecraser du travail non committe sans l avoir d abord mis en securite) -- pas un nouveau KR de code-knowledge.json (marge de 4 o au moment present, meme motif que BUG-145/BUG-140 de bug_history.moteur-arbitre.json). Lecon specifique a cet essaim : un agent de VERIFICATION qui modifie du code pour une contre-epreuve doit restaurer par l EDIT INVERSE EXACT (reecrire la ligne exacte qu il a changee), jamais par une commande git sur un fichier dont il n a pas lui-meme verifie l etat committe/stage au prealable. Un rapport d agent qui conclut a une lacune d implementation DOIT etre confronte a un diff independant avant d etre accepte -- precedent de cette meme session (BUG-143/145/146 : ne jamais accepter un compte rendu a la lettre sans verification).",
 			"regression_test": "Aucun test automatique possible (incident de process sur l environnement d execution, pas un defaut de code) ; verification manuelle par l orchestrateur (git diff --stat cible, tsc --noEmit, jest complet) avant et apres reapplication.",
 			"severity": "critical"
+		},
+		{
+			"id": "BUG-149",
+			"date": "2026-10-04",
+			"feature": "moteur-acteurs",
+			"discovered_at": "iteration-4",
+			"symptom": "Revue tech-lead PR it4 : l'appel 2 de R4 (après jet) part avec saisie: '' au lieu de la saisie d'origine du joueur. Le PNJ répond sans voir ce que le joueur a dit.",
+			"root_cause": "propositionEncourseRef ne stockait pas le champ saisie dans sa variante kind:'acteur'. La cible de l'appel 2 construisait saisie: '' en dur, comme le chemin R3 (où c'est toléré). Pour R4 la saisie est ce à quoi le PNJ répond.",
+			"fix": "Ajout de saisie:string à la variante kind:'acteur' de propositionEncourseRef, posé depuis executeAction, relu dans cibleActeurAppel2. Assertion ajoutée au test 17.",
+			"mitigation": "Test 17 assert cibleR4Appel2.saisie === 'parler pnj-1'. Assertion d'ordre invocationCallOrder entre onSessionChange(jet+XP) et demander(appel 2).",
+			"regression_test": "src/features/play-mode/hooks/useTourDeJeu.test.ts -- test 17 assertion 3c",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-150",
+			"date": "2026-10-04",
+			"feature": "moteur-acteurs",
+			"discovered_at": "iteration-4",
+			"symptom": "Revue tech-lead PR it4 (5 findings minor) : test 19 assertion vacuously true (journal.slice(-2)[1]?.recit sur un journal dont le dernier item existe mais a interlocuteur set), commentaire de types.ts:716 mentionne un barrel inexistant, titres de tests 17/18 promettent plus que les assertions, ordre des effets non épinglé pour l'appel 2.",
+			"root_cause": "Assertions insuffisamment ciblées et commentaire non vérifié par les ouvriers.",
+			"fix": "Test 19 : assertion explicite journal.length >= 2 + derniereEntree.recit undefined. Test 17 : assertion invocationCallOrder + saisie. Titres 17/18 renommés. Commentaire types.ts corrigé (import direct, pas barrel).",
+			"mitigation": "Corrections appliquées directement, re-gate verte.",
+			"regression_test": "Tests 17/18/19 de useTourDeJeu.test.ts",
+			"severity": "minor"
 		}
 	]
 }

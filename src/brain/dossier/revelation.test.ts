@@ -2,7 +2,14 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { MARQUEUR_A_ECRIRE } from './amorce'
 import type { FaitsDeSession } from './faits'
-import { evaluerSavoir, savoirsDejaConfies, savoirsRevelables, type EtatSavoir } from './revelation'
+import {
+	evaluerSavoir,
+	savoirsDejaConfies,
+	savoirsRevelables,
+	savoirSousEpreuve,
+	type EtatSavoir,
+	type JetReussi,
+} from './revelation'
 import { CONFIANCE_DEPART, type Dossier, type Revelation, type Savoir } from './types'
 
 /**
@@ -171,7 +178,7 @@ describe('evaluerSavoir — contenu : sans formulation_joueur redigee, absent du
 	})
 })
 
-describe('evaluerSavoir — fail-closed : jet FERME (it4), confiance_min ENTRE EN CONJONCTION depuis it3', () => {
+describe('evaluerSavoir — fail-closed : confiance_min ENTRE EN CONJONCTION depuis it3, le jet depuis it4', () => {
 	const faitsOuverts: FaitsDeSession = { ...faitsVides(), objets_possedes: [OBJET], indices_connus: [AUTRE_INDICE] }
 	const base: Revelation = { contrepartie: { objet_id: OBJET, consomme: false }, apres_indice_id: AUTRE_INDICE }
 
@@ -191,12 +198,16 @@ describe('evaluerSavoir — fail-closed : jet FERME (it4), confiance_min ENTRE E
 		expect(evaluerSavoir(dossier, faitsAvecConfianceSuffisante, PNJ, savoirDAldur(dossier))).toBe('revelable')
 	})
 
-	it('jet pose ferme la porte, aucun mecanisme de de n existe (it4)', () => {
+	it('jet pose, SANS epreuves : jamais ouvert par defaut — sous_epreuve (it4), ni revelable ni absent', () => {
+		// ⚠ CE TEST DISAIT « jet pose ferme la porte, aucun mecanisme de de n existe » JUSQU'A
+		// L'IT4 (`absent`). Le `jet` est desormais EVALUE, en dernier : seule porte fermee, il
+		// rend `sous_epreuve` — jamais `revelable` sans une reussite acquise (fail-closed, KR-280).
 		const dossier = avecRevelesi(avecIndiceCible(clone(), INDICE_AVEC_FORMULE), {
 			...base,
 			jet: { carac: 'CA', tc: 'TC1' },
 		})
-		expect(evaluerSavoir(dossier, faitsOuverts, PNJ, savoirDAldur(dossier))).toBe('absent')
+		expect(evaluerSavoir(dossier, faitsOuverts, PNJ, savoirDAldur(dossier))).toBe('sous_epreuve')
+		expect(evaluerSavoir(dossier, faitsOuverts, PNJ, savoirDAldur(dossier), [])).toBe('sous_epreuve')
 	})
 
 	it('discriminant : SANS confiance_min ni jet, les deux memes portes ouvrent bien (non-regression du test precedent)', () => {
@@ -329,6 +340,202 @@ describe('savoirsRevelables / savoirsDejaConfies — le catalogue borne (KR-287)
 		expect(savoirsDejaConfies(dossier, faits, PNJ)).toEqual([])
 		expect(savoirsRevelables(dossier, faits, 'pnj.second')).toEqual([])
 		expect(savoirsDejaConfies(dossier, faits, 'pnj.second')).toEqual([INDICE_AVEC_FORMULE])
+	})
+})
+
+/**
+ * LA PORTE `jet` (n° 12 `moteur-acteurs`, it4, lot `contrat` — `docs/REGLES-DU-JEU.md`
+ * § 6, « La porte `jet` ») : évaluée EN DERNIER, par un TROISIÈME ÉTAT (`sous_epreuve`)
+ * plutôt que par une ouverture, et ouverte par une RÉUSSITE ACQUISE du même
+ * `(carac, tc)` passée en `epreuves`.
+ */
+describe('evaluerSavoir — la porte jet : tri-etat, evaluee EN DERNIER (it4, KR-280)', () => {
+	const JET: JetReussi = { carac: 'CA', tc: 'TC1' }
+	const faitsOuverts: FaitsDeSession = { ...faitsVides(), objets_possedes: [OBJET], indices_connus: [AUTRE_INDICE] }
+	const toutesLesAutresPortes: Revelation = {
+		confiance_min: 1,
+		contrepartie: { objet_id: OBJET, consomme: false },
+		apres_indice_id: AUTRE_INDICE,
+	}
+	const faitsDeConfiance = (confiance: number): FaitsDeSession => ({
+		...faitsOuverts,
+		pnj: { [PNJ]: { a_dit: [], confiance } },
+	})
+	const dossierAvec = (revele_si: Revelation): Dossier =>
+		avecRevelesi(avecIndiceCible(clone(), INDICE_AVEC_FORMULE), revele_si)
+
+	it('rend sous_epreuve quand le jet est la SEULE porte posee, sans aucune reussite', () => {
+		const dossier = dossierAvec({ jet: JET })
+		expect(evaluerSavoir(dossier, faitsVides(), PNJ, savoirDAldur(dossier))).toBe('sous_epreuve')
+	})
+
+	it('rend sous_epreuve quand le jet est la SEULE porte FERMEE : les trois autres, posees, sont toutes ouvertes', () => {
+		const dossier = dossierAvec({ ...toutesLesAutresPortes, jet: JET })
+		expect(evaluerSavoir(dossier, faitsDeConfiance(1), PNJ, savoirDAldur(dossier))).toBe('sous_epreuve')
+		// Discriminant : sans le jet, ces trois memes portes ouvrent — c'est bien lui qui manque.
+		const sansJet = dossierAvec(toutesLesAutresPortes)
+		expect(evaluerSavoir(sansJet, faitsDeConfiance(1), PNJ, savoirDAldur(sansJet))).toBe('revelable')
+	})
+
+	it('rend revelable quand la reussite du MEME (carac, tc) est passee en epreuves', () => {
+		const dossier = dossierAvec({ ...toutesLesAutresPortes, jet: JET })
+		expect(evaluerSavoir(dossier, faitsDeConfiance(1), PNJ, savoirDAldur(dossier), [JET])).toBe('revelable')
+		// La reussite est cherchee DANS la liste, quelle que soit sa place.
+		const autre: JetReussi = { carac: 'FO', tc: 'TC4' }
+		expect(evaluerSavoir(dossier, faitsDeConfiance(1), PNJ, savoirDAldur(dossier), [autre, JET])).toBe('revelable')
+	})
+
+	it('une reussite d un AUTRE couple ne suffit pas : ni la meme carac seule, ni le meme tier seul', () => {
+		const dossier = dossierAvec({ jet: JET })
+		const faits = faitsVides()
+		const memeCaracAutreTier: JetReussi = { carac: JET.carac, tc: 'TC2' }
+		const memeTierAutreCarac: JetReussi = { carac: 'FO', tc: JET.tc }
+		expect(evaluerSavoir(dossier, faits, PNJ, savoirDAldur(dossier), [memeCaracAutreTier])).toBe('sous_epreuve')
+		expect(evaluerSavoir(dossier, faits, PNJ, savoirDAldur(dossier), [memeTierAutreCarac])).toBe('sous_epreuve')
+		expect(evaluerSavoir(dossier, faits, PNJ, savoirDAldur(dossier), [memeCaracAutreTier, memeTierAutreCarac])).toBe(
+			'sous_epreuve',
+		)
+		expect(evaluerSavoir(dossier, faits, PNJ, savoirDAldur(dossier), [JET])).toBe('revelable')
+	})
+
+	it('rend absent quand le jet est ferme ET confiance_min ferme : le jet vient en dernier', () => {
+		const dossier = dossierAvec({ ...toutesLesAutresPortes, jet: JET })
+		// confiance 0 < confiance_min 1, les deux autres portes ouvertes.
+		expect(evaluerSavoir(dossier, faitsDeConfiance(0), PNJ, savoirDAldur(dossier))).toBe('absent')
+		// ET UNE REUSSITE NE LA ROUVRE PAS : un jet gagne n'ouvre jamais ce qu'une autre porte ferme.
+		expect(evaluerSavoir(dossier, faitsDeConfiance(0), PNJ, savoirDAldur(dossier), [JET])).toBe('absent')
+	})
+
+	it('CAS LIMITE — jet + contrepartie encore fermee : absent, jamais sous_epreuve, meme avec la reussite', () => {
+		const dossier = dossierAvec({ contrepartie: { objet_id: OBJET, consomme: false }, jet: JET })
+		const faits = faitsVides() // l'objet n'est pas possede
+		expect(evaluerSavoir(dossier, faits, PNJ, savoirDAldur(dossier))).toBe('absent')
+		expect(evaluerSavoir(dossier, faits, PNJ, savoirDAldur(dossier), [JET])).toBe('absent')
+		// Discriminant : l'objet possede, la meme fiche passe sous epreuve.
+		expect(evaluerSavoir(dossier, { ...faits, objets_possedes: [OBJET] }, PNJ, savoirDAldur(dossier))).toBe(
+			'sous_epreuve',
+		)
+	})
+
+	it('CAS LIMITE — jet + contrepartie consomme:true : absent, structurellement ferme, meme avec la reussite', () => {
+		const dossier = dossierAvec({ contrepartie: { objet_id: OBJET, consomme: true }, jet: JET })
+		const faits: FaitsDeSession = { ...faitsVides(), objets_possedes: [OBJET] }
+		expect(evaluerSavoir(dossier, faits, PNJ, savoirDAldur(dossier))).toBe('absent')
+		expect(evaluerSavoir(dossier, faits, PNJ, savoirDAldur(dossier), [JET])).toBe('absent')
+	})
+
+	it('CAS LIMITE — jet + apres_indice_id encore ferme : absent, meme avec la reussite', () => {
+		const dossier = dossierAvec({ apres_indice_id: AUTRE_INDICE, jet: JET })
+		expect(evaluerSavoir(dossier, faitsVides(), PNJ, savoirDAldur(dossier))).toBe('absent')
+		expect(evaluerSavoir(dossier, faitsVides(), PNJ, savoirDAldur(dossier), [JET])).toBe('absent')
+		expect(
+			evaluerSavoir(dossier, { ...faitsVides(), indices_connus: [AUTRE_INDICE] }, PNJ, savoirDAldur(dossier)),
+		).toBe('sous_epreuve')
+	})
+
+	it('la memoire (a_dit) reste testee AVANT le jet : deja_confie, jamais sous_epreuve', () => {
+		const dossier = dossierAvec({ jet: JET })
+		const faits: FaitsDeSession = { ...faitsVides(), pnj: { [PNJ]: { a_dit: [INDICE_AVEC_FORMULE] } } }
+		expect(evaluerSavoir(dossier, faits, PNJ, savoirDAldur(dossier))).toBe('deja_confie')
+		expect(evaluerSavoir(dossier, faits, PNJ, savoirDAldur(dossier), [JET])).toBe('deja_confie')
+	})
+
+	it('le contenu est teste AVANT le jet : sans formulation_joueur, absent — on ne demande pas un jet pour ne rien confier', () => {
+		// `indice.sceau-brise` n'a AUCUNE formulation_joueur dans la fixture.
+		const dossier = avecRevelesi(clone(), { jet: JET })
+		expect(savoirDAldur(dossier).indice_id).toBe(INDICE_SANS_FORMULE)
+		expect(evaluerSavoir(dossier, faitsVides(), PNJ, savoirDAldur(dossier))).toBe('absent')
+		expect(evaluerSavoir(dossier, faitsVides(), PNJ, savoirDAldur(dossier), [JET])).toBe('absent')
+	})
+
+	it('une reussite n efface pas la fermeture de la fiche : savoir sans aucune porte reste absent', () => {
+		const dossier = dossierAvec({})
+		expect(evaluerSavoir(dossier, faitsVides(), PNJ, savoirDAldur(dossier), [JET])).toBe('absent')
+	})
+})
+
+describe('savoirsRevelables / savoirSousEpreuve — le savoir mis en jeu a UN SEUL decideur (it4)', () => {
+	const JET: JetReussi = { carac: 'CA', tc: 'TC1' }
+	const SECOND_INDICE = 'indice.second-trace'
+	const TROISIEME_INDICE = 'indice.troisieme-trace'
+
+	/** `indice.cendres-tiedes` + deux indices REDIGES ajoutes en memoire (jamais sur le disque). */
+	function avecTroisSavoirs(revele_si: readonly (Revelation | undefined)[]): Dossier {
+		const base = clone()
+		const indices = [
+			...base.monde.indices,
+			{ id: SECOND_INDICE, nom: 'Une seconde trace', formulation_joueur: 'Une seconde trace, plus ancienne.' },
+			{ id: TROISIEME_INDICE, nom: 'Une troisieme trace', formulation_joueur: 'Une troisieme trace, a peine visible.' },
+		]
+		const modele = base.monde.personnages[0].savoirs[0]
+		const savoirs: Savoir[] = [INDICE_AVEC_FORMULE, SECOND_INDICE, TROISIEME_INDICE].map((indice_id, rang) => ({
+			...modele,
+			indice_id,
+			revele_si: revele_si[rang],
+		}))
+		return {
+			...base,
+			monde: {
+				...base.monde,
+				indices,
+				personnages: [{ ...base.monde.personnages[0], savoirs }, ...base.monde.personnages.slice(1)],
+			},
+		}
+	}
+
+	it('rend le PREMIER savoir en ordre de fiche dont le jet est la seule porte fermee', () => {
+		// 1er : pas de porte posee (absent) ; 2e et 3e : un jet chacun, de couples DIFFERENTS.
+		const dossier = avecTroisSavoirs([undefined, { jet: JET }, { jet: { carac: 'FO', tc: 'TC2' } }])
+		expect(savoirSousEpreuve(dossier, faitsVides(), PNJ)?.indice_id).toBe(SECOND_INDICE)
+		// Il rend le SAVOIR lui-meme : c'est dans son `revele_si.jet` que carac/tc se lisent.
+		expect(savoirSousEpreuve(dossier, faitsVides(), PNJ)?.revele_si?.jet).toEqual(JET)
+	})
+
+	it('une reussite sur le premier le fait passer revelable : le suivant, en ordre de fiche, est alors en jeu', () => {
+		const dossier = avecTroisSavoirs([{ jet: JET }, { jet: { carac: 'FO', tc: 'TC2' } }, undefined])
+		expect(savoirSousEpreuve(dossier, faitsVides(), PNJ)?.indice_id).toBe(INDICE_AVEC_FORMULE)
+		expect(savoirSousEpreuve(dossier, faitsVides(), PNJ, [JET])?.indice_id).toBe(SECOND_INDICE)
+		expect(savoirsRevelables(dossier, faitsVides(), PNJ, [JET])).toEqual([INDICE_AVEC_FORMULE])
+		expect(savoirsRevelables(dossier, faitsVides(), PNJ)).toEqual([])
+	})
+
+	it('un savoir deja confie ou dont une AUTRE porte ferme n est jamais mis en jeu', () => {
+		const dossier = avecTroisSavoirs([
+			{ jet: JET },
+			{ jet: JET, apres_indice_id: AUTRE_INDICE },
+			{ jet: { carac: 'FO', tc: 'TC2' } },
+		])
+		const faits: FaitsDeSession = { ...faitsVides(), pnj: { [PNJ]: { a_dit: [INDICE_AVEC_FORMULE] } } }
+		// 1er deja confie ; 2e : apres_indice ferme (absent) ; 3e : en jeu.
+		expect(savoirSousEpreuve(dossier, faits, PNJ)?.indice_id).toBe(TROISIEME_INDICE)
+	})
+
+	it('rend undefined quand aucun savoir n est sous epreuve : personnage inconnu, aucun jet pose, jet deja gagne', () => {
+		const dossier = avecTroisSavoirs([undefined, { confiance_min: 3 }, { jet: JET }])
+		// Le 3e est sous epreuve... mais pas pour un personnage qui n'existe pas.
+		expect(savoirSousEpreuve(dossier, faitsVides(), 'pnj.fantome')).toBeUndefined()
+		// Aucun jet pose nulle part.
+		const sansJet = avecTroisSavoirs([undefined, { confiance_min: 3 }, { confiance_min: 0 }])
+		expect(savoirSousEpreuve(sansJet, faitsVides(), PNJ)).toBeUndefined()
+		// Le seul jet pose est DEJA gagne : plus rien n'est en jeu.
+		const dejaGagne = avecTroisSavoirs([undefined, undefined, { jet: JET }])
+		expect(savoirSousEpreuve(dejaGagne, faitsVides(), PNJ)?.indice_id).toBe(TROISIEME_INDICE)
+		expect(savoirSousEpreuve(dejaGagne, faitsVides(), PNJ, [JET])).toBeUndefined()
+	})
+
+	it('DEUX savoirs au meme (carac, tc) : UNE SEULE reussite ouvre les deux portes — l identite est le couple, pas le savoir', () => {
+		const dossier = avecTroisSavoirs([{ jet: JET }, { jet: JET }, { jet: { carac: 'FO', tc: 'TC2' } }])
+		expect(savoirsRevelables(dossier, faitsVides(), PNJ)).toEqual([])
+		expect(savoirsRevelables(dossier, faitsVides(), PNJ, [JET])).toEqual([INDICE_AVEC_FORMULE, SECOND_INDICE])
+		// Le troisieme, d'un AUTRE couple, reste sous epreuve.
+		expect(savoirSousEpreuve(dossier, faitsVides(), PNJ, [JET])?.indice_id).toBe(TROISIEME_INDICE)
+	})
+
+	it('savoirsDejaConfies ne depend pas des epreuves : a_dit se teste avant toute porte', () => {
+		const dossier = avecTroisSavoirs([{ jet: JET }, undefined, undefined])
+		const faits: FaitsDeSession = { ...faitsVides(), pnj: { [PNJ]: { a_dit: [INDICE_AVEC_FORMULE] } } }
+		expect(savoirsDejaConfies(dossier, faits, PNJ)).toEqual([INDICE_AVEC_FORMULE])
+		expect(savoirsRevelables(dossier, faits, PNJ, [JET])).toEqual([])
 	})
 })
 

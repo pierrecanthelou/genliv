@@ -707,13 +707,13 @@ export type PropositionEpreuve = { readonly epreuve: EpreuveProposee } | { reado
  *  ne peut lire une proposition sur un échec, c'est le TYPAGE qui l'interdit. */
 export type ReponseArbitre = { statut: 'propose'; proposition: PropositionEpreuve } | EchecCopilote
 
-// ══ LE DIXIÈME RÔLE — `acteur` (n° 12 `moteur-acteurs`, it1 puis it2) ═══════
+// ══ LE DIXIÈME RÔLE — `acteur` (n° 12 `moteur-acteurs`, it1 à it4) ═══════════
 //
-// ⚠ SES TROIS TYPES VIVENT ICI (`CibleActeur`, `ReponseActeur`, et depuis l'it2
-// `SortieActeurBrute`) — MÊME DOMICILE QUE `narrateur`/`arbitre` (§ 4/§ 5 du plan
-// d'itération) : c'est le fichier que le lot `contrat` leur assigne, lu par
-// `CopiloteService.ts` (surcharge + implémentation) et par la feature via le
-// baril `brain/index.ts`.
+// ⚠ SES TYPES VIVENT ICI (`CibleActeur`, `ReponseActeur`, depuis l'it2
+// `SortieActeurBrute`, depuis l'it4 `CibleActeurResistible`/`ResistanceActeur`) —
+// MÊME DOMICILE QUE `narrateur`/`arbitre` (§ 4/§ 5 du plan d'itération) : c'est le
+// fichier que le lot `contrat` leur assigne, lu par `CopiloteService.ts` (surcharge +
+// implémentation) et par la feature en import direct (`brain/copilote/types`).
 //
 // COMME `interprete`/`narrateur`/`arbitre`, CE RÔLE N'EST PAS DANS
 // `RoleCopilote` : ni fiche d'entité ni prose de rédaction, il n'a rien à faire
@@ -737,12 +737,51 @@ export type ReponseArbitre = { statut: 'propose'; proposition: PropositionEpreuv
  * `saisie` — ce que le joueur a tapé à `parler`, EN DERNIÈRE position du
  * contexte, normalisée, bornée (`SAISIE_CARACTERES_MAX`, réutilisée de
  * `./interprete`, précédent `CibleArbitre`).
+ *
+ * `peutResister?: false` (it4) — L'OPT-IN EST SUR LES DEUX CIBLES : `CibleActeur`
+ * ne peut JAMAIS produire `ResistanceActeur`, c'est le TYPE qui l'interdit — la
+ * surcharge de `CopiloteService.demander` qui rend `ResistanceActeur` n'accepte
+ * que `CibleActeurResistible` (`peutResister: true`), et `true` n'est pas
+ * assignable à `false | undefined`. C'est ce qui rend la chaîne R4 → jet → R4 → jet
+ * INEXPRIMABLE : l'appel qui suit un jet est une `CibleActeur`. Le champ reste
+ * OPTIONNEL : tout appelant d'avant l'it4 compile et se comporte à l'identique.
+ *
+ * `epreuve?` (it4) — L'APPEL 2, celui qui SUIT la résolution d'un jet : les DEUX
+ * ENJEUX que R4 avait proposés avec `resiste`, rendus par le hook (lot `feature`)
+ * depuis la `CarteJet` — comme `CibleNarrateur.epreuve`, jamais stockés en session
+ * (prose hors du rejeu, KR-013). L'assembleur (`contexte/acteur.ts`) choisit SEUL
+ * le côté advenu via `issueDuJet` : jamais le hook, qui classerait une règle de jeu
+ * hors de `brain/`. ABSENT, c'est un appel ordinaire.
  */
 export interface CibleActeur {
 	role: 'acteur'
 	readonly personnageId: string
 	readonly saisie: string
 	readonly session: EtatSession
+	readonly peutResister?: false
+	readonly epreuve?: Pick<EpreuveProposee, 'enjeu_reussite' | 'enjeu_echec'>
+}
+
+/**
+ * LA CIBLE QUI PEUT RENDRE `ResistanceActeur` (it4) — mêmes `personnageId`,
+ * `saisie` et `session` que `CibleActeur`, PLUS `peutResister: true`, SANS
+ * `epreuve` : l'appel 1 d'un échange à jet, jamais l'appel 2. Deux interfaces et non
+ * une union de littéraux : le discriminant `peutResister` (`true` contre
+ * `false | undefined`) sépare les deux surcharges de `CopiloteService.demander`, et
+ * `epreuve?: never` rend un appel « résistible ET résolu » non représentable.
+ *
+ * `peutResister: true` est une PERMISSION, pas une garantie : R4 n'est invité à
+ * résister que si le moteur met réellement un savoir en jeu (`savoirSousEpreuve`,
+ * héros présent — décidé par l'assembleur, jamais par l'appelant). Sans savoir en
+ * jeu, `{resiste}` est refusé `'schema'`, exactement comme sur une `CibleActeur`.
+ */
+export interface CibleActeurResistible {
+	role: 'acteur'
+	readonly personnageId: string
+	readonly saisie: string
+	readonly session: EtatSession
+	readonly peutResister: true
+	readonly epreuve?: never
 }
 
 /**
@@ -775,9 +814,33 @@ export interface ReponseActeur {
 }
 
 /**
- * CE QUE LE MODÈLE REND — franchit le réseau, DEPUIS l'it2. Type INTERMÉDIAIRE,
- * CÔTÉ VALIDATEUR SEUL (`schemaSortie.ts`) : `indices_reveles` y porte des RANGS
- * BRUTS (`RangInjecte`), jamais des identifiants — ZÉRO clé commune de VALEUR avec
+ * LA DEMANDE DE JET (it4, `docs/REGLES-DU-JEU.md` § 6, « La porte `jet` ») — ce que
+ * R4 rend QUAND IL RÉSISTE, à la place d'une réplique : `{ resiste: EpreuveProposee }`,
+ * la MÊME forme que l'épreuve de R2 (`EpreuveProposee`), donc la même `CarteJet`,
+ * réutilisée telle quelle (KR-289). FORME DISJOINTE de `ReponseActeur` — aucune clé
+ * commune, et `'resiste' in réponse` suffit à les séparer (`EchecCopilote` porte
+ * toujours `statut`, `ReponseActeur` jamais).
+ *
+ * `carac`/`tc` ne viennent JAMAIS de R4 : le modèle n'écrit que les deux enjeux
+ * (`SortieActeurBrute`), et `CopiloteService.demanderActeur` pose `carac`/`tc` depuis
+ * `revele_si.jet` du savoir que le MOTEUR a mis en jeu (`savoirSousEpreuve`,
+ * `contexte/acteur.ts`) — une seule décision, un seul décideur. `enjeu_reussite` et
+ * `enjeu_echec` ont passé `validerEnjeux` : l'attitude du PNJ, jamais le contenu du
+ * savoir gardé.
+ *
+ * Produite UNIQUEMENT pour une `CibleActeurResistible` : le type de retour de la
+ * surcharge qui l'admet est la seule porte (`ReponseActeur | ResistanceActeur |
+ * EchecCopilote`). Son LECTEUR est `useTourDeJeu` (lot `feature`) : il pose la
+ * `CarteJet` (KR-285 — un champ de sortie IA n'entre qu'avec son lecteur).
+ */
+export interface ResistanceActeur {
+	readonly resiste: EpreuveProposee
+}
+
+/**
+ * LA FORME A DE LA SORTIE RÉSEAU — la réplique. Type INTERMÉDIAIRE, CÔTÉ VALIDATEUR
+ * SEUL (`schemaSortie.ts`) : `indices_reveles` y porte des RANGS BRUTS
+ * (`RangInjecte`), jamais des identifiants — ZÉRO clé commune de VALEUR avec
  * `ReponseActeur`, dont le champ homonyme porte la forme RÉSOLUE (KR-231, même
  * invariant que `DetenteursRendus`/`PropositionDetenteurs`).
  *
@@ -791,8 +854,29 @@ export interface ReponseActeur {
  * garantie que ce type INTERMÉDIAIRE ne fait PAS, par contraste délibéré avec
  * `ReponseActeur.delta_confiance: -1 | 0 | 1`.
  */
-export interface SortieActeurBrute {
+export interface RepliqueActeurBrute {
 	readonly replique: string
 	readonly indices_reveles: readonly RangInjecte[]
 	readonly delta_confiance: unknown
 }
+
+/**
+ * LA FORME B DE LA SORTIE RÉSEAU (it4) — les DEUX ENJEUX SEULS : pas de `carac`, pas
+ * de `tc`, pas de savoir désigné, pas de réplique. Légale ssi `resistePermise`
+ * (`validerActeur`). Déjà validée par `validerEnjeux` quand ce type est rendu.
+ */
+export interface ResistanceActeurBrute {
+	readonly resiste: {
+		readonly enjeu_reussite: string
+		readonly enjeu_echec: string
+	}
+}
+
+/**
+ * CE QUE LE MODÈLE REND — franchit le réseau, DEPUIS l'it2 : DEUX FORMES DISJOINTES
+ * DEPUIS L'IT4 (`RepliqueActeurBrute` | `ResistanceActeurBrute`), séparées par leurs
+ * clés (jamais une forme « qui gagne » sur un mélange : refus `'schema'`). Type
+ * INTERMÉDIAIRE, côté validateur ; `CopiloteService.demanderActeur` en tire
+ * `ReponseActeur` ou `ResistanceActeur`.
+ */
+export type SortieActeurBrute = RepliqueActeurBrute | ResistanceActeurBrute

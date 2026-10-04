@@ -7,6 +7,7 @@ import {
 	ANCRES_PAR_FAIT_MAX,
 	CLE_CONDENSE,
 	CLES_SORTIE,
+	CLES_ENJEUX,
 	CLES_SORTIE_ACTEUR,
 	CLES_SORTIE_DETENTEURS,
 	CLES_SORTIE_DISTRIBUTION,
@@ -14,6 +15,7 @@ import {
 	CLES_SORTIE_PLAN,
 	CLES_SORTIE_RELATIONS,
 	CLES_SORTIE_REPLIQUES,
+	CLES_SORTIE_RESISTE,
 	CONDENSE_CARACTERES_MAX,
 	DELTAS_CONFIANCE_VALIDES,
 	ENJEU_CARACTERES_MAX,
@@ -38,6 +40,7 @@ import {
 	validerCondense,
 	validerDetenteurs,
 	validerDistribution,
+	validerEnjeux,
 	validerIntention,
 	validerInterprete,
 	validerNarrateur,
@@ -3309,5 +3312,299 @@ describe('validerActeur — le dixieme role, treize predicats (§ 4 bis du plan 
 
 	it('GABARIT_SORTIE (RoleCopilote) ne porte PAS acteur — ce role n est pas de la famille auteur', () => {
 		expect(Object.prototype.hasOwnProperty.call(GABARIT_SORTIE, 'acteur')).toBe(false)
+	})
+})
+
+/**
+ * `validerActeur` — LA FORME B `resiste` ET LE RANG DÛ (n° 12 `moteur-acteurs`, it4,
+ * lot `contrat` — `docs/REGLES-DU-JEU.md` § 6, « La porte `jet` »). Les TREIZE prédicats de
+ * la forme A sont INCHANGÉS (le describe précédent les épingle un à un, sans option) ;
+ * ce describe prouve ce que l'it4 AJOUTE : la forme B, disjointe, légale sous
+ * `resistePermise` seulement, dont les enjeux passent par `validerEnjeux` (partagée avec
+ * `validerArbitre`, KR-013) ; et le quatorzième prédicat, le rang dû.
+ */
+describe('validerActeur — la forme B resiste et le rang du (it4, KR-287/KR-283)', () => {
+	const dossier = dossierDeReference()
+	const IDENTIFIANT = 'objet.sceau-de-cendre'
+	const ENJEU_REUSSITE = 'baisser enfin la garde'
+	const ENJEU_ECHEC = 'se refermer davantage'
+	const PERMIS = { resistePermise: true } as const
+	const resiste = (reussite: unknown = ENJEU_REUSSITE, echec: unknown = ENJEU_ECHEC): Record<string, unknown> => ({
+		resiste: { enjeu_reussite: reussite, enjeu_echec: echec },
+	})
+	const repliqueA = (champs: Record<string, unknown> = {}): Record<string, unknown> => ({
+		replique: "L'enclume ne chôme jamais, même quand le ciel s'assombrit.",
+		indices_reveles: [],
+		delta_confiance: 0,
+		...champs,
+	})
+	const rangsOuverts = new Set(['S1', 'S2'])
+
+	it('les cles de la forme B sont DISJOINTES de celles de la forme A, et epinglees : resiste, puis enjeu_reussite/enjeu_echec', () => {
+		expect(CLES_SORTIE_RESISTE).toEqual(['resiste'])
+		expect(CLES_ENJEUX).toEqual(['enjeu_reussite', 'enjeu_echec'])
+		expect(CLES_SORTIE_ACTEUR.filter((cle) => (CLES_SORTIE_RESISTE as readonly string[]).includes(cle))).toEqual([])
+	})
+
+	it('7 — accepte resiste quand resistePermise est true, et rend les DEUX enjeux TELS QUELS (KR-287)', () => {
+		expect(validerActeur(resiste(), dossier, new Set(), PERMIS)).toEqual({
+			ok: true,
+			sortie: { resiste: { enjeu_reussite: ENJEU_REUSSITE, enjeu_echec: ENJEU_ECHEC } },
+		})
+		// Aucune re-ecriture : ni trim, ni majuscule — le texte du modele est le texte de la carte.
+		const brut = resiste('  baisser la garde  ', 'se fermer.')
+		expect(validerActeur(brut, dossier, new Set(), PERMIS)).toEqual({
+			ok: true,
+			sortie: { resiste: { enjeu_reussite: '  baisser la garde  ', enjeu_echec: 'se fermer.' } },
+		})
+	})
+
+	it('8 — rejette resiste quand resistePermise est false, absent, ou que les options manquent : opt-in, jamais par defaut', () => {
+		const attendu = { ok: false, motif: 'schema' }
+		expect(validerActeur(resiste(), dossier, new Set(), { resistePermise: false })).toEqual(attendu)
+		expect(validerActeur(resiste(), dossier, new Set(), {})).toEqual(attendu)
+		expect(validerActeur(resiste(), dossier, new Set())).toEqual(attendu)
+		expect(validerActeur(resiste(), dossier, new Set(), { resistePermise: undefined })).toEqual(attendu)
+		// Discriminant : le MEME littéral, une fois la permission donnée, passe.
+		expect(validerActeur(resiste(), dossier, new Set(), PERMIS).ok).toBe(true)
+	})
+
+	it('AC#6 — apres un jet (rangDu pose, resistePermise absent), resiste est refuse schema : la chaine R4 → jet → R4 → jet est fermee', () => {
+		expect(validerActeur(resiste(), dossier, rangsOuverts, { rangDu: 'S1' })).toEqual({ ok: false, motif: 'schema' })
+	})
+
+	it('resiste est une forme DISJOINTE : melee a une cle de la forme A, ou accompagnee de quoi que ce soit, elle est refusee', () => {
+		const cas: Array<Record<string, unknown>> = [
+			{ ...resiste(), replique: 'Entrez.' },
+			{ ...resiste(), indices_reveles: [] },
+			{ ...resiste(), delta_confiance: 0 },
+			{ ...resiste(), ton: 'froid' },
+			{ ...repliqueA(), ...resiste() },
+		]
+		for (const brut of cas) {
+			expect({ brut, ...validerActeur(brut, dossier, rangsOuverts, PERMIS) }).toEqual({
+				brut,
+				ok: false,
+				motif: 'schema',
+			})
+		}
+	})
+
+	it('le contenu de resiste est un objet portant EXACTEMENT enjeu_reussite et enjeu_echec : jamais carac, tc, ni un savoir designe', () => {
+		const cas: Array<Record<string, unknown>> = [
+			{ resiste: null },
+			{ resiste: [] },
+			{ resiste: [ENJEU_REUSSITE, ENJEU_ECHEC] },
+			{ resiste: 'baisser la garde' },
+			{ resiste: {} },
+			{ resiste: { enjeu_reussite: ENJEU_REUSSITE } },
+			{ resiste: { enjeu_echec: ENJEU_ECHEC } },
+			{ resiste: { enjeu_reussite: ENJEU_REUSSITE, enjeu_echec: ENJEU_ECHEC, carac: 'CA' } },
+			{ resiste: { enjeu_reussite: ENJEU_REUSSITE, enjeu_echec: ENJEU_ECHEC, tc: 'TC1' } },
+			{ resiste: { enjeu_reussite: ENJEU_REUSSITE, enjeu_echec: ENJEU_ECHEC, rang: 'S1' } },
+			{ resiste: { enjeu: ENJEU_REUSSITE, enjeu_echec: ENJEU_ECHEC } },
+		]
+		for (const brut of cas) {
+			expect({ brut, ...validerActeur(brut, dossier, rangsOuverts, PERMIS) }).toEqual({
+				brut,
+				ok: false,
+				motif: 'schema',
+			})
+		}
+	})
+
+	it('9 — chaque enjeu : chaine, non vide, sans saut de ligne, <= ENJEU_CARACTERES_MAX, et JAMAIS repeche', () => {
+		expect(ENJEU_CARACTERES_MAX).toBe(80)
+		const juste = 'v'.repeat(ENJEU_CARACTERES_MAX)
+		// LIMITE ET LIMITE + 1, sur CHACUN des deux enjeux.
+		expect(validerActeur(resiste(juste, ENJEU_ECHEC), dossier, new Set(), PERMIS).ok).toBe(true)
+		expect(validerActeur(resiste(ENJEU_REUSSITE, juste), dossier, new Set(), PERMIS).ok).toBe(true)
+		expect(validerActeur(resiste(`${juste}v`, ENJEU_ECHEC), dossier, new Set(), PERMIS)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+		expect(validerActeur(resiste(ENJEU_REUSSITE, `${juste}v`), dossier, new Set(), PERMIS)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+		// Un saut de ligne, un tableau, un nombre, null.
+		for (const fautif of ['une ligne\nqui casse', [ENJEU_REUSSITE], 42, null]) {
+			expect(validerActeur(resiste(fautif, ENJEU_ECHEC), dossier, new Set(), PERMIS)).toEqual({
+				ok: false,
+				motif: 'schema',
+			})
+			expect(validerActeur(resiste(ENJEU_REUSSITE, fautif), dossier, new Set(), PERMIS)).toEqual({
+				ok: false,
+				motif: 'schema',
+			})
+		}
+		// Vides apres trim : motif `vide`, jamais `schema`.
+		for (const vide of ['', '   ', '\n\t ']) {
+			expect(validerActeur(resiste(vide, ENJEU_ECHEC), dossier, new Set(), PERMIS)).toEqual({
+				ok: false,
+				motif: 'vide',
+			})
+			expect(validerActeur(resiste(ENJEU_REUSSITE, vide), dossier, new Set(), PERMIS)).toEqual({
+				ok: false,
+				motif: 'vide',
+			})
+		}
+	})
+
+	it('9 — les deux enjeux doivent DIFFERER apres trim : une carte aux deux issues egales ne decide rien', () => {
+		expect(validerActeur(resiste('tenir bon', 'tenir bon'), dossier, new Set(), PERMIS)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+		expect(validerActeur(resiste('  tenir bon  ', 'tenir bon'), dossier, new Set(), PERMIS)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+	})
+
+	it('9 — aucun marqueur d amorce, aucun identifiant du dossier, aucun chiffre : sur les DEUX enjeux, REFUS DU LOT ENTIER', () => {
+		for (const [reussite, echec, motif] of [
+			[MARQUEUR_A_ECRIRE, ENJEU_ECHEC, 'marqueur'],
+			[ENJEU_REUSSITE, `${MARQUEUR_A_ECRIRE} a ecrire`, 'marqueur'],
+			[`prendre ${IDENTIFIANT}`, ENJEU_ECHEC, 'identifiant'],
+			[ENJEU_REUSSITE, `perdre ${IDENTIFIANT}`, 'identifiant'],
+			['tenir 7 secondes', ENJEU_ECHEC, 'identifiant'],
+			[ENJEU_REUSSITE, 'perdre 2 points', 'identifiant'],
+			['viser un TC2', ENJEU_ECHEC, 'identifiant'],
+		] as const) {
+			const resultat = validerActeur(resiste(reussite, echec), dossier, new Set(), PERMIS)
+			expect({ reussite, echec, ...resultat }).toEqual({ reussite, echec, ok: false, motif })
+			expect('sortie' in resultat).toBe(false)
+		}
+	})
+
+	it('14 (KR-013) — validerEnjeux est PARTAGEE : validerArbitre et validerActeur rendent le MEME motif pour les memes enjeux', () => {
+		const juste = 'v'.repeat(ENJEU_CARACTERES_MAX)
+		const cas: ReadonlyArray<readonly [unknown, unknown]> = [
+			[ENJEU_REUSSITE, ENJEU_ECHEC], // conforme
+			[juste, ENJEU_ECHEC], // a la limite
+			[`${juste}v`, ENJEU_ECHEC], // limite + 1
+			['', ENJEU_ECHEC], // vide
+			[ENJEU_REUSSITE, '   '],
+			['tenir bon', 'tenir bon'], // identiques
+			['une\nligne', ENJEU_ECHEC], // saut de ligne
+			[42, ENJEU_ECHEC], // pas une chaine
+			[ENJEU_REUSSITE, [ENJEU_ECHEC]],
+			[MARQUEUR_A_ECRIRE, ENJEU_ECHEC], // marqueur
+			[`prendre ${IDENTIFIANT}`, ENJEU_ECHEC], // identifiant
+			[ENJEU_REUSSITE, 'perdre 2 points'], // chiffre
+		]
+		for (const [reussite, echec] of cas) {
+			const direct = validerEnjeux(reussite, echec, dossier)
+			const parArbitre = validerArbitre(
+				{ epreuve: { carac: 'CA', tc: 'TC1', enjeu_reussite: reussite, enjeu_echec: echec } },
+				dossier,
+			)
+			const parActeur = validerActeur(resiste(reussite, echec), dossier, new Set(), PERMIS)
+
+			// Meme verdict, meme motif — de BOUT EN BOUT.
+			expect({ reussite, echec, ok: parArbitre.ok }).toEqual({ reussite, echec, ok: direct.ok })
+			expect({ reussite, echec, ok: parActeur.ok }).toEqual({ reussite, echec, ok: direct.ok })
+			if (!direct.ok) {
+				expect({ reussite, echec, ...parArbitre }).toEqual({ reussite, echec, ok: false, motif: direct.motif })
+				expect({ reussite, echec, ...parActeur }).toEqual({ reussite, echec, ok: false, motif: direct.motif })
+			} else {
+				expect(direct).toEqual({ ok: true, enjeu_reussite: reussite, enjeu_echec: echec })
+			}
+		}
+	})
+
+	it('14 (KR-013) — la garde des enjeux n a QU UN domicile : ni validerArbitre ni validerActeur ne recopient une borne', () => {
+		const code = codeSansCommentaires()
+		const enjeux = corpsDe(code, 'validerEnjeux')
+		// Le domicile unique porte les six predicats...
+		for (const trace of [
+			'ENJEU_CARACTERES_MAX',
+			'PORTE_UN_CHIFFRE',
+			'MARQUEUR_A_ECRIRE',
+			'porteUnIdentifiant(',
+			"includes('\\n')",
+		]) {
+			expect(`${trace} → ${enjeux.includes(trace)}`).toBe(`${trace} → true`)
+		}
+		// ... ses DEUX appelants l'appellent, et n'en recopient aucun. ⚠ `PORTE_UN_CHIFFRE` n'est
+		// interdite qu'a `validerArbitre` : `validerActeur` l'emploie LEGITIMEMENT sur sa
+		// REPLIQUE (predicat 8), jamais sur un enjeu — le test garde la portee reellement tenue.
+		const traces: Record<string, readonly string[]> = {
+			validerArbitre: ['ENJEU_CARACTERES_MAX', 'PORTE_UN_CHIFFRE', "includes('\\n')", 'reussiteBrut', 'echecBrut'],
+			validerActeur: ['ENJEU_CARACTERES_MAX', "includes('\\n')", 'reussiteBrut', 'echecBrut'],
+		}
+		for (const [nom, interdites] of Object.entries(traces)) {
+			const corps = corpsDe(code, nom)
+			expect(`${nom} appelle validerEnjeux( → ${corps.includes('validerEnjeux(')}`).toBe(
+				`${nom} appelle validerEnjeux( → true`,
+			)
+			for (const trace of interdites) {
+				expect(`${nom} recopie ${trace} → ${corps.includes(trace)}`).toBe(`${nom} recopie ${trace} → false`)
+			}
+		}
+		// Discriminant : `validerActeur` garde bien SON chiffre de replique, donc l'asymetrie est reelle.
+		expect(corpsDe(code, 'validerActeur')).toContain('PORTE_UN_CHIFFRE')
+	})
+
+	it('10 (KR-283) — rangDu pose : indices_reveles DOIT porter ce rang, sinon rang-inconnu, REFUS ATOMIQUE de la replique', () => {
+		const options = { rangDu: 'S1' } as const
+		// Vide : la franchise n'est plus un succes quand le savoir est du.
+		expect(validerActeur(repliqueA({ indices_reveles: [] }), dossier, rangsOuverts, options)).toEqual({
+			ok: false,
+			motif: 'rang-inconnu',
+		})
+		// Un AUTRE rang offert, mais pas le rang du : refuse.
+		expect(validerActeur(repliqueA({ indices_reveles: ['S2'] }), dossier, rangsOuverts, options)).toEqual({
+			ok: false,
+			motif: 'rang-inconnu',
+		})
+		// Le rang du : passe, rendu TEL QUEL.
+		expect(validerActeur(repliqueA({ indices_reveles: ['S1'] }), dossier, rangsOuverts, options)).toEqual({
+			ok: true,
+			sortie: {
+				replique: "L'enclume ne chôme jamais, même quand le ciel s'assombrit.",
+				indices_reveles: ['S1'],
+				delta_confiance: 0,
+			},
+		})
+	})
+
+	it('10 — SANS rangDu, aucune exigence : indices_reveles vide reste un succes (franchise honnete, inchange)', () => {
+		expect(validerActeur(repliqueA({ indices_reveles: [] }), dossier, rangsOuverts, {})).toEqual({
+			ok: true,
+			sortie: {
+				replique: "L'enclume ne chôme jamais, même quand le ciel s'assombrit.",
+				indices_reveles: [],
+				delta_confiance: 0,
+			},
+		})
+		expect(validerActeur(repliqueA({ indices_reveles: [] }), dossier, rangsOuverts, { rangDu: undefined }).ok).toBe(
+			true,
+		)
+		expect(validerActeur(repliqueA({ indices_reveles: [] }), dossier, rangsOuverts).ok).toBe(true)
+	})
+
+	it('le rang du ne dispense d AUCUN des treize predicats : une replique a delta invalide, ou a un rang hors catalogue, reste refusee', () => {
+		const options = { rangDu: 'S1' } as const
+		expect(
+			validerActeur(repliqueA({ indices_reveles: ['S1'], delta_confiance: 2 }), dossier, rangsOuverts, options),
+		).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+		// Un rang du ABSENT du catalogue ne peut jamais valider : le rang est cherche DANS les rangs ouverts.
+		expect(validerActeur(repliqueA({ indices_reveles: ['S1'] }), dossier, new Set(), options)).toEqual({
+			ok: false,
+			motif: 'rang-inconnu',
+		})
+	})
+
+	it('resistePermise et rangDu sont INDEPENDANTS : la forme A ne depend pas de resistePermise, la forme B pas de rangDu', () => {
+		expect(validerActeur(repliqueA(), dossier, rangsOuverts, PERMIS).ok).toBe(true)
+		expect(
+			validerActeur(repliqueA({ indices_reveles: ['S1'] }), dossier, rangsOuverts, { ...PERMIS, rangDu: 'S1' }).ok,
+		).toBe(true)
+		expect(validerActeur(resiste(), dossier, rangsOuverts, { ...PERMIS, rangDu: 'S1' }).ok).toBe(true)
 	})
 })

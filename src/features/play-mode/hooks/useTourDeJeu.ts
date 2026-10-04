@@ -33,7 +33,7 @@
 import { useRef, useState } from 'react'
 import { COMMANDES } from '../../../brain/dossier/commandes'
 import { consignerReponseActeur } from '../../../brain/dossier/recit'
-import type { CibleActeur } from '../../../brain/copilote/types'
+import type { CibleActeur, CibleActeurResistible } from '../../../brain/copilote/types'
 import {
 	apresInterpretation,
 	type AvisInterprete,
@@ -122,12 +122,24 @@ export function useTourDeJeu(
 
 	// Stockage temporaire pour l'état lors de l'attente du clic « Lancer »
 	const sessionEncourseRef = useRef<EtatSession | null>(null)
-	const propositionEncourseRef = useRef<{
-		carac: Characteristic
-		tc: ChallengeTier
-		enjeuReussite: string
-		enjeuEchec: string
-	} | null>(null)
+	const propositionEncourseRef = useRef<
+		| ({
+			kind: 'arbitre'
+			carac: Characteristic
+			tc: ChallengeTier
+			enjeuReussite: string
+			enjeuEchec: string
+		} | {
+			kind: 'acteur'
+			personnageId: string
+			saisie: string
+			carac: Characteristic
+			tc: ChallengeTier
+			enjeuReussite: string
+			enjeuEchec: string
+		})
+		| null
+	>(null)
 
 	// IMPLÉMENTATION DE `executeAction` : le cœur de l'orchestration R1 et R3.
 	async function executeAction(saisie: string): Promise<boolean> {
@@ -213,7 +225,13 @@ export function useTourDeJeu(
 						})
 						// Sauvegarder l'état pour lancerLeDe
 						sessionEncourseRef.current = nouvelleSession
-						propositionEncourseRef.current = { carac, tc, enjeuReussite: enjeu_reussite, enjeuEchec: enjeu_echec }
+						propositionEncourseRef.current = {
+							kind: 'arbitre',
+							carac,
+							tc,
+							enjeuReussite: enjeu_reussite,
+							enjeuEchec: enjeu_echec,
+						}
 						carteEnAttente = true
 						return true // Pas d'appel à R3 maintenant — le verrou reste posé, voir `finally`
 					}
@@ -231,23 +249,49 @@ export function useTourDeJeu(
 				reponse.proposition.lecture === 'commande' &&
 				reponse.proposition.commande.commande === 'parler'
 			) {
-				// ÉTAPE 6a : Appeler R4 avec la session déjà persistée (S1)
-				const cibleActeur: CibleActeur = {
+				// ÉTAPE 6a : Appeler R4 appel 1 avec la session déjà persistée (S1)
+				// Opt-in peutResister: true pour permettre la forme disjointe `resiste`
+				const personnageId = reponse.proposition.commande.cibles[0]
+				const cibleActeurAppel1: CibleActeurResistible = {
 					role: 'acteur',
-					personnageId: reponse.proposition.commande.cibles[0],
+					personnageId,
 					saisie,
 					session: nouvelleSession, // S1 DÉJÀ PERSISTÉE
+					peutResister: true,
 				}
-				const reponseActeur = await copilote.demander(dossier, cibleActeur)
+				const reponseActeurAppel1 = await copilote.demander(dossier, cibleActeurAppel1)
 
-				// ÉTAPE 6b : Traiter la réponse de R4
-				if (!('statut' in reponseActeur)) {
-					// Succès R4 — écrire la réplique, les révélations et la mémoire du PNJ
+				// ÉTAPE 6b : Traiter la réponse de R4 appel 1
+				// Deux cas : resiste (CarteJet) ou replique ordinaire
+				if ('resiste' in reponseActeurAppel1) {
+					// Cas R4 it4 : réponse avec resistance → CarteJet (appel 1 avec resiste)
+					const { carac, tc, enjeu_reussite, enjeu_echec } = reponseActeurAppel1.resiste
+					setCarteJet({
+						carac,
+						tc,
+						enjeuReussite: enjeu_reussite,
+						enjeuEchec: enjeu_echec,
+					})
+					// Sauvegarder l'état pour lancerLeDe → appel 2
+					sessionEncourseRef.current = nouvelleSession
+					propositionEncourseRef.current = {
+						kind: 'acteur',
+						personnageId,
+						saisie,
+						carac,
+						tc,
+						enjeuReussite: enjeu_reussite,
+						enjeuEchec: enjeu_echec,
+					}
+					carteEnAttente = true
+					return true // Pas d'appel à R3 maintenant — le verrou reste posé
+				} else if (!('statut' in reponseActeurAppel1)) {
+					// Cas normal : réplique ordinaire (pas de resiste)
 					const sessionAvecReponse = consignerReponseActeur(nouvelleSession, nouvelleSession.horloge.tour, dossier, {
-						recit: reponseActeur.replique,
-						personnageId: reponse.proposition.commande.cibles[0],
-						indicesReveles: reponseActeur.indices_reveles ?? [],
-						deltaConfiance: reponseActeur.delta_confiance,
+						recit: reponseActeurAppel1.replique,
+						personnageId,
+						indicesReveles: reponseActeurAppel1.indices_reveles ?? [],
+						deltaConfiance: reponseActeurAppel1.delta_confiance,
 					})
 					onSessionChange(sessionAvecReponse)
 					setIssueNarrateur({
@@ -259,7 +303,7 @@ export function useTourDeJeu(
 					// Échec R4 (contexte trop long, indisponible, etc.) — AUCUN texte de repli
 					// KR-283 : le pas reste acquis, aucune réplique n'est posée, la bannière
 					// d'EchecCopilote existante s'affiche.
-					setAvis(reponseActeur)
+					setAvis(reponseActeurAppel1)
 				}
 				return pasAccepte
 			}
@@ -378,54 +422,95 @@ export function useTourDeJeu(
 					: null,
 			)
 
-			// Créditer l'XP avant l'appel à R3 — la session créditée hérite
-			// aux deux branches (succès et dégradation R3), sinon consignerNarration
-			// écraserait silencieusement le crédit (BUG-137/238, trouvaille narratif-ia).
+			// Créditer l'XP avant l'appel suivant — la session créditée hérite
+			// aux deux branches (succès et dégradation R3/R4), sinon consignerNarration
+			// ou consignerReponseActeur écraserait silencieusement le crédit (BUG-137/238, trouvaille narratif-ia).
 			let sessionAvecXp = sessionAvecJet
 			const xp = xpDuJet(sessionAvecJet, currentSession.horloge.tour)
 			if (xp !== undefined && xp > 0) {
 				sessionAvecXp = crediterXp(sessionAvecJet, xp)
-				// Persister immédiatement, avant R3 — cette session contient le jet ET le crédit
+				// Persister immédiatement, avant appel suivant (R3 ou R4) — cette session contient le jet ET le crédit
 				onSessionChange(sessionAvecXp)
 			} else {
 				// Si pas de crédit d'XP, persister quand même le jet enregistré
 				onSessionChange(sessionAvecJet)
 			}
 
-			// Appeler R3 (narrateur) avec l'épreuve résolue
-			const cibleNarrateur: CibleNarrateur = {
-				role: 'narrateur',
-				saisie: '', // La saisie n'est plus utile ici, c'est du narrateur seulement
-				session: sessionAvecXp,
-				epreuve: {
-					enjeu_reussite: proposition.enjeuReussite,
-					enjeu_echec: proposition.enjeuEchec,
-				},
-			}
+			// AIGUILLAGE : le kind discrimine la destination après le jet
+			// - 'arbitre' (R2) → appel R3 (narrateur)
+			// - 'acteur' (R4) → appel R4 appel 2 (acteur avec epreuve)
+			if (proposition.kind === 'arbitre') {
+				// Appeler R3 (narrateur) avec l'épreuve résolue
+				const cibleNarrateur: CibleNarrateur = {
+					role: 'narrateur',
+					saisie: '', // La saisie n'est plus utile ici, c'est du narrateur seulement
+					session: sessionAvecXp,
+					epreuve: {
+						enjeu_reussite: proposition.enjeuReussite,
+						enjeu_echec: proposition.enjeuEchec,
+					},
+				}
 
-			const reponseNarrateur = await copilote.demander(dossier, cibleNarrateur)
+				const reponseNarrateur = await copilote.demander(dossier, cibleNarrateur)
 
-			// Traiter la réponse de R3
-			if (reponseNarrateur.statut === 'propose') {
-				// Succès R3 — écrire le récit
-				const { suggestions } = reponseNarrateur.proposition
-				const sessionAvecRecit = consignerNarration(
-					sessionAvecXp,
-					sessionAvecXp.horloge.tour,
-					reponseNarrateur.proposition,
-				)
-				onSessionChange(sessionAvecRecit)
-				setIssueNarrateur({
-					tour: sessionAvecXp.horloge.tour,
-					statut: 'raconte',
-					suggestions,
-				})
-			} else {
-				// Échec R3 — juste signaler la dégradation
-				setIssueNarrateur({
-					tour: sessionAvecXp.horloge.tour,
-					statut: 'degrade',
-				})
+				// Traiter la réponse de R3
+				if (reponseNarrateur.statut === 'propose') {
+					// Succès R3 — écrire le récit
+					const { suggestions } = reponseNarrateur.proposition
+					const sessionAvecRecit = consignerNarration(
+						sessionAvecXp,
+						sessionAvecXp.horloge.tour,
+						reponseNarrateur.proposition,
+					)
+					onSessionChange(sessionAvecRecit)
+					setIssueNarrateur({
+						tour: sessionAvecXp.horloge.tour,
+						statut: 'raconte',
+						suggestions,
+					})
+				} else {
+					// Échec R3 — juste signaler la dégradation
+					setIssueNarrateur({
+						tour: sessionAvecXp.horloge.tour,
+						statut: 'degrade',
+					})
+				}
+			} else if (proposition.kind === 'acteur') {
+				// Appeler R4 appel 2 (acteur avec l'epreuve et l'issue du jet)
+				// Le service choisit le côté advenu (enjeu_reussite ou enjeu_echec)
+				const cibleActeurAppel2: CibleActeur = {
+					role: 'acteur',
+					personnageId: proposition.personnageId,
+					saisie: proposition.saisie,
+					session: sessionAvecXp,
+					epreuve: {
+						enjeu_reussite: proposition.enjeuReussite,
+						enjeu_echec: proposition.enjeuEchec,
+					},
+				}
+
+				const reponseActeurAppel2 = await copilote.demander(dossier, cibleActeurAppel2)
+
+				// Traiter la réponse de R4 appel 2
+				if (!('statut' in reponseActeurAppel2)) {
+					// Succès R4 appel 2 — écrire la réplique et persister
+					const sessionAvecReponse = consignerReponseActeur(sessionAvecXp, sessionAvecXp.horloge.tour, dossier, {
+						recit: reponseActeurAppel2.replique,
+						personnageId: proposition.personnageId,
+						indicesReveles: reponseActeurAppel2.indices_reveles ?? [],
+						deltaConfiance: reponseActeurAppel2.delta_confiance,
+					})
+					onSessionChange(sessionAvecReponse)
+					setIssueNarrateur({
+						tour: sessionAvecXp.horloge.tour,
+						statut: 'raconte',
+						suggestions: [],
+					})
+				} else {
+					// Échec R4 appel 2 — KR-283 : jet et XP déjà persistés, pas de texte de repli
+					// La bannière d'EchecCopilote existante s'affiche.
+					setAvis(reponseActeurAppel2)
+				}
 			}
 
 			// Nettoyer l'état de la carte

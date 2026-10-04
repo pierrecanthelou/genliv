@@ -45,6 +45,7 @@ import {
 import type {
 	ChampProseChemin,
 	CibleActeur,
+	CibleActeurResistible,
 	CibleArbitre,
 	CibleNarrateur,
 	FaitEtabli,
@@ -61,6 +62,7 @@ import type {
 	ReponseActeur,
 	ReponseArbitre,
 	ReponseNarrateur,
+	ResistanceActeur,
 	SortieActeurBrute,
 	SortieInterprete,
 	SortieNarrateur,
@@ -291,6 +293,21 @@ export interface CopiloteService {
 	 *  l'union se discriminent déjà PAR FORME : `EchecCopilote` porte TOUJOURS
 	 *  `statut`, `ReponseActeur` JAMAIS — `'statut' in reponse` narrows sans `as`. */
 	demander(dossier: Dossier, cible: CibleActeur, signal?: AbortSignal): Promise<ReponseActeur | EchecCopilote>
+	/** ⚠ LA 11ᵉ SURCHARGE, MÊME RÈGLE — deux sites, ici et sur l'implémentation. Le rôle
+	 *  `acteur` OUVERT À LA RÉSISTANCE (n° 12 `moteur-acteurs`, it4) : l'appel 1 d'un échange
+	 *  à jet. ⚠ LE TYPE DE RETOUR GAGNE `ResistanceActeur`, ET C'EST LE SEUL ENDROIT : la
+	 *  surcharge précédente (`CibleActeur`) reste `ReponseActeur | EchecCopilote` à
+	 *  l'identique, donc une `CibleActeur` ne peut JAMAIS rendre une demande de jet —
+	 *  c'est le TYPE qui ferme la chaîne R4 → jet → R4 → jet, pas une convention. Les trois
+	 *  membres se discriminent PAR FORME : `'statut' in réponse` (échec), `'resiste' in
+	 *  réponse` (demande de jet), sinon une réplique. `peutResister: true` est une
+	 *  PERMISSION : sans savoir mis en jeu par le moteur, `{resiste}` est refusé `'schema'`
+	 *  comme sur une `CibleActeur`. */
+	demander(
+		dossier: Dossier,
+		cible: CibleActeurResistible,
+		signal?: AbortSignal,
+	): Promise<ReponseActeur | ResistanceActeur | EchecCopilote>
 }
 
 /**
@@ -916,13 +933,31 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 	 * écrit par ce fichier (KR-283) — l'orchestrateur (lot `feature`) ne pose aucune
 	 * réplique, `recit` reste `undefined`, état légal. AUCUN `indices_reveles` ni
 	 * AUCUNE confiance modifiée non plus.
+	 *
+	 * DEPUIS L'IT4 (`docs/REGLES-DU-JEU.md` § 6, « La porte `jet` »), DEUX APPELS ET
+	 * TROIS ISSUES, par DEUX types de cible :
+	 *  · `CibleActeurResistible` (appel 1) — R4 PEUT rendre `{resiste:{enjeu_*}}` à la
+	 *    place d'une réplique, SI l'assembleur met un savoir en jeu : `resistePermise`
+	 *    est `contexte.epreuveGardee !== undefined`, calculé UNE FOIS par
+	 *    l'assembleur, jamais re-dérivé ici (KR-231). Les deux enjeux sont ceux de R4 ;
+	 *    `carac`/`tc` sont ceux de `revele_si.jet` du savoir que le MOTEUR a choisi,
+	 *    jamais ceux de la sortie du modèle ;
+	 *  · `CibleActeur` (appel 2, ou appel ordinaire) — la forme `resiste` est refusée
+	 *    `'schema'` (`resistePermise` est toujours `false` sans `peutResister: true`), et
+	 *    quand le jet a réussi le rang DÛ est exigé (`rangDu`, `'rang-inconnu'` sinon).
+	 * L'ordre des effets ne change pas : refus de contexte, configuration, rejeu
+	 * exactement une fois. Une `ResistanceActeur` n'écrit RIEN — ni jet, ni XP, ni
+	 * confiance, ni récit : c'est le lecteur (`useTourDeJeu`) qui consigne, APRÈS le clic.
 	 */
 	async function demanderActeur(
 		dossier: Dossier,
-		cible: CibleActeur,
+		cible: CibleActeur | CibleActeurResistible,
 		signal: AbortSignal | undefined,
-	): Promise<ReponseActeur | EchecCopilote> {
-		const contexte = assemblerActeur(dossier, cible.session, cible.personnageId, cible.saisie)
+	): Promise<ReponseActeur | ResistanceActeur | EchecCopilote> {
+		const contexte = assemblerActeur(dossier, cible.session, cible.personnageId, cible.saisie, {
+			resistible: cible.peutResister === true,
+			epreuve: cible.epreuve,
+		})
 		if (!contexte.ok) return refuser(contexte)
 
 		const vers = acheminement('acteur')
@@ -940,10 +975,32 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 			vers.url,
 			vers.entetes,
 			corps,
-			(brut) => validerActeur(brut, dossier, rangsOuverts),
+			(brut) =>
+				validerActeur(brut, dossier, rangsOuverts, {
+					resistePermise: contexte.epreuveGardee !== undefined,
+					rangDu: contexte.rangDu,
+				}),
 			signal,
 		)
 		if (!issue.ok) return issue.echec
+
+		const sortie = issue.sortie
+		if ('resiste' in sortie) {
+			// `carac`/`tc` viennent du MOTEUR, jamais du modèle. La branche `undefined` est
+			// INATTEIGNABLE — `validerActeur` n'a rendu la forme B que sous
+			// `resistePermise`, c'est-à-dire `epreuveGardee !== undefined` —, dégradée en
+			// `illisible`/`'schema'` par défense plutôt que par un `!` (KR-175).
+			const gardee = contexte.epreuveGardee
+			if (gardee === undefined) return { statut: 'illisible', motif: 'schema' }
+			return {
+				resiste: {
+					carac: gardee.carac,
+					tc: gardee.tc,
+					enjeu_reussite: sortie.resiste.enjeu_reussite,
+					enjeu_echec: sortie.resiste.enjeu_echec,
+				},
+			}
+		}
 
 		// `Map.get` est PARTIEL, et c'est le seul endroit où ça se voit. La branche
 		// `undefined` est INATTEIGNABLE — `validerActeur` vient de constater
@@ -951,27 +1008,29 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 		// ou un `as`, c'est-à-dire l'endroit exact où le compilateur cesse de protéger
 		// (KR-175). AUCUNE conversion numérique : la re-résolution est un `Map.get`.
 		const indices_reveles: string[] = []
-		for (const rang of issue.sortie.indices_reveles) {
+		for (const rang of sortie.indices_reveles) {
 			const indiceId = contexte.rangs.get(rang)
 			if (indiceId !== undefined) indices_reveles.push(indiceId)
 		}
 
 		// `delta_confiance` EST UN PASSTHROUGH IDENTIQUE, AUCUNE RE-RÉSOLUTION —
-		// contrairement aux rangs ci-dessus. `SortieActeurBrute.delta_confiance`
+		// contrairement aux rangs ci-dessus. `RepliqueActeurBrute.delta_confiance`
 		// reste `unknown` (brut) dans son TYPE, mais `validerActeur` (prédicat 13)
 		// a DÉJÀ constaté son appartenance à `{-1, 0, 1}` avant de rendre `ok: true` :
 		// l'assertion ici porte un FAIT déjà établi par le validateur, exactement
 		// comme le `Map.get` ci-dessus porte un fait déjà établi par lui (KR-175).
 		return {
-			replique: issue.sortie.replique,
+			replique: sortie.replique,
 			indices_reveles,
-			delta_confiance: issue.sortie.delta_confiance as -1 | 0 | 1,
+			delta_confiance: sortie.delta_confiance as -1 | 0 | 1,
 		}
 	}
 
 	/**
-	 * L'IMPLÉMENTATION À SURCHARGES — DIX signatures publiques depuis la n° 12 it1
-	 * (neuf à l'it2 de la n° 11, huit à l'it2 de la n° 10), un corps élargi, AUCUN
+	 * L'IMPLÉMENTATION À SURCHARGES — ONZE signatures publiques depuis la n° 12 it4
+	 * (dix depuis son it1, neuf à l'it2 de la n° 11, huit à l'it2 de la n° 10 : la
+	 * onzième ne porte PAS un onzième rôle mais une seconde CIBLE du dixième), un corps
+	 * élargi, AUCUN
 	 * `as`, ET PLUS AUCUN PARAMÈTRE `role`.
 	 *
 	 * LE DISPATCH SE FAIT SUR L'ÉTIQUETTE, jamais plus sur la forme. Ce que cela change,
@@ -1012,6 +1071,12 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 	function demander(dossier: Dossier, cible: CibleArbitre, signal?: AbortSignal): Promise<ReponseArbitre>
 	/** ⚠ LE SECOND DES DEUX SITES de la 10ᵉ surcharge — idem. */
 	function demander(dossier: Dossier, cible: CibleActeur, signal?: AbortSignal): Promise<ReponseActeur | EchecCopilote>
+	/** ⚠ LE SECOND DES DEUX SITES de la 11ᵉ surcharge — idem. */
+	function demander(
+		dossier: Dossier,
+		cible: CibleActeurResistible,
+		signal?: AbortSignal,
+	): Promise<ReponseActeur | ResistanceActeur | EchecCopilote>
 	function demander(
 		dossier: Dossier,
 		cible:
@@ -1024,7 +1089,8 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 			| CibleInterprete
 			| CibleNarrateur
 			| CibleArbitre
-			| CibleActeur,
+			| CibleActeur
+			| CibleActeurResistible,
 		signal?: AbortSignal,
 	): Promise<
 		| ReponseCopilote
@@ -1037,6 +1103,7 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 		| ReponseNarrateur
 		| ReponseArbitre
 		| ReponseActeur
+		| ResistanceActeur
 		| EchecCopilote
 	> {
 		switch (cible.role) {

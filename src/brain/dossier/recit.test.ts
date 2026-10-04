@@ -4,8 +4,9 @@ import { SESSION_SATUREE } from './__fixtures__/session-saturee'
 import { analyserSaisie, executerCommande } from './commandes'
 import { CADENCE, borneDeFenetre, pasACondenser } from './memoire'
 import { consignerNarration, consignerReponseActeur } from './recit'
-import { ouvrirSession, type EtatSession, type FaitEtabli } from './session'
+import { consignerJet, fixerHeros, ouvrirSession, type EtatSession, type FaitEtabli } from './session'
 import type { Dossier } from './types'
+import type { HeroState } from '../../player/types'
 
 /**
  * `consignerNarration` — LA SEULE PORTE D'ÉCRITURE DE `EntreeJournal.recit` (n° 10 it2) ET
@@ -627,5 +628,116 @@ describe('consignerReponseActeur — ecriture combinee recit+reveler_indice+a_di
 		})
 
 		expect(revele.monde.pnj[HAREK]).toEqual({ a_dit: [INDICE_REVELABLE], confiance: 1 })
+	})
+})
+
+/**
+ * LA PORTE `jet` DANS LA RE-VÉRIFICATION (n° 12 `moteur-acteurs`, it4, lot `contrat` —
+ * `docs/REGLES-DU-JEU.md` § 6, « La porte `jet` »). `consignerReponseActeur` re-vérifie
+ * `'revelable'` avec les réussites acquises du PNJ (`epreuvesReussies`), CELLE DU PAS
+ * COURANT COMPRISE : c'est ce qui rend le savoir mis en jeu confiable après le jet.
+ *
+ * Harek porte `indice.pas-dans-la-cendre` gardé par le seul `jet` IN/TC1
+ * (`dossier-reference.json`). LES ISSUES SONT FORCÉES PAR LE HÉROS, jamais par la graine :
+ * TC1 (1D6, total ≥ 1) réussit TOUJOURS contre IN 9 et échoue TOUJOURS contre IN 0.
+ */
+describe('consignerReponseActeur — la porte jet : la reussite acquise rouvre le savoir (it4)', () => {
+	const HAREK = 'pnj.harek-le-forgeron'
+	const INDICE_SOUS_EPREUVE = 'indice.pas-dans-la-cendre'
+
+	function hero(intelligence: number): HeroState {
+		return {
+			name: 'Aldric le Temeraire',
+			caracs: { FO: 7, AG: 6, DX: 5, EN: 8, IN: intelligence, IG: 4, SE: 10, CA: 3 },
+			pvMax: 21,
+			pv: 14,
+			peMax: 8,
+			pe: 8,
+			mcBonus: 0,
+			xp: 12,
+		}
+	}
+
+	/** Joue `PARLER harek` avec un héros de `IN` donné, puis consigne le jet IN/TC1 sur le pas. */
+	function parlerEtTenter(dossier: Dossier, depart: EtatSession, intelligence: number): EtatSession {
+		const avecHeros = fixerHeros(depart, hero(intelligence))
+		const parle = jouer(dossier, avecHeros, [`PARLER ${HAREK}`])
+		return consignerJet(parle, parle.horloge.tour, { carac: 'IN', tc: 'TC1' })
+	}
+
+	const apport = (indicesReveles: readonly string[]) =>
+		({ recit: 'Il pointe enfin l’enclume.', personnageId: HAREK, indicesReveles, deltaConfiance: 0 }) as const
+
+	it('jet REUSSI consigne sur CE pas : le savoir est confie — recit, reveler_indice et a_dit sur la MEME entree', () => {
+		const dossier = lire()
+		const s1 = parlerEtTenter(dossier, ouverture(dossier), 9)
+
+		const s2 = consignerReponseActeur(s1, s1.horloge.tour, dossier, apport([INDICE_SOUS_EPREUVE]))
+
+		const entree = s2.journal[s2.journal.length - 1]
+		expect(entree.recit).toBe('Il pointe enfin l’enclume.')
+		expect(entree.deltas).toEqual([{ delta: 'reveler_indice', cibles: [INDICE_SOUS_EPREUVE], effet: 'applique' }])
+		expect(entree.jet).toEqual({ carac: 'IN', tc: 'TC1' }) // le jet reste sur l'entree, intact
+		expect(s2.monde.indices_connus).toContain(INDICE_SOUS_EPREUVE)
+		expect(s2.monde.pnj[HAREK]?.a_dit).toEqual([INDICE_SOUS_EPREUVE])
+	})
+
+	it('jet ECHOUE : le savoir reste sous epreuve, donc non revelable — leve (KR-238), aucune ecriture partielle', () => {
+		const dossier = lire()
+		const s1 = parlerEtTenter(dossier, ouverture(dossier), 0)
+
+		expect(() => consignerReponseActeur(s1, s1.horloge.tour, dossier, apport([INDICE_SOUS_EPREUVE]))).toThrow()
+		expect(s1.journal[s1.journal.length - 1].recit).toBeUndefined()
+		expect(s1.monde.pnj[HAREK]).toBeUndefined()
+	})
+
+	it('AUCUN jet consigne : le savoir garde par un jet n est pas revelable — leve, jamais ouvert par defaut (KR-280)', () => {
+		const dossier = lire()
+		const s1 = jouer(dossier, fixerHeros(ouverture(dossier), hero(9)), [`PARLER ${HAREK}`])
+		expect(s1.journal[s1.journal.length - 1].jet).toBeUndefined()
+
+		expect(() => consignerReponseActeur(s1, s1.horloge.tour, dossier, apport([INDICE_SOUS_EPREUVE]))).toThrow()
+	})
+
+	it('la reussite SURVIT au pas suivant : le savoir du jet gagne au pas 1 reste confiable au pas 2, sans nouveau jet', () => {
+		const dossier = lire()
+		const s1 = parlerEtTenter(dossier, ouverture(dossier), 9)
+		// Le pas 1 est raconte SANS rien confier (la replique de l'appel 2 a ete refusee, par exemple).
+		const raconte = consignerReponseActeur(s1, s1.horloge.tour, dossier, apport([]))
+
+		const s2 = jouer(dossier, raconte, [`PARLER ${HAREK}`])
+		expect(s2.horloge.tour).toBe(2)
+		expect(s2.journal[s2.journal.length - 1].jet).toBeUndefined() // aucun jet a CE pas
+
+		const confie = consignerReponseActeur(s2, s2.horloge.tour, dossier, apport([INDICE_SOUS_EPREUVE]))
+		expect(confie.monde.pnj[HAREK]?.a_dit).toEqual([INDICE_SOUS_EPREUVE])
+	})
+
+	it('la reussite se tient PAR PNJ : le jet gagne aupres de Harek n ouvre pas la porte du MEME couple chez un autre', () => {
+		// Corvin recoit, EN MEMOIRE, un savoir sur le meme indice garde par le MEME couple IN/TC1 —
+		// `dossier-reference.json` n'en porte aucun, et le fichier n'est jamais ecrit.
+		const dossier = lire()
+		const savoirDeHarek = dossier.monde.personnages.find((personnage) => personnage.id === HAREK)?.savoirs[0]
+		if (savoirDeHarek === undefined) throw new Error('Harek doit porter son savoir sous epreuve')
+		const CORVIN = 'pnj.corvin-le-marchand'
+		const avecCorvin: Dossier = {
+			...dossier,
+			monde: {
+				...dossier.monde,
+				personnages: dossier.monde.personnages.map((personnage) =>
+					personnage.id === CORVIN ? { ...personnage, savoirs: [savoirDeHarek] } : personnage,
+				),
+			},
+		}
+		const s1 = parlerEtTenter(avecCorvin, ouverture(avecCorvin), 9)
+
+		// Harek : passe. Corvin, MEME indice, MEME couple, aucune reussite a SON nom : leve.
+		expect(() => consignerReponseActeur(s1, s1.horloge.tour, avecCorvin, apport([INDICE_SOUS_EPREUVE]))).not.toThrow()
+		expect(() =>
+			consignerReponseActeur(s1, s1.horloge.tour, avecCorvin, {
+				...apport([INDICE_SOUS_EPREUVE]),
+				personnageId: CORVIN,
+			}),
+		).toThrow()
 	})
 })

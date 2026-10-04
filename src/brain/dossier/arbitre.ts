@@ -2,7 +2,7 @@
  * `brain/dossier/arbitre.ts` — LE ROUTAGE ET LA RÉSOLUTION DU NEUVIÈME RÔLE
  * (n° 11 `moteur-arbitre`, lot `contrat`, it2 puis it3).
  *
- * QUATRE RESPONSABILITÉS, PURES, SYNCHRONES :
+ * CINQ RESPONSABILITÉS, PURES, SYNCHRONES :
  *  · `doitArbitrer` — la PORTE : décide si R2 (arbitre) doit être consulté après
  *    une commande acceptée. Un GATE MÉCANIQUE se fonde sur une STRUCTURE (le
  *    verbe, la présence d'un héros), **jamais** sur le CONTENU/SENS d'une prose
@@ -15,13 +15,19 @@
  *    l'appellent aussi, orphelins GELÉS de l'ancien runtime sans producteur
  *    depuis `moteur-dossier` it4 (KR-240), hors périmètre de cette feature) :
  *    lue par `CarteJet`, par l'assembleur du narrateur
- *    (`copilote/contexte/narrateur.ts`) et, depuis it3, par `xpDuJet`. Un
- *    témoin de balayage (`arbitre.test.ts`) garde cette unicité CÔTÉ FEATURES.
+ *    (`copilote/contexte/narrateur.ts`), depuis it3 par `xpDuJet`, et depuis
+ *    l'it4 de la n° 12 par `epreuvesReussies` et l'assembleur de R4
+ *    (`copilote/contexte/acteur.ts`). Un témoin de balayage (`arbitre.test.ts`)
+ *    garde cette unicité CÔTÉ FEATURES ET CÔTÉ `brain/`.
  *  · `classifierIssue` — la classification QUALITATIVE, à TROIS états depuis
  *    it3 (réussit/réussit nettement/échoue), que le CODE pose, jamais l'IA (R3
  *    ne reçoit jamais les chiffres) ;
  *  · `xpDuJet` (it3) — l'XP gagnée par le jet, DÉLÈGUE À `issueDuJet` pour le
- *    tirage, jamais un second appel à `resolveChallenge`.
+ *    tirage, jamais un second appel à `resolveChallenge` ;
+ *  · `epreuvesReussies` (n° 12 `moteur-acteurs`, it4) — les réussites acquises
+ *    d'UN PNJ, DÉRIVÉES du journal, DÉLÈGUE À `issueDuJet` pour l'issue : le
+ *    cinquième lecteur de `issueDuJet`, jamais un second site de résolution
+ *    (KR-281).
  *
  * MODULE PUR, sans dépendance de service : il part avec `src/player/` le jour de
  * l'extraction (`docs/EXIGENCE-APERCU-DU-JEU.md` § 6).
@@ -30,6 +36,7 @@ import { CHALLENGE_TIERS, challengeTierValue, resolveChallenge, type ChallengeRe
 import { challengeXp, MARGE_FRANCHE, tierOf } from '../xp'
 import { creerRng } from './alea'
 import type { Commande } from './commandes'
+import type { JetReussi } from './revelation'
 import type { EtatSession } from './session'
 
 /**
@@ -115,4 +122,41 @@ export function xpDuJet(session: EtatSession, tour: number): number | undefined 
 	const challengeTier = challengeTierValue(entree.jet.tc)
 
 	return challengeXp({ challengeTier, heroTier, success: resultat.success, baseXp, margin: resultat.margin })
+}
+
+/**
+ * LES RÉUSSITES ACQUISES D'UN PNJ — PURE, DÉRIVÉE du journal, JAMAIS STOCKÉE
+ * (n° 12 `moteur-acteurs`, it4, KR-013 ; `docs/REGLES-DU-JEU.md` § 6, « La porte
+ * `jet` », réussite acquise). Un fait persisté serait une seconde source de vérité
+ * que rien ne re-synchroniserait : le journal dit déjà QUEL jet a été tenté, à
+ * QUEL pas, et pour QUEL interlocuteur.
+ *
+ * UNE ENTRÉE COMPTE QUAND elle porte un `jet` ET que son `interlocuteur` est
+ * `personnageId` — la réussite se tient PAR PNJ : le jet tenté auprès d'un autre
+ * PNJ, ou par `agir` (aucun `interlocuteur`), n'ouvre rien ici — ET que
+ * `issueDuJet` (la SEULE résolution, KR-281) en rend une RÉUSSITE. Le résultat est
+ * la liste des `{carac, tc}` de ces entrées, DANS L'ORDRE du journal : l'identité
+ * d'une épreuve est le COUPLE, jamais le savoir ni le pas, et c'est
+ * `evaluerSavoir` (`revelation.ts`) qui compare par couple.
+ *
+ * `avantTour` — ne retient que les entrées dont `tour < avantTour` (borne
+ * EXCLUSIVE). Absent, tout le journal compte. C'EST CE QUI DÉSIGNE LE SAVOIR DÛ :
+ * `savoirSousEpreuve(…, epreuvesReussies(session, id, tourCourant))` rend le savoir
+ * qui était mis en jeu AVANT le jet du pas courant, alors que la liste complète rend
+ * le savoir que ce jet vient d'ouvrir.
+ *
+ * ⚠ DÉRIVER, C'EST RE-RÉSOUDRE : `issueDuJet` relit `heros.caracs` COURANTES. L'issue
+ * d'un jet passé est donc stable TANT QU'AUCUN code ne modifie une caractéristique
+ * en cours de partie — vrai aujourd'hui (la boutique d'XP, § 5, n'a aucun appelant ;
+ * `crediterXp` n'écrit que `heros.xp`). Le jour où l'un d'eux en a un, une réussite
+ * passée pourrait basculer : ce jour-là, le jet devra consigner son issue.
+ */
+export function epreuvesReussies(session: EtatSession, personnageId: string, avantTour?: number): readonly JetReussi[] {
+	const reussies: JetReussi[] = []
+	for (const entree of session.journal) {
+		if (entree.jet === undefined || entree.interlocuteur !== personnageId) continue
+		if (avantTour !== undefined && entree.tour >= avantTour) continue
+		if (issueDuJet(session, entree.tour)?.success === true) reussies.push(entree.jet)
+	}
+	return reussies
 }

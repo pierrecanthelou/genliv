@@ -1352,5 +1352,403 @@ describe('useTourDeJeu — hook orchestrateur', () => {
 			// La confiance doit rester à CONFIANCE_MIN (-3), pas descendre
 			expect(sessionFinale.monde.pnj['pnj-1']?.confiance).toBe(-3)
 		})
+
+		describe('Lot 4 (moteur-acteurs it4) — cablage-jet-dialogue: R4 appel 1 résistible → CarteJet → jet → R4 appel 2', () => {
+			beforeEach(() => {
+				jest.clearAllMocks()
+				setXpDuJetMockReturnValue(undefined)
+			})
+
+			it('15. appel 1 résistible + `resiste` → CarteJet affichée', async () => {
+				// Scénario : parler accepté → R4 appel 1 avec peutResister: true
+				// → retourne {resiste:{carac,tc,enjeu_reussite,enjeu_echec}}
+				// → CarteJet s'affiche avec les enjeux
+				const propositionParler = {
+					lecture: 'commande' as const,
+					commande: { commande: 'parler' as const, cibles: ['pnj-1'] },
+				}
+				const resistanceActeur = {
+					resiste: {
+						carac: 'FO' as const,
+						tc: 'TC2' as const,
+						enjeu_reussite: 'Il cède.',
+						enjeu_echec: 'Il tient bon.',
+					},
+				}
+
+				demanderMock
+					.mockResolvedValueOnce({ statut: 'propose', proposition: propositionParler })
+					.mockResolvedValueOnce(resistanceActeur)
+
+				const onSessionChange = jest.fn()
+				const { result } = monter(SESSION_TEST, onSessionChange)
+
+				await act(async () => {
+					await result.current.executeAction('parler pnj-1')
+				})
+
+				// Vérifications :
+				// 1. R4 appel 1 appelé (2e appel après R1)
+				expect(demanderMock).toHaveBeenCalledTimes(2)
+				const cibleR4Appel1 = demanderMock.mock.calls[1][1]
+				expect(cibleR4Appel1.role).toBe('acteur')
+				expect(cibleR4Appel1.peutResister).toBe(true)
+
+				// 2. CarteJet peuplée avec les enjeux
+				expect(result.current.carteJet).toEqual({
+					carac: 'FO',
+					tc: 'TC2',
+					enjeuReussite: 'Il cède.',
+					enjeuEchec: 'Il tient bon.',
+				})
+
+				// 3. Le verrou reste posé (en attente du clic « Lancer »)
+				expect(result.current.isLocked).toBe(true)
+
+				// 4. Aucune persistance de réplique : juste R1
+				expect(onSessionChange).toHaveBeenCalledTimes(1)
+			})
+
+			it('16. appel 1 résistible + réplique ordinaire → parcours normal (pas CarteJet)', async () => {
+				// Scénario : parler accepté → R4 appel 1 avec peutResister: true
+				// → retourne {replique, indices_reveles, delta_confiance} (forme A)
+				// → réplique écrite, aucune CarteJet
+				const propositionParler = {
+					lecture: 'commande' as const,
+					commande: { commande: 'parler' as const, cibles: ['pnj-1'] },
+				}
+				const reponseActeurOrdinaire = {
+					replique: 'Salut à toi!',
+					indices_reveles: [],
+					delta_confiance: 0 as const,
+				}
+
+				demanderMock
+					.mockResolvedValueOnce({ statut: 'propose', proposition: propositionParler })
+					.mockResolvedValueOnce(reponseActeurOrdinaire)
+
+				const onSessionChange = jest.fn()
+				const { result } = monter(SESSION_TEST, onSessionChange)
+
+				await act(async () => {
+					await result.current.executeAction('parler pnj-1')
+				})
+
+				// Vérifications :
+				// 1. R4 appel 1 appelé
+				expect(demanderMock).toHaveBeenCalledTimes(2)
+
+				// 2. Aucune CarteJet — réplique ordinaire
+				expect(result.current.carteJet).toBeNull()
+
+				// 3. Réplique écrite dans la session
+				expect(onSessionChange).toHaveBeenCalledTimes(2) // Après R1 + après réplique
+				const sessionFinale = onSessionChange.mock.calls[1][0] as EtatSession
+				const entreeParler = sessionFinale.journal.find((e) => e.recit === 'Salut à toi!')
+				expect(entreeParler).toBeDefined()
+			})
+
+			it('17. jet réussi → appel 2 R4 + consigner réponse (epreuve et saisie transmises)', async () => {
+				// Scénario complet :
+				// - parler accepté
+				// - R4 appel 1 rend resiste (savoir avec porte jet)
+				// - Joueur lance le dé → réussi
+				// - R4 appel 2 appelé avec {epreuve:{enjeu_reussite,enjeu_echec}, session avec jet+XP}
+				// - Réplique écrite avec indices_reveles
+				const dossierAvecSavoirJet: Dossier = {
+					...DOSSIER_TEST,
+					monde: {
+						...DOSSIER_TEST.monde,
+						indices: [
+							...DOSSIER_TEST.monde.indices,
+							{
+								id: 'indice-secret-jet',
+								nom: 'Le secret confié',
+								verite: 'vrai',
+								formulation_joueur: 'Il finit par parler.',
+							},
+						],
+						personnages: DOSSIER_TEST.monde.personnages.map((pnj) =>
+							pnj.id === 'pnj-1'
+								? {
+										...pnj,
+										savoirs: [
+											{
+												indice_id: 'indice-secret-jet',
+												certitude: 'sait' as const,
+												revele_comment: 'Après beaucoup de persuasion.',
+												revele_si: { jet: { carac: 'IN' as const, tc: 'TC1' as const } },
+											},
+										],
+									}
+								: pnj,
+						),
+					},
+				}
+
+				const propositionParler = {
+					lecture: 'commande' as const,
+					commande: { commande: 'parler' as const, cibles: ['pnj-1'] },
+				}
+				const resistanceAppel1 = {
+					resiste: {
+						carac: 'IN' as const,
+						tc: 'TC1' as const,
+						enjeu_reussite: 'Il se confie.',
+						enjeu_echec: 'Il se tait.',
+					},
+				}
+				const reponseAppel2 = {
+					replique: 'Enfin, il parle!',
+					indices_reveles: ['indice-secret-jet'],
+					delta_confiance: 1 as const,
+				}
+
+				demanderMock
+					.mockResolvedValueOnce({ statut: 'propose', proposition: propositionParler })
+					.mockResolvedValueOnce(resistanceAppel1)
+					.mockResolvedValueOnce(reponseAppel2)
+
+				const onSessionChange = jest.fn()
+				const { result } = renderHook(() => useTourDeJeu(dossierAvecSavoirJet, SESSION_AVEC_HEROS, onSessionChange))
+
+				// ÉTAPE 1 : executeAction → R4 appel 1
+				await act(async () => {
+					await result.current.executeAction('parler pnj-1')
+				})
+				expect(result.current.carteJet).not.toBeNull()
+				expect(demanderMock).toHaveBeenCalledTimes(2)
+
+				// ÉTAPE 2 : lancerLeDe → jet + R4 appel 2
+				await act(async () => {
+					await result.current.lancerLeDe()
+				})
+
+				// Vérifications :
+				// 1. Trois appels en tout : R1 + R4 appel 1 + R4 appel 2
+				expect(demanderMock).toHaveBeenCalledTimes(3)
+
+				// 2. Le 3e appel (R4 appel 2) doit recevoir l'epreuve
+				const cibleR4Appel2 = demanderMock.mock.calls[2][1]
+				expect(cibleR4Appel2.role).toBe('acteur')
+				expect(cibleR4Appel2.peutResister).toBeUndefined() // Appel 2 = pas de peutResister
+				expect(cibleR4Appel2.epreuve).toBeDefined()
+				expect(cibleR4Appel2.epreuve?.enjeu_reussite).toBe('Il se confie.')
+
+				// 3. Trois persistances : R1 + jet+XP + réplique appel 2
+				expect(onSessionChange).toHaveBeenCalledTimes(3)
+
+				// 3b. Ordre : onSessionChange(jet+XP) AVANT l'appel 2 R4
+				const ordreSessionJet = (onSessionChange as jest.Mock).mock.invocationCallOrder[1]
+				const ordreAppel2 = (demanderMock as jest.Mock).mock.invocationCallOrder[2]
+				expect(ordreSessionJet).toBeLessThan(ordreAppel2)
+
+				// 3c. Appel 2 reçoit la saisie d'origine du joueur
+				expect(cibleR4Appel2.saisie).toBe('parler pnj-1')
+
+				// 4. Session finale porte la réplique
+				const sessionFinale = onSessionChange.mock.calls[2][0] as EtatSession
+				const entreeAppel2 = sessionFinale.journal.find((e) => e.recit === 'Enfin, il parle!')
+				expect(entreeAppel2).toBeDefined()
+				expect(entreeAppel2?.deltas).toContainEqual(
+					expect.objectContaining({ delta: 'reveler_indice', cibles: ['indice-secret-jet'] }),
+				)
+			})
+
+			it('18. jet quelconque → appel 2 R4 reçoit les deux enjeux', async () => {
+				// Même orchestration mais le jet échoue
+				// → enjeu_echec est passé à R4 appel 2
+				const propositionParler = {
+					lecture: 'commande' as const,
+					commande: { commande: 'parler' as const, cibles: ['pnj-1'] },
+				}
+				const resistanceAppel1 = {
+					resiste: {
+						carac: 'AG' as const,
+						tc: 'TC3' as const,
+						enjeu_reussite: 'Il cède à la persuasion.',
+						enjeu_echec: 'Il se méfie.',
+					},
+				}
+				const reponseAppel2 = {
+					replique: 'Tu me sembles suspecte.',
+					indices_reveles: [],
+					delta_confiance: -1 as const,
+				}
+
+				demanderMock
+					.mockResolvedValueOnce({ statut: 'propose', proposition: propositionParler })
+					.mockResolvedValueOnce(resistanceAppel1)
+					.mockResolvedValueOnce(reponseAppel2)
+
+				const onSessionChange = jest.fn()
+				// Hero avec faible AG pour favoriser l'échec
+				const heroFaible: HeroState = { ...HEROS_TEST, caracs: { ...HEROS_TEST.caracs, AG: 5 } }
+				const sessionFaible: EtatSession = { ...SESSION_AVEC_HEROS, heros: heroFaible }
+				const { result } = monter(sessionFaible, onSessionChange)
+
+				await act(async () => {
+					await result.current.executeAction('parler pnj-1')
+				})
+
+				await act(async () => {
+					await result.current.lancerLeDe()
+				})
+
+				// Vérifications :
+				// 1. Appel 2 reçoit l'epreuve (avec enjeu_echec disponible)
+				const cibleR4Appel2 = demanderMock.mock.calls[2][1]
+				expect(cibleR4Appel2.epreuve).toBeDefined()
+				expect(cibleR4Appel2.epreuve?.enjeu_echec).toBe('Il se méfie.')
+
+				// 2. Réplique écrite (même en cas d'échec du jet)
+				const sessionFinale = onSessionChange.mock.calls[2][0] as EtatSession
+				const entreeAppel2 = sessionFinale.journal.find((e) => e.recit === 'Tu me sembles suspecte.')
+				expect(entreeAppel2).toBeDefined()
+			})
+
+			it('19. appel 2 échoué → setAvis(echec), jet+XP déjà persistés, pas de réplique', async () => {
+				// Scénario : R4 appel 2 échoue (indisponible, contexte, etc.)
+				// Résultat : le jet ET l'XP restent persistés, mais pas de réplique écrite
+				const propositionParler = {
+					lecture: 'commande' as const,
+					commande: { commande: 'parler' as const, cibles: ['pnj-1'] },
+				}
+				const resistanceAppel1 = {
+					resiste: {
+						carac: 'FO' as const,
+						tc: 'TC1' as const,
+						enjeu_reussite: 'Il cède.',
+						enjeu_echec: 'Il refuse.',
+					},
+				}
+				const echec = { statut: 'indisponible', raison: 'non-configure' } satisfies EchecCopilote
+
+				demanderMock
+					.mockResolvedValueOnce({ statut: 'propose', proposition: propositionParler })
+					.mockResolvedValueOnce(resistanceAppel1)
+					.mockResolvedValueOnce(echec) // R4 appel 2 échoue
+
+				const onSessionChange = jest.fn()
+				const { result } = monter(SESSION_AVEC_HEROS, onSessionChange)
+
+				await act(async () => {
+					await result.current.executeAction('parler pnj-1')
+				})
+
+				setXpDuJetMockReturnValue(4) // Créditer XP avant l'appel 2
+				await act(async () => {
+					await result.current.lancerLeDe()
+				})
+
+				// Vérifications :
+				// 1. Appel 2 était en vol (R1 + appel 1 + appel 2)
+				expect(demanderMock).toHaveBeenCalledTimes(3)
+
+				// 2. Deux persistances seulement : R1 + (jet+XP)
+				// Pas de 3e persistance pour la réplique (appel 2 échoué)
+				expect(onSessionChange).toHaveBeenCalledTimes(2)
+
+				// 3. La session persistée porte le jet + XP
+				const sessionAvecJetXp = onSessionChange.mock.calls[1][0] as EtatSession
+				expect(sessionAvecJetXp.journal.some((e) => e.jet !== undefined)).toBe(true)
+				expect(sessionAvecJetXp.heros?.xp).toBe(HEROS_TEST.xp + 4)
+
+				// 4. L'avis porte l'échec (bannière d'échec IA affichée)
+				expect(result.current.avis).toEqual(echec)
+
+				// 5. Pas de réplique de PNJ dans le journal (appel 2 échoué)
+				expect(sessionAvecJetXp.journal.length).toBeGreaterThanOrEqual(2)
+				const derniereEntree = sessionAvecJetXp.journal[sessionAvecJetXp.journal.length - 1]
+				expect(derniereEntree.recit).toBeUndefined()
+			})
+
+			it('20. propositionEncourseRef.kind discrimine lancerLeDe : arbitre vs acteur appel 2', async () => {
+				// Vérifier que lancerLeDe aiguille correctement selon l'origine :
+				// - R3 arbitre (epreuve sans PNJ) → pas d'appel 2 après jet
+				// - R4 acteur appel 2 (epreuve + personnageId) → appel 2 APRÈS jet
+				// Le test couvre deux cas : arbitre (R2) et acteur (R4 appel 2)
+
+				// Cas 1 : arbitre (R2) — aucun appel 2 après lancerLeDe
+				const propositionAgir = {
+					lecture: 'commande' as const,
+					commande: { commande: 'agir' as const, cibles: [] as string[] },
+				}
+				const epreuveArbitre = {
+					epreuve: {
+						carac: 'FO' as const,
+						tc: 'TC1' as const,
+						enjeu_reussite: 'franchir',
+						enjeu_echec: 'tomber',
+					},
+				}
+				const narrateurReponse: ReponseNarrateur = {
+					statut: 'propose',
+					proposition: {
+						recit: 'Vous agissez.',
+						suggestions: [],
+						faits_etablis: [],
+					},
+				}
+
+				demanderMock
+					.mockResolvedValueOnce({ statut: 'propose', proposition: propositionAgir })
+					.mockResolvedValueOnce({ statut: 'propose', proposition: epreuveArbitre })
+					.mockResolvedValueOnce(narrateurReponse) // R3 seulement, pas d'appel 2 arbitre
+
+				const onSessionChange = jest.fn()
+				const { result } = monter(SESSION_AVEC_HEROS, onSessionChange)
+
+				await act(async () => {
+					await result.current.executeAction('agir')
+				})
+
+				await act(async () => {
+					await result.current.lancerLeDe()
+				})
+
+				// R1 + R2 (arbitre) + R3 (pas d'appel 2 arbitre)
+				expect(demanderMock).toHaveBeenCalledTimes(3)
+
+				// Cas 2 : acteur (R4 appel 2) — appel 2 APRÈS lancerLeDe
+				jest.resetAllMocks()
+				const propositionParler = {
+					lecture: 'commande' as const,
+					commande: { commande: 'parler' as const, cibles: ['pnj-1'] },
+				}
+				demanderMock
+					.mockResolvedValueOnce({ statut: 'propose', proposition: propositionParler })
+					.mockResolvedValueOnce({
+						resiste: {
+							carac: 'IN' as const,
+							tc: 'TC2' as const,
+							enjeu_reussite: 'confiance',
+							enjeu_echec: 'méfiance',
+						},
+					})
+					.mockResolvedValueOnce({
+						replique: 'Je parle.',
+						indices_reveles: [],
+						delta_confiance: 0 as const,
+					})
+
+				const { result: result2 } = monter(SESSION_AVEC_HEROS)
+
+				await act(async () => {
+					await result2.current.executeAction('parler pnj-1')
+				})
+
+				await act(async () => {
+					await result2.current.lancerLeDe()
+				})
+
+				// R1 + R4 appel 1 + R4 appel 2 (l'aiguillage du kind)
+				expect(demanderMock).toHaveBeenCalledTimes(3)
+
+				// Vérifier que l'appel 2 reçoit un rôle 'acteur' (pas 'narrateur')
+				const dernierAppel = demanderMock.mock.calls[2]?.[1]
+				expect(dernierAppel?.role).toBe('acteur')
+			})
+		})
 	})
 })

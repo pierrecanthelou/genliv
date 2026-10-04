@@ -10,6 +10,7 @@ import {
 	type CiblePlan,
 	type CibleRelations,
 	type CibleRepliques,
+	type EchecCopilote,
 } from './CopiloteService'
 import {
 	assemblerActeur,
@@ -23,13 +24,22 @@ import {
 	BUDGET_CARACTERES_NARRATEUR,
 } from './copilote/contexte'
 import { GABARIT_SORTIE } from './copilote/schemaSortie'
-import type { CibleActeur, CibleArbitre, CibleNarrateur } from './copilote/types'
+import type {
+	CibleActeur,
+	CibleActeurResistible,
+	CibleArbitre,
+	CibleNarrateur,
+	ReponseActeur,
+	ResistanceActeur,
+} from './copilote/types'
+import { issueDuJet } from './dossier/arbitre'
 import { MARQUEUR_A_ECRIRE } from './dossier/amorce'
 import { analyserSaisie, executerCommande } from './dossier/commandes'
-import { consignerNarration } from './dossier/recit'
-import { ouvrirSession, type EtatSession } from './dossier/session'
+import { consignerNarration, consignerReponseActeur } from './dossier/recit'
+import { consignerJet, fixerHeros, ouvrirSession, type EtatSession } from './dossier/session'
 import { INTENSITE_INITIALE, PORTEE_INITIALE, type Dossier } from './dossier/types'
 import type { PersistenceService } from './PersistenceService'
+import type { HeroState } from '../player/types'
 
 const ROLE = 'personnage-prose'
 const URL_WORKER = 'https://genliv.example.workers.dev'
@@ -3042,6 +3052,434 @@ describe('CopiloteService — le dixieme role, acteur', () => {
 			const reponse = await createCopiloteService(reglages()).demander(dossier, cible(session))
 
 			expect(reponse).toEqual({ replique: REPLIQUE, indices_reveles: [], delta_confiance: 0 })
+		})
+	})
+
+	/**
+	 * LA PORTE `jet` (n° 12 `moteur-acteurs`, it4, lot `contrat` — `docs/REGLES-DU-JEU.md` § 6,
+	 * « La porte `jet` ») — DEUX APPELS, TROIS ISSUES, DEUX TYPES DE CIBLE.
+	 *
+	 * Harek porte `indice.pas-dans-la-cendre` gardé par le seul `jet` IN/TC1 (fixture déjà
+	 * livrée). LES ISSUES SONT FORCÉES PAR LE HÉROS, jamais par la graine : TC1 réussit
+	 * TOUJOURS contre IN 9 et échoue TOUJOURS contre IN 0. Les sessions sont produites par
+	 * le moteur (`PARLER`, puis `consignerJet`), jamais forgées.
+	 */
+	describe('CopiloteService — dixieme role, la porte jet : resiste (appel 1) puis le rang du (appel 2) — it4', () => {
+		const HAREK = 'pnj.harek-le-forgeron'
+		const INDICE_EN_JEU = 'indice.pas-dans-la-cendre'
+		const ENJEU_REUSSITE = 'baisser enfin la garde'
+		const ENJEU_ECHEC = 'se refermer davantage'
+		const RESISTE = { resiste: { enjeu_reussite: ENJEU_REUSSITE, enjeu_echec: ENJEU_ECHEC } }
+
+		function heros(intelligence: number): HeroState {
+			return {
+				name: 'Aldric le Temeraire',
+				caracs: { FO: 7, AG: 6, DX: 5, EN: 8, IN: intelligence, IG: 4, SE: 10, CA: 3 },
+				pvMax: 21,
+				pv: 14,
+				peMax: 8,
+				pe: 8,
+				mcBonus: 0,
+				xp: 12,
+			}
+		}
+
+		/** `PARLER harek` joué par le produit, avec un héros de `IN` donné — l'état de l'appel 1. */
+		function apresParler(dossier: Dossier, intelligence = 9): EtatSession {
+			const analyse = analyserSaisie(`PARLER ${HAREK}`)
+			if (!analyse.ok) throw new Error(`saisie refusée : ${analyse.message}`)
+			const resultat = executerCommande(dossier, fixerHeros(ouverte(dossier), heros(intelligence)), analyse.commande)
+			if (!resultat.ok) throw new Error(`commande refusée : ${resultat.message}`)
+			return resultat.session
+		}
+
+		/** L'état de l'appel 2 : le jet IN/TC1 que la `CarteJet` a consigné au clic « Lancer ». */
+		function apresLeJet(dossier: Dossier, intelligence: number): EtatSession {
+			const session = apresParler(dossier, intelligence)
+			return consignerJet(session, session.horloge.tour, { carac: 'IN', tc: 'TC1' })
+		}
+
+		function resistible(session: EtatSession, personnageId = HAREK): CibleActeurResistible {
+			return { role: 'acteur', personnageId, saisie: 'bonjour', session, peutResister: true }
+		}
+
+		function appel2(session: EtatSession): CibleActeur {
+			return {
+				role: 'acteur',
+				personnageId: HAREK,
+				saisie: 'bonjour',
+				session,
+				epreuve: { enjeu_reussite: ENJEU_REUSSITE, enjeu_echec: ENJEU_ECHEC },
+			}
+		}
+
+		const repliqueDue = (rang = 'S1'): Record<string, unknown> => ({
+			replique: REPLIQUE,
+			indices_reveles: [rang],
+			delta_confiance: 0,
+		})
+
+		it('APPEL 1 — resiste est rendu avec les enjeux de R4, carac/tc du SAVOIR choisi par le moteur ; UN seul appel, corps {role, contexte}', async () => {
+			const dossier = dossierDeReference()
+			const session = apresParler(dossier)
+			fetchMock.mockResolvedValue(reponseWorker(RESISTE))
+
+			const reponse = await createCopiloteService(reglages()).demander(dossier, resistible(session))
+
+			expect(fetchMock).toHaveBeenCalledTimes(1)
+			expect(reponse).toEqual({
+				resiste: { carac: 'IN', tc: 'TC1', enjeu_reussite: ENJEU_REUSSITE, enjeu_echec: ENJEU_ECHEC },
+			})
+			expect('statut' in reponse).toBe(false)
+			// Le corps n'est QUE {role, contexte} — et le contexte porte le signal sans contenu.
+			const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+			expect(url).toBe(`${URL_WORKER}/ia/${ROLE_ACTEUR}`)
+			const contexte = assemblerActeur(dossier, session, HAREK, 'bonjour', { resistible: true })
+			if (!contexte.ok) throw new Error(`contexte refusé : ${contexte.motif}`)
+			expect(JSON.parse(String(init.body))).toEqual({ role: ROLE_ACTEUR, contexte: contexte.texte })
+			expect(contexte.texte).toContain('CE QUE TU GARDES\nTu gardes un secret.')
+		})
+
+		it('APPEL 1 — carac/tc ne viennent JAMAIS du modele : une cle carac ou tc dans resiste est refusee, et la fiche decide', async () => {
+			const dossier = dossierDeReference()
+			const session = apresParler(dossier)
+			const service = createCopiloteService(reglages())
+
+			// Le modele tente d'imposer son propre couple : refus `schema`, rejeu, silence.
+			fetchMock.mockResolvedValue(reponseWorker({ resiste: { ...RESISTE.resiste, carac: 'FO', tc: 'TC4' } }))
+			expect(await service.demander(dossier, resistible(session))).toEqual({ statut: 'illisible', motif: 'schema' })
+			expect(fetchMock).toHaveBeenCalledTimes(2)
+
+			// Le meme PNJ, une fiche DIFFERENTE (premier savoir au jet FO/TC2) : le couple rendu SUIT LA FICHE.
+			fetchMock.mockReset()
+			fetchMock.mockResolvedValue(reponseWorker(RESISTE))
+			const originaux = dossier.monde.personnages.find((personnage) => personnage.id === HAREK)?.savoirs ?? []
+			const modifie: Dossier = {
+				...dossier,
+				monde: {
+					...dossier.monde,
+					personnages: dossier.monde.personnages.map((personnage) =>
+						personnage.id === HAREK
+							? {
+									...personnage,
+									savoirs: [
+										{
+											indice_id: 'indice.sceau-brise-a-nouveau',
+											certitude: 'sait' as const,
+											revele_si: { jet: { carac: 'FO' as const, tc: 'TC2' as const } },
+										},
+										...originaux,
+									],
+								}
+							: personnage,
+					),
+				},
+			}
+			const reponse = await service.demander(modifie, resistible(session))
+			expect(reponse).toEqual({
+				resiste: { carac: 'FO', tc: 'TC2', enjeu_reussite: ENJEU_REUSSITE, enjeu_echec: ENJEU_ECHEC },
+			})
+		})
+
+		it('APPEL 1 — une reponse ordinaire (forme A) reste legale sur une cible resistible : R4 choisit de repondre', async () => {
+			const dossier = dossierDeReference()
+			const session = apresParler(dossier)
+			fetchMock.mockResolvedValue(reponseWorker(conforme()))
+
+			const reponse = await createCopiloteService(reglages()).demander(dossier, resistible(session))
+
+			expect(reponse).toEqual({ replique: REPLIQUE, indices_reveles: [], delta_confiance: 0 })
+			expect('resiste' in reponse).toBe(false)
+		})
+
+		it('APPEL 1 — resiste est ILLEGAL sans savoir en jeu : sans heros, PNJ sans savoir, ou jet deja gagne — rejeu puis silence', async () => {
+			const dossier = dossierDeReference()
+			const service = createCopiloteService(reglages())
+			fetchMock.mockResolvedValue(reponseWorker(RESISTE))
+
+			const sansHeros = ouverte(dossier) // aucun heros : aucun jet ne peut se resoudre
+			const marche: EtatSession = {
+				...apresParler(dossier),
+				monde: { ...apresParler(dossier).monde, lieu_courant: 'lieu.marche-des-cendres' },
+			}
+			const dejaGagne = apresLeJet(dossier, 9) // la reussite de Harek est acquise : plus rien n'est en jeu
+			const cas: ReadonlyArray<readonly [string, CibleActeurResistible]> = [
+				['sans heros', resistible(sansHeros)],
+				['PNJ sans savoir', resistible(marche, 'pnj.corvin-le-marchand')],
+				['jet deja gagne', resistible(dejaGagne)],
+			]
+			for (const [nom, cible] of cas) {
+				fetchMock.mockClear()
+				const reponse = await service.demander(dossier, cible)
+				expect(`${nom} → ${JSON.stringify(reponse)}`).toBe(
+					`${nom} → ${JSON.stringify({ statut: 'illisible', motif: 'schema' })}`,
+				)
+				expect(`${nom} → ${fetchMock.mock.calls.length} appels`).toBe(`${nom} → 2 appels`) // un rejeu, jamais plus
+			}
+		})
+
+		it('APPEL 1 — enjeux invalides : rejeu UNE fois puis silence, motif du SECOND echec, jamais de carte (critere #7)', async () => {
+			const dossier = dossierDeReference()
+			const session = apresParler(dossier)
+			const service = createCopiloteService(reglages())
+			const juste = 'v'.repeat(80)
+			const cas: ReadonlyArray<readonly [string, unknown, string]> = [
+				['marqueur', resisteAvec(MARQUEUR_A_ECRIRE, ENJEU_ECHEC), 'marqueur'],
+				['identifiant', resisteAvec('prendre objet.sceau-de-cendre', ENJEU_ECHEC), 'identifiant'],
+				['chiffre', resisteAvec(ENJEU_REUSSITE, 'perdre 2 points'), 'identifiant'],
+				['plus de 80 caracteres', resisteAvec(`${juste}v`, ENJEU_ECHEC), 'schema'],
+				['enjeux identiques', resisteAvec('tenir bon', 'tenir bon'), 'schema'],
+				['enjeu manquant', { resiste: { enjeu_reussite: ENJEU_REUSSITE } }, 'schema'],
+				['enjeu vide', resisteAvec('  ', ENJEU_ECHEC), 'vide'],
+			]
+			for (const [nom, brut, motif] of cas) {
+				fetchMock.mockReset()
+				fetchMock.mockResolvedValue(reponseWorker(brut))
+				const reponse = await service.demander(dossier, resistible(session))
+				expect(`${nom} → ${JSON.stringify(reponse)}`).toBe(`${nom} → ${JSON.stringify({ statut: 'illisible', motif })}`)
+				expect(`${nom} → ${fetchMock.mock.calls.length} appels`).toBe(`${nom} → 2 appels`)
+			}
+
+			function resisteAvec(reussite: string, echec: string): unknown {
+				return { resiste: { enjeu_reussite: reussite, enjeu_echec: echec } }
+			}
+		})
+
+		it('APPEL 1 — un echec RESEAU ou une absence de configuration ne rendent jamais resiste : un seul appel, ou aucun', async () => {
+			const dossier = dossierDeReference()
+			const session = apresParler(dossier)
+
+			fetchMock.mockResolvedValueOnce(reponseWorker({}, 503))
+			expect(await createCopiloteService(reglages()).demander(dossier, resistible(session))).toEqual({
+				statut: 'indisponible',
+				raison: 'non-configure',
+			})
+			expect(fetchMock).toHaveBeenCalledTimes(1)
+
+			fetchMock.mockClear()
+			expect(await createCopiloteService(reglages(null, null)).demander(dossier, resistible(session))).toEqual({
+				statut: 'indisponible',
+				raison: 'non-configure',
+			})
+			expect(fetchMock).not.toHaveBeenCalled()
+		})
+
+		it('APPEL 2 (critere #6) — resiste est refuse schema sur une CibleActeur : la chaine R4 → jet → R4 → jet est fermee', async () => {
+			const dossier = dossierDeReference()
+			const session = apresLeJet(dossier, 9)
+			fetchMock.mockResolvedValue(reponseWorker(RESISTE))
+
+			const reponse = await createCopiloteService(reglages()).demander(dossier, appel2(session))
+
+			expect(reponse).toEqual({ statut: 'illisible', motif: 'schema' })
+			expect(fetchMock).toHaveBeenCalledTimes(2) // un rejeu, puis silence
+			// Et sur une cible ORDINAIRE (jamais resistible, jamais d'epreuve) : meme refus.
+			fetchMock.mockClear()
+			const ordinaire = await createCopiloteService(reglages()).demander(dossier, cible(apresParler(dossier)))
+			expect(ordinaire).toEqual({ statut: 'illisible', motif: 'schema' })
+		})
+
+		it('APPEL 2 (critere #5, KR-283) — apres un jet REUSSI, une replique SANS le rang du est rejetee rang-inconnu : rejeu puis silence', async () => {
+			const dossier = dossierDeReference()
+			const session = apresLeJet(dossier, 9)
+			const contexte = assemblerActeur(dossier, session, HAREK, 'bonjour', {
+				epreuve: { enjeu_reussite: ENJEU_REUSSITE, enjeu_echec: ENJEU_ECHEC },
+			})
+			if (!contexte.ok) throw new Error(`contexte refusé : ${contexte.motif}`)
+			expect(contexte.rangDu).toBe('S1')
+			const service = createCopiloteService(reglages())
+
+			// Franchise : indices_reveles VIDE — refuse, le savoir est dû.
+			fetchMock.mockResolvedValue(reponseWorker(conforme()))
+			expect(await service.demander(dossier, appel2(session))).toEqual({ statut: 'illisible', motif: 'rang-inconnu' })
+			expect(fetchMock).toHaveBeenCalledTimes(2)
+
+			// Un rang INVENTE : meme refus.
+			fetchMock.mockReset()
+			fetchMock.mockResolvedValue(reponseWorker(repliqueDue('S9')))
+			expect(await service.demander(dossier, appel2(session))).toEqual({ statut: 'illisible', motif: 'rang-inconnu' })
+			expect(fetchMock).toHaveBeenCalledTimes(2)
+		})
+
+		it('APPEL 2 — la replique qui porte le rang du est rendue, le rang RE-RESOLU en identifiant ; un premier essai fautif se rejoue une fois', async () => {
+			const dossier = dossierDeReference()
+			const session = apresLeJet(dossier, 9)
+			fetchMock
+				.mockResolvedValueOnce(reponseWorker(conforme())) // sans le rang du : refuse
+				.mockResolvedValueOnce(reponseWorker(repliqueDue('S1')))
+
+			const reponse = await createCopiloteService(reglages()).demander(dossier, appel2(session))
+
+			expect(fetchMock).toHaveBeenCalledTimes(2)
+			expect(reponse).toEqual({ replique: REPLIQUE, indices_reveles: [INDICE_EN_JEU], delta_confiance: 0 })
+			expect('resiste' in reponse).toBe(false)
+			// Meme corps aux deux essais : le contexte n'est JAMAIS re-assemble.
+			const [, un] = fetchMock.mock.calls[0] as [string, RequestInit]
+			const [, deux] = fetchMock.mock.calls[1] as [string, RequestInit]
+			expect(JSON.parse(String(un.body))).toEqual(JSON.parse(String(deux.body)))
+		})
+
+		it('APPEL 2 — jet MANQUE : aucun rang du ; la franchise (liste vide) est un succes, et tout rang est refuse', async () => {
+			const dossier = dossierDeReference()
+			const session = apresLeJet(dossier, 0)
+			const service = createCopiloteService(reglages())
+
+			fetchMock.mockResolvedValue(reponseWorker(conforme()))
+			expect(await service.demander(dossier, appel2(session))).toEqual({
+				replique: REPLIQUE,
+				indices_reveles: [],
+				delta_confiance: 0,
+			})
+			// Le savoir reste sous epreuve : meme `S1`, jamais offert, est un rang INVENTE.
+			fetchMock.mockReset()
+			fetchMock.mockResolvedValue(reponseWorker(repliqueDue('S1')))
+			expect(await service.demander(dossier, appel2(session))).toEqual({ statut: 'illisible', motif: 'rang-inconnu' })
+		})
+
+		it('CHAINAGE COMPLET — resiste → consignerJet → appel 2 → consignerReponseActeur : le savoir est confie, a_dit et indices_connus ecrits, la reussite survit', async () => {
+			const dossier = dossierDeReference()
+			const service = createCopiloteService(reglages())
+
+			// APPEL 1 : R4 resiste. Rien n'est ecrit — ni jet, ni XP, ni confiance, ni recit.
+			const s1 = apresParler(dossier)
+			fetchMock.mockResolvedValueOnce(reponseWorker(RESISTE))
+			const carte = await service.demander(dossier, resistible(s1))
+			if (!('resiste' in carte)) throw new Error('R4 devait resister')
+			expect(carte.resiste).toEqual({
+				carac: 'IN',
+				tc: 'TC1',
+				enjeu_reussite: ENJEU_REUSSITE,
+				enjeu_echec: ENJEU_ECHEC,
+			})
+			expect(s1.journal[s1.journal.length - 1].jet).toBeUndefined()
+			expect(s1.journal[s1.journal.length - 1].recit).toBeUndefined()
+
+			// LE JOUEUR LANCE LE DE : le couple de la CARTE est consigne (lot `feature`).
+			const s2 = consignerJet(s1, s1.horloge.tour, { carac: carte.resiste.carac, tc: carte.resiste.tc })
+			expect(issueDuJet(s2, s2.horloge.tour)?.success).toBe(true)
+
+			// APPEL 2 : une CibleActeur (jamais resistible), avec les enjeux de la carte.
+			fetchMock.mockResolvedValueOnce(reponseWorker(repliqueDue('S1')))
+			const reponse = await service.demander(dossier, {
+				role: 'acteur',
+				personnageId: HAREK,
+				saisie: 'bonjour',
+				session: s2,
+				epreuve: carte.resiste,
+			})
+			if ('statut' in reponse || 'resiste' in reponse) throw new Error('la replique due etait attendue')
+			expect(reponse.indices_reveles).toEqual([INDICE_EN_JEU])
+
+			// ECRITURE : recit + reveler_indice + a_dit sur la MEME entree, par la SEULE porte.
+			const s3 = consignerReponseActeur(s2, s2.horloge.tour, dossier, {
+				recit: reponse.replique,
+				personnageId: HAREK,
+				indicesReveles: reponse.indices_reveles,
+				deltaConfiance: reponse.delta_confiance,
+			})
+			const entree = s3.journal[s3.journal.length - 1]
+			expect(entree.recit).toBe(REPLIQUE)
+			expect(entree.jet).toEqual({ carac: 'IN', tc: 'TC1' })
+			expect(s3.monde.pnj[HAREK]?.a_dit).toEqual([INDICE_EN_JEU])
+			expect(s3.monde.indices_connus).toContain(INDICE_EN_JEU)
+			// Le CORPS de l'appel 2 portait la ligne d'issue, ecrite par le code.
+			const [, init2] = fetchMock.mock.calls[1] as [string, RequestInit]
+			expect((JSON.parse(String(init2.body)) as { contexte: string }).contexte).toContain(
+				`À L'INSTANT\nIl cède. — ${ENJEU_REUSSITE}`,
+			)
+		})
+
+		it('SECOND R4 INVALIDE (cas limite) : silence — le jet reste consigne, la reussite reste acquise, le du SURVIT au parler suivant', async () => {
+			const dossier = dossierDeReference()
+			const service = createCopiloteService(reglages())
+			const s1 = apresLeJet(dossier, 9)
+
+			// L'appel 2 echoue (rang du absent, deux fois) : AUCUN texte de repli, EchecCopilote seul.
+			fetchMock.mockResolvedValue(reponseWorker(conforme()))
+			expect(await service.demander(dossier, appel2(s1))).toEqual({ statut: 'illisible', motif: 'rang-inconnu' })
+
+			// Rien n'a ete ecrit : la session est celle d'avant l'appel — jet intact, aucun recit.
+			expect(s1.journal[s1.journal.length - 1].jet).toEqual({ carac: 'IN', tc: 'TC1' })
+			expect(s1.journal[s1.journal.length - 1].recit).toBeUndefined()
+
+			// Le `parler` SUIVANT : le savoir est offert sans nouveau jet, SANS marque du — la reussite
+			// derivee du journal le rouvre, et un appel ORDINAIRE le confie.
+			const analyse = analyserSaisie(`PARLER ${HAREK}`)
+			if (!analyse.ok) throw new Error('saisie refusée')
+			const suivant = executerCommande(
+				dossier,
+				{ ...s1, journal: s1.journal.map((e) => ({ ...e, recit: e.recit ?? 'x' })) },
+				analyse.commande,
+			)
+			if (!suivant.ok) throw new Error(`commande refusée : ${suivant.message}`)
+			fetchMock.mockReset()
+			fetchMock.mockResolvedValue(reponseWorker(repliqueDue('S1')))
+			const reponse = await service.demander(dossier, cible(suivant.session))
+			expect(reponse).toEqual({ replique: REPLIQUE, indices_reveles: [INDICE_EN_JEU], delta_confiance: 0 })
+		})
+
+		it('TYPES (opt-in sur les DEUX cibles) : une CibleActeur ne peut JAMAIS produire ResistanceActeur — le compilateur le refuse', async () => {
+			const dossier = dossierDeReference()
+			const session = apresParler(dossier)
+			fetchMock.mockResolvedValue(reponseWorker(RESISTE))
+			const service = createCopiloteService(reglages())
+
+			// 1 — la surcharge d'une cible ORDINAIRE rend `ReponseActeur | EchecCopilote` : cette
+			//     affectation compile ssi `ResistanceActeur` n'en fait PAS partie.
+			const ordinaire: ReponseActeur | EchecCopilote = await service.demander(dossier, cible(session))
+			expect(ordinaire).toBeDefined()
+
+			// 2 — la surcharge d'une cible RESISTIBLE, elle, l'admet.
+			const permise: ReponseActeur | ResistanceActeur | EchecCopilote = await service.demander(
+				dossier,
+				resistible(session),
+			)
+			expect(permise).toBeDefined()
+
+			// 3 — ... et l'affectation de cette union LARGE a l'union ETROITE ne compile pas.
+			// @ts-expect-error — ResistanceActeur n'est pas assignable a ReponseActeur | EchecCopilote
+			const etroite: ReponseActeur | EchecCopilote = permise
+			expect(etroite).toBeDefined()
+
+			// 4 — une CibleActeur n'est PAS une CibleActeurResistible (et inversement) : `peutResister`
+			//     (`true` contre `false | undefined`) est le discriminant.
+			// @ts-expect-error — peutResister est absent : une CibleActeur ne peut pas viser la surcharge resistible
+			const pasResistible: CibleActeurResistible = cible(session)
+			expect(pasResistible).toBeDefined()
+			// @ts-expect-error — peutResister vaut true : une CibleActeurResistible n'est pas une CibleActeur
+			const pasOrdinaire: CibleActeur = resistible(session)
+			expect(pasOrdinaire).toBeDefined()
+
+			// 5 — `peutResister: false` reste LEGAL sur une CibleActeur, et ne donne pas acces a la resistance.
+			const explicite: ReponseActeur | EchecCopilote = await service.demander(dossier, {
+				...cible(session),
+				peutResister: false,
+			})
+			expect(explicite).toBeDefined()
+
+			// 6 — un appel « resistible ET resolu » n'est pas representable : `epreuve` est `never`
+			//     sur une CibleActeurResistible. L'erreur est portee par la SEULE ligne d'affectation.
+			const avecEpreuve = { ...resistible(session), epreuve: { enjeu_reussite: 'a', enjeu_echec: 'b' } }
+			// @ts-expect-error — epreuve est `never` sur une CibleActeurResistible
+			const ambigue: CibleActeurResistible = avecEpreuve
+			expect(ambigue).toBeDefined()
+		})
+
+		it('la ONZIEME surcharge est ecrite aux DEUX sites, et la garde never ferme toujours l union a DIX etiquettes', () => {
+			const source = fs.readFileSync(path.join(__dirname, 'CopiloteService.ts'), 'utf8')
+			// ⚠ DEUX SITES — l'interface publique ET l'implémentation, chacune sur plusieurs lignes (Prettier).
+			expect(source.match(/\n\t+cible: CibleActeurResistible,\n/g) ?? []).toHaveLength(2)
+			expect(source).toContain('Promise<ReponseActeur | ResistanceActeur | EchecCopilote>')
+			// La surcharge ORDINAIRE n'a PAS bouge : `ReponseActeur | EchecCopilote`, deux sites.
+			expect(
+				source.match(/demander\(dossier: Dossier, cible: CibleActeur, signal\?: AbortSignal\)/g) ?? [],
+			).toHaveLength(2)
+			// Un SEUL rôle `acteur` au dispatch : la onzième surcharge n'ajoute aucune etiquette.
+			const debut = source.indexOf('\t\tswitch (cible.role) {')
+			const dispatch = source.slice(debut, source.indexOf('\n\treturn {', debut))
+			expect(dispatch.match(/\n\t\t\tcase '[a-z-]+':/g) ?? []).toHaveLength(10)
+			expect(dispatch).toContain("case 'acteur':")
+			expect(dispatch).toContain('const _exhaustif: never = cible')
 		})
 	})
 })

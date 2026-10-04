@@ -47,9 +47,11 @@ import {
 } from '../src/brain/copilote/contexte'
 import {
 	CLE_CONDENSE,
+	CLES_ENJEUX,
 	CLES_EPREUVE,
 	CLES_SORTIE_ACTEUR,
 	CLES_SORTIE_NARRATEUR,
+	CLES_SORTIE_RESISTE,
 	FAITS_PAR_PAS_MAX,
 	FICHES_PROPOSEES_MAX,
 	RELATIONS_PROPOSEES_MAX,
@@ -68,8 +70,10 @@ import type { CloudSettingsService } from '../src/brain/CloudSettingsService'
 import { analyserSaisie, executerCommande } from '../src/brain/dossier/commandes'
 import { CADENCE } from '../src/brain/dossier/memoire'
 import { CURSEURS } from '../src/brain/dossier/curseurs'
-import { ouvrirSession, type EtatSession } from '../src/brain/dossier/session'
+import { consignerJet, fixerHeros, ouvrirSession, type EtatSession } from '../src/brain/dossier/session'
 import type { Dossier, Personnage } from '../src/brain/dossier/types'
+import type { CibleActeur, CibleActeurResistible } from '../src/brain/copilote/types'
+import type { HeroState } from '../src/player/types'
 
 const ROLE_PROSE = 'personnage-prose'
 const ROLE_DETENTEURS = 'indice-detenteurs'
@@ -1402,10 +1406,43 @@ describe('acteur (mode jeu) — hors parite RoleCopilote, mais sous le plafond e
 		expect(INVITES[ROLE_ACTEUR].systeme).toContain(String(gabarit))
 	})
 
-	it('les DEUX formes du gabarit portent EXACTEMENT CLES_SORTIE_ACTEUR — KR-236', () => {
+	it('les TROIS formes du gabarit (it4) : deux portent EXACTEMENT CLES_SORTIE_ACTEUR, la troisieme EXACTEMENT CLES_SORTIE_RESISTE — KR-236', () => {
 		const formes = gabaritsDeLActeur()
-		expect(formes).toHaveLength(2)
-		for (const forme of formes) expect(Object.keys(forme)).toEqual([...CLES_SORTIE_ACTEUR])
+		expect(formes).toHaveLength(3)
+		// Les DEUX formes de la replique (avec un rang, sans rang) : les trois cles de la forme A.
+		const repliques = formes.filter((forme) => 'replique' in forme)
+		expect(repliques).toHaveLength(2)
+		for (const forme of repliques) expect(Object.keys(forme)).toEqual([...CLES_SORTIE_ACTEUR])
+		// La TROISIEME : la cle unique de la forme B, et ses DEUX enjeux — ni `carac`, ni `tc`, ni savoir.
+		const resistes = formes.filter((forme) => !('replique' in forme))
+		expect(resistes).toHaveLength(1)
+		expect(Object.keys(resistes[0])).toEqual([...CLES_SORTIE_RESISTE])
+		expect(Object.keys(resistes[0].resiste as Record<string, unknown>)).toEqual([...CLES_ENJEUX])
+		// Et AUCUNE cle commune entre les deux familles : une forme « mixte » ne peut pas etre enseignee.
+		expect(CLES_SORTIE_ACTEUR.filter((cle) => (CLES_SORTIE_RESISTE as readonly string[]).includes(cle))).toEqual([])
+	})
+
+	it('la forme B du gabarit traverse validerActeur reellement SOUS resistePermise, et jamais sans (it4)', () => {
+		const formes = gabaritsDeLActeur()
+		const resiste = formes.find((forme) => !('replique' in forme))
+		expect(resiste).toBeDefined()
+		const dossier = JSON.parse(
+			fs.readFileSync(path.join(RACINE, 'src', 'brain', 'dossier', '__fixtures__', 'dossier-reference.json'), 'utf8'),
+		) as Dossier
+		// LES POINTS DE SUSPENSION DU GABARIT SONT DES PLACEHOLDERS, jamais une valeur legale : les deux
+		// enjeux « … » sont IDENTIQUES, donc refuses (`validerEnjeux`, predicat 9). On les remplace, comme
+		// pour la replique des deux autres formes — le test porte sur la FORME, pas sur la prose.
+		const conforme = { resiste: { enjeu_reussite: 'baisser enfin la garde', enjeu_echec: 'se refermer davantage' } }
+		expect(Object.keys(conforme.resiste)).toEqual(Object.keys(resiste?.resiste as Record<string, unknown>))
+
+		expect(validerActeur(conforme, dossier, new Set(), { resistePermise: true })).toEqual({
+			ok: true,
+			sortie: conforme,
+		})
+		// Discriminant : sans la permission, la MEME sortie est refusee.
+		expect(validerActeur(conforme, dossier, new Set())).toEqual({ ok: false, motif: 'schema' })
+		// Et le placeholder brut du gabarit n'est PAS une sortie legale : il est refuse, jamais recopie.
+		expect(validerActeur(resiste, dossier, new Set(), { resistePermise: true }).ok).toBe(false)
 	})
 
 	it('la forme VIDE du gabarit traverse validerActeur reellement, sans identifiant ni chiffre', () => {
@@ -1520,6 +1557,178 @@ describe('acteur (mode jeu) — hors parite RoleCopilote, mais sous le plafond e
 		} finally {
 			globalThis.fetch = avant
 		}
+	})
+
+	/**
+	 * LES TEMOINS EXECUTABLES DE LA PORTE `jet` (n° 12 `moteur-acteurs`, it4) : le worker REEL,
+	 * un amont bouchonne qui rend `sortie`, puis le service — sur Harek (`pas-dans-la-cendre`,
+	 * jet IN/TC1, fixture deja livree). LES ISSUES SONT FORCEES PAR LE HEROS (IN 9 reussit TOUJOURS
+	 * un TC1, IN 0 l'echoue TOUJOURS), jamais par la graine.
+	 */
+	async function appelerParLeWorkerReel(
+		dossier: Dossier,
+		cible: CibleActeur | CibleActeurResistible,
+		sortie: unknown,
+	): Promise<{ resultat: unknown; corps: { role: string; contexte: string }; invite: string }> {
+		const URL_WORKER = 'https://worker.invalid'
+		const URL_AMONT = 'https://amont.invalid/messages'
+		const reglages: CloudSettingsService = {
+			getWorkerUrl: () => URL_WORKER,
+			setWorkerUrl: () => undefined,
+			getSyncKey: () => 'une-cle-de-synchronisation',
+			setSyncKey: () => undefined,
+			isConfigured: () => true,
+		}
+		let corps: { role: string; contexte: string } | null = null
+		let invite = ''
+		const avant = globalThis.fetch
+		globalThis.fetch = (async (adresseBrute: RequestInfo | URL, init?: RequestInit) => {
+			const adresse = String(adresseBrute)
+			if (adresse.startsWith(URL_WORKER)) {
+				corps = JSON.parse(String(init?.body)) as { role: string; contexte: string }
+				return worker.fetch(new Request(adresse, init), {
+					GENLIV_KV: { get: async () => null, put: async () => undefined, delete: async () => undefined },
+					IA_API_KEY: 'secret-de-test',
+					IA_BASE_URL: URL_AMONT,
+					IA_MODEL: 'un-modele',
+				} as unknown as Parameters<typeof worker.fetch>[1])
+			}
+			invite = (JSON.parse(String(init?.body)) as { system: string }).system
+			return {
+				ok: true,
+				status: 200,
+				json: async () => ({ content: [{ type: 'text', text: JSON.stringify(sortie) }] }),
+			} as unknown as Response
+		}) as unknown as typeof fetch
+		try {
+			// Le dispatch statique choisit la surcharge ; ici la cible est une UNION des deux, que
+			// l'implementation accepte, mais qu'aucune surcharge publique ne nomme (voir l'interface).
+			const service = createCopiloteService(reglages)
+			const resultat =
+				cible.peutResister === true ? await service.demander(dossier, cible) : await service.demander(dossier, cible)
+			if (corps === null) throw new Error('le worker n a recu aucun corps')
+			return { resultat, corps, invite }
+		} finally {
+			globalThis.fetch = avant
+		}
+	}
+
+	function heros(intelligence: number): HeroState {
+		return {
+			name: 'Aldric le Temeraire',
+			caracs: { FO: 7, AG: 6, DX: 5, EN: 8, IN: intelligence, IG: 4, SE: 10, CA: 3 },
+			pvMax: 21,
+			pv: 14,
+			peMax: 8,
+			pe: 8,
+			mcBonus: 0,
+			xp: 12,
+		}
+	}
+
+	function harekApresParler(dossier: Dossier, intelligence: number): EtatSession {
+		const ouverture = ouvrirSession(dossier, { graine_alea: 424242 })
+		if (!ouverture.ok) throw new Error(`ouverture refusée : ${ouverture.refus}`)
+		const analyse = analyserSaisie('PARLER pnj.harek-le-forgeron')
+		if (!analyse.ok) throw new Error(`saisie refusée : ${analyse.message}`)
+		const resultat = executerCommande(dossier, fixerHeros(ouverture.session, heros(intelligence)), analyse.commande)
+		if (!resultat.ok) throw new Error(`commande refusée : ${resultat.message}`)
+		return resultat.session
+	}
+
+	function dossierDeReference(): Dossier {
+		return JSON.parse(
+			fs.readFileSync(path.join(RACINE, 'src', 'brain', 'dossier', '__fixtures__', 'dossier-reference.json'), 'utf8'),
+		) as Dossier
+	}
+
+	it('le temoin executable de resiste (appel 1) : le worker reel, puis le service rend la carte, carac/tc lus dans la fiche', async () => {
+		const dossier = dossierDeReference()
+		const session = harekApresParler(dossier, 9)
+		const ENJEUX = { enjeu_reussite: 'baisser enfin la garde', enjeu_echec: 'se refermer davantage' }
+
+		const { resultat, corps, invite } = await appelerParLeWorkerReel(
+			dossier,
+			{ role: ROLE_ACTEUR, personnageId: 'pnj.harek-le-forgeron', saisie: 'bonjour', session, peutResister: true },
+			{ resiste: ENJEUX },
+		)
+
+		expect(resultat).toEqual({ resiste: { carac: 'IN', tc: 'TC1', ...ENJEUX } })
+		// Le CONTEXTE ENVOYE porte le signal, sans contenu ; l'INVITE enseigne les trois formes.
+		expect(corps.role).toBe('acteur')
+		expect(corps.contexte).toContain('CE QUE TU GARDES\nTu gardes un secret.')
+		expect(invite).toContain(String(extraireGabaritDeJeu(ROLE_ACTEUR)))
+		expect(invite).toContain('"resiste": {"enjeu_reussite": "…", "enjeu_echec": "…"}')
+		// Ni l'identifiant du PNJ ni celui du savoir ne partent sur le fil.
+		for (const identifiant of ['pnj.harek-le-forgeron', 'indice.pas-dans-la-cendre']) {
+			expect(`${identifiant} → ${corps.contexte.includes(identifiant) || invite.includes(identifiant)}`).toBe(
+				`${identifiant} → false`,
+			)
+		}
+	})
+
+	it('le temoin executable du rang du (appel 2) : le worker reel porte la ligne d issue, le service exige puis re-resout le rang', async () => {
+		const dossier = dossierDeReference()
+		const session = harekApresParler(dossier, 9)
+		const apresLeJet = consignerJet(session, session.horloge.tour, { carac: 'IN', tc: 'TC1' })
+		const REPLIQUE = "L'enclume ne chôme jamais, même quand le ciel s'assombrit."
+		const cible = {
+			role: ROLE_ACTEUR,
+			personnageId: 'pnj.harek-le-forgeron',
+			saisie: 'bonjour',
+			session: apresLeJet,
+			epreuve: { enjeu_reussite: 'baisser enfin la garde', enjeu_echec: 'se refermer davantage' },
+		}
+
+		const { resultat, corps } = await appelerParLeWorkerReel(dossier, cible, {
+			replique: REPLIQUE,
+			indices_reveles: ['S1'],
+			delta_confiance: 0,
+		})
+
+		expect(resultat).toEqual({ replique: REPLIQUE, indices_reveles: ['indice.pas-dans-la-cendre'], delta_confiance: 0 })
+		expect(corps.contexte).toContain("À L'INSTANT\nIl cède. — baisser enfin la garde")
+		expect(corps.contexte).not.toContain('CE QUE TU GARDES')
+		// Sans le rang du, la MEME replique est refusee : l'amont bouchonne rend toujours la meme sortie.
+		const sansLeDu = await appelerParLeWorkerReel(dossier, cible, {
+			replique: REPLIQUE,
+			indices_reveles: [],
+			delta_confiance: 0,
+		})
+		expect(sansLeDu.resultat).toEqual({ statut: 'illisible', motif: 'rang-inconnu' })
+	})
+
+	it('l invite de l acteur ne cite JAMAIS les mots du mecanisme de jet, ni un nom de bloc neuf, ni carac/tc (it4, KR-229)', () => {
+		const systeme = INVITES[ROLE_ACTEUR].systeme.toLowerCase()
+		// ⚠ GARDE ETROIT (KR-235) : `jet` seul est un FAUX POSITIF (« objet json »). On balaie les mots
+		// que l'invite n'a AUCUNE raison d'ecrire, et les DEUX noms de blocs neufs en toutes lettres.
+		const interdits = [
+			'epreuve',
+			'épreuve',
+			'challenge',
+			'carac',
+			'tier',
+			'ce que tu gardes',
+			"à l'instant",
+			'tc1',
+			'tc2',
+		]
+		expect(interdits.filter((mot) => systeme.includes(mot))).toEqual([])
+		expect(interdits.filter((mot) => `${systeme} ${mot}`.includes(mot))).toEqual(interdits)
+	})
+
+	it('E de l acteur, MESURE le 2026-10-04 (it4) : squelette 31 + invite 3078 = 3109 octets, plafond propre 22 528 sous le plafond worker', () => {
+		const octets = (texte: string): number => new TextEncoder().encode(texte).length
+		const squelette = octets(JSON.stringify({ role: ROLE_ACTEUR, contexte: '' }))
+		const invite = octets(INVITES[ROLE_ACTEUR].systeme)
+		expect([squelette, invite, squelette + invite]).toEqual([31, 3078, 3109])
+		// `ceil((3 × budget + E) / 1024) × 1024` — la formule du plafond, sur le budget client re-mesure.
+		expect(BUDGET_CARACTERES_ACTEUR).toBe(6330)
+		const plafondPropre = Math.ceil((3 * BUDGET_CARACTERES_ACTEUR + squelette + invite) / 1024) * 1024
+		expect(plafondPropre).toBe(22_528)
+		expect(plafondPropre).toBeLessThan(TAILLE_MAX_CORPS_IA)
+		// Le plafond worker n'a PAS bouge : `narrateur` le porte toujours, et de tres loin.
+		expect(TAILLE_MAX_CORPS_IA).toBe(83_968)
 	})
 
 	it('ROLES_AUTEUR exclut acteur, ROLES le contient, et ROLES_PLAFONNES aussi', () => {

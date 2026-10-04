@@ -23,12 +23,19 @@
  * l'extraction (`docs/EXIGENCE-APERCU-DU-JEU.md` § 6), même doctrine que `session.ts`
  * et `commandes.ts`.
  */
+import { epreuvesReussies } from './arbitre'
 import { appliquerDelta, type DeltaJournalise } from './evaluate'
 import type { FaitsDeSession } from './faits'
 import { estCleDe } from './identifiers'
 import { pasACondenser } from './memoire'
 import { evaluerSavoir } from './revelation'
-import { crediterConfiance, type EtatSession, type FaitEtabli, type MemoireSession, type ResumeMemoire } from './session'
+import {
+	crediterConfiance,
+	type EtatSession,
+	type FaitEtabli,
+	type MemoireSession,
+	type ResumeMemoire,
+} from './session'
 import type { Dossier, Savoir } from './types'
 
 /** Deux faits sont LE MÊME quand leur phrase (aux blancs de bord près) et l'ENSEMBLE de
@@ -140,7 +147,10 @@ function trouverSavoir(dossier: Dossier, personnageId: string, indiceId: string)
 function avecIndiceConfie(faits: FaitsDeSession, personnageId: string, indiceId: string): FaitsDeSession {
 	const etatExistant = estCleDe(faits.pnj, personnageId) ? faits.pnj[personnageId] : { a_dit: [] }
 	if (etatExistant.a_dit.includes(indiceId)) return faits
-	return { ...faits, pnj: { ...faits.pnj, [personnageId]: { ...etatExistant, a_dit: [...etatExistant.a_dit, indiceId] } } }
+	return {
+		...faits,
+		pnj: { ...faits.pnj, [personnageId]: { ...etatExistant, a_dit: [...etatExistant.a_dit, indiceId] } },
+	}
 }
 
 /**
@@ -161,11 +171,14 @@ function avecIndiceConfie(faits: FaitsDeSession, personnageId: string, indiceId:
  * L'APPLICATION, DANS CET ORDRE (§ 4 bis du plan d'itération) :
  *  1. RE-VÉRIFICATION — chaque id de `indicesReveles` doit être `'revelable'`
  *     MAINTENANT, par le MÊME `evaluerSavoir` que celui qui a fermé le catalogue
- *     offert à R4 (KR-287). Un id qui ne l'est plus LÈVE : ce n'est PAS une sortie
- *     de modèle à rejouer (la validation de FORME est déjà passée, § 4 bis du
- *     plan), c'est un APPELANT FAUTIF (KR-238, précédent `evaluerExpr`) — le seul
- *     appelant légitime a dû re-résoudre un rang devenu obsolète entre
- *     l'assemblage du contexte et l'application ;
+ *     offert à R4 (KR-287), AVEC les réussites acquises de ce personnage
+ *     (`epreuvesReussies`, it4) : un savoir gardé par un `jet` n'est `'revelable'`
+ *     que si le journal de CETTE session porte la réussite — celle du pas courant
+ *     comprise, qui est précisément ce qui rend le savoir dû. Un id qui ne l'est
+ *     plus LÈVE : ce n'est PAS une sortie de modèle à rejouer (la validation de
+ *     FORME est déjà passée, § 4 bis du plan), c'est un APPELANT FAUTIF (KR-238,
+ *     précédent `evaluerExpr`) — le seul appelant légitime a dû re-résoudre un rang
+ *     devenu obsolète entre l'assemblage du contexte et l'application ;
  *  2. `appliquerDelta(reveler_indice)` pour chaque id, dans l'ordre reçu ;
  *  3. `a_dit` du personnage, dans le MÊME ordre — le monde SAIT avant que le
  *     personnage SE SOUVIENNE de l'avoir dit ;
@@ -196,9 +209,13 @@ export function consignerReponseActeur(
 	// RE-VÉRIFICATION SUR L'ÉTAT D'AVANT Δ (n° 12 it3) — un Δ négatif de cette
 	// même réplique ne doit jamais refermer rétroactivement le savoir qu'elle
 	// vient de confier : la porte se juge AVANT que la confiance ne varie.
+	const epreuves = epreuvesReussies(session, apport.personnageId)
 	for (const indiceId of apport.indicesReveles) {
 		const savoir = trouverSavoir(dossier, apport.personnageId, indiceId)
-		if (savoir === undefined || evaluerSavoir(dossier, session.monde, apport.personnageId, savoir) !== 'revelable') {
+		if (
+			savoir === undefined ||
+			evaluerSavoir(dossier, session.monde, apport.personnageId, savoir, epreuves) !== 'revelable'
+		) {
 			throw new Error(`consignerReponseActeur : « ${indiceId} » n'est plus révélable par « ${apport.personnageId} »`)
 		}
 	}

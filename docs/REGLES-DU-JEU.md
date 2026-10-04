@@ -248,6 +248,20 @@ Une porte `confiance_min = s` est ouverte ssi `confiance ≥ s`, en conjonction 
 
 La confiance ne décroît pas avec le temps et n'a aucune autre source : aucun delta de confiance n'entre dans le registre `DELTAS`.
 
+### La porte `jet`
+
+Une porte `jet = { carac, tc }` est un **challenge ordinaire** (§ 2) : `carac` est la caractéristique du **héros**, `tc` le Tier du challenge, et le jet réussit quand le total des dés est inférieur ou égal à la caractéristique. L'**XP** du jet suit le § 5 : hors combat, `Tier_personnage` se lit sur la caractéristique testée.
+
+**Mise en jeu, en dernier.** Le `jet` s'évalue APRÈS toutes les autres portes. Un savoir n'est mis en jeu que si le `jet` en est la **seule** porte fermée : `confiance_min`, `contrepartie` et `apres_indice_id`, quand elles sont posées, sont toutes ouvertes. Tant qu'une autre porte reste fermée, le savoir reste fermé et aucun jet n'est demandé (fail-closed, KR-280) : un jet réussi n'ouvre jamais ce qu'une autre porte ferme encore.
+
+**Un seul savoir à la fois.** Un PNJ ne met en jeu qu'un savoir par réplique : le **premier de sa fiche** (ordre de `savoirs[]`) dont le `jet` est la seule porte fermée. Sans héros, aucun jet n'est possible et aucun savoir n'est mis en jeu.
+
+**Réussite acquise.** Une réussite est acquise pour la partie, **pour ce PNJ**, par couple `(carac, tc)` — jamais par savoir : un seul jet réussi ouvre la porte `jet` de tous les savoirs de ce PNJ qui posent le même couple. Elle n'est jamais stockée : elle se relit du journal, comme un jet consigné au pas `parler` adressé à ce PNJ et résolu en réussite. Un jet adressé à un autre PNJ, ou tenté hors dialogue, n'ouvre rien ici.
+
+**Le savoir mis en jeu est dû.** La réplique qui suit un jet réussi confie le savoir qui était mis en jeu : cette réplique est refusée si elle ne le confie pas, et la réussite reste acquise — le savoir reste offert à la réplique suivante. La demande de jet n'est pas une réplique : elle ne porte aucune variation de confiance Δ.
+
+**Re-tentative.** Un jet échoué n'acquiert rien : le savoir reste mis en jeu au pas suivant. Le joueur peut retenter dès le pas suivant, sans limite de nombre ; chaque tentative consomme un pas.
+
 ---
 
 *Tous les nombres ci-dessus sont encodés sans ambiguïté dans `brain-sketches/` (registres + fonctions pures). Toute divergence entre ce manuel et le code doit être résolue en faveur de ce manuel, puis le code corrigé.*

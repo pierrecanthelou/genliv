@@ -2035,4 +2035,81 @@ describe('POST /ia/acteur — la route du dixieme role (n 12 moteur-acteurs, it1
 		expect(systeme).toContain('"replique": "…", "indices_reveles": ["S1"]')
 		expect(systeme).toContain('"replique": "…", "indices_reveles": []')
 	})
+
+	/**
+	 * DEPUIS L'IT4 (n° 12 `moteur-acteurs`, `docs/REGLES-DU-JEU.md` § 6, « La porte `jet` ») —
+	 * TROISIÈME FORME, `resiste`. L'invite enseigne QUAND résister, CE QUE DISENT les deux
+	 * enjeux et CE QUE SIGNIFIENT les deux lignes d'issue, sans nommer le mécanisme ni
+	 * aucun bloc du contexte. La moitié « le modèle obéit » n'est constatable par aucun
+	 * instrument (KR-229) : seule la PRÉSENCE des consignes l'est.
+	 */
+	it('l invite du dixieme role enseigne la TROISIEME forme (resiste) et les trois formes sont dans le gabarit (it4)', () => {
+		const systeme = INVITES[ROLE_10].systeme
+		expect(systeme).toContain("de l'une des trois formes")
+		expect(systeme).toContain('"resiste": {"enjeu_reussite": "…", "enjeu_echec": "…"}')
+		// Les DEUX formes de la replique sont toujours la, intactes.
+		expect(systeme).toContain('"replique": "…", "indices_reveles": ["S1"], "delta_confiance": 1')
+		expect(systeme).toContain('"replique": "…", "indices_reveles": [], "delta_confiance": 0')
+		// Quand résister, et jamais sinon.
+		expect(systeme).toContain('Quand la demande te dit que tu gardes un secret, tu peux, au lieu de répondre, résister')
+		expect(systeme).toContain('Quand la demande ne te dit pas que tu gardes un secret, tu ne résistes pas')
+		// La forme `resiste` n'est JAMAIS mêlée à la réplique.
+		expect(systeme).toContain('ni réplique, ni indices_reveles, ni delta_confiance')
+	})
+
+	it('l invite du dixieme role : les enjeux disent l attitude, jamais le contenu gardé ni un chiffre ; les deux sont differents (it4)', () => {
+		const systeme = INVITES[ROLE_10].systeme
+		expect(systeme).toContain("ENJEU_REUSSITE et ENJEU_ECHEC disent, chacun à l'infinitif et en quelques mots")
+		expect(systeme).toContain("son attitude, jamais ce qu'il garde, jamais un chiffre")
+		expect(systeme).toContain('Les deux sont différents.')
+	})
+
+	it('l invite du dixieme role explique les DEUX lignes d issue et la marque du, sans nommer le mecanisme (it4)', () => {
+		const systeme = INVITES[ROLE_10].systeme
+		expect(systeme).toContain('Quand la demande te dit « Il cède »')
+		expect(systeme).toContain('tu confies le repère marqué dû, et tu le reportes dans indices_reveles')
+		expect(systeme).toContain('Quand elle te dit « Il tient bon »')
+		expect(systeme).toContain('indices_reveles reste vide')
+		// ⚠ GARDE ETROIT (KR-235) : `jet` seul est un FAUX POSITIF (« objet json »). On balaie ce que
+		// l'invite n'a AUCUNE raison d'ecrire — le mecanisme du tirage et les noms des deux blocs neufs.
+		const basse = systeme.toLowerCase()
+		const interdits = [
+			'épreuve',
+			'epreuve',
+			'challenge',
+			'caractéristique',
+			'tier',
+			'ce que tu gardes',
+			"à l'instant",
+			'jet de dé',
+		]
+		expect(interdits.filter((mot) => basse.includes(mot))).toEqual([])
+		expect(interdits.filter((mot) => `${basse} ${mot}`.includes(mot))).toEqual(interdits)
+		// Le mot « tour » reste reserve au round de combat : aucune prose neuve ne le reprend.
+		expect(basse).not.toContain('tour')
+	})
+
+	it('la route rend la sortie `resiste` TELLE QUELLE, comme toute autre : le worker ne valide ni ne repare rien (it4)', async () => {
+		// Délibérément NON conforme au schéma — un `carac` que le modèle n'a pas le droit d'écrire :
+		// la validation vit là où la donnée entre dans le dossier (KR-116), jamais ici.
+		const sortieBrute = '{"resiste": {"enjeu_reussite": "baisser la garde", "enjeu_echec": "se fermer", "carac": "IN"}}'
+		fetchAmont.mockResolvedValue(amontRendant(sortieBrute))
+
+		const res = await worker.fetch(demande10(corps10(300)), env())
+
+		expect(res.status).toBe(200)
+		await expect(res.text()).resolves.toBe(sortieBrute)
+	})
+
+	it('max_tokens du dixieme role reste 700 : la forme B (L = 214, au pire 400 jetons) n est pas la plus longue (it4)', () => {
+		expect(INVITES[ROLE_10].max_tokens).toBe(700)
+		// La mesure : deux enjeux de `ENJEU_CARACTERES_MAX` (80) + l'enveloppe de la forme B.
+		const enveloppe = '{"resiste": {"enjeu_reussite": "", "enjeu_echec": ""}}'
+		const longueur = 2 * 80 + enveloppe.length
+		expect(enveloppe.length).toBe(54)
+		expect(longueur).toBe(214)
+		// r = 2 caracteres par jeton (PIRE) : L / r x 3, arrondi a la centaine superieure.
+		expect(Math.ceil(((longueur / 2) * 3) / 100) * 100).toBe(400)
+		expect(Math.ceil(((longueur / 2) * 3) / 100) * 100).toBeLessThan(INVITES[ROLE_10].max_tokens)
+	})
 })

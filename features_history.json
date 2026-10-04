@@ -236,6 +236,35 @@
 				"npm run format lance sans portee par un ouvrier peut reformater silencieusement un fichier hors de son lot si ce fichier porte un defaut Prettier preexistant (BUG-139) -- scoper le format aux fichiers du lot evite la reapparition."
 			],
 			"bugs_encountered": ["BUG-135", "BUG-136", "BUG-137", "BUG-138", "BUG-140", "BUG-141"]
+		},
+		{
+			"feature": "moteur-acteurs",
+			"completed_at": "2026-10-04",
+			"goal": "Le joueur parle a un PNJ present, qui lui repond dans sa propre voix et ne revele que ce que sa fiche l autorise — quatre portes de revelation (contrepartie, apres_indice_id, confiance_min, jet) evaluees en conjonction fail-closed, confiance de session par PNJ, carnet d indices derive. Feature moteur-acteurs (n 12) TERMINEE 4/4.",
+			"key_architecture_choices": [
+				"QUATRE PORTES EVALUEES EN CONJONCTION, FAIL-CLOSED (KR-280) — chacune entree a son iteration propre (it2 contrepartie+apres_indice_id, it3 confiance_min, it4 jet), jamais groupees ; une porte non cablee reste FERMEE, jamais ouverte par defaut.",
+				"PATRON CATALOGUE BORNE (KR-287) pour les trois branches de sortie (indices_reveles it2, delta_confiance it3, resiste it4) : le moteur calcule/ferme AVANT l'appel, R4 indexe par rang dans un ensemble deja tranche, le moteur re-verifie.",
+				"RÉUSSITE DU JET DERIVEE DU JOURNAL (epreuvesReussies), rien de stocke (KR-013). Identite de l epreuve par (carac, tc) par PNJ, pas par savoir — une reussite ouvre toutes les portes jet du meme PNJ avec les memes parametres.",
+				"OPT-IN TYPÉ peutResister : CibleActeurResistible.epreuve?: never rend la chaine R4->jet->R4->jet inexprimable au type (precedent unique dans le depot). carac/tc poses par le SERVICE, jamais par R4.",
+				"validerEnjeux extraite de validerArbitre, partagee par validerActeur — meme CarteJet des deux cotes, deux appelants (KR-013)."
+			],
+			"brain_contracts_added": [
+				{ "type": "registry", "name": "brain/dossier/commandes.ts — COMMANDES.parler, TRANSITIONS.parler, verbeDeCommande" },
+				{ "type": "service", "name": "CopiloteService.demander('acteur', ...) — 10e+11e surcharges" },
+				{ "type": "registry", "name": "brain/dossier/revelation.ts — evaluerSavoir, savoirsRevelables, savoirSousEpreuve, JetReussi, EtatSavoir" },
+				{ "type": "registry", "name": "brain/dossier/recit.ts — consignerReponseActeur" },
+				{ "type": "registry", "name": "brain/dossier/arbitre.ts — epreuvesReussies" },
+				{ "type": "type", "name": "brain/copilote/types.ts — CibleActeur, CibleActeurResistible, ReponseActeur, ResistanceActeur" },
+				{ "type": "registry", "name": "brain/copilote/schemaSortie.ts — validerEnjeux" },
+				{ "type": "registry", "name": "brain/dossier/session.ts — crediterConfiance" }
+			],
+			"lessons_learned": [
+				"LE MODE D EMPLOI DU LOT CONTRAT EST L ARTEFACT LE PLUS RENTABLE DE L ESSAIM. Le lot B n a ni appele savoirSousEpreuve ni epreuvesReussies grace au § 2 du rapport du lot A qui disait explicitement 'le hook n a PAS besoin de les appeler' — le service s en charge. Sans cette ligne, un second decideur aurait produit un defaut invisible par jest.",
+				"npm run format SANS PORTEE reste le risque le plus frequent du pipeline. Cinquieme incident (BUG-139/143/146/147, meme classe) — la seule parade qui tient est de scoper le format aux fichiers du lot.",
+				"UN FAIT PERSISTANT PROPOSE PAR UN ROLE EXPERT (Narratif-IA, EtatPnj pour stocker la reussite) NE SURVIT PAS A LA CONFRONTATION KR-013 (etat derivable stocke) QUAND LE DERIVATEUR EST SIMPLE : epreuvesReussies ne fait que filtrer le journal, et son appelant le fait deja pour d autres raisons.",
+				"LES SONDES DE DISCRIMINANCE (22 mutants, 22 tues) confirment que l investissement de la table doree (it2/it3, revue d instrument BUG-084) porte ses fruits : aucun des defauts de dossier-controles (assertion qui ne sait pas echouer) n a recidive."
+			],
+			"bugs_encountered": ["BUG-142", "BUG-143", "BUG-144", "BUG-145", "BUG-146", "BUG-147", "BUG-148"]
 		}
 	]
 }
