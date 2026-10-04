@@ -5,7 +5,7 @@
  *  - Combat log (chronological rounds)
  *  - Posture selection (Normale/Précise/Défensive)
  *  - Play round button
- *  - Combat outcome (Victory/Defeat/Unconscious)
+ *  - Combat outcome (Victory/Defeat/Unconscious/Fled)
  *  - Hero health (via BandeauHeros in parent)
  */
 
@@ -14,15 +14,25 @@ import { POSTURES, type Posture } from '../../../brain/combat'
 import { SegmentedControl } from '../../../brain/components/SegmentedControl'
 import { Badge } from '../../../brain/components/Badge'
 import { HIT_TARGET_MIN } from '../../../brain/ui'
-import type { CombatState } from '../../../player/engine/combatTypes'
+import type { CombatState, CombatOutcome } from '../../../player/engine/combatTypes'
 
 export interface EcranCombatProps {
 	readonly etat: CombatState
 	readonly onJouer: (posture: Posture) => void
+	readonly onFuir: () => void
 	readonly onClore?: () => void
 }
 
-export function EcranCombat({ etat, onJouer, onClore }: EcranCombatProps): JSX.Element {
+// Exhaustive table of outcome labels
+const OUTCOME_LABELS: Record<Exclude<CombatOutcome, 'ongoing'>, string> = {
+	'hero-victory': 'VICTOIRE',
+	'monster-fled': 'VICTOIRE',
+	'hero-survived-unconscious': 'INCONSCIENT',
+	'hero-mort': 'DÉFAITE',
+	'hero-fled': 'FUITE',
+}
+
+export function EcranCombat({ etat, onJouer, onFuir, onClore }: EcranCombatProps): JSX.Element {
 	const [selectedPosture, setSelectedPosture] = useState<Posture>('normale')
 	const isTerminal = etat.outcome !== 'ongoing'
 	const isDead = etat.outcome === 'hero-mort'
@@ -42,6 +52,10 @@ export function EcranCombat({ etat, onJouer, onClore }: EcranCombatProps): JSX.E
 
 	const handlePlayRound = () => {
 		onJouer(selectedPosture)
+	}
+
+	const handleFuir = () => {
+		onFuir()
 	}
 
 	const handleClose = () => {
@@ -83,13 +97,18 @@ export function EcranCombat({ etat, onJouer, onClore }: EcranCombatProps): JSX.E
 						}))}
 						ariaLabel="Choisir une posture"
 					/>
-					<button
-						style={boutonJouerRound}
-						onClick={handlePlayRound}
-						aria-label="Jouer le round avec la posture sélectionnée"
-					>
-						Jouer le round →
-					</button>
+					<div style={groupeActions}>
+						<button
+							style={boutonJouerRound}
+							onClick={handlePlayRound}
+							aria-label="Jouer le round avec la posture sélectionnée"
+						>
+							Jouer le round →
+						</button>
+						<button style={boutonFuir} onClick={handleFuir} aria-label="Fuir le combat">
+							Fuir ↪
+						</button>
+					</div>
 				</div>
 			)}
 
@@ -98,10 +117,7 @@ export function EcranCombat({ etat, onJouer, onClore }: EcranCombatProps): JSX.E
 				<>
 					<div style={section}>
 						<h3 style={sectionTitre}>ISSUE DU COMBAT</h3>
-						{etat.outcome === 'hero-victory' && <Badge tone="neutral">VICTOIRE</Badge>}
-						{etat.outcome === 'monster-fled' && <Badge tone="neutral">VICTOIRE</Badge>}
-						{etat.outcome === 'hero-survived-unconscious' && <Badge tone="neutral">INCONSCIENT</Badge>}
-						{etat.outcome === 'hero-mort' && <Badge tone="neutral">DÉFAITE</Badge>}
+						{etat.outcome !== 'ongoing' && <Badge tone="neutral">{OUTCOME_LABELS[etat.outcome]}</Badge>}
 					</div>
 
 					{isDead ? (
@@ -109,7 +125,12 @@ export function EcranCombat({ etat, onJouer, onClore }: EcranCombatProps): JSX.E
 							<p>PARTIE TERMINÉE — Échap ou « Quitter le test »</p>
 						</div>
 					) : (
-						<button ref={continuerRef} style={boutonContinuer} onClick={handleClose} aria-label="Continuer après le combat">
+						<button
+							ref={continuerRef}
+							style={boutonContinuer}
+							onClick={handleClose}
+							aria-label="Continuer après le combat"
+						>
 							Continuer
 						</button>
 					)}
@@ -207,11 +228,32 @@ const texteLivre: CSSProperties = {
 	lineHeight: 'var(--lh-body)',
 }
 
+const groupeActions: CSSProperties = {
+	display: 'flex',
+	gap: 'var(--space-5)',
+	alignItems: 'center',
+}
+
 const boutonJouerRound: CSSProperties = {
+	flex: 1,
 	padding: 'var(--space-3) var(--space-4)',
 	backgroundColor: 'var(--accent)',
 	color: 'var(--text-on-accent)',
 	border: 'none',
+	borderRadius: 'var(--r-xl)',
+	fontSize: 'var(--fs-body)',
+	fontFamily: 'var(--font-ui)',
+	fontWeight: 'var(--fw-semibold)',
+	cursor: 'pointer',
+	minHeight: HIT_TARGET_MIN,
+}
+
+const boutonFuir: CSSProperties = {
+	flexShrink: 0,
+	padding: 'var(--space-3) var(--space-4)',
+	backgroundColor: 'var(--surface-card)',
+	color: 'var(--text-strong)',
+	border: 'var(--bw-hair) solid var(--border-card)',
 	borderRadius: 'var(--r-xl)',
 	fontSize: 'var(--fs-body)',
 	fontFamily: 'var(--font-ui)',

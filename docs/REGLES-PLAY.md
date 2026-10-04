@@ -79,8 +79,7 @@
 
 **D4. Coût d'endurance.** -1 PE par round pour le héros et le monstre (§ 1). Le monstre a-t-il une jauge PE : **OUI**. ✍️ *Le monstre gère aussi sa jauge PE (sauf capacité « pas d'endurance » du Squelette et autres morts-vivants/créatures sans endurance, qui deviennent sans objet).*
 
-**D5. Fuite.** Quand le héros peut-il fuir, et à quel prix ?
-  ✍️ *Défaut proposé : le héros peut tenter de fuir au début d'un round ; il subit **un assaut gratuit** du monstre (posture Normale du monstre vs sa propre Défensive), puis part vers le `fleeTarget` du monstre. Pas de fuite si `fleeTarget` est absent.*
+**D5. Fuite.** Le héros peut fuir au début d'un round, tant que le combat est en cours. Il subit **un assaut gratuit** du monstre (Normale vs sa propre Défensive), journalisé au round N+1. Si ses PV sont ≤ 0 après cet assaut, il meurt (E1, hors combat : inconscient = mort ; la fuite sort du combat). Sinon il sort du combat avec ses PV restants et **reste au lieu courant** : aucun déplacement, aucun `fleeTarget` lu. Ni XP, ni butin, ni variation de plafonds. L'événement reste consommé. La fuite est terminale : aucune posture ne se joue après. ✍️ *Décision (n° 13, it2).*
 
 **D6. Victoire / défaite.** Monstre à 0 PV → `victoryTarget` (+ butin, + XP). Héros à PV ≤ 0 → voir E1 ; PV ≤ −CA → `mort`. ✍️ *Défaut : OK.*
 

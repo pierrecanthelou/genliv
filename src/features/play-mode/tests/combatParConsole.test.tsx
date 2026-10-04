@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createBrain, BrainProvider, type Brain, type Dossier } from '../../../brain'
+import { createBrain, BrainProvider, dossierSessionKey, type Brain, type Dossier, type EtatSession } from '../../../brain'
 import { EcranPartie } from '../components/EcranPartie'
 import { terminerCreationHeros } from './creerHerosDeTest'
 
@@ -77,5 +77,33 @@ describe('la console ALLER ouvre un combat quand un evenement a monstre_ref est 
 		await user.click(screen.getByRole('button', { name: /Jouer le round/ }))
 
 		expect(screen.getAllByText('ROUND 1').length).toBeGreaterThan(0)
+	})
+
+	it('parcours console : combat → Fuir → FUITE → Continuer', async () => {
+		const user = userEvent.setup()
+		const { brain, dossier } = await monterPartieAvecCombat(user)
+
+		await user.type(screen.getByLabelText('CONSOLE'), 'ALLER lieu.tour-effondree{Enter}')
+		expect(screen.getByText('COMBAT')).toBeInTheDocument()
+
+		const fuirBtn = screen.getByRole('button', { name: /Fuir le combat/ })
+		await user.click(fuirBtn)
+
+		expect(screen.getByText('FUITE')).toBeInTheDocument()
+
+		const avantContinuer = brain.persistence.get<EtatSession>(dossierSessionKey(dossier.id))
+		expect(avantContinuer?.combat?.fuite).toBe(true)
+		const lieuAvant = avantContinuer?.monde?.lieu_courant
+		const xpAvant = avantContinuer?.heros?.xp
+
+		await user.click(screen.getByRole('button', { name: /Continuer/ }))
+
+		expect(screen.getByLabelText('CONSOLE')).toBeInTheDocument()
+		expect(screen.queryByText('COMBAT')).not.toBeInTheDocument()
+
+		const apresContinuer = brain.persistence.get<EtatSession>(dossierSessionKey(dossier.id))
+		expect(apresContinuer?.combat).toBeUndefined()
+		expect(apresContinuer?.monde?.lieu_courant).toBe(lieuAvant)
+		expect(apresContinuer?.heros?.xp).toBe(xpAvant)
 	})
 })

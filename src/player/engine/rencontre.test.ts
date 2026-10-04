@@ -33,10 +33,23 @@ describe('rencontre', () => {
 			}
 		})
 
-		it('retourne undefined sur issue hero-fled', () => {
-			const state = { outcome: 'hero-fled' } as CombatState
+		it('bilanDe hero-fled rend un bilan', () => {
+			const state = {
+				outcome: 'hero-fled',
+				heroPv: 8,
+				heroPe: 4,
+				pendingXp: 0,
+				pendingPvMaxDelta: 0,
+				pendingEnMaxDelta: 0,
+			} as CombatState
 			const result = bilanDe(state)
-			expect(result).toBeUndefined()
+			expect(result).toBeDefined()
+			if (result) {
+				expect(result.issue).toBe('hero-fled')
+				expect(result.pv).toBe(8)
+				expect(result.pe).toBe(4)
+				expect(result.xp).toBe(0)
+			}
 		})
 
 		it('retourne BilanCombat sur issue terminale hero-victory', () => {
@@ -203,6 +216,105 @@ describe('rencontre', () => {
 				expect(r2.etat.log[0]).toEqual(r1.etat.log[0])
 			}
 		})
+
+		it('rejouerCombat applique la fuite apres les postures', () => {
+			const session = {
+				graine_alea: 42,
+				horloge: { tour: 1 },
+				heros: HEROS,
+				combat: {
+					monstre_ref: 'bestiaire.gobelin',
+					postures: ['normale'] as const,
+					fuite: true,
+				},
+			} as unknown as EtatSession
+
+			const spy = jest.spyOn(Math, 'random')
+			const result = rejouerCombat(session)
+			expect(spy).not.toHaveBeenCalled()
+			spy.mockRestore()
+
+			expect(result.ok).toBe(true)
+			if (!result.ok) return
+			expect(result.etat.outcome).toBe('hero-fled')
+			expect(result.etat.log[0].round).toBe(1)
+			const fleeRounds = result.etat.log.filter((e) => e.text.includes('Fuite')).map((e) => e.round)
+			expect(fleeRounds).toEqual([2])
+		})
+
+		it('rejouerCombat est pur : deux appels identiques', () => {
+			const session = {
+				graine_alea: 42,
+				horloge: { tour: 1 },
+				heros: HEROS,
+				combat: {
+					monstre_ref: 'bestiaire.gobelin',
+					postures: ['normale', 'precise'] as const,
+					fuite: true,
+				},
+			} as unknown as EtatSession
+
+			const r1 = rejouerCombat(session)
+			const r2 = rejouerCombat(session)
+
+			expect(r1.ok).toBe(true)
+			expect(r2.ok).toBe(true)
+			if (r1.ok && r2.ok) {
+				expect(r1.etat).toEqual(r2.etat)
+			}
+		})
+
+		it('rejouerCombat identique apres aller-retour JSON de la session', () => {
+			const session = {
+				graine_alea: 42,
+				horloge: { tour: 1 },
+				heros: HEROS,
+				combat: {
+					monstre_ref: 'bestiaire.gobelin',
+					postures: ['normale', 'precise'] as const,
+					fuite: true,
+				},
+			} as unknown as EtatSession
+
+			const r1 = rejouerCombat(session)
+			// Simulate JSON round-trip
+			const json = JSON.stringify(session)
+			const sessionAfterRoundTrip = JSON.parse(json)
+			const r2 = rejouerCombat(sessionAfterRoundTrip as EtatSession)
+
+			expect(r1.ok).toBe(true)
+			expect(r2.ok).toBe(true)
+			if (r1.ok && r2.ok) {
+				expect(r1.etat).toEqual(r2.etat)
+			}
+		})
+
+		it('rejouerCombat ignore une fuite sur issue deja terminale', () => {
+			const sessionSansFuite = {
+				graine_alea: 42,
+				horloge: { tour: 1 },
+				heros: { ...HEROS, pv: 1 },
+				combat: {
+					monstre_ref: 'bestiaire.gobelin',
+					postures: ['normale', 'normale', 'normale', 'normale', 'normale'] as const,
+				},
+			} as unknown as EtatSession
+
+			const sansFuite = rejouerCombat(sessionSansFuite)
+			expect(sansFuite.ok).toBe(true)
+			if (!sansFuite.ok) return
+			expect(sansFuite.etat.outcome).not.toBe('ongoing')
+
+			const sessionAvecFuite = {
+				...sessionSansFuite,
+				combat: { ...sessionSansFuite.combat, fuite: true as const },
+			} as unknown as EtatSession
+
+			const avecFuite = rejouerCombat(sessionAvecFuite)
+			expect(avecFuite.ok).toBe(true)
+			if (!avecFuite.ok) return
+			expect(avecFuite.etat).toEqual(sansFuite.etat)
+		})
 	})
 
 	describe('ouvrirRencontreSiDue — detect and open encounter', () => {
@@ -238,10 +350,27 @@ describe('rencontre', () => {
 			const JAL = ['jalons', 'atteints'].join('_')
 			const session = {
 				combat: undefined,
-				heros: { name: 'H', caracs: { FO: 6, AG: 5, DX: 5, EN: 6, IN: 4, IG: 4, SE: 3, CA: 3 }, pvMax: 17, pv: 17, peMax: 6, pe: 6, mcBonus: 0, xp: 0 },
+				heros: {
+					name: 'H',
+					caracs: { FO: 6, AG: 5, DX: 5, EN: 6, IN: 4, IG: 4, SE: 3, CA: 3 },
+					pvMax: 17,
+					pv: 17,
+					peMax: 6,
+					pe: 6,
+					mcBonus: 0,
+					xp: 0,
+				},
 				graine_alea: 42,
 				horloge: { tour: 0 },
-				monde: { lieu_courant: 'lieu-x', lieux_visites: ['lieu-x'], objets_possedes: [], [IND]: [], [JAL]: [], [EVT]: [], pnj: {} },
+				monde: {
+					lieu_courant: 'lieu-x',
+					lieux_visites: ['lieu-x'],
+					objets_possedes: [],
+					[IND]: [],
+					[JAL]: [],
+					[EVT]: [],
+					pnj: {},
+				},
 			} as unknown as EtatSession
 
 			const result = ouvrirRencontreSiDue(dossier, session)

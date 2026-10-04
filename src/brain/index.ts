@@ -564,10 +564,13 @@ export { pastilleNiveau, badgeSection } from './dossier/pastilles'
 // `crediterXp` SORT AVEC EUX (n° 11 `moteur-arbitre`, lot `contrat`, it3) : seule
 // porte d'écriture de `HeroState.xp`, que `useTourDeJeu` (lot feature) appelle
 // après `xpDuJet` (ci-dessous, avec `issueDuJet`/`classifierIssue`).
-// `resoudreRencontre`, `jouerPosture` et `cloreCombat` SORTENT AVEC EUX (n° 13
-// `moteur-combat`, lot `contrat`, it1) : ce sont les TROIS SEULES PORTES d'écriture
-// de `EtatSession.combat` — la pose avec la consommation de l'événement, l'ajout
-// d'une posture, le retrait avec l'application du bilan. La feature les appelle sur
+// `resoudreRencontre`, `jouerPosture`, `fuirRencontre` et `cloreCombat` SORTENT AVEC
+// EUX (n° 13 `moteur-combat`, lot `contrat` : it1 pour `resoudreRencontre`,
+// `jouerPosture` et `cloreCombat`, it2 pour `fuirRencontre`) : ce sont les QUATRE
+// SEULES PORTES d'écriture de
+// `EtatSession.combat` — la pose avec la consommation de l'événement, l'ajout d'une
+// posture, la pose de `fuite` (KR-297 : la fuite n'est PAS une posture, d'où une
+// fonction séparée), le retrait avec l'application du bilan. La feature les appelle sur
 // la session DÉJÀ PERSISTÉE, comme `fixerHeros`. NE SORTENT PAS : `evenementARencontrer`
 // (`dossier/evaluate.ts`) et `monstreDeLaReference` (`dossier/monstre.ts`) — décider
 // qu'une rencontre est due, ou résoudre un monstre, est une décision de MOTEUR que
@@ -579,6 +582,7 @@ export {
 	consignerJet,
 	crediterXp,
 	fixerHeros,
+	fuirRencontre,
 	jouerPosture,
 	ouvrirSession,
 	resoudreRencontre,

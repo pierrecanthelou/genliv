@@ -280,13 +280,7 @@ describe('tryHeroFlee', () => {
 	let state: CombatState
 
 	beforeEach(() => {
-		state = {
-			...startCombat(baseMonster, baseHero, baseSession),
-			monster: {
-				...startCombat(baseMonster, baseHero, baseSession).monster,
-				fleeTarget: 'exit-node',
-			},
-		}
+		state = startCombat(baseMonster, baseHero, baseSession)
 	})
 
 	it('sets outcome to hero-fled when hero survives free assault', () => {
@@ -312,13 +306,46 @@ describe('tryHeroFlee', () => {
 		expect(next.outcome).toBe('hero-mort')
 	})
 
+	it('tryHeroFlee numerote round+1', () => {
+		const stateWithRound: CombatState = { ...state, round: 3 }
+		const next = tryHeroFlee(stateWithRound, baseHero, baseSession, seqRng([0.99, 0.0]))
+		const addedEntries = next.log.slice(state.log.length)
+		expect(addedEntries.length).toBeGreaterThanOrEqual(2)
+		for (const entry of addedEntries) {
+			expect(entry.round).toBe(4)
+		}
+	})
+
+	it('tryHeroFlee frontiere inconscient', () => {
+		const lethalMonster = { ...state.monster, FO: 10, mc: 12, weaponMultiplier: 2 }
+		const rngVals = [0.0, 0.99]
+		const probeState: CombatState = {
+			...state,
+			heroPv: 9999,
+			monster: lethalMonster,
+		}
+		const probe = tryHeroFlee(probeState, baseHero, baseSession, seqRng(rngVals))
+		const damage = 9999 - probe.heroPv
+		expect(damage).toBeGreaterThan(0)
+
+		const atBoundary: CombatState = { ...state, heroPv: damage, monster: lethalMonster }
+		const dead = tryHeroFlee(atBoundary, baseHero, baseSession, seqRng(rngVals))
+		expect(dead.outcome).toBe('hero-mort')
+		expect(dead.heroPv).toBe(0)
+
+		const aboveBoundary: CombatState = { ...state, heroPv: damage + 1, monster: lethalMonster }
+		const fled = tryHeroFlee(aboveBoundary, baseHero, baseSession, seqRng(rngVals))
+		expect(fled.outcome).toBe('hero-fled')
+		expect(fled.heroPv).toBe(1)
+	})
+
 	it('adds log entry', () => {
-		const next = tryHeroFlee(state, baseHero, baseSession)
+		const next = tryHeroFlee(state, baseHero, baseSession, seqRng([0.99, 0.0]))
 		expect(next.log.length).toBeGreaterThan(0)
 	})
 
 	it('phase is ended after flee attempt', () => {
-		const next = tryHeroFlee(state, baseHero, baseSession)
+		const next = tryHeroFlee(state, baseHero, baseSession, seqRng([0.99, 0.0]))
 		expect(next.phase).toBe('ended')
 	})
 })

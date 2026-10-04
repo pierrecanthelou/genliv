@@ -9,6 +9,7 @@ import {
 	fixerHeros,
 	jouerPosture,
 	cloreCombat,
+	fuirRencontre,
 	type Dossier,
 	type EtatSession,
 } from '../../../brain'
@@ -190,6 +191,11 @@ function PartieEnCours({
 		setSession(newSession)
 	}
 
+	const handleFuir = () => {
+		const newSession = fuirRencontre(session)
+		setSession(newSession)
+	}
+
 	const handleCloreCombat = () => {
 		if (!combatRejeu) return
 		const bilan = bilanDe(combatRejeu)
@@ -270,7 +276,12 @@ function PartieEnCours({
 				<div style={colonneLecture}>
 					{/* COMBAT EN COURS — remplace la console et le journal pendant le combat. */}
 					{combatRejeu ? (
-						<EcranCombat etat={combatRejeu} onJouer={handleJouerRound} onClore={handleCloreCombat} />
+						<EcranCombat
+							etat={combatRejeu}
+							onJouer={handleJouerRound}
+							onFuir={handleFuir}
+							onClore={handleCloreCombat}
+						/>
 					) : session.combat ? (
 						<OutcomeBlock entete="ERREUR DE COMBAT">
 							Le monstre référencé est introuvable — le combat ne peut pas être rejoué.

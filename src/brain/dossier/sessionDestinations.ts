@@ -97,6 +97,7 @@ type CheminDeFeuilleDeSession =
 	| 'heros.xp'
 	| 'combat.monstre_ref'
 	| 'combat.postures[]'
+	| 'combat.fuite'
 
 export const DESTINATION_DES_CHAMPS_DE_SESSION: Readonly<
 	Record<keyof EtatSession | CheminDeFeuilleDeSession, Destination>
@@ -306,9 +307,9 @@ export const DESTINATION_DES_CHAMPS_DE_SESSION: Readonly<
 	'heros.mcBonus': 'moteur',
 	'heros.xp': 'moteur',
 
-	// ── Le combat en cours (n° 13 `moteur-combat`, it1) ────────────────────────
-	// DEUX FEUILLES, TOUTES `'moteur'`, SANS EXCEPTION : le renvoi de rejeu d'un
-	// combat ne contient AUCUNE fiction, et aucune des deux n'entre dans un contexte
+	// ── Le combat en cours (n° 13 `moteur-combat`, it1 puis it2) ───────────────
+	// TROIS FEUILLES, TOUTES `'moteur'`, SANS EXCEPTION : le renvoi de rejeu d'un
+	// combat ne contient AUCUNE fiction, et aucune des trois n'entre dans un contexte
 	// de modèle (KR-294 — le texte d'un round non plus : le narrateur de combat de
 	// l'itération 3 recevra une PROJECTION structurée, calculée à part, jamais ces
 	// feuilles). Un modèle qui lirait `postures[]` connaîtrait les choix du joueur
@@ -321,6 +322,15 @@ export const DESTINATION_DES_CHAMPS_DE_SESSION: Readonly<
 	 * n'est PAS persistée : elle se redérive du rejeu (KR-292).
 	 */
 	'combat.postures[]': 'moteur',
+	/**
+	 * LE CHOIX DE FUIR (n° 13 `moteur-combat`, it2, KR-297) — un drapeau d'ENTRÉE du
+	 * joueur, `true` ou absent (KR-251), consommé par le REJEU après les postures.
+	 * `'moteur'`, pour la même raison que `postures[]` : un modèle qui le lirait
+	 * connaîtrait la décision du joueur avant que le moteur ait résolu l'assaut gratuit,
+	 * et le texte de cette fuite n'entre dans aucun contexte (KR-294). `hero-fled`,
+	 * l'issue qui en découle, n'est PAS une feuille : elle se dérive du rejeu (KR-013).
+	 */
+	'combat.fuite': 'moteur',
 
 	// ── La mémoire du narrateur (n° 10 it3) ─────────────────────────────────────
 	/** La phrase d'un fait établi — PROSE que le narrateur a rendue, réinjectée par

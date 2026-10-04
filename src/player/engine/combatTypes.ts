@@ -11,7 +11,7 @@ export type CombatOutcome =
 	| 'ongoing'
 	| 'hero-victory' // monster PV = 0
 	| 'monster-fled' // monster fled (same resolution: loot + XP)
-	| 'hero-fled' // hero fled → fleeTarget
+	| 'hero-fled' // hero fled, remains at current location (D5 amended)
 	| 'hero-mort' // hero PV ≤ -CA → mort node
 	| 'hero-survived-unconscious' // E1: hero at 1 PV after unconscious round
 

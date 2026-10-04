@@ -121,6 +121,13 @@ import type { EtatSession } from '../session'
  * autres identifiants, à `dossier-minimal.json` ; l'événement correspondant est DÉJÀ
  * consommé plus haut (`evenements_consommes`), ce qui est exactement l'état d'un combat
  * ouvert — l'événement se consomme à l'OUVERTURE, jamais à la clôture.
+ *
+ * `fuite` INSTANCIÉE depuis le lot `contrat` de la n° 13 `moteur-combat` it2 (KR-297) —
+ * troisième feuille de `combat`, sans instance ici la ligne `combat.fuite` de la table
+ * serait MORTE le jour même où elle est écrite. Elle est posée APRÈS les trois postures :
+ * c'est le seul ordre que le produit puisse écrire, `jouerPosture` refusant toute posture
+ * une fois `fuite` posée, et c'est celui que le rejeu consomme. Son type est le littéral
+ * `true`, jamais `false` : un champ optionnel à vie est ABSENT ou vrai.
  */
 export const SESSION_SATUREE: EtatSession = {
 	schema: 1,
@@ -192,5 +199,6 @@ export const SESSION_SATUREE: EtatSession = {
 	combat: {
 		monstre_ref: 'bestiaire.gobelin',
 		postures: ['precise', 'normale', 'defensive'],
+		fuite: true,
 	},
 }

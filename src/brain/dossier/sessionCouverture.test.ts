@@ -55,7 +55,7 @@ const DISPENSES_DE_FEUILLE: Readonly<Record<string, string>> = {
 	heros:
 		'clé racine porteuse (n° 11 moteur-arbitre, it1) — ses huit feuilles sont déclarées une à une, `caracs` collapsée en une seule ligne `<id>`',
 	combat:
-		'clé racine porteuse (n° 13 moteur-combat, it1) — ses deux feuilles (`monstre_ref`, `postures[]`) sont déclarées une à une',
+		'clé racine porteuse (n° 13 moteur-combat, it1) — ses trois feuilles (`monstre_ref`, `postures[]`, `fuite` depuis l it2) sont déclarées une à une',
 }
 
 const CLES_DE_LA_TABLE = new Set(Object.keys(DESTINATION_DES_CHAMPS_DE_SESSION))
@@ -208,14 +208,20 @@ describe('DESTINATION_DES_CHAMPS_DE_SESSION, exhaustivite', () => {
 		expect(normalises).toContain('heros.caracs.<id>')
 		expect(normalises).not.toContain('heros')
 
-		// ET LE COMBAT (n° 13, it1) DESCEND JUSQU'À SES DEUX FEUILLES : `postures` est une
-		// liste NON VIDE dans la fixture, donc balayée PAR ÉLÉMENT (`postures[]`) — une
-		// liste vide serait sa propre feuille, sans le suffixe, et la ligne de table
-		// serait morte. `combat` elle-même n'est PAS une feuille.
+		// ET LE COMBAT (n° 13, it1 puis it2) DESCEND JUSQU'À SES TROIS FEUILLES : `postures`
+		// est une liste NON VIDE dans la fixture, donc balayée PAR ÉLÉMENT (`postures[]`) —
+		// une liste vide serait sa propre feuille, sans le suffixe, et la ligne de table
+		// serait morte. `combat` elle-même n'est PAS une feuille. `fuite` est un booléen :
+		// une feuille scalaire, balayée sous son propre nom (it2, KR-297).
 		expect(normalises).toContain('combat.monstre_ref')
 		expect(normalises).toContain('combat.postures[]')
+		expect(normalises).toContain('combat.fuite')
 		expect(normalises).not.toContain('combat')
 		expect(normalises).not.toContain('combat.postures')
+		// LA FIXTURE INSTANCIE `fuite` À `true` : sans cela la ligne de table serait morte,
+		// et `aucune ligne morte` la tiendrait seule — sans que rien ne nomme le chemin.
+		expect(SESSION_SATUREE.combat?.fuite).toBe(true)
+		expect(bruts.filter((chemin) => chemin === 'combat.fuite')).toHaveLength(1)
 		// TROIS postures, UN SEUL chemin : le balayage rend une instance PAR ÉLÉMENT, et
 		// c'est ce qui fait que CHACUNE rougirait si sa ligne manquait (KR-199).
 		const postures = SESSION_SATUREE.combat?.postures ?? []
@@ -323,19 +329,21 @@ describe('DESTINATION_DES_CHAMPS_DE_SESSION, la valeur des lignes', () => {
 		)
 	})
 
-	it('le combat : sa racine et ses deux feuilles sont moteur, jamais ia, jamais auteur (n 13 it1, KR-294)', () => {
+	it('le combat : sa racine et ses trois feuilles sont moteur, jamais ia, jamais auteur (n 13 it1 puis it2, KR-294)', () => {
 		// ASSERTION DE VALEUR, PAS D'EXISTENCE (KR-174), et par LIGNE NOMMÉE : un
 		// `monstre_ref` est un handle du bestiaire, `postures[]` les clés du registre
-		// fermé `POSTURES` — aucune fiction. Une ligne basculée à `ia` ouvrirait au
-		// modèle les choix du joueur AVANT que le moteur ait résolu le round suivant.
-		for (const chemin of ['combat', 'combat.monstre_ref', 'combat.postures[]'] as const) {
+		// fermé `POSTURES`, `fuite` un drapeau d'entrée du joueur — aucune fiction. Une
+		// ligne basculée à `ia` ouvrirait au modèle les choix du joueur (une posture, ou
+		// la décision de fuir) AVANT que le moteur ait résolu le round suivant.
+		for (const chemin of ['combat', 'combat.monstre_ref', 'combat.postures[]', 'combat.fuite'] as const) {
 			expect(`${chemin} → ${DESTINATION_DES_CHAMPS_DE_SESSION[chemin]}`).toBe(`${chemin} → moteur`)
 		}
-		// Les trois lignes sont les SEULES du préfixe `combat` : une quatrième feuille
-		// glissée dans le type sans sa ligne casse la compilation, une quatrième ligne sans
-		// feuille est morte — et les deux sont attrapées ci-dessus. Ici, l'ENSEMBLE.
+		// Les quatre lignes sont les SEULES du préfixe `combat` : une quatrième feuille
+		// glissée dans le type sans sa ligne casse la compilation, une ligne sans feuille
+		// est morte — et les deux sont attrapées ci-dessus. Ici, l'ENSEMBLE.
 		expect([...CLES_DE_LA_TABLE].filter((cle) => cle === 'combat' || cle.startsWith('combat.')).sort()).toEqual([
 			'combat',
+			'combat.fuite',
 			'combat.monstre_ref',
 			'combat.postures[]',
 		])

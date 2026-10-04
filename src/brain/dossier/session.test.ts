@@ -12,6 +12,7 @@ import {
 	resoudreRencontre,
 	SCHEMA_SESSION,
 	fixerHeros,
+	fuirRencontre,
 	ouvrirSession,
 	type BilanCombat,
 	type EntreeJournal,
@@ -548,11 +549,14 @@ describe('crediterConfiance — la seule ecrivaine de EtatPnj.confiance (n 12 mo
 })
 
 /**
- * LE COMBAT EN SESSION (n° 13 `moteur-combat`, it1, lot `contrat`) — TROIS PORTES
- * D'ÉCRITURE de `EtatSession.combat`, et rien d'autre.
+ * LE COMBAT EN SESSION (n° 13 `moteur-combat`, it1 puis it2, lots `contrat`) — QUATRE
+ * PORTES D'ÉCRITURE de `EtatSession.combat`, et rien d'autre (`fuirRencontre` depuis
+ * l'it2).
  *
  * LES VALEURS ATTENDUES SONT ÉCRITES À LA MAIN depuis le contrat du plan (§ 4,
- * « Sémantique `cloreCombat` »), jamais lues dans ce que le code rend : un attendu
+ * « Sémantique `cloreCombat` ») et, pour la fuite, depuis `docs/REGLES-PLAY.md` D5
+ * (PV et PE du bilan écrêtés aux plafonds INTACTS, aucune XP, aucun déplacement),
+ * jamais lues dans ce que le code rend : un attendu
  * recopié d'un `received` figerait le défaut au lieu de le verrouiller. Ces
  * fonctions ne sont pas dans le périmètre muté (KR-243) : `jest` est leur UNIQUE
  * instrument, d'où des assertions de VALEUR — PV, PE, plafonds, XP — et non de
@@ -728,6 +732,115 @@ describe('le combat en session — resoudreRencontre, jouerPosture, cloreCombat 
 			expect(resultat).toBe(session)
 			expect('combat' in resultat).toBe(false)
 		})
+
+		it('jouerPosture apres fuite rend la meme reference', () => {
+			// KR-297, D5 : la fuite est TERMINALE — aucune posture ne se joue après. Balayage
+			// depuis `POSTURE_VALUES` (KR-117/199) : un no-op prouvé sur UNE posture laisserait
+			// les autres s'ajouter derrière une fuite.
+			const fuie = fuirRencontre(enCombat(['precise', 'normale']))
+			expect(fuie.combat?.fuite).toBe(true)
+
+			expect(POSTURE_VALUES.length).toBeGreaterThan(0)
+			for (const posture of POSTURE_VALUES) {
+				const apres = jouerPosture(fuie, posture)
+				expect(`${posture} → ${apres === fuie}`).toBe(`${posture} → true`)
+			}
+			// Et RIEN n'a bougé sous la référence : les postures sont celles d'avant la fuite.
+			expect(fuie.combat?.postures).toEqual(['precise', 'normale'])
+
+			// DISCRIMINANT, DANS LE MÊME TEST : la MÊME posture, sur la MÊME session sans
+			// `fuite`, est ajoutée — c'est `fuite` qui coupe, et rien d'autre.
+			const avantFuite = enCombat(['precise', 'normale'])
+			const etendue = jouerPosture(avantFuite, 'defensive')
+			expect(etendue).not.toBe(avantFuite)
+			expect(etendue.combat?.postures).toEqual(['precise', 'normale', 'defensive'])
+		})
+	})
+
+	describe('fuirRencontre — la seule porte qui POSE fuite (it2, KR-297, D5)', () => {
+		it('fuirRencontre pose fuite et ne touche ni postures ni monde ni horloge ni journal ni heros', () => {
+			const avant = enCombat(['precise', 'defensive'])
+			// AVANT : la clé est ABSENTE, jamais `false` ni `undefined` (KR-251) — `in`, que
+			// `toEqual` ne voit pas (il traite une clé à `undefined` comme absente).
+			expect('fuite' in (avant.combat ?? {})).toBe(false)
+
+			const apres = fuirRencontre(avant)
+
+			expect(apres.combat?.fuite).toBe(true)
+			expect(apres.combat).toEqual({
+				monstre_ref: 'bestiaire.squelette',
+				postures: ['precise', 'defensive'],
+				fuite: true,
+			})
+			expect(Object.keys(apres.combat ?? {}).sort()).toEqual(['fuite', 'monstre_ref', 'postures'])
+			// RIEN D'AUTRE N'A BOUGÉ — PAR RÉFÉRENCE (`toBe`), jamais `toEqual`, qui ne verrait
+			// pas une copie. Ni le lieu courant : la fuite ne déplace pas le héros (D5).
+			expect(apres.combat?.postures).toBe(avant.combat?.postures)
+			expect(apres.monde).toBe(avant.monde)
+			expect(apres.horloge).toBe(avant.horloge)
+			expect(apres.journal).toBe(avant.journal)
+			expect(apres.heros).toBe(avant.heros)
+			expect(apres.monde.lieu_courant).toBe(avant.monde.lieu_courant)
+			expect(Object.keys(apres).sort()).toEqual(Object.keys(avant).sort())
+			// L'événement RESTE consommé (D5) : la fuite ne le rend pas.
+			expect(apres.monde.evenements_consommes).toEqual(['evenement.embuscade-a-la-tour'])
+
+			// PURE : l'argument n'est pas muté — ni sa session, ni son `combat`.
+			expect(apres).not.toBe(avant)
+			expect(apres.combat).not.toBe(avant.combat)
+			expect('fuite' in (avant.combat ?? {})).toBe(false)
+			expect(avant.combat).toEqual({ monstre_ref: 'bestiaire.squelette', postures: ['precise', 'defensive'] })
+		})
+
+		it('fuir au debut d un round : sans aucune posture jouee, la fuite se pose quand meme', () => {
+			// D5 : « au début d'un round, tant que le combat est en cours » — le premier round
+			// l'est aussi. `postures` reste la liste vide, la MÊME.
+			const ouvert = enCombat()
+			expect(ouvert.combat?.postures).toEqual([])
+
+			const fuie = fuirRencontre(ouvert)
+
+			expect(fuie.combat).toEqual({ monstre_ref: 'bestiaire.squelette', postures: [], fuite: true })
+			expect(fuie.combat?.postures).toBe(ouvert.combat?.postures)
+		})
+
+		it('fuirRencontre sans combat rend la meme reference', () => {
+			const session = auRepos()
+
+			const resultat = fuirRencontre(session)
+
+			expect(resultat).toBe(session)
+			// Jamais un combat inventé : en poser un ouvrirait un combat sans monstre.
+			expect('combat' in resultat).toBe(false)
+		})
+
+		it('fuirRencontre deux fois rend la meme reference', () => {
+			const fuie = fuirRencontre(enCombat(['normale']))
+			// Discriminant : la PREMIÈRE fuite a bien écrit, sinon « idempotente » serait vraie
+			// d'une fonction qui ne fait jamais rien.
+			expect(fuie.combat?.fuite).toBe(true)
+
+			const encore = fuirRencontre(fuie)
+
+			expect(encore).toBe(fuie)
+			expect(encore.combat).toBe(fuie.combat)
+		})
+
+		it('la fuite survit au round-trip de persistance — et la cle fuite reste absente tant qu on n a pas fui', () => {
+			// KR-292 : `fuite` est une ENTRÉE du joueur, stockée avec `postures`, dans l'ordre
+			// où le rejeu la consomme. L'issue `hero-fled`, elle, n'est PAS stockée (KR-013).
+			const fuie = fuirRencontre(enCombat(['precise', 'normale']))
+
+			const relue = JSON.parse(JSON.stringify(fuie)) as EtatSession
+
+			expect(relue).toEqual(fuie)
+			expect(relue.combat?.fuite).toBe(true)
+			expect(JSON.stringify(fuie)).not.toContain('hero-fled')
+			// ET SANS FUITE, la clé n'apparaît pas dans le JSON : ni `false`, ni `null`.
+			expect(JSON.stringify(enCombat(['precise']).combat)).toBe(
+				'{"monstre_ref":"bestiaire.squelette","postures":["precise"]}',
+			)
+		})
 	})
 
 	describe('cloreCombat — la seule porte qui RETIRE combat', () => {
@@ -839,6 +952,82 @@ describe('le combat en session — resoudreRencontre, jouerPosture, cloreCombat 
 			expect(cloreCombat(enCombat(), bilan('hero-survived-unconscious', { pv: 0, pe: 99 })).heros?.pe).toBe(8)
 		})
 
+		it('cloreCombat hero-fled retire combat, ecrete pv et pe, aucune xp, plafonds intacts', () => {
+			// D5 : le héros sort du combat avec ses PV RESTANTS — jamais remis à 1 (c'est
+			// l'inconscient), jamais relevé. Héros : 14/21 PV, 3/8 PE, 12 XP. Le bilan dit
+			// 6 PV, 2 PE, et PORTE un gain d'XP (5) et des variations de plafonds (−3, −2) que
+			// la fuite n'emporte PAS : ce ne sont pas les gains d'une victoire.
+			const session = fuirRencontre(enCombat(['normale', 'precise']))
+
+			const close = cloreCombat(
+				session,
+				bilan('hero-fled', { pv: 6, pe: 2, xp: 5, pv_max_delta: -3, pe_max_delta: -2 }),
+			)
+
+			expect(close.heros).toEqual({ ...HEROS_DE_COMBAT, pv: 6, pe: 2 })
+			expect(close.heros?.xp).toBe(12)
+			expect(close.heros?.pvMax).toBe(21)
+			expect(close.heros?.peMax).toBe(8)
+			// LA CLÉ `combat` EST RETIRÉE — et `fuite` avec elle, qui n'a pas d'existence propre.
+			expect('combat' in close).toBe(false)
+			expect(Object.keys(close)).not.toContain('combat')
+			expect(JSON.stringify(close)).not.toContain('combat')
+			expect(JSON.stringify(close)).not.toContain('fuite')
+			// PURE : l'argument garde son combat, sa fuite et son héros d'avant.
+			expect(session.combat?.fuite).toBe(true)
+			expect(session.heros).toEqual(HEROS_DE_COMBAT)
+
+			// PV ≠ 1 : le PV du bilan est CELUI qui est écrit, à la limite basse comme plus haut.
+			expect(cloreCombat(session, bilan('hero-fled', { pv: 1, pe: 0 })).heros).toMatchObject({ pv: 1, pe: 0 })
+			expect(cloreCombat(session, bilan('hero-fled', { pv: 13, pe: 7 })).heros).toMatchObject({ pv: 13, pe: 7 })
+
+			// ÉCRÊTAGE AUX PLAFONDS INTACTS (21 PV, 8 PE), à la limite (=) et à limite+1.
+			expect(cloreCombat(session, bilan('hero-fled', { pv: 21, pe: 8 })).heros).toMatchObject({ pv: 21, pe: 8 })
+			expect(cloreCombat(session, bilan('hero-fled', { pv: 22, pe: 9 })).heros).toMatchObject({ pv: 21, pe: 8 })
+			expect(cloreCombat(session, bilan('hero-fled', { pv: 99, pe: 99 })).heros).toMatchObject({ pv: 21, pe: 8 })
+
+			// PLAFONDS INTACTS MÊME SOUS UNE VARIATION : un plafond baissé de 3 (21 → 18)
+			// écrêterait 20 PV à 18 ; ici 20 PV restent 20. Et un plafond relevé de 3 (→ 24)
+			// n'ouvre pas 24 PV : 22 PV restent écrêtés à 21.
+			expect(
+				cloreCombat(session, bilan('hero-fled', { pv: 20, pe: 7, pv_max_delta: -3, pe_max_delta: -2 })).heros,
+			).toEqual({
+				...HEROS_DE_COMBAT,
+				pv: 20,
+				pe: 7,
+			})
+			expect(
+				cloreCombat(session, bilan('hero-fled', { pv: 22, pe: 9, pv_max_delta: 3, pe_max_delta: 2 })).heros,
+			).toEqual({
+				...HEROS_DE_COMBAT,
+				pv: 21,
+				pe: 8,
+			})
+		})
+
+		it('cloreCombat hero-fled laisse monde horloge journal identiques', () => {
+			// D5 : « reste au lieu courant : aucun déplacement ». `lieu_courant` vit dans `monde`,
+			// et `monde` est la MÊME référence — donc ni le lieu, ni les lieux visités, ni
+			// l'événement consommé n'ont bougé. Un combat est UN pas d'horloge, déjà consommé.
+			const session = fuirRencontre(enCombat(['normale']))
+
+			const close = cloreCombat(session, bilan('hero-fled', { pv: 6, pe: 2 }))
+
+			expect(close.monde).toBe(session.monde)
+			expect(close.horloge).toBe(session.horloge)
+			expect(close.journal).toBe(session.journal)
+			expect(close.monde.lieu_courant).toBe(session.monde.lieu_courant)
+			expect(close.monde.evenements_consommes).toEqual(['evenement.embuscade-a-la-tour'])
+			// La session n'a perdu QUE `combat` : aucune autre racine n'a disparu ni paru.
+			expect(Object.keys(close).sort()).toEqual(
+				Object.keys(session)
+					.filter((cle) => cle !== 'combat')
+					.sort(),
+			)
+			// Aucune XP, et le héros n'a changé que dans ses deux jauges.
+			expect(close.heros?.xp).toBe(12)
+		})
+
 		it('mort : la session est rendue A L IDENTIQUE, combat RESTE, et le heros n est pas touche', () => {
 			// `hero-mort` est la seule issue qui NE CLÔT PAS — l'écran de fin est la n° 15.
 			const session = enCombat(['normale', 'normale'])
@@ -853,7 +1042,13 @@ describe('le combat en session — resoudreRencontre, jouerPosture, cloreCombat 
 		it('no-op (meme reference) SANS combat, quelle que soit l issue — rien a clore', () => {
 			const session = auRepos()
 
-			for (const issue of ['hero-victory', 'monster-fled', 'hero-survived-unconscious', 'hero-mort'] as const) {
+			for (const issue of [
+				'hero-victory',
+				'monster-fled',
+				'hero-survived-unconscious',
+				'hero-mort',
+				'hero-fled',
+			] as const) {
 				expect(cloreCombat(session, bilan(issue, { xp: 5 }))).toBe(session)
 			}
 			// Et l'XP n'a pas bougé : le no-op n'a RIEN écrit.
@@ -875,17 +1070,18 @@ describe('le combat en session — resoudreRencontre, jouerPosture, cloreCombat 
 			expect('heros' in resultat).toBe(false)
 		})
 
-		it('CHAQUE issue du registre a un comportement : quatre issues, trois retirent combat, une le garde', () => {
+		it('CHAQUE issue du registre a un comportement : cinq issues, quatre retirent combat, une le garde', () => {
 			// KR-117/199 : `Record<IssueCombat, …>` est EXHAUSTIF PAR COMPILATION — une
-			// cinquième issue ne compile pas tant que ce témoin n'a pas dit ce qu'elle fait.
+			// sixième issue ne compile pas tant que ce témoin n'a pas dit ce qu'elle fait.
 			const COMPORTEMENT: Record<IssueCombat, 'retire' | 'garde'> = {
 				'hero-victory': 'retire',
 				'monster-fled': 'retire',
 				'hero-survived-unconscious': 'retire',
 				'hero-mort': 'garde',
+				'hero-fled': 'retire',
 			}
 			const issues = Object.keys(COMPORTEMENT) as IssueCombat[]
-			expect(issues).toHaveLength(4)
+			expect(issues).toHaveLength(5)
 
 			for (const issue of issues) {
 				const close = cloreCombat(enCombat(['normale']), bilan(issue))
@@ -905,12 +1101,20 @@ describe('le combat en session — resoudreRencontre, jouerPosture, cloreCombat 
 			const horsRegistre: EtatCombat = { monstre_ref: 'bestiaire.gobelin', postures: ['attaque'] }
 			// @ts-expect-error — `combat` n'est JAMAIS `EtatCombat | null` : absent, ou présent.
 			const nul: EtatSession['combat'] = null
+			// @ts-expect-error — `fuite` est le littéral `true`, JAMAIS `false` (KR-251) : un
+			// second état « pas de fuite » distinct de l'absence, que rien ne départagerait.
+			const fuiteFausse: EtatCombat = { monstre_ref: 'bestiaire.gobelin', postures: [], fuite: false }
+			// @ts-expect-error — l'issue n'est PAS stockée : `hero-fled` se dérive du rejeu (KR-013).
+			const avecIssue: EtatCombat = { monstre_ref: 'bestiaire.gobelin', postures: [], issue: 'hero-fled' }
 
-			// Discriminant : les formes LÉGALES compilent, elles — y compris l'ABSENCE.
+			// Discriminant : les formes LÉGALES compilent, elles — y compris l'ABSENCE, et la
+			// fuite posée. Sans cette moitié, les directives seraient satisfaites par n'importe
+			// quelle erreur de type.
 			const legal: EtatCombat = { monstre_ref: 'bestiaire.gobelin', postures: ['normale'] }
+			const fuyant: EtatCombat = { monstre_ref: 'bestiaire.gobelin', postures: ['normale'], fuite: true }
 			const absent: EtatSession['combat'] = undefined
 
-			expect([avecPv, avecRound, horsRegistre, nul, legal, absent]).toHaveLength(6)
+			expect([avecPv, avecRound, horsRegistre, nul, fuiteFausse, avecIssue, legal, fuyant, absent]).toHaveLength(9)
 		})
 	})
 
@@ -951,6 +1155,43 @@ describe('le combat en session — resoudreRencontre, jouerPosture, cloreCombat 
 			expect(ouvert.horloge.tour).toBe(tour)
 			expect(clos.horloge.tour).toBe(tour)
 			expect(clos.heros).toEqual({ ...HEROS_DE_COMBAT, pv: 10, pe: 2, xp: 13 })
+		})
+
+		it('due → ouvert → joue → fuit → clos : le heros reste au lieu courant, l evenement reste consomme, les commandes reprennent', () => {
+			// LE CHEMIN DE LA FUITE (n° 13 it2, D5), sur la FIXTURE DU DISQUE : mêmes quatre
+			// portes que ci-dessus, `fuirRencontre` entre la posture et la clôture.
+			const dossier = dossierReference()
+			const pas = executerCommande(dossier, sessionDe(dossier, 7), {
+				commande: 'aller',
+				cibles: ['lieu.tour-effondree'],
+			})
+			if (!pas.ok) throw new Error(`commande refusée (${pas.refus}) : ${pas.message}`)
+			const arrivee = fixerHeros(pas.session, HEROS_DE_COMBAT)
+			const due = evenementARencontrer(dossier, arrivee)
+			if (due === undefined) throw new Error('rencontre attendue')
+
+			const fuyant = fuirRencontre(jouerPosture(resoudreRencontre(arrivee, due), 'defensive'))
+			expect(fuyant.combat).toEqual({ monstre_ref: due.monstre_ref, postures: ['defensive'], fuite: true })
+			// TANT QUE LE COMBAT EXISTE — fuite posée comprise — AUCUNE commande n'est acceptée :
+			// c'est la CLÔTURE qui rend la main, jamais le drapeau.
+			const refus = executerCommande(dossier, fuyant, { commande: 'aller', cibles: ['lieu.foyer-du-guet'] })
+			expect(refus.ok === false && refus.refus).toBe('combat_en_cours')
+
+			const clos = cloreCombat(fuyant, bilan('hero-fled', { pv: 11, pe: 2, xp: 4 }))
+
+			expect('combat' in clos).toBe(false)
+			// AUCUN DÉPLACEMENT : le héros est où le pas qui a déclenché la rencontre l'a mené.
+			expect(clos.monde.lieu_courant).toBe('lieu.tour-effondree')
+			expect(clos.monde.lieu_courant).toBe(arrivee.monde.lieu_courant)
+			// L'événement RESTE consommé : sans quoi la même rencontre se rouvrirait au pas suivant.
+			expect(clos.monde.evenements_consommes).toEqual([due.evenement_id])
+			expect(evenementARencontrer(dossier, clos)).toBeUndefined()
+			// UN COMBAT = UN PAS ; ni XP (12 reste 12), ni plafonds.
+			expect(clos.horloge.tour).toBe(arrivee.horloge.tour)
+			expect(clos.heros).toEqual({ ...HEROS_DE_COMBAT, pv: 11, pe: 2 })
+			// Et la main est rendue : la même commande, refusée sous combat, est acceptée.
+			const reprise = executerCommande(dossier, clos, { commande: 'aller', cibles: ['lieu.foyer-du-guet'] })
+			expect(reprise.ok).toBe(true)
 		})
 	})
 })

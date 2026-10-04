@@ -17,7 +17,7 @@ import { evenementARencontrer } from '../../brain/dossier/evaluate'
 import { monstreDeLaReference } from '../../brain/dossier/monstre'
 import { creerRng } from '../../brain/dossier/alea'
 import { DEFAULT_WEAPON } from '../../brain/equipment'
-import { startCombat, resolveCombatRound } from './combatEngine'
+import { startCombat, resolveCombatRound, tryHeroFlee } from './combatEngine'
 import type { CombatState } from './combatTypes'
 import type { SessionState } from '../types'
 
@@ -49,9 +49,11 @@ export type RejeuCombat =
  *     - pickMonsterPosture(...) — derive monster's random posture for this round
  *     - resolveCombatRound(...) — resolve assault, apply damage, check outcome
  *     - Stop if outcome terminal (not 'ongoing')
- *  4. Return completed CombatState.
+ *  4. If outcome still 'ongoing' and combat.fuite === true: tryHeroFlee(...).
+ *  5. Return completed CombatState.
  *
  * HALTING: stops when postures[] is exhausted OR outcome becomes terminal.
+ * Flee after postures consumes at most one more RNG draw (freeAssault).
  * A prolonged stalemate (3+ null assaults) will run to array end; that's expected.
  */
 export function rejouerCombat(s: EtatSession): RejeuCombat {
@@ -93,6 +95,11 @@ export function rejouerCombat(s: EtatSession): RejeuCombat {
 		}
 	}
 
+	// Apply flee if flagged and still ongoing (not already terminal from postures)
+	if (state.outcome === 'ongoing' && combat.fuite === true) {
+		state = tryHeroFlee(state, heros, sessionState, rng)
+	}
+
 	return { ok: true, etat: state }
 }
 
@@ -104,7 +111,7 @@ export function rejouerCombat(s: EtatSession): RejeuCombat {
  * (crediting XP, updating PV/PE, removing combat from session).
  */
 export function bilanDe(e: CombatState): BilanCombat | undefined {
-	if (e.outcome === 'ongoing' || e.outcome === 'hero-fled') {
+	if (e.outcome === 'ongoing') {
 		return undefined
 	}
 

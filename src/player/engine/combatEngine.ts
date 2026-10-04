@@ -472,10 +472,8 @@ export function tryHeroFlee(
 	let heroArmourDeg = state.heroArmorDegradation
 	if (degradeArmour && session.activeProtection !== null) heroArmourDeg += 1
 
-	const log = [
-		...state.log,
-		{ round: state.round, text: `Fuite — assaut gratuit : −${damage} PV. [Héros : ${newHeroPv}]` },
-	]
+	const round = state.round + 1
+	const log = [...state.log, { round, text: `Fuite — assaut gratuit : −${damage} PV. [Héros : ${newHeroPv}]` }]
 
 	const heroHealth = healthState(newHeroPv, hero.caracs.CA)
 	if (heroHealth !== 'ok') {
@@ -483,7 +481,7 @@ export function tryHeroFlee(
 			...state,
 			heroPv: newHeroPv,
 			heroArmorDegradation: heroArmourDeg,
-			log: [...log, { round: state.round, text: `Le héros tombe en fuyant.` }],
+			log: [...log, { round, text: `Le héros tombe en fuyant.` }],
 			phase: 'ended',
 			outcome: 'hero-mort',
 		}
@@ -492,7 +490,7 @@ export function tryHeroFlee(
 		...state,
 		heroPv: newHeroPv,
 		heroArmorDegradation: heroArmourDeg,
-		log: [...log, { round: state.round, text: `Le héros fuit.` }],
+		log: [...log, { round, text: `Le héros fuit.` }],
 		phase: 'ended',
 		outcome: 'hero-fled',
 	}

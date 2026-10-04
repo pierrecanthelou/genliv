@@ -59,8 +59,8 @@
 			},
 			{
 				"id": 2,
-				"goal": "L'auteur voit son héros fuir un combat. Bouton « Fuir » séparé (pas une posture), issue hero-fled.",
-				"status": "planned"
+				"goal": "L'auteur voit son héros fuir un combat. Bouton « Fuir ↪ » séparé (pas une posture), assaut gratuit du monstre, issue hero-fled. D5 amendé : héros reste au lieu courant, ni XP ni butin.",
+				"status": "in-progress"
 			},
 			{
 				"id": 3,
