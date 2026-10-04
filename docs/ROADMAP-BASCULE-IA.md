@@ -156,7 +156,7 @@ Le Temps 2 ne commence qu'une fois le § 2 bis clos, sur go explicite. `0.7.x`.
 | 10 | `moteur-interprete` | …écrire ce qu'il veut faire en langage libre | 4 | **4/4 ✅** | 5 rôles | 9 |
 | 11 | `moteur-arbitre` | …voir le code lancer le dé que l'IA a demandé | 3 | **3/3, TERMINÉE** — it1 livrée (`0.7.10`), it2 livrée (`0.7.11`), it3 livrée (`0.7.12`) | 5 rôles | 10 · **B2** |
 | 12 | `moteur-acteurs` | …parler à un PNJ qui ne révèle que ce qu'il sait | 4 | **4/4, TERMINÉE** | 5 rôles | 11 |
-| 13 | `moteur-combat` | …lire un combat raconté que l'IA n'arbitre pas | 3 | — | 5 rôles | 11 |
+| 13 | `moteur-combat` | …lire un combat raconté que l'IA n'arbitre pas | 3 | **1/3** — it1 livrée (`0.7.18`) | 5 rôles | 11 |
 | 14 | `moteur-horloge` | …découvrir que le monde a avancé sans lui | 3 | — | 5 rôles | 12 |
 | 15 | `moteur-fins` | …reprendre sa partie là où il l'a laissée | 3 | — | 5 rôles | 14 |
 | 16 | `dossier-repetition` | *(auteur)* …faire jouer son aventure par un joueur synthétique | 2 | — | 5 rôles | 10 · 7 |

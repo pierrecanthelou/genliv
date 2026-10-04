@@ -72,7 +72,7 @@
 
 **D2. Égalité d'AT.** AT égales → assaut nul (aucun dégât), on rejoue un round. ✍️ *Défaut : OK.*
 
-**D2-bis. Garde aiguisée (anti-tortue).** Après **3 parades consécutives** d'un même combattant (posture Défensive remportée, 0 dégât), son **adversaire gagne +2 à la MC** pour le reste du combat, et le compteur de parades repart à zéro. Récompense l'agressivité face à une posture trop défensive ; s'applique au héros comme au monstre. ✍️ *Décision : OK.*
+**D2-bis. Garde aiguisée (anti-tortue).** Après **3 parades consécutives** d'un même combattant (posture Défensive remportée, 0 dégât), son **adversaire gagne +2 à la MC** pour le reste du combat, et le compteur de parades repart à zéro. Récompense l'agressivité face à une posture trop défensive ; s'applique au héros comme au monstre. Un assaut nul (AT égales, D2) est transparent pour le compteur : il ne progresse ni ne réinitialise la série de parades consécutives. ✍️ *Décision : OK.*
 
 **D3. IA du monstre (choix de posture).** Comment le monstre choisit sa posture chaque round ?
   ✍️ *Défaut proposé : pondéré — 60 % Normale, 25 % Précise, 15 % Défensive ; passe à 40 % Défensive si ses PV < 25 %.* (À ajuster, ou rendre dépendant de l'IG du monstre ou utiliser une IA.)

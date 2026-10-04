@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react'
+import { useState, useMemo, type CSSProperties } from 'react'
 import {
 	useBrain,
 	controlerDossier,
@@ -7,6 +7,8 @@ import {
 	destinationsPossibles,
 	executerCommande,
 	fixerHeros,
+	jouerPosture,
+	cloreCombat,
 	type Dossier,
 	type EtatSession,
 } from '../../../brain'
@@ -24,6 +26,9 @@ import { ConsoleCommandes } from './ConsoleCommandes'
 import { PlayerInputBar } from './PlayerInputBar'
 import { JournalRow } from './JournalRow'
 import { CarteJet } from './CarteJet'
+import { EcranCombat } from './EcranCombat'
+import { rejouerCombat, bilanDe, ouvrirRencontreSiDue } from '../../../player/engine/rencontre'
+import type { Posture } from '../../../brain/combat'
 
 /**
  * LE SHELL DE PARTIE — la route `partie`, montée par la racine de composition.
@@ -173,6 +178,26 @@ function PartieEnCours({
 	// verrou et n'a plus de sens une fois celui-ci relâché.
 	const refusAffiche = refus === TEXTE_REFUS_CONSOLE_EN_COURS && !isLocked ? null : refus
 
+	// REJEU DU COMBAT — calculé EN LIGNE, jamais un useEffect (KR-013/113).
+	const combatRejeu = useMemo(() => {
+		if (!session.combat) return null
+		const result = rejouerCombat(session)
+		return result.ok ? result.etat : null
+	}, [session])
+
+	const handleJouerRound = (posture: Posture) => {
+		const newSession = jouerPosture(session, posture)
+		setSession(newSession)
+	}
+
+	const handleCloreCombat = () => {
+		if (!combatRejeu) return
+		const bilan = bilanDe(combatRejeu)
+		if (!bilan) return
+		const newSession = cloreCombat(session, bilan)
+		setSession(newSession)
+	}
+
 	// Composant interne — Actions du carnet (bouton 🗝 + badge compteur)
 	function ActionsCarnet(): JSX.Element {
 		const nombreIndices = session.monde.indices_connus.length
@@ -229,7 +254,8 @@ function PartieEnCours({
 			return
 		}
 
-		setSession(resultat.session)
+		const sessionApresRencontre = ouvrirRencontreSiDue(dossier, resultat.session)
+		setSession(sessionApresRencontre)
 		setRefus(null)
 	}
 
@@ -238,59 +264,70 @@ function PartieEnCours({
 			<CadrePartie
 				titre={dossier.titre}
 				sortie={{ name: 'dossier', dossierId }}
-				bandeau={<BandeauHeros heros={session.heros} />}
+				bandeau={<BandeauHeros heros={session.heros} pvLive={combatRejeu?.heroPv} peLive={combatRejeu?.heroPe} />}
 				actionsEntete={<ActionsCarnet />}
 			>
 				<div style={colonneLecture}>
-					{/* LE SEUL NŒUD DE REGISTRE JOUEUR DE TOUT L'ÉCRAN. `lieu_courant` est un
-				    IDENTIFIANT : il n'apparaît nulle part ici — le registre
-				    développeur-débogueur vit dans le Journal et la Console (§ 3.F). */}
-					<OutcomeBlock entete={ENTETE_OUVERTURE}>{dossier.charpente.depart.texte_ouverture_joueur}</OutcomeBlock>
-					<section aria-label={LIBELLE_JOURNAL}>
-						<span style={libelleZone}>JOURNAL</span>
-						{session.journal.length === 0 ? (
-							<div style={etatVide}>
-								<span style={glypheVide} aria-hidden="true">
-									⬚
-								</span>
-								<p style={texteVide}>{TEXTE_JOURNAL_VIDE}</p>
-							</div>
-						) : (
-							<ul style={listeJournal}>
-								{/* L'INDEX EST LA CLÉ STABLE, et c'est le journal qui le rend vrai : il est
-							    APPEND-ONLY — jamais réordonné, jamais filtré, jamais inséré au milieu.
-							    Surtout PAS `${entree.tour}-${entree.role}` : `§ J1` de `REGLES-PLAY.md`,
-							    écrit par cette même tranche, dit qu'une conséquence enchaînée par le
-							    moteur n'ajoute AUCUN pas — deux entrées `moteur` du même pas arrivent
-							    donc dès it3 (jalons), et cette clé s'y dupliquerait. Un champ `seq`
-							    persisté serait un dérivable stocké (KR-013). */}
-								{session.journal.map((entree, index) => (
-									<JournalRow key={index} entree={entree} />
-								))}
-							</ul>
-						)}
-					</section>
-					{/* CARTE DU JET (it2) — montée conditionnellement si une épreuve est proposée,
-				    jamais si R2 absent, sans_epreuve, ou erreur (KR-013). */}
-					{carteJet && <CarteJet carteJet={carteJet} onLancer={lancerLeDe} />}
+					{/* COMBAT EN COURS — remplace la console et le journal pendant le combat. */}
+					{combatRejeu ? (
+						<EcranCombat etat={combatRejeu} onJouer={handleJouerRound} onClore={handleCloreCombat} />
+					) : session.combat ? (
+						<OutcomeBlock entete="ERREUR DE COMBAT">
+							Le monstre référencé est introuvable — le combat ne peut pas être rejoué.
+						</OutcomeBlock>
+					) : (
+						<>
+							{/* LE SEUL NŒUD DE REGISTRE JOUEUR DE TOUT L'ÉCRAN. `lieu_courant` est un
+						    IDENTIFIANT : il n'apparaît nulle part ici — le registre
+						    développeur-débogueur vit dans le Journal et la Console (§ 3.F). */}
+							<OutcomeBlock entete={ENTETE_OUVERTURE}>{dossier.charpente.depart.texte_ouverture_joueur}</OutcomeBlock>
+							<section aria-label={LIBELLE_JOURNAL}>
+								<span style={libelleZone}>JOURNAL</span>
+								{session.journal.length === 0 ? (
+									<div style={etatVide}>
+										<span style={glypheVide} aria-hidden="true">
+											⬚
+										</span>
+										<p style={texteVide}>{TEXTE_JOURNAL_VIDE}</p>
+									</div>
+								) : (
+									<ul style={listeJournal}>
+										{/* L'INDEX EST LA CLÉ STABLE, et c'est le journal qui le rend vrai : il est
+									    APPEND-ONLY — jamais réordonné, jamais filtré, jamais inséré au milieu.
+									    Surtout PAS `${entree.tour}-${entree.role}` : `§ J1` de `REGLES-PLAY.md`,
+									    écrit par cette même tranche, dit qu'une conséquence enchaînée par le
+									    moteur n'ajoute AUCUN pas — deux entrées `moteur` du même pas arrivent
+									    donc dès it3 (jalons), et cette clé s'y dupliquerait. Un champ `seq`
+									    persisté serait un dérivable stocké (KR-013). */}
+										{session.journal.map((entree, index) => (
+											<JournalRow key={index} entree={entree} />
+										))}
+									</ul>
+								)}
+							</section>
+							{/* CARTE DU JET (it2) — montée conditionnellement si une épreuve est proposée,
+						    jamais si R2 absent, sans_epreuve, ou erreur (KR-013). */}
+							{carteJet && <CarteJet carteJet={carteJet} onLancer={lancerLeDe} />}
 
-					{/* DEUX CANAUX : console ET champ libre (it1), tous deux affichés (it2).
-				    Console refusée pendant le pas (verrou R1→exécution→R3, KR-265). */}
-					<ConsoleCommandes
-						key={session.horloge.tour}
-						onSoumettre={handleSoumettreConsole}
-						refus={refusAffiche}
-						destinations={destinationsPossibles(dossier, session)}
-					/>
-					<PlayerInputBar
-						executeAction={executeAction}
-						getGestelabel={getGestelabel}
-						avis={avis}
-						isLocked={isLocked}
-						issueNarrateur={issueNarrateur}
-						session={session}
-						dossier={dossier}
-					/>
+							{/* DEUX CANAUX : console ET champ libre (it1), tous deux affichés (it2).
+						    Console refusée pendant le pas (verrou R1→exécution→R3, KR-265). */}
+							<ConsoleCommandes
+								key={session.horloge.tour}
+								onSoumettre={handleSoumettreConsole}
+								refus={refusAffiche}
+								destinations={destinationsPossibles(dossier, session)}
+							/>
+							<PlayerInputBar
+								executeAction={executeAction}
+								getGestelabel={getGestelabel}
+								avis={avis}
+								isLocked={isLocked}
+								issueNarrateur={issueNarrateur}
+								session={session}
+								dossier={dossier}
+							/>
+						</>
+					)}
 				</div>
 			</CadrePartie>
 			{carnetOuvert && <CarnetIndices session={session} onClose={() => setCarnetOuvert(false)} />}

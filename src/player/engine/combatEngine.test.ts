@@ -244,6 +244,34 @@ describe('resolveCombatRound', () => {
 		expect(next.gardeBonus.monster).toBe(2)
 		expect(next.consecutiveDefWins.hero).toBe(0)
 	})
+
+	it('D2-bis: null assault does not progress consecutiveDefWins counter', () => {
+		const almostGarde: CombatState = {
+			...state,
+			consecutiveDefWins: { hero: 2, monster: 0 },
+		}
+		// Monster defensive (roll > 85): 0.86 → randInt(1,100) = 87 → defensive
+		// Hero defensive D4: 0.0 → randInt(1,4) = 1 → atHero = 4+1 = 5
+		// Monster defensive D4: 0.25 → randInt(1,4) = 2 → atMonster = 3+2 = 5
+		// Tie → assaut nul, consecutiveDefWins inchangé
+		const nullAssaultRng = seqRng([0.86, 0.0, 0.25])
+		const next = resolveCombatRound(almostGarde, baseHero, baseSession, 'defensive', nullAssaultRng)
+		expect(next.consecutiveDefWins.hero).toBe(2)
+	})
+
+	it('D2-bis: non-defensive posture resets consecutiveDefWins to zero', () => {
+		// Build a state with hero having 2 consecutive defensive wins
+		const withDefWins: CombatState = {
+			...state,
+			consecutiveDefWins: { hero: 2, monster: 0 },
+		}
+		// Play normal (non-defensive) posture. Monster should win or tie, but either way
+		// the counter resets
+		const normalRng = seqRng([0.5, 0.0, 0.0])
+		const next = resolveCombatRound(withDefWins, baseHero, baseSession, 'normale', normalRng)
+		// Counter should be reset to 0
+		expect(next.consecutiveDefWins.hero).toBe(0)
+	})
 })
 
 // ─── tryHeroFlee ──────────────────────────────────────────────────────────────

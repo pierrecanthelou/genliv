@@ -54,8 +54,8 @@
 		"iterations": [
 			{
 				"id": 1,
-				"goal": "L'auteur voit un événement à monstre ouvrir un combat qu'il résout round par round, sans IA. Postures Normale/Précise/Défensive, log mécanique affiché. Sonde D2-bis + correction « manqué ».",
-				"status": "planned"
+				"goal": "L'auteur voit un événement à monstre ouvrir un combat qu'il résout round par round, sans IA. Postures Normale/Précise/Défensive, log mécanique affiché.",
+				"status": "done"
 			},
 			{
 				"id": 2,
@@ -78,7 +78,28 @@
 		]
 	},
 	"implementation": {
-		"iterations_log": [],
+		"iterations_log": [
+			{
+				"id": 1,
+				"label": "combat-sans-ia",
+				"completed_at": "2026-10-04",
+				"architecture_choices": [
+					"Rejeu pur {monstre_ref, postures[]} dans session.combat, pas de snapshot CombatState (KR-292)",
+					"rencontre.ts dans src/player/engine/ : rejouerCombat, bilanDe, ouvrirRencontreSiDue — pure, sans service",
+					"monstre.ts dans brain/dossier/ : résolution bestiaire copy-on-use (KR-101), estCleDe (KR-175)",
+					"EcranCombat.tsx dans play-mode/ : SegmentedControl pour postures, log mécanique mono, focus management sur états terminaux",
+					"Un combat = un pas d'horloge (KR-295), événement consommé à l'ouverture"
+				],
+				"deviations_from_plan": [
+					"D2-bis (garde aiguisée) intégré directement dans le lot contrat au lieu d'un lot séparé",
+					"Sonde de caractérisation D2-bis confirmée par test unitaire (combatEngine.test.ts)"
+				],
+				"test_coverage": {
+					"unit": "141 suites / 2545 tests",
+					"e2e": "intégration console→combat (combatParConsole.test.tsx)"
+				}
+			}
+		],
 		"resolved_decisions": [
 			"R5 commentateur, pas R3 étendu : deux schémas sous un rôle = aiguillage caché (TL). Le coût d'une route supplémentaire est borné (KR-233).",
 			"Un combat = un pas d'horloge, pas un pas par round : REGLES-PLAY J1 (conséquence enchaînée), fenêtre mémoire FENETRE_MAX 14 saturée sinon, plans PNJ (n° 14) avanceraient à chaque coup.",
@@ -94,12 +115,21 @@
 			"Personnage.tier : dérivé en ligne, jamais stocké (KR-192).",
 			"ouvrir_combat (deltas.ts) et combattre (commandes.ts) restent clos.",
 			"Butin, victoryTarget, resolutions[].consequence : hors périmètre (n° 15 ou non planifié).",
-			"Fuite = bouton séparé, pas un 4e segment du SegmentedControl."
+			"Fuite = bouton séparé, pas un 4e segment du SegmentedControl.",
+			"It1 : 2 lots (contrat + feature), pas 4. PM cède : lot D2-bis (rider) et lot moteur (pas de parallélisme avec l'écran).",
+			"It1 : « sonde D2-bis » retirée du goal. Sonde de caractérisation conservée comme critère en lot 2.",
+			"It1 : correction « manqué » reportée (capacityEffects.ts hors du lot, déclencheur non armé KR-294).",
+			"It1 : bouton local dans EcranCombat sur tokens, pas d'extension d'IconButton (wide changerait la nature du composant).",
+			"It1 : extensions SegmentedControl (flèches/tabindex itinérant) reportées — non additif, 23 appelants.",
+			"It1 : fixtures de combat sans capacités pending* — pending* hors périmètre.",
+			"It1 : événement consommé à l'ouverture du combat, pas à la clôture — évite état ambigu mid-combat."
 		],
 		"open_questions": [
 			"Enrichir pickMonsterPosture selon IG — reporté indéfiniment, pas de règle écrite (KR-130). À rouvrir si REGLES-PLAY.md D3 est amendé.",
 			"Écran de mort / fin de partie — reporté à n° 15.",
-			"Équipement du héros (mains nues en dur tant qu'aucun écrivain d'inventaire n'existe) — non planifié."
+			"Équipement du héros (mains nues en dur tant qu'aucun écrivain d'inventaire n'existe) — non planifié.",
+			"Application des pending* (maladie, vol, magie, rayon) — reportée, pas de feuille de session pour les recevoir.",
+			"IconButton.tsx:49 fontSize '11px' en dur — dette préexistante, hors lot."
 		]
 	}
 }

@@ -110,6 +110,17 @@ import type { EtatSession } from '../session'
  * `pe` ≠ `peMax` (un héros frais serait indistinguable d'un champ jamais lu). Sans
  * instance ici, les neuf lignes `heros.*` de la table seraient MORTES le jour même
  * où elles sont écrites — même précédent que `journal[].deltas[].*` à l'itération 3.
+ *
+ * `combat` INSTANCIÉ depuis le lot `contrat` de la n° 13 (`moteur-combat`, it1) — sixième
+ * racine porteuse, et ses deux feuilles (`monstre_ref`, `postures[]`) sont les deux lignes
+ * `'moteur'` neuves de la table : sans instance ici, elles seraient MORTES le jour même où
+ * elles sont écrites. LES TROIS POSTURES SONT JOUÉES, DANS UN ORDRE QUI N'EST NI CELUI DU
+ * REGISTRE NI SA REVERSE : `postures[]` est le seul tableau de la fixture dont l'ORDRE
+ * est l'information (le rejeu le consomme round après round, KR-292), et une fixture qui
+ * le triait enseignerait qu'il est sans importance. `monstre_ref` est emprunté, comme les
+ * autres identifiants, à `dossier-minimal.json` ; l'événement correspondant est DÉJÀ
+ * consommé plus haut (`evenements_consommes`), ce qui est exactement l'état d'un combat
+ * ouvert — l'événement se consomme à l'OUVERTURE, jamais à la clôture.
  */
 export const SESSION_SATUREE: EtatSession = {
 	schema: 1,
@@ -177,5 +188,9 @@ export const SESSION_SATUREE: EtatSession = {
 		pe: 3,
 		mcBonus: 0,
 		xp: 12,
+	},
+	combat: {
+		monstre_ref: 'bestiaire.gobelin',
+		postures: ['precise', 'normale', 'defensive'],
 	},
 }

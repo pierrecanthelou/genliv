@@ -1,12 +1,13 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { executerCommande } from './commandes'
 import { DELTAS } from './deltas'
-import { appliquerDelta, evaluerExpr, projeterJalonsAtteints, resoudreJalons } from './evaluate'
+import { appliquerDelta, evaluerExpr, evenementARencontrer, projeterJalonsAtteints, resoudreJalons } from './evaluate'
 import type { ExprNode } from './expr'
 import type { FaitsDeSession } from './faits'
 import { PREDICATES } from './predicates'
-import { ouvrirSession } from './session'
-import type { Dossier, Jalon } from './types'
+import { ouvrirSession, type EtatSession } from './session'
+import type { Dossier, Evenement, Jalon } from './types'
 
 /**
  * L'ÉVALUATEUR BIVALENT, LES EFFETS, ET LA PASSE DES JALONS.
@@ -432,6 +433,221 @@ describe('projeterJalonsAtteints, ce qu un modele pourra voir', () => {
 			{ jalon_id: 'jalon.disparu-du-dossier', enonce: '' },
 			{ jalon_id: 'jalon.premiere-vigie', enonce: dossier.charpente.jalons[0].enonce_texte },
 		])
+	})
+})
+
+describe('evenementARencontrer, la rencontre due (n 13 moteur-combat, it1, lot contrat)', () => {
+	/** Les deux événements-monstres des fixtures du disque (KR-156) — lus, jamais recopiés. */
+	const EVENEMENT_REFERENCE = 'evenement.embuscade-a-la-tour'
+	const MONSTRE_REFERENCE = 'bestiaire.squelette'
+	const EVENEMENT_MINIMAL = 'evenement.embuscade-du-fanal'
+	const MONSTRE_MINIMAL = 'bestiaire.gobelin'
+
+	/** Le lieu de départ du dossier de référence — vrai à l'ouverture, donc une condition « toujours vraie ». */
+	const ICI = feuille('lieu_courant_est', 'lieu.foyer-du-guet')
+	const AILLEURS = feuille('lieu_courant_est', 'lieu.jamais-vu')
+
+	/** Un événement FABRIQUÉ : ses proses ne sont jamais lues par le moteur. */
+	function evenement(id: string, monstre: string | undefined, declencheur: ExprNode | undefined): Evenement {
+		return {
+			id,
+			nom: `Nom de ${id}`,
+			...(monstre === undefined ? {} : { monstre_ref: monstre }),
+			...(declencheur === undefined ? {} : { declencheur_expr: declencheur }),
+			resolutions: [],
+		}
+	}
+
+	/** Le dossier de référence, ses événements REMPLACÉS — un seul champ muté, en test. */
+	function avecEvenements(evenements: Evenement[]): Dossier {
+		const dossier = lire(CHEMIN_REFERENCE)
+		dossier.monde.evenements = evenements
+		return dossier
+	}
+
+	function ouverte(dossier: Dossier): EtatSession {
+		const resultat = ouvrirSession(dossier, { graine_alea: 424242 })
+		if (!resultat.ok) throw new Error(`ouverture refusée : ${resultat.refus}`)
+		return resultat.session
+	}
+
+	/** Le pas qui amène le héros à la tour effondrée — par le PRODUIT, jamais une session forgée. */
+	function aLaTour(dossier: Dossier, depart: EtatSession): EtatSession {
+		const resultat = executerCommande(dossier, depart, { commande: 'aller', cibles: ['lieu.tour-effondree'] })
+		if (!resultat.ok) throw new Error(`commande refusée (${resultat.refus}) : ${resultat.message}`)
+		return resultat.session
+	}
+
+	/** Le même état, ses événements consommés POSÉS — une seule feuille de `monde` change. */
+	function avecConsommes(session: EtatSession, consommes: string[]): EtatSession {
+		return { ...session, monde: { ...session.monde, evenements_consommes: consommes } }
+	}
+
+	it('rend le premier evenement a monstre_ref, au bon lieu, non consomme — et RIEN avant d y etre', () => {
+		// CRITÈRE 1 du plan — LES DEUX FIXTURES DU DISQUE, parce que les deux prédicats
+		// de lieu y sont écrits : `lieu_visite` (référence) et `lieu_courant_est`
+		// (minimal). L'état séparateur est le LIEU : la même session, avant et après le
+		// pas qui l'amène à la tour.
+		const reference = lire(CHEMIN_REFERENCE)
+		expect(reference.monde.evenements[0].id).toBe(EVENEMENT_REFERENCE)
+		expect(reference.monde.evenements[0].monstre_ref).toBe(MONSTRE_REFERENCE)
+
+		const depart = ouverte(reference)
+		expect(evenementARencontrer(reference, depart)).toBeUndefined()
+
+		const rencontre = evenementARencontrer(reference, aLaTour(reference, depart))
+		expect(rencontre).toEqual({ evenement_id: EVENEMENT_REFERENCE, monstre_ref: MONSTRE_REFERENCE })
+		// DEUX CLÉS, ET DEUX SEULEMENT — garde PAR VALEUR (KR-246) : ni `nom` ni
+		// `declencheur_texte` (audience `auteur`), ni `resolutions[]`, ne sortent.
+		expect(Object.keys(rencontre ?? {}).sort()).toEqual(['evenement_id', 'monstre_ref'])
+
+		// LE MINIMAL : le héros ouvre au lieu de la condition — la rencontre est due
+		// DÈS L'OUVERTURE, sans aucun pas.
+		const minimal = lire(CHEMIN_MINIMAL)
+		expect(evenementARencontrer(minimal, ouverte(minimal))).toEqual({
+			evenement_id: EVENEMENT_MINIMAL,
+			monstre_ref: MONSTRE_MINIMAL,
+		})
+	})
+
+	it('rend le PREMIER dans l ordre du DOSSIER, quel que soit l evenement qui est vrai en second', () => {
+		// Deux événements dont la condition est vraie ensemble : l'ordre d'écriture
+		// DÉCIDE, et le témoin le prouve dans les deux sens — sans la seconde ligne, un
+		// moteur qui rendrait toujours `evenements[0]`, ou toujours le dernier, serait
+		// vert sur l'un des deux.
+		const A = evenement('evenement.a', 'bestiaire.gobelin', ICI)
+		const B = evenement('evenement.b', 'bestiaire.squelette', ICI)
+		const depart = ouverte(avecEvenements([]))
+
+		for (const [ordre, evenements, attendu] of [
+			['A puis B', [A, B], 'evenement.a'],
+			['B puis A', [B, A], 'evenement.b'],
+		] as const) {
+			expect(`${ordre} → ${evenementARencontrer(avecEvenements([...evenements]), depart)?.evenement_id}`).toBe(
+				`${ordre} → ${attendu}`,
+			)
+		}
+	})
+
+	it('saute l evenement consomme, puis rend le suivant, puis undefined quand tous le sont', () => {
+		// L'événement se consomme à l'OUVERTURE du combat (`resoudreRencontre`) : c'est
+		// cette liste, et elle seule, qui empêche de rouvrir le MÊME combat au pas suivant.
+		const dossier = avecEvenements([
+			evenement('evenement.a', 'bestiaire.gobelin', ICI),
+			evenement('evenement.b', 'bestiaire.squelette', ICI),
+		])
+		const depart = ouverte(dossier)
+
+		expect(evenementARencontrer(dossier, depart)?.evenement_id).toBe('evenement.a')
+		expect(evenementARencontrer(dossier, avecConsommes(depart, ['evenement.a']))?.evenement_id).toBe('evenement.b')
+		expect(evenementARencontrer(dossier, avecConsommes(depart, ['evenement.a', 'evenement.b']))).toBeUndefined()
+		// Consommer LE SECOND ne cache pas le premier : le saut est par identifiant.
+		expect(evenementARencontrer(dossier, avecConsommes(depart, ['evenement.b']))?.evenement_id).toBe('evenement.a')
+	})
+
+	it('saute l evenement dont la condition est fausse, MEME en premiere position', () => {
+		const faux = evenement('evenement.faux', 'bestiaire.gobelin', AILLEURS)
+		const vrai = evenement('evenement.vrai', 'bestiaire.squelette', ICI)
+		const depart = ouverte(avecEvenements([]))
+
+		expect(evenementARencontrer(avecEvenements([faux, vrai]), depart)?.evenement_id).toBe('evenement.vrai')
+		expect(evenementARencontrer(avecEvenements([faux]), depart)).toBeUndefined()
+	})
+
+	it('undefined quand un combat existe — MEME avec une rencontre due (KR-295)', () => {
+		const dossier = lire(CHEMIN_REFERENCE)
+		const arrivee = aLaTour(dossier, ouverte(dossier))
+		// L'ÉTAT SÉPARATEUR : la même session, sans puis avec `combat`.
+		expect(evenementARencontrer(dossier, arrivee)?.evenement_id).toBe(EVENEMENT_REFERENCE)
+
+		for (const postures of [[], ['normale', 'defensive']] as const) {
+			const enCombat: EtatSession = { ...arrivee, combat: { monstre_ref: MONSTRE_REFERENCE, postures: [...postures] } }
+			// Le combat vient d'ouvrir (aucune posture) OU est avancé : l'un comme l'autre ferme.
+			expect(evenementARencontrer(dossier, enCombat)).toBeUndefined()
+		}
+	})
+
+	it('undefined quand l evenement n a pas de monstre_ref, meme condition vraie', () => {
+		const sansMonstre = evenement('evenement.rumeur', undefined, ICI)
+		const avecMonstre = evenement('evenement.embuscade', 'bestiaire.gobelin', ICI)
+		const depart = ouverte(avecEvenements([]))
+
+		expect(evenementARencontrer(avecEvenements([sansMonstre]), depart)).toBeUndefined()
+		// DISCRIMINANT : le même événement avec un monstre est rendu, et un événement sans
+		// monstre en tête ne cache pas celui qui suit.
+		expect(evenementARencontrer(avecEvenements([avecMonstre]), depart)?.evenement_id).toBe('evenement.embuscade')
+		expect(evenementARencontrer(avecEvenements([sansMonstre, avecMonstre]), depart)?.evenement_id).toBe(
+			'evenement.embuscade',
+		)
+	})
+
+	it('undefined quand l evenement n a pas de declencheur_expr — jamais declenche automatiquement', () => {
+		// Un événement SANS condition formalisée est un état calme (`types.ts`), jamais
+		// une alerte : seule la main du narrateur le joue. Même règle que les jalons.
+		const sansCondition = evenement('evenement.a-la-main', 'bestiaire.gobelin', undefined)
+		const avecCondition = evenement('evenement.auto', 'bestiaire.gobelin', ICI)
+		const depart = ouverte(avecEvenements([]))
+
+		expect(evenementARencontrer(avecEvenements([sansCondition]), depart)).toBeUndefined()
+		expect(evenementARencontrer(avecEvenements([avecCondition]), depart)?.evenement_id).toBe('evenement.auto')
+
+		// ET SUR L'ÉVÉNEMENT DU DISQUE : la condition retirée, la rencontre due disparaît.
+		const dossier = lire(CHEMIN_REFERENCE)
+		const arrivee = aLaTour(dossier, ouverte(dossier))
+		expect(evenementARencontrer(dossier, arrivee)).toBeDefined()
+		delete dossier.monde.evenements[0].declencheur_expr
+		expect(evenementARencontrer(dossier, arrivee)).toBeUndefined()
+	})
+
+	it('ne resout PAS le monstre : une reference pendante est rendue telle quelle, jamais filtree', () => {
+		// KR-021 : la référence orpheline est EXPOSÉE. Résoudre contre le bestiaire est
+		// l'affaire de `monstreDeLaReference`, que le rejeu appelle ; `validateDossier`
+		// l'a déjà refusée à l'import. Filtrer ici ferait disparaître la rencontre en
+		// silence, sans que rien ne dise pourquoi le combat ne s'ouvre jamais.
+		const dossier = avecEvenements([evenement('evenement.pendant', 'bestiaire.griffon-des-cendres', ICI)])
+
+		expect(evenementARencontrer(dossier, ouverte(dossier))).toEqual({
+			evenement_id: 'evenement.pendant',
+			monstre_ref: 'bestiaire.griffon-des-cendres',
+		})
+	})
+
+	it('leve sur une condition non reconnue, NUE et sous une negation — jamais un faux positif (KR-238)', () => {
+		// MUTANT NOMMÉ, ÉCRIT, VU ROUGE, RÉVOQUÉ : envelopper l'appel d'`evaluerExpr` d'un
+		// `try/catch` qui rend `false`. Sous un `non`, ce repli produit `true` — un combat
+		// OUVERT à tort, la seule direction d'erreur que cette couche s'interdise.
+		const inconnu = { op: 'xor' } as unknown as ExprNode
+		const depart = ouverte(avecEvenements([]))
+
+		expect(() =>
+			evenementARencontrer(avecEvenements([evenement('evenement.x', 'bestiaire.gobelin', inconnu)]), depart),
+		).toThrow()
+		expect(() =>
+			evenementARencontrer(avecEvenements([evenement('evenement.x', 'bestiaire.gobelin', nier(inconnu))]), depart),
+		).toThrow()
+
+		// DISCRIMINANCE (KR-199) : elle ne lève pas sur tout — la même forme, valide, répond.
+		expect(
+			evenementARencontrer(avecEvenements([evenement('evenement.x', 'bestiaire.gobelin', nier(AILLEURS))]), depart)
+				?.evenement_id,
+		).toBe('evenement.x')
+	})
+
+	it('elle est PURE — ni le dossier ni la session ne bougent, et le verdict suit l etat', () => {
+		// KR-169 : « pure » est écrit au contrat, voici sa porte. Le dernier couple est
+		// la mesure « aucune mémoïsation » PAR LE COMPORTEMENT : deux états, deux verdicts.
+		const dossier = lire(CHEMIN_REFERENCE)
+		const depart = ouverte(dossier)
+		const arrivee = aLaTour(dossier, depart)
+		const avantDossier = JSON.stringify(dossier)
+		const avantSession = JSON.stringify(arrivee)
+
+		evenementARencontrer(dossier, arrivee)
+
+		expect(JSON.stringify(dossier)).toBe(avantDossier)
+		expect(JSON.stringify(arrivee)).toBe(avantSession)
+		expect(evenementARencontrer(dossier, depart)).toBeUndefined()
+		expect(evenementARencontrer(dossier, arrivee)).toBeDefined()
 	})
 })
 

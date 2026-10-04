@@ -8,10 +8,11 @@ import {
 	personnagesPresents,
 	type Commande,
 	type CommandeDescripteur,
+	type CommandeId,
 	type ResultatCommande,
 	type ResultatSaisie,
 } from './commandes'
-import { fixerHeros, ouvrirSession, type EtatSession } from './session'
+import { cloreCombat, fixerHeros, ouvrirSession, resoudreRencontre, type EtatSession } from './session'
 import type { Dossier } from './types'
 import type { HeroState } from '../../player/types'
 
@@ -938,5 +939,130 @@ describe('la frontiere du baril est instrumentee, pas conventionnelle', () => {
 		expect(sansCommentaires('const m = createMagasinDeSession(p)').includes(INTERDITS[1])).toBe(true)
 		expect(sansCommentaires('// on ne touche pas COMMANDES').includes(INTERDITS[0])).toBe(false)
 		expect(sansCommentaires('/** ni createMagasinDeSession */').includes(INTERDITS[1])).toBe(false)
+	})
+})
+
+/**
+ * `combat_en_cours` (n° 13 `moteur-combat`, it1, lot `contrat`) — CRITÈRE 4 DU PLAN,
+ * MOITIÉ `RefusCommande` : tant que `session.combat` existe, AUCUNE commande n'est
+ * acceptée. Un combat est UN pas d'horloge (KR-295), jamais une suite de commandes.
+ *
+ * LES TROIS VERBES SONT BALAYÉS DEPUIS `COMMANDES`, jamais trois littéraux : un
+ * verbe de plus au registre est refusé sans qu'on y pense — et ce témoin rougit
+ * tant qu'on ne lui a pas écrit sa saisie (`Record<CommandeId, …>` exhaustif).
+ */
+describe('executerCommande, combat_en_cours (n 13 moteur-combat, it1)', () => {
+	const RENCONTRE = { evenement_id: 'evenement.embuscade-a-la-tour', monstre_ref: 'bestiaire.squelette' }
+	const MESSAGE = "Un combat est en cours : aucune commande n'est acceptée avant son issue."
+
+	/**
+	 * UNE SAISIE ACCEPTABLE PAR VERBE, depuis le lieu de départ du dossier de référence
+	 * (`lieu.foyer-du-guet`) : `lieu.marche-des-cendres` est un accès, et Harek y est
+	 * présent avec une identité. Sans combat, les trois sont ACCEPTÉES — c'est ce qui
+	 * donne au refus sa valeur de discriminant.
+	 */
+	const SAISIES: Record<CommandeId, string> = {
+		aller: 'ALLER lieu.marche-des-cendres',
+		agir: 'AGIR',
+		parler: 'PARLER pnj.harek-le-forgeron',
+	}
+
+	/** Le héros au repos, puis le MÊME héros avec un combat OUVERT par le produit. */
+	function situation(dossier: Dossier): { auRepos: EtatSession; enCombat: EtatSession } {
+		const auRepos = fixerHeros(ouverture(dossier), heroAvec(2))
+		return { auRepos, enCombat: resoudreRencontre(auRepos, RENCONTRE) }
+	}
+
+	it('refuse CHAQUE verbe du registre tant que combat existe — et les accepte tous sans combat', () => {
+		const dossier = lire(CHEMIN_REFERENCE)
+		const { auRepos, enCombat } = situation(dossier)
+
+		// TOTALITÉ : une saisie par verbe du registre, ni plus ni moins.
+		expect(Object.keys(SAISIES).sort()).toEqual(Object.keys(COMMANDES).sort())
+		expect('combat' in auRepos).toBe(false)
+		expect(enCombat.combat).toEqual({ monstre_ref: 'bestiaire.squelette', postures: [] })
+
+		for (const id of Object.keys(COMMANDES) as CommandeId[]) {
+			// DISCRIMINANT : la même saisie, sur la même session SANS combat, est acceptée.
+			expect(`${id} sans combat → ${executer(dossier, auRepos, SAISIES[id]).ok}`).toBe(`${id} sans combat → true`)
+
+			const refus = executer(dossier, enCombat, SAISIES[id])
+			expect(`${id} en combat → ${refus.ok === false && refus.refus}`).toBe(`${id} en combat → combat_en_cours`)
+			expect(messageDe(refus)).toBe(MESSAGE)
+		}
+	})
+
+	it('le refus est le PREMIER : il passe avant acces_absent, cible_inconnue et cible_indisponible', () => {
+		// UN REFUS PAR CAUSE, chacun avec son refus HABITUEL sans combat (le discriminant)
+		// puis `combat_en_cours` avec : sans cette moitié, « toujours combat_en_cours »
+		// serait vert sur un moteur qui n'aurait plus aucun autre refus.
+		const dossier = lire(CHEMIN_REFERENCE)
+		const { auRepos, enCombat } = situation(dossier)
+		const AUTRES_REFUS = [
+			['ALLER lieu.crypte-scellee', 'acces_absent'],
+			['PARLER pnj.fantome', 'cible_inconnue'],
+			['PARLER pnj.selene-la-vigie', 'cible_indisponible'],
+		] as const
+
+		for (const [saisie, habituel] of AUTRES_REFUS) {
+			const sans = executer(dossier, auRepos, saisie)
+			expect(`${saisie} sans combat → ${sans.ok === false && sans.refus}`).toBe(`${saisie} sans combat → ${habituel}`)
+
+			const avec = executer(dossier, enCombat, saisie)
+			expect(`${saisie} en combat → ${avec.ok === false && avec.refus}`).toBe(`${saisie} en combat → combat_en_cours`)
+			expect(messageDe(avec)).toBe(MESSAGE)
+		}
+	})
+
+	it('un refus ne consomme AUCUN pas : session intacte, horloge, journal, monde, jalons', () => {
+		// Le bras `{ ok: false }` ne porte pas de session : la propriété se prouve sur
+		// l'ARGUMENT, champ par champ. ET LE DOSSIER EST MONTÉ POUR QU'UN JALON PARTE SI LA
+		// PASSE TOURNAIT (précédent « la passe tourne après une commande ACCEPTÉE ») : sans
+		// cela, le silence sous combat serait celui d'un dossier sans jalon déclenchable.
+		const dossier = lire(CHEMIN_REFERENCE)
+		const jalon = dossier.charpente.jalons.find((candidat) => candidat.declencheur_expr !== undefined)
+		if (jalon === undefined) throw new Error('fixture : plus aucun jalon à `declencheur_expr`')
+		jalon.declencheur_expr = { op: 'predicat', predicat: 'lieu_visite', cibles: ['lieu.foyer-du-guet'] }
+
+		const auRepos = fixerHeros(ouverture(lire(CHEMIN_REFERENCE)), heroAvec(2))
+		const enCombat = resoudreRencontre(auRepos, RENCONTRE)
+		const avant = JSON.stringify(enCombat)
+
+		for (const id of Object.keys(COMMANDES) as CommandeId[]) {
+			expect(`${id} → ${executer(dossier, enCombat, SAISIES[id]).ok}`).toBe(`${id} → false`)
+		}
+		expect(JSON.stringify(enCombat)).toBe(avant)
+		expect(enCombat.monde.jalons_atteints).toEqual([])
+		expect(enCombat.horloge.tour).toBe(0)
+		expect(enCombat.journal).toEqual([])
+
+		// DISCRIMINANT, DANS LE MÊME TEST : sans combat, la même commande est acceptée ET
+		// le même jalon part — la passe est bien branchée, et c'est le combat qui la coupe.
+		const accepte = sessionDe(executer(dossier, auRepos, 'AGIR'))
+		expect(accepte.monde.jalons_atteints).toEqual([jalon.id])
+	})
+
+	it('la mort laisse le combat en place, donc aucune commande ne reprend — la victoire, elle, les rend', () => {
+		// CRITÈRE 4 DU PLAN : `cloreCombat` rend la session À L'IDENTIQUE sur `hero-mort`
+		// (combat reste), et c'est `combat` — non un drapeau de fin — qui refuse.
+		const dossier = lire(CHEMIN_REFERENCE)
+		const { enCombat } = situation(dossier)
+		const BILAN = { pv: 9, pe: 1, xp: 3, pv_max_delta: 0, pe_max_delta: 0 }
+
+		const mort = cloreCombat(enCombat, { issue: 'hero-mort', ...BILAN })
+		expect(mort).toBe(enCombat)
+		for (const id of Object.keys(COMMANDES) as CommandeId[]) {
+			const refus = executer(dossier, mort, SAISIES[id])
+			expect(`${id} après la mort → ${refus.ok === false && refus.refus}`).toBe(`${id} après la mort → combat_en_cours`)
+		}
+
+		// À L'INVERSE, toute issue qui RETIRE `combat` rend les commandes — sans quoi une
+		// partie gagnée serait bloquée aussi sûrement qu'une partie perdue.
+		for (const issue of ['hero-victory', 'monster-fled', 'hero-survived-unconscious'] as const) {
+			const close = cloreCombat(enCombat, { issue, ...BILAN })
+			for (const id of Object.keys(COMMANDES) as CommandeId[]) {
+				expect(`${issue} / ${id} → ${executer(dossier, close, SAISIES[id]).ok}`).toBe(`${issue} / ${id} → true`)
+			}
+		}
 	})
 })

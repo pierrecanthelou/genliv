@@ -53,6 +53,7 @@ import {
 	type ChallengeTier,
 	type CibleArbitre,
 } from '../../../brain'
+import { ouvrirRencontreSiDue } from '../../../player/engine/rencontre'
 
 /** L'ISSUE DE L'APPEL R3 (narrateur) — l'avis reçu, avec le tour pour éviter une
  *  affichage périmé au pas suivant. Deux variantes : succès (statut 'raconte' +
@@ -122,14 +123,16 @@ export function useTourDeJeu(
 
 	// Stockage temporaire pour l'état lors de l'attente du clic « Lancer »
 	const sessionEncourseRef = useRef<EtatSession | null>(null)
+	// prettier-ignore
 	const propositionEncourseRef = useRef<
-		| ({
+		| {
 			kind: 'arbitre'
 			carac: Characteristic
 			tc: ChallengeTier
 			enjeuReussite: string
 			enjeuEchec: string
-		} | {
+		}
+		| {
 			kind: 'acteur'
 			personnageId: string
 			saisie: string
@@ -137,7 +140,7 @@ export function useTourDeJeu(
 			tc: ChallengeTier
 			enjeuReussite: string
 			enjeuEchec: string
-		})
+		}
 		| null
 	>(null)
 
@@ -183,6 +186,19 @@ export function useTourDeJeu(
 				saisie,
 			)
 
+			const pasAccepte = 'type' in nouvelAvis && nouvelAvis.type === 'aucun'
+
+			// ÉTAPE 3b : Vérifier si une rencontre doit s'ouvrir (lot 2, moteur-combat).
+			// Uniquement si la commande a été acceptée — une commande refusée ne déclenche rien.
+			if (pasAccepte) {
+				const sessionApresRencontre = ouvrirRencontreSiDue(dossier, nouvelleSession)
+				if (sessionApresRencontre !== nouvelleSession) {
+					onSessionChange(sessionApresRencontre)
+					setAvis(nouvelAvis)
+					return true
+				}
+			}
+
 			// ÉTAPE 4 : Persister la session mise à jour — chez le PARENT uniquement
 			// (KR-013) : le prochain rendu de `PartieEnCours` repassera cette session,
 			// à jour, dans le paramètre `session` ci-dessus.
@@ -194,8 +210,6 @@ export function useTourDeJeu(
 			// ──────────────────────────────────────────────────────────
 			// R2 (ARBITRE) — demander un jet si applicable (lot 2)
 			// ──────────────────────────────────────────────────────────
-			// Vérifier si cette commande doit déclencher R2
-			const pasAccepte = 'type' in nouvelAvis && nouvelAvis.type === 'aucun'
 			if (
 				pasAccepte &&
 				reponse.proposition.lecture === 'commande' &&

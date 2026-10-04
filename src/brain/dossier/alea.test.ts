@@ -161,3 +161,73 @@ describe('domaine jet — issueDuJet, un jet au plus par pas', () => {
 		}
 	})
 })
+
+/**
+ * LE DOMAINE `'combat'` (n° 13 `moteur-combat`, lot `contrat`, it1) — LE FLUX UNIQUE
+ * du rejeu d'un combat : `creerRng(graine, 'combat', horloge.tour)`, consommé du
+ * premier round au dernier. UN combat entier est UN pas d'horloge (KR-295), donc UNE
+ * clé d'usage, et la promesse de rejeu (KR-292) tient à ce que cette clé rende
+ * TOUJOURS la même suite — c'est la propriété que ce bloc épingle, sur les trois axes
+ * où elle peut casser : la répétition, la séparation d'avec les deux autres domaines,
+ * et la séparation d'un pas à l'autre.
+ */
+describe('domaine combat — le flux unique du rejeu, un combat = un pas', () => {
+	const COMBAT: DomaineAlea = 'combat'
+	/** Les rounds d'un long combat : bien au-delà de ce qu'un combat consomme réellement. */
+	const TIRAGES_DE_COMBAT = 60
+
+	it('creerRng(g, combat, tour) est pur et rejouable : meme cle -> meme suite, jusqu au dernier round', () => {
+		const premiere = tirer(creerRng(GRAINE, COMBAT, 7), TIRAGES_DE_COMBAT)
+		const seconde = tirer(creerRng(GRAINE, COMBAT, 7), TIRAGES_DE_COMBAT)
+
+		expect(seconde).toEqual(premiere)
+		// La suite n'est pas constante : sans cela, l'égalité ci-dessus serait vraie d'un
+		// générateur cassé qui rendrait toujours la même valeur.
+		expect(new Set(premiere).size).toBeGreaterThan(TIRAGES_DE_COMBAT / 2)
+	})
+
+	it('un flux REJOUE a mi-parcours donne la meme suite : le rejeu ne depend pas du nombre de rounds deja joues', () => {
+		// C'est ce que fait le rejeu à chaque posture ajoutée : il recrée le flux et
+		// reconsomme DEPUIS LE DÉBUT. Un combat de 3 rounds est donc un PRÉFIXE du même
+		// combat à 5 rounds.
+		const court = tirer(creerRng(GRAINE, COMBAT, 4), 10)
+		const long = tirer(creerRng(GRAINE, COMBAT, 4), 25)
+
+		expect(long.slice(0, 10)).toEqual(court)
+	})
+
+	it('le domaine combat est INDEPENDANT de jet ET de heros, meme graine et meme indice', () => {
+		// Le motif même de DomaineAlea. UN COMBAT ET UN JET DU MÊME PAS ne partagent
+		// aucun tirage : rejouer l'un ne déplace jamais l'autre. Les TROIS paires sont
+		// comparées, jamais une seule — `hacherDomaine` ne séparerait rien si 'combat'
+		// collisionnait avec l'un d'eux.
+		const commeCombat = tirer(creerRng(GRAINE, COMBAT, 0), 5)
+		const commeJet = tirer(creerRng(GRAINE, 'jet', 0), 5)
+		const commeHeros = tirer(creerRng(GRAINE, 'heros', 0), 5)
+
+		expect(commeCombat).not.toEqual(commeJet)
+		expect(commeCombat).not.toEqual(commeHeros)
+		// Et sur le tour 7, celui des autres témoins : la séparation vaut pour toute clé.
+		expect(tirer(creerRng(GRAINE, COMBAT, 7), 5)).not.toEqual(tirer(creerRng(GRAINE, 'jet', 7), 5))
+	})
+
+	it('deux pas distincts rendent des suites differentes — deux combats ne se rejouent jamais pareil', () => {
+		const tour7 = tirer(creerRng(GRAINE, COMBAT, 7), 8)
+		const tour8 = tirer(creerRng(GRAINE, COMBAT, 8), 8)
+
+		expect(tour7).not.toEqual(tour8)
+	})
+
+	it('deux graines distinctes rendent des suites differentes, meme tour', () => {
+		expect(tirer(creerRng(1, COMBAT, 7), 5)).not.toEqual(tirer(creerRng(2, COMBAT, 7), 5))
+	})
+
+	it('0 <= x < 1 sur le domaine combat, y compris aux graines bornes 0 et 2**32-1', () => {
+		for (const graine of [0, GRAINE, 2 ** 32 - 1]) {
+			for (const valeur of tirer(creerRng(graine, COMBAT, 3), TIRAGES_DE_COMBAT)) {
+				expect(valeur).toBeGreaterThanOrEqual(0)
+				expect(valeur).toBeLessThan(1)
+			}
+		}
+	})
+})

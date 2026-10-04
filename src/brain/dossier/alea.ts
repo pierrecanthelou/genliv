@@ -42,13 +42,21 @@
  * plus (garanti par `doitArbitrer` + le verrou de tour), donc chaque pas a sa
  * PROPRE zone, indépendante de l'usage `'heros'`.
  *
+ * `'combat'` ENTRE AVEC LE LOT `contrat` DE LA n° 13 (`moteur-combat`, it1), et
+ * son consommateur est le REJEU d'un combat (`player/engine/rencontre.ts`) :
+ * `creerRng(graine_alea, 'combat', horloge.tour)`. L'indice d'usage est le
+ * numéro de PAS — UN combat entier est UN pas d'horloge, donc UN SEUL FLUX, et
+ * c'est le rejeu qui le consomme du premier round au dernier (KR-295). Ce flux
+ * est SÉPARÉ de `'jet'` : un combat et un jet du MÊME pas ne partagent aucun
+ * tirage, et rejouer l'un ne déplace jamais l'autre.
+ *
  * MODULE PUR, sans dépendance de service : il part avec `src/player/` le jour de
  * l'extraction (`docs/EXIGENCE-APERCU-DU-JEU.md` § 6). Aucun `Math.random`, aucune
  * horloge système, aucun état de module partagé entre deux appels.
  */
 
 /** Le domaine d'un tirage — union FERMÉE, voir la docstring de tête. */
-export type DomaineAlea = 'heros' | 'jet'
+export type DomaineAlea = 'heros' | 'jet' | 'combat'
 
 /**
  * SÉPARE LES ZONES DE DEUX USAGES À L'INTÉRIEUR D'UN MÊME `creerRng` — voir la

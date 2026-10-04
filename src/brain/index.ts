@@ -564,7 +564,25 @@ export { pastilleNiveau, badgeSection } from './dossier/pastilles'
 // `crediterXp` SORT AVEC EUX (n° 11 `moteur-arbitre`, lot `contrat`, it3) : seule
 // porte d'écriture de `HeroState.xp`, que `useTourDeJeu` (lot feature) appelle
 // après `xpDuJet` (ci-dessous, avec `issueDuJet`/`classifierIssue`).
-export { SCHEMA_SESSION, consignerJet, crediterXp, fixerHeros, ouvrirSession } from './dossier/session'
+// `resoudreRencontre`, `jouerPosture` et `cloreCombat` SORTENT AVEC EUX (n° 13
+// `moteur-combat`, lot `contrat`, it1) : ce sont les TROIS SEULES PORTES d'écriture
+// de `EtatSession.combat` — la pose avec la consommation de l'événement, l'ajout
+// d'une posture, le retrait avec l'application du bilan. La feature les appelle sur
+// la session DÉJÀ PERSISTÉE, comme `fixerHeros`. NE SORTENT PAS : `evenementARencontrer`
+// (`dossier/evaluate.ts`) et `monstreDeLaReference` (`dossier/monstre.ts`) — décider
+// qu'une rencontre est due, ou résoudre un monstre, est une décision de MOTEUR que
+// le runtime joueur (`src/player/engine/rencontre.ts`) prend par import en
+// profondeur, jamais une feature (même règle que `evaluerExpr`, ci-dessous).
+export {
+	SCHEMA_SESSION,
+	cloreCombat,
+	consignerJet,
+	crediterXp,
+	fixerHeros,
+	jouerPosture,
+	ouvrirSession,
+	resoudreRencontre,
+} from './dossier/session'
 export type {
 	EtatSession,
 	EtatMonde,
@@ -577,11 +595,19 @@ export type {
 	// optionnel `attente` (n° 10, lot `contrat` de `moteur-interprete`), et
 	// `useTourDeJeu` (lot feature) n'a aucun autre moyen de l'annoter.
 	AttenteClarification,
+	// `EtatCombat`, `IssueCombat` et `BilanCombat` sortent AVEC `EtatSession` — le
+	// premier est le type de son champ optionnel `combat` (n° 13, lot `contrat` de
+	// `moteur-combat`), les deux autres sont l'entrée de `cloreCombat` : l'écran qui
+	// clôt un combat n'a aucun autre moyen de les nommer.
+	EtatCombat,
+	IssueCombat,
+	BilanCombat,
 } from './dossier/session'
 // ── L'ALÉA KEYÉ (n° 11 `moteur-arbitre`, lot `contrat`, it1 puis it2) ────────
 // Sortent `creerRng` (l'adaptateur `() => number` que `rollCreationPool`, côté
 // feature, consomme pour ne jamais appeler `Math.random`) et `DomaineAlea` (le
-// type de son second paramètre, élargi à `'jet'` en it2). `alea`, la fonction pure
+// type de son second paramètre, élargi à `'jet'` en it2, puis à `'combat'` par le lot
+// `contrat` de la n° 13 `moteur-combat`, it1). `alea`, la fonction pure
 // sous-jacente, RESTE DEDANS : aucune feature n'a besoin d'une clé brute, seulement
 // du générateur.
 export { creerRng, type DomaineAlea } from './dossier/alea'

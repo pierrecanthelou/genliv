@@ -12,9 +12,14 @@ import type { HeroState } from '../../../player/types'
 
 export interface BandeauHerosProps {
 	readonly heros: HeroState
+	readonly pvLive?: number
+	readonly peLive?: number
 }
 
-export function BandeauHeros({ heros }: BandeauHerosProps): JSX.Element {
+export function BandeauHeros({ heros, pvLive, peLive }: BandeauHerosProps): JSX.Element {
+	const pvAffiche = pvLive !== undefined ? pvLive : heros.pv
+	const peAffiche = peLive !== undefined ? peLive : heros.pe
+
 	return (
 		<div style={bandeau}>
 			<span style={bloc}>
@@ -22,11 +27,11 @@ export function BandeauHeros({ heros }: BandeauHerosProps): JSX.Element {
 			</span>
 			<div style={separateur} aria-hidden="true" />
 			<span style={bloc}>
-				PV <span style={valeur}>{heros.pv}</span>/<span>{heros.pvMax}</span>
+				PV <span style={valeur}>{pvAffiche}</span>/<span>{heros.pvMax}</span>
 			</span>
 			<div style={separateur} aria-hidden="true" />
 			<span style={bloc}>
-				PE <span style={valeur}>{heros.pe}</span>/<span>{heros.peMax}</span>
+				PE <span style={valeur}>{peAffiche}</span>/<span>{heros.peMax}</span>
 			</span>
 			<div style={separateur} aria-hidden="true" />
 			<span style={bloc}>

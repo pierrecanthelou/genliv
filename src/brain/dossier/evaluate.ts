@@ -235,6 +235,82 @@ export function resoudreJalons(dossier: Dossier, faits: FaitsDeSession): Resolut
 }
 
 /**
+ * UNE RENCONTRE DUE — l'événement qui la déclenche et la référence de son monstre,
+ * et RIEN d'autre (n° 13 `moteur-combat`, it1, lot `contrat`).
+ *
+ * UNE SEULE DÉCLARATION pour deux modules : `evenementARencontrer` la REND,
+ * `resoudreRencontre` (`session.ts`) la CONSOMME — l'arête va de `session.ts` vers
+ * ce module, jamais l'inverse (voir la docstring de tête). Deux formes qui se
+ * ressemblent divergeraient en silence le jour où l'une gagnerait un champ.
+ *
+ * `monstre_ref` est la référence TELLE QUE LE DOSSIER L'ÉCRIT (`bestiaire.<id>`),
+ * non résolue : la résoudre est l'affaire de `monstreDeLaReference` (`monstre.ts`).
+ * AUCUN autre champ de l'événement ne sort — ni `nom` ni `declencheur_texte`
+ * (audience `auteur`), ni `resolutions[]` : une `Rencontre` n'est pas une vue sur
+ * l'événement, c'est ce qu'il faut pour OUVRIR le combat.
+ */
+export interface Rencontre {
+	readonly evenement_id: string
+	readonly monstre_ref: string
+}
+
+/**
+ * LA RENCONTRE QUI EST DUE MAINTENANT, s'il y en a une — PURE, BIVALENTE (elle
+ * passe par `evaluerExpr`), et TOTALE **sur un dossier accepté par
+ * `validateDossier`** : même régime que la passe des jalons, elle LÈVE sur une
+ * condition non reconnue (KR-238/239), sans `catch`.
+ *
+ * C'EST LE SEUL LECTEUR DE `declencheur_expr` D'UN ÉVÉNEMENT dans `src/brain/dossier/`,
+ * à côté de la passe des jalons : le garde de `evaluate.test.ts` épingle que ce
+ * module est le seul à lire `.declencheur_expr`, et c'est ICI que les deux lectures
+ * vivent — une troisième dans un autre module ouvrirait un second site de décision
+ * de ce qu'est une condition vraie.
+ *
+ * QUATRE CONDITIONS, TOUTES REQUISES, et l'événement le PREMIER du dossier qui les
+ * tient — l'ordre du DOCUMENT, jamais celui où la partie les a vus devenir vrais :
+ *  · aucun combat n'est déjà en cours (`session.combat === undefined`) — un combat
+ *    à la fois ; sinon `undefined`, quel que soit le reste ;
+ *  · l'événement porte un `monstre_ref` — sans lui, ce n'est pas une rencontre ;
+ *  · son `declencheur_expr` est VRAI contre `session.monde` — c'est lui, et lui
+ *    seul, qui dit « au bon lieu » : l'événement n'a aucun champ de lieu, et en
+ *    INVENTER un serait un dérivable stocké (KR-013) ;
+ *  · il n'est pas déjà consommé (`monde.evenements_consommes`) — c'est
+ *    `resoudreRencontre` qui l'y ajoute, à l'OUVERTURE du combat.
+ *
+ * UN ÉVÉNEMENT SANS `declencheur_expr` N'EST JAMAIS DÉCLENCHÉ AUTOMATIQUEMENT :
+ * son absence est un état calme (`types.ts`), un moteur de narration le jouera à
+ * la main. Même règle que les jalons.
+ *
+ * ELLE NE RÉSOUT PAS LE MONSTRE : une `monstre_ref` qui ne résout pas contre le
+ * bestiaire est rendue telle quelle — c'est le rejeu qui la refusera
+ * (`monstreDeLaReference`), et `validateDossier` l'a déjà refusée à l'import.
+ *
+ * SON SECOND PARAMÈTRE EST STRUCTUREL, ET C'EST UNE CONTRAINTE, PAS UN GOÛT : ce
+ * module n'importe NI `session.ts` NI `commandes.ts` (arête inverse, garde de
+ * `evaluate.test.ts`), donc il ne peut pas NOMMER `EtatSession`. Il ne demande que
+ * les deux clés qu'il lit — un `EtatSession` s'y passe tel quel.
+ *
+ * AUCUNE MÉMOÏSATION (KR-013/113).
+ */
+export function evenementARencontrer(
+	dossier: Dossier,
+	session: { readonly monde: FaitsDeSession; readonly combat?: unknown },
+): Rencontre | undefined {
+	if (session.combat !== undefined) return undefined
+
+	for (const evenement of dossier.monde.evenements) {
+		if (evenement.monstre_ref === undefined) continue
+		if (evenement.declencheur_expr === undefined) continue
+		if (session.monde.evenements_consommes.includes(evenement.id)) continue
+		if (!evaluerExpr(session.monde, evenement.declencheur_expr)) continue
+
+		return { evenement_id: evenement.id, monstre_ref: evenement.monstre_ref }
+	}
+
+	return undefined
+}
+
+/**
  * CE QU'UN MODÈLE POURRA VOIR DES JALONS ATTEINTS — leur handle et leur énoncé.
  *
  * ELLE BALAIE `jalons_atteints`, JAMAIS `charpente.jalons` FILTRÉ, et la

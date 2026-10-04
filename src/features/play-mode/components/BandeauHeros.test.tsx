@@ -65,4 +65,23 @@ describe('BandeauHeros', () => {
 		expect(screen.queryByText('DX')).not.toBeInTheDocument()
 		expect(screen.queryByText('EN')).not.toBeInTheDocument()
 	})
+
+	it('pvLive remplace heros.pv quand fourni', () => {
+		const { container } = render(<BandeauHeros heros={heroTest} pvLive={3} />)
+		expect(container.textContent).toContain('3')
+		expect(container.textContent).not.toMatch(/PV\s*10/)
+	})
+
+	it('peLive remplace heros.pe quand fourni', () => {
+		const { container } = render(<BandeauHeros heros={heroTest} peLive={2} />)
+		const text = container.textContent ?? ''
+		expect(text).toMatch(/PE\s*2\/6/)
+		expect(text).not.toMatch(/PE\s*4/)
+	})
+
+	it('pvLive={0} affiche 0 (hero-mort)', () => {
+		const { container } = render(<BandeauHeros heros={heroTest} pvLive={0} />)
+		const text = container.textContent ?? ''
+		expect(text).toMatch(/PV\s*0\/12/)
+	})
 })

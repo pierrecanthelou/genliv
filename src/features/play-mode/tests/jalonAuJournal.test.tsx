@@ -86,13 +86,32 @@ function avecUnHabitantAuDepart(brain: Brain, dossier: Dossier): Dossier {
 	return ecriture.dossier
 }
 
+/**
+ * Neutralise les événements de combat du dossier — ce fichier teste les JALONS,
+ * pas le combat. Sans cette neutralisation, `ouvrirRencontreSiDue` ouvre un
+ * combat au premier `ALLER` vers `lieu.tour-effondree` et la console disparaît.
+ */
+function sansRencontreDeCombat(brain: Brain, dossier: Dossier): Dossier {
+	const ecriture = brain.dossiers.update(dossier.id, (d) => ({
+		canon: d.canon,
+		monde: {
+			...d.monde,
+			evenements: d.monde.evenements.map((e) => (e.monstre_ref ? { ...e, monstre_ref: undefined } : e)),
+		},
+		charpente: d.charpente,
+	}))
+	if (ecriture.statut !== 'ecrit') throw new Error(`Neutralisation refusee : ${ecriture.statut}`)
+	return ecriture.dossier
+}
+
 async function monterPartieSurLaReference(
 	user: ReturnType<typeof userEvent.setup>,
 ): Promise<{ brain: Brain; dossier: Dossier }> {
 	const brain = createBrain()
 	const inspection = brain.dossiers.importDossier(texteReference())
 	if (inspection.statut !== 'valid') throw new Error(`Import refuse : ${inspection.statut}`)
-	const dossier = avecUnHabitantAuDepart(brain, inspection.dossier)
+	let dossier = avecUnHabitantAuDepart(brain, inspection.dossier)
+	dossier = sansRencontreDeCombat(brain, dossier)
 	render(
 		<BrainProvider brain={brain}>
 			<EcranPartie dossierId={dossier.id} />

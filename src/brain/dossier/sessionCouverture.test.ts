@@ -1,3 +1,4 @@
+import { POSTURE_VALUES } from '../combat'
 import { SESSION_SATUREE } from './__fixtures__/session-saturee'
 import { feuillesDeLaFixture } from './feuilles'
 import type { EtatMonde, EtatPnj, EtatSession } from './session'
@@ -26,8 +27,9 @@ import { DESTINATION_DES_CHAMPS_DE_SESSION } from './sessionDestinations'
  *  · LES CONTENEURS. `feuillesDeLaFixture` ne rend JAMAIS un objet non vide comme
  *    feuille : `horloge`, `monde`, `journal`, `attente` (depuis le lot `contrat`
  *    de la n° 10, `moteur-interprete`), `memoire` (non nulle dans la fixture
- *    depuis l'it3) et `heros` (depuis le lot `contrat` de la n° 11,
- *    `moteur-arbitre`) n'ont donc aucune instance, et leurs SIX lignes de table
+ *    depuis l'it3), `heros` (depuis le lot `contrat` de la n° 11,
+ *    `moteur-arbitre`) et `combat` (depuis le lot `contrat` de la n° 13,
+ *    `moteur-combat`) n'ont donc aucune instance, et leurs SEPT lignes de table
  *    sont des DISPENSES DÉCLARÉES, pas des lignes mortes. Elles existent pour
  *    l'exhaustivité par compilation ;
  *  · L'AUDIENCE RÉELLE. La table déclare une intention et force une déclaration ;
@@ -38,7 +40,7 @@ import { DESTINATION_DES_CHAMPS_DE_SESSION } from './sessionDestinations'
  */
 
 /**
- * LES SIX DISPENSES, avec leur motif — modèle `SANS_DESTINATION` de
+ * LES SEPT DISPENSES, avec leur motif — modèle `SANS_DESTINATION` de
  * `couverture.test.ts`. Elles vivent DANS le test et non dans la table : une
  * dispense est un fait sur l'instrument, pas une audience.
  */
@@ -52,6 +54,8 @@ const DISPENSES_DE_FEUILLE: Readonly<Record<string, string>> = {
 		'clé racine porteuse quand elle retient quelque chose (n° 10 it3) — ses quatre feuilles sont déclarées une à une ; à `null`, elle est sa propre feuille',
 	heros:
 		'clé racine porteuse (n° 11 moteur-arbitre, it1) — ses huit feuilles sont déclarées une à une, `caracs` collapsée en une seule ligne `<id>`',
+	combat:
+		'clé racine porteuse (n° 13 moteur-combat, it1) — ses deux feuilles (`monstre_ref`, `postures[]`) sont déclarées une à une',
 }
 
 const CLES_DE_LA_TABLE = new Set(Object.keys(DESTINATION_DES_CHAMPS_DE_SESSION))
@@ -106,7 +110,7 @@ describe('DESTINATION_DES_CHAMPS_DE_SESSION, exhaustivite', () => {
 		expect(sansAudience).toEqual([])
 	})
 
-	it('aucune ligne morte, hors les six dispenses declarees', () => {
+	it('aucune ligne morte, hors les sept dispenses declarees', () => {
 		const chemins = cheminsDeLaSession()
 
 		const mortes = [...CLES_DE_LA_TABLE]
@@ -120,7 +124,7 @@ describe('DESTINATION_DES_CHAMPS_DE_SESSION, exhaustivite', () => {
 		// nomme. Elle doit tomber, et se nommer en tombant.
 		expect(Object.keys(DISPENSES_DE_FEUILLE).filter((chemin) => chemins.includes(chemin))).toEqual([])
 
-		// Et les trois dispenses sont bien DES LIGNES DE LA TABLE : une dispense qui
+		// Et les sept dispenses sont bien DES LIGNES DE LA TABLE : une dispense qui
 		// nommerait un chemin absent de la table serait, elle aussi, morte.
 		expect(Object.keys(DISPENSES_DE_FEUILLE).filter((chemin) => !CLES_DE_LA_TABLE.has(chemin))).toEqual([])
 	})
@@ -134,11 +138,12 @@ describe('DESTINATION_DES_CHAMPS_DE_SESSION, exhaustivite', () => {
 
 		expect(racines.filter((cle) => !CLES_DE_LA_TABLE.has(cle))).toEqual([])
 		// Discriminance : un balayage vide rendrait la ligne ci-dessus vraie sans rien
-		// prouver. DIX racines depuis le lot `contrat` de la n° 11 (`moteur-arbitre`) —
+		// prouver. ONZE racines depuis le lot `contrat` de la n° 13 (`moteur-combat`) —
 		// `dossier_maj` est la huitième (2ᵉ exemption nommée à KR-249), `attente` la
-		// neuvième (KR-251), `heros` la dixième, optionnelle à vie (KR-251) mais bien
-		// INSTANCIÉE ici.
-		expect(racines).toHaveLength(10)
+		// neuvième (KR-251), `heros` la dixième, `combat` la onzième, toutes deux
+		// optionnelles à vie (KR-251) mais bien INSTANCIÉES ici.
+		expect(racines).toHaveLength(11)
+		expect(racines).toContain('combat')
 	})
 
 	it('le balayage descend reellement, et la normalisation COLLAPSE les cles de Record', () => {
@@ -202,6 +207,20 @@ describe('DESTINATION_DES_CHAMPS_DE_SESSION, exhaustivite', () => {
 		expect(new Set(normalises.filter((chemin) => chemin.startsWith('heros.caracs.'))).size).toBe(1)
 		expect(normalises).toContain('heros.caracs.<id>')
 		expect(normalises).not.toContain('heros')
+
+		// ET LE COMBAT (n° 13, it1) DESCEND JUSQU'À SES DEUX FEUILLES : `postures` est une
+		// liste NON VIDE dans la fixture, donc balayée PAR ÉLÉMENT (`postures[]`) — une
+		// liste vide serait sa propre feuille, sans le suffixe, et la ligne de table
+		// serait morte. `combat` elle-même n'est PAS une feuille.
+		expect(normalises).toContain('combat.monstre_ref')
+		expect(normalises).toContain('combat.postures[]')
+		expect(normalises).not.toContain('combat')
+		expect(normalises).not.toContain('combat.postures')
+		// TROIS postures, UN SEUL chemin : le balayage rend une instance PAR ÉLÉMENT, et
+		// c'est ce qui fait que CHACUNE rougirait si sa ligne manquait (KR-199).
+		const postures = SESSION_SATUREE.combat?.postures ?? []
+		expect(postures).toHaveLength(3)
+		expect(bruts.filter((chemin) => chemin === 'combat.postures[]')).toHaveLength(postures.length)
 	})
 })
 
@@ -302,6 +321,36 @@ describe('DESTINATION_DES_CHAMPS_DE_SESSION, la valeur des lignes', () => {
 				'memoire.resume.texte',
 			].sort(),
 		)
+	})
+
+	it('le combat : sa racine et ses deux feuilles sont moteur, jamais ia, jamais auteur (n 13 it1, KR-294)', () => {
+		// ASSERTION DE VALEUR, PAS D'EXISTENCE (KR-174), et par LIGNE NOMMÉE : un
+		// `monstre_ref` est un handle du bestiaire, `postures[]` les clés du registre
+		// fermé `POSTURES` — aucune fiction. Une ligne basculée à `ia` ouvrirait au
+		// modèle les choix du joueur AVANT que le moteur ait résolu le round suivant.
+		for (const chemin of ['combat', 'combat.monstre_ref', 'combat.postures[]'] as const) {
+			expect(`${chemin} → ${DESTINATION_DES_CHAMPS_DE_SESSION[chemin]}`).toBe(`${chemin} → moteur`)
+		}
+		// Les trois lignes sont les SEULES du préfixe `combat` : une quatrième feuille
+		// glissée dans le type sans sa ligne casse la compilation, une quatrième ligne sans
+		// feuille est morte — et les deux sont attrapées ci-dessus. Ici, l'ENSEMBLE.
+		expect([...CLES_DE_LA_TABLE].filter((cle) => cle === 'combat' || cle.startsWith('combat.')).sort()).toEqual([
+			'combat',
+			'combat.monstre_ref',
+			'combat.postures[]',
+		])
+	})
+
+	it('la fixture joue les TROIS postures du registre, dans un ordre qui n est ni le sien ni son inverse', () => {
+		// `postures[]` est le seul tableau de la fixture dont l'ORDRE est l'information (le
+		// rejeu le consomme round après round) : une fixture qui le trierait enseignerait
+		// qu'il est sans importance. L'affirmation est dans la docstring de la fixture — la
+		// voici, éprouvée (KR-169). Balayage depuis `POSTURE_VALUES`, jamais trois littéraux.
+		const postures = SESSION_SATUREE.combat?.postures ?? []
+
+		expect([...postures].sort()).toEqual([...POSTURE_VALUES].sort())
+		expect(postures).not.toEqual(POSTURE_VALUES)
+		expect(postures).not.toEqual([...POSTURE_VALUES].reverse())
 	})
 
 	it('journal[].recit est ia depuis l it3 — BASCULE EN VALEUR avec son lecteur, la fenetre glissante', () => {

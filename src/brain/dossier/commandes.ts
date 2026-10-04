@@ -123,6 +123,12 @@ export interface Commande {
  * l'identifiant qui ne résout dans AUCUN `monde.personnages[]` — DEUX refus
  * distincts (désaccord #9 du raffinage, Tech Lead tranche), même texte d'interface
  * pour les deux (§ 3 du plan : « {cible} n'est pas ici. »).
+ *
+ * `combat_en_cours` (n° 13 `moteur-combat`, it1, SEUL membre neuf du lot) — un
+ * combat est ouvert (`session.combat`), donc AUCUNE commande n'est acceptée :
+ * ni `aller`, ni `agir`, ni `parler`. Il sort de `executerCommande`, avant toute
+ * résolution, et le test qui l'épingle balaie `COMMANDES` — un verbe de plus est
+ * refusé sans qu'on y pense.
  */
 export type RefusCommande =
 	| 'verbe_inconnu'
@@ -130,6 +136,7 @@ export type RefusCommande =
 	| 'cible_inconnue'
 	| 'acces_absent'
 	| 'cible_indisponible'
+	| 'combat_en_cours'
 
 /** Union DISCRIMINÉE — un appelant qui la rétrécit totalement n'a aucun bras muet. */
 export type ResultatSaisie =
@@ -180,6 +187,15 @@ function messageDeSaisieRefusee(saisie: string): string {
 function messageCibleIndisponible(cible: string): string {
 	return `${cible} n'est pas ici.`
 }
+
+/**
+ * LE TEXTE DU REFUS `combat_en_cours` — UN SEUL GABARIT, constant : il ne cite NI
+ * le verbe tapé NI la cible (le refus tombe avant toute résolution, et la saisie
+ * n'entre jamais dans un message que par le bras d'un refus d'analyse). En jeu,
+ * l'écran de combat remplace la console tant que `session.combat` existe : ce texte
+ * n'est lu que par un appelant qui contournerait l'écran.
+ */
+const MESSAGE_COMBAT_EN_COURS = "Un combat est en cours : aucune commande n'est acceptée avant son issue."
 
 /**
  * ANALYSER UNE SAISIE — PURE, totale, synchrone, et elle NE CONSULTE PAS LE
@@ -509,6 +525,13 @@ function avecJalonsResolus(dossier: Dossier, session: EtatSession): EtatSession 
  * monde, donc aucune condition n'a pu devenir vraie : la rejouer serait du travail
  * pour rien ET une occasion de lever sur un chemin qui n'écrit rien.
  *
+ * TANT QU'UN COMBAT EST OUVERT (`session.combat !== undefined`), TOUTE COMMANDE EST
+ * REFUSÉE (`combat_en_cours`) — et c'est le PREMIER refus, avant la résolution de
+ * la cible : un `aller` vers un lieu inconnu pendant un combat dit `combat_en_cours`,
+ * jamais `acces_absent`. Une seule garde AVANT `TRANSITIONS`, jamais une par verbe :
+ * un verbe de plus est refusé sans qu'on y pense (KR-117). La session d'entrée est
+ * intacte — ni pas d'horloge, ni ligne de journal, ni passe des jalons.
+ *
  * UN REFUS NE CONSOMME AUCUN PAS : il ne touche aucun champ, n'écrit aucune ligne
  * de journal, et NE REND AUCUNE SESSION — l'appelant garde la sienne, qui est la
  * MÊME RÉFÉRENCE puisque rien ne l'a remplacée. Une faute de frappe n'est pas un
@@ -523,6 +546,9 @@ function avecJalonsResolus(dossier: Dossier, session: EtatSession): EtatSession 
  * phrase : c'est la phrase qui était un raccourci.
  */
 export function executerCommande(dossier: Dossier, session: EtatSession, commande: Commande): ResultatCommande {
+	if (session.combat !== undefined) {
+		return { ok: false, refus: 'combat_en_cours', message: MESSAGE_COMBAT_EN_COURS }
+	}
 	const resultat = TRANSITIONS[commande.commande](dossier, session, commande)
 	if (!resultat.ok) return resultat
 	return { ok: true, session: avecJalonsResolus(dossier, resultat.session) }

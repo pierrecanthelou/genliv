@@ -95,6 +95,8 @@ type CheminDeFeuilleDeSession =
 	| 'heros.pe'
 	| 'heros.mcBonus'
 	| 'heros.xp'
+	| 'combat.monstre_ref'
+	| 'combat.postures[]'
 
 export const DESTINATION_DES_CHAMPS_DE_SESSION: Readonly<
 	Record<keyof EtatSession | CheminDeFeuilleDeSession, Destination>
@@ -124,10 +126,10 @@ export const DESTINATION_DES_CHAMPS_DE_SESSION: Readonly<
 	 */
 	memoire: 'moteur',
 
-	// ── Les quatre racines PORTEUSES — lignes de clé, jamais de feuille ────────
+	// ── Les racines PORTEUSES — lignes de clé, jamais de feuille ───────────────
 	// `feuillesDeLaFixture` ne rend jamais un objet NON VIDE comme feuille : ces
-	// quatre lignes n'ont donc AUCUNE instance dans la fixture saturée SI ELLE NE
-	// LES INSTANCIE PAS. Elles existent pour l'exhaustivité par compilation sur
+	// lignes n'ont donc AUCUNE instance dans la fixture saturée SI ELLE NE LES
+	// INSTANCIE PAS. Elles existent pour l'exhaustivité par compilation sur
 	// `keyof EtatSession`, et le test les nomme comme des DISPENSES DÉCLARÉES —
 	// jamais comme des lignes mortes. Précédent exact : `…stats` et `…caractere`
 	// dans `destinations.ts`, absents pour la raison inverse (là-bas, une telle
@@ -141,11 +143,15 @@ export const DESTINATION_DES_CHAMPS_DE_SESSION: Readonly<
 	// (`moteur-arbitre`, it1) : une clé racine RÉELLE (optionnelle à vie, KR-251),
 	// exhaustive par compilation ici comme les quatre autres — un `HeroState` est
 	// un objet non vide, jamais une feuille.
+	// `combat` EST LA SIXIÈME, posée par le lot `contrat` de la n° 13
+	// (`moteur-combat`, it1) : une clé racine RÉELLE (optionnelle à vie, KR-251),
+	// jamais une feuille — un `EtatCombat` est un objet non vide.
 	horloge: 'moteur',
 	monde: 'moteur',
 	journal: 'moteur',
 	attente: 'moteur',
 	heros: 'moteur',
+	combat: 'moteur',
 
 	// ── L'attente de clarification (n° 10) ─────────────────────────────────────
 	/** Le DISCRIMINANT — un handle de code, jamais de la fiction. */
@@ -299,6 +305,22 @@ export const DESTINATION_DES_CHAMPS_DE_SESSION: Readonly<
 	'heros.pe': 'moteur',
 	'heros.mcBonus': 'moteur',
 	'heros.xp': 'moteur',
+
+	// ── Le combat en cours (n° 13 `moteur-combat`, it1) ────────────────────────
+	// DEUX FEUILLES, TOUTES `'moteur'`, SANS EXCEPTION : le renvoi de rejeu d'un
+	// combat ne contient AUCUNE fiction, et aucune des deux n'entre dans un contexte
+	// de modèle (KR-294 — le texte d'un round non plus : le narrateur de combat de
+	// l'itération 3 recevra une PROJECTION structurée, calculée à part, jamais ces
+	// feuilles). Un modèle qui lirait `postures[]` connaîtrait les choix du joueur
+	// avant que le moteur n'ait résolu le round suivant.
+	/** `bestiaire.<templateId>` — un HANDLE du bestiaire du jeu, jamais de la fiction. */
+	'combat.monstre_ref': 'moteur',
+	/**
+	 * Les clés du registre fermé `POSTURES` choisies par le JOUEUR, une par round
+	 * — des handles, au même titre que `journal[].origine`. La posture du monstre
+	 * n'est PAS persistée : elle se redérive du rejeu (KR-292).
+	 */
+	'combat.postures[]': 'moteur',
 
 	// ── La mémoire du narrateur (n° 10 it3) ─────────────────────────────────────
 	/** La phrase d'un fait établi — PROSE que le narrateur a rendue, réinjectée par
