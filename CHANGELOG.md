@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.19 — l'auteur voit son héros fuir un combat
+
+`moteur-combat` it2 (roadmap § 3, n°13, 2/3) -- essaim séquentiel, 2 lots (`contrat-fuite` brain/ puis `feature-fuite` play-mode/ + player/). D5 amendé : le héros fuit au lieu courant (pas de navigation `fleeTarget`), subit un assaut gratuit (Normale monstre vs Défensive héros), ni XP ni butin, événement reste consommé. `EtatCombat.fuite?: true` (entrée du joueur, KR-292 intact), `IssueCombat` élargi à 5 membres (`hero-fled`), `fuirRencontre` (no-op même référence), garde `jouerPosture` après fuite, `CLOTURES['hero-fled']` (PV/PE écrêtés, plafonds intacts). Rejeu fuite dans `rencontre.ts` (après postures, si ongoing). `tryHeroFlee` corrigé : `round+1` sur les 3 lignes de journal. Bouton `Fuir ↪` requis (pas optionnel), style secondaire, hors du radiogroup POSTURE. Badge FUITE (tone neutral), table exhaustive `Record<Exclude<CombatOutcome,'ongoing'>, string>` par compilation. Frontière inconscient épinglée (PV=0 → mort, PV=1 → fled). 141 suites / 2567 tests.
+
+- Différés : aide de coût fictionnelle sous le bouton Fuir, extraction `sessionCombat.ts` (dette à déclencheur), bouton maison (dette design system).
+- Dossier : `.claude/raffinage/moteur-combat-it2.plan.md`.
+
 ## 0.7.18 — l'auteur voit un événement à monstre ouvrir un combat qu'il résout round par round
 
 `moteur-combat` it1 (roadmap § 3, n°13, 1/3) -- essaim séquentiel, 2 lots (`contrat-combat` brain/ puis `feature-combat` play-mode/). Un événement portant `monstre_ref` déclenché au bon lieu ouvre un écran de combat. Le joueur choisit sa posture (Normale/Précise/Défensive via SegmentedControl) et joue round par round. Rejeu pur déterministe : seuls `{monstre_ref, postures[]}` sont persistés dans `session.combat`, le `CombatState` complet est reconstruit par `rejouerCombat(session)` à chaque rendu (KR-292). Un combat entier = un seul pas d'horloge (KR-295). Événement consommé à l'ouverture, pas à la clôture. `monstre.ts` (brain/dossier/) résout la référence bestiaire copy-on-use (KR-101) avec `estCleDe` (KR-175). `rencontre.ts` (player/engine/) porte le rejeu, le bilan et l'ouverture de rencontre. D2-bis (garde aiguisée : +2 MC après 3 défensives consécutives gagnées) intégrée et sondée. Anciens `CombatScreen.tsx` et `useCombat.ts` supprimés (orphelins, état privé useState, Math.random non semé). 141 suites / 2545 tests, mutation non due (pas de fichier muté touché).

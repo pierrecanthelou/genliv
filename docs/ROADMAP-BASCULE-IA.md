@@ -137,6 +137,7 @@ Chaque ligne part **toute seule** quand son déclencheur se présente. Le lot qu
 | **Égalité d'AT × compteur de Garde aiguisée** (D2-bis, `docs/REGLES-PLAY.md`) — rien ne l'implémente ni ne la teste | `combatEngine.ts` (moteur, Temps 2) | la n° 13 `moteur-combat`, propriétaire de `combatEngine.ts` — corrigé au cadrage n°11 (2026-09-30), qui confirme `combat.ts` hors de son périmètre |
 | **Test instable `panneauPersonnages.test.tsx:800`** — rouge ~1 run sur 5, vert relancé seul ; cause non établie (hypothèse `capacityEffects.test.ts` infirmée par sonde, 12/12 verts) | `src/features/dossier-fiches/tests/panneauPersonnages.test.tsx` | le prochain lot qui rouvre `dossier-fiches` |
 | **Le mot « manqué » en double emploi** — `capacityEffects.ts:104` écrit déjà `'manqué'` (minuscule) dans un journal joueur, pour un cas différent de la qualité **Manqué** d'un assaut à AT égales (B2, `combat.ts` / `REGLES-DU-JEU.md` § 3). Pas un conflit aujourd'hui | `capacityEffects.ts` + l'affichage de `combatEngine.ts` | le lot qui rouvrira l'affichage de `combatEngine.ts` / `capacityEffects.ts` (n° 9+) |
+| **`session.ts` > 800 lignes** (846 après it2 de `moteur-combat`) — extraire `sessionCombat.ts` (fuirRencontre, jouerPosture, cloreCombat, CLOTURES) | `src/brain/dossier/session.ts` | le prochain lot qui rouvre `session.ts` |
 
 ### Le repointage de `tree-canvas` — **après le Temps 2**
 
@@ -156,7 +157,7 @@ Le Temps 2 ne commence qu'une fois le § 2 bis clos, sur go explicite. `0.7.x`.
 | 10 | `moteur-interprete` | …écrire ce qu'il veut faire en langage libre | 4 | **4/4 ✅** | 5 rôles | 9 |
 | 11 | `moteur-arbitre` | …voir le code lancer le dé que l'IA a demandé | 3 | **3/3, TERMINÉE** — it1 livrée (`0.7.10`), it2 livrée (`0.7.11`), it3 livrée (`0.7.12`) | 5 rôles | 10 · **B2** |
 | 12 | `moteur-acteurs` | …parler à un PNJ qui ne révèle que ce qu'il sait | 4 | **4/4, TERMINÉE** | 5 rôles | 11 |
-| 13 | `moteur-combat` | …lire un combat raconté que l'IA n'arbitre pas | 3 | **1/3** — it1 livrée (`0.7.18`) | 5 rôles | 11 |
+| 13 | `moteur-combat` | …lire un combat raconté que l'IA n'arbitre pas | 3 | **2/3** — it2 livrée (`0.7.19`) | 5 rôles | 11 |
 | 14 | `moteur-horloge` | …découvrir que le monde a avancé sans lui | 3 | — | 5 rôles | 12 |
 | 15 | `moteur-fins` | …reprendre sa partie là où il l'a laissée | 3 | — | 5 rôles | 14 |
 | 16 | `dossier-repetition` | *(auteur)* …faire jouer son aventure par un joueur synthétique | 2 | — | 5 rôles | 10 · 7 |

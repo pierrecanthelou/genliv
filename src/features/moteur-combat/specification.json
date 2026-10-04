@@ -14,7 +14,7 @@
 			"Le narrateur de combat (R5 commentateur) commente chaque round en 2–3 phrases sans chiffre. Rejeu-une-fois puis silence.",
 			"Le combat entier vaut un seul pas d'horloge. Les rounds ne font pas avancer horloge.tour.",
 			"Aucune commande (aller/agir/parler) n'est acceptée pendant un combat.",
-			"La persistance est un rejeu pur : seuls monstre_ref et postures[] sont stockés.",
+			"La persistance est un rejeu pur : seuls monstre_ref, postures[] et fuite sont stockés.",
 			"moteurSansIA.test.ts reste vert (player/ sans IA, KR-250/260)."
 		],
 		"brain_contracts": [
@@ -22,7 +22,7 @@
 				"type": "service",
 				"name": "EtatSession.combat",
 				"direction": "consumes",
-				"detail": "combat?: { readonly monstre_ref: string; readonly postures: readonly Posture[] }. Rejeu pur, pas de snapshot."
+				"detail": "combat?: { readonly monstre_ref: string; readonly postures: readonly Posture[]; readonly fuite?: true }. Rejeu pur, pas de snapshot."
 			},
 			{
 				"type": "event",
@@ -60,7 +60,7 @@
 			{
 				"id": 2,
 				"goal": "L'auteur voit son héros fuir un combat. Bouton « Fuir ↪ » séparé (pas une posture), assaut gratuit du monstre, issue hero-fled. D5 amendé : héros reste au lieu courant, ni XP ni butin.",
-				"status": "in-progress"
+				"status": "done"
 			},
 			{
 				"id": 3,
@@ -74,7 +74,7 @@
 			"KR-294 : CombatLogEntry.text n'entre dans AUCUN contexte de modèle. Le narrateur reçoit une projection structurée (vainqueur, HitQuality, paliers de santé, capacités).",
 			"KR-295 : Un combat entier = un seul pas d'horloge. Les rounds ne font pas avancer horloge.tour. Aléa creerRng(graine,'combat',tour), flux unique rejoué depuis startCombat.",
 			"KR-296 : R5 commentateur retourne {narration} seul, 400 car. max, /\\d/ refusé par le validateur. Rejeu-une-fois puis silence (KR-230/283).",
-			"KR-297 : La fuite n'est pas une posture. Bouton et fonction séparés (fuirRencontre vs jouerRound)."
+			"KR-297 : La fuite n'est pas une posture. Bouton et fonction séparés (fuirRencontre vs jouerPosture)."
 		]
 	},
 	"implementation": {
@@ -97,6 +97,26 @@
 				"test_coverage": {
 					"unit": "141 suites / 2545 tests",
 					"e2e": "intégration console→combat (combatParConsole.test.tsx)"
+				}
+			},
+			{
+				"id": 2,
+				"label": "fuite-hero",
+				"completed_at": "2026-10-04",
+				"architecture_choices": [
+					"fuite?: true littéral sur EtatCombat — entrée joueur comme postures, pas un snapshot (KR-292 intact)",
+					"IssueCombat élargi de 4 à 5 membres ('hero-fled'), table exhaustive Record<Exclude<CombatOutcome,'ongoing'>,string>",
+					"fuirRencontre séparé de jouerPosture — la fuite n'est pas une posture (KR-297)",
+					"D5 amendé : fuite = rester au lieu courant, aucun fleeTarget lu (vestige arbre)",
+					"CLOTURES['hero-fled'] : sansCombat, PV/PE écrêtés, ni XP ni deltas de plafonds",
+					"Test de frontière inconscient par sonde à heroPv=9999 puis pin à D et D+1"
+				],
+				"deviations_from_plan": [
+					"D5 amendé au comité (fleeTarget toujours null dans le bestiaire) — fuite = rester au lieu courant"
+				],
+				"test_coverage": {
+					"unit": "141 suites / 2567 tests",
+					"e2e": "intégration console→combat+fuite (combatParConsole.test.tsx)"
 				}
 			}
 		],
@@ -122,7 +142,11 @@
 			"It1 : bouton local dans EcranCombat sur tokens, pas d'extension d'IconButton (wide changerait la nature du composant).",
 			"It1 : extensions SegmentedControl (flèches/tabindex itinérant) reportées — non additif, 23 appelants.",
 			"It1 : fixtures de combat sans capacités pending* — pending* hors périmètre.",
-			"It1 : événement consommé à l'ouverture du combat, pas à la clôture — évite état ambigu mid-combat."
+			"It1 : événement consommé à l'ouverture du combat, pas à la clôture — évite état ambigu mid-combat.",
+			"It2 : D5 amendé — fuite = rester au lieu courant, aucun fleeTarget lu (MonsterInstance.fleeTarget = vestige arbre, toujours null).",
+			"It2 : fuite?: true littéral (jamais boolean, jamais false), optionnel à vie (KR-251).",
+			"It2 : onFuir requis dans EcranCombatProps (pas optionnel — branche morte en production).",
+			"It2 : session.ts > 800 lignes — dette à déclencheur, extraction sessionCombat.ts quand le prochain lot rouvre le fichier."
 		],
 		"open_questions": [
 			"Enrichir pickMonsterPosture selon IG — reporté indéfiniment, pas de règle écrite (KR-130). À rouvrir si REGLES-PLAY.md D3 est amendé.",

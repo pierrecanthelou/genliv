@@ -964,7 +964,7 @@
 		{
 			"id": "KR-297",
 			"feature": "moteur-combat",
-			"risk": "La fuite n'est pas une posture. Bouton et fonction separes (fuirRencontre vs jouerRound)."
+			"risk": "La fuite n'est pas une posture. Bouton et fonction separes (fuirRencontre vs jouerPosture)."
 		}
 	]
 }
