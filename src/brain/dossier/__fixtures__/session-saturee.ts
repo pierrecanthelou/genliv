@@ -103,6 +103,15 @@ import type { EtatSession } from '../session'
  * lu. Sans instance, la ligne `monde.pnj.<id>.confiance` de la table serait
  * MORTE le jour même où elle est écrite.
  *
+ * `etape_plan` INSTANCIÉE depuis le lot `contrat` de la n° 14 (`moteur-horloge`, it1), SUR
+ * `pnj.aldur-le-sage` AUSSI, et `pnj.corvin-le-marchand` reste SANS : « absent ≠ présent »
+ * y est démontré sur deux entrées, comme pour `confiance`. VALEUR NON DÉFAUT (`rang: 1`,
+ * jamais `0`) : ABSENT ≡ `rang: 0` (`docs/REGLES-PLAY.md` § J2), donc une sentinelle à
+ * `0` serait indistinguable d'un champ jamais écrit — même doctrine que `confiance: 2`.
+ * Seule la clé `rang` est instanciée : `depuis` n'existe pas encore (KR-249). Sans
+ * instance, la ligne `monde.pnj.<id>.etape_plan.rang` de la table serait MORTE le jour
+ * même où elle est écrite.
+ *
  * `heros` INSTANCIÉ depuis le lot `contrat` de la n° 11 (`moteur-arbitre`, it1) —
  * SENTINELLE délibérément NON DÉFAUT sur les trois axes que l'invariance de
  * `copilote/contexte.test.ts` vérifie : `name` n'est pas une chaîne vide, aucune
@@ -143,7 +152,7 @@ export const SESSION_SATUREE: EtatSession = {
 		jalons_atteints: ['jalon.premiere-nuit'],
 		evenements_consommes: ['evenement.embuscade-du-fanal'],
 		pnj: {
-			'pnj.aldur-le-sage': { a_dit: ['indice.sceau-brise'], confiance: 2 },
+			'pnj.aldur-le-sage': { a_dit: ['indice.sceau-brise'], confiance: 2, etape_plan: { rang: 1 } },
 			'pnj.corvin-le-marchand': { a_dit: ['indice.cendres-tiedes'] },
 		},
 	},

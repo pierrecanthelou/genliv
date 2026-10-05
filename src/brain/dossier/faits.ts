@@ -35,10 +35,19 @@
  * avant l'ouverture de la toute première partie. SEULE PORTE D'ÉCRITURE :
  * `crediterConfiance` (`session.ts`) ; SEULE PORTE DE LECTURE DE LA RÈGLE :
  * `portesOuvertes` (`revelation.ts`, branche `confiance_min`).
+ *
+ * `etape_plan` (n° 14 `moteur-horloge`, it1, `docs/REGLES-PLAY.md` § J2) : OPTIONNEL À
+ * VIE (KR-251), et `rang` en est la SEULE clé — `depuis` entrera à l'itération 2, avec
+ * la formule de durée qui le lit, jamais avant (KR-249). `rang` est un INDEX dans
+ * `plan_actions[]`, jamais le champ `etape` (KR-198). ABSENT ≡ `rang: 0` : l'étape de
+ * départ se calcule, elle n'est pas stockée d'office (KR-013) — la clé n'apparaît qu'à
+ * un AVANCEMENT. SEULE PORTE D'ÉCRITURE : `tickHorloge` (`horloge.ts`). Aucun prédicat
+ * ne la lit, et son audience est `moteur` (`sessionDestinations.ts`).
  */
 export interface EtatPnj {
 	readonly a_dit: readonly string[]
 	readonly confiance?: number
+	readonly etape_plan?: { readonly rang: number }
 }
 
 /**

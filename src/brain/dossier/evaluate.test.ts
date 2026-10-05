@@ -2,12 +2,19 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { executerCommande } from './commandes'
 import { DELTAS } from './deltas'
-import { appliquerDelta, evaluerExpr, evenementARencontrer, projeterJalonsAtteints, resoudreJalons } from './evaluate'
+import {
+	appliquerDelta,
+	etapeDeclenchee,
+	evaluerExpr,
+	evenementARencontrer,
+	projeterJalonsAtteints,
+	resoudreJalons,
+} from './evaluate'
 import type { ExprNode } from './expr'
 import type { FaitsDeSession } from './faits'
 import { PREDICATES } from './predicates'
 import { ouvrirSession, type EtatSession } from './session'
-import type { Dossier, Evenement, Jalon } from './types'
+import type { Dossier, Evenement, Jalon, PlanAction } from './types'
 
 /**
  * L'ÉVALUATEUR BIVALENT, LES EFFETS, ET LA PASSE DES JALONS.
@@ -651,6 +658,92 @@ describe('evenementARencontrer, la rencontre due (n 13 moteur-combat, it1, lot c
 	})
 })
 
+describe('etapeDeclenchee, le declencheur d une etape de plan (n 14 moteur-horloge, it1, lot contrat)', () => {
+	/** Vrai à l'ouverture du dossier de référence (le héros y part) — une condition « toujours vraie ». */
+	const ICI = feuille('lieu_courant_est', 'lieu.foyer-du-guet')
+	/** Fausse à l'ouverture : aucun lieu de ce nom n'est le lieu courant. */
+	const AILLEURS = feuille('lieu_courant_est', 'lieu.jamais-vu')
+
+	/** Une étape FABRIQUÉE : seuls `declencheur_expr` et, pour les témoins de non-lecture, `duree`/`si_bloque`. */
+	function etape(declencheur: ExprNode | undefined, reste: Partial<PlanAction> = {}): PlanAction {
+		return {
+			etape: 1,
+			action: 'Entretenir le mécanisme du beffroi.',
+			...(declencheur === undefined ? {} : { declencheur_expr: declencheur }),
+			...reste,
+		}
+	}
+
+	it('declencheur absent : false — meme avec une duree posee et un declencheur_texte, jamais lus', () => {
+		const faits = ouverture(lire(CHEMIN_REFERENCE))
+
+		// L'ABSENCE d'arbre est un état calme (`tables.ts`) : rien à évaluer, donc rien
+		// qui lève, et rien qui avance. `duree: 1` serait « échue » dès le premier pas —
+		// c'est LE mutant « avancer à l'échéance quel que soit le déclencheur » (R-1).
+		expect(etapeDeclenchee(faits, etape(undefined))).toBe(false)
+		expect(
+			etapeDeclenchee(
+				faits,
+				etape(undefined, { duree: 1, declencheur_texte: 'Le joueur arrive au foyer.', si_bloque: 'Il attend.' }),
+			),
+		).toBe(false)
+
+		// DISCRIMINANT, DANS LE MÊME TEST : la même étape avec un arbre VRAI est vraie.
+		expect(etapeDeclenchee(faits, etape(ICI, { duree: 1 }))).toBe(true)
+	})
+
+	it('declencheur vrai : true, faux : false — et la valeur suit l etat, jamais la forme de l arbre', () => {
+		const faits = ouverture(lire(CHEMIN_REFERENCE))
+
+		expect(etapeDeclenchee(faits, etape(ICI))).toBe(true)
+		expect(etapeDeclenchee(faits, etape(AILLEURS))).toBe(false)
+
+		// La NÉGATION inverse : un évaluateur qui rendrait la valeur de l'enfant sans la
+		// négation passerait les deux lignes ci-dessus et rougirait ici.
+		expect(etapeDeclenchee(faits, etape(nier(ICI)))).toBe(false)
+		expect(etapeDeclenchee(faits, etape(nier(AILLEURS)))).toBe(true)
+		// Et les connecteurs, dans leurs deux valeurs.
+		expect(etapeDeclenchee(faits, etape({ op: 'et', enfants: [ICI, AILLEURS] }))).toBe(false)
+		expect(etapeDeclenchee(faits, etape({ op: 'ou', enfants: [AILLEURS, ICI] }))).toBe(true)
+
+		// LE MÊME ARBRE, DEUX ÉTATS : après le pas qui change le lieu courant, il change
+		// de valeur (l'étape ne mémorise rien — KR-013/113).
+		const ailleurs: FaitsDeSession = { ...faits, lieu_courant: 'lieu.tour-effondree' }
+		expect(etapeDeclenchee(ailleurs, etape(ICI))).toBe(false)
+		expect(etapeDeclenchee(ailleurs, etape(feuille('lieu_courant_est', 'lieu.tour-effondree')))).toBe(true)
+	})
+
+	it('leve sur une condition non reconnue, NUE et sous une negation — jamais un faux positif (KR-238)', () => {
+		// MUTANT NOMMÉ, ÉCRIT, VU ROUGE, RÉVOQUÉ : envelopper l'appel d'`evaluerExpr` d'un
+		// `try/catch` qui rend `false`. Sous un `non`, ce repli produit `true` — une étape
+		// franchie à tort, donc un personnage qui change de plan sans que rien ne le justifie.
+		const faits = ouverture(lire(CHEMIN_REFERENCE))
+		const inconnu = { op: 'xor' } as unknown as ExprNode
+
+		expect(() => etapeDeclenchee(faits, etape(inconnu))).toThrow()
+		expect(() => etapeDeclenchee(faits, etape(nier(inconnu)))).toThrow()
+		expect(() => etapeDeclenchee(faits, etape({ op: 'ou', enfants: [AILLEURS, inconnu] }))).toThrow()
+
+		// DISCRIMINANCE (KR-199) : elle ne lève pas sur tout — la même forme, valide, répond.
+		expect(etapeDeclenchee(faits, etape(nier(AILLEURS)))).toBe(true)
+		// Et SANS arbre, il n'y a rien à lever : l'absence n'est pas une entrée non reconnue.
+		expect(() => etapeDeclenchee(faits, etape(undefined))).not.toThrow()
+	})
+
+	it('elle est PURE — ni les faits ni l etape ne bougent', () => {
+		// KR-169 : « pure » est écrit au contrat, voici sa porte.
+		const faits = ouverture(lire(CHEMIN_REFERENCE))
+		const unite = etape(ICI, { duree: 3 })
+		const avantFaits = JSON.stringify(faits)
+		const avantEtape = JSON.stringify(unite)
+
+		etapeDeclenchee(faits, unite)
+
+		expect(JSON.stringify(faits)).toBe(avantFaits)
+		expect(JSON.stringify(unite)).toBe(avantEtape)
+	})
+})
+
 describe('evaluate.ts, les proprietes qui se lisent dans la SOURCE', () => {
 	it('aucun identifiant de registre en chaine — la resolution passe par le descripteur', () => {
 		// KR-117 : un aiguillage au site d'appel re-listerait ce que `PREDICATES` et
@@ -712,6 +805,34 @@ describe('evaluate.ts, les proprietes qui se lisent dans la SOURCE', () => {
 		// lire.
 		expect(/\.charpente\.jalons\b/.test(enPositionDeCode('const a = dossier.charpente.jalons'))).toBe(true)
 		expect(/\.charpente\.jalons\b/.test(enPositionDeCode("const a = { 'charpente.jalons': 1 }"))).toBe(false)
+	})
+
+	it('la condition d une etape de plan n a qu un lecteur : etapeDeclenchee, appelee par horloge.ts, jamais exportee par le baril', () => {
+		// n° 14 `moteur-horloge`, it1. La garde `.declencheur_expr → ['evaluate.ts']` ci-dessus
+		// n'est PAS desserrée : la lecture des étapes de plan vit DANS evaluate.ts, et
+		// `horloge.ts` — qui en est le seul appelant — passe par `etapeDeclenchee`. Elle
+		// est complétée ici par son versant POSITIF : sans lui, la garde négative serait
+		// verte sur un `horloge.ts` qui ne lirait aucune condition du tout.
+		const codeDe = (nom: string): string => enPositionDeCode(source(nom))
+		const lecteurs = fichiersDuModule().filter((nom) => /\.declencheur_expr\b/.test(codeDe(nom)))
+
+		expect(lecteurs).toEqual(['evaluate.ts'])
+		expect(lecteurs).not.toContain('horloge.ts')
+		// Versant positif : `etapeDeclenchee` lit l'arbre de l'étape dans evaluate.ts…
+		expect(codeDe('evaluate.ts')).toMatch(/\betape\.declencheur_expr\b/)
+		// …et `horloge.ts` l'importe de ce module — pas d'un autre, pas de `./expr`.
+		expect(source('horloge.ts')).toMatch(/import\s*\{[^}]*\betapeDeclenchee\b[^}]*\}\s*from\s*['"]\.\/evaluate['"]/)
+		expect(codeDe('horloge.ts')).toMatch(/\betapeDeclenchee\s*\(/)
+
+		// LE BARIL NE LA SORT PAS : ni elle ni `tickHorloge` — deux fonctions internes au
+		// module `brain/dossier/`, dont la seule porte vers une feature est `executerCommande`.
+		const baril = fs.readFileSync(path.join(MODULE_DOSSIER, '..', 'index.ts'), 'utf8')
+		for (const interne of ['etapeDeclenchee', 'tickHorloge', "'./dossier/horloge'"]) {
+			expect(`${interne} → ${baril.includes(interne)}`).toBe(`${interne} → false`)
+		}
+		// Discriminant du motif : le baril exporte bien, lui, ce que ce module a de public.
+		expect(baril.includes('executerCommande')).toBe(true)
+		expect(baril.includes('DeltaJournalise')).toBe(true)
 	})
 
 	it('evaluate.ts n importe ni session.ts ni commandes.ts — ce sont EUX qui l appellent', () => {

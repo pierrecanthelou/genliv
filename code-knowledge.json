@@ -969,7 +969,7 @@
 		{
 			"id": "KR-298",
 			"feature": "moteur-horloge",
-			"risk": "EtatPnj.etape_plan objet {rang, depuis}, optionnel, absent = plan non evalue, rang = index tableau plan_actions[]. Ecrivain unique : tickHorloge. Nom rang (pas etape, homonyme piege KR-198). depuis non re-derivable du journal condense."
+			"risk": "EtatPnj.etape_plan?: {rang} it1, {rang, depuis} it2. Optionnel, absent=rang 0 (KR-013). rang=index plan_actions[], pas etape (KR-198). Ecrivain: tickHorloge. depuis entre avec duree it2 meme lot (KR-249)."
 		},
 		{
 			"id": "KR-301",

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.21 — l'auteur voit un PNJ avancer d'une étape quand le déclencheur est vrai
+
+`moteur-horloge` it1 (roadmap § 3, n°14, 1/3) — lot unique `contrat` (11 fichiers brain/ + docs/). `tickHorloge` pur dans `brain/dossier/horloge.ts`, appelé dans `executerCommande` après `avecJalonsResolus`. `etapeDeclenchee` sélecteur dans `evaluate.ts` — `horloge.ts` ne lit jamais `.declencheur_expr` (garde evaluate.test.ts:706). `EtatPnj.etape_plan?: { rang }` (absent ≡ 0, KR-013/298). Journal `role: 'moteur'`, identifiants + rang base 1, sans origine/deltas/recit/jet. § J2 de REGLES-PLAY.md écrit complet (8 cas, portions it2 marquées). 146 suites / 2743 tests.
+
+- Reportés it2 (bloc indissociable) : durée, `depuis`, bloqué, minuterie, `si_bloque`, bandeau, R3 « PENDANT CE TEMPS ».
+- Dossier : `.claude/raffinage/moteur-horloge-it1.revue.md`.
+
 ## 0.7.20 — l'auteur lit chaque round commenté par le narrateur de combat
 
 `moteur-combat` it3 (roadmap § 3, n°13, 3/3) -- essaim séquentiel, 2 lots (`contrat` brain/ puis `feature` play-mode/ + player/ + worker/). 12ᵉ rôle IA (R5 commentateur), route `/ia/commentateur`. `assemblerCommentateur` (brain/copilote/contexte/) traduit les PV bruts en paliers qualitatifs (plein/blessé/critique/inconscient/vaincu) — zéro chiffre sur le fil (KR-294/296). `combatProjection.ts` (play-mode/utils/) projette `{vainqueur, qualite, monstre, heroPv/pvMax, monstrePv/pvMax, issue?}`. `CombatEnCours.tsx` orchestre onJouer→rejouerCombat→commenter. `useCommentaireCombat` : Map<round, CommentaireRound> discriminée, AbortController par requête, nettoyage au démontage. `dernierAssaut` ajouté à `CombatState` (vainqueur, qualite, round), effacé par `tryHeroFlee` (KR-297). `validerCommentateur` : `{narration}` seul, 400 car., `/\d/` refusé, identifiants exclus. Narration éphémère, non persistée (session.ts fermé). Badge tone `muted` (2 sites). O(n²) log.every → O(n) Map. 145 suites / 2706 tests.

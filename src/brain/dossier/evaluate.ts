@@ -2,7 +2,7 @@ import { DELTAS, DELTA_DU_JALON_ATTEINT, type Delta, type DeltaId } from './delt
 import type { ExprNode } from './expr'
 import type { FaitsDeSession } from './faits'
 import { PREDICATES } from './predicates'
-import type { Dossier } from './types'
+import type { Dossier, PlanAction } from './types'
 
 /**
  * L'ÉVALUATEUR BIVALENT — ce qu'une condition VAUT contre un état RÉEL, et ce que
@@ -261,10 +261,10 @@ export interface Rencontre {
  * condition non reconnue (KR-238/239), sans `catch`.
  *
  * C'EST LE SEUL LECTEUR DE `declencheur_expr` D'UN ÉVÉNEMENT dans `src/brain/dossier/`,
- * à côté de la passe des jalons : le garde de `evaluate.test.ts` épingle que ce
- * module est le seul à lire `.declencheur_expr`, et c'est ICI que les deux lectures
- * vivent — une troisième dans un autre module ouvrirait un second site de décision
- * de ce qu'est une condition vraie.
+ * à côté de la passe des jalons et de `etapeDeclenchee` : le garde de `evaluate.test.ts`
+ * épingle que ce module est le seul à lire `.declencheur_expr`, et c'est ICI que les
+ * TROIS lectures vivent — une quatrième dans un autre module ouvrirait un second site
+ * de décision de ce qu'est une condition vraie.
  *
  * QUATRE CONDITIONS, TOUTES REQUISES, et l'événement le PREMIER du dossier qui les
  * tient — l'ordre du DOCUMENT, jamais celui où la partie les a vus devenir vrais :
@@ -308,6 +308,34 @@ export function evenementARencontrer(
 	}
 
 	return undefined
+}
+
+/**
+ * LE DÉCLENCHEUR D'UNE ÉTAPE DE PLAN EST-IL VRAI MAINTENANT ? — PURE, BIVALENTE (elle
+ * passe par `evaluerExpr`), et TOTALE **sur un dossier accepté par `validateDossier`** :
+ * même régime que la passe des jalons, elle LÈVE sur une condition non reconnue
+ * (KR-238/239), sans `catch` (n° 14 `moteur-horloge`, it1, `docs/REGLES-PLAY.md` § J2).
+ *
+ * `declencheur_expr` ABSENT rend `false`, et ce n'est pas un repli : une étape sans
+ * condition structurée reste CALME (`tables.ts`, arbitrage d'it1 du dossier), le moteur
+ * ne la fait jamais avancer — absence de condition ≠ condition fausse, mais les deux
+ * ont la même conséquence, « ne bouge pas », et il n'y a aucun arbre sur lequel lever.
+ * `duree`, `si_bloque`, `declencheur_texte` (audience `auteur`) et `action` ne sont
+ * JAMAIS lus ici : c'est la condition, et rien d'autre.
+ *
+ * ELLE N'A QU'UN APPELANT (`tickHorloge`, `horloge.ts`), ET C'EST ASSUMÉ : elle existe
+ * parce que la garde de `evaluate.test.ts` interdit de lire `.declencheur_expr` hors de
+ * ce module (KR-246) — pas par goût de réutilisation. Lire la condition dans
+ * `horloge.ts` ferait de « ce qu'est une condition vraie » une décision à deux sites.
+ *
+ * ORDRE DES ARGUMENTS : les faits d'abord, comme `evaluerExpr`. Elle ne sort PAS du
+ * baril `brain/index.ts`.
+ *
+ * AUCUNE MÉMOÏSATION (KR-013/113).
+ */
+export function etapeDeclenchee(faits: FaitsDeSession, etape: PlanAction): boolean {
+	if (etape.declencheur_expr === undefined) return false
+	return evaluerExpr(faits, etape.declencheur_expr)
 }
 
 /**

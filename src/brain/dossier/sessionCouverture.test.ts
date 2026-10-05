@@ -153,18 +153,25 @@ describe('DESTINATION_DES_CHAMPS_DE_SESSION, exhaustivite', () => {
 		const normalises = cheminsDeLaSession()
 
 		// La fixture porte DEUX personnages : le walker rend donc DEUX chemins BRUTS
-		// distincts pour `a_dit[]` (un par personnage) — TROIS au total depuis l'it3
-		// de la n° 12 (`moteur-acteurs`), `pnj.aldur-le-sage` portant EN PLUS sa
-		// feuille `confiance`. La table, elle, n'en déclare que DEUX (`a_dit[]` et
-		// `confiance`, chacune collapsée sur `<id>`) : c'est exactement ce que la
-		// normalisation existe pour résoudre — avec un seul personnage par feuille,
-		// elle serait indistinguable de son absence.
-		expect(new Set(bruts.filter((chemin) => chemin.startsWith('monde.pnj.'))).size).toBe(3)
-		expect(new Set(normalises.filter((chemin) => chemin.startsWith('monde.pnj.'))).size).toBe(2)
+		// distincts pour `a_dit[]` (un par personnage) — QUATRE au total depuis l'it1
+		// de la n° 14 (`moteur-horloge`), `pnj.aldur-le-sage` portant EN PLUS ses feuilles
+		// `confiance` (n° 12, it3) et `etape_plan.rang` (n° 14, it1). La table, elle,
+		// n'en déclare que TROIS (`a_dit[]`, `confiance` et `etape_plan.rang`, chacune
+		// collapsée sur `<id>`) : c'est exactement ce que la normalisation existe pour
+		// résoudre — avec un seul personnage par feuille, elle serait indistinguable de
+		// son absence.
+		expect(new Set(bruts.filter((chemin) => chemin.startsWith('monde.pnj.'))).size).toBe(4)
+		expect(new Set(normalises.filter((chemin) => chemin.startsWith('monde.pnj.'))).size).toBe(3)
 		expect(normalises).toContain('monde.pnj.<id>.a_dit[]')
 		// ET LA CONFIANCE (n° 12 `moteur-acteurs`, it3) EST BIEN INSTANCIÉE — sur un
 		// seul des deux PNJ, précisément pour que l'autre enseigne « absent ≠ vide ».
 		expect(normalises).toContain('monde.pnj.<id>.confiance')
+		// ET L'ÉTAPE DU PLAN (n° 14 `moteur-horloge`, it1) AUSSI — sur le MÊME PNJ, au
+		// rang 1 et jamais 0 (absent ≡ 0, § J2) ; l'autre entrée n'en porte pas.
+		expect(normalises).toContain('monde.pnj.<id>.etape_plan.rang')
+		expect(SESSION_SATUREE.monde.pnj['pnj.aldur-le-sage']?.etape_plan).toEqual({ rang: 1 })
+		expect(SESSION_SATUREE.monde.pnj['pnj.corvin-le-marchand']?.etape_plan).toBeUndefined()
+		expect('etape_plan' in SESSION_SATUREE.monde.pnj['pnj.corvin-le-marchand']).toBe(false)
 
 		// Et les listes sont bien balayées PAR ÉLÉMENT : une session d'OUVERTURE, dont
 		// toutes les listes sont vides, rendrait `monde.lieux_visites` SANS le suffixe,
@@ -271,11 +278,12 @@ describe('EtatMonde, les sept champs restent REQUIS et chacun garde sa ligne', (
 			)
 
 		// SIX champs, UNE SEULE ligne chacun ; `pnj` EST L'EXCEPTION NOMMÉE depuis le
-		// lot `contrat` de la n° 12 (`moteur-acteurs`, it3) : `EtatPnj` porte DEUX
-		// feuilles (`a_dit[]`, `confiance`), donc DEUX lignes de table pour le MÊME
+		// lot `contrat` de la n° 12 (`moteur-acteurs`, it3) : `EtatPnj` porte TROIS
+		// feuilles depuis le lot `contrat` de la n° 14 (`moteur-horloge`, it1) — `a_dit[]`,
+		// `confiance`, `etape_plan.rang` —, donc TROIS lignes de table pour le MÊME
 		// champ racine — jamais une relecture générique à « 1 partout » qui
 		// masquerait l'ajout d'une feuille au champ le plus riche.
-		const LIGNES_ATTENDUES: Readonly<Record<string, number>> = { pnj: 2 }
+		const LIGNES_ATTENDUES: Readonly<Record<string, number>> = { pnj: 3 }
 
 		expect(champs).toHaveLength(7)
 		for (const champ of champs) {
@@ -361,6 +369,30 @@ describe('DESTINATION_DES_CHAMPS_DE_SESSION, la valeur des lignes', () => {
 		expect(postures).not.toEqual([...POSTURE_VALUES].reverse())
 	})
 
+	it('etape_plan : UNE feuille, moteur, jamais ia — et depuis n existe pas (n 14 moteur-horloge, it1)', () => {
+		// ASSERTION DE VALEUR, PAS D'EXISTENCE (KR-174) : un modèle qui lirait `rang`
+		// connaîtrait l'étape que joue le personnage et jouerait une urgence que le
+		// moteur n'a pas constatée (`docs/REGLES-PLAY.md` § J2, règle 7).
+		expect(DESTINATION_DES_CHAMPS_DE_SESSION['monde.pnj.<id>.etape_plan.rang']).toBe('moteur')
+		// Les lignes du PNJ sont EXACTEMENT trois, et AUCUNE n'est `ia` : la ligne
+		// voisine (`a_dit[]`) et la confiance restent `moteur` elles aussi.
+		const lignesDuPnj = Object.entries(DESTINATION_DES_CHAMPS_DE_SESSION)
+			.filter(([chemin]) => chemin.startsWith('monde.pnj.'))
+			.sort(([a], [b]) => a.localeCompare(b))
+		expect(lignesDuPnj).toEqual([
+			['monde.pnj.<id>.a_dit[]', 'moteur'],
+			['monde.pnj.<id>.confiance', 'moteur'],
+			['monde.pnj.<id>.etape_plan.rang', 'moteur'],
+		])
+		// `depuis` ENTRE À L'ITÉRATION 2, avec la formule de durée qui le lit (KR-249) :
+		// aucune ligne, aucune feuille de fixture — la ligne et son lecteur arrivent
+		// dans le même lot. CES DEUX ASSERTIONS SONT ÉCRITES POUR ÊTRE SUPPRIMÉES par le
+		// lot `contrat` de l'itération 2, qui pose `depuis` : elles épinglent R-8 du
+		// plan d'itération 1 (« pas de `depuis` sans consommateur dans le même lot »).
+		expect([...CLES_DE_LA_TABLE].filter((cle) => cle.includes('depuis'))).toEqual([])
+		expect(cheminsDeLaSession().filter((chemin) => chemin.includes('depuis'))).toEqual([])
+	})
+
 	it('journal[].recit est ia depuis l it3 — BASCULE EN VALEUR avec son lecteur, la fenetre glissante', () => {
 		// ASSERTION DE VALEUR, PAS D'EXISTENCE (KR-174). `'moteur'` en it2 (narrateur SANS
 		// ÉTAT, une ligne `'ia'` aurait été une autorisation dormante) ; `'ia'` en it3, parce
@@ -437,5 +469,24 @@ describe('EtatSession, les formes que le type REFUSE', () => {
 			complete,
 			pnjLegal,
 		]).toHaveLength(9)
+	})
+
+	it('etape_plan : rang est REQUIS dans l objet, et l objet reste OPTIONNEL sur l etat du PNJ (n 14, it1, KR-251)', () => {
+		// `@ts-expect-error` ÉCHOUE À LA COMPILATION si l'erreur attendue n'a PAS lieu.
+		// Un `etape_plan` sans `rang` ne dirait rien de l'étape : état illégal.
+		// @ts-expect-error — `etape_plan` posé sans son `rang`.
+		const sansRang: EtatPnj = { a_dit: [], etape_plan: {} }
+
+		// Discriminant : les formes LÉGALES compilent — sans la clé (état de départ,
+		// absent ≡ rang 0, jamais stocké d'office), au rang 0 (légal, se lit comme
+		// l'absence), au rang 3. Sans cette moitié, la directive serait satisfaite par
+		// n'importe quelle erreur de type.
+		const absent: EtatPnj = { a_dit: [] }
+		const auDepart: EtatPnj = { a_dit: [], etape_plan: { rang: 0 } }
+		const avance: EtatPnj = { a_dit: [], confiance: 1, etape_plan: { rang: 3 } }
+
+		expect([sansRang, absent, auDepart, avance]).toHaveLength(4)
+		expect('etape_plan' in absent).toBe(false)
+		expect(avance.etape_plan?.rang).toBe(3)
 	})
 })

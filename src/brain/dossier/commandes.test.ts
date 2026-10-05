@@ -12,8 +12,9 @@ import {
 	type ResultatCommande,
 	type ResultatSaisie,
 } from './commandes'
+import type { ExprNode } from './expr'
 import { cloreCombat, fixerHeros, ouvrirSession, resoudreRencontre, type EtatSession } from './session'
-import type { Dossier } from './types'
+import type { Dossier, PlanAction } from './types'
 import type { HeroState } from '../../player/types'
 
 /**
@@ -1064,5 +1065,154 @@ describe('executerCommande, combat_en_cours (n 13 moteur-combat, it1)', () => {
 				expect(`${issue} / ${id} → ${executer(dossier, close, SAISIES[id]).ok}`).toBe(`${issue} / ${id} → true`)
 			}
 		}
+	})
+})
+
+/**
+ * LA COUTURE DE L'HORLOGE DES PNJ (n° 14 `moteur-horloge`, it1, lot `contrat`,
+ * `docs/REGLES-PLAY.md` § J2) : le bras `ok` d'`executerCommande` rend
+ * `tickHorloge(dossier, avecJalonsResolus(dossier, résultat.session))`. Ce que `horloge.test.ts`
+ * prouve du TICK lui-même n'est pas redit ici — seulement ce que la COUTURE doit tenir : le tick
+ * ne tourne ni sur un refus, ni sous un combat ; il tourne sur les faits d'APRÈS les jalons ; et
+ * il lève, sans `catch`, sur une condition de plan inconnue (KR-238).
+ *
+ * « LE TICK N'A PAS TOURNÉ » SE PROUVE PAR UN POISON, JAMAIS PAR UN COMPTEUR D'APPELS : le plan
+ * de Harek porte une étape dont la condition est un nœud inconnu, que `evaluerExpr` LÈVE à la
+ * moindre lecture (KR-238). Une commande qui n'atteint pas le tick ne lève donc pas — et la même
+ * session, une commande ACCEPTÉE, lève : c'est le discriminant, dans le MÊME test, qui prouve que
+ * le poison est bien atteint quand le tick tourne (KR-197/202). Un espion sur un import de module
+ * prouverait un appel, pas l'absence d'effet, et se casserait à la prochaine réécriture d'import.
+ */
+describe('executerCommande, la couture de l horloge des PNJ (n 14 moteur-horloge, it1)', () => {
+	const HAREK = 'pnj.harek-le-forgeron'
+	const FOYER_VISITE: ExprNode = { op: 'predicat', predicat: 'lieu_visite', cibles: ['lieu.foyer-du-guet'] }
+	/** Un nœud que l'évaluateur ne reconnaît pas : le LIRE, c'est LEVER. */
+	const POISON = { op: 'xor' } as unknown as ExprNode
+
+	function etape(declencheur?: ExprNode): PlanAction {
+		return {
+			etape: 1,
+			action: 'Intention de l’étape.',
+			...(declencheur === undefined ? {} : { declencheur_expr: declencheur }),
+		}
+	}
+
+	/** Le dossier de référence, le SEUL plan de Harek remplacé — rien d'autre ne bouge. */
+	function avecPlanDeHarek(plan: PlanAction[]): Dossier {
+		const dossier = lire(CHEMIN_REFERENCE)
+		const harek = dossier.monde.personnages.find((personnage) => personnage.id === HAREK)
+		if (harek === undefined) throw new Error('fixture : Harek a disparu du dossier de référence')
+		harek.plan_actions = plan
+		return dossier
+	}
+
+	/** Vrai si l'appel LÈVE — `expect(...).toThrow()` ne se compose pas dans une chaîne nommée. */
+	function leve(appel: () => unknown): boolean {
+		try {
+			appel()
+			return false
+		} catch {
+			return true
+		}
+	}
+
+	it('un refus ne tick pas : le poison ne leve pas sur un refus, et leve sur la meme session des qu une commande est acceptee', () => {
+		const dossier = avecPlanDeHarek([etape(), etape(POISON)])
+		const depart = ouverture(dossier)
+		const avant = JSON.stringify(depart)
+
+		// UN REFUS PAR CAUSE DE RÉSOLUTION, chacun avec son code : sans le code, « ne leve
+		// pas » serait vert sur n'importe quelle commande qui échouerait ailleurs.
+		const REFUS = [
+			['ALLER lieu.crypte-scellee', 'acces_absent'],
+			['PARLER pnj.fantome', 'cible_inconnue'],
+			['PARLER pnj.selene-la-vigie', 'cible_indisponible'],
+		] as const
+		for (const [saisie, refus] of REFUS) {
+			expect(`${saisie} → ${leve(() => executer(dossier, depart, saisie))}`).toBe(`${saisie} → false`)
+			const resultat = executer(dossier, depart, saisie)
+			expect(`${saisie} → ${resultat.ok === false && resultat.refus}`).toBe(`${saisie} → ${refus}`)
+		}
+		// La session d'entrée est intacte : ni pas, ni ligne, ni `etape_plan`.
+		expect(JSON.stringify(depart)).toBe(avant)
+		expect(depart.monde.pnj).toEqual({})
+
+		// DISCRIMINANT, DANS LE MÊME TEST : une commande ACCEPTÉE sur la MÊME session atteint le
+		// tick, et le poison lève — ce qui prouve que le silence ci-dessus est celui d'un tick
+		// qui n'a pas tourné, pas celui d'un plan que rien ne lirait jamais.
+		expect(leve(() => executer(dossier, depart, 'AGIR'))).toBe(true)
+	})
+
+	it('combat_en_cours est refuse AVANT tout tick : chaque verbe, poison en place, et le meme poison leve sans combat (KR-295)', () => {
+		const dossier = avecPlanDeHarek([etape(), etape(POISON)])
+		const auRepos = fixerHeros(ouverture(dossier), heroAvec(2))
+		const enCombat = resoudreRencontre(auRepos, {
+			evenement_id: 'evenement.embuscade-a-la-tour',
+			monstre_ref: 'bestiaire.squelette',
+		})
+		expect(enCombat.combat).toBeDefined()
+		const SAISIES: Record<CommandeId, string> = {
+			aller: 'ALLER lieu.marche-des-cendres',
+			agir: 'AGIR',
+			parler: `PARLER ${HAREK}`,
+		}
+		expect(Object.keys(SAISIES).sort()).toEqual(Object.keys(COMMANDES).sort())
+
+		for (const id of Object.keys(COMMANDES) as CommandeId[]) {
+			expect(`${id} → ${leve(() => executer(dossier, enCombat, SAISIES[id]))}`).toBe(`${id} → false`)
+			const resultat = executer(dossier, enCombat, SAISIES[id])
+			expect(`${id} → ${resultat.ok === false && resultat.refus}`).toBe(`${id} → combat_en_cours`)
+			// DISCRIMINANT, PAR VERBE : sans combat, la même saisie atteint le tick et lève.
+			expect(`${id} sans combat → ${leve(() => executer(dossier, auRepos, SAISIES[id]))}`).toBe(
+				`${id} sans combat → true`,
+			)
+		}
+		// Un combat n'ajoute AUCUN pas, et rien ne s'écrit sous lui (KR-295).
+		expect(enCombat.horloge.tour).toBe(0)
+		expect(enCombat.monde.pnj).toEqual({})
+	})
+
+	it('le tick tourne sur les faits d APRES les jalons : une condition que SEUL un jalon rend vraie avance au MEME pas, apres sa ligne', () => {
+		// `jalon.premiere-vigie` se déclenche sur `lieu_visite(lieu.vigie-du-nord)`, atteignable
+		// en DEUX pas. L'étape B de Harek n'attend que ce jalon : évaluée AVANT la passe, sa
+		// condition serait fausse au pas 2 et n'avancerait qu'au pas 3.
+		const dossier = avecPlanDeHarek([
+			etape(),
+			etape({ op: 'predicat', predicat: 'jalon_atteint', cibles: ['jalon.premiere-vigie'] }),
+		])
+		const pas1 = sessionDe(executer(dossier, ouverture(dossier), 'ALLER lieu.tour-effondree'))
+		// L'ÉTAT SÉPARATEUR : rien n'est atteint, rien n'avance, tant que la vigie n'est pas visitée.
+		expect(pas1.monde.jalons_atteints).toEqual([])
+		expect(pas1.monde.pnj).toEqual({})
+		expect(pas1.journal).toHaveLength(2)
+
+		const pas2 = sessionDe(executer(dossier, pas1, 'ALLER lieu.vigie-du-nord'))
+
+		expect(pas2.monde.jalons_atteints).toEqual(['jalon.premiere-vigie'])
+		expect(pas2.monde.pnj[HAREK]).toEqual({ a_dit: [], etape_plan: { rang: 1 } })
+		// QUATRE lignes pour ce pas, TOUTES au tour 2 — le tick n'ajoute jamais un pas — et la
+		// ligne du tick est la DERNIÈRE : après la demande, son effet, et le jalon.
+		expect(pas2.horloge.tour).toBe(2)
+		expect(pas2.journal.slice(2).map((ligne) => [ligne.tour, ligne.texte])).toEqual([
+			[2, '> ALLER lieu.vigie-du-nord'],
+			[2, 'lieu_courant : lieu.tour-effondree → lieu.vigie-du-nord'],
+			[2, 'jalons_atteints : jalon.premiere-vigie'],
+			[2, `etape_plan : ${HAREK} 2`],
+		])
+		// Et la ligne du tick ne porte AUCUNE des clés des lignes qui la précèdent.
+		expect(Object.keys(pas2.journal[5]).sort()).toEqual(['role', 'texte', 'tour'])
+	})
+
+	it('une condition de plan inconnue LEVE sur une commande acceptee, nue et sous une negation — jamais un faux positif (KR-238)', () => {
+		// MUTANT NOMMÉ, À ÉCRIRE PUIS RÉVOQUER : envelopper l'appel du tick d'un `try/catch`
+		// qui rend la session d'avant. Sous un `non`, le repli en `false` ferait AVANCER le
+		// personnage — un faux positif sur une étape de plan, que la couche s'interdit.
+		for (const condition of [POISON, { op: 'non', enfant: POISON } as ExprNode]) {
+			const dossier = avecPlanDeHarek([etape(), etape(condition)])
+			expect(leve(() => executer(dossier, ouverture(dossier), 'AGIR'))).toBe(true)
+		}
+		// DISCRIMINANCE : le même plan, valide, ne lève pas et avance.
+		const sain = avecPlanDeHarek([etape(), etape(FOYER_VISITE)])
+		expect(sessionDe(executer(sain, ouverture(sain), 'AGIR')).monde.pnj[HAREK]?.etape_plan).toEqual({ rang: 1 })
 	})
 })

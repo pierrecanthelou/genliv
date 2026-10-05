@@ -30,6 +30,7 @@
  * l'extraction (`docs/EXIGENCE-APERCU-DU-JEU.md` § 6).
  */
 import { resoudreJalons } from './evaluate'
+import { tickHorloge } from './horloge'
 import { defineRegistre, type EspaceDeNoms } from './identifiers'
 import type { EtatSession } from './session'
 import type { Dossier } from './types'
@@ -525,6 +526,16 @@ function avecJalonsResolus(dossier: Dossier, session: EtatSession): EtatSession 
  * monde, donc aucune condition n'a pu devenir vraie : la rejouer serait du travail
  * pour rien ET une occasion de lever sur un chemin qui n'écrit rien.
  *
+ * L'HORLOGE DES PNJ SUIT LES JALONS (n° 14 `moteur-horloge`, it1) : `tickHorloge`
+ * (`horloge.ts`) tourne sur la session que la passe des jalons vient de rendre, donc sur
+ * les faits d'APRÈS jalons, et ELLE AUSSI seulement sur une commande acceptée — le refus
+ * `combat_en_cours` tombe avant tout, un combat étant un seul pas d'horloge (KR-295).
+ * Elle évalue `plan_actions[].declencheur_expr` par `evaluerExpr` : la totalité de cette
+ * fonction est donc conditionnelle aux déclencheurs de plan, exactement comme aux
+ * déclencheurs de jalon — la porte `jouable` des contrôles, vérifiée au montage du shell
+ * (KR-239), en est la parade, jamais un `catch`. Elle n'ajoute AUCUN pas : ses lignes de
+ * journal portent le `tour` de la commande (`docs/REGLES-PLAY.md` § J1/J2).
+ *
  * TANT QU'UN COMBAT EST OUVERT (`session.combat !== undefined`), TOUTE COMMANDE EST
  * REFUSÉE (`combat_en_cours`) — et c'est le PREMIER refus, avant la résolution de
  * la cible : un `aller` vers un lieu inconnu pendant un combat dit `combat_en_cours`,
@@ -551,5 +562,5 @@ export function executerCommande(dossier: Dossier, session: EtatSession, command
 	}
 	const resultat = TRANSITIONS[commande.commande](dossier, session, commande)
 	if (!resultat.ok) return resultat
-	return { ok: true, session: avecJalonsResolus(dossier, resultat.session) }
+	return { ok: true, session: tickHorloge(dossier, avecJalonsResolus(dossier, resultat.session)) }
 }

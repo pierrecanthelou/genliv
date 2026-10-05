@@ -192,6 +192,32 @@ Les 23 capacités sont aujourd'hui du **texte**. Pour le moteur, chacune doit de
 
 **Le mot « tour » reste réservé au round de combat par `REGLES-DU-JEU.md` ; le pas de session se dit « pas ».** Les champs `EtatSession.horloge.tour` et `journal[].tour` portent ce mot par **dette de nommage gelée à l'itération 1** — `schema: 1` n'ayant aucun chemin de migration (KR-160/191), ils ne seront pas renommés. Ce n'est **pas** une levée de la réserve : aucun champ neuf, aucun libellé d'écran, aucune prose ne reprennent le mot — l'écran de partie affiche le numéro nu (`#7`).
 
+**J2. Passage d'étape d'un PNJ** *(n° 14 `moteur-horloge`, itération 1 — écrit AVANT le code, 2026-10-05).* Après chaque commande ACCEPTÉE, une fois la passe des jalons faite, le moteur évalue le plan de chaque personnage de `monde.personnages[]` et le fait avancer d'UNE étape au plus. Ce que l'itération 1 lit : `plan_actions[]`, et la condition `declencheur_expr` de l'étape visée — ni `duree`, ni `si_bloque`.
+
+**Vocabulaire.** `k` = rang courant ; `n = k + 1` = rang visé. Le **rang est un INDEX dans le tableau `plan_actions[]`** (0 = première étape), jamais le champ `etape` : tableau et `etape` se désynchronisent dès qu'une étape est retirée, et le moteur ne trie jamais sur `etape` (KR-198). **`EtatPnj.etape_plan` ABSENT ≡ `k = 0`** : c'est l'état de départ, il se calcule, et il n'est jamais stocké d'office (KR-013) — `etape_plan` n'est ÉCRIT qu'à un AVANCEMENT, à `{ rang: n }` (un `{ rang: 0 }` rencontré est légal et se lit comme l'absence). Le déclencheur de l'étape 0 n'est donc jamais lu : on ne « passe » pas à l'étape où l'on se trouve déjà.
+
+| # | Situation | itération 1 | itération 2 *(non livrée)* |
+|---|---|---|---|
+| 1 | `etape_plan` absent, `plan_actions[1]` porte un `declencheur_expr` VRAI | passe au rang 1 : `etape_plan: { rang: 1 }` est écrit — premier écrit de l'entrée | idem |
+| 2 | `etape_plan` absent, `plan_actions[1]` sans `declencheur_expr` | ne bouge pas | entre par minuterie si `duree` prévue *(it2)* |
+| 3 | `k ≥ 1` (`etape_plan` déjà écrit), `plan_actions[n]` porte un `declencheur_expr` VRAI | passe au rang n | idem |
+| 4 | `plan_actions[n]` porte un `declencheur_expr` FAUX | reste au rang k — même si `duree` est posée et échue | reste ; `duree` échue → bloqué, DÉRIVÉ et jamais stocké *(it2)* |
+| 5 | `plan_actions[n]` sans `declencheur_expr`, `duree` posée | reste (minuterie reportée) | passe quand `tour − depuis >= duree` *(it2)* |
+| 6 | `plan_actions[n]` sans `declencheur_expr` ni `duree` | plan arrêté : une étape sans condition structurée reste calme, le moteur ne la fait jamais avancer | idem |
+| 7 | `k` = dernier rang (`plan_actions[n]` n'existe pas) | ne bouge plus | bloqué si `duree` échue *(it2)* |
+| 8 | `rang ≥ plan_actions.length`, ou négatif, ou non entier (session persistée contre un dossier édité) | no-op : aucune écriture, aucune ligne, aucune exception | idem |
+
+Les lignes marquées *(it2)* sont écrites pour que l'itération 1 ne les contredise pas ; elles se relisent et se tranchent au raffinage de l'itération 2. Ligne 2 : l'origine du décompte d'une entrée absente (aucun `depuis` n'existe encore) s'y décide. `depuis` entre AVEC la formule `tour − depuis >= duree`, dans le même lot — jamais avant.
+
+**Règles transverses de J2.**
+1. **Un cran au plus par PNJ et par pas**, même si plusieurs déclencheurs suivants sont déjà vrais : sans cela `duree` redevient imprévisible pour l'auteur (J1).
+2. **Quand.** Le tick tourne APRÈS la passe des jalons, sur les faits qu'elle a rendus, et seulement sur une commande ACCEPTÉE : un refus n'avance rien, et tant qu'un combat est ouvert toute commande est refusée AVANT tout tick (KR-295 : un combat entier = un seul pas d'horloge).
+3. **Ordre.** L'ordre de `monde.personnages[]` (le document), jamais l'ordre alphabétique ni celui d'insertion dans `monde.pnj`.
+4. **Journal.** UNE ligne par avancement, `role: 'moteur'`, au `tour` du pas — jamais `+1` (J1) —, après les lignes de jalons. Le texte est un relevé d'état en **base 1**, jamais de la prose : `etape_plan : <pnj.id> <n+1>` au premier écrit (sans flèche, précédent `lieu_courant`), `etape_plan : <pnj.id> <k+1> → <n+1>` ensuite. Ni `origine`, ni `deltas`, ni `recit`, ni `jet`, ni `interlocuteur` : la ligne n'est la demande d'aucune commande, et jamais le texte de `action`.
+5. **`DUREE_MIN = 1`** (`types.ts`) : une durée est un entier ≥ 1, jamais 0 — c'est ce qui interdit une étape qui naîtrait bloquée *(it2)*.
+6. **Périmètre d'écriture.** Le tick n'écrit que `monde.pnj[id].etape_plan` et le journal. Aucun prédicat ne lit `etape_plan`, et aucun effet de monde d'une étape n'est appliqué (n° 14, itérations suivantes).
+7. **Audience.** `etape_plan.rang` est `moteur` : un modèle qui le lirait connaîtrait l'étape courante et jouerait une urgence que le moteur n'a pas constatée.
+
 ---
 
 ## Priorité de cadrage
