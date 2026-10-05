@@ -104,12 +104,12 @@
 		{
 			"id": "KR-109",
 			"feature": "global-config",
-			"risk": "Un composant de presentation consomme par plus d'une feature vit dans brain/components/ ; l'import depuis une feature soeur est refuse par ESLint (KR-151)."
+			"risk": "Composant cross-feature : brain/components/. ESLint refuse l'import (KR-151)."
 		},
 		{
 			"id": "KR-110",
 			"feature": "global-config",
-			"risk": "Un utilitaire consomme par plus d'une feature vit dans brain/utils/ ; l'import depuis une feature soeur est refuse par ESLint (KR-151)."
+			"risk": "Utilitaire cross-feature : brain/utils/. ESLint refuse l'import (KR-151)."
 		},
 		{
 			"id": "KR-111",
@@ -239,7 +239,7 @@
 		{
 			"id": "KR-152",
 			"feature": "global-config",
-			"risk": "Stockage brut en feature : CABLE dans ESLint (no-restricted-globals + no-restricted-properties sur src/features/**, tests exclus). Passer par PersistenceService / persistenceKeys.ts. Le message de la regle nomme la parade."
+			"risk": "Stockage brut en feature : CABLE dans ESLint. Le message nomme la parade (KR-011/111)."
 		},
 		{
 			"id": "KR-153",
@@ -965,6 +965,16 @@
 			"id": "KR-297",
 			"feature": "moteur-combat",
 			"risk": "La fuite n'est pas une posture. Bouton et fonction separes (fuirRencontre vs jouerPosture)."
+		},
+		{
+			"id": "KR-298",
+			"feature": "moteur-horloge",
+			"risk": "EtatPnj.etape_plan objet {rang, depuis}, optionnel, absent = plan non evalue, rang = index tableau plan_actions[]. Ecrivain unique : tickHorloge. Nom rang (pas etape, homonyme piege KR-198). depuis non re-derivable du journal condense."
+		},
+		{
+			"id": "KR-301",
+			"feature": "moteur-horloge",
+			"risk": "climat_actif optionnel dans horloge (session, KR-207). Activation via Evenement (types.ts:1380 interdit declencheur_expr sur Climat), route exacte au raffinage d'it3. Extinction par tickHorloge quand duree atteinte."
 		}
 	]
 }

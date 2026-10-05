@@ -1,0 +1,109 @@
+{
+	"feature": "moteur-horloge",
+	"created_at": "2026-10-05",
+	"status": "planned",
+	"design_reference": "docs/PLAN-BASCULE-IA.dc.html § 2.7 (cycle d'horloge, 5 étapes), docs/REGLES-PLAY.md § J (pas d'horloge)",
+	"plan": {
+		"goal": "Le monde avance d'un pas après chaque commande acceptée — plans PNJ, climat, résumé perceptible pour le narrateur.",
+		"design_contract": "Aucun composant UI neuf. BandeauHeros étendu : PAS #n (it2) + CLIMAT · {nom} (it3). JournalRow réutilisé (role=moteur). Tick sans effet visible = aucune ligne de journal. Tokens du design system, zéro valeur en dur. Aucune couleur sémantique (--good/--bad) ni accent sur les éléments d'horloge.",
+		"acceptance_criteria": [
+			"Après chaque commande acceptée, les PNJ avec plan_actions[] avancent d'une étape quand leur declencheur_expr est vrai ou leur durée est échue.",
+			"Un PNJ dont la durée est échue sans déclencheur vrai est « bloqué » (dérivé de tour − depuis ≥ duree, jamais stocké).",
+			"Le narrateur R3 reçoit un bloc PENDANT CE TEMPS avec les avancements perceptibles au lieu courant du joueur.",
+			"Un climat activé applique ses effets_regles (Delta[] ensemblistes, idempotents) et s'éteint après sa durée.",
+			"Le bandeau affiche PAS #n et CLIMAT · {nom} quand actif.",
+			"Le tick ne tourne pas pendant un combat (KR-295).",
+			"Aucun modificateur numérique — seuls les 4 deltas ensemblistes sont utilisés (KR-208).",
+			"moteurSansIA.test.ts reste vert (KR-250/260).",
+			"Transferts d'indices et contre-mesures sont HORS PÉRIMÈTRE (reportés)."
+		],
+		"brain_contracts": [
+			{
+				"type": "service",
+				"name": "tickHorloge",
+				"direction": "emits",
+				"detail": "tickHorloge(dossier: Dossier, session: EtatSession): EtatSession. Pure, brain/dossier/horloge.ts. Appelée dans executerCommande après les jalons."
+			},
+			{
+				"type": "service",
+				"name": "EtatPnj.etape_plan",
+				"direction": "emits",
+				"detail": "etape_plan?: { readonly rang: number; readonly depuis: number }. Optionnel à vie (KR-251). Absent = plan non évalué. rang = index du tableau plan_actions[]. Écrivain unique : tickHorloge."
+			},
+			{
+				"type": "service",
+				"name": "EtatSession.horloge.climat_actif",
+				"direction": "emits",
+				"detail": "climat_actif?: string (id de Climat). Session, pas dossier (KR-207). Activation via Evenement (types.ts:1380), pas via declencheur_expr sur Climat. Extinction par tickHorloge quand duree atteinte."
+			},
+			{
+				"type": "service",
+				"name": "contexte/horloge.ts",
+				"direction": "emits",
+				"detail": "Assembleur R3, bloc PENDANT CE TEMPS. Proses = champs ia existants (plan_actions[].action, climat.manifestation). Projection changementsDe(avant, après), pas un type de retour du tick."
+			},
+			{
+				"type": "service",
+				"name": "sessionDestinations",
+				"direction": "consumes",
+				"detail": "monde.pnj.*.etape_plan.rang, monde.pnj.*.etape_plan.depuis, horloge.climat_actif = 'moteur'."
+			},
+			{
+				"type": "service",
+				"name": "executerCommande",
+				"direction": "consumes",
+				"detail": "Signature INCHANGÉE. Corps : transition → jalons → tickHorloge. Couture unique, pas de second site d'appel."
+			}
+		],
+		"walking_skeleton": "It1 : tickHorloge pur dans brain/dossier/horloge.ts, appelé dans executerCommande. Un PNJ avance d'une étape quand son declencheur_expr est vrai ou sa durée échue. Ligne de journal role=moteur. Doc J2 écrite en premier.",
+		"n": 3,
+		"iterations": [
+			{
+				"id": 1,
+				"goal": "L'auteur voit un PNJ avancer d'une étape de son plan quand le déclencheur devient vrai ou la durée s'écoule.",
+				"status": "planned"
+			},
+			{
+				"id": 2,
+				"goal": "L'auteur lit, sous le récit du narrateur, ce qui a changé dans le monde pendant son dernier pas.",
+				"status": "planned"
+			},
+			{
+				"id": 3,
+				"goal": "L'auteur voit un climat s'activer, appliquer ses effets ensemblistes, et s'éteindre après sa durée.",
+				"status": "planned"
+			}
+		],
+		"known_risks": [
+			"KR-298 : EtatPnj.etape_plan objet {rang, depuis}, optionnel, absent = plan non évalué, rang = index tableau plan_actions[]. Écrivain unique : tickHorloge. Nom rang (pas etape, homonyme piège KR-198). depuis non re-dérivable du journal condensé.",
+			"KR-301 : climat_actif optionnel dans horloge (session, KR-207). Activation via Evenement (types.ts:1380 interdit declencheur_expr sur Climat), route exacte au raffinage d'it3. Extinction par tickHorloge quand duree atteinte.",
+			"KR-208 tient : DELTAS n'a que 4 entrées ensemblistes. Aucun modificateur numérique. Les effets climatiques se limitent aux deltas existants (donner_objet, retirer_objet, reveler_indice, atteindre_jalon).",
+			"KR-295 tient : le tick ne tourne pas pendant un combat. executerCommande refuse les commandes pendant session.combat, donc le tick n'est jamais atteint.",
+			"KR-249 : depuis entre avec son lecteur (durée/bloqué) dans la même itération. Pas de champ de session sans consommateur.",
+			"session.ts > 800 lignes (dette n°13) : extraction sessionCombat.ts absorbée par it3, première itération qui rouvre session.ts."
+		]
+	},
+	"implementation": {
+		"iterations_log": [],
+		"resolved_decisions": [
+			"6 itérations (PM t1) réduites à 3 (roadmap). Motif : mécanismes muets (transfert, contre-mesures) n'ont pas de phrase de démo — veto PM t2 fondé.",
+			"Transfert d'indices REPORTÉ hors n°14. Pas de phrase de démo, KR-253 non actionnable (aucun delta d'arité 2, aucun carnet PNJ). Ligne ajoutée au roadmap.",
+			"Contre-mesures REPORTÉES hors n°14. ContreMesure n'a pas de Delta[] d'effet, portee sans consommateur. Exécution narrative sans mécanique n'est pas démontrable.",
+			"ChangementPerceptible[] comme retour du tick REJETÉ. ResultatCommande ne porte que session (TL t2). Projection changementsDe(avant, après) en it2, quand R3 est son consommateur. Abstraction sans appelant = dette.",
+			"EtatPnj.etape_plan = objet {rang, depuis}, pas un entier simple. rang (pas etape, homonyme KR-198). depuis non re-dérivable du journal condensé (TL t2).",
+			"Climat route A (declencheur_expr sur Climat) REJETÉE. types.ts:1380 dit explicitement que Climat ne porte pas declencheur_expr — activation via Evenement, décision actée. Route exacte au raffinage d'it3.",
+			"Bloc « états » (affamé/blessé/poursuivi) bandeau REPORTÉ. Aucun champ de session ne porte ces états.",
+			"Bandeau en it2, pas en it1 (UX t2). It1 est purement moteur, zéro UI.",
+			"tickHorloge dans executerCommande (TL t1/t2), pas dans le hook. Couture unique : la console et le rejeu sont couverts. Trois sites écrivent horloge, deux appelants passent par executerCommande.",
+			"Roadmap update OBLIGATOIRE pour les retraits de périmètre (veto PM t2). Écart silencieux interdit."
+		],
+		"open_questions": [
+			"Climat : mécanisme d'activation exact (route B DELTAS.activer_climat vs chemin spécial dans executerCommande vs scan d'Evenements). Contraint par types.ts:1380 (pas de declencheur_expr sur Climat) et par le fait que DELTAS n'écrit que FaitsDeSession. À trancher au raffinage d'it3.",
+			"Idempotence des effets climatiques : reveler_indice et atteindre_jalon sont idempotents (ensembles). donner_objet donnerait un doublon si le climat se réactive. À documenter ou à garder par un flag « déjà appliqué » en session.",
+			"evaluate.test.ts:706 fige declencheur_expr à ['evaluate.ts']. Le tick dans horloge.ts lit les déclencheurs via des sélecteurs evaluate.ts — la garde survivra-t-elle ? À vérifier en it1.",
+			"Extraction sessionCombat.ts : taille exacte des lots d'it3 (climat + extraction). Si > 4 lots, extraction en pré-lot.",
+			"PNJ bloqué : aucun libellé mécanique dans le journal joueur. Côté auteur (debug) : libellé mono ÉTAPE BLOQUÉE. Registre de langue à valider en it1.",
+			"Enrichissement R4 pour jouer l'étape courante du PNJ — reporté indéfiniment, hors n°14."
+		]
+	}
+}
