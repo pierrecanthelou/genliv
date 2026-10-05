@@ -15,12 +15,14 @@ import {
 import {
 	assemblerActeur,
 	assemblerArbitre,
+	assemblerCommentateur,
 	assemblerDetenteurs,
 	assemblerDistribution,
 	assemblerNarrateur,
 	assemblerRelations,
 	BUDGET_CARACTERES_ACTEUR,
 	BUDGET_CARACTERES_ARBITRE,
+	BUDGET_CARACTERES_COMMENTATEUR,
 	BUDGET_CARACTERES_NARRATEUR,
 } from './copilote/contexte'
 import { GABARIT_SORTIE } from './copilote/schemaSortie'
@@ -28,8 +30,11 @@ import type {
 	CibleActeur,
 	CibleActeurResistible,
 	CibleArbitre,
+	CibleCommentateur,
 	CibleNarrateur,
+	ProjectionAssaut,
 	ReponseActeur,
+	ReponseCommentateur,
 	ResistanceActeur,
 } from './copilote/types'
 import { issueDuJet } from './dossier/arbitre'
@@ -2764,9 +2769,9 @@ describe('CopiloteService — le neuvieme role, arbitre', () => {
 		expect(dispatch).toContain("case 'arbitre':")
 		expect(dispatch).toContain('return demanderArbitre(dossier, cible, signal)')
 		expect(dispatch).toContain('const _exhaustif: never = cible')
-		// DIX branches, une par étiquette (n° 12 `moteur-acteurs`, it1 ajoute `acteur`) —
-		// et le `default` ne délègue toujours à rien.
-		expect(dispatch.match(/\n\t\t\tcase '[a-z-]+':/g) ?? []).toHaveLength(10)
+		// ONZE branches, une par étiquette (n° 12 `moteur-acteurs`, it1 ajoute `acteur` ; n° 13
+		// `moteur-combat`, it3 ajoute `commentateur`) — et le `default` ne délègue toujours à rien.
+		expect(dispatch.match(/\n\t\t\tcase '[a-z-]+':/g) ?? []).toHaveLength(11)
 		expect(dispatch.slice(dispatch.indexOf('default:'))).not.toContain('demander')
 		// Et `jusquAuRejeuUnique` reste GÉNÉRIQUE — aucune branche propre à l'arbitre.
 		const boucle = source.slice(
@@ -3465,7 +3470,7 @@ describe('CopiloteService — le dixieme role, acteur', () => {
 			expect(ambigue).toBeDefined()
 		})
 
-		it('la ONZIEME surcharge est ecrite aux DEUX sites, et la garde never ferme toujours l union a DIX etiquettes', () => {
+		it('la ONZIEME surcharge est ecrite aux DEUX sites, et la garde never ferme toujours l union a ONZE etiquettes', () => {
 			const source = fs.readFileSync(path.join(__dirname, 'CopiloteService.ts'), 'utf8')
 			// ⚠ DEUX SITES — l'interface publique ET l'implémentation, chacune sur plusieurs lignes (Prettier).
 			expect(source.match(/\n\t+cible: CibleActeurResistible,\n/g) ?? []).toHaveLength(2)
@@ -3474,12 +3479,358 @@ describe('CopiloteService — le dixieme role, acteur', () => {
 			expect(
 				source.match(/demander\(dossier: Dossier, cible: CibleActeur, signal\?: AbortSignal\)/g) ?? [],
 			).toHaveLength(2)
-			// Un SEUL rôle `acteur` au dispatch : la onzième surcharge n'ajoute aucune etiquette.
+			// Un SEUL rôle `acteur` au dispatch : la onzième surcharge n'ajoute aucune etiquette (la
+			// onzième ÉTIQUETTE, `commentateur`, vient de la douzième surcharge — n° 13 it3).
 			const debut = source.indexOf('\t\tswitch (cible.role) {')
 			const dispatch = source.slice(debut, source.indexOf('\n\treturn {', debut))
-			expect(dispatch.match(/\n\t\t\tcase '[a-z-]+':/g) ?? []).toHaveLength(10)
+			expect(dispatch.match(/\n\t\t\tcase '[a-z-]+':/g) ?? []).toHaveLength(11)
 			expect(dispatch).toContain("case 'acteur':")
 			expect(dispatch).toContain('const _exhaustif: never = cible')
 		})
 	})
 })
+
+/**
+ * LE ONZIÈME RÔLE — `commentateur` (R5, n° 13 `moteur-combat`, it3, lot `contrat`).
+ *
+ * ⚠ RÉPONSE NUE, COMME `acteur` : `{ narration }` sans wrapper `{statut:'propose', proposition}`
+ * (§ 4 du plan, FIGÉ) — et aucune re-résolution, la sortie est de la prose pure. ⚠ LE NOUVEL ESSAI
+ * UNIQUE N'EST PAS ÉCRIT ICI : il est dans `jusquAuRejeuUnique`, générique, INCHANGÉ — ces tests
+ * prouvent seulement qu'il s'applique à CE rôle, exactement une fois (jamais trois), et que
+ * l'échec final est un `EchecCopilote` SEUL, sans aucun texte de repli (KR-230/283).
+ */
+describe('CopiloteService — le onzieme role, commentateur', () => {
+	const ROLE_COMMENTATEUR = 'commentateur'
+	const NARRATION = 'Ta lame glisse sur le cuir tendu du gobelin ; il riposte, et tu esquives de justesse.'
+	const PROJECTION_NOMINALE: ProjectionAssaut = {
+		vainqueur: 'heros',
+		qualite: 'franc',
+		monstre: 'bestiaire.gobelin',
+		heroPv: 17,
+		heroPvMax: 20,
+		monstrePv: 3,
+		monstrePvMax: 7,
+	}
+
+	function cible(surcharges: Partial<ProjectionAssaut> = {}): CibleCommentateur {
+		return { role: ROLE_COMMENTATEUR, projection: { ...PROJECTION_NOMINALE, ...surcharges } }
+	}
+
+	const conforme = (narration: unknown = NARRATION): Record<string, unknown> => ({ narration })
+
+	/** Le corps d'un appel observé, relu — jamais cherché dans du JSON échappé. */
+	function corpsDeLAppel(rang: number): { role: string; contexte: string } {
+		const [, init] = fetchMock.mock.calls[rang] as [string, RequestInit]
+		return JSON.parse(String(init.body)) as { role: string; contexte: string }
+	}
+
+	it('un appel, corps EXACTEMENT {role, contexte}, et la REPONSE NUE {narration} — SANS wrapper statut/proposition', async () => {
+		const dossier = dossierDeReference()
+		fetchMock.mockResolvedValue(reponseWorker(conforme()))
+
+		const reponse = await createCopiloteService(reglages()).demander(dossier, cible())
+
+		expect(fetchMock).toHaveBeenCalledTimes(1)
+		expect(reponse).toEqual({ narration: NARRATION })
+		expect('statut' in reponse).toBe(false)
+		expect('proposition' in reponse).toBe(false)
+
+		const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+		expect(url).toBe(`${URL_WORKER}/ia/${ROLE_COMMENTATEUR}`)
+		expect(init.method).toBe('POST')
+		expect(init.headers).toEqual({ 'X-Sync-Key': CLE, 'Content-Type': 'application/json' })
+		// `toEqual` SUR LE CORPS ENTIER, jamais une inclusion : `{ ...cible, contexte }` mettrait la
+		// projection (PV bruts, référence du monstre) sur le fil, et une inclusion resterait verte.
+		const contexte = assemblerCommentateur(dossier, cible())
+		if (!contexte.ok) throw new Error(`contexte refusé : ${contexte.motif}`)
+		expect(JSON.parse(String(init.body))).toEqual({ role: ROLE_COMMENTATEUR, contexte: contexte.texte })
+		expect(Object.keys(corpsDeLAppel(0)).sort()).toEqual(['contexte', 'role'])
+	})
+
+	it('AUCUN chiffre ne part sur le fil, alors que la projection en porte quatre a un ou deux chiffres (KR-294/296)', async () => {
+		const dossier = dossierDeReference()
+		fetchMock.mockResolvedValue(reponseWorker(conforme()))
+		// Discriminant : les PV bruts sont BIEN dans la cible, donc l'absence est un travail de l'assembleur.
+		expect(
+			[PROJECTION_NOMINALE.heroPv, PROJECTION_NOMINALE.heroPvMax, PROJECTION_NOMINALE.monstrePv].filter((pv) => pv > 0),
+		).toHaveLength(3)
+
+		await createCopiloteService(reglages()).demander(dossier, cible())
+
+		const corps = String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body)
+		expect(/\d/.test(corps)).toBe(false)
+		// … ni la référence du monstre, ni son identifiant de gabarit : seul son NOM, résolu, part.
+		expect(corps).not.toContain('bestiaire')
+		expect(corps).not.toContain('projection')
+		expect(corpsDeLAppel(0).contexte).toContain('adversaire : Gobelin')
+	})
+
+	it('la reponse se discrimine par statut sans `as` : narration n existe QUE sur la branche de succes', async () => {
+		fetchMock.mockResolvedValue(reponseWorker(conforme()))
+
+		const reponse: ReponseCommentateur = await createCopiloteService(reglages()).demander(dossierDeReference(), cible())
+
+		// @ts-expect-error — `narration` n'existe pas sur `EchecCopilote` : l'union n'est pas encore rétrécie
+		expect(reponse.narration).toBe(NARRATION)
+		if ('statut' in reponse) throw new Error('succès attendu')
+		expect(reponse.narration).toBe(NARRATION)
+	})
+
+	it('la narration est rendue TELLE QUELLE : ni trim, ni troncature, ni reformatage (KR-230)', async () => {
+		const brute = `  ${NARRATION}\n`
+		fetchMock.mockResolvedValue(reponseWorker(conforme(brute)))
+
+		const reponse = await createCopiloteService(reglages()).demander(dossierDeReference(), cible())
+
+		expect(reponse).toEqual({ narration: brute })
+	})
+
+	it('nouvel essai → succes : 1 sortie invalide puis 1 valide = {narration}, EXACTEMENT 2 appels, MEME corps', async () => {
+		const dossier = dossierDeReference()
+		fetchMock
+			.mockResolvedValueOnce(reponseWorker(conforme('Tu frappes 5 fois.')))
+			.mockResolvedValueOnce(reponseWorker(conforme()))
+			.mockResolvedValueOnce(reponseWorker(conforme('jamais atteint')))
+
+		const reponse = await createCopiloteService(reglages()).demander(dossier, cible())
+
+		expect(fetchMock).toHaveBeenCalledTimes(2)
+		expect(reponse).toEqual({ narration: NARRATION })
+		// Le second appel part avec le MÊME corps : aucune mémoire, aucun correctif ajouté.
+		expect(corpsDeLAppel(1)).toEqual(corpsDeLAppel(0))
+	})
+
+	it('nouvel essai → succes, pour CHAQUE violation de forme du premier appel : chiffre, vide, question, marqueur, identifiant, 401 car, cle en trop, pas un objet', async () => {
+		const dossier = dossierDeReference()
+		const premieres: unknown[] = [
+			conforme('Tu frappes 5 fois.'),
+			conforme(''),
+			conforme('Tu frappes ?'),
+			conforme(`Tu frappes ${MARQUEUR_A_ECRIRE} fort.`),
+			conforme('Tu prends le objet.sceau-de-cendre, vite.'),
+			conforme('v'.repeat(401)),
+			{ narration: NARRATION, ton: 'sec' },
+			{ texte: NARRATION },
+			'une chaine',
+			null,
+		]
+
+		for (const premiere of premieres) {
+			fetchMock.mockReset()
+			fetchMock.mockResolvedValueOnce(reponseWorker(premiere)).mockResolvedValueOnce(reponseWorker(conforme()))
+
+			const reponse = await createCopiloteService(reglages()).demander(dossier, cible())
+
+			expect(`${JSON.stringify(premiere)} → ${fetchMock.mock.calls.length} appels`).toBe(
+				`${JSON.stringify(premiere)} → 2 appels`,
+			)
+			expect(reponse).toEqual({ narration: NARRATION })
+		}
+		expect(premieres).toHaveLength(10)
+	})
+
+	it('nouvel essai : un corps 200 ILLISIBLE est une violation de FORME, rejouee une fois, pas une panne de reseau', async () => {
+		const illisible = {
+			ok: true,
+			status: 200,
+			json: async () => Promise.reject(new Error('pas du json')),
+		} as unknown as Response
+		fetchMock.mockResolvedValueOnce(illisible).mockResolvedValueOnce(reponseWorker(conforme()))
+
+		const reponse = await createCopiloteService(reglages()).demander(dossierDeReference(), cible())
+
+		expect(fetchMock).toHaveBeenCalledTimes(2)
+		expect(reponse).toEqual({ narration: NARRATION })
+	})
+
+	it('2 echecs → silence : 2 sorties invalides = EchecCopilote SEUL avec le motif du SECOND, 2 appels, JAMAIS 3', async () => {
+		fetchMock
+			.mockResolvedValueOnce(reponseWorker(conforme('Tu frappes 5 fois.'))) // schema (chiffre)
+			.mockResolvedValueOnce(reponseWorker(conforme('   '))) // vide
+			.mockResolvedValueOnce(reponseWorker(conforme())) // jamais atteint
+
+		const reponse = await createCopiloteService(reglages()).demander(dossierDeReference(), cible())
+
+		expect(fetchMock).toHaveBeenCalledTimes(2)
+		expect(reponse).toEqual({ statut: 'illisible', motif: 'vide' })
+		// SILENCE : ni narration, ni texte de repli, ni proposition — l'état terminal est un échec NU.
+		expect('narration' in reponse).toBe(false)
+		expect(Object.keys(reponse).sort()).toEqual(['motif', 'statut'])
+	})
+
+	it('2 echecs → silence, pour CHAQUE couple de motifs : le motif rendu est toujours celui du second echec', async () => {
+		const sorties: Array<[unknown, string]> = [
+			[conforme(''), 'vide'],
+			[conforme('Tu frappes ?'), 'schema'],
+			[conforme(`Tu ${MARQUEUR_A_ECRIRE}`), 'marqueur'],
+			[conforme('Tu prends le objet.sceau-de-cendre.'), 'identifiant'],
+			[conforme('Tu frappes 5 fois.'), 'schema'],
+		]
+		for (const [premiere] of sorties) {
+			for (const [seconde, motif] of sorties) {
+				fetchMock.mockReset()
+				fetchMock.mockResolvedValueOnce(reponseWorker(premiere)).mockResolvedValueOnce(reponseWorker(seconde))
+
+				const reponse = await createCopiloteService(reglages()).demander(dossierDeReference(), cible())
+
+				expect(fetchMock.mock.calls.length).toBe(2)
+				expect(reponse).toEqual({ statut: 'illisible', motif })
+			}
+		}
+	})
+
+	it('503, 413, reseau et abandon = UN SEUL fetch chacun, jamais un nouvel essai : il ne corrige que la FORME', async () => {
+		const dossier = dossierDeReference()
+		const service = createCopiloteService(reglages())
+
+		fetchMock.mockResolvedValueOnce(reponseWorker({}, 503))
+		expect(await service.demander(dossier, cible())).toEqual({ statut: 'indisponible', raison: 'non-configure' })
+		fetchMock.mockResolvedValueOnce(reponseWorker({ erreur: 'trop-grand' }, 413))
+		expect(await service.demander(dossier, cible())).toEqual({ statut: 'indisponible', raison: 'injoignable' })
+		fetchMock.mockRejectedValueOnce(new Error('reseau'))
+		expect(await service.demander(dossier, cible())).toEqual({ statut: 'indisponible', raison: 'injoignable' })
+		expect(fetchMock).toHaveBeenCalledTimes(3)
+
+		// Un signal DÉJÀ abandonné : aucun appel, `annule`.
+		const abandon = new AbortController()
+		abandon.abort()
+		expect(await service.demander(dossier, cible(), abandon.signal)).toEqual({
+			statut: 'indisponible',
+			raison: 'annule',
+		})
+		expect(fetchMock).toHaveBeenCalledTimes(3)
+	})
+
+	it('un echec de reseau au SECOND essai est indisponible, pas illisible : 2 appels, le premier invalide', async () => {
+		fetchMock
+			.mockResolvedValueOnce(reponseWorker(conforme('Tu frappes 5 fois.')))
+			.mockResolvedValueOnce(reponseWorker({}, 503))
+
+		const reponse = await createCopiloteService(reglages()).demander(dossierDeReference(), cible())
+
+		expect(fetchMock).toHaveBeenCalledTimes(2)
+		expect(reponse).toEqual({ statut: 'indisponible', raison: 'non-configure' })
+	})
+
+	it('les DEUX refus de contexte partent AVANT tout appel, meme worker non configure', async () => {
+		const dossier = dossierDeReference()
+		// `trop-long` — un canon d'auteur qui déborde la borne.
+		const enorme: Dossier = {
+			...dossier,
+			canon: { ...dossier.canon, ton: 'x'.repeat(BUDGET_CARACTERES_COMMENTATEUR) },
+		}
+
+		for (const service of [createCopiloteService(reglages()), createCopiloteService(reglages(null, null))]) {
+			expect(await service.demander(enorme, cible())).toEqual({ statut: 'refuse', motif: 'trop-long' })
+			// `cible-a-ecrire` — la RÉFÉRENCE du monstre ne résout pas : un NOM n'est pas une référence.
+			expect(await service.demander(dossier, cible({ monstre: 'Gobelin' }))).toEqual({
+				statut: 'refuse',
+				motif: 'cible-a-ecrire',
+			})
+			expect(await service.demander(dossier, cible({ monstre: 'bestiaire.inconnu' }))).toEqual({
+				statut: 'refuse',
+				motif: 'cible-a-ecrire',
+			})
+		}
+		expect(fetchMock).not.toHaveBeenCalled()
+	})
+
+	it('une configuration incomplete rend indisponible non-configure, sans aucun appel', async () => {
+		const reponse = await createCopiloteService(reglages(null, null)).demander(dossierDeReference(), cible())
+
+		expect(reponse).toEqual({ statut: 'indisponible', raison: 'non-configure' })
+		expect(fetchMock).not.toHaveBeenCalled()
+	})
+
+	it('aucune memoire : deux appels successifs portent chacun SON round, jamais le precedent', async () => {
+		const dossier = dossierDeReference()
+		fetchMock.mockResolvedValue(reponseWorker(conforme()))
+		const service = createCopiloteService(reglages())
+
+		await service.demander(dossier, cible({ qualite: 'franc', vainqueur: 'heros' }))
+		await service.demander(dossier, cible({ qualite: 'critique', vainqueur: 'monstre' }))
+
+		const [un, deux] = [corpsDeLAppel(0).contexte, corpsDeLAppel(1).contexte]
+		expect(un).toContain('coup : un coup franc')
+		expect(deux).toContain('coup : un coup critique')
+		expect(deux).not.toContain('un coup franc')
+		expect(un).not.toContain('un coup critique')
+		expect(deux).not.toContain('vainqueur : le héros')
+	})
+
+	it('le service n ECRIT RIEN : ni update, ni persistance, ni evenement — sur le succes comme sur l etat terminal', async () => {
+		const { brain, espions } = brainEspionne()
+		const dossier = dossierDeReference()
+
+		fetchMock.mockResolvedValue(reponseWorker(conforme()))
+		const succes = await brain.copilote.demander(dossier, cible())
+		fetchMock.mockReset()
+		fetchMock.mockResolvedValue(reponseWorker(conforme('Tu frappes 5 fois.')))
+		const echec = await brain.copilote.demander(dossier, cible())
+
+		expect(succes).toEqual({ narration: NARRATION })
+		expect(echec).toEqual({ statut: 'illisible', motif: 'schema' })
+		expect(espions.update).not.toHaveBeenCalled()
+		expect(espions.set).not.toHaveBeenCalled()
+		expect(espions.emit).not.toHaveBeenCalled()
+	})
+
+	it('le dispatch suit l ETIQUETTE : commentateur part sur SA route, jamais sur une autre', async () => {
+		const dossier = dossierDeReference()
+		fetchMock
+			.mockResolvedValueOnce(reponseWorker(conforme()))
+			.mockResolvedValueOnce(reponseWorker({ tentatives: [], constats: [], narration: 'Vous avancez.' }))
+
+		const service = createCopiloteService(reglages())
+		await service.demander(dossier, cible())
+		await service.demander(dossier, { role: 'narrateur', saisie: 'je regarde', session: ouvrirReference(dossier) })
+
+		expect(fetchMock.mock.calls.map((appel) => String(appel[0]))).toEqual([
+			`${URL_WORKER}/ia/commentateur`,
+			`${URL_WORKER}/ia/narrateur`,
+		])
+		expect([0, 1].map((rang) => corpsDeLAppel(rang).role)).toEqual(['commentateur', 'narrateur'])
+	})
+
+	it('la DOUZIEME surcharge est ecrite aux DEUX sites, la garde never ferme l union a ONZE etiquettes, et le nouvel essai reste dans jusquAuRejeuUnique', () => {
+		const source = fs.readFileSync(path.join(__dirname, 'CopiloteService.ts'), 'utf8')
+		// ⚠ DEUX SITES — l'interface publique ET l'implémentation.
+		expect(source.match(/demander\(dossier: Dossier, cible: CibleCommentateur/g) ?? []).toHaveLength(2)
+		expect(source).toContain('\tdemander(dossier: Dossier, cible: CibleCommentateur, signal?: AbortSignal)')
+		expect(source).toContain('\tfunction demander(dossier: Dossier, cible: CibleCommentateur, signal?: AbortSignal)')
+		// Le retour est NU : la surcharge ne rend ni l'enveloppe `propose`, ni `ReponseActeur`.
+		expect(
+			source.match(/cible: CibleCommentateur, signal\?: AbortSignal\): Promise<ReponseCommentateur>/g) ?? [],
+		).toHaveLength(2)
+
+		const debut = source.indexOf('\t\tswitch (cible.role) {')
+		const dispatch = source.slice(debut, source.indexOf('\n\treturn {', debut))
+		expect(dispatch).toContain("case 'commentateur':")
+		expect(dispatch).toContain('return demanderCommentateur(dossier, cible, signal)')
+		expect(dispatch).toContain('const _exhaustif: never = cible')
+		expect(dispatch.match(/\n\t\t\tcase '[a-z-]+':/g) ?? []).toHaveLength(11)
+
+		// LE NOUVEL ESSAI N'A QU'UN DOMICILE : la branche privée n'a ni boucle ni compteur d'essais.
+		const debutFonction = source.indexOf('async function demanderCommentateur(')
+		const corps = source.slice(debutFonction, source.indexOf('\n\t}\n', debutFonction))
+		expect(corps.length).toBeGreaterThan(500)
+		expect(corps).toContain('jusquAuRejeuUnique')
+		for (const interdit of ['for (', 'while (', 'essai', 'retry']) {
+			expect(`${interdit} → ${corps.includes(interdit)}`).toBe(`${interdit} → false`)
+		}
+		// … et la boucle générique reste GÉNÉRIQUE : aucune branche propre à ce rôle.
+		const boucle = source.slice(
+			source.indexOf('async function jusquAuRejeuUnique'),
+			source.indexOf('function refuser('),
+		)
+		expect(boucle).not.toMatch(/commentateur|narration|projection/i)
+		expect(boucle).toContain('essai < 2')
+	})
+})
+
+/** Une session OUVERTE par le produit pour le test de dispatch — jamais forgée. */
+function ouvrirReference(dossier: Dossier): EtatSession {
+	const resultat = ouvrirSession(dossier, { graine_alea: 424242 })
+	if (!resultat.ok) throw new Error(`ouverture refusée : ${resultat.refus}`)
+	return resultat.session
+}

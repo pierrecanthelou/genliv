@@ -17,7 +17,11 @@ import type { Commande, CommandeId } from '../dossier/commandes'
 // AUCUN cycle. Ce sont les deux registres FERMÉS que R2 choisit par appartenance.
 import type { ChallengeTier } from '../challenge'
 import type { Characteristic } from '../characteristics'
-import type { EtatSession, FaitEtabli, ResumeMemoire } from '../dossier/session'
+// `HitQuality` (n° 13 `moteur-combat`, it3) — TYPE SEUL, `combat.ts` n'importe rien de
+// `copilote/`, donc AUCUN cycle. C'est le registre FERMÉ de qualité de coup que la
+// projection d'un assaut porte telle quelle (jamais un écart numérique).
+import type { HitQuality } from '../combat'
+import type { EtatSession, FaitEtabli, IssueCombat, ResumeMemoire } from '../dossier/session'
 // LES DEUX FORMES STOCKÉES DE LA MÉMOIRE (n° 10 it3) sont DÉCLARÉES dans
 // `dossier/session.ts` — leur seul domicile, parce que `recit.ts` (qui les écrit) ne
 // connaît que des types de `dossier/` (KR-260) — et RÉ-EXPORTÉES ici, où la forme
@@ -880,3 +884,79 @@ export interface ResistanceActeurBrute {
  * `ReponseActeur` ou `ResistanceActeur`.
  */
 export type SortieActeurBrute = RepliqueActeurBrute | ResistanceActeurBrute
+
+// ══ LE ONZIÈME RÔLE — `commentateur` (R5, n° 13 `moteur-combat`, it3) ═══════════
+//
+// ⚠ SES TROIS TYPES VIVENT ICI, MÊME DOMICILE QUE `narrateur`/`arbitre`/`acteur` — et
+// PAS dans `contexte/commentateur.ts` : l'assembleur type-importe `CibleCommentateur`
+// d'ici, et le placer là-bas ferait un cycle `types.ts` ↔ `contexte/` (plan it3, § 8
+// n° 9). Le lot `feature` (`play-mode`) les consomme en import DIRECT de ce module,
+// comme `useTourDeJeu.ts` le fait pour `CibleActeur`.
+//
+// COMME LES QUATRE AUTRES RÔLES DE JEU, CE RÔLE N'EST PAS DANS `RoleCopilote` : il n'a
+// rien à faire dans les trois `Record<RoleCopilote, …>` de `contexte/registres.ts`. Son
+// contexte a SA PROPRE borne (`BUDGET_CARACTERES_COMMENTATEUR`, `contexte/commentateur.ts`),
+// hors de la parité auteur de `worker/frontiere.test.ts`.
+
+/**
+ * LA PROJECTION STRUCTURÉE D'UN ASSAUT — ce que le moteur a résolu à UN round, sous la
+ * forme où le commentateur peut en entendre parler. Elle est CALCULÉE par la feature, à
+ * partir de `CombatState.dernierAssaut` et JAMAIS de `CombatLogEntry.text` (KR-293/294 : le
+ * journal contient des PV, des AT et des numéros de round en clair).
+ *
+ * ⚠ ELLE PORTE DES PV BRUTS, ET C'EST DÉLIBÉRÉ : l'assembleur (`contexte/commentateur.ts`)
+ * est le SEUL classeur de paliers de santé (précédent `CibleNarrateur.epreuve`, aucune règle
+ * hors de `brain/`), et AUCUN de ces quatre nombres ne franchit le réseau. Le fil ne reçoit
+ * que des MOTS (« blessé », « à bout de forces »…) — le validateur de sortie refuse tout
+ * chiffre, donc un chiffre en entrée serait un chiffre à recopier.
+ *
+ * ⚠ `monstre` EST UNE RÉFÉRENCE, JAMAIS UN NOM : `bestiaire.<templateId>`, la même chaîne que
+ * `EtatCombat.monstre_ref` (`session.combat.monstre_ref`). L'assembleur la RÉSOUT contre le
+ * registre de code `BESTIARY` (`monstreDeLaReference`) pour en tirer le nom qui part sur le
+ * fil : le nom n'est donc JAMAIS un champ libre, il vient du registre ou il ne vient pas. Une
+ * référence qui ne résout pas est REFUSÉE (`'cible-a-ecrire'`), jamais passée telle quelle.
+ * `CombatState.monster.name` n'en est PAS un substitut — c'est un nom d'affichage, pas une
+ * référence.
+ *
+ * `qualite` est `null` si et seulement si `vainqueur === 'nul'` (égalité : aucun coup ne
+ * porte). `issue` n'est présente QUE si ce round clôt le combat, et ne porte JAMAIS
+ * `'hero-fled'` : la fuite n'est pas commentée (KR-297, elle reste mécanique).
+ *
+ * ⚠ SONT ABSENTS, ET C'EST DÉLIBÉRÉ : le numéro de round (un chiffre), les postures (faussées
+ * par séisme et désarmement), le nom du héros (`heros.name` est d'audience `moteur`, KR-232),
+ * la capacité du monstre (aucun producteur, KR-285).
+ */
+export interface ProjectionAssaut {
+	readonly vainqueur: 'heros' | 'monstre' | 'nul'
+	readonly qualite: HitQuality | null
+	readonly monstre: string
+	readonly heroPv: number
+	readonly heroPvMax: number
+	readonly monstrePv: number
+	readonly monstrePvMax: number
+	readonly issue?: Exclude<IssueCombat, 'hero-fled'>
+}
+
+/**
+ * LA CIBLE DU ONZIÈME RÔLE — la projection, et RIEN d'autre : ni session, ni héros, ni
+ * journal. L'étiquette `role` suit le segment de route (`/ia/commentateur`) et le
+ * discriminant du dispatch de `CopiloteService.demander`. Jamais étalée sur le fil
+ * (`{ ...cible, contexte }` mettrait les PV bruts sur le réseau, KR-231).
+ */
+export interface CibleCommentateur {
+	role: 'commentateur'
+	readonly projection: ProjectionAssaut
+}
+
+/**
+ * LA ONZIÈME RÉPONSE — NUE, comme `ReponseActeur` : `{ narration }` sans enveloppe
+ * `{statut:'propose', proposition}`. La clé est la MÊME côté réseau et côté résolu
+ * (`narration`) : ce rôle n'a RIEN à re-résoudre, c'est de la prose pure que le joueur lit
+ * telle quelle, et ce qui se lit dans `EchecCopilote` (qui porte TOUJOURS `statut`) ne
+ * peut pas s'y confondre — `'statut' in réponse` rétrécit l'union sans `as`.
+ *
+ * ⚠ SUR ÉCHEC APRÈS LE NOUVEL ESSAI UNIQUE : `EchecCopilote` SEUL, et le lecteur (la feature)
+ * n'affiche RIEN — aucun texte de repli écrit par le code (KR-230/283). La narration est
+ * ÉPHÉMÈRE : aucune feuille de session ne la reçoit (KR-292, rejeu pur).
+ */
+export type ReponseCommentateur = { readonly narration: string } | EchecCopilote

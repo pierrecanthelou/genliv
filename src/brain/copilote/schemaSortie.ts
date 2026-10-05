@@ -1800,3 +1800,99 @@ export function validerActeur(
 
 	return { ok: true, sortie: { replique, indices_reveles: indicesBrut, delta_confiance: brut.delta_confiance } }
 }
+
+// ══ LE ONZIÈME RÔLE — `commentateur` (R5, n° 13 `moteur-combat`, it3) ═══════════
+
+/** L'UNIQUE clé du schéma de sortie du rôle `commentateur`, EN VALEUR — le validateur en est
+ *  PILOTÉ, exactement comme `CLES_SORTIE_PLAN`. `narration`, comme au narrateur : c'est le mot
+ *  du GABARIT (`worker/index.ts`), jamais celui d'un champ du document — ce rôle n'écrit dans
+ *  AUCUNE feuille, sa prose est éphémère (KR-292). EXPORTÉE : `worker/frontiere.test.ts`
+ *  épingle la clé du gabarit local au worker contre celle que ce validateur exige. */
+export const CLES_SORTIE_COMMENTATEUR = ['narration'] as const
+
+/**
+ * LA BORNE DE LA NARRATION D'UN ASSAUT, EN CARACTÈRES — VALEUR DE DÉCISION du comité (plan
+ * d'itération it3 § 4 bis ; KR-296), pas une mesure : un commentaire de round tient en deux
+ * ou trois phrases courtes, là où `NARRATION_CARACTERES_MAX` (800) borne un paragraphe de
+ * narrateur. NOMMÉE DISTINCTEMENT, jamais réutilisée : même valeur d'aucune autre borne, et
+ * aucune raison commune d'évoluer. Elle borne la SORTIE et dérive `max_tokens` (worker).
+ *
+ * UN SEUL SITE, et c'est le motif de la valeur : si le taux de refus mesuré à la démo est trop
+ * haut, remonter cette constante est un diff d'une ligne, sans comité — l'invite l'annonce en
+ * toutes lettres (« quatre cents »), et `worker/frontiere.test.ts` lie les deux. Au-delà : REFUS
+ * `'schema'`, jamais une coupe (KR-230) — un commentaire tronqué au milieu d'une phrase serait
+ * une réparation silencieuse, lue par le joueur comme de la fiction.
+ */
+export const NARRATION_COMBAT_CARACTERES_MAX = 400
+
+/**
+ * LES PRÉDICATS DE FORME de la sortie `commentateur` — le ONZIÈME rôle, ET UN DE CEUX DONT LA
+ * PROSE ATTEINT LE JOUEUR SANS RELECTURE (précédent `narrateur`, `acteur`) : chaque prédicat est
+ * un REFUS DE LA SORTIE ENTIÈRE, jamais une réparation (KR-230). Elle n'a qu'UNE clé : il n'y a
+ * donc rien à re-résoudre, et rien qu'un refus partiel pourrait sauver.
+ *
+ *   (1) objet simple (ni tableau, ni null) ............................ 'schema'
+ *   (2) clés = EXACTEMENT `CLES_SORTIE_COMMENTATEUR` — une clé en trop OU
+ *       manquante est un REFUS (signal KR-236) ........................ 'schema'
+ *   (3) `narration` est une CHAÎNE — jamais `String(…)` ................. 'schema'
+ *   (4) non vide après `trim()` ......................................... 'vide'
+ *   (5) ≤ `NARRATION_COMBAT_CARACTERES_MAX` — un REFUS, jamais une coupe  'schema'
+ *   (6) NE FINIT PAS par « ? » (`trimEnd`) ............................. 'schema'
+ *   (7) aucun `MARQUEUR_A_ECRIRE` (constante IMPORTÉE, KR-223) ....... 'marqueur'
+ *   (8) aucun identifiant du dossier (`porteUnIdentifiant`) ......... 'identifiant'
+ *   (9) aucun chiffre `\d` — un commentaire de combat ne profère jamais de
+ *       mécanique (KR-296) ............................................. 'schema'
+ *
+ * ⚠ (9) PORTE LE MOTIF `'schema'`, ET NON `'identifiant'` (contrairement à `validerArbitre`/
+ * `validerActeur`, qui rangent le chiffre sous `'identifiant'`) : `MotifIllisible` ne gagne AUCUN
+ * membre à ce lot, et un chiffre n'EST PAS un identifiant. Il est posé EN DERNIER, après le
+ * marqueur et l'identifiant : un identifiant qui porte un chiffre (`objet.epee-2`) garde ainsi
+ * son motif précis. `PORTE_UN_CHIFFRE` (`/[0-9]/`) est la MÊME expression que celle des deux
+ * validateurs voisins — en JavaScript `\d` ne couvre que `[0-9]`, jamais les chiffres d'autres
+ * écritures, donc `/\d/` et `/[0-9]/` sont EXACTEMENT la même chose, et une seconde expression
+ * serait une seconde source de ce que « chiffre » veut dire (KR-013).
+ *
+ * `dossier` sert au seul scanner d'identifiants (parité avec les dix autres validateurs, § 8
+ * n° 11 du plan it3). Rend la prose TELLE QUELLE et NARROWÉE (`string`) : aucune réparation, ni
+ * `trim`, ni troncature. Le « nouvel essai » unique et le silence qui suit appartiennent à
+ * `CopiloteService` (`jusquAuRejeuUnique`), jamais à ce module.
+ */
+export function validerCommentateur(
+	brut: unknown,
+	dossier: Dossier,
+): { ok: true; narration: string } | { ok: false; motif: MotifIllisible } {
+	// (1) un objet JSON — ni tableau, ni `null`.
+	if (!estObjetSimple(brut)) return { ok: false, motif: 'schema' }
+
+	// (2) les clés valent EXACTEMENT `CLES_SORTIE_COMMENTATEUR` — une clé en trop est un
+	//     REFUS, jamais un champ ignoré : c'est le signal KR-236 lui-même.
+	const cles = Object.keys(brut)
+	if (cles.length !== CLES_SORTIE_COMMENTATEUR.length || !CLES_SORTIE_COMMENTATEUR.every((cle) => cles.includes(cle))) {
+		return { ok: false, motif: 'schema' }
+	}
+
+	// (3) la narration est une CHAÎNE — un tableau ou un objet meurt ici, JAMAIS `[0]`.
+	const narration: unknown = brut[CLES_SORTIE_COMMENTATEUR[0]]
+	if (typeof narration !== 'string') return { ok: false, motif: 'schema' }
+
+	// (4) non vide une fois les blancs retirés — la non-réponse de rédaction.
+	if (narration.trim().length === 0) return { ok: false, motif: 'vide' }
+
+	// (5) la BORNE — un REFUS, jamais une coupe (KR-230).
+	if (narration.length > NARRATION_COMBAT_CARACTERES_MAX) return { ok: false, motif: 'schema' }
+
+	// (6) jamais une question finale : aucune `attente` n'est posée par ce rôle, le joueur
+	//     ne répond pas à un commentaire.
+	if (narration.trimEnd().endsWith('?')) return { ok: false, motif: 'schema' }
+
+	// (7) pas le marqueur d'amorce — constante IMPORTÉE, jamais recopiée (KR-223).
+	if (narration.includes(MARQUEUR_A_ECRIRE)) return { ok: false, motif: 'marqueur' }
+
+	// (8) aucun identifiant du dossier.
+	if (porteUnIdentifiant(narration, dossier)) return { ok: false, motif: 'identifiant' }
+
+	// (9) aucun chiffre, sous quelque forme — motif `'schema'`, voir la docstring.
+	if (PORTE_UN_CHIFFRE.test(narration)) return { ok: false, motif: 'schema' }
+
+	return { ok: true, narration }
+}

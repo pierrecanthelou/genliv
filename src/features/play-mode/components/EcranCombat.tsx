@@ -15,12 +15,14 @@ import { SegmentedControl } from '../../../brain/components/SegmentedControl'
 import { Badge } from '../../../brain/components/Badge'
 import { HIT_TARGET_MIN } from '../../../brain/ui'
 import type { CombatState, CombatOutcome } from '../../../player/engine/combatTypes'
+import type { CommentaireRound } from '../hooks/useCommentaireCombat'
 
 export interface EcranCombatProps {
 	readonly etat: CombatState
 	readonly onJouer: (posture: Posture) => void
 	readonly onFuir: () => void
 	readonly onClore?: () => void
+	readonly commentaires?: ReadonlyMap<number, CommentaireRound>
 }
 
 // Exhaustive table of outcome labels
@@ -32,7 +34,7 @@ const OUTCOME_LABELS: Record<Exclude<CombatOutcome, 'ongoing'>, string> = {
 	'hero-fled': 'FUITE',
 }
 
-export function EcranCombat({ etat, onJouer, onFuir, onClore }: EcranCombatProps): JSX.Element {
+export function EcranCombat({ etat, onJouer, onFuir, onClore, commentaires }: EcranCombatProps): JSX.Element {
 	const [selectedPosture, setSelectedPosture] = useState<Posture>('normale')
 	const isTerminal = etat.outcome !== 'ongoing'
 	const isDead = etat.outcome === 'hero-mort'
@@ -77,9 +79,18 @@ export function EcranCombat({ etat, onJouer, onFuir, onClore }: EcranCombatProps
 					</div>
 				) : (
 					<div style={log} role="log">
-						{etat.log.map((entry, idx) => (
-							<JournalLigneRound key={idx} round={entry.round} texte={entry.text} />
-						))}
+						{(() => {
+							const dernierIdx = new Map<number, number>()
+							etat.log.forEach((e, i) => dernierIdx.set(e.round, i))
+							return etat.log.map((entry, idx) => (
+								<JournalLigneRound
+									key={idx}
+									round={entry.round}
+									texte={entry.text}
+									commentaire={dernierIdx.get(entry.round) === idx ? commentaires?.get(entry.round) : undefined}
+								/>
+							))
+						})()}
 					</div>
 				)}
 			</div>
@@ -117,7 +128,7 @@ export function EcranCombat({ etat, onJouer, onFuir, onClore }: EcranCombatProps
 				<>
 					<div style={section}>
 						<h3 style={sectionTitre}>ISSUE DU COMBAT</h3>
-						{etat.outcome !== 'ongoing' && <Badge tone="neutral">{OUTCOME_LABELS[etat.outcome]}</Badge>}
+						{etat.outcome !== 'ongoing' && <Badge tone="muted">{OUTCOME_LABELS[etat.outcome]}</Badge>}
 					</div>
 
 					{isDead ? (
@@ -140,11 +151,25 @@ export function EcranCombat({ etat, onJouer, onFuir, onClore }: EcranCombatProps
 	)
 }
 
-function JournalLigneRound({ round, texte }: { round: number; texte: string }): JSX.Element {
+function JournalLigneRound({
+	round,
+	texte,
+	commentaire,
+}: {
+	round: number
+	texte: string
+	commentaire?: CommentaireRound
+}): JSX.Element {
 	return (
 		<div style={ligneLivre}>
 			<span style={enteteLivre}>ROUND {round}</span>
 			<p style={texteLivre}>{texte}</p>
+			{commentaire && commentaire.etat === 'attente' && (
+				<div role="status">
+					<Badge tone="muted">Commentaire en cours…</Badge>
+				</div>
+			)}
+			{commentaire && commentaire.etat === 'recu' && <p style={recitLivre}>{commentaire.narration}</p>}
 		</div>
 	)
 }
@@ -226,6 +251,17 @@ const texteLivre: CSSProperties = {
 	fontFamily: 'var(--font-mono)',
 	color: 'var(--text-body)',
 	lineHeight: 'var(--lh-body)',
+}
+
+const recitLivre: CSSProperties = {
+	margin: 0,
+	fontFamily: 'var(--font-ui)',
+	fontSize: 'var(--fs-body)',
+	lineHeight: 'var(--lh-loose)',
+	color: 'var(--text-muted)',
+	borderLeft: 'var(--bw-strong) solid var(--border-rule)',
+	paddingLeft: 'var(--space-4)',
+	overflowWrap: 'anywhere',
 }
 
 const groupeActions: CSSProperties = {

@@ -106,6 +106,13 @@ const MOTIFS_INTERDITS: ReadonlyArray<{ readonly nom: string; readonly motif: Re
  */
 const FICHIERS_EXCLUS_PLAY_MODE = [path.join(RACINE_SRC, 'features', 'play-mode', 'hooks', 'useTourDeJeu.ts')]
 
+const FICHIERS_EXCLUS_PAR_MOTIF: ReadonlyArray<{ readonly chemin: string; readonly motif: RegExp }> = [
+	{
+		chemin: path.join(RACINE_SRC, 'features', 'play-mode', 'hooks', 'useCommentaireCombat.ts'),
+		motif: /\.demander\s*\(/,
+	},
+]
+
 const FICHIERS = RACINES_DU_PERIMETRE.flatMap(fichiersDeProduction)
 
 const relatif = (chemin: string): string => path.relative(RACINE_SRC, chemin).split(path.sep).join('/')
@@ -130,12 +137,15 @@ describe('le moteur de la n 9 ne genere aucun texte (KR-250)', () => {
 
 	it('aucun fichier du perimetre n appelle le reseau, n importe le copilote, ni ne compose une URL de route IA (sauf exclusion nommee)', () => {
 		const fautifs = FICHIERS.flatMap((chemin) => {
-			// EXCLUSION NOMMÉE : les fichiers de cette liste sont autorisés.
-			const estExclu = FICHIERS_EXCLUS_PLAY_MODE.some((exclu) => chemin === exclu)
-			if (estExclu) return []
+			const estExcluTotal = FICHIERS_EXCLUS_PLAY_MODE.some((exclu) => chemin === exclu)
+			if (estExcluTotal) return []
 
+			const exemptionParMotif = FICHIERS_EXCLUS_PAR_MOTIF.find((e) => chemin === e.chemin)
 			const source = fs.readFileSync(chemin, 'utf8')
-			return MOTIFS_INTERDITS.filter(({ motif }) => motif.test(source)).map(({ nom }) => `${relatif(chemin)} → ${nom}`)
+			return MOTIFS_INTERDITS.filter(({ motif }) => {
+				if (exemptionParMotif && motif.source === exemptionParMotif.motif.source) return false
+				return motif.test(source)
+			}).map(({ nom }) => `${relatif(chemin)} → ${nom}`)
 		})
 
 		// Échec PAR NOM DE FICHIER et par motif : « false attendu true » ne dirait ni
@@ -160,5 +170,24 @@ describe('le moteur de la n 9 ne genere aucun texte (KR-250)', () => {
 			const source = 'const demander = (arg) => console.log(arg)'
 			expect(motif.test(source)).toBe(false)
 		})
+	})
+
+	it('exemption useCommentaireCombat matche la source reelle du hook et seul le motif exempte', () => {
+		const exemption = FICHIERS_EXCLUS_PAR_MOTIF.find((e) => e.chemin.includes('useCommentaireCombat'))!
+		expect(exemption).toBeDefined()
+		const source = fs.readFileSync(exemption.chemin, 'utf8')
+		expect(exemption.motif.test(source)).toBe(true)
+		const autresMotifs = MOTIFS_INTERDITS.filter((m) => m.motif.source !== exemption.motif.source)
+		for (const { motif, nom } of autresMotifs) {
+			expect(`${nom} → ${motif.test(source)}`).toBe(`${nom} → false`)
+		}
+	})
+
+	it('combatProjection.ts ne contient ni .log ni .text (liste blanche, KR-294)', () => {
+		const cheminProjection = path.join(RACINE_SRC, 'features', 'play-mode', 'utils', 'combatProjection.ts')
+		const source = fs.readFileSync(cheminProjection, 'utf8')
+		// Check that .log and .text don't appear in the source
+		expect(source).not.toMatch(/\.log\s*[^a-zA-Z_]/)
+		expect(source).not.toMatch(/\.text\s*[^a-zA-Z_]/)
 	})
 })

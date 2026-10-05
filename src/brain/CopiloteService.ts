@@ -19,6 +19,7 @@ import type { CloudSettingsService } from './CloudSettingsService'
 import {
 	assemblerActeur,
 	assemblerArbitre,
+	assemblerCommentateur,
 	assemblerDetenteurs,
 	assemblerDistribution,
 	assemblerInterprete,
@@ -32,6 +33,7 @@ import {
 import {
 	validerActeur,
 	validerArbitre,
+	validerCommentateur,
 	validerDetenteurs,
 	validerDistribution,
 	validerIntention,
@@ -47,6 +49,7 @@ import type {
 	CibleActeur,
 	CibleActeurResistible,
 	CibleArbitre,
+	CibleCommentateur,
 	CibleNarrateur,
 	FaitEtabli,
 	FicheBrouillon,
@@ -61,6 +64,7 @@ import type {
 	PropositionResolue,
 	ReponseActeur,
 	ReponseArbitre,
+	ReponseCommentateur,
 	ReponseNarrateur,
 	ResistanceActeur,
 	SortieActeurBrute,
@@ -308,6 +312,14 @@ export interface CopiloteService {
 		cible: CibleActeurResistible,
 		signal?: AbortSignal,
 	): Promise<ReponseActeur | ResistanceActeur | EchecCopilote>
+	/** ⚠ LA 12ᵉ SURCHARGE, MÊME RÈGLE — deux sites, ici et sur l'implémentation. Le rôle
+	 *  `commentateur` (R5, n° 13 `moteur-combat`, it3) : appelé APRÈS la résolution d'un round de
+	 *  posture, par la feature, SANS que le moteur le sache (KR-293) — sa cible et sa réponse
+	 *  vivent dans `copilote/types.ts`. ⚠ RETOUR NU, COMME `ReponseActeur` (§ 4 du plan, FIGÉ) :
+	 *  `{ narration } | EchecCopilote`, SANS le wrapper `{statut:'propose', proposition}` — les deux
+	 *  membres se discriminent PAR FORME, `EchecCopilote` portant TOUJOURS `statut`. Sur tout échec,
+	 *  le lecteur n'affiche RIEN : aucun texte de repli, aucune écriture (KR-230/283). */
+	demander(dossier: Dossier, cible: CibleCommentateur, signal?: AbortSignal): Promise<ReponseCommentateur>
 }
 
 /**
@@ -381,6 +393,12 @@ type CorpsDemande =
 	 *  normalisation, en dernière position. Littéral ÉCRIT, jamais
 	 *  `{ ...cible, contexte }`, pour la raison des neuf autres. */
 	| { role: 'acteur'; contexte: string }
+	/** LE ONZIÈME RÔLE — SANS `champ` non plus, MÊME motif : la cible porte la PROJECTION d'un
+	 *  assaut, dont LES PV BRUTS ET LA RÉFÉRENCE DU MONSTRE NE FRANCHISSENT JAMAIS LE RÉSEAU —
+	 *  seuls des MOTS classés par l'assembleur entrent dans `contexte`, aucun chiffre (KR-294/296).
+	 *  Littéral ÉCRIT, jamais `{ ...cible, contexte }`, pour la raison des dix autres : l'étalement
+	 *  mettrait `projection` entière sur le fil, PV compris. */
+	| { role: 'commentateur'; contexte: string }
 
 /** Le résultat d'UN aller-retour, avant validation de forme : soit une valeur
  *  brute à valider, soit une indisponibilité qui ne se rejoue JAMAIS. */
@@ -1027,10 +1045,60 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 	}
 
 	/**
-	 * L'IMPLÉMENTATION À SURCHARGES — ONZE signatures publiques depuis la n° 12 it4
-	 * (dix depuis son it1, neuf à l'it2 de la n° 11, huit à l'it2 de la n° 10 : la
-	 * onzième ne porte PAS un onzième rôle mais une seconde CIBLE du dixième), un corps
-	 * élargi, AUCUN
+	 * LE ONZIÈME RÔLE — `commentateur` (R5, n° 13 `moteur-combat`, it3). Il met en mots UN
+	 * assaut que le moteur a DÉJÀ résolu : ce service n'écrit RIEN, et la narration est
+	 * ÉPHÉMÈRE (aucune feuille de session, KR-292). PAS DE RE-RÉSOLUTION : la sortie est de la
+	 * prose pure, `validerCommentateur` la constate TELLE QUELLE, et la réponse rendue à
+	 * l'appelant est NUE (`{ narration }`), exactement comme `ReponseActeur`.
+	 *
+	 * L'ORDRE DES EFFETS, identique aux dix autres rôles :
+	 *  1. LE REFUS DE CONTEXTE, AVANT TOUT — `'cible-a-ecrire'` (la référence du monstre ne
+	 *     résout pas contre le bestiaire) puis `'trop-long'` (`BUDGET_CARACTERES_COMMENTATEUR`).
+	 *     ZÉRO `fetch`, quelle que soit la configuration ;
+	 *  2. la configuration — `non-configure` sans appel ;
+	 *  3. LE NOUVEL ESSAI EXACTEMENT UNE FOIS sur une violation de FORME (`jusquAuRejeuUnique`,
+	 *     INCHANGÉ et toujours générique) — même corps au second appel, aucune mémoire, JAMAIS un
+	 *     troisième. ⚠ Un échec de RÉSEAU (503, 413, délai, abandon) n'est PAS rejoué : UN SEUL
+	 *     appel, `indisponible` — la boucle ne rejoue que ce qu'un second tirage peut corriger.
+	 *
+	 * SUR ÉCHEC APRÈS LE NOUVEL ESSAI : `EchecCopilote` SEUL, AUCUN texte de repli écrit par ce
+	 * fichier (KR-230/283) — la feature n'affiche rien, le round garde son journal mécanique.
+	 */
+	async function demanderCommentateur(
+		dossier: Dossier,
+		cible: CibleCommentateur,
+		signal: AbortSignal | undefined,
+	): Promise<ReponseCommentateur> {
+		const contexte = assemblerCommentateur(dossier, cible)
+		if (!contexte.ok) return refuser(contexte)
+
+		const vers = acheminement('commentateur')
+		if (vers === null) return { statut: 'indisponible', raison: 'non-configure' }
+
+		// LITTÉRAL ÉCRIT, JAMAIS `{ ...cible, contexte }` : la projection porte les PV bruts et la
+		// référence du monstre, qui ne sortent jamais tels quels (KR-231/294).
+		const corps: CorpsDemande = { role: 'commentateur', contexte: contexte.texte }
+		const issue = await jusquAuRejeuUnique<string>(
+			vers.url,
+			vers.entetes,
+			corps,
+			(brut) => {
+				const sortie = validerCommentateur(brut, dossier)
+				return sortie.ok ? { ok: true, sortie: sortie.narration } : { ok: false, motif: sortie.motif }
+			},
+			signal,
+		)
+		if (!issue.ok) return issue.echec
+
+		// La prose est rendue TELLE QUELLE : ni `trim`, ni troncature (KR-230).
+		return { narration: issue.sortie }
+	}
+
+	/**
+	 * L'IMPLÉMENTATION À SURCHARGES — DOUZE signatures publiques depuis la n° 13 it3 (onze
+	 * depuis la n° 12 it4, dix depuis son it1, neuf à l'it2 de la n° 11, huit à l'it2 de la
+	 * n° 10 : la onzième ne portait PAS un onzième rôle mais une seconde CIBLE du dixième, et la
+	 * douzième est le ONZIÈME RÔLE), un corps élargi, AUCUN
 	 * `as`, ET PLUS AUCUN PARAMÈTRE `role`.
 	 *
 	 * LE DISPATCH SE FAIT SUR L'ÉTIQUETTE, jamais plus sur la forme. Ce que cela change,
@@ -1077,6 +1145,8 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 		cible: CibleActeurResistible,
 		signal?: AbortSignal,
 	): Promise<ReponseActeur | ResistanceActeur | EchecCopilote>
+	/** ⚠ LE SECOND DES DEUX SITES de la 12ᵉ surcharge — idem. */
+	function demander(dossier: Dossier, cible: CibleCommentateur, signal?: AbortSignal): Promise<ReponseCommentateur>
 	function demander(
 		dossier: Dossier,
 		cible:
@@ -1090,7 +1160,8 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 			| CibleNarrateur
 			| CibleArbitre
 			| CibleActeur
-			| CibleActeurResistible,
+			| CibleActeurResistible
+			| CibleCommentateur,
 		signal?: AbortSignal,
 	): Promise<
 		| ReponseCopilote
@@ -1104,6 +1175,7 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 		| ReponseArbitre
 		| ReponseActeur
 		| ResistanceActeur
+		| ReponseCommentateur
 		| EchecCopilote
 	> {
 		switch (cible.role) {
@@ -1127,6 +1199,8 @@ export function createCopiloteService(settings: CloudSettingsService): CopiloteS
 				return demanderArbitre(dossier, cible, signal)
 			case 'acteur':
 				return demanderActeur(dossier, cible, signal)
+			case 'commentateur':
+				return demanderCommentateur(dossier, cible, signal)
 			default: {
 				// LA GARDE D'EXHAUSTIVITÉ : si l'union gagne un membre sans branche, cette
 				// affectation ne compile plus. C'est une erreur de COMPILATION, jamais un

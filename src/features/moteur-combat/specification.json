@@ -1,11 +1,11 @@
 {
 	"feature": "moteur-combat",
 	"created_at": "2026-10-04",
-	"status": "planned",
+	"status": "done",
 	"design_reference": "docs/PLAN-BASCULE-IA.dc.html § 2.6 (sous-boucle B), docs/REGLES-DU-JEU.md § 3–5, docs/REGLES-PLAY.md D1–D8/H/I",
 	"plan": {
 		"goal": "L'auteur lance un aperçu, rencontre un monstre, et lit un combat raconté que l'IA n'arbitre pas.",
-		"design_contract": "EcranCombat.tsx dans play-mode (pas une modale). Postures Normale/Précise/Défensive en SegmentedControl. Log mécanique en mono, récit IA en corps de texte (it3). Badge neutral pour l'issue. Tokens du design system, zéro valeur en dur.",
+		"design_contract": "EcranCombat.tsx dans play-mode (pas une modale). Postures Normale/Précise/Défensive en SegmentedControl. Log mécanique en mono, récit IA en corps de texte (it3). Badge muted pour l'issue (it3 v2/v4 — cohérence avec Commentaire en cours). Tokens du design system, zéro valeur en dur.",
 		"acceptance_criteria": [
 			"Un événement avec monstre_ref déclenché au bon lieu ouvre un combat avec le monstre résolu depuis le bestiaire.",
 			"Le joueur choisit sa posture (Normale/Précise/Défensive) et voit le résultat mécanique du round (log mono).",
@@ -64,8 +64,8 @@
 			},
 			{
 				"id": 3,
-				"goal": "L'auteur lit chaque round commenté par le narrateur de combat (R5 commentateur). Sortie {narration}, 400 car., aucun chiffre. Projection structurée en entrée. Rejeu-une-fois puis silence.",
-				"status": "planned"
+				"goal": "L'auteur lit, sous chaque round de combat, le commentaire du narrateur de combat (R5 commentateur) — 400 car. max, aucun chiffre, projection structurée en entrée, nouvel essai puis silence.",
+				"status": "done"
 			}
 		],
 		"known_risks": [
@@ -118,6 +118,29 @@
 					"unit": "141 suites / 2567 tests",
 					"e2e": "intégration console→combat+fuite (combatParConsole.test.tsx)"
 				}
+			},
+			{
+				"id": 3,
+				"label": "commentateur-r5",
+				"completed_at": "2026-10-05",
+				"architecture_choices": [
+					"12ᵉ rôle IA (R5 commentateur) — route /ia/commentateur, CibleCommentateur, ProjectionAssaut, validerCommentateur",
+					"assemblerCommentateur dans brain/copilote/contexte/ : paliers qualitatifs (plein/blessé/critique), zéro chiffre sur le fil (KR-294/296)",
+					"combatProjection.ts dans play-mode/utils/ : projection structurée {vainqueur, qualite, monstre, heroPv/pvMax, monstrePv/pvMax, issue?}",
+					"CombatEnCours.tsx wrapper : cycle onJouer→rejouerCombat→commenter, narration éphémère non persistée",
+					"useCommentaireCombat hook : Map<round, CommentaireRound> discriminée {attente}|{recu,narration}, AbortController par requête",
+					"dernierAssaut ajouté à CombatState (vainqueur, qualite, round), peuplé round régulier + fureur, effacé par tryHeroFlee (KR-297)",
+					"EcranCombat narration : JournalLigneRound avec commentaire conditionnel, recitLivre en --font-ui/--text-muted/--border-rule",
+					"Worker /ia/commentateur : gardes 413/405/404/503, plafond corps BUDGET_CARACTERES_COMMENTATEUR + 1024"
+				],
+				"deviations_from_plan": [
+					"describe.each pour dernierAssaut remplacé par 11 sites it() individuels — couverture structurelle complète",
+					"Mock fetch via objet {ok,status,json()} au lieu de new Response() — jsdom ne supporte pas Response.json()"
+				],
+				"test_coverage": {
+					"unit": "145 suites / 2706 tests",
+					"e2e": "intégration console→combat+commentaire+fuite (combatParConsole.test.tsx)"
+				}
 			}
 		],
 		"resolved_decisions": [
@@ -146,14 +169,29 @@
 			"It2 : D5 amendé — fuite = rester au lieu courant, aucun fleeTarget lu (MonsterInstance.fleeTarget = vestige arbre, toujours null).",
 			"It2 : fuite?: true littéral (jamais boolean, jamais false), optionnel à vie (KR-251).",
 			"It2 : onFuir requis dans EcranCombatProps (pas optionnel — branche morte en production).",
-			"It2 : session.ts > 800 lignes — dette à déclencheur, extraction sessionCombat.ts quand le prochain lot rouvre le fichier."
+			"It2 : session.ts > 800 lignes — dette à déclencheur, extraction sessionCombat.ts quand le prochain lot rouvre le fichier.",
+			"It3 : R5 commentateur, pas R3 étendu : 12ᵉ surcharge CopiloteService. Narration éphémère, non persistée, session.ts fermé.",
+			"It3 : ProjectionAssaut porte les PV bruts dans la cible, paliers qualitatifs dans l'assembleur brain/ (précédent CibleNarrateur.epreuve).",
+			"It3 : monstreRef (identifiant stable BESTIARY) dans CibleCommentateur, résolu par l'assembleur. Nom du héros jamais injecté (KR-232).",
+			"It3 : combatProjection.ts dans play-mode/utils/, pas player/ (runtime extractible ne voit pas le vocabulaire IA).",
+			"It3 : tryHeroFlee efface dernierAssaut pour éviter de projeter l'assaut précédent.",
+			"It3 : validerCommentateur reçoit dossier (parité 10 autres validateurs).",
+			"It3 : vocabulaire « nouvel essai » pour le retry KR-230/283, « rejeu » réservé au rejeu pur KR-292.",
+			"It3 : Badge « Commentaire en cours… » (pas « Le narrateur écrit… »), doublon R3 évité.",
+			"It3 : capacite absente de ProjectionAssaut (37 sites capacityEffects, additif, reporté)."
 		],
 		"open_questions": [
 			"Enrichir pickMonsterPosture selon IG — reporté indéfiniment, pas de règle écrite (KR-130). À rouvrir si REGLES-PLAY.md D3 est amendé.",
 			"Écran de mort / fin de partie — reporté à n° 15.",
 			"Équipement du héros (mains nues en dur tant qu'aucun écrivain d'inventaire n'existe) — non planifié.",
 			"Application des pending* (maladie, vol, magie, rayon) — reportée, pas de feuille de session pour les recevoir.",
-			"IconButton.tsx:49 fontSize '11px' en dur — dette préexistante, hors lot."
+			"IconButton.tsx:49 fontSize '11px' en dur — dette préexistante, hors lot.",
+			"Soupape 400→600 caractères R5 si taux de rejet > 30% en prototypage — engagement produit, pas gatekeep auto.",
+			"capacite du monstre dans ProjectionAssaut — 37 sites capacityEffects à instrumenter, additif côté type.",
+			"Règles ESLint UX (no-undefined-css-token, etc.) — dette à déclencheur, outillage.",
+			"Primitive <button> dans EcranCombat — dette préexistante (3 boutons), pas de 4ᵉ ajouté.",
+			"Sous-composant RecitRound.tsx — reporté, le récit est un <p> conditionnel dans JournalLigneRound.",
+			"Tests dernierAssaut par issue terminale — seule fureur est épinglée ; hero-victory, monster-fled, zombie, hero-survived-unconscious, hero-mort direct non testés. Risque : disparition silencieuse du commentaire du round de clôture (TL v5)."
 		]
 	}
 }

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.20 — l'auteur lit chaque round commenté par le narrateur de combat
+
+`moteur-combat` it3 (roadmap § 3, n°13, 3/3) -- essaim séquentiel, 2 lots (`contrat` brain/ puis `feature` play-mode/ + player/ + worker/). 12ᵉ rôle IA (R5 commentateur), route `/ia/commentateur`. `assemblerCommentateur` (brain/copilote/contexte/) traduit les PV bruts en paliers qualitatifs (plein/blessé/critique/inconscient/vaincu) — zéro chiffre sur le fil (KR-294/296). `combatProjection.ts` (play-mode/utils/) projette `{vainqueur, qualite, monstre, heroPv/pvMax, monstrePv/pvMax, issue?}`. `CombatEnCours.tsx` orchestre onJouer→rejouerCombat→commenter. `useCommentaireCombat` : Map<round, CommentaireRound> discriminée, AbortController par requête, nettoyage au démontage. `dernierAssaut` ajouté à `CombatState` (vainqueur, qualite, round), effacé par `tryHeroFlee` (KR-297). `validerCommentateur` : `{narration}` seul, 400 car., `/\d/` refusé, identifiants exclus. Narration éphémère, non persistée (session.ts fermé). Badge tone `muted` (2 sites). O(n²) log.every → O(n) Map. 145 suites / 2706 tests.
+
+- Différés : capacité du monstre dans ProjectionAssaut (37 sites), sous-composant RecitRound.tsx, soupape 400→600 car. R5.
+- Dossier : `.claude/raffinage/moteur-combat-it3.revue.md`.
+
 ## 0.7.19 — l'auteur voit son héros fuir un combat
 
 `moteur-combat` it2 (roadmap § 3, n°13, 2/3) -- essaim séquentiel, 2 lots (`contrat-fuite` brain/ puis `feature-fuite` play-mode/ + player/). D5 amendé : le héros fuit au lieu courant (pas de navigation `fleeTarget`), subit un assaut gratuit (Normale monstre vs Défensive héros), ni XP ni butin, événement reste consommé. `EtatCombat.fuite?: true` (entrée du joueur, KR-292 intact), `IssueCombat` élargi à 5 membres (`hero-fled`), `fuirRencontre` (no-op même référence), garde `jouerPosture` après fuite, `CLOTURES['hero-fled']` (PV/PE écrêtés, plafonds intacts). Rejeu fuite dans `rencontre.ts` (après postures, si ongoing). `tryHeroFlee` corrigé : `round+1` sur les 3 lignes de journal. Bouton `Fuir ↪` requis (pas optionnel), style secondaire, hors du radiogroup POSTURE. Badge FUITE (tone neutral), table exhaustive `Record<Exclude<CombatOutcome,'ongoing'>, string>` par compilation. Frontière inconscient épinglée (PV=0 → mort, PV=1 → fled). 141 suites / 2567 tests.

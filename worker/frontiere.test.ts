@@ -36,12 +36,14 @@ import path from 'node:path'
 import worker, { INVITES, TAILLE_MAX_CORPS_IA } from './index'
 import {
 	assemblerActeur,
+	assemblerCommentateur,
 	assemblerDetenteurs,
 	assemblerDistribution,
 	assemblerInterprete,
 	assemblerRelations,
 	BUDGET_CARACTERES_ACTEUR,
 	BUDGET_CARACTERES_ARBITRE,
+	BUDGET_CARACTERES_COMMENTATEUR,
 	BUDGET_CARACTERES_CONTEXTE,
 	BUDGET_CARACTERES_NARRATEUR,
 } from '../src/brain/copilote/contexte'
@@ -50,15 +52,18 @@ import {
 	CLES_ENJEUX,
 	CLES_EPREUVE,
 	CLES_SORTIE_ACTEUR,
+	CLES_SORTIE_COMMENTATEUR,
 	CLES_SORTIE_NARRATEUR,
 	CLES_SORTIE_RESISTE,
 	FAITS_PAR_PAS_MAX,
 	FICHES_PROPOSEES_MAX,
+	NARRATION_COMBAT_CARACTERES_MAX,
 	RELATIONS_PROPOSEES_MAX,
 	REPLIQUES_PROPOSEES_MAX,
 	TENTATIVES_MAX,
 	validerActeur,
 	validerArbitre,
+	validerCommentateur,
 	validerDistribution,
 	validerNarrateur,
 	validerRelations,
@@ -72,7 +77,7 @@ import { CADENCE } from '../src/brain/dossier/memoire'
 import { CURSEURS } from '../src/brain/dossier/curseurs'
 import { consignerJet, fixerHeros, ouvrirSession, type EtatSession } from '../src/brain/dossier/session'
 import type { Dossier, Personnage } from '../src/brain/dossier/types'
-import type { CibleActeur, CibleActeurResistible } from '../src/brain/copilote/types'
+import type { CibleActeur, CibleActeurResistible, CibleCommentateur } from '../src/brain/copilote/types'
 import type { HeroState } from '../src/player/types'
 
 const ROLE_PROSE = 'personnage-prose'
@@ -81,6 +86,7 @@ const ROLE_REPLIQUES = 'personnage-repliques'
 const ROLE_RELATIONS = 'personnage-relations'
 const ROLE_DISTRIBUTION = 'monde-distribution'
 const ROLE_ACTEUR = 'acteur' as const
+const ROLE_COMMENTATEUR = 'commentateur' as const
 
 /**
  * LA BORNE DE SORTIE EN TOUTES LETTRES — le seul pont possible entre l'invite
@@ -162,13 +168,20 @@ const BUDGETS: Record<string, number> = BUDGET_CARACTERES_CONTEXTE
  * candidats PNJ : la dette de budget R1 est MESURÉE (describe dédié plus bas),
  * jamais ARMÉE — aucune borne formelle n'existe encore pour ce rôle (§ 8 désaccord
  * 11 du plan it1 de la n° 12).
+ *
+ * `commentateur` (R5, n° 13 `moteur-combat`, it3) Y ENTRE AUSSI, même motif : SA PROPRE borne
+ * `BUDGET_CARACTERES_COMMENTATEUR` (`copilote/contexte/commentateur.ts`) refuse `trop-long`
+ * avant l'aller-retour. C'est le plus ÉTROIT des rôles à budget — un seul round, aucune
+ * mémoire — donc il ne menace jamais le plafond, mais le lien est écrit pour le jour où il
+ * grossirait.
  */
-const ROLES_PLAFONNES: readonly string[] = [...ROLES_AUTEUR, 'narrateur', 'arbitre', ROLE_ACTEUR]
+const ROLES_PLAFONNES: readonly string[] = [...ROLES_AUTEUR, 'narrateur', 'arbitre', ROLE_ACTEUR, ROLE_COMMENTATEUR]
 const BUDGETS_PLAFONNES: Record<string, number> = {
 	...BUDGETS,
 	narrateur: BUDGET_CARACTERES_NARRATEUR,
 	arbitre: BUDGET_CARACTERES_ARBITRE,
 	acteur: BUDGET_CARACTERES_ACTEUR,
+	commentateur: BUDGET_CARACTERES_COMMENTATEUR,
 }
 
 /**
@@ -1774,5 +1787,310 @@ describe('la dette de budget R1 — mesuree, pas armee (n 12 moteur-acteurs, it1
 		// confirme que le garde-fou actif reste inutile à ce stade (§ 8 désaccord 11).
 		expect(octets).toBe(1095)
 		expect(octets).toBeLessThan(TAILLE_MAX_CORPS_IA / 10)
+	})
+})
+
+/**
+ * `commentateur` (mode JEU, R5, n° 13 `moteur-combat`, it3, lot `contrat`) — HORS DE
+ * `ROLES_AUTEUR` comme les quatre autres rôles de jeu, et pour la même raison. COMME `narrateur`/
+ * `arbitre`/`acteur`, il a un BUDGET CLIENT (`BUDGET_CARACTERES_COMMENTATEUR`), donc il entre dans
+ * `ROLES_PLAFONNES` (le bloc « les deux plafonds » ci-dessus le balaie déjà, par `describe.each`).
+ *
+ * ⚠ SON GABARIT PARTAGE LA CLÉ `narration` AVEC CELUI DU NARRATEUR, et c'est le piège propre à ce
+ * lot : un garde posé sur la clé nue ne verrait pas une invite qui demanderait l'autre forme.
+ * L'appariement se garde donc sur le GABARIT ENTIER (`{"narration": "…"}`), jamais sur la clé,
+ * exactement comme KR-236 l'exige — et le canari croisé le prouve sur CHAQUE paire des cinq rôles
+ * de jeu, `commentateur` ↔ `narrateur` comprise.
+ */
+describe('commentateur (mode jeu) — hors parite RoleCopilote, mais sous le plafond, lie par sa cle et apparie a son gabarit', () => {
+	const ROLES_DE_JEU = ['interprete', 'narrateur', 'arbitre', ROLE_ACTEUR, ROLE_COMMENTATEUR] as const
+
+	/** Les gabarits LOCAUX des cinq rôles de jeu, extraits du SOURCE du worker. Un rôle absent rend la
+	 *  chaîne `undefined` : le test de totalité ci-dessous le constate AVANT tout appariement. */
+	function gabaritsDeJeu(): Map<string, string> {
+		return new Map(ROLES_DE_JEU.map((role) => [role, String(extraireGabaritDeJeu(role))]))
+	}
+
+	const octets = (texte: string): number => new TextEncoder().encode(texte).length
+
+	it('INVITES et le GABARIT_SORTIE local du worker portent une entree commentateur, coherente entre elles', () => {
+		expect(Object.prototype.hasOwnProperty.call(INVITES, ROLE_COMMENTATEUR)).toBe(true)
+		const gabarit = extraireGabaritDeJeu(ROLE_COMMENTATEUR)
+		expect(gabarit).toBeDefined()
+		expect(INVITES[ROLE_COMMENTATEUR].systeme).toContain(String(gabarit))
+		// Discriminants : l'extraction retrouve les quatre autres rôles de jeu, et JAMAIS un rôle auteur.
+		expect([...gabaritsDeJeu().values()].filter((gabarit) => gabarit === 'undefined')).toEqual([])
+		expect(gabaritsDeJeu().size).toBe(5)
+		expect(extraireGabaritDeJeu('personnage-prose')).toBeUndefined()
+	})
+
+	it('le gabarit porte EXACTEMENT CLES_SORTIE_COMMENTATEUR, en UNE forme — KR-236', () => {
+		const gabarit = String(extraireGabaritDeJeu(ROLE_COMMENTATEUR))
+		expect(gabarit.split(' ou ')).toHaveLength(1)
+		const forme = JSON.parse(gabarit) as Record<string, unknown>
+
+		expect(Object.keys(forme)).toEqual([...CLES_SORTIE_COMMENTATEUR])
+		expect(typeof forme[CLES_SORTIE_COMMENTATEUR[0]]).toBe('string')
+		// CAS NÉGATIF FABRIQUÉ, sans lequel l'égalité est INERTE : un gabarit qui demanderait la clé du
+		// CHAMP (`recit`) — la confusion que KR-231 ferme — ne satisfait pas le prédicat.
+		expect(Object.keys({ recit: forme.narration })).not.toEqual([...CLES_SORTIE_COMMENTATEUR])
+	})
+
+	it('une sortie bati sur le gabarit traverse validerCommentateur reellement, et le gabarit brut n est pas une exigence de prose', () => {
+		const forme = JSON.parse(String(extraireGabaritDeJeu(ROLE_COMMENTATEUR))) as Record<string, unknown>
+		const conforme = { ...forme, narration: 'Ta lame glisse sur le cuir tendu ; tu esquives de justesse.' }
+		const dossier = JSON.parse(
+			fs.readFileSync(path.join(RACINE, 'src', 'brain', 'dossier', '__fixtures__', 'dossier-reference.json'), 'utf8'),
+		) as Dossier
+
+		expect(validerCommentateur(conforme, dossier)).toEqual({ ok: true, narration: String(conforme.narration) })
+		// Le gabarit du NARRATEUR, lui, est refusé par ce validateur : deux clés en trop.
+		const formeNarrateur = gabaritsDuNarrateur()[0]
+		expect(validerCommentateur({ ...formeNarrateur, narration: String(conforme.narration) }, dossier)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+	})
+
+	it('chaque invite de jeu nomme SON gabarit ENTIER, aucune n en nomme un autre, et aucun gabarit n est sous-chaine d un autre', () => {
+		const gabarits = gabaritsDeJeu()
+
+		// PRÉCONDITION, écrite avant le balayage (précédent des six rôles auteur) : sans elle, le
+		// balayage rougirait sans défaut. `{"narration": "…"}` n'est PAS sous-chaîne du gabarit du
+		// narrateur, qui continue par `, "tentatives"` — c'est la brace fermante qui les sépare.
+		expect(gabaritsSousChaines(gabarits, ROLES_DE_JEU)).toEqual([])
+		expect(ROLES_DE_JEU.filter((role) => !inviteNommeSonGabarit(role, gabarits))).toEqual([])
+		expect(invitesQuiNommentUnAutreGabarit(gabarits, ROLES_DE_JEU)).toEqual([])
+		// La clé `narration` est PARTAGÉE entre les deux rôles : c'est ce qui rend le garde sur la clé
+		// nue insuffisant. Constaté, jamais supposé.
+		expect(String(gabarits.get('narrateur'))).toContain('"narration"')
+		expect(String(gabarits.get(ROLE_COMMENTATEUR))).toContain('"narration"')
+		expect(INVITES['narrateur'].systeme.includes('"narration"')).toBe(true)
+		expect(INVITES[ROLE_COMMENTATEUR].systeme.includes('"narration"')).toBe(true)
+	})
+
+	it('canari commentateur : le gabarit, le role et le plafond sont apparies — l inversion rougit, sur CHAQUE paire de roles de jeu', () => {
+		const gabarits = gabaritsDeJeu()
+
+		// (a) le décalage TOTAL : aucun rôle ne retrouve son gabarit, aucune invite ne nomme le sien.
+		const decale = croiser(gabarits, ROLES_DE_JEU)
+		expect([...decale.values()].sort()).toEqual([...gabarits.values()].sort())
+		expect(ROLES_DE_JEU.filter((role) => decale.get(role) === gabarits.get(role))).toEqual([])
+		expect(ROLES_DE_JEU.filter((role) => inviteNommeSonGabarit(role, decale))).toEqual([])
+
+		// (b) la TRANSPOSITION, défaut réaliste : pour CHAQUE paire de rôles de jeu, échanger les deux
+		//     gabarits fait rougir le balayage — sur C(5,2) = 10 paires, dérivées, jamais écrites.
+		const toutes = paires(ROLES_DE_JEU)
+		expect(toutes).toHaveLength((ROLES_DE_JEU.length * (ROLES_DE_JEU.length - 1)) / 2)
+		for (const [a, b] of toutes) {
+			const echangee = transposer(gabarits, a, b)
+			expect(`${a}↔${b} → ${invitesQuiNommentUnAutreGabarit(echangee, ROLES_DE_JEU).length > 0}`).toBe(
+				`${a}↔${b} → true`,
+			)
+			expect(gabaritsSousChaines(echangee, ROLES_DE_JEU)).toEqual([])
+		}
+		// Et la paire qui compte ICI — commentateur ↔ narrateur, qui partagent la clé — en fait partie.
+		expect(toutes.some(([a, b]) => a === 'narrateur' && b === ROLE_COMMENTATEUR)).toBe(true)
+
+		// (c) LE PLAFOND est apparié au rôle : le budget du commentateur n'est ni celui d'un autre, ni nul.
+		expect(BUDGETS_PLAFONNES[ROLE_COMMENTATEUR]).toBe(BUDGET_CARACTERES_COMMENTATEUR)
+		expect(BUDGETS_PLAFONNES[ROLE_COMMENTATEUR]).toBeGreaterThan(0)
+		expect(
+			ROLES_PLAFONNES.filter(
+				(role) => role !== ROLE_COMMENTATEUR && BUDGETS_PLAFONNES[role] === BUDGET_CARACTERES_COMMENTATEUR,
+			),
+		).toEqual([])
+	})
+
+	it('ROLES_AUTEUR exclut commentateur, ROLES le contient, et ROLES_PLAFONNES aussi', () => {
+		expect(ROLES).toContain(ROLE_COMMENTATEUR)
+		expect(ROLES_AUTEUR).not.toContain(ROLE_COMMENTATEUR)
+		expect(ROLES_PLAFONNES).toContain(ROLE_COMMENTATEUR)
+		expect(BUDGET_CARACTERES_COMMENTATEUR).toBeGreaterThan(0)
+	})
+
+	it('la borne de l invite est celle du validateur : quatre cents, et le garde SAIT rougir sur une autre borne', () => {
+		// LA DUPLICATION « quatre cents » (worker) / `NARRATION_COMBAT_CARACTERES_MAX` (client) est
+		// inévitable — aucun import `worker/` → `src/` en production — donc elle se GARDE. LIMITE
+		// DÉCLARÉE : ce garde épingle LE MOT, pas la sémantique.
+		const BORNES_EN_CARACTERES: Record<number, string> = {
+			400: 'quatre cents caractères au plus',
+			800: 'huit cents caractères au plus',
+		}
+		const dit = (systeme: string, borne: number): boolean => systeme.includes(BORNES_EN_CARACTERES[borne] ?? '\u0000')
+
+		expect(NARRATION_COMBAT_CARACTERES_MAX).toBe(400)
+		expect(dit(INVITES[ROLE_COMMENTATEUR].systeme, NARRATION_COMBAT_CARACTERES_MAX)).toBe(true)
+		// … et AUCUNE autre borne en toutes lettres : « huit cents » est celle du narrateur.
+		expect(dit(INVITES[ROLE_COMMENTATEUR].systeme, 800)).toBe(false)
+		// CAS NÉGATIFS FABRIQUÉS : une invite qui annoncerait l'autre borne est attrapée, et une borne
+		// non déclarée dans la table ne passe jamais pour dite.
+		const bavarde = 'La NARRATION tient en huit cents caractères au plus.'
+		expect(dit(bavarde, NARRATION_COMBAT_CARACTERES_MAX)).toBe(false)
+		expect(dit(bavarde, 800)).toBe(true)
+		expect(dit(bavarde, 123)).toBe(false)
+	})
+
+	it('E du commentateur, MESURE le 2026-10-05 (n 13 it3) : squelette 37 + invite 1352 = 1389 octets, plafond propre 5 120, le plus etroit des rôles plafonnes', () => {
+		const squelette = octets(JSON.stringify({ role: ROLE_COMMENTATEUR, contexte: '' }))
+		const invite = octets(INVITES[ROLE_COMMENTATEUR].systeme)
+		expect([squelette, invite, squelette + invite]).toEqual([37, 1352, 1389])
+		// `ceil((3 × budget + E) / 1024) × 1024` — la formule du plafond, sur le budget client MESURÉ.
+		expect(BUDGET_CARACTERES_COMMENTATEUR).toBe(1218)
+		const plafondPropre = Math.ceil((3 * BUDGET_CARACTERES_COMMENTATEUR + squelette + invite) / 1024) * 1024
+		expect(plafondPropre).toBe(5120)
+		expect(plafondPropre).toBeLessThan(TAILLE_MAX_CORPS_IA)
+		// Le plafond worker n'a PAS bougé : `narrateur` le porte toujours, et de très loin.
+		expect(TAILLE_MAX_CORPS_IA).toBe(83_968)
+		// LE PLUS ÉTROIT, DÉRIVÉ : le budget du commentateur est le minimum UNIQUE des rôles plafonnés.
+		const minimum = Math.min(...ROLES_PLAFONNES.map((role) => BUDGETS_PLAFONNES[role]))
+		expect(minimum).toBe(BUDGET_CARACTERES_COMMENTATEUR)
+		expect(ROLES_PLAFONNES.filter((role) => BUDGETS_PLAFONNES[role] === minimum)).toEqual([ROLE_COMMENTATEUR])
+	})
+
+	describe('le temoin executable du onzieme role : le worker reel, l amont bouchonne, puis le service et le validateur', () => {
+		const URL_WORKER = 'https://worker.invalid'
+		const URL_AMONT = 'https://amont.invalid/messages'
+		const NARRATION = 'Ta lame glisse sur le cuir tendu du gobelin ; il riposte, et tu esquives de justesse.'
+		const reglages: CloudSettingsService = {
+			getWorkerUrl: () => URL_WORKER,
+			setWorkerUrl: () => undefined,
+			getSyncKey: () => 'une-cle-de-synchronisation',
+			setSyncKey: () => undefined,
+			isConfigured: () => true,
+		}
+
+		function dossierDeReference(): Dossier {
+			return JSON.parse(
+				fs.readFileSync(path.join(RACINE, 'src', 'brain', 'dossier', '__fixtures__', 'dossier-reference.json'), 'utf8'),
+			) as Dossier
+		}
+
+		const cible: CibleCommentateur = {
+			role: ROLE_COMMENTATEUR,
+			projection: {
+				vainqueur: 'monstre',
+				qualite: 'magistral',
+				monstre: 'bestiaire.gobelin',
+				heroPv: 4,
+				heroPvMax: 20,
+				monstrePv: 6,
+				monstrePvMax: 7,
+				issue: undefined,
+			},
+		}
+
+		/** Le worker RÉEL au niveau 1, l'amont bouchonné au niveau 2, rendant `sorties` dans l'ordre (la
+		 *  dernière se répète) — avec le corps de CHAQUE appel capturé, jamais celui qu'on croit avoir écrit. */
+		async function traverser(
+			sorties: readonly string[],
+			amontOk = true,
+		): Promise<{
+			resultat: unknown
+			versLeWorker: Array<{ role: string; contexte: string }>
+			versLAmont: Array<{ system: string; max_tokens: number; messages: Array<{ role: string; content: string }> }>
+		}> {
+			const versLeWorker: Array<{ role: string; contexte: string }> = []
+			const versLAmont: Array<{
+				system: string
+				max_tokens: number
+				messages: Array<{ role: string; content: string }>
+			}> = []
+			const avant = globalThis.fetch
+			globalThis.fetch = (async (adresseBrute: RequestInfo | URL, init?: RequestInit) => {
+				const adresse = String(adresseBrute)
+				if (adresse.startsWith(URL_WORKER)) {
+					versLeWorker.push(JSON.parse(String(init?.body)) as { role: string; contexte: string })
+					return worker.fetch(new Request(adresse, init), {
+						GENLIV_KV: { get: async () => null, put: async () => undefined, delete: async () => undefined },
+						IA_API_KEY: 'secret-de-test',
+						IA_BASE_URL: URL_AMONT,
+						IA_MODEL: 'un-modele',
+					} as unknown as Parameters<typeof worker.fetch>[1])
+				}
+				versLAmont.push(JSON.parse(String(init?.body)) as (typeof versLAmont)[number])
+				const texte = sorties[Math.min(versLAmont.length - 1, sorties.length - 1)]
+				return {
+					ok: amontOk,
+					status: amontOk ? 200 : 500,
+					json: async () => ({ content: [{ type: 'text', text: texte }] }),
+				} as unknown as Response
+			}) as unknown as typeof fetch
+
+			try {
+				const resultat = await createCopiloteService(reglages).demander(dossierDeReference(), cible)
+				return { resultat, versLeWorker, versLAmont }
+			} finally {
+				globalThis.fetch = avant
+			}
+		}
+
+		it('une sortie conforme traverse le worker puis le validateur et rend {narration}, le corps exact, l invite et max_tokens', async () => {
+			const { resultat, versLeWorker, versLAmont } = await traverser([JSON.stringify({ narration: NARRATION })])
+
+			expect(resultat).toEqual({ narration: NARRATION })
+			// Le corps envoyé AU WORKER est EXACTEMENT {role, contexte} — sans la projection.
+			const contexte = assemblerCommentateur(dossierDeReference(), cible)
+			if (!contexte.ok) throw new Error(`contexte refusé (${contexte.motif}) : le témoin ne peut pas partir`)
+			expect(versLeWorker).toEqual([{ role: ROLE_COMMENTATEUR, contexte: contexte.texte }])
+			// Ce que l'AMONT reçoit : l'invite du rôle, son `max_tokens`, et le corps de la demande en message.
+			expect(versLAmont).toHaveLength(1)
+			expect(versLAmont[0].system).toBe(INVITES[ROLE_COMMENTATEUR].systeme)
+			expect(versLAmont[0].system).toContain(String(extraireGabaritDeJeu(ROLE_COMMENTATEUR)))
+			expect(versLAmont[0].max_tokens).toBe(INVITES[ROLE_COMMENTATEUR].max_tokens)
+			expect(JSON.parse(versLAmont[0].messages[0].content)).toEqual({
+				role: ROLE_COMMENTATEUR,
+				contexte: contexte.texte,
+			})
+			// Et la même sortie passe le validateur seul : les deux moitiés du témoin sont prouvées
+			// séparément, jamais l'une par l'autre (KR-197/199).
+			expect(validerCommentateur({ narration: NARRATION }, dossierDeReference())).toEqual({
+				ok: true,
+				narration: NARRATION,
+			})
+		})
+
+		it('AUCUN chiffre ni reference ne franchit le worker NI l amont, alors que la projection porte des PV bruts', async () => {
+			const { versLeWorker, versLAmont } = await traverser([JSON.stringify({ narration: NARRATION })])
+
+			expect(cible.projection.heroPv).toBe(4)
+			expect(cible.projection.heroPvMax).toBe(20)
+			for (const corps of [JSON.stringify(versLeWorker[0]), versLAmont[0].messages[0].content]) {
+				expect(/\d/.test(corps)).toBe(false)
+				expect(corps).not.toContain('bestiaire')
+			}
+			// Le NOM résolu, lui, part — et les mots de la projection avec lui.
+			expect(versLeWorker[0].contexte).toContain('adversaire : Gobelin')
+			expect(versLeWorker[0].contexte).toContain('état du héros : à bout de forces')
+		})
+
+		it('une sortie fautive deux fois traverse le worker DEUX fois puis rend illisible — jamais un troisieme appel', async () => {
+			const { resultat, versLeWorker, versLAmont } = await traverser([
+				JSON.stringify({ narration: 'Tu frappes 5 fois.' }),
+			])
+
+			expect(resultat).toEqual({ statut: 'illisible', motif: 'schema' })
+			expect(versLeWorker).toHaveLength(2)
+			expect(versLAmont).toHaveLength(2)
+			expect(versLeWorker[1]).toEqual(versLeWorker[0])
+		})
+
+		it('une fautive puis une conforme : deux appels, la seconde est rendue (le nouvel essai de bout en bout)', async () => {
+			const { resultat, versLAmont } = await traverser([
+				JSON.stringify({ narration: 'Tu frappes 5 fois.' }),
+				JSON.stringify({ narration: NARRATION }),
+			])
+
+			expect(resultat).toEqual({ narration: NARRATION })
+			expect(versLAmont).toHaveLength(2)
+		})
+
+		it('un amont en echec rend 502 amont, le service classe injoignable : UN SEUL appel, aucun nouvel essai', async () => {
+			const { resultat, versLeWorker, versLAmont } = await traverser([JSON.stringify({ narration: NARRATION })], false)
+
+			expect(resultat).toEqual({ statut: 'indisponible', raison: 'injoignable' })
+			expect(versLeWorker).toHaveLength(1)
+			expect(versLAmont).toHaveLength(1)
+		})
 	})
 })

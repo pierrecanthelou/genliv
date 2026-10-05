@@ -60,3 +60,9 @@ export type { ContexteArbitre } from './arbitre'
 // d'ICI pour `worker/frontiere.test.ts` SEULEMENT — jamais par `brain/index.ts`.
 export { assemblerActeur, BUDGET_CARACTERES_ACTEUR } from './acteur'
 export type { ContexteActeur } from './acteur'
+// LE ONZIÈME ASSEMBLEUR (n° 13 `moteur-combat`, it3, R5 `commentateur`) — HORS DE LA COUTURE
+// COMMUNE, même motif que les quatre précédents. `BUDGET_CARACTERES_COMMENTATEUR` sort d'ICI pour
+// `worker/frontiere.test.ts` SEULEMENT — jamais par `brain/index.ts`. `palierDeSante` NE SORT PAS
+// de ce baril : c'est un détail de l'assembleur, lu en profondeur par son seul test de bornes.
+export { assemblerCommentateur, BUDGET_CARACTERES_COMMENTATEUR } from './commentateur'
+export type { ContexteCommentateur } from './commentateur'

@@ -240,6 +240,7 @@ export function resolveCombatRound(
 		return {
 			...workingState,
 			log: [...workingState.log, { round, text: `Round ${round} — Égalité (AT ${atHero}), assaut nul.` }],
+			dernierAssaut: { round, vainqueur: 'nul', qualite: null },
 		}
 	}
 
@@ -313,10 +314,16 @@ export function resolveCombatRound(
 			if (hooks.onMonsterAt0PV) {
 				workingState = hooks.onMonsterAt0PV(workingState, hero, session, rng)
 			}
-			if (workingState.outcome === 'hero-mort') return workingState
+			if (workingState.outcome === 'hero-mort')
+				return { ...workingState, dernierAssaut: { round, vainqueur: 'heros', qualite: band.quality } }
 			if (workingState.monster.pv > 0) {
 				// Monster revived (se-relève) — continue as ongoing
-				return { ...workingState, phase: 'resolved', outcome: 'ongoing' }
+				return {
+					...workingState,
+					phase: 'resolved',
+					outcome: 'ongoing',
+					dernierAssaut: { round, vainqueur: 'heros', qualite: band.quality },
+				}
 			}
 			const xp = computeVictoryXp(workingState, hero, workingState.bestHeroHit)
 			return {
@@ -326,6 +333,7 @@ export function resolveCombatRound(
 				outcome: 'hero-victory',
 				pendingXp: xp,
 				pendingLoot: workingState.monster.loot,
+				dernierAssaut: { round, vainqueur: 'heros', qualite: band.quality },
 			}
 		}
 
@@ -338,6 +346,7 @@ export function resolveCombatRound(
 				outcome: 'monster-fled',
 				pendingXp: xp,
 				pendingLoot: workingState.monster.loot,
+				dernierAssaut: { round, vainqueur: 'heros', qualite: band.quality },
 			}
 		}
 
@@ -345,7 +354,10 @@ export function resolveCombatRound(
 		if (hooks.onAfterRound && workingState.outcome === 'ongoing') {
 			workingState = hooks.onAfterRound(workingState, hero, session, rng)
 		}
-		return workingState
+		return {
+			...workingState,
+			dernierAssaut: { round, vainqueur: 'heros', qualite: band.quality },
+		}
 	}
 
 	// ── Monster wins ───────────────────────────────────────────────────────────
@@ -409,7 +421,8 @@ export function resolveCombatRound(
 		}
 
 		// A hook may have set a terminal outcome (étreinte ×2 kill).
-		if (workingState.outcome !== 'ongoing') return workingState
+		if (workingState.outcome !== 'ongoing')
+			return { ...workingState, dernierAssaut: { round, vainqueur: 'monstre', qualite: band.quality } }
 
 		// Standard health check (E1 unconscious logic)
 		const heroHealth = healthState(workingState.heroPv, hero.caracs.CA)
@@ -430,6 +443,7 @@ export function resolveCombatRound(
 					],
 					phase: 'ended',
 					outcome: 'hero-mort',
+					dernierAssaut: { round, vainqueur: 'monstre', qualite: band.quality },
 				}
 			}
 			return {
@@ -442,6 +456,7 @@ export function resolveCombatRound(
 				],
 				phase: 'ended',
 				outcome: 'hero-survived-unconscious',
+				dernierAssaut: { round, vainqueur: 'monstre', qualite: band.quality },
 			}
 		}
 		if (heroHealth === 'mort') {
@@ -450,6 +465,7 @@ export function resolveCombatRound(
 				log: [...workingState.log, { round, text: `Le héros est mort.` }],
 				phase: 'ended',
 				outcome: 'hero-mort',
+				dernierAssaut: { round, vainqueur: 'monstre', qualite: band.quality },
 			}
 		}
 
@@ -457,7 +473,10 @@ export function resolveCombatRound(
 		if (hooks.onAfterRound && workingState.outcome === 'ongoing') {
 			workingState = hooks.onAfterRound(workingState, hero, session, rng)
 		}
-		return workingState
+		return {
+			...workingState,
+			dernierAssaut: { round, vainqueur: 'monstre', qualite: band.quality },
+		}
 	}
 }
 
@@ -484,6 +503,7 @@ export function tryHeroFlee(
 			log: [...log, { round, text: `Le héros tombe en fuyant.` }],
 			phase: 'ended',
 			outcome: 'hero-mort',
+			dernierAssaut: undefined,
 		}
 	}
 	return {
@@ -493,5 +513,6 @@ export function tryHeroFlee(
 		log: [...log, { round, text: `Le héros fuit.` }],
 		phase: 'ended',
 		outcome: 'hero-fled',
+		dernierAssaut: undefined,
 	}
 }

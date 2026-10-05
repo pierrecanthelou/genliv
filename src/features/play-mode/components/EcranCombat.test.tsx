@@ -1,3 +1,5 @@
+import fs from 'fs'
+import path from 'path'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { EcranCombat } from './EcranCombat'
@@ -152,7 +154,11 @@ describe('EcranCombat', () => {
 
 	it('Fuir absent en issue terminale', () => {
 		const terminals: Exclude<CombatOutcome, 'ongoing'>[] = [
-			'hero-victory', 'monster-fled', 'hero-survived-unconscious', 'hero-mort', 'hero-fled',
+			'hero-victory',
+			'monster-fled',
+			'hero-survived-unconscious',
+			'hero-mort',
+			'hero-fled',
 		]
 		for (const outcome of terminals) {
 			const { unmount } = render(
@@ -190,5 +196,84 @@ describe('EcranCombat', () => {
 			expect(screen.getByText(expectedBadges[idx])).toBeInTheDocument()
 			unmount()
 		})
+	})
+
+	it('affiche Badge "Commentaire en cours…" quand etat attente', () => {
+		const etat = {
+			...createMinimalMockState(),
+			log: [{ round: 1, text: 'Round 1' }],
+		}
+		const commentaires = new Map([[1, { etat: 'attente' as const }]])
+		render(<EcranCombat etat={etat} onJouer={jest.fn()} onFuir={jest.fn()} commentaires={commentaires} />)
+		expect(screen.getByText('Commentaire en cours…')).toBeInTheDocument()
+	})
+
+	it('affiche la narration quand commentaire recu', () => {
+		const etat = {
+			...createMinimalMockState(),
+			log: [{ round: 1, text: 'Round 1' }],
+		}
+		const commentaires = new Map([[1, { etat: 'recu' as const, narration: 'Ta lame glisse sur le cuir du gobelin.' }]])
+		render(<EcranCombat etat={etat} onJouer={jest.fn()} onFuir={jest.fn()} commentaires={commentaires} />)
+		expect(screen.getByText('Ta lame glisse sur le cuir du gobelin.')).toBeInTheDocument()
+	})
+
+	it('pas de zone recit quand pas de commentaire', () => {
+		const etat = {
+			...createMinimalMockState(),
+			log: [{ round: 1, text: 'Round 1' }],
+		}
+		const commentaires = new Map()
+		render(<EcranCombat etat={etat} onJouer={jest.fn()} onFuir={jest.fn()} commentaires={commentaires} />)
+		expect(screen.queryByText('Commentaire en cours…')).not.toBeInTheDocument()
+	})
+
+	it('recitLivre utilise les tokens --font-ui, --text-muted et --border-rule (sonde source)', () => {
+		const src = fs.readFileSync(path.join(__dirname, 'EcranCombat.tsx'), 'utf8')
+		const start = src.indexOf('const recitLivre')
+		expect(start).toBeGreaterThan(-1)
+		const blockEnd = src.indexOf('}', start)
+		const recitBlock = src.slice(start, blockEnd + 1)
+		expect(recitBlock).toContain('--font-ui')
+		expect(recitBlock).toContain('--text-muted')
+		expect(recitBlock).toContain('--border-rule')
+		expect(recitBlock).not.toMatch(/#[0-9a-fA-F]{3,8}/)
+		expect(recitBlock).not.toMatch(/rgb\(/)
+	})
+
+	it('narration affichee une seule fois, apres la derniere entree du round', () => {
+		const etat = {
+			...createMinimalMockState(),
+			log: [
+				{ round: 1, text: 'Le gobelin attaque' },
+				{ round: 1, text: 'Garde aiguisee' },
+			],
+		}
+		const commentaires = new Map([[1, { etat: 'recu' as const, narration: 'Lame tranchante.' }]])
+		const { container } = render(
+			<EcranCombat etat={etat} onJouer={jest.fn()} onFuir={jest.fn()} commentaires={commentaires} />,
+		)
+		const narrations = screen.getAllByText('Lame tranchante.')
+		expect(narrations.length).toBe(1)
+		const narrationEl = narrations[0]
+		const gardeEl = screen.getByText('Garde aiguisee')
+		const allP = Array.from(container.querySelectorAll('p'))
+		const gardeIdx = allP.indexOf(gardeEl as HTMLParagraphElement)
+		const narrationIdx = allP.indexOf(narrationEl as HTMLParagraphElement)
+		expect(narrationIdx).toBeGreaterThan(gardeIdx)
+	})
+
+	it('nœud absent = silence (pas de div vide)', () => {
+		const etat = {
+			...createMinimalMockState(),
+			log: [{ round: 1, text: 'Round 1' }],
+		}
+		const commentaires = new Map()
+		const { container } = render(
+			<EcranCombat etat={etat} onJouer={jest.fn()} onFuir={jest.fn()} commentaires={commentaires} />,
+		)
+		const statusDivs = container.querySelectorAll('[role="status"]')
+		const emptyStatus = Array.from(statusDivs).filter((div) => div.textContent?.trim() === '')
+		expect(emptyStatus.length).toBe(0)
 	})
 })

@@ -265,6 +265,33 @@
 				"LES SONDES DE DISCRIMINANCE (22 mutants, 22 tues) confirment que l investissement de la table doree (it2/it3, revue d instrument BUG-084) porte ses fruits : aucun des defauts de dossier-controles (assertion qui ne sait pas echouer) n a recidive."
 			],
 			"bugs_encountered": ["BUG-142", "BUG-143", "BUG-144", "BUG-145", "BUG-146", "BUG-147", "BUG-148"]
+		},
+		{
+			"feature": "moteur-combat",
+			"completed_at": "2026-10-05",
+			"goal": "L'auteur lance un aperçu, rencontre un monstre, et lit un combat raconté que l'IA n'arbitre pas.",
+			"key_architecture_choices": [
+				"Rejeu pur {monstre_ref, postures[], fuite?} — jamais de snapshot CombatState (KR-292)",
+				"rencontre.ts (player/engine/) : rejeu, bilan, ouverture, pure sans service",
+				"12e role IA R5 commentateur : projection structuree → paliers qualitatifs, zero chiffre (KR-294/296)",
+				"combatProjection.ts dans play-mode/utils/ (runtime extractible ne voit pas le vocabulaire IA)",
+				"CombatEnCours.tsx wrapper narration, useCommentaireCombat hook ephemere",
+				"dernierAssaut sur CombatState pour la projection, efface par tryHeroFlee (KR-297)"
+			],
+			"brain_contracts_added": [
+				{ "type": "service", "name": "CopiloteService.demander('commentateur', ...) — 12e surcharge" },
+				{ "type": "type", "name": "brain/copilote/types.ts — CibleCommentateur, ProjectionAssaut, ReponseCommentateur" },
+				{ "type": "registry", "name": "brain/copilote/schemaSortie.ts — validerCommentateur" },
+				{ "type": "registry", "name": "brain/copilote/contexte/commentateur.ts — assemblerCommentateur, palierDeSante" },
+				{ "type": "type", "name": "player/engine/combatTypes.ts — AssautRound (dernierAssaut)" },
+				{ "type": "route", "name": "worker/index.ts — /ia/commentateur POST" }
+			],
+			"lessons_learned": [
+				"En jsdom, new Response().json() echoue silencieusement. Tout mock fetch d integration doit retourner un objet {ok,status,json} et non new Response().",
+				"Un test d integration IA sans cloudSettings.setWorkerUrl/setSyncKey est vacueux : acheminement() retourne null, demander retourne 'non-configure' — le fetch n est jamais appele.",
+				"Pour un test de fureur deterministe, calibrer mc hero vs mc monstre de sorte que le heros gagne le round regulier (RNG favorable) mais perde l assaut-fureur (Normale(mc_monstre) > Defensive(mc_hero + rollDice(1,4))). Les 5 tirades RNG doivent etre tracees."
+			],
+			"bugs_encountered": ["BUG-152", "BUG-153"]
 		}
 	]
 }

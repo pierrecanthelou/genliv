@@ -26,6 +26,7 @@ import {
 	FAIT_CARACTERES_MAX,
 	FAITS_PAR_PAS_MAX,
 	NARRATION_CARACTERES_MAX,
+	NARRATION_COMBAT_CARACTERES_MAX,
 	TENTATIVE_CARACTERES_MAX,
 	TENTATIVES_MAX,
 } from '../src/brain/copilote/schemaSortie'
@@ -847,7 +848,9 @@ describe('POST /ia/personnage-relations — la route du cinquieme role', () => {
 		// `REPLIQUE_CARACTERES_MAX`, jamais de la prose d'une relation). Aucune
 		// coïncidence n'existait avant ce lot — elle est NOUVELLE, pas « oubliée ».
 		expect(INVITES[ROLE_5].max_tokens).toBe(INVITES['acteur'].max_tokens)
-		const autres = Object.keys(INVITES).filter((role) => role !== ROLE_5 && role !== 'acteur')
+		const autres = Object.keys(INVITES).filter(
+			(role) => role !== ROLE_5 && role !== 'acteur' && role !== 'commentateur',
+		)
 		expect(autres.filter((role) => INVITES[role].max_tokens === INVITES[ROLE_5].max_tokens)).toEqual([])
 		// Discriminant : la comparaison porte bien sur les HUIT autres rôles non
 		// coïncidents — sans lui, une liste vide rendrait l'assertion vraie pour rien
@@ -855,8 +858,11 @@ describe('POST /ia/personnage-relations — la route du cinquieme role', () => {
 		// rôle l'avait déjà fait rougir une fois (4 → 5), celle du SEPTIÈME
 		// (`interprete`) une deuxième (5 → 6), celle du HUITIÈME (`narrateur`, 1600) une
 		// troisième (6 → 7), celle du NEUVIÈME (`arbitre`, 400) une quatrième (7 → 8) —
-		// le DIXIÈME (`acteur`) est désormais EXCLU de ce compte, puisqu'il coïncide.
+		// le DIXIÈME (`acteur`) est désormais EXCLU de ce compte, puisqu'il coïncide, et le
+		// ONZIÈME (`commentateur`, 700, n° 13 it3) l'est AUSSI, pour la même raison : mesure
+		// INDÉPENDANTE (`NARRATION_COMBAT_CARACTERES_MAX`), même valeur — le compte reste 8.
 		expect(autres).toHaveLength(8)
+		expect(INVITES['commentateur'].max_tokens).toBe(INVITES[ROLE_5].max_tokens)
 	})
 
 	it('le protocole amont reste EPINGLE, et le cinquieme role ne l etend pas', async () => {
@@ -1075,15 +1081,20 @@ describe('POST /ia/monde-distribution — la route du sixieme role', () => {
 		// liste vide rendrait l'assertion vraie pour rien (KR-199/235). Le SEPTIÈME
 		// rôle (`interprete`, 300) l'a fait rougir à son tour (5 → 6), le HUITIÈME
 		// (`narrateur`, 1600) aussi (6 → 7), le NEUVIÈME (`arbitre`, 400) aussi (7 → 8),
-		// le DIXIÈME (`acteur`, 700) aussi (8 → 9).
-		expect(autres).toHaveLength(9)
+		// le DIXIÈME (`acteur`, 700) aussi (8 → 9), le ONZIÈME (`commentateur`, 700) aussi (9 → 10).
+		expect(autres).toHaveLength(10)
 		// ⚠ C'EST LE PLUS GRAND DES SIX RÔLES D'AUTEUR, et il le reste : c'est le seul
 		// d'entre eux dont un ÉLÉMENT porte DEUX proses, donc son `P` est une SOMME et non
-		// un maximum. Écrit ici pour qu'on ne le « ramène » pas vers les autres. Les QUATRE
-		// rôles de JEU (`interprete`, `narrateur`, `arbitre`, `acteur` — n° 12) sont exclus
-		// de cet ensemble, pour la même raison : aucun n'assiste une rédaction.
+		// un maximum. Écrit ici pour qu'on ne le « ramène » pas vers les autres. Les CINQ
+		// rôles de JEU (`interprete`, `narrateur`, `arbitre`, `acteur` — n° 12, `commentateur`
+		// — n° 13) sont exclus de cet ensemble, pour la même raison : aucun n'assiste une rédaction.
 		const auteur = Object.keys(INVITES).filter(
-			(role) => role !== 'interprete' && role !== 'narrateur' && role !== 'arbitre' && role !== 'acteur',
+			(role) =>
+				role !== 'interprete' &&
+				role !== 'narrateur' &&
+				role !== 'arbitre' &&
+				role !== 'acteur' &&
+				role !== 'commentateur',
 		)
 		expect(auteur).toHaveLength(6)
 		expect(INVITES[ROLE_6].max_tokens).toBe(Math.max(...auteur.map((role) => INVITES[role].max_tokens)))
@@ -1496,7 +1507,8 @@ describe('POST /ia/narrateur — la route du huitieme role', () => {
 		expect(envoye.max_tokens).toBe(INVITES[ROLE_8].max_tokens)
 		const autres = Object.keys(INVITES).filter((role) => role !== ROLE_8)
 		expect(autres.filter((role) => INVITES[role].max_tokens === INVITES[ROLE_8].max_tokens)).toEqual([])
-		expect(autres).toHaveLength(9)
+		// Le ONZIÈME rôle (`commentateur`, n° 13 it3) l'a fait rougir (9 → 10).
+		expect(autres).toHaveLength(10)
 	})
 
 	it('le protocole amont reste EPINGLE, et le huitieme role ne l etend pas', async () => {
@@ -2111,5 +2123,237 @@ describe('POST /ia/acteur — la route du dixieme role (n 12 moteur-acteurs, it1
 		// r = 2 caracteres par jeton (PIRE) : L / r x 3, arrondi a la centaine superieure.
 		expect(Math.ceil(((longueur / 2) * 3) / 100) * 100).toBe(400)
 		expect(Math.ceil(((longueur / 2) * 3) / 100) * 100).toBeLessThan(INVITES[ROLE_10].max_tokens)
+	})
+})
+
+describe('POST /ia/commentateur — la route du onzieme role (R5, n 13 moteur-combat, it3)', () => {
+	const ROLE_11 = 'commentateur'
+	const URL_IA_11 = `https://genliv.example.workers.dev/ia/${ROLE_11}`
+	const SORTIE_11 = '{"narration": "Ta lame glisse sur le cuir tendu du gobelin."}'
+
+	function corps11(octets: number): string {
+		const squelette = JSON.stringify({ role: ROLE_11, contexte: '' })
+		const aRemplir = octets - squelette.length
+		if (aRemplir < 0) throw new Error('taille demandée plus petite que le squelette du corps')
+		return JSON.stringify({ role: ROLE_11, contexte: 'x'.repeat(aRemplir) })
+	}
+
+	function demande11(corps: string, options: { methode?: string } = {}): Request {
+		const methode = options.methode ?? 'POST'
+		return new Request(URL_IA_11, {
+			method: methode,
+			headers: { 'Content-Type': 'application/json', 'X-Sync-Key': CLE },
+			body: methode === 'GET' ? undefined : corps,
+		})
+	}
+
+	it('la route du onzieme role repond aux memes branches, toutes en JSON — la liste de controle KR-233, entiere', async () => {
+		// 1 — POST SEUL.
+		const surGet = await worker.fetch(demande11('', { methode: 'GET' }), env())
+		expect(surGet.status).toBe(405)
+		expect(surGet.headers.get('Content-Type')).toBe('application/json')
+		await expect(surGet.json()).resolves.toEqual({ erreur: 'methode' })
+
+		// 2 — un rôle VOISIN mais absent d'`INVITES` reste inconnu : le onzième rôle n'ouvre PAS la
+		// route à tout segment de chemin.
+		const inconnu = await worker.fetch(
+			new Request('https://genliv.example.workers.dev/ia/commentateurs', {
+				method: 'POST',
+				headers: { 'X-Sync-Key': CLE },
+				body: '{}',
+			}),
+			env(),
+		)
+		expect(inconnu.status).toBe(404)
+		expect(inconnu.headers.get('Content-Type')).toBe('application/json')
+		await expect(inconnu.json()).resolves.toEqual({ erreur: 'role-inconnu' })
+
+		// 3 — configuration amont incomplète, sur les TROIS secrets.
+		for (const manquant of ['IA_API_KEY', 'IA_BASE_URL', 'IA_MODEL']) {
+			const res = await worker.fetch(demande11(corps11(200)), env({ [manquant]: undefined }))
+			expect(`${manquant} → ${res.status}`).toBe(`${manquant} → 503`)
+			expect(res.headers.get('Content-Type')).toBe('application/json')
+			await expect(res.json()).resolves.toEqual({ erreur: 'non-configure' })
+		}
+		expect(fetchAmont).not.toHaveBeenCalled()
+
+		// 4 — le plafond, à ±1 OCTET, sur CE rôle-ci.
+		fetchAmont.mockResolvedValue(amontRendant(SORTIE_11))
+		const juste = await worker.fetch(demande11(corps11(TAILLE_MAX_CORPS_IA)), env())
+		expect(juste.status).toBe(200)
+		const unDeTrop = await worker.fetch(demande11(corps11(TAILLE_MAX_CORPS_IA + 1)), env())
+		expect(unDeTrop.status).toBe(413)
+		expect(unDeTrop.headers.get('Content-Type')).toBe('application/json')
+		await expect(unDeTrop.json()).resolves.toEqual({ erreur: 'trop-grand', limite: TAILLE_MAX_CORPS_IA })
+
+		// 4 bis — la mesure est en OCTETS, jamais en unités de code UTF-16.
+		const rembourrage = '€'.repeat(Math.ceil(TAILLE_MAX_CORPS_IA / 2))
+		const enUtf8 = JSON.stringify({ role: ROLE_11, contexte: rembourrage })
+		expect(enUtf8.length).toBeLessThan(TAILLE_MAX_CORPS_IA)
+		expect(new TextEncoder().encode(enUtf8).length).toBeGreaterThan(TAILLE_MAX_CORPS_IA)
+		expect((await worker.fetch(demande11(enUtf8), env())).status).toBe(413)
+
+		// 5 — corps illisible.
+		const illisible = await worker.fetch(demande11('{ ceci ne parse pas'), env())
+		expect(illisible.status).toBe(400)
+		expect(illisible.headers.get('Content-Type')).toBe('application/json')
+		await expect(illisible.json()).resolves.toEqual({ erreur: 'corps-illisible' })
+
+		// 6 — un amont en échec, une exception, une charge sans texte : 502, en JSON.
+		fetchAmont.mockReset()
+		fetchAmont.mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({}) } as unknown as Response)
+		fetchAmont.mockRejectedValueOnce(new Error('réseau'))
+		fetchAmont.mockResolvedValueOnce({
+			ok: true,
+			status: 200,
+			json: async () => ({ content: [] }),
+		} as unknown as Response)
+		for (let essai = 0; essai < 3; essai += 1) {
+			const res = await worker.fetch(demande11(corps11(200)), env())
+			expect(`${essai} → ${res.status}`).toBe(`${essai} → 502`)
+			expect(res.headers.get('Content-Type')).toBe('application/json')
+			await expect(res.json()).resolves.toEqual({ erreur: 'amont' })
+		}
+	})
+
+	it('le preflight du onzieme role annonce POST : sans lui, l appel est refuse par le navigateur, en silence (KR-233)', async () => {
+		const res = await worker.fetch(new Request(URL_IA_11, { method: 'OPTIONS' }), env())
+
+		expect(res.status).toBe(204)
+		expect(res.headers.get('Access-Control-Allow-Methods')).toContain('POST')
+	})
+
+	it('le nominal rend la sortie du onzieme role TELLE QUELLE — meme non conforme, le worker ne valide ni ne repare rien', async () => {
+		// Délibérément NON conforme au schéma du client — un chiffre ET une clé EN TROP : la
+		// validation vit là où la donnée entre dans le dossier (KR-116), jamais ici.
+		const sortieBrute = '{"narration": "Tu frappes 5 fois.", "ton": "sec"}'
+		fetchAmont.mockResolvedValue(amontRendant(sortieBrute))
+
+		const res = await worker.fetch(demande11(corps11(300)), env())
+
+		expect(res.status).toBe(200)
+		expect(res.headers.get('Content-Type')).toBe('application/json')
+		await expect(res.text()).resolves.toBe(sortieBrute)
+	})
+
+	it('l invite part vers l amont avec max_tokens LU de l invite, jamais vers le client ; le protocole amont reste EPINGLE', async () => {
+		fetchAmont.mockResolvedValue(amontRendant(SORTIE_11))
+
+		const res = await worker.fetch(demande11(corps11(300)), env())
+
+		const [url, init] = fetchAmont.mock.calls[0] as [string, RequestInit]
+		expect(url).toBe('https://amont.invalid/messages')
+		expect((init.headers as Record<string, string>)['anthropic-version']).toBe('2023-06-01')
+		const envoye = JSON.parse(String(init.body)) as Record<string, unknown> & { system: string; max_tokens: number }
+		expect(Object.keys(envoye).sort()).toEqual(['max_tokens', 'messages', 'model', 'system'])
+		expect(envoye.system).toBe(INVITES[ROLE_11].systeme)
+		expect(envoye.max_tokens).toBe(INVITES[ROLE_11].max_tokens)
+		await expect(res.text()).resolves.not.toContain(INVITES[ROLE_11].systeme)
+	})
+
+	it('max_tokens du onzieme role : 400 + enveloppe de 17 = 417, au pire 700 jetons — sa COINCIDENCE avec acteur et relations est epinglee', () => {
+		const enveloppe = '{"narration": ""}'
+		const longueur = NARRATION_COMBAT_CARACTERES_MAX + enveloppe.length
+		expect(NARRATION_COMBAT_CARACTERES_MAX).toBe(400)
+		expect(enveloppe.length).toBe(17)
+		expect(longueur).toBe(417)
+		// L / r × 3, arrondi à la centaine supérieure : r = 3 ⇒ 500, r = 2 (PIRE) ⇒ 700.
+		expect(Math.ceil(((longueur / 3) * 3) / 100) * 100).toBe(500)
+		expect(Math.ceil(((longueur / 2) * 3) / 100) * 100).toBe(700)
+		expect(INVITES[ROLE_11].max_tokens).toBe(700)
+		// ⚠ LA COÏNCIDENCE, ÉPINGLÉE PLUTÔT QUE SUBIE : même valeur que `acteur` et que
+		// `personnage-relations`, par MESURE INDÉPENDANTE — écrit pour qu'on ne l'« harmonise » pas.
+		expect(INVITES[ROLE_11].max_tokens).toBe(INVITES['acteur'].max_tokens)
+		expect(INVITES[ROLE_11].max_tokens).toBe(INVITES['personnage-relations'].max_tokens)
+	})
+
+	it('l invite du onzieme role porte son gabarit, une seule forme, et ne contient AUCUN chiffre elle-meme', () => {
+		const systeme = INVITES[ROLE_11].systeme
+		const gabarit = '{"narration": "…"}'
+
+		expect(systeme).toContain(gabarit)
+		expect(systeme.split(gabarit)).toHaveLength(2)
+		expect(systeme).not.toContain(' ou {')
+		// Une invite qui interdit les nombres n'en récite aucun : ni chiffre, ni notation de dés.
+		expect(/\d/.test(systeme)).toBe(false)
+		expect(/\d/.test(`${systeme} 5`)).toBe(true)
+	})
+
+	it('l invite du onzieme role : voix a la deuxieme personne du singulier, pronom delegue au ton, JAMAIS VOIX_JOUEUR', () => {
+		const systeme = INVITES[ROLE_11].systeme
+
+		expect(systeme).toContain('à la deuxième personne du singulier et au présent')
+		// Le pronom est DÉLÉGUÉ au ton de l'aventure : l'invite ne fige ni le tutoiement ni le vouvoiement.
+		expect(systeme).toContain("Tu dis « tu » ou « vous » selon ce que le ton de l'aventure indique.")
+		// `VOIX_JOUEUR` (« au vouvoiement, au présent ») reste le monopole de R1/R3/R4 — plan it3 § 8 n° 7.
+		expect(systeme).not.toContain('au vouvoiement')
+		expect(INVITES['narrateur'].systeme).toContain('au vouvoiement, au présent')
+		expect(INVITES['acteur'].systeme).toContain('au vouvoiement, au présent')
+	})
+
+	it('l invite du onzieme role annonce la borne EN TOUTES LETTRES et ne finit jamais par une question', () => {
+		const systeme = INVITES[ROLE_11].systeme
+
+		// Le mot de la borne figure, et AUCUN autre nombre en toutes lettres de la famille ne s'y trouve :
+		// une invite qui annoncerait « huit cents » contredirait `validerCommentateur` en silence.
+		expect(NARRATION_COMBAT_CARACTERES_MAX).toBe(400)
+		expect(systeme).toContain('quatre cents caractères au plus')
+		for (const autre of [
+			'huit cents',
+			'cent vingt',
+			'six cents',
+			'deux cents',
+			'trois cents',
+			'deux au plus',
+			'trois au plus',
+		]) {
+			expect(`${autre} → ${systeme.includes(autre)}`).toBe(`${autre} → false`)
+		}
+		// La moitié SYMÉTRIQUE du prédicat (6) : la question finale est refusée par le validateur.
+		expect(systeme).toContain('jamais une question à la fin')
+		// Discriminants : chaque mot de ce balayage SERAIT détecté.
+		expect(`${systeme} huit cents`.includes('huit cents')).toBe(true)
+	})
+
+	it('l invite du onzieme role ne recite AUCUN verbe, libelle ni cle du registre des commandes (KR-270, derive de COMMANDES)', () => {
+		const basse = INVITES[ROLE_11].systeme.toLowerCase()
+
+		expect(MOTS_DU_REGISTRE.length).toBeGreaterThan(0)
+		expect(MOTS_DU_REGISTRE.filter((mot) => basse.includes(mot))).toEqual([])
+		// Discriminant : chaque mot SERAIT détecté s'il y était.
+		expect(MOTS_DU_REGISTRE.filter((mot) => `${basse} ${mot}`.includes(mot))).toEqual(MOTS_DU_REGISTRE)
+	})
+
+	it('l invite du onzieme role ne cite ni en-tete de bloc, ni mot reserve, ni code de caracteristique ou de tier, ni notation de des', () => {
+		const systeme = INVITES[ROLE_11].systeme
+		const basse = systeme.toLowerCase()
+
+		// Le modèle LIT `ASSAUT` et `canon.…`, il n'en apprend pas les noms (aucun rôle sauf `arbitre`
+		// ne cite un en-tête). « tour » est réservé au round de combat : aucune prose neuve ne le reprend.
+		const interdits = ['canon.', 'adversaire :', 'vainqueur :', 'coup :', 'état du héros', 'tour', 'audience']
+		expect(interdits.filter((mot) => basse.includes(mot))).toEqual([])
+		expect(interdits.filter((mot) => `${basse} ${mot}`.includes(mot))).toEqual(interdits)
+		// L'EN-TÊTE `ASSAUT` s'écrit en capitales : le MOT « assaut » est du français courant, et
+		// l'invite l'emploie légitimement (« un assaut de combat ») — un balayage sans la casse serait
+		// un FAUX POSITIF mesuré (KR-235). C'est le NOM DE BLOC, en capitales, qui est interdit.
+		expect(systeme).toContain('un assaut de combat')
+		expect(systeme).not.toContain('ASSAUT')
+		expect(`${systeme} ASSAUT`.includes('ASSAUT')).toBe(true)
+
+		const codes = [...CHARACTERISTIC_VALUES, ...CHALLENGE_TIER_VALUES]
+		expect(codes.filter((code) => new RegExp(`\\b${code}\\b`).test(systeme))).toEqual([])
+		expect(codes.filter((code) => new RegExp(`\\b${code}\\b`).test(`${systeme} ${code}`))).toEqual(codes)
+		expect(systeme).not.toContain('baseXp')
+	})
+
+	it('l invite du onzieme role interdit nombre et mots de regle, et dit que ce que la demande dit fait foi', () => {
+		const systeme = INVITES[ROLE_11].systeme
+
+		expect(systeme).toContain('Ce que la demande dit fait foi')
+		expect(systeme).toContain("Tu n'écris aucun nombre, ni en chiffres ni en toutes lettres")
+		expect(systeme).toContain('ni point de vie, ni dé, ni caractéristique, ni round')
+		// Le nom de l'adversaire est celui de la demande, et personne d'autre n'est nommé.
+		expect(systeme).toContain("Tu nommes l'adversaire tel que la demande le nomme")
+		expect(systeme).toContain("Tu respectes le ton de l'aventure et ses interdits de ton.")
 	})
 })

@@ -9,6 +9,7 @@ import {
 	CLES_SORTIE,
 	CLES_ENJEUX,
 	CLES_SORTIE_ACTEUR,
+	CLES_SORTIE_COMMENTATEUR,
 	CLES_SORTIE_DETENTEURS,
 	CLES_SORTIE_DISTRIBUTION,
 	CLES_SORTIE_NARRATEUR,
@@ -24,6 +25,7 @@ import {
 	FICHES_PROPOSEES_MAX,
 	GABARIT_SORTIE,
 	NARRATION_CARACTERES_MAX,
+	NARRATION_COMBAT_CARACTERES_MAX,
 	PRECISION_CARACTERES_MAX,
 	PROPOSITIONS_MAX,
 	RELATIONS_PROPOSEES_MAX,
@@ -37,6 +39,7 @@ import {
 	porteUnRang,
 	validerActeur,
 	validerArbitre,
+	validerCommentateur,
 	validerCondense,
 	validerDetenteurs,
 	validerDistribution,
@@ -47,6 +50,7 @@ import {
 	validerRelations,
 	validerRepliques,
 	validerSortie,
+	type MotifIllisible,
 } from './schemaSortie'
 import type {
 	ConstatRendu,
@@ -3606,5 +3610,217 @@ describe('validerActeur — la forme B resiste et le rang du (it4, KR-287/KR-283
 			validerActeur(repliqueA({ indices_reveles: ['S1'] }), dossier, rangsOuverts, { ...PERMIS, rangDu: 'S1' }).ok,
 		).toBe(true)
 		expect(validerActeur(resiste(), dossier, rangsOuverts, { ...PERMIS, rangDu: 'S1' }).ok).toBe(true)
+	})
+})
+
+/**
+ * `validerCommentateur` — LE ONZIÈME RÔLE (R5, n° 13 `moteur-combat`, it3, lot `contrat`,
+ * KR-296). NEUF PRÉDICATS, chacun prouvable SEUL, dans l'ordre de la docstring du validateur.
+ * Les CINQ CANARIS du plan (§ 7, désaccord n° 15 de la QA) — 400 → ok, 401 → ko, vide → ko,
+ * chiffre → ko, question finale → ko — sont les cinq premiers tests nommés ci-dessous : chacun
+ * est le SEUL test à porter sa propriété, et chacun a son contraire discriminant dans le même
+ * bloc (KR-197/199).
+ */
+describe('commentateur — validerCommentateur, neuf predicats de forme (KR-296, § 7 du plan it3)', () => {
+	const dossier = dossierDeReference()
+	const PHRASE = 'Ta lame glisse sur le cuir tendu du gobelin ; il riposte, et tu esquives de justesse.'
+	const sortie = (narration: unknown = PHRASE): Record<string, unknown> => ({ narration })
+
+	it('le nominal rend ok avec la prose TELLE QUELLE, sans re-resolution ni reparation', () => {
+		expect(validerCommentateur(sortie(), dossier)).toEqual({ ok: true, narration: PHRASE })
+		// Aucun `trim` : les blancs d'extrémité sont rendus tels quels (KR-230).
+		expect(validerCommentateur(sortie(`  ${PHRASE}\n`), dossier)).toEqual({ ok: true, narration: `  ${PHRASE}\n` })
+	})
+
+	it('accepte 400 car sans chiffre', () => {
+		expect(NARRATION_COMBAT_CARACTERES_MAX).toBe(400)
+		const juste = 'v'.repeat(NARRATION_COMBAT_CARACTERES_MAX)
+		expect(juste).toHaveLength(400)
+
+		expect(validerCommentateur(sortie(juste), dossier)).toEqual({ ok: true, narration: juste })
+	})
+
+	it('refuse 401 car', () => {
+		const trop = 'v'.repeat(NARRATION_COMBAT_CARACTERES_MAX + 1)
+		expect(trop).toHaveLength(401)
+
+		expect(validerCommentateur(sortie(trop), dossier)).toEqual({ ok: false, motif: 'schema' })
+		// Discriminant : la MÊME prose, à 400, passe — c'est bien la LONGUEUR qui refuse.
+		expect(validerCommentateur(sortie(trop.slice(0, -1)), dossier).ok).toBe(true)
+	})
+
+	it('refuse vide : la chaine vide, les blancs seuls, et ce qui n est que saut de ligne ou tabulation', () => {
+		for (const blanc of ['', ' ', '   ', '\n', '\t ', '\n\t \r\n']) {
+			expect({ blanc, ...validerCommentateur(sortie(blanc), dossier) }).toEqual({ blanc, ok: false, motif: 'vide' })
+		}
+		// Discriminant : un SEUL caractère visible suffit à passer ce prédicat.
+		expect(validerCommentateur(sortie('.'), dossier).ok).toBe(true)
+	})
+
+	it('refuse chiffre : tout chiffre ASCII, a toute position, refuse la sortie ENTIERE avec le motif schema', () => {
+		const cas = [
+			'Tu frappes 5 fois.',
+			'7 coups et tu tombes.',
+			'Il ne te reste que 3',
+			'La lame de TC2 siffle.',
+			'Tu perds 12 points de vie.',
+			'Round 4 : tu esquives.',
+			'a0b',
+			'tu avances9',
+		]
+		for (const narration of cas) {
+			expect({ narration, ...validerCommentateur(sortie(narration), dossier) }).toEqual({
+				narration,
+				ok: false,
+				motif: 'schema',
+			})
+		}
+		// Discriminants : le CHIFFRE EN LETTRES n'est pas un chiffre pour ce prédicat (il relève de
+		// l'invite, KR-229), et la même phrase sans chiffre passe.
+		expect(validerCommentateur(sortie('Sept coups te font plier, puis tu te redresses.'), dossier).ok).toBe(true)
+		expect(validerCommentateur(sortie('Tu frappes fois.'), dossier).ok).toBe(true)
+	})
+
+	it('refuse chiffre : le motif est schema, JAMAIS identifiant, et MotifIllisible ne gagne aucun membre', () => {
+		// `validerArbitre`/`validerActeur` rangent le chiffre sous `identifiant` ; ICI c'est `schema`
+		// (plan it3 : « motif schema existant »). Les deux motifs sont constatés, pas supposés.
+		expect(validerCommentateur(sortie('Tu frappes 5 fois.'), dossier)).toEqual({ ok: false, motif: 'schema' })
+		expect(
+			validerActeur({ replique: 'Tu frappes 5 fois.', indices_reveles: [], delta_confiance: 0 }, dossier, new Set()),
+		).toEqual({ ok: false, motif: 'identifiant' })
+		// Le registre des motifs est EXHAUSTIF par compilation : un membre ajouté ou retiré rougit `tsc`.
+		const MOTIFS: Record<MotifIllisible, true> = {
+			schema: true,
+			vide: true,
+			marqueur: true,
+			identifiant: true,
+			'rang-inconnu': true,
+		}
+		expect(Object.keys(MOTIFS)).toHaveLength(5)
+	})
+
+	it('refuse chiffre : equivalence EXACTE avec la classe \\d sur les 1024 premiers points de code et les chiffres d autres ecritures', () => {
+		// `\d` ne couvre QUE `[0-9]` — jamais les chiffres arabes ni pleine chasse. Constaté sur un
+		// balayage, pas affirmé : le validateur et `/\d/` disent la même chose sur chaque caractère.
+		const autres = [0x0660, 0x0669, 0x06f0, 0x0966, 0xff10, 0xff19, 0x2460, 0x2166]
+		let compte = 0
+		for (const point of [...Array.from({ length: 1024 }, (_, rang) => rang), ...autres]) {
+			const caractere = String.fromCodePoint(point)
+			if (caractere === '?' || caractere.trim() === '') continue
+			const narration = `Tu frappes ${caractere} fois.`
+			const attendu = /\d/.test(caractere)
+			expect(`${point} → ${validerCommentateur(sortie(narration), dossier).ok}`).toBe(`${point} → ${!attendu}`)
+			compte += 1
+		}
+		expect(compte).toBeGreaterThan(900)
+		// Discriminants : '5' est refusé, '٣' (chiffre arabe) ne l'est pas.
+		expect(validerCommentateur(sortie('Tu frappes 5 fois.'), dossier).ok).toBe(false)
+		expect(validerCommentateur(sortie('Tu frappes ٣ fois.'), dossier).ok).toBe(true)
+	})
+
+	it('refuse question finale : un point d interrogation en derniere position, meme suivi de blancs', () => {
+		for (const narration of ['Tu frappes ?', 'Tu frappes ?  ', 'Tu frappes ?\n', 'Qui frappe en premier ?\t']) {
+			expect({ narration, ...validerCommentateur(sortie(narration), dossier) }).toEqual({
+				narration,
+				ok: false,
+				motif: 'schema',
+			})
+		}
+		// Discriminants : un « ? » AU MILIEU passe, et la même phrase finie par un point passe.
+		expect(validerCommentateur(sortie('Qui ? Toi. Tu frappes.'), dossier).ok).toBe(true)
+		expect(validerCommentateur(sortie('Tu frappes.'), dossier).ok).toBe(true)
+	})
+
+	it('1 — ce qui n est pas un objet JSON est refuse, motif schema', () => {
+		for (const brut of [null, undefined, [], [{ narration: PHRASE }], PHRASE, 42, true]) {
+			expect({ brut, ...validerCommentateur(brut, dossier) }).toEqual({ brut, ok: false, motif: 'schema' })
+		}
+	})
+
+	it('2 — les cles valent EXACTEMENT CLES_SORTIE_COMMENTATEUR : une cle en trop OU manquante est un refus (KR-236)', () => {
+		expect(CLES_SORTIE_COMMENTATEUR).toEqual(['narration'])
+		const cas: Array<Record<string, unknown>> = [
+			{},
+			{ texte: PHRASE },
+			{ recit: PHRASE },
+			{ narration: PHRASE, tentatives: [] },
+			{ narration: PHRASE, ton: 'sec' },
+			{ narration: PHRASE, narration2: PHRASE },
+		]
+		for (const brut of cas) {
+			expect({ brut, ...validerCommentateur(brut, dossier) }).toEqual({ brut, ok: false, motif: 'schema' })
+		}
+	})
+
+	it('3 — narration porte une CHAINE, jamais repechee : ni nombre, ni tableau, ni objet, ni null', () => {
+		for (const brut of [sortie(42), sortie(null), sortie([PHRASE]), sortie({ texte: PHRASE }), sortie(true)]) {
+			expect(validerCommentateur(brut, dossier)).toEqual({ ok: false, motif: 'schema' })
+		}
+	})
+
+	it('7 — aucun MARQUEUR_A_ECRIRE, motif marqueur', () => {
+		expect(validerCommentateur(sortie(`Tu frappes ${MARQUEUR_A_ECRIRE} fort.`), dossier)).toEqual({
+			ok: false,
+			motif: 'marqueur',
+		})
+	})
+
+	it('8 — aucun identifiant du dossier, motif identifiant', () => {
+		expect(validerCommentateur(sortie('Tu prends le objet.sceau-de-cendre, vite.'), dossier)).toEqual({
+			ok: false,
+			motif: 'identifiant',
+		})
+		// Discriminant : un mot de la forme d'un identifiant mais ABSENT du dossier est de la prose.
+		expect(validerCommentateur(sortie('Il dit: Enfin.tout est pret.'), dossier).ok).toBe(true)
+	})
+
+	it('l ordre des predicats est celui de la docstring : le plus precis gagne sur le chiffre', () => {
+		// Un marqueur ET un chiffre → `marqueur` ; un identifiant ET un chiffre → `identifiant` ; une
+		// question finale ET un chiffre → `schema` (le même motif, mais le chiffre n'est pas lu en
+		// premier : preuve par l'ordre des deux premiers).
+		expect(validerCommentateur(sortie(`Tu frappes 5 fois ${MARQUEUR_A_ECRIRE}.`), dossier)).toEqual({
+			ok: false,
+			motif: 'marqueur',
+		})
+		expect(validerCommentateur(sortie('Tu prends le objet.sceau-de-cendre 5 fois.'), dossier)).toEqual({
+			ok: false,
+			motif: 'identifiant',
+		})
+		// Le vide l'emporte sur tout : une chaîne de blancs n'a pas de chiffre à chercher.
+		expect(validerCommentateur(sortie('   '), dossier)).toEqual({ ok: false, motif: 'vide' })
+		// La longueur l'emporte sur le chiffre, la question et le reste : motif schema dans tous les cas.
+		expect(validerCommentateur(sortie(`${'v'.repeat(NARRATION_COMBAT_CARACTERES_MAX)}5`), dossier)).toEqual({
+			ok: false,
+			motif: 'schema',
+		})
+	})
+
+	it('chaque refus est un refus de la sortie ENTIERE : aucune narration n est rendue sur un echec', () => {
+		for (const brut of [sortie(''), sortie('5'), sortie('?'), sortie(`${MARQUEUR_A_ECRIRE}`), sortie(42), null]) {
+			expect('narration' in validerCommentateur(brut, dossier)).toBe(false)
+		}
+	})
+
+	it('aucune reparation : le corps de validerCommentateur ne coupe, ne remplace et ne reformate rien (KR-230)', () => {
+		const corps = corpsDe(codeSansCommentaires(), 'validerCommentateur')
+
+		expect(corps.length).toBeGreaterThan(300)
+		// `.trim()` n'apparaît que dans les DEUX constats de vide / de question finale (`trimEnd`), jamais
+		// pour réécrire la prose : la valeur rendue est la variable `narration` elle-même.
+		for (const interdit of ['.slice(', '.substring(', '.replace(', '.padEnd(', '.toLowerCase(', 'String(']) {
+			expect(`${interdit} → ${corps.includes(interdit)}`).toBe(`${interdit} → false`)
+		}
+		expect(corps).toContain('return { ok: true, narration }')
+	})
+
+	it('le marqueur n a qu un porteur : le validateur IMPORTE MARQUEUR_A_ECRIRE, jamais le glyphe (KR-223)', () => {
+		const corps = corpsDe(codeSansCommentaires(), 'validerCommentateur')
+
+		expect(corps).toContain('MARQUEUR_A_ECRIRE')
+		expect(corps).not.toContain(MARQUEUR_A_ECRIRE)
+	})
+
+	it('GABARIT_SORTIE (RoleCopilote) ne porte PAS commentateur — ce role n est pas de la famille auteur', () => {
+		expect(Object.prototype.hasOwnProperty.call(GABARIT_SORTIE, 'commentateur')).toBe(false)
 	})
 })

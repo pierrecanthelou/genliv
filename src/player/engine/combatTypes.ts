@@ -7,6 +7,12 @@ import type { CreatureType, GameObject } from '../../brain/types'
 import type { MonsterCapacityId } from '../../brain/monsterCapacities'
 import type { Tier } from '../../brain/xp'
 
+export interface AssautRound {
+	readonly round: number
+	readonly vainqueur: 'heros' | 'monstre' | 'nul'
+	readonly qualite: HitQuality | null
+}
+
 export type CombatOutcome =
 	| 'ongoing'
 	| 'hero-victory' // monster PV = 0
@@ -102,4 +108,5 @@ export interface CombatState {
 	pendingEnMaxDelta: number
 	pendingPvMaxDelta: number
 	pendingVol: boolean
+	readonly dernierAssaut?: AssautRound
 }

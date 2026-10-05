@@ -1,8 +1,15 @@
 import fs from 'fs'
 import path from 'path'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createBrain, BrainProvider, dossierSessionKey, type Brain, type Dossier, type EtatSession } from '../../../brain'
+import {
+	createBrain,
+	BrainProvider,
+	dossierSessionKey,
+	type Brain,
+	type Dossier,
+	type EtatSession,
+} from '../../../brain'
 import { EcranPartie } from '../components/EcranPartie'
 import { terminerCreationHeros } from './creerHerosDeTest'
 
@@ -50,8 +57,15 @@ async function monterPartieAvecCombat(
 }
 
 describe('la console ALLER ouvre un combat quand un evenement a monstre_ref est declenche', () => {
+	const _originalFetch = global.fetch
+
 	beforeEach(() => {
 		window.localStorage.clear()
+	})
+
+	afterEach(() => {
+		global.fetch = _originalFetch
+		jest.restoreAllMocks()
 	})
 
 	it('EcranCombat monte et la console disparait apres ALLER vers un lieu de rencontre', async () => {
@@ -105,5 +119,80 @@ describe('la console ALLER ouvre un combat quand un evenement a monstre_ref est 
 		expect(apresContinuer?.combat).toBeUndefined()
 		expect(apresContinuer?.monde?.lieu_courant).toBe(lieuAvant)
 		expect(apresContinuer?.heros?.xp).toBe(xpAvant)
+	})
+
+	it('fuite ne déclenche jamais un appel R5 (KR-297)', async () => {
+		const calls: string[] = []
+		global.fetch = jest.fn(((url: RequestInfo | URL) => {
+			const urlStr = typeof url === 'string' ? url : ''
+			calls.push(urlStr)
+			if (urlStr.includes('/ia/commentateur')) {
+				return Promise.resolve({
+					ok: true,
+					status: 200,
+					json: () => Promise.resolve({ narration: 'La lame siffle dans le vent.' }),
+				})
+			}
+			return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) })
+		}) as typeof fetch) as typeof global.fetch
+
+		const user = userEvent.setup()
+		const { brain } = await monterPartieAvecCombat(user)
+		brain.cloudSettings.setWorkerUrl('https://mock.workers.dev')
+		brain.cloudSettings.setSyncKey('test-key')
+
+		await user.type(screen.getByLabelText('CONSOLE'), 'ALLER lieu.tour-effondree{Enter}')
+		expect(screen.getByText('COMBAT')).toBeInTheDocument()
+
+		await user.click(screen.getByRole('button', { name: /Jouer le round/ }))
+		await waitFor(() => {
+			expect(calls.filter((u) => u.includes('/ia/commentateur')).length).toBeGreaterThan(0)
+		})
+		await waitFor(() => {
+			expect(screen.getByText('La lame siffle dans le vent.')).toBeInTheDocument()
+		})
+
+		calls.length = 0
+		await user.click(screen.getByRole('button', { name: /Fuir le combat/ }))
+
+		expect(screen.getByText('FUITE')).toBeInTheDocument()
+		const commentateurCalls = calls.filter((u) => u.includes('/ia/commentateur'))
+		expect(commentateurCalls).toHaveLength(0)
+	})
+
+	it('session persistée ne contient ni narration ni dernierAssaut (KR-292)', async () => {
+		global.fetch = jest.fn(((url: RequestInfo | URL) => {
+			const urlStr = typeof url === 'string' ? url : ''
+			if (urlStr.includes('/ia/commentateur')) {
+				return Promise.resolve({
+					ok: true,
+					status: 200,
+					json: () => Promise.resolve({ narration: 'La lame siffle dans le vent.' }),
+				})
+			}
+			return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) })
+		}) as typeof fetch) as typeof global.fetch
+
+		const user = userEvent.setup()
+		const { brain, dossier } = await monterPartieAvecCombat(user)
+		brain.cloudSettings.setWorkerUrl('https://mock.workers.dev')
+		brain.cloudSettings.setSyncKey('test-key')
+
+		await user.type(screen.getByLabelText('CONSOLE'), 'ALLER lieu.tour-effondree{Enter}')
+		expect(screen.getByText('COMBAT')).toBeInTheDocument()
+
+		await user.click(screen.getByRole('button', { name: /Jouer le round/ }))
+		await waitFor(() => {
+			expect(screen.getByText('La lame siffle dans le vent.')).toBeInTheDocument()
+		})
+
+		const sessionApres = brain.persistence.get<EtatSession>(dossierSessionKey(dossier.id))
+		expect(sessionApres?.combat).toBeDefined()
+		const combatKeys = Object.keys(sessionApres!.combat!)
+		expect(combatKeys.every((k) => ['monstre_ref', 'postures', 'fuite'].includes(k))).toBe(true)
+		expect(sessionApres).not.toHaveProperty('narrations')
+		expect(sessionApres).not.toHaveProperty('commentaires')
+		expect(sessionApres?.combat).not.toHaveProperty('dernierAssaut')
+		expect(JSON.stringify(sessionApres)).not.toContain('La lame siffle dans le vent.')
 	})
 })

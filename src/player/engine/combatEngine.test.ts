@@ -349,3 +349,83 @@ describe('tryHeroFlee', () => {
 		expect(next.phase).toBe('ended')
 	})
 })
+
+// ─── dernierAssaut (R5 narration) ───────────────────────────────────────────
+
+describe('resolveCombatRound — dernierAssaut', () => {
+	it('sets dernierAssaut on every resolved round', () => {
+		let state = startCombat(baseMonster, baseHero, baseSession)
+		// Play multiple rounds with deterministic RNG
+		const rng = () => 0.5
+		for (let i = 0; i < 5; i++) {
+			state = resolveCombatRound(state, baseHero, baseSession, 'defensive', rng)
+			// After each resolution, dernierAssaut is always set
+			expect(state.dernierAssaut).toBeDefined()
+			expect(['heros', 'monstre', 'nul']).toContain(state.dernierAssaut?.vainqueur)
+			if (state.dernierAssaut?.vainqueur === 'nul') {
+				expect(state.dernierAssaut.qualite).toBeNull()
+			} else {
+				expect(['rate', 'erafle', 'franc', 'magistral', 'critique']).toContain(state.dernierAssaut?.qualite)
+			}
+			if (state.outcome !== 'ongoing') break
+		}
+	})
+
+	it('includes round number in dernierAssaut', () => {
+		let state = startCombat(baseMonster, baseHero, baseSession)
+		const rng = () => 0.1
+		state = resolveCombatRound(state, baseHero, baseSession, 'precise', rng)
+
+		expect(state.dernierAssaut?.round).toBe(1)
+
+		// Play another round
+		if (state.outcome === 'ongoing') {
+			state = resolveCombatRound(state, baseHero, baseSession, 'precise', rng)
+			expect(state.dernierAssaut?.round).toBe(2)
+		}
+	})
+
+	it('dernierAssaut defini quand fureur tue le heros (hero-mort via onMonsterAt0PV)', () => {
+		// Monster mc=11 vs hero mc=9 : le héros gagne le round (rng favorable)
+		// puis le monstre gagne l'assaut-fureur Normale(11) vs Défensive(9+1=10).
+		const orque: MonsterConfig = {
+			name: 'Orque Furieux',
+			pv: 1,
+			stats: { FO: 12, AG: 3, DX: 3, EN: 10, IG: 2 },
+			mc: 11,
+			armour: 0,
+			weaponMultiplier: 2,
+			tier: 3,
+			creatureType: 'humanoide',
+			capacity: 'fureur',
+			outcomes: { reussite: '', echec: '' },
+		}
+		const weakHero: HeroState = {
+			...baseHero,
+			pvMax: 3,
+			pv: 1,
+			caracs: { ...baseHero.caracs, CA: 1 },
+			mcBonus: 5,
+		}
+		const state = startCombat(orque, weakHero, baseSession)
+		// pickPosture(0.5→normale) heroAT(0.0→9) monsterAT(0.99→5) fureurMonsterAT(0.0→11) fureurHeroAT(0.0→10)
+		const rng = seqRng([0.5, 0.0, 0.99, 0.0, 0.0])
+		const next = resolveCombatRound(state, weakHero, baseSession, 'normale', rng)
+		expect(next.outcome).toBe('hero-mort')
+		expect(next.log.some((l) => l.text.includes('Fureur'))).toBe(true)
+		expect(next.dernierAssaut).toBeDefined()
+		expect(next.dernierAssaut?.vainqueur).toBe('heros')
+	})
+
+	it('tryHeroFlee efface dernierAssaut', () => {
+		let state = startCombat(baseMonster, baseHero, baseSession)
+		const rng = () => 0.1
+		state = resolveCombatRound(state, baseHero, baseSession, 'precise', rng)
+		expect(state.dernierAssaut).toBeDefined()
+
+		state = tryHeroFlee(state, baseHero, baseSession, rng)
+
+		expect(state.dernierAssaut).toBeUndefined()
+		expect(state.outcome).toBe('hero-fled')
+	})
+})

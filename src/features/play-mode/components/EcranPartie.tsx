@@ -27,7 +27,7 @@ import { ConsoleCommandes } from './ConsoleCommandes'
 import { PlayerInputBar } from './PlayerInputBar'
 import { JournalRow } from './JournalRow'
 import { CarteJet } from './CarteJet'
-import { EcranCombat } from './EcranCombat'
+import { CombatEnCours } from './CombatEnCours'
 import { rejouerCombat, bilanDe, ouvrirRencontreSiDue } from '../../../player/engine/rencontre'
 import type { Posture } from '../../../brain/combat'
 
@@ -186,9 +186,10 @@ function PartieEnCours({
 		return result.ok ? result.etat : null
 	}, [session])
 
-	const handleJouerRound = (posture: Posture) => {
+	const handleJouerRound = (posture: Posture): EtatSession => {
 		const newSession = jouerPosture(session, posture)
 		setSession(newSession)
+		return newSession
 	}
 
 	const handleFuir = () => {
@@ -276,7 +277,9 @@ function PartieEnCours({
 				<div style={colonneLecture}>
 					{/* COMBAT EN COURS — remplace la console et le journal pendant le combat. */}
 					{combatRejeu ? (
-						<EcranCombat
+						<CombatEnCours
+							dossier={dossier}
+							session={session}
 							etat={combatRejeu}
 							onJouer={handleJouerRound}
 							onFuir={handleFuir}

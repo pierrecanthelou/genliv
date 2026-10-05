@@ -141,6 +141,7 @@ const GABARIT_SORTIE: Record<string, string> = {
 		'{"epreuve": {"carac": "FO", "tc": "TC2", "enjeu_reussite": "…", "enjeu_echec": "…"}} ou {"sans_epreuve": true}',
 	acteur:
 		'{"replique": "…", "indices_reveles": ["S1"], "delta_confiance": 1} ou {"replique": "…", "indices_reveles": [], "delta_confiance": 0} ou {"resiste": {"enjeu_reussite": "…", "enjeu_echec": "…"}}',
+	commentateur: '{"narration": "…"}',
 }
 
 /**
@@ -912,6 +913,71 @@ export const INVITES: Record<string, { systeme: string; max_tokens: number }> = 
 		// confiance n'est modifiée.
 		max_tokens: 700,
 	},
+	/**
+	 * LE ONZIÈME RÔLE — `commentateur` (R5, n° 13 `moteur-combat`, it3), ET LE QUATRIÈME (après
+	 * `narrateur`, `arbitre`, `acteur`) DONT LA PROSE ATTEINT LE JOUEUR SANS RELECTURE D'AUTEUR :
+	 * le commentaire s'affiche VERBATIM sous le round. Il ne décide RIEN — ni qui touche, ni de
+	 * combien, ni la fin du combat : le moteur a déjà résolu l'assaut, et le modèle le met en mots.
+	 *
+	 * SIX DÉCISIONS D'ÉCRITURE, à ne pas « corriger » :
+	 *
+	 *  1. LA VOIX N'EST PAS `VOIX_JOUEUR` (« au vouvoiement, au présent ») : le plan it3 (§ 3,
+	 *     § 8 n° 7) retient la DEUXIÈME PERSONNE DU SINGULIER, et le pronom — « tu » ou « vous » —
+	 *     est DÉLÉGUÉ au ton de l'aventure, que la demande porte quand l'auteur l'a écrit. Figer
+	 *     le vouvoiement ici contredirait un ton qui tutoie. Les trois autres rôles de jeu
+	 *     gardent `VOIX_JOUEUR`, intacte.
+	 *  2. « CE QUE LA DEMANDE DIT FAIT FOI » : un commentaire qui raconte une capacité, un
+	 *     poison ou une fuite que le moteur n'a pas écrits fait toucher l'état au modèle PAR LA
+	 *     PROSE. AUCUN VALIDATEUR NE PEUT LE CONSTATER (KR-229) : l'invite est le seul endroit
+	 *     qui reste pour le dire. La capacité du monstre n'est d'ailleurs PAS dans la demande
+	 *     (aucun producteur, KR-285).
+	 *  3. AUCUN NOMBRE, AUCUN MOT DE RÈGLE : le validateur refuse tout chiffre (`/\d/`, KR-296),
+	 *     mais il ne peut pas constater « sept coups » ni « points de vie » — l'invite le dit
+	 *     donc EN PLUS, jamais à la place. Le mot « tour » n'y figure pas, comme aux autres rôles.
+	 *  4. « QUATRE CENTS CARACTÈRES AU PLUS » figure EN TOUTES LETTRES, EN PLUS du contrat :
+	 *     `NARRATION_COMBAT_CARACTERES_MAX` est la FORME DE LA RÉPONSE ATTENDUE, même statut que
+	 *     `max_tokens`. L'invite persuade, le validateur décide ; `worker/frontiere.test.ts` lie
+	 *     le mot à la constante (aucun import `worker/` → `src/` en production).
+	 *  5. « ne finit jamais par une question » est la moitié SYMÉTRIQUE du prédicat (6) de
+	 *     `validerCommentateur` : aucune attente n'est posée par ce rôle, le joueur ne répond pas.
+	 *  6. AUCUN EXEMPLE DE PHRASE : une phrase d'exemple serait RECOPIÉE d'un round à l'autre, et
+	 *     elle fixerait « tu » alors que le pronom est délégué au ton. Les en-têtes de blocs
+	 *     (`ASSAUT`, `canon.…`) ne sont pas cités non plus — le modèle les lit, il n'a pas à en
+	 *     apprendre les noms.
+	 *
+	 * CE QU'ELLE N'A PAS LE DROIT DE RÉCITER — balayé par `worker/index.test.ts`, liste DÉRIVÉE de
+	 * `COMMANDES` (KR-270) : aucun verbe, libellé ni clé du registre des commandes · aucun
+	 * identifiant · la règle du pas, et LE MOT « TOUR » · les en-têtes de blocs du contexte · un
+	 * autre rôle · la capacité d'un monstre, ses seuils, ses chiffres.
+	 */
+	commentateur: {
+		systeme: [
+			'Tu commentes, pour le joueur, un assaut de combat que le moteur vient de résoudre, dans un livre-jeu.',
+			"La demande te donne le ton de l'aventure, puis ce qui vient de se passer : qui affronte le héros, qui a eu le dessus, quel coup a porté, dans quel état sont les deux combattants, et la fin du combat quand ce coup la provoque.",
+			'',
+			`Tu réponds par un objet JSON et rien d'autre, de la forme ${GABARIT_SORTIE.commentateur} : aucune autre clé, aucun commentaire, aucun texte avant ou après.`,
+			'',
+			"La NARRATION s'adresse au héros, à la deuxième personne du singulier et au présent, comme une scène vécue : deux ou trois phrases courtes, quatre cents caractères au plus, et jamais une question à la fin.",
+			"Tu dis « tu » ou « vous » selon ce que le ton de l'aventure indique.",
+			"Ce que la demande dit fait foi : tu ne racontes ni capacité ni effet particulier, ni blessure plus grave que l'état décrit, ni fuite, ni mort que la fin du combat n'annonce pas.",
+			"Tu n'écris aucun nombre, ni en chiffres ni en toutes lettres, et aucun mot de règle du jeu : ni point de vie, ni dé, ni caractéristique, ni round.",
+			"Tu nommes l'adversaire tel que la demande le nomme, et tu ne donnes de nom à personne d'autre.",
+			"Tu respectes le ton de l'aventure et ses interdits de ton.",
+			"Tu n'écris jamais d'identifiant, jamais de seuil ni de règle de jeu, jamais le nom d'un champ.",
+		].join('\n'),
+		// DÉRIVÉ, jamais recopié — et ⚠ IL COÏNCIDE AVEC `personnage-relations` ET `acteur` (700),
+		// par mesure INDÉPENDANTE : il faut le DIRE, sinon un relecteur croira à une recopie.
+		// MESURE DU 2026-10-05 : aucune prose attestée n'existe pour ce rôle (le commentaire est
+		// ENTIÈREMENT généré, jamais copié d'une fixture) — P EST donc la borne de sortie,
+		// `NARRATION_COMBAT_CARACTERES_MAX` = 400 (`schemaSortie.ts`, borne DE DÉCISION). Enveloppe
+		// `{"narration": ""}` = 17 ⇒ L = 417 ; jetons = L/r × 3, arrondi à la centaine
+		// supérieure — r=3 ⇒ 417 ⇒ 500, r=2 (PIRE) ⇒ 625,5 ⇒ 700.
+		// ⚠ LE RÉSULTAT DÉPEND DU RATIO (500 contre 700) : on prend le pire, ET ON LE DIT.
+		// MODE D'ÉCHEC NOMMÉ : un commentaire très long ferait TRONQUER le JSON ⇒ refus `schema`
+		// côté client ⇒ nouvel essai ⇒ silence. C'est le BON échec — aucun texte n'est réparé,
+		// aucun repli n'est écrit par le code (KR-230/283).
+		max_tokens: 700,
+	},
 }
 
 /**
@@ -1112,6 +1178,17 @@ export const INVITES: Record<string, { systeme: string; max_tokens: number }> = 
  *             l'aurait pas déplacé (ceil((3 × 6330 + 2035) / 1024) × 1024 = 21 504).
  * `max` sur les NEUF rôles À BUDGET RESTE 83 968, TOUJOURS porté par `narrateur` — RE-CALCULÉ,
  * jamais supposé inchangé : 22 528 reste bien trop étroit pour menacer ce porteur.
+ *
+ * MESURE DU 2026-10-05, n° 13 `moteur-combat` it3 — LE ONZIÈME RÔLE PASSÉ EN REVUE, et ⚠
+ * « INCHANGÉ » EST ENCORE UNE MESURE :
+ *   `commentateur` — squelette 37 o + invite 1352 o ⇒ E = 1389 ; budget client
+ *                    `BUDGET_CARACTERES_COMMENTATEUR` = 1218 (`contexte/commentateur.ts` — terme
+ *                    dossier 1000 MESURÉ×3, M = 85 ; séparateur 2 ; terme projection 216
+ *                    CALCULÉ EXACTEMENT sur les tables de mots fermées et le bestiaire) ;
+ *                    ceil((3 × 1218 + 1389) / 1024) × 1024 = 5 120.
+ * `max` sur les DIX rôles À BUDGET RESTE 83 968, TOUJOURS porté par `narrateur` — RE-CALCULÉ,
+ * jamais supposé inchangé : le commentateur est le PLUS ÉTROIT des dix (un seul round, aucune
+ * mémoire), 5 120 est très loin de ce porteur.
  */
 export const TAILLE_MAX_CORPS_IA = 83_968
 
