@@ -108,9 +108,20 @@ import type { EtatSession } from '../session'
  * y est démontré sur deux entrées, comme pour `confiance`. VALEUR NON DÉFAUT (`rang: 1`,
  * jamais `0`) : ABSENT ≡ `rang: 0` (`docs/REGLES-PLAY.md` § J2), donc une sentinelle à
  * `0` serait indistinguable d'un champ jamais écrit — même doctrine que `confiance: 2`.
- * Seule la clé `rang` est instanciée : `depuis` n'existe pas encore (KR-249). Sans
- * instance, la ligne `monde.pnj.<id>.etape_plan.rang` de la table serait MORTE le jour
- * même où elle est écrite.
+ * Sans instance, la ligne `monde.pnj.<id>.etape_plan.rang` de la table serait MORTE le
+ * jour même où elle est écrite.
+ *
+ * `depuis` INSTANCIÉ depuis le lot `contrat` de la n° 14 (`moteur-horloge`, it2), DANS LE
+ * MÊME OBJET `etape_plan` que `rang` — c'est l'écriture d'UN avancement, les deux clés
+ * ensemble (`docs/REGLES-PLAY.md` § J2, règle 6). VALEUR NON DÉFAUT (`12`, jamais `0`) ET
+ * DISTINCTE DE `horloge.tour` (`17`) : le pas où le personnage est entré dans son étape
+ * courante est un pas PASSÉ (`depuis ≤ horloge.tour` est la seule relation que le produit
+ * puisse écrire), et une sentinelle égale au pas courant ferait passer pour « avancé à ce
+ * pas » un personnage que la partie a laissé en place depuis cinq pas. `pnj.corvin-le-marchand`
+ * reste SANS `etape_plan` : « sans `depuis` » y est démontré par ABSENCE de l'objet, et
+ * « `rang` sans `depuis` » (la forme de 0.7.21) l'est par le TYPE, dans
+ * `sessionCouverture.test.ts`. Sans instance, la ligne
+ * `monde.pnj.<id>.etape_plan.depuis` de la table serait MORTE le jour même où elle est écrite.
  *
  * `heros` INSTANCIÉ depuis le lot `contrat` de la n° 11 (`moteur-arbitre`, it1) —
  * SENTINELLE délibérément NON DÉFAUT sur les trois axes que l'invariance de
@@ -152,7 +163,7 @@ export const SESSION_SATUREE: EtatSession = {
 		jalons_atteints: ['jalon.premiere-nuit'],
 		evenements_consommes: ['evenement.embuscade-du-fanal'],
 		pnj: {
-			'pnj.aldur-le-sage': { a_dit: ['indice.sceau-brise'], confiance: 2, etape_plan: { rang: 1 } },
+			'pnj.aldur-le-sage': { a_dit: ['indice.sceau-brise'], confiance: 2, etape_plan: { rang: 1, depuis: 12 } },
 			'pnj.corvin-le-marchand': { a_dit: ['indice.cendres-tiedes'] },
 		},
 	},

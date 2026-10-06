@@ -158,7 +158,7 @@ Le Temps 2 ne commence qu'une fois le § 2 bis clos, sur go explicite. `0.7.x`.
 | 11 | `moteur-arbitre` | …voir le code lancer le dé que l'IA a demandé | 3 | **3/3, TERMINÉE** — it1 livrée (`0.7.10`), it2 livrée (`0.7.11`), it3 livrée (`0.7.12`) | 5 rôles | 10 · **B2** |
 | 12 | `moteur-acteurs` | …parler à un PNJ qui ne révèle que ce qu'il sait | 4 | **4/4, TERMINÉE** | 5 rôles | 11 |
 | 13 | `moteur-combat` | …lire un combat raconté que l'IA n'arbitre pas | 3 | **3/3, TERMINÉE** — it3 livrée (`0.7.20`) | 5 rôles | 11 |
-| 14 | `moteur-horloge` | …découvrir que le monde a avancé sans lui | 3 | **1/3** — it1 livrée (`0.7.21`) | 5 rôles | 12 |
+| 14 | `moteur-horloge` | …découvrir que le monde a avancé sans lui | 4 | **2/4** — it2 livrée (`0.7.22`) | 5 rôles | 12 |
 | 15 | `moteur-fins` | …reprendre sa partie là où il l'a laissée | 3 | — | 5 rôles | 14 |
 | 16 | `dossier-repetition` | *(auteur)* …faire jouer son aventure par un joueur synthétique | 2 | — | 5 rôles | 10 · 7 |
 
@@ -172,7 +172,7 @@ Le Temps 2 ne commence qu'une fois le § 2 bis clos, sur go explicite. `0.7.x`.
 
 **13 · `moteur-combat`** — **petit lot** : `combatEngine.ts` fait déjà tout. L'IA commente chaque round en 2–3 phrases à partir du log d'assaut, gère la sortie de combat. Une capacité spéciale de monstre reste du code, jamais une consigne de prompt. **Vérifier `combatEngine.ts` avant de spécifier** le choix de posture du monstre « selon sa capacité et son IG » : c'est peut-être déjà fait.
 
-**14 · `moteur-horloge`** — **1/3**, cadrée le 2026-10-05. **It1 livrée** (0.7.21) : `tickHorloge` pur, déclencheur seul. `EtatPnj.etape_plan?: {rang}` (absent ≡ 0, KR-013/298). Durée/depuis/bloqué/minuterie reportés it2 (veto PM, KR-249). It2 : résumé perceptible R3 + bandeau PAS #n + durée/depuis/bloqué (bloc indissociable, NIA). It3 : climat actif (effets ensemblistes, extinction par durée, absorbe extraction `sessionCombat.ts`). **Rend enfin vrai le § 09 du plan de cible** : `Climat.effets_regles` reçoit son instant d'application et son idempotence, `horloge.climat_actif` est un état de SESSION (KR-207/301). **REPORTÉS hors n°14** (cadrage, veto PM) : transfert d'indices entre PNJ co-localisés, armement des contre-mesures, modificateurs numériques PE/jets (KR-208).
+**14 · `moteur-horloge`** — **2/4**. **It1** (0.7.21) : `tickHorloge` pur, déclencheur seul, `EtatPnj.etape_plan?: {rang}` (absent ≡ 0, KR-013/298). **It2** (0.7.22) : `depuis` écrit à l'avancement + bloc PENDANT CE TEMPS (R3) pour les PNJ présents ayant avancé, budget 6000→7000, max 83968→87040. It3 : durée + bloqué + `si_bloque` + ligne journal bloquée. It4 : climat actif (effets ensemblistes, extinction par durée, absorbe extraction `sessionCombat.ts`) + bandeau PAS #n + CLIMAT. **Rend enfin vrai le § 09 du plan de cible** : `Climat.effets_regles` reçoit son instant d'application et son idempotence, `horloge.climat_actif` est un état de SESSION (KR-207/301). **REPORTÉS hors n°14** (cadrage, veto PM) : transfert d'indices entre PNJ co-localisés, armement des contre-mesures, modificateurs numériques PE/jets (KR-208).
 
 **15 · `moteur-fins`** — conditions de fin, mort du personnage, reprise, rejeu par graine, bouton « lancer le test » depuis l'éditeur. C'est ce bouton qui referme la boucle auteur → joueur.
 

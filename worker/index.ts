@@ -1189,8 +1189,29 @@ export const INVITES: Record<string, { systeme: string; max_tokens: number }> = 
  * `max` sur les DIX rôles À BUDGET RESTE 83 968, TOUJOURS porté par `narrateur` — RE-CALCULÉ,
  * jamais supposé inchangé : le commentateur est le PLUS ÉTROIT des dix (un seul round, aucune
  * mémoire), 5 120 est très loin de ce porteur.
+ *
+ * MESURE DU 2026-10-06, n° 14 `moteur-horloge` it2 — ⚠ LE PLAFOND BOUGE POUR LA TROISIÈME FOIS
+ * (83 968 → 87 040), et c'est le NARRATEUR, encore, qui le porte :
+ *   `narrateur` — le terme dossier de `BUDGET_CARACTERES_NARRATEUR` PASSE DE 6000 À 7000
+ *                 (`BUDGET_CARACTERES_DOSSIER`, `contexte/narrateur.ts`) : le bloc
+ *                 `PENDANT CE TEMPS` (la prose `plan_actions[].action` des personnages présents
+ *                 qui ont avancé à ce pas) ajoute 286 caractères au pire cas, M = 1997 → 2283, et
+ *                 ceil(2283 × 3 / 1000) × 1000 = 7000. `BUDGET_CARACTERES_NARRATEUR` passe donc
+ *                 de 27 056 à 28 056 (7000 + `BORNE_MEMOIRE` 20 956 + `BORNE_JET` 100).
+ *                 E (squelette 34 o + invite 2711 o = 2745) : l'invite ne cite ni le bloc ni son
+ *                 en-tête (le modèle le lit, il n'en apprend pas le nom, KR-273), et CE LOT NE LA
+ *                 TOUCHE PAS. ⚠ E est RE-MESURÉ, pas recopié : les mesures ci-dessus portaient
+ *                 2709 o d'invite (E = 2743) depuis la n° 10 it3 ; la mesure de ce lot en donne 2711
+ *                 — deux octets de retard, qui ne déplaçaient aucun plafond (3 × 27 056 + 2745 =
+ *                 83 913 ≤ 83 968, contre 83 911 avec l'ancien E) ;
+ *                 ceil((3 × 28 056 + 2745) / 1024) × 1024 = 87 040 (ceil(84,88) = 85 Kio).
+ *   `max` sur les DIX rôles À BUDGET = 87 040 (85 Kio), porté par `narrateur` — RE-CALCULÉ, et
+ *   cette fois il BOUGE : la hausse de 1000 caractères du budget (3 000 octets, borne haute)
+ *   fait franchir TROIS multiples de 1024 (83 968 + 3 × 1024 = 87 040 ; 83 913 → 86 913 avant
+ *   arrondi). L'invite, elle, pourrait gagner jusqu'à 127 octets sans déplacer ce palier
+ *   (87 040 − 86 913) ; au-delà, il passerait à 88 064.
  */
-export const TAILLE_MAX_CORPS_IA = 83_968
+export const TAILLE_MAX_CORPS_IA = 87_040
 
 /** Toute réponse de la route `/ia/` est du JSON, y compris ses échecs (KR-233) :
  *  le client lit un motif, jamais une phrase à analyser. */

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.22 — l'auteur lit ce qu'un PNJ présent a fait pendant son dernier pas
+
+`moteur-horloge` it2 (roadmap § 3, n°14, 2/4) — 2 lots `contrat` séquentiels (L1 brain/dossier, L2 brain/copilote + worker). `depuis = horloge.tour` écrit avec `rang` à chaque avancement (`horloge.ts`). Bloc PENDANT CE TEMPS dans l'assembleur R3 (`contexte/horloge.ts`), sélection : `personnagesPresents ∩ depuis===tour ∩ action rédigée`, ordre du document. `CHEMIN_ACTION_DE_PLAN` constante propre, garde dédiée, dérogation documentée de `narrateur.ts:76`. `BUDGET_CARACTERES_DOSSIER` de 6000 à 7000 (M=2283), `TAILLE_MAX_CORPS_IA` de 83968 à 87040. 146 suites / 2762 tests.
+
+- Écarts : E=2745 (pas 2743), `replier` dupliqué (cycle), invite narrateur non amendée.
+- Reportés it3 : durée, bloqué, `si_bloque`, label ÉTAPE BLOQUÉE.
+- Reportés it4 : bandeau PAS #n + CLIMAT, climat, dette `1px`/`bold`.
+- Dossier : `.claude/raffinage/moteur-horloge-it2.revue.md`.
+
 ## 0.7.21 — l'auteur voit un PNJ avancer d'une étape quand le déclencheur est vrai
 
 `moteur-horloge` it1 (roadmap § 3, n°14, 1/3) — lot unique `contrat` (11 fichiers brain/ + docs/). `tickHorloge` pur dans `brain/dossier/horloge.ts`, appelé dans `executerCommande` après `avecJalonsResolus`. `etapeDeclenchee` sélecteur dans `evaluate.ts` — `horloge.ts` ne lit jamais `.declencheur_expr` (garde evaluate.test.ts:706). `EtatPnj.etape_plan?: { rang }` (absent ≡ 0, KR-013/298). Journal `role: 'moteur'`, identifiants + rang base 1, sans origine/deltas/recit/jet. § J2 de REGLES-PLAY.md écrit complet (8 cas, portions it2 marquées). 146 suites / 2743 tests.

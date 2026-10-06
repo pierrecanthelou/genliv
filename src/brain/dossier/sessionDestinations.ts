@@ -77,6 +77,7 @@ type CheminDeFeuilleDeSession =
 	| 'monde.pnj.<id>.a_dit[]'
 	| 'monde.pnj.<id>.confiance'
 	| 'monde.pnj.<id>.etape_plan.rang'
+	| 'monde.pnj.<id>.etape_plan.depuis'
 	| 'journal[].tour'
 	| 'journal[].role'
 	| 'journal[].texte'
@@ -216,12 +217,24 @@ export const DESTINATION_DES_CHAMPS_DE_SESSION: Readonly<
 	 * moteur n'a pas constatée. L'index est lu par le CODE seul (`tickHorloge`,
 	 * `horloge.ts`) ; ce que le modèle apprendra d'un changement d'étape — itérations
 	 * suivantes — passera par un contexte que le code compose, jamais par cette feuille.
-	 * UNE SEULE feuille : `depuis` n'existe pas encore (KR-249), et sa ligne entrera
-	 * avec son lecteur. Instanciée dans `__fixtures__/session-saturee.ts`, sur un seul
-	 * des deux PNJ — sans instance, cette ligne serait morte le jour même où elle est
-	 * écrite.
+	 * Instanciée dans `__fixtures__/session-saturee.ts`, sur un seul des deux PNJ — sans
+	 * instance, cette ligne serait morte le jour même où elle est écrite.
 	 */
 	'monde.pnj.<id>.etape_plan.rang': 'moteur',
+	/**
+	 * LE PAS DE L'AVANCEMENT (n° 14 `moteur-horloge`, it2, lot `contrat` —
+	 * `docs/REGLES-PLAY.md` § J2) — `'moteur'`, SANS EXCEPTION, et c'est la SECONDE
+	 * feuille d'`etape_plan` : un modèle qui lirait `depuis` pourrait compter lui-même un
+	 * blocage que le moteur n'a pas constaté (la formule `tour − depuis >= duree` est de
+	 * l'itération 3, et du CODE). Une valeur de `horloge.tour`, jamais de la fiction. Elle
+	 * n'atteint le modèle que par un effet que le CODE a sélectionné — le bloc
+	 * `PENDANT CE TEMPS` de l'assembleur R3 choisit les personnages avancés « à ce pas »
+	 * (`depuis === horloge.tour`) et n'en émet NI le nombre NI l'identifiant : c'est la
+	 * prose `plan_actions[].action` qui est injectée, jamais cette feuille. Instanciée
+	 * dans `__fixtures__/session-saturee.ts` sur le MÊME PNJ que `rang` — sans instance,
+	 * cette ligne serait morte le jour même où elle est écrite.
+	 */
+	'monde.pnj.<id>.etape_plan.depuis': 'moteur',
 
 	// ── Le journal ────────────────────────────────────────────────────────────
 	'journal[].tour': 'moteur',

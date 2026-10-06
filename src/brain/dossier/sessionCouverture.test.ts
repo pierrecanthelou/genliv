@@ -153,23 +153,26 @@ describe('DESTINATION_DES_CHAMPS_DE_SESSION, exhaustivite', () => {
 		const normalises = cheminsDeLaSession()
 
 		// La fixture porte DEUX personnages : le walker rend donc DEUX chemins BRUTS
-		// distincts pour `a_dit[]` (un par personnage) — QUATRE au total depuis l'it1
+		// distincts pour `a_dit[]` (un par personnage) — CINQ au total depuis l'it2
 		// de la n° 14 (`moteur-horloge`), `pnj.aldur-le-sage` portant EN PLUS ses feuilles
-		// `confiance` (n° 12, it3) et `etape_plan.rang` (n° 14, it1). La table, elle,
-		// n'en déclare que TROIS (`a_dit[]`, `confiance` et `etape_plan.rang`, chacune
-		// collapsée sur `<id>`) : c'est exactement ce que la normalisation existe pour
-		// résoudre — avec un seul personnage par feuille, elle serait indistinguable de
-		// son absence.
-		expect(new Set(bruts.filter((chemin) => chemin.startsWith('monde.pnj.'))).size).toBe(4)
-		expect(new Set(normalises.filter((chemin) => chemin.startsWith('monde.pnj.'))).size).toBe(3)
+		// `confiance` (n° 12, it3), `etape_plan.rang` (n° 14, it1) et `etape_plan.depuis`
+		// (n° 14, it2). La table, elle, n'en déclare que QUATRE (`a_dit[]`, `confiance`,
+		// `etape_plan.rang` et `etape_plan.depuis`, chacune collapsée sur `<id>`) : c'est
+		// exactement ce que la normalisation existe pour résoudre — avec un seul
+		// personnage par feuille, elle serait indistinguable de son absence.
+		expect(new Set(bruts.filter((chemin) => chemin.startsWith('monde.pnj.'))).size).toBe(5)
+		expect(new Set(normalises.filter((chemin) => chemin.startsWith('monde.pnj.'))).size).toBe(4)
 		expect(normalises).toContain('monde.pnj.<id>.a_dit[]')
 		// ET LA CONFIANCE (n° 12 `moteur-acteurs`, it3) EST BIEN INSTANCIÉE — sur un
 		// seul des deux PNJ, précisément pour que l'autre enseigne « absent ≠ vide ».
 		expect(normalises).toContain('monde.pnj.<id>.confiance')
 		// ET L'ÉTAPE DU PLAN (n° 14 `moteur-horloge`, it1) AUSSI — sur le MÊME PNJ, au
-		// rang 1 et jamais 0 (absent ≡ 0, § J2) ; l'autre entrée n'en porte pas.
+		// rang 1 et jamais 0 (absent ≡ 0, § J2) ; l'autre entrée n'en porte pas. ET SON
+		// PAS (it2, `depuis`) DANS LE MÊME OBJET : une valeur PASSÉE (12 < 17 =
+		// `horloge.tour`), jamais 0 ni le pas courant.
 		expect(normalises).toContain('monde.pnj.<id>.etape_plan.rang')
-		expect(SESSION_SATUREE.monde.pnj['pnj.aldur-le-sage']?.etape_plan).toEqual({ rang: 1 })
+		expect(normalises).toContain('monde.pnj.<id>.etape_plan.depuis')
+		expect(SESSION_SATUREE.monde.pnj['pnj.aldur-le-sage']?.etape_plan).toEqual({ rang: 1, depuis: 12 })
 		expect(SESSION_SATUREE.monde.pnj['pnj.corvin-le-marchand']?.etape_plan).toBeUndefined()
 		expect('etape_plan' in SESSION_SATUREE.monde.pnj['pnj.corvin-le-marchand']).toBe(false)
 
@@ -280,10 +283,11 @@ describe('EtatMonde, les sept champs restent REQUIS et chacun garde sa ligne', (
 		// SIX champs, UNE SEULE ligne chacun ; `pnj` EST L'EXCEPTION NOMMÉE depuis le
 		// lot `contrat` de la n° 12 (`moteur-acteurs`, it3) : `EtatPnj` porte TROIS
 		// feuilles depuis le lot `contrat` de la n° 14 (`moteur-horloge`, it1) — `a_dit[]`,
-		// `confiance`, `etape_plan.rang` —, donc TROIS lignes de table pour le MÊME
+		// `confiance`, `etape_plan.rang` —, puis QUATRE depuis le lot `contrat` de la
+		// n° 14 it2 (`etape_plan.depuis`), donc QUATRE lignes de table pour le MÊME
 		// champ racine — jamais une relecture générique à « 1 partout » qui
 		// masquerait l'ajout d'une feuille au champ le plus riche.
-		const LIGNES_ATTENDUES: Readonly<Record<string, number>> = { pnj: 3 }
+		const LIGNES_ATTENDUES: Readonly<Record<string, number>> = { pnj: 4 }
 
 		expect(champs).toHaveLength(7)
 		for (const champ of champs) {
@@ -369,12 +373,15 @@ describe('DESTINATION_DES_CHAMPS_DE_SESSION, la valeur des lignes', () => {
 		expect(postures).not.toEqual([...POSTURE_VALUES].reverse())
 	})
 
-	it('etape_plan : UNE feuille, moteur, jamais ia — et depuis n existe pas (n 14 moteur-horloge, it1)', () => {
+	it('etape_plan : DEUX feuilles, rang et depuis, moteur, jamais ia (n 14 moteur-horloge, it1 puis it2)', () => {
 		// ASSERTION DE VALEUR, PAS D'EXISTENCE (KR-174) : un modèle qui lirait `rang`
 		// connaîtrait l'étape que joue le personnage et jouerait une urgence que le
-		// moteur n'a pas constatée (`docs/REGLES-PLAY.md` § J2, règle 7).
+		// moteur n'a pas constatée (`docs/REGLES-PLAY.md` § J2, règle 7) ; un modèle
+		// qui lirait `depuis` pourrait compter lui-même un blocage que le moteur n'a pas
+		// constaté (même règle).
 		expect(DESTINATION_DES_CHAMPS_DE_SESSION['monde.pnj.<id>.etape_plan.rang']).toBe('moteur')
-		// Les lignes du PNJ sont EXACTEMENT trois, et AUCUNE n'est `ia` : la ligne
+		expect(DESTINATION_DES_CHAMPS_DE_SESSION['monde.pnj.<id>.etape_plan.depuis']).toBe('moteur')
+		// Les lignes du PNJ sont EXACTEMENT quatre, et AUCUNE n'est `ia` : la ligne
 		// voisine (`a_dit[]`) et la confiance restent `moteur` elles aussi.
 		const lignesDuPnj = Object.entries(DESTINATION_DES_CHAMPS_DE_SESSION)
 			.filter(([chemin]) => chemin.startsWith('monde.pnj.'))
@@ -382,15 +389,24 @@ describe('DESTINATION_DES_CHAMPS_DE_SESSION, la valeur des lignes', () => {
 		expect(lignesDuPnj).toEqual([
 			['monde.pnj.<id>.a_dit[]', 'moteur'],
 			['monde.pnj.<id>.confiance', 'moteur'],
+			['monde.pnj.<id>.etape_plan.depuis', 'moteur'],
 			['monde.pnj.<id>.etape_plan.rang', 'moteur'],
 		])
-		// `depuis` ENTRE À L'ITÉRATION 2, avec la formule de durée qui le lit (KR-249) :
-		// aucune ligne, aucune feuille de fixture — la ligne et son lecteur arrivent
-		// dans le même lot. CES DEUX ASSERTIONS SONT ÉCRITES POUR ÊTRE SUPPRIMÉES par le
-		// lot `contrat` de l'itération 2, qui pose `depuis` : elles épinglent R-8 du
-		// plan d'itération 1 (« pas de `depuis` sans consommateur dans le même lot »).
-		expect([...CLES_DE_LA_TABLE].filter((cle) => cle.includes('depuis'))).toEqual([])
-		expect(cheminsDeLaSession().filter((chemin) => chemin.includes('depuis'))).toEqual([])
+		// `depuis` EST ENTRÉ À L'ITÉRATION 2 (KR-298) — ces deux assertions épinglaient
+		// R-8 du plan d'itération 1 (« pas de `depuis` sans consommateur dans le même
+		// lot ») : elles sont INVERSÉES, le lecteur (la sélection du bloc `PENDANT CE
+		// TEMPS`) étant dans la même itération. Le mot a UNE ligne de table et UNE feuille
+		// de fixture, ni plus ni moins : une seconde feuille `depuis` ailleurs dans la
+		// session serait un champ sans audience déclarée, et rougirait ici.
+		expect([...CLES_DE_LA_TABLE].filter((cle) => cle.includes('depuis'))).toEqual(['monde.pnj.<id>.etape_plan.depuis'])
+		expect(cheminsDeLaSession().filter((chemin) => chemin.includes('depuis'))).toEqual([
+			'monde.pnj.<id>.etape_plan.depuis',
+		])
+		// Et le `depuis` de la fixture est un pas PASSÉ — la seule relation que le produit puisse
+		// écrire —, jamais le défaut `0` ni le pas courant (voir la docstring de la fixture).
+		const depuis = SESSION_SATUREE.monde.pnj['pnj.aldur-le-sage']?.etape_plan?.depuis
+		expect(depuis).toBe(12)
+		expect(depuis).toBeLessThan(SESSION_SATUREE.horloge.tour)
 	})
 
 	it('journal[].recit est ia depuis l it3 — BASCULE EN VALEUR avec son lecteur, la fenetre glissante', () => {
@@ -488,5 +504,26 @@ describe('EtatSession, les formes que le type REFUSE', () => {
 		expect([sansRang, absent, auDepart, avance]).toHaveLength(4)
 		expect('etape_plan' in absent).toBe(false)
 		expect(avance.etape_plan?.rang).toBe(3)
+	})
+
+	it('etape_plan.depuis : OPTIONNEL a vie — la forme de 0.7.21 reste legale —, NUMERIQUE, et rang reste REQUIS (n 14, it2, KR-251)', () => {
+		// `@ts-expect-error` ÉCHOUE À LA COMPILATION si l'erreur attendue n'a PAS lieu.
+		// `depuis` est un PAS (un nombre) : une chaîne n'est jamais une origine de décompte.
+		// @ts-expect-error — `depuis` posé en chaîne.
+		const enTexte: EtatPnj = { a_dit: [], etape_plan: { rang: 1, depuis: 'hier' } }
+		// `rang` reste REQUIS : un `depuis` seul ne dirait rien de l'étape.
+		// @ts-expect-error — `depuis` posé sans son `rang`.
+		const sansRang: EtatPnj = { a_dit: [], etape_plan: { depuis: 3 } }
+
+		// Discriminant : les formes LÉGALES compilent — `{ rang }` SEUL, exactement ce que
+		// 0.7.21 a écrit et que des parties persistées portent encore (c'est CE test qui
+		// rougit si `depuis` redevient requis, et avec lui tout dossier déjà joué) ; et
+		// `{ rang, depuis }`, ce que le tick écrit.
+		const ancienne: EtatPnj = { a_dit: [], etape_plan: { rang: 1 } }
+		const courante: EtatPnj = { a_dit: [], etape_plan: { rang: 1, depuis: 3 } }
+
+		expect([enTexte, sansRang, ancienne, courante]).toHaveLength(4)
+		expect('depuis' in (ancienne.etape_plan ?? {})).toBe(false)
+		expect(courante.etape_plan?.depuis).toBe(3)
 	})
 })

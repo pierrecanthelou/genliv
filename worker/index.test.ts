@@ -1580,6 +1580,10 @@ describe('POST /ia/narrateur — la route du huitieme role', () => {
 			'à condenser',
 			'recemment',
 			'etabli',
+			// N° 14 `moteur-horloge`, it2 — le bloc `PENDANT CE TEMPS` (ce que les personnages présents
+			// ont fait à ce pas) obéit à la MÊME doctrine : le modèle le lit dans le contexte, l'invite ne
+			// le nomme pas. Le balayage est en minuscules, comme les autres entrées de cette liste.
+			'pendant ce temps',
 		]
 		expect(interdits.filter((mot) => systeme.includes(mot))).toEqual([])
 		expect(interdits.filter((mot) => `${systeme} ${mot}`.includes(mot))).toEqual(interdits)

@@ -1189,7 +1189,7 @@ describe('executerCommande, la couture de l horloge des PNJ (n 14 moteur-horloge
 		const pas2 = sessionDe(executer(dossier, pas1, 'ALLER lieu.vigie-du-nord'))
 
 		expect(pas2.monde.jalons_atteints).toEqual(['jalon.premiere-vigie'])
-		expect(pas2.monde.pnj[HAREK]).toEqual({ a_dit: [], etape_plan: { rang: 1 } })
+		expect(pas2.monde.pnj[HAREK]).toEqual({ a_dit: [], etape_plan: { rang: 1, depuis: 2 } })
 		// QUATRE lignes pour ce pas, TOUTES au tour 2 — le tick n'ajoute jamais un pas — et la
 		// ligne du tick est la DERNIÈRE : après la demande, son effet, et le jalon.
 		expect(pas2.horloge.tour).toBe(2)
@@ -1213,6 +1213,47 @@ describe('executerCommande, la couture de l horloge des PNJ (n 14 moteur-horloge
 		}
 		// DISCRIMINANCE : le même plan, valide, ne lève pas et avance.
 		const sain = avecPlanDeHarek([etape(), etape(FOYER_VISITE)])
-		expect(sessionDe(executer(sain, ouverture(sain), 'AGIR')).monde.pnj[HAREK]?.etape_plan).toEqual({ rang: 1 })
+		expect(sessionDe(executer(sain, ouverture(sain), 'AGIR')).monde.pnj[HAREK]?.etape_plan).toEqual({
+			rang: 1,
+			depuis: 1,
+		})
+	})
+
+	it('couture depuis : un avancement ecrit le pas de la commande ACCEPTEE qui le provoque, un refus ne decale rien, et un pas sans avancement n y touche pas (KR-298)', () => {
+		// `depuis` vaut `horloge.tour` D'APRÈS la commande : le tick reçoit la session que la
+		// transition vient de faire avancer d'un pas. Un tick branché sur la session d'AVANT la
+		// commande écrirait `3` au lieu de `4` — c'est ce que ce test sépare. Les valeurs sont
+		// toutes DISTINCTES (`rang` 1, `depuis` 4, pas précédent 3, pas suivant 5) : aucune
+		// coïncidence `depuis === rang + 1` ni `depuis === 0` ne peut passer pour la bonne.
+		const VIGIE_VISITEE: ExprNode = { op: 'predicat', predicat: 'lieu_visite', cibles: ['lieu.vigie-du-nord'] }
+		const dossier = avecPlanDeHarek([etape(), etape(VIGIE_VISITEE)])
+
+		const pas1 = sessionDe(executer(dossier, ouverture(dossier), 'AGIR'))
+		// UN REFUS ne consomme aucun pas, et n'écrit rien : le pas suivant est le DEUXIÈME.
+		const refus = executer(dossier, pas1, 'ALLER lieu.crypte-scellee')
+		expect(refus.ok).toBe(false)
+		const pas2 = sessionDe(executer(dossier, pas1, 'AGIR'))
+		const pas3 = sessionDe(executer(dossier, pas2, 'ALLER lieu.tour-effondree'))
+		// Avant l'avancement : aucune entrée, donc aucun `depuis`.
+		expect(pas3.horloge.tour).toBe(3)
+		expect(pas3.monde.pnj).toEqual({})
+
+		const pas4 = sessionDe(executer(dossier, pas3, 'ALLER lieu.vigie-du-nord'))
+		expect(pas4.horloge.tour).toBe(4)
+		expect(pas4.monde.pnj[HAREK]).toStrictEqual({ a_dit: [], etape_plan: { rang: 1, depuis: 4 } })
+		expect(pas4.monde.pnj[HAREK]?.etape_plan?.depuis).toBe(pas4.horloge.tour)
+		// La ligne du tick est au MÊME pas : `depuis` n'est pas un `+1`.
+		expect(pas4.journal[pas4.journal.length - 1]).toEqual({
+			tour: 4,
+			role: 'moteur',
+			texte: `etape_plan : ${HAREK} 2`,
+		})
+
+		// Un pas SANS avancement (Harek est au dernier rang) : l'entrée est RENDUE TELLE QUELLE,
+		// même référence — `depuis` reste `4`, il ne suit pas l'horloge.
+		const pas5 = sessionDe(executer(dossier, pas4, 'AGIR'))
+		expect(pas5.horloge.tour).toBe(5)
+		expect(pas5.monde.pnj[HAREK]).toBe(pas4.monde.pnj[HAREK])
+		expect(pas5.monde.pnj[HAREK]?.etape_plan?.depuis).toBe(4)
 	})
 })

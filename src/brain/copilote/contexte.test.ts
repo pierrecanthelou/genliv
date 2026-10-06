@@ -6,10 +6,12 @@ import {
 	analyserSaisie,
 	destinationsPossibles,
 	executerCommande,
+	personnagesPresents,
 	type CommandeId,
 } from '../dossier/commandes'
 import { DESTINATION_DES_CHAMPS } from '../dossier/destinations'
 import type { DeltaJournalise } from '../dossier/evaluate'
+import type { ExprNode } from '../dossier/expr'
 import { feuillesDeLaFixture } from '../dossier/feuilles'
 import { collectIds } from '../dossier/identifiers'
 import { LIBELLE_DES_CHAMPS } from '../dossier/libelles'
@@ -30,6 +32,7 @@ import {
 	type Dossier,
 	type Objet,
 	type Personnage,
+	type PlanAction,
 	type Portee,
 } from '../dossier/types'
 import { controlerDossier } from '../dossier/controles'
@@ -61,6 +64,7 @@ import {
 	PARTIES_REQUISES,
 	SAISIE_CARACTERES_MAX,
 } from './contexte'
+import { CHEMIN_ACTION_DE_PLAN, lignesPendantCeTemps } from './contexte/horloge'
 import { AMORCE_ISSUE, BORNE_JET, BORNE_MEMOIRE, CHAMPS_INJECTES_NARRATEUR } from './contexte/narrateur'
 import { DESTINATION_DES_CHAMPS_DE_SESSION } from '../dossier/sessionDestinations'
 import { CONDENSE_CARACTERES_MAX, FAIT_CARACTERES_MAX, NARRATION_CARACTERES_MAX } from './schemaSortie'
@@ -2916,10 +2920,12 @@ describe('assemblerInterprete — le septieme role, hors registres partages', ()
 
 /** Les en-têtes d'assemblage du narrateur, écrits ici parce que le test doit savoir
  *  découper le texte en blocs (précédent `EN_TETE_DEJA_ECRIT`). `ICI A1` porte l'ancre du
- *  lieu courant ; les quatre derniers sont ceux de la MÉMOIRE (it3). */
+ *  lieu courant ; les quatre derniers sont ceux de la MÉMOIRE (it3). `PENDANT CE TEMPS` est
+ *  celui de la dérogation de la n° 14 (it2). */
 const EN_TETES_NARRATEUR = [
 	'ICI A1',
 	'CE PAS',
+	'PENDANT CE TEMPS',
 	'EN SA POSSESSION',
 	'DEJA ACCOMPLI',
 	'saisie',
@@ -2999,16 +3005,53 @@ function referenceAvecVigieDecrite(): Dossier {
  * COHÉRENT (un objet donné au pas est possédé après lui) ; il n'est pas atteignable tel
  * quel sur ce dossier — la fixture ne porte pas autant d'effets —, et c'est précisément
  * pourquoi il MAJORE. SANS MÉMOIRE : la mémoire est l'autre terme du budget, calculé.
+ *
+ * n° 14 `moteur-horloge`, it2 — `PENDANT CE TEMPS` : TOUS les personnages du dossier de
+ * référence qui portent un plan sont PRÉSENTS au lieu retenu et AVANCÉS à CE pas (`depuis` =
+ * `tour`), chacun à une étape ajoutée à son plan, qui reprend SA PLUS LONGUE `action` — aucun
+ * plan de la fixture n'a deux étapes, mesuré, donc l'étape visée n'y existe pas telle quelle
+ * (même statut que l'état d'ensemble : un majorant composé de valeurs du document, jamais une
+ * prose écrite ici). Un personnage sans plan (Harek) ne dit rien.
  */
 function pireCasNarrateur(tour = 12): { dossier: Dossier; cible: CibleNarrateur } {
-	const dossier = dossierDeReference()
+	const reference = dossierDeReference()
 	const poids = (lieu: Dossier['monde']['lieux'][number]): number =>
 		(lieu.description ?? '').length + (lieu.ambiance ?? '').length
-	const lieu = dossier.monde.lieux.reduce((meilleur, candidat) =>
+	const lieu = reference.monde.lieux.reduce((meilleur, candidat) =>
 		poids(candidat) > poids(meilleur) ? candidat : meilleur,
 	)
 	const geste = (Object.keys(COMMANDES) as CommandeId[]).reduce((long, id) =>
 		COMMANDES[id].label.length > COMMANDES[long].label.length ? id : long,
+	)
+	const avances = reference.monde.personnages.filter((personnage) => personnage.plan_actions.length > 0)
+	const dossier: Dossier = {
+		...reference,
+		monde: {
+			...reference.monde,
+			personnages: reference.monde.personnages.map((personnage) =>
+				avances.includes(personnage)
+					? {
+							...personnage,
+							presence: [{ lieu_id: lieu.id }],
+							plan_actions: [
+								...personnage.plan_actions,
+								{
+									...personnage.plan_actions.reduce((long, etape) =>
+										etape.action.length > long.action.length ? etape : long,
+									),
+									etape: personnage.plan_actions.length + 1,
+								},
+							],
+						}
+					: personnage,
+			),
+		},
+	}
+	const pnj = Object.fromEntries(
+		avances.map((personnage) => [
+			personnage.id,
+			{ a_dit: [], etape_plan: { rang: personnage.plan_actions.length, depuis: tour } },
+		]),
 	)
 	const objets = dossier.monde.objets.map((objet) => objet.id)
 	const indices = dossier.monde.indices.map((indice) => indice.id)
@@ -3028,7 +3071,7 @@ function pireCasNarrateur(tour = 12): { dossier: Dossier; cible: CibleNarrateur 
 			indices_connus: indices,
 			jalons_atteints: jalons,
 			evenements_consommes: [],
-			pnj: {},
+			pnj,
 		},
 		journal: [
 			{ tour, role: 'joueur', texte: `> ${COMMANDES[geste].verbe}` },
@@ -3173,7 +3216,17 @@ describe('assemblerNarrateur — ce que le narrateur voit d un pas', () => {
 		// LE LIBELLÉ DU GESTE est la SEULE source de sa portée pour le modèle (KR-269).
 		expect(blocs.get('CE PAS')).toEqual([COMMANDES.agir.label, AUCUN_CHANGEMENT])
 		// Rien de possédé, rien d'accompli, rien de retenu au pas 1 : pas une ligne, pas de bloc.
-		for (const absent of ['EN SA POSSESSION', 'DEJA ACCOMPLI', 'AUPARAVANT', 'A CONDENSER', 'RECEMMENT', 'ETABLI']) {
+		// `PENDANT CE TEMPS` aussi (n° 14, it2) : aucun plan de la référence n'a deux étapes, donc nul
+		// personnage n'a avancé à ce pas — le bloc ne s'écrit pas, jamais un en-tête sans ligne.
+		for (const absent of [
+			'PENDANT CE TEMPS',
+			'EN SA POSSESSION',
+			'DEJA ACCOMPLI',
+			'AUPARAVANT',
+			'A CONDENSER',
+			'RECEMMENT',
+			'ETABLI',
+		]) {
 			expect(`${absent} → ${blocs.has(absent)}`).toBe(`${absent} → false`)
 		}
 		// La saisie, NORMALISÉE, en DERNIER.
@@ -3362,6 +3415,435 @@ describe('assemblerNarrateur — les ancres (it3) : le lieu courant et les objet
 		const lignesCePas = blocsNarrateur(pire.texte).get('CE PAS') ?? []
 		expect(lignesCePas.filter((ligne) => /^(remarque|accomplit) A\d+/.test(ligne))).toEqual([])
 		expect(lignesCePas.filter((ligne) => /^(remarque|accomplit) — /.test(ligne)).length).toBeGreaterThan(1)
+	})
+})
+
+// ══ PENDANT CE TEMPS (n° 14 `moteur-horloge`, it2, lot `contrat`) ═══════════════════════════
+//
+// LE BLOC QUE LE TICK ALIMENTE (`etape_plan.depuis`, lot précédent) ET QUE CE LOT LIT. Les
+// sessions sont PRODUITES PAR LE MOTEUR (`ouvrirSession` + `executerCommande`, donc le tick
+// réel) chaque fois que l'état visé est atteignable : c'est la couture des deux lots, et ce
+// qui la prouve. Seuls les états que le produit ne peut PAS écrire — un `depuis` absent
+// (session de 0.7.21), un rang hors plan, un ordre d'insertion inversé — sont forgés, et
+// chacun le dit. Le dossier de référence n'a AUCUN plan à deux étapes (mesuré) : les plans
+// sont posés sur Harek (au Foyer du Guet, où le héros part), Aubry, Corvin et Sélène, rien
+// d'autre ne bouge. Les proses d'essai sont sans chiffre ni identifiant : c'est ce qui rend
+// le balayage numérique de `depuis et rang absents` discriminant.
+
+const HAREK = 'pnj.harek-le-forgeron'
+const AUBRY = 'pnj.aubry-l-intendant'
+const CORVIN = 'pnj.corvin-le-marchand'
+const SELENE = 'pnj.selene-la-vigie'
+const FOYER_DU_GUET = 'lieu.foyer-du-guet'
+const MARCHE_DES_CENDRES = 'lieu.marche-des-cendres'
+const TOUR_EFFONDREE = 'lieu.tour-effondree'
+const EN_TETE_PENDANT = 'PENDANT CE TEMPS'
+
+/** Le marché n'a AUCUNE description dans la fixture : sans elle, le narrateur refuserait de le
+ *  raconter (`cible-a-ecrire`), et Corvin ne pourrait jamais être « présent » dans un test. */
+const DESCRIPTION_MARCHE = 'Un marché de planches grises, où les étals se replient dès que le jour baisse.'
+
+const PROSE_DE_DEPART = 'Il tient son poste sans rien changer.'
+const PROSE_HAREK = 'Il rallume sa forge et range ses tenailles sur son établi.'
+const PROSE_AUBRY = 'Il ouvre son registre et consigne chaque entrée du soir.'
+const PROSE_CORVIN = 'Il replie son étal et glisse sa bourse sous son manteau.'
+const PROSE_SELENE_UN = 'Elle gagne le haut du beffroi et vérifie la mèche du feu.'
+const PROSE_SELENE_DEUX = 'Elle redescend sans bruit et guette la route du nord.'
+
+function lieuVisite(lieu: string): ExprNode {
+	return { op: 'predicat', predicat: 'lieu_visite', cibles: [lieu] }
+}
+/** VRAIE dès l'ouverture (le héros part du foyer) — le tick avance au PREMIER pas joué. */
+const FOYER_VISITE = lieuVisite(FOYER_DU_GUET)
+const TOUR_VISITEE = lieuVisite(TOUR_EFFONDREE)
+
+/**
+ * UNE ÉTAPE FABRIQUÉE. Son champ `etape` vaut `100 − index` : DÉLIBÉRÉMENT hors de l'ordre du
+ * tableau, pour qu'une lecture du champ au lieu de l'INDEX (KR-198) ne soit jamais confondue
+ * avec la bonne par coïncidence.
+ */
+function etapeDePlan(
+	index: number,
+	action: string,
+	declencheur?: ExprNode,
+	reste: Partial<PlanAction> = {},
+): PlanAction {
+	return {
+		etape: 100 - index,
+		action,
+		...(declencheur === undefined ? {} : { declencheur_expr: declencheur }),
+		...reste,
+	}
+}
+
+/** Le dossier de référence (ou `dossier`, quand le test en pose un autre), le plan de CERTAINS
+ *  personnages remplacé (et leur présence, quand `presences` en nomme une) — rien d'autre ne bouge. */
+function referenceAvecPlans(
+	plans: Readonly<Record<string, PlanAction[]>>,
+	presences: Readonly<Record<string, string>> = {},
+	dossier: Dossier = dossierDeReference(),
+): Dossier {
+	return {
+		...dossier,
+		monde: {
+			...dossier.monde,
+			personnages: dossier.monde.personnages.map((personnage) => {
+				const plan = plans[personnage.id]
+				const lieu = presences[personnage.id]
+				return {
+					...personnage,
+					...(plan === undefined ? {} : { plan_actions: plan }),
+					...(lieu === undefined ? {} : { presence: [{ lieu_id: lieu }] }),
+				}
+			}),
+		},
+	}
+}
+
+function avecLieuDecrit(dossier: Dossier, id: string, description: string): Dossier {
+	return {
+		...dossier,
+		monde: {
+			...dossier.monde,
+			lieux: dossier.monde.lieux.map((lieu) => (lieu.id === id ? { ...lieu, description } : lieu)),
+		},
+	}
+}
+
+/** Un plan à deux étapes : l'étape de départ, puis `prose` dont la condition est VRAIE dès l'ouverture. */
+const planDeDeux = (prose: string): PlanAction[] => [
+	etapeDePlan(0, PROSE_DE_DEPART),
+	etapeDePlan(1, prose, FOYER_VISITE),
+]
+
+/** La session d'une partie, `pnj[id]` posé tel quel — pour les états que le produit n'écrit pas. */
+function avecEntreePnj(session: EtatSession, id: string, entree: EtatSession['monde']['pnj'][string]): EtatSession {
+	return { ...session, monde: { ...session.monde, pnj: { ...session.monde.pnj, [id]: entree } } }
+}
+
+/** Les lignes du bloc, lues dans le TEXTE assemblé — `undefined` quand le bloc n'est pas écrit. */
+function bloc(dossier: Dossier, session: EtatSession): string[] | undefined {
+	return blocsNarrateur(texteNarrateur(dossier, cibleNarrateur(session))).get(EN_TETE_PENDANT)
+}
+
+/**
+ * Le CODE d'un fichier, commentaires retirés — en UN passage de gauche à droite : un commentaire
+ * de ligne qui CONTIENT `/**` (« `features/**` », que `narrateur.ts` écrit) ouvrirait un faux bloc
+ * sous deux `replace` successifs et mangerait le code qui le suit. Les chaînes sont consommées
+ * entières, donc un `//` dans une URL ou un `/*` dans un littéral ne compte pas non plus.
+ */
+const sansCommentaires = (source: string): string =>
+	source.replace(
+		/\/\*[\s\S]*?\*\/|\/\/[^\n]*|('(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"|`(?:\\.|[^`\\])*`)/g,
+		(_trouve, chaine: string | undefined) => chaine ?? '',
+	)
+
+describe('assemblerNarrateur — PENDANT CE TEMPS (n 14 moteur-horloge, it2) : ce que les presents ont fait pendant ce pas', () => {
+	it('PENDANT CE TEMPS : PNJ avance + present + action — la prose de action, une ligne, entre CE PAS et EN SA POSSESSION', () => {
+		const dossier = referenceAvecPlans({ [HAREK]: planDeDeux(PROSE_HAREK) })
+		const joue = jouerNarrateur(dossier, ouvertureNarrateur(dossier), ['AGIR'])
+		// Un objet rédigé est possédé : EN SA POSSESSION existe, et l'ordre des blocs se lit.
+		const session: EtatSession = { ...joue, monde: { ...joue.monde, objets_possedes: ['objet.sceau-de-cendre'] } }
+		// DISCRIMINANTS : le tick a bien écrit `depuis`, et Harek est bien là — le bloc n'est pas
+		// vert par vacuité de la sélection.
+		expect(joue.monde.pnj[HAREK]?.etape_plan).toEqual({ rang: 1, depuis: 1 })
+		expect(personnagesPresents(dossier, joue)).toContain(HAREK)
+
+		const contexte = assemblageNarrateur(dossier, cibleNarrateur(session))
+		const blocs = blocsNarrateur(contexte.texte)
+
+		expect(blocs.get(EN_TETE_PENDANT)).toEqual([PROSE_HAREK])
+		const ordre = [...blocs.keys()]
+		expect(ordre.indexOf(EN_TETE_PENDANT)).toBe(ordre.indexOf('CE PAS') + 1)
+		expect(ordre.indexOf('EN SA POSSESSION')).toBe(ordre.indexOf(EN_TETE_PENDANT) + 1)
+		// `CE PAS` est INCHANGÉ : la ligne du tick (`role: moteur`, sans `origine`) n'est ni un
+		// second geste ni un effet — et l'étape de DÉPART n'est pas celle qu'on raconte.
+		expect(blocs.get('CE PAS')).toEqual([COMMANDES.agir.label, AUCUN_CHANGEMENT])
+		expect(contexte.texte).not.toContain(PROSE_DE_DEPART)
+		// AUCUN repère : le personnage n'est pas désignable, la table d'ancres ne bouge pas.
+		expect([...contexte.ancres.entries()]).toEqual([
+			['A1', FOYER_DU_GUET],
+			['A2', 'objet.sceau-de-cendre'],
+		])
+	})
+
+	it('lignesPendantCeTemps est pure et totale : mêmes entrées, mêmes lignes, aucune écriture', () => {
+		const dossier = referenceAvecPlans({ [HAREK]: planDeDeux(PROSE_HAREK) })
+		const session = jouerNarrateur(dossier, ouvertureNarrateur(dossier), ['AGIR'])
+		const avantSession = JSON.stringify(session)
+		const avantDossier = JSON.stringify(dossier)
+
+		expect(lignesPendantCeTemps(dossier, session)).toEqual([PROSE_HAREK])
+		expect(lignesPendantCeTemps(dossier, session)).toEqual(lignesPendantCeTemps(dossier, session))
+		expect(JSON.stringify(session)).toBe(avantSession)
+		expect(JSON.stringify(dossier)).toBe(avantDossier)
+		// Et la session d'ouverture, où personne n'a avancé : aucune ligne, jamais une levée.
+		expect(lignesPendantCeTemps(dossier, ouvertureNarrateur(dossier))).toEqual([])
+	})
+
+	it('PENDANT CE TEMPS : PNJ absent du lieu → silence — la presence se juge sur le lieu OU LE PAS LAISSE le heros', () => {
+		const sansMarche = referenceAvecPlans({
+			[HAREK]: planDeDeux(PROSE_HAREK),
+			[CORVIN]: planDeDeux(PROSE_CORVIN),
+		})
+		const dossier = avecLieuDecrit(sansMarche, MARCHE_DES_CENDRES, DESCRIPTION_MARCHE)
+		const depart = ouvertureNarrateur(dossier)
+
+		// UN pas au foyer : les DEUX avancent (le tick l'écrit), seul Harek se tient ici — dans
+		// le MÊME test, pour qu'un blocage global ne passe pas pour un filtre (KR-197/202).
+		const auFoyer = jouerNarrateur(dossier, depart, ['AGIR'])
+		expect(auFoyer.monde.pnj[HAREK]?.etape_plan?.depuis).toBe(1)
+		expect(auFoyer.monde.pnj[CORVIN]?.etape_plan?.depuis).toBe(1)
+		const texteFoyer = texteNarrateur(dossier, cibleNarrateur(auFoyer))
+		expect(blocsNarrateur(texteFoyer).get(EN_TETE_PENDANT)).toEqual([PROSE_HAREK])
+		expect(texteFoyer).not.toContain(PROSE_CORVIN)
+
+		// Le MÊME plan, le héros file au marché : le tick tourne APRÈS le déplacement, c'est le lieu
+		// d'arrivée qui compte — Corvin est ici, Harek reste au foyer.
+		const auMarche = jouerNarrateur(dossier, depart, [`ALLER ${MARCHE_DES_CENDRES}`])
+		expect(auMarche.monde.pnj[HAREK]?.etape_plan?.depuis).toBe(1)
+		const texteMarche = texteNarrateur(dossier, cibleNarrateur(auMarche))
+		expect(blocsNarrateur(texteMarche).get(EN_TETE_PENDANT)).toEqual([PROSE_CORVIN])
+		expect(texteMarche).not.toContain(PROSE_HAREK)
+
+		// Corvin SEUL avance, le héros est au foyer : pas une ligne, pas même l'en-tête.
+		const corvinSeul = referenceAvecPlans({ [CORVIN]: planDeDeux(PROSE_CORVIN) })
+		const sansPresent = jouerNarrateur(corvinSeul, ouvertureNarrateur(corvinSeul), ['AGIR'])
+		expect(sansPresent.monde.pnj[CORVIN]?.etape_plan?.depuis).toBe(1)
+		const texteAbsent = texteNarrateur(corvinSeul, cibleNarrateur(sansPresent))
+		expect(texteAbsent).not.toContain(EN_TETE_PENDANT)
+		expect(texteAbsent).not.toContain(PROSE_CORVIN)
+	})
+
+	it('PENDANT CE TEMPS : action non redigee → silence, jamais un repli sur le nom ni un bloc vide', () => {
+		const sansAction = (): PlanAction => {
+			const etape: Partial<PlanAction> = etapeDePlan(1, 'x', FOYER_VISITE)
+			delete etape.action
+			return etape as PlanAction
+		}
+		const variantes: ReadonlyArray<readonly [string, PlanAction]> = [
+			['vide', etapeDePlan(1, '', FOYER_VISITE)],
+			['blancs', etapeDePlan(1, '  \n\t ', FOYER_VISITE)],
+			['marqueur seul', etapeDePlan(1, MARQUEUR_A_ECRIRE, FOYER_VISITE)],
+			['marqueur dans la prose', etapeDePlan(1, `${PROSE_HAREK} ${MARQUEUR_A_ECRIRE}`, FOYER_VISITE)],
+			['cle absente', sansAction()],
+		]
+
+		for (const [nom, etape] of variantes) {
+			const dossier = referenceAvecPlans({ [HAREK]: [etapeDePlan(0, PROSE_DE_DEPART), etape] })
+			const session = jouerNarrateur(dossier, ouvertureNarrateur(dossier), ['AGIR'])
+			// Le silence est celui de l'ÉTAPE, pas de la sélection : Harek avance, et il est ici.
+			expect(`${nom} → ${session.monde.pnj[HAREK]?.etape_plan?.depuis}`).toBe(`${nom} → 1`)
+			expect(personnagesPresents(dossier, session)).toContain(HAREK)
+
+			const texte = texteNarrateur(dossier, cibleNarrateur(session))
+			expect(`${nom} → ${texte.includes(EN_TETE_PENDANT)}`).toBe(`${nom} → false`)
+			expect(texte).not.toContain(MARQUEUR_A_ECRIRE)
+			// Jamais un repli sur `nom` (KR-262) ni sur l'étape de départ.
+			expect(texte).not.toContain(String(dossier.monde.personnages.find((p) => p.id === HAREK)?.nom))
+			expect(texte).not.toContain(PROSE_DE_DEPART)
+		}
+		// DISCRIMINANT : la MÊME composition, l'action rédigée, donne le bloc.
+		const redigee = referenceAvecPlans({ [HAREK]: planDeDeux(PROSE_HAREK) })
+		expect(bloc(redigee, jouerNarrateur(redigee, ouvertureNarrateur(redigee), ['AGIR']))).toEqual([PROSE_HAREK])
+	})
+
+	it('chemin action : audience ia, garde dediee — hors des huit, hors des onze, et seul l action entre', () => {
+		expect(CHEMIN_ACTION_DE_PLAN).toBe('monde.personnages[].plan_actions[].action')
+		// SON AUDIENCE : `ia`, par la table — la dérogation est à la DOCTRINE du rôle, pas à la table.
+		expect(DESTINATION_DES_CHAMPS[CHEMIN_ACTION_DE_PLAN]).toBe('ia')
+		expect(DEROGATIONS_AUDIENCE).toEqual([])
+		// SA GARDE DÉDIÉE : un chemin À PART. Il n'est pas un neuvième des huit…
+		expect(CHAMPS_INJECTES_NARRATEUR).toHaveLength(8)
+		expect((CHAMPS_INJECTES_NARRATEUR as readonly string[]).includes(CHEMIN_ACTION_DE_PLAN)).toBe(false)
+		// … ni un douzième des onze, dont le prédicat (dérivé de la table, KR-159) exclut les personnages.
+		const onze = Object.entries(DESTINATION_DES_CHAMPS)
+			.filter(([, destination]) => destination === 'ia')
+			.map(([chemin]) => chemin)
+			.filter((chemin) => chemin.startsWith('monde.') || chemin.startsWith('charpente.'))
+			.filter((chemin) => !chemin.startsWith('monde.personnages[].'))
+		expect(onze).toHaveLength(11)
+		expect(onze.includes(CHEMIN_ACTION_DE_PLAN)).toBe(false)
+
+		// LA SOURCE : `narrateur.ts` n'écrit AUCUN chemin de personnage en code — il appelle le
+		// module dédié, et lui seul porte la constante, une fois. Ni le baril, ni `brain/index.ts`
+		// ne l'exportent.
+		const source = (...segments: string[]): string => fs.readFileSync(path.join(__dirname, ...segments), 'utf8')
+		const codeNarrateur = sansCommentaires(source('contexte', 'narrateur.ts'))
+		expect(codeNarrateur).not.toContain('monde.personnages[]')
+		expect(codeNarrateur).toContain("from './horloge'")
+		const codeHorloge = sansCommentaires(source('contexte', 'horloge.ts'))
+		expect(codeHorloge.match(/'monde\.personnages\[\]\.plan_actions\[\]\.action'/g)).toHaveLength(1)
+		for (const porte of [source('contexte', 'index.ts'), source('..', 'index.ts')]) {
+			const code = sansCommentaires(porte)
+			expect(code).not.toContain('lignesPendantCeTemps')
+			expect(code).not.toContain('CHEMIN_ACTION_DE_PLAN')
+			expect(code).not.toContain('contexte/horloge')
+		}
+		// Et la DÉROGATION est écrite dans le code qu'elle déroge : le lecteur de `narrateur.ts` la trouve.
+		const doc = source('contexte', 'narrateur.ts')
+		expect(doc).toMatch(/LA DÉROGATION[\s\S]*CHEMIN_ACTION_DE_PLAN/)
+
+		// SEULE LA PROSE entre : tout autre champ du plan, et le personnage, portent une SENTINELLE
+		// qui ne doit jamais paraître — `si_bloque` est `ia` lui aussi, mais il n'est pas LU ici.
+		const dossier = referenceAvecPlans({
+			[HAREK]: [
+				etapeDePlan(0, PROSE_DE_DEPART),
+				etapeDePlan(1, PROSE_HAREK, FOYER_VISITE, {
+					etape: 4242,
+					duree: 7331,
+					declencheur_texte: 'SENTINELLE DECLENCHEUR',
+					si_bloque: 'SENTINELLE SI BLOQUE',
+				}),
+			],
+		})
+		const session = jouerNarrateur(dossier, ouvertureNarrateur(dossier), ['AGIR'])
+		const texte = texteNarrateur(dossier, cibleNarrateur(session))
+		expect(blocsNarrateur(texte).get(EN_TETE_PENDANT)).toEqual([PROSE_HAREK])
+		for (const sentinelle of ['SENTINELLE', '4242', '7331']) {
+			expect(`${sentinelle} → ${texte.includes(sentinelle)}`).toBe(`${sentinelle} → false`)
+		}
+		// Les champs voisins ne sont pas `ia` — sauf `si_bloque`, que ce lot ne lit pas : un champ
+		// `ia` de plus au plan ferait rougir ceci, et exigerait qu'on décide s'il entre ici.
+		const iaDuPlan = Object.entries(DESTINATION_DES_CHAMPS)
+			.filter(
+				([chemin, destination]) => chemin.startsWith('monde.personnages[].plan_actions[].') && destination === 'ia',
+			)
+			.map(([chemin]) => chemin)
+			.sort()
+		expect(iaDuPlan).toEqual([CHEMIN_ACTION_DE_PLAN, 'monde.personnages[].plan_actions[].si_bloque'])
+	})
+
+	it('depuis et rang absents du texte de contexte — ni nombre, ni identifiant, ni mot du plan, ni nom', () => {
+		// UN PERSONNAGE À TROIS ÉTAPES, avancé en deux temps par le produit : rang 2, depuis 3, tour 3 —
+		// trois nombres DISTINCTS que le texte ne doit jamais porter, et deux proses d'étape qui se
+		// distinguent (c'est l'INDEX qui désigne, KR-198).
+		const dossier = referenceAvecPlans({
+			[SELENE]: [
+				etapeDePlan(0, PROSE_DE_DEPART),
+				etapeDePlan(1, PROSE_SELENE_UN, FOYER_VISITE),
+				etapeDePlan(2, PROSE_SELENE_DEUX, TOUR_VISITEE),
+			],
+		})
+		const session = jouerNarrateur(dossier, ouvertureNarrateur(dossier), ['AGIR', 'AGIR', `ALLER ${TOUR_EFFONDREE}`])
+		expect(session.monde.pnj[SELENE]?.etape_plan).toEqual({ rang: 2, depuis: 3 })
+		expect(session.horloge.tour).toBe(3)
+		expect(personnagesPresents(dossier, session)).toContain(SELENE)
+
+		const lignes = bloc(dossier, session)
+		expect(lignes).toEqual([PROSE_SELENE_DEUX])
+		// La prose d'essai n'a pas de chiffre : tout chiffre de la ligne viendrait donc du code.
+		expect(PROSE_SELENE_DEUX).not.toMatch(/\d/)
+		expect(String(lignes?.join('\n'))).not.toMatch(/\d/)
+		const texte = texteNarrateur(dossier, cibleNarrateur(session))
+		expect(texte).not.toContain(PROSE_SELENE_UN)
+		expect(texte).not.toContain(PROSE_DE_DEPART)
+		for (const interdit of [SELENE, 'etape_plan', 'depuis', 'rang', 'declencheur']) {
+			expect(`${interdit} → ${texte.includes(interdit)}`).toBe(`${interdit} → false`)
+		}
+		expect(texte).not.toContain(String(dossier.monde.personnages.find((p) => p.id === SELENE)?.nom))
+	})
+
+	it('PENDANT CE TEMPS : plusieurs presents — l ordre est celui de monde.personnages[], ni l id ni l insertion de monde.pnj', () => {
+		const dossier = referenceAvecPlans(
+			{ [HAREK]: planDeDeux(PROSE_HAREK), [AUBRY]: planDeDeux(PROSE_AUBRY) },
+			{ [AUBRY]: FOYER_DU_GUET },
+		)
+		const joue = jouerNarrateur(dossier, ouvertureNarrateur(dossier), ['AGIR'])
+		const ids = dossier.monde.personnages.map((personnage) => personnage.id)
+		// L'ordre du DOCUMENT et l'ordre ALPHABÉTIQUE sont opposés : c'est ce qui les sépare.
+		expect(ids.indexOf(HAREK)).toBeLessThan(ids.indexOf(AUBRY))
+		expect([AUBRY, HAREK].sort()).toEqual([AUBRY, HAREK])
+		// … et l'insertion dans `monde.pnj`, FORGÉE à l'envers (le tick écrit dans l'ordre du document).
+		const inverse = avecEntreePnj({ ...joue, monde: { ...joue.monde, pnj: {} } }, AUBRY, joue.monde.pnj[AUBRY])
+		const inverseComplete = avecEntreePnj(inverse, HAREK, joue.monde.pnj[HAREK])
+		expect(Object.keys(inverseComplete.monde.pnj)).toEqual([AUBRY, HAREK])
+
+		expect(bloc(dossier, joue)).toEqual([PROSE_HAREK, PROSE_AUBRY])
+		expect(bloc(dossier, inverseComplete)).toEqual([PROSE_HAREK, PROSE_AUBRY])
+	})
+
+	it('PENDANT CE TEMPS : avance a un AUTRE pas, ou depuis absent (session 0.7.21) → silence, a un pas pres des deux cotes', () => {
+		const dossier = referenceAvecPlans({ [HAREK]: planDeDeux(PROSE_HAREK) })
+		const pas1 = jouerNarrateur(dossier, ouvertureNarrateur(dossier), ['AGIR'])
+		expect(bloc(dossier, pas1)).toEqual([PROSE_HAREK])
+
+		// PAS 2, par le produit : Harek est toujours à `rang: 1`, `depuis: 1`, toujours ici — mais
+		// il n'a plus avancé À CE pas : le récit du pas 2 ne le raconte pas.
+		const pas2 = jouerNarrateur(dossier, pas1, ['AGIR'])
+		expect(pas2.monde.pnj[HAREK]?.etape_plan).toEqual({ rang: 1, depuis: 1 })
+		expect(pas2.horloge.tour).toBe(2)
+		expect(bloc(dossier, pas2)).toBeUndefined()
+
+		// FORGÉS, au tour 1 : le bon `depuis` raconte, un pas de trop ou de moins se tait, et
+		// l'absence de `depuis` n'est PAS « avancé » (ni 0, ni le pas courant).
+		const entrees: ReadonlyArray<readonly [string, { rang: number; depuis?: number }, readonly string[] | undefined]> =
+			[
+				['depuis = tour', { rang: 1, depuis: 1 }, [PROSE_HAREK]],
+				['depuis = tour + 1', { rang: 1, depuis: 2 }, undefined],
+				['depuis = tour - 1', { rang: 1, depuis: 0 }, undefined],
+				['depuis absent', { rang: 1 }, undefined],
+			]
+		for (const [nom, etape, attendu] of entrees) {
+			const forgee = avecEntreePnj(pas1, HAREK, { a_dit: [], etape_plan: etape })
+			expect(`${nom} → ${JSON.stringify(bloc(dossier, forgee))}`).toBe(`${nom} → ${JSON.stringify(attendu)}`)
+		}
+		// L'ouverture (tour 0) : un `depuis` absent n'est pas non plus égal à 0.
+		const ouverture = ouvertureNarrateur(dossier)
+		expect(ouverture.horloge.tour).toBe(0)
+		expect(bloc(dossier, avecEntreePnj(ouverture, HAREK, { a_dit: [], etape_plan: { rang: 1 } }))).toBeUndefined()
+		expect(bloc(dossier, avecEntreePnj(ouverture, HAREK, { a_dit: [], etape_plan: { rang: 1, depuis: 0 } }))).toEqual([
+			PROSE_HAREK,
+		])
+		// Un personnage sans entrée dans `monde.pnj` n'a pas avancé.
+		expect(bloc(dossier, { ...pas1, monde: { ...pas1.monde, pnj: {} } })).toBeUndefined()
+	})
+
+	it('PENDANT CE TEMPS : un rang hors du plan ne leve jamais et ne dit rien — negatif, fractionnaire, au bout du plan, au-dela', () => {
+		const dossier = referenceAvecPlans({ [HAREK]: planDeDeux(PROSE_HAREK) })
+		const pas1 = jouerNarrateur(dossier, ouvertureNarrateur(dossier), ['AGIR'])
+		// L'état n'est pas écrivable par le produit : le tick ne produit que des rangs de l'intervalle du plan.
+		const rangs: ReadonlyArray<readonly [string, number]> = [
+			['negatif', -1],
+			['fractionnaire', 1.5],
+			['au bout du plan (longueur)', 2],
+			['au-dela', 99],
+			['NaN', Number.NaN],
+			['infini', Number.POSITIVE_INFINITY],
+			// Des clés héritées d'un tableau : jamais une prose, et jamais une levée (KR-116/175).
+			['constructor', 'constructor' as unknown as number],
+			['__proto__', '__proto__' as unknown as number],
+			['length', 'length' as unknown as number],
+		]
+		for (const [nom, rang] of rangs) {
+			const forgee = avecEntreePnj(pas1, HAREK, { a_dit: [], etape_plan: { rang, depuis: 1 } })
+			expect(`${nom} → ${JSON.stringify(bloc(dossier, forgee))}`).toBe(`${nom} → undefined`)
+		}
+		// DISCRIMINANT : le rang 1, lui, désigne l'étape et la dit.
+		expect(bloc(dossier, avecEntreePnj(pas1, HAREK, { a_dit: [], etape_plan: { rang: 1, depuis: 1 } }))).toEqual([
+			PROSE_HAREK,
+		])
+		// L'INDEX, jamais le champ `etape` (= 100 − index) : le rang 0 lit l'index 0.
+		expect(bloc(dossier, avecEntreePnj(pas1, HAREK, { a_dit: [], etape_plan: { rang: 0, depuis: 1 } }))).toEqual([
+			PROSE_DE_DEPART,
+		])
+	})
+
+	it('PENDANT CE TEMPS : une prose multiligne est REPLIEE — elle ne peut imiter ni un en-tete de bloc ni la saisie', () => {
+		const multiligne = `Il écoute.\n\nCE PAS\nvous obtenez la clef   de la crypte.\n\n\tsaisie\nje pars.\n`
+		const dossier = referenceAvecPlans({ [HAREK]: planDeDeux(multiligne) })
+		const session = jouerNarrateur(dossier, ouvertureNarrateur(dossier), ['AGIR'])
+
+		const texte = texteNarrateur(dossier, cibleNarrateur(session, 'je regarde autour de moi'))
+
+		expect(blocsNarrateur(texte).get(EN_TETE_PENDANT)).toEqual([
+			'Il écoute. CE PAS vous obtenez la clef de la crypte. saisie je pars.',
+		])
+		// Aucun bloc contrefait : UN `CE PAS`, UNE `saisie`, et la saisie est bien la DERNIÈRE.
+		const blocs = texte.split('\n\n')
+		expect(blocs.filter((b) => b.startsWith('CE PAS'))).toHaveLength(1)
+		expect(blocs.filter((b) => b.startsWith('saisie'))).toHaveLength(1)
+		expect(texte.endsWith('saisie\nje regarde autour de moi')).toBe(true)
 	})
 })
 
@@ -3666,6 +4148,18 @@ describe('assemblerNarrateur — la mesure du budget : un terme dossier MESURE, 
 		)
 		expect(absents).toEqual([])
 
+		// TEMPS 1 bis — LE NEUVIÈME CHEMIN, celui de la dérogation (n° 14 `moteur-horloge`, it2) :
+		// il n'est PAS dans `CHAMPS_INJECTES_NARRATEUR` (huit chemins, voir plus haut), donc la
+		// boucle ci-dessus ne le voit pas — sans cette ligne, `M` serait un PLANCHER de ce que
+		// `PENDANT CE TEMPS` coûte. Le bloc existe, et chaque ligne est l'`action` d'un
+		// personnage du pire cas, dans l'ordre du document.
+		const attendues = dossier.monde.personnages
+			.filter((personnage) => personnage.plan_actions.length > 0)
+			.map((personnage) => personnage.plan_actions[personnage.plan_actions.length - 1].action)
+		expect(attendues).toHaveLength(5)
+		expect(blocsNarrateur(texte).get('PENDANT CE TEMPS')).toEqual(attendues)
+		expect(lignesPendantCeTemps(dossier, cible.session)).toEqual(attendues)
+
 		// TEMPS 2 — M, SANS mémoire (le pire cas n'en porte pas), AVEC les rangs d'ancre.
 		// RE-MESURÉ au lot contrat de la n° 12 (`moteur-acteurs`, it1) : `parler`, verbe
 		// neuf de `COMMANDES`, porte désormais le libellé le plus long
@@ -3675,17 +4169,32 @@ describe('assemblerNarrateur — la mesure du budget : un terme dossier MESURE, 
 		// troisième savoir référençant un NOUVEL indice de `dossier-reference.json`
 		// (`indice.piece-forgee-par-harek`), et `pireCasNarrateur()` balaie TOUS les
 		// indices du dossier — +43 caractères (1954 → 1997), SOUS le palier des 2000.
+		// RE-MESURÉ au lot contrat de la n° 14 (`moteur-horloge`, it2) : `PENDANT CE TEMPS` ajoute
+		// UN BLOC. Son coût est dérivé du DOSSIER, jamais lu du texte qu'il borne : le séparateur,
+		// l'en-tête, puis pour chaque ligne un saut et la prose — 2 + 16 + (5 + 263) = 286.
+		const coutDuBloc = 2 + 'PENDANT CE TEMPS'.length + attendues.reduce((somme, ligne) => somme + 1 + ligne.length, 0)
+		expect(coutDuBloc).toBe(286)
 		const M = texte.length
-		expect(M).toBe(1997)
+		// Le texte sans le bloc est EXACTEMENT celui d'avant : rien d'autre n'a bougé.
+		expect(M - coutDuBloc).toBe(1997)
+		expect(M).toBe(2283)
 
 		// TEMPS 3 — la formule : le terme dossier (facteur 3, arrondi au millier) PLUS la
 		// borne EXACTE de la mémoire, PLUS (n° 11, it2 puis it3) la borne EXACTE de la
 		// ligne de jet, sans marge sur AUCUN des deux termes calculés.
 		expect(BUDGET_CARACTERES_NARRATEUR).toBe(Math.ceil((M * 3) / 1000) * 1000 + BORNE_MEMOIRE + BORNE_JET)
-		// 27 056 depuis it3 de la n° 11 (27 046 en it2) : M reste SOUS le palier des 2000
-		// (1997 × 3 = 5991) au lot contrat de la n° 12 it3 — re-mesure, jamais recopie
-		// (worker/index.ts en porte la trace).
-		expect(BUDGET_CARACTERES_NARRATEUR).toBe(27056)
+		// LE PALIER A BOUGÉ — la mesure d'avant le bloc (1997 × 3 = 5991) donnait 6000 ; celle
+		// d'après (2283 × 3 = 6849) franchit les 6000 et donne 7000. Et le palier ne dépend pas du
+		// NOMBRE de personnages que le pire cas fait avancer : une seule ligne, la plus longue
+		// (67 caractères), donnerait M = 2083 (6249) et le même 7000.
+		expect(Math.ceil((1997 * 3) / 1000) * 1000).toBe(6000)
+		expect(Math.ceil((M * 3) / 1000) * 1000).toBe(7000)
+		const plusLongue = Math.max(...attendues.map((ligne) => ligne.length))
+		expect(plusLongue).toBe(67)
+		expect(Math.ceil(((1997 + 2 + 'PENDANT CE TEMPS'.length + 1 + plusLongue) * 3) / 1000) * 1000).toBe(7000)
+		// 28 056 depuis la n° 14 it2 (27 056 avant) : re-mesure, jamais recopie (worker/index.ts
+		// en porte la trace, et `worker/frontiere.test.ts` en tire le plafond du worker).
+		expect(BUDGET_CARACTERES_NARRATEUR).toBe(28056)
 	})
 
 	it('BORNE_MEMOIRE se derive des bornes des validateurs : 23 lignes de pas, le condense, huit faits — et rien d autre', () => {
@@ -3768,13 +4277,19 @@ describe('assemblerNarrateur — la mesure du budget : un terme dossier MESURE, 
 		// d'une amorce d'effet, d'un RANG de la table rendue, ou des deux —, un libellé de
 		// geste, « aucun changement », ou la saisie.
 		const feuilles = new Set<string>()
+		// Les `action` du plan (n° 14, it2) : LA dérogation, un chemin À PART — jamais mêlé aux huit,
+		// et jamais précédé d'une amorce d'effet ni d'un rang : la ligne est la prose NUE, ou rien.
+		const actions = new Set<string>()
 		for (const feuille of feuillesDeLaFixture(dossier)) {
 			if (typeof feuille.valeur !== 'string') continue
 			if ((CHAMPS_INJECTES_NARRATEUR as readonly string[]).includes(feuille.normalise)) feuilles.add(feuille.valeur)
+			if (feuille.normalise === CHEMIN_ACTION_DE_PLAN) actions.add(feuille.valeur)
 		}
+		expect(actions.size).toBe(5)
 		const rangs = [...contexte.ancres.keys()]
 		const permises = new Set<string>([
 			...feuilles,
+			...actions,
 			...[...feuilles].flatMap((valeur) => AMORCES_D_EFFET.map((amorce) => `${amorce} — ${valeur}`)),
 			...[...feuilles].flatMap((valeur) =>
 				rangs.flatMap((rang) => [
@@ -4320,6 +4835,50 @@ describe('assemblerNarrateur — la cascade de l it4 : P0 a P4, puis trop-long (
 			2 + 'RECEMMENT'.length + 4 * ligneDePas + (2 + 'ETABLI'.length + FAITS_INJECTES_MAX * (1 + FAIT_CARACTERES_MAX)),
 		)
 		expect(plancher).toBe(4511)
+	})
+})
+
+// ══ PENDANT CE TEMPS, HORS CASCADE (n° 14 `moteur-horloge`, it2) ═════════════════════════════════
+//
+// Le bloc n'est NI un levier NI un invariant : aucun palier ne le retire, et il pèse dans le
+// socle de chacun — le terme dossier de `BUDGET_CARACTERES_DOSSIER` le porte (ci-dessus).
+describe('assemblerNarrateur — PENDANT CE TEMPS est HORS CASCADE : P0 à P4 le gardent, et trop-long ne le coupe pas', () => {
+	it('chaque palier envoie la MEME ligne, et le refus ne vient qu au-dela du suffixe minimal — sans aucun fetch', () => {
+		const espionFetch = jest.fn()
+		const avant = globalThis.fetch
+		globalThis.fetch = espionFetch as unknown as typeof fetch
+		try {
+			const dossier = referenceAvecPlans({ [HAREK]: planDeDeux(PROSE_HAREK) }, {}, referenceDeCascade())
+			// Harek avance au PAS COURANT (34) : l'état est COMPOSÉ sur la partie jouée, comme l'inventaire.
+			const session = avecEntreePnj(partieDeCascade(dossier, 34), HAREK, {
+				a_dit: [],
+				etape_plan: { rang: 1, depuis: 34 },
+			})
+			const [exacteP0, exacteP1, exacteP2, exacteP3] = saisiesExactes(dossier, session)
+			const exacteMinimale = saisieExacteP4(dossier, session, exacteP3, 1)
+			// Chaque saisie ATTEINT son palier (lu dans le texte, jamais supposé) — sans quoi « le bloc
+			// survit à P4 » serait vert sur un P0.
+			const paliers: ReadonlyArray<readonly [number, ReturnType<typeof lecture>]> = [
+				[1, LU_P0],
+				[exacteP0 + 1, LU_P1],
+				[exacteP1 + 1, LU_P2],
+				[exacteP2 + 1, LU_P3],
+				[exacteP3 + 1, luP4(4)],
+				[exacteMinimale, luP4(1)],
+			]
+
+			for (const [saisie, attendu] of paliers) {
+				const contexte = rendu(aLaSaisie(dossier, session, saisie))
+				expect(lecture(contexte)).toEqual(attendu)
+				expect(blocsNarrateur(contexte.texte).get(EN_TETE_PENDANT)).toEqual([PROSE_HAREK])
+			}
+			// Et il n'est PAS un invariant au sens de `trop-long` : un caractère de plus, le refus est le
+			// MÊME qu'avant ce bloc — le bloc ne part pas pour faire tenir le reste.
+			expect(aLaSaisie(dossier, session, exacteMinimale + 1)).toEqual({ ok: false, motif: 'trop-long' })
+			expect(espionFetch).not.toHaveBeenCalled()
+		} finally {
+			globalThis.fetch = avant
+		}
 	})
 })
 

@@ -969,12 +969,12 @@
 		{
 			"id": "KR-298",
 			"feature": "moteur-horloge",
-			"risk": "EtatPnj.etape_plan?: {rang} it1, {rang, depuis} it2. Optionnel, absent=rang 0 (KR-013). rang=index plan_actions[], pas etape (KR-198). Ecrivain: tickHorloge. depuis entre avec duree it2 meme lot (KR-249)."
+			"risk": "EtatPnj.etape_plan?: {rang} it1, {rang, depuis?} it2. Optionnel, absent=rang 0 (KR-013). rang=index plan_actions[], pas etape (KR-198). Ecrivain: tickHorloge. depuis entre it2 (lecteur R3), duree it3."
 		},
 		{
 			"id": "KR-301",
 			"feature": "moteur-horloge",
-			"risk": "climat_actif optionnel dans horloge (session, KR-207). Activation via Evenement (types.ts:1380 interdit declencheur_expr sur Climat), route exacte au raffinage d'it3. Extinction par tickHorloge quand duree atteinte."
+			"risk": "climat_actif optionnel dans horloge (session, KR-207). Activation via Evenement (types.ts:1380 interdit declencheur_expr sur Climat), route exacte au raffinage d'it4. Extinction par tickHorloge quand duree atteinte."
 		}
 	]
 }

@@ -2,7 +2,14 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { assemblerActeur } from '../copilote/contexte/acteur'
 import { assemblerNarrateur } from '../copilote/contexte/narrateur'
-import { COMMANDES, analyserSaisie, executerCommande, type CommandeId, type ResultatCommande } from './commandes'
+import {
+	COMMANDES,
+	analyserSaisie,
+	executerCommande,
+	personnagesPresents,
+	type CommandeId,
+	type ResultatCommande,
+} from './commandes'
 import * as evaluateModule from './evaluate'
 import type { ExprNode } from './expr'
 import type { EtatPnj } from './faits'
@@ -12,8 +19,10 @@ import { consignerJet, crediterConfiance, ouvrirSession, type EtatSession } from
 import type { Dossier, PlanAction } from './types'
 
 /**
- * L'HORLOGE DES PNJ — `tickHorloge` (n° 14 `moteur-horloge`, it1, lot `contrat`,
- * `docs/REGLES-PLAY.md` § J2).
+ * L'HORLOGE DES PNJ — `tickHorloge` (n° 14 `moteur-horloge`, it1 puis it2, lot `contrat`,
+ * `docs/REGLES-PLAY.md` § J2). L'it2 ajoute UNE écriture, `etape_plan.depuis` = le pas de
+ * l'avancement, et ses tests : `describe` « depuis ». Les tests de l'it1 sont conservés, leurs
+ * valeurs mises à jour d'une clé.
  *
  * LES DOSSIERS SONT LUS DU DISQUE (KR-156) puis MUTÉS EN TEST — un seul champ, le
  * `plan_actions[]` d'un ou deux personnages — quand le scénario exige un plan qu'aucune
@@ -158,7 +167,7 @@ describe('tickHorloge, le scenario separateur a trois etapes [A sans declencheur
 		const pas2avant = sessionDe(executer(REFERENCE, pas1, 'ALLER lieu.tour-effondree'))
 		const pas2 = tickHorloge(dossier, pas2avant)
 		expect(pas2).not.toBe(pas2avant)
-		expect(pas2.monde.pnj[HAREK]).toEqual({ a_dit: [], etape_plan: { rang: 1 } })
+		expect(pas2.monde.pnj[HAREK]).toEqual({ a_dit: [], etape_plan: { rang: 1, depuis: 2 } })
 		expect(pas2.journal.slice(pas2avant.journal.length)).toEqual([
 			{ tour: 2, role: 'moteur', texte: `etape_plan : ${HAREK} 2` },
 		])
@@ -166,7 +175,7 @@ describe('tickHorloge, le scenario separateur a trois etapes [A sans declencheur
 		// PAS 3 — T2 est vrai depuis le pas 1 : le cran SUIVANT, un pas plus tard.
 		const pas3avant = sessionDe(executer(REFERENCE, pas2, 'ALLER lieu.foyer-du-guet'))
 		const pas3 = tickHorloge(dossier, pas3avant)
-		expect(pas3.monde.pnj[HAREK]).toEqual({ a_dit: [], etape_plan: { rang: 2 } })
+		expect(pas3.monde.pnj[HAREK]).toEqual({ a_dit: [], etape_plan: { rang: 2, depuis: 3 } })
 		expect(pas3.journal.slice(pas3avant.journal.length)).toEqual([
 			{ tour: 3, role: 'moteur', texte: `etape_plan : ${HAREK} 2 → 3` },
 		])
@@ -210,11 +219,118 @@ describe('tickHorloge, le scenario separateur a trois etapes [A sans declencheur
 	})
 })
 
+describe('tickHorloge, depuis : le pas de l avancement, ecrit avec rang et jamais autrement (n 14 it2, KR-298)', () => {
+	/** B ne devient vraie qu'à la visite de la tour ; C (le foyer est visité) est vraie dès le départ. */
+	const PLAN = (): PlanAction[] => [etape(0), etape(1, TOUR_VISITEE), etape(2, FOYER_VISITE)]
+
+	it('avancement ecrit depuis = tour : le pas COURANT — ni 0, ni rang, ni tour + 1 — reecrit a l avancement suivant', () => {
+		// MUTANTS NOMMÉS, À ÉCRIRE PUIS RÉVOQUER : `depuis: 0`, `depuis: rang`, `depuis:
+		// session.horloge.tour + 1`. Les valeurs sont toutes DISTINCTES au pas 5 (rang 1, pas
+		// précédent 4, pas suivant 6) : aucune coïncidence ne peut passer pour la bonne.
+		const dossier = avecPlans({ [HAREK]: PLAN() })
+		const avant = jouer(REFERENCE, ouverture(dossier), ['AGIR', 'AGIR', 'AGIR', 'AGIR', 'ALLER lieu.tour-effondree'])
+		expect(avant.horloge.tour).toBe(5)
+		expect(avant.monde.pnj).toEqual({})
+
+		const apres = tickHorloge(dossier, avant)
+
+		expect(apres.monde.pnj[HAREK]).toStrictEqual({ a_dit: [], etape_plan: { rang: 1, depuis: 5 } })
+		expect(apres.monde.pnj[HAREK]?.etape_plan?.depuis).toBe(apres.horloge.tour)
+		// Le tick n'ajoute PAS de pas (J1) : `depuis` est le pas courant, jamais le suivant.
+		expect(apres.horloge).toEqual({ tour: 5 })
+
+		// L'avancement SUIVANT RÉÉCRIT `depuis` : un pas plus tard, C est vraie à son tour.
+		const pas6 = sessionDe(executer(REFERENCE, apres, 'AGIR'))
+		expect(pas6.horloge.tour).toBe(6)
+		expect(tickHorloge(dossier, pas6).monde.pnj[HAREK]?.etape_plan).toStrictEqual({ rang: 2, depuis: 6 })
+	})
+
+	it('pas d avancement → pas de depuis : un personnage qui n avance pas garde son entree TELLE QUELLE, sans depuis cree ni touche', () => {
+		// MUTANT NOMMÉ, À ÉCRIRE PUIS RÉVOQUER : « rafraîchir » `depuis` à chaque tick pour les
+		// personnages déjà avancés — il ferait de `depuis` un « dernier pas du tick », et
+		// `depuis === horloge.tour` dirait « avancé à ce pas » à tout PNJ du monde.
+		const dossier = avecPlans({
+			[HAREK]: [etape(0), etape(1, TOUR_VISITEE), etape(2, JAMAIS)],
+			[CORVIN]: [etape(0), etape(1, JAMAIS)],
+		})
+		const pas2 = jouer(dossier, ouverture(dossier), ['AGIR', 'ALLER lieu.tour-effondree'])
+		const entree = pas2.monde.pnj[HAREK]
+		expect(entree).toStrictEqual({ a_dit: [], etape_plan: { rang: 1, depuis: 2 } })
+		// Corvin n'a PAS avancé : aucune entrée du tout, donc aucun `depuis`.
+		expect(Object.keys(pas2.monde.pnj)).toEqual([HAREK])
+
+		const pas5 = jouer(dossier, pas2, ['AGIR', 'AGIR', 'AGIR'])
+
+		expect(pas5.horloge.tour).toBe(5)
+		// MÊME RÉFÉRENCE : ni créé, ni réécrit, ni « rafraîchi » au pas courant.
+		expect(pas5.monde.pnj[HAREK]).toBe(entree)
+		expect(pas5.monde.pnj[HAREK]?.etape_plan?.depuis).toBe(2)
+		expect(Object.keys(pas5.monde.pnj)).toEqual([HAREK])
+		// Et le tick direct rend la MÊME session : rien ne change, `depuis` compris.
+		expect(tickHorloge(dossier, pas5)).toBe(pas5)
+		// Une session où RIEN n'a jamais avancé ne porte le mot nulle part.
+		const jamaisAvance = jouer(REFERENCE, ouverture(dossier), ['AGIR', 'AGIR'])
+		expect(JSON.stringify(tickHorloge(dossier, jamaisAvance))).not.toContain('depuis')
+	})
+
+	it('un seul des deux personnages avance : celui-la recoit depuis, l autre garde son entree sans y toucher', () => {
+		const dossier = avecPlans({
+			[CORVIN]: [etape(0), etape(1, FOYER_VISITE)],
+			[HAREK]: [etape(0), etape(1, FOYER_VISITE), etape(2, JAMAIS)],
+		})
+		const base = jouer(REFERENCE, ouverture(dossier), ['AGIR', 'AGIR'])
+		// L'entrée de Harek est celle que le tick a écrite à son avancement au pas 1 — posée telle
+		// quelle sur la session du pas 2, et sa condition SUIVANTE est fausse pour toujours.
+		const depart = avecEntree(base, HAREK, { a_dit: [], etape_plan: { rang: 1, depuis: 1 } })
+
+		const apres = tickHorloge(dossier, depart)
+
+		expect(apres.monde.pnj[CORVIN]).toStrictEqual({ a_dit: [], etape_plan: { rang: 1, depuis: 2 } })
+		expect(apres.monde.pnj[HAREK]).toBe(depart.monde.pnj[HAREK])
+		expect(apres.monde.pnj[HAREK]?.etape_plan).toStrictEqual({ rang: 1, depuis: 1 })
+	})
+
+	it('session 0.7.21 {rang} sans depuis : le tick ne leve pas, n invente aucun depuis, et avance comme a l it1 (KR-251)', () => {
+		const AUTRES = ['indice.pas-dans-la-cendre']
+		const dossier = avecPlans({ [HAREK]: TROIS_VRAIES() })
+		const jouee = jouer(REFERENCE, ouverture(dossier), ['AGIR', 'AGIR', 'AGIR', 'AGIR'])
+		// FORGÉE, et c'est le point : la forme que 0.7.21 écrivait — `{ rang }` SANS `depuis` —
+		// ne peut plus être produite par le tick, mais reste CELLE DES PARTIES DÉJÀ PERSISTÉES.
+		const ancienne = avecEntree(jouee, HAREK, { a_dit: AUTRES, etape_plan: { rang: 1 } })
+		const moderne = avecEntree(jouee, HAREK, { a_dit: AUTRES, etape_plan: { rang: 1, depuis: 3 } })
+		expect(jouee.horloge.tour).toBe(4)
+
+		// (a) ELLE AVANCE : le rang et la ligne sont ceux de l'it1, et `depuis` est le pas courant.
+		const apres = tickHorloge(dossier, ancienne)
+		expect(apres.monde.pnj[HAREK]).toStrictEqual({ a_dit: AUTRES, etape_plan: { rang: 2, depuis: 4 } })
+		expect(lignesDuTick(apres).map((ligne) => ligne.texte)).toEqual([`etape_plan : ${HAREK} 2 → 3`])
+		// Le `depuis` d'ENTRÉE n'est jamais lu : une entrée au `depuis` périmé (3) rend EXACTEMENT
+		// la même session. Un tick qui lirait l'ancien `depuis` ou son absence les distinguerait.
+		expect(tickHorloge(dossier, moderne)).toStrictEqual(apres)
+
+		// (b) ELLE N'AVANCE PAS (la suite est fausse) : même référence, aucun `depuis` inventé —
+		// ni `0`, ni le pas courant.
+		const sansSuite = avecPlans({ [HAREK]: [etape(0), etape(1, FOYER_VISITE), etape(2, JAMAIS)] })
+		const fixe = avecEntree(jouer(REFERENCE, ouverture(sansSuite), ['AGIR', 'AGIR']), HAREK, {
+			a_dit: [],
+			etape_plan: { rang: 1 },
+		})
+		const rendue = tickHorloge(sansSuite, fixe)
+		expect(rendue).toBe(fixe)
+		expect(Object.keys(rendue.monde.pnj[HAREK]?.etape_plan ?? {})).toEqual(['rang'])
+
+		// (c) PAR LE CHEMIN COMPLET : la commande suivante la joue sans lever, et date l'avancement.
+		const suite = sessionDe(executer(dossier, ancienne, 'AGIR'))
+		expect(suite.monde.pnj[HAREK]?.etape_plan).toStrictEqual({ rang: 2, depuis: 5 })
+	})
+})
+
 describe('tickHorloge, aucune lecture de duree ni de si_bloque (REJETE R-1 : avancer a l echeance)', () => {
 	it('une etape a duree 1 dont le declencheur suivant reste faux : MEME REFERENCE a chacun des cinq pas', () => {
 		// MUTANT NOMMÉ, À ÉCRIRE PUIS RÉVOQUER : faire avancer le PNJ quand `duree` est
 		// échue, quel que soit le déclencheur de l'étape suivante. Il rendrait ici une
-		// session NEUVE dès le pas 2 — et rendrait `si_bloque` inatteignable en it2.
+		// session NEUVE dès le pas 2 — et ferait de la durée une minuterie, que J2 abolit : une
+		// durée échue constate un blocage (it3), elle ne fait jamais avancer.
 		const dossier = avecPlans({
 			[HAREK]: [
 				etape(0, undefined, { duree: 1, si_bloque: 'Il change de plan.' }),
@@ -232,7 +348,7 @@ describe('tickHorloge, aucune lecture de duree ni de si_bloque (REJETE R-1 : ava
 		expect(courante.monde.pnj).toEqual({})
 	})
 
-	it('une etape suivante SANS declencheur, duree posee : elle reste (la minuterie est reportee a l it2)', () => {
+	it('une etape suivante SANS declencheur, duree posee : elle reste (la minuterie est ABOLIE, § J2)', () => {
 		const dossier = avecPlans({ [HAREK]: [etape(0, undefined, { duree: 1 }), etape(1, undefined, { duree: 1 })] })
 		let courante = ouverture(dossier)
 
@@ -279,7 +395,8 @@ describe('tickHorloge, les cas limites — MEME REFERENCE, aucune ligne, aucune 
 		const depart = ouverture(dossier)
 		expect(tickHorloge(dossier, depart)).not.toBe(depart)
 		const aUn = avecEntree(depart, HAREK, { a_dit: [], etape_plan: { rang: 1 } })
-		expect(tickHorloge(dossier, aUn).monde.pnj[HAREK]?.etape_plan).toEqual({ rang: 2 })
+		// Le tick est appelé DIRECTEMENT sur la session d'ouverture : le pas courant est le pas 0.
+		expect(tickHorloge(dossier, aUn).monde.pnj[HAREK]?.etape_plan).toEqual({ rang: 2, depuis: depart.horloge.tour })
 	})
 
 	it('un rang negatif ou non entier n ecrit RIEN meme quand l etape visee existe : la garde est explicite', () => {
@@ -312,7 +429,11 @@ describe('tickHorloge, les cas limites — MEME REFERENCE, aucune ligne, aucune 
 
 		// DISCRIMINANT : le même plan, les deux conditions échangées — l'index 1 est vrai.
 		const echange = avecPlans({ [HAREK]: [etape(0), etape(1, FOYER_VISITE), etape(2, JAMAIS)] })
-		expect(tickHorloge(echange, ouverture(echange)).monde.pnj[HAREK]?.etape_plan).toEqual({ rang: 1 })
+		const departEchange = ouverture(echange)
+		expect(tickHorloge(echange, departEchange).monde.pnj[HAREK]?.etape_plan).toEqual({
+			rang: 1,
+			depuis: departEchange.horloge.tour,
+		})
 	})
 })
 
@@ -357,7 +478,9 @@ describe('tickHorloge, plusieurs personnages : l ordre du document, un cran chac
 			`etape_plan : ${AUBRY} 2`,
 		])
 		// UN CRAN : les deux étapes suivantes étaient vraies aussi, et aucun n'a sauté.
-		for (const id of [CORVIN, HAREK, AUBRY]) expect(pas1.monde.pnj[id]?.etape_plan).toEqual({ rang: 1 })
+		for (const id of [CORVIN, HAREK, AUBRY]) {
+			expect(pas1.monde.pnj[id]?.etape_plan).toEqual({ rang: 1, depuis: depart.horloge.tour })
+		}
 
 		const pas2 = tickHorloge(dossier, pas1)
 		expect(
@@ -365,7 +488,9 @@ describe('tickHorloge, plusieurs personnages : l ordre du document, un cran chac
 				.slice(3)
 				.map((ligne) => ligne.texte),
 		).toEqual([`etape_plan : ${CORVIN} 2 → 3`, `etape_plan : ${HAREK} 2 → 3`, `etape_plan : ${AUBRY} 2 → 3`])
-		for (const id of [CORVIN, HAREK, AUBRY]) expect(pas2.monde.pnj[id]?.etape_plan).toEqual({ rang: 2 })
+		for (const id of [CORVIN, HAREK, AUBRY]) {
+			expect(pas2.monde.pnj[id]?.etape_plan).toEqual({ rang: 2, depuis: depart.horloge.tour })
+		}
 
 		// Le plan est épuisé : plus rien, même référence.
 		expect(tickHorloge(dossier, pas2)).toBe(pas2)
@@ -384,7 +509,7 @@ describe('tickHorloge, plusieurs personnages : l ordre du document, un cran chac
 			// avancement a écrits. Un tick qui figerait `session.monde` au départ rendrait
 			// `undefined` au second appel.
 			expect(espion.mock.calls[0][0].pnj[CORVIN]).toBeUndefined()
-			expect(espion.mock.calls[1][0].pnj[CORVIN]?.etape_plan).toEqual({ rang: 1 })
+			expect(espion.mock.calls[1][0].pnj[CORVIN]?.etape_plan).toEqual({ rang: 1, depuis: depart.horloge.tour })
 			// Chaque appel reçoit l'ÉTAPE VISÉE (index 1), jamais l'étape courante ni le plan.
 			expect(espion.mock.calls[0][1]).toBe(dossier.monde.personnages.find((p) => p.id === CORVIN)?.plan_actions[1])
 			expect(espion.mock.calls[1][1]).toBe(dossier.monde.personnages.find((p) => p.id === HAREK)?.plan_actions[1])
@@ -436,16 +561,20 @@ describe('tickHorloge, les trois ecrivains de EtatPnj — a_dit, confiance, etap
 	it('le tick PUIS crediterConfiance PUIS consignerReponseActeur : rien n ecrase etape_plan', () => {
 		const d = dossier()
 		const s1 = jouer(d, ouverture(d), ['ALLER lieu.marche-des-cendres'])
-		expect(s1.monde.pnj[HAREK]).toEqual({ a_dit: [], etape_plan: { rang: 1 } })
+		expect(s1.monde.pnj[HAREK]).toEqual({ a_dit: [], etape_plan: { rang: 1, depuis: 1 } })
 
 		const s2 = jouer(d, s1, ['ALLER lieu.foyer-du-guet'])
 		const s3 = crediterConfiance(s2, HAREK, 1)
-		expect(s3.monde.pnj[HAREK]).toEqual({ a_dit: [], confiance: 1, etape_plan: { rang: 1 } })
+		expect(s3.monde.pnj[HAREK]).toEqual({ a_dit: [], confiance: 1, etape_plan: { rang: 1, depuis: 1 } })
 
 		const s4 = portesOuvertes(jouer(d, s3, [`PARLER ${HAREK}`]))
 		const s5 = consignerReponseActeur(s4, s4.horloge.tour, d, APPORT)
 
-		expect(s5.monde.pnj[HAREK]).toEqual({ a_dit: [INDICE], confiance: 1, etape_plan: { rang: 1 } })
+		// `depuis` SURVIT aux deux autres écrivains, et reste le pas de l'AVANCEMENT (1), pas
+		// celui de la dernière écriture de l'entrée (3) — c'est ce qui sépare `depuis` d'un
+		// « dernier pas où l'entrée a bougé ».
+		expect(s5.horloge.tour).toBe(3)
+		expect(s5.monde.pnj[HAREK]).toEqual({ a_dit: [INDICE], confiance: 1, etape_plan: { rang: 1, depuis: 1 } })
 	})
 
 	it('consignerReponseActeur PUIS crediterConfiance PUIS le tick : rien n ecrase a_dit ni confiance', () => {
@@ -460,7 +589,7 @@ describe('tickHorloge, les trois ecrivains de EtatPnj — a_dit, confiance, etap
 		const s3 = crediterConfiance(s2, HAREK, 1)
 		const s4 = jouer(d, s3, ['ALLER lieu.marche-des-cendres'])
 
-		expect(s4.monde.pnj[HAREK]).toEqual({ a_dit: [INDICE], confiance: 1, etape_plan: { rang: 1 } })
+		expect(s4.monde.pnj[HAREK]).toEqual({ a_dit: [INDICE], confiance: 1, etape_plan: { rang: 1, depuis: 2 } })
 		// Et c'est le MÊME état final que dans l'autre ordre — c'est ce que « les deux
 		// ordres » veut dire.
 		expect(lignesDuTick(s4).map((ligne) => ligne.texte)).toEqual([`etape_plan : ${HAREK} 2`])
@@ -548,8 +677,8 @@ describe('tickHorloge, le perimetre : seuls monde.pnj[*].etape_plan et le journa
 
 			// Le tick a bien écrit (discriminant) : deux personnages, deux lignes…
 			expect(`${id} → ${lignesDuTick(avec).length}`).toBe(`${id} → 2`)
-			expect(avec.monde.pnj[HAREK]?.etape_plan).toEqual({ rang: 1 })
-			expect(avec.monde.pnj[AUBRY]?.etape_plan).toEqual({ rang: 1 })
+			expect(avec.monde.pnj[HAREK]?.etape_plan).toEqual({ rang: 1, depuis: 1 })
+			expect(avec.monde.pnj[AUBRY]?.etape_plan).toEqual({ rang: 1, depuis: 1 })
 			// … et RIEN d'autre n'a bougé, clé par clé, `undefined` explicites compris.
 			expect(sansLeTick(avec, sans)).toStrictEqual(sans)
 			// La couture est EXACTEMENT « le tick de la session d'après jalons ».
@@ -568,14 +697,23 @@ describe('tickHorloge, le perimetre : seuls monde.pnj[*].etape_plan et le journa
 	})
 })
 
-describe('tickHorloge, les contextes R3 et R4 sont octet-identiques avec et sans tick (KR-295, R-7)', () => {
-	it('R3, le narrateur : le pas dont le tick ecrit se raconte comme celui dont il n ecrit pas', () => {
-		const dossier = avecPlans({ [HAREK]: [etape(0), etape(1, FOYER_VISITE)] })
+describe('tickHorloge, R4 toujours et R3 hors de portee sont octet-identiques avec et sans tick (KR-295, R-7)', () => {
+	it('R3, le narrateur : un avancement HORS DE PORTEE du heros se raconte comme un pas dont le tick n ecrit rien', () => {
+		// DEPUIS L'IT2, un personnage PERCEPTIBLE (présent au lieu courant) ET avancé à ce pas entre
+		// dans R3 par le bloc `PENDANT CE TEMPS` : c'est le contrat de l'assembleur
+		// (`copilote/contexte/horloge.ts`, n° 14 it2), asserté dans `copilote/contexte.test.ts`, et
+		// il n'est PAS asserté ici. Ce test tient la FRONTIÈRE de ce contrat, valable avant comme
+		// après lui : Corvin avance (le tick écrit) mais se tient au marché des cendres, le héros
+		// reste au foyer du guet — hors de portée, donc le contexte ne bouge pas d'un octet.
+		const dossier = avecPlans({ [CORVIN]: [etape(0), etape(1, FOYER_VISITE)] })
 		const depart = ouverture(dossier)
 		const avec = sessionDe(executer(dossier, depart, 'AGIR'))
 		const sans = sessionDe(executer(REFERENCE, depart, 'AGIR'))
-		expect(avec.monde.pnj[HAREK]?.etape_plan).toEqual({ rang: 1 })
+		expect(avec.monde.pnj[CORVIN]?.etape_plan).toEqual({ rang: 1, depuis: 1 })
 		expect(sans.monde.pnj).toEqual({})
+		// DISCRIMINANT DE LA FRONTIÈRE : Corvin n'est pas au lieu courant — Harek, lui, y est.
+		expect(personnagesPresents(dossier, avec)).not.toContain(CORVIN)
+		expect(personnagesPresents(dossier, avec)).toContain(HAREK)
 
 		const cible = (session: EtatSession) => ({
 			role: 'narrateur' as const,
@@ -593,7 +731,8 @@ describe('tickHorloge, les contextes R3 et R4 sont octet-identiques avec et sans
 		// l'identifiant du personnage, ni son rang.
 		expect(contexteAvec.texte).toContain('CE PAS')
 		expect(contexteAvec.texte).not.toContain('etape_plan')
-		expect(contexteAvec.texte).not.toContain(HAREK)
+		expect(contexteAvec.texte).not.toContain(CORVIN)
+		expect(contexteAvec.texte).not.toContain("Intention de l'étape")
 
 		// MUTANT NOMMÉ (REJETÉ R-3) : poser une `origine` sur la ligne du tick. Le
 		// narrateur la lirait comme un SECOND geste du pas, et le contexte changerait.
@@ -613,7 +752,7 @@ describe('tickHorloge, les contextes R3 et R4 sont octet-identiques avec et sans
 		const depart = ouverture(dossier)
 		const avec = sessionDe(executer(dossier, depart, `PARLER ${HAREK}`))
 		const sans = sessionDe(executer(REFERENCE, depart, `PARLER ${HAREK}`))
-		expect(avec.monde.pnj[HAREK]?.etape_plan).toEqual({ rang: 1 })
+		expect(avec.monde.pnj[HAREK]?.etape_plan).toEqual({ rang: 1, depuis: 1 })
 
 		const contexteAvec = assemblerActeur(dossier, avec, HAREK, 'bonjour')
 		const contexteSans = assemblerActeur(dossier, sans, HAREK, 'bonjour')
@@ -646,7 +785,7 @@ describe('horloge.ts, les proprietes qui se lisent dans la SOURCE', () => {
 			['.action (R-4)', /\.action\b/],
 			['.etape (KR-198)', /\.etape\b/],
 			['.op (expr.test.ts, lecteurs d arbre)', /\.op\b/],
-			['depuis (R-8)', /\bdepuis\b/],
+			['.depuis (§ J2 règle 8 : écrit, jamais lu)', /\.depuis\b/],
 		]
 		for (const [nom, motif] of lectures) {
 			expect(`${nom} → ${motif.test(code)}`).toBe(`${nom} → false`)
@@ -654,6 +793,15 @@ describe('horloge.ts, les proprietes qui se lisent dans la SOURCE', () => {
 		// Discriminant du balayage : il lit du CODE — `plan_actions` et l'appel y sont bien.
 		expect(code).toMatch(/\.plan_actions\?\.\[/)
 		expect(code).toMatch(/\betapeDeclenchee\(/)
+	})
+
+	it('depuis est ECRIT en UN seul site, avec rang, a horloge.tour — et jamais lu (§ J2 regle 8, KR-298)', () => {
+		// UN SEUL site où le mot paraît en position de code : la clé de l'objet écrit. Une
+		// lecture — `ancienne.depuis`, `const { depuis } = …`, `existant?.etape_plan?.depuis` —
+		// ferait deux sites, et rétablirait la minuterie que J2 abolit.
+		expect(code.match(/\bdepuis\b/g) ?? []).toHaveLength(1)
+		// Et ce site est EXACTEMENT « le pas courant » : ni `+ 1` (J1), ni `rang`, ni un littéral.
+		expect(code).toMatch(/\betape_plan:\s*\{\s*rang,\s*depuis:\s*session\.horloge\.tour\s*\}/)
 	})
 
 	it('il n ecrit ni origine, ni deltas, ni recit, ni jet, ni interlocuteur, et ne recopie aucune prose', () => {

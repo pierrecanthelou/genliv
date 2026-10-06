@@ -36,18 +36,33 @@
  * `crediterConfiance` (`session.ts`) ; SEULE PORTE DE LECTURE DE LA RÈGLE :
  * `portesOuvertes` (`revelation.ts`, branche `confiance_min`).
  *
- * `etape_plan` (n° 14 `moteur-horloge`, it1, `docs/REGLES-PLAY.md` § J2) : OPTIONNEL À
- * VIE (KR-251), et `rang` en est la SEULE clé — `depuis` entrera à l'itération 2, avec
- * la formule de durée qui le lit, jamais avant (KR-249). `rang` est un INDEX dans
- * `plan_actions[]`, jamais le champ `etape` (KR-198). ABSENT ≡ `rang: 0` : l'étape de
- * départ se calcule, elle n'est pas stockée d'office (KR-013) — la clé n'apparaît qu'à
- * un AVANCEMENT. SEULE PORTE D'ÉCRITURE : `tickHorloge` (`horloge.ts`). Aucun prédicat
- * ne la lit, et son audience est `moteur` (`sessionDestinations.ts`).
+ * `etape_plan` (n° 14 `moteur-horloge`, it1 puis it2, `docs/REGLES-PLAY.md` § J2) :
+ * OPTIONNEL À VIE (KR-251). `rang` est un INDEX dans `plan_actions[]`, jamais le champ
+ * `etape` (KR-198). ABSENT ≡ `rang: 0` : l'étape de départ se calcule, elle n'est pas
+ * stockée d'office (KR-013) — la clé n'apparaît qu'à un AVANCEMENT. SEULE PORTE
+ * D'ÉCRITURE : `tickHorloge` (`horloge.ts`). Aucun prédicat ne la lit, et son audience
+ * est `moteur` (`sessionDestinations.ts`), pour `rang` comme pour `depuis`.
+ *
+ * `depuis` (it2) : le PAS où le personnage est entré dans son étape courante — la
+ * valeur de `horloge.tour` AU PAS de l'avancement, écrite avec `rang` À CHAQUE
+ * avancement et JAMAIS AUTREMENT (un tick qui n'avance pas ne le crée ni ne le touche),
+ * jamais `+1` (J1). INVARIANT : `depuis === horloge.tour` au pas de l'avancement ;
+ * d'où « avancé À CE PAS ⟺ `depuis === horloge.tour` », que lit la sélection du bloc
+ * `PENDANT CE TEMPS` de l'assembleur R3 (c'est son lecteur, KR-249).
+ *
+ * `depuis` est OPTIONNEL À VIE (KR-251) — c'est un champ de plus sur un objet DÉJÀ
+ * persisté : une session écrite en 0.7.21 porte `{ rang }` SANS `depuis` et se joue
+ * telle quelle. ABSENT ≡ PAS D'ENTRÉE DATÉE : le moteur n'invente JAMAIS une origine (ni
+ * `0` ni le pas courant) — le personnage n'a pas avancé « à ce pas », et la durée
+ * (itération 3) ne le tiendra jamais pour échu. Ce n'est PAS la lecture de `etape_plan`
+ * absent ≡ `rang: 0` : l'étape de départ se calcule, mais le pas où l'on y est entré ne
+ * se devine pas. `rang` reste REQUIS dans l'objet : un `etape_plan` sans `rang` ne dirait
+ * rien de l'étape.
  */
 export interface EtatPnj {
 	readonly a_dit: readonly string[]
 	readonly confiance?: number
-	readonly etape_plan?: { readonly rang: number }
+	readonly etape_plan?: { readonly rang: number; readonly depuis?: number }
 }
 
 /**

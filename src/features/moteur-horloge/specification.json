@@ -5,9 +5,9 @@
 	"design_reference": "docs/PLAN-BASCULE-IA.dc.html § 2.7 (cycle d'horloge, 5 étapes), docs/REGLES-PLAY.md § J (pas d'horloge)",
 	"plan": {
 		"goal": "Le monde avance d'un pas après chaque commande acceptée — plans PNJ, climat, résumé perceptible pour le narrateur.",
-		"design_contract": "Aucun composant UI neuf. BandeauHeros étendu : PAS #n (it2) + CLIMAT · {nom} (it3). JournalRow réutilisé (role=moteur). Tick sans effet visible = aucune ligne de journal. Tokens du design system, zéro valeur en dur. Aucune couleur sémantique (--good/--bad) ni accent sur les éléments d'horloge.",
+		"design_contract": "Aucun composant UI neuf. BandeauHeros étendu it4 : PAS #n + CLIMAT · {nom}. JournalRow réutilisé (role=moteur). Tick sans effet visible = aucune ligne de journal. Tokens du design system, zéro valeur en dur. Aucune couleur sémantique (--good/--bad) ni accent sur les éléments d'horloge.",
 		"acceptance_criteria": [
-			"Après chaque commande acceptée, les PNJ avec plan_actions[] avancent d'une étape quand le declencheur_expr de l'étape suivante est vrai. Durée/depuis/bloqué reportés it2.",
+			"Après chaque commande acceptée, les PNJ avec plan_actions[] avancent d'une étape quand le declencheur_expr de l'étape suivante est vrai. depuis livré it2, durée/bloqué reportés it3.",
 			"Un PNJ dont le déclencheur suivant est faux ne bouge pas, même si duree est posée et échue (durée ignorée en it1).",
 			"Le narrateur R3 reçoit un bloc PENDANT CE TEMPS avec les avancements perceptibles au lieu courant du joueur.",
 			"Un climat activé applique ses effets_regles (Delta[] ensemblistes, idempotents) et s'éteint après sa durée.",
@@ -28,7 +28,7 @@
 				"type": "service",
 				"name": "EtatPnj.etape_plan",
 				"direction": "emits",
-				"detail": "etape_plan?: { readonly rang: number }. It1 = rang seul ; depuis entre en it2 avec la formule de durée (KR-249). Optionnel à vie (KR-251). Absent ≡ rang 0 (KR-013). rang = index du tableau plan_actions[]. Écrivain unique : tickHorloge."
+				"detail": "etape_plan?: { readonly rang: number; readonly depuis?: number }. It1 = rang seul ; depuis livré it2 (lecteur = sélection R3 PENDANT CE TEMPS). Optionnel à vie (KR-251). Absent ≡ rang 0 (KR-013). rang = index du tableau plan_actions[]. Écrivain unique : tickHorloge."
 			},
 			{
 				"type": "service",
@@ -40,7 +40,7 @@
 				"type": "service",
 				"name": "contexte/horloge.ts",
 				"direction": "emits",
-				"detail": "Assembleur R3, bloc PENDANT CE TEMPS. Proses = champs ia existants (plan_actions[].action, climat.manifestation). Projection changementsDe(avant, après), pas un type de retour du tick."
+				"detail": "Assembleur R3, bloc PENDANT CE TEMPS. lignesPendantCeTemps(dossier, session) sélectionne les PNJ avancés + présents + action rédigée. CHEMIN_ACTION_DE_PLAN constante propre, garde dédiée."
 			},
 			{
 				"type": "service",
@@ -55,8 +55,8 @@
 				"detail": "Signature INCHANGÉE. Corps : transition → jalons → tickHorloge. Couture unique, pas de second site d'appel."
 			}
 		],
-		"walking_skeleton": "It1 : tickHorloge pur dans brain/dossier/horloge.ts, appelé dans executerCommande. Un PNJ avance d'une étape quand le declencheur_expr de l'étape suivante est vrai. Durée/depuis/bloqué reportés it2. Ligne de journal role=moteur, identifiants + rang base 1. Doc J2 écrite en premier.",
-		"n": 3,
+		"walking_skeleton": "It1 : tickHorloge pur dans brain/dossier/horloge.ts, appelé dans executerCommande. Un PNJ avance d'une étape quand le declencheur_expr de l'étape suivante est vrai. depuis livré it2, durée/bloqué reportés it3. Ligne de journal role=moteur, identifiants + rang base 1. Doc J2 écrite en premier.",
+		"n": 4,
 		"iterations": [
 			{
 				"id": 1,
@@ -65,22 +65,27 @@
 			},
 			{
 				"id": 2,
-				"goal": "L'auteur lit, sous le récit du narrateur, ce qui a changé dans le monde pendant son dernier pas.",
-				"status": "planned"
+				"goal": "L'auteur lit, dans le récit du narrateur, ce qu'un PNJ présent a fait pendant son dernier pas.",
+				"status": "done"
 			},
 			{
 				"id": 3,
-				"goal": "L'auteur voit un climat s'activer, appliquer ses effets ensemblistes, et s'éteindre après sa durée.",
+				"goal": "L'auteur lit qu'un PNJ coincé change d'approche — durée, depuis, bloqué, si_bloque, ligne de journal bloquée.",
+				"status": "planned"
+			},
+			{
+				"id": 4,
+				"goal": "L'auteur voit un climat s'activer, appliquer ses effets ensemblistes, s'éteindre après sa durée ; le bandeau affiche PAS #n et CLIMAT · {nom}.",
 				"status": "planned"
 			}
 		],
 		"known_risks": [
-			"KR-298 : EtatPnj.etape_plan objet {rang} en it1, {rang, depuis} en it2. Optionnel, absent ≡ rang 0 (KR-013). rang = index tableau plan_actions[]. Écrivain unique : tickHorloge. Nom rang (pas etape, homonyme piège KR-198). depuis entre avec la formule de durée en it2, même lot (KR-249).",
-			"KR-301 : climat_actif optionnel dans horloge (session, KR-207). Activation via Evenement (types.ts:1380 interdit declencheur_expr sur Climat), route exacte au raffinage d'it3. Extinction par tickHorloge quand duree atteinte.",
+			"KR-298 : EtatPnj.etape_plan objet {rang} en it1, {rang, depuis?} en it2. Optionnel, absent ≡ rang 0 (KR-013). rang = index tableau plan_actions[]. Écrivain unique : tickHorloge. Nom rang (pas etape, homonyme piège KR-198). depuis livré it2 (lecteur = sélection R3 PENDANT CE TEMPS), duree it3.",
+			"KR-301 : climat_actif optionnel dans horloge (session, KR-207). Activation via Evenement (types.ts:1380 interdit declencheur_expr sur Climat), route exacte au raffinage d'it4. Extinction par tickHorloge quand duree atteinte.",
 			"KR-208 tient : DELTAS n'a que 4 entrées ensemblistes. Aucun modificateur numérique. Les effets climatiques se limitent aux deltas existants (donner_objet, retirer_objet, reveler_indice, atteindre_jalon).",
 			"KR-295 tient : le tick ne tourne pas pendant un combat. executerCommande refuse les commandes pendant session.combat, donc le tick n'est jamais atteint.",
-			"KR-249 : depuis entre avec son lecteur (durée/bloqué) dans la même itération. Pas de champ de session sans consommateur.",
-			"session.ts > 800 lignes (dette n°13) : extraction sessionCombat.ts absorbée par it3, première itération qui rouvre session.ts."
+			"KR-249 : depuis entre it2 avec son lecteur (sélection R3 PENDANT CE TEMPS). duree/bloqué entrent it3 avec si_bloque comme lecteur.",
+			"session.ts > 800 lignes (dette n°13) : extraction sessionCombat.ts absorbée par it4, première itération qui rouvre session.ts."
 		]
 	},
 	"implementation": {
@@ -102,6 +107,25 @@
 					"Garde baril evaluate.test.ts : ni etapeDeclenchee ni tickHorloge exportés par brain/index.ts (non demandé)"
 				],
 				"test_coverage": { "unit": "35 tests ajoutés (25 horloge + 5 evaluate + 4 commandes + 2 couverture), 2743 total, 0 régression" }
+			},
+			{
+				"id": 2,
+				"label": "iteration-2",
+				"completed_at": "2026-10-06",
+				"architecture_choices": [
+					"depuis = horloge.tour écrit avec rang dans le même objet, à chaque avancement (horloge.ts). Lecteur : lignesPendantCeTemps (KR-249)",
+					"lignesPendantCeTemps pure dans contexte/horloge.ts, appelée par narrateur.ts. Sélection : personnagesPresents ∩ depuis===tour ∩ action rédigée",
+					"CHEMIN_ACTION_DE_PLAN constante propre dans contexte/horloge.ts, garde dédiée dans contexte.test.ts. Dérogation documentée de narrateur.ts:76",
+					"Bloc PENDANT CE TEMPS hors cascade, après CE PAS, avant EN SA POSSESSION. Aucune ancre posée",
+					"BUDGET_CARACTERES_DOSSIER de 6000 à 7000 (M=2283), TAILLE_MAX_CORPS_IA de 83968 à 87040"
+				],
+				"deviations_from_plan": [
+					"E du worker mesuré à 2745, pas 2743 (2 octets d'écart dans la docstring, sans effet sur aucun plafond)",
+					"Pire cas composé de 5 PNJ au lieu d'un seul — même palier 7000",
+					"replier dupliqué en privé dans contexte/horloge.ts (cycle si importé de narrateur.ts)",
+					"Invite du narrateur non amendée (le plan ne spécifiait pas le texte)"
+				],
+				"test_coverage": { "unit": "19 tests ajoutés (11 contexte + 3 contexte modifiés + 2 frontiere + 1 worker + 2 horloge modifiés), 2762 total, 0 régression" }
 			}
 		],
 		"resolved_decisions": [
@@ -109,26 +133,34 @@
 			"Transfert d'indices REPORTÉ hors n°14. Pas de phrase de démo, KR-253 non actionnable (aucun delta d'arité 2, aucun carnet PNJ). Ligne ajoutée au roadmap.",
 			"Contre-mesures REPORTÉES hors n°14. ContreMesure n'a pas de Delta[] d'effet, portee sans consommateur. Exécution narrative sans mécanique n'est pas démontrable.",
 			"ChangementPerceptible[] comme retour du tick REJETÉ. ResultatCommande ne porte que session (TL t2). Projection changementsDe(avant, après) en it2, quand R3 est son consommateur. Abstraction sans appelant = dette.",
-			"EtatPnj.etape_plan = objet {rang} en it1, {rang, depuis} en it2. Forme objet conservée pour depuis (KR-251, pas de migration). rang (pas etape, homonyme KR-198). depuis non re-dérivable du journal condensé, entre avec la formule de durée (KR-249).",
-			"Climat route A (declencheur_expr sur Climat) REJETÉE. types.ts:1380 dit explicitement que Climat ne porte pas declencheur_expr — activation via Evenement, décision actée. Route exacte au raffinage d'it3.",
+			"EtatPnj.etape_plan = objet {rang} en it1, {rang, depuis?} en it2. Forme objet conservée pour depuis (KR-251, pas de migration). rang (pas etape, homonyme KR-198). SUPERSEDÉ it2 : depuis livré avec lecteur R3 PENDANT CE TEMPS, duree → it3.",
+			"Climat route A (declencheur_expr sur Climat) REJETÉE. types.ts:1380 dit explicitement que Climat ne porte pas declencheur_expr — activation via Evenement, décision actée. Route exacte au raffinage d'it4.",
 			"Bloc « états » (affamé/blessé/poursuivi) bandeau REPORTÉ. Aucun champ de session ne porte ces états.",
 			"Bandeau en it2, pas en it1 (UX t2). It1 est purement moteur, zéro UI.",
 			"tickHorloge dans executerCommande (TL t1/t2), pas dans le hook. Couture unique : la console et le rejeu sont couverts. Trois sites écrivent horloge, deux appelants passent par executerCommande.",
 			"Roadmap update OBLIGATOIRE pour les retraits de périmètre (veto PM t2). Écart silencieux interdit.",
-			"It1 = déclencheur seul. Durée, depuis, bloqué, minuterie, si_bloque reportés en bloc à it2 (veto PM, consensus 5 rôles). Contrainte NIA non négociable : depuis entre avec la formule de durée dans le même lot en it2.",
+			"It1 = déclencheur seul. SUPERSEDÉ it2 : depuis livré it2 (lecteur R3), durée/bloqué/si_bloque reportés it3. Minuterie abolie (consensus 5 rôles).",
 			"EtatPnj.etape_plan = { rang } en it1. absent ≡ 0 (veto TL KR-013, état dérivable). etape_plan écrit au seul avancement. depuis ajouté optionnel en it2.",
 			"Journal du tick : identifiants + rang base 1 seulement (veto UX registre). Pas de prose, action, si_bloque, origine, deltas, recit, jet.",
 			"Un seul lot contrat pour it1 (TL). PM proposait 4 lots, rejeté — exécution séquentielle, sans parallélisme.",
-			"J2 écrit complet dans REGLES-PLAY.md avec portions it2 marquées, avant tout code (NIA)."
+			"J2 écrit complet dans REGLES-PLAY.md avec portions it2 marquées, avant tout code (NIA).",
+			"4 itérations pour n°14, pas 3 ni 5 (arbitrage it2). it2 = depuis + R3 PENDANT CE TEMPS. it3 = durée/bloqué/si_bloque. it4 = climat + bandeau PAS #n + CLIMAT.",
+			"Projection changementsDe(avant, après) ABANDONNÉE — sélection inline dans contexte/horloge.ts via depuis === tour + personnagesPresents. Un seul appelant, pas d'export (TL t2).",
+			"Minuterie abolie : durée échue = bloqué seulement, jamais avancement. J2 réécrite (PM O4 + TL, consensus 5 rôles).",
+			"duree lue sur k (étape courante), pas n (étape visée). types.ts:433 fait foi.",
+			"Tri-état declencheurDEtape REJETÉ (minuterie abolie). Booléen etapeDeclenchee conservé.",
+			"Bloc PENDANT CE TEMPS hors cascade (TL, NIA concède t2).",
+			"plan_actions[].action = nouveau chemin injecté. Constante CHEMIN_ACTION_DE_PLAN dans contexte/horloge.ts, garde dédiée. Dérogation narrateur.ts:76 documentée.",
+			"Perceptibilité = personnagesPresents(dossier, session), filtre existant dans commandes.ts (presence[].lieu_id === lieu_courant).",
+			"Bandeau PAS #n déplacé en it4 (avec climat). Rouvrir BandeauHeros.tsx une seule fois. Dette 1px/bold corrigée à ce moment (veto UX à déclencheur)."
 		],
 		"open_questions": [
-			"Climat : mécanisme d'activation exact (route B DELTAS.activer_climat vs chemin spécial dans executerCommande vs scan d'Evenements). Contraint par types.ts:1380 (pas de declencheur_expr sur Climat) et par le fait que DELTAS n'écrit que FaitsDeSession. À trancher au raffinage d'it3.",
+			"Climat : mécanisme d'activation exact (route B DELTAS.activer_climat vs chemin spécial dans executerCommande vs scan d'Evenements). Contraint par types.ts:1380 (pas de declencheur_expr sur Climat) et par le fait que DELTAS n'écrit que FaitsDeSession. À trancher au raffinage d'it4.",
 			"Idempotence des effets climatiques : reveler_indice et atteindre_jalon sont idempotents (ensembles). donner_objet donnerait un doublon si le climat se réactive. À documenter ou à garder par un flag « déjà appliqué » en session.",
-			"evaluate.test.ts:706 : résolu — sélecteur etapeDeclenchee dans evaluate.ts, garde survit. horloge.ts n'ouvre jamais un ExprNode.",
-			"Extraction sessionCombat.ts : taille exacte des lots d'it3 (climat + extraction). Si > 4 lots, extraction en pré-lot.",
-			"PNJ bloqué : reporté it2 avec durée/depuis/si_bloque. Label ÉTAPE BLOQUÉE et registre de langue à valider au raffinage d'it2.",
+			"Extraction sessionCombat.ts : taille exacte des lots d'it4 (climat + extraction + bandeau). Si > 4 lots, extraction en pré-lot.",
+			"Label ÉTAPE BLOQUÉE : registre de langue à trancher au raffinage d'it3. Journal minuscule, mono MAJUSCULES réservé au bandeau (UX t2).",
 			"Enrichissement R4 pour jouer l'étape courante du PNJ — reporté indéfiniment, hors n°14.",
-			"Nombre d'itérations n°14 : PM propose 4 (déclencheur, R3+bandeau, durée/bloqué, climat) au lieu de 3. À trancher au prochain cadrage."
+			"depuis absent (sessions 0.7.21, etape_plan: {rang} sans depuis) : ≡ jamais en échéance pour la durée (it3). Distinct de etape_plan absent ≡ rang 0 (KR-013). Arbitrage it2."
 		]
 	}
 }

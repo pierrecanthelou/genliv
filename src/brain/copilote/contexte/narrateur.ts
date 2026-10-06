@@ -73,10 +73,32 @@
  * ── CE QUI N'ENTRE JAMAIS ───────────────────────────────────────────────────────
  * Un identifiant (rien, dans ce rôle, ne désigne autrement que par un rang `A…`) ·
  * `Entite.nom` (KR-262 — un lieu se dit par sa `description`) · toute donnée de
- * personnage (n° 12) · `canon.mj.synopsis_mj` (le narrateur conduirait vers l'intrigue à
- * venir) · `monde.lieux[].dangers` (un danger raconté appelle un jet que personne ne
- * résout avant la n° 11) · `monde.indices[].verite` (la solution) · `lieux[].acces` (la
- * carte) · les deux proses émises verbatim (`texte_ouverture_joueur`, `fins[].texte`).
+ * personnage (n° 12) — SAUF LA DÉROGATION ÉCRITE PLUS BAS (`PENDANT CE TEMPS`) · `canon.mj.synopsis_mj`
+ * (le narrateur conduirait vers l'intrigue à venir) · `monde.lieux[].dangers` (un danger raconté appelle
+ * un jet que personne ne résout avant la n° 11) · `monde.indices[].verite` (la solution) ·
+ * `lieux[].acces` (la carte) · les deux proses émises verbatim (`texte_ouverture_joueur`,
+ * `fins[].texte`).
+ *
+ * ── LA DÉROGATION (n° 14 `moteur-horloge`, it2) — LE SEUL CHAMP DE PERSONNAGE QUE R3 LIT ───
+ * « Toute donnée de personnage » est exclue — sauf UNE : la prose `plan_actions[rang].action` de
+ * l'étape qu'un personnage PRÉSENT au lieu courant vient de franchir AU PAS que ce rôle raconte,
+ * sous l'en-tête `PENDANT CE TEMPS`, une ligne par personnage, dans l'ordre du document
+ * (`lignesPendantCeTemps`, `./horloge.ts`). Elle est ÉCRITE ICI, et non dans le seul plan,
+ * parce qu'un renversement de doctrine qui ne vit que dans un plan est un renversement que le
+ * prochain lecteur de ce fichier ne trouvera pas (BUG-082) :
+ *  · son CHEMIN est `CHEMIN_ACTION_DE_PLAN` (`./horloge.ts`) — JAMAIS un neuvième de
+ *    `CHAMPS_INJECTES_NARRATEUR`, qui reste à HUIT chemins tous hors de `monde.personnages[]`,
+ *    ni une douzième ligne de la liste fermée ci-dessous, dont le prédicat exclut
+ *    `monde.personnages[]` : `contexte.test.ts` garde les trois ;
+ *  · son audience est `ia` (`dossier/destinations.ts`) — la dérogation est à la DOCTRINE de ce
+ *    fichier, jamais à la table d'audience : `DEROGATIONS_AUDIENCE` reste VIDE ;
+ *  · seule la PROSE entre, repliée sur une ligne : ni `etape_plan.rang`, ni `depuis`, ni
+ *    `declencheur_*`, ni `duree`, ni `si_bloque`, ni `Personnage.nom`, ni l'identifiant, ni un
+ *    repère `A…` — le narrateur lit ce qui s'est passé, pas qui l'a décidé ;
+ *  · un personnage absent du lieu courant, avancé à un autre pas, ou dont l'étape n'est pas
+ *    rédigée : SILENCE (jamais un repli sur le nom) ;
+ *  · le bloc est HORS CASCADE — ni un levier, ni un invariant : aucun palier ne le retire, et
+ *    il est compté tel quel dans le terme dossier de `BUDGET_CARACTERES_DOSSIER`.
  *
  * ── LES ONZE CHEMINS DE PROSE `ia` DU MONDE ET DE LA CHARPENTE (KR-261) ─────────
  * LA LISTE FERMÉE, ÉCRITE ICI ET NULLE PART AILLEURS. PRÉDICAT (KR-159) : les chemins de
@@ -136,6 +158,7 @@ import {
 	REPLIQUE_CARACTERES_MAX,
 } from '../schemaSortie'
 import type { CibleNarrateur, RangInjecte } from '../types'
+import { lignesPendantCeTemps } from './horloge'
 import { textesRediges, type MotifRefusContexte } from './noyau'
 
 /**
@@ -143,11 +166,13 @@ import { textesRediges, type MotifRefusContexte } from './noyau'
  * jamais un nom de champ du document ni un rang. `ICI` et `saisie` sont ceux de
  * l'interprète : le même lieu et la même saisie se nomment de la même façon aux deux
  * rôles. `ICI` porte l'ancre du lieu courant, `A1`, toujours la même.
- * Les quatre en-têtes de la MÉMOIRE (it3) ne sont JAMAIS cités par l'invite du worker
- * (`worker/index.test.ts` les balaie) : le modèle les lit, il n'en apprend pas les noms.
+ * Les quatre en-têtes de la MÉMOIRE (it3) et `PENDANT CE TEMPS` (n° 14, it2) ne sont JAMAIS
+ * cités par l'invite du worker (`worker/index.test.ts` les balaie) : le modèle les lit, il
+ * n'en apprend pas les noms.
  */
 const EN_TETE_ICI = 'ICI'
 const EN_TETE_CE_PAS = 'CE PAS'
+const EN_TETE_PENDANT_CE_TEMPS = 'PENDANT CE TEMPS'
 const EN_TETE_POSSESSIONS = 'EN SA POSSESSION'
 const EN_TETE_ACCOMPLI = 'DEJA ACCOMPLI'
 const EN_TETE_SAISIE = 'saisie'
@@ -253,8 +278,24 @@ export const BORNE_MEMOIRE =
  * l'amorce « remarque — » et la `formulation_joueur` du nouvel indice) ⇒
  * ceil(1997 × 3 / 1000) × 1000 = 6000 — LE MÊME multiple de 1000 qu'avant : la hausse ne
  * franchit pas de palier, `BUDGET_CARACTERES_DOSSIER` RESTE 6000.
+ *
+ * RE-MESURÉ le 2026-10-06 (n° 14 `moteur-horloge`, it2, lot `contrat`) — ⚠ LE PALIER BOUGE :
+ * `PENDANT CE TEMPS` AJOUTE UN BLOC AU TERME DOSSIER, et ce bloc est de la prose d'auteur NON
+ * BORNÉE (`plan_actions[].action`, KR-203 — d'où le ×3, et non un terme calculé comme la
+ * mémoire). `pireCasNarrateur()` (`contexte.test.ts`) le compose sans l'inventer : TOUS les
+ * personnages du dossier de référence qui portent un plan sont PRÉSENTS au lieu décrit le plus
+ * long et AVANCÉS à ce pas, chacun à une étape dont l'`action` est la plus longue de son plan —
+ * l'état n'est pas atteignable tel quel sur ce dossier (aucun plan n'y a deux étapes), et c'est
+ * précisément pourquoi il MAJORE. Le bloc coûte `SEPARATEUR_DE_BLOCS` (2) + son en-tête (16) +
+ * pour chaque ligne un saut et la prose : 5 lignes de 49, 52, 67, 46 et 49 caractères, soit
+ * 2 + 16 + (5 + 263) = 286. M = 2283 (1997 + 286) ⇒ ceil(2283 × 3 / 1000) × 1000 = 7000 — LE
+ * TERME M FRANCHIT les 2000 (1997 × 3 = 5991 ⇒ 6000 avant ce bloc), et
+ * `BUDGET_CARACTERES_DOSSIER` PASSE DE 6000 À 7000. Une seule ligne (la plus longue, 67
+ * caractères) donnerait M = 2083 et le MÊME 7000 : le palier ne dépend pas du nombre de
+ * personnages que le pire cas fait avancer. Le `max` du worker suit (`TAILLE_MAX_CORPS_IA`,
+ * `worker/index.ts`).
  */
-const BUDGET_CARACTERES_DOSSIER = 6000
+const BUDGET_CARACTERES_DOSSIER = 7000
 
 /**
  * LA BORNE DE LA LIGNE DE JET (n° 11 `moteur-arbitre`, it2 puis it3) — CALCULÉE
@@ -516,7 +557,7 @@ interface EtatCompose {
 }
 
 /**
- * L'ASSEMBLEUR — ONZE SORTES DE BLOCS, DANS CET ORDRE, séparés par une ligne vide :
+ * L'ASSEMBLEUR — TREIZE SORTES DE BLOCS, DANS CET ORDRE, séparés par une ligne vide :
  *  1. le CANON — `canon.ton`, `canon.interdits_ton[]`, `canon.partage.accroche_joueur`,
  *     chacun QUAND ÉCRIT, sous son chemin (précédent des sept rôles) ;
  *  2. `AUPARAVANT` — le résumé, s'il existe ;
@@ -531,6 +572,10 @@ interface EtatCompose {
  *     pour un objet ; `aucun changement` si aucun effet ne s'est appliqué — CETTE DERNIÈRE
  *     LIGNE N'EST JAMAIS REMPLACÉE PAR LA LIGNE DE JET. Un effet `'sans_effet'` n'est
  *     JAMAIS raconté (KR-247) ;
+ *  7 bis. `PENDANT CE TEMPS` (n° 14, it2) — UNE ligne par personnage PRÉSENT au lieu courant
+ *     qui a AVANCÉ d'étape à ce pas : la prose de `plan_actions[rang].action`, repliée, sans
+ *     rang ni identifiant (voir LA DÉROGATION en tête de fichier). Pas une ligne, pas de bloc ;
+ *     HORS CASCADE ;
  *  8-9. `EN SA POSSESSION` (`A<n> — <prose>`) puis `DEJA ACCOMPLI` — la `description_joueur`
  *     des objets possédés, l'énoncé des jalons atteints (via `projeterJalonsAtteints`,
  *     KR-246). Pas une ligne, pas de bloc — jamais un bloc vide ;
@@ -592,6 +637,10 @@ export function assemblerNarrateur(dossier: Dossier, cible: CibleNarrateur): Con
 	const resolutionJet = cible.epreuve !== undefined ? issueDuJet(session, session.horloge.tour) : undefined
 	const ligneJet = ligneDeJet(cible.epreuve, resolutionJet)
 
+	// ── PENDANT CE TEMPS (n° 14 moteur-horloge, it2) — LU de la session, jamais stocké (KR-013) ──
+	// Calculé UNE fois : le bloc est HORS CASCADE, donc identique à tous les paliers.
+	const pendantCeTemps = lignesPendantCeTemps(dossier, session)
+
 	// ── CE QU'IL A SUR LUI — les seuls objets RÉDIGÉS, dans l'ordre d'ACQUISITION ─────
 	const possessions: Possession[] = session.monde.objets_possedes.flatMap((id) => {
 		const proses = proseDObjet(dossier, id)
@@ -631,6 +680,9 @@ export function assemblerNarrateur(dossier: Dossier, cible: CibleNarrateur): Con
 			...ligneJet,
 			...(appliques.length === 0 ? [AUCUN_CHANGEMENT] : changements),
 		])
+		// APRÈS `CE PAS`, AVANT `EN SA POSSESSION` : ce que les autres ont fait pendant ce pas
+		// vient après ce que le héros a fait, avant ce qu'il porte. Aucun rang : aucune ancre posée.
+		pousser(blocs, EN_TETE_PENDANT_CE_TEMPS, pendantCeTemps)
 		pousser(
 			blocs,
 			EN_TETE_POSSESSIONS,
