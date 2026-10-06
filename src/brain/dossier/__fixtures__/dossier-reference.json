@@ -377,6 +377,7 @@
 				"id": "evenement.rumeur-sans-origine",
 				"nom": "Une rumeur sans origine",
 				"lie_a_histoire": false,
+				"climat_id": "climat.cendres-tenaces",
 				"resolutions": []
 			}
 		],

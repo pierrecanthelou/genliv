@@ -1140,6 +1140,7 @@ describe('horloge.ts, les proprietes qui se lisent dans la SOURCE', () => {
 
 		expect(imports.map((i) => i.de).sort()).toEqual([
 			'./blocage',
+			'./climat',
 			'./evaluate',
 			'./faits',
 			'./identifiers',
@@ -1151,14 +1152,15 @@ describe('horloge.ts, les proprietes qui se lisent dans la SOURCE', () => {
 		expect(imports.find((i) => i.de === './session')?.type).toBe(true)
 		expect(imports.find((i) => i.de === './faits')?.type).toBe(true)
 		expect(imports.find((i) => i.de === './types')?.type).toBe(true)
-		// Les arêtes de valeur sont les trois feuilles : le prédicat de blocage (it3), le sélecteur de
-		// condition et l'appartenance propre.
+		// Les arêtes de valeur sont les quatre : le prédicat de blocage (it3), le tick du climat (it4,
+		// `climat.ts`, qui n'importe `session.ts` qu'en TYPE lui aussi — une arête de valeur vers
+		// `session.ts` nouerait le même cycle), le sélecteur de condition et l'appartenance propre.
 		expect(
 			imports
 				.filter((i) => !i.type)
 				.map((i) => i.de)
 				.sort(),
-		).toEqual(['./blocage', './evaluate', './identifiers'])
+		).toEqual(['./blocage', './climat', './evaluate', './identifiers'])
 		// L'arête inverse existe bien (discriminant) : c'est `commandes.ts` qui l'appelle.
 		expect(source('commandes.ts')).toMatch(/import\s*\{\s*tickHorloge\s*\}\s*from\s*'\.\/horloge'/)
 		expect(enPositionDeCode(source('commandes.ts'))).toMatch(

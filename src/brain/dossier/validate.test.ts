@@ -95,6 +95,8 @@ describe('validateDossier', () => {
 		expect(resultat.dossier?.monde.personnages[0].camp).toBe('protagoniste')
 		expect(resultat.dossier?.monde.personnages[0].objectif_id).toBe('objectif.refermer-le-sceau')
 		expect(resultat.dossier?.monde.evenements[0].monstre_ref).toBe('bestiaire.gobelin')
+		// Le climat qu'un événement allume (n° 14 it4) est TYPÉ, pas seulement traversé.
+		expect(resultat.dossier?.monde.evenements[0].climat_id).toBe('climat.pluie-de-cendres')
 		expect(resultat.dossier?.charpente.jalons[0].enonce_texte.length).toBeGreaterThan(0)
 		// Les effets de l'itération 4 sont TYPÉS, pas seulement traversés — et la liste
 		// VIDE du climat est légitime. CORRIGÉ LE 2026-08-19 (n° 6 it5, § 8-1) : le motif
@@ -3139,6 +3141,17 @@ describe('validateDossier, les references simples', () => {
 			chemin: 'monde.lieux[0].acces[0]',
 			location: 'Lieu « Val-Cendre »',
 		},
+		// LA ONZIÈME (n° 14 `moteur-horloge`, it4, lot `contrat`) — LE CLIMAT QU'UN ÉVÉNEMENT
+		// ALLUME. Le OÙ est l'ÉVÉNEMENT porteur, jamais le climat désigné : c'est sur sa fiche
+		// que l'auteur doit aller corriger, exactement comme `relations[].cible_id` nomme le
+		// porteur de la relation et jamais sa cible.
+		'monde.evenements[].climat_id': {
+			poser: (doc, id) => {
+				evenement(doc).climat_id = id
+			},
+			chemin: 'monde.evenements[0].climat_id',
+			location: "Événement « L'embuscade du Fanal »",
+		},
 	}
 
 	it('depart.lieu_id reste signale quand monde.lieux est une racine ABSENTE', () => {
@@ -3270,6 +3283,72 @@ describe('validateDossier, les references simples', () => {
 		expect(pendante?.code).toBe('reference-pendante')
 		expect(pendante?.entityId).toBe('objectif.refermer-le-sceau')
 		expect(pendante?.location).toBe('Personnage « Aldûr le Sage »')
+	})
+
+	describe('evenements[].climat_id, le climat qu un evenement allume (n 14 moteur-horloge, it4)', () => {
+		const CHEMIN = 'monde.evenements[0].climat_id'
+
+		it('climat_id du MAUVAIS ESPACE (lieu.…) est identifiant-invalide, jamais pendante', () => {
+			// L'entité EXISTE dans le dossier, mais pas là : c'est ce que le champ `espace` de la
+			// ligne de table achète. Sans lui, `lieu.val-cendre` RÉSOUDRAIT par simple appartenance.
+			const doc = fixture()
+			evenement(doc).climat_id = 'lieu.val-cendre'
+
+			const resultat = validateDossier(doc)
+			const anomalie = resultat.errors.find((e) => e.path === CHEMIN)
+
+			expect(resultat.ok).toBe(false)
+			expect(anomalie?.code).toBe('identifiant-invalide')
+			expect(anomalie?.message).toContain('« Climat »')
+			expect(codes(resultat.errors)).not.toContain('reference-pendante')
+		})
+
+		it('climat_id : la chaine vide est CALME, toute autre non-chaine est refusee', () => {
+			// TROIS ÉTATS, comme `objectif_id` : absent et chaîne vide ne pointent rien ; un nombre,
+			// un tableau, un objet ne sont pas une référence. Le moteur lit `''` comme l'absence.
+			const vide = fixture()
+			evenement(vide).climat_id = ''
+			expect(validateDossier(vide).ok).toBe(true)
+
+			const absent = fixture()
+			delete evenement(absent).climat_id
+			expect(validateDossier(absent).ok).toBe(true)
+
+			for (const fautive of [42, ['climat.pluie-de-cendres'], { id: 'climat.pluie-de-cendres' }, true]) {
+				const doc = fixture()
+				evenement(doc).climat_id = fautive
+				const resultat = validateDossier(doc)
+
+				expect(resultat.ok).toBe(false)
+				expect(resultat.errors.find((e) => e.path === CHEMIN)?.code).toBe('identifiant-invalide')
+			}
+		})
+
+		it('un climat designe par un evenement ne peut plus etre retire en silence — et un climat non designe, si', () => {
+			// KR-197/202 : DEUX climats dans le MÊME test. Un seul ne distinguerait pas un refus par
+			// référence d'un refus global du retrait de climats.
+			const brume = { id: 'climat.brume-du-matin', nom: 'Brume du matin', effets_regles: [] }
+			const pluie = climat(fixture())
+
+			const sansLaBrume = fixture()
+			obj(obj(sansLaBrume.monde).conditions).climat = [pluie]
+			const avecBrume = fixture()
+			obj(obj(avecBrume.monde).conditions).climat = [pluie, brume]
+			expect(validateDossier(avecBrume).ok).toBe(true)
+			// Retirer le climat que RIEN ne désigne reste accepté.
+			expect(validateDossier(sansLaBrume).ok).toBe(true)
+
+			// Retirer celui que l'événement désigne est BLOQUANT, et nomme l'événement porteur.
+			const sansLaPluie = fixture()
+			obj(obj(sansLaPluie.monde).conditions).climat = [brume]
+			const resultat = validateDossier(sansLaPluie)
+			const pendante = resultat.errors.find((e) => e.path === CHEMIN)
+
+			expect(resultat.ok).toBe(false)
+			expect(pendante?.code).toBe('reference-pendante')
+			expect(pendante?.entityId).toBe('climat.pluie-de-cendres')
+			expect(pendante?.location).toBe("Événement « L'embuscade du Fanal »")
+		})
 	})
 
 	it('le sujet de la phrase du point de depart est conserve verbatim', () => {

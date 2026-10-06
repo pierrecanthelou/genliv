@@ -45,7 +45,8 @@ import { DESTINATION_DES_CHAMPS_DE_SESSION } from './sessionDestinations'
  * dispense est un fait sur l'instrument, pas une audience.
  */
 const DISPENSES_DE_FEUILLE: Readonly<Record<string, string>> = {
-	horloge: 'clé racine porteuse — son unique feuille est `horloge.tour`',
+	horloge:
+		'clé racine porteuse — ses trois feuilles (`tour`, et depuis le lot `contrat` de la n° 14 it4 `climat_actif.id` et `climat_actif.depuis`) sont déclarées une à une',
 	monde: 'clé racine porteuse — ses sept feuilles sont déclarées une à une',
 	journal:
 		'clé racine porteuse — ses onze feuilles sont déclarées une à une (`recit` depuis la n° 10 it2, `jet.carac`/`jet.tc` depuis la n° 11 it2, `interlocuteur` depuis la n° 12 it1)',
@@ -395,17 +396,60 @@ describe('DESTINATION_DES_CHAMPS_DE_SESSION, la valeur des lignes', () => {
 		// `depuis` EST ENTRÉ À L'ITÉRATION 2 (KR-298) — ces deux assertions épinglaient
 		// R-8 du plan d'itération 1 (« pas de `depuis` sans consommateur dans le même
 		// lot ») : elles sont INVERSÉES, le lecteur (la sélection du bloc `PENDANT CE
-		// TEMPS`) étant dans la même itération. Le mot a UNE ligne de table et UNE feuille
-		// de fixture, ni plus ni moins : une seconde feuille `depuis` ailleurs dans la
-		// session serait un champ sans audience déclarée, et rougirait ici.
-		expect([...CLES_DE_LA_TABLE].filter((cle) => cle.includes('depuis'))).toEqual(['monde.pnj.<id>.etape_plan.depuis'])
-		expect(cheminsDeLaSession().filter((chemin) => chemin.includes('depuis'))).toEqual([
+		// TEMPS`) étant dans la même itération. Le mot a DEUX lignes de table et DEUX
+		// feuilles de fixture depuis la n° 14 it4 — le pas d'un avancement de plan et le pas
+		// d'une activation de climat, deux faits datés distincts —, ni plus ni moins : une
+		// troisième feuille `depuis` ailleurs dans la session serait un champ sans audience
+		// déclarée, et rougirait ici.
+		expect([...CLES_DE_LA_TABLE].filter((cle) => cle.includes('depuis')).sort()).toEqual([
+			'horloge.climat_actif.depuis',
 			'monde.pnj.<id>.etape_plan.depuis',
 		])
+		expect(
+			cheminsDeLaSession()
+				.filter((chemin) => chemin.includes('depuis'))
+				.sort(),
+		).toEqual(['horloge.climat_actif.depuis', 'monde.pnj.<id>.etape_plan.depuis'])
 		// Et le `depuis` de la fixture est un pas PASSÉ — la seule relation que le produit puisse
 		// écrire —, jamais le défaut `0` ni le pas courant (voir la docstring de la fixture).
 		const depuis = SESSION_SATUREE.monde.pnj['pnj.aldur-le-sage']?.etape_plan?.depuis
 		expect(depuis).toBe(12)
+		expect(depuis).toBeLessThan(SESSION_SATUREE.horloge.tour)
+	})
+
+	it('climat_actif : DEUX feuilles, id et depuis, moteur, jamais ia (n 14 moteur-horloge, it4)', () => {
+		// ASSERTION DE VALEUR, PAS D'EXISTENCE (KR-174), par LIGNE NOMMÉE : l'identifiant d'un
+		// climat est un HANDLE, et un modèle qui lirait `depuis` compterait lui-même l'extinction
+		// que le moteur n'a pas constatée. La prose d'un climat actif (`manifestation`) a sa
+		// propre ligne `'ia'` dans `destinations.ts` — jamais ces feuilles.
+		for (const chemin of ['horloge.climat_actif.id', 'horloge.climat_actif.depuis'] as const) {
+			expect(`${chemin} → ${DESTINATION_DES_CHAMPS_DE_SESSION[chemin]}`).toBe(`${chemin} → moteur`)
+		}
+		// Les lignes du préfixe `horloge` sont EXACTEMENT quatre — la racine porteuse et ses trois
+		// feuilles — et AUCUNE n'est `ia` : une feuille de plus sans ligne casse la compilation,
+		// une ligne sans feuille est morte, et les deux sont attrapées ci-dessus. Ici, l'ENSEMBLE.
+		const lignesDeLHorloge = Object.entries(DESTINATION_DES_CHAMPS_DE_SESSION)
+			.filter(([chemin]) => chemin === 'horloge' || chemin.startsWith('horloge.'))
+			.sort(([a], [b]) => a.localeCompare(b))
+		expect(lignesDeLHorloge).toEqual([
+			['horloge', 'moteur'],
+			['horloge.climat_actif.depuis', 'moteur'],
+			['horloge.climat_actif.id', 'moteur'],
+			['horloge.tour', 'moteur'],
+		])
+
+		// LA FIXTURE INSTANCIE LES DEUX FEUILLES, dans le MÊME objet : sans instance, les deux
+		// lignes de table seraient mortes le jour même où elles sont écrites.
+		const chemins = cheminsDeLaSession()
+		expect(chemins).toContain('horloge.climat_actif.id')
+		expect(chemins).toContain('horloge.climat_actif.depuis')
+		expect(chemins).not.toContain('horloge.climat_actif')
+		expect(SESSION_SATUREE.horloge.climat_actif).toEqual({ id: 'climat.pluie-de-cendres', depuis: 15 })
+		// `depuis` est un pas PASSÉ — la seule relation que le moteur puisse écrire —, jamais le
+		// défaut `0` ni le pas courant : une sentinelle au pas courant passerait pour un climat qui
+		// vient de s'allumer.
+		const depuis = SESSION_SATUREE.horloge.climat_actif?.depuis
+		expect(depuis).not.toBe(0)
 		expect(depuis).toBeLessThan(SESSION_SATUREE.horloge.tour)
 	})
 
@@ -525,5 +569,35 @@ describe('EtatSession, les formes que le type REFUSE', () => {
 		expect([enTexte, sansRang, ancienne, courante]).toHaveLength(4)
 		expect('depuis' in (ancienne.etape_plan ?? {})).toBe(false)
 		expect(courante.etape_plan?.depuis).toBe(3)
+	})
+
+	it('horloge.climat_actif : OPTIONNEL a vie — la forme d avant l it4 reste legale —, id et depuis REQUIS, UN SEUL climat (n 14, it4, KR-251)', () => {
+		// `@ts-expect-error` ÉCHOUE À LA COMPILATION si l'erreur attendue n'a PAS lieu.
+		// Un `climat_actif` sans `id` ne dirait pas QUEL climat ; sans `depuis`, il ne dirait pas
+		// QUAND il s'éteint : les deux sont requis DANS l'objet, l'objet reste optionnel.
+		// @ts-expect-error — `climat_actif` posé sans son `id`.
+		const sansId: EtatSession['horloge'] = { tour: 3, climat_actif: { depuis: 2 } }
+		// @ts-expect-error — `climat_actif` posé sans son `depuis`.
+		const sansDepuis: EtatSession['horloge'] = { tour: 3, climat_actif: { id: 'climat.pluie-de-cendres' } }
+		// `depuis` est un PAS (un nombre) : une chaîne n'est jamais une origine de décompte.
+		// @ts-expect-error — `depuis` posé en chaîne.
+		const enTexte: EtatSession['horloge'] = { tour: 3, climat_actif: { id: 'climat.pluie-de-cendres', depuis: 'hier' } }
+		// UN SEUL climat à la fois : une LISTE serait un choix irréversible en `schema: 1`.
+		// @ts-expect-error — une liste de climats actifs.
+		const enListe: EtatSession['horloge'] = { tour: 3, climat_actif: [{ id: 'climat.pluie-de-cendres', depuis: 2 }] }
+		// Le temps restant se DÉRIVE de `tour − depuis` et de `duree` : le stocker serait une copie
+		// que rien ne resynchronise (KR-013).
+		// @ts-expect-error — un reste de durée stocké sous `climat_actif`.
+		const avecReste: EtatSession['horloge'] = { tour: 3, climat_actif: { id: 'climat.x', depuis: 2, restant: 1 } }
+
+		// Discriminant : les formes LÉGALES compilent — SANS la clé (état de départ, et toute session
+		// écrite avant l'it4), et complète. Sans cette moitié, les directives seraient satisfaites par
+		// n'importe quelle erreur de type, y compris « ce type n'existe pas ».
+		const sansClimat: EtatSession['horloge'] = { tour: 3 }
+		const avecClimat: EtatSession['horloge'] = { tour: 3, climat_actif: { id: 'climat.pluie-de-cendres', depuis: 2 } }
+
+		expect([sansId, sansDepuis, enTexte, enListe, avecReste, sansClimat, avecClimat]).toHaveLength(7)
+		expect('climat_actif' in sansClimat).toBe(false)
+		expect(avecClimat.climat_actif?.depuis).toBe(2)
 	})
 })

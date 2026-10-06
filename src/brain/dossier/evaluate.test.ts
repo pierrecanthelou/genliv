@@ -7,6 +7,7 @@ import {
 	etapeDeclenchee,
 	evaluerExpr,
 	evenementARencontrer,
+	evenementDeClimat,
 	projeterJalonsAtteints,
 	resoudreJalons,
 } from './evaluate'
@@ -658,6 +659,210 @@ describe('evenementARencontrer, la rencontre due (n 13 moteur-combat, it1, lot c
 	})
 })
 
+describe('evenementDeClimat, le climat du (n 14 moteur-horloge, it4, lot contrat)', () => {
+	/** Le lieu de départ du dossier de référence — vrai à l'ouverture, donc une condition « toujours vraie ». */
+	const ICI = feuille('lieu_courant_est', 'lieu.foyer-du-guet')
+	const AILLEURS = feuille('lieu_courant_est', 'lieu.jamais-vu')
+
+	/** Un événement FABRIQUÉ : seuls `climat_id`, `monstre_ref` et `declencheur_expr` sont lus par le moteur. */
+	function evenement(
+		id: string,
+		climat: string | undefined,
+		declencheur: ExprNode | undefined,
+		reste: Partial<Evenement> = {},
+	): Evenement {
+		return {
+			id,
+			nom: `Nom de ${id}`,
+			...(climat === undefined ? {} : { climat_id: climat }),
+			...(declencheur === undefined ? {} : { declencheur_expr: declencheur }),
+			resolutions: [],
+			...reste,
+		}
+	}
+
+	/** Le dossier de référence, ses événements REMPLACÉS — un seul champ muté, en test. */
+	function avecEvenements(evenements: Evenement[]): Dossier {
+		const dossier = lire(CHEMIN_REFERENCE)
+		dossier.monde.evenements = evenements
+		return dossier
+	}
+
+	function ouverte(dossier: Dossier): EtatSession {
+		const resultat = ouvrirSession(dossier, { graine_alea: 424242 })
+		if (!resultat.ok) throw new Error(`ouverture refusée : ${resultat.refus}`)
+		return resultat.session
+	}
+
+	/** Le même état, ses événements consommés POSÉS — une seule feuille de `monde` change. */
+	function avecConsommes(session: EtatSession, consommes: string[]): EtatSession {
+		return { ...session, monde: { ...session.monde, evenements_consommes: consommes } }
+	}
+
+	it('rend le premier evenement a climat_id, sans monstre_ref, a condition vraie, non consomme — DEUX cles, ni plus ni moins', () => {
+		const dossier = avecEvenements([evenement('evenement.pluie', 'climat.cendres-tenaces', ICI)])
+		const activation = evenementDeClimat(dossier, ouverte(dossier))
+
+		expect(activation).toEqual({ evenement_id: 'evenement.pluie', climat_id: 'climat.cendres-tenaces' })
+		// GARDE PAR VALEUR (KR-246) : ni `nom` ni `declencheur_texte` (audience `auteur`), ni
+		// `resolutions[]`, ni `declencheur_expr` ne sortent — une activation n'est pas une vue sur l'événement.
+		expect(Object.keys(activation ?? {}).sort()).toEqual(['climat_id', 'evenement_id'])
+	})
+
+	it('rend le PREMIER dans l ordre du DOSSIER, quel que soit l evenement qui est vrai en second', () => {
+		const A = evenement('evenement.a', 'climat.a', ICI)
+		const B = evenement('evenement.b', 'climat.b', ICI)
+		const depart = ouverte(avecEvenements([]))
+
+		for (const [ordre, evenements, attendu] of [
+			['A puis B', [A, B], 'evenement.a'],
+			['B puis A', [B, A], 'evenement.b'],
+		] as const) {
+			expect(`${ordre} → ${evenementDeClimat(avecEvenements([...evenements]), depart)?.evenement_id}`).toBe(
+				`${ordre} → ${attendu}`,
+			)
+		}
+	})
+
+	it('saute l evenement consomme, puis rend le suivant, puis undefined quand tous le sont', () => {
+		// C'est `tickClimat` qui ajoute l'événement à `evenements_consommes`, à l'activation : cette
+		// liste, et elle seule, empêche de rallumer le MÊME climat au pas suivant.
+		const dossier = avecEvenements([
+			evenement('evenement.a', 'climat.a', ICI),
+			evenement('evenement.b', 'climat.b', ICI),
+		])
+		const depart = ouverte(dossier)
+
+		expect(evenementDeClimat(dossier, depart)?.evenement_id).toBe('evenement.a')
+		expect(evenementDeClimat(dossier, avecConsommes(depart, ['evenement.a']))?.evenement_id).toBe('evenement.b')
+		expect(evenementDeClimat(dossier, avecConsommes(depart, ['evenement.a', 'evenement.b']))).toBeUndefined()
+		// Consommer LE SECOND ne cache pas le premier : le saut est par identifiant.
+		expect(evenementDeClimat(dossier, avecConsommes(depart, ['evenement.b']))?.evenement_id).toBe('evenement.a')
+	})
+
+	it('saute l evenement dont la condition est fausse, MEME en premiere position', () => {
+		const faux = evenement('evenement.faux', 'climat.a', AILLEURS)
+		const vrai = evenement('evenement.vrai', 'climat.b', ICI)
+		const depart = ouverte(avecEvenements([]))
+
+		expect(evenementDeClimat(avecEvenements([faux, vrai]), depart)?.evenement_id).toBe('evenement.vrai')
+		expect(evenementDeClimat(avecEvenements([faux]), depart)).toBeUndefined()
+	})
+
+	it('un evenement qui porte monstre_ref ET climat_id est IGNORE — la rencontre prime, et les deux selecteurs se PARTITIONNENT', () => {
+		// § J3 : la configuration ambiguë est ignorée sans alerte. L'ÉTAT SÉPARATEUR est
+		// `monstre_ref` : le MÊME événement, avec puis sans, change de sélecteur.
+		const hybride = evenement('evenement.hybride', 'climat.a', ICI, { monstre_ref: 'bestiaire.gobelin' })
+		const climatSeul = evenement('evenement.climat', 'climat.a', ICI)
+		const depart = ouverte(avecEvenements([]))
+
+		const dossierHybride = avecEvenements([hybride])
+		expect(evenementDeClimat(dossierHybride, depart)).toBeUndefined()
+		expect(evenementARencontrer(dossierHybride, depart)).toEqual({
+			evenement_id: 'evenement.hybride',
+			monstre_ref: 'bestiaire.gobelin',
+		})
+
+		const dossierClimat = avecEvenements([climatSeul])
+		expect(evenementDeClimat(dossierClimat, depart)?.evenement_id).toBe('evenement.climat')
+		expect(evenementARencontrer(dossierClimat, depart)).toBeUndefined()
+
+		// Et l'hybride en tête ne CACHE pas l'événement de climat qui le suit.
+		expect(evenementDeClimat(avecEvenements([hybride, climatSeul]), depart)?.evenement_id).toBe('evenement.climat')
+		// MÊME TEST que `evenementARencontrer` (`=== undefined`) : un `monstre_ref` vide compte comme
+		// PRÉSENT des deux côtés, jamais comme absent d'un seul.
+		const monstreVide = evenement('evenement.vide', 'climat.a', ICI, { monstre_ref: '' })
+		expect(evenementDeClimat(avecEvenements([monstreVide]), depart)).toBeUndefined()
+		expect(evenementARencontrer(avecEvenements([monstreVide]), depart)?.evenement_id).toBe('evenement.vide')
+	})
+
+	it('undefined quand l evenement n a pas de climat_id — chaine vide ou blanche comprise —, meme condition vraie', () => {
+		const depart = ouverte(avecEvenements([]))
+		const sansClimat = evenement('evenement.rumeur', undefined, ICI)
+		const avecClimat = evenement('evenement.pluie', 'climat.a', ICI)
+
+		expect(evenementDeClimat(avecEvenements([sansClimat]), depart)).toBeUndefined()
+		// `''` et `'  '` se LISENT comme l'absence — c'est ce que le validateur tient pour calme.
+		for (const vide of ['', '   ']) {
+			expect(`« ${vide} » → ${evenementDeClimat(avecEvenements([evenement('evenement.v', vide, ICI)]), depart)}`).toBe(
+				`« ${vide} » → undefined`,
+			)
+		}
+		// DISCRIMINANT : le même événement avec un climat est rendu, et un événement sans climat en
+		// tête ne cache pas celui qui suit.
+		expect(evenementDeClimat(avecEvenements([avecClimat]), depart)?.evenement_id).toBe('evenement.pluie')
+		expect(evenementDeClimat(avecEvenements([sansClimat, avecClimat]), depart)?.evenement_id).toBe('evenement.pluie')
+	})
+
+	it('undefined quand l evenement n a pas de declencheur_expr — jamais declenche automatiquement', () => {
+		const sansCondition = evenement('evenement.a-la-main', 'climat.a', undefined)
+		const avecCondition = evenement('evenement.auto', 'climat.a', ICI)
+		const depart = ouverte(avecEvenements([]))
+
+		expect(evenementDeClimat(avecEvenements([sansCondition]), depart)).toBeUndefined()
+		expect(evenementDeClimat(avecEvenements([avecCondition]), depart)?.evenement_id).toBe('evenement.auto')
+	})
+
+	it('ne resout PAS le climat : une reference pendante est rendue telle quelle, jamais filtree', () => {
+		// KR-021 : `validateDossier` l'a déjà refusée à l'import ; résoudre est l'affaire de `tickClimat`.
+		const dossier = avecEvenements([evenement('evenement.pendant', 'climat.disparu-du-dossier', ICI)])
+
+		expect(evenementDeClimat(dossier, ouverte(dossier))).toEqual({
+			evenement_id: 'evenement.pendant',
+			climat_id: 'climat.disparu-du-dossier',
+		})
+	})
+
+	it('leve sur une condition non reconnue, NUE et sous une negation — jamais un faux positif (KR-238)', () => {
+		// MUTANT NOMMÉ : envelopper l'appel d'`evaluerExpr` d'un `try/catch` qui rend `false`. Sous un
+		// `non`, ce repli produit `true` — un climat ALLUMÉ à tort.
+		const inconnu = { op: 'xor' } as unknown as ExprNode
+		const depart = ouverte(avecEvenements([]))
+
+		expect(() => evenementDeClimat(avecEvenements([evenement('evenement.x', 'climat.a', inconnu)]), depart)).toThrow()
+		expect(() =>
+			evenementDeClimat(avecEvenements([evenement('evenement.x', 'climat.a', nier(inconnu))]), depart),
+		).toThrow()
+
+		// DISCRIMINANCE (KR-199) : elle ne lève pas sur tout — la même forme, valide, répond.
+		expect(
+			evenementDeClimat(avecEvenements([evenement('evenement.x', 'climat.a', nier(AILLEURS))]), depart)?.evenement_id,
+		).toBe('evenement.x')
+	})
+
+	it('elle est PURE — ni le dossier ni la session ne bougent, et le verdict suit l etat', () => {
+		const dossier = avecEvenements([
+			evenement('evenement.pluie', 'climat.a', feuille('lieu_visite', 'lieu.tour-effondree')),
+		])
+		const depart = ouverte(dossier)
+		const arrivee: EtatSession = {
+			...depart,
+			monde: { ...depart.monde, lieux_visites: [...depart.monde.lieux_visites, 'lieu.tour-effondree'] },
+		}
+		const avantDossier = JSON.stringify(dossier)
+		const avantSession = JSON.stringify(arrivee)
+
+		evenementDeClimat(dossier, arrivee)
+
+		expect(JSON.stringify(dossier)).toBe(avantDossier)
+		expect(JSON.stringify(arrivee)).toBe(avantSession)
+		// Deux états, deux verdicts : l'aucune-mémoïsation PAR LE COMPORTEMENT (KR-013/113).
+		expect(evenementDeClimat(dossier, depart)).toBeUndefined()
+		expect(evenementDeClimat(dossier, arrivee)).toBeDefined()
+	})
+
+	it('les DEUX fixtures du disque sont INERTES : aucun climat n est du a l ouverture, donc aucun journal existant ne change', () => {
+		// La référence porte `climat_id` sur un événement sans condition structurée ; la minimale, sur
+		// l'unique événement qu'elle porte — qui est aussi une rencontre, donc ignoré ici. Ce test est
+		// ce qui autorise les deux fixtures partagées à porter le champ sans rien perturber.
+		for (const chemin of [CHEMIN_REFERENCE, CHEMIN_MINIMAL]) {
+			const dossier = lire(chemin)
+			expect(dossier.monde.evenements.some((e) => e.climat_id !== undefined)).toBe(true)
+			expect(evenementDeClimat(dossier, ouverte(dossier))).toBeUndefined()
+		}
+	})
+})
+
 describe('etapeDeclenchee, le declencheur d une etape de plan (n 14 moteur-horloge, it1, lot contrat)', () => {
 	/** Vrai à l'ouverture du dossier de référence (le héros y part) — une condition « toujours vraie ». */
 	const ICI = feuille('lieu_courant_est', 'lieu.foyer-du-guet')
@@ -853,6 +1058,27 @@ describe('evaluate.ts, les proprietes qui se lisent dans la SOURCE', () => {
 		// Et le module existe, avec le symbole : le test ne passe pas faute de fichier.
 		expect(fichiersDuModule()).toContain('blocage.ts')
 		expect(source('blocage.ts')).toMatch(/export function etapeBloqueeAuPas\(/)
+	})
+
+	it('garde-baril-climat : le cycle de vie du climat est interne a brain/dossier — ni tickClimat, ni evenementDeClimat, ni ActivationDeClimat, ni ./dossier/climat dans le baril', () => {
+		// n° 14 `moteur-horloge`, it4. `tickClimat` (`climat.ts`) est appelée par `tickHorloge`, et
+		// `evenementDeClimat` (`evaluate.ts`) par `tickClimat` seule : aucune feature n'a à allumer ni à
+		// éteindre un climat — elle LIT `session.horloge.climat_actif`, que le type exporté porte déjà.
+		// La seule porte vers une feature reste `executerCommande`. Texte brut du baril, commentaires
+		// compris : un symbole cité même en prose y deviendrait un précédent (KR-223).
+		const baril = fs.readFileSync(path.join(MODULE_DOSSIER, '..', 'index.ts'), 'utf8')
+
+		for (const interne of ['tickClimat', 'evenementDeClimat', 'ActivationDeClimat', "'./dossier/climat'"]) {
+			expect(`${interne} → ${baril.includes(interne)}`).toBe(`${interne} → false`)
+		}
+		// Discriminant du motif : le même balayage attrape, lui, un module que le baril sort bel et bien.
+		expect(`'./dossier/sessionCombat' → ${baril.includes("'./dossier/sessionCombat'")}`).toBe(
+			"'./dossier/sessionCombat' → true",
+		)
+		// Et le module existe, avec ses deux symboles : le test ne passe pas faute de fichier.
+		expect(fichiersDuModule()).toContain('climat.ts')
+		expect(source('climat.ts')).toMatch(/export function tickClimat\(/)
+		expect(source('evaluate.ts')).toMatch(/export function evenementDeClimat\(/)
 	})
 
 	it('evaluate.ts n importe ni session.ts ni commandes.ts — ce sont EUX qui l appellent', () => {

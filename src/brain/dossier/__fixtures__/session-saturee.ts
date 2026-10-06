@@ -123,6 +123,16 @@ import type { EtatSession } from '../session'
  * `sessionCouverture.test.ts`. Sans instance, la ligne
  * `monde.pnj.<id>.etape_plan.depuis` de la table serait MORTE le jour même où elle est écrite.
  *
+ * `climat_actif` INSTANCIÉ depuis le lot `contrat` de la n° 14 (`moteur-horloge`, it4), DANS
+ * `horloge` — ses deux feuilles (`id`, `depuis`) sont les deux lignes `'moteur'` neuves de la
+ * table : sans instance ici, elles seraient MORTES le jour même où elles sont écrites.
+ * L'identifiant est EMPRUNTÉ à `dossier-minimal.json` (`climat.pluie-de-cendres`, durée 3),
+ * et `depuis` est un pas PASSÉ — `15 < 17 = horloge.tour`, jamais `0` ni le pas courant :
+ * `tour − depuis = 2 < 3`, donc l'état que la fixture montre est celui d'un climat ENCORE
+ * actif, la seule relation que le moteur puisse écrire sous cette durée. Sans cela, une
+ * fixture à `depuis = 17` serait indistinguable d'un climat qui vient de s'allumer, et à
+ * `depuis = 0` d'un champ jamais écrit.
+ *
  * `heros` INSTANCIÉ depuis le lot `contrat` de la n° 11 (`moteur-arbitre`, it1) —
  * SENTINELLE délibérément NON DÉFAUT sur les trois axes que l'invariance de
  * `copilote/contexte.test.ts` vérifie : `name` n'est pas une chaîne vide, aucune
@@ -154,7 +164,7 @@ export const SESSION_SATUREE: EtatSession = {
 	dossier_id: 'dossier-minimal',
 	dossier_maj: '2026-09-20T10:00:00.000Z',
 	graine_alea: 424242,
-	horloge: { tour: 17 },
+	horloge: { tour: 17, climat_actif: { id: 'climat.pluie-de-cendres', depuis: 15 } },
 	monde: {
 		lieu_courant: 'lieu.val-cendre',
 		lieux_visites: ['lieu.val-cendre', 'lieu.le-fanal'],

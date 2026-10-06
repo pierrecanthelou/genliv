@@ -260,11 +260,11 @@ export interface Rencontre {
  * `validateDossier`** : même régime que la passe des jalons, elle LÈVE sur une
  * condition non reconnue (KR-238/239), sans `catch`.
  *
- * C'EST LE SEUL LECTEUR DE `declencheur_expr` D'UN ÉVÉNEMENT dans `src/brain/dossier/`,
- * à côté de la passe des jalons et de `etapeDeclenchee` : le garde de `evaluate.test.ts`
- * épingle que ce module est le seul à lire `.declencheur_expr`, et c'est ICI que les
- * TROIS lectures vivent — une quatrième dans un autre module ouvrirait un second site
- * de décision de ce qu'est une condition vraie.
+ * C'EST L'UN DES DEUX LECTEURS DE `declencheur_expr` D'UN ÉVÉNEMENT dans `src/brain/dossier/`
+ * — l'autre est `evenementDeClimat`, plus bas —, à côté de la passe des jalons et de
+ * `etapeDeclenchee` : le garde de `evaluate.test.ts` épingle que ce module est le seul à lire
+ * `.declencheur_expr`, et c'est ICI que les QUATRE lectures vivent — une cinquième dans un
+ * autre module ouvrirait un second site de décision de ce qu'est une condition vraie.
  *
  * QUATRE CONDITIONS, TOUTES REQUISES, et l'événement le PREMIER du dossier qui les
  * tient — l'ordre du DOCUMENT, jamais celui où la partie les a vus devenir vrais :
@@ -305,6 +305,76 @@ export function evenementARencontrer(
 		if (!evaluerExpr(session.monde, evenement.declencheur_expr)) continue
 
 		return { evenement_id: evenement.id, monstre_ref: evenement.monstre_ref }
+	}
+
+	return undefined
+}
+
+/**
+ * UN CLIMAT À ALLUMER — l'événement qui l'allume et l'identifiant du climat, et RIEN
+ * d'autre (n° 14 `moteur-horloge`, it4, lot `contrat`).
+ *
+ * UNE SEULE DÉCLARATION pour deux modules : `evenementDeClimat` la REND, `tickClimat`
+ * (`climat.ts`) la CONSOMME. `climat_id` est la référence TELLE QUE LE DOSSIER L'ÉCRIT, non
+ * résolue : la résoudre en `Climat` est l'affaire de `tickClimat`. AUCUN autre champ de
+ * l'événement ne sort — ni `nom` ni `declencheur_texte` (audience `auteur`), ni
+ * `resolutions[]` : une activation n'est pas une vue sur l'événement, c'est ce qu'il faut pour
+ * ALLUMER le climat. Même doctrine, mot pour mot, que `Rencontre`.
+ */
+export interface ActivationDeClimat {
+	readonly evenement_id: string
+	readonly climat_id: string
+}
+
+/**
+ * LE CLIMAT QUI DOIT S'ALLUMER MAINTENANT, s'il y en a un — PURE, BIVALENTE (elle passe par
+ * `evaluerExpr`), et TOTALE **sur un dossier accepté par `validateDossier`** : même régime que
+ * la passe des jalons et que `evenementARencontrer`, elle LÈVE sur une condition non reconnue
+ * (KR-238/239), sans `catch` (n° 14 it4, `docs/REGLES-PLAY.md` § J3).
+ *
+ * QUATRE CONDITIONS, TOUTES REQUISES, et l'événement le PREMIER du dossier qui les tient —
+ * l'ordre du DOCUMENT, jamais celui où la partie les a vus devenir vrais :
+ *  · l'événement porte un `climat_id` non vide — une chaîne vide, ou blanche, se lit comme
+ *    l'absence, exactement comme le validateur la tient pour calme ;
+ *  · il ne porte PAS de `monstre_ref` — MÊME TEST que `evenementARencontrer` (`=== undefined`),
+ *    pour que les deux sélecteurs PARTITIONNENT les événements : un événement qui porte les
+ *    deux champs est une rencontre, et ce sélecteur-ci l'IGNORE sans alerte ;
+ *  · il n'est pas déjà consommé (`monde.evenements_consommes`) — c'est `tickClimat` qui l'y
+ *    ajoute, à l'activation ;
+ *  · son `declencheur_expr` est VRAI contre `session.monde` — c'est lui, et lui seul, qui dit
+ *    « maintenant » : `Climat` ne porte aucun déclencheur, et en INVENTER un serait un
+ *    dérivable stocké (KR-013).
+ *
+ * UN ÉVÉNEMENT SANS `declencheur_expr` N'EST JAMAIS DÉCLENCHÉ AUTOMATIQUEMENT : son absence
+ * est un état calme (`types.ts`). Même règle que les jalons et les rencontres.
+ *
+ * ELLE NE DÉCIDE NI DE LA PLACE NI DE LA DURÉE : un seul climat à la fois et l'extinction sont
+ * l'affaire de `tickClimat`, qui ne l'appelle que quand la place est libre. Elle ne résout PAS
+ * non plus le climat : un `climat_id` qui ne résout pas est rendu tel quel, et `validateDossier`
+ * l'a déjà refusé à l'import (KR-021).
+ *
+ * C'EST L'UN DES DEUX LECTEURS DE `declencheur_expr` D'UN ÉVÉNEMENT dans `src/brain/dossier/`,
+ * avec `evenementARencontrer` : le garde de `evaluate.test.ts` épingle que ce module est le
+ * seul à lire `.declencheur_expr` (KR-246).
+ *
+ * SON SECOND PARAMÈTRE EST STRUCTUREL, pour la même raison que `evenementARencontrer` : ce
+ * module n'importe NI `session.ts` NI `commandes.ts`, donc il ne peut pas NOMMER `EtatSession`.
+ * Un `EtatSession` s'y passe tel quel.
+ *
+ * AUCUNE MÉMOÏSATION (KR-013/113).
+ */
+export function evenementDeClimat(
+	dossier: Dossier,
+	session: { readonly monde: FaitsDeSession },
+): ActivationDeClimat | undefined {
+	for (const evenement of dossier.monde.evenements) {
+		if (evenement.climat_id === undefined || evenement.climat_id.trim() === '') continue
+		if (evenement.monstre_ref !== undefined) continue
+		if (evenement.declencheur_expr === undefined) continue
+		if (session.monde.evenements_consommes.includes(evenement.id)) continue
+		if (!evaluerExpr(session.monde, evenement.declencheur_expr)) continue
+
+		return { evenement_id: evenement.id, climat_id: evenement.climat_id }
 	}
 
 	return undefined

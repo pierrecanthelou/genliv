@@ -548,11 +548,12 @@ export interface ReferenceSimple {
 }
 
 /**
- * Les DIX références simples du schéma 1 — quatre posées par la n° 1, la
+ * Les ONZE références simples du schéma 1 — quatre posées par la n° 1, la
  * cinquième (`personnages[].objectif_id`) par l'itération 1 de la n° 4, les deux
  * suivantes par son itération 5, la huitième (`indices[].mene_a[]`) par l'itération 1
- * de la n° 6, la neuvième (`quetes[].donneur_id`) par son itération 3 et la dernière
- * (`lieux[].acces[]`) par l'itération 5 de la n° 3. Toutes
+ * de la n° 6, la neuvième (`quetes[].donneur_id`) par son itération 3, la dixième
+ * (`lieux[].acces[]`) par l'itération 5 de la n° 3 et la dernière
+ * (`evenements[].climat_id`) par l'itération 4 de la n° 14. Toutes
  * bloquantes quand elles ne résolvent pas : une référence orpheline est EXPOSÉE,
  * jamais silencieuse (KR-021). Le nombre est à REMESURER, jamais à recopier d'ici
  * (KR-159).
@@ -647,6 +648,21 @@ export const REFERENCES_SIMPLES: readonly ReferenceSimple[] = [
 	// définition d'une référence, pas un effet de bord — l'écran qui retire le lieu
 	// doit RENDRE le refus, jamais l'avaler (KR-183).
 	{ path: 'monde.lieux[].acces[]', espace: 'lieu', location: 'Lieux' },
+	// LA ONZIÈME (n° 14 `moteur-horloge`, it4, `docs/REGLES-PLAY.md` § J3) — LE CLIMAT QU'UN
+	// ÉVÉNEMENT ALLUME, et la première référence dont le porteur est un événement. AUCUNE
+	// mécanique neuve : `monde.evenements` est une collection identifiée (le OÙ est
+	// l'ÉVÉNEMENT porteur, résolu par `sitesDe`) et l'espace `climat` est déjà déclaré dans
+	// `COLLECTIONS_IDENTIFIEES`.
+	//
+	// SANS `sujet`, comme les huit autres sans décision de rédaction écrite : le repli dérivé
+	// écrit « Le champ « climat_id » ». Une chaîne vide est calme, comme `objectif_id` : elle
+	// ne pointe rien (`validate.ts`, trois états).
+	//
+	// CONSÉQUENCE EN AVAL, la même que pour les cinquième, sixième, neuvième et dixième : un
+	// climat qu'un événement désigne ne pourra plus être retiré en silence. C'est la
+	// définition d'une référence — l'écran qui retire le climat doit RENDRE le refus, jamais
+	// l'avaler (KR-183).
+	{ path: 'monde.evenements[].climat_id', espace: 'climat', location: 'Événements' },
 ]
 
 /**

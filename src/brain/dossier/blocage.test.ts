@@ -390,17 +390,27 @@ describe('blocage.ts, les proprietes qui se lisent dans la SOURCE', () => {
 		}
 	})
 
-	it('la duree n a qu un lecteur de decision, mesure : blocage.ts — validate.ts la lit pour un avertissement, aucun autre module du moteur', () => {
+	it('la duree n a que deux lecteurs de decision, mesures : blocage.ts (plan_actions[].duree) et climat.ts (Climat.duree) — validate.ts la lit pour un avertissement, aucun autre module du moteur', () => {
 		// KR-246, ET KR-258 : la phrase « seul blocage.ts lit `.duree` » est une affirmation SUR LA
 		// COULEUR D'UN GREP, donc mesurée AVANT d'être écrite — et elle n'est pas vraie « du dépôt » :
 		// `validate.ts` la lit (avertissement sur un `si_bloque` orphelin), et les panneaux d'édition de
 		// `src/features/` la lisent pour la saisir. La portée TENUE est celle-ci, par sous-arbre.
+		//
+		// ⚠ ELLE A CHANGÉ À LA N° 14 IT4 : `climat.ts` lit `Climat.duree` pour l'extinction d'un climat
+		// (`docs/REGLES-PLAY.md` § J3). Ce sont DEUX CHAMPS de même nom — `plan_actions[].duree`, lu par
+		// `blocage.ts` seul, et `Climat.duree`, lu par `climat.ts` seul —, deux décisions, deux sites : le
+		// balayage par MOT ne les distingue pas, et la liste ci-dessous est donc passée de deux à trois
+		// fichiers. Le suivant qui lirait l'un des deux dans un troisième module rougit ici.
 		const lecteurs = (racine: string): string[] =>
 			fichiersDeProduction(racine)
 				.filter((fichier) => /\.duree\b/.test(enPositionDeCode(lireSource(fichier))))
 				.map(relatif)
 
-		expect(lecteurs(path.join(RACINE_SRC, 'brain'))).toEqual(['brain/dossier/blocage.ts', 'brain/dossier/validate.ts'])
+		expect(lecteurs(path.join(RACINE_SRC, 'brain'))).toEqual([
+			'brain/dossier/blocage.ts',
+			'brain/dossier/climat.ts',
+			'brain/dossier/validate.ts',
+		])
 		// Le moteur de session, l'assembleur du narrateur et l'écran de partie : aucun.
 		expect(lecteurs(path.join(RACINE_SRC, 'player'))).toEqual([])
 		expect(lecteurs(path.join(RACINE_SRC, 'features', 'play-mode'))).toEqual([])
@@ -418,7 +428,7 @@ describe('blocage.ts, les proprietes qui se lisent dans la SOURCE', () => {
 		expect(fichiersDeProduction(path.join(RACINE_SRC, 'features', 'play-mode')).length).toBeGreaterThan(0)
 	})
 
-	it('le tick et l assembleur ne le re-implementent pas : horloge.ts l appelle, aucun module du moteur ne compare tour et duree', () => {
+	it('horloge.ts appelle etapeBloqueeAuPas et ne soustrait jamais horloge.tour — climat.ts compare tour et duree, mais pour l extinction d un climat, une AUTRE decision', () => {
 		expect(enPositionDeCode(source('horloge.ts'))).toMatch(/\betapeBloqueeAuPas\(/)
 		expect(source('horloge.ts')).toMatch(/import\s*\{\s*etapeBloqueeAuPas\s*\}\s*from\s*'\.\/blocage'/)
 		// Aucune autre soustraction `tour − …` dans le tick : la formule n'y est pas dupliquée.

@@ -2,21 +2,24 @@ import { type CSSProperties } from 'react'
 import type { HeroState } from '../../../player/types'
 
 /**
- * BANDEAU HÉROS — affichage permanent des stats du héros en registre joueur.
+ * BANDEAU HÉROS — affichage permanent des stats du héros en registre interface.
  * Lecture seule, aucune interaction. Tons neutres (`--text-strong`/`--text-body`),
  * jamais les couleurs sémantiques (`--good`/`--bad` réservées aux jets, it2).
  *
  * Lit `heros.pvMax`/`heros.peMax` tels quels — jamais recalculés côté composant (KR-013).
  * N'affiche jamais les caractéristiques (seul `EcranCreationHeros` les montre).
+ * Affiche `pas` (numéro de tour) en permanence et `climatNom` seulement si un climat est actif.
  */
 
 export interface BandeauHerosProps {
 	readonly heros: HeroState
+	readonly pas: number
+	readonly climatNom?: string
 	readonly pvLive?: number
 	readonly peLive?: number
 }
 
-export function BandeauHeros({ heros, pvLive, peLive }: BandeauHerosProps): JSX.Element {
+export function BandeauHeros({ heros, pas, climatNom, pvLive, peLive }: BandeauHerosProps): JSX.Element {
 	const pvAffiche = pvLive !== undefined ? pvLive : heros.pv
 	const peAffiche = peLive !== undefined ? peLive : heros.pe
 
@@ -37,6 +40,18 @@ export function BandeauHeros({ heros, pvLive, peLive }: BandeauHerosProps): JSX.
 			<span style={bloc}>
 				XP <span style={valeur}>{heros.xp}</span>
 			</span>
+			<div style={separateur} aria-hidden="true" />
+			<span style={bloc}>
+				PAS <span style={valeur}>#{pas}</span>
+			</span>
+			{climatNom !== undefined && (
+				<>
+					<div style={separateur} aria-hidden="true" />
+					<span style={bloc}>
+						CLIMAT <span>·</span> <span style={valeur}>{climatNom}</span>
+					</span>
+				</>
+			)}
 		</div>
 	)
 }
@@ -62,7 +77,7 @@ const bloc: CSSProperties = {
 
 const nom: CSSProperties = {
 	color: 'var(--text-strong)',
-	fontWeight: 'bold' as const, // semibold via CSS custom property
+	fontWeight: 'var(--fw-semibold)' as unknown as number,
 }
 
 const valeur: CSSProperties = {
@@ -70,7 +85,7 @@ const valeur: CSSProperties = {
 }
 
 const separateur: CSSProperties = {
-	width: '1px',
-	height: '1.5em',
+	width: 'var(--bw-hair)',
 	background: 'var(--border-subtle)',
+	alignSelf: 'stretch',
 }

@@ -68,6 +68,8 @@ type CheminDeFeuilleDeSession =
 	| 'memoire.resume.texte'
 	| 'memoire.resume.jusqu_au_pas'
 	| 'horloge.tour'
+	| 'horloge.climat_actif.id'
+	| 'horloge.climat_actif.depuis'
 	| 'monde.lieu_courant'
 	| 'monde.lieux_visites[]'
 	| 'monde.objets_possedes[]'
@@ -177,6 +179,26 @@ export const DESTINATION_DES_CHAMPS_DE_SESSION: Readonly<
 	// ── L'horloge ─────────────────────────────────────────────────────────────
 	/** Le COMPTE, pas sa paraphrase — précédents `plan_actions[].duree`, `climat[].duree`. */
 	'horloge.tour': 'moteur',
+	/**
+	 * LE CLIMAT ACTIF (n° 14 `moteur-horloge`, it4, lot `contrat` — `docs/REGLES-PLAY.md`
+	 * § J3) — l'identifiant du climat que le moteur a allumé. `'moteur'`, SANS EXCEPTION : un
+	 * HANDLE, jamais de la fiction. Ce que le modèle lira d'un climat actif est
+	 * `monde.conditions.climat[].manifestation` (`'ia'` dans `destinations.ts`), au plus UN
+	 * climat par tour, celui que cet identifiant désigne — le HANDLE n'entre jamais dans le
+	 * contexte, c'est le CODE qui résout la prose. Instanciée dans
+	 * `__fixtures__/session-saturee.ts` — sans instance, cette ligne serait morte le jour même
+	 * où elle est écrite.
+	 */
+	'horloge.climat_actif.id': 'moteur',
+	/**
+	 * LE PAS D'ACTIVATION DU CLIMAT (n° 14, it4) — `'moteur'`, SANS EXCEPTION, et c'est la
+	 * SECONDE feuille de `climat_actif` : un modèle qui lirait `depuis` pourrait compter
+	 * lui-même l'extinction que le moteur n'a pas constatée (la formule `tour − depuis >=
+	 * duree` est du CODE — `tickClimat`, `climat.ts`). Une valeur de `horloge.tour`, jamais de
+	 * la fiction, comme `monde.pnj.<id>.etape_plan.depuis`. Instanciée dans
+	 * `__fixtures__/session-saturee.ts`, DANS LE MÊME OBJET que `id`.
+	 */
+	'horloge.climat_actif.depuis': 'moteur',
 
 	// ── Le monde : sept champs, sept handles ou listes de handles ─────────────
 	/** Handle du lieu où se tient le héros. */

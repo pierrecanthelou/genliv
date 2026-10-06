@@ -5,9 +5,6 @@ import { MARQUEUR_A_ECRIRE } from './amorce'
 // choisit ; `EntreeJournal.jet` les porte TELLES QUELLES, jamais une seconde forme.
 import type { ChallengeTier } from '../challenge'
 import type { Characteristic } from '../characteristics'
-// `Posture` — n° 13 `moteur-combat`, lot `contrat` : TYPE SEUL, et `combat.ts`
-// n'importe rien de `dossier/`, donc aucun cycle. `EtatCombat.postures` la porte TELLE QUELLE.
-import type { Posture } from '../combat'
 import { resoudreJalons, type DeltaJournalise, type Rencontre } from './evaluate'
 import type { FaitsDeSession } from './faits'
 // CYCLE DE TYPE SEUL, ET IL DOIT LE RESTER : `commandes.ts` type-importe
@@ -19,6 +16,10 @@ import type { FaitsDeSession } from './faits'
 // `src/brain/copilote/contexte/prose.ts:11-19`. Ne jamais transformer cette ligne.
 import type { CommandeId } from './commandes'
 import { estCleDe } from './identifiers'
+// `sessionCombat.ts` importe `crediterXp` d'ICI, en VALEUR : l'arête de ce module vers lui
+// est donc de TYPE SEUL, et le RESTE — voir la ré-exportation plus bas. Une ré-exportation de
+// VALEUR depuis ce module nouerait un cycle de modules : ne jamais en poser.
+import type { EtatCombat } from './sessionCombat'
 import { CONFIANCE_DEPART, CONFIANCE_MAX, CONFIANCE_MIN, type Dossier } from './types'
 // `HeroState` est importée TELLE QUELLE de `src/player/types.ts` — jamais une
 // seconde forme (n° 11 `moteur-arbitre`, lot `contrat`, § 4 du plan d'itération
@@ -264,10 +265,30 @@ export interface EtatSession {
 	 */
 	readonly graine_alea: number
 	/**
-	 * `climat_actif` : propriétaire n° 14 (KR-207), NON DÉCLARÉ — clé non racine,
-	 * hors de la réserve de KR-249, optionnelle à vie le jour venu (KR-251).
+	 * `tour` EST LE PAS COURANT (J1). `climat_actif` (n° 14 `moteur-horloge`, it4, lot
+	 * `contrat` — `docs/REGLES-PLAY.md` § J3) EST LE CLIMAT QUE LE MOTEUR A ALLUMÉ : `id` est
+	 * l'identifiant d'un `monde.conditions.climat[]`, `depuis` le `tour` AU PAS de
+	 * l'activation (le pas courant, jamais `+1`).
+	 *
+	 * OPTIONNEL À VIE (KR-251), **JAMAIS** `climat_actif: undefined` NI `| null` : ABSENT quand
+	 * aucun climat n'est actif, la clé est RETIRÉE à l'extinction. Une session écrite avant
+	 * cette itération ne la porte pas — état LÉGAL. UNE SEULE CLÉ, jamais une liste : un
+	 * empilement serait un choix irréversible en `schema: 1` (KR-160).
+	 *
+	 * SEUL ÉCRIVAIN : `tickClimat` (`climat.ts`), qui la pose à l'activation et la retire à
+	 * l'extinction. `commandes.ts` écrit `horloge` en CONSERVANT ses autres clés
+	 * (`{ ...session.horloge, tour }`) — sans cela, le premier `aller` l'effacerait. LECTEURS :
+	 * `tickClimat` lui-même (l'extinction) et, dans le lot `feature` de la même itération,
+	 * l'écran de partie (le bandeau).
+	 *
+	 * AUDIENCE : `climat_actif.id` et `climat_actif.depuis` sont `'moteur'`
+	 * (`sessionDestinations.ts`) — la prose d'un climat actif est servie par le CODE, jamais
+	 * par ces feuilles.
 	 */
-	readonly horloge: { readonly tour: number }
+	readonly horloge: {
+		readonly tour: number
+		readonly climat_actif?: { readonly id: string; readonly depuis: number }
+	}
 	/** `FaitsDeSession` EST `EtatMonde` — même type, deux noms, un seul corps (`faits.ts`). */
 	readonly monde: FaitsDeSession
 	readonly journal: readonly EntreeJournal[]
@@ -348,10 +369,11 @@ export interface EtatSession {
 	 * OPTIONNEL À VIE (KR-251), **JAMAIS** `EtatCombat | null` : ABSENT quand aucun
 	 * combat n'est ouvert, JAMAIS `combat: undefined` — `cloreCombat` RETIRE la clé.
 	 *
-	 * QUATRE PORTES D'ÉCRITURE : `resoudreRencontre` la POSE, `jouerPosture` en étend
-	 * les `postures`, `fuirRencontre` y pose `fuite` (n° 13, it2), `cloreCombat` la
-	 * RETIRE. Tant qu'elle existe, `executerCommande` refuse tout (`combat_en_cours`) :
-	 * un combat est UN pas d'horloge (KR-295).
+	 * QUATRE PORTES D'ÉCRITURE : `resoudreRencontre` la POSE (ce module), `jouerPosture`
+	 * en étend les `postures`, `fuirRencontre` y pose `fuite` (n° 13, it2), `cloreCombat`
+	 * la RETIRE (ces trois-là dans `sessionCombat.ts`, depuis la n° 14 it4). Tant qu'elle
+	 * existe, `executerCommande` refuse tout (`combat_en_cours`) : un combat est UN pas
+	 * d'horloge (KR-295).
 	 *
 	 * AUDIENCE : `combat` et ses feuilles sont `'moteur'`, SANS EXCEPTION
 	 * (`sessionDestinations.ts`) — le texte d'un round n'entre dans aucun contexte
@@ -361,59 +383,14 @@ export interface EtatSession {
 }
 
 /**
- * LE RENVOI DE REJEU D'UN COMBAT EN COURS — TROIS FEUILLES, ET TROIS SEULEMENT :
- *  · `monstre_ref` — `bestiaire.<templateId>`, TELLE QUE `evenements[].monstre_ref`
- *    la porte (résolue par `monstreDeLaReference`, `monstre.ts`) ;
- *  · `postures` — celles que le JOUEUR a choisies, dans l'ordre, une par round joué.
- *    Celle du monstre n'y est JAMAIS : elle se redérive du rejeu ;
- *  · `fuite` — le CHOIX du joueur de fuir (n° 13, it2, `docs/REGLES-PLAY.md` D5), posé
- *    par `fuirRencontre` seule. C'est une ENTRÉE du joueur au même titre que `postures`,
- *    jamais un état dérivé : le rejeu la consomme APRÈS les postures. `hero-fled`, lui,
- *    est une issue DÉRIVÉE du rejeu, jamais stockée (KR-013).
- *
- * AUCUN INSTANTANÉ (KR-292) : ni PV, ni PE, ni round, ni journal — un snapshot
- * vieillirait dès que le moteur de combat changerait entre la sauvegarde et la
- * reprise. Les PV vivants sont DÉRIVÉS (KR-013) ; `heros.pv`/`heros.pe` ne bougent
- * qu'à la clôture.
- *
- * `fuite` est OPTIONNEL À VIE (KR-251) et d'un type LITTÉRAL : `true` ou ABSENT,
- * JAMAIS `false` — une clé présente à `false` serait un second état « pas de fuite »,
- * distinct de l'absence, que rien ne départagerait (KR-013). Une session écrite avant
- * cette itération ne la porte pas : état LÉGAL, pas un trou à combler.
+ * LES TROIS TYPES DU COMBAT (`EtatCombat`, `IssueCombat`, `BilanCombat`) VIVENT DANS
+ * `sessionCombat.ts` DEPUIS LE LOT `contrat` DE LA N° 14 (`moteur-horloge`, it4) — déplacés,
+ * jamais recopiés : ce sont les MÊMES types, ré-exportés ici en TYPE SEUL pour leurs importeurs
+ * historiques (`copilote/types.ts`, `copilote/contexte/commentateur.ts`,
+ * `player/engine/rencontre.ts`). Une ré-exportation de VALEUR depuis ce module nouerait un
+ * cycle de modules, puisque `sessionCombat.ts` importe `crediterXp` d'ici : voir l'import.
  */
-export interface EtatCombat {
-	readonly monstre_ref: string
-	readonly postures: readonly Posture[]
-	readonly fuite?: true
-}
-
-/**
- * COMMENT UN COMBAT S'ACHÈVE — registre CLOS, cinq issues. `'hero-fled'` est livré par
- * l'itération 2 (KR-297) : le héros sort du combat vivant, par un choix qu'il a fait
- * (`EtatCombat.fuite`), au prix d'un assaut gratuit. Son bilan porte donc des PV > 0 —
- * un assaut gratuit qui les ramènerait à ≤ 0 s'achève en `'hero-mort'`, jamais en
- * `'hero-fled'` (`docs/REGLES-PLAY.md` D5).
- * `'hero-mort'` est la seule issue qui NE CLÔT PAS : `combat` reste, et aucune
- * commande ne reprend (écran de fin : n° 15).
- */
-export type IssueCombat = 'hero-victory' | 'monster-fled' | 'hero-survived-unconscious' | 'hero-mort' | 'hero-fled'
-
-/**
- * CE QUE LA CLÔTURE ÉCRIT DANS LA SESSION — le bilan que le rejeu a calculé et que
- * `cloreCombat` applique. Jamais persisté : il se recalcule du rejeu (KR-292).
- *  · `pv`, `pe` — les valeurs VIVANTES du héros en fin de combat ;
- *  · `xp` — le gain, à créditer par `crediterXp` (seule porte de `heros.xp`) ;
- *  · `pv_max_delta`, `pe_max_delta` — la variation des plafonds (maladie, drain,
- *    rayon), SIGNÉE : négative quand le monstre a rogné le maximum.
- */
-export interface BilanCombat {
-	readonly issue: IssueCombat
-	readonly pv: number
-	readonly pe: number
-	readonly xp: number
-	readonly pv_max_delta: number
-	readonly pe_max_delta: number
-}
+export type { BilanCombat, EtatCombat, IssueCombat } from './sessionCombat'
 
 /**
  * LA CLARIFICATION QUE R1 A POSÉE — jamais franchie par le réseau telle quelle
@@ -727,120 +704,4 @@ export function resoudreRencontre(session: EtatSession, rencontre: Rencontre): E
 				: [...consommes, rencontre.evenement_id],
 		},
 	}
-}
-
-/**
- * JOUER UNE POSTURE — PURE, et SEULE PORTE qui ÉTEND `EtatCombat.postures` : AJOUTÉE
- * à la fin, une par round — c'est cet ordre que le rejeu consomme (KR-292). Elle ne
- * résout RIEN : aucun round, aucun PV (la résolution est un REJEU). NO-OP, MÊME
- * RÉFÉRENCE, SANS `combat` : en INVENTER un ouvrirait un combat sans monstre ; et
- * NO-OP, MÊME RÉFÉRENCE, une fois `fuite` posée : la fuite est TERMINALE
- * (`docs/REGLES-PLAY.md` D5), aucune posture ne se joue après — une posture ajoutée
- * après `fuite` serait une entrée que le rejeu n'a aucune raison de consommer.
- */
-export function jouerPosture(session: EtatSession, posture: Posture): EtatSession {
-	if (session.combat === undefined || session.combat.fuite === true) return session
-	return { ...session, combat: { ...session.combat, postures: [...session.combat.postures, posture] } }
-}
-
-/**
- * FUIR UN COMBAT — PURE, et SEULE PORTE qui POSE `EtatCombat.fuite` (n° 13
- * `moteur-combat`, it2, KR-297 : la fuite n'est PAS une posture, d'où une fonction
- * séparée de `jouerPosture`). UNE SEULE ÉCRITURE : `combat.fuite = true`. Elle ne
- * résout RIEN — ni l'assaut gratuit, ni les PV, ni l'issue : c'est le REJEU qui
- * consomme `fuite` après les postures et DÉRIVE `'hero-fled'` ou `'hero-mort'`
- * (`docs/REGLES-PLAY.md` D5). Ni `postures`, ni `monstre_ref`, ni `monde`, `horloge`,
- * `journal`, `heros` ne bougent : le héros RESTE au lieu courant, aucun déplacement.
- *
- * NO-OP, MÊME RÉFÉRENCE, SANS `combat` (rien à fuir) ou si `fuite` est DÉJÀ posée
- * (idempotente : une seconde fuite ne dit rien de plus). Le contrat ne lit PAS
- * l'issue du rejeu : la session ne la porte pas (KR-292). Fuir un combat dont le
- * rejeu est déjà terminal est donc ACCEPTÉ ici, et c'est le rejeu qui l'ignore.
- */
-export function fuirRencontre(session: EtatSession): EtatSession {
-	if (session.combat === undefined || session.combat.fuite === true) return session
-	return { ...session, combat: { ...session.combat, fuite: true } }
-}
-
-/** LE PLANCHER DE `pvMax`/`peMax` APRÈS UNE CLÔTURE (maladie, drain, rayon) — NOMMÉ (KR-165). */
-const PLANCHER_DES_MAXIMA = 1
-
-/**
- * CE QUE CHAQUE ISSUE FAIT DE LA SESSION — un `Record<IssueCombat, …>` EXHAUSTIF
- * PAR COMPILATION (KR-117), jamais une échelle de `if`. PRIVÉ : la porte est
- * `cloreCombat`, qui garde `heros` une fois pour les cinq entrées.
- */
-const CLOTURES: Readonly<
-	Record<IssueCombat, (session: EtatSession, heros: HeroState, bilan: BilanCombat) => EtatSession>
-> = {
-	'hero-victory': cloturerParLaVictoire,
-	// MÊME RÉSOLUTION que la victoire : le monstre a rompu le combat (`REGLES-DU-JEU.md`
-	// § 4, fuite du monstre) et le héros en sort debout, avec l'XP du combat. Le
-	// butin est hors périmètre de cette itération.
-	'monster-fled': cloturerParLaVictoire,
-	// LE HÉROS SE RÉVEILLE À 1 PV À LA FIN DU COMBAT (`docs/REGLES-PLAY.md` E1).
-	// PAS d'XP, PAS de variation de plafonds : ce ne sont pas des gains de victoire.
-	// `pe` est celle du bilan — les rounds ont coûté de l'endurance, la rendre
-	// intacte offrirait un repos gratuit.
-	'hero-survived-unconscious': (session, heros, bilan) =>
-		sansCombat({ ...session, heros: { ...heros, pv: 1, pe: Math.min(bilan.pe, heros.peMax) } }),
-	// LE HÉROS SORT DU COMBAT PAR LA FUITE (`docs/REGLES-PLAY.md` D5) : même doctrine que
-	// l'inconscient — PAS d'XP, PAS de variation de plafonds (ni gain de victoire, ni
-	// maladie, drain ou rayon : la fuite n'en emporte aucun). DIFFÉRENCE : il n'est PAS
-	// remis à 1 PV, il garde ses PV RESTANTS après l'assaut gratuit, écrêtés au plafond
-	// INTACT — comme `pe`, celle du bilan : les rounds joués ont coûté de l'endurance, la
-	// rendre intacte offrirait un repos gratuit. AUCUN déplacement : `monde` (donc
-	// `lieu_courant`), `horloge` et `journal` ne bougent pas.
-	'hero-fled': (session, heros, bilan) =>
-		sansCombat({
-			...session,
-			heros: { ...heros, pv: Math.min(bilan.pv, heros.pvMax), pe: Math.min(bilan.pe, heros.peMax) },
-		}),
-	// LA MORT NE CLÔT RIEN : session rendue À L'IDENTIQUE, `combat` reste, et
-	// `executerCommande` continue de tout refuser. L'écran de fin est la n° 15.
-	'hero-mort': (session) => session,
-}
-
-/**
- * LA SESSION SANS `combat` — la CLÉ est retirée, jamais posée à `undefined`
- * (KR-251). `delete` sur une COPIE : l'argument reste intact. Compile PARCE QUE
- * `combat` est optionnelle (précédent exact `retirerAttente`, `interprete.ts`).
- */
-function sansCombat(session: EtatSession): EtatSession {
-	const reste = { ...session }
-	delete reste.combat
-	return reste
-}
-
-/**
- * VICTOIRE OU FUITE DU MONSTRE : plafonds d'abord (`+ delta`, plancher
- * `PLANCHER_DES_MAXIMA`), jauges ensuite — ÉCRÊTÉES au plafond neuf, jamais
- * relevées par lui —, `combat` retiré, XP créditée en DERNIER par `crediterXp`
- * (seule porte de `heros.xp` : cette fonction n'écrit jamais `xp` elle-même).
- */
-function cloturerParLaVictoire(session: EtatSession, heros: HeroState, bilan: BilanCombat): EtatSession {
-	const pvMax = Math.max(PLANCHER_DES_MAXIMA, heros.pvMax + bilan.pv_max_delta)
-	const peMax = Math.max(PLANCHER_DES_MAXIMA, heros.peMax + bilan.pe_max_delta)
-	const pv = Math.min(bilan.pv, pvMax)
-	const pe = Math.min(bilan.pe, peMax)
-	return crediterXp(sansCombat({ ...session, heros: { ...heros, pvMax, peMax, pv, pe } }), bilan.xp)
-}
-
-/**
- * CLORE UN COMBAT — PURE, et SEULE PORTE qui RETIRE `EtatSession.combat` (n° 13
- * `moteur-combat`, it1). Applique le bilan du rejeu selon l'issue (`CLOTURES`) :
- * victoire ou fuite du monstre — `pv`, `pe`, plafonds variés (plancher
- * `PLANCHER_DES_MAXIMA`), jauges écrêtées, XP via `crediterXp`, `combat` retiré ;
- * inconscient — `pv = 1`, `pe` du bilan, AUCUNE XP, `combat` retiré ; fuite du héros
- * — `pv` et `pe` du bilan écrêtés aux plafonds INTACTS, AUCUNE XP, `combat` retiré ;
- * mort — session rendue À L'IDENTIQUE, `combat` reste.
- *
- * NO-OP, SESSION RENDUE INCHANGÉE (même référence), SANS `combat` (rien à clore) ou
- * SANS `heros` (inatteignable par construction, gardé par défense). `horloge`,
- * `journal`, `monde` ne bougent JAMAIS : un combat est UN pas d'horloge, déjà
- * consommé par la commande qui l'a déclenché.
- */
-export function cloreCombat(session: EtatSession, bilan: BilanCombat): EtatSession {
-	if (session.combat === undefined || session.heros === undefined) return session
-	return CLOTURES[bilan.issue](session, session.heros, bilan)
 }

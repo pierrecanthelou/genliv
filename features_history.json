@@ -1,76 +1,6 @@
 {
-	"_about": "Les features livrées au TEMPS COURANT — bascule IA, versions 0.6.x. Ce fichier est la source VIVANTE : une feature y entre à sa complétion, en repart vers features_history.0.6.x-anterieures.json dès que ses leçons sont promues en KR de code-knowledge.json ET que le plafond de 10 kio (docs/WORKFLOW.md, § Budget de contexte) est de nouveau franchi. Il ne se compacte pas, il se SCINDE. Antérieurs à la bascule : features_history.0.5.json. Derniere scission : 2026-09-19 (dossier-controles) ; precedente : 2026-08-19 (dossier-fiches, dossier-objets).",
+	"_about": "Les features livrées au TEMPS COURANT — Temps 2, versions 0.7.x, plus les dernières tranches de dette du Temps 1. Ce fichier est la source VIVANTE : une feature y entre à sa complétion, en repart vers features_history.0.6.x-anterieures.json (Temps 1) dès que ses leçons sont promues en KR de code-knowledge.json ET que le plafond de 25 kio (docs/WORKFLOW.md, § Budget de contexte) est de nouveau franchi. Il ne se compacte pas, il se SCINDE. Dernière scission : 2026-10-06 (moteur-horloge) ; précédente : 2026-09-19 (dossier-controles).",
 	"features": [
-		{
-			"feature": "dossier-copilote",
-			"completed_at": "2026-09-19",
-			"goal": "Donner a l auteur un copilote de redaction qui PROPOSE et n ECRIT JAMAIS : six assistants dont chaque suggestion est acceptee ou refusee champ par champ, l acceptation passant par DossierService.update et par lui seul, de sorte qu aucun texte n entre dans le dossier sans le geste de l auteur.",
-			"key_architecture_choices": [
-				"SIX ROLES, UNE SEULE METHODE : demander(dossier, cible, signal), surchargee sur une UNION ETIQUETEE a six branches avec garde never. La forme a ete atteinte en deux temps -- surcharge sur le litteral de role a l it2 (contrainte d outillage : les bouchons de test interdisaient un membre de plus), puis union etiquetee a 3c, sur une MESURE : deux cibles structurellement identiques faisaient tomber le dispatch dans la mauvaise branche, role annonce A et validateur execute B, tsc vert.",
-				"LA FRONTIERE CODE/IA EST TENUE PAR LA FORME, JAMAIS PAR L INVITE. Le modele ne frappe jamais un identifiant : il designe par RANG (jeton de chaine re-resolu par Map.get, table qui ne sort jamais de brain/copilote/), ou il ne designe rien du tout. KR-231 est tenu a DEUX niveaux et par la PORTEE, pas par une convention.",
-				"L AUDIENCE GOUVERNE LE CONTEXTE, STRICTEMENT : destinations.ts fait foi, DEROGATIONS_AUDIENCE est restee VIDE sur les six roles. Ce qu un modele VOIT et ce qu on lui DONNE sont deux listes (KR-232).",
-				"TROIS DOCTRINES ECRITES PAR L USAGE, chacune amendant la precedente : DESIGNATION vs REDACTION (3a) dit quand une liste vide est un succes ; l INJECTION DU CHAMP CIBLE DEPEND DE SON ORDRE, pas de son audience (3b) ; et la REGLE DU CAS MIXTE (3c) range un role qui rend a la fois un jeton et de la prose. L it4 les a unifiees sous UN critere : la liste vide porte-t-elle une information que le code n a pas ?",
-				"LA CREATION D ENTITE EST UNE REGLE PARAMETREE, pas un interdit : le modele rend un BROUILLON SANS IDENTITE, le code frappe l identifiant a l acceptation. Et c est un invariant de COMPILATION -- FicheBrouillon n est pas assignable a Personnage -- double d un ESPION sur le SITE D APPEL, parce que tsc tient la FORME et jamais le MOMENT."
-			],
-			"brain_contracts_added": [
-				{
-					"type": "service",
-					"name": "CopiloteService"
-				}
-			],
-			"lessons_learned": [
-				"UNE AFFIRMATION SUR LA COULEUR D UN TEST SE MESURE. Quatre defauts majeurs de cette feature sont la meme famille : un instrument qui produit du vert. BUG-113 (le temoin gardait le calcul, jamais la source), BUG-115 (un garde qui restait vert sur le defaut qu il nomme, parce que son decoupage SUPPOSAIT la forme eprouvee), le temoin d ordre creux de l it4, et le piege de 3b devenu inerte par coincidence de mesure. AUCUN n a ete trouve par une relecture : tous par un mutant pose.",
-				"CE QU UN VERIFICATEUR DECLARE N AVOIR QU INSPECTE, L ORCHESTRATEUR L EXECUTE. A 3c la QA a ete honnete sur un garde qu elle n avait pas rejoue -- c etait precisement celui qui avait un antecedent de vert silencieux. Le re-poser a coute trois commandes.",
-				"CORRIGER UN CONTRAT ENTRE LES DEUX LOTS COUTE ZERO ; APRES, CA COUTE UN LOT. L orchestrateur qui garde le lot consommateur en attente le temps de lire le compte rendu du contrat s offre une fenetre gratuite -- elle a servi a 3c (BUG-116) et elle est devenue la regle.",
-				"UNE SIGNATURE QU UN PLAN FIGE SE CONFRONTE A LA DOCTRINE DU FICHIER QUI VA LA PORTER, jamais recopiee d un gabarit. Aucune porte du raffinage ne lit le fichier cible : ni les deux tours, ni la porte mecanique, ni la fiche de validation.",
-				"LES DEUX POSTES A EFFORT ELEVE ONT ECHANGE LEURS POSITIONS A TROIS ITERATIONS SUR QUATRE. L arbitrage se fait SUR L ARGUMENT, jamais sur le mouvement -- et deux fois, un role a retire son propre veto en reconnaissant qu il etait hors de son domaine, ce qui a produit de meilleures decisions que le veto n en aurait obtenu.",
-				"LE BUDGET DE CONTEXTE SE PAIE A LA FIN. La spec de cette feature a du etre compactee trois fois puis SCINDEE (plan d un cote, implementation de l autre) : les decisions livrees se reduisent a leur phrase d arbitrage plus le renvoi a leur revue, et c est la revue qui est le dossier."
-			],
-			"bugs_encountered": [
-				"BUG-097",
-				"BUG-098",
-				"BUG-099",
-				"BUG-106",
-				"BUG-107",
-				"BUG-108",
-				"BUG-109",
-				"BUG-110",
-				"BUG-111",
-				"BUG-113",
-				"BUG-114",
-				"BUG-115",
-				"BUG-116",
-				"BUG-117"
-			]
-		},
-		{
-			"feature": "dossier-canon (it5, tranche B1 du Temps 1 bis)",
-			"completed_at": "2026-09-19",
-			"goal": "L'auteur relie ses lieux les uns aux autres — lieux[].acces, arete orientee, une entree par sens.",
-			"key_architecture_choices": [
-				"acces?: string[] plutot qu'un objet {vers_lieu_id, description} : la prose par arete aurait duplique les trois proses 'ia' que Lieu porte deja (description, ambiance, dangers).",
-				"Jumeau exact de mene_a[] : deux lignes de table, une ligne d'audience 'moteur', ZERO ligne de validate.ts — la machinerie generique traite deja un chemin a deux [].",
-				"Aucun inverse stocke ni derive (KR-013) ; l'exclusion d'auto-reference vit a l'ecran, sur la seule ligne d'ajout, jamais au SSOT."
-			],
-			"brain_contracts_added": [
-				{
-					"type": "registre",
-					"name": "Lieu.acces"
-				},
-				{
-					"type": "registre",
-					"name": "monde.lieux[].acces[] -> moteur"
-				}
-			],
-			"lessons_learned": [
-				"Un critere qui garde un invariant d'ECRITURE doit nommer le CHEMIN d'ecriture, pas seulement l'etat resultant : le temoin de KR-013, ecrit contre validateDossier sur un document mute a la main, laissait passer un mutant d'ecriture symetrique sur 550 tests verts.",
-				"Mesurer une assertion d'un fichier ne dit rien des autres assertions du meme fichier : la table LIBRES de couverture.test.ts a ete correctement mesuree, puis generalisee a tort a tout le fichier, qui portait ailleurs l'invariant d'instanciation ayant bloque le lot contrat.",
-				"Le tour 2 parallele fait converger des roles vers une position deja abandonnee : trois roles ont argumente contre un veto retire pendant qu'ils redigeaient."
-			],
-			"bugs_encountered": [
-				"BUG-078 (corrige)"
-			]
-		},
 		{
 			"feature": "moteur-dossier (it1, première tranche du Temps 2)",
 			"completed_at": "2026-09-20",
@@ -219,15 +149,27 @@
 			"goal": "Le joueur voit le moteur lancer le de que l'IA a demande, en raconter l'issue, et crediter l'XP selon la marge reelle -- jamais l'IA. Trois iterations : heros sans jet (it1), jet binaire complet routage+resolution+narration (it2), marge fine + XP (it3). Feature moteur-arbitre (n 11) TERMINEE 3/3.",
 			"key_architecture_choices": [
 				"issueDuJet (brain/dossier/arbitre.ts) = SEULE appelante de resolveChallenge dans tout le depot (brain/+features/**), lue par trois consommateurs distincts (CarteJet, l'assembleur du narrateur, xpDuJet) sans jamais etre dupliquee -- precedent exact pour tout futur rng derive d'une meme resolution.",
-			"Un seuil de regle nomme (MARGE_FRANCHE) entre dans son fichier de regles natif (xp.ts) meme quand son second consommateur vit ailleurs (arbitre.ts) -- jamais recopie en litteral au second site (KR-261).",
+				"Un seuil de regle nomme (MARGE_FRANCHE) entre dans son fichier de regles natif (xp.ts) meme quand son second consommateur vit ailleurs (arbitre.ts) -- jamais recopie en litteral au second site (KR-261).",
 				"IssueEpreuve (classification qualitative binaire puis ternaire) s'etend par AJOUT PUR d'un membre a une union fermee, jamais un renommage total -- stabilite des tests existants prevaut quand le renommage n'apporte aucun gain fonctionnel.",
 				"Une comparaison binaire `=== 'unMembre'` contre un seul membre d'une union fermee reste correcte tant que l'union a deux membres, mais devient un piege silencieux des qu'un membre est ajoute : aucune verification d'exhaustivite tsc ne la couvre (contrairement a un Record<Union,X>)."
 			],
 			"brain_contracts_added": [
-				{ "type": "registry", "name": "brain/dossier/alea.ts (alea, creerRng)" },
-				{ "type": "service", "name": "CopiloteService.demander('arbitre', ...)" },
-				{ "type": "registry", "name": "brain/dossier/arbitre.ts (doitArbitrer, classifierIssue, issueDuJet, xpDuJet)" },
-				{ "type": "service", "name": "brain/dossier/session.ts (fixerHeros, consignerJet, crediterXp)" }
+				{
+					"type": "registry",
+					"name": "brain/dossier/alea.ts (alea, creerRng)"
+				},
+				{
+					"type": "service",
+					"name": "CopiloteService.demander('arbitre', ...)"
+				},
+				{
+					"type": "registry",
+					"name": "brain/dossier/arbitre.ts (doitArbitrer, classifierIssue, issueDuJet, xpDuJet)"
+				},
+				{
+					"type": "service",
+					"name": "brain/dossier/session.ts (fixerHeros, consignerJet, crediterXp)"
+				}
 			],
 			"lessons_learned": [
 				"Un rng keye par (graine, domaine, indice) plutot qu'un flux sequentiel rend chaque nouveau tirage (relance, marge, futur combat) insertable sans jamais decaler les tirages deja joues d'une session existante -- a retenir pour toute feature qui ajoutera un nouveau domaine d'alea.",
@@ -235,7 +177,14 @@
 				"Un test qui bouchonne une fonction dont le retour conditionne une branche doit FORCER ce retour vers une valeur qui active reellement la branche au moins une fois, sinon l'assertion peut passer sans jamais l'avoir exercee (BUG-141, trouve seulement par la revue tech-lead PR, confirme par contre-epreuve) -- QA en mode B rejouant les tests verts ne l'avait pas vu.",
 				"npm run format lance sans portee par un ouvrier peut reformater silencieusement un fichier hors de son lot si ce fichier porte un defaut Prettier preexistant (BUG-139) -- scoper le format aux fichiers du lot evite la reapparition."
 			],
-			"bugs_encountered": ["BUG-135", "BUG-136", "BUG-137", "BUG-138", "BUG-140", "BUG-141"]
+			"bugs_encountered": [
+				"BUG-135",
+				"BUG-136",
+				"BUG-137",
+				"BUG-138",
+				"BUG-140",
+				"BUG-141"
+			]
 		},
 		{
 			"feature": "moteur-acteurs",
@@ -249,14 +198,38 @@
 				"validerEnjeux extraite de validerArbitre, partagee par validerActeur — meme CarteJet des deux cotes, deux appelants (KR-013)."
 			],
 			"brain_contracts_added": [
-				{ "type": "registry", "name": "brain/dossier/commandes.ts — COMMANDES.parler, TRANSITIONS.parler, verbeDeCommande" },
-				{ "type": "service", "name": "CopiloteService.demander('acteur', ...) — 10e+11e surcharges" },
-				{ "type": "registry", "name": "brain/dossier/revelation.ts — evaluerSavoir, savoirsRevelables, savoirSousEpreuve, JetReussi, EtatSavoir" },
-				{ "type": "registry", "name": "brain/dossier/recit.ts — consignerReponseActeur" },
-				{ "type": "registry", "name": "brain/dossier/arbitre.ts — epreuvesReussies" },
-				{ "type": "type", "name": "brain/copilote/types.ts — CibleActeur, CibleActeurResistible, ReponseActeur, ResistanceActeur" },
-				{ "type": "registry", "name": "brain/copilote/schemaSortie.ts — validerEnjeux" },
-				{ "type": "registry", "name": "brain/dossier/session.ts — crediterConfiance" }
+				{
+					"type": "registry",
+					"name": "brain/dossier/commandes.ts — COMMANDES.parler, TRANSITIONS.parler, verbeDeCommande"
+				},
+				{
+					"type": "service",
+					"name": "CopiloteService.demander('acteur', ...) — 10e+11e surcharges"
+				},
+				{
+					"type": "registry",
+					"name": "brain/dossier/revelation.ts — evaluerSavoir, savoirsRevelables, savoirSousEpreuve, JetReussi, EtatSavoir"
+				},
+				{
+					"type": "registry",
+					"name": "brain/dossier/recit.ts — consignerReponseActeur"
+				},
+				{
+					"type": "registry",
+					"name": "brain/dossier/arbitre.ts — epreuvesReussies"
+				},
+				{
+					"type": "type",
+					"name": "brain/copilote/types.ts — CibleActeur, CibleActeurResistible, ReponseActeur, ResistanceActeur"
+				},
+				{
+					"type": "registry",
+					"name": "brain/copilote/schemaSortie.ts — validerEnjeux"
+				},
+				{
+					"type": "registry",
+					"name": "brain/dossier/session.ts — crediterConfiance"
+				}
 			],
 			"lessons_learned": [
 				"LE MODE D EMPLOI DU LOT CONTRAT EST L ARTEFACT LE PLUS RENTABLE DE L ESSAIM. Le lot B n a ni appele savoirSousEpreuve ni epreuvesReussies grace au § 2 du rapport du lot A qui disait explicitement 'le hook n a PAS besoin de les appeler' — le service s en charge. Sans cette ligne, un second decideur aurait produit un defaut invisible par jest.",
@@ -264,7 +237,15 @@
 				"UN FAIT PERSISTANT PROPOSE PAR UN ROLE EXPERT (Narratif-IA, EtatPnj pour stocker la reussite) NE SURVIT PAS A LA CONFRONTATION KR-013 (etat derivable stocke) QUAND LE DERIVATEUR EST SIMPLE : epreuvesReussies ne fait que filtrer le journal, et son appelant le fait deja pour d autres raisons.",
 				"LES SONDES DE DISCRIMINANCE (22 mutants, 22 tues) confirment que l investissement de la table doree (it2/it3, revue d instrument BUG-084) porte ses fruits : aucun des defauts de dossier-controles (assertion qui ne sait pas echouer) n a recidive."
 			],
-			"bugs_encountered": ["BUG-142", "BUG-143", "BUG-144", "BUG-145", "BUG-146", "BUG-147", "BUG-148"]
+			"bugs_encountered": [
+				"BUG-142",
+				"BUG-143",
+				"BUG-144",
+				"BUG-145",
+				"BUG-146",
+				"BUG-147",
+				"BUG-148"
+			]
 		},
 		{
 			"feature": "moteur-combat",
@@ -279,19 +260,96 @@
 				"dernierAssaut sur CombatState pour la projection, efface par tryHeroFlee (KR-297)"
 			],
 			"brain_contracts_added": [
-				{ "type": "service", "name": "CopiloteService.demander('commentateur', ...) — 12e surcharge" },
-				{ "type": "type", "name": "brain/copilote/types.ts — CibleCommentateur, ProjectionAssaut, ReponseCommentateur" },
-				{ "type": "registry", "name": "brain/copilote/schemaSortie.ts — validerCommentateur" },
-				{ "type": "registry", "name": "brain/copilote/contexte/commentateur.ts — assemblerCommentateur, palierDeSante" },
-				{ "type": "type", "name": "player/engine/combatTypes.ts — AssautRound (dernierAssaut)" },
-				{ "type": "route", "name": "worker/index.ts — /ia/commentateur POST" }
+				{
+					"type": "service",
+					"name": "CopiloteService.demander('commentateur', ...) — 12e surcharge"
+				},
+				{
+					"type": "type",
+					"name": "brain/copilote/types.ts — CibleCommentateur, ProjectionAssaut, ReponseCommentateur"
+				},
+				{
+					"type": "registry",
+					"name": "brain/copilote/schemaSortie.ts — validerCommentateur"
+				},
+				{
+					"type": "registry",
+					"name": "brain/copilote/contexte/commentateur.ts — assemblerCommentateur, palierDeSante"
+				},
+				{
+					"type": "type",
+					"name": "player/engine/combatTypes.ts — AssautRound (dernierAssaut)"
+				},
+				{
+					"type": "route",
+					"name": "worker/index.ts — /ia/commentateur POST"
+				}
 			],
 			"lessons_learned": [
 				"En jsdom, new Response().json() echoue silencieusement. Tout mock fetch d integration doit retourner un objet {ok,status,json} et non new Response().",
 				"Un test d integration IA sans cloudSettings.setWorkerUrl/setSyncKey est vacueux : acheminement() retourne null, demander retourne 'non-configure' — le fetch n est jamais appele.",
 				"Pour un test de fureur deterministe, calibrer mc hero vs mc monstre de sorte que le heros gagne le round regulier (RNG favorable) mais perde l assaut-fureur (Normale(mc_monstre) > Defensive(mc_hero + rollDice(1,4))). Les 5 tirades RNG doivent etre tracees."
 			],
-			"bugs_encountered": ["BUG-152", "BUG-153"]
+			"bugs_encountered": [
+				"BUG-152",
+				"BUG-153"
+			]
+		},
+		{
+			"feature": "moteur-horloge",
+			"completed_at": "2026-10-06",
+			"goal": "Le monde avance d'un pas après chaque commande acceptée — plans PNJ, climat, résumé perceptible pour le narrateur.",
+			"key_architecture_choices": [
+				"tickHorloge pur dans horloge.ts, couture unique dans executerCommande après jalons",
+				"etapeDeclenchee sélecteur dans evaluate.ts — horloge.ts ne lit jamais declencheur_expr (KR-246)",
+				"etape_plan: {rang, depuis?} absent ≡ rang 0 (KR-013). depuis = tour d'avancement",
+				"Formule de blocage === (événement, pas niveau) dans blocage.ts, prédicat pur et total (KR-246)",
+				"Route C (Evenement.climat_id?) pour activation du climat. tickClimat pur dans climat.ts",
+				"Extinction >= (efface l'état, pas de répétition). Sémantique différente du blocage ===",
+				"R3 PENDANT CE TEMPS : lignesPendantCeTemps dans contexte/horloge.ts, sélection depuis===tour + présent + action rédigée",
+				"Extraction sessionCombat.ts (session.ts 846→707 lignes). resoudreRencontre reste avec type-only re-export",
+				"§ J2 et J3 de REGLES-PLAY.md écrits AVANT le code de chaque itération"
+			],
+			"brain_contracts_added": [
+				{
+					"type": "service",
+					"name": "tickHorloge(dossier, session): EtatSession — brain/dossier/horloge.ts"
+				},
+				{
+					"type": "service",
+					"name": "tickClimat(dossier, session): EtatSession — brain/dossier/climat.ts"
+				},
+				{
+					"type": "service",
+					"name": "evenementDeClimat(dossier, session): ActivationDeClimat | undefined — brain/dossier/evaluate.ts"
+				},
+				{
+					"type": "service",
+					"name": "etapeDeclenchee(dossier, session, personnage): boolean — brain/dossier/evaluate.ts"
+				},
+				{
+					"type": "service",
+					"name": "etapeBloqueeAuPas(personnage, entree, tour): boolean — brain/dossier/blocage.ts"
+				},
+				{
+					"type": "service",
+					"name": "lignesPendantCeTemps(dossier, session) — brain/copilote/contexte/horloge.ts"
+				},
+				{
+					"type": "type",
+					"name": "EtatPnj.etape_plan?: {rang, depuis?} — brain/dossier/session.ts"
+				},
+				{
+					"type": "type",
+					"name": "EtatSession.horloge.climat_actif?: {id, depuis} — brain/dossier/session.ts"
+				}
+			],
+			"lessons_learned": [
+				"Formule d'extinction et de blocage : sémantiques différentes justifient des gardes différentes (>= efface, === constate). Un seul opérateur pour les deux serait une fausse cohérence.",
+				"Extraction de fichier avec importeurs hors lot : le type-only re-export évite le cycle sans modifier les importeurs. Vrai motif de dette : ROADMAP line, pas KR-112.",
+				"Fixtures partagées inertes : poser un climat_id sans declencheur_expr évite de perturber les journaux exacts de tous les tests existants."
+			],
+			"bugs_encountered": []
 		}
 	]
 }

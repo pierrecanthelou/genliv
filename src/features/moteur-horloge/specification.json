@@ -1,7 +1,7 @@
 {
 	"feature": "moteur-horloge",
 	"created_at": "2026-10-05",
-	"status": "in-progress",
+	"status": "done",
 	"design_reference": "docs/PLAN-BASCULE-IA.dc.html § 2.7 (cycle d'horloge, 5 étapes), docs/REGLES-PLAY.md § J (pas d'horloge)",
 	"plan": {
 		"goal": "Le monde avance d'un pas après chaque commande acceptée — plans PNJ, climat, résumé perceptible pour le narrateur.",
@@ -75,8 +75,8 @@
 			},
 			{
 				"id": 4,
-				"goal": "L'auteur voit un climat s'activer, appliquer ses effets ensemblistes, s'éteindre après sa durée ; le bandeau affiche PAS #n et CLIMAT · {nom}.",
-				"status": "planned"
+				"goal": "L'auteur lit au bandeau PAS #n en permanence, CLIMAT · {nom} quand un climat s'active, puis le retour au calme après sa durée.",
+				"status": "done"
 			}
 		],
 		"known_risks": [
@@ -146,6 +146,27 @@
 					"Budget M=2371 franchit 2333 : les trois constantes ajustées. Le palier dépend du nombre de PNJ (5 pour franchir, 4 restent sous)"
 				],
 				"test_coverage": { "unit": "44 tests ajoutés (10 blocage + 12 horloge + 12 contexte + 5 frontiere + 3 jalonAuJournal + 2 commandes modifiés), 2806 total, 0 régression" }
+			},
+			{
+				"id": 4,
+				"label": "iteration-4",
+				"completed_at": "2026-10-06",
+				"architecture_choices": [
+					"Route C (Evenement.climat_id?) retenue unanime — Route B (5e delta) rejetée (DELTAS.ecrit = FaitsDeSession, pas horloge)",
+					"climat_actif: {id, depuis} — pas un simple string. depuis = tour d'activation, précédent etape_plan.depuis",
+					"tickClimat pur dans climat.ts, appelé en tête de tickHorloge (après jalons, latence d'un pas documentée en J3)",
+					"evenementDeClimat sélecteur dans evaluate.ts — seul lecteur de declencheur_expr (KR-246). Partitionne avec evenementARencontrer",
+					"Extinction >= (pas ===) — efface l'état, pas de répétition ; === laisserait un climat éternel sur session forgée",
+					"Extraction sessionCombat.ts — session.ts de 846 à 707 lignes. resoudreRencontre reste dans session.ts (type-only re-export)",
+					"§ J3 de REGLES-PLAY.md écrit AVANT tout code, dans le style de J2"
+				],
+				"deviations_from_plan": [
+					"dossier-minimal.json : climat_id posé sur l'événement hybride existant (avec monstre_ref), pas sur un événement dédié sans monstre_ref — évite de casser identifiers.test.ts et suffisance.test.ts hors lot",
+					"resoudreRencontre reste dans session.ts avec type-only re-export vers sessionCombat — évite un cycle de modules ou de modifier rencontre.ts hors lot",
+					"EcranPartie.tsx passe de 393 à 406 lignes (signal KR-112, dette au roadmap)",
+					"Câblage climatNom vérifié par climatAuBandeau.test.tsx (3 tests d'intégration, surcharge de fixture)"
+				],
+				"test_coverage": { "unit": "63 tests ajoutés (33 climat + 12 evaluate + 5 bandeau + 3 intégration + 5 validate + 2 commandes + 1 couverture + 2 sessionCouverture), 149 suites / 2869 total, 0 régression" }
 			}
 		],
 		"resolved_decisions": [
@@ -179,13 +200,24 @@
 			"CHEMIN_SI_BLOQUE constante + garde (PM O5). Dérogation étendue aux DEUX chemins.",
 			"replier dupliqué reporté en dette à déclencheur (TL annexe).",
 			"Invite du narrateur non amendée : PENDANT CE TEMPS n'est cité par aucune invite (NIA tour 2).",
-			"Budget re-mesuré : M=2371 > 2333 → 7000→8000, 28056→29056, 87040→90112."
+			"Budget re-mesuré : M=2371 > 2333 → 7000→8000, 28056→29056, 87040→90112.",
+			"Route C (Evenement.climat_id?) RETENUE unanime. Route B (5e delta) REJETÉE — DELTAS.ecrit écrit FaitsDeSession, pas horloge. Route A déjà rejetée (types.ts:1380).",
+			"climat_actif: {id: string, depuis: number} — pas un simple string. depuis = tour d'activation, précédent etape_plan.depuis.",
+			"Extinction >= (pas ===). L'extinction efface l'état, pas de répétition. === laisserait un climat éternel sur session forgée. Sémantique différente du blocage (constat seul → ===).",
+			"Extraction sessionCombat.ts = premier commit de L1, pas un pré-lot séparé.",
+			"R3 manifestation (bloc CLIMAT du narrateur) REPORTÉ hors it4. Ligne roadmap obligatoire (PM veto).",
+			"L3 (FicheEvenement, PanneauEvenements) HORS it4. climat_id sans éditeur, comme effets_regles. Démo par fixture JSON.",
+			"Un seul climat actif à la fois (KR-251 : liste irréversible).",
+			"Climat sans duree = permanent. climat_actif.id introuvable = extinction.",
+			"Événement monstre_ref + climat_id = evenementDeClimat l'ignore (rencontre prime).",
+			"tickClimat appelé dans tickHorloge, après jalons. Latence d'un pas documentée.",
+			"Prop climatNom?: string (UX, adopté TL). Résolution en ligne par EcranPartie.",
+			"TDD bandeau (QA veto) : tests écrits avant le composant.",
+			"Journal : climat_actif : <id> (activation), climat_eteint : <id> (extinction). Convention champ : id."
 		],
 		"open_questions": [
-			"Climat : mécanisme d'activation exact (route B DELTAS.activer_climat vs chemin spécial dans executerCommande vs scan d'Evenements). Contraint par types.ts:1380 (pas de declencheur_expr sur Climat) et par le fait que DELTAS n'écrit que FaitsDeSession. À trancher au raffinage d'it4.",
-			"Idempotence des effets climatiques : reveler_indice et atteindre_jalon sont idempotents (ensembles). donner_objet donnerait un doublon si le climat se réactive. À documenter ou à garder par un flag « déjà appliqué » en session.",
-			"Extraction sessionCombat.ts : taille exacte des lots d'it4 (climat + extraction + bandeau). Si > 4 lots, extraction en pré-lot.",
-			"Enrichissement R4 pour jouer l'étape courante du PNJ — reporté indéfiniment, hors n°14."
+			"Enrichissement R4 pour jouer l'étape courante du PNJ — reporté indéfiniment, hors n°14.",
+			"KR candidat : atteindre_jalon dans effets_regles saute effet[] du jalon. Préexistant pour les 4 emplacements de deltas. À écrire hors it4."
 		]
 	}
 }

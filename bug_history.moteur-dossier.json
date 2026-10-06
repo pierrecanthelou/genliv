@@ -1,5 +1,5 @@
 {
-	"_about": "Archive des defauts de moteur-dossier (n 9, TERMINEE 4/4 le 2026-09-25) dont la lecon est DEJA PROMUE dans un instrument lui-meme en lecture obligatoire. MEME AXE que bug_history.dossier-controles.json et bug_history.dossier-fiches.json : il porte sur la REDONDANCE, JAMAIS sur l'age -- une feature TERMINEE y a toujours droit. Une entree promue est relue a chaque iteration SOUS SA FORME PROMUE ; garder le recit a cote, c'est payer la meme lecon deux fois par session. Ne le 2026-09-24 (moteur-dossier it3, franchissement du plafond de bug_history.json : 13 101 / 10 240 o). CE FICHIER N'EST PAS EN LECTURE OBLIGATOIRE -- seul bug_history.json l'est. NE PARTENT PAS ICI les entrees dont la lecon n'est promue nulle part (BUG-124, BUG-125 y sont restees pour cette raison, pas par oubli). NUMEROTATION GLOBALE aux NEUF fichiers desormais, jamais reemployee : prochain id = max(BUG-xxx) des NEUF (precedents BUG-062, BUG-123, BUG-129). HISTORIQUE DES SCISSIONS : CHANGELOG.md.",
+	"_about": "Archive des defauts de moteur-dossier (n 9, TERMINEE 4/4 le 2026-09-25) dont la lecon est DEJA PROMUE dans un instrument lui-meme en lecture obligatoire. MEME AXE que bug_history.dossier-controles.json et bug_history.dossier-fiches.json : il porte sur la REDONDANCE, JAMAIS sur l'age -- une feature TERMINEE y a toujours droit. Une entree promue est relue a chaque iteration SOUS SA FORME PROMUE ; garder le recit a cote, c'est payer la meme lecon deux fois par session. Ne le 2026-09-24 (moteur-dossier it3, franchissement du plafond de bug_history.json : 13 101 / 10 240 o). CE FICHIER N'EST PAS EN LECTURE OBLIGATOIRE -- seul bug_history.json l'est. BUG-124 et BUG-125 scindes le 2026-10-06 (moteur-horloge it4, franchissement du plafond de bug_history.json : 15 769 / 15 360 o) -- lecon desormais promue dans la skill raffinage-iteration (mesure de portee = mesure de couleur de test, et precondition citee jamais exercee). NUMEROTATION GLOBALE aux DOUZE fichiers desormais, jamais reemployee : prochain id = max(BUG-xxx) des NEUF (precedents BUG-062, BUG-123, BUG-129). HISTORIQUE DES SCISSIONS : CHANGELOG.md.",
 	"bugs": [
 		{
 			"id": "BUG-120",
@@ -48,6 +48,30 @@
 			"mitigation": "Applique une regle deja existante (dev-contrat.md, regle 2 : chercher les appelants avant d ecrire, meme hors du modele explicitement nomme par le plan), pas une regle neuve -- d ou l archivage direct plutot qu une entree dans bug_history.json. Ratifie par la QA en mode B (contexte neuf) : EndScreen.tsx confirme appelant reel, tsc verifie vert, critere 2 confirme a zero import.",
 			"regression_test": "aucun -- tsc --noEmit est l instrument qui tient ce point ; EndScreen.tsx n a pas de test qui rend son import de PlayNode observable.",
 			"severity": "minor"
+		},
+		{
+			"id": "BUG-124",
+			"date": "2026-09-24",
+			"feature": "moteur-dossier",
+			"discovered_at": "iteration-3",
+			"symptom": "Le plan d it3 (SS 7) commandait un test-grep << evaluate.ts, SEUL LECTEUR de charpente.jalons du depot >>. Mesure faite par le lot contrat : ils sont TROIS en position de code (atteignabilite.ts:217 pour les effet[], sections.ts:144 pour le compte, evaluate.ts). Le test serait ne ROUGE. L ouvrier a repete l affirmation en docstring (evaluate.ts), ou elle est fausse dans ses DEUX moities : atteignabilite.ts:217 lit .effet, et dossier-registres/hooks/useEcritureJalons.ts:21 lit .enonce_texte.",
+			"root_cause": "L orchestrateur a ecrit une affirmation sur la couleur d un test sans la mesurer -- dans le plan meme dont le SS 7 recopie la regle << une affirmation sur la couleur d un test se MESURE, elle ne se deduit pas >>. Une portee (<< du depot >>) est une affirmation de couleur deguisee : elle predit qu un grep ne rend qu une ligne.",
+			"fix": "Garde remplacee par une forme plus forte ET vraie : recensement par valeur des trois porteurs de .charpente.jalons, plus porteur UNIQUE de .enonce_texte et de .declencheur_expr -- c est cela que KR-246 protege. Docstring evaluate.ts reecrite sur la portee reelle (<< dans src/brain/dossier/ >>), en nommant les deux lecteurs qui la bornent.",
+			"mitigation": "La sonde de discriminance de la garde a ete posee par la QA en mode B : une lecture ajoutee dans sections.ts la fait rougir nommement. Lecon a porter au comite : une phrase de PORTEE (<< seul X du depot >>) se mesure par grep avant d entrer au plan, au meme titre qu une couleur de test.",
+			"regression_test": "src/brain/dossier/evaluate.test.ts -- la SEMANTIQUE d un jalon n a qu un lecteur",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-125",
+			"date": "2026-09-24",
+			"feature": "moteur-dossier",
+			"discovered_at": "iteration-3",
+			"symptom": "Le critere 3 du plan d it3 s ouvrait sur << Etant donne dossier-reference.json >>. Mesure faite par le lot 2 : cette fixture n est PAS jouable -- un controle bloquant depart-desert (<< Aucun personnage n est present au lieu de depart >>). La porte KR-239 refusait le shell avant toute commande, donc le critere etait INSATISFIABLE tel qu il a ete signe.",
+			"root_cause": "Le comite a mesure l ATTEIGNABILITE du jalon dans le graphe des acces (reserve n 1 du narratif, qui a fait entrer l arete A-1) et s est arrete la : personne n a rejoue la PORTE en amont. Le plan nomme pourtant KR-239 comme precondition de correction de l evaluateur, a l arbitrage A-8 -- la precondition etait citee, jamais exercee.",
+			"fix": "Non corrige dans la fixture -- le disque n est pas touche. Le temoin seme un habitant au lieu de depart par brain.dossiers.update (chemin public, par spread), technique precedente du depot (avecUnAcces / avecOuverture, KR-156). Le scenario du critere reste mot pour mot celui du plan.",
+			"mitigation": "La precondition est MESUREE dans le temoin lui-meme -- jouable false avant semis, true apres -- donc elle rougira le jour ou depart-desert changera, au lieu de casser trois rebonds plus loin. Le << Etant donne >> reel est ecrit dans la revue : dossier-reference PLUS un habitant place au depart.",
+			"regression_test": "src/features/play-mode/tests/jalonAuJournal.test.tsx -- ecrit la ligne du jalon au meme tour que la commande",
+			"severity": "major"
 		}
 	]
 }

@@ -521,6 +521,14 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	// Résolu, `monstre_ref` rend `pv`, `armour`, `weaponMultiplier`, `capacity` et
 	// les stats. Le narrateur reçoit le NOM du monstre et le log d'assaut, point.
 	'monde.evenements[].monstre_ref': 'moteur',
+	// LE CLIMAT QU'UN ÉVÉNEMENT ALLUME (n° 14 `moteur-horloge`, it4) — un HANDLE, `moteur`,
+	// pour la même raison que `monstre_ref` juste au-dessus et que `declencheur_expr` juste
+	// en dessous : le code le lit pour allumer le climat, jamais un modèle. Injecté, il
+	// apprendrait au narrateur QUEL climat va survenir et à quel événement il est lié — il le
+	// provoquerait au lieu de le laisser survenir, le symétrique du veto D1 sur
+	// `declencheur_texte`. Ce que le modèle lira d'un climat actif reste `manifestation`, et
+	// elle seule (voir ci-dessous).
+	'monde.evenements[].climat_id': 'moteur',
 	'monde.evenements[].declencheur_expr': 'moteur',
 	// Injecté, le narrateur ne laisserait pas l'embuscade SURVENIR : il la
 	// provoquerait, ce qui est exactement la frontière que D1 trace.
@@ -540,8 +548,8 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	// tant que la n° 10 n'a pas livré un libellé d'écoulement DÉRIVÉ PAR LE CODE, avec
 	// sa propre ligne d'audience — même doctrine que les caractéristiques.
 	//
-	// Consommateur : n° 14 `moteur-horloge`, qui éteindra le climat. PERSONNE
-	// aujourd'hui : cette itération pose la donnée et son audience, pas son lecteur.
+	// Consommateur : `tickClimat` (`climat.ts`, n° 14 `moteur-horloge`, it4), qui éteint le
+	// climat à `tour − depuis >= duree` — et nul autre : c'est le moteur qui compte.
 	'monde.conditions.climat[].duree': 'moteur',
 	// LA MANIFESTATION (itération 5 de la n° 6) — `ia`, et c'est la SEULE ligne `ia` de
 	// ce registre. La question s'est posée contre `auteur` : ce n'est pas une note de
@@ -583,6 +591,11 @@ export const DESTINATION_DES_CHAMPS: Record<string, Destination> = {
 	// ré-appliquerait. Le besoin « la tempête révèle un indice » est déjà servi par un
 	// ÉVÉNEMENT, qui a un instant daté. Reste vrai et indépendant : `DELTAS` n'admet
 	// aucune opération à opérande entier (KR-208), d'où l'absence d'effet chiffré.
+	//
+	// MIS À JOUR PAR LA N° 14 IT4, EN COMMENTAIRE (la valeur ne bouge pas) : le moteur applique
+	// désormais ces effets, à l'ACTIVATION du climat seule, à l'instant de l'événement qui le
+	// désigne par `evenements[].climat_id` (`docs/REGLES-PLAY.md` § J3) — c'est cette ligne-là
+	// qui porte « quand », jamais le climat. L'absence d'éditeur tient toujours.
 	'monde.conditions.climat[].effets_regles': 'moteur',
 
 	// ── charpente — jamais vue ENTIÈRE ────────────────────────────────────────

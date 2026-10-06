@@ -13,7 +13,8 @@ import {
 	type ResultatSaisie,
 } from './commandes'
 import type { ExprNode } from './expr'
-import { cloreCombat, fixerHeros, ouvrirSession, resoudreRencontre, type EtatSession } from './session'
+import { fixerHeros, ouvrirSession, resoudreRencontre, type EtatSession } from './session'
+import { cloreCombat } from './sessionCombat'
 import type { Dossier, PlanAction } from './types'
 import type { HeroState } from '../../player/types'
 
@@ -1265,5 +1266,71 @@ describe('executerCommande, la couture de l horloge des PNJ (n 14 moteur-horloge
 		expect(pas5.horloge.tour).toBe(5)
 		expect(pas5.monde.pnj[HAREK]).toBe(pas4.monde.pnj[HAREK])
 		expect(pas5.monde.pnj[HAREK]?.etape_plan?.depuis).toBe(4)
+	})
+})
+
+/**
+ * `climat_actif` TRAVERSE CHAQUE VERBE (n° 14 `moteur-horloge`, it4, lot `contrat`, critère 3) :
+ * les trois transitions écrivent `horloge` EN CONSERVANT ses autres clés
+ * (`{ ...session.horloge, tour }`). Sans le spread, le premier pas suivant l'activation
+ * effacerait le climat en silence — sans qu'aucune ligne `climat_eteint` ne le dise.
+ *
+ * LE CLIMAT EST ALLUMÉ PAR LE PRODUIT, jamais forgé : la fixture de référence porte déjà
+ * `evenement.rumeur-sans-origine` → `climat.cendres-tenaces` (durée 6), et ce test lui pose une
+ * condition vraie à l'ouverture. Un climat forgé à la main prouverait la conservation sur un état
+ * que le moteur ne sait peut-être pas écrire.
+ */
+describe('executerCommande, climat_actif traverse chaque verbe — le spread de l horloge (n 14 it4)', () => {
+	const SAISIES: Record<CommandeId, string> = {
+		aller: 'ALLER lieu.marche-des-cendres',
+		agir: 'AGIR',
+		parler: 'PARLER pnj.harek-le-forgeron',
+	}
+
+	/** Le dossier de référence, dont l'événement de climat est dû dès l'ouverture — un seul champ muté. */
+	function dossierQuiAllume(): Dossier {
+		const dossier = lire(CHEMIN_REFERENCE)
+		const rumeur = dossier.monde.evenements.find((evenement) => evenement.id === 'evenement.rumeur-sans-origine')
+		if (rumeur === undefined) throw new Error('la fixture de référence ne porte plus son événement de climat')
+		rumeur.declencheur_expr = { op: 'predicat', predicat: 'lieu_courant_est', cibles: ['lieu.foyer-du-guet'] }
+		return dossier
+	}
+
+	it('chaque verbe du registre conserve climat_actif, MEME reference — et n ecrit aucune ligne d extinction', () => {
+		const dossier = dossierQuiAllume()
+		// TOTALITÉ : une saisie par verbe du registre, ni plus ni moins.
+		expect(Object.keys(SAISIES).sort()).toEqual(Object.keys(COMMANDES).sort())
+
+		// Le climat s'allume au PREMIER pas accepté — l'ouverture n'a pas de tick (§ J3).
+		const ouverte = ouverture(dossier)
+		expect('climat_actif' in ouverte.horloge).toBe(false)
+		const allume = sessionDe(executer(dossier, ouverte, 'AGIR'))
+		expect(allume.horloge).toEqual({ tour: 1, climat_actif: { id: 'climat.cendres-tenaces', depuis: 1 } })
+
+		for (const id of Object.keys(COMMANDES) as CommandeId[]) {
+			const apres = sessionDe(executer(dossier, allume, SAISIES[id]))
+
+			expect(`${id} → tour ${apres.horloge.tour}`).toBe(`${id} → tour 2`)
+			// `toBe` : la référence de `climat_actif` est celle d'AVANT, pas une copie recomposée.
+			expect(apres.horloge.climat_actif).toBe(allume.horloge.climat_actif)
+			// 2 − 1 = 1 < 6 : le climat n'est pas échu, aucune ligne d'extinction n'explique la conservation.
+			expect(apres.journal.some((ligne) => ligne.texte.startsWith('climat_eteint'))).toBe(false)
+		}
+	})
+
+	it('un climat echu s eteint au meme pas que le verbe — la conservation est celle de la cle, pas un oubli d extinction', () => {
+		// DISCRIMINANT, DANS LE MÊME TEST : sans lui, « la clé survit » serait vrai d'un moteur qui
+		// n'éteindrait jamais. Même état, durée ramenée à 1 : `2 − 1 >= 1`, la clé disparaît.
+		const dossier = dossierQuiAllume()
+		dossier.monde.conditions.climat[0].duree = 1
+		const allume = sessionDe(executer(dossier, ouverture(dossier), 'AGIR'))
+		expect(allume.horloge.climat_actif).toEqual({ id: 'climat.cendres-tenaces', depuis: 1 })
+
+		for (const id of Object.keys(COMMANDES) as CommandeId[]) {
+			const apres = sessionDe(executer(dossier, allume, SAISIES[id]))
+
+			expect(`${id} → ${'climat_actif' in apres.horloge}`).toBe(`${id} → false`)
+			expect(apres.horloge.tour).toBe(2)
+		}
 	})
 })

@@ -31,7 +31,7 @@ describe('BandeauHeros', () => {
 	}
 
 	it('neutre — aucune couleur sémantique (--good/--bad) rendue', () => {
-		const { container } = render(<BandeauHeros heros={heroTest} />)
+		const { container } = render(<BandeauHeros heros={heroTest} pas={1} />)
 
 		// Vérifier qu'il n'y a pas de couleur `--good` ni `--bad` appliquée
 		const bandeau = container.firstChild as HTMLElement
@@ -42,7 +42,7 @@ describe('BandeauHeros', () => {
 	})
 
 	it('affiche nom/PV/PE/XP tels que passés en prop', () => {
-		const { container } = render(<BandeauHeros heros={heroTest} />)
+		const { container } = render(<BandeauHeros heros={heroTest} pas={1} />)
 
 		expect(screen.getByText('Aldric')).toBeInTheDocument()
 		// Le texte "PV 10/12" est séparé par des spans, donc on cherche par textContent
@@ -57,7 +57,7 @@ describe('BandeauHeros', () => {
 	})
 
 	it('n affiche jamais les caractéristiques', () => {
-		render(<BandeauHeros heros={heroTest} />)
+		render(<BandeauHeros heros={heroTest} pas={1} />)
 
 		// Vérifier que FO, AG, DX, EN, IN, IG, SE, CA ne sont pas affichés
 		expect(screen.queryByText('FO')).not.toBeInTheDocument()
@@ -67,21 +67,48 @@ describe('BandeauHeros', () => {
 	})
 
 	it('pvLive remplace heros.pv quand fourni', () => {
-		const { container } = render(<BandeauHeros heros={heroTest} pvLive={3} />)
+		const { container } = render(<BandeauHeros heros={heroTest} pas={1} pvLive={3} />)
 		expect(container.textContent).toContain('3')
 		expect(container.textContent).not.toMatch(/PV\s*10/)
 	})
 
 	it('peLive remplace heros.pe quand fourni', () => {
-		const { container } = render(<BandeauHeros heros={heroTest} peLive={2} />)
+		const { container } = render(<BandeauHeros heros={heroTest} pas={1} peLive={2} />)
 		const text = container.textContent ?? ''
 		expect(text).toMatch(/PE\s*2\/6/)
 		expect(text).not.toMatch(/PE\s*4/)
 	})
 
 	it('pvLive={0} affiche 0 (hero-mort)', () => {
-		const { container } = render(<BandeauHeros heros={heroTest} pvLive={0} />)
+		const { container } = render(<BandeauHeros heros={heroTest} pas={1} pvLive={0} />)
 		const text = container.textContent ?? ''
 		expect(text).toMatch(/PV\s*0\/12/)
+	})
+
+	it('pas={3} affiche PAS #3', () => {
+		const { container } = render(<BandeauHeros heros={heroTest} pas={3} />)
+		expect(container.textContent).toMatch(/PAS\s*#3/)
+	})
+
+	it('pas={0} affiche PAS #0 (ouverture)', () => {
+		const { container } = render(<BandeauHeros heros={heroTest} pas={0} />)
+		expect(container.textContent).toMatch(/PAS\s*#0/)
+	})
+
+	it('climatNom="Tempête de sable" affiche CLIMAT · Tempête de sable', () => {
+		const { container } = render(<BandeauHeros heros={heroTest} pas={1} climatNom="Tempête de sable" />)
+		expect(container.textContent).toMatch(/CLIMAT\s*·\s*Tempête de sable/)
+	})
+
+	it('climatNom={undefined} n affiche pas le bloc CLIMAT', () => {
+		const { container } = render(<BandeauHeros heros={heroTest} pas={1} />)
+		expect(container.textContent).not.toContain('CLIMAT')
+	})
+
+	it('séparateurs existent entre les blocs', () => {
+		const { container } = render(<BandeauHeros heros={heroTest} pas={1} />)
+		const separateurs = container.querySelectorAll('[aria-hidden="true"]')
+		// Il doit y avoir au moins 4 séparateurs : après nom, après PV, après PE, après XP
+		expect(separateurs.length).toBeGreaterThanOrEqual(4)
 	})
 })

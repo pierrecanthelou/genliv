@@ -46,10 +46,14 @@ import type { Dossier, Revelation } from './types'
  *    réussit), et l'évaluer importerait la couche des RÈGLES dans le linter du
  *    dossier — KR-193 / KR-130, interdiction que la suite de ce module constate
  *    en source plutôt que de la promettre ;
- *  · `monde.conditions.climat[].effets_regles` — aucun moteur ne sait APPLIQUER
- *    un effet de climat (motif écrit à `controles.ts`, non recopié) ;
+ *  · `monde.conditions.climat[].effets_regles` — le moteur LES APPLIQUE depuis la
+ *    n° 14 it4, à l'ACTIVATION du climat par un événement qui le désigne
+ *    (`Evenement.climat_id`, `docs/REGLES-PLAY.md` § J3) : ils restent comptés
+ *    comme producteurs, et ce module n'évalue ni cet événement ni son
+ *    `declencheur_expr` — c'est la ligne suivante, vue du porteur du climat ;
  *  · l'atteignabilité du PORTEUR d'un effet — récompense d'une quête jamais
- *    donnée, conséquence d'une résolution jamais atteinte ;
+ *    donnée, conséquence d'une résolution jamais atteinte, climat dont aucun
+ *    événement ne se déclenche ;
  *  · l'atteignabilité d'un JALON ou d'un ÉVÉNEMENT — le résidu VRAI de la ligne
  *    fausse ci-dessous. Ce n'est pas l'ABSENCE de `declencheur_expr` qui
  *    condamne un jalon ; c'est qu'aucun `atteindre_jalon` ne le coche ET

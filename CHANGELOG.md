@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.24 — l'auteur lit au bandeau PAS #n en permanence, CLIMAT · {nom} quand un climat s'active
+
+`moteur-horloge` it4 (roadmap § 3, n° 14, 4/4 TERMINÉE) — 2 lots séquentiels (L1 contrat `brain/dossier`, L2 feature `play-mode`). Route C retenue : `Evenement.climat_id?` → sélecteur `evenementDeClimat` → `tickClimat` → `climat_actif: {id, depuis}`. Extinction `>=` (efface l'état, pas de répétition ; sémantique différente du blocage `===`). Extraction `sessionCombat.ts` (session.ts 846→707 lignes). § J3 de `REGLES-PLAY.md` écrit avant le code. BandeauHeros étendu : PAS #n + CLIMAT · {nom}. Dette corrigée : `--bw-hair`, `--fw-semibold`, `alignSelf: 'stretch'`. 149 suites / 2869 tests.
+
+- Écarts : `dossier-minimal.json` climat_id sur événement hybride (évite casse hors lot) ; `resoudreRencontre` reste dans `session.ts` (type-only re-export) ; `EcranPartie.tsx` à 406 lignes (signal KR-112, dette au roadmap).
+- Reportés : R3 manifestation (bloc CLIMAT du narrateur) · éditeur `climat_id`/`effets_regles` · KR atteindre_jalon saute effet[].
+- Dossier : `.claude/raffinage/moteur-horloge-it4.revue.md`.
+- Scissions budget : `features_history.json` → `dossier-copilote` et `dossier-canon B1` vers `features_history.0.6.x-anterieures.json` (30 348 → 24 577 o, plafond 25 600). `bug_history.json` → `BUG-124`/`BUG-125` vers `bug_history.moteur-dossier.json` (15 769 → 12 534 o, plafond 15 360). `ROADMAP` compacté (30 924 → 30 428 o, plafond 30 720).
+
 ## 0.7.23 — l'auteur lit qu'un PNJ coincé trop longtemps à une étape change d'approche
 
 `moteur-horloge` it3 (roadmap § 3, n°14, 3/4) — 2 lots `contrat` séquentiels (L1 brain/dossier, L2 brain/copilote + worker). Prédicat pur `etapeBloqueeAuPas` dans `blocage.ts` — seul site de décision du blocage (KR-246). Formule `===` (événement, pas niveau). Origine du décompte : `depuis` écrit → cas a ; rang 0 ou absent → 0 (cas b) ; rang ≥ 1 sans `depuis` → jamais (cas c). Journal `etape_bloquee : <id> <k+1>`, même sans `si_bloque` rédigé. `CHEMIN_SI_BLOQUE` constante propre dans `contexte/horloge.ts`, dérogation étendue aux DEUX chemins. `BUDGET_CARACTERES_DOSSIER` de 7000 à 8000 (M=2371), `TAILLE_MAX_CORPS_IA` de 87040 à 90112. 147 suites / 2806 tests.

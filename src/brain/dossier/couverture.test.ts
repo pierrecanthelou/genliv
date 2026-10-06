@@ -1264,6 +1264,53 @@ describe('couverture', () => {
 		expect(Object.values(LIBRES).filter((motif) => motif === PROSE_D_ENTITE_LIBRE)).toHaveLength(18)
 	})
 
+	it('climat_id est moteur, instancie dans les DEUX fixtures, et sa corruption est refusee (n 14 it4)', () => {
+		// LA LIGNE DE SCHÉMA DE L'ITÉRATION 4 DE LA N° 14, épinglée par la même construction que
+		// ses aînées (KR-174) : « toute feuille a une destination » ne dit rien de la VALEUR.
+		// `moteur` et non `ia` : c'est un HANDLE que le code lit pour allumer le climat, et
+		// injecté, il apprendrait au narrateur quel climat va survenir — il le provoquerait au
+		// lieu de le laisser survenir, le symétrique du veto D1 sur `declencheur_texte`.
+		const CLIMAT_ID = 'monde.evenements[].climat_id'
+		const feuilles = cheminsDeLaFixture()
+		const feuillesDeLaReference = feuillesDeLaFixture(documentDeReference()).map((feuille) => feuille.normalise)
+
+		expect(`${CLIMAT_ID} → ${DESTINATION_DES_CHAMPS[CLIMAT_ID]}`).toBe(`${CLIMAT_ID} → moteur`)
+		// L'INSTANCE DANS LES DEUX FIXTURES, dans le même test : le garde d'exhaustivité ne
+		// balaie que la MINIMALE.
+		expect(`${CLIMAT_ID} dans la minimale → ${feuilles.includes(CLIMAT_ID)}`).toBe(
+			`${CLIMAT_ID} dans la minimale → true`,
+		)
+		expect(`${CLIMAT_ID} dans la reference → ${feuillesDeLaReference.includes(CLIMAT_ID)}`).toBe(
+			`${CLIMAT_ID} dans la reference → true`,
+		)
+
+		// C'est une RÉFÉRENCE, donc sa corruption chaîne → nombre est REFUSÉE
+		// (`identifiant-invalide`) : elle n'a AUCUNE dispense, et le test « une dispense nommant une
+		// feuille deja couverte est morte » le dirait.
+		expect(LIBRES[CLIMAT_ID]).toBeUndefined()
+		expect(couvertsParCorruption()).toContain(CLIMAT_ID)
+
+		// Discriminant : les VOISINS de la même entité gardent leur audience — sans ces lignes,
+		// l'assertion passerait aussi sur une table qui aurait basculé TOUT l'événement.
+		expect(`monde.evenements[].monstre_ref → ${DESTINATION_DES_CHAMPS['monde.evenements[].monstre_ref']}`).toBe(
+			'monde.evenements[].monstre_ref → moteur',
+		)
+		expect(
+			`monde.evenements[].declencheur_texte → ${DESTINATION_DES_CHAMPS['monde.evenements[].declencheur_texte']}`,
+		).toBe('monde.evenements[].declencheur_texte → auteur')
+
+		// LA RÉFÉRENCE PORTE LE CHAMP SUR UN ÉVÉNEMENT SANS `monstre_ref` : c'est la forme que
+		// § J3 allume (un événement qui porte les DEUX est ignoré, la rencontre prime), et la
+		// fixture qui sert de démonstration doit montrer la forme active. SANS condition structurée
+		// non plus : elle reste INERTE sous le moteur (`climat.test.ts` le mesure), donc aucun
+		// journal de partie existant ne change.
+		const evenements = (documentDeReference().monde as { evenements: Array<Record<string, unknown>> }).evenements
+		const porteurs = evenements.filter((evenement) => evenement.climat_id !== undefined)
+		expect(porteurs.map((evenement) => evenement.id)).toEqual(['evenement.rumeur-sans-origine'])
+		expect(porteurs[0].monstre_ref).toBeUndefined()
+		expect(porteurs[0].declencheur_expr).toBeUndefined()
+	})
+
 	it('description_joueur d un objet, texte long, aucun avertissement', () => {
 		// KR-203, ET C'EST UN CAS POSITIF, pas une absence de doc : « aucune borne de
 		// longueur » est une DÉCISION du cadrage, et une décision que rien n'exerce se

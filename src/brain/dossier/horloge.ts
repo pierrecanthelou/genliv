@@ -14,8 +14,16 @@
  * personnage (`a_dit`, `confiance`), ou `{ a_dit: [] }` quand le personnage n'en avait
  * aucune — et UNE ligne de journal par avancement, ou UNE ligne de journal par blocage
  * constaté (it3, voir plus bas) — JAMAIS LES DEUX pour un même personnage et un même pas.
- * Aucune horloge, aucun fait du monde, aucun effet : aucun prédicat ne lit `etape_plan`,
- * donc un avancement ne peut rendre vrai aucun jalon ni aucune condition.
+ * Pour les PERSONNAGES, aucune horloge, aucun fait du monde, aucun effet : aucun prédicat ne
+ * lit `etape_plan`, donc un avancement ne peut rendre vrai aucun jalon ni aucune condition.
+ *
+ * LE CLIMAT EST L'AUTRE MOITIÉ DU TICK, ET ELLE N'EST PAS ÉCRITE ICI (it4, `docs/REGLES-PLAY.md`
+ * § J3) : `tickHorloge` COMMENCE par `tickClimat` (`climat.ts`), qui seul allume et éteint un
+ * climat — il écrit `horloge.climat_actif`, `monde.evenements_consommes`, les effets de règle
+ * du climat et sa ligne de journal. Ce module ne lit NI `climat_actif`, NI `Climat.duree`, NI
+ * aucun événement : il passe la session que `tickClimat` rend aux personnages, qui consultent
+ * donc les faits d'APRÈS le climat (et après les jalons). La session rendue est la même
+ * référence que celle reçue quand ni le climat ni aucun personnage ne change.
  *
  * LE CONSTAT DE BLOCAGE (it3) : si l'étape visée n'existe pas ou n'a pas sa condition vraie,
  * le tick demande à `etapeBloqueeAuPas` (`blocage.ts`) si l'étape COURANTE est bloquée à ce
@@ -81,6 +89,7 @@
  * l'extraction (`docs/EXIGENCE-APERCU-DU-JEU.md` § 6).
  */
 import { etapeBloqueeAuPas } from './blocage'
+import { tickClimat } from './climat'
 import { etapeDeclenchee } from './evaluate'
 import type { EtatPnj } from './faits'
 import { estCleDe } from './identifiers'
@@ -130,10 +139,13 @@ function constater(session: EtatSession, id: string, rang: number): EtatSession 
 /**
  * LE TICK — voir la docstring de tête. `session` est celle d'APRÈS la commande ET
  * d'après la passe des jalons ; la session rendue est la même référence si aucun
- * personnage n'avance et qu'aucune étape n'est bloquée à ce pas.
+ * climat ne s'allume ni ne s'éteint, qu'aucun personnage n'avance et qu'aucune étape
+ * n'est bloquée à ce pas.
  */
 export function tickHorloge(dossier: Dossier, session: EtatSession): EtatSession {
-	let courante = session
+	// LE CLIMAT D'ABORD (it4, § J3) : un climat s'allume et s'éteint avant les personnages, qui
+	// lisent les faits d'après lui. `session` ne sert plus qu'à cet appel.
+	let courante = tickClimat(dossier, session)
 
 	for (const personnage of dossier.monde.personnages) {
 		// `estCleDe`, jamais une indexation nue : `monde.pnj` est indexé par un identifiant

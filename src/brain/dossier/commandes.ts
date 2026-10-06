@@ -289,7 +289,10 @@ const TRANSITIONS: Record<CommandeId, Transition> = {
 	 * CE QU'IL ÉCRIT, ET RIEN D'AUTRE : `monde.lieu_courant`, `monde.lieux_visites`
 	 * (append SI ABSENT — sémantique d'ensemble), `horloge.tour` (+1), deux
 	 * entrées de journal de MÊME `tour`, et — depuis le lot `contrat` de la n° 11
-	 * (`moteur-arbitre`, it1) — `heros.pe`. C'est la DEMANDE qui consomme le pas,
+	 * (`moteur-arbitre`, it1) — `heros.pe`. `horloge` s'écrit en CONSERVANT ses autres clés
+	 * (`{ ...session.horloge, tour }`, ici comme dans `agir` et `parler`) : sans cela, le
+	 * premier pas effacerait `climat_actif` en silence (n° 14 it4, `docs/REGLES-PLAY.md`
+	 * § J3). C'est la DEMANDE qui consomme le pas,
 	 * jamais l'effet : un déplacement auto-référent, dont le monde ne bouge pas, en
 	 * consomme un quand même (`docs/REGLES-PLAY.md` § J1).
 	 *
@@ -345,7 +348,7 @@ const TRANSITIONS: Record<CommandeId, Transition> = {
 			ok: true,
 			session: {
 				...session,
-				horloge: { tour },
+				horloge: { ...session.horloge, tour },
 				monde: { ...session.monde, lieu_courant: lieuCible.id, lieux_visites: visites },
 				...(heros !== undefined ? { heros } : {}),
 				journal: [
@@ -391,7 +394,7 @@ const TRANSITIONS: Record<CommandeId, Transition> = {
 			ok: true,
 			session: {
 				...session,
-				horloge: { tour },
+				horloge: { ...session.horloge, tour },
 				journal: [
 					...session.journal,
 					{ tour, role: 'joueur', texte: `> ${COMMANDES[commande.commande].verbe}` },
@@ -454,7 +457,7 @@ const TRANSITIONS: Record<CommandeId, Transition> = {
 			ok: true,
 			session: {
 				...session,
-				horloge: { tour },
+				horloge: { ...session.horloge, tour },
 				journal: [
 					...session.journal,
 					{ tour, role: 'joueur', texte: `> ${COMMANDES[commande.commande].verbe} ${personnage.id}` },
@@ -534,7 +537,11 @@ function avecJalonsResolus(dossier: Dossier, session: EtatSession): EtatSession 
  * fonction est donc conditionnelle aux déclencheurs de plan, exactement comme aux
  * déclencheurs de jalon — la porte `jouable` des contrôles, vérifiée au montage du shell
  * (KR-239), en est la parade, jamais un `catch`. Elle n'ajoute AUCUN pas : ses lignes de
- * journal portent le `tour` de la commande (`docs/REGLES-PLAY.md` § J1/J2).
+ * journal portent le `tour` de la commande (`docs/REGLES-PLAY.md` § J1/J2). `tickHorloge`
+ * COMMENCE par le climat de session (n° 14 it4, `climat.ts`, § J3) : un climat s'allume et
+ * s'éteint APRÈS la passe des jalons — un jalon que l'effet d'un climat rend vrai n'est donc
+ * résolu qu'à la commande suivante — et la totalité de cette fonction est de même
+ * conditionnelle aux `declencheur_expr` des événements qui désignent un climat.
  *
  * TANT QU'UN COMBAT EST OUVERT (`session.combat !== undefined`), TOUTE COMMANDE EST
  * REFUSÉE (`combat_en_cours`) — et c'est le PREMIER refus, avant la résolution de

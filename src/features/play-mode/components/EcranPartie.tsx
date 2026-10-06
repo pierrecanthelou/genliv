@@ -218,6 +218,11 @@ function PartieEnCours({
 		)
 	}
 
+	const actif = session.horloge.climat_actif
+	const climatNom = actif
+		? (dossier.monde.conditions.climat.find((c) => c.id === actif.id)?.nom || 'Sans nom')
+		: undefined
+
 	// GARDE 7 (it1, moteur-arbitre) — EN LIGNE, jamais un useEffect : session.heros
 	// est soit présent soit absent, jamais un flag séparé à synchroniser (KR-013).
 	if (session.heros === undefined) {
@@ -271,7 +276,15 @@ function PartieEnCours({
 			<CadrePartie
 				titre={dossier.titre}
 				sortie={{ name: 'dossier', dossierId }}
-				bandeau={<BandeauHeros heros={session.heros} pvLive={combatRejeu?.heroPv} peLive={combatRejeu?.heroPe} />}
+				bandeau={
+					<BandeauHeros
+						heros={session.heros}
+						pas={session.horloge.tour}
+						climatNom={climatNom}
+						pvLive={combatRejeu?.heroPv}
+						peLive={combatRejeu?.heroPe}
+					/>
+				}
 				actionsEntete={<ActionsCarnet />}
 			>
 				<div style={colonneLecture}>

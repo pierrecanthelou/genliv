@@ -974,7 +974,7 @@
 		{
 			"id": "KR-301",
 			"feature": "moteur-horloge",
-			"risk": "climat_actif optionnel dans horloge (session, KR-207). Activation via Evenement (types.ts:1380 interdit declencheur_expr sur Climat), route exacte au raffinage d'it4. Extinction par tickHorloge quand duree atteinte."
+			"risk": "climat_actif optionnel dans horloge (KR-207). Route C : Evenement.climat_id → tickClimat (climat.ts). Extinction >= efface l'etat. Revue : .claude/raffinage/moteur-horloge-it4.revue.md"
 		}
 	]
 }

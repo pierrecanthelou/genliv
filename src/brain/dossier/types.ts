@@ -1249,6 +1249,30 @@ export interface Evenement extends Entite {
 	 * BLOQUANTE à l'import : sinon un combat s'ouvre sans monstre.
 	 */
 	monstre_ref?: string
+	/**
+	 * `monde.conditions.climat[].id` — LE CLIMAT QUE CET ÉVÉNEMENT ALLUME quand son
+	 * `declencheur_expr` devient vrai (n° 14 `moteur-horloge`, it4, lot `contrat` —
+	 * `docs/REGLES-PLAY.md` § J3). MOTEUR, jamais injecté : un narrateur qui connaîtrait le
+	 * climat à venir le provoquerait au lieu de le laisser survenir, ce que D1 interdit déjà
+	 * pour `declencheur_texte`.
+	 *
+	 * UNE RÉFÉRENCE, PAS UNE CLASSIFICATION — le ⚠ de tête de ce type ne le concerne pas :
+	 * `climat_id` ne dit PAS « cet événement est un climat », il désigne CE QUE LE MOTEUR
+	 * DOIT ALLUMER, et l'absence est l'état de tout événement qui n'allume rien. Il n'est
+	 * dérivable de rien : `Climat` ne porte aucun déclencheur, donc ce lien est la SEULE
+	 * source de « quand ce climat s'allume » (KR-013).
+	 *
+	 * OPTIONNEL À VIE (KR-160/191) : `monde.evenements[]` existe depuis la n° 1 en
+	 * `schema: 1`, sans chemin de migration. Une référence pendante est REFUSÉE au SSOT
+	 * (`REFERENCES_SIMPLES`, espace `climat`), jamais rompue en silence (KR-021). SANS
+	 * ÉDITEUR en it4, comme `Climat.effets_regles` : écrit à la main dans le JSON, une
+	 * chaîne vide se lit comme l'absence (même borne que `objectif_id`).
+	 *
+	 * UN ÉVÉNEMENT QUI PORTE AUSSI `monstre_ref` N'ALLUME RIEN : la rencontre prime, et la
+	 * configuration ambiguë est ignorée sans alerte (§ J3). Sans `declencheur_expr`, il
+	 * n'est jamais déclenché automatiquement — même règle que les jalons et les rencontres.
+	 */
+	climat_id?: string
 	/** DEUX optionnels, PAIRÉS — un événement peut rester déclenché par la seule main
 	 *  du narrateur, sans condition formalisée : c'est calme, jamais une alerte.
 	 *  Exemple : declencheur_texte: 'Le joueur revient à Val-Cendre après la tempête.' */
@@ -1380,11 +1404,14 @@ export interface Quete extends Entite {
  * un oubli (raffinage d'it5, désaccord n° 1) : `Climat` ne porte ni
  * `declencheur_texte` ni `declencheur_expr`, donc RIEN dans le dossier ne dit QUAND un
  * delta s'y appliquerait — `climat_actif` est un état de SESSION (KR-207), posé par la
- * n° 9 / n° 14 — et rien n'enregistre « déjà appliqué », de sorte qu'un climat qui
- * revient ré-appliquerait. Le besoin est DÉJÀ servi par un `Evenement`, dont le
- * `declencheur_expr` donne un instant daté. Aucun opérande entier non plus (KR-208) :
- * `DELTAS` n'en admet pas, et en ouvrir un exige `docs/REGLES-DU-JEU.md` → table dorée
- * → le code, dans cet ordre (KR-130), propriété n° 11 / n° 13.
+ * n° 14 — et rien n'enregistre « déjà appliqué », de sorte qu'un climat qui revient
+ * ré-appliquerait. Le besoin est DÉJÀ servi par un `Evenement`, dont le
+ * `declencheur_expr` donne un instant daté : DEPUIS LA N° 14 IT4, c'est cet instant — celui
+ * de l'événement qui désigne le climat par `Evenement.climat_id` — que le moteur utilise, et
+ * il applique `effets_regles` à l'ACTIVATION seule (`docs/REGLES-PLAY.md` § J3). Aucun
+ * opérande entier non plus (KR-208) : `DELTAS` n'en admet pas, et en ouvrir un exige
+ * `docs/REGLES-DU-JEU.md` → table dorée → le code, dans cet ordre (KR-130), propriété
+ * n° 11 / n° 13.
  */
 export interface Climat extends Entite {
 	effets_regles: Delta[]
@@ -1403,9 +1430,11 @@ export interface Climat extends Entite {
 	 *  `moteur-dossier` (voir `DUREE_MIN` et `docs/REGLES-PLAY.md` § J). Le mot
 	 *  « tour » reste RÉSERVÉ au round de combat par `docs/REGLES-DU-JEU.md`.
 	 *
-	 *  AUCUN CONSOMMATEUR AUJOURD'HUI, écrit plutôt que supposé : rien ne lit ce nombre
-	 *  avant la n° 14 `moteur-horloge`, qui éteindra le climat. Cette itération pose la
-	 *  donnée et son audience, pas son consommateur. */
+	 *  SON CONSOMMATEUR EST `tickClimat` (`climat.ts`, n° 14 `moteur-horloge`, it4) : le climat
+	 *  s'éteint quand `tour − depuis >= duree`, et un climat SANS `duree` est PERMANENT
+	 *  (`docs/REGLES-PLAY.md` § J3). Il est le SEUL lecteur de décision de ce champ dans
+	 *  `src/brain/` et `src/player/` — les panneaux d'édition de `src/features/` le lisent pour
+	 *  le saisir —, distinct de `plan_actions[].duree` (lu par `blocage.ts` seul). */
 	duree?: number
 	/** IA — LA PHRASE QUE LE NARRATEUR LIT tant que ce climat est actif, et la SEULE
 	 *  matière injectable d'un climat : `nom` est `auteur` (KR-195), `duree` et

@@ -4,22 +4,24 @@ import { AMORCE, MARQUEUR_A_ECRIRE, construireAmorce } from './amorce'
 import { executerCommande } from './commandes'
 import { evenementARencontrer } from './evaluate'
 import {
-	cloreCombat,
 	consignerJet,
 	crediterConfiance,
 	crediterXp,
-	jouerPosture,
 	resoudreRencontre,
 	SCHEMA_SESSION,
 	fixerHeros,
-	fuirRencontre,
 	ouvrirSession,
-	type BilanCombat,
 	type EntreeJournal,
-	type EtatCombat,
 	type EtatSession,
-	type IssueCombat,
 } from './session'
+import {
+	cloreCombat,
+	fuirRencontre,
+	jouerPosture,
+	type BilanCombat,
+	type EtatCombat,
+	type IssueCombat,
+} from './sessionCombat'
 import type { Dossier } from './types'
 import { POSTURE_VALUES, type Posture } from '../combat'
 import type { HeroState } from '../../player/types'

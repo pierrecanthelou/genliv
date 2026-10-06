@@ -578,15 +578,26 @@ export { pastilleNiveau, badgeSection } from './dossier/pastilles'
 // profondeur, jamais une feature (même règle que `evaluerExpr`, ci-dessous).
 export {
 	SCHEMA_SESSION,
-	cloreCombat,
 	consignerJet,
 	crediterXp,
 	fixerHeros,
-	fuirRencontre,
-	jouerPosture,
 	ouvrirSession,
 	resoudreRencontre,
 } from './dossier/session'
+// LES TROIS PORTES DU COMBAT QUI NE POSENT RIEN — `jouerPosture`, `fuirRencontre` et
+// `cloreCombat` — ET LES TROIS TYPES DU COMBAT vivent dans `sessionCombat.ts` depuis le lot
+// `contrat` de la n° 14 (`moteur-horloge`, it4), qui a extrait ce que `session.ts` portait
+// au-delà de 800 lignes. Déplacement pur : mêmes symboles, même contrat, nouvelle adresse.
+export { cloreCombat, fuirRencontre, jouerPosture } from './dossier/sessionCombat'
+export type {
+	// `EtatCombat`, `IssueCombat` et `BilanCombat` sortent AVEC `EtatSession` — le
+	// premier est le type de son champ optionnel `combat` (n° 13, lot `contrat` de
+	// `moteur-combat`), les deux autres sont l'entrée de `cloreCombat` : l'écran qui
+	// clôt un combat n'a aucun autre moyen de les nommer.
+	EtatCombat,
+	IssueCombat,
+	BilanCombat,
+} from './dossier/sessionCombat'
 export type {
 	EtatSession,
 	EtatMonde,
@@ -599,13 +610,6 @@ export type {
 	// optionnel `attente` (n° 10, lot `contrat` de `moteur-interprete`), et
 	// `useTourDeJeu` (lot feature) n'a aucun autre moyen de l'annoter.
 	AttenteClarification,
-	// `EtatCombat`, `IssueCombat` et `BilanCombat` sortent AVEC `EtatSession` — le
-	// premier est le type de son champ optionnel `combat` (n° 13, lot `contrat` de
-	// `moteur-combat`), les deux autres sont l'entrée de `cloreCombat` : l'écran qui
-	// clôt un combat n'a aucun autre moyen de les nommer.
-	EtatCombat,
-	IssueCombat,
-	BilanCombat,
 } from './dossier/session'
 // ── L'ALÉA KEYÉ (n° 11 `moteur-arbitre`, lot `contrat`, it1 puis it2) ────────
 // Sortent `creerRng` (l'adaptateur `() => number` que `rollCreationPool`, côté
