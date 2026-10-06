@@ -94,7 +94,7 @@
 		{
 			"id": "KR-095",
 			"feature": "cloud-sync",
-			"risk": "Offline queue, reconciliation et statut par livre de CloudSyncService. Corps deplace dans src/features/cloud-sync/specification.json (known_risks) au franchissement du plafond de code-knowledge.json le 2026-08-13 : cloud-sync est une feature survivante mais REPOINTEE par la bascule, aucun travail en cours ne la lit, et sa spec est ouverte a l'ouverture de son iteration. Etend KR-093/094."
+			"risk": "Offline queue, reconciliation et statut : corps dans spec cloud-sync. Etend KR-093/094."
 		},
 		{
 			"id": "KR-098",
@@ -139,12 +139,12 @@
 		{
 			"id": "KR-116",
 			"feature": "global-config",
-			"risk": "PersistenceService.get does an unchecked JSON.parse cast, so persisted data is UNTRUSTED at the runtime boundary even though it is typed: a corrupted store or a schema drift can carry a node/edge kind outside the registry, and a direct NODE_KINDS[kind].field then throws (undefined access). Validate kinds at the single read boundary (BookService.loadBook + listBooks) with isNodeKind/isEdgeKind; a book with an unknown kind is surfaced (console.warn) and treated as unreadable (getBook/openBook -> null, omitted from listBooks, mutations refused) — never silently coerced. A corrupt book must remain DELETABLE (deleteBook uses the raw read, not the validated one), so the user can clean it up."
+			"risk": "PersistenceService.get est un as deguise — la frontiere de confiance. Valider au point de lecture unique, jamais as EtatSession. Un objet invalide est signale et refuse, jamais coerce. MagasinDeSession.lire passe par validerSession (KR-305)."
 		},
 		{
 			"id": "KR-117",
 			"feature": "global-config",
-			"risk": "Un ensemble FERME (un type union fixe) vit dans UN Record<Union, Descripteur>, source unique des donnees ET du comportement par variante ; on en DERIVE les listes d'options, libelles, drapeaux et textes, et on ne re-liste JAMAIS les litteraux ni ne branche sur l'union par des echelles if (x === 'a') ... / x === 'a' ? ... : ... . Cela elimine Duplicated Code, Repeated Switch, Shotgun Surgery et Primitive Obsession, et honore Open/Closed + SRP : ajouter une variante est UNE entree, zero edition chez les consommateurs. En TypeScript ce Record pilote par la donnee EST le 'replace conditional with polymorphism' d'un domaine serialise en JSON : Record<Union, ...> pour l'exhaustivite a la compilation -- JAMAIS Partial<Record<...>>, qui laisse des trous muets -- et on derive l'union depuis les cles (keyof typeof + une fabrique defineX) quand le registre doit etre la source de l'ensemble lui-meme. Quand une variante porte du COMPORTEMENT, il devient un CHAMP du descripteur ({ label, apply, test, ... }), jamais un if/switch au site d'appel."
+			"risk": "Ensemble ferme = Record<Union, Descripteur>, jamais Partial. Derive listes/libelles/drapeaux, jamais if/switch. Comportement = champ du descripteur. Ajouter une variante = une entree, zero edition chez les consommateurs."
 		},
 		{
 			"id": "KR-130",
@@ -975,6 +975,41 @@
 			"id": "KR-301",
 			"feature": "moteur-horloge",
 			"risk": "climat_actif optionnel dans horloge (KR-207). Route C : Evenement.climat_id → tickClimat (climat.ts). Extinction >= efface l'etat. Revue : .claude/raffinage/moteur-horloge-it4.revue.md"
+		},
+		{
+			"id": "KR-302",
+			"feature": "moteur-fins",
+			"risk": "Deux fins vraies au meme pas — la premiere dans l'ordre du document (index de charpente.fins[]) est la seule source stable."
+		},
+		{
+			"id": "KR-303",
+			"feature": "moteur-fins",
+			"risk": "finAtteinte rend undefined si session.combat !== undefined. Mort et fin exclusives par construction (mort exige combat, fin l'interdit)."
+		},
+		{
+			"id": "KR-304",
+			"feature": "moteur-fins",
+			"risk": "Rejeu a graine egale = immutabilite du dossier par reference + alea(graine, domaine, tour). INTRA-PROCESS (KR-242)."
+		},
+		{
+			"id": "KR-305",
+			"feature": "moteur-fins",
+			"risk": "Validation de session (validerSession) executee AVANT la premiere ecriture de useSessionPersistee. Lecture dans l'initialiseur useState, jamais dans un effet."
+		},
+		{
+			"id": "KR-306",
+			"feature": "moteur-fins",
+			"risk": "Entrees du rejeu = commandes joueur (action, clarification, sans_commande, aller). Jamais les decisions modele (jet, monstre, postures). KR-248 s'applique."
+		},
+		{
+			"id": "KR-307",
+			"feature": "moteur-fins",
+			"risk": "Fin sans texte (optionnel, KR-191) : le consommateur affiche un repli. Le contrat finAtteinte ne discrimine pas sur le contenu de texte."
+		},
+		{
+			"id": "KR-308",
+			"feature": "moteur-fins",
+			"risk": "Mort du heros = --text-strong, pas --bad. Les deux seules couleurs semantiques sont reussite/echec de jet."
 		}
 	]
 }
