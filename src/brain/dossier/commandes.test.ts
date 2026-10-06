@@ -720,8 +720,10 @@ describe('executerCommande, la passe des jalons', () => {
 
 		const tour2 = sessionDe(executer(dossier, tour1, 'ALLER lieu.vigie-du-nord'))
 
-		// UNE SEULE ENTRÉE DE PLUS, ET ELLE PORTE LE MÊME `tour` QUE LA COMMANDE : une
-		// conséquence enchaînée n'ajoute jamais un pas (§ J1).
+		// UNE SEULE ENTRÉE DE JALON, ET ELLE PORTE LE MÊME `tour` QUE LA COMMANDE : une
+		// conséquence enchaînée n'ajoute jamais un pas (§ J1). Elle est SUIVIE d'une ligne du tick,
+		// `etape_bloquee` (n° 14 it3) : la `duree: 2` de l'étape de départ de Corvin, origine 0,
+		// tombe à ce pas — ce n'est pas un second jalon, et elle n'a ni `origine` ni `deltas`.
 		expect(tour2.horloge.tour).toBe(2)
 		expect(tour2.journal.slice(2)).toEqual([
 			{ tour: 2, role: 'joueur', texte: '> ALLER lieu.vigie-du-nord' },
@@ -740,6 +742,7 @@ describe('executerCommande, la passe des jalons', () => {
 					{ delta: 'reveler_indice', cibles: ['indice.pas-dans-la-cendre'], effet: 'applique' },
 				],
 			},
+			{ tour: 2, role: 'moteur', texte: 'etape_bloquee : pnj.corvin-le-marchand 1' },
 		])
 
 		// PAS D'`origine` SUR LA LIGNE DE JALON — pas « présente et indéfinie » :
@@ -854,7 +857,10 @@ describe('executerCommande, le pliage', () => {
 		expect(etat.monde.lieu_courant).toBe('lieu.tour-effondree')
 		expect(etat.monde.lieux_visites).toEqual(['lieu.foyer-du-guet', 'lieu.marche-des-cendres', 'lieu.tour-effondree'])
 		expect(etat.horloge.tour).toBe(3)
-		expect(etat.journal).toHaveLength(6)
+		// SIX lignes de commande (deux par pas) et UNE ligne du tick : la `duree: 2` de l'étape de
+		// départ de Corvin tombe au pas 2 (n° 14 it3).
+		expect(etat.journal).toHaveLength(7)
+		expect(etat.journal.filter((ligne) => ligne.texte.startsWith('etape_bloquee : '))).toHaveLength(1)
 
 		// IMMUTABILITÉ AU RUNTIME : le typage `readonly` interdit `push` à la
 		// COMPILATION, et une évasion de type l'y ramène. S0 n'a pas bougé.
@@ -1190,17 +1196,21 @@ describe('executerCommande, la couture de l horloge des PNJ (n 14 moteur-horloge
 
 		expect(pas2.monde.jalons_atteints).toEqual(['jalon.premiere-vigie'])
 		expect(pas2.monde.pnj[HAREK]).toEqual({ a_dit: [], etape_plan: { rang: 1, depuis: 2 } })
-		// QUATRE lignes pour ce pas, TOUTES au tour 2 — le tick n'ajoute jamais un pas — et la
-		// ligne du tick est la DERNIÈRE : après la demande, son effet, et le jalon.
+		// CINQ lignes pour ce pas, TOUTES au tour 2 — le tick n'ajoute jamais un pas — et les
+		// lignes du tick sont les DERNIÈRES : après la demande, son effet, et le jalon. Corvin
+		// (qui précède Harek dans `monde.personnages[]`) voit sa `duree: 2` tomber à ce pas
+		// (n° 14 it3) : son constat PRÉCÈDE l'avancement de Harek, dans l'ordre du document.
 		expect(pas2.horloge.tour).toBe(2)
 		expect(pas2.journal.slice(2).map((ligne) => [ligne.tour, ligne.texte])).toEqual([
 			[2, '> ALLER lieu.vigie-du-nord'],
 			[2, 'lieu_courant : lieu.tour-effondree → lieu.vigie-du-nord'],
 			[2, 'jalons_atteints : jalon.premiere-vigie'],
+			[2, 'etape_bloquee : pnj.corvin-le-marchand 1'],
 			[2, `etape_plan : ${HAREK} 2`],
 		])
-		// Et la ligne du tick ne porte AUCUNE des clés des lignes qui la précèdent.
+		// Et chaque ligne du tick ne porte AUCUNE des clés des lignes qui la précèdent.
 		expect(Object.keys(pas2.journal[5]).sort()).toEqual(['role', 'texte', 'tour'])
+		expect(Object.keys(pas2.journal[6]).sort()).toEqual(['role', 'texte', 'tour'])
 	})
 
 	it('une condition de plan inconnue LEVE sur une commande acceptee, nue et sous une negation — jamais un faux positif (KR-238)', () => {

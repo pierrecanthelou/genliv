@@ -67,14 +67,18 @@ describe('consignerNarration — le recit s ecrit sur l entree a origine, et sur
 		const dossier = lire()
 		const s1 = jouer(dossier, ouverture(dossier), ['ALLER lieu.tour-effondree', 'ALLER lieu.vigie-du-nord'])
 
-		// L'ÉTAT SÉPARATEUR, constaté et non supposé : le pas courant porte TROIS entrées,
-		// et la DERNIÈRE est celle du jalon, sans `origine`.
+		// L'ÉTAT SÉPARATEUR, constaté et non supposé : le pas courant porte QUATRE entrées — la
+		// demande, son effet, le JALON (sans `origine`, avec `deltas`) et, depuis l'it3 de
+		// `moteur-horloge`, la ligne du tick `etape_bloquee` de Corvin (sans `origine` ni `deltas` :
+		// sa `duree: 2` tombe à ce pas). Deux entrées sans `origine` suivent l'entrée d'origine.
 		const duPas = s1.journal.filter((entree) => entree.tour === s1.horloge.tour)
 		expect(duPas.map((entree) => [entree.role, entree.origine ?? null, entree.deltas !== undefined])).toEqual([
 			['joueur', null, false],
 			['moteur', 'aller', false],
 			['moteur', null, true],
+			['moteur', null, false],
 		])
+		expect(duPas[3].texte).toBe('etape_bloquee : pnj.corvin-le-marchand 1')
 
 		const s2 = consignerNarration(s1, s1.horloge.tour, seul(RECIT))
 
@@ -135,11 +139,14 @@ describe('consignerNarration — le recit s ecrit sur l entree a origine, et sur
 
 		const pas2 = consignerNarration(s2, 2, seul('Un second recit.'))
 
+		// Cinq entrées : la dernière est la ligne du tick `etape_bloquee` de Corvin (it3, sa
+		// `duree: 2` tombe au pas 2), sans `origine` donc sans récit.
 		expect(pas2.journal.map((entree) => entree.recit ?? null)).toEqual([
 			null,
 			'Un premier recit.',
 			null,
 			'Un second recit.',
+			null,
 		])
 		// L'entrée du pas 1 est LA MÊME référence : elle n'a pas été reconstruite.
 		expect(pas2.journal[1]).toBe(pas1.journal[1])
@@ -260,7 +267,9 @@ describe('consignerNarration — la memoire, dans la MEME transition (it3)', () 
 		// Le doublon EXACT tombe ; le fait voisin (mêmes mots, AUTRES ancres) est un autre fait.
 		expect(s2.memoire?.faits_etablis).toEqual([FAIT_SCEAU, voisin])
 		// Et le récit, lui, est posé : ce n'est pas un refus, c'est de l'idempotence de stockage.
-		expect(s2.journal[s2.journal.length - 1].recit).toBe('b')
+		// (sur l'entrée à `origine` du pas 2 — la ligne du tick `etape_bloquee` de Corvin, it3,
+		// la SUIT désormais et n'est pas porteuse.)
+		expect(s2.journal.find((entree) => entree.tour === 2 && entree.origine !== undefined)?.recit).toBe('b')
 	})
 
 	it('un resume seul, sans fait : memoire porte une liste vide ET le resume — I1 tient, l objet n est pas vide', () => {

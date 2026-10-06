@@ -71,7 +71,7 @@
 			{
 				"id": 3,
 				"goal": "L'auteur lit qu'un PNJ coincé change d'approche — durée, depuis, bloqué, si_bloque, ligne de journal bloquée.",
-				"status": "planned"
+				"status": "done"
 			},
 			{
 				"id": 4,
@@ -126,6 +126,26 @@
 					"Invite du narrateur non amendée (le plan ne spécifiait pas le texte)"
 				],
 				"test_coverage": { "unit": "19 tests ajoutés (11 contexte + 3 contexte modifiés + 2 frontiere + 1 worker + 2 horloge modifiés), 2762 total, 0 régression" }
+			},
+			{
+				"id": 3,
+				"label": "iteration-3",
+				"completed_at": "2026-10-06",
+				"architecture_choices": [
+					"etapeBloqueeAuPas prédicat pur et total dans blocage.ts — seul site de décision du blocage (KR-246). Ne lit que ses 3 arguments, ne stocke rien",
+					"Formule === (événement, pas niveau) : constat ssi tour − origine === duree. Pas de constat à duree−1 ni duree+1 (KR-013)",
+					"Origine du décompte : depuis écrit → cas a ; rang 0 ou absent → origine 0 (cas b) ; rang ≥ 1 sans depuis → jamais (cas c). Dérive sans stocker",
+					"Journal etape_bloquee : <id> <rang+1>, role moteur, au tour courant. Sans origine, deltas, recit, jet. S'écrit même sans si_bloque rédigé",
+					"CHEMIN_SI_BLOQUE constante propre dans contexte/horloge.ts, garde dédiée. Dérogation étendue aux DEUX chemins (action + si_bloque)",
+					"Sélection R3 : depuis===tour → action (it2) ; sinon etapeBloqueeAuPas → si_bloque ; sinon silence. Disjoints par construction",
+					"BUDGET_CARACTERES_DOSSIER de 7000 à 8000 (M=2371), BUDGET_CARACTERES_NARRATEUR 28056→29056, TAILLE_MAX_CORPS_IA de 87040 à 90112"
+				],
+				"deviations_from_plan": [
+					"Portée de .duree plus large que « seul blocage.ts » : validate.ts l'avertit (hors décision), panneaux d'édition le lisent. Garde teste src/brain/ et attend [blocage.ts, validate.ts]",
+					"Test etape-plan-meme-reference logé dans horloge.test.ts (L1) au lieu de contexte.test.ts (L2), car le tick est dans horloge",
+					"Budget M=2371 franchit 2333 : les trois constantes ajustées. Le palier dépend du nombre de PNJ (5 pour franchir, 4 restent sous)"
+				],
+				"test_coverage": { "unit": "44 tests ajoutés (10 blocage + 12 horloge + 12 contexte + 5 frontiere + 3 jalonAuJournal + 2 commandes modifiés), 2806 total, 0 régression" }
 			}
 		],
 		"resolved_decisions": [
@@ -152,15 +172,20 @@
 			"Bloc PENDANT CE TEMPS hors cascade (TL, NIA concède t2).",
 			"plan_actions[].action = nouveau chemin injecté. Constante CHEMIN_ACTION_DE_PLAN dans contexte/horloge.ts, garde dédiée. Dérogation narrateur.ts:76 documentée.",
 			"Perceptibilité = personnagesPresents(dossier, session), filtre existant dans commandes.ts (presence[].lieu_id === lieu_courant).",
-			"Bandeau PAS #n déplacé en it4 (avec climat). Rouvrir BandeauHeros.tsx une seule fois. Dette 1px/bold corrigée à ce moment (veto UX à déclencheur)."
+			"Bandeau PAS #n déplacé en it4 (avec climat). Rouvrir BandeauHeros.tsx une seule fois. Dette 1px/bold corrigée à ce moment (veto UX à déclencheur).",
+			"Formule === (événement, pas niveau). J2 réécrite, consensus 5 rôles. >= produirait du spam journal + narrateur en boucle.",
+			"Origine du décompte : (a) depuis écrit, (b) rang 0 ou absent → 0, (c) rang ≥ 1 sans depuis → jamais. Résout PM O3 (Sélène/Corvin atteignables) sans violer le contrat it2.",
+			"etape_bloquee en snake_case minuscule (UX O1). MAJUSCULES réservées au bandeau it4.",
+			"CHEMIN_SI_BLOQUE constante + garde (PM O5). Dérogation étendue aux DEUX chemins.",
+			"replier dupliqué reporté en dette à déclencheur (TL annexe).",
+			"Invite du narrateur non amendée : PENDANT CE TEMPS n'est cité par aucune invite (NIA tour 2).",
+			"Budget re-mesuré : M=2371 > 2333 → 7000→8000, 28056→29056, 87040→90112."
 		],
 		"open_questions": [
 			"Climat : mécanisme d'activation exact (route B DELTAS.activer_climat vs chemin spécial dans executerCommande vs scan d'Evenements). Contraint par types.ts:1380 (pas de declencheur_expr sur Climat) et par le fait que DELTAS n'écrit que FaitsDeSession. À trancher au raffinage d'it4.",
 			"Idempotence des effets climatiques : reveler_indice et atteindre_jalon sont idempotents (ensembles). donner_objet donnerait un doublon si le climat se réactive. À documenter ou à garder par un flag « déjà appliqué » en session.",
 			"Extraction sessionCombat.ts : taille exacte des lots d'it4 (climat + extraction + bandeau). Si > 4 lots, extraction en pré-lot.",
-			"Label ÉTAPE BLOQUÉE : registre de langue à trancher au raffinage d'it3. Journal minuscule, mono MAJUSCULES réservé au bandeau (UX t2).",
-			"Enrichissement R4 pour jouer l'étape courante du PNJ — reporté indéfiniment, hors n°14.",
-			"depuis absent (sessions 0.7.21, etape_plan: {rang} sans depuis) : ≡ jamais en échéance pour la durée (it3). Distinct de etape_plan absent ≡ rang 0 (KR-013). Arbitrage it2."
+			"Enrichissement R4 pour jouer l'étape courante du PNJ — reporté indéfiniment, hors n°14."
 		]
 	}
 }

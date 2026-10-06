@@ -225,8 +225,8 @@ export const DESTINATION_DES_CHAMPS_DE_SESSION: Readonly<
 	 * LE PAS DE L'AVANCEMENT (n° 14 `moteur-horloge`, it2, lot `contrat` —
 	 * `docs/REGLES-PLAY.md` § J2) — `'moteur'`, SANS EXCEPTION, et c'est la SECONDE
 	 * feuille d'`etape_plan` : un modèle qui lirait `depuis` pourrait compter lui-même un
-	 * blocage que le moteur n'a pas constaté (la formule `tour − depuis >= duree` est de
-	 * l'itération 3, et du CODE). Une valeur de `horloge.tour`, jamais de la fiction. Elle
+	 * blocage que le moteur n'a pas constaté (la formule `tour − origine === duree` est du
+	 * CODE — `etapeBloqueeAuPas` dans `blocage.ts`). Une valeur de `horloge.tour`, jamais de la fiction. Elle
 	 * n'atteint le modèle que par un effet que le CODE a sélectionné — le bloc
 	 * `PENDANT CE TEMPS` de l'assembleur R3 choisit les personnages avancés « à ce pas »
 	 * (`depuis === horloge.tour`) et n'en émet NI le nombre NI l'identifiant : c'est la

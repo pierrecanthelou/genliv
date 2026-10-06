@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.23 — l'auteur lit qu'un PNJ coincé trop longtemps à une étape change d'approche
+
+`moteur-horloge` it3 (roadmap § 3, n°14, 3/4) — 2 lots `contrat` séquentiels (L1 brain/dossier, L2 brain/copilote + worker). Prédicat pur `etapeBloqueeAuPas` dans `blocage.ts` — seul site de décision du blocage (KR-246). Formule `===` (événement, pas niveau). Origine du décompte : `depuis` écrit → cas a ; rang 0 ou absent → 0 (cas b) ; rang ≥ 1 sans `depuis` → jamais (cas c). Journal `etape_bloquee : <id> <k+1>`, même sans `si_bloque` rédigé. `CHEMIN_SI_BLOQUE` constante propre dans `contexte/horloge.ts`, dérogation étendue aux DEUX chemins. `BUDGET_CARACTERES_DOSSIER` de 7000 à 8000 (M=2371), `TAILLE_MAX_CORPS_IA` de 87040 à 90112. 147 suites / 2806 tests.
+
+- Écarts : portée `.duree` inclut `validate.ts` (avertissement, pas décision) ; test `etape-plan-meme-reference` logé dans `horloge.test.ts` (L1).
+- Reportés it4 : climat + bandeau PAS #n + CLIMAT, extraction `sessionCombat.ts`, dette `replier` dupliqué.
+- Dossier : `.claude/raffinage/moteur-horloge-it3.revue.md`.
+
 ## 0.7.22 — l'auteur lit ce qu'un PNJ présent a fait pendant son dernier pas
 
 `moteur-horloge` it2 (roadmap § 3, n°14, 2/4) — 2 lots `contrat` séquentiels (L1 brain/dossier, L2 brain/copilote + worker). `depuis = horloge.tour` écrit avec `rang` à chaque avancement (`horloge.ts`). Bloc PENDANT CE TEMPS dans l'assembleur R3 (`contexte/horloge.ts`), sélection : `personnagesPresents ∩ depuis===tour ∩ action rédigée`, ordre du document. `CHEMIN_ACTION_DE_PLAN` constante propre, garde dédiée, dérogation documentée de `narrateur.ts:76`. `BUDGET_CARACTERES_DOSSIER` de 6000 à 7000 (M=2283), `TAILLE_MAX_CORPS_IA` de 83968 à 87040. 146 suites / 2762 tests.

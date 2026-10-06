@@ -1067,8 +1067,8 @@ describe('les deux plafonds', () => {
 		// … et DANS LA FAMILLE AUTEUR, LE BUDGET, LUI, EST BIEN EX ÆQUO : sans cette ligne, on
 		// ne saurait pas que l'amendement ci-dessus mesure quelque chose de NEUF plutôt que la
 		// même chose autrement (KR-235). ⚠ AMENDÉE À LA n° 10 it3, ET SUR UNE MESURE : elle
-		// portait sur `BUDGETS_PLAFONNES`, et le narrateur (28 056 depuis l'it2 de la n° 14 ;
-		// 27 046 à l'it2 de la n° 11 — mémoire ET ligne de jet comprises) y est
+		// portait sur `BUDGETS_PLAFONNES`, et le narrateur (29 056 depuis l'it3 de la n° 14 ;
+		// 28 056 à l'it2 ; 27 046 à l'it2 de la n° 11 — mémoire ET ligne de jet comprises) y est
 		// désormais SEUL au maximum — l'ex æquo 17 000 / 17 000 vit dans la famille auteur.
 		expect(rolesAuMaximum(BUDGETS, ROLES_AUTEUR).length).toBeGreaterThan(1)
 		// Et les TROIS tables portent bien UNE ENTRÉE PAR RÔLE : un rôle sans budget ne
@@ -1317,22 +1317,24 @@ describe('narrateur (mode jeu) — hors parite RoleCopilote, mais sous le plafon
 		expect(INVITES[ROLE_REPLIQUES].systeme).toContain('au moins une')
 	})
 
-	it('pins budget re-derivees — E du narrateur MESURE le 2026-10-06 (n 14 it2) : budget 28 056, plafond propre 87 040, et c est LE plafond du worker', () => {
+	it('pins budget re-derivees — E du narrateur MESURE le 2026-10-06 (n 14 it3) : budget 29 056, plafond propre 90 112, et c est LE plafond du worker', () => {
 		const octets = (texte: string): number => new TextEncoder().encode(texte).length
 		const squelette = octets(JSON.stringify({ role: 'narrateur', contexte: '' }))
 		const invite = octets(INVITES['narrateur'].systeme)
-		// E : `PENDANT CE TEMPS` est du CONTEXTE, jamais cité par l'invite — ce lot ne la touche pas. MESURÉ à
-		// 2711 o d'invite, E = 2745 : la docstring de `TAILLE_MAX_CORPS_IA` portait 2709 / 2743 (n° 10 it3,
-		// jamais re-lue depuis), soit 2 octets de retard qui ne déplaçaient AUCUN plafond.
+		// E : `PENDANT CE TEMPS` est du CONTEXTE, jamais cité par l'invite — ni l'it2 ni l'it3 ne la touchent.
+		// MESURÉ à 2711 o d'invite, E = 2745 : la docstring de `TAILLE_MAX_CORPS_IA` portait 2709 / 2743
+		// (n° 10 it3, jamais re-lue depuis), soit 2 octets de retard qui ne déplaçaient AUCUN plafond. E est
+		// RE-MESURÉ à l'it3, et INCHANGÉ : seul le budget bouge.
 		expect([squelette, invite, squelette + invite]).toEqual([34, 2711, 2745])
-		// Le budget client : 7000 (terme dossier, MESURÉ ×3 — `contexte.test.ts`) + 20 956 (`BORNE_MEMOIRE`) + 100
-		// (`BORNE_JET`) — 27 056 avant que le bloc n'ajoute 286 caractères au pire cas et ne fasse franchir le palier.
-		expect(BUDGET_CARACTERES_NARRATEUR).toBe(28_056)
+		// Le budget client : 8000 (terme dossier, MESURÉ ×3 — `contexte.test.ts`) + 20 956 (`BORNE_MEMOIRE`) + 100
+		// (`BORNE_JET`). 28 056 à l'it2 (7000) : l'it3 ajoute `si_bloque` au bloc `PENDANT CE TEMPS`, le pire cas
+		// prend `max(action, si_bloque)` par personnage, M passe de 2283 à 2371 (> 2333), et le palier à 8000.
+		expect(BUDGET_CARACTERES_NARRATEUR).toBe(29_056)
 		// `ceil((3 × budget + E) / 1024) × 1024` — la formule du plafond, sur le budget MESURÉ.
 		const pire = 3 * BUDGET_CARACTERES_NARRATEUR + squelette + invite
-		expect(pire).toBe(86_913)
+		expect(pire).toBe(89_913)
 		const plafondPropre = Math.ceil(pire / 1024) * 1024
-		expect(plafondPropre).toBe(87_040)
+		expect(plafondPropre).toBe(90_112)
 		// Le plafond du worker EST ce plafond propre : pas moins (le narrateur ne tiendrait plus), pas plus
 		// (un desserrage qu'aucune mesure ne justifie). Les deux canaris de « les deux plafonds » le visent.
 		expect(TAILLE_MAX_CORPS_IA).toBe(plafondPropre)
@@ -1763,9 +1765,9 @@ describe('acteur (mode jeu) — hors parite RoleCopilote, mais sous le plafond e
 		const plafondPropre = Math.ceil((3 * BUDGET_CARACTERES_ACTEUR + squelette + invite) / 1024) * 1024
 		expect(plafondPropre).toBe(22_528)
 		expect(plafondPropre).toBeLessThan(TAILLE_MAX_CORPS_IA)
-		// Le plafond worker a BOUGE (83 968 → 87 040, n° 14 it2, voir « pins budget re-derivees »
-		// plus haut) : `narrateur` le porte toujours, et de tres loin.
-		expect(TAILLE_MAX_CORPS_IA).toBe(87_040)
+		// Le plafond worker a BOUGE (83 968 → 87 040 à la n° 14 it2, → 90 112 à l'it3, voir « pins budget
+		// re-derivees » plus haut) : `narrateur` le porte toujours, et de tres loin.
+		expect(TAILLE_MAX_CORPS_IA).toBe(90_112)
 	})
 
 	it('ROLES_AUTEUR exclut acteur, ROLES le contient, et ROLES_PLAFONNES aussi', () => {
@@ -1806,7 +1808,7 @@ describe('la dette de budget R1 — mesuree, pas armee (n 12 moteur-acteurs, it1
 		const octets = new TextEncoder().encode(corps).length
 
 		// MESURE DU 2026-10-02 (it1) : 1095 octets — très loin sous `TAILLE_MAX_CORPS_IA`
-		// (83 968 alors, 87 040 depuis la n° 14 it2). Ce n'est PAS le pire cas théorique de toute la combinatoire du jeu
+		// (83 968 alors, 90 112 depuis la n° 14 it3). Ce n'est PAS le pire cas théorique de toute la combinatoire du jeu
 		// (il varie avec la session), seulement celui de la session D'OUVERTURE — mais il
 		// confirme que le garde-fou actif reste inutile à ce stade (§ 8 désaccord 11).
 		expect(octets).toBe(1095)
@@ -1964,9 +1966,9 @@ describe('commentateur (mode jeu) — hors parite RoleCopilote, mais sous le pla
 		const plafondPropre = Math.ceil((3 * BUDGET_CARACTERES_COMMENTATEUR + squelette + invite) / 1024) * 1024
 		expect(plafondPropre).toBe(5120)
 		expect(plafondPropre).toBeLessThan(TAILLE_MAX_CORPS_IA)
-		// Le plafond worker a BOUGÉ depuis (83 968 → 87 040, n° 14 it2) : `narrateur` le porte toujours, et
-		// de très loin.
-		expect(TAILLE_MAX_CORPS_IA).toBe(87_040)
+		// Le plafond worker a BOUGÉ depuis (83 968 → 87 040 à la n° 14 it2, → 90 112 à l'it3) : `narrateur`
+		// le porte toujours, et de très loin.
+		expect(TAILLE_MAX_CORPS_IA).toBe(90_112)
 		// LE PLUS ÉTROIT, DÉRIVÉ : le budget du commentateur est le minimum UNIQUE des rôles plafonnés.
 		const minimum = Math.min(...ROLES_PLAFONNES.map((role) => BUDGETS_PLAFONNES[role]))
 		expect(minimum).toBe(BUDGET_CARACTERES_COMMENTATEUR)

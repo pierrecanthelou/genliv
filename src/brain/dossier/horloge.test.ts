@@ -19,10 +19,11 @@ import { consignerJet, crediterConfiance, ouvrirSession, type EtatSession } from
 import type { Dossier, PlanAction } from './types'
 
 /**
- * L'HORLOGE DES PNJ — `tickHorloge` (n° 14 `moteur-horloge`, it1 puis it2, lot `contrat`,
+ * L'HORLOGE DES PNJ — `tickHorloge` (n° 14 `moteur-horloge`, it1, it2 puis it3, lot `contrat`,
  * `docs/REGLES-PLAY.md` § J2). L'it2 ajoute UNE écriture, `etape_plan.depuis` = le pas de
- * l'avancement, et ses tests : `describe` « depuis ». Les tests de l'it1 sont conservés, leurs
- * valeurs mises à jour d'une clé.
+ * l'avancement, et ses tests : `describe` « depuis ». L'it3 ajoute UN constat, la ligne de journal
+ * `etape_bloquee`, et ses tests : `describe` « blocage ». Les tests de l'it1 et de l'it2 sont
+ * conservés, indépendants de la durée.
  *
  * LES DOSSIERS SONT LUS DU DISQUE (KR-156) puis MUTÉS EN TEST — un seul champ, le
  * `plan_actions[]` d'un ou deux personnages — quand le scénario exige un plan qu'aucune
@@ -32,6 +33,13 @@ import type { Dossier, PlanAction } from './types'
  * ensuite directement. Les sessions sont ouvertes par `ouvrirSession` et jouées par
  * `executerCommande` ; seuls les états que le produit ne peut PAS écrire (un rang
  * négatif, non entier, hors plan) sont forgés, et chacun le dit.
+ *
+ * `lire()` RETIRE LES `duree` du dossier de référence (Sélène 4, Corvin 2), et c'est ce qui garde
+ * le témoin « sans tick » un no-op à CHAQUE pas : sans cela, Corvin constaterait un blocage au pas 2
+ * et Sélène au pas 4 dans tout scénario un peu long, et le tick appelé à la main sur la session que
+ * `executerCommande` vient de produire écrirait la MÊME ligne une seconde fois. `lireBrut()`
+ * rend le dossier TEL QUE LE DISQUE LE PORTE, durées comprises, pour les tests du blocage qui
+ * veulent les durées réelles (Sélène bloquée au pas 4, Corvin au pas 2).
  *
  * ⚠ CE FICHIER EST HORS DU SCORE DE MUTATION (KR-243) : `horloge.ts` n'est pas l'un des
  * quatre fichiers d'arithmétique de règles. `jest` est son UNIQUE instrument, et les
@@ -44,13 +52,23 @@ const CHEMIN_REFERENCE = path.join(MODULE_DOSSIER, '__fixtures__', 'dossier-refe
 const HAREK = 'pnj.harek-le-forgeron'
 const CORVIN = 'pnj.corvin-le-marchand'
 const AUBRY = 'pnj.aubry-l-intendant'
+const SELENE = 'pnj.selene-la-vigie'
 
-/** Le clone d'une fixture, LU DU DISQUE à chaque appel — jamais muté en place (KR-156). */
-function lire(): Dossier {
+/** Le clone d'une fixture TEL QUE LE DISQUE LE PORTE, durées comprises — jamais muté en place (KR-156). */
+function lireBrut(): Dossier {
 	return JSON.parse(fs.readFileSync(CHEMIN_REFERENCE, 'utf8')) as Dossier
 }
 
-/** Le dossier de référence INTACT : aucun plan à deux étapes, donc `tickHorloge` y est un no-op. */
+/** Le clone d'une fixture, SANS aucune `duree` de plan : l'avancement et le constat sont deux sujets. */
+function lire(): Dossier {
+	const dossier = lireBrut()
+	for (const personnage of dossier.monde.personnages) {
+		for (const etapeDuPlan of personnage.plan_actions) delete etapeDuPlan.duree
+	}
+	return dossier
+}
+
+/** Le dossier de référence sans durée : aucun plan à deux étapes, donc `tickHorloge` y est un no-op. */
 const REFERENCE = lire()
 
 function ouverture(dossier: Dossier): EtatSession {
@@ -120,9 +138,14 @@ function avecEntree(session: EtatSession, id: string, entree: EtatSession['monde
 	return { ...session, monde: { ...session.monde, pnj: { ...session.monde.pnj, [id]: entree } } }
 }
 
-/** Les lignes du tick dans un journal — reconnues à leur SEUL préfixe de champ, jamais à `origine`. */
+/** Les lignes d'AVANCEMENT du tick dans un journal — reconnues à leur SEUL préfixe de champ, jamais à `origine`. */
 function lignesDuTick(session: EtatSession): EtatSession['journal'] {
 	return session.journal.filter((entree) => entree.texte.startsWith('etape_plan : '))
+}
+
+/** Les lignes de BLOCAGE du tick (it3) — même reconnaissance, par leur seul préfixe. */
+function lignesDeBlocage(session: EtatSession): EtatSession['journal'] {
+	return session.journal.filter((entree) => entree.texte.startsWith('etape_bloquee : '))
 }
 
 describe('le temoin « sans tick » : le dossier de reference n a aucun plan a deux etapes', () => {
@@ -130,6 +153,15 @@ describe('le temoin « sans tick » : le dossier de reference n a aucun plan a d
 		expect(REFERENCE.monde.personnages.every((personnage) => personnage.plan_actions.length <= 1)).toBe(true)
 		// Discriminant : la mesure n'est pas vide — le dossier porte bien des plans.
 		expect(REFERENCE.monde.personnages.some((personnage) => personnage.plan_actions.length === 1)).toBe(true)
+		// Et le témoin est SANS DURÉE parce que `lire()` les retire, pas parce que le disque n'en a pas :
+		// Sélène (4) et Corvin (2) en portent une, et c'est ce que les tests du blocage lisent.
+		expect(
+			lireBrut()
+				.monde.personnages.filter((personnage) => personnage.plan_actions.some((etapeDuPlan) => etapeDuPlan.duree))
+				.map((personnage) => personnage.id)
+				.sort(),
+		).toEqual([CORVIN, SELENE].sort())
+		expect(REFERENCE.monde.personnages.some((personnage) => personnage.plan_actions.some((e) => e.duree))).toBe(false)
 
 		const depart = ouverture(REFERENCE)
 		const saisies: Record<CommandeId, string> = {
@@ -325,12 +357,12 @@ describe('tickHorloge, depuis : le pas de l avancement, ecrit avec rang et jamai
 	})
 })
 
-describe('tickHorloge, aucune lecture de duree ni de si_bloque (REJETE R-1 : avancer a l echeance)', () => {
-	it('une etape a duree 1 dont le declencheur suivant reste faux : MEME REFERENCE a chacun des cinq pas', () => {
+describe('tickHorloge, la duree CONSTATE, elle ne fait JAMAIS avancer (REJETE R-1 : la minuterie est abolie, § J2)', () => {
+	it('une etape a duree 1 dont le declencheur suivant reste faux : aucun avancement, le constat tombe UNE fois, au pas 1', () => {
 		// MUTANT NOMMÉ, À ÉCRIRE PUIS RÉVOQUER : faire avancer le PNJ quand `duree` est
-		// échue, quel que soit le déclencheur de l'étape suivante. Il rendrait ici une
-		// session NEUVE dès le pas 2 — et ferait de la durée une minuterie, que J2 abolit : une
-		// durée échue constate un blocage (it3), elle ne fait jamais avancer.
+		// échue, quel que soit le déclencheur de l'étape suivante. Il écrirait ici `etape_plan` dès
+		// le pas 1 — et ferait de la durée une minuterie, que J2 abolit : une durée échue constate
+		// un blocage (it3), elle ne fait jamais avancer.
 		const dossier = avecPlans({
 			[HAREK]: [
 				etape(0, undefined, { duree: 1, si_bloque: 'Il change de plan.' }),
@@ -342,20 +374,246 @@ describe('tickHorloge, aucune lecture de duree ni de si_bloque (REJETE R-1 : ava
 		for (let pas = 1; pas <= 5; pas += 1) {
 			courante = sessionDe(executer(REFERENCE, courante, 'AGIR'))
 			expect(`pas ${pas} → ${courante.horloge.tour}`).toBe(`pas ${pas} → ${pas}`)
-			// `duree: 1` est échue dès le pas 2, largement dépassée au pas 5.
-			expect(tickHorloge(dossier, courante)).toBe(courante)
+			const apres = tickHorloge(dossier, courante)
+			// `duree: 1`, origine 0 : l'échéance tombe au pas 1, et à AUCUN autre (front `===`).
+			expect(`pas ${pas} → ${apres === courante}`).toBe(`pas ${pas} → ${pas !== 1}`)
+			// JAMAIS d'avancement, ni d'entrée, ni de `depuis` : le monde garde sa référence.
+			expect(apres.monde).toBe(courante.monde)
+			expect(apres.monde.pnj).toEqual({})
 		}
 		expect(courante.monde.pnj).toEqual({})
 	})
 
-	it('une etape suivante SANS declencheur, duree posee : elle reste (la minuterie est ABOLIE, § J2)', () => {
+	it('une etape suivante SANS declencheur, duree posee : elle reste, et sa duree n est jamais lue tant qu on n y est pas', () => {
 		const dossier = avecPlans({ [HAREK]: [etape(0, undefined, { duree: 1 }), etape(1, undefined, { duree: 1 })] })
 		let courante = ouverture(dossier)
 
 		for (let pas = 1; pas <= 5; pas += 1) {
 			courante = sessionDe(executer(REFERENCE, courante, 'AGIR'))
-			expect(tickHorloge(dossier, courante)).toBe(courante)
+			const apres = tickHorloge(dossier, courante)
+			// Au pas 1 le constat de l'étape COURANTE (rang 0, `duree: 1`) ; ensuite rien : la durée de
+			// l'étape VISÉE (`duree: 1` aussi) ne s'est lue à aucun pas.
+			expect(`pas ${pas} → ${apres === courante}`).toBe(`pas ${pas} → ${pas !== 1}`)
+			expect(apres.monde.pnj).toEqual({})
+			expect(lignesDuTick(apres)).toEqual([])
 		}
+	})
+})
+
+describe('tickHorloge, blocage : la ligne etape_bloquee, au pas d echeance, une fois (n 14 it3)', () => {
+	/** Un plan de Harek sans condition suivante vraie : il reste à son étape, et c'est elle qui se bloque. */
+	const PLAN_BLOQUE = (duree: number, reste: Partial<PlanAction> = {}): PlanAction[] => [
+		etape(0, undefined, { duree, ...reste }),
+		etape(1, JAMAIS),
+	]
+
+	function jouerNPas(dossier: Dossier, pas: number): EtatSession[] {
+		const etats: EtatSession[] = [ouverture(dossier)]
+		for (let i = 1; i <= pas; i += 1) etats.push(sessionDe(executer(dossier, etats[i - 1], 'AGIR')))
+		return etats
+	}
+
+	it('journal-etape-bloquee : la ligne tombe au pas tour - origine === duree, au tour courant, role moteur, trois cles', () => {
+		const dossier = avecPlans({ [HAREK]: PLAN_BLOQUE(3) })
+
+		const etats = jouerNPas(dossier, 6)
+
+		// Zéro ligne aux pas 1 et 2 (duree − 1), UNE au pas 3, et toujours UNE aux pas 4 à 6 (duree + 1 :
+		// pas de second constat — le front est `===`, jamais `>=`).
+		expect(etats.map((etat) => lignesDeBlocage(etat).length)).toEqual([0, 0, 0, 1, 1, 1, 1])
+		const ligne = lignesDeBlocage(etats[3])[0]
+		expect(ligne).toEqual({ tour: 3, role: 'moteur', texte: `etape_bloquee : ${HAREK} 1` })
+		// TROIS clés, et trois seulement : ni `origine`, ni `deltas`, ni `recit`, ni `jet`, ni `interlocuteur`.
+		expect(Object.keys(ligne).sort()).toEqual(['role', 'texte', 'tour'])
+		// La ligne est la DERNIÈRE de son pas : après la demande et son effet, au MÊME tour — le tick
+		// n'ajoute pas de pas (J1) — et la session n'a ni entrée de personnage ni `etape_plan`.
+		expect(etats[3].journal.map((entree) => entree.tour)).toEqual([1, 1, 2, 2, 3, 3, 3])
+		expect(etats[3].journal[6]).toBe(ligne)
+		expect(etats[3].horloge.tour).toBe(3)
+		expect(etats[3].monde.pnj).toEqual({})
+		// UNE ligne, pas une par pas : la ligne du pas 3 est LA MÊME référence aux pas suivants.
+		expect(lignesDeBlocage(etats[6])[0]).toBe(ligne)
+		// L'INVARIANT D'`origine` TIENT : seules les entrées de commande en portent.
+		expect(etats[6].journal.filter((entree) => entree.origine !== undefined)).toHaveLength(6)
+	})
+
+	it('journal-meme-sans-si-bloque : la ligne s ecrit sans si_bloque redige, et elle ne porte jamais sa prose', () => {
+		const PROSE = 'Il change de plan et part pour le marché des cendres.'
+		const avec = avecPlans({ [HAREK]: PLAN_BLOQUE(2, { si_bloque: PROSE }) })
+		const sans = avecPlans({ [HAREK]: PLAN_BLOQUE(2) })
+
+		const sessionAvec = jouerNPas(avec, 2)[2]
+		const sessionSans = jouerNPas(sans, 2)[2]
+
+		// L'auteur voit TOUJOURS le constat, qu'il ait écrit une réplique de repli ou non…
+		expect(lignesDeBlocage(sessionSans)).toEqual([{ tour: 2, role: 'moteur', texte: `etape_bloquee : ${HAREK} 1` }])
+		// … et la ligne est la MÊME : `si_bloque` ne change rien au journal.
+		expect(lignesDeBlocage(sessionAvec)).toEqual(lignesDeBlocage(sessionSans))
+		expect(JSON.stringify(sessionAvec.journal)).not.toContain('marché des cendres')
+		expect(JSON.stringify(sessionAvec.journal)).not.toContain(PROSE)
+	})
+
+	it('le rang de la ligne est en base 1 et l origine est le pas ECRIT : un PNJ avance au pas 2 est bloque a depuis + duree', () => {
+		// Harek : B (rang 1, `duree: 2`) devient courante au pas 2 — la tour est visitée — et sa condition
+		// SUIVANTE est fausse pour toujours. L'origine 0 donnerait un constat au pas 2 ; `depuis`, au pas 4.
+		const dossier = avecPlans({
+			[HAREK]: [etape(0), etape(1, TOUR_VISITEE, { duree: 2 }), etape(2, JAMAIS)],
+		})
+		const etats: EtatSession[] = [ouverture(dossier)]
+		for (const saisie of ['AGIR', 'ALLER lieu.tour-effondree', 'AGIR', 'AGIR', 'AGIR']) {
+			etats.push(sessionDe(executer(dossier, etats[etats.length - 1], saisie)))
+		}
+
+		expect(etats[2].monde.pnj[HAREK]?.etape_plan).toEqual({ rang: 1, depuis: 2 })
+		expect(etats.map((etat) => lignesDeBlocage(etat).length)).toEqual([0, 0, 0, 0, 1, 1])
+		expect(lignesDeBlocage(etats[4])).toEqual([{ tour: 4, role: 'moteur', texte: `etape_bloquee : ${HAREK} 2` }])
+		// `etape_plan` n'a PAS bougé au constat : même référence que l'entrée d'avant, `depuis` compris —
+		// un blocage ne ré-date pas l'étape.
+		expect(etats[4].monde.pnj[HAREK]).toBe(etats[3].monde.pnj[HAREK])
+		expect(etats[4].monde.pnj[HAREK]?.etape_plan).toEqual({ rang: 1, depuis: 2 })
+	})
+
+	it('avancement-emporte-blocage : declencheur vrai ET echeance au meme pas — UNE ligne etape_plan, aucun constat', () => {
+		// Harek, rang 0 : `duree: 1`, origine 0 → l'échéance tombe au pas 1, et l'étape visée est VRAIE
+		// dès le départ (le foyer est visité). Un tick qui constaterait AVANT d'avancer écrirait deux lignes.
+		const dossier = avecPlans({ [HAREK]: [etape(0, undefined, { duree: 1 }), etape(1, FOYER_VISITE)] })
+		const pas1 = jouerNPas(dossier, 1)[1]
+
+		expect(lignesDuTick(pas1).map((ligne) => ligne.texte)).toEqual([`etape_plan : ${HAREK} 2`])
+		expect(lignesDeBlocage(pas1)).toEqual([])
+		expect(pas1.monde.pnj[HAREK]?.etape_plan).toEqual({ rang: 1, depuis: 1 })
+		// Et au pas suivant : le plan est épuisé, l'étape 1 n'a pas de durée — plus rien.
+		const pas2 = sessionDe(executer(dossier, pas1, 'AGIR'))
+		expect(lignesDeBlocage(pas2)).toEqual([])
+
+		// DISCRIMINANT, DANS LE MÊME TEST : même plan, étape visée FAUSSE — le constat tombe, et seul lui.
+		const sansSuite = avecPlans({ [HAREK]: [etape(0, undefined, { duree: 1 }), etape(1, JAMAIS)] })
+		const bloque = jouerNPas(sansSuite, 1)[1]
+		expect(lignesDeBlocage(bloque).map((ligne) => ligne.texte)).toEqual([`etape_bloquee : ${HAREK} 1`])
+		expect(lignesDuTick(bloque)).toEqual([])
+	})
+
+	it('le dossier de reference, tel que le disque le porte : Corvin est bloque au pas 2 et Selene au pas 4 — rang 0, origine 0', () => {
+		// Les durées RÉELLES (Corvin 2, Sélène 4), et aucune entrée `etape_plan` : l'étape de départ est
+		// occupée depuis l'ouverture. Sans l'origine 0 (rang 0 ou absent), ni l'un ni l'autre ne
+		// serait JAMAIS atteint — et la `si_bloque` qu'ils portent resterait du contenu mort.
+		const dossier = lireBrut()
+		const etats = jouerNPas(dossier, 6)
+
+		expect(
+			etats.map((etat) =>
+				lignesDeBlocage(etat)
+					.map((ligne) => `${ligne.tour}:${ligne.texte}`)
+					.join(' | '),
+			),
+		).toEqual([
+			'',
+			'',
+			`2:etape_bloquee : ${CORVIN} 1`,
+			`2:etape_bloquee : ${CORVIN} 1`,
+			`2:etape_bloquee : ${CORVIN} 1 | 4:etape_bloquee : ${SELENE} 1`,
+			`2:etape_bloquee : ${CORVIN} 1 | 4:etape_bloquee : ${SELENE} 1`,
+			`2:etape_bloquee : ${CORVIN} 1 | 4:etape_bloquee : ${SELENE} 1`,
+		])
+		// Aucun des deux n'a avancé, aucune entrée n'a été créée.
+		expect(etats[6].monde.pnj).toEqual({})
+		expect(lignesDuTick(etats[6])).toEqual([])
+	})
+
+	it('{ rang >= 1 } sans depuis n est JAMAIS bloque : pas de depuis invente, aucune ligne, a aucun des dix pas (KR-251)', () => {
+		const dossier = avecPlans({ [HAREK]: [etape(0), etape(1, JAMAIS, { duree: 1 }), etape(2, JAMAIS)] })
+		// FORGÉ, c'est le point : la forme que 0.7.21 écrivait — `{ rang }` SANS `depuis`.
+		const ancienne = avecEntree(ouverture(dossier), HAREK, { a_dit: [], etape_plan: { rang: 1 } })
+		let courante = ancienne
+
+		for (let pas = 1; pas <= 10; pas += 1) {
+			courante = sessionDe(executer(dossier, courante, 'AGIR'))
+			expect(`pas ${pas} → ${lignesDeBlocage(courante).length}`).toBe(`pas ${pas} → 0`)
+		}
+		expect(courante.monde.pnj[HAREK]).toBe(ancienne.monde.pnj[HAREK])
+		expect(courante.monde.pnj[HAREK]?.etape_plan).toStrictEqual({ rang: 1 })
+
+		// DISCRIMINANT, DANS LE MÊME TEST : la même entrée AVEC `depuis: 2` est bloquée à 2 + 1 = 3.
+		const datee = avecEntree(ouverture(dossier), HAREK, { a_dit: [], etape_plan: { rang: 1, depuis: 2 } })
+		const suite = Array.from({ length: 4 }, (_, i) => i).reduce<EtatSession[]>(
+			(vues) => [...vues, sessionDe(executer(dossier, vues[vues.length - 1], 'AGIR'))],
+			[datee],
+		)
+		expect(suite.map((etat) => lignesDeBlocage(etat).length)).toEqual([0, 0, 0, 1, 1])
+		expect(lignesDeBlocage(suite[3])[0].texte).toBe(`etape_bloquee : ${HAREK} 2`)
+	})
+
+	it('etape-plan-meme-reference : au pas d echeance seul le journal change — monde, entree et etape_plan gardent leur reference', () => {
+		// Une entrée DATÉE, forgée sur la session du pas 4 : B (rang 1, `duree: 2`, `depuis: 2`) tombe à 4.
+		const dossier = avecPlans({ [HAREK]: [etape(0), etape(1, undefined, { duree: 2 }), etape(2, JAMAIS)] })
+		const base = jouer(REFERENCE, ouverture(dossier), ['AGIR', 'AGIR', 'AGIR', 'AGIR'])
+		const avant = avecEntree(base, HAREK, {
+			a_dit: ['indice.pas-dans-la-cendre'],
+			confiance: 1,
+			etape_plan: { rang: 1, depuis: 2 },
+		})
+		expect(avant.horloge.tour).toBe(4)
+
+		const apres = tickHorloge(dossier, avant)
+
+		expect(apres).not.toBe(avant)
+		// La minuterie reste abolie : RIEN de `monde` n'a été réécrit, pas même par une copie égale.
+		expect(apres.monde).toBe(avant.monde)
+		expect(apres.monde.pnj).toBe(avant.monde.pnj)
+		expect(apres.monde.pnj[HAREK]).toBe(avant.monde.pnj[HAREK])
+		expect(apres.monde.pnj[HAREK]?.etape_plan).toBe(avant.monde.pnj[HAREK]?.etape_plan)
+		expect(apres.monde.pnj[HAREK]?.etape_plan?.depuis).toBe(2)
+		// Seul le journal diffère, d'UNE ligne : la session d'avant, journal rendu, est celle d'après.
+		expect(apres.journal).toHaveLength(avant.journal.length + 1)
+		expect({ ...apres, journal: avant.journal }).toStrictEqual(avant)
+		expect(apres.journal[avant.journal.length]).toEqual({
+			tour: 4,
+			role: 'moteur',
+			texte: `etape_bloquee : ${HAREK} 2`,
+		})
+		// Aucune horloge ne bouge : le tick n'ajoute pas de pas (J1).
+		expect(apres.horloge).toBe(avant.horloge)
+	})
+
+	it('les rangs hors bornes ne constatent rien non plus, meme a l echeance : MEME REFERENCE, aucune exception', () => {
+		const dossier = avecPlans({ [HAREK]: [etape(0, undefined, { duree: 1 }), etape(1, undefined, { duree: 1 })] })
+		const depart: EtatSession = { ...ouverture(dossier), horloge: { tour: 1 } }
+
+		for (const rang of [-1, 1.5, Number.NaN, 7, '1' as unknown as number]) {
+			const forge = avecEntree(depart, HAREK, { a_dit: [], etape_plan: { rang, depuis: 0 } })
+			expect(`rang ${String(rang)} → ${tickHorloge(dossier, forge) === forge}`).toBe(`rang ${String(rang)} → true`)
+		}
+		// DISCRIMINANT : les rangs valides, mêmes `depuis` et `duree`, sont bloqués à 0 + 1.
+		for (const rang of [0, 1]) {
+			const valide = avecEntree(depart, HAREK, { a_dit: [], etape_plan: { rang, depuis: 0 } })
+			expect(lignesDeBlocage(tickHorloge(dossier, valide)).map((ligne) => ligne.texte)).toEqual([
+				`etape_bloquee : ${HAREK} ${rang + 1}`,
+			])
+		}
+	})
+
+	it('deux constats et un avancement au meme pas : dans l ordre du document, chacun sa ligne, chacun son personnage', () => {
+		// Corvin (1er) et Aubry (3e) sont BLOQUÉS ; Harek (2e) AVANCE. L'avancement de l'un n'efface
+		// pas le constat des autres : l'exclusion est PAR PERSONNAGE, par le flot de contrôle du tick.
+		const dossier = avecPlans({
+			[CORVIN]: [etape(0, undefined, { duree: 1 }), etape(1, JAMAIS)],
+			[HAREK]: [etape(0, undefined, { duree: 1 }), etape(1, FOYER_VISITE)],
+			[AUBRY]: [etape(0, undefined, { duree: 1 }), etape(1, JAMAIS)],
+		})
+		expect(dossier.monde.personnages.map((p) => p.id).filter((id) => [AUBRY, HAREK, CORVIN].includes(id))).toEqual([
+			CORVIN,
+			HAREK,
+			AUBRY,
+		])
+
+		const pas1 = jouerNPas(dossier, 1)[1]
+
+		expect(pas1.journal.slice(2).map((ligne) => ligne.texte)).toEqual([
+			`etape_bloquee : ${CORVIN} 1`,
+			`etape_plan : ${HAREK} 2`,
+			`etape_bloquee : ${AUBRY} 1`,
+		])
+		expect(Object.keys(pas1.monde.pnj)).toEqual([HAREK])
 	})
 })
 
@@ -438,7 +696,7 @@ describe('tickHorloge, les cas limites — MEME REFERENCE, aucune ligne, aucune 
 })
 
 describe('tickHorloge, un plan ecrit en prose seule : le PNJ est immobile', () => {
-	it('aucun declencheur_expr dans aucune etape : trois pas, aucune ecriture, aucune ligne', () => {
+	it('aucun declencheur_expr dans aucune etape : trois pas, aucun avancement, aucune ecriture de monde — la duree, elle, se constate', () => {
 		const prose = (index: number): PlanAction =>
 			etape(index, undefined, { declencheur_texte: `Le joueur fait quelque chose à l'étape ${index}.`, duree: 2 })
 		const dossier = avecPlans({ [HAREK]: [prose(0), prose(1), prose(2)], [CORVIN]: [prose(0), prose(1)] })
@@ -448,8 +706,16 @@ describe('tickHorloge, un plan ecrit en prose seule : le PNJ est immobile', () =
 
 		expect(apres.monde.pnj).toEqual({})
 		expect(lignesDuTick(apres)).toEqual([])
-		// SIX lignes pour trois pas : la demande et son effet, jamais une de plus.
-		expect(apres.journal).toHaveLength(6)
+		// HUIT lignes pour trois pas : la demande et son effet, six fois — plus DEUX constats de blocage
+		// au pas 2 (it3), un par personnage dont la `duree: 2` de l'étape de départ y tombe, dans l'ordre
+		// du document (Corvin, puis Harek). Un plan en prose seule est immobile, il n'est pas muet : la
+		// durée constate, elle ne fait jamais avancer.
+		expect(apres.journal).toHaveLength(8)
+		expect(lignesDeBlocage(apres).map((ligne) => [ligne.tour, ligne.texte])).toEqual([
+			[2, `etape_bloquee : ${CORVIN} 1`],
+			[2, `etape_bloquee : ${HAREK} 1`],
+		])
+		// Au pas 3, `3 − 0 !== 2` : aucun second constat, le tick direct rend la même session.
 		expect(tickHorloge(dossier, apres)).toBe(apres)
 	})
 })
@@ -747,6 +1013,46 @@ describe('tickHorloge, R4 toujours et R3 hors de portee sont octet-identiques av
 		expect(contexteOrigine.texte).not.toBe(contexteSans.texte)
 	})
 
+	it('R3 : une ligne etape_bloquee ne change pas le contexte — sans origine, jamais un geste du pas, jamais citee (n 14 it3)', () => {
+		// Corvin est bloqué au pas 1 (`duree: 1`, origine 0) mais se tient au marché : hors de portée du
+		// héros, donc rien n'entre dans `PENDANT CE TEMPS` quand L2 y injectera `si_bloque` — et la LIGNE
+		// du tick, elle, n'est jamais lue par le narrateur, quelle que soit la présence.
+		const dossier = avecPlans({ [CORVIN]: [etape(0, undefined, { duree: 1 }), etape(1, JAMAIS)] })
+		const depart = ouverture(dossier)
+		const avec = sessionDe(executer(dossier, depart, 'AGIR'))
+		const sans = sessionDe(executer(REFERENCE, depart, 'AGIR'))
+		expect(lignesDeBlocage(avec).map((ligne) => ligne.texte)).toEqual([`etape_bloquee : ${CORVIN} 1`])
+		expect(lignesDeBlocage(sans)).toEqual([])
+		// DISCRIMINANT DE LA FRONTIÈRE : Corvin n'est pas au lieu courant — Harek, lui, y est.
+		expect(personnagesPresents(dossier, avec)).not.toContain(CORVIN)
+
+		const cible = (session: EtatSession) => ({
+			role: 'narrateur' as const,
+			saisie: 'je regarde autour de moi',
+			session,
+		})
+		const contexteAvec = assemblerNarrateur(dossier, cible(avec))
+		const contexteSans = assemblerNarrateur(dossier, cible(sans))
+		if (!contexteAvec.ok || !contexteSans.ok) throw new Error('le contexte nominal ne doit pas etre refuse')
+
+		expect(contexteAvec.texte).toBe(contexteSans.texte)
+		expect(contexteAvec.ancres).toEqual(contexteSans.ancres)
+		expect(contexteAvec.texte).not.toContain('etape_bloquee')
+		expect(contexteAvec.texte).not.toContain(CORVIN)
+
+		// MUTANT NOMMÉ : poser une `origine` sur la ligne de blocage. Le narrateur la lirait comme un
+		// SECOND geste du pas, et le contexte changerait.
+		const avecOrigine: EtatSession = {
+			...avec,
+			journal: avec.journal.map((ligne) =>
+				ligne.texte.startsWith('etape_bloquee : ') ? { ...ligne, origine: 'agir' as const } : ligne,
+			),
+		}
+		const contexteOrigine = assemblerNarrateur(dossier, cible(avecOrigine))
+		if (!contexteOrigine.ok) throw new Error('le contexte nominal ne doit pas etre refuse')
+		expect(contexteOrigine.texte).not.toBe(contexteSans.texte)
+	})
+
 	it('R4, l acteur : le contexte de Harek ne dit rien de SA propre etape, quand le tick vient de l ecrire', () => {
 		const dossier = avecPlans({ [HAREK]: [etape(0), etape(1, FOYER_VISITE)] })
 		const depart = ouverture(dossier)
@@ -777,10 +1083,12 @@ describe('horloge.ts, les proprietes qui se lisent dans la SOURCE', () => {
 			.replace(/`[^`]*`/gs, '``')
 	const code = enPositionDeCode(source('horloge.ts'))
 
-	it('il ne lit que plan_actions[] et etapeDeclenchee : ni condition, ni duree, ni si_bloque, ni action, ni etape, ni op', () => {
+	it('il ne lit que plan_actions[], etapeDeclenchee et etapeBloqueeAuPas : ni condition, ni duree, ni depuis, ni si_bloque, ni action, ni etape, ni op', () => {
+		// KR-246, N° 14 it3 : `duree` et `depuis` ont UN site de décision, `blocage.ts`
+		// (`blocage.test.ts` en balaie la portée mesurée). Le tick l'APPELLE, il ne lit ni l'un ni l'autre.
 		const lectures: ReadonlyArray<readonly [string, RegExp]> = [
 			['.declencheur_expr (R-5, garde de evaluate.test.ts)', /\.declencheur_expr\b/],
-			['.duree (R-1)', /\.duree\b/],
+			['.duree (R-1, KR-246 : un seul site de decision, blocage.ts)', /\.duree\b/],
 			['.si_bloque', /\.si_bloque\b/],
 			['.action (R-4)', /\.action\b/],
 			['.etape (KR-198)', /\.etape\b/],
@@ -790,9 +1098,14 @@ describe('horloge.ts, les proprietes qui se lisent dans la SOURCE', () => {
 		for (const [nom, motif] of lectures) {
 			expect(`${nom} → ${motif.test(code)}`).toBe(`${nom} → false`)
 		}
-		// Discriminant du balayage : il lit du CODE — `plan_actions` et l'appel y sont bien.
+		// Discriminant du balayage : il lit du CODE — `plan_actions` et les deux appels y sont bien.
 		expect(code).toMatch(/\.plan_actions\?\.\[/)
 		expect(code).toMatch(/\betapeDeclenchee\(/)
+		expect(code).toMatch(/\betapeBloqueeAuPas\(/)
+		// Et le motif attrape RÉELLEMENT une lecture de ces deux champs, y compris chaînée : sans cela,
+		// les deux lignes `.duree` et `.depuis` ci-dessus seraient vertes sur un motif qui ne matche rien.
+		expect(/\.duree\b/.test(enPositionDeCode('const d = courante?.duree'))).toBe(true)
+		expect(/\.depuis\b/.test(enPositionDeCode('const d = existant?.etape_plan?.depuis'))).toBe(true)
 	})
 
 	it('depuis est ECRIT en UN seul site, avec rang, a horloge.tour — et jamais lu (§ J2 regle 8, KR-298)', () => {
@@ -825,19 +1138,27 @@ describe('horloge.ts, les proprietes qui se lisent dans la SOURCE', () => {
 			de: m[2],
 		}))
 
-		expect(imports.map((i) => i.de).sort()).toEqual(['./evaluate', './faits', './identifiers', './session', './types'])
+		expect(imports.map((i) => i.de).sort()).toEqual([
+			'./blocage',
+			'./evaluate',
+			'./faits',
+			'./identifiers',
+			'./session',
+			'./types',
+		])
 		// `session.ts` en TYPE SEUL : `commandes.ts` appelle ce module, et `session.ts`
 		// type-importe `commandes.ts` — une arête de VALEUR nouerait un cycle.
 		expect(imports.find((i) => i.de === './session')?.type).toBe(true)
 		expect(imports.find((i) => i.de === './faits')?.type).toBe(true)
 		expect(imports.find((i) => i.de === './types')?.type).toBe(true)
-		// Les arêtes de valeur sont les deux feuilles : le sélecteur et l'appartenance propre.
+		// Les arêtes de valeur sont les trois feuilles : le prédicat de blocage (it3), le sélecteur de
+		// condition et l'appartenance propre.
 		expect(
 			imports
 				.filter((i) => !i.type)
 				.map((i) => i.de)
 				.sort(),
-		).toEqual(['./evaluate', './identifiers'])
+		).toEqual(['./blocage', './evaluate', './identifiers'])
 		// L'arête inverse existe bien (discriminant) : c'est `commandes.ts` qui l'appelle.
 		expect(source('commandes.ts')).toMatch(/import\s*\{\s*tickHorloge\s*\}\s*from\s*'\.\/horloge'/)
 		expect(enPositionDeCode(source('commandes.ts'))).toMatch(

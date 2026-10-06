@@ -1,6 +1,8 @@
 ---
 description: Fait produire par le comité le specification.json d'une NOUVELLE feature — plan, contrats, critères, découpage en itérations verticales.
 argument-hint: <nom-de-feature> "<intention en une phrase>"
+model: sonnet
+effort: xhigh
 ---
 
 Cadrage de la feature **$1**. Elle n'existe pas encore : tu produis son `features/$1/specification.json`, pas un plan d'itération.

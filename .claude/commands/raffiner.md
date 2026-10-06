@@ -1,6 +1,8 @@
 ---
 description: Réunit le comité (PM, Tech Lead, UX, QA) pour raffiner une itération et produire un plan signé, découpé en lots.
 argument-hint: <feature> <numéro d'itération>
+model: haiku
+effort: xhigh
 ---
 
 Raffinage de l'itération **$2** de la feature **$1**.

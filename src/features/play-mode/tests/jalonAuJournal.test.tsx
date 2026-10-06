@@ -202,9 +202,11 @@ describe('un jalon atteint en cours de partie, au journal', () => {
 
 		await monterALaVigie(user)
 
-		// L'ÉTAT — cinq entrées, dont les trois du second pas.
+		// L'ÉTAT — six entrées, dont les quatre du second pas : la demande, son effet, le jalon, et la
+		// ligne du tick `etape_bloquee` (n° 14 it3 : la `duree: 2` de l'étape de départ de Corvin tombe
+		// au pas 2), qui SUIT le jalon.
 		const session = sessionPersistee(brain, dossier.id)
-		expect(session.journal).toHaveLength(5)
+		expect(session.journal).toHaveLength(6)
 		const entreeJalon = session.journal[4]
 		expect(entreeJalon.role).toBe('moteur')
 		expect(entreeJalon.texte).toBe(`jalons_atteints : ${JALON}`)
@@ -217,13 +219,14 @@ describe('un jalon atteint en cours de partie, au journal', () => {
 			{ delta: 'reveler_indice', cibles: [INDICE], effet: 'applique' },
 		])
 
-		// L'ÉCRAN — les cinq lignes, dont les trois du second pas.
+		// L'ÉCRAN — les six lignes, dont les quatre du second pas.
 		const lignes = lignesDuJournal()
-		expect(lignes).toHaveLength(5)
+		expect(lignes).toHaveLength(6)
 
 		const ligneDemande = lignes[2]
 		const ligneDeplacement = lignes[3]
 		const ligneJalon = lignes[4]
+		const ligneBlocage = lignes[5]
 
 		expect(within(ligneDemande).getByText(`> ALLER ${CIBLE}`)).toBeInTheDocument()
 		expect(within(ligneDeplacement).getByText(`lieu_courant : ${ETAPE} → ${CIBLE}`)).toBeInTheDocument()
@@ -244,6 +247,11 @@ describe('un jalon atteint en cours de partie, au journal', () => {
 		expect(pastillesDe(ligneDeplacement)).toEqual(['[aller]'])
 		// Et la ligne de jalon ne porte AUCUNE cause.
 		expect(within(ligneJalon).queryByText('[aller]')).not.toBeInTheDocument()
+		// LA LIGNE DU TICK (it3) se rend comme une ligne `↻ MOTEUR` sans cause ni pastille : ni
+		// `origine`, ni `deltas`.
+		expect(within(ligneBlocage).getByText('etape_bloquee : pnj.corvin-le-marchand 1')).toBeInTheDocument()
+		expect(within(ligneBlocage).getByText('↻ MOTEUR')).toBeInTheDocument()
+		expect(pastillesDe(ligneBlocage)).toEqual([])
 	})
 
 	/**
@@ -330,7 +338,8 @@ describe('un jalon atteint en cours de partie, au journal', () => {
 		// soit ; sur `textContent` seul, une prose passée en `title` ou en
 		// `aria-label` resterait invisible.
 		const lignes = lignesDuJournal()
-		expect(lignes).toHaveLength(5)
+		// Six lignes : les cinq d'avant, et la ligne du tick `etape_bloquee` de Corvin (n° 14 it3).
+		expect(lignes).toHaveLength(6)
 		for (const ligne of lignes) {
 			for (const prose of proses) {
 				for (const fragment of fragmentsDeProse(prose)) {

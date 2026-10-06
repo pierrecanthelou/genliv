@@ -1,6 +1,8 @@
 ---
 description: Exécute un plan d'itération approuvé avec un essaim d'agents de développement, un par lot, puis intègre et fait vérifier.
 argument-hint: <feature> <numéro d'itération>
+model: haiku
+effort: xhigh
 ---
 
 Exécution du plan `.claude/raffinage/$1-it$2.plan.md`.

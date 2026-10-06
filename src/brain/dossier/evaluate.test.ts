@@ -835,6 +835,26 @@ describe('evaluate.ts, les proprietes qui se lisent dans la SOURCE', () => {
 		expect(baril.includes('DeltaJournalise')).toBe(true)
 	})
 
+	it('garde-baril-blocage : le predicat de blocage est interne a brain/dossier — ni etapeBloqueeAuPas, ni ConstatDeBlocage, ni ./dossier/blocage dans le baril', () => {
+		// n° 14 `moteur-horloge`, it3. `etapeBloqueeAuPas` (`blocage.ts`) est appelée par `tickHorloge` et
+		// par l'assembleur du narrateur (`copilote/contexte/horloge.ts`, qui l'importe en PROFONDEUR,
+		// comme `personnagesPresents`) : aucune feature n'a à décider d'un blocage. La seule porte vers
+		// une feature reste `executerCommande`. Lire le texte brut du baril — commentaires compris —
+		// est voulu : un symbole cité même en prose y deviendrait un précédent (KR-223).
+		const baril = fs.readFileSync(path.join(MODULE_DOSSIER, '..', 'index.ts'), 'utf8')
+
+		for (const interne of ['etapeBloqueeAuPas', 'ConstatDeBlocage', "'./dossier/blocage'", './dossier/blocage']) {
+			expect(`${interne} → ${baril.includes(interne)}`).toBe(`${interne} → false`)
+		}
+		// Discriminant du motif : le même balayage attrape, lui, un module que le baril sort bel et bien.
+		for (const exporte of ["'./dossier/commandes'", "'./dossier/evaluate'"]) {
+			expect(`${exporte} → ${baril.includes(exporte)}`).toBe(`${exporte} → true`)
+		}
+		// Et le module existe, avec le symbole : le test ne passe pas faute de fichier.
+		expect(fichiersDuModule()).toContain('blocage.ts')
+		expect(source('blocage.ts')).toMatch(/export function etapeBloqueeAuPas\(/)
+	})
+
 	it('evaluate.ts n importe ni session.ts ni commandes.ts — ce sont EUX qui l appellent', () => {
 		// L'ORIENTATION DE L'ARÊTE EST LE CONTRAT : l'évaluateur est une feuille du
 		// graphe, appelée par le moteur de session et par celui des commandes. L'arête

@@ -79,24 +79,30 @@
  * `lieux[].acces` (la carte) · les deux proses émises verbatim (`texte_ouverture_joueur`,
  * `fins[].texte`).
  *
- * ── LA DÉROGATION (n° 14 `moteur-horloge`, it2) — LE SEUL CHAMP DE PERSONNAGE QUE R3 LIT ───
- * « Toute donnée de personnage » est exclue — sauf UNE : la prose `plan_actions[rang].action` de
- * l'étape qu'un personnage PRÉSENT au lieu courant vient de franchir AU PAS que ce rôle raconte,
- * sous l'en-tête `PENDANT CE TEMPS`, une ligne par personnage, dans l'ordre du document
- * (`lignesPendantCeTemps`, `./horloge.ts`). Elle est ÉCRITE ICI, et non dans le seul plan,
- * parce qu'un renversement de doctrine qui ne vit que dans un plan est un renversement que le
- * prochain lecteur de ce fichier ne trouvera pas (BUG-082) :
- *  · son CHEMIN est `CHEMIN_ACTION_DE_PLAN` (`./horloge.ts`) — JAMAIS un neuvième de
- *    `CHAMPS_INJECTES_NARRATEUR`, qui reste à HUIT chemins tous hors de `monde.personnages[]`,
- *    ni une douzième ligne de la liste fermée ci-dessous, dont le prédicat exclut
- *    `monde.personnages[]` : `contexte.test.ts` garde les trois ;
- *  · son audience est `ia` (`dossier/destinations.ts`) — la dérogation est à la DOCTRINE de ce
+ * ── LA DÉROGATION (n° 14 `moteur-horloge`, it2 puis it3) — LES DEUX SEULS CHAMPS DE PERSONNAGE QUE R3 LIT ──
+ * « Toute donnée de personnage » est exclue — sauf DEUX, une LISTE FERMÉE : la prose
+ * `plan_actions[rang].action` de l'étape qu'un personnage PRÉSENT au lieu courant vient de franchir
+ * AU PAS que ce rôle raconte (it2), ET la prose `plan_actions[].si_bloque` de l'étape COURANTE d'un
+ * personnage PRÉSENT que le prédicat de blocage (`dossier/blocage.ts`) constate bloquée à ce même
+ * pas (it3) — sous l'en-tête `PENDANT CE TEMPS`, une ligne par personnage, dans l'ordre du
+ * document (`lignesPendantCeTemps`, `./horloge.ts`). Elle est ÉCRITE ICI, et non dans le seul
+ * plan, parce qu'un renversement de doctrine qui ne vit que dans un plan est un renversement que
+ * le prochain lecteur de ce fichier ne trouvera pas (BUG-082) :
+ *  · ses CHEMINS sont `CHEMIN_ACTION_DE_PLAN` et `CHEMIN_SI_BLOQUE` (`./horloge.ts`) — JAMAIS un
+ *    neuvième ni un dixième de `CHAMPS_INJECTES_NARRATEUR`, qui reste à HUIT chemins tous hors de
+ *    `monde.personnages[]`, ni une douzième ni une treizième ligne de la liste fermée ci-dessous,
+ *    dont le prédicat exclut `monde.personnages[]` : `contexte.test.ts` garde les trois, pour
+ *    CHACUN des deux chemins. Un TROISIÈME chemin de personnage rouvre cette décision, il ne
+ *    l'étend pas ;
+ *  · leur audience est `ia` (`dossier/destinations.ts`) — la dérogation est à la DOCTRINE de ce
  *    fichier, jamais à la table d'audience : `DEROGATIONS_AUDIENCE` reste VIDE ;
  *  · seule la PROSE entre, repliée sur une ligne : ni `etape_plan.rang`, ni `depuis`, ni
- *    `declencheur_*`, ni `duree`, ni `si_bloque`, ni `Personnage.nom`, ni l'identifiant, ni un
- *    repère `A…` — le narrateur lit ce qui s'est passé, pas qui l'a décidé ;
- *  · un personnage absent du lieu courant, avancé à un autre pas, ou dont l'étape n'est pas
- *    rédigée : SILENCE (jamais un repli sur le nom) ;
+ *    `declencheur_*`, ni `duree`, ni `Personnage.nom`, ni l'identifiant, ni un repère `A…`, ni le
+ *    mot « bloqué » — le narrateur lit ce qui s'est passé, pas qui l'a décidé ni pourquoi. Pour un
+ *    même personnage au même pas, UNE seule des deux proses, jamais les deux : l'avancement et le
+ *    blocage s'excluent (`./horloge.ts`), et `si_bloque` ne remplace JAMAIS une `action` absente ;
+ *  · un personnage absent du lieu courant, avancé ou bloqué à un autre pas, ou dont la prose visée
+ *    n'est pas rédigée : SILENCE (jamais un repli sur le nom, ni sur l'autre prose) ;
  *  · le bloc est HORS CASCADE — ni un levier, ni un invariant : aucun palier ne le retire, et
  *    il est compté tel quel dans le terme dossier de `BUDGET_CARACTERES_DOSSIER`.
  *
@@ -294,8 +300,22 @@ export const BORNE_MEMOIRE =
  * caractères) donnerait M = 2083 et le MÊME 7000 : le palier ne dépend pas du nombre de
  * personnages que le pire cas fait avancer. Le `max` du worker suit (`TAILLE_MAX_CORPS_IA`,
  * `worker/index.ts`).
+ *
+ * RE-MESURÉ le 2026-10-06 (n° 14 `moteur-horloge`, it3, lot `contrat`) — ⚠ LE PALIER BOUGE UNE
+ * SECONDE FOIS : `PENDANT CE TEMPS` gagne une seconde prose d'auteur NON BORNÉE, `si_bloque`
+ * (KR-203), pour le personnage dont l'étape courante est bloquée à ce pas. Les deux sélections sont
+ * DISJOINTES (avancé OU bloqué, jamais les deux au même pas) : `si_bloque` REMPLACE `action`, il ne
+ * s'y ajoute pas, et le pire cas prend `max(action, si_bloque)` PAR personnage — Sélène 101 au lieu
+ * de 49, Corvin 88 au lieu de 52, les trois autres inchangés (67, 46, 49), soit 101 + 88 + 67 + 46
+ * + 49 = 351 contre 263. Le bloc coûte 2 + 16 + (5 + 351) = 374 (+88). M = 2371 (1997 + 374) ⇒
+ * ceil(2371 × 3 / 1000) × 1000 = 8000 : M FRANCHIT 2333 (le seuil exact des 7000, 2333 × 3 = 6999),
+ * et `BUDGET_CARACTERES_DOSSIER` PASSE DE 7000 À 8000. Contrairement à l'it2, le palier DÉPEND du
+ * nombre de lignes que le pire cas fait parler : il faut les CINQ pour franchir (quatre donnent
+ * M = 2324, toujours 7000) — c'est un majorant, qu'aucun état du dossier de référence n'atteint,
+ * et la doctrine de `pireCasNarrateur()`. Le `max` du worker suit (`TAILLE_MAX_CORPS_IA`,
+ * `worker/index.ts`).
  */
-const BUDGET_CARACTERES_DOSSIER = 7000
+const BUDGET_CARACTERES_DOSSIER = 8000
 
 /**
  * LA BORNE DE LA LIGNE DE JET (n° 11 `moteur-arbitre`, it2 puis it3) — CALCULÉE
@@ -572,9 +592,10 @@ interface EtatCompose {
  *     pour un objet ; `aucun changement` si aucun effet ne s'est appliqué — CETTE DERNIÈRE
  *     LIGNE N'EST JAMAIS REMPLACÉE PAR LA LIGNE DE JET. Un effet `'sans_effet'` n'est
  *     JAMAIS raconté (KR-247) ;
- *  7 bis. `PENDANT CE TEMPS` (n° 14, it2) — UNE ligne par personnage PRÉSENT au lieu courant
- *     qui a AVANCÉ d'étape à ce pas : la prose de `plan_actions[rang].action`, repliée, sans
- *     rang ni identifiant (voir LA DÉROGATION en tête de fichier). Pas une ligne, pas de bloc ;
+ *  7 bis. `PENDANT CE TEMPS` (n° 14, it2 puis it3) — UNE ligne par personnage PRÉSENT au lieu
+ *     courant qui a AVANCÉ d'étape à ce pas (la prose de `plan_actions[rang].action`) OU dont
+ *     l'étape courante est BLOQUÉE à ce pas (la prose de `si_bloque`), repliée, sans rang ni
+ *     identifiant (voir LA DÉROGATION en tête de fichier). Pas une ligne, pas de bloc ;
  *     HORS CASCADE ;
  *  8-9. `EN SA POSSESSION` (`A<n> — <prose>`) puis `DEJA ACCOMPLI` — la `description_joueur`
  *     des objets possédés, l'énoncé des jalons atteints (via `projeterJalonsAtteints`,

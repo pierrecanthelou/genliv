@@ -36,11 +36,11 @@
  * `crediterConfiance` (`session.ts`) ; SEULE PORTE DE LECTURE DE LA RÈGLE :
  * `portesOuvertes` (`revelation.ts`, branche `confiance_min`).
  *
- * `etape_plan` (n° 14 `moteur-horloge`, it1 puis it2, `docs/REGLES-PLAY.md` § J2) :
+ * `etape_plan` (n° 14 `moteur-horloge`, it1, it2 puis it3, `docs/REGLES-PLAY.md` § J2) :
  * OPTIONNEL À VIE (KR-251). `rang` est un INDEX dans `plan_actions[]`, jamais le champ
  * `etape` (KR-198). ABSENT ≡ `rang: 0` : l'étape de départ se calcule, elle n'est pas
  * stockée d'office (KR-013) — la clé n'apparaît qu'à un AVANCEMENT. SEULE PORTE
- * D'ÉCRITURE : `tickHorloge` (`horloge.ts`). Aucun prédicat ne la lit, et son audience
+ * D'ÉCRITURE : `tickHorloge` (`horloge.ts`). Aucun prédicat du registre `PREDICATES` ne la lit, et son audience
  * est `moteur` (`sessionDestinations.ts`), pour `rang` comme pour `depuis`.
  *
  * `depuis` (it2) : le PAS où le personnage est entré dans son étape courante — la
@@ -52,12 +52,19 @@
  *
  * `depuis` est OPTIONNEL À VIE (KR-251) — c'est un champ de plus sur un objet DÉJÀ
  * persisté : une session écrite en 0.7.21 porte `{ rang }` SANS `depuis` et se joue
- * telle quelle. ABSENT ≡ PAS D'ENTRÉE DATÉE : le moteur n'invente JAMAIS une origine (ni
- * `0` ni le pas courant) — le personnage n'a pas avancé « à ce pas », et la durée
- * (itération 3) ne le tiendra jamais pour échu. Ce n'est PAS la lecture de `etape_plan`
- * absent ≡ `rang: 0` : l'étape de départ se calcule, mais le pas où l'on y est entré ne
- * se devine pas. `rang` reste REQUIS dans l'objet : un `etape_plan` sans `rang` ne dirait
- * rien de l'étape.
+ * telle quelle. ABSENT ≡ PAS D'ENTRÉE DATÉE : le moteur n'ÉCRIT JAMAIS une origine inventée
+ * (ni `0` ni le pas courant) dans une entrée qu'il n'a pas datée — le personnage n'a pas
+ * avancé « à ce pas ». `rang` reste REQUIS dans l'objet : un `etape_plan` sans `rang` ne
+ * dirait rien de l'étape.
+ *
+ * L'ORIGINE DU DÉCOMPTE DE LA DURÉE (it3) se LIT, elle ne se stocke jamais (KR-013), et
+ * `etapeBloqueeAuPas` (`blocage.ts`) en est le SEUL SITE : `depuis` quand il est écrit ;
+ * sinon `0` pour le rang `0` — ou `etape_plan` ABSENT, l'étape de départ étant occupée
+ * depuis l'ouverture de la partie, le même fait que « absent ≡ `rang: 0` », pas une
+ * devinette ; sinon AUCUNE (rang ≥ 1 sans `depuis` : une session de 0.7.21), et alors le
+ * personnage n'est JAMAIS en échéance. La règle « le moteur n'invente jamais une origine »
+ * vise donc l'ÉCRITURE : le prédicat DÉRIVE l'origine `0` pour le rang `0` sans rien
+ * stocker, et il n'en dérive aucune pour un rang ≥ 1 non daté (`docs/REGLES-PLAY.md` § J2).
  */
 export interface EtatPnj {
 	readonly a_dit: readonly string[]
