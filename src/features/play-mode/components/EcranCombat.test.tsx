@@ -1,5 +1,3 @@
-import fs from 'fs'
-import path from 'path'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { EcranCombat } from './EcranCombat'
@@ -76,13 +74,6 @@ describe('EcranCombat', () => {
 		expect(screen.getByText('VICTOIRE')).toBeInTheDocument()
 	})
 
-	it('affiche badge DÉFAITE et masque boutons sur hero-mort', () => {
-		const etat = createMinimalMockState('hero-mort')
-		render(<EcranCombat etat={etat} onJouer={jest.fn()} onFuir={jest.fn()} />)
-		expect(screen.getByText('DÉFAITE')).toBeInTheDocument()
-		expect(screen.getByText(/PARTIE TERMINÉE/)).toBeInTheDocument()
-	})
-
 	it('appelle onJouer avec la posture selectionnee au clic sur Jouer le round', async () => {
 		const user = userEvent.setup()
 		const etat = createMinimalMockState()
@@ -100,12 +91,6 @@ describe('EcranCombat', () => {
 		render(<EcranCombat etat={etat} onJouer={jest.fn()} onFuir={jest.fn()} onClore={onClore} />)
 		await user.click(screen.getByRole('button', { name: /Continuer/ }))
 		expect(onClore).toHaveBeenCalledTimes(1)
-	})
-
-	it('aucun bouton Continuer sur hero-mort', () => {
-		const etat = createMinimalMockState('hero-mort')
-		render(<EcranCombat etat={etat} onJouer={jest.fn()} onFuir={jest.fn()} />)
-		expect(screen.queryByRole('button', { name: /Continuer/ })).not.toBeInTheDocument()
 	})
 
 	it('affiche les entetes ROUND pour chaque ligne du journal', () => {
@@ -226,19 +211,6 @@ describe('EcranCombat', () => {
 		const commentaires = new Map()
 		render(<EcranCombat etat={etat} onJouer={jest.fn()} onFuir={jest.fn()} commentaires={commentaires} />)
 		expect(screen.queryByText('Commentaire en cours…')).not.toBeInTheDocument()
-	})
-
-	it('recitLivre utilise les tokens --font-ui, --text-muted et --border-rule (sonde source)', () => {
-		const src = fs.readFileSync(path.join(__dirname, 'EcranCombat.tsx'), 'utf8')
-		const start = src.indexOf('const recitLivre')
-		expect(start).toBeGreaterThan(-1)
-		const blockEnd = src.indexOf('}', start)
-		const recitBlock = src.slice(start, blockEnd + 1)
-		expect(recitBlock).toContain('--font-ui')
-		expect(recitBlock).toContain('--text-muted')
-		expect(recitBlock).toContain('--border-rule')
-		expect(recitBlock).not.toMatch(/#[0-9a-fA-F]{3,8}/)
-		expect(recitBlock).not.toMatch(/rgb\(/)
 	})
 
 	it('narration affichee une seule fois, apres la derniere entree du round', () => {

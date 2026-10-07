@@ -22,6 +22,7 @@ import { CadrePartie } from './CadrePartie'
 import { CarnetIndices } from './CarnetIndices'
 import { EcranCreationHeros } from './EcranCreationHeros'
 import { EcranFin } from './EcranFin'
+import { EcranMort } from './EcranMort'
 import { ConsoleCommandes } from './ConsoleCommandes'
 import { PlayerInputBar } from './PlayerInputBar'
 import { JournalRow } from './JournalRow'
@@ -41,7 +42,7 @@ export interface PartieEnCoursProps {
 	readonly dossier: Dossier
 	readonly dossierId: string
 	readonly session: EtatSession
-	readonly onNouvellePartie?: () => void
+	readonly onNouvellePartie: () => void
 }
 
 /**
@@ -52,7 +53,7 @@ export interface PartieDemarreeProps {
 	readonly dossier: Dossier
 	readonly dossierId: string
 	readonly tirerGraine: () => number
-	readonly onNouvellePartie?: () => void
+	readonly onNouvellePartie: () => void
 }
 
 export function PartieDemarree({
@@ -141,16 +142,14 @@ export function PartieEnCours({
 				🗝
 			</IconButton>
 			{nombreIndices > 0 && <Badge tone="neutral">{nombreIndices}</Badge>}
-			{onNouvellePartie && (
-				<IconButton
-					ref={boutonNouvellePartieRef}
-					label="Nouvelle partie"
-					onClick={() => setDialogNouvellePartieOuvert(true)}
-					size={28}
-				>
-					↻
-				</IconButton>
-			)}
+			<IconButton
+				ref={boutonNouvellePartieRef}
+				label="Nouvelle partie"
+				onClick={() => setDialogNouvellePartieOuvert(true)}
+				size={28}
+			>
+				↻
+			</IconButton>
 		</div>
 	)
 
@@ -176,13 +175,34 @@ export function PartieEnCours({
 	const fin: FinAtteinte | undefined = finAtteinte(dossier, session)
 
 	if (fin) {
-		// Résoudre le nom de la fin depuis le dossier
 		const finDossier = dossier.charpente.fins.find((f) => f.id === fin.fin_id)
 		const nomFin = finDossier?.nom ?? ''
 
 		return (
 			<CadrePartie titre={dossier.titre} sortie={{ name: 'dossier', dossierId }}>
-				<EcranFin fin={fin} nom={nomFin} />
+				<EcranFin fin={fin} nom={nomFin} onNouvellePartie={onNouvellePartie} />
+			</CadrePartie>
+		)
+	}
+
+	// n° 15 `moteur-fins`, it3 — MORT DU HÉROS : retour anticipé sans actionsEntete.
+	// Fin et mort sont exclusives par construction (KR-303 : le combat bloque finAtteinte).
+	if (combatRejeu?.outcome === 'hero-mort') {
+		return (
+			<CadrePartie
+				titre={dossier.titre}
+				sortie={{ name: 'dossier', dossierId }}
+				bandeau={
+					<BandeauHeros
+						heros={session.heros}
+						pas={session.horloge.tour}
+						climatNom={climatNom}
+						pvLive={Math.max(0, combatRejeu.heroPv)}
+						peLive={combatRejeu.heroPe}
+					/>
+				}
+			>
+				<EcranMort nom={session.heros.name} log={combatRejeu.log} onNouvellePartie={onNouvellePartie} />
 			</CadrePartie>
 		)
 	}
@@ -235,7 +255,6 @@ export function PartieEnCours({
 				actionsEntete={actionsCarnetJsx}
 			>
 				<div style={colonneLecture}>
-					{/* COMBAT EN COURS — remplace la console et le journal pendant le combat. */}
 					{combatRejeu ? (
 						<CombatEnCours
 							dossier={dossier}
@@ -297,7 +316,7 @@ export function PartieEnCours({
 				</div>
 			</CadrePartie>
 			{carnetOuvert && <CarnetIndices session={session} onClose={() => setCarnetOuvert(false)} />}
-			{dialogNouvellePartieOuvert && onNouvellePartie && (
+			{dialogNouvellePartieOuvert && (
 				<Modal
 					title="Abandonner la partie en cours"
 					focusCancel={true}

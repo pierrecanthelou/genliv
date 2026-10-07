@@ -22,6 +22,8 @@ export function CombatEnCours({ dossier, session, etat, onJouer, onFuir, onClore
 		const nextSession = onJouer(posture)
 		if (nextSession === session) return
 		const rejeu = rejouerCombat(nextSession)
+		// R5 — ne pas appeler commenter si le héros est mort
+		if (rejeu.ok && rejeu.etat.outcome === 'hero-mort') return
 		if (rejeu.ok && rejeu.etat.dernierAssaut && nextSession.heros && nextSession.combat) {
 			commenter(rejeu.etat, nextSession.heros.pvMax, nextSession.combat.monstre_ref)
 		}

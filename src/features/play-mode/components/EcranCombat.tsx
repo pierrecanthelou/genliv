@@ -16,6 +16,7 @@ import { Badge } from '../../../brain/components/Badge'
 import { HIT_TARGET_MIN } from '../../../brain/ui'
 import type { CombatState, CombatOutcome } from '../../../player/engine/combatTypes'
 import type { CommentaireRound } from '../hooks/useCommentaireCombat'
+import { JournalLigneRound } from './JournalLigneRound'
 
 export interface EcranCombatProps {
 	readonly etat: CombatState
@@ -37,20 +38,14 @@ const OUTCOME_LABELS: Record<Exclude<CombatOutcome, 'ongoing'>, string> = {
 export function EcranCombat({ etat, onJouer, onFuir, onClore, commentaires }: EcranCombatProps): JSX.Element {
 	const [selectedPosture, setSelectedPosture] = useState<Posture>('normale')
 	const isTerminal = etat.outcome !== 'ongoing'
-	const isDead = etat.outcome === 'hero-mort'
 
 	const continuerRef = useRef<HTMLButtonElement>(null)
-	const partieTermineeRef = useRef<HTMLDivElement>(null)
 
 	useEffect(() => {
 		if (isTerminal) {
-			if (isDead) {
-				partieTermineeRef.current?.focus()
-			} else {
-				continuerRef.current?.focus()
-			}
+			continuerRef.current?.focus()
 		}
-	}, [isTerminal, isDead])
+	}, [isTerminal])
 
 	const handlePlayRound = () => {
 		onJouer(selectedPosture)
@@ -61,7 +56,7 @@ export function EcranCombat({ etat, onJouer, onFuir, onClore, commentaires }: Ec
 	}
 
 	const handleClose = () => {
-		if (onClore && !isDead) {
+		if (onClore) {
 			onClore()
 		}
 	}
@@ -131,45 +126,16 @@ export function EcranCombat({ etat, onJouer, onFuir, onClore, commentaires }: Ec
 						{etat.outcome !== 'ongoing' && <Badge tone="muted">{OUTCOME_LABELS[etat.outcome]}</Badge>}
 					</div>
 
-					{isDead ? (
-						<div ref={partieTermineeRef} tabIndex={-1} style={partieTerminee}>
-							<p>PARTIE TERMINÉE — Échap ou « Quitter le test »</p>
-						</div>
-					) : (
-						<button
-							ref={continuerRef}
-							style={boutonContinuer}
-							onClick={handleClose}
-							aria-label="Continuer après le combat"
-						>
-							Continuer
-						</button>
-					)}
+					<button
+						ref={continuerRef}
+						style={boutonContinuer}
+						onClick={handleClose}
+						aria-label="Continuer après le combat"
+					>
+						Continuer
+					</button>
 				</>
 			)}
-		</div>
-	)
-}
-
-function JournalLigneRound({
-	round,
-	texte,
-	commentaire,
-}: {
-	round: number
-	texte: string
-	commentaire?: CommentaireRound
-}): JSX.Element {
-	return (
-		<div style={ligneLivre}>
-			<span style={enteteLivre}>ROUND {round}</span>
-			<p style={texteLivre}>{texte}</p>
-			{commentaire && commentaire.etat === 'attente' && (
-				<div role="status">
-					<Badge tone="muted">Commentaire en cours…</Badge>
-				</div>
-			)}
-			{commentaire && commentaire.etat === 'recu' && <p style={recitLivre}>{commentaire.narration}</p>}
 		</div>
 	)
 }
@@ -228,42 +194,6 @@ const logVide: CSSProperties = {
 	textAlign: 'center',
 }
 
-const ligneLivre: CSSProperties = {
-	display: 'flex',
-	flexDirection: 'column',
-	gap: 'var(--space-2)',
-	paddingBottom: 'var(--space-2)',
-	borderBottom: 'var(--bw-hair) solid var(--border-subtle)',
-}
-
-const enteteLivre: CSSProperties = {
-	fontSize: 'var(--fs-eyebrow)',
-	fontFamily: 'var(--font-mono)',
-	color: 'var(--text-strong)',
-	letterSpacing: 'var(--track-eyebrow-wide)',
-	fontWeight: 'var(--fw-semibold)',
-	textTransform: 'uppercase',
-}
-
-const texteLivre: CSSProperties = {
-	margin: 0,
-	fontSize: 'var(--fs-body)',
-	fontFamily: 'var(--font-mono)',
-	color: 'var(--text-body)',
-	lineHeight: 'var(--lh-body)',
-}
-
-const recitLivre: CSSProperties = {
-	margin: 0,
-	fontFamily: 'var(--font-ui)',
-	fontSize: 'var(--fs-body)',
-	lineHeight: 'var(--lh-loose)',
-	color: 'var(--text-muted)',
-	borderLeft: 'var(--bw-strong) solid var(--border-rule)',
-	paddingLeft: 'var(--space-4)',
-	overflowWrap: 'anywhere',
-}
-
 const groupeActions: CSSProperties = {
 	display: 'flex',
 	gap: 'var(--space-5)',
@@ -309,16 +239,4 @@ const boutonContinuer: CSSProperties = {
 	fontWeight: 'var(--fw-semibold)',
 	cursor: 'pointer',
 	minHeight: HIT_TARGET_MIN,
-}
-
-const partieTerminee: CSSProperties = {
-	padding: 'var(--space-4)',
-	backgroundColor: 'var(--surface-sunken)',
-	borderRadius: 'var(--r-xl)',
-	borderLeft: 'var(--bw-hair) solid var(--border-subtle)',
-	fontSize: 'var(--fs-body)',
-	fontFamily: 'var(--font-mono)',
-	color: 'var(--text-strong)',
-	lineHeight: 'var(--lh-body)',
-	margin: 0,
 }

@@ -85,6 +85,42 @@
 			"severity": "major"
 		},
 		{
+			"id": "BUG-161",
+			"date": "2026-10-07",
+			"feature": "moteur-fins",
+			"discovered_at": "iteration-3",
+			"symptom": "console.error spy avec toHaveBeenCalledWith(expect.stringContaining('same key')) ne detecte pas les appels multi-arguments de React — le test de cles dupliquees etait vacueux (passait toujours).",
+			"root_cause": "toHaveBeenCalledWith avec un seul matcher ne matche que les appels a exactement un argument. console.error de React pour les cles dupliquees passe plusieurs arguments.",
+			"fix": "spy.mock.calls.some(([m]) => String(m).includes('same key')) + sonde obligatoire verifiee (key={entry.round} rougit, key={idx} verdit).",
+			"mitigation": "Tech-lead PR v2 a detecte le finding (F2). Regle : tout test de console.error/warn React utilise le patron spy.mock.calls.some, jamais toHaveBeenCalledWith seul.",
+			"regression_test": "src/features/play-mode/components/EcranMort.test.tsx — cles stables avec des rounds dupliques",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-160",
+			"date": "2026-10-07",
+			"feature": "moteur-fins",
+			"discovered_at": "iteration-3",
+			"symptom": "EcranMort etait rendu dans CadrePartie avec actionsEntete — le carnet d'indices et un second bouton Nouvelle partie apparaissaient en doublon.",
+			"root_cause": "Le retour anticipé hero-mort dans PartieEnCours.tsx etait place APRES la construction de actionsEntete et l'incluait dans CadrePartie.",
+			"fix": "Retour anticipé hero-mort AVANT la construction de actionsEntete — CadrePartie sans actionsEntete, comme EcranFin.",
+			"mitigation": "Tech-lead PR v1 a detecte le finding (M3). Regle : un ecran terminal (mort/fin) ne porte jamais d'actions d'entete — retour anticipé avant leur construction.",
+			"regression_test": "src/features/play-mode/tests/mortDuHeros.test.tsx — CA1+CA3 verifie absence du carnet",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-159",
+			"date": "2026-10-07",
+			"feature": "moteur-fins",
+			"discovered_at": "iteration-3",
+			"symptom": "key={entry.round} dans le journal de combat produit des cles React dupliquees quand deux entrees portent le meme numero de round.",
+			"root_cause": "Le round n'est pas un identifiant unique dans le journal de combat — plusieurs entrees peuvent partager le meme numero.",
+			"fix": "key={idx} au lieu de key={entry.round} dans EcranMort et EcranCombat.",
+			"mitigation": "Tech-lead PR v1 a detecte le finding (M1). Sonde obligatoire ajoutee dans EcranMort.test.tsx.",
+			"regression_test": "src/features/play-mode/components/EcranMort.test.tsx — cles stables avec des rounds dupliques",
+			"severity": "major"
+		},
+		{
 			"id": "BUG-158",
 			"date": "2026-10-06",
 			"feature": "moteur-fins",

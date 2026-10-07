@@ -7,6 +7,7 @@
  */
 
 import type { CSSProperties } from 'react'
+import { boutonPrimaire } from './boutonPrimaire'
 import { OutcomeBlock } from './OutcomeBlock'
 import type { FinAtteinte } from '../../../player/engine/fin'
 
@@ -17,9 +18,10 @@ const TEXTE_REPLI_SANS_TEXTE =
 export interface EcranFinProps {
 	readonly fin: FinAtteinte
 	readonly nom: string
+	readonly onNouvellePartie?: () => void
 }
 
-export function EcranFin({ fin, nom }: EcranFinProps): JSX.Element {
+export function EcranFin({ fin, nom, onNouvellePartie }: EcranFinProps): JSX.Element {
 	const nomAffiche = nom.trim() || 'Fin sans nom'
 
 	return (
@@ -34,6 +36,11 @@ export function EcranFin({ fin, nom }: EcranFinProps): JSX.Element {
 					</span>
 					<p style={texteVide}>{TEXTE_REPLI_SANS_TEXTE}</p>
 				</div>
+			)}
+			{onNouvellePartie && (
+				<button style={boutonPrimaire} onClick={onNouvellePartie}>
+					↻ Nouvelle partie
+				</button>
 			)}
 		</section>
 	)

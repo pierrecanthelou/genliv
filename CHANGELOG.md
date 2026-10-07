@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.27 — quand le héros meurt au combat, l'auteur voit un écran de mort dédié et repart en nouvelle partie
+
+`moteur-fins` it3 (roadmap § 3, n° 15, 3/4) — lot unique feature `play-mode`. `EcranMort.tsx` (89 l.) : h2 `MORT · {nom}`, Badge muted `PARTIE TERMINÉE`, texte constant `TEXTE_MORT_HEROS` en `--text-strong` (KR-308), journal des rounds, bouton autoFocus « Nouvelle partie ». `JournalLigneRound.tsx` extrait d'`EcranCombat` (deux appelants). Garde R5 dans `CombatEnCours.handleJouer`. `AiguillagePartie` route hero-mort au rechargement (6 cas). `EcranFin` reçoit `onNouvellePartie`. `cloreCombat(hero-mort)` = identité (KR-013). 156 suites / 2971 tests.
+
+- Écarts : aucun.
+- Reportés : rejeu à graine → it4.
+- Dossier : `.claude/raffinage/moteur-fins-it3.revue.md`.
+
 ## 0.7.26 — l'auteur reprend sa partie après rechargement, ou en démarre une nouvelle si la sauvegarde est périmée ou illisible
 
 `moteur-fins` it2 (roadmap § 3, n° 15, 2/4) — 2 lots séquentiels (L1 contrat `brain/dossier`, L2 feature `play-mode`). `validerSession(brut, dossier)` dans `reprise.ts` — frontière de confiance KR-116, `LectureSession` union discriminée 4 statuts (absente/reprenable/perimee/illisible). `MagasinDeSession.lire(dossier)` port enrichi. `AiguillagePartie.tsx` route par statut + `finAtteinte` + compteur de génération. `EcranReprise.tsx` écran dédié dans `CadrePartie`. `Modal.focusCancel` prop additive. `ActionsCarnet` inline (plus de composant interne). 154 suites / 2958 tests.

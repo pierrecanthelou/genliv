@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useBrain, type Dossier, type LectureSession } from '../../../brain'
 import { finAtteinte } from '../../../player/engine/fin'
+import { rejouerCombat } from '../../../player/engine/rencontre'
 import { CadrePartie } from './CadrePartie'
 import { EcranReprise } from './EcranReprise'
 import { PartieDemarree, PartieEnCours } from './PartieEnCours'
@@ -14,9 +15,10 @@ export interface AiguillagePartieProps {
 /**
  * AIGUILLAGE REPRISE — lecture de la session sauvegardée et routage par statut.
  *
- * Cinq cas :
+ * Six cas :
  *  · `absente` → nouvelle partie (graine tirée, session créée)
  *  · `reprenable` + finAtteinte → nouvelle partie (la précédente est terminée, décision #20)
+ *  · `reprenable` + hero-mort → nouvelle partie (mort du héros, it3)
  *  · `reprenable` + pas de fin → reprise (PartieEnCours reçoit la session)
  *  · `perimee` → écran de refus « Le dossier a changé » (dans CadrePartie)
  *  · `illisible` → écran de refus « La sauvegarde est endommagée » (dans CadrePartie)
@@ -29,6 +31,7 @@ export interface AiguillagePartieProps {
  * AIGUILLAGE CALCULÉ EN LIGNE (KR-013/113) : deux états (`lecture` et
  * `generation`), quatre branches, aucun miroir. `generation` pilote la relance :
  *  · generation === 0 && reprenable && finAtteinte → PartieDemarree(key="post-fin")
+ *  · generation === 0 && reprenable && hero-mort → PartieDemarree(key="post-mort")
  *  · generation === 0 && reprenable && !finAtteinte → PartieEnCours(session, key="reprise")
  *  · generation === 0 && (perimee || illisible) → CadrePartie > EcranReprise
  *  · sinon → PartieDemarree (nouvelle graine, key={generation})
@@ -65,6 +68,22 @@ export function AiguillagePartie({ dossier, dossierId, tirerGraine }: Aiguillage
 					onNouvellePartie={handleNouvellePartie}
 				/>
 			)
+		}
+		// Vérifier si le combat est hero-mort (mort du héros)
+		if (lecture.session.combat) {
+			const rejeu = rejouerCombat(lecture.session)
+			if (rejeu.ok && rejeu.etat.outcome === 'hero-mort') {
+				// Partie terminée par mort du héros — nouvelle partie directe
+				return (
+					<PartieDemarree
+						key="post-mort"
+						dossier={dossier}
+						dossierId={dossierId}
+						tirerGraine={tirerGraine}
+						onNouvellePartie={handleNouvellePartie}
+					/>
+				)
+			}
 		}
 		return (
 			<PartieEnCours

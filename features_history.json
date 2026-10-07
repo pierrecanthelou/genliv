@@ -312,6 +312,29 @@
 			"bugs_encountered": []
 		},
 		{
+			"feature": "moteur-fins (it3, la mort du heros)",
+			"completed_at": "2026-10-07",
+			"goal": "L'auteur dont le heros meurt au combat voit un ecran de mort dedie (texte constant, journal des rounds, bandeau) et repart en nouvelle partie.",
+			"key_architecture_choices": [
+				"EcranMort.tsx composant dedie (89 l.), JournalLigneRound.tsx extrait d'EcranCombat (deux appelants)",
+				"Detection inline par rejouerCombat (KR-013) -- pas de champ mort_confirmee stocke",
+				"Garde R5 dans CombatEnCours.handleJouer -- coupe la boucle de round apres hero-mort",
+				"AiguillagePartie route hero-mort au rechargement (6 cas) -- PartieDemarree key=post-mort",
+				"onNouvellePartie required sur PartieEnCours, optionnel sur EcranFin -- consistance des ecrans terminaux"
+			],
+			"brain_contracts_added": [],
+			"lessons_learned": [
+				"key={entry.round} produit des cles React dupliquees quand deux entrees du journal portent le meme numero de round -- key={idx} est le choix sur du journal de combat, le round n'est pas un identifiant unique.",
+				"toHaveStyle({ color: 'var(--text-strong)' }) est un faux positif en jsdom (BUG-084 confirme) -- le scan source (fs.readFileSync + toContain/not.toContain) est le seul instrument fiable pour verifier l'usage d'un token CSS.",
+				"console.error de React (duplicate key) passe plusieurs arguments : toHaveBeenCalledWith(expect.stringContaining(...)) ne matche que les appels a un argument. spy.mock.calls.some(([m]) => String(m).includes(...)) est le patron correct."
+			],
+			"bugs_encountered": [
+				"BUG-159",
+				"BUG-160",
+				"BUG-161"
+			]
+		},
+		{
 			"feature": "moteur-fins (it1, la fin qu'il a ecrite)",
 			"completed_at": "2026-10-06",
 			"goal": "L'auteur lit, mot pour mot, la fin qu'il a ecrite quand sa condition devient vraie.",

@@ -2,7 +2,7 @@
  * TESTS D'ÉCRAN DE FIN — trois cas : titre, texte verbatim, repli KR-307.
  */
 
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { EcranFin } from './EcranFin'
 import type { FinAtteinte } from '../../../player/engine/fin'
 
@@ -89,5 +89,31 @@ describe('EcranFin', () => {
 		render(<EcranFin fin={fin} nom="Fin" />)
 
 		expect(screen.queryByText(/lue au joueur/)).not.toBeInTheDocument()
+	})
+
+	it('affiche bouton Nouvelle partie si onNouvellePartie défini', () => {
+		const fin: FinAtteinte = {
+			fin_id: 'fin-test',
+			texte: 'Fin.',
+		}
+		const mockOnNouvellePartie = jest.fn()
+
+		render(<EcranFin fin={fin} nom="Fin" onNouvellePartie={mockOnNouvellePartie} />)
+
+		const bouton = screen.getByRole('button', { name: /Nouvelle partie/i })
+		expect(bouton).toBeInTheDocument()
+		fireEvent.click(bouton)
+		expect(mockOnNouvellePartie).toHaveBeenCalledTimes(1)
+	})
+
+	it('pas de bouton Nouvelle partie si onNouvellePartie absent', () => {
+		const fin: FinAtteinte = {
+			fin_id: 'fin-test',
+			texte: 'Fin.',
+		}
+
+		render(<EcranFin fin={fin} nom="Fin" />)
+
+		expect(screen.queryByRole('button', { name: /Nouvelle partie/i })).not.toBeInTheDocument()
 	})
 })

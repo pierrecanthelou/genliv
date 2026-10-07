@@ -12,7 +12,7 @@
 			"finAtteinte rend undefined quand session.combat !== undefined — mort et fin exclusives par construction (KR-303).",
 			"Aucune commande n'est acceptée après une fin ou une mort (RefusCommande 'partie_terminee').",
 			"La mort du héros (IssueCombat 'hero-mort') termine la partie sur un écran de mort, texte constant du moteur en --text-strong.",
-			"R3 n'est pas appelé au pas dont l'issue est une fin. R5 n'est pas appelé au round dont l'issue est hero-mort. Garde dans useTourDeJeu.",
+			"R3 n'est pas appelé au pas dont l'issue est une fin (garde dans useTourDeJeu). R5 n'est pas appelé au round dont l'issue est hero-mort (garde dans CombatEnCours.handleJouer).",
 			"Fin sans texte (optionnel, KR-191) : le consommateur affiche un repli, le contrat ne discrimine pas (KR-307).",
 			"L'auteur reprend sa partie après rechargement — validerSession(brut, dossier) exécutée AVANT la première écriture de useSessionPersistee (KR-305).",
 			"Session périmée (dossier_maj différent) : message nommant la cause, Recommencer seul. Session illisible : refus en bloc, jamais de réparation en place.",
@@ -75,8 +75,8 @@
 			},
 			{
 				"id": 3,
-				"goal": "La mort du héros termine la partie sur un écran dédié, avec texte constant, bandeau et bouton Nouvelle partie.",
-				"status": "planned"
+				"goal": "L'auteur dont le héros tombe à zéro PV arrive sur un écran de mort (texte constant du moteur, journal des rounds, bandeau), d'où il repart en nouvelle partie.",
+				"status": "done"
 			},
 			{
 				"id": 4,
@@ -134,6 +134,22 @@
 						"Duplication de constantes de style entre EcranReprise et EcranRefus — dette notée, extraction commune quand un troisième appelant émerge."
 					],
 					"test_coverage": { "unit": "2958 tests, 154 suites", "e2e": "reprise.test.tsx : 6 tests RTL intégration, EcranReprise.test.tsx : 9 tests, reprise.test.ts : 26+ tests, MagasinDeSession.test.ts : 12 tests lire, Modal.test.tsx : 7 tests focusCancel" }
+				},
+				{
+					"id": 3,
+					"label": "iteration-3",
+					"completed_at": "2026-10-07",
+					"architecture_choices": [
+						"EcranMort.tsx (89 l.) : composant dédié, pas de branche isDead dans EcranCombat",
+						"JournalLigneRound.tsx extrait d'EcranCombat — deux appelants (EcranCombat + EcranMort)",
+						"Détection inline par rejouerCombat (KR-013) : pas de champ mort_confirmee stocké",
+						"Garde R5 dans CombatEnCours.handleJouer, pas useTourDeJeu — coupe volontaire",
+						"AiguillagePartie route hero-mort au rechargement (6 cas), PartieDemarree key=post-mort",
+						"TEXTE_MORT_HEROS dans feature/ (EcranMort.tsx) — un seul lecteur",
+						"onNouvellePartie required sur PartieEnCours, optionnel sur EcranFin"
+					],
+					"deviations_from_plan": [],
+					"test_coverage": { "unit": "2971 tests, 156 suites", "e2e": "mortDuHeros.test.tsx : 3 tests intégration (KR-013, CA7 rechargement, CA1+CA3 EcranMort), EcranMort.test.tsx : 10 tests (autoFocus, duplicate key sonde, KR-308 source scan)" }
 				}
 			],
 		"resolved_decisions": [
@@ -158,17 +174,27 @@
 			"RETENU — un seul verbe Nouvelle partie. Rejouer réservé à it4.",
 			"RETENU — validerSession vérifie la forme de memoire (types jusqu'aux primitifs), pas I1-I5 (chemin d'écriture).",
 			"RETENU — terminée vit dans AiguillagePartie (finAtteinte sur reprenable), pas 5e statut dans LectureSession.",
-			"RETENU — JSON non parsable ≡ absente (PersistenceService.get avale l'erreur de parse)."
+			"RETENU — JSON non parsable ≡ absente (PersistenceService.get avale l'erreur de parse).",
+			"RETENU — mort_confirmee refusé (KR-013, veto PM+TL). Détection inline par rejouerCombat, aucun champ stocké.",
+			"RETENU — TEXTE_MORT_HEROS dans feature/ (EcranMort.tsx), pas brain/ — un seul lecteur, aucune fonction brain/ ne l'émet.",
+			"RETENU — garde R5 dans CombatEnCours.handleJouer, pas useTourDeJeu. Coupe volontaire : le moteur seul parle de la mort.",
+			"RETENU — bouton Nouvelle partie sur EcranFin (prop optionnelle) — consistance des écrans terminaux.",
+			"RETENU — AiguillagePartie ouverture directe (reprenable + hero-mort) — consistance avec fin.",
+			"RETENU — journal des rounds lisible sur EcranMort (JournalLigneRound extrait d'EcranCombat, deux appelants).",
+			"RETENU — isDead retiré d'EcranCombat (branche inatteignable après intercept hero-mort dans PartieEnCours).",
+			"RETENU — refus code mort = combat_en_cours (commandes.ts:136-138), pas partie_terminee.",
+			"REJETÉ — veto QA REGLES-DU-JEU.md pour TEXTE_MORT_HEROS : KR-130 = mécaniques (PV ≤ 0 = mort, l.38), le texte est du copy UI. Pointeur dans REGLES-PLAY.md.",
+			"REJETÉ — SortiePartie composant partagé (abstraction prématurée, un boutonPrimaire suffit).",
+			"REJETÉ — carnet d'indices sur EcranMort (absent, comme EcranFin, retour anticipé sans actionsEntete).",
+			"REJETÉ — ligne de journal de mort en session (écriture = modification contrat, cloreCombat identité, décision close)."
 		],
 		"open_questions": [
 			"REPORTÉ — boutonRetour en brain/components : 1 seul appelant. Local à play-mode. Revisité si second appelant émerge.",
 			"REPORTÉ — réécriture de docs/EXIGENCE-APERCU-DU-JEU.md : lot .md en fin de feature.",
 			"REPORTÉ — dossier introuvable depuis l'Aperçu : inatteignable (le dossier est ouvert dans l'éditeur).",
-			"REPORTÉ — mort du héros (écran, texte constant, garde R5, bandeau de fin) → it3.",
-			"REPORTÉ — TEXTE_MORT_HEROS constante nommée, voix factuelle, ligne de journal → it3.",
 			"REPORTÉ — bouton Rejouer + focus auto → it4.",
-			"REPORTÉ — refus dans illisible → it3.",
-			"REPORTÉ — cas limites navigateur (retour arrière, hors ligne, crash) → it3/it4.",
+			"REPORTÉ — refus dans illisible → dette à déclencheur « reprise.ts rouvert ».",
+			"REPORTÉ — cas limites navigateur (retour arrière, hors ligne, crash) → it4.",
 			"REPORTÉ — fin vraie à l'ouverture (condition non(lieu_visite X)) : aucun contrôle ne la signale. Candidat à un contrôle dans dossier-controles, dette à déclencheur.",
 			"ÉCART — bandeau absent de l'écran de fin (pas de BandeauHeros ni actionsEntete). PV/PE sans objet sur écran de fin, à traiter en it2.",
 			"ÉCART — PartieDemarree dans PartieEnCours.tsx au lieu d'EcranPartie.tsx. Pas de cycle, un seul import."

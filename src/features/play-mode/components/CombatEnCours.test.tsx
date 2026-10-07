@@ -279,6 +279,32 @@ describe('CombatEnCours', () => {
 		expect(mockDemander).not.toHaveBeenCalled()
 	})
 
+	it('ne demande pas de commentaire quand hero-mort', async () => {
+		const etatMort: CombatState = { ...mockCombatState, outcome: 'hero-mort' }
+		const onJouer = jest.fn().mockReturnValue(nextSession)
+		mockRejouerCombat.mockReturnValue({
+			ok: true as const,
+			etat: etatMort,
+		})
+
+		render(
+			<CombatEnCours
+				dossier={mockDossier}
+				session={mockSession}
+				etat={etatMort}
+				onJouer={onJouer}
+				onFuir={jest.fn()}
+			/>,
+		)
+
+		await act(async () => {
+			fireEvent.click(screen.getByText('Play'))
+		})
+
+		expect(onJouer).toHaveBeenCalledWith('normale')
+		expect(mockDemander).not.toHaveBeenCalled()
+	})
+
 	it('avorte les requetes au demontage', async () => {
 		const onJouer = jest.fn().mockReturnValue(nextSession)
 		const { unmount } = render(
