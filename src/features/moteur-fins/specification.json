@@ -1,7 +1,7 @@
 {
 	"feature": "moteur-fins",
 	"created_at": "2026-10-06",
-	"status": "in-progress",
+	"status": "done",
 	"design_reference": "docs/PLAN-BASCULE-IA.dc.html § 2.9 (conditions de fin, mort, reprise), docs/REGLES-PLAY.md § A5 (fins), § E1 (mort), § G (sauvegarde)",
 	"plan": {
 		"goal": "L'auteur voit sa partie s'achever (fin du dossier ou mort du héros), reprend une partie en cours, et relance avec la même graine.",
@@ -80,8 +80,8 @@
 			},
 			{
 				"id": 4,
-				"goal": "L'auteur relance avec la même graine et obtient les mêmes tirages.",
-				"status": "planned"
+				"goal": "L'auteur relance sa partie terminée avec les mêmes dés.",
+				"status": "done"
 			}
 		],
 		"known_risks": [
@@ -101,57 +101,83 @@
 	},
 	"implementation": {
 		"iterations_log": [
-				{
-					"id": 1,
-					"label": "iteration-1",
-					"completed_at": "2026-10-06",
-					"architecture_choices": [
-						"finAtteinte param structurel { monde; combat? } + retour FinAtteinte {fin_id, texte?} — doctrine Rencontre/JalonAtteint",
-						"Pont player/engine/fin.ts (réexport) — doctrine brain/index.ts:574-578",
-						"Extraction PartieEnCours.tsx depuis EcranPartie.tsx (60 l., KR-112)",
-						"Garde R2/R3/R4 dans useTourDeJeu après ÉTAPE 5, avant R2 — coupe narrateur, jet, acteur quand fin atteinte"
-					],
-					"deviations_from_plan": [
-						"EcranPartie.tsx à 60 lignes (plan : ~100) — PartieDemarree dans PartieEnCours.tsx (plan : dans EcranPartie). Écart accepté, pas de cycle.",
-						"Bandeau absent de l'écran de fin — le plan § 3 met bandeau={<BandeauHeros/>} mais la branche fin n'affiche pas le bandeau (PV/PE sans objet). Écart à traiter en it2."
-					],
-					"test_coverage": { "unit": "2898 tests, 151 suites", "e2e": "finDePartie.test.tsx : verbatim de bout en bout" }
-				},
-				{
-					"id": 2,
-					"label": "iteration-2",
-					"completed_at": "2026-10-07",
-					"architecture_choices": [
-						"validerSession(brut, dossier) dans reprise.ts (NEW, 294 l.) — frontière de confiance KR-116, table de validateurs exhaustive, pas exporté par le baril (KR-109)",
-						"LectureSession union discriminée 4 statuts : absente, reprenable, perimee, illisible",
-						"MagasinDeSession enrichi : port lire(dossier) appelle validerSession",
-						"AiguillagePartie.tsx : routage par LectureSession + finAtteinte + generation counter",
-						"EcranReprise.tsx : écran dédié (pas EcranRefus étendu), dans CadrePartie",
-						"Modal.focusCancel boolean prop — focus Cancel on open",
-						"ActionsCarnet remplacé par actionsCarnetJsx (variable JSX stable, pas de composant interne)"
-					],
-					"deviations_from_plan": [
-						"Duplication de constantes de style entre EcranReprise et EcranRefus — dette notée, extraction commune quand un troisième appelant émerge."
-					],
-					"test_coverage": { "unit": "2958 tests, 154 suites", "e2e": "reprise.test.tsx : 6 tests RTL intégration, EcranReprise.test.tsx : 9 tests, reprise.test.ts : 26+ tests, MagasinDeSession.test.ts : 12 tests lire, Modal.test.tsx : 7 tests focusCancel" }
-				},
-				{
-					"id": 3,
-					"label": "iteration-3",
-					"completed_at": "2026-10-07",
-					"architecture_choices": [
-						"EcranMort.tsx (89 l.) : composant dédié, pas de branche isDead dans EcranCombat",
-						"JournalLigneRound.tsx extrait d'EcranCombat — deux appelants (EcranCombat + EcranMort)",
-						"Détection inline par rejouerCombat (KR-013) : pas de champ mort_confirmee stocké",
-						"Garde R5 dans CombatEnCours.handleJouer, pas useTourDeJeu — coupe volontaire",
-						"AiguillagePartie route hero-mort au rechargement (6 cas), PartieDemarree key=post-mort",
-						"TEXTE_MORT_HEROS dans feature/ (EcranMort.tsx) — un seul lecteur",
-						"onNouvellePartie required sur PartieEnCours, optionnel sur EcranFin"
-					],
-					"deviations_from_plan": [],
-					"test_coverage": { "unit": "2971 tests, 156 suites", "e2e": "mortDuHeros.test.tsx : 3 tests intégration (KR-013, CA7 rechargement, CA1+CA3 EcranMort), EcranMort.test.tsx : 10 tests (autoFocus, duplicate key sonde, KR-308 source scan)" }
+			{
+				"id": 1,
+				"label": "iteration-1",
+				"completed_at": "2026-10-06",
+				"architecture_choices": [
+					"finAtteinte param structurel { monde; combat? } + retour FinAtteinte {fin_id, texte?} — doctrine Rencontre/JalonAtteint",
+					"Pont player/engine/fin.ts (réexport) — doctrine brain/index.ts:574-578",
+					"Extraction PartieEnCours.tsx depuis EcranPartie.tsx (60 l., KR-112)",
+					"Garde R2/R3/R4 dans useTourDeJeu après ÉTAPE 5, avant R2 — coupe narrateur, jet, acteur quand fin atteinte"
+				],
+				"deviations_from_plan": [
+					"EcranPartie.tsx à 60 lignes (plan : ~100) — PartieDemarree dans PartieEnCours.tsx (plan : dans EcranPartie). Écart accepté, pas de cycle.",
+					"Bandeau absent de l'écran de fin — le plan § 3 met bandeau={<BandeauHeros/>} mais la branche fin n'affiche pas le bandeau (PV/PE sans objet). Écart à traiter en it2."
+				],
+				"test_coverage": {
+					"unit": "2898 tests, 151 suites",
+					"e2e": "finDePartie.test.tsx : verbatim de bout en bout"
 				}
-			],
+			},
+			{
+				"id": 2,
+				"label": "iteration-2",
+				"completed_at": "2026-10-07",
+				"architecture_choices": [
+					"validerSession(brut, dossier) dans reprise.ts (NEW, 294 l.) — frontière de confiance KR-116, table de validateurs exhaustive, pas exporté par le baril (KR-109)",
+					"LectureSession union discriminée 4 statuts : absente, reprenable, perimee, illisible",
+					"MagasinDeSession enrichi : port lire(dossier) appelle validerSession",
+					"AiguillagePartie.tsx : routage par LectureSession + finAtteinte + generation counter",
+					"EcranReprise.tsx : écran dédié (pas EcranRefus étendu), dans CadrePartie",
+					"Modal.focusCancel boolean prop — focus Cancel on open",
+					"ActionsCarnet remplacé par actionsCarnetJsx (variable JSX stable, pas de composant interne)"
+				],
+				"deviations_from_plan": [
+					"Duplication de constantes de style entre EcranReprise et EcranRefus — dette notée, extraction commune quand un troisième appelant émerge."
+				],
+				"test_coverage": {
+					"unit": "2958 tests, 154 suites",
+					"e2e": "reprise.test.tsx : 6 tests RTL intégration, EcranReprise.test.tsx : 9 tests, reprise.test.ts : 26+ tests, MagasinDeSession.test.ts : 12 tests lire, Modal.test.tsx : 7 tests focusCancel"
+				}
+			},
+			{
+				"id": 3,
+				"label": "iteration-3",
+				"completed_at": "2026-10-07",
+				"architecture_choices": [
+					"EcranMort.tsx (89 l.) : composant dédié, pas de branche isDead dans EcranCombat",
+					"JournalLigneRound.tsx extrait d'EcranCombat — deux appelants (EcranCombat + EcranMort)",
+					"Détection inline par rejouerCombat (KR-013) : pas de champ mort_confirmee stocké",
+					"Garde R5 dans CombatEnCours.handleJouer, pas useTourDeJeu — coupe volontaire",
+					"AiguillagePartie route hero-mort au rechargement (6 cas), PartieDemarree key=post-mort",
+					"TEXTE_MORT_HEROS dans feature/ (EcranMort.tsx) — un seul lecteur",
+					"onNouvellePartie required sur PartieEnCours, optionnel sur EcranFin"
+				],
+				"deviations_from_plan": [],
+				"test_coverage": {
+					"unit": "2971 tests, 156 suites",
+					"e2e": "mortDuHeros.test.tsx : 3 tests intégration (KR-013, CA7 rechargement, CA1+CA3 EcranMort), EcranMort.test.tsx : 10 tests (autoFocus, duplicate key sonde, KR-308 source scan)"
+				}
+			},
+			{
+				"id": 4,
+				"label": "iteration-4",
+				"completed_at": "2026-10-07",
+				"architecture_choices": [
+					"boutonSecondaire.ts (CSSProperties tokens only) -- deux appelants (EcranFin, EcranMort)",
+					"AiguillagePartie etat unique {generation, graine?} -- graine collante impossible par construction",
+					"graineImposee ?? tirerGraine() (jamais ||, graine 0 valide)",
+					"handleRejouer(graine) transmet session.graine_alea -- pas de calcul, pas de stockage",
+					"type=button sur boutons Rejouer (pas de form parent, mais defense en profondeur)"
+				],
+				"deviations_from_plan": [],
+				"test_coverage": {
+					"unit": "2990 tests, 158 suites",
+					"e2e": "rejouer.test.tsx : 2 tests integration AiguillagePartie (fin->Rejouer->meme graine, fin->Rejouer->Nouvelle partie->graine non collante)"
+				}
+			}
+		],
 		"resolved_decisions": [
 			"REJETÉ — issueDePartie unifiée : proposée par Narratif-IA T1, retirée T2 après lecture du code. Deux chemins de détection disjoints (evaluerExpr pour fin, bilanDe/rejouerCombat pour mort). finAtteinte seul en contrat.",
 			"REJETÉ — fin_a_ecrire dans le contrat : coupler détection à contenu de texte viole SRP. Fin.texte optionnel à vie (KR-191). Le consommateur gère l'absence.",
@@ -186,18 +212,31 @@
 			"REJETÉ — veto QA REGLES-DU-JEU.md pour TEXTE_MORT_HEROS : KR-130 = mécaniques (PV ≤ 0 = mort, l.38), le texte est du copy UI. Pointeur dans REGLES-PLAY.md.",
 			"REJETÉ — SortiePartie composant partagé (abstraction prématurée, un boutonPrimaire suffit).",
 			"REJETÉ — carnet d'indices sur EcranMort (absent, comme EcranFin, retour anticipé sans actionsEntete).",
-			"REJETÉ — ligne de journal de mort en session (écriture = modification contrat, cloreCombat identité, décision close)."
+			"REJETÉ — ligne de journal de mort en session (écriture = modification contrat, cloreCombat identité, décision close).",
+			"RETENU — libellé « ↪ Rejouer — mêmes dés » (« jet » = terme UI, CarteJet/OutcomeBlock ; « graine » reste interne).",
+			"RETENU — boutonSecondaire dans un fichier séparé (boutonSecondaire.ts), pas dans boutonPrimaire.ts (4 importeurs, nom mentirait).",
+			"RETENU — AiguillagePartie état unique {generation, graine?} au lieu de deux useState (graine collante impossible).",
+			"RETENU — graineImposee ?? tirerGraine() (jamais ||, graine 0 valide).",
+			"RETENU — autoFocus Nouvelle partie sur EcranFin (trou clavier comblé).",
+			"RETENU — aide « Mêmes dés dès la création du héros. Le récit peut changer. » (falsifiable, NIA).",
+			"REJETÉ — affichage GRAINE·{n} (UX retire en T2, preuve = pool de dés de création).",
+			"REJETÉ — tabIndex={0} journal EcranMort (UX retire, TL refuse).",
+			"REJETÉ — :hover boutonSecondaire (CSSProperties ne le permet pas, dette).",
+			"REJETÉ — barre d'actions commune (UX retire, abstraction prématurée).",
+			"REJETÉ — 3 combats dans test pur (1 suffit)."
 		],
 		"open_questions": [
 			"REPORTÉ — boutonRetour en brain/components : 1 seul appelant. Local à play-mode. Revisité si second appelant émerge.",
 			"REPORTÉ — réécriture de docs/EXIGENCE-APERCU-DU-JEU.md : lot .md en fin de feature.",
 			"REPORTÉ — dossier introuvable depuis l'Aperçu : inatteignable (le dossier est ouvert dans l'éditeur).",
-			"REPORTÉ — bouton Rejouer + focus auto → it4.",
 			"REPORTÉ — refus dans illisible → dette à déclencheur « reprise.ts rouvert ».",
-			"REPORTÉ — cas limites navigateur (retour arrière, hors ligne, crash) → it4.",
 			"REPORTÉ — fin vraie à l'ouverture (condition non(lieu_visite X)) : aucun contrôle ne la signale. Candidat à un contrôle dans dossier-controles, dette à déclencheur.",
 			"ÉCART — bandeau absent de l'écran de fin (pas de BandeauHeros ni actionsEntete). PV/PE sans objet sur écran de fin, à traiter en it2.",
-			"ÉCART — PartieDemarree dans PartieEnCours.tsx au lieu d'EcranPartie.tsx. Pas de cycle, un seul import."
+			"ÉCART — PartieDemarree dans PartieEnCours.tsx au lieu d'EcranPartie.tsx. Pas de cycle, un seul import.",
+			"REPORTÉ — L2 docs EXIGENCE-APERCU-DU-JEU.md → ligne armée au roadmap.",
+			"REPORTÉ — 7 règles ESLint UX → tranche outillage.",
+			"REPORTÉ — maxWidth 480 en dur (EcranMort) → dette quand rouvert.",
+			"REPORTÉ — border 1px dans boutonPrimaire → dette quand rouvert."
 		]
 	}
 }

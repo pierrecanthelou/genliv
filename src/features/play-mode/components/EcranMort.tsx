@@ -1,19 +1,22 @@
 import type { CSSProperties } from 'react'
 import { Badge } from '../../../brain/components/Badge'
 import { boutonPrimaire } from './boutonPrimaire'
+import { boutonSecondaire } from './boutonSecondaire'
 import { OutcomeBlock } from './OutcomeBlock'
 import { JournalLigneRound } from './JournalLigneRound'
 import type { CombatLogEntry } from '../../../player/engine/combatTypes'
 
 export const TEXTE_MORT_HEROS = "Vos forces vous quittent. Le combat est perdu : votre aventure s'arrête ici."
+const TEXTE_AIDE_REJOUER = 'Mêmes dés dès la création du héros. Le récit peut changer.'
 
 export interface EcranMortProps {
 	readonly nom: string
 	readonly log: ReadonlyArray<CombatLogEntry>
 	readonly onNouvellePartie: () => void
+	readonly onRejouer: () => void
 }
 
-export function EcranMort({ nom, log, onNouvellePartie }: EcranMortProps): JSX.Element {
+export function EcranMort({ nom, log, onNouvellePartie, onRejouer }: EcranMortProps): JSX.Element {
 	const nomAffiche = nom.trim() || 'Héros sans nom'
 
 	return (
@@ -35,13 +38,19 @@ export function EcranMort({ nom, log, onNouvellePartie }: EcranMortProps): JSX.E
 				))}
 			</div>
 
-			{/* Bouton Nouvelle partie */}
-			<button style={boutonPrimaire} onClick={onNouvellePartie} autoFocus>
-				↻ Nouvelle partie
-			</button>
+			{/* Barre d'actions */}
+			<div style={barreActions}>
+				<button style={boutonPrimaire} onClick={onNouvellePartie} autoFocus>
+					↻ Nouvelle partie
+				</button>
+				<button type="button" style={boutonSecondaire} onClick={onRejouer}>
+					↪ Rejouer — mêmes dés
+				</button>
+			</div>
 
-			{/* Aide */}
+			{/* Aides */}
 			<p style={aide}>La partie est terminée. Le dossier n&apos;est pas modifié.</p>
+			<p style={aide}>{TEXTE_AIDE_REJOUER}</p>
 		</section>
 	)
 }
@@ -78,6 +87,13 @@ const journal: CSSProperties = {
 	gap: 'var(--space-3)',
 	overflowY: 'auto',
 	paddingRight: 'var(--space-3)',
+}
+
+const barreActions: CSSProperties = {
+	display: 'flex',
+	flexWrap: 'wrap',
+	gap: 'var(--space-5)',
+	alignItems: 'center',
 }
 
 const aide: CSSProperties = {

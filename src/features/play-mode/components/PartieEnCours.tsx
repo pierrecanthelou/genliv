@@ -43,6 +43,7 @@ export interface PartieEnCoursProps {
 	readonly dossierId: string
 	readonly session: EtatSession
 	readonly onNouvellePartie: () => void
+	readonly onRejouer: (graine: number) => void
 }
 
 /**
@@ -54,6 +55,8 @@ export interface PartieDemarreeProps {
 	readonly dossierId: string
 	readonly tirerGraine: () => number
 	readonly onNouvellePartie: () => void
+	readonly onRejouer: (graine: number) => void
+	readonly graineImposee?: number
 }
 
 export function PartieDemarree({
@@ -61,8 +64,10 @@ export function PartieDemarree({
 	dossierId,
 	tirerGraine,
 	onNouvellePartie,
+	onRejouer,
+	graineImposee,
 }: PartieDemarreeProps): JSX.Element {
-	const [graine] = useState(() => tirerGraine())
+	const [graine] = useState(() => graineImposee ?? tirerGraine())
 	const [ouverture] = useState(() => ouvrirSession(dossier, { graine_alea: graine }))
 
 	if (!ouverture.ok) {
@@ -75,6 +80,7 @@ export function PartieDemarree({
 			dossierId={dossierId}
 			session={ouverture.session}
 			onNouvellePartie={onNouvellePartie}
+			onRejouer={onRejouer}
 		/>
 	)
 }
@@ -91,6 +97,7 @@ export function PartieEnCours({
 	dossierId,
 	session: sessionInitiale,
 	onNouvellePartie,
+	onRejouer,
 }: PartieEnCoursProps): JSX.Element {
 	const [session, setSession] = useState(sessionInitiale)
 	const [refus, setRefus] = useState<string | null>(null)
@@ -132,6 +139,10 @@ export function PartieEnCours({
 		if (!bilan) return
 		const newSession = cloreCombat(session, bilan)
 		setSession(newSession)
+	}
+
+	const handleRejouer = () => {
+		onRejouer(session.graine_alea)
 	}
 
 	const nombreIndices = session.monde.indices_connus.length
@@ -180,7 +191,7 @@ export function PartieEnCours({
 
 		return (
 			<CadrePartie titre={dossier.titre} sortie={{ name: 'dossier', dossierId }}>
-				<EcranFin fin={fin} nom={nomFin} onNouvellePartie={onNouvellePartie} />
+				<EcranFin fin={fin} nom={nomFin} onNouvellePartie={onNouvellePartie} onRejouer={handleRejouer} />
 			</CadrePartie>
 		)
 	}
@@ -202,7 +213,12 @@ export function PartieEnCours({
 					/>
 				}
 			>
-				<EcranMort nom={session.heros.name} log={combatRejeu.log} onNouvellePartie={onNouvellePartie} />
+				<EcranMort
+					nom={session.heros.name}
+					log={combatRejeu.log}
+					onNouvellePartie={onNouvellePartie}
+					onRejouer={handleRejouer}
+				/>
 			</CadrePartie>
 		)
 	}

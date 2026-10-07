@@ -8,20 +8,23 @@
 
 import type { CSSProperties } from 'react'
 import { boutonPrimaire } from './boutonPrimaire'
+import { boutonSecondaire } from './boutonSecondaire'
 import { OutcomeBlock } from './OutcomeBlock'
 import type { FinAtteinte } from '../../../player/engine/fin'
 
 const ENTETE_FIN = 'FIN — lue au joueur, mot pour mot'
 const TEXTE_REPLI_SANS_TEXTE =
 	"Cette fin n'a pas de texte — rédigez-la dans JALONS & FINS, onglet FINS, pour que le moteur la lise au joueur."
+const TEXTE_AIDE_REJOUER = 'Mêmes dés dès la création du héros. Le récit peut changer.'
 
 export interface EcranFinProps {
 	readonly fin: FinAtteinte
 	readonly nom: string
 	readonly onNouvellePartie?: () => void
+	readonly onRejouer?: () => void
 }
 
-export function EcranFin({ fin, nom, onNouvellePartie }: EcranFinProps): JSX.Element {
+export function EcranFin({ fin, nom, onNouvellePartie, onRejouer }: EcranFinProps): JSX.Element {
 	const nomAffiche = nom.trim() || 'Fin sans nom'
 
 	return (
@@ -38,9 +41,19 @@ export function EcranFin({ fin, nom, onNouvellePartie }: EcranFinProps): JSX.Ele
 				</div>
 			)}
 			{onNouvellePartie && (
-				<button style={boutonPrimaire} onClick={onNouvellePartie}>
-					↻ Nouvelle partie
-				</button>
+				<>
+					<div style={barreActions}>
+						<button style={boutonPrimaire} onClick={onNouvellePartie} autoFocus>
+							↻ Nouvelle partie
+						</button>
+						{onRejouer && (
+							<button type="button" style={boutonSecondaire} onClick={onRejouer}>
+								↪ Rejouer — mêmes dés
+							</button>
+						)}
+					</div>
+					{onRejouer && <p style={aide}>{TEXTE_AIDE_REJOUER}</p>}
+				</>
 			)}
 		</section>
 	)
@@ -76,3 +89,18 @@ const etatVide: CSSProperties = {
 const glypheVide: CSSProperties = { fontSize: 'var(--fs-h1)', color: 'var(--text-faint)', lineHeight: 1 }
 
 const texteVide: CSSProperties = { margin: 0, color: 'var(--text-muted)', lineHeight: 'var(--lh-body)' }
+
+const barreActions: CSSProperties = {
+	display: 'flex',
+	flexWrap: 'wrap',
+	gap: 'var(--space-5)',
+	alignItems: 'center',
+}
+
+const aide: CSSProperties = {
+	fontSize: 'var(--fs-body)',
+	color: 'var(--text-muted)',
+	lineHeight: 'var(--lh-body)',
+	fontFamily: 'var(--font-ui)',
+	margin: 0,
+}

@@ -2,6 +2,25 @@
 	"_about": "Les features livrées au TEMPS COURANT — Temps 2, versions 0.7.x, plus les dernières tranches de dette du Temps 1. Ce fichier est la source VIVANTE : une feature y entre à sa complétion, en repart vers features_history.0.6.x-anterieures.json (Temps 1) dès que ses leçons sont promues en KR de code-knowledge.json ET que le plafond de 25 kio (docs/WORKFLOW.md, § Budget de contexte) est de nouveau franchi. Il ne se compacte pas, il se SCINDE. Dernière scission : 2026-10-06 (moteur-fins it1) ; précédente : 2026-09-19 (dossier-controles).",
 	"features": [
 		{
+			"feature": "moteur-fins (it4, le rejeu a graine egale)",
+			"completed_at": "2026-10-07",
+			"goal": "L auteur relance sa partie terminee (fin ou mort) avec les memes des : le bouton Rejouer ouvre une partie neuve qui reproduit les tirages de la precedente.",
+			"key_architecture_choices": [
+				"boutonSecondaire.ts (CSSProperties tokens only) -- deux appelants (EcranFin, EcranMort), pas d abstraction prematuree",
+				"AiguillagePartie etat unique {generation, graine?} -- graine collante impossible par construction",
+				"graineImposee ?? tirerGraine() (jamais ||, graine 0 valide, KR-304)",
+				"handleRejouer(graine) transmet session.graine_alea -- pas de calcul, pas de stockage",
+				"graineImposee retiree des branches post-fin et post-mort (generation===0, graine toujours undefined, prop morte detectee en revue)"
+			],
+			"brain_contracts_added": [],
+			"lessons_learned": [
+				"Un test d integration qui traverse AiguillagePartie de bout en bout (creation du heros, navigation, combat, fuite, EcranFin, clic Rejouer) est OBLIGATOIRE pour epingler les transitions d etat -- les tests unitaires PartieDemarree et EcranFin.test seuls laissent deux mutations critiques vertes (handleRejouer ecrit undefined, handleNouvellePartie garde la graine).",
+				"structuredClone n est pas defini dans l environnement Jest (jsdom) -- utiliser JSON.parse(JSON.stringify(...)) pour le deep clone dans les tests.",
+				"Les props mortes sur les branches a generation===0 (graineImposee={relance.graine} ou graine est toujours undefined) passent tsc, les tests et la QA -- seule la revue tech-lead les detecte."
+			],
+			"bugs_encountered": []
+		},
+		{
 			"feature": "moteur-dossier (it2, le deplacement par les acces)",
 			"completed_at": "2026-09-24",
 			"goal": "L'auteur deplace son heros d'un lieu a un autre en tapant `ALLER <lieu>` dans la console de l'apercu.",

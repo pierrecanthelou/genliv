@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.28 — l'auteur relance sa partie terminée avec les mêmes dés
+
+`moteur-fins` it4 (roadmap § 3, n° 15, 4/4, **TERMINÉE**) — lot unique feature `play-mode`. `boutonSecondaire.ts` (N, 19 l.). `EcranFin.tsx` et `EcranMort.tsx` : barre d'actions avec « ↻ Nouvelle partie » (autoFocus) + « ↪ Rejouer — mêmes dés » (type="button"), aide « Mêmes dés dès la création du héros. Le récit peut changer. ». `PartieEnCours.tsx` : `onRejouer(graine)` câblé vers `session.graine_alea`. `AiguillagePartie.tsx` : état unique `{generation, graine?}`, `graineImposee ?? tirerGraine()` (graine 0 valide, KR-304). 158 suites / 2990 tests — 2 intégration AiguillagePartie (fin→Rejouer→même graine, fin→Rejouer→Nouvelle partie→graine non collante).
+
+- Écarts : aucun.
+- Reportés : L2 docs EXIGENCE-APERCU-DU-JEU.md (ligne armée au roadmap), 7 règles ESLint UX (tranche outillage), maxWidth 480 en dur + border 1px boutonPrimaire + :hover boutonSecondaire (dette quand rouvert).
+- Dossier : `.claude/raffinage/moteur-fins-it4.revue.md`.
+
 ## 0.7.27 — quand le héros meurt au combat, l'auteur voit un écran de mort dédié et repart en nouvelle partie
 
 `moteur-fins` it3 (roadmap § 3, n° 15, 3/4) — lot unique feature `play-mode`. `EcranMort.tsx` (89 l.) : h2 `MORT · {nom}`, Badge muted `PARTIE TERMINÉE`, texte constant `TEXTE_MORT_HEROS` en `--text-strong` (KR-308), journal des rounds, bouton autoFocus « Nouvelle partie ». `JournalLigneRound.tsx` extrait d'`EcranCombat` (deux appelants). Garde R5 dans `CombatEnCours.handleJouer`. `AiguillagePartie` route hero-mort au rechargement (6 cas). `EcranFin` reçoit `onNouvellePartie`. `cloreCombat(hero-mort)` = identité (KR-013). 156 suites / 2971 tests.

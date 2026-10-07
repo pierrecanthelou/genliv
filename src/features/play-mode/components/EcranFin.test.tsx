@@ -116,4 +116,59 @@ describe('EcranFin', () => {
 
 		expect(screen.queryByRole('button', { name: /Nouvelle partie/i })).not.toBeInTheDocument()
 	})
+
+	it('bouton Rejouer existe et appelle onRejouer', () => {
+		const fin: FinAtteinte = {
+			fin_id: 'fin-test',
+			texte: 'Fin.',
+		}
+		const mockOnNouvellePartie = jest.fn()
+		const mockOnRejouer = jest.fn()
+
+		render(<EcranFin fin={fin} nom="Fin" onNouvellePartie={mockOnNouvellePartie} onRejouer={mockOnRejouer} />)
+
+		const boutonRejouer = screen.getByRole('button', { name: /Rejouer/i })
+		expect(boutonRejouer).toBeInTheDocument()
+		fireEvent.click(boutonRejouer)
+		expect(mockOnRejouer).toHaveBeenCalledTimes(1)
+	})
+
+	it('autoFocus sur Nouvelle partie', () => {
+		const fin: FinAtteinte = {
+			fin_id: 'fin-test',
+			texte: 'Fin.',
+		}
+		const mockOnNouvellePartie = jest.fn()
+
+		render(<EcranFin fin={fin} nom="Fin" onNouvellePartie={mockOnNouvellePartie} />)
+
+		const bouton = screen.getByRole('button', { name: /Nouvelle partie/i })
+		expect(document.activeElement).toBe(bouton)
+	})
+
+	it('aide Rejouer affichee quand onRejouer present', () => {
+		const fin: FinAtteinte = {
+			fin_id: 'fin-test',
+			texte: 'Fin.',
+		}
+		const mockOnNouvellePartie = jest.fn()
+		const mockOnRejouer = jest.fn()
+
+		render(<EcranFin fin={fin} nom="Fin" onNouvellePartie={mockOnNouvellePartie} onRejouer={mockOnRejouer} />)
+
+		expect(screen.getByText(/Mêmes dés dès la création/)).toBeInTheDocument()
+	})
+
+	it('sans onRejouer = pas de bouton Rejouer ni aide', () => {
+		const fin: FinAtteinte = {
+			fin_id: 'fin-test',
+			texte: 'Fin.',
+		}
+		const mockOnNouvellePartie = jest.fn()
+
+		render(<EcranFin fin={fin} nom="Fin" onNouvellePartie={mockOnNouvellePartie} />)
+
+		expect(screen.queryByRole('button', { name: /Rejouer/i })).not.toBeInTheDocument()
+		expect(screen.queryByText(/Mêmes dés dès/)).not.toBeInTheDocument()
+	})
 })

@@ -176,6 +176,7 @@ describe('moteur-fins it3 mort du heros', () => {
 		const dossier = monterPartieJouable(brain)
 		const session = creerSessionAvecCombat(dossier)
 		const handleNouvellePartie = jest.fn()
+		const handleRejouer = jest.fn()
 
 		mockRejouerCombat.mockReturnValue({ ok: true, etat: etatMort })
 
@@ -186,6 +187,7 @@ describe('moteur-fins it3 mort du heros', () => {
 					dossierId={dossier.id}
 					session={session}
 					onNouvellePartie={handleNouvellePartie}
+					onRejouer={handleRejouer}
 				/>
 			</BrainProvider>,
 		)
@@ -197,5 +199,54 @@ describe('moteur-fins it3 mort du heros', () => {
 
 		fireEvent.click(screen.getByRole('button', { name: /Nouvelle partie/i }))
 		expect(handleNouvellePartie).toHaveBeenCalledTimes(1)
+	})
+
+	it('clic Rejouer appelle onRejouer avec session.graine_alea', () => {
+		const brain = createBrain()
+		const dossier = monterPartieJouable(brain)
+		const session = creerSessionAvecCombat(dossier)
+		const handleNouvellePartie = jest.fn()
+		const handleRejouer = jest.fn()
+
+		mockRejouerCombat.mockReturnValue({ ok: true, etat: etatMort })
+
+		render(
+			<BrainProvider brain={brain}>
+				<PartieEnCours
+					dossier={dossier}
+					dossierId={dossier.id}
+					session={session}
+					onNouvellePartie={handleNouvellePartie}
+					onRejouer={handleRejouer}
+				/>
+			</BrainProvider>,
+		)
+
+		expect(screen.getByText(/MORT · Aldric/)).toBeInTheDocument()
+		fireEvent.click(screen.getByRole('button', { name: /Rejouer/i }))
+		expect(handleRejouer).toHaveBeenCalledTimes(1)
+		expect(handleRejouer).toHaveBeenCalledWith(42)
+	})
+
+	it('aide Rejouer affichee sur ecran de mort', () => {
+		const brain = createBrain()
+		const dossier = monterPartieJouable(brain)
+		const session = creerSessionAvecCombat(dossier)
+
+		mockRejouerCombat.mockReturnValue({ ok: true, etat: etatMort })
+
+		render(
+			<BrainProvider brain={brain}>
+				<PartieEnCours
+					dossier={dossier}
+					dossierId={dossier.id}
+					session={session}
+					onNouvellePartie={jest.fn()}
+					onRejouer={jest.fn()}
+				/>
+			</BrainProvider>,
+		)
+
+		expect(screen.getByText(/Mêmes dés dès la création/)).toBeInTheDocument()
 	})
 })

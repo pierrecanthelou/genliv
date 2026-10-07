@@ -29,12 +29,17 @@ export interface AiguillagePartieProps {
  * pas, donc useSessionPersistee ne monte pas).
  *
  * AIGUILLAGE CALCULÉ EN LIGNE (KR-013/113) : deux états (`lecture` et
- * `generation`), quatre branches, aucun miroir. `generation` pilote la relance :
+ * `relance`), cinq branches, aucun miroir. `relance.generation` pilote la relance :
  *  · generation === 0 && reprenable && finAtteinte → PartieDemarree(key="post-fin")
  *  · generation === 0 && reprenable && hero-mort → PartieDemarree(key="post-mort")
  *  · generation === 0 && reprenable && !finAtteinte → PartieEnCours(session, key="reprise")
  *  · generation === 0 && (perimee || illisible) → CadrePartie > EcranReprise
- *  · sinon → PartieDemarree (nouvelle graine, key={generation})
+ *  · sinon → PartieDemarree (nouvelle graine ou graine imposée, key={generation})
+ *
+ * LIMITE ASSUMÉE (it4, KR-242) : Rejouer n'existe que sur l'écran terminal vivant.
+ * Après rechargement, `session.graine_alea` est bien persistée, mais l'état `relance`
+ * (qui porte l'intention de Rejouer) est un état React non persisté. Une partie
+ * terminée rouverte (generation === 0) fait toujours une nouvelle partie.
  *
  * LIMITE ASSUMÉE : un tour en vol (`carteJet`, état React non persisté) se perd
  * à la reprise — c'est un effet de conception : la graine seule suffit à rejouer
@@ -47,16 +52,22 @@ export function AiguillagePartie({ dossier, dossierId, tirerGraine }: Aiguillage
 	// Lire la session sauvegardée — UNE SEULE FOIS, dans l'initialiseur (KR-305)
 	const [lecture] = useState<LectureSession>(() => sessions.lire(dossier))
 
-	// Compteur de relance — 0 = première ouverture, >0 = nouvelle partie
-	const [generation, setGeneration] = useState(0)
+	// État de relance — un seul état pour génération + graine imposée (it4, KR-304)
+	const [relance, setRelance] = useState<{ readonly generation: number; readonly graine?: number }>({
+		generation: 0,
+	})
 
 	const handleNouvellePartie = () => {
-		setGeneration((g) => g + 1)
+		setRelance((r) => ({ generation: r.generation + 1, graine: undefined }))
+	}
+
+	const handleRejouer = (graine: number) => {
+		setRelance((r) => ({ generation: r.generation + 1, graine }))
 	}
 
 	// AIGUILLAGE EN LIGNE (KR-013/113)
 	// Cas 1 : première ouverture ET reprenable ET partie non terminée
-	if (generation === 0 && lecture.statut === 'reprenable') {
+	if (relance.generation === 0 && lecture.statut === 'reprenable') {
 		if (finAtteinte(dossier, lecture.session)) {
 			// Partie terminée — pas de reprise, nouvelle partie directe (décision #20)
 			return (
@@ -66,6 +77,7 @@ export function AiguillagePartie({ dossier, dossierId, tirerGraine }: Aiguillage
 					dossierId={dossierId}
 					tirerGraine={tirerGraine}
 					onNouvellePartie={handleNouvellePartie}
+					onRejouer={handleRejouer}
 				/>
 			)
 		}
@@ -81,6 +93,7 @@ export function AiguillagePartie({ dossier, dossierId, tirerGraine }: Aiguillage
 						dossierId={dossierId}
 						tirerGraine={tirerGraine}
 						onNouvellePartie={handleNouvellePartie}
+						onRejouer={handleRejouer}
 					/>
 				)
 			}
@@ -92,12 +105,13 @@ export function AiguillagePartie({ dossier, dossierId, tirerGraine }: Aiguillage
 				dossierId={dossierId}
 				session={lecture.session}
 				onNouvellePartie={handleNouvellePartie}
+				onRejouer={handleRejouer}
 			/>
 		)
 	}
 
 	// Cas 2 : première ouverture ET refus de session (perimee ou illisible)
-	if (generation === 0 && (lecture.statut === 'perimee' || lecture.statut === 'illisible')) {
+	if (relance.generation === 0 && (lecture.statut === 'perimee' || lecture.statut === 'illisible')) {
 		return (
 			<CadrePartie titre={null} sortie={{ name: 'dossier', dossierId }}>
 				<EcranReprise statut={lecture.statut} onNouvellePartie={handleNouvellePartie} />
@@ -108,11 +122,13 @@ export function AiguillagePartie({ dossier, dossierId, tirerGraine }: Aiguillage
 	// Cas 3 : relance (generation > 0) OU première ouverture sans session (absente)
 	return (
 		<PartieDemarree
-			key={generation}
+			key={relance.generation}
 			dossier={dossier}
 			dossierId={dossierId}
+			graineImposee={relance.graine}
 			tirerGraine={tirerGraine}
 			onNouvellePartie={handleNouvellePartie}
+			onRejouer={handleRejouer}
 		/>
 	)
 }
