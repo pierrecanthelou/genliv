@@ -1010,6 +1010,46 @@
 			"id": "KR-308",
 			"feature": "moteur-fins",
 			"risk": "Mort du heros = --text-strong, pas --bad. Les deux seules couleurs semantiques sont reussite/echec de jet."
+		},
+		{
+			"id": "KR-309",
+			"feature": "dossier-repetition",
+			"risk": "repeter.ts ne doit JAMAIS importer depuis play-mode/ ni depuis useTourDeJeu.ts. Il importe les fonctions pures de brain/dossier/ et player/engine/ directement."
+		},
+		{
+			"id": "KR-310",
+			"feature": "dossier-repetition",
+			"risk": "Le rapport de repetition n'est jamais stocke (KR-013). Recalcule a chaque clic."
+		},
+		{
+			"id": "KR-311",
+			"feature": "dossier-repetition",
+			"risk": "Le heros doit etre pose des it1. Sans heros, resoudreRencontre rend la session inchangee : faux chemin silencieux."
+		},
+		{
+			"id": "KR-312",
+			"feature": "dossier-repetition",
+			"risk": "combat_ouvert est un arret reconnu en it1, JAMAIS compte comme blocage. La resolution (mort/combat_sans_issue) attend it2."
+		},
+		{
+			"id": "KR-313",
+			"feature": "dossier-repetition",
+			"risk": "repeter.ts vit dans features/dossier-repetition/utils/, PAS dans brain/ (arete brain->player) ni dans player/engine/ (gonfle le runtime extractible)."
+		},
+		{
+			"id": "KR-314",
+			"feature": "dossier-repetition",
+			"risk": "La table doree de l'etalon (it2) est dans la feature, pas dans brain/rules.golden.test.ts. Sens : REGLES-DU-JEU.md -> test -> code (KR-130)."
+		},
+		{
+			"id": "KR-315",
+			"feature": "dossier-repetition",
+			"risk": "PAS_MAX=20 est une constante testee par mutant (PAS_MAX=19 doit rougir le temoin va-et-vient)."
+		},
+		{
+			"id": "KR-316",
+			"feature": "dossier-repetition",
+			"risk": "L'indice est HORS perimetre (sans IA, pas d'indice obtenu). atteignabilite.ts couvre le statique."
 		}
 	]
 }

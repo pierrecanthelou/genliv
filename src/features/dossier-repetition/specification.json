@@ -1,0 +1,119 @@
+{
+	"feature": "dossier-repetition",
+	"created_at": "2026-10-07",
+	"status": "planned",
+	"design_reference": "docs/PLAN-BASCULE-IA.dc.html § « Répétition à blanc » (ligne 288-294) : « Simule 20 tours joués par un joueur synthétique et rapporte les blocages, les PNJ jamais rencontrés, les indices inatteignables. »",
+	"plan": {
+		"goal": "L'auteur fait jouer son aventure par un joueur synthétique déterministe (20 pas, zéro IA) et lit les blocages, arrêts et lieux/PNJ non atteints.",
+		"design_contract": "PanneauRepetition.tsx — 3e slot de DossierEditorScreen aux côtés de panneauControles et panneauCopilote. Composants : Card, CardHead, Badge, ListRow (design system existant). Aucun token neuf, aucun primitif neuf. États : jamais lancée (dashed placeholder), résultat (synthèse + badges), aucun blocage (message positif), dossier non jouable (lien → Jalons & fins). Libellé « NON ATTEINT EN 20 PAS » (jamais « inatteignable »). Graine affichée : « Parcours n°{n} » (Chip, tone neutral).",
+		"acceptance_criteria": [
+			"repeter(dossier, graine) est une fonction pure qui rend ResultatRepetition — jamais de stockage (KR-013), jamais d'appel modèle.",
+			"Le joueur synthétique exécute au plus PAS_MAX=20 pas en utilisant exclusivement executerCommande (verbe aller) — aucun hook, aucun CopiloteService.",
+			"L'arrêt reconnaît 5 motifs : fin, impasse, combat_ouvert (it1), mort, combat_sans_issue (it2) — chacun testé par un témoin nommé.",
+			"La graine contrôle le RNG via creerRng — deux appels avec même graine et même dossier produisent le même parcours (KR-304).",
+			"Le rapport n'est jamais stocké (KR-013) — il est recalculé à chaque lancement.",
+			"Un dossier non jouable (controlerDossier.jouable === false) rend un refus, pas un rapport.",
+			"L'ouverture sans texte_ouverture_joueur rend un refus 'ouverture_a_ecrire'.",
+			"Le panneau affiche les lieux non visités et les PNJ non atteints en 20 pas.",
+			"Le bouton « Relancer » produit une nouvelle graine et relance ; « Rejouer à l'identique » conserve la graine.",
+			"moteurSansIA.test.ts étendu avec une 4e racine pour dossier-repetition (KR-250/260).",
+			"Aucun import depuis play-mode/ ni depuis useTourDeJeu (KR-309).",
+			"Aucun import croisé feature→feature — repeter.ts importe uniquement depuis brain/ et player/engine/ (KR-110).",
+			"Le panneau est accessible au clavier (autoFocus, Entrée lance, Échap ferme, Tab order)."
+		],
+		"brain_contracts": [
+			{
+				"type": "service",
+				"name": "executerCommande",
+				"direction": "consumes",
+				"detail": "brain/dossier/commandes.ts — verbe 'aller' uniquement en it1, 'parler'/'agir' reportés à it3."
+			},
+			{
+				"type": "service",
+				"name": "destinationsPossibles",
+				"direction": "consumes",
+				"detail": "brain/dossier/commandes.ts — liste des lieux accessibles pour le choix aléatoire."
+			},
+			{
+				"type": "service",
+				"name": "ouvrirSession / fixerHeros",
+				"direction": "consumes",
+				"detail": "brain/dossier/session.ts — crée la session initiale, fixe le héros seedé."
+			},
+			{
+				"type": "service",
+				"name": "creerRng",
+				"direction": "consumes",
+				"detail": "brain/dossier/rng.ts — RNG seedé pour la reproductibilité."
+			},
+			{
+				"type": "service",
+				"name": "controlerDossier",
+				"direction": "consumes",
+				"detail": "brain/dossier/controles.ts — le champ .jouable est une précondition de repeter()."
+			},
+			{
+				"type": "service",
+				"name": "ouvrirRencontreSiDue / finAtteinte",
+				"direction": "consumes",
+				"detail": "player/engine/ — chaîne après commande, identique aux imports de useTourDeJeu."
+			},
+			{
+				"type": "service",
+				"name": "rollCreationPool / buildHeroFromCreation",
+				"direction": "consumes",
+				"detail": "player/engine/charCreation.ts — héros seedé en it1, héros étalon en it2."
+			},
+			{
+				"type": "service",
+				"name": "jouerPosture / cloreCombat / rejouerCombat / bilanDe",
+				"direction": "consumes",
+				"detail": "player/engine/rencontre.ts + brain/combat.ts — it2 seulement."
+			}
+		],
+		"walking_skeleton": "repeter(dossier, graine) exécute une boucle de 20 pas (verbe aller seul), s'arrête sur fin/impasse/combat_ouvert/pas_max, rend un RapportRepetition. PanneauRepetition affiche le résultat dans un Card. moteurSansIA.test.ts étendu.",
+		"n": 3,
+		"iterations": [
+			{
+				"id": 1,
+				"goal": "L'auteur voit pourquoi un joueur synthétique s'arrête dans son dossier — repeter pure (aller seul, héros seedé), arrêts fin/impasse/combat_ouvert/pas_max, panneau synthèse + 4 états, moteurSansIA 4e racine.",
+				"status": "planned"
+			},
+			{
+				"id": 2,
+				"goal": "L'auteur voit son héros étalon survivre ou mourir aux combats — section REGLES-DU-JEU.md étalon (KR-130), boucle combat (posture normale, borné), MotifArret enrichi mort/combat_sans_issue. SACRIFIABLE.",
+				"status": "planned"
+			},
+			{
+				"id": 3,
+				"goal": "L'auteur lit quels lieux et personnages le joueur n'a pas atteints en 20 pas — lieux non visités, PNJ non atteints, dépliable des pas, ListeConstats, parler/agir si décidé au raffinage.",
+				"status": "planned"
+			}
+		],
+		"known_risks": [
+			"KR-309 — repeter.ts ne doit JAMAIS importer depuis play-mode/ ni depuis useTourDeJeu.ts (562 lignes d'orchestration async IA). Il importe les fonctions pures de brain/dossier/ et player/engine/ directement. La divergence est gardée par les mêmes imports, pas par un wrapper.",
+			"KR-310 — Le rapport n'est jamais stocké (KR-013). Pas de champ dérivable. Recalculé à chaque clic.",
+			"KR-311 — Le héros doit être posé dès it1. Sans héros, resoudreRencontre rend la session inchangée : faux chemin silencieux.",
+			"KR-312 — combat_ouvert est un arrêt reconnu en it1, JAMAIS compté comme blocage. Le rapport dit « arrêté sur un combat », pas « dossier cassé ». La résolution (mort/combat_sans_issue) attend it2.",
+			"KR-313 — repeter.ts vit dans features/dossier-repetition/utils/, PAS dans brain/ (arête de valeur brain→player interdite) ni dans player/engine/ (gonfle le runtime extractible). Précédent : docs/EXIGENCE-APERCU-DU-JEU.md.",
+			"KR-314 — La table dorée de l'étalon (it2) est dans la feature, pas dans brain/rules.golden.test.ts. Sens d'écriture : REGLES-DU-JEU.md → test → code (KR-130).",
+			"KR-315 — PAS_MAX=20 est une constante testée par mutant (PAS_MAX=19 doit rougir le témoin va-et-vient).",
+			"KR-316 — L'indice est HORS périmètre (sans IA, pas d'indice obtenu). atteignabilite.ts couvre le statique."
+		]
+	},
+	"implementation": {
+		"iterations_log": [],
+		"resolved_decisions": [
+			"Fourche A (rôle IA) / B (code déterministe) → RETENU B. Unanimité. Zéro appel modèle, rapport rejouable à graine égale. La variante A est un point d'extension nommé (choisirCommande/acteurCooperatif), pas une abstraction livrée (décision n°3).",
+			"Extraction de avancerPas commun → REJETÉ. Le pur est déjà factorisé (executerCommande, ouvrirRencontreSiDue, finAtteinte sont des imports distincts). Un avancerPas n'aurait que deux appelants.",
+			"Domicile de l'exécuteur → features/dossier-repetition/utils/repeter.ts. Pas brain/ (arête brain→player). Pas player/engine/ (gonfle le runtime extractible).",
+			"Indices → REJETÉ du périmètre. Sans IA, consignerReponseActeur exige recit et indicesReveles, aucun des deux n'existe. atteignabilite.ts couvre le statique.",
+			"It4 calibrage (règle de contrôle « Difficulté non calibrée ») → REJETÉ. PM veto : touche dossier-controles, sort de n°16. L'étalon est dans la feature (it2), la règle est une dette à déclencheur hors n°16.",
+			"Dépendances corrigées : 10·7 → 9·13·14·15 (moteur-dossier, moteur-combat, moteur-horloge, moteur-fins). Tous livrés."
+		],
+		"open_questions": [
+			"parler/agir en it3 : PM les exclut, NIA les veut pour la couverture PNJ. À décider au raffinage d'it3 — la couverture PNJ peut utiliser parler (avec abandon à 3 jets) ou seulement la co-présence au même lieu.",
+			"PNJ fermé absorbe 20 pas (NIA) : borne 3 jets max, abandon. Reporté à it3, ne s'applique que si parler entre."
+		]
+	}
+}
