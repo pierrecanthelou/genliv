@@ -1,11 +1,11 @@
 {
 	"feature": "moteur-fins",
 	"created_at": "2026-10-06",
-	"status": "planned",
+	"status": "in-progress",
 	"design_reference": "docs/PLAN-BASCULE-IA.dc.html § 2.9 (conditions de fin, mort, reprise), docs/REGLES-PLAY.md § A5 (fins), § E1 (mort), § G (sauvegarde)",
 	"plan": {
 		"goal": "L'auteur voit sa partie s'achever (fin du dossier ou mort du héros), reprend une partie en cours, et relance avec la même graine.",
-		"design_contract": "EndScreen.tsx (player/) NON réutilisé — valeurs en dur, couleurs fausses, texte inventé. Composants neufs : EcranFin.tsx (~90 l.), ChoixReprise.tsx (~100 l.). PartieDemarree.tsx et ActionsCarnet.tsx extraits d'EcranPartie (406 → ≤380 l.). Mort = --text-strong, pas --bad (deux seules couleurs sémantiques = réussite/échec de jet, KR-308). Fin.texte rendu verbatim dans OutcomeBlock. Fin sans texte = repli chrome ('Cette fin n'a pas de texte'). boutonRetour local à play-mode (un seul appelant). Tokens du design system, zéro valeur en dur.",
+		"design_contract": "EndScreen.tsx (player/) NON réutilisé. EcranFin.tsx (71 l.) : titre FIN · nom, OutcomeBlock verbatim ou repli pointillé invitant (KR-307). PartieEnCours.tsx extrait d'EcranPartie (60 l., KR-112). Tokens du design system, zéro valeur en dur.",
 		"acceptance_criteria": [
 			"Quand la condition_expr d'une fin du dossier est vraie (après jalons + tick, sans combat ouvert), la partie s'arrête et l'écran de fin affiche Fin.texte verbatim.",
 			"Deux fins vraies au même pas : la première dans l'ordre du document (index de charpente.fins[]) est atteinte (KR-302).",
@@ -27,7 +27,7 @@
 				"type": "service",
 				"name": "finAtteinte",
 				"direction": "emits",
-				"detail": "finAtteinte(dossier: Dossier, session: EtatSession): Fin | undefined. Pure, evaluate.ts. Rend undefined si session.combat !== undefined. Première fins[] avec condition_expr définie et evaluerExpr vraie, dans l'ordre du document. Lecteurs : executerCommande, useTourDeJeu, EcranPartie."
+				"detail": "finAtteinte(dossier: Dossier, session: { readonly monde: FaitsDeSession; readonly combat?: unknown }): FinAtteinte | undefined. Pure, evaluate.ts. Rend undefined si session.combat !== undefined. Première fins[] avec condition_expr définie et evaluerExpr vraie (KR-302). FinAtteinte = { readonly fin_id: string; readonly texte?: string }. Pont : player/engine/fin.ts. Lecteurs : executerCommande, PartieEnCours, useTourDeJeu."
 			},
 			{
 				"type": "service",
@@ -60,13 +60,13 @@
 				"detail": "Aucune feuille de session neuve. Aucun champ ajouté à EtatSession."
 			}
 		],
-		"walking_skeleton": "It1 : finAtteinte pur dans evaluate.ts + RefusCommande 'partie_terminee' dans commandes.ts. EcranFin affiche Fin.texte verbatim ou l'écran de mort. Extraction PartieDemarree + ActionsCarnet d'EcranPartie. Garde useTourDeJeu : coupe R2/R3/R4 après fin. Bouton Rejouer (remount par key, sans persistance graine).",
+		"walking_skeleton": "It1 : finAtteinte pur dans evaluate.ts + RefusCommande 'partie_terminee' dans commandes.ts. EcranFin affiche Fin.texte verbatim ou repli invitant (KR-307). PartieEnCours extrait d'EcranPartie (KR-112). Garde useTourDeJeu : coupe R2/R3/R4 après fin.",
 		"n": 3,
 		"iterations": [
 			{
 				"id": 1,
-				"goal": "L'auteur voit la partie s'arrêter sur le texte de sa fin ou la mort du héros.",
-				"status": "planned"
+				"goal": "L'auteur lit, mot pour mot, la fin qu'il a écrite quand sa condition devient vraie.",
+				"status": "done"
 			},
 			{
 				"id": 2,
@@ -88,26 +88,57 @@
 			"KR-307 : Fin sans texte (optionnel, KR-191) : le consommateur affiche un repli. Le contrat finAtteinte ne discrimine pas sur le contenu de texte.",
 			"KR-308 : Mort du héros = --text-strong, pas --bad. Les deux seules couleurs sémantiques sont réussite/échec de jet.",
 			"combatParConsole.test.tsx : fixture dossier-reference a une fin qui devient vraie à la clôture du premier combat. Sortie attendue du test à adapter.",
-			"EcranPartie.tsx 406 lignes (signal 400, KR-112) : extraction PartieDemarree + ActionsCarnet obligatoire en it1.",
+			"Resolu it1 : EcranPartie 60 l., PartieEnCours 313 l. ; ActionsCarnet reste imbrique (plan #11).",
 			"EndScreen.tsx (player/) est un survivant NON branché sur l'état de session. Valeurs en dur, couleurs fausses, texte inventé. NE PAS réutiliser.",
 			"session.ts 707 lignes : validerSession dans reprise.ts (NEW), pas dans session.ts (KR-112, blocage 800).",
 			"It3 sacrifiable : si R1/R4 ne sont pas persistées comme entrées, le rejeu se restreint au combat (KR-292). Inventaire des décisions persistées à l'ouverture d'it3."
 		]
 	},
 	"implementation": {
-		"iterations_log": [],
+		"iterations_log": [
+				{
+					"id": 1,
+					"label": "iteration-1",
+					"completed_at": "2026-10-06",
+					"architecture_choices": [
+						"finAtteinte param structurel { monde; combat? } + retour FinAtteinte {fin_id, texte?} — doctrine Rencontre/JalonAtteint",
+						"Pont player/engine/fin.ts (réexport) — doctrine brain/index.ts:574-578",
+						"Extraction PartieEnCours.tsx depuis EcranPartie.tsx (60 l., KR-112)",
+						"Garde R2/R3/R4 dans useTourDeJeu après ÉTAPE 5, avant R2 — coupe narrateur, jet, acteur quand fin atteinte"
+					],
+					"deviations_from_plan": [
+						"EcranPartie.tsx à 60 lignes (plan : ~100) — PartieDemarree dans PartieEnCours.tsx (plan : dans EcranPartie). Écart accepté, pas de cycle.",
+						"Bandeau absent de l'écran de fin — le plan § 3 met bandeau={<BandeauHeros/>} mais la branche fin n'affiche pas le bandeau (PV/PE sans objet). Écart à traiter en it2."
+					],
+					"test_coverage": { "unit": "2898 tests, 151 suites", "e2e": "finDePartie.test.tsx : verbatim de bout en bout" }
+				}
+			],
 		"resolved_decisions": [
 			"REJETÉ — issueDePartie unifiée : proposée par Narratif-IA T1, retirée T2 après lecture du code. Deux chemins de détection disjoints (evaluerExpr pour fin, bilanDe/rejouerCombat pour mort). finAtteinte seul en contrat.",
 			"REJETÉ — fin_a_ecrire dans le contrat : coupler détection à contenu de texte viole SRP. Fin.texte optionnel à vie (KR-191). Le consommateur gère l'absence.",
 			"REJETÉ — mort a priorité sur fin (QA) : exclusives par construction (combat bloque finAtteinte). Test épinglant le comportement, pas de clause de priorité.",
 			"REJETÉ — effacer sur MagasinDeSession : aucun appelant. Nouvelle partie écrase au montage. Pas d'action Abandonner demandée.",
 			"REJETÉ — validerSession dans session.ts (QA) : session.ts 707 l., blocage 800 (KR-112). reprise.ts extractible avec player/.",
-			"REJETÉ — bouton lancer le test dans n°15 : déjà livré en n°9. Rayé du roadmap."
+			"REJETÉ — bouton lancer le test dans n°15 : déjà livré en n°9. Rayé du roadmap.",
+			"RETENU — it1 = fin seule, mort en it2 : la phrase « fin ou mort » couvre deux chemins de détection disjoints (evaluerExpr pour fin, combat pour mort). Consensus des 5 rôles.",
+			"RETENU — finAtteinte param structurel { monde; combat? } + retour FinAtteinte {fin_id, texte?} : doctrine Rencontre/JalonAtteint, condition_texte (auteur) ne franchit pas le runtime.",
+			"RETENU — 2 lots (contrat + feature), pas 4 : les lots 2/3/4 du PM partagent EcranPartie.tsx (violation fichiers disjoints).",
+			"RETENU — coupe PartieEnCours.tsx, pas PartieDemarree (cycle d'import).",
+			"RETENU — pont player/engine/fin.ts (réexport seul) : doctrine brain/index.ts:574-578.",
+			"REJETÉ — R5 déjà dans projeterAssaut (NIA T1) : PM vérifié au code, projeterAssaut ne teste pas phase === 'ended'. R5 est appelé sur hero-mort (livré n°13).",
+			"REJETÉ — 4 lots du PM : les lots 2/3/4 partagent EcranPartie.tsx/PartieEnCours.tsx."
 		],
 		"open_questions": [
 			"REPORTÉ — boutonRetour en brain/components : 1 seul appelant. Local à play-mode. Revisité si second appelant émerge.",
 			"REPORTÉ — réécriture de docs/EXIGENCE-APERCU-DU-JEU.md : lot .md en fin de feature.",
-			"REPORTÉ — dossier introuvable depuis l'Aperçu : inatteignable (le dossier est ouvert dans l'éditeur)."
+			"REPORTÉ — dossier introuvable depuis l'Aperçu : inatteignable (le dossier est ouvert dans l'éditeur).",
+			"REPORTÉ — mort du héros (écran, texte constant, garde R5, arbitrage avec n°13) → it2.",
+			"REPORTÉ — bouton Rejouer + focus auto → it2+.",
+			"REPORTÉ — redécoupage it2/it3/it4 (4 itérations proposées par PM) → cadrage it2.",
+			"REPORTÉ — texte de mort constante nommée, hors prompt → it2.",
+			"REPORTÉ — fin vraie à l'ouverture (condition non(lieu_visite X)) : aucun contrôle ne la signale. Candidat à un contrôle dans dossier-controles, dette à déclencheur.",
+			"ÉCART — bandeau absent de l'écran de fin (pas de BandeauHeros ni actionsEntete). PV/PE sans objet sur écran de fin, à traiter en it2.",
+			"ÉCART — PartieDemarree dans PartieEnCours.tsx au lieu d'EcranPartie.tsx. Pas de cycle, un seul import."
 		]
 	}
 }

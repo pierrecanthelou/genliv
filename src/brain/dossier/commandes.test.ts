@@ -12,6 +12,7 @@ import {
 	type ResultatCommande,
 	type ResultatSaisie,
 } from './commandes'
+import { finAtteinte } from './evaluate'
 import type { ExprNode } from './expr'
 import { fixerHeros, ouvrirSession, resoudreRencontre, type EtatSession } from './session'
 import { cloreCombat } from './sessionCombat'
@@ -1050,7 +1051,7 @@ describe('executerCommande, combat_en_cours (n 13 moteur-combat, it1)', () => {
 		expect(accepte.monde.jalons_atteints).toEqual([jalon.id])
 	})
 
-	it('la mort laisse le combat en place, donc aucune commande ne reprend — la victoire, elle, les rend', () => {
+	it('mort conserve combat_en_cours : la mort laisse le combat en place, donc aucune commande ne reprend — et le refus n est JAMAIS partie_terminee', () => {
 		// CRITÈRE 4 DU PLAN : `cloreCombat` rend la session À L'IDENTIQUE sur `hero-mort`
 		// (combat reste), et c'est `combat` — non un drapeau de fin — qui refuse.
 		const dossier = lire(CHEMIN_REFERENCE)
@@ -1059,18 +1060,272 @@ describe('executerCommande, combat_en_cours (n 13 moteur-combat, it1)', () => {
 
 		const mort = cloreCombat(enCombat, { issue: 'hero-mort', ...BILAN })
 		expect(mort).toBe(enCombat)
+
+		// L'ÉTAT SÉPARATEUR (n° 15 `moteur-fins`, it1, KR-303) : sur ce MÊME monde, la condition de
+		// `fin.vigie-abandonnee` est VRAIE (embuscade consommée à l'ouverture du combat, vigie du
+		// nord jamais visitée) — vue SANS le combat, une fin est atteinte ; avec lui, aucune. C'est
+		// ce qui fait de `combat_en_cours` le refus de la mort, et de `partie_terminee` celui de la fin
+		// seule : les deux sont exclusifs PAR CONSTRUCTION, sans clause de priorité.
+		expect(finAtteinte(dossier, { monde: mort.monde })?.fin_id).toBe('fin.vigie-abandonnee')
+		expect(finAtteinte(dossier, mort)).toBeUndefined()
+
 		for (const id of Object.keys(COMMANDES) as CommandeId[]) {
 			const refus = executer(dossier, mort, SAISIES[id])
 			expect(`${id} après la mort → ${refus.ok === false && refus.refus}`).toBe(`${id} après la mort → combat_en_cours`)
 		}
+	})
 
-		// À L'INVERSE, toute issue qui RETIRE `combat` rend les commandes — sans quoi une
-		// partie gagnée serait bloquée aussi sûrement qu'une partie perdue.
+	it('commandes apres victoire, dossier a fins neutralisees : toute issue qui RETIRE combat rend les commandes', () => {
+		// À L'INVERSE DE LA MORT, toute issue qui RETIRE `combat` rend les commandes — sans quoi une
+		// partie gagnée serait bloquée aussi sûrement qu'une partie perdue. MAIS le dossier de référence
+		// porte une fin que ces clôtures rendent vraie (`fin.vigie-abandonnee`, n° 15 `moteur-fins`,
+		// it1) : le témoin de reprise se joue donc sur le MÊME dossier, ses fins NEUTRALISÉES, et le
+		// discriminant — le dossier entier, la même clôture — est écrit juste après, dans le MÊME test.
+		const dossier = lire(CHEMIN_REFERENCE)
+		const sansFins = lire(CHEMIN_REFERENCE)
+		sansFins.charpente.fins = []
+		const { enCombat } = situation(dossier)
+		const BILAN = { pv: 9, pe: 1, xp: 3, pv_max_delta: 0, pe_max_delta: 0 }
+
 		for (const issue of ['hero-victory', 'monster-fled', 'hero-survived-unconscious'] as const) {
 			const close = cloreCombat(enCombat, { issue, ...BILAN })
+			expect(`${issue} → combat ${'combat' in close}`).toBe(`${issue} → combat false`)
 			for (const id of Object.keys(COMMANDES) as CommandeId[]) {
-				expect(`${issue} / ${id} → ${executer(dossier, close, SAISIES[id]).ok}`).toBe(`${issue} / ${id} → true`)
+				expect(`${issue} / ${id} → ${executer(sansFins, close, SAISIES[id]).ok}`).toBe(`${issue} / ${id} → true`)
+
+				// DISCRIMINANT : la même session close, le dossier ENTIER — la fin est atteinte, la partie
+				// est terminée, et ce n'est PLUS `combat_en_cours` (le combat est retiré).
+				const terminee = executer(dossier, close, SAISIES[id])
+				expect(`${issue} / ${id} → ${terminee.ok === false && terminee.refus}`).toBe(
+					`${issue} / ${id} → partie_terminee`,
+				)
 			}
+		}
+	})
+})
+
+/**
+ * `partie_terminee` (n° 15 `moteur-fins`, it1, lot `contrat`) — CRITÈRE 4 DU PLAN : tant que
+ * `finAtteinte(dossier, session)` rend un résultat, AUCUNE commande n'est acceptée. SECONDE garde
+ * d'`executerCommande`, après `combat_en_cours`, avant `TRANSITIONS`.
+ *
+ * MÊME FORME QUE LE DESCRIBE DU COMBAT, ET POUR LA MÊME RAISON : les verbes sont BALAYÉS depuis
+ * `COMMANDES`, jamais trois littéraux — un verbe de plus est refusé sans qu'on y pense, et ce
+ * témoin rougit tant qu'on ne lui a pas écrit sa saisie (`Record<CommandeId, …>` exhaustif).
+ *
+ * LA PARTIE TERMINÉE EST FABRIQUÉE PAR LE PRODUIT, jamais forgée : la rencontre de l'embuscade
+ * consomme son événement à l'ouverture du combat, la victoire retire `combat`, et c'est ALORS que
+ * `fin.vigie-abandonnee` (événement consommé ET vigie du nord jamais visitée) devient vraie sur
+ * `dossier-reference.json`.
+ */
+describe('executerCommande, partie_terminee (n 15 moteur-fins, it1)', () => {
+	const RENCONTRE = { evenement_id: 'evenement.embuscade-a-la-tour', monstre_ref: 'bestiaire.squelette' }
+	const BILAN = { pv: 9, pe: 1, xp: 3, pv_max_delta: 0, pe_max_delta: 0 }
+	const MESSAGE = "La partie est terminée : aucune commande n'est acceptée."
+	const FIN = 'fin.vigie-abandonnee'
+	/** Un nœud que l'évaluateur ne reconnaît pas : le LIRE, c'est LEVER (KR-238). */
+	const POISON = { op: 'xor' } as unknown as ExprNode
+
+	/** Une saisie ACCEPTABLE par verbe depuis `lieu.foyer-du-guet` — même table que la garde du combat. */
+	const SAISIES: Record<CommandeId, string> = {
+		aller: 'ALLER lieu.marche-des-cendres',
+		agir: 'AGIR',
+		parler: 'PARLER pnj.harek-le-forgeron',
+	}
+
+	/** Vrai si l'appel LÈVE — `expect(...).toThrow()` ne se compose pas dans une chaîne nommée. */
+	function leve(appel: () => unknown): boolean {
+		try {
+			appel()
+			return false
+		} catch {
+			return true
+		}
+	}
+
+	/** Le dossier de référence, ses fins NEUTRALISÉES — le témoin « sans fin » des discriminants. */
+	function sansFins(): Dossier {
+		const dossier = lire(CHEMIN_REFERENCE)
+		dossier.charpente.fins = []
+		return dossier
+	}
+
+	/** Le héros au repos, le MÊME héros en combat, puis la partie TERMINÉE — toutes par le produit. */
+	function situation(dossier: Dossier): { auRepos: EtatSession; enCombat: EtatSession; terminee: EtatSession } {
+		const auRepos = fixerHeros(ouverture(dossier), heroAvec(2))
+		const enCombat = resoudreRencontre(auRepos, RENCONTRE)
+		return { auRepos, enCombat, terminee: cloreCombat(enCombat, { issue: 'hero-victory', ...BILAN }) }
+	}
+
+	it('partie_terminee pour chaque verbe de COMMANDES apres fin — et chaque verbe est accepte sans fin', () => {
+		const dossier = lire(CHEMIN_REFERENCE)
+		const { auRepos, terminee } = situation(dossier)
+
+		// TOTALITÉ : une saisie par verbe du registre, ni plus ni moins.
+		expect(Object.keys(SAISIES).sort()).toEqual(Object.keys(COMMANDES).sort())
+		// L'ÉTAT : aucun combat, une fin atteinte — et RIEN avant le combat.
+		expect('combat' in terminee).toBe(false)
+		expect(finAtteinte(dossier, terminee)?.fin_id).toBe(FIN)
+		expect(finAtteinte(dossier, auRepos)).toBeUndefined()
+
+		for (const id of Object.keys(COMMANDES) as CommandeId[]) {
+			// DISCRIMINANT : la même saisie, la même fixture, SANS fin atteinte, est acceptée.
+			expect(`${id} sans fin → ${executer(dossier, auRepos, SAISIES[id]).ok}`).toBe(`${id} sans fin → true`)
+
+			const refus = executer(dossier, terminee, SAISIES[id])
+			expect(`${id} après la fin → ${refus.ok === false && refus.refus}`).toBe(`${id} après la fin → partie_terminee`)
+			expect(messageDe(refus)).toBe(MESSAGE)
+		}
+	})
+
+	it('le refus passe APRES combat_en_cours et AVANT acces_absent, cible_inconnue et cible_indisponible', () => {
+		// UN REFUS PAR CAUSE, chacun avec son refus HABITUEL sans fin (le discriminant) puis
+		// `partie_terminee` avec : sans cette moitié, « toujours partie_terminee » serait vert sur un
+		// moteur qui n'aurait plus aucun autre refus. Et la garde est bien SOUS `combat_en_cours`.
+		const dossier = lire(CHEMIN_REFERENCE)
+		const { auRepos, enCombat, terminee } = situation(dossier)
+		const AUTRES_REFUS = [
+			['ALLER lieu.crypte-scellee', 'acces_absent'],
+			['PARLER pnj.fantome', 'cible_inconnue'],
+			['PARLER pnj.selene-la-vigie', 'cible_indisponible'],
+		] as const
+
+		for (const [saisie, habituel] of AUTRES_REFUS) {
+			const sans = executer(dossier, auRepos, saisie)
+			expect(`${saisie} sans fin → ${sans.ok === false && sans.refus}`).toBe(`${saisie} sans fin → ${habituel}`)
+
+			const apres = executer(dossier, terminee, saisie)
+			expect(`${saisie} après la fin → ${apres.ok === false && apres.refus}`).toBe(
+				`${saisie} après la fin → partie_terminee`,
+			)
+			expect(messageDe(apres)).toBe(MESSAGE)
+
+			// `combat_en_cours` PASSE DEVANT : la même saisie sous combat n'est jamais `partie_terminee`.
+			const sous = executer(dossier, enCombat, saisie)
+			expect(`${saisie} sous combat → ${sous.ok === false && sous.refus}`).toBe(
+				`${saisie} sous combat → combat_en_cours`,
+			)
+		}
+	})
+
+	it('un refus ne consomme AUCUN pas : session intacte, horloge, journal, monde, jalons', () => {
+		// MÊME PREUVE QUE LA GARDE DU COMBAT : le bras `{ ok: false }` ne porte pas de session, donc la
+		// propriété se prouve sur l'ARGUMENT. ET LE DOSSIER EST MONTÉ POUR QU'UN JALON PARTE SI LA PASSE
+		// TOURNAIT : sans cela, le silence serait celui d'un dossier sans jalon déclenchable.
+		const declenchable = (dossier: Dossier): string => {
+			const jalon = dossier.charpente.jalons.find((candidat) => candidat.declencheur_expr !== undefined)
+			if (jalon === undefined) throw new Error('fixture : plus aucun jalon à `declencheur_expr`')
+			jalon.declencheur_expr = { op: 'predicat', predicat: 'lieu_visite', cibles: ['lieu.foyer-du-guet'] }
+			return jalon.id
+		}
+		const dossier = lire(CHEMIN_REFERENCE)
+		const jalonId = declenchable(dossier)
+
+		const { terminee } = situation(lire(CHEMIN_REFERENCE))
+		const avant = JSON.stringify(terminee)
+
+		for (const id of Object.keys(COMMANDES) as CommandeId[]) {
+			expect(`${id} → ${executer(dossier, terminee, SAISIES[id]).ok}`).toBe(`${id} → false`)
+		}
+		expect(JSON.stringify(terminee)).toBe(avant)
+		expect(terminee.monde.jalons_atteints).toEqual([])
+		expect(terminee.horloge.tour).toBe(0)
+		expect(terminee.journal).toEqual([])
+
+		// DISCRIMINANT, DANS LE MÊME TEST : sans fin, la même commande est acceptée ET le même jalon
+		// part — la passe est bien branchée, et c'est la fin qui la coupe.
+		const sans = sansFins()
+		declenchable(sans)
+		const accepte = sessionDe(executer(sans, terminee, 'AGIR'))
+		expect(accepte.monde.jalons_atteints).toEqual([jalonId])
+		expect(accepte.horloge.tour).toBe(1)
+	})
+
+	it('la commande qui AMENE la fin est acceptee ; la suivante est refusee — la garde lit la session d ENTREE', () => {
+		// UNE FIN QUE LE PRODUIT ATTEINT PAR UNE COMMANDE : `fin.vigie-sauvee` est réécrite pour dépendre
+		// du seul lieu visité. Elle est fausse à l'ouverture, vraie après `ALLER lieu.tour-effondree`.
+		const dossier = lire(CHEMIN_REFERENCE)
+		dossier.charpente.fins = [
+			{
+				...dossier.charpente.fins[0],
+				condition_expr: { op: 'predicat', predicat: 'lieu_visite', cibles: ['lieu.tour-effondree'] },
+			},
+		]
+		const depart = ouverture(dossier)
+		expect(finAtteinte(dossier, depart)).toBeUndefined()
+
+		// La commande qui produit la fin n'est PAS refusée, elle tick comme toute autre : un pas, ses
+		// deux lignes de journal. C'est la commande SUIVANTE qui est refusée.
+		const arrivee = sessionDe(executer(dossier, depart, 'ALLER lieu.tour-effondree'))
+		expect(arrivee.horloge.tour).toBe(1)
+		expect(arrivee.journal).toHaveLength(2)
+		expect(finAtteinte(dossier, arrivee)?.fin_id).toBe('fin.vigie-sauvee')
+
+		const suivante = executer(dossier, arrivee, 'AGIR')
+		expect(suivante.ok === false && suivante.refus).toBe('partie_terminee')
+		// DISCRIMINANT : la même commande, depuis l'état d'AVANT la fin, est acceptée.
+		expect(executer(dossier, depart, 'AGIR').ok).toBe(true)
+	})
+
+	it('une condition de fin inconnue LEVE a chaque commande, nue et sous une negation — sauf sous combat (KR-238)', () => {
+		// MÊME RÉGIME QUE LA PASSE DES JALONS, et la docstring d'`executerCommande` l'écrit : la garde
+		// évalue les fins AVANT `TRANSITIONS`, donc elle lève aussi sur une commande qui aurait été
+		// refusée plus bas. MUTANT NOMMÉ, À ÉCRIRE PUIS RÉVOQUER : envelopper `finAtteinte` d'un
+		// `try/catch` qui rend `undefined` — sous un `non`, le repli ferait ATTEINDRE une fin à tort.
+		const { auRepos, enCombat } = situation(lire(CHEMIN_REFERENCE))
+
+		for (const condition of [POISON, { op: 'non', enfant: POISON } as ExprNode]) {
+			const dossier = lire(CHEMIN_REFERENCE)
+			dossier.charpente.fins[0].condition_expr = condition
+
+			for (const id of Object.keys(COMMANDES) as CommandeId[]) {
+				expect(`${id} → ${leve(() => executer(dossier, auRepos, SAISIES[id]))}`).toBe(`${id} → true`)
+			}
+			// Une commande qui aurait été REFUSÉE PLUS BAS lève elle aussi : la garde passe devant.
+			expect(leve(() => executer(dossier, auRepos, 'ALLER lieu.crypte-scellee'))).toBe(true)
+			// SOUS COMBAT, RIEN N'EST LU : `combat_en_cours` tombe avant, et ne lève pas.
+			expect(leve(() => executer(dossier, enCombat, 'AGIR'))).toBe(false)
+		}
+
+		// DISCRIMINANCE : la même saisie refusée, sur le dossier SAIN, ne lève pas.
+		expect(leve(() => executer(lire(CHEMIN_REFERENCE), auRepos, 'ALLER lieu.crypte-scellee'))).toBe(false)
+	})
+
+	it('une fin sans texte ferme la partie comme une autre — le refus ne juge jamais la prose (KR-307)', () => {
+		// `Fin.texte` est OPTIONNEL (KR-191) : son absence — ou son vide — n'ouvre PAS la porte. Le repli à
+		// afficher est l'affaire de l'écran de fin ; la garde, elle, ne lit que le fait « une fin est atteinte ».
+		for (const texte of [undefined, '', '   ']) {
+			const dossier = lire(CHEMIN_REFERENCE)
+			for (const fin of dossier.charpente.fins) {
+				if (texte === undefined) delete fin.texte
+				else fin.texte = texte
+			}
+			const { auRepos, terminee } = situation(dossier)
+			const etiquette = JSON.stringify(texte ?? null)
+
+			expect(`${etiquette} → ${finAtteinte(dossier, terminee)?.fin_id}`).toBe(`${etiquette} → ${FIN}`)
+			for (const id of Object.keys(COMMANDES) as CommandeId[]) {
+				const refus = executer(dossier, terminee, SAISIES[id])
+				expect(`${etiquette} / ${id} → ${refus.ok === false && refus.refus}`).toBe(
+					`${etiquette} / ${id} → partie_terminee`,
+				)
+				// DISCRIMINANT : avant la fin, le même dossier accepte la commande.
+				expect(`${etiquette} / ${id} avant → ${executer(dossier, auRepos, SAISIES[id]).ok}`).toBe(
+					`${etiquette} / ${id} avant → true`,
+				)
+			}
+		}
+	})
+
+	it('une fin sans condition_expr ne ferme jamais la partie — meme avec un texte', () => {
+		// Absence de condition = état calme (`types.ts`), jamais une fin « toujours atteinte ».
+		const dossier = lire(CHEMIN_REFERENCE)
+		for (const fin of dossier.charpente.fins) delete fin.condition_expr
+		expect(dossier.charpente.fins.every((fin) => fin.texte !== undefined)).toBe(true)
+
+		const { terminee } = situation(dossier)
+		for (const id of Object.keys(COMMANDES) as CommandeId[]) {
+			expect(`${id} → ${executer(dossier, terminee, SAISIES[id]).ok}`).toBe(`${id} → true`)
 		}
 	})
 })

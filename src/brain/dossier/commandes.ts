@@ -29,7 +29,7 @@
  * MODULE PUR, sans dépendance de service : il part avec `src/player/` le jour de
  * l'extraction (`docs/EXIGENCE-APERCU-DU-JEU.md` § 6).
  */
-import { resoudreJalons } from './evaluate'
+import { finAtteinte, resoudreJalons } from './evaluate'
 import { tickHorloge } from './horloge'
 import { defineRegistre, type EspaceDeNoms } from './identifiers'
 import type { EtatSession } from './session'
@@ -130,6 +130,12 @@ export interface Commande {
  * ni `aller`, ni `agir`, ni `parler`. Il sort de `executerCommande`, avant toute
  * résolution, et le test qui l'épingle balaie `COMMANDES` — un verbe de plus est
  * refusé sans qu'on y pense.
+ *
+ * `partie_terminee` (n° 15 `moteur-fins`, it1, SEUL membre neuf du lot) — une FIN est
+ * atteinte (`finAtteinte`), donc AUCUNE commande n'est acceptée non plus. Même forme, même
+ * balayage de `COMMANDES`, mais ELLE NE COUVRE PAS LA MORT : un héros mort laisse `combat` en
+ * place (`cloreCombat` sur `hero-mort` rend la session à l'identique), et c'est
+ * `combat_en_cours` qui refuse — les deux refus sont EXCLUSIFS PAR CONSTRUCTION (KR-303).
  */
 export type RefusCommande =
 	| 'verbe_inconnu'
@@ -138,6 +144,7 @@ export type RefusCommande =
 	| 'acces_absent'
 	| 'cible_indisponible'
 	| 'combat_en_cours'
+	| 'partie_terminee'
 
 /** Union DISCRIMINÉE — un appelant qui la rétrécit totalement n'a aucun bras muet. */
 export type ResultatSaisie =
@@ -197,6 +204,15 @@ function messageCibleIndisponible(cible: string): string {
  * n'est lu que par un appelant qui contournerait l'écran.
  */
 const MESSAGE_COMBAT_EN_COURS = "Un combat est en cours : aucune commande n'est acceptée avant son issue."
+
+/**
+ * LE TEXTE DU REFUS `partie_terminee` — UN SEUL GABARIT, constant, et même doctrine que
+ * `MESSAGE_COMBAT_EN_COURS` : il ne cite NI le verbe tapé NI la cible, et SURTOUT NI l'identifiant
+ * de la fin NI son `nom` NI son `texte` — la prose d'une fin n'est émise que par l'écran de fin
+ * (verbatim), jamais par un message de refus. En jeu, l'écran de fin remplace la console dès que
+ * `finAtteinte` rend un résultat : ce texte n'est lu que par un appelant qui contournerait l'écran.
+ */
+const MESSAGE_PARTIE_TERMINEE = "La partie est terminée : aucune commande n'est acceptée."
 
 /**
  * ANALYSER UNE SAISIE — PURE, totale, synchrone, et elle NE CONSULTE PAS LE
@@ -550,6 +566,19 @@ function avecJalonsResolus(dossier: Dossier, session: EtatSession): EtatSession 
  * un verbe de plus est refusé sans qu'on y pense (KR-117). La session d'entrée est
  * intacte — ni pas d'horloge, ni ligne de journal, ni passe des jalons.
  *
+ * UNE FIN ATTEINTE REFUSE TOUTE COMMANDE DE LA MÊME FAÇON (`partie_terminee`, n° 15
+ * `moteur-fins`, it1) : SECONDE garde, juste APRÈS `combat_en_cours` et AVANT `TRANSITIONS`,
+ * jamais une par verbe (KR-117) — et par construction elle n'est jamais atteinte sous un combat
+ * (`finAtteinte` rend `undefined` tant que `session.combat` existe, KR-303). Elle lit la session
+ * D'ENTRÉE, donc la fin qu'une commande vient de rendre vraie est refusée à la commande SUIVANTE,
+ * jamais à celle qui l'a produite : la commande qui amène la fin est acceptée et tick comme
+ * toute autre. Mêmes garanties que `combat_en_cours` : session d'entrée intacte, pas
+ * d'horloge, pas de journal, pas de passe des jalons.
+ *
+ * ⚠ ELLE LÈVE SI UNE `condition_expr` DE FIN EST NON RECONNUE (KR-238), à CHAQUE commande —
+ * y compris une commande qui aurait été refusée plus bas. Même parade que la passe des jalons :
+ * la porte `jouable` des contrôles, au montage du shell (KR-239), jamais un `catch`.
+ *
  * UN REFUS NE CONSOMME AUCUN PAS : il ne touche aucun champ, n'écrit aucune ligne
  * de journal, et NE REND AUCUNE SESSION — l'appelant garde la sienne, qui est la
  * MÊME RÉFÉRENCE puisque rien ne l'a remplacée. Une faute de frappe n'est pas un
@@ -566,6 +595,9 @@ function avecJalonsResolus(dossier: Dossier, session: EtatSession): EtatSession 
 export function executerCommande(dossier: Dossier, session: EtatSession, commande: Commande): ResultatCommande {
 	if (session.combat !== undefined) {
 		return { ok: false, refus: 'combat_en_cours', message: MESSAGE_COMBAT_EN_COURS }
+	}
+	if (finAtteinte(dossier, session) !== undefined) {
+		return { ok: false, refus: 'partie_terminee', message: MESSAGE_PARTIE_TERMINEE }
 	}
 	const resultat = TRANSITIONS[commande.commande](dossier, session, commande)
 	if (!resultat.ok) return resultat

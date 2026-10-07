@@ -93,7 +93,7 @@ describe('la console ALLER ouvre un combat quand un evenement a monstre_ref est 
 		expect(screen.getAllByText('ROUND 1').length).toBeGreaterThan(0)
 	})
 
-	it('parcours console : combat → Fuir → FUITE → Continuer', async () => {
+	it('parcours console : combat → Fuir → FUITE → Continuer → fin atteinte (vigie-abandonnee)', async () => {
 		const user = userEvent.setup()
 		const { brain, dossier } = await monterPartieAvecCombat(user)
 
@@ -112,8 +112,10 @@ describe('la console ALLER ouvre un combat quand un evenement a monstre_ref est 
 
 		await user.click(screen.getByRole('button', { name: /Continuer/ }))
 
-		expect(screen.getByLabelText('CONSOLE')).toBeInTheDocument()
+		// n° 15 `moteur-fins`, it1 — Après la fuite du combat, la fin vigie-abandonnee est atteinte
+		expect(screen.getByText(/La vigie abandonnée/)).toBeInTheDocument()
 		expect(screen.queryByText('COMBAT')).not.toBeInTheDocument()
+		expect(screen.queryByLabelText('CONSOLE')).not.toBeInTheDocument()
 
 		const apresContinuer = brain.persistence.get<EtatSession>(dossierSessionKey(dossier.id))
 		expect(apresContinuer?.combat).toBeUndefined()

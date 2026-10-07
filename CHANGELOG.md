@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.25 — l'auteur lit, mot pour mot, la fin qu'il a écrite quand sa condition devient vraie
+
+`moteur-fins` it1 (roadmap § 3, n° 15, 1/3) — 2 lots séquentiels (L1 contrat `brain/dossier`, L2 feature `play-mode`). `finAtteinte` pur dans `evaluate.ts` — param structurel `{ monde; combat? }`, retour `FinAtteinte {fin_id, texte?}` (doctrine `Rencontre`/`JalonAtteint`). Garde `partie_terminee` dans `commandes.ts` après `combat_en_cours`. Extraction `PartieEnCours.tsx` depuis `EcranPartie.tsx` (406 → 60 lignes, KR-112). `EcranFin.tsx` : titre `FIN · nom`, `OutcomeBlock` verbatim ou repli pointillé invitant (KR-307). Garde R2/R3/R4 dans `useTourDeJeu` après fin atteinte. Pont `player/engine/fin.ts` (réexport). 151 suites / 2898 tests.
+
+- Écarts : bandeau absent de l'écran de fin (PV/PE sans objet, à traiter en it2). `PartieDemarree` dans `PartieEnCours.tsx` (plan : `EcranPartie.tsx`), pas de cycle.
+- Reportés : mort du héros (écran, texte, garde R5) → it2 · bouton Rejouer → it2+ · persistance/reprise session → it2 · rejeu à graine → it3 · fin vraie à l'ouverture → dette à déclencheur.
+- Dossier : `.claude/raffinage/moteur-fins-it1.revue.md`.
+
 ## 0.7.24 — l'auteur lit au bandeau PAS #n en permanence, CLIMAT · {nom} quand un climat s'active
 
 `moteur-horloge` it4 (roadmap § 3, n° 14, 4/4 TERMINÉE) — 2 lots séquentiels (L1 contrat `brain/dossier`, L2 feature `play-mode`). Route C retenue : `Evenement.climat_id?` → sélecteur `evenementDeClimat` → `tickClimat` → `climat_actif: {id, depuis}`. Extinction `>=` (efface l'état, pas de répétition ; sémantique différente du blocage `===`). Extraction `sessionCombat.ts` (session.ts 846→707 lignes). § J3 de `REGLES-PLAY.md` écrit avant le code. BandeauHeros étendu : PAS #n + CLIMAT · {nom}. Dette corrigée : `--bw-hair`, `--fw-semibold`, `alignSelf: 'stretch'`. 149 suites / 2869 tests.

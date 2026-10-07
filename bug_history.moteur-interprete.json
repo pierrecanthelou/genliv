@@ -1,5 +1,5 @@
 {
-	"_about": "Archive des defauts de moteur-interprete (n 10, TERMINEE 4/4 le 2026-09-30, 0.7.9) dont la lecon est DEJA PROMUE dans un instrument lui-meme en lecture obligatoire. MEME AXE que bug_history.moteur-dossier.json et bug_history.dossier-controles.json/dossier-fiches.json : la REDONDANCE, JAMAIS l'age. Ne le 2026-09-30 (moteur-interprete it3, franchissement du plafond de bug_history.json : 16 032 / 15 360 o) avec BUG-130 ; BUG-131/BUG-133 y rejoignent le 2026-10-01 (scission de bug_history.json au lot moteur-arbitre it1, meme critere -- leur lecon est KR-013/113, deja promue). BUG-132 y rejoint le 2026-10-02 (scission de bug_history.json au lot moteur-acteurs it1, franchissement a 15 765 / 15 360 o) -- meme critere, sa lecon ('etat asynchrone jamais lu depuis une fermeture perimee') est deja promue sous KR-013, citee dans sa propre entree. CE FICHIER N'EST PAS EN LECTURE OBLIGATOIRE -- seul bug_history.json l'est. NUMEROTATION GLOBALE aux ONZE fichiers desormais, jamais reemployee : prochain id = max(BUG-xxx) des ONZE (precedents BUG-062, BUG-123, BUG-129). HISTORIQUE DES SCISSIONS : CHANGELOG.md.",
+	"_about": "Archive des defauts de moteur-interprete (n 10, TERMINEE 4/4 le 2026-09-30, 0.7.9) dont la lecon est DEJA PROMUE dans un instrument lui-meme en lecture obligatoire. MEME AXE que bug_history.moteur-dossier.json et bug_history.dossier-controles.json/dossier-fiches.json : la REDONDANCE, JAMAIS l'age. Ne le 2026-09-30 (moteur-interprete it3, franchissement du plafond de bug_history.json : 16 032 / 15 360 o) avec BUG-130 ; BUG-131/BUG-133 y rejoignent le 2026-10-01 (scission de bug_history.json au lot moteur-arbitre it1, meme critere -- leur lecon est KR-013/113, deja promue). BUG-132 y rejoint le 2026-10-02 (scission de bug_history.json au lot moteur-acteurs it1, franchissement a 15 765 / 15 360 o) -- meme critere, sa lecon ('etat asynchrone jamais lu depuis une fermeture perimee') est deja promue sous KR-013, citee dans sa propre entree. BUG-134 y rejoint le 2026-10-06 (scission de bug_history.json au lot moteur-fins it1, franchissement a 17 070 / 15 360 o) -- lecon promue (mock par appel satisfies, meme classe que BUG-130). CE FICHIER N'EST PAS EN LECTURE OBLIGATOIRE -- seul bug_history.json l'est. NUMEROTATION GLOBALE aux DOUZE fichiers desormais, jamais reemployee : prochain id = max(BUG-xxx) des DOUZE (precedents BUG-062, BUG-123, BUG-129). HISTORIQUE DES SCISSIONS : CHANGELOG.md.",
 	"bugs": [
 		{
 			"id": "BUG-130",
@@ -48,6 +48,18 @@
 			"mitigation": "Un composant qui decide d'un effet (vider un champ, fermer un panneau) sur la base d'un etat asynchrone doit utiliser le RESULTAT de l'appel asynchrone en cours, jamais une variable d'etat capturee par la fermeture du rendu precedent -- meme famille de defaut que les miroirs d'etat interdits par KR-013, mais cote UI plutot que cote donnees.",
 			"regression_test": "src/features/play-mode/components/PlayerInputBar.test.tsx -- 'M2 -- executeAction retourne true -> champ se vide apres soumission' et 'M2 -- executeAction retourne false -> champ garde son contenu apres soumission'",
 			"severity": "major"
+		},
+		{
+			"id": "BUG-134",
+			"date": "2026-09-30",
+			"feature": "moteur-interprete",
+			"discovered_at": "iteration-3",
+			"symptom": "useTourDeJeu.test.ts (it2) renvoyait la MEME reponse mockee de CopiloteService.demander aux deux appels d'un pas (R1 puis R3). Le hook posait alors recit: undefined sur la session (la reponse de R1 n'a pas de champ recit), sans qu'aucune assertion ne le signale.",
+			"root_cause": "demanderMock.mockResolvedValue(...) (SANS Once, jest.fn() non type) posait UNE SEULE reponse par defaut -- ecrit a l'it1, quand le pas n'appelait que R1 ; reste tel quel quand it2 ajoute le second appel (R3), qui recoit donc la meme reponse. Mock non type = any, invisible a tsc.",
+			"fix": "consignerNarration (recit.ts) type desormais apport.recit strictement en string (jamais optionnel). Ce qui a fait apparaitre le defaut est une TypeError A L'EXECUTION (apport.faits_etablis.reduce sur undefined), pas tsc. Le test bouchonne desormais CHAQUE appel separement (mockResolvedValueOnce, un par role du pas), et chaque litteral de reponse est annote satisfies SortieNarrateur -- pose sur les cinq bouchons R3 du fichier, remplace aussi un `as ReponseNarrateur` de verrouDeTour.test.tsx (meme assertion structurelle, deux fichiers).",
+			"mitigation": "Un bouchon de demander() se pose PAR APPEL ATTENDU (mockResolvedValueOnce, un par role du pas), jamais un mockResolvedValue unique des qu'un pas appelle plus d'un role -- et chaque litteral porte satisfies <Sortie du role>, jamais as, qui ne verifie pas qu'un champ requis est present.",
+			"regression_test": "src/features/play-mode/hooks/useTourDeJeu.test.ts -- la reponse narrateur mockee est distincte de la reponse interprete",
+			"severity": "minor"
 		}
 	]
 }

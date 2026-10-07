@@ -8,6 +8,7 @@ import {
 	evaluerExpr,
 	evenementARencontrer,
 	evenementDeClimat,
+	finAtteinte,
 	projeterJalonsAtteints,
 	resoudreJalons,
 } from './evaluate'
@@ -949,6 +950,239 @@ describe('etapeDeclenchee, le declencheur d une etape de plan (n 14 moteur-horlo
 	})
 })
 
+describe('finAtteinte, la fin atteinte (n 15 moteur-fins, it1, lot contrat)', () => {
+	/**
+	 * LES DEUX FINS DU DISQUE, lues — jamais recopiées (KR-156). Les deux conditions sont des `et` :
+	 *  · `fin.vigie-sauvee` — possède `objet.sceau-de-cendre` ET `jalon.second-guet` atteint ;
+	 *  · `fin.vigie-abandonnee` — `evenement.embuscade-a-la-tour` consommé ET `lieu.vigie-du-nord` JAMAIS visité.
+	 */
+	const SAUVEE = 'fin.vigie-sauvee'
+	const ABANDONNEE = 'fin.vigie-abandonnee'
+	const SCEAU = 'objet.sceau-de-cendre'
+	const SECOND_GUET = 'jalon.second-guet'
+	const EMBUSCADE = 'evenement.embuscade-a-la-tour'
+
+	/** Les faits d'OUVERTURE du dossier de référence : aucune des deux fins n'y est vraie. */
+	function depart(dossier: Dossier): FaitsDeSession {
+		return ouverture(dossier)
+	}
+
+	/** Seule `fin.vigie-sauvee` est vraie — le sceau possédé et le second guet atteint. */
+	function monde1(dossier: Dossier): FaitsDeSession {
+		return { ...depart(dossier), objets_possedes: [SCEAU], jalons_atteints: [SECOND_GUET] }
+	}
+
+	/** Seule `fin.vigie-abandonnee` est vraie — l'embuscade a eu lieu, la vigie du nord n'a jamais été visitée. */
+	function monde2(dossier: Dossier): FaitsDeSession {
+		return { ...depart(dossier), evenements_consommes: [EMBUSCADE] }
+	}
+
+	/** LES DEUX sont vraies : tout ce qui précède, ensemble. */
+	function mondeDouble(dossier: Dossier): FaitsDeSession {
+		return { ...monde1(dossier), evenements_consommes: [EMBUSCADE] }
+	}
+
+	it('finAtteinte rend la premiere fin dont la condition est vraie — et la seconde quand seule celle-la l est, undefined quand aucune ne l est', () => {
+		const dossier = lire(CHEMIN_REFERENCE)
+		// L'ORDRE DU DISQUE EST LA PRÉCONDITION DU TÉMOIN : sans lui, « première » ne dirait rien.
+		expect(dossier.charpente.fins.map((fin) => fin.id)).toEqual([SAUVEE, ABANDONNEE])
+
+		// (1) AUCUNE n'est vraie à l'ouverture : rien n'est rendu — jamais un `fins[0]` par défaut.
+		expect(finAtteinte(dossier, { monde: depart(dossier) })).toBeUndefined()
+
+		// (2) SEULE LA PREMIÈRE est vraie, puis (3) SEULE LA SECONDE : un `fins[0]` aveugle ou un
+		// `fins[dernier]` aveugle rougit chacun d'un côté.
+		expect(finAtteinte(dossier, { monde: monde1(dossier) })?.fin_id).toBe(SAUVEE)
+		expect(finAtteinte(dossier, { monde: monde2(dossier) })?.fin_id).toBe(ABANDONNEE)
+
+		// (4) LES DEUX : la première du document, avec SA prose, verbatim, telle que le dossier l'écrit.
+		const atteinte = finAtteinte(dossier, { monde: mondeDouble(dossier) })
+		expect(atteinte).toEqual({ fin_id: SAUVEE, texte: dossier.charpente.fins[0].texte })
+		expect((atteinte?.texte ?? '').length).toBeGreaterThan(0)
+	})
+
+	it('KR-302 deux fins vraies, premiere dans l ordre du document — le meme monde, fins INVERSEES, rend l autre', () => {
+		// LE SÉPARATEUR : le MÊME monde, où les deux conditions sont vraies, et le SEUL ordre du
+		// document change. Ce qui décide est l'INDEX dans `charpente.fins[]`, jamais l'identifiant,
+		// jamais l'ordre où les faits ont été posés, jamais la longueur de la condition.
+		const dossier = lire(CHEMIN_REFERENCE)
+		const monde = mondeDouble(dossier)
+		expect(evaluerExpr(monde, dossier.charpente.fins[0].condition_expr as ExprNode)).toBe(true)
+		expect(evaluerExpr(monde, dossier.charpente.fins[1].condition_expr as ExprNode)).toBe(true)
+
+		expect(finAtteinte(dossier, { monde })?.fin_id).toBe(SAUVEE)
+
+		const inverse = lire(CHEMIN_REFERENCE)
+		inverse.charpente.fins.reverse()
+		expect(inverse.charpente.fins.map((fin) => fin.id)).toEqual([ABANDONNEE, SAUVEE])
+		const atteinte = finAtteinte(inverse, { monde })
+		expect(atteinte).toEqual({ fin_id: ABANDONNEE, texte: inverse.charpente.fins[0].texte })
+	})
+
+	it('KR-303 combat ouvert bloque finAtteinte — MEME avec une fin vraie, quelle que soit la forme de combat', () => {
+		const dossier = lire(CHEMIN_REFERENCE)
+		const monde = mondeDouble(dossier)
+
+		// L'ÉTAT SÉPARATEUR : le même monde, sans puis avec `combat`.
+		expect(finAtteinte(dossier, { monde })?.fin_id).toBe(SAUVEE)
+		expect(finAtteinte(dossier, { monde, combat: undefined })?.fin_id).toBe(SAUVEE)
+
+		// `combat` est `unknown` : seule sa PRÉSENCE compte. Un combat tout juste ouvert, un combat
+		// avancé, une fuite posée, et une forme quelconque — tous ferment.
+		for (const combat of [
+			{ monstre_ref: 'bestiaire.squelette', postures: [] },
+			{ monstre_ref: 'bestiaire.squelette', postures: ['normale', 'defensive'] },
+			{ monstre_ref: 'bestiaire.squelette', postures: ['defensive'], fuite: true },
+			{},
+		]) {
+			expect(`${JSON.stringify(combat)} → ${finAtteinte(dossier, { monde, combat })}`).toBe(
+				`${JSON.stringify(combat)} → undefined`,
+			)
+		}
+
+		// SUR UN VRAI `EtatSession` aussi — le chemin du produit : l'embuscade ouvre le combat et
+		// consomme son événement, donc `fin.vigie-abandonnee` est vraie sur le monde de la session,
+		// et un combat ouvert la ferme.
+		const ouverte = ouvrirSession(dossier, { graine_alea: 424242 })
+		if (!ouverte.ok) throw new Error(`ouverture refusée : ${ouverte.refus}`)
+		const sansCombat: EtatSession = {
+			...ouverte.session,
+			monde: { ...ouverte.session.monde, evenements_consommes: [EMBUSCADE] },
+		}
+		const enCombat: EtatSession = { ...sansCombat, combat: { monstre_ref: 'bestiaire.squelette', postures: [] } }
+		expect(finAtteinte(dossier, sansCombat)?.fin_id).toBe(ABANDONNEE)
+		expect(finAtteinte(dossier, enCombat)).toBeUndefined()
+	})
+
+	it('fin sans condition_expr ignoree — jamais atteinte, et elle ne CACHE pas la fin qui la suit', () => {
+		// Absence de condition = état calme (`types.ts`) : la même règle que le déclencheur d'un jalon
+		// ou d'un événement. La fin conserve son `texte` — c'est la CONDITION seule qui est lue.
+		const dossier = lire(CHEMIN_REFERENCE)
+		delete dossier.charpente.fins[0].condition_expr
+		expect(dossier.charpente.fins[0].texte).toBeDefined()
+		const monde = mondeDouble(dossier)
+
+		// Les deux conditions seraient vraies : celle qui reste est rendue, la première est sautée.
+		expect(finAtteinte(dossier, { monde })?.fin_id).toBe(ABANDONNEE)
+		// Et seule SA condition à elle (monde1) ne rend plus rien — elle n'en a plus.
+		expect(finAtteinte(dossier, { monde: monde1(dossier) })).toBeUndefined()
+
+		// TOUTES sans condition : rien, même sur le monde où tout serait vrai.
+		delete dossier.charpente.fins[1].condition_expr
+		expect(finAtteinte(dossier, { monde })).toBeUndefined()
+
+		// Et un dossier SANS AUCUNE FIN n'en rend pas : la boucle ne lit rien.
+		const vide = lire(CHEMIN_REFERENCE)
+		vide.charpente.fins = []
+		expect(finAtteinte(vide, { monde })).toBeUndefined()
+	})
+
+	it('le retour porte DEUX cles au plus — fin_id et texte —, la cle texte est ABSENTE quand Fin.texte l est, et son contenu n est jamais juge (KR-307)', () => {
+		const dossier = lire(CHEMIN_REFERENCE)
+		const monde = mondeDouble(dossier)
+
+		// GARDE PAR VALEUR (KR-246) : ni `nom`, ni `condition_texte` (audience `auteur`), ni
+		// `condition_expr` (la règle elle-même) ne sortent — une `FinAtteinte` n'est pas une vue sur la fin.
+		const complete = finAtteinte(dossier, { monde })
+		expect(Object.keys(complete ?? {}).sort()).toEqual(['fin_id', 'texte'])
+
+		// `Fin.texte` ABSENT : la CLÉ est absente — jamais `texte: undefined`, que `toEqual` ne distingue
+		// pas de l'absence et que cette ligne, si.
+		delete dossier.charpente.fins[0].texte
+		const sansTexte = finAtteinte(dossier, { monde })
+		expect(sansTexte).toEqual({ fin_id: SAUVEE })
+		expect('texte' in (sansTexte ?? {})).toBe(false)
+		expect(Object.keys(sansTexte ?? {})).toEqual(['fin_id'])
+
+		// LE CONTENU N'EST JAMAIS JUGÉ : vide ou blanc est rendu TEL QUEL. Le repli est l'affaire du
+		// consommateur, pas du contrat — sinon `trim` vivrait à DEUX endroits.
+		for (const texte of ['', '   ', '\n']) {
+			dossier.charpente.fins[0].texte = texte
+			const rendue = finAtteinte(dossier, { monde })
+			expect(`« ${JSON.stringify(texte)} » → ${JSON.stringify(rendue)}`).toBe(
+				`« ${JSON.stringify(texte)} » → ${JSON.stringify({ fin_id: SAUVEE, texte })}`,
+			)
+		}
+	})
+
+	it('leve sur une condition de fin non reconnue, NUE et sous une negation — jamais un faux positif (KR-238)', () => {
+		// MUTANT NOMMÉ, ÉCRIT, VU ROUGE, RÉVOQUÉ : envelopper l'appel d'`evaluerExpr` d'un `try/catch` qui
+		// rend `false`. Sous un `non`, ce repli produit `true` — une fin ATTEINTE à tort, c'est-à-dire
+		// la partie TERMINÉE sans raison, la seule direction d'erreur que cette couche s'interdise.
+		const inconnu = { op: 'xor' } as unknown as ExprNode
+		const monde = depart(lire(CHEMIN_REFERENCE))
+
+		for (const condition of [
+			inconnu,
+			nier(inconnu),
+			{ op: 'ou', enfants: [feuille('lieu_visite', 'lieu.jamais-vu'), inconnu] } as ExprNode,
+		]) {
+			const dossier = lire(CHEMIN_REFERENCE)
+			dossier.charpente.fins[0].condition_expr = condition
+			expect(() => finAtteinte(dossier, { monde })).toThrow()
+		}
+
+		// DISCRIMINANCE (KR-199) : elle ne lève pas sur tout — la même forme, valide, répond.
+		const sain = lire(CHEMIN_REFERENCE)
+		sain.charpente.fins[0].condition_expr = nier(feuille('lieu_visite', 'lieu.jamais-vu'))
+		expect(finAtteinte(sain, { monde })?.fin_id).toBe(SAUVEE)
+		// Et SANS arbre, il n'y a rien à lever : l'absence n'est pas une entrée non reconnue.
+		const sans = lire(CHEMIN_REFERENCE)
+		delete sans.charpente.fins[0].condition_expr
+		expect(() => finAtteinte(sans, { monde })).not.toThrow()
+	})
+
+	it('son second parametre est STRUCTUREL : { monde } suffit, un EtatSession entier passe tel quel, et monde est requis', () => {
+		// Ce module n'importe NI `session.ts` NI `commandes.ts` : il ne peut pas NOMMER `EtatSession`.
+		const dossier = lire(CHEMIN_REFERENCE)
+		const monde = mondeDouble(dossier)
+		expect(finAtteinte(dossier, { monde })?.fin_id).toBe(SAUVEE)
+
+		const ouverte = ouvrirSession(dossier, { graine_alea: 424242 })
+		if (!ouverte.ok) throw new Error(`ouverture refusée : ${ouverte.refus}`)
+		const session: EtatSession = { ...ouverte.session, monde }
+		expect(finAtteinte(dossier, session)?.fin_id).toBe(SAUVEE)
+
+		// LES TROIS FORMES LÉGALES COMPILENT ET RÉPONDENT — c'est la moitié sans laquelle la directive
+		// ci-dessous serait satisfaite par n'importe quelle erreur de type.
+		expect(finAtteinte(dossier, { monde, combat: undefined })?.fin_id).toBe(SAUVEE)
+
+		// `@ts-expect-error` ÉCHOUE À LA COMPILATION si l'erreur attendue n'a PAS lieu : c'est le seul
+		// instrument qui épingle ce qu'une signature REFUSE. Ce que le typage exige : `monde`.
+		// @ts-expect-error — `monde` est REQUIS : une session sans faits n'a rien à évaluer.
+		const sansMonde = (): unknown => finAtteinte(dossier, {})
+		expect(typeof sansMonde).toBe('function')
+	})
+
+	it('elle est PURE — ni le dossier ni la session ne bougent, et le verdict suit l etat', () => {
+		// KR-169 : « pure » est écrit au contrat, voici sa porte. Le dernier couple est la mesure
+		// « aucune mémoïsation » PAR LE COMPORTEMENT : deux états, deux verdicts.
+		const dossier = lire(CHEMIN_REFERENCE)
+		const avant = monde2(dossier)
+		const apres = mondeDouble(dossier)
+		const session = { monde: apres }
+		const avantDossier = JSON.stringify(dossier)
+		const avantSession = JSON.stringify(session)
+
+		finAtteinte(dossier, session)
+
+		expect(JSON.stringify(dossier)).toBe(avantDossier)
+		expect(JSON.stringify(session)).toBe(avantSession)
+		expect(finAtteinte(dossier, { monde: avant })?.fin_id).toBe(ABANDONNEE)
+		expect(finAtteinte(dossier, { monde: apres })?.fin_id).toBe(SAUVEE)
+	})
+
+	it('les DEUX fixtures du disque portent une fin FAUSSE a l ouverture — aucune partie ne naît terminee', () => {
+		// Ce test est ce qui autorise `executerCommande` à refuser sur `finAtteinte` sans toucher aux
+		// deux fixtures : une fin vraie dès l'ouverture rendrait chaque suite de commandes sans objet.
+		for (const chemin of [CHEMIN_REFERENCE, CHEMIN_MINIMAL]) {
+			const dossier = lire(chemin)
+			expect(dossier.charpente.fins.length).toBeGreaterThan(0)
+			expect(finAtteinte(dossier, { monde: depart(dossier) })).toBeUndefined()
+		}
+	})
+})
+
 describe('evaluate.ts, les proprietes qui se lisent dans la SOURCE', () => {
 	it('aucun identifiant de registre en chaine — la resolution passe par le descripteur', () => {
 		// KR-117 : un aiguillage au site d'appel re-listerait ce que `PREDICATES` et
@@ -1079,6 +1313,28 @@ describe('evaluate.ts, les proprietes qui se lisent dans la SOURCE', () => {
 		expect(fichiersDuModule()).toContain('climat.ts')
 		expect(source('climat.ts')).toMatch(/export function tickClimat\(/)
 		expect(source('evaluate.ts')).toMatch(/export function evenementDeClimat\(/)
+	})
+
+	it('garde-baril-fin : la fin atteinte est interne a brain/dossier — ni finAtteinte, ni FinAtteinte dans le baril', () => {
+		// n° 15 `moteur-fins`, it1. `finAtteinte` (`evaluate.ts`) est appelée par `executerCommande`
+		// (`commandes.ts`), et la feature la lit par le pont `src/player/engine/fin.ts` — import en
+		// PROFONDEUR, comme `evenementARencontrer` par `rencontre.ts` : décider qu'une partie est finie est
+		// une décision de MOTEUR, jamais d'une feature. Lire le texte brut du baril — commentaires compris —
+		// est voulu : un symbole cité même en prose y deviendrait un précédent (KR-223).
+		const baril = fs.readFileSync(path.join(MODULE_DOSSIER, '..', 'index.ts'), 'utf8')
+
+		for (const interne of ['finAtteinte', 'FinAtteinte']) {
+			expect(`${interne} → ${baril.includes(interne)}`).toBe(`${interne} → false`)
+		}
+		// Discriminant du motif : le même balayage attrape, lui, ce que le baril sort bel et bien de ce
+		// module — `DeltaJournalise` — et le refus que `executerCommande` rend, lui, PUBLIC (`RefusCommande`
+		// sort : la feature rétrécit son union).
+		for (const exporte of ['DeltaJournalise', 'RefusCommande', "'./dossier/evaluate'"]) {
+			expect(`${exporte} → ${baril.includes(exporte)}`).toBe(`${exporte} → true`)
+		}
+		// Et le module existe, avec ses deux symboles : le test ne passe pas faute de fichier.
+		expect(source('evaluate.ts')).toMatch(/export function finAtteinte\(/)
+		expect(source('evaluate.ts')).toMatch(/export interface FinAtteinte\b/)
 	})
 
 	it('evaluate.ts n importe ni session.ts ni commandes.ts — ce sont EUX qui l appellent', () => {

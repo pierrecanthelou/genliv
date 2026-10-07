@@ -1191,9 +1191,18 @@ describe('le combat en session — resoudreRencontre, jouerPosture, cloreCombat 
 			// UN COMBAT = UN PAS ; ni XP (12 reste 12), ni plafonds.
 			expect(clos.horloge.tour).toBe(arrivee.horloge.tour)
 			expect(clos.heros).toEqual({ ...HEROS_DE_COMBAT, pv: 11, pe: 2 })
-			// Et la main est rendue : la même commande, refusée sous combat, est acceptée.
-			const reprise = executerCommande(dossier, clos, { commande: 'aller', cibles: ['lieu.foyer-du-guet'] })
+			// Et la main est rendue : la même commande, refusée sous combat, est acceptée — SUR UN
+			// DOSSIER DONT LES FINS SONT NEUTRALISÉES (n° 15 `moteur-fins`, it1). Sur le dossier de
+			// référence, la clôture rend VRAIE `fin.vigie-abandonnee` (embuscade consommée, vigie du
+			// nord jamais visitée) : la main n'est pas rendue, la PARTIE est terminée. Les deux
+			// moitiés tiennent dans le même test, pour que l'une ne soit pas verte parce que l'autre
+			// n'a jamais été regardée.
+			const sansFins = dossierReference()
+			sansFins.charpente.fins = []
+			const reprise = executerCommande(sansFins, clos, { commande: 'aller', cibles: ['lieu.foyer-du-guet'] })
 			expect(reprise.ok).toBe(true)
+			const terminee = executerCommande(dossier, clos, { commande: 'aller', cibles: ['lieu.foyer-du-guet'] })
+			expect(terminee.ok === false && terminee.refus).toBe('partie_terminee')
 		})
 	})
 })

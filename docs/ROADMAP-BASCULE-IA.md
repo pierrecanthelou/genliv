@@ -137,10 +137,11 @@ Chaque ligne part **toute seule** quand son déclencheur se présente. Le lot qu
 | **Égalité d'AT × compteur de Garde aiguisée** (D2-bis, `docs/REGLES-PLAY.md`) — rien ne l'implémente ni ne la teste | `combatEngine.ts` (moteur, Temps 2) | la n° 13 `moteur-combat`, propriétaire de `combatEngine.ts` — corrigé au cadrage n°11 (2026-09-30), qui confirme `combat.ts` hors de son périmètre |
 | **Test instable `panneauPersonnages.test.tsx:800`** — rouge ~1 run sur 5, vert relancé seul ; cause non établie (hypothèse `capacityEffects.test.ts` infirmée par sonde, 12/12 verts) | `src/features/dossier-fiches/tests/panneauPersonnages.test.tsx` | le prochain lot qui rouvre `dossier-fiches` |
 | **Le mot « manqué » en double emploi** — `capacityEffects.ts:104` écrit déjà `'manqué'` (minuscule) dans un journal joueur, pour un cas différent de la qualité **Manqué** d'un assaut à AT égales (B2, `combat.ts` / `REGLES-DU-JEU.md` § 3). Pas un conflit aujourd'hui | `capacityEffects.ts` + l'affichage de `combatEngine.ts` | le lot qui rouvrira l'affichage de `combatEngine.ts` / `capacityEffects.ts` (n° 9+) |
-| **`session.ts` > 800 lignes** — **PAYÉE** (`0.7.24`, n° 14 it4). Extraction `sessionCombat.ts`, 846 → 707 l. | `session.ts` | **payée** |
+| **`session.ts` > 800 l.** — **PAYÉE** (`0.7.24`) | `session.ts` | **payée** |
 | **R3 manifestation — bloc CLIMAT narrateur** (reporté n° 14 it4, PM O5) | `contexte/narrateur.ts`, `horloge.ts` | un besoin exprimé |
 | **Éditeur `climat_id` + `effets_regles`** (reporté n° 14 it4, PM O3) | `FicheEvenement`, `FicheClimat` | un besoin exprimé |
-| **`EcranPartie.tsx` > 400 lignes** (406 après n° 14 it4, signal KR-112). Coupe : `ActionsCarnet` | `EcranPartie.tsx` | le prochain lot qui rouvre `EcranPartie.tsx` |
+| **`EcranPartie.tsx` > 400 l.** — **PAYÉE** (`0.7.25`) | `EcranPartie.tsx` | **payée** |
+| **`useTourDeJeu.ts` > 400 l.** (562, n° 15 it1, KR-112). Coupe : `lancerLeDe` | `useTourDeJeu.ts` | le prochain lot qui le rouvre |
 
 ### Le repointage de `tree-canvas` — **après le Temps 2**
 
@@ -162,7 +163,7 @@ Le Temps 2 ne commence qu'une fois le § 2 bis clos, sur go explicite. `0.7.x`.
 | 12 | `moteur-acteurs` | …parler à un PNJ qui ne révèle que ce qu'il sait | 4 | **4/4, TERMINÉE** | 5 rôles | 11 |
 | 13 | `moteur-combat` | …lire un combat raconté que l'IA n'arbitre pas | 3 | **3/3, TERMINÉE** — it3 livrée (`0.7.20`) | 5 rôles | 11 |
 | 14 | `moteur-horloge` | …découvrir que le monde a avancé sans lui | 4 | **4/4, TERMINÉE** — it4 livrée (`0.7.24`) | 5 rôles | 12 |
-| 15 | `moteur-fins` | …reprendre sa partie là où il l'a laissée | 3 | **0/3** — cadrée | 5 rôles | 14 |
+| 15 | `moteur-fins` | …reprendre sa partie là où il l'a laissée | 3 | **1/3** — it1 (`0.7.25`) | 5 rôles | 14 |
 | 16 | `dossier-repetition` | *(auteur)* …faire jouer son aventure par un joueur synthétique | 2 | — | 5 rôles | 10 · 7 |
 
 **9 · `moteur-dossier` — TERMINÉE (4/4), `0.7.5`.** Cadrée le 2026-09-20, 4 itérations : lire le texte d'ouverture (**it1**, `0.7.0`), se déplacer par `lieux[].acces` (**it2**, `0.7.1`), voir un jalon s'atteindre parce que sa condition est devenue vraie (**it3**, `0.7.3`), éteindre les consommateurs du modèle d'arbre (**it4**, `0.7.5`, § 0 bis — 24 fichiers, sans phrase de démo, dérogation nommée). Aucune génération de texte, prouvé par un test dérivé du disque. Porte le premier évaluateur d'`ExprNode` bivalent, qui **lève** au lieu de rendre `false` (KR-238), et le premier `appliquerDelta` — que `RapportControles.jouable` conditionne comme **précondition de correction**, pas comme ergonomie. `actionEngine.ts` confirmé à **0 partie arbre** en it4 (KR-240 : la n° 9 éteint les consommateurs, jamais le modèle). Sortis du périmètre : `quetes[].etapes`/`memoire.faits_etablis` (n° 10), `REGLES-PLAY.md` § A4/E3/B3 (n° 11). Motifs, arbitrages, refus : `.claude/raffinage/moteur-dossier-cadrage.plan.md` et les revues `…-it1/-it2/-it3/-it4.revue.md` — la spec en est l'index.

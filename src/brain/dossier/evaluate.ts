@@ -409,6 +409,84 @@ export function etapeDeclenchee(faits: FaitsDeSession, etape: PlanAction): boole
 }
 
 /**
+ * UNE FIN ATTEINTE — l'identifiant de la fin et sa prose émise verbatim, et RIEN d'autre
+ * (n° 15 `moteur-fins`, it1, lot `contrat`).
+ *
+ * UNE SEULE DÉCLARATION pour tous ses lecteurs : `finAtteinte` la REND, `executerCommande`
+ * (`commandes.ts`) la CONSOMME pour refuser toute commande, et la feature la lit par le pont
+ * `src/player/engine/fin.ts` (pont réexport, doctrine `brain/index.ts:574-578`).
+ * Même doctrine, mot pour mot, que `Rencontre` et `JalonAtteint` : une
+ * `FinAtteinte` n'est pas une vue sur la `Fin`, c'est ce qu'il faut pour la LIRE au joueur. AUCUN autre champ n'en sort — ni `nom` (audience `auteur`), ni
+ * `condition_texte` (audience `auteur`, jamais injectée), ni `condition_expr` (la règle
+ * elle-même). Le consommateur qui veut un titre résout `nom` PAR `fin_id`, dans le dossier.
+ *
+ * `fin_id` est la référence TELLE QUE LE DOSSIER L'ÉCRIT (`charpente.fins[].id`).
+ *
+ * `texte` EST OPTIONNEL COMME DANS LE DOSSIER (KR-191, KR-307) : la CLÉ est ABSENTE quand
+ * `Fin.texte` l'est, jamais `texte: undefined`. Un texte VIDE ou blanc est rendu TEL QUEL :
+ * le contrat ne discrimine JAMAIS sur le contenu de la prose, c'est le consommateur qui
+ * décide du repli à afficher.
+ */
+export interface FinAtteinte {
+	readonly fin_id: string
+	readonly texte?: string
+}
+
+/**
+ * LA FIN QUI EST ATTEINTE MAINTENANT, s'il y en a une — PURE, BIVALENTE (elle passe par
+ * `evaluerExpr`), et TOTALE **sur un dossier accepté par `validateDossier`** : même régime
+ * que la passe des jalons et que `evenementARencontrer`, elle LÈVE sur une condition non
+ * reconnue (KR-238/239), sans `catch`. Sous un `non`, un repli en `false` ferait ATTEINDRE une
+ * fin à tort — un faux positif sur la condition qui TERMINE la partie, la seule direction
+ * d'erreur que cette couche s'interdise.
+ *
+ * TROIS CONDITIONS, TOUTES REQUISES, et la fin la PREMIÈRE du dossier qui les tient :
+ *  · aucun combat n'est ouvert (`session.combat === undefined`) — sinon `undefined`, quel
+ *    que soit le reste (KR-303). MORT ET FIN SONT EXCLUSIVES PAR CONSTRUCTION : la mort exige
+ *    un combat ouvert (`hero-mort` le laisse en place), la fin l'interdit. Aucune clause de
+ *    priorité n'existe, parce qu'aucune n'est nécessaire ;
+ *  · la fin porte une `condition_expr` — sans elle, elle n'est JAMAIS atteinte
+ *    automatiquement : son absence est un état calme (`types.ts`), exactement comme celle du
+ *    `declencheur_expr` d'un jalon ou d'un événement. Elle ne cache pas la fin qui la suit ;
+ *  · sa `condition_expr` est VRAIE contre `session.monde`.
+ *
+ * DEUX FINS VRAIES AU MÊME PAS : la PREMIÈRE dans l'ORDRE DU DOCUMENT (index de
+ * `charpente.fins[]`) l'emporte (KR-302). Jamais celle qui est devenue vraie la première, ni la
+ * dernière : seul l'ordre d'écriture est stable d'une partie à l'autre.
+ *
+ * ELLE NE DIT PAS « DEPUIS QUAND » : une fin atteinte reste atteinte tant que ses faits le
+ * restent, et c'est `executerCommande` qui ferme la porte aux commandes suivantes — rien ici
+ * ne la marque, rien ne s'en souvient (KR-013/113).
+ *
+ * SON SECOND PARAMÈTRE EST STRUCTUREL, pour la même raison que `evenementARencontrer` : ce
+ * module n'importe NI `session.ts` NI `commandes.ts`, donc il ne peut pas NOMMER `EtatSession`.
+ * Il ne demande que les deux clés qu'il lit — un `EtatSession` s'y passe tel quel. `combat` est
+ * `unknown` : seule sa PRÉSENCE compte, jamais sa forme.
+ *
+ * ELLE NE SORT PAS DU BARIL `brain/index.ts` (garde-baril-fin, `evaluate.test.ts`) : décider
+ * qu'une partie est finie est une décision de MOTEUR que la feature lit par import en
+ * profondeur du pont `src/player/engine/fin.ts`, jamais par le baril (même règle que
+ * `evaluerExpr` et `evenementARencontrer`).
+ *
+ * AUCUNE MÉMOÏSATION (KR-013/113).
+ */
+export function finAtteinte(
+	dossier: Dossier,
+	session: { readonly monde: FaitsDeSession; readonly combat?: unknown },
+): FinAtteinte | undefined {
+	if (session.combat !== undefined) return undefined
+
+	for (const fin of dossier.charpente.fins) {
+		if (fin.condition_expr === undefined) continue
+		if (!evaluerExpr(session.monde, fin.condition_expr)) continue
+
+		return { fin_id: fin.id, ...(fin.texte === undefined ? {} : { texte: fin.texte }) }
+	}
+
+	return undefined
+}
+
+/**
  * CE QU'UN MODÈLE POURRA VOIR DES JALONS ATTEINTS — leur handle et leur énoncé.
  *
  * ELLE BALAIE `jalons_atteints`, JAMAIS `charpente.jalons` FILTRÉ, et la

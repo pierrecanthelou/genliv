@@ -1751,4 +1751,118 @@ describe('useTourDeJeu — hook orchestrateur', () => {
 			})
 		})
 	})
+
+	describe('Garde R2/R3/R4 apres fin (moteur-fins it1, critere 6)', () => {
+		const DOSSIER_AVEC_FIN: Dossier = {
+			...DOSSIER_TEST,
+			charpente: {
+				...DOSSIER_TEST.charpente,
+				fins: [
+					{
+						id: 'fin.arrivee',
+						nom: 'Arrivee',
+						condition_texte: 'Le joueur atteint le lieu 2',
+						condition_expr: { op: 'predicat' as const, predicat: 'lieu_visite', cibles: ['lieu_2'] },
+						texte: 'Felicitations, vous avez atteint la fin.',
+					},
+				],
+			},
+		}
+
+		const DOSSIER_FIN_VIA_JALON: Dossier = {
+			...DOSSIER_TEST,
+			charpente: {
+				...DOSSIER_TEST.charpente,
+				jalons: [
+					{
+						id: 'jalon.depart',
+						nom: 'Depart visite',
+						enonce_texte: 'Le joueur a visite le depart',
+						declencheur_texte: 'Quand le lieu de depart est visite',
+						declencheur_expr: {
+							op: 'predicat' as const,
+							predicat: 'lieu_visite',
+							cibles: ['lieu_1'],
+						},
+						effet: [],
+					},
+				],
+				fins: [
+					{
+						id: 'fin.jalon',
+						nom: 'Fin par jalon',
+						condition_texte: 'Quand le jalon depart est atteint',
+						condition_expr: {
+							op: 'predicat' as const,
+							predicat: 'jalon_atteint',
+							cibles: ['jalon.depart'],
+						},
+						texte: 'La partie se termine par un jalon.',
+					},
+				],
+			},
+		}
+
+		const SESSION_JALON_PRETE: EtatSession = {
+			...SESSION_AVEC_HEROS,
+			monde: { ...SESSION_AVEC_HEROS.monde, lieux_visites: ['lieu_1'] },
+		}
+
+		it('garde coupe R3 apres fin sur aller — copilote.demander appele une seule fois (R1)', async () => {
+			const propositionR1 = {
+				lecture: 'commande' as const,
+				commande: { commande: 'aller' as const, cibles: ['lieu_2'] },
+			}
+			demanderMock.mockResolvedValueOnce({ statut: 'propose', proposition: propositionR1 })
+
+			const onSessionChange = jest.fn()
+			const { result } = renderHook(() => useTourDeJeu(DOSSIER_AVEC_FIN, SESSION_TEST, onSessionChange))
+
+			await act(async () => {
+				await result.current.executeAction('aller lieu_2')
+			})
+
+			expect(demanderMock).toHaveBeenCalledTimes(1)
+			expect(demanderMock.mock.calls[0][1].role).toBe('interprete')
+			expect(onSessionChange).toHaveBeenCalledTimes(1)
+		})
+
+		it('garde coupe R2 apres fin sur agir avec heros — copilote.demander appele une seule fois (R1)', async () => {
+			const propositionR1 = {
+				lecture: 'commande' as const,
+				commande: { commande: 'agir' as const, cibles: [] },
+			}
+			demanderMock.mockResolvedValueOnce({ statut: 'propose', proposition: propositionR1 })
+
+			const onSessionChange = jest.fn()
+			const { result } = renderHook(() => useTourDeJeu(DOSSIER_FIN_VIA_JALON, SESSION_JALON_PRETE, onSessionChange))
+
+			await act(async () => {
+				await result.current.executeAction('agir')
+			})
+
+			expect(demanderMock).toHaveBeenCalledTimes(1)
+			expect(demanderMock.mock.calls[0][1].role).toBe('interprete')
+			expect(onSessionChange).toHaveBeenCalledTimes(1)
+		})
+
+		it('garde coupe R4 apres fin sur parler — copilote.demander appele une seule fois (R1)', async () => {
+			const propositionR1 = {
+				lecture: 'commande' as const,
+				commande: { commande: 'parler' as const, cibles: ['pnj-1'] },
+			}
+			demanderMock.mockResolvedValueOnce({ statut: 'propose', proposition: propositionR1 })
+
+			const onSessionChange = jest.fn()
+			const { result } = renderHook(() => useTourDeJeu(DOSSIER_FIN_VIA_JALON, SESSION_JALON_PRETE, onSessionChange))
+
+			await act(async () => {
+				await result.current.executeAction('parler pnj-1')
+			})
+
+			expect(demanderMock).toHaveBeenCalledTimes(1)
+			expect(demanderMock.mock.calls[0][1].role).toBe('interprete')
+			expect(onSessionChange).toHaveBeenCalledTimes(1)
+		})
+	})
 })

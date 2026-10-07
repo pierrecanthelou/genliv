@@ -1,0 +1,41 @@
+{
+	"_about": "Archive des defauts de moteur-combat (n 13, TERMINEE 3/3 le 2026-10-05, 0.7.22) dont la lecon est DEJA PROMUE dans un instrument lui-meme en lecture obligatoire ou dans le test permanent qui les a corriges. MEME AXE que les autres archives : la REDONDANCE, JAMAIS l'age. Ne le 2026-10-06 (moteur-fins it1, franchissement du plafond de bug_history.json : 17 070 / 15 360 o) avec BUG-151/BUG-152/BUG-153. CE FICHIER N'EST PAS EN LECTURE OBLIGATOIRE -- seul bug_history.json l'est. NUMEROTATION GLOBALE aux DOUZE fichiers desormais, jamais reemployee : prochain id = max(BUG-xxx) des DOUZE (precedents BUG-062, BUG-123, BUG-129). HISTORIQUE DES SCISSIONS : CHANGELOG.md.",
+	"bugs": [
+		{
+			"id": "BUG-151",
+			"date": "2026-10-04",
+			"feature": "moteur-combat",
+			"discovered_at": "iteration-1",
+			"symptom": "Le test peLive remplace heros.pe assertait toContain('1') avec peLive={1}. Or la fixture heroTest produit un texte contenant '10', '12', '150' — tous contiennent le sous-chaine '1'. Le test passait meme si peLive etait ignore par le composant.",
+			"root_cause": "Valeur de test choisie sans verifier qu'elle est absente du rendu par defaut. Meme classe que le pvLive voisin (qui utilisait '3', absent de la fixture) mais l'erreur n'a pas ete repliquee.",
+			"fix": "peLive={2} avec toMatch(/PE\\s*2\\/6/) et not.toMatch(/PE\\s*4/). Ajoute un cas pvLive={0} (hero-mort) pour tuer le mutant pvLive || heros.pv.",
+			"mitigation": "Tout test de substitution de valeur doit choisir une valeur ABSENTE du rendu par defaut ET verifier que l'ancienne valeur a DISPARU (assertion negative).",
+			"regression_test": "src/features/play-mode/components/BandeauHeros.test.tsx — peLive remplace heros.pe quand fourni + pvLive={0} affiche 0 (hero-mort)",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-152",
+			"date": "2026-10-05",
+			"feature": "moteur-combat",
+			"discovered_at": "iteration-3",
+			"symptom": "dernierAssaut undefined apres un round de combat incluant fureur — le test deterministique des PV de fureur echouait avec des valeurs RNG arbitraires.",
+			"root_cause": "Les valeurs mc (hero=9, monstre=11) et les 5 consommations RNG (pickPosture, heroAT, monsterAT, fureurMonsterAT, fureurHeroAT) devaient etre calibrees pour que le heros gagne le round regulier MAIS perde l'assaut-fureur par exactement 1 AT.",
+			"fix": "mc=11 vs mc=9 avec seqRng([0.5, 0.0, 0.99, 0.0, 0.0]) : hero AT=9 bat monster AT=5, puis fureur monster AT=11 bat hero defensive AT=10.",
+			"mitigation": "Tout test de fureur doit verifier la SEQUENCE COMPLETE de consommation RNG (5 tirades) et les MC effectifs des deux camps.",
+			"regression_test": "src/player/engine/combatEngine.test.ts — dernierAssaut defini quand fureur tue le heros",
+			"severity": "major"
+		},
+		{
+			"id": "BUG-153",
+			"date": "2026-10-05",
+			"feature": "moteur-combat",
+			"discovered_at": "iteration-3",
+			"symptom": "Les tests KR-297 et KR-292 dans combatParConsole.test.tsx etaient vacueux : fetch jamais appele, copilote retournait {statut: 'indisponible'} car workerUrl non configure apres localStorage.clear().",
+			"root_cause": "createBrain() dans l'integration monte le copilote avec cloudSettings vide. Sans brain.cloudSettings.setWorkerUrl() et setSyncKey(), acheminement() retourne null et demander retourne 'non-configure'. De plus, new Response().json() ne fonctionne pas en jsdom — le corps JSON n'est jamais lu.",
+			"fix": "global.fetch = jest.fn() retournant un objet mock {ok:true, status:200, json:()=>Promise.resolve({narration:...})}. Configuration explicite workerUrl+syncKey apres mount. Temoin de non-vacuite : waitFor sur appel commentateur + narration visible dans le DOM.",
+			"mitigation": "Tout test d'integration IA doit (1) configurer cloudSettings, (2) utiliser un objet mock {ok,status,json} et non new Response(), (3) inclure un temoin de non-vacuite.",
+			"regression_test": "src/features/play-mode/tests/combatParConsole.test.tsx — fuite ne declenche jamais un appel R5 (KR-297) + session persistee ne contient ni narration ni dernierAssaut (KR-292)",
+			"severity": "major"
+		}
+	]
+}

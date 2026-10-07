@@ -54,6 +54,7 @@ import {
 	type CibleArbitre,
 } from '../../../brain'
 import { ouvrirRencontreSiDue } from '../../../player/engine/rencontre'
+import { finAtteinte } from '../../../player/engine/fin'
 
 /** L'ISSUE DE L'APPEL R3 (narrateur) — l'avis reçu, avec le tour pour éviter une
  *  affichage périmé au pas suivant. Deux variantes : succès (statut 'raconte' +
@@ -206,6 +207,15 @@ export function useTourDeJeu(
 
 			// ÉTAPE 5 : Afficher l'avis (qui peut être 'aucun' si commande acceptée).
 			setAvis(nouvelAvis)
+
+			// ──────────────────────────────────────────────────────────
+			// GARDE R2/R3/R4 (n° 15 `moteur-fins`, it1) — si une fin est atteinte,
+			// on ne demande pas le jet (R2), ni le narrateur (R3), ni l'acteur (R4).
+			// ──────────────────────────────────────────────────────────
+			const fin = finAtteinte(dossier, nouvelleSession)
+			if (fin) {
+				return pasAccepte
+			}
 
 			// ──────────────────────────────────────────────────────────
 			// R2 (ARBITRE) — demander un jet si applicable (lot 2)

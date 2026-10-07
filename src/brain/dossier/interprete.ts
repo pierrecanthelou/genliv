@@ -147,9 +147,12 @@ function retirerAttente(session: EtatSession): EtatSession {
  *  3. `lecture === 'sans_commande'` — avis dérivé, session inchangée (hormis
  *     l'attente retirée).
  *  4. `lecture === 'commande'` — MÊME ENTONNOIR que la console
- *     (`executerCommande`). Un refus d'exécution est inatteignable par
- *     construction (`validerInterprete` a déjà garanti la cible), gardé par
- *     défense (KR-175) : session inchangée, `avis:{type:'refus_moteur'}`.
+ *     (`executerCommande`). Un refus d'exécution NE VIENT PLUS D'UNE CIBLE
+ *     (`validerInterprete` l'a déjà garantie), mais il PEUT venir de l'ÉTAT de
+ *     la partie : `partie_terminee` (une fin est atteinte) et `combat_en_cours`
+ *     refusent tout verbe. L'écran est chargé de ne pas laisser un tour libre
+ *     arriver jusqu'ici dans ces deux états ; le refus reste gardé par défense
+ *     (KR-175) : session inchangée, `avis:{type:'refus_moteur'}`.
  */
 export function apresInterpretation(
 	dossier: Dossier,

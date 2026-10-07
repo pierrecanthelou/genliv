@@ -25,18 +25,6 @@
 			"severity": "major"
 		},
 		{
-			"id": "BUG-134",
-			"date": "2026-09-30",
-			"feature": "moteur-interprete",
-			"discovered_at": "iteration-3",
-			"symptom": "useTourDeJeu.test.ts (it2) renvoyait la MEME reponse mockee de CopiloteService.demander aux deux appels d'un pas (R1 puis R3). Le hook posait alors recit: undefined sur la session (la reponse de R1 n'a pas de champ recit), sans qu'aucune assertion ne le signale.",
-			"root_cause": "demanderMock.mockResolvedValue(...) (SANS Once, jest.fn() non type) posait UNE SEULE reponse par defaut -- ecrit a l'it1, quand le pas n'appelait que R1 ; reste tel quel quand it2 ajoute le second appel (R3), qui recoit donc la meme reponse. Mock non type = any, invisible a tsc.",
-			"fix": "consignerNarration (recit.ts) type desormais apport.recit strictement en string (jamais optionnel). Ce qui a fait apparaitre le defaut est une TypeError A L'EXECUTION (apport.faits_etablis.reduce sur undefined), pas tsc. Le test bouchonne desormais CHAQUE appel separement (mockResolvedValueOnce, un par role du pas), et chaque litteral de reponse est annote satisfies SortieNarrateur -- pose sur les cinq bouchons R3 du fichier, remplace aussi un `as ReponseNarrateur` de verrouDeTour.test.tsx (meme assertion structurelle, deux fichiers).",
-			"mitigation": "Un bouchon de demander() se pose PAR APPEL ATTENDU (mockResolvedValueOnce, un par role du pas), jamais un mockResolvedValue unique des qu'un pas appelle plus d'un role -- et chaque litteral porte satisfies <Sortie du role>, jamais as, qui ne verifie pas qu'un champ requis est present.",
-			"regression_test": "src/features/play-mode/hooks/useTourDeJeu.test.ts -- la reponse narrateur mockee est distincte de la reponse interprete",
-			"severity": "minor"
-		},
-		{
 			"id": "BUG-139",
 			"date": "2026-10-01",
 			"feature": "dossier-fiches",
@@ -49,41 +37,65 @@
 			"severity": "minor"
 		},
 		{
-			"id": "BUG-151",
-			"date": "2026-10-04",
-			"feature": "moteur-combat",
+			"id": "BUG-154",
+			"date": "2026-10-06",
+			"feature": "moteur-fins",
 			"discovered_at": "iteration-1",
-			"symptom": "Le test peLive remplace heros.pe assertait toContain('1') avec peLive={1}. Or la fixture heroTest produit un texte contenant '10', '12', '150' — tous contiennent le sous-chaine '1'. Le test passait meme si peLive etait ignore par le composant.",
-			"root_cause": "Valeur de test choisie sans verifier qu'elle est absente du rendu par defaut. Meme classe que le pvLive voisin (qui utilisait '3', absent de la fixture) mais l'erreur n'a pas ete repliquee.",
-			"fix": "peLive={2} avec toMatch(/PE\\s*2\\/6/) et not.toMatch(/PE\\s*4/). Ajoute un cas pvLive={0} (hero-mort) pour tuer le mutant pvLive || heros.pv.",
-			"mitigation": "Tout test de substitution de valeur doit choisir une valeur ABSENTE du rendu par defaut ET verifier que l'ancienne valeur a DISPARU (assertion negative).",
-			"regression_test": "src/features/play-mode/components/BandeauHeros.test.tsx — peLive remplace heros.pe quand fourni + pvLive={0} affiche 0 (hero-mort)",
+			"symptom": "finDePartie.test.tsx n'assertait pas le verbatim de bout en bout ni l'absence de saisie libre (PlayerInputBar). Le test passait meme si PartieEnCours laissait tomber texte.",
+			"root_cause": "Assertions insuffisantes : seule l'absence de CONSOLE etait verifiee, pas celle de QUE FAITES-VOUS. Aucune assertion ne pinnait Fin.texte depuis le dossier de reference.",
+			"fix": "Ajoute temoin positif PlayerInputBar avant commande, temoin negatif apres, assertion getByText(dossier.charpente.fins[1].texte!), et getByRole region Fin de partie.",
+			"mitigation": "QA mode B + revue tech-lead detectent les trous d'integration.",
+			"regression_test": "src/features/play-mode/tests/finDePartie.test.tsx — ecran de fin apres commande, saisie retiree",
 			"severity": "major"
 		},
 		{
-			"id": "BUG-152",
-			"date": "2026-10-05",
-			"feature": "moteur-combat",
-			"discovered_at": "iteration-3",
-			"symptom": "dernierAssaut undefined apres un round de combat incluant fureur — le test deterministique des PV de fureur echouait avec des valeurs RNG arbitraires.",
-			"root_cause": "Les valeurs mc (hero=9, monstre=11) et les 5 consommations RNG (pickPosture, heroAT, monsterAT, fureurMonsterAT, fureurHeroAT) devaient etre calibrees pour que le heros gagne le round regulier MAIS perde l'assaut-fureur par exactement 1 AT.",
-			"fix": "mc=11 vs mc=9 avec seqRng([0.5, 0.0, 0.99, 0.0, 0.0]) : hero AT=9 bat monster AT=5, puis fureur monster AT=11 bat hero defensive AT=10.",
-			"mitigation": "Tout test de fureur doit verifier la SEQUENCE COMPLETE de consommation RNG (5 tirades) et les MC effectifs des deux camps.",
-			"regression_test": "src/player/engine/combatEngine.test.ts — dernierAssaut defini quand fureur tue le heros",
+			"id": "BUG-155",
+			"date": "2026-10-06",
+			"feature": "moteur-fins",
+			"discovered_at": "iteration-1",
+			"symptom": "fontWeight: 600 en dur dans EcranFin.tsx au lieu du token --fw-semibold. Typo rediget. Fin sans nom duplique entre PartieEnCours et EcranFin.",
+			"root_cause": "Oubli du token CSS dans le style inline, faute de frappe, et double site de fallback sans test.",
+			"fix": "Token var(--fw-semibold), typo corrigee, Fin sans nom uniquement dans EcranFin avec nom.trim().",
+			"mitigation": "Regle ESLint no-restricted-syntax attrape hex/rgb mais pas les valeurs numeriques de fontWeight. Revue tech-lead manuelle.",
+			"regression_test": "src/features/play-mode/components/EcranFin.test.tsx — titre FIN nom",
+			"severity": "minor"
+		},
+		{
+			"id": "BUG-156",
+			"date": "2026-10-06",
+			"feature": "moteur-fins",
+			"discovered_at": "iteration-1",
+			"symptom": "finAtteinte appele avec { monde, combat } reconstruit a la main au lieu de passer session directement. Commentaires LOT 2 au lieu de n 15 moteur-fins it1.",
+			"root_cause": "Les appelants reconstruisaient le parametre structurel alors que EtatSession est deja compatible (combat optionnel). Commentaires dates du lot au lieu de la feature.",
+			"fix": "finAtteinte(dossier, session) direct dans PartieEnCours et useTourDeJeu. Commentaires renommes.",
+			"mitigation": "Le parametre structurel accepte EtatSession par compatibilite structurelle — pas de risque de regression.",
+			"regression_test": "src/brain/dossier/evaluate.test.ts — finAtteinte rend la premiere fin dont la condition est vraie",
+			"severity": "minor"
+		},
+		{
+			"id": "BUG-157",
+			"date": "2026-10-06",
+			"feature": "moteur-fins",
+			"discovered_at": "iteration-1",
+			"symptom": "Les tests de la garde R2/R3/R4 dans useTourDeJeu ne prouvaient que R3 (aller). Les coupes R2 (agir) et R4 (parler) n'etaient pas testees — un seul test R3 ne discrimine pas si la garde est correctement posee avant les trois appels.",
+			"root_cause": "Le premier test utilisait une fixture ou lieu_2 n'est pas deja visite, ce qui fait que seul ALLER (R3) produit un etat ou finAtteinte devient vrai. Les deux autres commandes (agir, parler) n'etaient pas couvertes.",
+			"fix": "Ajoute deux tests via fixture a jalon (DOSSIER_FIN_VIA_JALON + SESSION_JALON_PRETE) : agir avec heros (R2) et parler pnj-1 (R4). Chacun asserte demander appele exactement une fois (seul R1).",
+			"mitigation": "Tech-lead PR v1 a detecte le finding. Regle a tenir : une garde qui coupe N chemins se teste sur N chemins, jamais sur un seul.",
+			"regression_test": "src/features/play-mode/hooks/useTourDeJeu.test.ts — garde fin atteinte, agir / parler",
 			"severity": "major"
 		},
 		{
-			"id": "BUG-153",
-			"date": "2026-10-05",
-			"feature": "moteur-combat",
-			"discovered_at": "iteration-3",
-			"symptom": "Les tests KR-297 et KR-292 dans combatParConsole.test.tsx etaient vacueux : fetch jamais appele, copilote retournait {statut: 'indisponible'} car workerUrl non configure apres localStorage.clear().",
-			"root_cause": "createBrain() dans l'integration monte le copilote avec cloudSettings vide. Sans brain.cloudSettings.setWorkerUrl() et setSyncKey(), acheminement() retourne null et demander retourne 'non-configure'. De plus, new Response().json() ne fonctionne pas en jsdom — le corps JSON n'est jamais lu.",
-			"fix": "global.fetch = jest.fn() retournant un objet mock {ok:true, status:200, json:()=>Promise.resolve({narration:...})}. Configuration explicite workerUrl+syncKey apres mount. Temoin de non-vacuite : waitFor sur appel commentateur + narration visible dans le DOM.",
-			"mitigation": "Tout test d'integration IA doit (1) configurer cloudSettings, (2) utiliser un objet mock {ok,status,json} et non new Response(), (3) inclure un temoin de non-vacuite.",
-			"regression_test": "src/features/play-mode/tests/combatParConsole.test.tsx — fuite ne declenche jamais un appel R5 (KR-297) + session persistee ne contient ni narration ni dernierAssaut (KR-292)",
-			"severity": "major"
+			"id": "BUG-158",
+			"date": "2026-10-06",
+			"feature": "moteur-fins",
+			"discovered_at": "iteration-1",
+			"symptom": "EcranFin.test.tsx ne testait pas la preservation verbatim multi-ligne (espaces et sauts de ligne) ni l'absence de l'en-tete lue au joueur dans le repli sans texte.",
+			"root_cause": "Les tests initiaux verifiaient le contenu du texte mais pas sa preservation visuelle (white-space pre-wrap) ni le comportement du repli sur l'en-tete.",
+			"fix": "Ajoute test multi-ligne (p[style*=pre-wrap], textContent identique) et test repli sans en-tete (queryByText /lue au joueur/ absent).",
+			"mitigation": "Tech-lead PR v1 a detecte le finding. Regle : un texte verbatim se teste sur sa preservation visuelle, pas seulement sur son contenu.",
+			"regression_test": "src/features/play-mode/components/EcranFin.test.tsx — verbatim multi-ligne / repli sans en-tete",
+			"severity": "minor"
 		}
 	],
-	"_about": "Les defauts que le TRAVAIL EN COURS relira -- bascule IA, 0.6.x. AXE D'APPARTENANCE, et c'est le seul : un travail en cours le relira-t-il, ET sa lecon est-elle deja promue dans un instrument lui-meme en lecture obligatoire (critere d'acceptation, KR, regle ESLint, test permanent) ? Si la lecon est promue, l'entree part a l'archive -- la garder ici la ferait relire deux fois. JAMAIS << de quelle feature vient l'entree >> : un fichier qui porte le nom d'une feature n'est pas pour autant range PAR feature, et confondre les deux a deja coute une scission fausse (BUG-086, corrige en revue de PR). Ce fichier ne se compacte pas, il se SCINDE -- et avant tout deplacement, on OUVRE les _about des DEUX fichiers. RESTE ICI quoi qu'il arrive : BUG-074, dont le correctif n'est TOUJOURS PAS FAIT et dont la lecon n'est promue nulle part -- l'archiver serait l'oublier ; il a deja ete archive par erreur une fois. NUMEROTATION GLOBALE aux DOUZE fichiers, jamais reemployee : prochain id = max(BUG-xxx) des ONZE, jamais du seul fichier en cours (precedents BUG-062, BUG-123, BUG-129). BUG-131/BUG-133 (moteur-interprete) scindes le 2026-10-01 vers bug_history.moteur-interprete.json -- lecon deja promue (KR-013/113, meme anti-patron que son fix le nommait deja). BUG-132 (moteur-interprete) rejoint le meme fichier le 2026-10-02 (lot moteur-acteurs it1, franchissement a 15 765 o) -- meme critere (KR-013). BUG-124/BUG-125 (moteur-dossier) scindes le 2026-10-06 vers bug_history.moteur-dossier.json -- lecon desormais promue dans la skill raffinage-iteration. BUG-142/BUG-143/BUG-144 (moteur-acteurs) scindes le 2026-10-02 vers bug_history.moteur-acteurs.json -- les trois lecons promues le jour meme (KR-289, KR-290, KR-291). OU SONT LES AUTRES : bug_history.0.5.json (BUG-001 a 027) · bug_history.features-terminees.json (features done hors bascule) · bug_history.dossier-canon.json · bug_history.dossier-fiches.json · bug_history.dossier-registres.json · bug_history.dossier-controles.json · bug_history.dossier-copilote.json · bug_history.moteur-dossier.json (ne le 2026-09-24) · bug_history.moteur-interprete.json (ne le 2026-09-30, EN COURS de feature) · bug_history.moteur-arbitre.json (ne le 2026-10-01, EN COURS de feature). HISTORIQUE COMPLET DES SCISSIONS : CHANGELOG.md -- il n'est pas recopie ici, c'est lui qui le porte."
+	"_about": "Les defauts que le TRAVAIL EN COURS relira -- bascule IA, 0.6.x. AXE D'APPARTENANCE, et c'est le seul : un travail en cours le relira-t-il, ET sa lecon est-elle deja promue dans un instrument lui-meme en lecture obligatoire (critere d'acceptation, KR, regle ESLint, test permanent) ? Si la lecon est promue, l'entree part a l'archive -- la garder ici la ferait relire deux fois. JAMAIS << de quelle feature vient l'entree >> : un fichier qui porte le nom d'une feature n'est pas pour autant range PAR feature, et confondre les deux a deja coute une scission fausse (BUG-086, corrige en revue de PR). Ce fichier ne se compacte pas, il se SCINDE -- et avant tout deplacement, on OUVRE les _about des DEUX fichiers. RESTE ICI quoi qu'il arrive : BUG-074, dont le correctif n'est TOUJOURS PAS FAIT et dont la lecon n'est promue nulle part -- l'archiver serait l'oublier ; il a deja ete archive par erreur une fois. NUMEROTATION GLOBALE aux DOUZE fichiers, jamais reemployee : prochain id = max(BUG-xxx) des ONZE, jamais du seul fichier en cours (precedents BUG-062, BUG-123, BUG-129). BUG-131/BUG-133 (moteur-interprete) scindes le 2026-10-01 vers bug_history.moteur-interprete.json -- lecon deja promue (KR-013/113, meme anti-patron que son fix le nommait deja). BUG-132 (moteur-interprete) rejoint le meme fichier le 2026-10-02 (lot moteur-acteurs it1, franchissement a 15 765 o) -- meme critere (KR-013). BUG-124/BUG-125 (moteur-dossier) scindes le 2026-10-06 vers bug_history.moteur-dossier.json -- lecon desormais promue dans la skill raffinage-iteration. BUG-142/BUG-143/BUG-144 (moteur-acteurs) scindes le 2026-10-02 vers bug_history.moteur-acteurs.json -- les trois lecons promues le jour meme (KR-289, KR-290, KR-291). BUG-134 (moteur-interprete) scinde le 2026-10-06 vers bug_history.moteur-interprete.json -- lecon promue (mock par appel, satisfies, meme classe que BUG-130/131/133). BUG-151/BUG-152/BUG-153 (moteur-combat) scindes le 2026-10-06 vers bug_history.moteur-combat.json (ne) -- feature terminee, lecons promues dans les tests permanents. OU SONT LES AUTRES : bug_history.0.5.json (BUG-001 a 027) · bug_history.features-terminees.json (features done hors bascule) · bug_history.dossier-canon.json · bug_history.dossier-fiches.json · bug_history.dossier-registres.json · bug_history.dossier-controles.json · bug_history.dossier-copilote.json · bug_history.moteur-dossier.json (ne le 2026-09-24) · bug_history.moteur-interprete.json (ne le 2026-09-30) · bug_history.moteur-arbitre.json (ne le 2026-10-01) · bug_history.moteur-combat.json (ne le 2026-10-06). HISTORIQUE COMPLET DES SCISSIONS : CHANGELOG.md -- il n'est pas recopie ici, c'est lui qui le porte."
 }
