@@ -1,4 +1,4 @@
-import { useState, useMemo, type CSSProperties } from 'react'
+import { useRef, useState, useMemo, type CSSProperties } from 'react'
 import {
 	ouvrirSession,
 	analyserSaisie,
@@ -13,6 +13,7 @@ import {
 } from '../../../brain'
 import { IconButton } from '../../../brain/components/IconButton'
 import { Badge } from '../../../brain/components/Badge'
+import { Modal } from '../../../brain/components/Modal'
 import { useSessionPersistee } from '../hooks/useSessionPersistee'
 import { useTourDeJeu } from '../hooks/useTourDeJeu'
 import { OutcomeBlock } from './OutcomeBlock'
@@ -40,19 +41,26 @@ export interface PartieEnCoursProps {
 	readonly dossier: Dossier
 	readonly dossierId: string
 	readonly session: EtatSession
+	readonly onNouvellePartie?: () => void
 }
 
 /**
  * GARDES 4 ET 5 — la graine tirée puis la session ouverte, une fois.
- * Appelée par EcranPartie avec tirerGraine en prop.
+ * Appelée par EcranPartie via AiguillagePartie avec tirerGraine en prop.
  */
 export interface PartieDemarreeProps {
 	readonly dossier: Dossier
 	readonly dossierId: string
 	readonly tirerGraine: () => number
+	readonly onNouvellePartie?: () => void
 }
 
-export function PartieDemarree({ dossier, dossierId, tirerGraine }: PartieDemarreeProps): JSX.Element {
+export function PartieDemarree({
+	dossier,
+	dossierId,
+	tirerGraine,
+	onNouvellePartie,
+}: PartieDemarreeProps): JSX.Element {
 	const [graine] = useState(() => tirerGraine())
 	const [ouverture] = useState(() => ouvrirSession(dossier, { graine_alea: graine }))
 
@@ -60,7 +68,14 @@ export function PartieDemarree({ dossier, dossierId, tirerGraine }: PartieDemarr
 		return <EcranRefus code={ouverture.refus} titre={dossier.titre} dossierId={dossierId} />
 	}
 
-	return <PartieEnCours dossier={dossier} dossierId={dossierId} session={ouverture.session} />
+	return (
+		<PartieEnCours
+			dossier={dossier}
+			dossierId={dossierId}
+			session={ouverture.session}
+			onNouvellePartie={onNouvellePartie}
+		/>
+	)
 }
 
 /**
@@ -70,10 +85,17 @@ export function PartieDemarree({ dossier, dossierId, tirerGraine }: PartieDemarr
  * n° 15 `moteur-fins`, it1 — AIGUILLAGE FIN : si finAtteinte rend un résultat,
  * on affiche EcranFin au lieu de la console/journal/saisie libre.
  */
-export function PartieEnCours({ dossier, dossierId, session: sessionInitiale }: PartieEnCoursProps): JSX.Element {
+export function PartieEnCours({
+	dossier,
+	dossierId,
+	session: sessionInitiale,
+	onNouvellePartie,
+}: PartieEnCoursProps): JSX.Element {
 	const [session, setSession] = useState(sessionInitiale)
 	const [refus, setRefus] = useState<string | null>(null)
 	const [carnetOuvert, setCarnetOuvert] = useState(false)
+	const [dialogNouvellePartieOuvert, setDialogNouvellePartieOuvert] = useState(false)
+	const boutonNouvellePartieRef = useRef<HTMLButtonElement>(null)
 	useSessionPersistee(dossierId, session)
 
 	// HOOK `useTourDeJeu` — orchestrateur du champ de saisie libre (it1), avec R3 (lot 2) et R2 (it2).
@@ -111,18 +133,26 @@ export function PartieEnCours({ dossier, dossierId, session: sessionInitiale }: 
 		setSession(newSession)
 	}
 
-	// Composant interne — Actions du carnet (bouton 🗝 + badge compteur)
-	function ActionsCarnet(): JSX.Element {
-		const nombreIndices = session.monde.indices_connus.length
-		return (
-			<div style={groupeActionsCarnet}>
-				<IconButton label="Carnet d'indices" onClick={() => setCarnetOuvert(true)} size={28}>
-					🗝
+	const nombreIndices = session.monde.indices_connus.length
+
+	const actionsCarnetJsx = (
+		<div style={groupeActionsCarnet}>
+			<IconButton label="Carnet d'indices" onClick={() => setCarnetOuvert(true)} size={28}>
+				🗝
+			</IconButton>
+			{nombreIndices > 0 && <Badge tone="neutral">{nombreIndices}</Badge>}
+			{onNouvellePartie && (
+				<IconButton
+					ref={boutonNouvellePartieRef}
+					label="Nouvelle partie"
+					onClick={() => setDialogNouvellePartieOuvert(true)}
+					size={28}
+				>
+					↻
 				</IconButton>
-				{nombreIndices > 0 && <Badge tone="neutral">{nombreIndices}</Badge>}
-			</div>
-		)
-	}
+			)}
+		</div>
+	)
 
 	const actif = session.horloge.climat_actif
 	const climatNom = actif
@@ -202,7 +232,7 @@ export function PartieEnCours({ dossier, dossierId, session: sessionInitiale }: 
 						peLive={combatRejeu?.heroPe}
 					/>
 				}
-				actionsEntete={<ActionsCarnet />}
+				actionsEntete={actionsCarnetJsx}
 			>
 				<div style={colonneLecture}>
 					{/* COMBAT EN COURS — remplace la console et le journal pendant le combat. */}
@@ -267,6 +297,25 @@ export function PartieEnCours({ dossier, dossierId, session: sessionInitiale }: 
 				</div>
 			</CadrePartie>
 			{carnetOuvert && <CarnetIndices session={session} onClose={() => setCarnetOuvert(false)} />}
+			{dialogNouvellePartieOuvert && onNouvellePartie && (
+				<Modal
+					title="Abandonner la partie en cours"
+					focusCancel={true}
+					onCancel={() => {
+						setDialogNouvellePartieOuvert(false)
+						boutonNouvellePartieRef.current?.focus()
+					}}
+					cancelLabel="Annuler"
+					confirmLabel="Nouvelle partie"
+					confirmTone="error"
+					onConfirm={() => {
+						setDialogNouvellePartieOuvert(false)
+						onNouvellePartie()
+					}}
+				>
+					<p style={texteVide}>La progression de cette partie sera effacée. Le dossier n&apos;est pas modifié.</p>
+				</Modal>
+			)}
 		</>
 	)
 }

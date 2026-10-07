@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.26 — l'auteur reprend sa partie après rechargement, ou en démarre une nouvelle si la sauvegarde est périmée ou illisible
+
+`moteur-fins` it2 (roadmap § 3, n° 15, 2/4) — 2 lots séquentiels (L1 contrat `brain/dossier`, L2 feature `play-mode`). `validerSession(brut, dossier)` dans `reprise.ts` — frontière de confiance KR-116, `LectureSession` union discriminée 4 statuts (absente/reprenable/perimee/illisible). `MagasinDeSession.lire(dossier)` port enrichi. `AiguillagePartie.tsx` route par statut + `finAtteinte` + compteur de génération. `EcranReprise.tsx` écran dédié dans `CadrePartie`. `Modal.focusCancel` prop additive. `ActionsCarnet` inline (plus de composant interne). 154 suites / 2958 tests.
+
+- Écarts : duplication de constantes de style entre `EcranReprise` et `EcranRefus` (dette, extraction quand 3e appelant).
+- Reportés : mort du héros (écran, bandeau, texte) → it3 · rejeu à graine → it4 · refus dans illisible → it3 · fin vraie à l'ouverture → dette à déclencheur.
+- Dossier : `.claude/raffinage/moteur-fins-it2.revue.md`.
+
 ## 0.7.25 — l'auteur lit, mot pour mot, la fin qu'il a écrite quand sa condition devient vraie
 
 `moteur-fins` it1 (roadmap § 3, n° 15, 1/3) — 2 lots séquentiels (L1 contrat `brain/dossier`, L2 feature `play-mode`). `finAtteinte` pur dans `evaluate.ts` — param structurel `{ monde; combat? }`, retour `FinAtteinte {fin_id, texte?}` (doctrine `Rencontre`/`JalonAtteint`). Garde `partie_terminee` dans `commandes.ts` après `combat_en_cours`. Extraction `PartieEnCours.tsx` depuis `EcranPartie.tsx` (406 → 60 lignes, KR-112). `EcranFin.tsx` : titre `FIN · nom`, `OutcomeBlock` verbatim ou repli pointillé invitant (KR-307). Garde R2/R3/R4 dans `useTourDeJeu` après fin atteinte. Pont `player/engine/fin.ts` (réexport). 151 suites / 2898 tests.

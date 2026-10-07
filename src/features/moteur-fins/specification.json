@@ -39,13 +39,13 @@
 				"type": "service",
 				"name": "validerSession",
 				"direction": "emits",
-				"detail": "validerSession(brut: unknown, dossier: Dossier): LectureSession. reprise.ts (NEW). LectureSession = {statut: 'absente'} | {statut: 'reprenable', session} | {statut: 'perimee'} | {statut: 'illisible', refus}. Frontière de confiance KR-116, jamais as EtatSession."
+				"detail": "validerSession(brut: unknown, dossier: Dossier): LectureSession. reprise.ts (NEW). LectureSession = {statut: 'absente'} | {statut: 'reprenable', session} | {statut: 'perimee'} | {statut: 'illisible'}. Pas de refus (KR-249). Frontière de confiance KR-116, jamais as EtatSession. Pas exporté par le baril (KR-109)."
 			},
 			{
 				"type": "service",
 				"name": "MagasinDeSession.lire",
 				"direction": "emits",
-				"detail": "Port enrichi. lire(dossierId: string): LectureSession. Appelle validerSession(brut, dossier). Lecteur : play-mode."
+				"detail": "Port enrichi. lire(dossier: Dossier): LectureSession. Appelle validerSession(brut, dossier). Lecteur : play-mode."
 			},
 			{
 				"type": "service",
@@ -61,7 +61,7 @@
 			}
 		],
 		"walking_skeleton": "It1 : finAtteinte pur dans evaluate.ts + RefusCommande 'partie_terminee' dans commandes.ts. EcranFin affiche Fin.texte verbatim ou repli invitant (KR-307). PartieEnCours extrait d'EcranPartie (KR-112). Garde useTourDeJeu : coupe R2/R3/R4 après fin.",
-		"n": 3,
+		"n": 4,
 		"iterations": [
 			{
 				"id": 1,
@@ -70,11 +70,16 @@
 			},
 			{
 				"id": 2,
-				"goal": "L'auteur reprend sa partie après rechargement.",
-				"status": "planned"
+				"goal": "L'auteur reprend sa partie après rechargement, ou en démarre une nouvelle si la sauvegarde est périmée ou illisible.",
+				"status": "done"
 			},
 			{
 				"id": 3,
+				"goal": "La mort du héros termine la partie sur un écran dédié, avec texte constant, bandeau et bouton Nouvelle partie.",
+				"status": "planned"
+			},
+			{
+				"id": 4,
 				"goal": "L'auteur relance avec la même graine et obtient les mêmes tirages.",
 				"status": "planned"
 			}
@@ -111,6 +116,24 @@
 						"Bandeau absent de l'écran de fin — le plan § 3 met bandeau={<BandeauHeros/>} mais la branche fin n'affiche pas le bandeau (PV/PE sans objet). Écart à traiter en it2."
 					],
 					"test_coverage": { "unit": "2898 tests, 151 suites", "e2e": "finDePartie.test.tsx : verbatim de bout en bout" }
+				},
+				{
+					"id": 2,
+					"label": "iteration-2",
+					"completed_at": "2026-10-07",
+					"architecture_choices": [
+						"validerSession(brut, dossier) dans reprise.ts (NEW, 294 l.) — frontière de confiance KR-116, table de validateurs exhaustive, pas exporté par le baril (KR-109)",
+						"LectureSession union discriminée 4 statuts : absente, reprenable, perimee, illisible",
+						"MagasinDeSession enrichi : port lire(dossier) appelle validerSession",
+						"AiguillagePartie.tsx : routage par LectureSession + finAtteinte + generation counter",
+						"EcranReprise.tsx : écran dédié (pas EcranRefus étendu), dans CadrePartie",
+						"Modal.focusCancel boolean prop — focus Cancel on open",
+						"ActionsCarnet remplacé par actionsCarnetJsx (variable JSX stable, pas de composant interne)"
+					],
+					"deviations_from_plan": [
+						"Duplication de constantes de style entre EcranReprise et EcranRefus — dette notée, extraction commune quand un troisième appelant émerge."
+					],
+					"test_coverage": { "unit": "2958 tests, 154 suites", "e2e": "reprise.test.tsx : 6 tests RTL intégration, EcranReprise.test.tsx : 9 tests, reprise.test.ts : 26+ tests, MagasinDeSession.test.ts : 12 tests lire, Modal.test.tsx : 7 tests focusCancel" }
 				}
 			],
 		"resolved_decisions": [
@@ -126,16 +149,26 @@
 			"RETENU — coupe PartieEnCours.tsx, pas PartieDemarree (cycle d'import).",
 			"RETENU — pont player/engine/fin.ts (réexport seul) : doctrine brain/index.ts:574-578.",
 			"REJETÉ — R5 déjà dans projeterAssaut (NIA T1) : PM vérifié au code, projeterAssaut ne teste pas phase === 'ended'. R5 est appelé sur hero-mort (livré n°13).",
-			"REJETÉ — 4 lots du PM : les lots 2/3/4 partagent EcranPartie.tsx/PartieEnCours.tsx."
+			"REJETÉ — 4 lots du PM : les lots 2/3/4 partagent EcranPartie.tsx/PartieEnCours.tsx.",
+			"RETENU — renumérotation n=3→4 : it2=reprise, it3=mort+bandeau, it4=graine sacrifiable (PM veto, consensus total).",
+			"RETENU — lire(dossier: Dossier) et non lire(dossierId) : validerSession a besoin du dossier pour comparer dossier_maj.",
+			"RETENU — illisible sans refus : aucun lecteur en it2 (KR-249). refus → it3.",
+			"RETENU — EcranReprise (nouveau) et non EcranRefus étendu : EcranRefus vise la route, pas la session.",
+			"RETENU — focusCancel boolean sur Modal, pas union 'cancel'|'confirm' : aucun appelant pour confirm.",
+			"RETENU — un seul verbe Nouvelle partie. Rejouer réservé à it4.",
+			"RETENU — validerSession vérifie la forme de memoire (types jusqu'aux primitifs), pas I1-I5 (chemin d'écriture).",
+			"RETENU — terminée vit dans AiguillagePartie (finAtteinte sur reprenable), pas 5e statut dans LectureSession.",
+			"RETENU — JSON non parsable ≡ absente (PersistenceService.get avale l'erreur de parse)."
 		],
 		"open_questions": [
 			"REPORTÉ — boutonRetour en brain/components : 1 seul appelant. Local à play-mode. Revisité si second appelant émerge.",
 			"REPORTÉ — réécriture de docs/EXIGENCE-APERCU-DU-JEU.md : lot .md en fin de feature.",
 			"REPORTÉ — dossier introuvable depuis l'Aperçu : inatteignable (le dossier est ouvert dans l'éditeur).",
-			"REPORTÉ — mort du héros (écran, texte constant, garde R5, arbitrage avec n°13) → it2.",
-			"REPORTÉ — bouton Rejouer + focus auto → it2+.",
-			"REPORTÉ — redécoupage it2/it3/it4 (4 itérations proposées par PM) → cadrage it2.",
-			"REPORTÉ — texte de mort constante nommée, hors prompt → it2.",
+			"REPORTÉ — mort du héros (écran, texte constant, garde R5, bandeau de fin) → it3.",
+			"REPORTÉ — TEXTE_MORT_HEROS constante nommée, voix factuelle, ligne de journal → it3.",
+			"REPORTÉ — bouton Rejouer + focus auto → it4.",
+			"REPORTÉ — refus dans illisible → it3.",
+			"REPORTÉ — cas limites navigateur (retour arrière, hors ligne, crash) → it3/it4.",
 			"REPORTÉ — fin vraie à l'ouverture (condition non(lieu_visite X)) : aucun contrôle ne la signale. Candidat à un contrôle dans dossier-controles, dette à déclencheur.",
 			"ÉCART — bandeau absent de l'écran de fin (pas de BandeauHeros ni actionsEntete). PV/PE sans objet sur écran de fin, à traiter en it2.",
 			"ÉCART — PartieDemarree dans PartieEnCours.tsx au lieu d'EcranPartie.tsx. Pas de cycle, un seul import."

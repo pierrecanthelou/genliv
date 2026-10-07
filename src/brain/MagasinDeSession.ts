@@ -1,3 +1,4 @@
+import { validerSession } from './dossier/reprise'
 import type { MagasinDeSession } from './dossier/session'
 import type { PersistenceService } from './PersistenceService'
 import { dossierSessionKey } from './persistenceKeys'
@@ -24,17 +25,30 @@ import { dossierSessionKey } from './persistenceKeys'
  * LA CLÉ VIENT DE `dossierSessionKey` (`persistenceKeys.ts`) : un seul endroit
  * auditable pour toutes les clés de stockage (KR-011/111).
  *
- * `ecrire` SEULE. `lire` et `effacer` entrent avec la REPRISE, qui les DÉMONTRE et
- * apporte son `validerSession` (KR-116) : le magasin est une frontière de
- * confiance, et une méthode de lecture sans validateur inviterait le premier
- * appelant à faire un `as EtatSession`. Ajouter une méthode à une interface est
- * ADDITIF — contrairement à un champ persisté (KR-251), elle ne se paie pas
- * d'être ajoutée plus tard.
+ * `ecrire` ET `lire`. `lire` ne rend JAMAIS ce que le stockage lui donne : tout passe par
+ * `validerSession` (`brain/dossier/reprise.ts`), parce que le magasin est une frontière de
+ * confiance (KR-116) et qu'un `as EtatSession` à cet endroit serait un `as` déguisé.
+ *
+ * ⚠ UN JSON NON PARSABLE SE LIT `absente`, PAS `illisible`. `PersistenceService.get` AVALE
+ * l'erreur de `JSON.parse` et rend `null` — exactement ce qu'il rend pour une clé qui n'existe
+ * pas — et `lire` n'a aucun autre moyen de les distinguer sans interroger `keys()` en plus.
+ * La conséquence est assumée, pas ignorée : une sauvegarde tronquée n'ouvre PAS l'écran
+ * « cette partie ne peut pas être lue », une nouvelle partie démarre, et la première
+ * écriture de `useSessionPersistee` écrase le contenu corrompu. C'est la décision n° 21 du
+ * plan d'itération (`.claude/raffinage/moteur-fins-it2.plan.md`), épinglée par un test de
+ * `MagasinDeSession.test.ts` pour qu'elle ne puisse changer qu'à la lecture d'un diff.
+ *
+ * `effacer` n'existe pas : aucun appelant (« Nouvelle partie » écrase par `ecrire`), et une
+ * méthode sans appelant serait KR-109. Ajouter une méthode à une interface est ADDITIF —
+ * contrairement à un champ persisté (KR-251), elle ne se paie pas d'être ajoutée plus tard.
  */
 export function createMagasinDeSession(brut: PersistenceService): MagasinDeSession {
 	return {
 		ecrire(dossierId, session) {
 			brut.set(dossierSessionKey(dossierId), session)
+		},
+		lire(dossier) {
+			return validerSession(brut.get<unknown>(dossierSessionKey(dossier.id)), dossier)
 		},
 	}
 }

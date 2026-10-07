@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { createBrain } from './BrainContext'
 import type { CloudTransport } from './CloudSyncService'
-import { createLocalStoragePersistence } from './PersistenceService'
+import { createLocalStoragePersistence, type PersistenceService } from './PersistenceService'
 import { createMagasinDeSession } from './MagasinDeSession'
 import { analyserSaisie, executerCommande } from './dossier/commandes'
 import { ouvrirSession, type EtatSession } from './dossier/session'
@@ -116,9 +116,187 @@ describe('MagasinDeSession, la session n entre pas dans la file de synchronisati
 		expect(brain.sync.pendingKeys()).toEqual([dossierKey('dossier-reference')])
 	})
 
-	it('le port n expose QUE ecrire — lire et effacer entrent avec la reprise', () => {
-		// KR-109 : deux méthodes sans appelant seraient de la dette publiée. Le jour
-		// où la reprise les livre, c'est cette ligne qui tombe, et elle se lit en diff.
-		expect(Object.keys(createMagasinDeSession(createLocalStoragePersistence()))).toEqual(['ecrire'])
+	it('le port expose ecrire ET lire, et RIEN d autre — effacer n a aucun appelant', () => {
+		// KR-109 : une méthode sans appelant serait de la dette publiée. `lire` est entrée
+		// avec la reprise (n° 15 `moteur-fins`, it2) ; `effacer` a été REJETÉ (« Nouvelle
+		// partie » écrase par `ecrire`). Le jour où une troisième méthode entre, c'est cette
+		// ligne qui tombe, et elle se lit en diff.
+		expect(Object.keys(createMagasinDeSession(createLocalStoragePersistence())).sort()).toEqual(['ecrire', 'lire'])
+	})
+})
+
+/**
+ * `MagasinDeSession.lire` — LES QUATRE VERDICTS, UN TEST CHACUN (KR-199) : un test unique
+ * à quatre branches rate le cas limite qu'aucune branche ne nomme, et un nom de test qui
+ * couvre une portée plus large que ses assertions est vert sous ce qu'il devait attraper.
+ *
+ * LES VERDICTS SE PROUVENT PAR OPPOSITION, DANS LE MÊME TEST (KR-197/202/244) : un `lire`
+ * qui rendrait toujours `illisible` passerait chaque test d'un seul cas. Le stockage est
+ * factice (`get` rend ce qu'on lui dit) pour les verdicts — ce qui se prouve est la
+ * décision, pas `localStorage` — et RÉEL pour l'aller-retour, où c'est la sérialisation
+ * qui est l'objet.
+ *
+ * LES SONDES `set`/`remove` SONT POSÉES AVANT L'APPEL qu'elles observent : une sonde posée
+ * après est syntaxiquement présente et sémantiquement morte (KR-199).
+ */
+
+/** Un magasin BRUT factice : `get` rend `contenu`, `set`/`remove` sont des sondes. */
+function magasinBrutFactice(contenu: unknown): {
+	readonly brut: PersistenceService
+	readonly get: jest.Mock
+	readonly set: jest.Mock
+	readonly remove: jest.Mock
+} {
+	const get = jest.fn((_cle: string): unknown => contenu)
+	const set = jest.fn()
+	const remove = jest.fn()
+	const brut: PersistenceService = {
+		get: get as PersistenceService['get'],
+		set,
+		remove,
+		keys: jest.fn((_prefixe: string) => [] as string[]),
+	}
+	return { brut, get, set, remove }
+}
+
+/** Le même dossier, ré-estampillé — ce que l'auteur fait en l'éditant, ou la réconciliation cloud en l'adoptant. */
+function reestampille(dossier: Dossier): Dossier {
+	return { ...dossier, updatedAt: '2026-10-01T00:00:00.000Z' }
+}
+
+describe('MagasinDeSession.lire, les quatre verdicts', () => {
+	beforeEach(() => window.localStorage.clear())
+
+	it('absente - lire rend absente quand get rend null, et lit la cle de CE dossier', () => {
+		const { brut, get } = magasinBrutFactice(null)
+		const dossier = dossierDeReference()
+
+		expect(createMagasinDeSession(brut).lire(dossier)).toEqual({ statut: 'absente' })
+		expect(get).toHaveBeenCalledTimes(1)
+		expect(get).toHaveBeenCalledWith(dossierSessionKey('dossier-reference'))
+
+		// Discriminant : la clé suit `dossier.id`, jamais une clé fixe ni `session.dossier_id`.
+		const autre = magasinBrutFactice(null)
+		createMagasinDeSession(autre.brut).lire({ ...dossier, id: 'dossier-autre' })
+		expect(autre.get).toHaveBeenCalledWith(dossierSessionKey('dossier-autre'))
+	})
+
+	it('reprenable - lire rend reprenable quand dossier_maj correspond, et la MEME session (toBe)', () => {
+		const session = sessionApresUnDeplacement()
+		const { brut } = magasinBrutFactice(session)
+
+		const lecture = createMagasinDeSession(brut).lire(dossierDeReference())
+
+		if (lecture.statut !== 'reprenable') throw new Error(`reprenable attendu, reçu ${lecture.statut}`)
+		// IDENTITÉ, pas égalité : une copie reconstruite perdrait toute clé optionnelle
+		// qu'on lui oublie (KR-251) — c'est ce que `toBe` interdit et `toEqual` laisserait passer.
+		expect(lecture.session).toBe(session)
+	})
+
+	it('perimee - lire rend perimee quand dossier_maj differe, sans session a jouer', () => {
+		const session = sessionApresUnDeplacement()
+		const magasin = createMagasinDeSession(magasinBrutFactice(session).brut)
+		const dossier = dossierDeReference()
+
+		// Même session, deux estampilles : l'OPPOSITION dans le même test.
+		expect(magasin.lire(dossier).statut).toBe('reprenable')
+		expect(magasin.lire(reestampille(dossier))).toEqual({ statut: 'perimee' })
+	})
+
+	it('illisible - lire rend illisible quand une cle racine manque', () => {
+		const sansJournal = Object.fromEntries(
+			Object.entries(sessionApresUnDeplacement()).filter(([cle]) => cle !== 'journal'),
+		)
+		const dossier = dossierDeReference()
+
+		expect(createMagasinDeSession(magasinBrutFactice(sansJournal).brut).lire(dossier)).toEqual({ statut: 'illisible' })
+		// Discriminant : la session COMPLÈTE, elle, est lue.
+		expect(createMagasinDeSession(magasinBrutFactice(sessionApresUnDeplacement()).brut).lire(dossier).statut).toBe(
+			'reprenable',
+		)
+	})
+
+	it('illisible - memoire corrompue rend illisible, et memoire null reste lisible', () => {
+		const dossier = dossierDeReference()
+		const avecMemoire = (memoire: unknown): unknown => ({ ...sessionApresUnDeplacement(), memoire })
+		const lire = (contenu: unknown) => createMagasinDeSession(magasinBrutFactice(contenu).brut).lire(dossier)
+
+		expect(lire(avecMemoire({ faits_etablis: 'pas un tableau' }))).toEqual({ statut: 'illisible' })
+		// Discriminants : `null` est l'état « rien retenu » (KR-249), et un tableau vide est une forme valide.
+		expect(lire(avecMemoire(null)).statut).toBe('reprenable')
+		expect(lire(avecMemoire({ faits_etablis: [] })).statut).toBe('reprenable')
+	})
+
+	it('JSON non parsable - le contenu qui n est pas du JSON se lit absente, et reste en place (decision n 21)', () => {
+		// LA LIMITE ASSUMÉE, ÉPINGLÉE : `PersistenceService.get` avale l'erreur de parse et
+		// rend `null`, comme pour une clé inexistante. Une sauvegarde tronquée n'ouvre donc PAS
+		// « cette partie ne peut pas être lue » : une nouvelle partie démarre. Si la décision
+		// change, c'est CE test qui rougit, et le diff dit pourquoi.
+		const cle = dossierSessionKey('dossier-reference')
+		window.localStorage.setItem(cle, '{"schema":1,"dossier_id":"dossier-ref')
+
+		const lecture = createMagasinDeSession(createLocalStoragePersistence()).lire(dossierDeReference())
+
+		expect(lecture).toEqual({ statut: 'absente' })
+		// `lire` n'EFFACE pas : le contenu corrompu attend que l'appelant écrive une session neuve.
+		expect(window.localStorage.getItem(cle)).toBe('{"schema":1,"dossier_id":"dossier-ref')
+	})
+
+	it('aller-retour JSON - une session ecrite par les vraies portes se relit reprenable, puis perimee si le dossier bouge', () => {
+		const magasin = createMagasinDeSession(createLocalStoragePersistence())
+		const dossier = dossierDeReference()
+		const session = sessionApresUnDeplacement()
+
+		magasin.ecrire(dossier.id, session)
+		const lecture = magasin.lire(dossier)
+
+		if (lecture.statut !== 'reprenable') throw new Error(`reprenable attendu, reçu ${lecture.statut}`)
+		expect(lecture.session).toEqual(session)
+		// Elle a TRAVERSÉ la sérialisation : une identité préservée ne prouverait rien du rangement.
+		expect(lecture.session).not.toBe(session)
+		// Le champ optionnel de l'entrée `moteur` a survécu à l'aller-retour (KR-251).
+		expect(lecture.session.journal[1].origine).toBe('aller')
+
+		// CONTRE-ÉPREUVE : la MÊME session rangée, relue contre un dossier qui a bougé.
+		expect(magasin.lire(reestampille(dossier))).toEqual({ statut: 'perimee' })
+	})
+})
+
+describe('MagasinDeSession.lire, ne touche jamais au stockage (critere 7, KR-305)', () => {
+	const cas: ReadonlyArray<{ readonly nom: string; readonly contenu: () => unknown; readonly statut: string }> = [
+		{ nom: 'absente', contenu: () => null, statut: 'absente' },
+		{
+			nom: 'perimee',
+			contenu: () => ({ ...sessionApresUnDeplacement(), dossier_maj: 'autrefois' }),
+			statut: 'perimee',
+		},
+		{ nom: 'illisible', contenu: () => ({ ...sessionApresUnDeplacement(), monde: 'cassé' }), statut: 'illisible' },
+		{ nom: 'reprenable', contenu: () => sessionApresUnDeplacement(), statut: 'reprenable' },
+	]
+
+	it.each(cas)('$nom - lire n appelle ni set ni remove', ({ contenu, statut }) => {
+		const { brut, get, set, remove } = magasinBrutFactice(contenu())
+
+		const lecture = createMagasinDeSession(brut).lire(dossierDeReference())
+
+		// Le verdict est bien celui du cas — sinon la ligne suivante prouverait la lecture
+		// d'une autre branche que celle qu'elle nomme.
+		expect(lecture.statut).toBe(statut)
+		expect(get).toHaveBeenCalledTimes(1)
+		// Périmée ou illisible : la session rangée reste EXACTEMENT où elle était. Seul
+		// l'appelant décide d'en écrire une neuve (jamais de réparation en place).
+		expect(set).not.toHaveBeenCalled()
+		expect(remove).not.toHaveBeenCalled()
+	})
+
+	it('discriminant - ecrire, lui, appelle set une fois, sous la cle du dossier : la sonde est branchee', () => {
+		const { brut, set, remove } = magasinBrutFactice(null)
+		const session = sessionApresUnDeplacement()
+
+		createMagasinDeSession(brut).ecrire('dossier-reference', session)
+
+		expect(set).toHaveBeenCalledTimes(1)
+		expect(set).toHaveBeenCalledWith(dossierSessionKey('dossier-reference'), session)
+		expect(remove).not.toHaveBeenCalled()
 	})
 })

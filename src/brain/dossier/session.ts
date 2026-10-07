@@ -20,6 +20,9 @@ import { estCleDe } from './identifiers'
 // est donc de TYPE SEUL, et le RESTE — voir la ré-exportation plus bas. Une ré-exportation de
 // VALEUR depuis ce module nouerait un cycle de modules : ne jamais en poser.
 import type { EtatCombat } from './sessionCombat'
+// `LectureSession` : TYPE SEUL, effacé à l'émission — `reprise.ts` importe `SCHEMA_SESSION` d'ICI
+// en VALEUR, donc l'arête de ce module vers lui ne doit JAMAIS devenir une arête de valeur.
+import type { LectureSession } from './reprise'
 import { CONFIANCE_DEPART, CONFIANCE_MAX, CONFIANCE_MIN, type Dossier } from './types'
 // `HeroState` est importée TELLE QUELLE de `src/player/types.ts` — jamais une
 // seconde forme (n° 11 `moteur-arbitre`, lot `contrat`, § 4 du plan d'itération
@@ -197,19 +200,20 @@ export type { FaitsDeSession as EtatMonde, EtatPnj } from './faits'
  * n° 10, dix depuis celui de la n° 11, onze depuis celui de la n° 13), exhaustives
  * par compilation pour la table d'audience de `sessionDestinations.ts`.
  *
- * CE CONTRAT GÈLE L'ÉCRITURE, ET LA LECTURE N'APPARTIENT NI À L'ITÉRATION 1 NI À
- * L'ITÉRATION 2 : celle-ci livre le PORT (`MagasinDeSession`, `ecrire` seule) et
- * REPORTE la reprise — `lire`, `effacer` et `validerSession` entrent avec elle.
- * Trois points, écrits ici pour l'itération de la reprise, qui les tranchera :
+ * CE CONTRAT A GELÉ L'ÉCRITURE EN PREMIER ; LA LECTURE EST ENTRÉE AVEC LA REPRISE
+ * (n° 15 `moteur-fins`, it2, `reprise.ts`) : `MagasinDeSession.lire` et
+ * `validerSession` existent, `effacer` n'existe pas (aucun appelant). Les trois points
+ * que ce contrat écrivait pour cette itération-là, et ce qu'ils sont devenus :
  *  1. `useSessionPersistee` écrit AU MONTAGE, donc ouvrir un aperçu ÉCRASE la
- *     session persistée du dossier avant toute question. La reprise doit décider
- *     AVANT d'écrire, pas après ;
+ *     session persistée du dossier avant toute question. La reprise décide AVANT
+ *     d'écrire, pas après : l'appelant lit dans l'initialiseur de son `useState`,
+ *     avant le premier montage de `useSessionPersistee` (KR-305) ;
  *  2. `dossier_maj` existe pour que cette décision soit possible — voir son champ ;
- *  3. AUCUN `validerSession` n'existe encore. Le magasin est une frontière de
- *     confiance (KR-116, précédent `DossierService.get` qui revalide à chaque
- *     lecture), et l'évaluateur bivalent de la n° 9 it3 LÈVE sur une entrée non
- *     reconnue (KR-238) : la première itération qui RELIT une session doit la
- *     faire passer par un validateur, jamais par un `as EtatSession`.
+ *  3. `validerSession` EST la frontière de confiance (KR-116, précédent
+ *     `DossierService.get` qui revalide à chaque lecture) : tout ce que `lire` rend a
+ *     passé par lui, jamais par un `as EtatSession`. L'évaluateur bivalent LÈVE sur une
+ *     entrée non reconnue (KR-238) — c'est pourquoi une session qui n'a pas la forme
+ *     attendue est `illisible` et ne se rejoue jamais.
  *
  * UNE clé qu'on ne trouvera PAS ici, et la raison :
  *  · une copie du dossier — jamais : le gel est PAR RÉFÉRENCE (`dossier_id`).
@@ -234,20 +238,23 @@ export interface EtatSession {
 	 * l'édite entre deux aperçus ; une session écrite sans estampille ne saurait
 	 * JAMAIS que le dossier a bougé sous elle, et KR-251 rendrait le champ ajouté
 	 * plus tard `optionnel à vie` — donc « session sans estampille » resterait un
-	 * état légal pour toujours. Aucun code ne la lit avant l'itération de la reprise, qui
-	 * refusera de reprendre une session dont l'estampille ne correspond plus.
+	 * état légal pour toujours. `validerSession` (`reprise.ts`) la compare à
+	 * `dossier.updatedAt` et rend `perimee` quand elles diffèrent : la reprise refuse de
+	 * reprendre une session dont l'estampille ne correspond plus.
 	 * Ce n'est PAS un champ dérivable (KR-013) : `dossier.updatedAt` est la valeur
 	 * D'AUJOURD'HUI, celle-ci est celle de L'OUVERTURE — deux instants, deux faits.
 	 *
 	 * TROIS CLAUSES POUR L'ITÉRATION DE LA REPRISE, écrites ici parce qu'elles coûtent trois lignes
-	 * aujourd'hui et sont irréversibles plus tard :
-	 *  1. On compare à `DossierService.get(dossier_id)?.updatedAt`, et « dossier
-	 *     introuvable » est une issue DISTINCTE de « estampille périmée » — deux
-	 *     causes, deux chemins, comme le refus `dossier_introuvable` déjà à l'écran.
+	 * aujourd'hui et sont irréversibles plus tard — et la façon dont la reprise les tient :
+	 *  1. On compare à l'estampille du dossier COURANT (`lire(dossier)` reçoit un dossier
+	 *     déjà résolu), et « dossier introuvable » est une issue DISTINCTE de « estampille
+	 *     périmée » : ce n'est PAS un statut de `LectureSession`, c'est le refus
+	 *     `dossier_introuvable` de la route, qui précède tout montage de session.
 	 *  2. ON NE RÉ-ESTAMPILLE JAMAIS EN PLACE. Le mode de panne le plus probable
 	 *     de cette itération-là est de « réparer » la reprise en rafraîchissant ce champ sur une
 	 *     session existante : ce serait blanchir une session périmée. **Seul
-	 *     `ouvrirSession` écrit ce champ.**
+	 *     `ouvrirSession` écrit ce champ** — `validerSession` rend la session LUE telle quelle
+	 *     (même référence), `perimee` ne porte aucune session, et `lire` n'écrit rien.
 	 *  3. La réconciliation cloud est un écrivain LÉGITIME d'`updatedAt` (adoption
 	 *     d'une copie distante plus récente) : une session ouverte avant l'adoption
 	 *     DOIT être vue périmée. Ce n'est pas un faux positif, c'est le cas d'usage.
@@ -490,10 +497,21 @@ export interface ResumeMemoire {
 export interface MagasinDeSession {
 	/** Range la session sous la clé du dossier joué. Synchrone : l'écriture est résolue au retour (KR-004). */
 	ecrire(dossierId: string, session: EtatSession): void
-	// `lire` / `effacer` : PAS ENCORE. Ajouter une méthode à une interface est
-	// ADDITIF ; contrairement à un champ persisté (KR-251), elle ne se paie pas
-	// d'être ajoutée plus tard. Elles entrent avec la REPRISE et son
-	// `validerSession` (KR-116) — deux méthodes sans appelant seraient KR-109.
+	/**
+	 * Relit la session rangée sous la clé de CE dossier, et dit ce qu'on peut en faire
+	 * (`LectureSession`, `reprise.ts`). Synchrone, et SANS EFFET : elle n'écrit, ni
+	 * n'efface, ni ne ré-estampille jamais rien — un statut `perimee` ou `illisible` laisse
+	 * la session rangée EXACTEMENT où elle était, jusqu'à ce que l'appelant en écrive une
+	 * neuve (KR-305).
+	 *
+	 * PREND LE DOSSIER ENTIER, PAS SON IDENTIFIANT : comparer `dossier_maj` à
+	 * `dossier.updatedAt` exige le dossier, et la clé se compose de `dossier.id`.
+	 * Un JSON non parsable se lit `absente` — voir `createMagasinDeSession`.
+	 *
+	 * `effacer` n'entre PAS : aucun appelant (« Nouvelle partie » écrase par `ecrire`) —
+	 * une méthode sans appelant serait KR-109.
+	 */
+	lire(dossier: Dossier): LectureSession
 }
 
 /**

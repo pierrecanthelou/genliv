@@ -29,6 +29,14 @@ export interface ModalProps {
 	 *  the header's ✕. Additive, default `false` : the five existing callers keep
 	 *  rendering their footer unchanged. */
 	hideFooter?: boolean
+	/** Puts the initial focus on « Annuler » when the dialog opens, so that Enter
+	 *  cannot confirm a DANGEROUS action by reflex (WORKFLOW, « Dangerous Actions » :
+	 *  `color="error"` + a named cancel path). Additive, default `false` : the five
+	 *  existing callers keep the focus they have today. Read at OPEN — callers mount the
+	 *  Modal when they open it. Without a footer (`hideFooter`) there is no « Annuler »
+	 *  to focus, so the prop has no effect. When `true`, it wins over a child's
+	 *  `autoFocus` : the focus lands on « Annuler ». */
+	focusCancel?: boolean
 }
 
 const FOCUSABLE = 'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
@@ -49,8 +57,10 @@ export function Modal({
 	onCancel,
 	onConfirm,
 	hideFooter = false,
+	focusCancel = false,
 }: ModalProps): JSX.Element {
 	const dialogRef = useRef<HTMLDivElement>(null)
+	const cancelRef = useRef<HTMLButtonElement>(null)
 	const dismiss = onClose ?? onCancel
 
 	// Capture the element that opened the modal and restore focus on unmount.
@@ -60,6 +70,13 @@ export function Modal({
 			previouslyFocused?.focus?.()
 		}
 	}, [])
+
+	// ORDER MATTERS : declared AFTER the capture effect above, so the opener is read
+	// before the focus moves to « Annuler » — reversed, the restore would target the
+	// cancel button instead of the opener.
+	useEffect(() => {
+		if (focusCancel) cancelRef.current?.focus()
+	}, [focusCancel])
 
 	// Esc to dismiss + a simple Tab focus trap kept inside the dialog.
 	useEffect(() => {
@@ -178,6 +195,7 @@ export function Modal({
 						</div>
 						<div style={{ display: 'flex', gap: 8 }}>
 							<button
+								ref={cancelRef}
 								type="button"
 								onClick={onCancel}
 								style={{

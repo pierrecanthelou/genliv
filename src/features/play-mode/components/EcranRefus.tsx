@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react'
 import { useBrain, type Route } from '../../../brain'
 import { MARQUEUR_A_ECRIRE } from '../../../brain/dossier/amorce'
 import { CadrePartie } from './CadrePartie'
+import { boutonPrimaire } from './boutonPrimaire'
 
 /**
  * LES TROIS REFUS DE L'ÉCRAN DE PARTIE — EXTRAIT d'`EcranPartie.tsx` (KR-112) par
@@ -71,7 +72,7 @@ export function EcranRefus({ code, titre, dossierId }: EcranRefusProps): JSX.Ele
 				</span>
 				<h2 style={titreRefus}>{TITRE_REFUS}</h2>
 				<p style={texteRefus}>{texte}</p>
-				<button type="button" style={boutonRetour} onClick={() => router.navigate(sortie)}>
+				<button type="button" style={boutonPrimaire} onClick={() => router.navigate(sortie)}>
 					{libelleAction}
 				</button>
 			</section>
@@ -104,18 +105,3 @@ const titreRefus: CSSProperties = {
 }
 
 const texteRefus: CSSProperties = { margin: 0, color: 'var(--text-muted)', lineHeight: 'var(--lh-body)' }
-
-// L'accent est légitime ici : UNIQUE action de l'écran.
-const boutonRetour: CSSProperties = {
-	marginTop: 'var(--space-3)',
-	fontFamily: 'var(--font-mono)',
-	fontSize: 'var(--fs-meta)',
-	padding: 'var(--space-3) var(--space-5)',
-	borderRadius: 'var(--r-md)',
-	border: 'var(--bw-hair) solid var(--accent)',
-	background: 'var(--accent)',
-	color: 'var(--text-on-accent)',
-	fontWeight: 'var(--fw-semibold)',
-	cursor: 'pointer',
-	minHeight: 'var(--hit-target)',
-}

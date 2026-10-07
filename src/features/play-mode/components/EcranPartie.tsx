@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useBrain, controlerDossier } from '../../../brain'
 import { EcranRefus } from './EcranRefus'
-import { PartieDemarree } from './PartieEnCours'
+import { AiguillagePartie } from './AiguillagePartie'
 
 /**
  * LE SHELL DE PARTIE — la route `partie`, montée par la racine de composition.
@@ -56,5 +56,5 @@ export function EcranPartie({ dossierId }: EcranPartieProps): JSX.Element {
 		return <EcranRefus code="dossier_non_jouable" titre={dossier.titre} dossierId={dossierId} />
 	}
 
-	return <PartieDemarree dossier={dossier} dossierId={dossierId} tirerGraine={tirerGraine} />
+	return <AiguillagePartie dossier={dossier} dossierId={dossierId} tirerGraine={tirerGraine} />
 }

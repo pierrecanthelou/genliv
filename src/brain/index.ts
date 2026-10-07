@@ -683,10 +683,16 @@ export type { Commande, CommandeId, RefusCommande, ResultatSaisie, ResultatComma
 // dedans : une feature consomme `useBrain().sessions`, elle ne construit jamais un
 // service (la fabrique n'a qu'un appelant, la racine de composition — KR-109).
 export type { MagasinDeSession } from './dossier/session'
+// `LectureSession` SORT AVEC LE PORT (n° 15 `moteur-fins`, it2) : c'est le type de ce que
+// `MagasinDeSession.lire` rend, et la feature qui aiguille sur ses quatre statuts n'a aucun
+// autre moyen de le NOMMER pour rétrécir totalement dessus. La fonction qui le décide
+// reste dedans — la feature consomme `useBrain().sessions.lire`, elle ne valide rien
+// elle-même (KR-109, et la frontière est instrumentée par `reprise.test.ts`).
+export type { LectureSession } from './dossier/reprise'
 // `dossierSessionKey` SEULE : `DOSSIER_SESSION_KEY_PREFIX` n'a aucun appelant hors
 // de sa propre déclaration, et une ligne publique sans appelant est la dette que ce
-// baril refuse ailleurs (KR-109). Le préfixe sortira avec le premier `keys(prefix)`
-// — la reprise de session, l'itération qui la livrera. `BOOK_KEY_PREFIX` et `dossierKey` ne sont, eux,
+// baril refuse ailleurs (KR-109). La reprise lit UNE clé exacte (`lire(dossier)`), jamais
+// un `keys(prefix)` : le préfixe reste dedans. `BOOK_KEY_PREFIX` et `dossierKey` ne sont, eux,
 // pas ici non plus.
 export { dossierSessionKey } from './persistenceKeys'
 export type { DossierService, DossierResume, CorpsDossier, EcritureDossier } from './DossierService'
