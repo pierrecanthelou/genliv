@@ -1,7 +1,7 @@
 {
 	"feature": "dossier-repetition",
 	"created_at": "2026-10-07",
-	"status": "planned",
+	"status": "in-progress",
 	"design_reference": "docs/PLAN-BASCULE-IA.dc.html § « Répétition à blanc » (ligne 288-294) : « Simule 20 tours joués par un joueur synthétique et rapporte les blocages, les PNJ jamais rencontrés, les indices inatteignables. »",
 	"plan": {
 		"goal": "L'auteur fait jouer son aventure par un joueur synthétique déterministe (20 pas, zéro IA) et lit les blocages, arrêts et lieux/PNJ non atteints.",
@@ -44,7 +44,7 @@
 				"type": "service",
 				"name": "creerRng",
 				"direction": "consumes",
-				"detail": "brain/dossier/rng.ts — RNG seedé pour la reproductibilité."
+				"detail": "brain/dossier/alea.ts — RNG seedé pour la reproductibilité."
 			},
 			{
 				"type": "service",
@@ -76,8 +76,8 @@
 		"iterations": [
 			{
 				"id": 1,
-				"goal": "L'auteur voit pourquoi un joueur synthétique s'arrête dans son dossier — repeter pure (aller seul, héros seedé), arrêts fin/impasse/combat_ouvert/pas_max, panneau synthèse + 4 états, moteurSansIA 4e racine.",
-				"status": "planned"
+				"goal": "L'auteur lance une répétition synthétique de son dossier pour voir où le joueur s'arrête — repeter pure (aller seul, héros seedé), 4 motifs d'arrêt (fin/impasse/combat_ouvert/pas_max), panneau 3 états (invite/résultat/à corriger), un seul refus dossier_injouable, moteurSansIA 4e racine. Lot contrat L1 (DomaineAlea + 'repetition') puis lot feature L2.",
+				"status": "done"
 			},
 			{
 				"id": 2,
@@ -102,14 +102,42 @@
 		]
 	},
 	"implementation": {
-		"iterations_log": [],
+		"iterations_log": [
+			{
+				"id": 1,
+				"label": "iteration-1",
+				"completed_at": "2026-10-08",
+				"architecture_choices": [
+					"repeter() orchestrateur pur dans features/dossier-repetition/utils/ (KR-313), pas brain/ (arête brain→player) ni player/engine/ (gonfle le runtime extractible)",
+					"Rapport dérivé en ligne par useMemo (KR-013/310), seul état local = graine",
+					"DomaineAlea étendu avec 'repetition' via lot contrat L1 indépendant",
+					"Slot render-prop panneauRepetition identique à panneauControles et panneauCopilote"
+				],
+				"deviations_from_plan": [
+					"Plan §5 l.171 dit « la fin gagne sur le combat au même pas » — le code vérifie combat en premier (KR-303 : finAtteinte rend undefined sous session.combat). Écart documenté, commentaire en ligne."
+				],
+				"test_coverage": {
+					"unit": "33 tests (repeter 18, panneau 7, cablage 4, slot 3, moteurSansIA 1)",
+					"e2e": "non applicable"
+				}
+			}
+		],
 		"resolved_decisions": [
 			"Fourche A (rôle IA) / B (code déterministe) → RETENU B. Unanimité. Zéro appel modèle, rapport rejouable à graine égale. La variante A est un point d'extension nommé (choisirCommande/acteurCooperatif), pas une abstraction livrée (décision n°3).",
 			"Extraction de avancerPas commun → REJETÉ. Le pur est déjà factorisé (executerCommande, ouvrirRencontreSiDue, finAtteinte sont des imports distincts). Un avancerPas n'aurait que deux appelants.",
 			"Domicile de l'exécuteur → features/dossier-repetition/utils/repeter.ts. Pas brain/ (arête brain→player). Pas player/engine/ (gonfle le runtime extractible).",
 			"Indices → REJETÉ du périmètre. Sans IA, consignerReponseActeur exige recit et indicesReveles, aucun des deux n'existe. atteignabilite.ts couvre le statique.",
 			"It4 calibrage (règle de contrôle « Difficulté non calibrée ») → REJETÉ. PM veto : touche dossier-controles, sort de n°16. L'étalon est dans la feature (it2), la règle est une dette à déclencheur hors n°16.",
-			"Dépendances corrigées : 10·7 → 9·13·14·15 (moteur-dossier, moteur-combat, moteur-horloge, moteur-fins). Tous livrés."
+			"Dépendances corrigées : 10·7 → 9·13·14·15 (moteur-dossier, moteur-combat, moteur-horloge, moteur-fins). Tous livrés.",
+			"It1 raffinage : DomaineAlea étendu avec 'repetition' via lot contrat L1 (alea.ts). Veto tech-lead (tour 1+2) accepté unanimement.",
+			"It1 raffinage : « Rejouer à l'identique » retiré sans report — le rapport est dérivé en ligne, le bouton n'aurait aucun effet. Veto TL, PM, UX.",
+			"It1 raffinage : un seul refus 'dossier_injouable', l'état 'ouverture_a_ecrire' est inatteignable derrière .jouable (controles.ts:169-170). Preuve TL.",
+			"It1 raffinage : 3 états panneau (invite/résultat/à corriger), pas 4. consensus PM/TL/UX.",
+			"It1 raffinage : héros synthétique spécifié — affectation séquentielle, bonus sur la plus basse, première en cas d'égalité. creerHerosSynthetique privée à repeter.ts. Convergence TL/NIA.",
+			"It1 raffinage : choisirDestination = fonction locale dans repeter.ts, un seul tirage, pas de rotation. Refus executerCommande → impasse. NIA/TL.",
+			"It1 raffinage : vocabulaire « arrêt » partout, « impasse » pour le motif seul, « blocage » nulle part. UX/NIA.",
+			"It1 raffinage : voix du panneau en 3e personne du joueur synthétique, noms internes uniquement. NIA.",
+			"It1 raffinage : moteurSansIA racine = feature entière, plancher 1. TL."
 		],
 		"open_questions": [
 			"parler/agir en it3 : PM les exclut, NIA les veut pour la couverture PNJ. À décider au raffinage d'it3 — la couverture PNJ peut utiliser parler (avec abandon à 3 jets) ou seulement la co-présence au même lieu.",

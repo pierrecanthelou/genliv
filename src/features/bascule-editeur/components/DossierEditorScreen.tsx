@@ -27,17 +27,32 @@ const DESTINATION_CONTROLES = 'controles' as const
  * pour une destination déjà livrée (défaut `SANS_COMPTE`).
  */
 const DESTINATION_COPILOTE = 'copilote' as const
-type DestinationNav = SectionId | typeof DESTINATION_CONTROLES | typeof DESTINATION_COPILOTE
+/**
+ * QUATRIÈME branche, posée par l'itération 1 de `dossier-repetition` — et elle
+ * reste LOCALE au même titre que les deux précédentes : ni `SectionId`, ni
+ * `brain/`. « Répétition » n'est pas une section du dossier. Son nav n'apparaît
+ * que si cette prop est injectée.
+ */
+const DESTINATION_REPETITION = 'repetition' as const
+type DestinationNav =
+	| SectionId
+	| typeof DESTINATION_CONTROLES
+	| typeof DESTINATION_COPILOTE
+	| typeof DESTINATION_REPETITION
 
 /**
  * VRAI quand la destination courante appartient à la nav des sections. Écrit comme
- * un garde de TYPE plutôt qu'en comparaison au site d'appel : avec deux
+ * un garde de TYPE plutôt qu'en comparaison au site d'appel : avec trois
  * destinations étrangères, un `destination === DESTINATION_CONTROLES ? null : …`
- * oubliait la seconde et rendait `'copilote'` à `SectionNav` — exactement l'état
- * illégal de BUG-082, avec une ligne de plus pour l'atteindre.
+ * oubliait les autres et rendait `'copilote'` ou `'repetition'` à `SectionNav` —
+ * exactement l'état illégal de BUG-082, avec des lignes de plus pour l'atteindre.
  */
 function estSectionId(destination: DestinationNav): destination is SectionId {
-	return destination !== DESTINATION_CONTROLES && destination !== DESTINATION_COPILOTE
+	return (
+		destination !== DESTINATION_CONTROLES &&
+		destination !== DESTINATION_COPILOTE &&
+		destination !== DESTINATION_REPETITION
+	)
 }
 
 export interface DossierEditorScreenProps {
@@ -76,6 +91,17 @@ export interface DossierEditorScreenProps {
 	 * feature connaisse la nav de l'éditeur.
 	 */
 	panneauCopilote?: (onSelectSection: (section: SectionId) => void) => ReactNode
+	/**
+	 * Le panneau Répétition (`dossier-repetition`) — prop SŒUR de `panneauControles`
+	 * et `panneauCopilote`, de forme IDENTIQUE : « Répétition » n'est pas une
+	 * section du dossier. Sa nav n'apparaît que si cette prop est injectée.
+	 *
+	 * RENDER-PROP pour la même raison que ses sœurs : l'écran fournit le rappel de
+	 * navigation, jamais l'inverse. `SectionId` SEUL traverse la frontière — jamais
+	 * `DestinationNav` —, donc le panneau Répétition ne peut fabriquer l'état
+	 * illégal de BUG-082.
+	 */
+	panneauRepetition?: (onSelectSection: (section: SectionId) => void) => ReactNode
 }
 
 /**
@@ -99,6 +125,7 @@ export function DossierEditorScreen({
 	panneaux,
 	panneauControles,
 	panneauCopilote,
+	panneauRepetition,
 }: DossierEditorScreenProps): JSX.Element {
 	const { router } = useBrain()
 	const dossier = useOpenDossier(dossierId)
@@ -158,14 +185,15 @@ export function DossierEditorScreen({
 
 	/**
 	 * Le panneau courant — une suite de gardes plutôt qu'une cascade de ternaires :
-	 * avec DEUX destinations hors sections, l'expression imbriquée cessait de se
-	 * lire, et c'est exactement le genre d'endroit où la troisième branche se pose
+	 * avec TROIS destinations hors sections, l'expression imbriquée cessait de se
+	 * lire, et c'est exactement le genre d'endroit où une branche se pose
 	 * au mauvais niveau. Le `return` final tombe sur une destination NARROWED à
 	 * `SectionId` par élimination, sans `as`.
 	 */
 	function rendrePanneau(): ReactNode {
 		if (destination === DESTINATION_CONTROLES) return panneauControles?.((section) => setDestination(section))
 		if (destination === DESTINATION_COPILOTE) return panneauCopilote?.((section) => setDestination(section))
+		if (destination === DESTINATION_REPETITION) return panneauRepetition?.((section) => setDestination(section))
 		return panneaux?.[destination] ?? <PanneauSection sectionId={destination} />
 	}
 
@@ -209,6 +237,20 @@ export function DossierEditorScreen({
 								title="Copilote"
 								selected={destination === DESTINATION_COPILOTE}
 								onSelect={() => setDestination(DESTINATION_COPILOTE)}
+							/>
+						</nav>
+					)}
+					{/* « Répétition » vient APRÈS « Copilote » — ordre posé par le contrat
+					    de design du plan d'itération 1 de dossier-repetition, et épinglé par
+					    un test pour qu'il ne dérive pas d'un rendu à l'autre : les trois
+					    entrées hors sections sont sœurs, et trois sœurs sans ordre fixe se
+					    réordonnent au premier refactor. */}
+					{panneauRepetition !== undefined && (
+						<nav aria-label="Répétition" style={navHorsSections}>
+							<ListRow
+								title="Répétition"
+								selected={destination === DESTINATION_REPETITION}
+								onSelect={() => setDestination(DESTINATION_REPETITION)}
 							/>
 						</nav>
 					)}

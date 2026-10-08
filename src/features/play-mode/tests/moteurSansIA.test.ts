@@ -4,13 +4,14 @@ import path from 'node:path'
 /**
  * « AUCUNE GÉNÉRATION DE TEXTE » — critère 8 du plan d'itération 1, KR-250.
  *
- * CE QUE CE FICHIER GARDE : le PÉRIMÈTRE DE LA n° 9 `moteur-dossier` — le
- * runtime joueur (`src/player/`), le shell de partie (`src/features/play-mode/`)
- * et la couche dossier de `brain/`. Il ne garde PAS « la feature `play-mode` » :
- * il vit ici parce que `src/features/moteur-dossier/` ne contient qu'un
- * `specification.json` et qu'une feature réduite à un test est un répertoire
- * fantôme (§ 8, D-10). Le jour où le périmètre bouge, c'est la liste des trois
- * racines ci-dessous qu'on amende — jamais le domicile du fichier.
+ * CE QUE CE FICHIER GARDE : le PÉRIMÈTRE DES n° 9 (`moteur-dossier`) et
+ * n° 16 (`dossier-repetition`) — le runtime joueur (`src/player/`), le shell
+ * de partie (`src/features/play-mode/`), la couche dossier de `brain/` et la
+ * feature `dossier-repetition`. Il vit ici parce que
+ * `src/features/moteur-dossier/` ne contient qu'un `specification.json` et
+ * qu'une feature réduite à un test est un répertoire fantôme (§ 8, D-10). Le
+ * jour où le périmètre bouge, c'est la liste des quatre racines ci-dessous
+ * qu'on amende — jamais le domicile du fichier.
  *
  * POURQUOI UN BALAYAGE ET PAS UNE RELECTURE : la propriété définissante de la
  * feature est une ABSENCE, et rien ne vérifie une absence sans instrument. Le
@@ -29,11 +30,12 @@ import path from 'node:path'
 
 const RACINE_SRC = path.join(__dirname, '..', '..', '..')
 
-/** Les trois racines du périmètre de la n° 9 — la SEULE liste écrite à la main. */
+/** Les quatre racines du périmètre (n° 9 + n° 16) — la SEULE liste écrite à la main. */
 const RACINES_DU_PERIMETRE = [
 	path.join(RACINE_SRC, 'player'),
 	path.join(RACINE_SRC, 'features', 'play-mode'),
 	path.join(RACINE_SRC, 'brain', 'dossier'),
+	path.join(RACINE_SRC, 'features', 'dossier-repetition'),
 ]
 
 /**
@@ -45,19 +47,21 @@ const RACINES_DU_PERIMETRE = [
 const PLANCHER_DE_NON_VACUITE = 20
 
 /**
- * Plancher PAR RACINE (A-7, `moteur-dossier` it4) — `floor(mesure/5)×5` sur la
- * mesure ci-dessus, calculé PAR RACINE et non globalement : un plancher global
- * de 20 est déjà satisfait par `brain/dossier` (26) SEUL, donc **aveugle** si
- * `player` s'effondrait en silence jusqu'à 1 fichier — `PLANCHER_DE_NON_VACUITE`
- * reste un filet global, celui-ci est le garde qui distingue les trois racines.
- * `floor(n/5)×5 = 10` pour tout `n` de 10 à 14 : ce plancher ne certifie donc
- * rien de plus fin que « cette racine n'a pas été vidée par mégarde » — il ne
- * prouve jamais qu'un lot de démolition s'est arrêté exactement au bon endroit.
+ * Plancher PAR RACINE (A-7, `moteur-dossier` it4, amendé par `dossier-repetition`
+ * it1) — `floor(mesure/5)×5` sur la mesure par racine (jamais globalement) : un
+ * plancher global de 20 est déjà satisfait par `brain/dossier` (26) SEUL, donc
+ * **aveugle** si `player` s'effondrait en silence jusqu'à 1 fichier —
+ * `PLANCHER_DE_NON_VACUITE` reste un filet global, celui-ci est le garde qui
+ * distingue les quatre racines. `floor(n/5)×5 = 0` pour tout `n` de 1 à 4 : ce
+ * plancher pour `dossier-repetition` ne certifie que « cette racine n'a pas été
+ * vidée par mégarde » — il ne prouve jamais qu'un lot de démolition s'est arrêté
+ * exactement au bon endroit.
  */
 const PLANCHER_PAR_RACINE: Readonly<Record<string, number>> = {
 	player: 10,
 	'play-mode': 5,
 	dossier: 25,
+	'dossier-repetition': 1,
 }
 
 function fichiersDeProduction(racine: string): string[] {

@@ -8,6 +8,7 @@ import { DossierEditorScreen } from './features/bascule-editeur'
 import { EcranPartie } from './features/play-mode'
 import { PanneauControles } from './features/dossier-controles'
 import { PanneauCopilote } from './features/dossier-copilote'
+import { PanneauRepetition } from './features/dossier-repetition'
 import { PanneauCanon, PanneauDepart, PanneauLieux } from './features/dossier-canon'
 import { PanneauPersonnages } from './features/dossier-fiches'
 import { PanneauObjets } from './features/dossier-objets'
@@ -50,6 +51,9 @@ export function App(): JSX.Element {
 				)}
 				panneauCopilote={(onSelectSection) => (
 					<PanneauCopilote dossierId={route.dossierId} onSelectSection={onSelectSection} />
+				)}
+				panneauRepetition={(onSelectSection) => (
+					<PanneauRepetition dossierId={route.dossierId} onSelectSection={onSelectSection} />
 				)}
 				panneaux={{
 					canon: <PanneauCanon dossierId={route.dossierId} />,

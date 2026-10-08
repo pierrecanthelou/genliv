@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.29 — l'auteur lance une répétition synthétique de son dossier pour voir où le joueur s'arrête
+
+`dossier-repetition` it1 (roadmap § 3, n° 16, 1/3) — lot contrat L1 (`alea.ts`, DomaineAlea + `'repetition'`) puis lot feature L2. `repeter(dossier, graine)` : fonction pure, zéro IA, zéro fetch, 20 pas max, 4 motifs d'arrêt (fin/impasse/combat_ouvert/pas_max). Héros synthétique seedé (affectation séquentielle + bonus sur la plus basse carac). `PanneauRepetition` : 3 états (invite/résultat/à corriger), rapport dérivé par useMemo (KR-013/310), slot render-prop dans DossierEditorScreen. `cablage.test.ts` élargi au feature entier. `moteurSansIA.test.ts` : 4e racine `dossier-repetition`, plancher 1. 162 suites / 3026 tests.
+
+- Écarts : plan §5 l.171 « fin gagne sur combat » → code vérifie combat en premier (KR-303 : finAtteinte rend undefined sous combat). Documenté.
+- Reportés : mort/combat_sans_issue (it2), lieux/PNJ non atteints (it3), test moteur réel sans mock (it2, déclencheur).
+- Dossier : `.claude/raffinage/dossier-repetition-it1.revue.md`.
+
 ## 0.7.28 — l'auteur relance sa partie terminée avec les mêmes dés
 
 `moteur-fins` it4 (roadmap § 3, n° 15, 4/4, **TERMINÉE**) — lot unique feature `play-mode`. `boutonSecondaire.ts` (N, 19 l.). `EcranFin.tsx` et `EcranMort.tsx` : barre d'actions avec « ↻ Nouvelle partie » (autoFocus) + « ↪ Rejouer — mêmes dés » (type="button"), aide « Mêmes dés dès la création du héros. Le récit peut changer. ». `PartieEnCours.tsx` : `onRejouer(graine)` câblé vers `session.graine_alea`. `AiguillagePartie.tsx` : état unique `{generation, graine?}`, `graineImposee ?? tirerGraine()` (graine 0 valide, KR-304). 158 suites / 2990 tests — 2 intégration AiguillagePartie (fin→Rejouer→même graine, fin→Rejouer→Nouvelle partie→graine non collante).

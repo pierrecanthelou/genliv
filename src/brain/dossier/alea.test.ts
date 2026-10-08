@@ -231,3 +231,98 @@ describe('domaine combat — le flux unique du rejeu, un combat = un pas', () =>
 		}
 	})
 })
+
+/**
+ * LE DOMAINE `'repetition'` (`dossier-repetition`, lot `contrat`, it1) — un flux par
+ * PAS de la répétition : `creerRng(graine, 'repetition', pas)`, pas = 1 à `PAS_MAX`, et
+ * chaque pas ne tire qu'UNE valeur (le choix d'un accès). Les trois propriétés qui
+ * portent la reproductibilité d'une répétition (KR-310) : la même clé rend la même
+ * suite, le domaine est séparé des trois autres (le héros synthétique tire sur
+ * `'heros'` avec la MÊME graine), et deux pas ne partagent aucun tirage.
+ */
+describe('domaine repetition — un flux par pas de la repetition', () => {
+	const REPETITION: DomaineAlea = 'repetition'
+	/** Graine du critère d'acceptation n° 8 du plan. */
+	const GRAINE_CRITERE = 42
+	const TIRAGES = 8
+
+	it('repetition_meme_cle_meme_suite — meme graine, domaine et pas -> meme suite', () => {
+		const premiere = tirer(creerRng(GRAINE_CRITERE, REPETITION, 1), TIRAGES)
+		const seconde = tirer(creerRng(GRAINE_CRITERE, REPETITION, 1), TIRAGES)
+
+		expect(seconde).toEqual(premiere)
+		// Discriminant : sans lui, un générateur qui rendrait toujours la même valeur
+		// satisferait l'égalité.
+		expect(new Set(premiere).size).toBe(TIRAGES)
+		// Et la fonction pure en dessous rend la même valeur pour la même clé, ordre
+		// d'appel sans effet : le tirage d'un pas ne dépend d'aucun appel précédent.
+		const avant = alea(GRAINE_CRITERE, REPETITION, 5)
+		alea(GRAINE_CRITERE, REPETITION, 6)
+		expect(alea(GRAINE_CRITERE, REPETITION, 5)).toBe(avant)
+	})
+
+	it('repetition_independance_domaines — repetition est INDEPENDANT de heros, jet ET combat, meme graine et meme pas', () => {
+		// Les TROIS paires sont comparées, jamais une seule : `hacherDomaine` ne
+		// séparerait rien si 'repetition' collisionnait avec l'un d'eux. Le héros
+		// synthétique tire sur 'heros' avec la même graine que les choix de parcours.
+		const commeRepetition = tirer(creerRng(GRAINE_CRITERE, REPETITION, 1), TIRAGES)
+		const commeHeros = tirer(creerRng(GRAINE_CRITERE, 'heros', 1), TIRAGES)
+		const commeJet = tirer(creerRng(GRAINE_CRITERE, 'jet', 1), TIRAGES)
+		const commeCombat = tirer(creerRng(GRAINE_CRITERE, 'combat', 1), TIRAGES)
+
+		expect(commeRepetition).not.toEqual(commeHeros)
+		expect(commeRepetition).not.toEqual(commeJet)
+		expect(commeRepetition).not.toEqual(commeCombat)
+		// Le premier tirage — le SEUL qu'un pas consomme — est lui aussi distinct.
+		expect(commeRepetition[0]).not.toBe(commeHeros[0])
+		expect(commeRepetition[0]).not.toBe(commeJet[0])
+		expect(commeRepetition[0]).not.toBe(commeCombat[0])
+		// Et sur le pas 0, celui du héros : la séparation vaut pour toute clé.
+		expect(tirer(creerRng(GRAINE_CRITERE, REPETITION, 0), TIRAGES)).not.toEqual(
+			tirer(creerRng(GRAINE_CRITERE, 'heros', 0), TIRAGES),
+		)
+	})
+
+	it('repetition_pas_distincts — deux pas distincts rendent des suites distinctes', () => {
+		const pas1 = tirer(creerRng(GRAINE_CRITERE, REPETITION, 1), TIRAGES)
+		const pas2 = tirer(creerRng(GRAINE_CRITERE, REPETITION, 2), TIRAGES)
+
+		expect(pas2).not.toEqual(pas1)
+		// Un pas ne tire qu'une valeur : c'est le PREMIER tirage de chaque pas qui doit
+		// différer, pas seulement la suite entière.
+		expect(pas2[0]).not.toBe(pas1[0])
+		// Et tous les pas d'une répétition de 20 pas tirent un premier tirage distinct.
+		const premiersTirages = Array.from({ length: 20 }, (_, i) => creerRng(GRAINE_CRITERE, REPETITION, i + 1)())
+		expect(new Set(premiersTirages).size).toBe(20)
+	})
+
+	it('repetition — l ordre d appel entre deux pas ne change aucune des deux suites', () => {
+		const pas1Seul = tirer(creerRng(GRAINE_CRITERE, REPETITION, 1), 5)
+		const pas2Seul = tirer(creerRng(GRAINE_CRITERE, REPETITION, 2), 5)
+
+		const rng1 = creerRng(GRAINE_CRITERE, REPETITION, 1)
+		const rng2 = creerRng(GRAINE_CRITERE, REPETITION, 2)
+		const pas1Intercale: number[] = []
+		const pas2Intercale: number[] = []
+		for (let i = 0; i < 5; i += 1) {
+			pas2Intercale.push(rng2())
+			pas1Intercale.push(rng1())
+		}
+
+		expect(pas1Intercale).toEqual(pas1Seul)
+		expect(pas2Intercale).toEqual(pas2Seul)
+	})
+
+	it('deux graines distinctes rendent des suites differentes, meme pas', () => {
+		expect(tirer(creerRng(1, REPETITION, 3), 5)).not.toEqual(tirer(creerRng(2, REPETITION, 3), 5))
+	})
+
+	it('0 <= x < 1 sur le domaine repetition, y compris aux graines bornes 0 et 2**32-1', () => {
+		for (const graine of [0, GRAINE_CRITERE, 2 ** 32 - 1]) {
+			for (const valeur of tirer(creerRng(graine, REPETITION, 3), 50)) {
+				expect(valeur).toBeGreaterThanOrEqual(0)
+				expect(valeur).toBeLessThan(1)
+			}
+		}
+	})
+})

@@ -50,13 +50,21 @@
  * est SÉPARÉ de `'jet'` : un combat et un jet du MÊME pas ne partagent aucun
  * tirage, et rejouer l'un ne déplace jamais l'autre.
  *
+ * `'repetition'` ENTRE AVEC LE LOT `contrat` DE `dossier-repetition` (it1), et son
+ * consommateur est `repeter()` (`features/dossier-repetition`) : `creerRng(graine,
+ * 'repetition', pas)`. L'indice d'usage est le NUMÉRO DE PAS de la répétition (1 à
+ * `PAS_MAX`), et chaque pas ne tire QU'UNE valeur (le choix d'un accès). Ce flux est
+ * SÉPARÉ de `'heros'`, `'jet'` et `'combat'` : la même graine sert au héros
+ * synthétique (`'heros'`, indice 0) et aux choix de parcours sans qu'aucun tirage
+ * ne se recoupe.
+ *
  * MODULE PUR, sans dépendance de service : il part avec `src/player/` le jour de
  * l'extraction (`docs/EXIGENCE-APERCU-DU-JEU.md` § 6). Aucun `Math.random`, aucune
  * horloge système, aucun état de module partagé entre deux appels.
  */
 
 /** Le domaine d'un tirage — union FERMÉE, voir la docstring de tête. */
-export type DomaineAlea = 'heros' | 'jet' | 'combat'
+export type DomaineAlea = 'heros' | 'jet' | 'combat' | 'repetition'
 
 /**
  * SÉPARE LES ZONES DE DEUX USAGES À L'INTÉRIEUR D'UN MÊME `creerRng` — voir la
