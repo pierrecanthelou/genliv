@@ -18,7 +18,7 @@ Une **itération** au sens du projet : une entrée de `features/<feature>/specif
 3. `src/features/<feature>/specification.json` — le plan, les critères, les `known_risks` (KR-xxx), l'`implementation.resolved_decisions`
 4. Les **3 à 6 fichiers de code** que l'itération touche réellement — pas plus. Le comité travaille sur les specs, pas sur le repo entier.
 5. `DESIGN-SYSTEM.md` + `tokens/*.css` + `components/` (rôle UX en priorité)
-6. `docs/ROADMAP-BASCULE-IA.md` + `docs/PLAN-BASCULE-IA.dc.html` + `docs/REGLES-DU-JEU.md` + les règles de `src/brain/` (rôle Narratif & IA uniquement)
+6. `docs/REGLES-DU-JEU.md` + `docs/REGLES-PLAY.md` + les règles de `src/brain/` (rôle Narratif & IA uniquement — le plan de cible `.dc.html` est livré et archivé, ne plus le charger)
 
 Le comité est **en lecture seule**. Un seul acteur écrit : l'orchestrateur de `/raffiner`.
 
@@ -109,10 +109,11 @@ Le plan suit `templates/plan-iteration.md` à la lettre. Deux exigences non nég
 > **L'effort suit la portée de l'erreur, pas la durée du travail.**
 
 Une erreur qui reste dans un fichier se corrige en dix minutes. Une erreur dans une signature `brain/` se propage dans quatre lots, puis dans la fusion, puis dans les tests — et personne ne peut plus se parler pour la rattraper.
-Chaque agent porte les spcécifications du modèle et de l'effort à utiliser.
+Chaque agent porte les spécifications du modèle et de l'effort à utiliser.
 
 | Poste | Effort | Pourquoi |
 |---|---|---|
+| orchestrateur de `/raffiner` | **élevé** | il arbitre les vetos et écrit le plan que tous les ouvriers consomment sans pouvoir le questionner — la plus grande portée d'erreur du pipeline (précédents : BUG-082, un `REJETÉ` perdu en condensation ; un mandat de revue jamais porté au comité, `dossier-controles` it10) |
 | `tech-lead` | **élevé** | il produit le découpage en lots : un mauvais découpage rend tout l'essaim faux, et ça ne se voit qu'à la fusion |
 | `narratif-ia` | **élevé** | la frontière code/IA et les contrats de sortie du modèle se paient au runtime, sur des sessions entières |
 | `dev-contrat` | **élevé** | il écrit ce que 2 à 4 agents consommeront sans pouvoir le questionner |
@@ -190,7 +191,8 @@ Le dépôt tourne sur **jest + jsdom + Testing Library**.
 | `useEffect` d'état dérivé (KR-013/113) | *aucun* — heuristique de revue | **arbitré : pas de règle.** L'AST voit une forme, pas une sémantique ; procédure dans `docs/WORKFLOW.md` (Build Steps, étape 5) |
 | Règles de jeu (`src/brain/` : challenge, combat, xp, characteristics) | **score de mutation**, jamais la couverture de lignes | **en place** — `npm run test:mutation`, hors porte de commit, en fin d'itération si l'itération y a touché. Cliquet et plafond : `docs/WORKFLOW.md` § Score de mutation |
 | Registres de données (`BESTIARY`, `CHALLENGE_TIERS`, `CHARACTERISTICS`, libellés de `POSTURES`) | **table dorée** `src/brain/rules.golden.test.ts` | **en place** — dans la porte de commit. Contrepartie obligatoire de leur neutralisation dans le score. **Sens d'écriture permanent : `docs/REGLES-DU-JEU.md` → table dorée → code** — une valeur recopiée depuis le code fige le défaut au lieu de le verrouiller ; tout critère touchant un registre nomme sa section source. Conception et sonde : skill **`table-doree`** |
-| Canevas (pan/zoom/glisser, disposition dagre), boucle de session du mode jeu | specs navigateur | **différé** — à ouvrir quand `tree-canvas` ou le mode jeu arrive |
+| Canevas (pan/zoom/glisser, disposition dagre) | specs navigateur | **différé** — à ouvrir avec le repointage de `tree-canvas` (après le Temps 2) |
+| Prose et conduite réelles des rôles modèle (R1–R5) | protocole `/playtest` (appels réels, hors jest) | **en place comme protocole** — tout résidu « non exécutable par jest » se consigne en `open_questions` pour lui, jamais compté vérifié |
 
 Le score de mutation est le seul instrument qui voit un test vert sur une arithmétique fausse. Comme tout le dispositif repose sur « l'IA ne lance jamais les dés, le code les lance », un mutant survivant dans `combat.ts` ou `xp.ts` est le défaut le plus cher du projet.
 

@@ -1,5 +1,5 @@
-﻿{
-	"_about": "Source unique des risques connus transverses de l'editeur de livres dont vous etes le heros, agregee depuis chaque src/features/*/specification.json et les regles d'ingenierie de CLAUDE.md / docs/WORKFLOW.md. Bandes : 0xx = domaine par feature (trous attendus), 1xx et 2xx = transverse. LES IDS SONT STABLES, jamais renumerotes. AXE DE COMPACTION (2026-09-17, rejoue le 2026-09-24) : une entree qui RECOPIE une regle de jeu, un registre ou un paragraphe deja charge a chaque session se reduit a son invariant portable + le renvoi a sa source ; quand celle-ci est une spec, le CORPS Y DESCEND (precedent KR-095) et « Corps : spec <feature> » designe src/features/<feature>/specification.json, ouvert a l'ouverture de son iteration. Un invariant vivant ne se supprime jamais. FICHIER FRERE (scission du 2026-09-24) : code-knowledge.arbre-condamne.json porte les 28 entrees des features supprimees le 2026-08-03, seules du registre sans spec cible ; PAS en lecture obligatoire, deux declencheurs de relecture — la demolition de frontiere de la n9 (KR-181 amende par KR-240) et tout repointage de tree-canvas. Aucun id n'a disparu ni change : src/brain/codeKnowledge.test.ts tient l'unicite sur l'union des deux fichiers et le miroir de tout id cite dans un plan.known_risks.",
+{
+	"_about": "Source unique des risques connus transverses de l'editeur de livres dont vous etes le heros, agregee depuis chaque src/features/*/specification.json et les regles d'ingenierie de CLAUDE.md / docs/WORKFLOW.md. Bandes : 0xx = domaine par feature (trous attendus), 1xx et 2xx = transverse. LES IDS SONT STABLES, jamais renumerotes. AXE DE COMPACTION (2026-09-17, rejoue le 2026-09-24 puis le 2026-10-08) : une entree qui RECOPIE une regle de jeu, un registre ou un paragraphe deja charge a chaque session se reduit a son invariant portable + le renvoi a sa source ; quand celle-ci est une spec, le CORPS Y DESCEND (precedent KR-095) et « Corps : spec <feature> » designe src/features/<feature>/specification.json, ouvert a l'ouverture de son iteration. Un invariant vivant ne se supprime jamais. FICHIER FRERE (scission du 2026-09-24) : code-knowledge.arbre-condamne.json porte les 28 entrees des features supprimees le 2026-08-03, seules du registre sans spec cible ; PAS en lecture obligatoire, deux declencheurs de relecture — la demolition de frontiere de la n9 (KR-181 amende par KR-240) et tout repointage de tree-canvas. Aucun id n'a disparu ni change : src/brain/codeKnowledge.test.ts tient l'unicite sur l'union des deux fichiers et le miroir de tout id cite dans un plan.known_risks.",
 	"known_risks": [
 		{
 			"id": "KR-001",
@@ -49,7 +49,7 @@
 		{
 			"id": "KR-023",
 			"feature": "tree-canvas",
-			"risk": "Le canevas dispose l arbre automatiquement (resolvePositions, pur) et n a aucune position persistee. COMPACTE le 2026-09-15 : tree-canvas est EN SOMMEIL, cable sur BookNode/Edge condamnes, demolition prevue n9, aucun repointage assigne (roadmap 1bis). Detail integral : src/features/tree-canvas/specification.json."
+			"risk": "Le canevas dispose l arbre automatiquement (resolvePositions, pur), aucune position persistee. tree-canvas est EN SOMMEIL, cable sur BookNode/Edge ; repointage differe apres le Temps 2 (roadmap § 2 bis), extinction du modele avec lui (KR-240). Detail : spec tree-canvas."
 		},
 		{
 			"id": "KR-024",
@@ -64,7 +64,7 @@
 		{
 			"id": "KR-068",
 			"feature": "cross-cutting",
-			"risk": "Le savoir PAR TYPE vit dans UN registre pilote par la donnee (brain/kinds.ts : NODE_KINDS), jamais en cascades de conditions dispersees. COMPACTE le 2026-09-15 : le principe est GENERALISE par KR-117 (ensemble ferme + Record exhaustif), et kinds.ts porte le modele d ARBRE, condamne a la demolition n9. Detail integral : src/features/tree-canvas/specification.json et l historique git."
+			"risk": "Le savoir PAR TYPE vit dans UN registre pilote par la donnee (brain/kinds.ts : NODE_KINDS), generalise par KR-117. kinds.ts porte le modele d ARBRE en sommeil — extinction au repointage de tree-canvas (KR-240), jamais avant. Detail : spec tree-canvas."
 		},
 		{
 			"id": "KR-070",
@@ -249,12 +249,12 @@
 		{
 			"id": "KR-154",
 			"feature": "global-config",
-			"risk": "UN DOCUMENT CONTRAIGNANT VIT DANS LE DEPOT, JAMAIS DANS UN BUNDLE GITIGNORE (trouve au tri du 2026-08-03). REGLES-DU-JEU.md -- source de verite unique de toute mecanique (KR-130), citee par l'agent narratif-ia et la skill raffinage-iteration -- n'existait que dans des dossiers ignores, et docs/ lui-meme etait ignore alors que docs/WORKFLOW.md est @-importe par CLAUDE.md a chaque session. Un bundle de livraison est un TRANSPORT, pas un domicile : des qu'un document qu'il contient devient contraignant, on le COPIE dans le depot et on cite le chemin du depot partout. Avant d'ignorer un repertoire, grep le depot pour les citations des fichiers qu'il contient -- un prompt d'agent ou une skill qui nomme un chemin non suivi par git degrade en silence au clone suivant."
+			"risk": "UN DOCUMENT CONTRAIGNANT VIT DANS LE DEPOT, JAMAIS DANS UN BUNDLE GITIGNORE : avant d ignorer un repertoire, grep le depot pour les citations des fichiers qu il contient — un prompt d agent ou une skill qui nomme un chemin non suivi par git degrade en silence au clone suivant (precedent REGLES-DU-JEU.md, tri du 2026-08-03)."
 		},
 		{
 			"id": "KR-155",
 			"feature": "global-config",
-			"risk": "QUAND UN FORMAT EST ABANDONNE, ON SUPPRIME TOUT SON CHEMIN DE LECTURE, PAS SEULEMENT SON INTERFACE (tri du 2026-08-03). Retirer book-export a laisse BookService.importBook() et scenarioExport.ts atteignables par le TYPE mais par aucune action utilisateur : du code mort qui type-checke, tourne encore en test, et ressemble a un point d'entree supporte pour le lecteur suivant. Idem pour des registres dont les derniers inscrivants sont partis, et pour des cles de preferences que plus aucune vue ne lit. REGLE : apres la suppression d'une feature, grep chaque export brain qu'elle consommait et demander 'qui enregistre / qui lit ceci maintenant ?' -- zero reponse, ca part dans le MEME commit. CONTRE-REGLE qui garde la premiere honnete : ne PAS supprimer ce que la feature SUIVANTE est chargee de remplacer -- la demolir avant son remplacant ne laisse rien a quoi comparer."
+			"risk": "QUAND UN FORMAT EST ABANDONNE, ON SUPPRIME TOUT SON CHEMIN DE LECTURE, PAS SEULEMENT SON INTERFACE : apres la suppression d une feature, grep chaque export brain qu elle consommait et demander qui enregistre / qui lit ceci — zero reponse, ca part dans le MEME commit. CONTRE-REGLE : ne pas demolir ce que la feature suivante est chargee de remplacer (tri du 2026-08-03)."
 		},
 		{
 			"id": "KR-156",
@@ -339,7 +339,7 @@
 		{
 			"id": "KR-172",
 			"feature": "global-config",
-			"risk": "DEUX AGENTS NE TRAVAILLENT JAMAIS EN PARALLELE SUR LE MEME ARBRE NON COMMITE des que l'un d'eux mute des fichiers (BUG-045). L'integrateur et la QA mode B ont ete lances ensemble sur une tranche non commitee ; la casse-restaure de la QA -- instrument legitime, c'est lui qui prouve qu'un test rougit quand le code est faux -- a efface par git checkout les 409 lignes que l'integrateur etait en train de relire. Diagnostic possible seulement parce que le revert etait EXACT. REGLES : integrateur et QA en SEQUENCE, ou en worktree separe ; pour une casse-restaure, preferer une sauvegarde de fichier a git checkout, qui touche l'index partage. Le mode 'sans worktree' n'offre AUCUNE protection contre l'ecriture concurrente : c'est le prix a connaitre quand on le choisit."
+			"risk": "DEUX AGENTS NE TRAVAILLENT JAMAIS EN PARALLELE SUR LE MEME ARBRE NON COMMITE des que l un mute des fichiers : integrateur et QA mode B en SEQUENCE ou en worktrees separes ; toute casse-restaure passe par une sauvegarde de fichier verifiee par empreinte, jamais git checkout (index partage). Corps : bug_history.json BUG-045."
 		},
 		{
 			"id": "KR-173",
@@ -384,7 +384,7 @@
 		{
 			"id": "KR-181",
 			"feature": "bascule-editeur",
-			"risk": "Demolir un module sans mesurer son rayon reel (grep les importeurs) casse des briques laissees debout pour des features futures. Preuve suffisante d'extinction : un test-grep sur la racine de composition, PAS la suppression physique -- celle-ci attend le dernier appelant reel. CORRIGE (bascule-editeur it3) : 'racine de composition' ne suffit pas seul -- un fichier inatteignable depuis l'interface peut rester le sujet DIRECT d'assertions dans la suite de tests d'une AUTRE feature. Verifier le graphe de tests reel avant de figer un critere de grep sur le CONTENU d'un tel fichier ; preferer un verrou sur l'ATTEIGNABILITE (aucun appel de production ne navigue vers la route) a un grep de contenu quand les tests d'une autre feature visent ce fichier directement."
+			"risk": "Demolir un module sans mesurer son rayon reel (grep les importeurs) casse des briques laissees debout. Preuve d extinction : un verrou sur l ATTEIGNABILITE depuis la racine de composition — jamais un grep de contenu quand les tests d une autre feature visent le fichier ; la suppression physique attend le dernier appelant reel. AMENDE par KR-240 (la n9 n eteint que les consommateurs). Corps : spec bascule-editeur."
 		},
 		{
 			"id": "KR-182",
@@ -419,7 +419,7 @@
 		{
 			"id": "KR-188",
 			"feature": "dossier-canon",
-			"risk": "Ajouter un champ NON OPTIONNEL (requis:true dans ENUMERES_FERMES, ou CHAMPS_REQUIS) a un registre du schema du dossier invalide RETROACTIVEMENT tout dossier deja persiste/importe qui en manquait - schema reste 1, aucune migration (KR-160). Le dossier concerne devient lisible:false en bibliotheque, jamais silencieusement corrompu ni auto-corrige. Acceptable seulement quand aucune UI n'a jamais permis de creer l'entite concernee avant l'iteration qui ajoute le champ (verifie au cas par cas, ex. dossier-canon it3 pour Objectif.camp - seules les deux fixtures en portaient) ; sinon la retroactivite doit etre nommee et arbitree explicitement au raffinage, jamais un effet de bord silencieux."
+			"risk": "Un champ NON OPTIONNEL ajoute au schema invalide RETROACTIVEMENT tout dossier deja persiste (schema reste 1, aucune migration, KR-160) — il devient lisible:false, jamais corrompu ni auto-corrige. Acceptable SEULEMENT quand aucune UI n a jamais permis de creer l entite avant (verifie au cas par cas) ; sinon la retroactivite se nomme et s arbitre au raffinage. Corps : spec dossier-canon."
 		},
 		{
 			"id": "KR-189",
@@ -499,7 +499,7 @@
 		{
 			"id": "KR-204",
 			"feature": "dossier-registres",
-			"risk": "Le graphe visuel des indices (repointage tree-canvas) est HORS PERIMETRE de dossier-registres — tree-canvas cable sur BookNode/Edge condamnes, demolition prevue en n9, aucun instrument de test (specs navigateur differees). indices[].mene_a est une donnee + liste textuelle uniquement, jamais un canevas."
+			"risk": "Le graphe visuel des indices appartient au repointage de tree-canvas, differe apres le Temps 2 — aucun instrument navigateur. indices[].mene_a reste une donnee + liste textuelle, jamais un canevas."
 		},
 		{
 			"id": "KR-205",
@@ -599,7 +599,7 @@
 		{
 			"id": "KR-224",
 			"feature": "dossier-controles",
-			"risk": "« tout lieu declare est atteignable » (MONDE OUVERT) est un raccourci DATE et assume, pas une propriete du domaine : le schema 1 n a aucun graphe de praticabilite, lieux[].acces n existe pas et n a aucun proprietaire (KR-200/205). Sans cette clause, « atteindre le sanctuaire » remonterait bloquant a tort. Le jour ou un graphe arrive, la definition change a UN endroit (atteignabilite.ts)."
+			"risk": "« tout lieu declare est atteignable » (MONDE OUVERT) est un raccourci DATE : atteignabilite.ts ne lit pas le graphe. Depuis B1, lieux[].acces EXISTE — la levee de cette clause est une dette armee (roadmap § 2 bis), et la definition change a UN endroit (atteignabilite.ts)."
 		},
 		{
 			"id": "KR-225",
@@ -769,7 +769,7 @@
 		{
 			"id": "KR-258",
 			"feature": "cross-cutting",
-			"risk": "UNE PHRASE DE PORTÉE (« seul lecteur / seul porteur de X DU DÉPÔT ») EST UNE AFFIRMATION SUR LA COULEUR D'UN TEST DÉGUISÉE : elle prédit qu'un grep ne rend qu'une ligne, donc elle SE MESURE avant d'entrer dans un plan ou une docstring. Le plan d'it3 en portait une, fausse à trois modules près ; l'ouvrier l'a recopiée en docstring, où elle était fausse dans ses DEUX moitiés. Une docstring qui sur-affirme NE ROUGIT JAMAIS, et c'est la seule chose qu'un relecteur lira. Écrire la portée réellement tenue (« dans `src/brain/dossier/` »), jamais la portée espérée. BUG-124."
+			"risk": "UNE PHRASE DE PORTEE (« seul lecteur / seul porteur de X DU DEPOT ») EST UNE AFFIRMATION SUR LA COULEUR D UN TEST : elle predit qu un grep ne rend qu une ligne, donc elle SE MESURE avant d entrer dans un plan ou une docstring — une docstring qui sur-affirme ne rougit jamais. Ecrire la portee reellement tenue, jamais l esperee. BUG-124."
 		},
 		{
 			"id": "KR-259",

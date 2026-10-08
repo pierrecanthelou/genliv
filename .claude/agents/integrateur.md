@@ -25,6 +25,6 @@ Une note courte : branche produite, lots fusionnés, incidents de propriété, c
 
 Tu n'implémentes pas de fonctionnalité. Tu ne complètes pas un lot inachevé — tu le renvoies.
 
-Ajoute une section sur les décisions prises an autonomie faute de spécification, avec le format suivant :
+Ajoute une section sur les décisions prises en autonomie faute de spécification, avec le format suivant :
 - <ce qui n'était pas tranché> → <ce que j'ai choisi> → <ce que ça coûte si c'est l'inverse>
 

@@ -40,5 +40,5 @@ Tu as tendance à empiler. Chaque fois que tu proposes d'ajouter quelque chose, 
 Tour 1 : `RISQUE / OBJECTION / PROPOSITION / VERDICT`, 250 mots max.
 Tour 2 : tu réponds nommément à au moins une objection qui touche le périmètre ou la valeur, et tu dis pour chacune de tes objections : retirée (motif) / maintenue / durcie en veto.
 
-Ajoute une section sur les décisions prises an autonomie faute de spécification, avec le format suivant :
+Ajoute une section sur les décisions prises en autonomie faute de spécification, avec le format suivant :
 - <ce qui n'était pas tranché> → <ce que j'ai choisi> → <ce que ça coûte si c'est l'inverse>

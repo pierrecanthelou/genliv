@@ -66,7 +66,7 @@ npx wrangler secret put IA_BASE_URL
 ```
 npx wrangler secret put IA_MODEL
 ```
-→ un identifiant de modèle Claude valide, par exemple `claude-sonnet-5` (voir la liste à jour dans la console Anthropic ou la doc `claude-api`).
+→ un identifiant de modèle Claude valide, par exemple `claude-sonnet-5-5` (voir la liste à jour dans la console Anthropic ou la doc `claude-api`).
 
 Le protocole amont est **épinglé** à l'API Messages d'Anthropic (version `2023-06-01`, en-têtes `x-api-key` + `anthropic-version`, enveloppe `{model, max_tokens, system, messages}`) — `IA_BASE_URL` doit donc pointer vers un point de terminaison compatible avec ce protocole. Ce n'est **pas** un fournisseur interchangeable : ne pointez pas vers Cloudflare Workers AI ou un autre fournisseur, leur format de requête/réponse diffère et le worker ne le comprendrait pas.
 
@@ -79,7 +79,7 @@ Pour tester le worker en local sans toucher au déploiement de production, crée
 ```
 IA_API_KEY=sk-ant-...
 IA_BASE_URL=https://api.anthropic.com/v1/messages
-IA_MODEL=claude-sonnet-5
+IA_MODEL=claude-sonnet-5-5
 ```
 
 puis lancez :
@@ -122,6 +122,6 @@ Une configuration correcte renvoie `200` avec un JSON produit par le modèle. Si
 | `502` `{"erreur":"amont"}` | L'appel à l'API Anthropic a échoué (clé invalide, modèle inconnu, panne réseau côté Anthropic) | Vérifiez la validité de `IA_API_KEY` et le nom exact de `IA_MODEL` |
 | `400` sur `/kv/:key` | En-tête `X-Sync-Key` absent ou hors Latin-1 | Vérifiez que le client envoie bien cet en-tête |
 
-## 8 — Et pour la suite (moteur-interprete)
+## 8 — Les rôles servis
 
-Cette configuration prépare aussi l'infrastructure requise par la feature **`moteur-interprete`** (n°10, en cours de construction), qui ajoute un rôle `'interprete'` (puis `'narrateur'` en it2) à cette même route `POST /ia/:role`. Aucune configuration supplémentaire ne sera nécessaire pour ces rôles futurs — ils passeront par le même worker, les mêmes trois secrets, une fois codés.
+La même route `POST /ia/:role` sert **tous** les rôles du produit — la rédaction (les 7 assistants du copilote, n° 8) comme le mode jeu (R1 interprète, R2 arbitre, R3 narrateur, R4 acteur, R5 commentateur de combat, n° 10–13). La liste vivante est `INVITES` dans `worker/index.ts` — c'est elle qui fait foi, pas ce document. Aucune configuration supplémentaire n'est requise quand un rôle s'ajoute : même worker, mêmes trois secrets.

@@ -227,7 +227,6 @@
 		],
 		"open_questions": [
 			"REPORTÉ — boutonRetour en brain/components : 1 seul appelant. Local à play-mode. Revisité si second appelant émerge.",
-			"REPORTÉ — réécriture de docs/EXIGENCE-APERCU-DU-JEU.md : lot .md en fin de feature.",
 			"REPORTÉ — dossier introuvable depuis l'Aperçu : inatteignable (le dossier est ouvert dans l'éditeur).",
 			"REPORTÉ — refus dans illisible → dette à déclencheur « reprise.ts rouvert ».",
 			"REPORTÉ — fin vraie à l'ouverture (condition non(lieu_visite X)) : aucun contrôle ne la signale. Candidat à un contrôle dans dossier-controles, dette à déclencheur.",

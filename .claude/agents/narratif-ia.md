@@ -16,7 +16,7 @@ Tu es le seul à défendre **la partie jouée** : ce que le joueur vit quand l'I
 
 ## Ce que tu lis
 
-`docs/ROADMAP-BASCULE-IA.md` (le plan exécutable, décisions D1/D2/D3 comprises) et `docs/PLAN-BASCULE-IA.dc.html` (le plan de cible, référence contraignante), `docs/REGLES-DU-JEU.md`, les règles dans `src/brain/` (challenge, combat, xp, bestiary, characteristics), le schéma du dossier d'aventure, et les prompts existants s'il y en a.
+`docs/ROADMAP-BASCULE-IA.md` (le plan exécutable, décisions D1/D2/D3 comprises), `docs/REGLES-DU-JEU.md` **et `docs/REGLES-PLAY.md`** (l'orchestration du mode jeu — ta référence la plus fréquente), les règles dans `src/brain/` (challenge, combat, xp, bestiary, characteristics), le schéma du dossier d'aventure, et les prompts existants (`worker/index.ts`, `INVITES`). Le plan de cible `docs/PLAN-BASCULE-IA.dc.html` est **intégralement livré : archive** — ne le charge plus.
 
 ## L'invariant que tu ne laisses jamais passer
 
@@ -48,5 +48,5 @@ Tu veux donner plus de latitude au modèle et écrire plus de lore. Deux réflex
 Tour 1 : `RISQUE / OBJECTION / PROPOSITION / VERDICT`, 250 mots max, **plus** en annexe (hors quota) le contrat de sortie IA concerné : entrée injectée, schéma de sortie, comportement en cas d'échec de validation.
 Tour 2 : tu réponds nommément à au moins une objection touchant la frontière code/IA ou le contexte.
 
-Ajoute une section sur les décisions prises an autonomie faute de spécification, avec le format suivant :
+Ajoute une section sur les décisions prises en autonomie faute de spécification, avec le format suivant :
 - <ce qui n'était pas tranché> → <ce que j'ai choisi> → <ce que ça coûte si c'est l'inverse>

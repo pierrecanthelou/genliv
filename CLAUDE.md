@@ -12,11 +12,11 @@ The on-demand **design system** (tokens, primitives, wireframe fidelity, asset g
 
 ## What we're building
 
-> ### ⚠ Où en est la bascule — lire `docs/ROADMAP-BASCULE-IA.md` avant tout travail neuf
+> ### ⚠ Où en est le projet — lire `docs/ROADMAP-BASCULE-IA.md` avant tout travail neuf
 >
-> **Temps 1 est livré** (2026-09-19, `0.6.50`) : l'éditeur produit un **dossier d'aventure**, huit features, 48 itérations. Le travail en cours est le **§ 2 bis du roadmap — la dette du Temps 1** : **quatre tranches bloquantes** (`B1`→`B4`) payées, `0.6.52`→`0.7.4`, puis une **dette à déclencheur** que rien ne planifie — chaque ligne part quand un lot rouvre son fichier. Le **Temps 2** (le moteur joue le dossier, n° 9–16, `0.7.x`) ne commence qu'ensuite, sur go explicite.
+> **Temps 1 ET Temps 2 sont livrés** (`0.7.31`) : l'éditeur produit un **dossier d'aventure** (n° 1–8), le moteur le joue (n° 9–16). Reste : la **dette à déclencheur** (roadmap § 2 bis — chaque ligne part quand un lot rouvre son fichier), le **repointage de `tree-canvas`** et le protocole **`/playtest`**, sur go explicite.
 >
-> Le modèle d'arbre (`BookNode` / `Edge` / `BookService` / `kinds.ts` / `playExport.ts`) **survit sans aucun producteur d'interface** : seules des fixtures de test l'atteignent, sa couverture ne vaut plus garantie d'usage, et sa démolition appartient à la **n° 9**, seule propriétaire d'extinction (KR-181). Ne rien y ajouter, ne pas le démolir en avance.
+> Le modèle d'arbre (`BookNode` / `Edge` / `BookService` / `kinds.ts`) survit **en sommeil** : la n° 9 n'a éteint que ses **consommateurs** (KR-181 amendé par KR-240) ; l'extinction du modèle appartient au repointage de `tree-canvas`. Ne rien y ajouter, ne pas le démolir en avance.
 
 An **authoring tool** for « livres dont vous êtes le héros » (gamebooks). The author writes an **adventure dossier** — canon, personnages, lieux, objets, indices, quêtes, événements, fins — that an AI then plays. Temps 1 = authoring only; the play engine is Temps 2.
 
@@ -51,29 +51,29 @@ Le document est un **dossier d'aventure** — `Dossier`, `schema: 1`, trois raci
 
 - Features are **isolated**: a feature talks to the rest **only through `brain/` contracts** (services, events, registries). Never import one feature from another. *Enforced by ESLint dans les **trois** sens — feature→feature, `brain/`→feature, `player/`→feature — sur une liste dérivée du disque ; preuve : `lintIsolation.test.ts`. Importer `src/player/**` reste légal.*
 - **Single source of truth**: the dossier lives in `DossierService`. Panels, canvas and preview are *views* — never hold a private copy.
-- Thirteen features on disk: the eight of Temps 1 (`dossier-*` + `bascule-editeur`) and the five survivors of the bascule — `book-library`, `cloud-sync`, `book-creation` (repointées, livrées), `tree-canvas` (en sommeil, repointage différé après le Temps 2) et `play-mode` (suit le runtime, n° 9).
-- Build order = the order of `docs/ROADMAP-BASCULE-IA.md`: § 2 bis `B1`→`B4`, then § 3 n° 9 → n° 16. One tranche at a time, never two in parallel.
+- Twenty-one features on disk: the eight of Temps 1, the eight of Temps 2 (`moteur-*`, `dossier-repetition`), and the five survivors of the bascule — `book-library`, `cloud-sync`, `book-creation` (repointées, livrées), `tree-canvas` (en sommeil, repointage différé) et `play-mode` (le shell de partie du Temps 2).
+- Build order = `docs/ROADMAP-BASCULE-IA.md` ; le § 3 est livré — tout travail neuf passe par son § 6. One tranche at a time, never two in parallel.
 
 ## Cross-cutting engineering rules
 
-> **Three of these are now wired into ESLint, not prompt guidance** — feature isolation, raw storage in features, and hardcoded colours fail `npm run lint` with a French message naming the fix. Don't re-derive them by hand; run the linter. The exception is **derived state (KR-013/113)**: there is deliberately **no rule** for it — the AST sees a shape, not a semantics — so it stays a review heuristic, written out in `docs/WORKFLOW.md` (Build Steps, step 5).
+> **Four of these are now wired into ESLint, not prompt guidance** — feature isolation, raw storage in features, hardcoded colours, and the 800-line merge blocker (`max-lines`) fail `npm run lint` with a message naming the fix. Don't re-derive them by hand; run the linter. The exception is **derived state (KR-013/113)**: there is deliberately **no rule** for it — the AST sees a shape, not a semantics — so it stays a review heuristic, written out in `docs/WORKFLOW.md` (Build Steps, step 5).
 
 - **Persistence only via `PersistenceService` / `persistenceKeys.ts`** — no raw `localStorage` in feature code (KR-011/111). *Enforced: `no-restricted-globals` + `no-restricted-properties` on `src/features/**` (tests excluded).*
 - **Derived state is computed inline**, not mirrored through `useEffect` (KR-013/113). *Not enforceable — review heuristic only.*
 - **Empty states**: every empty element/list/input shows an inviting placeholder (example value, write-here prompt, dashed « + Ajouter… »). Never a blank void.
-- Events to emit/observe — the list is `AppEvents` in `brain/EventBus.ts`, which is authoritative; keep this line aligned with it: `dossier:created|opened|updated|deleted`, `sync:status`, `sync:conflict`, plus les `book:*` / `node:*` / `edge:*` de l'arbre condamné, sans émetteur d'interface et démolis en n° 9. Fire navigation/events only **after persistence resolves**, in order.
+- Events to emit/observe — the list is `AppEvents` in `brain/EventBus.ts`, which is authoritative; keep this line aligned with it: `dossier:created|opened|updated|deleted`, `sync:status`, `sync:conflict`, plus les `book:*` / `node:*` / `edge:*` de l'arbre en sommeil, sans émetteur d'interface (extinction au repointage de `tree-canvas`). Fire navigation/events only **after persistence resolves**, in order.
 
 ## Design fidelity rules
 
 - Render **only** from `styles.css` tokens + the `components/` primitives. Look up exact `--*` names in `tokens/*.css` — never hardcode the wireframe hex values. *Enforced by ESLint (`no-restricted-syntax`) across `src/**/*.{ts,tsx}`: `rgb()`/`hsl()` cherchés **partout** (chaîne ou gabarit), repli `var(--x, …)` masqué ; `#hex` ancré début-et-fin. Faux positif épinglé par `lintIsolation.test.ts` : `` `Section #123` `` rougit — écris `n°123`.*
-- Light theme only (token layer is structured for a later `[data-theme="dark"]`). ≥44px hit targets. Keyboard-operable. Borders + surface tints carry hierarchy, not shadows (shadows only on menus/modals).
+- Light theme only (token layer is structured for a later `[data-theme="dark"]`). Keyboard-operable (ergonomie de rédaction — l'accessibilité est hors cadre, décision projet). Borders + surface tints carry hierarchy, not shadows (shadows only on menus/modals).
 - Type: Hanken Grotesk (UI/body) + JetBrains Mono (labels/meta/badges). Accent blue = selection / primary action / active option only.
 - Swap Unicode glyph icons for a real icon set (Phosphor or Lucide) at the visual pass; node badges are CSS-drawn (see `components/primitives/NodeBadge`).
 
 ## Where to look
 
 - `docs/ROADMAP-BASCULE-IA.md` — **the live plan**: the settled decisions, the feature order, what was deleted and why.
-- `docs/PLAN-BASCULE-IA.dc.html` — the target plan this roadmap translates (design reference, not production code).
+- `docs/PLAN-BASCULE-IA.dc.html` — the target plan, fully delivered: **archive**, do not load.
 - `docs/REGLES-DU-JEU.md` + `docs/REGLES-PLAY.md` — the game rules (source of truth) and their play-mode orchestration.
 - `docs/EXIGENCE-APERCU-DU-JEU.md` — the « Aperçu du jeu » CTA and the **extractable-runtime** constraint on `src/player/`.
 - `src/features/<feature>/specification.json` — per-feature plan, acceptance criteria, iterations, known risks.

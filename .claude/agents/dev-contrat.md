@@ -28,5 +28,5 @@ Ce que tu écris sera **consommé tel quel par deux à quatre agents qui ne peuv
 ## Ta sortie
 
 Signature réellement livrée (à comparer à celle du plan), fichiers touchés, tests de contrat ajoutés, appelants trouvés et leur état, blocages. Si tu as touché un registre : les **sections de `docs/REGLES-DU-JEU.md`** d'où viennent les valeurs, une par entrée — c'est ce que la QA confrontera, et sans cette liste elle ne peut que constater que tout est vert. C'est ce compte rendu que l'orchestrateur transmet aux `dev-lot` — écris-le pour eux.
-Ajoute une section sur les décisions prises an autonomie faute de spécification, avec le format suivant :
+Ajoute une section sur les décisions prises en autonomie faute de spécification, avec le format suivant :
 - <ce qui n'était pas tranché> → <ce que j'ai choisi> → <ce que ça coûte si c'est l'inverse>

@@ -266,6 +266,34 @@ module.exports = {
 			},
 		},
 		{
+			// KR-112, moitié « bloqueur » enfin câblée (ménage du 2026-10-08) : un
+			// composant ou un hook au-delà de 800 lignes bloque le merge. Le signal de
+			// scission à 400 lignes reste une heuristique de revue — en faire un `warn`
+			// bruiterait sur une dizaine de fichiers légitimes, et une règle qui bruite
+			// est désactivée dans le mois. Périmètre : composants et hooks (le texte de
+			// KR-112), jamais les registres/types/validateurs de brain/ (types.ts,
+			// tables.ts, controles.ts sont longs par nature de donnée, pas par dette de
+			// découpage de composant). Zéro violation au moment où la règle est posée
+			// (mesuré le 2026-10-08 : max 562 lignes, useTourDeJeu.ts) : elle interdit
+			// une régression, elle ne rattrape pas une dette.
+			files: [
+				'src/features/**/*.ts',
+				'src/features/**/*.tsx',
+				'src/brain/components/**/*.ts',
+				'src/brain/components/**/*.tsx',
+				'src/player/components/**/*.ts',
+				'src/player/components/**/*.tsx',
+			],
+			excludedFiles: [
+				'src/features/*/tests/**',
+				'src/features/**/*.test.ts',
+				'src/features/**/*.test.tsx',
+			],
+			rules: {
+				'max-lines': ['error', { max: 800, skipBlankLines: false, skipComments: false }],
+			},
+		},
+		{
 			// Rule 2 ter — la MOITIÉ RESTANTE, ouverte par la revue de PR du
 			// 2026-08-13 : `src/player/**` ne doit pas davantage importer une feature.
 			// L'exigence n'est pas l'inversion de dépendance (le runtime n'est pas

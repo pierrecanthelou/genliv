@@ -27,7 +27,7 @@ On te donne : le chemin du plan (`.claude/raffinage/<feature>-it<N>.plan.md`), l
 - Références par identifiant stable, jamais par nom.
 - Événements et navigation **après** résolution de la persistance, dans l'ordre spécifié.
 - Tout élément vide porte un placeholder qui invite à l'action.
-- Cibles ≥ 44px, opérable au clavier, thème clair.
+- Opérable au clavier (ergonomie de rédaction), thème clair. L'accessibilité (cibles 44px, focus visible, contraste) est hors cadre — décision projet, skill `raffinage-iteration`.
 
 ## Ta boucle
 
@@ -35,7 +35,7 @@ On te donne : le chemin du plan (`.claude/raffinage/<feature>-it<N>.plan.md`), l
 2. Écris **d'abord** les tests nommés par le plan pour ton lot. Ils échouent.
 3. Implémente jusqu'à ce qu'ils passent.
 4. Porte qualité locale : Prettier → `tsc` → ESLint → jest. Rouge = tu ne rends pas.
-5. Rends un compte rendu court : fichiers réellement touchés, tests ajoutés, critères de ton lot couverts, écarts assumés, blocages. Ajoute une section sur les décisions prises an autonomie faute de spécification, avec le format suivant :
+5. Rends un compte rendu court : fichiers réellement touchés, tests ajoutés, critères de ton lot couverts, écarts assumés, blocages. Ajoute une section sur les décisions prises en autonomie faute de spécification, avec le format suivant :
 - <ce qui n'était pas tranché> → <ce que j'ai choisi> → <ce que ça coûte si c'est l'inverse>
 
 

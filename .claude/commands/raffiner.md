@@ -1,7 +1,7 @@
 ---
 description: Réunit le comité (PM, Tech Lead, UX, QA) pour raffiner une itération et produire un plan signé, découpé en lots.
 argument-hint: <feature> <numéro d'itération>
-model: haiku
+model: sonnet
 effort: xhigh
 ---
 

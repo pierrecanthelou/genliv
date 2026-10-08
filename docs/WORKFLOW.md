@@ -1,6 +1,6 @@
 # Claude Code Config — genliv
 
-CRITICAL: the test + `tsc --noEmit` gate before every commit is **enforced deterministically** by a `PreToolUse` hook (`.claude/hooks/pre-commit-gate.sh`, wired in `.claude/settings.json`) — it blocks any `git commit` until `tsc --noEmit` and `jest` pass. Do not treat the gate as optional or try to work around it.
+CRITICAL: the test + `tsc --noEmit` gate before every commit is **enforced deterministically** by a `PreToolUse` hook (`.claude/hooks/pre-commit-gate.sh`, wired in `.claude/settings.json`, matcher `Bash|PowerShell`, fail-closed sans `python3`) — it blocks any `git commit` until `tsc --noEmit` and `jest` pass. Do not treat the gate as optional or try to work around it.
 
 **Commit/review flow (binding):** write code → **`tech-lead` agent PR** review (re-review until `APPROVE`) → **user review** → **commit to `main`**. The user reviews the still-uncommitted slice and must approve before anything is committed; commit directly to `main` (no feature branch). Your remaining responsibilities: keep the gate green, present the tech-lead verdict + a one-line summary (files + intent) to the user, and commit only after the user approves. See **Build Steps → The per-feature unit** for the full sequence.
 
@@ -14,7 +14,7 @@ Default to React with **TypeScript**. All source files use `.ts`/`.tsx`. Explici
 - **JS/JSX**: ES2020+, React 18+, hooks only (no class components). `async/await`, optional chaining, nullish coalescing.
 - **Build**: Vite. No other build tool unless asked.
 - **No unnecessary dependencies**: prefer React built-ins and native browser APIs before reaching for a library.
-- **Tests**: Jest + React Testing Library for unit/component tests. Coverage > 80% overall. Playwright for E2E.
+- **Tests**: Jest + React Testing Library for unit/component tests. Coverage > 80% overall. Pas d'E2E navigateur (différé au repointage de `tree-canvas`).
 - **Linter/Beautifier**: ESLint (with `eslint-plugin-react`, `eslint-plugin-react-hooks`) + Prettier.
 
 ## Code Style
@@ -89,7 +89,7 @@ Features are isolated: a feature must not import directly from another feature. 
 
 **Sensitive credentials in storage:** Any localStorage key holding a user credential, token, or sensitive value (PAT, OAuth tokens, API keys) must be registered in `brain/persistenceKeys.ts` with a `/* SENSITIVE */` marker and annotated in `UIPreferenceKey`. This creates a single auditable location for all credential storage on this cloud-first PWA (KR-114).
 
-**Component size limits:** A component or hook file over 400 lines is a split signal — extract subcomponents or hooks. A file over 800 lines is a merge blocker (KR-112).
+**Component size limits:** A component or hook file over 400 lines is a split signal — extract subcomponents or hooks. A file over 800 lines is a merge blocker (KR-112). *Le 800 est câblé (`max-lines`, composants/hooks, tests exclus) ; le 400 reste une heuristique de revue.*
 
 **When refactoring**, identify bad smells first (dead code, long functions, feature envy, shotgun surgery, duplicated logic, primitive obsession), then propose a refactoring plan before touching code. Common techniques: Extract Function/Method, Move Function, Replace Conditional with Polymorphism, Introduce Parameter Object, Replace Magic Number with Symbolic Constant.
 
@@ -276,26 +276,20 @@ Trois strates de lecture obligatoire, chacune avec son coût :
 
 Charger par référence plutôt que tout charger est ce qui évite le contexte monolithique — KR dans la spec de leur feature, lecture du comité bornée à 3–6 fichiers, canon narratif injecté par identifiant. Aucun garde-fou automatique : ces fichiers n'ont que des écrivains, et l'un d'eux ne rétrécit que si quelqu'un le décide. La discipline s'y relâche **sans bruit** — d'où un plafond chiffré plutôt qu'une intention.
 
-**Mesure d'abord, plafond ensuite**, même doctrine que le score de mutation. Formule, plancher ajouté le 2026-09-24 (`B3`) : `plafond = max( ceil(mesure ÷ 5 kio) × 5 kio , ceil(5 × la plus grosse entrée ÷ 5 kio) × 5 kio )`, le second terme ne valant QUE pour les fichiers **append-only** (`bug_history*`, `features_history*`) : un plafond de trois entrées sur un fichier qui ne fait QUE croître est un décor, pas un cliquet. Dernière re-mesure 2026-10-03 (1 kio = 1024 o). **On mesure les octets EN LF, ceux que quelqu'un a tapés** : `core.autocrlf=true` rend la copie de travail en CRLF, et le couple toujours-chargé y pèse ~480 o non écrits — assez pour simuler un dépassement pour rien :
+**Mesure d'abord, plafond ensuite**, même doctrine que le score de mutation. Formule, plancher ajouté le 2026-09-24 (`B3`) : `plafond = max( ceil(mesure ÷ 5 kio) × 5 kio , ceil(5 × la plus grosse entrée ÷ 5 kio) × 5 kio )`, le second terme ne valant QUE pour les fichiers **append-only** (`bug_history*`, `features_history*`) : un plafond de trois entrées sur un fichier qui ne fait QUE croître est un décor, pas un cliquet. Dernière re-mesure 2026-10-08 (1 kio = 1024 o). **On mesure les octets EN LF** — `git show :fichier | wc -c`, jamais `wc -c` brut sur une copie de travail CRLF (~480 o fantômes sur le couple) :
 
 | Fichier | Croissance | Mesuré | Plafond | Marge |
 | --- | --- | ---: | ---: | ---: |
-| `CLAUDE.md` + `docs/WORKFLOW.md` (couple) | défaut | 46 074 o | **45 kio** (46 080) | **6 o** |
-| `code-knowledge.json` | **compacté** (n° 12 `moteur-acteurs`, it2) | 71 676 o | **70 kio** (71 680) | 4 o |
-| `bug_history.json` | **plancher** (BUG-128) | 12 352 o | **15 kio** (15 360) | 3 008 o |
-| `features_history.json` | **plancher** (`dossier-copilote`) | 14 950 o | **25 kio** (25 600) | ~10,40 kio |
-| `specification.json`, **par feature** | normale | 66 487 o (max : `dossier-format`) | **65 kio** (66 560) | **73 o** |
-| `docs/ROADMAP-BASCULE-IA.md` | **compacté** (it3) | 29 514 o | **30 kio** (30 720) | 1 206 o |
+| `CLAUDE.md` + `docs/WORKFLOW.md` (couple) | défaut | 46 049 o | **45 kio** (46 080) | 31 o |
+| `code-knowledge.json` | **compacté** (ménage 2026-10-08) | 70 358 o | **70 kio** (71 680) | 1 322 o |
+| `bug_history.json` | **plancher** (BUG-128) | 14 892 o | **15 kio** (15 360) | 468 o |
+| `features_history.json` | **plancher** (scission `0.7.31`) | 25 187 o | **25 kio** (25 600) | 413 o |
+| `specification.json`, **par feature** | normale | 66 544 o (max : `moteur-dossier`) | **65 kio** (66 560) | **16 o** |
+| `docs/ROADMAP-BASCULE-IA.md` | **compacté** (ménage 2026-10-08, plafond re-dérivé 30 → 25 kio) | 21 081 o | **25 kio** (25 600) | 4 519 o |
 
 Le roadmap est un **index**, pas un journal : sa croissance est un défaut, pas un fonctionnement normal. **Compacté le 2026-09-19** (35 671 → 26 929 o, plafond re-dérivé 35 → 30 kio) : l'archive en est sortie une première fois, et c'est elle — motifs d'une décision livrée, corrections de cadrage, historique des recadrages — qui repart au prochain franchissement, jamais les colonnes `Statut` ni le § 4 « Ce qui est CLOS ». **Le markdown n'est pas dans le périmètre Prettier** (`npm run format` ne vise que `{src,worker}/**/*.{ts,tsx,css}`) : un `prettier --write` sur ces fichiers repadde les tables et coûte ~8 kio de budget pour rien.
 
 **Le plafond ne monte jamais PAR LA MESURE** — cliquet inversé de celui du score de mutation. Après une compaction il se **re-dérive vers le bas** sur la nouvelle mesure ; il ne se desserre pas parce qu'une itération avait beaucoup à dire. Seul le **plancher** append-only le relève. Le franchir ne bloque pas la livraison : il déclenche une compaction **dans le même lot que la doc** (Build Steps, étape 4). Reporter la compaction au lot suivant, c'est ne jamais la faire.
-
-Relevé — pas de script maison (abstraction à un seul appelant) :
-
-```
-git show :fichier | wc -c   # octets en LF de l'index. Jamais wc -c brut sur une copie CRLF.
-```
 
 Compacter n'est pas supprimer : c'est déplacer là où c'est lu au bon moment.
 
@@ -320,7 +314,7 @@ Do not form a hypothesis from the code alone before cross-referencing the spec. 
 
 ## Build Steps — one feature iteration at a time
 
-We build the app one tranche at a time, in the order of `docs/ROADMAP-BASCULE-IA.md`: `0.6.x` for Temps 1 (n° 1–8, **livré**) and its debt (§ 2 bis: `B1`, `B2`), `0.7.x` for Temps 2 (n° 9–16). Each feature is scoped with `/cadrer`, then each of its iterations goes `/raffiner` → `/essaim`; an out-of-cycle tranche (`B2`) skips `/cadrer` — its scope is written in § 2 bis. **Build exactly one iteration, then STOP** — never chain tranches in a single run.
+We build the app one tranche at a time, in the order of `docs/ROADMAP-BASCULE-IA.md`: `0.6.x` for Temps 1 (n° 1–8, **livré**) and its debt, `0.7.x` for Temps 2 (n° 9–16, **livré**) ; le travail neuf entre par le **§ 6 du roadmap**. Each feature is scoped with `/cadrer`, then each of its iterations goes `/raffiner` → `/essaim`; an out-of-cycle tranche (`B2`) skips `/cadrer` — its scope is written in § 2 bis. **Build exactly one iteration, then STOP** — never chain tranches in a single run.
 
 ### The per-feature unit (one PATCH bump, one stop)
 
@@ -347,7 +341,7 @@ Procédure dormante — `genliv_changes/` n'existe pas ; elle se réveille seule
 
 ## Worker Route Parity
 
-Tout appel `fetch` vers le worker depuis `src/` doit avoir son gestionnaire dans `worker/index.ts` — une route manquante est un 404 silencieux en production. **Mesuré le 2026-09-18** : 424 lignes, **deux** familles de routes reconnues par `pathname.match` et jamais par `pathname === …` — `/ia/:role` en POST, `/kv/:key` en GET/PUT/DELETE — et **deux** appelants, `brain/CloudflareKVTransport.ts` et `brain/CopiloteService.ts`.
+Tout appel `fetch` vers le worker depuis `src/` doit avoir son gestionnaire dans `worker/index.ts` — une route manquante est un 404 silencieux en production. **Mesuré le 2026-10-08** : 1 428 lignes, **deux** familles de routes reconnues par `pathname.match` et jamais par `pathname === …` — `/ia/:role` en POST (tous les rôles, rédaction et jeu, listés dans `INVITES`), `/kv/:key` en GET/PUT/DELETE — et **deux** appelants, `brain/CloudflareKVTransport.ts` et `brain/CopiloteService.ts`.
 
 Le relevé cherche la **construction d'URL**, jamais l'appel : `CopiloteService` compose son URL dans une variable puis fait `fetch(url, …)`, donc un gabarit ancré sur l'appel le manque.
 

@@ -10,7 +10,7 @@ Cadrage de la feature **$1**. Elle n'existe pas encore : tu produis son `feature
 Charge la skill `raffinage-iteration`. Le rituel est le même — trois tours, veto cadré, registre — mais la sortie change : ici le comité découpe **en itérations**, il n'en raffine aucune.
 
 ## Étape 0 — cadrage
-Lis `CLAUDE.md`, `docs/ROADMAP-BASCULE-IA.md` (l'ordre des features, la carte de ce qui survit, et ce qui est laissé debout pour être remplacé), les `specification.json` voisines (pour le format et le ton), et la section du plan de cible qui décrit cette feature (`docs/PLAN-BASCULE-IA.dc.html`). Résume en 10 lignes : l'intention `$2`, ce qui existe déjà et sera réutilisé, ce qui sera remplacé, les features voisines impactées.
+Lis `CLAUDE.md`, `docs/ROADMAP-BASCULE-IA.md` (l'ordre des features, la carte de ce qui survit, et ce qui est laissé debout pour être remplacé), les `specification.json` voisines (pour le format et le ton), et — si la feature touche le moteur ou le mode jeu — `docs/REGLES-PLAY.md`. Le plan de cible `docs/PLAN-BASCULE-IA.dc.html` est **intégralement livré : archive**, ne le lis plus — l'intention vient de l'utilisateur et du roadmap. Résume en 10 lignes : l'intention `$2`, ce qui existe déjà et sera réutilisé, ce qui sera remplacé, les features voisines impactées.
 
 Composition : les quatre rôles socles, **plus `narratif-ia`** si la feature touche le dossier d'aventure, le moteur, les prompts ou le mode jeu.
 

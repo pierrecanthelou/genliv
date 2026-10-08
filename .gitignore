@@ -14,6 +14,9 @@ stryker-run.log
 # Captures d'écran de travail
 capture-ecran*.png
 
+# Journal local de consommation Claude (hook Stop, .claude/hooks/log-usage.mjs)
+.claude/usage.log
+
 # Bundle de handoff Claude Design — re-téléchargeable, jamais la source de vérité.
 # Ce qui y est contraignant est promu dans docs/ (voir docs/PLAN-BASCULE-IA.dc.html).
 claude-design/

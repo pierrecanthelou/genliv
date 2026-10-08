@@ -1,7 +1,7 @@
 {
 	"feature": "dossier-repetition",
 	"created_at": "2026-10-07",
-	"status": "in-progress",
+	"status": "done",
 	"design_reference": "docs/PLAN-BASCULE-IA.dc.html § « Répétition à blanc » (ligne 288-294) : « Simule 20 tours joués par un joueur synthétique et rapporte les blocages, les PNJ jamais rencontrés, les indices inatteignables. »",
 	"plan": {
 		"goal": "L'auteur fait jouer son aventure par un joueur synthétique déterministe (20 pas, zéro IA) et lit les blocages, arrêts et lieux/PNJ non atteints.",

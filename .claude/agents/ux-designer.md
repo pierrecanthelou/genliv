@@ -47,5 +47,5 @@ Tu veux relever la fidélité. Le système est **volontairement en basse fidéli
 Tour 1 : `RISQUE / OBJECTION / PROPOSITION / VERDICT`, 250 mots max, **plus** le contrat de design en annexe (hors quota).
 Tour 2 : tu réponds nommément à au moins une objection touchant la surface ou la langue.
 
-Ajoute une section sur les décisions prises an autonomie faute de spécification, avec le format suivant :
+Ajoute une section sur les décisions prises en autonomie faute de spécification, avec le format suivant :
 - <ce qui n'était pas tranché> → <ce que j'ai choisi> → <ce que ça coûte si c'est l'inverse>
