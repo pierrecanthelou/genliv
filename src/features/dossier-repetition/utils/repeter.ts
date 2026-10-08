@@ -5,7 +5,7 @@
  * 1. controlerDossier(d).jouable — sine qua non
  * 2. ouvrirSession + fixerHeros(creerHerosSynthetique)
  * 3. finAtteinte at step 0
- * 4. Loop step=1..PAS_MAX: choisirDestination → executerCommande → ouvrirRencontreSiDue → finAtteinte
+ * 4. Loop step=1..PAS_MAX: choisirDestination → executerCommande → ouvrirRencontreSiDue → combat loop → finAtteinte
  *
  * PURE: no service calls, no effects, no RNG except creerRng (injectable, seeded).
  * Caller supplies dossier once; repeter(dossier, seed) is wholly deterministic.
@@ -23,19 +23,24 @@ import {
 	executerCommande,
 	ouvrirSession,
 	fixerHeros,
+	jouerPosture,
+	cloreCombat,
 	type Dossier,
 	type Controle,
 } from '../../../brain'
 import { buildHeroFromCreation, emptyAssignment, rollCreationPool } from '../../../player/engine/charCreation'
 import { finAtteinte } from '../../../player/engine/fin'
-import { ouvrirRencontreSiDue } from '../../../player/engine/rencontre'
+import { ouvrirRencontreSiDue, rejouerCombat, bilanDe } from '../../../player/engine/rencontre'
 import type { HeroState } from '../../../player/types'
 
-/** Maximum number of steps before stopping (KR-315: tested by mutation). */
+/** Maximum number of steps before stopping (KR-315: pinned by test). */
 export const PAS_MAX = 20
 
+/** Maximum number of combat rounds before stopping (KR-315: pinned by test). */
+export const ROUNDS_MAX = 50
+
 /** Why the synthetic player stopped. */
-export type MotifArret = 'fin' | 'impasse' | 'combat_ouvert' | 'pas_max'
+export type MotifArret = 'fin' | 'impasse' | 'mort' | 'combat_sans_issue' | 'pas_max'
 
 /** Report of a single run: outcome + evidence. */
 export type RapportRepetition = {
@@ -43,9 +48,11 @@ export type RapportRepetition = {
 	/** 0 = avant la boucle ; pour impasse : le pas tenté, non accompli. */
 	readonly pas: number
 	readonly lieu_id: string
+	readonly combats_traverses: number
 } & (
 	| { readonly arret: 'fin'; readonly fin_id: string }
-	| { readonly arret: 'combat_ouvert'; readonly monstre_ref: string }
+	| { readonly arret: 'mort'; readonly monstre_ref: string }
+	| { readonly arret: 'combat_sans_issue'; readonly monstre_ref: string }
 	| { readonly arret: 'impasse' }
 	| { readonly arret: 'pas_max' }
 )
@@ -145,6 +152,7 @@ export function repeter(dossier: Dossier, graine: number): ResultatRepetition {
 				graine,
 				pas: 0,
 				lieu_id: session.monde.lieu_courant,
+				combats_traverses: 0,
 				arret: 'fin',
 				fin_id: fin.fin_id,
 			},
@@ -152,6 +160,7 @@ export function repeter(dossier: Dossier, graine: number): ResultatRepetition {
 	}
 
 	// 4. Loop: step 1..PAS_MAX
+	let combats_traverses = 0
 	for (let pas = 1; pas <= PAS_MAX; pas++) {
 		// Pick destination
 		const accessibles = destinationsPossibles(dossier, session)
@@ -165,6 +174,7 @@ export function repeter(dossier: Dossier, graine: number): ResultatRepetition {
 					graine,
 					pas,
 					lieu_id: session.monde.lieu_courant,
+					combats_traverses,
 					arret: 'impasse',
 				},
 			}
@@ -180,6 +190,7 @@ export function repeter(dossier: Dossier, graine: number): ResultatRepetition {
 					graine,
 					pas,
 					lieu_id: session.monde.lieu_courant,
+					combats_traverses,
 					arret: 'impasse',
 				},
 			}
@@ -188,17 +199,57 @@ export function repeter(dossier: Dossier, graine: number): ResultatRepetition {
 
 		// KR-303 : finAtteinte rend undefined sous combat, donc combat testé avant
 		session = ouvrirRencontreSiDue(dossier, session)
+
+		// Combat loop (KR-303, KR-304, KR-312, KR-315)
 		if (session.combat) {
-			return {
-				ok: true,
-				rapport: {
-					graine,
-					pas,
-					lieu_id: session.monde.lieu_courant,
-					arret: 'combat_ouvert',
-					monstre_ref: session.combat.monstre_ref,
-				},
+			// Play up to ROUNDS_MAX postures on a local copy
+			let combatSession = session
+			for (let round = 0; round < ROUNDS_MAX; round++) {
+				combatSession = jouerPosture(combatSession, 'normale')
 			}
+
+			// Replay combat with all stored postures (O(N), not O(N²))
+			const rejeu = rejouerCombat(combatSession)
+			if (!rejeu.ok) {
+				throw new Error(`repeter: rejouerCombat failed — invariant broken (${rejeu.refus})`)
+			}
+
+			// Extract outcome
+			const bilan = bilanDe(rejeu.etat)
+
+			// No bilan → combat ongoing after ROUNDS_MAX rounds
+			if (!bilan) {
+				return {
+					ok: true,
+					rapport: {
+						graine,
+						pas,
+						lieu_id: session.monde.lieu_courant,
+						combats_traverses,
+						arret: 'combat_sans_issue',
+						monstre_ref: session.combat.monstre_ref,
+					},
+				}
+			}
+
+			// Hero death → stop, don't call cloreCombat (KR-312)
+			if (bilan.issue === 'hero-mort') {
+				return {
+					ok: true,
+					rapport: {
+						graine,
+						pas,
+						lieu_id: session.monde.lieu_courant,
+						combats_traverses,
+						arret: 'mort',
+						monstre_ref: session.combat.monstre_ref,
+					},
+				}
+			}
+
+			// Survival → apply outcome, continue journey
+			session = cloreCombat(session, bilan)
+			combats_traverses++
 		}
 
 		fin = finAtteinte(dossier, session)
@@ -209,6 +260,7 @@ export function repeter(dossier: Dossier, graine: number): ResultatRepetition {
 					graine,
 					pas,
 					lieu_id: session.monde.lieu_courant,
+					combats_traverses,
 					arret: 'fin',
 					fin_id: fin.fin_id,
 				},
@@ -223,6 +275,7 @@ export function repeter(dossier: Dossier, graine: number): ResultatRepetition {
 			graine,
 			pas: PAS_MAX,
 			lieu_id: session.monde.lieu_courant,
+			combats_traverses,
 			arret: 'pas_max',
 		},
 	}

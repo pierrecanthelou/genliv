@@ -1,4 +1,4 @@
-import { repeter, PAS_MAX, creerHerosSynthetique } from '../utils/repeter'
+import { repeter, PAS_MAX, ROUNDS_MAX, creerHerosSynthetique } from '../utils/repeter'
 
 jest.mock('../../../brain', () => ({
 	CHARACTERISTIC_VALUES: ['FO', 'AG', 'DX', 'EN', 'IN', 'IG', 'SE', 'CA'],
@@ -8,6 +8,8 @@ jest.mock('../../../brain', () => ({
 	executerCommande: jest.fn(),
 	ouvrirSession: jest.fn(),
 	fixerHeros: jest.fn(),
+	jouerPosture: jest.fn((s) => s),
+	cloreCombat: jest.fn((s) => s),
 }))
 
 jest.mock('../../../player/engine/charCreation', () => ({
@@ -34,6 +36,8 @@ jest.mock('../../../player/engine/fin', () => ({
 
 jest.mock('../../../player/engine/rencontre', () => ({
 	ouvrirRencontreSiDue: jest.fn(),
+	rejouerCombat: jest.fn(),
+	bilanDe: jest.fn(),
 }))
 
 import {
@@ -43,9 +47,11 @@ import {
 	executerCommande,
 	ouvrirSession,
 	fixerHeros,
+	jouerPosture,
+	cloreCombat,
 } from '../../../brain'
 import { finAtteinte } from '../../../player/engine/fin'
-import { ouvrirRencontreSiDue } from '../../../player/engine/rencontre'
+import { ouvrirRencontreSiDue, rejouerCombat, bilanDe } from '../../../player/engine/rencontre'
 
 const mockControler = controlerDossier as jest.Mock
 const mockOuvrir = ouvrirSession as jest.Mock
@@ -55,6 +61,10 @@ const mockExec = executerCommande as jest.Mock
 const mockFin = finAtteinte as jest.Mock
 const mockRencontre = ouvrirRencontreSiDue as jest.Mock
 const mockRng = creerRng as jest.Mock
+const mockJouerPosture = jouerPosture as jest.Mock
+const mockCloreCombat = cloreCombat as jest.Mock
+const mockRejouerCombat = rejouerCombat as jest.Mock
+const mockBilanDe = bilanDe as jest.Mock
 
 const SENTINELLE_HEROS = Symbol('heros')
 
@@ -112,7 +122,7 @@ describe('repeter', () => {
 
 		expect(r).toEqual({
 			ok: true,
-			rapport: { graine: 42, pas: 0, lieu_id: 'lieu.a', arret: 'fin', fin_id: 'fin.victoire' },
+			rapport: { graine: 42, pas: 0, lieu_id: 'lieu.a', combats_traverses: 0, arret: 'fin', fin_id: 'fin.victoire' },
 		})
 	})
 
@@ -128,45 +138,188 @@ describe('repeter', () => {
 
 		expect(r).toEqual({
 			ok: true,
-			rapport: expect.objectContaining({ arret: 'fin', fin_id: 'fin.tardive', pas: 3, graine: 7 }),
+			rapport: expect.objectContaining({
+				arret: 'fin',
+				fin_id: 'fin.tardive',
+				pas: 3,
+				graine: 7,
+				combats_traverses: 0,
+			}),
 		})
 	})
 
-	it('combat_ouvert_avec_monstre_ref — arret sur combat', () => {
+	it('mort_ne_clot_pas — hero-mort ne clot pas, executerCommande ne repond pas', () => {
 		preparerCheminHeureux()
 		mockRencontre.mockImplementation((_d: unknown, s: Record<string, unknown>) => ({
 			...s,
 			combat: { monstre_ref: 'bestiaire.gobelin', postures: [] },
 		}))
+		mockRejouerCombat.mockReturnValue({
+			ok: true,
+			etat: { outcome: 'hero-mort', heroPv: 0, heroPe: 5, pendingXp: 0, pendingPvMaxDelta: 0, pendingEnMaxDelta: 0 },
+		})
+		mockBilanDe.mockReturnValue({
+			issue: 'hero-mort',
+			pv: 0,
+			pe: 5,
+			xp: 0,
+			pv_max_delta: 0,
+			pe_max_delta: 0,
+		})
 
 		const r = repeter(DOSSIER, 1)
 
 		expect(r).toEqual({
 			ok: true,
 			rapport: expect.objectContaining({
-				arret: 'combat_ouvert',
+				arret: 'mort',
 				monstre_ref: 'bestiaire.gobelin',
 				pas: 1,
+				combats_traverses: 0,
 			}),
 		})
+		// cloreCombat JAMAIS appelé sur mort
+		expect(mockCloreCombat).not.toHaveBeenCalled()
+		// executerCommande appelé 1 seule fois (le pas qui a mené au combat), pas après
+		expect(mockExec).toHaveBeenCalledTimes(1)
 	})
 
-	it('combat_et_fin_meme_pas — le combat l emporte (KR-303)', () => {
+	it('combat_sans_issue — ROUNDS_MAX postures sans issue, mutant ±1 rouge', () => {
 		preparerCheminHeureux()
 		mockRencontre.mockImplementation((_d: unknown, s: Record<string, unknown>) => ({
 			...s,
 			combat: { monstre_ref: 'bestiaire.dragon', postures: [] },
 		}))
-		mockFin.mockReturnValueOnce(undefined).mockReturnValue({ fin_id: 'fin.victoire' })
+		mockRejouerCombat.mockReturnValue({
+			ok: true,
+			etat: { outcome: 'ongoing', heroPv: 10, heroPe: 3, pendingXp: 0, pendingPvMaxDelta: 0, pendingEnMaxDelta: 0 },
+		})
+		mockBilanDe.mockReturnValue(undefined) // ongoing → undefined
 
 		const r = repeter(DOSSIER, 1)
 
 		expect(r).toEqual({
 			ok: true,
-			rapport: expect.objectContaining({ arret: 'combat_ouvert', monstre_ref: 'bestiaire.dragon', pas: 1 }),
+			rapport: expect.objectContaining({
+				arret: 'combat_sans_issue',
+				monstre_ref: 'bestiaire.dragon',
+				pas: 1,
+				combats_traverses: 0,
+			}),
 		})
-		// finAtteinte appelé une seule fois (pas 0) — jamais au pas 1 où le combat a ouvert
-		expect(mockFin).toHaveBeenCalledTimes(1)
+		// Vérifier que jouerPosture a été appelé exactement ROUNDS_MAX fois
+		expect(ROUNDS_MAX).toBe(50)
+		expect(mockJouerPosture).toHaveBeenCalledTimes(ROUNDS_MAX)
+	})
+
+	it('survie_et_suite — combat non mortel appelle cloreCombat, continue, combats_traverses +1', () => {
+		preparerCheminHeureux()
+		mockRencontre.mockImplementation((_d: unknown, s: Record<string, unknown>) => ({
+			...s,
+			combat: { monstre_ref: 'bestiaire.ork', postures: [] },
+		}))
+		const sessionApresCombat = sessionDeBase('lieu.b', SENTINELLE_HEROS)
+		mockRejouerCombat.mockReturnValue({
+			ok: true,
+			etat: {
+				outcome: 'hero-victory',
+				heroPv: 8,
+				heroPe: 2,
+				pendingXp: 50,
+				pendingPvMaxDelta: 0,
+				pendingEnMaxDelta: 0,
+			},
+		})
+		mockBilanDe.mockReturnValue({
+			issue: 'hero-victory',
+			pv: 8,
+			pe: 2,
+			xp: 50,
+			pv_max_delta: 0,
+			pe_max_delta: 0,
+		})
+		mockCloreCombat.mockImplementation((s: Record<string, unknown>) => {
+			const { combat: _, ...sansCombat } = s
+			return { ...sansCombat, monde: (sessionApresCombat as Record<string, unknown>).monde }
+		})
+		mockRencontre.mockImplementationOnce((_d: unknown, s: Record<string, unknown>) => ({
+			...s,
+			combat: { monstre_ref: 'bestiaire.ork', postures: [] },
+		})).mockImplementation((_d: unknown, s: Record<string, unknown>) => s)
+		mockFin.mockReturnValueOnce(undefined).mockReturnValueOnce({ fin_id: 'fin.x' })
+
+		const r = repeter(DOSSIER, 1)
+
+		expect(r).toEqual({
+			ok: true,
+			rapport: expect.objectContaining({
+				arret: 'fin',
+				fin_id: 'fin.x',
+				combats_traverses: 1,
+			}),
+		})
+		expect(mockCloreCombat).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ issue: 'hero-victory' }))
+	})
+
+	it('combat_puis_fin_meme_pas — finAtteinte evalué après combat résolu (KR-303)', () => {
+		preparerCheminHeureux()
+		mockRencontre.mockImplementation((_d: unknown, s: Record<string, unknown>) => ({
+			...s,
+			combat: { monstre_ref: 'bestiaire.troll', postures: [] },
+		}))
+		mockRejouerCombat.mockReturnValue({
+			ok: true,
+			etat: {
+				outcome: 'hero-victory',
+				heroPv: 5,
+				heroPe: 1,
+				pendingXp: 30,
+				pendingPvMaxDelta: 0,
+				pendingEnMaxDelta: 0,
+			},
+		})
+		mockBilanDe.mockReturnValue({
+			issue: 'hero-victory',
+			pv: 5,
+			pe: 1,
+			xp: 30,
+			pv_max_delta: 0,
+			pe_max_delta: 0,
+		})
+		let combatClot = false
+		mockCloreCombat.mockImplementation((s: Record<string, unknown>) => {
+			combatClot = true
+			const { combat: _, ...sansCombat } = s
+			return sansCombat
+		})
+		mockFin.mockImplementation(() => {
+			if (!combatClot) return undefined
+			return { fin_id: 'fin.tardive' }
+		})
+
+		const r = repeter(DOSSIER, 1)
+
+		expect(r).toEqual({
+			ok: true,
+			rapport: expect.objectContaining({ arret: 'fin', fin_id: 'fin.tardive', pas: 1 }),
+		})
+		expect(mockCloreCombat).toHaveBeenCalled()
+		// finAtteinte never called with an open combat session
+		for (const call of mockFin.mock.calls) {
+			const session = call[1] as Record<string, unknown>
+			expect(session.combat).toBeUndefined()
+		}
+	})
+
+	it('rejeu_refuse — rejouerCombat ok:false lance une erreur', () => {
+		preparerCheminHeureux()
+		mockRencontre.mockImplementation((_d: unknown, s: Record<string, unknown>) => ({
+			...s,
+			combat: { monstre_ref: 'bestiaire.unknown', postures: [] },
+		}))
+		mockRejouerCombat.mockReturnValue({ ok: false, refus: 'monstre_inconnu' })
+
+		expect(() => repeter(DOSSIER, 1)).toThrow('repeter: rejouerCombat failed')
 	})
 
 	it('impasse_pas_1 — aucune destination des le premier pas', () => {
@@ -177,7 +330,7 @@ describe('repeter', () => {
 
 		expect(r).toEqual({
 			ok: true,
-			rapport: { graine: 1, pas: 1, lieu_id: 'lieu.a', arret: 'impasse' },
+			rapport: { graine: 1, pas: 1, lieu_id: 'lieu.a', combats_traverses: 0, arret: 'impasse' },
 		})
 	})
 
@@ -194,7 +347,7 @@ describe('repeter', () => {
 
 		expect(r).toEqual({
 			ok: true,
-			rapport: expect.objectContaining({ arret: 'impasse', pas: 2 }),
+			rapport: expect.objectContaining({ arret: 'impasse', pas: 2, combats_traverses: 0 }),
 		})
 	})
 
@@ -205,7 +358,7 @@ describe('repeter', () => {
 
 		expect(r).toEqual({
 			ok: true,
-			rapport: expect.objectContaining({ arret: 'pas_max', pas: PAS_MAX }),
+			rapport: expect.objectContaining({ arret: 'pas_max', pas: PAS_MAX, combats_traverses: 0 }),
 		})
 		expect(PAS_MAX).toBe(20)
 		expect(mockExec).toHaveBeenCalledTimes(PAS_MAX)

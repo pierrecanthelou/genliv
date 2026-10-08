@@ -35,11 +35,17 @@ jest.mock('../../../brain', () => ({
 		{ id: 'canon', titre: 'Canon' },
 		{ id: 'depart', titre: 'Depart' },
 	],
+	BESTIARY_BY_TEMPLATE: {
+		gobelin: { name: 'Gobelin' },
+		dragon: { name: 'Dragon' },
+	},
+	PREFIXE_BESTIAIRE: 'bestiaire.',
 }))
 
 jest.mock('../utils/repeter', () => ({
 	repeter: jest.fn(),
 	PAS_MAX: 20,
+	ROUNDS_MAX: 50,
 }))
 
 import { useOpenDossier } from '../../../brain'
@@ -64,7 +70,7 @@ describe('PanneauRepetition', () => {
 	it('resultat_fin — affiche le nom de la fin et le lieu', () => {
 		mockRepeter.mockReturnValue({
 			ok: true,
-			rapport: { graine: 1, pas: 5, lieu_id: 'lieu.foret', arret: 'fin', fin_id: 'fin.victoire' },
+			rapport: { graine: 1, pas: 5, lieu_id: 'lieu.foret', combats_traverses: 0, arret: 'fin', fin_id: 'fin.victoire' },
 		})
 
 		render(<PanneauRepetition dossierId="test" onSelectSection={jest.fn()} />)
@@ -97,7 +103,7 @@ describe('PanneauRepetition', () => {
 	it('resultat_impasse — affiche le texte impasse et le lieu', () => {
 		mockRepeter.mockReturnValue({
 			ok: true,
-			rapport: { graine: 1, pas: 3, lieu_id: 'lieu.foret', arret: 'impasse' },
+			rapport: { graine: 1, pas: 3, lieu_id: 'lieu.foret', combats_traverses: 0, arret: 'impasse' },
 		})
 
 		render(<PanneauRepetition dossierId="test" onSelectSection={jest.fn()} />)
@@ -108,24 +114,52 @@ describe('PanneauRepetition', () => {
 		expect(screen.getByText('Foret profonde')).toBeInTheDocument()
 	})
 
-	it('resultat_combat_ouvert — affiche le texte combat et le monstre', () => {
+	it('resultat_mort — affiche le texte mort et le nom du monstre résolu', () => {
 		mockRepeter.mockReturnValue({
 			ok: true,
-			rapport: { graine: 1, pas: 2, lieu_id: 'lieu.foret', arret: 'combat_ouvert', monstre_ref: 'bestiaire.gobelin' },
+			rapport: {
+				graine: 1,
+				pas: 2,
+				lieu_id: 'lieu.foret',
+				combats_traverses: 0,
+				arret: 'mort',
+				monstre_ref: 'bestiaire.dragon',
+			},
 		})
 
 		render(<PanneauRepetition dossierId="test" onSelectSection={jest.fn()} />)
 		fireEvent.click(screen.getByText('Lancer la répétition'))
 
-		expect(screen.getByText(/combat/)).toBeInTheDocument()
-		expect(screen.getByText(/bestiaire.gobelin/)).toBeInTheDocument()
+		expect(screen.getByText(/est mort face à Dragon/)).toBeInTheDocument()
+		expect(screen.getByText(/Relancez pour tirer/)).toBeInTheDocument()
 		expect(screen.getByText(/PAS 2 SUR 20/)).toBeInTheDocument()
+	})
+
+	it('resultat_combat_sans_issue — affiche le texte sans issue et le nom du monstre résolu', () => {
+		mockRepeter.mockReturnValue({
+			ok: true,
+			rapport: {
+				graine: 1,
+				pas: 3,
+				lieu_id: 'lieu.foret',
+				combats_traverses: 0,
+				arret: 'combat_sans_issue',
+				monstre_ref: 'bestiaire.gobelin',
+			},
+		})
+
+		render(<PanneauRepetition dossierId="test" onSelectSection={jest.fn()} />)
+		fireEvent.click(screen.getByText('Lancer la répétition'))
+
+		expect(screen.getByText(/n'a pas été tranché en 50 rounds/)).toBeInTheDocument()
+		expect(screen.getByText(/ni Gobelin ne l'a emporté/)).toBeInTheDocument()
+		expect(screen.getByText(/PAS 3 SUR 20/)).toBeInTheDocument()
 	})
 
 	it('resultat_pas_max — affiche le texte 20 pas sans fin', () => {
 		mockRepeter.mockReturnValue({
 			ok: true,
-			rapport: { graine: 1, pas: 20, lieu_id: 'lieu.foret', arret: 'pas_max' },
+			rapport: { graine: 1, pas: 20, lieu_id: 'lieu.foret', combats_traverses: 0, arret: 'pas_max' },
 		})
 
 		render(<PanneauRepetition dossierId="test" onSelectSection={jest.fn()} />)
@@ -135,13 +169,45 @@ describe('PanneauRepetition', () => {
 		expect(screen.getByText(/PAS 20 SUR 20/)).toBeInTheDocument()
 	})
 
+	it('repli_monstre_inconnu — template absent du bestiaire affiche le repli', () => {
+		mockRepeter.mockReturnValue({
+			ok: true,
+			rapport: {
+				graine: 1,
+				pas: 2,
+				lieu_id: 'lieu.foret',
+				combats_traverses: 0,
+				arret: 'mort',
+				monstre_ref: 'bestiaire.inconnu',
+			},
+		})
+
+		render(<PanneauRepetition dossierId="test" onSelectSection={jest.fn()} />)
+		fireEvent.click(screen.getByText('Lancer la répétition'))
+
+		expect(screen.getByText(/un monstre du bestiaire/)).toBeInTheDocument()
+	})
+
+	it('lieu_introuvable — pas de ListRow quand le lieu n est pas dans le dossier', () => {
+		mockRepeter.mockReturnValue({
+			ok: true,
+			rapport: { graine: 1, pas: 3, lieu_id: 'lieu.fantome', combats_traverses: 0, arret: 'impasse' },
+		})
+
+		render(<PanneauRepetition dossierId="test" onSelectSection={jest.fn()} />)
+		fireEvent.click(screen.getByText('Lancer la répétition'))
+
+		expect(screen.getByText(/Impasse/)).toBeInTheDocument()
+		expect(screen.queryByTestId('list-row')).not.toBeInTheDocument()
+	})
+
 	it('relancer_incremente — cliquer Relancer incremente la graine', () => {
 		let appelAvecGraine: number[] = []
 		mockRepeter.mockImplementation((_d: unknown, g: number) => {
 			appelAvecGraine.push(g)
 			return {
 				ok: true,
-				rapport: { graine: g, pas: 20, lieu_id: 'lieu.foret', arret: 'pas_max' },
+				rapport: { graine: g, pas: 20, lieu_id: 'lieu.foret', combats_traverses: 0, arret: 'pas_max' },
 			}
 		})
 

@@ -81,8 +81,8 @@
 			},
 			{
 				"id": 2,
-				"goal": "L'auteur voit son héros étalon survivre ou mourir aux combats — section REGLES-DU-JEU.md étalon (KR-130), boucle combat (posture normale, borné), MotifArret enrichi mort/combat_sans_issue. SACRIFIABLE.",
-				"status": "planned"
+				"goal": "L'auteur voit son joueur synthétique affronter les combats de son aventure au lieu de s'y arrêter — boucle combat (posture normale, ROUNDS_MAX=50, rejeu en un coup), MotifArret enrichi mort/combat_sans_issue, combat_ouvert supprimé, combats_traverses dans le rapport, panneau switch exhaustif avec nom du monstre résolu. SACRIFIABLE.",
+				"status": "done"
 			},
 			{
 				"id": 3,
@@ -121,6 +121,25 @@
 					"e2e": "non applicable"
 				}
 			}
+		,
+			{
+				"id": 2,
+				"label": "iteration-2",
+				"completed_at": "2026-10-08",
+				"architecture_choices": [
+					"Boucle combat O(N) : jouerPosture x ROUNDS_MAX sur copie locale, puis un seul rejouerCombat. Veto TL maintenu : pas de combatEngine ni SessionState dans repeter.ts",
+					"combat_ouvert supprime de MotifArret — plus aucun producteur apres la boucle combat",
+					"finAtteinte deduplique : un seul appel apres le bloc combat, cloreCombat retire session.combat (KR-303)",
+					"ListRow factorise en unique rendu apres le switch, pas repete par motif"
+				],
+				"deviations_from_plan": [
+					"Test rejeu_en_un_coup_equivaut_au_pas_a_pas (plan p7) remplace par boucle_combat_reelle — le test d integration verifie combats_traverses >= 1 sur le moteur reel. L equivalence O(N) est garantie par l architecture de rencontre.ts:93."
+				],
+				"test_coverage": {
+					"unit": "35 tests (repeter 23, panneau 10, integration 3, cablage 4, slot 3, moteurSansIA 1)",
+					"e2e": "non applicable"
+				}
+			}
 		],
 		"resolved_decisions": [
 			"Fourche A (rôle IA) / B (code déterministe) → RETENU B. Unanimité. Zéro appel modèle, rapport rejouable à graine égale. La variante A est un point d'extension nommé (choisirCommande/acteurCooperatif), pas une abstraction livrée (décision n°3).",
@@ -137,11 +156,21 @@
 			"It1 raffinage : choisirDestination = fonction locale dans repeter.ts, un seul tirage, pas de rotation. Refus executerCommande → impasse. NIA/TL.",
 			"It1 raffinage : vocabulaire « arrêt » partout, « impasse » pour le motif seul, « blocage » nulle part. UX/NIA.",
 			"It1 raffinage : voix du panneau en 3e personne du joueur synthétique, noms internes uniquement. NIA.",
-			"It1 raffinage : moteurSansIA racine = feature entière, plancher 1. TL."
+			"It1 raffinage : moteurSansIA racine = feature entière, plancher 1. TL.",
+			"It2 raffinage : étalon reporté hors it2, vers une itération future. PM a proposé (tour 1) puis rétracté (tour 2), TL et NIA ont convergé sur le report. KR-130 migre avec.",
+			"It2 raffinage : combat_ouvert supprimé de l'union MotifArret (plus aucun producteur). Consensus 5/5.",
+			"It2 raffinage : ROUNDS_MAX = 50, paramètre de simulation (pas règle du jeu), exporté, muté ±1. Architecture rejeu-en-un-coup (TL) rend le coût O(N).",
+			"It2 raffinage : combats_traverses (entier dérivé) dans le rapport, pas combats_gagnes (hero-survived-unconscious n'est pas une victoire). Badge visible reporté à it3.",
+			"It2 raffinage : nom du monstre résolu via BESTIARY_BY_TEMPLATE, jamais l'identifiant brut. Veto UX, consensus 5/5.",
+			"It2 raffinage : veto TL conditionnel maintenu — repeter.ts n'importe jamais combatEngine ni ne construit SessionState. Vérifié à la revue.",
+			"It2 raffinage : usure cumulative (cloreCombat après chaque combat non mortel). NIA objection, TL plan l'inclut.",
+			"It2 raffinage : 1 lot unique (boucle-combat). Zéro lot contrat, rien dans brain/."
 		],
 		"open_questions": [
 			"parler/agir en it3 : PM les exclut, NIA les veut pour la couverture PNJ. À décider au raffinage d'it3 — la couverture PNJ peut utiliser parler (avec abandon à 3 jets) ou seulement la co-présence au même lieu.",
-			"PNJ fermé absorbe 20 pas (NIA) : borne 3 jets max, abandon. Reporté à it3, ne s'applique que si parler entre."
+			"PNJ fermé absorbe 20 pas (NIA) : borne 3 jets max, abandon. Reporté à it3, ne s'applique que si parler entre.",
+			"Héros étalon reporté hors it2 (raffinage it2) : section REGLES-DU-JEU.md, table dorée, etalon.ts — à porter au raffinage d'it3 ou en itération dédiée. KR-130 (doc → test → code) reste un veto quand il arrive. Le héros seedé (creerHerosSynthetique) reste en place jusqu'à l'étalon.",
+			"Badge visible combats_traverses reporté à it3 (raffinage it2) : l'entier est dans le rapport dès it2, le Badge au panneau attend le dépliable des pas."
 		]
 	}
 }

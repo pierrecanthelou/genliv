@@ -1,6 +1,15 @@
-import { useMemo, useState, type CSSProperties } from 'react'
-import { Badge, Card, ListRow, useOpenDossier, SECTIONS, type SectionId } from '../../../brain'
-import { repeter, PAS_MAX } from '../utils/repeter'
+import { useMemo, useState, type CSSProperties, type ReactNode } from 'react'
+import {
+	Badge,
+	Card,
+	ListRow,
+	useOpenDossier,
+	SECTIONS,
+	BESTIARY_BY_TEMPLATE,
+	PREFIXE_BESTIAIRE,
+	type SectionId,
+} from '../../../brain'
+import { repeter, PAS_MAX, ROUNDS_MAX } from '../utils/repeter'
 
 export interface PanneauRepetitionProps {
 	dossierId: string
@@ -165,6 +174,61 @@ export function PanneauRepetition({ dossierId, onSelectSection }: PanneauRepetit
 		const lieuListe = dossier.monde.lieux.find((l) => l.id === r.lieu_id)
 		const lieuNom = lieuListe?.nom ?? r.lieu_id
 
+		// Helper to resolve monster name from ref
+		const resoudreNomMonstre = (ref: string): string => {
+			const templateId = ref.slice(PREFIXE_BESTIAIRE.length)
+			return BESTIARY_BY_TEMPLATE[templateId]?.name ?? 'un monstre du bestiaire'
+		}
+
+		let contenuMotif: ReactNode = null
+		switch (r.arret) {
+			case 'fin': {
+				contenuMotif = (
+					<p style={titleStyle}>
+						Le joueur synthétique a atteint la fin &laquo;{' '}
+						{dossier.charpente.fins.find((f) => f.id === r.fin_id)?.nom ?? r.fin_id} &raquo;.
+					</p>
+				)
+				break
+			}
+			case 'impasse': {
+				contenuMotif = <p style={titleStyle}>Impasse pour un joueur qui ne fait qu&apos;aller.</p>
+				break
+			}
+			case 'mort': {
+				const nomMonstre = resoudreNomMonstre(r.monstre_ref)
+				contenuMotif = (
+					<>
+						<p style={titleStyle}>Le joueur synthétique est mort face à {nomMonstre}.</p>
+						<p style={bodyStyle}>Relancez pour tirer un autre parcours.</p>
+					</>
+				)
+				break
+			}
+			case 'combat_sans_issue': {
+				const nomMonstre = resoudreNomMonstre(r.monstre_ref)
+				contenuMotif = (
+					<>
+						<p style={titleStyle}>
+							Le combat contre {nomMonstre} n&apos;a pas été tranché en {ROUNDS_MAX} rounds.
+						</p>
+						<p style={bodyStyle}>Ni le joueur synthétique ni {nomMonstre} ne l&apos;a emporté.</p>
+					</>
+				)
+				break
+			}
+			case 'pas_max': {
+				contenuMotif = (
+					<p style={titleStyle}>Le joueur synthétique a parcouru {PAS_MAX} pas sans atteindre de fin.</p>
+				)
+				break
+			}
+			default: {
+				const _exhaustive: never = r
+				return _exhaustive
+			}
+		}
+
 		return (
 			<div style={containerStyle}>
 				<Card shadow={false}>
@@ -178,38 +242,8 @@ export function PanneauRepetition({ dossierId, onSelectSection }: PanneauRepetit
 								<Badge tone="neutral">Parcours n°{r.graine}</Badge>
 							</div>
 
-							{r.arret === 'fin' && (
-								<>
-									<p style={titleStyle}>
-										Le joueur synthétique a atteint la fin &laquo;{' '}
-										{dossier.charpente.fins.find((f) => f.id === r.fin_id)?.nom ?? r.fin_id} &raquo;.
-									</p>
-									{lieuListe && <ListRow title={lieuNom} subtitle={lieuListe.description} />}
-								</>
-							)}
-
-							{r.arret === 'impasse' && (
-								<>
-									<p style={titleStyle}>Impasse pour un joueur qui ne fait qu&apos;aller.</p>
-									{lieuListe && <ListRow title={lieuNom} subtitle={lieuListe.description} />}
-								</>
-							)}
-
-							{r.arret === 'combat_ouvert' && (
-								<>
-									<p style={titleStyle}>
-										Arrêté sur un combat ({r.monstre_ref}). La répétition ne le résout pas encore.
-									</p>
-									{lieuListe && <ListRow title={lieuNom} subtitle={lieuListe.description} />}
-								</>
-							)}
-
-							{r.arret === 'pas_max' && (
-								<>
-									<p style={titleStyle}>Le joueur synthétique a parcouru {PAS_MAX} pas sans atteindre de fin.</p>
-									{lieuListe && <ListRow title={lieuNom} subtitle={lieuListe.description} />}
-								</>
-							)}
+							{contenuMotif}
+							{lieuListe && <ListRow title={lieuNom} subtitle={lieuListe.description} />}
 						</div>
 
 						<div style={buttonGroupStyle}>

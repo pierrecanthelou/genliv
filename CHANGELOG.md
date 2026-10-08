@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.30 — l'auteur voit son joueur synthétique affronter les combats au lieu de s'y arrêter
+
+`dossier-repetition` it2 (roadmap § 3, n° 16, 2/3) — lot unique `boucle-combat`. Boucle combat O(N) : `jouerPosture` x ROUNDS_MAX=50 sur copie locale, `rejouerCombat` en un coup. `MotifArret` enrichi `mort`/`combat_sans_issue`, `combat_ouvert` supprimé. `combats_traverses` dans le rapport. `PanneauRepetition` : switch exhaustif `default: never`, nom du monstre résolu via `BESTIARY_BY_TEMPLATE`, `ListRow` factorisé. 163 suites / 3034 tests.
+
+- Écarts : test `rejeu_en_un_coup_equivaut_au_pas_a_pas` (plan § 7) remplacé par `boucle_combat_reelle` — l'équivalence O(N) est garantie par `rencontre.ts:93`.
+- Reportés : héros étalon (itération future, KR-130), badge `combats_traverses` (it3), lieux/PNJ non atteints (it3).
+- Dossier : `.claude/raffinage/dossier-repetition-it2.revue.md`.
+
 ## 0.7.29 — l'auteur lance une répétition synthétique de son dossier pour voir où le joueur s'arrête
 
 `dossier-repetition` it1 (roadmap § 3, n° 16, 1/3) — lot contrat L1 (`alea.ts`, DomaineAlea + `'repetition'`) puis lot feature L2. `repeter(dossier, graine)` : fonction pure, zéro IA, zéro fetch, 20 pas max, 4 motifs d'arrêt (fin/impasse/combat_ouvert/pas_max). Héros synthétique seedé (affectation séquentielle + bonus sur la plus basse carac). `PanneauRepetition` : 3 états (invite/résultat/à corriger), rapport dérivé par useMemo (KR-013/310), slot render-prop dans DossierEditorScreen. `cablage.test.ts` élargi au feature entier. `moteurSansIA.test.ts` : 4e racine `dossier-repetition`, plancher 1. 162 suites / 3026 tests.
