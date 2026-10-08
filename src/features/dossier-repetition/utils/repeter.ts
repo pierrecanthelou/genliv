@@ -49,6 +49,8 @@ export type RapportRepetition = {
 	readonly pas: number
 	readonly lieu_id: string
 	readonly combats_traverses: number
+	/** Lieux visités durant ce parcours (SSOT: session.monde.lieux_visites) */
+	readonly lieux_visites: readonly string[]
 } & (
 	| { readonly arret: 'fin'; readonly fin_id: string }
 	| { readonly arret: 'mort'; readonly monstre_ref: string }
@@ -153,6 +155,7 @@ export function repeter(dossier: Dossier, graine: number): ResultatRepetition {
 				pas: 0,
 				lieu_id: session.monde.lieu_courant,
 				combats_traverses: 0,
+				lieux_visites: session.monde.lieux_visites,
 				arret: 'fin',
 				fin_id: fin.fin_id,
 			},
@@ -175,6 +178,7 @@ export function repeter(dossier: Dossier, graine: number): ResultatRepetition {
 					pas,
 					lieu_id: session.monde.lieu_courant,
 					combats_traverses,
+					lieux_visites: session.monde.lieux_visites,
 					arret: 'impasse',
 				},
 			}
@@ -191,6 +195,7 @@ export function repeter(dossier: Dossier, graine: number): ResultatRepetition {
 					pas,
 					lieu_id: session.monde.lieu_courant,
 					combats_traverses,
+					lieux_visites: session.monde.lieux_visites,
 					arret: 'impasse',
 				},
 			}
@@ -226,6 +231,7 @@ export function repeter(dossier: Dossier, graine: number): ResultatRepetition {
 						pas,
 						lieu_id: session.monde.lieu_courant,
 						combats_traverses,
+						lieux_visites: session.monde.lieux_visites,
 						arret: 'combat_sans_issue',
 						monstre_ref: session.combat.monstre_ref,
 					},
@@ -241,6 +247,7 @@ export function repeter(dossier: Dossier, graine: number): ResultatRepetition {
 						pas,
 						lieu_id: session.monde.lieu_courant,
 						combats_traverses,
+						lieux_visites: session.monde.lieux_visites,
 						arret: 'mort',
 						monstre_ref: session.combat.monstre_ref,
 					},
@@ -261,6 +268,7 @@ export function repeter(dossier: Dossier, graine: number): ResultatRepetition {
 					pas,
 					lieu_id: session.monde.lieu_courant,
 					combats_traverses,
+					lieux_visites: session.monde.lieux_visites,
 					arret: 'fin',
 					fin_id: fin.fin_id,
 				},
@@ -276,6 +284,7 @@ export function repeter(dossier: Dossier, graine: number): ResultatRepetition {
 			pas: PAS_MAX,
 			lieu_id: session.monde.lieu_courant,
 			combats_traverses,
+			lieux_visites: session.monde.lieux_visites,
 			arret: 'pas_max',
 		},
 	}

@@ -56,6 +56,11 @@ describe('repeterCombat — integration (real engine)', () => {
 				// Never `combat_ouvert`
 				expect(r1.rapport.arret).not.toBe('combat_ouvert')
 
+				// lieux_visites: départ en tête, lieu_id inclus, sans doublon
+				expect(r1.rapport.lieux_visites[0]).toBe(dossier.charpente.depart.lieu_id)
+				expect(r1.rapport.lieux_visites).toContain(r1.rapport.lieu_id)
+				expect(new Set(r1.rapport.lieux_visites).size).toBe(r1.rapport.lieux_visites.length)
+
 				if (r1.rapport.combats_traverses > 0) auMoinsUnCombat = true
 			}
 		}

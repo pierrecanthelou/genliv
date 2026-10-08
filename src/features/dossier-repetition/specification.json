@@ -86,8 +86,8 @@
 			},
 			{
 				"id": 3,
-				"goal": "L'auteur lit quels lieux et personnages le joueur n'a pas atteints en 20 pas — lieux non visités, PNJ non atteints, dépliable des pas, ListeConstats, parler/agir si décidé au raffinage.",
-				"status": "planned"
+				"goal": "L'auteur lit ce que son joueur synthétique n'a pas atteint sur ce parcours — lieux non visités et PNJ non atteints par co-présence (presence[].lieu_id ∈ lieux_visites), noms résolus par localiserEntite. PNJ sans presence exclus. Dépliable, trace, parcours ordonné, ListeConstats, parler/agir et étalon reportés.",
+				"status": "in-progress"
 			}
 		],
 		"known_risks": [
@@ -164,13 +164,20 @@
 			"It2 raffinage : nom du monstre résolu via BESTIARY_BY_TEMPLATE, jamais l'identifiant brut. Veto UX, consensus 5/5.",
 			"It2 raffinage : veto TL conditionnel maintenu — repeter.ts n'importe jamais combatEngine ni ne construit SessionState. Vérifié à la revue.",
 			"It2 raffinage : usure cumulative (cloreCombat après chaque combat non mortel). NIA objection, TL plan l'inclut.",
-			"It2 raffinage : 1 lot unique (boucle-combat). Zéro lot contrat, rien dans brain/."
+			"It2 raffinage : 1 lot unique (boucle-combat). Zéro lot contrat, rien dans brain/.",
+			"It3 raffinage : parler/agir EXCLU — unanime 5/5. No-op sur monde, décale le RNG (KR-304). Co-présence suffit.",
+			"It3 raffinage : héros étalon EXCLU — unanime 5/5. Aucun consommateur. Dette à déclencheur.",
+			"It3 raffinage : dépliable + trace REPORTÉS it4 sacrifiable — veto PM durci. Second comportement.",
+			"It3 raffinage : lieux_visites (SSOT moteur session.ts:578) retenu vs parcours. TL tour 2.",
+			"It3 raffinage : PNJ sans presence[] EXCLUS — UX/NIA. Inatteignable par construction.",
+			"It3 raffinage : ListeConstats REJETÉ — inline ListRow + <ul>, ~310 l. (KR-112).",
+			"It3 raffinage : co-présence = PNJ atteint — unanime 5/5. Dérivé en ligne (KR-013).",
+			"It3 raffinage : 1 lot couverture-parcours, 0 contrat. brain/ non touché (KR-313)."
 		],
 		"open_questions": [
-			"parler/agir en it3 : PM les exclut, NIA les veut pour la couverture PNJ. À décider au raffinage d'it3 — la couverture PNJ peut utiliser parler (avec abandon à 3 jets) ou seulement la co-présence au même lieu.",
-			"PNJ fermé absorbe 20 pas (NIA) : borne 3 jets max, abandon. Reporté à it3, ne s'applique que si parler entre.",
-			"Héros étalon reporté hors it2 (raffinage it2) : section REGLES-DU-JEU.md, table dorée, etalon.ts — à porter au raffinage d'it3 ou en itération dédiée. KR-130 (doc → test → code) reste un veto quand il arrive. Le héros seedé (creerHerosSynthetique) reste en place jusqu'à l'étalon.",
-			"Badge visible combats_traverses reporté à it3 (raffinage it2) : l'entier est dans le rapport dès it2, le Badge au panneau attend le dépliable des pas."
+			"Dépliable des pas + trace par pas reportés à it4 sacrifiable (raffinage it3, veto PM).",
+			"Héros étalon reporté (raffinage it2+it3) : dette à déclencheur. creerHerosSynthetique reste en place.",
+			"Badge visible combats_traverses : l'entier est dans le rapport dès it2, le Badge au panneau reste inchangé. Le dépliable (it4) le mettra en contexte."
 		]
 	}
 }

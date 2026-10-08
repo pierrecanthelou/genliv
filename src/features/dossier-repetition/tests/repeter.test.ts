@@ -122,7 +122,15 @@ describe('repeter', () => {
 
 		expect(r).toEqual({
 			ok: true,
-			rapport: { graine: 42, pas: 0, lieu_id: 'lieu.a', combats_traverses: 0, arret: 'fin', fin_id: 'fin.victoire' },
+			rapport: {
+				graine: 42,
+				pas: 0,
+				lieu_id: 'lieu.a',
+				combats_traverses: 0,
+				lieux_visites: ['lieu.a'],
+				arret: 'fin',
+				fin_id: 'fin.victoire',
+			},
 		})
 	})
 
@@ -239,13 +247,16 @@ describe('repeter', () => {
 			pe_max_delta: 0,
 		})
 		mockCloreCombat.mockImplementation((s: Record<string, unknown>) => {
+			// eslint-disable-next-line @typescript-eslint/no-unused-vars
 			const { combat: _, ...sansCombat } = s
 			return { ...sansCombat, monde: (sessionApresCombat as Record<string, unknown>).monde }
 		})
-		mockRencontre.mockImplementationOnce((_d: unknown, s: Record<string, unknown>) => ({
-			...s,
-			combat: { monstre_ref: 'bestiaire.ork', postures: [] },
-		})).mockImplementation((_d: unknown, s: Record<string, unknown>) => s)
+		mockRencontre
+			.mockImplementationOnce((_d: unknown, s: Record<string, unknown>) => ({
+				...s,
+				combat: { monstre_ref: 'bestiaire.ork', postures: [] },
+			}))
+			.mockImplementation((_d: unknown, s: Record<string, unknown>) => s)
 		mockFin.mockReturnValueOnce(undefined).mockReturnValueOnce({ fin_id: 'fin.x' })
 
 		const r = repeter(DOSSIER, 1)
@@ -289,6 +300,7 @@ describe('repeter', () => {
 		let combatClot = false
 		mockCloreCombat.mockImplementation((s: Record<string, unknown>) => {
 			combatClot = true
+			// eslint-disable-next-line @typescript-eslint/no-unused-vars
 			const { combat: _, ...sansCombat } = s
 			return sansCombat
 		})
@@ -330,7 +342,14 @@ describe('repeter', () => {
 
 		expect(r).toEqual({
 			ok: true,
-			rapport: { graine: 1, pas: 1, lieu_id: 'lieu.a', combats_traverses: 0, arret: 'impasse' },
+			rapport: {
+				graine: 1,
+				pas: 1,
+				lieu_id: 'lieu.a',
+				combats_traverses: 0,
+				lieux_visites: ['lieu.a'],
+				arret: 'impasse',
+			},
 		})
 	})
 
@@ -449,6 +468,25 @@ describe('repeter', () => {
 		mockOuvrir.mockReturnValue({ ok: false })
 
 		expect(() => repeter(DOSSIER, 1)).toThrow('repeter: ouvrirSession failed after controlerDossier.jouable')
+	})
+
+	it('rapport porte lieux_visites lu de session.monde, pas recalcule', () => {
+		preparerCheminHeureux()
+		const sessionMultiLieux = {
+			...sessionDeBase('lieu.b', SENTINELLE_HEROS),
+			monde: {
+				...sessionDeBase('lieu.b').monde,
+				lieu_courant: 'lieu.b',
+				lieux_visites: ['lieu.a', 'lieu.z', 'lieu.b'],
+			},
+		}
+		mockExec.mockReturnValueOnce({ ok: true, session: sessionMultiLieux })
+		mockFin.mockReturnValueOnce(undefined).mockReturnValueOnce({ fin_id: 'fin.x' })
+
+		const r = repeter(DOSSIER, 42)
+
+		if (!r.ok) throw new Error('Expected ok: true')
+		expect(r.rapport.lieux_visites).toEqual(['lieu.a', 'lieu.z', 'lieu.b'])
 	})
 })
 

@@ -4,6 +4,7 @@ import {
 	Card,
 	ListRow,
 	useOpenDossier,
+	localiserEntite,
 	SECTIONS,
 	BESTIARY_BY_TEMPLATE,
 	PREFIXE_BESTIAIRE,
@@ -98,6 +99,31 @@ const linkStyle: CSSProperties = {
 	background: 'none',
 	font: 'inherit',
 	fontSize: 'var(--fs-body)',
+}
+
+const secondaryEyebrowStyle: CSSProperties = {
+	...eyebrowStyle,
+	margin: 'var(--space-5) 0 var(--space-3) 0',
+}
+
+const groupLabelStyle: CSSProperties = {
+	fontSize: 'var(--fs-eyebrow)',
+	fontFamily: 'var(--font-mono)',
+	color: 'var(--text-label)',
+	margin: 'var(--space-5) 0 var(--space-3) 0',
+}
+
+const ulStyle: CSSProperties = {
+	listStyle: 'none',
+	padding: 0,
+	margin: '0 0 var(--space-5) 0',
+}
+
+const emptyStateStyle: CSSProperties = {
+	fontSize: 'var(--fs-body)',
+	color: 'var(--text-muted)',
+	fontStyle: 'italic',
+	margin: '0 0 var(--space-5) 0',
 }
 
 /**
@@ -218,9 +244,7 @@ export function PanneauRepetition({ dossierId, onSelectSection }: PanneauRepetit
 				break
 			}
 			case 'pas_max': {
-				contenuMotif = (
-					<p style={titleStyle}>Le joueur synthétique a parcouru {PAS_MAX} pas sans atteindre de fin.</p>
-				)
+				contenuMotif = <p style={titleStyle}>Le joueur synthétique a parcouru {PAS_MAX} pas sans atteindre de fin.</p>
 				break
 			}
 			default: {
@@ -228,6 +252,18 @@ export function PanneauRepetition({ dossierId, onSelectSection }: PanneauRepetit
 				return _exhaustive
 			}
 		}
+
+		// Calcul des lieux non visités
+		const lieuxNonVisites = dossier.monde.lieux.filter((l) => !r.lieux_visites.includes(l.id))
+
+		// Calcul des PNJ non atteints (placés et non croisés par co-présence)
+		const pnjVisitesLieuIds = new Set(r.lieux_visites)
+		const pnjNonAtteints = dossier.monde.personnages.filter((pnj) => {
+			const presence = pnj.presence ?? []
+			if (presence.length === 0) return false
+			// PNJ est atteint si au moins un lieu de sa presence est visité
+			return !presence.some((p) => pnjVisitesLieuIds.has(p.lieu_id))
+		})
 
 		return (
 			<div style={containerStyle}>
@@ -244,6 +280,50 @@ export function PanneauRepetition({ dossierId, onSelectSection }: PanneauRepetit
 
 							{contenuMotif}
 							{lieuListe && <ListRow title={lieuNom} subtitle={lieuListe.description} />}
+						</div>
+
+						<div>
+							<p style={secondaryEyebrowStyle}>NON ATTEINT SUR CE PARCOURS</p>
+
+							{/* Groupe LIEUX */}
+							<div>
+								<p style={groupLabelStyle}>Lieux</p>
+								{lieuxNonVisites.length > 0 ? (
+									<ul style={ulStyle}>
+										{lieuxNonVisites.map((lieu) => {
+											const indexLieu = dossier.monde.lieux.indexOf(lieu)
+											return (
+												<li key={lieu.id}>
+													<ListRow title={localiserEntite('lieu', lieu, indexLieu)} subtitle={lieu.description} />
+												</li>
+											)
+										})}
+									</ul>
+								) : (
+									<p style={emptyStateStyle}>Tous les lieux ont été visités par ce parcours.</p>
+								)}
+							</div>
+
+							{/* Groupe PERSONNAGES */}
+							<div>
+								<p style={groupLabelStyle}>Personnages</p>
+								{dossier.monde.personnages.length === 0 ? (
+									<p style={emptyStateStyle}>Aucun personnage dans le dossier.</p>
+								) : pnjNonAtteints.length > 0 ? (
+									<ul style={ulStyle}>
+										{pnjNonAtteints.map((pnj) => {
+											const indexPnj = dossier.monde.personnages.indexOf(pnj)
+											return (
+												<li key={pnj.id}>
+													<ListRow title={localiserEntite('pnj', pnj, indexPnj)} />
+												</li>
+											)
+										})}
+									</ul>
+								) : (
+									<p style={emptyStateStyle}>Tous les personnages placés ont été croisés par ce parcours.</p>
+								)}
+							</div>
 						</div>
 
 						<div style={buttonGroupStyle}>

@@ -23,6 +23,20 @@ const mockDossier = {
 
 jest.mock('../../../brain', () => ({
 	useOpenDossier: jest.fn(() => mockDossier),
+	localiserEntite: jest.fn((espace: string, entite: unknown, index: number) => {
+		const LABELS: Record<string, string> = {
+			pnj: 'Personnage',
+			lieu: 'Lieu',
+			objet: 'Objet',
+			indice: 'Indice',
+			quete: 'Quête',
+			evenement: 'Événement',
+		}
+		const label = LABELS[espace] ?? espace
+		const ent = entite as { nom?: string }
+		if (ent?.nom) return `${label} « ${ent.nom} »`
+		return `${label} n°${index + 1} (sans nom)`
+	}),
 	Badge: ({ children }: { children: React.ReactNode }) => <span data-testid="badge">{children}</span>,
 	Card: ({ children }: { children: React.ReactNode }) => <div data-testid="card">{children}</div>,
 	ListRow: ({ title, subtitle }: { title: string; subtitle?: string }) => (
@@ -70,7 +84,15 @@ describe('PanneauRepetition', () => {
 	it('resultat_fin — affiche le nom de la fin et le lieu', () => {
 		mockRepeter.mockReturnValue({
 			ok: true,
-			rapport: { graine: 1, pas: 5, lieu_id: 'lieu.foret', combats_traverses: 0, arret: 'fin', fin_id: 'fin.victoire' },
+			rapport: {
+				graine: 1,
+				pas: 5,
+				lieu_id: 'lieu.foret',
+				combats_traverses: 0,
+				lieux_visites: ['lieu.foret'],
+				arret: 'fin',
+				fin_id: 'fin.victoire',
+			},
 		})
 
 		render(<PanneauRepetition dossierId="test" onSelectSection={jest.fn()} />)
@@ -103,7 +125,14 @@ describe('PanneauRepetition', () => {
 	it('resultat_impasse — affiche le texte impasse et le lieu', () => {
 		mockRepeter.mockReturnValue({
 			ok: true,
-			rapport: { graine: 1, pas: 3, lieu_id: 'lieu.foret', combats_traverses: 0, arret: 'impasse' },
+			rapport: {
+				graine: 1,
+				pas: 3,
+				lieu_id: 'lieu.foret',
+				combats_traverses: 0,
+				lieux_visites: ['lieu.foret'],
+				arret: 'impasse',
+			},
 		})
 
 		render(<PanneauRepetition dossierId="test" onSelectSection={jest.fn()} />)
@@ -122,6 +151,7 @@ describe('PanneauRepetition', () => {
 				pas: 2,
 				lieu_id: 'lieu.foret',
 				combats_traverses: 0,
+				lieux_visites: ['lieu.foret'],
 				arret: 'mort',
 				monstre_ref: 'bestiaire.dragon',
 			},
@@ -143,6 +173,7 @@ describe('PanneauRepetition', () => {
 				pas: 3,
 				lieu_id: 'lieu.foret',
 				combats_traverses: 0,
+				lieux_visites: ['lieu.foret'],
 				arret: 'combat_sans_issue',
 				monstre_ref: 'bestiaire.gobelin',
 			},
@@ -159,7 +190,14 @@ describe('PanneauRepetition', () => {
 	it('resultat_pas_max — affiche le texte 20 pas sans fin', () => {
 		mockRepeter.mockReturnValue({
 			ok: true,
-			rapport: { graine: 1, pas: 20, lieu_id: 'lieu.foret', combats_traverses: 0, arret: 'pas_max' },
+			rapport: {
+				graine: 1,
+				pas: 20,
+				lieu_id: 'lieu.foret',
+				combats_traverses: 0,
+				lieux_visites: ['lieu.foret'],
+				arret: 'pas_max',
+			},
 		})
 
 		render(<PanneauRepetition dossierId="test" onSelectSection={jest.fn()} />)
@@ -177,6 +215,7 @@ describe('PanneauRepetition', () => {
 				pas: 2,
 				lieu_id: 'lieu.foret',
 				combats_traverses: 0,
+				lieux_visites: ['lieu.foret'],
 				arret: 'mort',
 				monstre_ref: 'bestiaire.inconnu',
 			},
@@ -191,7 +230,14 @@ describe('PanneauRepetition', () => {
 	it('lieu_introuvable — pas de ListRow quand le lieu n est pas dans le dossier', () => {
 		mockRepeter.mockReturnValue({
 			ok: true,
-			rapport: { graine: 1, pas: 3, lieu_id: 'lieu.fantome', combats_traverses: 0, arret: 'impasse' },
+			rapport: {
+				graine: 1,
+				pas: 3,
+				lieu_id: 'lieu.fantome',
+				combats_traverses: 0,
+				lieux_visites: ['lieu.foret'],
+				arret: 'impasse',
+			},
 		})
 
 		render(<PanneauRepetition dossierId="test" onSelectSection={jest.fn()} />)
@@ -207,7 +253,14 @@ describe('PanneauRepetition', () => {
 			appelAvecGraine.push(g)
 			return {
 				ok: true,
-				rapport: { graine: g, pas: 20, lieu_id: 'lieu.foret', combats_traverses: 0, arret: 'pas_max' },
+				rapport: {
+					graine: g,
+					pas: 20,
+					lieu_id: 'lieu.foret',
+					combats_traverses: 0,
+					lieux_visites: ['lieu.foret'],
+					arret: 'pas_max',
+				},
 			}
 		})
 
@@ -221,5 +274,247 @@ describe('PanneauRepetition', () => {
 
 		expect(appelAvecGraine).toContain(2)
 		expect(screen.getByTestId('badge')).toHaveTextContent('Parcours n°2')
+	})
+
+	it('lieux non visités affichés', () => {
+		const dossier = {
+			...mockDossier,
+			monde: {
+				...mockDossier.monde,
+				lieux: [
+					{ id: 'lieu.foret', nom: 'Foret profonde', description: 'Des arbres partout' },
+					{ id: 'lieu.caverne', nom: 'Caverne sombre', description: 'Sous terre' },
+					{ id: 'lieu.chateau', nom: 'Chateau ancien', description: 'Forteresse' },
+				],
+			},
+		}
+		mockUseOpenDossier.mockReturnValue(dossier)
+		mockRepeter.mockReturnValue({
+			ok: true,
+			rapport: {
+				graine: 1,
+				pas: 2,
+				lieu_id: 'lieu.foret',
+				combats_traverses: 0,
+				arret: 'impasse',
+				lieux_visites: ['lieu.foret'],
+			},
+		})
+
+		render(<PanneauRepetition dossierId="test" onSelectSection={jest.fn()} />)
+		fireEvent.click(screen.getByText('Lancer la répétition'))
+
+		expect(screen.getByText('NON ATTEINT SUR CE PARCOURS')).toBeInTheDocument()
+		expect(screen.getByText('Lieu « Caverne sombre »')).toBeInTheDocument()
+		expect(screen.getByText('Lieu « Chateau ancien »')).toBeInTheDocument()
+	})
+
+	it('index localiserEntite pris dans la liste complete, pas la liste filtree', () => {
+		const dossier = {
+			...mockDossier,
+			monde: {
+				...mockDossier.monde,
+				lieux: [
+					{ id: 'lieu.foret', nom: 'Foret profonde', description: 'Des arbres partout' },
+					{ id: 'lieu.caverne', nom: 'Caverne sombre', description: 'Sous terre' },
+					{ id: 'lieu.sans-nom', description: 'Un endroit mysterieux' },
+				],
+			},
+		}
+		mockUseOpenDossier.mockReturnValue(dossier)
+		mockRepeter.mockReturnValue({
+			ok: true,
+			rapport: {
+				graine: 1,
+				pas: 2,
+				lieu_id: 'lieu.foret',
+				combats_traverses: 0,
+				arret: 'impasse',
+				lieux_visites: ['lieu.foret'],
+			},
+		})
+
+		render(<PanneauRepetition dossierId="test" onSelectSection={jest.fn()} />)
+		fireEvent.click(screen.getByText('Lancer la répétition'))
+
+		expect(screen.getByText('Lieu n°3 (sans nom)')).toBeInTheDocument()
+	})
+
+	it('PNJ non atteints par co-présence', () => {
+		const dossier = {
+			...mockDossier,
+			monde: {
+				...mockDossier.monde,
+				lieux: [
+					{ id: 'lieu.foret', nom: 'Foret profonde', description: 'Des arbres partout' },
+					{ id: 'lieu.caverne', nom: 'Caverne sombre', description: 'Sous terre' },
+				],
+				personnages: [
+					{
+						id: 'pnj.garde',
+						nom: 'Garde',
+						presence: [{ lieu_id: 'lieu.caverne', texte: 'Le garde est ici' }],
+					},
+					{
+						id: 'pnj.magicien',
+						nom: 'Magicien',
+						presence: [{ lieu_id: 'lieu.foret', texte: 'Le magicien est ici' }],
+					},
+				],
+			},
+		}
+		mockUseOpenDossier.mockReturnValue(dossier)
+		mockRepeter.mockReturnValue({
+			ok: true,
+			rapport: {
+				graine: 1,
+				pas: 1,
+				lieu_id: 'lieu.foret',
+				combats_traverses: 0,
+				arret: 'impasse',
+				lieux_visites: ['lieu.foret'],
+			},
+		})
+
+		render(<PanneauRepetition dossierId="test" onSelectSection={jest.fn()} />)
+		fireEvent.click(screen.getByText('Lancer la répétition'))
+
+		expect(screen.getByText('Personnage « Garde »')).toBeInTheDocument()
+		expect(screen.queryByText('Personnage « Magicien »')).not.toBeInTheDocument()
+	})
+
+	it('PNJ sans presence exclus du constat', () => {
+		const dossier = {
+			...mockDossier,
+			monde: {
+				...mockDossier.monde,
+				personnages: [
+					{
+						id: 'pnj.fantome',
+						nom: 'Fantome',
+						presence: [],
+					},
+					{
+						id: 'pnj.esprit',
+						nom: 'Esprit',
+					},
+				],
+			},
+		}
+		mockUseOpenDossier.mockReturnValue(dossier)
+		mockRepeter.mockReturnValue({
+			ok: true,
+			rapport: {
+				graine: 1,
+				pas: 0,
+				lieu_id: 'lieu.foret',
+				combats_traverses: 0,
+				arret: 'fin',
+				fin_id: 'fin.victoire',
+				lieux_visites: ['lieu.foret'],
+			},
+		})
+
+		render(<PanneauRepetition dossierId="test" onSelectSection={jest.fn()} />)
+		fireEvent.click(screen.getByText('Lancer la répétition'))
+
+		expect(screen.getByText('Tous les personnages placés ont été croisés par ce parcours.')).toBeInTheDocument()
+		expect(screen.queryByText('Personnage « Fantome »')).not.toBeInTheDocument()
+		expect(screen.queryByText('Personnage « Esprit »')).not.toBeInTheDocument()
+	})
+
+	it('état vide lieux — tous visités', () => {
+		const dossier = {
+			...mockDossier,
+			monde: {
+				...mockDossier.monde,
+				lieux: [{ id: 'lieu.foret', nom: 'Foret profonde', description: 'Des arbres partout' }],
+			},
+		}
+		mockUseOpenDossier.mockReturnValue(dossier)
+		mockRepeter.mockReturnValue({
+			ok: true,
+			rapport: {
+				graine: 1,
+				pas: 0,
+				lieu_id: 'lieu.foret',
+				combats_traverses: 0,
+				arret: 'fin',
+				fin_id: 'fin.victoire',
+				lieux_visites: ['lieu.foret'],
+			},
+		})
+
+		render(<PanneauRepetition dossierId="test" onSelectSection={jest.fn()} />)
+		fireEvent.click(screen.getByText('Lancer la répétition'))
+
+		expect(screen.getByText('Tous les lieux ont été visités par ce parcours.')).toBeInTheDocument()
+	})
+
+	it('état vide PNJ — tous placés croisés', () => {
+		const dossier = {
+			...mockDossier,
+			monde: {
+				...mockDossier.monde,
+				lieux: [
+					{ id: 'lieu.foret', nom: 'Foret profonde', description: 'Des arbres partout' },
+					{ id: 'lieu.caverne', nom: 'Caverne sombre', description: 'Sous terre' },
+				],
+				personnages: [
+					{
+						id: 'pnj.garde',
+						nom: 'Garde',
+						presence: [{ lieu_id: 'lieu.caverne', texte: 'Le garde est ici' }],
+					},
+				],
+			},
+		}
+		mockUseOpenDossier.mockReturnValue(dossier)
+		mockRepeter.mockReturnValue({
+			ok: true,
+			rapport: {
+				graine: 1,
+				pas: 2,
+				lieu_id: 'lieu.caverne',
+				combats_traverses: 0,
+				arret: 'fin',
+				fin_id: 'fin.victoire',
+				lieux_visites: ['lieu.foret', 'lieu.caverne'],
+			},
+		})
+
+		render(<PanneauRepetition dossierId="test" onSelectSection={jest.fn()} />)
+		fireEvent.click(screen.getByText('Lancer la répétition'))
+
+		expect(screen.getByText('Tous les personnages placés ont été croisés par ce parcours.')).toBeInTheDocument()
+	})
+
+	it('état vide PNJ — aucun dans le dossier', () => {
+		const dossier = {
+			...mockDossier,
+			monde: {
+				...mockDossier.monde,
+				lieux: [{ id: 'lieu.foret', nom: 'Foret profonde', description: 'Des arbres partout' }],
+				personnages: [],
+			},
+		}
+		mockUseOpenDossier.mockReturnValue(dossier)
+		mockRepeter.mockReturnValue({
+			ok: true,
+			rapport: {
+				graine: 1,
+				pas: 0,
+				lieu_id: 'lieu.foret',
+				combats_traverses: 0,
+				arret: 'fin',
+				fin_id: 'fin.victoire',
+				lieux_visites: ['lieu.foret'],
+			},
+		})
+
+		render(<PanneauRepetition dossierId="test" onSelectSection={jest.fn()} />)
+		fireEvent.click(screen.getByText('Lancer la répétition'))
+
+		expect(screen.getByText('Aucun personnage dans le dossier.')).toBeInTheDocument()
 	})
 })
