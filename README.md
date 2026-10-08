@@ -4,7 +4,7 @@ Authoring tool for gamebooks. UI and domain terms are in **French**.
 
 **✅ Bascule livrée** (`0.7.31`, 2026-10-08) : le produit est passé d'un **arbre de choix** à un **dossier d'aventure joué par une IA**. **Temps 1** (l'éditeur produit le dossier, features n° 1–8, 48 itérations) et **Temps 2** (le moteur le joue, n° 9–16, 29 itérations) sont terminés. Le plan exécutable — décisions tranchées, dette à déclencheur, suite — est [`docs/ROADMAP-BASCULE-IA.md`](./docs/ROADMAP-BASCULE-IA.md).
 
-Règles du jeu (source de vérité, KR-130) : [`docs/REGLES-DU-JEU.md`](./docs/REGLES-DU-JEU.md) + [`docs/REGLES-PLAY.md`](./docs/REGLES-PLAY.md) (orchestration du mode jeu). Design handoff : [`design_handoff_gamebook_editor/`](./design_handoff_gamebook_editor). Règles toujours actives : [`CLAUDE.md`](./CLAUDE.md).
+Règles du jeu (source de vérité, KR-130) : [`docs/REGLES-DU-JEU.md`](./docs/REGLES-DU-JEU.md) + [`docs/REGLES-PLAY.md`](./docs/REGLES-PLAY.md) (orchestration du mode jeu). Design handoff : [`design_handoff_gamebook_editor/`](./design_handoff_gamebook_editor). Règles toujours actives : [`CLAUDE.md`](./CLAUDE.md). Convergence inter-projets : [`plan-global.md`](./plan-global.md) (audit `sibling-convergence` n° 2, 2026-10-08).
 
 ## Stack
 
