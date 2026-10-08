@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.31 — l'auteur lit quels lieux et personnages le joueur n'a pas atteints
+
+`dossier-repetition` it3 (roadmap § 3, n° 16, 3/3 — **TERMINÉE**) — lot unique `couverture-parcours`. `rapport.lieux_visites` lu de `session.monde.lieux_visites` (SSOT moteur) aux 7 sorties. Section « NON ATTEINT SUR CE PARCOURS » : lieux non visités (`localiserEntite`), PNJ non atteints par co-présence (`presence[].lieu_id ∈ lieux_visites`), PNJ sans `presence` exclus. États vides. `secondaryEyebrowStyle` factorisé. Tests : intégration (départ, `lieu_id` inclus, sans doublon sur graines 0–9), mock `localiserEntite` au format réel, index dans la liste complète. 163 suites / 3042 tests.
+
+- Reportés : dépliable des pas + trace par pas (it4 sacrifiable, veto PM), héros étalon (dette à déclencheur).
+- Dossier : `.claude/raffinage/dossier-repetition-it3.revue.md`.
+
 ## 0.7.30 — l'auteur voit son joueur synthétique affronter les combats au lieu de s'y arrêter
 
 `dossier-repetition` it2 (roadmap § 3, n° 16, 2/3) — lot unique `boucle-combat`. Boucle combat O(N) : `jouerPosture` x ROUNDS_MAX=50 sur copie locale, `rejouerCombat` en un coup. `MotifArret` enrichi `mort`/`combat_sans_issue`, `combat_ouvert` supprimé. `combats_traverses` dans le rapport. `PanneauRepetition` : switch exhaustif `default: never`, nom du monstre résolu via `BESTIARY_BY_TEMPLATE`, `ListRow` factorisé. 163 suites / 3034 tests.

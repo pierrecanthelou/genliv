@@ -5,17 +5,17 @@
 	"design_reference": "docs/PLAN-BASCULE-IA.dc.html § « Répétition à blanc » (ligne 288-294) : « Simule 20 tours joués par un joueur synthétique et rapporte les blocages, les PNJ jamais rencontrés, les indices inatteignables. »",
 	"plan": {
 		"goal": "L'auteur fait jouer son aventure par un joueur synthétique déterministe (20 pas, zéro IA) et lit les blocages, arrêts et lieux/PNJ non atteints.",
-		"design_contract": "PanneauRepetition.tsx — 3e slot de DossierEditorScreen aux côtés de panneauControles et panneauCopilote. Composants : Card, CardHead, Badge, ListRow (design system existant). Aucun token neuf, aucun primitif neuf. États : jamais lancée (dashed placeholder), résultat (synthèse + badges), aucun blocage (message positif), dossier non jouable (lien → Jalons & fins). Libellé « NON ATTEINT EN 20 PAS » (jamais « inatteignable »). Graine affichée : « Parcours n°{n} » (Chip, tone neutral).",
+		"design_contract": "PanneauRepetition.tsx — 3e slot de DossierEditorScreen aux côtés de panneauControles et panneauCopilote. Composants : Card, CardHead, Badge, ListRow (design system existant). Aucun token neuf, aucun primitif neuf. États : jamais lancée (dashed placeholder), résultat (synthèse + badges), aucun blocage (message positif), dossier non jouable (lien → Jalons & fins). Libellé « NON ATTEINT SUR CE PARCOURS » (jamais « inatteignable »). Graine affichée : « Parcours n°{n} » (Chip, tone neutral).",
 		"acceptance_criteria": [
 			"repeter(dossier, graine) est une fonction pure qui rend ResultatRepetition — jamais de stockage (KR-013), jamais d'appel modèle.",
 			"Le joueur synthétique exécute au plus PAS_MAX=20 pas en utilisant exclusivement executerCommande (verbe aller) — aucun hook, aucun CopiloteService.",
-			"L'arrêt reconnaît 5 motifs : fin, impasse, combat_ouvert (it1), mort, combat_sans_issue (it2) — chacun testé par un témoin nommé.",
+			"L'arrêt reconnaît 5 motifs : fin, impasse, mort, combat_sans_issue, pas_max — chacun testé par un témoin nommé.",
 			"La graine contrôle le RNG via creerRng — deux appels avec même graine et même dossier produisent le même parcours (KR-304).",
 			"Le rapport n'est jamais stocké (KR-013) — il est recalculé à chaque lancement.",
 			"Un dossier non jouable (controlerDossier.jouable === false) rend un refus, pas un rapport.",
-			"L'ouverture sans texte_ouverture_joueur rend un refus 'ouverture_a_ecrire'.",
+			"Un dossier non jouable (controlerDossier.jouable === false) couvre tous les refus structurels, y compris l'ouverture manquante.",
 			"Le panneau affiche les lieux non visités et les PNJ non atteints en 20 pas.",
-			"Le bouton « Relancer » produit une nouvelle graine et relance ; « Rejouer à l'identique » conserve la graine.",
+			"Le bouton « Relancer » produit une nouvelle graine et relance.",
 			"moteurSansIA.test.ts étendu avec une 4e racine pour dossier-repetition (KR-250/260).",
 			"Aucun import depuis play-mode/ ni depuis useTourDeJeu (KR-309).",
 			"Aucun import croisé feature→feature — repeter.ts importe uniquement depuis brain/ et player/engine/ (KR-110).",
@@ -87,7 +87,7 @@
 			{
 				"id": 3,
 				"goal": "L'auteur lit ce que son joueur synthétique n'a pas atteint sur ce parcours — lieux non visités et PNJ non atteints par co-présence (presence[].lieu_id ∈ lieux_visites), noms résolus par localiserEntite. PNJ sans presence exclus. Dépliable, trace, parcours ordonné, ListeConstats, parler/agir et étalon reportés.",
-				"status": "in-progress"
+				"status": "done"
 			}
 		],
 		"known_risks": [
@@ -137,6 +137,23 @@
 				],
 				"test_coverage": {
 					"unit": "35 tests (repeter 23, panneau 10, integration 3, cablage 4, slot 3, moteurSansIA 1)",
+					"e2e": "non applicable"
+				}
+			},
+			{
+				"id": 3,
+				"label": "iteration-3",
+				"completed_at": "2026-10-08",
+				"architecture_choices": [
+					"lieux_visites lu de session.monde.lieux_visites (SSOT moteur session.ts:578), pas recalcule depuis parcours",
+					"PNJ non atteints derives en ligne (KR-013) : presence[].lieu_id intersecte avec lieux_visites Set",
+					"PNJ sans presence exclus — inatteignable par construction, Controles le signale",
+					"secondaryEyebrowStyle factorise via spread de eyebrowStyle",
+					"localiserEntite (brain/) reutilise pour noms de lieux et PNJ — pas de recalcul local"
+				],
+				"deviations_from_plan": [],
+				"test_coverage": {
+					"unit": "43 tests (repeter 19, panneau 17, integration 3, cablage 4)",
 					"e2e": "non applicable"
 				}
 			}

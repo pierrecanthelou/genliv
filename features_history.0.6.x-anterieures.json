@@ -479,5 +479,48 @@
 				"BUG-119 (pré-existant, hors périmètre, consigné et non corrigé)"
 			]
 		}
+	],
+	"_scission_2026-10-08": "moteur-fins (it1) + moteur-fins (it3) — leçons promues, plafond franchi par dossier-repetition (TERMINEE).",
+	"_supplement": [
+		{
+			"feature": "moteur-fins (it1, la fin qu'il a ecrite)",
+			"completed_at": "2026-10-06",
+			"goal": "L'auteur lit, mot pour mot, la fin qu'il a ecrite quand sa condition devient vraie.",
+			"key_architecture_choices": [
+				"finAtteinte param structurel { monde; combat? } + retour FinAtteinte {fin_id, texte?} — doctrine Rencontre/JalonAtteint",
+				"Pont player/engine/fin.ts (reexport) — doctrine brain/index.ts:574-578",
+				"Extraction PartieEnCours.tsx depuis EcranPartie.tsx (406 -> 60 l., KR-112)",
+				"Garde R2/R3/R4 dans useTourDeJeu apres fin atteinte — coupe narrateur, jet, acteur"
+			],
+			"brain_contracts_added": [
+				{ "type": "service", "name": "finAtteinte — brain/dossier/evaluate.ts" },
+				{ "type": "type", "name": "FinAtteinte {fin_id, texte?} — brain/dossier/evaluate.ts" },
+				{ "type": "type", "name": "RefusCommande += 'partie_terminee' — brain/dossier/commandes.ts" }
+			],
+			"lessons_learned": [
+				"Le test d'integration doit pinner le verbatim de bout en bout et les DEUX canaux d'entree (console ET saisie libre), pas seulement l'un des deux.",
+				"Passer session directement a finAtteinte plutot que reconstruire le parametre structurel — EtatSession est structurellement compatible."
+			],
+			"bugs_encountered": ["BUG-154", "BUG-155", "BUG-156", "BUG-157", "BUG-158"]
+		},
+		{
+			"feature": "moteur-fins (it3, la mort du heros)",
+			"completed_at": "2026-10-07",
+			"goal": "L'auteur dont le heros meurt au combat voit un ecran de mort dedie (texte constant, journal des rounds, bandeau) et repart en nouvelle partie.",
+			"key_architecture_choices": [
+				"EcranMort.tsx composant dedie (89 l.), JournalLigneRound.tsx extrait d'EcranCombat (deux appelants)",
+				"Detection inline par rejouerCombat (KR-013) -- pas de champ mort_confirmee stocke",
+				"Garde R5 dans CombatEnCours.handleJouer -- coupe la boucle de round apres hero-mort",
+				"AiguillagePartie route hero-mort au rechargement (6 cas) -- PartieDemarree key=post-mort",
+				"onNouvellePartie required sur PartieEnCours, optionnel sur EcranFin -- consistance des ecrans terminaux"
+			],
+			"brain_contracts_added": [],
+			"lessons_learned": [
+				"key={entry.round} produit des cles React dupliquees quand deux entrees du journal portent le meme numero de round -- key={idx} est le choix sur du journal de combat, le round n'est pas un identifiant unique.",
+				"toHaveStyle({ color: 'var(--text-strong)' }) est un faux positif en jsdom (BUG-084 confirme) -- le scan source (fs.readFileSync + toContain/not.toContain) est le seul instrument fiable pour verifier l'usage d'un token CSS.",
+				"console.error de React (duplicate key) passe plusieurs arguments : toHaveBeenCalledWith(expect.stringContaining(...)) ne matche que les appels a un argument. spy.mock.calls.some(([m]) => String(m).includes(...)) est le patron correct."
+			],
+			"bugs_encountered": ["BUG-159", "BUG-160", "BUG-161"]
+		}
 	]
 }
